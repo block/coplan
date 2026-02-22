@@ -72,4 +72,32 @@ if ApiToken.count == 0
   puts "  (Save this — it won't be shown again)"
 end
 
-puts "Done! #{Organization.count} orgs, #{User.count} users, #{Plan.count} plans, #{CommentThread.count} threads, #{Comment.count} comments, #{ApiToken.count} API tokens."
+puts "Seeding automated plan reviewers..."
+if AutomatedPlanReviewer.count == 0
+  AutomatedPlanReviewer.create!(
+    organization: square,
+    key: "security-reviewer",
+    name: "Security Reviewer",
+    prompt_path: "prompts/reviewers/security.md",
+    trigger_statuses: [ "considering" ],
+    ai_model: "gpt-4o"
+  )
+  AutomatedPlanReviewer.create!(
+    organization: square,
+    key: "scalability-reviewer",
+    name: "Scalability Reviewer",
+    prompt_path: "prompts/reviewers/scalability.md",
+    trigger_statuses: [ "considering", "developing" ],
+    ai_model: "gpt-4o"
+  )
+  AutomatedPlanReviewer.create!(
+    organization: square,
+    key: "routing-reviewer",
+    name: "Routing Reviewer",
+    prompt_path: "prompts/reviewers/routing.md",
+    trigger_statuses: [],
+    ai_model: "gpt-4o"
+  )
+end
+
+puts "Done! #{Organization.count} orgs, #{User.count} users, #{Plan.count} plans, #{CommentThread.count} threads, #{Comment.count} comments, #{ApiToken.count} API tokens, #{AutomatedPlanReviewer.count} reviewers."
