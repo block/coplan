@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_20_212045) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_22_154928) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -38,6 +38,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_20_212045) do
     t.index ["organization_id"], name: "fk_rails_701d89e8df"
     t.index ["token_digest"], name: "index_api_tokens_on_token_digest", unique: true
     t.index ["user_id"], name: "index_api_tokens_on_user_id"
+  end
+
+  create_table "automated_plan_reviewers", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "ai_model", null: false
+    t.string "ai_provider", default: "openai", null: false
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.string "key", null: false
+    t.string "name", null: false
+    t.string "organization_id", limit: 36
+    t.string "prompt_path", null: false
+    t.json "trigger_statuses", null: false
+    t.datetime "updated_at", null: false
+    t.index ["organization_id", "key"], name: "index_automated_plan_reviewers_on_organization_id_and_key", unique: true
   end
 
   create_table "comment_threads", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -174,6 +188,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_20_212045) do
 
   add_foreign_key "api_tokens", "organizations"
   add_foreign_key "api_tokens", "users"
+  add_foreign_key "automated_plan_reviewers", "organizations"
   add_foreign_key "comment_threads", "organizations"
   add_foreign_key "comment_threads", "plan_versions"
   add_foreign_key "comment_threads", "plan_versions", column: "addressed_in_plan_version_id"

@@ -3,6 +3,7 @@ class Organization < ApplicationRecord
   has_many :plans, dependent: :destroy
   has_many :api_tokens, dependent: :destroy
   has_many :edit_leases, dependent: :destroy
+  has_many :automated_plan_reviewers, dependent: :destroy
 
   after_initialize { self.allowed_email_domains ||= [] }
 
