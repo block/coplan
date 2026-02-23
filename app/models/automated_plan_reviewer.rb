@@ -1,7 +1,16 @@
 class AutomatedPlanReviewer < ApplicationRecord
   ACTOR_TYPE = "cloud_persona"
 
-  belongs_to :organization, optional: true
+  DEFAULT_REVIEWERS = [
+    { key: "security-reviewer", name: "Security Reviewer", prompt_file: "prompts/reviewers/security.md",
+      trigger_statuses: [ "considering" ], ai_model: "gpt-4o" },
+    { key: "scalability-reviewer", name: "Scalability Reviewer", prompt_file: "prompts/reviewers/scalability.md",
+      trigger_statuses: [ "considering", "developing" ], ai_model: "gpt-4o" },
+    { key: "routing-reviewer", name: "Routing Reviewer", prompt_file: "prompts/reviewers/routing.md",
+      trigger_statuses: [], ai_model: "gpt-4o" }
+  ].freeze
+
+  belongs_to :organization
 
   after_initialize { self.trigger_statuses ||= [] }
 
@@ -9,36 +18,32 @@ class AutomatedPlanReviewer < ApplicationRecord
     format: { with: /\A[a-z0-9-]+\z/, message: "only allows lowercase letters, numbers, and hyphens" }
   validates :key, uniqueness: { scope: :organization_id }
   validates :name, presence: true
-  validates :prompt_path, presence: true
+  validates :prompt_text, presence: true
   validates :ai_provider, presence: true
   validates :ai_model, presence: true
 
-  validate :prompt_file_exists
-
   scope :enabled, -> { where(enabled: true) }
 
+  def self.create_defaults_for(organization)
+    DEFAULT_REVIEWERS.each do |template|
+      organization.automated_plan_reviewers.find_or_create_by!(key: template[:key]) do |r|
+        r.name = template[:name]
+        r.prompt_text = File.read(Rails.root.join(template[:prompt_file]))
+        r.trigger_statuses = template[:trigger_statuses]
+        r.ai_model = template[:ai_model]
+      end
+    end
+  end
+
   def self.ransackable_attributes(auth_object = nil)
-    %w[id key name prompt_path enabled ai_provider ai_model organization_id created_at updated_at]
+    %w[id key name enabled ai_provider ai_model organization_id created_at updated_at]
   end
 
   def self.ransackable_associations(auth_object = nil)
     %w[organization]
   end
 
-  def prompt_content
-    File.read(Rails.root.join(prompt_path))
-  end
-
   def triggers_on_status?(status)
     trigger_statuses.include?(status.to_s)
-  end
-
-  private
-
-  def prompt_file_exists
-    return if prompt_path.blank?
-    unless File.exist?(Rails.root.join(prompt_path))
-      errors.add(:prompt_path, "file does not exist: #{prompt_path}")
-    end
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_22_154928) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_23_185619) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -47,8 +47,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_22_154928) do
     t.boolean "enabled", default: true, null: false
     t.string "key", null: false
     t.string "name", null: false
-    t.string "organization_id", limit: 36
-    t.string "prompt_path", null: false
+    t.string "organization_id", limit: 36, null: false
+    t.text "prompt_text", null: false
     t.json "trigger_statuses", null: false
     t.datetime "updated_at", null: false
     t.index ["organization_id", "key"], name: "index_automated_plan_reviewers_on_organization_id_and_key", unique: true

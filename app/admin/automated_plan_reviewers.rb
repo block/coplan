@@ -1,5 +1,5 @@
 ActiveAdmin.register AutomatedPlanReviewer do
-  permit_params :organization_id, :key, :name, :prompt_path, :enabled, :ai_provider, :ai_model, trigger_statuses: []
+  permit_params :organization_id, :key, :name, :prompt_text, :enabled, :ai_provider, :ai_model, trigger_statuses: []
 
   index do
     selectable_column
@@ -21,7 +21,7 @@ ActiveAdmin.register AutomatedPlanReviewer do
       row :key
       row :name
       row :organization
-      row :prompt_path
+      row :prompt_text
       row :enabled
       row :ai_provider
       row :ai_model

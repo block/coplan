@@ -6,6 +6,7 @@ class Organization < ApplicationRecord
   has_many :automated_plan_reviewers, dependent: :destroy
 
   after_initialize { self.allowed_email_domains ||= [] }
+  after_create { AutomatedPlanReviewer.create_defaults_for(self) }
 
   validates :name, presence: true
   validates :slug, presence: true, uniqueness: true,
