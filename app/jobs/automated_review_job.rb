@@ -13,16 +13,18 @@ class AutomatedReviewJob < ApplicationJob
     return unless reviewer.enabled?
 
     response = call_ai_provider(reviewer, version.content_markdown)
+    feedback_items = Plans::ReviewResponseParser.call(response, plan_content: version.content_markdown)
 
-    create_review_comment(plan, version, reviewer, response, triggered_by)
+    create_review_comments(plan, version, reviewer, feedback_items, triggered_by)
   end
 
   private
 
   def call_ai_provider(reviewer, content)
+    system_prompt = Plans::ReviewPromptFormatter.call(reviewer_prompt: reviewer.prompt_text)
     provider_class = resolve_provider(reviewer.ai_provider)
     provider_class.call(
-      system_prompt: reviewer.prompt_text,
+      system_prompt: system_prompt,
       user_content: content,
       model: reviewer.ai_model
     )
@@ -36,22 +38,27 @@ class AutomatedReviewJob < ApplicationJob
     end
   end
 
-  def create_review_comment(plan, version, reviewer, response, triggered_by)
-    thread = plan.comment_threads.create!(
-      organization: plan.organization,
-      plan_version: version,
-      created_by_user: triggered_by || plan.created_by_user,
-      status: "open"
-    )
+  def create_review_comments(plan, version, reviewer, feedback_items, triggered_by)
+    created_by = triggered_by || plan.created_by_user
 
-    thread.comments.create!(
-      organization: plan.organization,
-      author_type: AutomatedPlanReviewer::ACTOR_TYPE,
-      author_id: reviewer.id,
-      body_markdown: response
-    )
+    feedback_items.each do |item|
+      thread = plan.comment_threads.create!(
+        organization: plan.organization,
+        plan_version: version,
+        created_by_user: created_by,
+        anchor_text: item[:anchor_text],
+        status: "open"
+      )
 
-    broadcast_new_thread(plan, thread)
+      thread.comments.create!(
+        organization: plan.organization,
+        author_type: AutomatedPlanReviewer::ACTOR_TYPE,
+        author_id: reviewer.id,
+        body_markdown: item[:comment]
+      )
+
+      broadcast_new_thread(plan, thread)
+    end
   end
 
   def broadcast_new_thread(plan, thread)
