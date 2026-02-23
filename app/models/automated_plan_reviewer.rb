@@ -1,5 +1,6 @@
 class AutomatedPlanReviewer < ApplicationRecord
   ACTOR_TYPE = "cloud_persona"
+  AI_PROVIDERS = %w[openai anthropic].freeze
 
   DEFAULT_REVIEWERS = [
     { key: "security-reviewer", name: "Security Reviewer", prompt_file: "prompts/reviewers/security.md",
@@ -19,8 +20,9 @@ class AutomatedPlanReviewer < ApplicationRecord
   validates :key, uniqueness: { scope: :organization_id }
   validates :name, presence: true
   validates :prompt_text, presence: true
-  validates :ai_provider, presence: true
+  validates :ai_provider, presence: true, inclusion: { in: AI_PROVIDERS }
   validates :ai_model, presence: true
+  validate :validate_trigger_statuses
 
   scope :enabled, -> { where(enabled: true) }
 
@@ -45,5 +47,16 @@ class AutomatedPlanReviewer < ApplicationRecord
 
   def triggers_on_status?(status)
     trigger_statuses.include?(status.to_s)
+  end
+
+  private
+
+  def validate_trigger_statuses
+    return if trigger_statuses.blank?
+
+    invalid = trigger_statuses - Plan::STATUSES
+    if invalid.any?
+      errors.add(:trigger_statuses, "contains invalid status: #{invalid.join(', ')}. Valid statuses are: #{Plan::STATUSES.join(', ')}")
+    end
   end
 end

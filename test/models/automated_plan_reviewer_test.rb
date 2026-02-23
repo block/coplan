@@ -94,9 +94,43 @@ class AutomatedPlanReviewerTest < ActiveSupport::TestCase
     assert_not enabled.include?(automated_plan_reviewers(:disabled_reviewer))
   end
 
+  test "validates ai_provider inclusion" do
+    reviewer = automated_plan_reviewers(:security_reviewer)
+    reviewer.ai_provider = "unknown-provider"
+    assert_not reviewer.valid?
+    assert_includes reviewer.errors[:ai_provider], "is not included in the list"
+  end
+
+  test "accepts valid ai_providers" do
+    reviewer = automated_plan_reviewers(:security_reviewer)
+    AutomatedPlanReviewer::AI_PROVIDERS.each do |provider|
+      reviewer.ai_provider = provider
+      assert reviewer.valid?, "Expected #{provider} to be valid"
+    end
+  end
+
   test "defaults ai_provider to openai" do
     reviewer = AutomatedPlanReviewer.new
     assert_equal "openai", reviewer.ai_provider
+  end
+
+  test "validates trigger_statuses against Plan::STATUSES" do
+    reviewer = automated_plan_reviewers(:security_reviewer)
+    reviewer.trigger_statuses = [ "considering", "invalid-status" ]
+    assert_not reviewer.valid?
+    assert reviewer.errors[:trigger_statuses].any? { |e| e.include?("invalid-status") }
+  end
+
+  test "accepts valid trigger_statuses" do
+    reviewer = automated_plan_reviewers(:security_reviewer)
+    reviewer.trigger_statuses = Plan::STATUSES.dup
+    assert reviewer.valid?
+  end
+
+  test "accepts empty trigger_statuses" do
+    reviewer = automated_plan_reviewers(:security_reviewer)
+    reviewer.trigger_statuses = []
+    assert reviewer.valid?
   end
 
   test "defaults trigger_statuses to empty array" do
