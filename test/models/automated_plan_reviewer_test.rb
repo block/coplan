@@ -51,6 +51,19 @@ class AutomatedPlanReviewerTest < ActiveSupport::TestCase
     assert_includes duplicate.errors[:key], "has already been taken"
   end
 
+  test "duplicate key rejected for global reviewers" do
+    existing = automated_plan_reviewers(:global_reviewer)
+    duplicate = AutomatedPlanReviewer.new(
+      organization: nil,
+      key: existing.key,
+      name: "Duplicate Global",
+      prompt_path: "prompts/reviewers/routing.md",
+      ai_model: "gpt-4o"
+    )
+    assert_not duplicate.valid?
+    assert_includes duplicate.errors[:key], "has already been taken"
+  end
+
   test "same key allowed in different organizations" do
     reviewer = AutomatedPlanReviewer.new(
       organization: organizations(:widgets),

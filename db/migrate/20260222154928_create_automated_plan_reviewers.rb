@@ -12,7 +12,13 @@ class CreateAutomatedPlanReviewers < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :automated_plan_reviewers, [ :organization_id, :key ], unique: true
+    # MySQL treats multiple NULLs as distinct in a UNIQUE index, so a plain
+    # index on [:organization_id, :key] would allow duplicate keys for global
+    # reviewers (organization_id IS NULL). The virtual column substitutes NULL
+    # with the sentinel 'global' so the unique constraint is enforced correctly.
+    add_column :automated_plan_reviewers, :organization_scope, :virtual,
+      type: :string, as: "COALESCE(`organization_id`, 'global')", stored: true
+    add_index :automated_plan_reviewers, [ :organization_scope, :key ], unique: true
     add_foreign_key :automated_plan_reviewers, :organizations
   end
 end

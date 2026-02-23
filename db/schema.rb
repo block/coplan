@@ -48,10 +48,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_22_154928) do
     t.string "key", null: false
     t.string "name", null: false
     t.string "organization_id", limit: 36
+    t.string "organization_scope", null: false, as: "coalesce(`organization_id`,'global')", stored: true, virtual: true
     t.string "prompt_path", null: false
     t.json "trigger_statuses", null: false
     t.datetime "updated_at", null: false
-    t.index ["organization_id", "key"], name: "index_automated_plan_reviewers_on_organization_id_and_key", unique: true
+    t.index ["organization_scope", "key"], name: "index_automated_plan_reviewers_on_organization_scope_and_key", unique: true
   end
 
   create_table "comment_threads", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
