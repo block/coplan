@@ -3,7 +3,21 @@ security_reviewer:
   organization_id: "00000000-0000-0000-0000-000000000001"
   key: "security-reviewer"
   name: "Security Reviewer"
-  prompt_path: "prompts/reviewers/security.md"
+  prompt_text: |
+    You are a security reviewer for technical plans and proposals.
+
+    Review the following plan for security concerns. Focus on:
+
+    - Authentication and authorization gaps
+    - Data exposure or leakage risks
+    - Input validation and injection vulnerabilities
+    - Secrets management issues
+    - Network and infrastructure security
+    - Compliance considerations
+
+    Be specific. Reference the relevant sections of the plan. Suggest concrete improvements where possible.
+
+    Respond in Markdown. Keep your review concise and actionable.
   enabled: true
   trigger_statuses: <%= ["considering"].to_json %>
   ai_provider: "openai"
@@ -14,7 +28,21 @@ scalability_reviewer:
   organization_id: "00000000-0000-0000-0000-000000000001"
   key: "scalability-reviewer"
   name: "Scalability Reviewer"
-  prompt_path: "prompts/reviewers/scalability.md"
+  prompt_text: |
+    You are a scalability reviewer for technical plans and proposals.
+
+    Review the following plan for scalability concerns. Focus on:
+
+    - Database query patterns and indexing strategies
+    - Caching opportunities and cache invalidation
+    - Background job volume and queue contention
+    - API rate limits and throughput bottlenecks
+    - Data growth projections and storage implications
+    - Horizontal vs vertical scaling considerations
+
+    Be specific. Reference the relevant sections of the plan. Suggest concrete improvements where possible.
+
+    Respond in Markdown. Keep your review concise and actionable.
   enabled: true
   trigger_statuses: <%= ["considering", "developing"].to_json %>
   ai_provider: "openai"
@@ -25,18 +53,9 @@ disabled_reviewer:
   organization_id: "00000000-0000-0000-0000-000000000001"
   key: "disabled-reviewer"
   name: "Disabled Reviewer"
-  prompt_path: "prompts/reviewers/routing.md"
+  prompt_text: |
+    You are a test reviewer. This reviewer is disabled.
   enabled: false
-  trigger_statuses: <%= [].to_json %>
-  ai_provider: "openai"
-  ai_model: "gpt-4o"
-
-global_reviewer:
-  id: "00000000-0000-0000-0000-000000000084"
-  key: "routing-reviewer"
-  name: "Routing Reviewer"
-  prompt_path: "prompts/reviewers/routing.md"
-  enabled: true
   trigger_statuses: <%= [].to_json %>
   ai_provider: "openai"
   ai_model: "gpt-4o"
