@@ -42,12 +42,15 @@ A Rails app for managing engineering design doc review, purpose-built for AI-gen
 
 ## Testing
 
-- **Minitest** — not RSpec
-- Run the full suite: `bin/rails test`
-- Test files mirror app structure: `test/models/`, `test/controllers/`, `test/services/`
-- Use **fixtures** (YAML in `test/fixtures/`) — not factories
-- Every model, service object, and controller action should have tests
-- Fixtures use hardcoded UUIDs for stable cross-references
+- **RSpec** with `rspec-rails`
+- Run the full suite: `bundle exec rspec`
+- Spec files mirror app structure: `spec/models/`, `spec/requests/`, `spec/services/`, `spec/helpers/`
+- Use **FactoryBot** (`factory_bot_rails`) — factories live in `spec/factories/`
+- Every model, service object, and controller action should have specs
+- UUID primary keys are auto-assigned by `ApplicationRecord#assign_uuid` — do **not** set `id` in factories
+- Factories derive associations from parent objects (e.g., `organization { plan.organization }`) to keep data consistent
+- FactoryBot syntax methods (`create`, `build`) are included globally via `config.include FactoryBot::Syntax::Methods`
+- `sign_in_as(user)` helper is defined in `spec/rails_helper.rb` for request specs
 
 ## Seeds
 
