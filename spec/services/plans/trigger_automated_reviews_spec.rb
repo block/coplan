@@ -22,6 +22,7 @@ RSpec.describe Plans::TriggerAutomatedReviews do
       }.to have_enqueued_job(AutomatedReviewJob).with(
         plan_id: plan.id,
         reviewer_id: reviewer.id,
+        plan_version_id: plan.current_plan_version_id,
         triggered_by: user
       )
     end

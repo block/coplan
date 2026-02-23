@@ -11,6 +11,9 @@ module Plans
     end
 
     def call
+      version_id = @plan.current_plan_version_id
+      return unless version_id
+
       reviewers = @plan.organization.automated_plan_reviewers.enabled
       reviewers.each do |reviewer|
         next unless reviewer.triggers_on_status?(@new_status)
@@ -18,6 +21,7 @@ module Plans
         AutomatedReviewJob.perform_later(
           plan_id: @plan.id,
           reviewer_id: reviewer.id,
+          plan_version_id: version_id,
           triggered_by: @triggered_by
         )
       end

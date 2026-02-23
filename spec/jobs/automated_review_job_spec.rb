@@ -4,7 +4,8 @@ RSpec.describe AutomatedReviewJob, type: :job do
   let(:plan) { create(:plan, :considering) }
   let(:reviewer) { create(:automated_plan_reviewer, organization: plan.organization) }
   let(:user) { plan.created_by_user }
-  let(:plan_content) { plan.current_plan_version.content_markdown }
+  let(:version) { plan.current_plan_version }
+  let(:plan_content) { version.content_markdown }
 
   let(:structured_response) do
     '[
@@ -14,6 +15,8 @@ RSpec.describe AutomatedReviewJob, type: :job do
     ]'
   end
 
+  let(:perform_args) { { plan_id: plan.id, reviewer_id: reviewer.id, plan_version_id: version.id, triggered_by: user } }
+
   before do
     allow(AiProviders::OpenAi).to receive(:call).and_return(structured_response)
   end
@@ -21,13 +24,13 @@ RSpec.describe AutomatedReviewJob, type: :job do
   describe "#perform" do
     it "creates one comment thread per feedback item" do
       expect {
-        described_class.perform_now(plan_id: plan.id, reviewer_id: reviewer.id, triggered_by: user)
+        described_class.perform_now(**perform_args)
       }.to change(CommentThread, :count).by(3)
         .and change(Comment, :count).by(3)
     end
 
     it "anchors threads to matching plan text" do
-      described_class.perform_now(plan_id: plan.id, reviewer_id: reviewer.id, triggered_by: user)
+      described_class.perform_now(**perform_args)
 
       threads = CommentThread.order(:created_at).last(3)
       expect(threads[0].anchor_text).to eq("Plan Content")
@@ -35,8 +38,20 @@ RSpec.describe AutomatedReviewJob, type: :job do
       expect(threads[2].anchor_text).to be_nil
     end
 
+    it "attaches threads to the pinned version, not the current one" do
+      old_version = version
+      new_version = create(:plan_version, plan: plan, organization: plan.organization, revision: 2)
+      plan.update!(current_plan_version: new_version, current_revision: 2)
+
+      described_class.perform_now(plan_id: plan.id, reviewer_id: reviewer.id, plan_version_id: old_version.id, triggered_by: user)
+
+      CommentThread.last(3).each do |thread|
+        expect(thread.plan_version).to eq(old_version)
+      end
+    end
+
     it "creates comments with cloud_persona author type" do
-      described_class.perform_now(plan_id: plan.id, reviewer_id: reviewer.id, triggered_by: user)
+      described_class.perform_now(**perform_args)
 
       Comment.last(3).each do |comment|
         expect(comment.author_type).to eq("cloud_persona")
@@ -46,7 +61,7 @@ RSpec.describe AutomatedReviewJob, type: :job do
 
     it "sets the triggered_by user as the thread creator" do
       other_user = create(:user, organization: plan.organization)
-      described_class.perform_now(plan_id: plan.id, reviewer_id: reviewer.id, triggered_by: other_user)
+      described_class.perform_now(**perform_args.merge(triggered_by: other_user))
 
       CommentThread.last(3).each do |thread|
         expect(thread.created_by_user).to eq(other_user)
@@ -54,7 +69,7 @@ RSpec.describe AutomatedReviewJob, type: :job do
     end
 
     it "falls back to plan author when triggered_by is nil" do
-      described_class.perform_now(plan_id: plan.id, reviewer_id: reviewer.id)
+      described_class.perform_now(**perform_args.except(:triggered_by))
 
       CommentThread.last(3).each do |thread|
         expect(thread.created_by_user).to eq(plan.created_by_user)
@@ -62,7 +77,7 @@ RSpec.describe AutomatedReviewJob, type: :job do
     end
 
     it "passes the formatted prompt to the AI provider" do
-      described_class.perform_now(plan_id: plan.id, reviewer_id: reviewer.id, triggered_by: user)
+      described_class.perform_now(**perform_args)
 
       expect(AiProviders::OpenAi).to have_received(:call).with(
         system_prompt: Plans::ReviewPromptFormatter.call(reviewer_prompt: reviewer.prompt_text),
@@ -75,7 +90,7 @@ RSpec.describe AutomatedReviewJob, type: :job do
       allow(AiProviders::OpenAi).to receive(:call).and_return("Plain text review with no JSON.")
 
       expect {
-        described_class.perform_now(plan_id: plan.id, reviewer_id: reviewer.id, triggered_by: user)
+        described_class.perform_now(**perform_args)
       }.to change(CommentThread, :count).by(1)
 
       thread = CommentThread.last
@@ -87,21 +102,13 @@ RSpec.describe AutomatedReviewJob, type: :job do
       reviewer.update!(enabled: false)
 
       expect {
-        described_class.perform_now(plan_id: plan.id, reviewer_id: reviewer.id, triggered_by: user)
-      }.not_to change(CommentThread, :count)
-    end
-
-    it "does nothing if the plan has no current version" do
-      plan.update_columns(current_plan_version_id: nil)
-
-      expect {
-        described_class.perform_now(plan_id: plan.id, reviewer_id: reviewer.id, triggered_by: user)
+        described_class.perform_now(**perform_args)
       }.not_to change(CommentThread, :count)
     end
 
     it "enqueues on the default queue" do
       expect {
-        described_class.perform_later(plan_id: plan.id, reviewer_id: reviewer.id)
+        described_class.perform_later(**perform_args)
       }.to have_enqueued_job(described_class).on_queue("default")
     end
   end

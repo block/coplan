@@ -4,12 +4,11 @@ class AutomatedReviewJob < ApplicationJob
   discard_on AiProviders::OpenAi::Error
   discard_on AiProviders::Anthropic::Error
 
-  def perform(plan_id:, reviewer_id:, triggered_by: nil)
+  def perform(plan_id:, reviewer_id:, plan_version_id:, triggered_by: nil)
     plan = Plan.find(plan_id)
     reviewer = AutomatedPlanReviewer.find(reviewer_id)
-    version = plan.current_plan_version
+    version = PlanVersion.find(plan_version_id)
 
-    return unless version
     return unless reviewer.enabled?
 
     response = call_ai_provider(reviewer, version.content_markdown)

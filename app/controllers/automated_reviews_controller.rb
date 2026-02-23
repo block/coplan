@@ -9,6 +9,7 @@ class AutomatedReviewsController < ApplicationController
     AutomatedReviewJob.perform_later(
       plan_id: @plan.id,
       reviewer_id: @reviewer.id,
+      plan_version_id: @plan.current_plan_version_id,
       triggered_by: current_user
     )
 
