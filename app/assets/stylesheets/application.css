@@ -334,7 +334,7 @@ img, svg {
 }
 
 .sign-in-form {
-  margin-top: var(--space-xl);
+  margin-top: var(--space-sm);
   text-align: left;
 }
 
