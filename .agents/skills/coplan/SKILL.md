@@ -48,6 +48,20 @@ curl -s -X POST \
   "$PLANNING_BASE_URL/api/v1/plans" | jq .
 ```
 
+### Update Plan
+
+Update plan metadata (title, status, tags). Only fields included in the request body are changed.
+
+```bash
+curl -s -X PATCH \
+  -H "Authorization: Bearer $PLANNING_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "considering"}' \
+  "$PLANNING_BASE_URL/api/v1/plans/$PLAN_ID" | jq .
+```
+
+Allowed fields: `title` (string), `status` (string — one of `brainstorm`, `considering`, `developing`, `live`, `abandoned`), `tags` (array of strings).
+
 ### Get Versions
 
 ```bash

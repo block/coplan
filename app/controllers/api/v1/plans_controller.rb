@@ -1,8 +1,8 @@
 module Api
   module V1
     class PlansController < BaseController
-      before_action :set_plan, only: [:show, :versions, :comments]
-      before_action :authorize_plan_access!, only: [:show, :versions, :comments]
+      before_action :set_plan, only: [:show, :update, :versions, :comments]
+      before_action :authorize_plan_access!, only: [:show, :update, :versions, :comments]
 
       def index
         plans = current_organization.plans
@@ -32,6 +32,31 @@ module Api
         ), status: :created
       rescue ActiveRecord::RecordInvalid => e
         render json: { error: e.message }, status: :unprocessable_entity
+      end
+
+      def update
+        policy = PlanPolicy.new(current_user, @plan)
+        unless policy.update?
+          return render json: { error: "Not authorized" }, status: :forbidden
+        end
+
+        permitted = {}
+        permitted[:title] = params[:title] if params.key?(:title)
+        permitted[:status] = params[:status] if params.key?(:status)
+        permitted[:tags] = params[:tags] if params.key?(:tags)
+
+        @plan.update!(permitted)
+
+        if permitted.key?(:status) && @plan.saved_change_to_status?
+          Plans::TriggerAutomatedReviews.call(plan: @plan, new_status: permitted[:status], triggered_by: current_user)
+        end
+
+        render json: plan_json(@plan).merge(
+          current_content: @plan.current_content,
+          current_revision: @plan.current_revision
+        )
+      rescue ActiveRecord::RecordInvalid => e
+        render json: { error: e.record.errors.full_messages.join(", ") }, status: :unprocessable_entity
       end
 
       def versions
