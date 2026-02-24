@@ -16,31 +16,15 @@
       </div>
 
       <div class="plan-layout__sidebar">
-        <div class="comment-form card" id="new-comment-form" data-text-selection-target="form" style="display: none;">
-          <%= form_with url: plan_comment_threads_path(@plan), method: :post do |f| %>
-            <input type="hidden" name="comment_thread[anchor_text]" data-text-selection-target="anchorInput" value="">
-            <input type="hidden" name="comment_thread[anchor_context]" data-text-selection-target="contextInput" value="">
-            <div class="comment-form__anchor" data-text-selection-target="anchorPreview" style="display: none;">
-              <span class="text-sm text-muted">Commenting on:</span>
-              <blockquote class="comment-form__quote" data-text-selection-target="anchorQuote"></blockquote>
-            </div>
-            <div class="form-group">
-              <textarea name="comment_thread[body_markdown]" id="comment_thread_body_markdown" rows="3" placeholder="Write a comment..." required></textarea>
-            </div>
-            <div class="comment-form__actions">
-              <button type="submit" class="btn btn--primary btn--sm">Comment</button>
-              <button type="button" class="btn btn--secondary btn--sm" data-action="text-selection#cancelComment">Cancel</button>
-            </div>
-          <% end %>
-        </div>
+        <%= render partial: "comment_threads/new_comment_form", locals: { plan: @plan } %>
 
         <div class="comment-tabs" data-controller="tabs" data-tabs-active-class="comment-tab--active">
           <div class="comment-tabs__nav">
-            <button class="comment-tab comment-tab--active" data-tabs-target="tab" data-action="tabs#switch" data-index="0">
-              Open <% if @active_threads.any? %><span class="comment-tab__count"><%= @active_threads.size %></span><% end %>
+            <button class="comment-tab comment-tab--active" data-tabs-target="tab" data-action="tabs#switch text-selection#repositionThreads" data-index="0">
+              Open <span class="comment-tab__count" id="open-thread-count"><%= @active_threads.size if @active_threads.any? %></span>
             </button>
-            <button class="comment-tab" data-tabs-target="tab" data-action="tabs#switch" data-index="1">
-              Resolved <% if @archived_threads.any? %><span class="comment-tab__count"><%= @archived_threads.size %></span><% end %>
+            <button class="comment-tab" data-tabs-target="tab" data-action="tabs#switch text-selection#repositionThreads" data-index="1">
+              Resolved <span class="comment-tab__count" id="resolved-thread-count"><%= @archived_threads.size if @archived_threads.any? %></span>
             </button>
           </div>
 
@@ -49,20 +33,16 @@
               <% @active_threads.each do |thread| %>
                 <%= render partial: "comment_threads/thread", locals: { thread: thread, plan: @plan, current_user: current_user } %>
               <% end %>
-              <% if @active_threads.empty? %>
-                <p class="text-sm text-muted">No open comments.</p>
-              <% end %>
+              <p class="text-sm text-muted" id="open-threads-empty" <% if @active_threads.any? %>style="display: none;"<% end %>>No open comments.</p>
             </div>
           </div>
 
           <div class="comment-tabs__panel" data-tabs-target="panel" style="display: none;">
-            <div class="comment-threads-list">
+            <div class="comment-threads-list" id="resolved-comment-threads">
               <% @archived_threads.each do |thread| %>
                 <%= render partial: "comment_threads/thread", locals: { thread: thread, plan: @plan, current_user: current_user } %>
               <% end %>
-              <% if @archived_threads.empty? %>
-                <p class="text-sm text-muted">No resolved comments.</p>
-              <% end %>
+              <p class="text-sm text-muted" id="resolved-threads-empty" <% if @archived_threads.any? %>style="display: none;"<% end %>>No resolved comments.</p>
             </div>
           </div>
         </div>

@@ -9,11 +9,13 @@ export default class extends Controller {
     this.contentTarget.addEventListener("mouseup", this.handleMouseUp.bind(this))
     document.addEventListener("mousedown", this.handleDocumentMouseDown.bind(this))
     this.highlightAnchors()
+    this.observeThreadLists()
   }
 
   disconnect() {
     this.contentTarget.removeEventListener("mouseup", this.handleMouseUp.bind(this))
     document.removeEventListener("mousedown", this.handleDocumentMouseDown.bind(this))
+    if (this.threadListObserver) this.threadListObserver.disconnect()
   }
 
   handleMouseUp(event) {
@@ -68,6 +70,13 @@ export default class extends Controller {
       : this.selectedText
     this.anchorPreviewTarget.style.display = "block"
 
+    // Position the form in the sidebar at the same vertical level as the selection
+    const layoutRect = this.element.getBoundingClientRect()
+    const popoverRect = this.popoverTarget.getBoundingClientRect()
+    const offsetTop = popoverRect.top - layoutRect.top
+    this.formTarget.style.position = "absolute"
+    this.formTarget.style.top = `${offsetTop}px`
+
     // Show form, hide popover
     this.formTarget.style.display = "block"
     this.popoverTarget.style.display = "none"
@@ -75,20 +84,39 @@ export default class extends Controller {
     // Clear browser selection
     window.getSelection().removeAllRanges()
 
-    // Focus textarea
+    // Focus textarea without scrolling the page
     const textarea = this.formTarget.querySelector("textarea")
     if (textarea) {
-      textarea.focus()
-      textarea.scrollIntoView({ behavior: "smooth", block: "center" })
+      textarea.focus({ preventScroll: true })
     }
   }
 
   cancelComment(event) {
     event.preventDefault()
+    this.hideAndResetForm()
+  }
+
+  resetCommentForm(event) {
+    if (event.detail.success) {
+      this.hideAndResetForm()
+    }
+  }
+
+  resetReplyForm(event) {
+    if (event.detail.success) {
+      const form = event.target
+      const textarea = form.querySelector("textarea")
+      if (textarea) textarea.value = ""
+    }
+  }
+
+  hideAndResetForm() {
     this.formTarget.style.display = "none"
     this.anchorInputTarget.value = ""
     this.contextInputTarget.value = ""
     this.anchorPreviewTarget.style.display = "none"
+    const textarea = this.formTarget.querySelector("textarea")
+    if (textarea) textarea.value = ""
     this.selectedText = null
     this.selectedContext = null
   }
@@ -97,13 +125,17 @@ export default class extends Controller {
     const anchor = event.currentTarget.dataset.anchor
     if (!anchor) return
 
+    const context = event.currentTarget.closest("[data-anchor-context]")?.dataset.anchorContext || ""
+
     // Remove existing highlights first
     this.contentTarget.querySelectorAll(".anchor-highlight--active").forEach(el => {
       el.classList.remove("anchor-highlight--active")
     })
 
-    // Find and highlight the anchor text
-    const highlighted = this.findAndHighlight(anchor, "anchor-highlight--active")
+    // Find and highlight the anchor text using context for disambiguation
+    const highlighted = context
+      ? this.findAndHighlightWithContext(anchor, context, "anchor-highlight--active")
+      : this.findAndHighlight(anchor, "anchor-highlight--active")
     if (highlighted) {
       highlighted.scrollIntoView({ behavior: "smooth", block: "center" })
     }
@@ -153,6 +185,14 @@ export default class extends Controller {
   }
 
   highlightAnchors() {
+    // Remove existing anchor highlights before re-highlighting
+    this.contentTarget.querySelectorAll("mark.anchor-highlight").forEach(mark => {
+      const parent = mark.parentNode
+      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark)
+      parent.removeChild(mark)
+    })
+    this.contentTarget.normalize()
+
     // Build full text once for position lookups
     this.fullText = this.contentTarget.textContent
 
@@ -168,24 +208,73 @@ export default class extends Controller {
     this.positionThreads()
   }
 
+  // Re-highlight and reposition when threads are added/removed via turbo stream broadcasts
+  observeThreadLists() {
+    this.threadListObserver = new MutationObserver(() => {
+      // Debounce — multiple mutations may fire in quick succession
+      clearTimeout(this._repositionTimer)
+      this._repositionTimer = setTimeout(() => this.highlightAnchors(), 50)
+    })
+
+    this.element.querySelectorAll(".comment-threads-list").forEach(list => {
+      this.threadListObserver.observe(list, { childList: true })
+    })
+  }
+
+  repositionThreads() {
+    // Small delay to let the tab panel become visible before measuring positions
+    setTimeout(() => this.positionThreads(), 10)
+  }
+
   positionThreads() {
-    const allThreads = Array.from(this.element.querySelectorAll(".comment-thread"))
     const sidebar = this.element.querySelector(".plan-layout__sidebar")
-    if (!sidebar || allThreads.length === 0) return
+    if (!sidebar) return
+
+    // Pause observer while reordering DOM to avoid triggering a rehighlight loop
+    if (this.threadListObserver) this.threadListObserver.disconnect()
+
+    this.positionThreadList("#comment-threads", sidebar)
+    this.positionThreadList("#resolved-comment-threads", sidebar)
+
+    // Re-observe after reordering
+    if (this.threadListObserver) {
+      this.element.querySelectorAll(".comment-threads-list").forEach(list => {
+        this.threadListObserver.observe(list, { childList: true })
+      })
+    }
+  }
+
+  positionThreadList(selector, sidebar) {
+    const threadList = this.element.querySelector(selector)
+    if (!threadList) return
+
+    const threads = Array.from(threadList.querySelectorAll(".comment-thread"))
+    if (threads.length === 0) return
 
     const sidebarRect = sidebar.getBoundingClientRect()
+
+    // Sort threads by their anchor's vertical position in the document
+    threads.sort((a, b) => {
+      const markA = a._highlightMark
+      const markB = b._highlightMark
+      const yA = markA ? markA.getBoundingClientRect().top : Infinity
+      const yB = markB ? markB.getBoundingClientRect().top : Infinity
+      return yA - yB
+    })
+
+    // Reorder DOM within this list only
+    threads.forEach(thread => threadList.appendChild(thread))
+
+    // Position threads vertically
     const gap = 8
     let cursor = 0
 
-    allThreads.forEach(thread => {
-      const anchor = thread.dataset.anchorText
+    threads.forEach(thread => {
+      const mark = thread._highlightMark
       let desiredY = cursor
 
-      if (anchor && anchor.length > 0) {
-        const mark = thread._highlightMark
-        if (mark) {
-          desiredY = mark.getBoundingClientRect().top - sidebarRect.top + sidebar.scrollTop
-        }
+      if (mark) {
+        desiredY = mark.getBoundingClientRect().top - sidebarRect.top + sidebar.scrollTop
       }
 
       const y = Math.max(desiredY, cursor)
