@@ -83,6 +83,7 @@ module Api
             {
               id: c.id,
               author_type: c.author_type,
+              agent_name: c.agent_name,
               body_markdown: c.body_markdown,
               created_at: c.created_at
             }

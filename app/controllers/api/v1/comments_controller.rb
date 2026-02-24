@@ -20,7 +20,8 @@ module Api
           organization: current_organization,
           author_type: ApiToken::HOLDER_TYPE,
           author_id: @api_token.id,
-          body_markdown: params[:body_markdown]
+          body_markdown: params[:body_markdown],
+          agent_name: params[:agent_name]
         )
 
         broadcast_new_thread(thread)
@@ -85,7 +86,8 @@ module Api
           organization: current_organization,
           author_type: ApiToken::HOLDER_TYPE,
           author_id: @api_token.id,
-          body_markdown: params[:body_markdown]
+          body_markdown: params[:body_markdown],
+          agent_name: params[:agent_name]
         )
 
         broadcast_new_comment(thread, comment)
