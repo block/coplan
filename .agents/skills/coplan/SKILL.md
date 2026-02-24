@@ -1,11 +1,11 @@
 ---
-name: planning-department
-description: "Upload, edit, and comment on plans via the Planning Department API. Use when asked to create plans, edit plan documents, manage edit leases, or leave review comments on plans."
+name: coplan
+description: "Upload, edit, and comment on plans via the CoPlan API. Use when asked to create plans, edit plan documents, manage edit leases, or leave review comments on plans."
 ---
 
-# Planning Department API
+# CoPlan API
 
-Interact with the Planning Department app to create, read, edit, and comment on plan documents.
+Interact with the CoPlan app to create, read, edit, and comment on plan documents.
 
 ## Setup
 

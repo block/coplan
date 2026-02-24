@@ -1,4 +1,4 @@
-# Planning Department
+# CoPlan
 
 A collaborative planning tool where humans and AI agents co-author living documents. Built with Rails 8, Hotwire, and a semantic operations API.
 

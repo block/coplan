@@ -1,8 +1,8 @@
-# Planning Department — Agent Guidelines
+# CoPlan — Agent Guidelines
 
 ## What This Is
 
-A Rails app for managing engineering design doc review, purpose-built for AI-generated plans. Humans comment, AI agents edit. Local agents interact via the REST API using skills (see `planning-department` skill) and future CLIs.
+A Rails app for managing engineering design doc review, purpose-built for AI-generated plans. Humans comment, AI agents edit. Local agents interact via the REST API using skills (see `coplan` skill) and future CLIs.
 
 ## Tech Stack & Philosophy
 

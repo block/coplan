@@ -19,14 +19,14 @@ default: &default
 
 development:
   <<: *default
-  database: planning_department_development
+  database: coplan_development
 
 # Warning: The database defined as "test" will be erased and
 # re-generated from your development database when you run "rake".
 # Do not set this db to the same as development or production.
 test:
   <<: *default
-  database: planning_department_test
+  database: coplan_test
 
 # As with config/credentials.yml, you never want to store sensitive information,
 # like your database password, in your source code. If your source code is
@@ -57,18 +57,18 @@ test:
 production:
   primary: &primary_production
     <<: *default
-    database: planning_department_production
-    username: planning_department
-    password: <%= ENV["PLANNING_DEPARTMENT_DATABASE_PASSWORD"] %>
+    database: coplan_production
+    username: coplan
+    password: <%= ENV["COPLAN_DATABASE_PASSWORD"] %>
   cache:
     <<: *primary_production
-    database: planning_department_production_cache
+    database: coplan_production_cache
     migrations_paths: db/cache_migrate
   queue:
     <<: *primary_production
-    database: planning_department_production_queue
+    database: coplan_production_queue
     migrations_paths: db/queue_migrate
   cable:
     <<: *primary_production
-    database: planning_department_production_cable
+    database: coplan_production_cable
     migrations_paths: db/cable_migrate
