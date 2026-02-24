@@ -57,7 +57,13 @@ class CommentThreadsController < ApplicationController
   def reopen
     authorize!(@thread, :reopen?)
     @thread.update!(status: "open", resolved_by_user: nil)
-    broadcast_thread_move(@thread, from: "resolved-comment-threads", to: "comment-threads")
+    # Out-of-date threads stay in the archived list even when reopened,
+    # since the active scope excludes out_of_date rows.
+    if @thread.out_of_date?
+      broadcast_thread_replace(@thread)
+    else
+      broadcast_thread_move(@thread, from: "resolved-comment-threads", to: "comment-threads")
+    end
     respond_with_stream_or_redirect("Thread reopened.")
   end
 
@@ -87,6 +93,17 @@ class CommentThreadsController < ApplicationController
       format.turbo_stream { render turbo_stream: [] }
       format.html { redirect_to plan_path(@plan), notice: message }
     end
+  end
+
+  # Replaces a thread in place (status changed but stays in the same list).
+  def broadcast_thread_replace(thread)
+    Turbo::StreamsChannel.broadcast_replace_to(
+      @plan,
+      target: dom_id(thread),
+      partial: "comment_threads/thread",
+      locals: { thread: thread, plan: @plan }
+    )
+    broadcast_tab_counts
   end
 
   # Moves a thread between Open/Resolved lists and updates tab counts.
