@@ -28,6 +28,7 @@ class CommentThreadsController < ApplicationController
     )
 
     broadcast_new_thread(thread)
+    broadcast_tab_counts
 
     respond_with_stream_or_redirect("Comment added.")
   end
@@ -35,28 +36,28 @@ class CommentThreadsController < ApplicationController
   def resolve
     authorize!(@thread, :resolve?)
     @thread.resolve!(current_user)
-    broadcast_thread_update(@thread)
+    broadcast_thread_move(@thread, from: "comment-threads", to: "resolved-comment-threads")
     respond_with_stream_or_redirect("Thread resolved.")
   end
 
   def accept
     authorize!(@thread, :accept?)
     @thread.accept!(current_user)
-    broadcast_thread_update(@thread)
+    broadcast_thread_move(@thread, from: "comment-threads", to: "resolved-comment-threads")
     respond_with_stream_or_redirect("Thread accepted.")
   end
 
   def dismiss
     authorize!(@thread, :dismiss?)
     @thread.dismiss!(current_user)
-    broadcast_thread_update(@thread)
+    broadcast_thread_move(@thread, from: "comment-threads", to: "resolved-comment-threads")
     respond_with_stream_or_redirect("Thread dismissed.")
   end
 
   def reopen
     authorize!(@thread, :reopen?)
     @thread.update!(status: "open", resolved_by_user: nil)
-    broadcast_thread_update(@thread)
+    broadcast_thread_move(@thread, from: "resolved-comment-threads", to: "comment-threads")
     respond_with_stream_or_redirect("Thread reopened.")
   end
 
@@ -88,12 +89,32 @@ class CommentThreadsController < ApplicationController
     end
   end
 
-  def broadcast_thread_update(thread)
-    Turbo::StreamsChannel.broadcast_replace_to(
+  # Moves a thread between Open/Resolved lists and updates tab counts.
+  def broadcast_thread_move(thread, from:, to:)
+    Turbo::StreamsChannel.broadcast_remove_to(@plan, target: dom_id(thread))
+    Turbo::StreamsChannel.broadcast_append_to(
       @plan,
-      target: dom_id(thread),
+      target: to,
       partial: "comment_threads/thread",
       locals: { thread: thread, plan: @plan }
+    )
+    broadcast_tab_counts
+  end
+
+  def broadcast_tab_counts
+    threads = @plan.comment_threads
+    open_count = threads.active.count
+    resolved_count = threads.archived.count
+
+    Turbo::StreamsChannel.broadcast_update_to(
+      @plan,
+      target: "open-thread-count",
+      html: open_count > 0 ? open_count.to_s : ""
+    )
+    Turbo::StreamsChannel.broadcast_update_to(
+      @plan,
+      target: "resolved-thread-count",
+      html: resolved_count > 0 ? resolved_count.to_s : ""
     )
   end
 end

@@ -21,10 +21,10 @@
         <div class="comment-tabs" data-controller="tabs" data-tabs-active-class="comment-tab--active">
           <div class="comment-tabs__nav">
             <button class="comment-tab comment-tab--active" data-tabs-target="tab" data-action="tabs#switch text-selection#repositionThreads" data-index="0">
-              Open <% if @active_threads.any? %><span class="comment-tab__count"><%= @active_threads.size %></span><% end %>
+              Open <span class="comment-tab__count" id="open-thread-count"><%= @active_threads.size if @active_threads.any? %></span>
             </button>
             <button class="comment-tab" data-tabs-target="tab" data-action="tabs#switch text-selection#repositionThreads" data-index="1">
-              Resolved <% if @archived_threads.any? %><span class="comment-tab__count"><%= @archived_threads.size %></span><% end %>
+              Resolved <span class="comment-tab__count" id="resolved-thread-count"><%= @archived_threads.size if @archived_threads.any? %></span>
             </button>
           </div>
 
