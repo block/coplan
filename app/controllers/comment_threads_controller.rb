@@ -28,35 +28,39 @@ class CommentThreadsController < ApplicationController
     )
 
     broadcast_new_thread(thread)
-    redirect_to plan_path(@plan), notice: "Comment added."
+
+    respond_to do |format|
+      format.turbo_stream { render turbo_stream: [] }
+      format.html { redirect_to plan_path(@plan), notice: "Comment added." }
+    end
   end
 
   def resolve
     authorize!(@thread, :resolve?)
     @thread.resolve!(current_user)
     broadcast_thread_update(@thread)
-    redirect_to plan_path(@plan), notice: "Thread resolved."
+    respond_with_stream_or_redirect("Thread resolved.")
   end
 
   def accept
     authorize!(@thread, :accept?)
     @thread.accept!(current_user)
     broadcast_thread_update(@thread)
-    redirect_to plan_path(@plan), notice: "Thread accepted."
+    respond_with_stream_or_redirect("Thread accepted.")
   end
 
   def dismiss
     authorize!(@thread, :dismiss?)
     @thread.dismiss!(current_user)
     broadcast_thread_update(@thread)
-    redirect_to plan_path(@plan), notice: "Thread dismissed."
+    respond_with_stream_or_redirect("Thread dismissed.")
   end
 
   def reopen
     authorize!(@thread, :reopen?)
     @thread.update!(status: "open", resolved_by_user: nil)
     broadcast_thread_update(@thread)
-    redirect_to plan_path(@plan), notice: "Thread reopened."
+    respond_with_stream_or_redirect("Thread reopened.")
   end
 
   private
@@ -76,6 +80,13 @@ class CommentThreadsController < ApplicationController
       partial: "comment_threads/thread",
       locals: { thread: thread, plan: @plan }
     )
+  end
+
+  def respond_with_stream_or_redirect(message)
+    respond_to do |format|
+      format.turbo_stream { render turbo_stream: [] }
+      format.html { redirect_to plan_path(@plan), notice: message }
+    end
   end
 
   def broadcast_thread_update(thread)

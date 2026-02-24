@@ -26,14 +26,7 @@
   <% is_thread_author = viewer.nil? || thread.created_by_user_id == viewer.id %>
 
   <% if thread.status == "open" %>
-    <div class="comment-thread__reply">
-      <%= form_with url: plan_comment_thread_comments_path(plan, thread), method: :post do |f| %>
-        <div class="form-group">
-          <textarea name="comment[body_markdown]" rows="2" placeholder="Reply..." required></textarea>
-        </div>
-        <button type="submit" class="btn btn--secondary btn--sm">Reply</button>
-      <% end %>
-    </div>
+    <%= render partial: "comment_threads/reply_form", locals: { thread: thread, plan: plan } %>
 
     <div class="comment-thread__actions">
       <% if is_plan_author || is_thread_author %>

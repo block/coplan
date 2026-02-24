@@ -20,7 +20,10 @@ class CommentsController < ApplicationController
       locals: { comment: comment }
     )
 
-    redirect_to plan_path(@plan), notice: "Reply added."
+    respond_to do |format|
+      format.turbo_stream { render turbo_stream: [] }
+      format.html { redirect_to plan_path(@plan), notice: "Reply added." }
+    end
   end
 
   private
