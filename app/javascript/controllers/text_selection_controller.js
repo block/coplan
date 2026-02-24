@@ -230,8 +230,18 @@ export default class extends Controller {
     const sidebar = this.element.querySelector(".plan-layout__sidebar")
     if (!sidebar) return
 
+    // Pause observer while reordering DOM to avoid triggering a rehighlight loop
+    if (this.threadListObserver) this.threadListObserver.disconnect()
+
     this.positionThreadList("#comment-threads", sidebar)
     this.positionThreadList("#resolved-comment-threads", sidebar)
+
+    // Re-observe after reordering
+    if (this.threadListObserver) {
+      this.element.querySelectorAll(".comment-threads-list").forEach(list => {
+        this.threadListObserver.observe(list, { childList: true })
+      })
+    }
   }
 
   positionThreadList(selector, sidebar) {
