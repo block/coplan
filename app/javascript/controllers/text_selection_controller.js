@@ -187,6 +187,14 @@ export default class extends Controller {
   }
 
   highlightAnchors() {
+    // Remove existing anchor highlights before re-highlighting
+    this.contentTarget.querySelectorAll("mark.anchor-highlight").forEach(mark => {
+      const parent = mark.parentNode
+      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark)
+      parent.removeChild(mark)
+    })
+    this.contentTarget.normalize()
+
     // Build full text once for position lookups
     this.fullText = this.contentTarget.textContent
 
