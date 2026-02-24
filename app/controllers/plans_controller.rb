@@ -48,6 +48,9 @@ class PlansController < ApplicationController
     new_status = params[:status]
     if Plan::STATUSES.include?(new_status) && @plan.update(status: new_status)
       broadcast_plan_update(@plan)
+      if @plan.saved_change_to_status?
+        Plans::TriggerAutomatedReviews.call(plan: @plan, new_status: new_status, triggered_by: current_user)
+      end
       redirect_to plan_path(@plan), notice: "Status updated to #{new_status}."
     else
       redirect_to plan_path(@plan), alert: "Invalid status."

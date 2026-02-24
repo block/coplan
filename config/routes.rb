@@ -17,6 +17,7 @@ Rails.application.routes.draw do
   resources :plans, only: [:index, :show, :edit, :update] do
     patch :update_status, on: :member
     resources :versions, controller: "plan_versions", only: [:index, :show]
+    resources :automated_reviews, only: [:create]
     resources :comment_threads, only: [:create] do
       member do
         patch :resolve
