@@ -72,5 +72,29 @@ RSpec.describe Plans::ReviewResponseParser do
 
       expect(items.first[:anchor_text]).to be_nil
     end
+
+    it "skips non-hash items in the array" do
+      response = '["Looks good", {"anchor_text": null, "comment": "Real feedback."}]'
+
+      items = described_class.call(response, plan_content: plan_content)
+
+      expect(items).to eq([{ anchor_text: nil, comment: "Real feedback." }])
+    end
+
+    it "skips items with blank comments" do
+      response = '[{"anchor_text": null, "comment": ""}, {"anchor_text": null, "comment": "Valid."}]'
+
+      items = described_class.call(response, plan_content: plan_content)
+
+      expect(items).to eq([{ anchor_text: nil, comment: "Valid." }])
+    end
+
+    it "skips items with null comments" do
+      response = '[{"anchor_text": null, "comment": null}]'
+
+      items = described_class.call(response, plan_content: plan_content)
+
+      expect(items).to be_empty
+    end
   end
 end

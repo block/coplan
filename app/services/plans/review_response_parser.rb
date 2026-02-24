@@ -11,7 +11,7 @@ module Plans
 
     def call
       items = parse_json
-      items.map { |item| normalize_item(item) }
+      items.filter_map { |item| normalize_item(item) }
     end
 
     private
@@ -39,8 +39,12 @@ module Plans
     end
 
     def normalize_item(item)
+      return nil unless item.is_a?(Hash)
+
       anchor = item["anchor_text"].presence
       comment = item["comment"].to_s.strip
+
+      return nil if comment.blank?
 
       # Verify anchor_text actually exists in the plan content
       if anchor && !@plan_content.include?(anchor)
