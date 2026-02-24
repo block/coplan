@@ -13,7 +13,7 @@ FactoryBot.define do
 
     trait :resolved do
       status { "resolved" }
-      association :resolved_by_user, factory: :user
+      resolved_by_user { association(:user, organization: plan.organization) }
     end
   end
 end

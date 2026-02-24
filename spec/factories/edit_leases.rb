@@ -1,7 +1,7 @@
 FactoryBot.define do
   factory :edit_lease do
     plan
-    organization
+    organization { plan.organization }
     holder_type { "local_agent" }
     holder_id { SecureRandom.uuid }
     lease_token_digest { Digest::SHA256.hexdigest(SecureRandom.hex(32)) }
