@@ -42,6 +42,8 @@ Rails.application.routes.draw do
         resources :operations, only: [:create]
         resources :comments, only: [:create], controller: "comments" do
           post :reply, on: :member
+          patch :resolve, on: :member
+          patch :dismiss, on: :member
         end
       end
     end

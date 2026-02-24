@@ -36,6 +36,44 @@ module Api
         render json: { error: e.message }, status: :unprocessable_entity
       end
 
+      def resolve
+        thread = @plan.comment_threads.find_by(id: params[:id])
+        unless thread
+          render json: { error: "Comment thread not found" }, status: :not_found
+          return
+        end
+
+        policy = CommentThreadPolicy.new(current_user, thread)
+        unless policy.resolve?
+          render json: { error: "Not authorized" }, status: :forbidden
+          return
+        end
+
+        thread.resolve!(current_user)
+        broadcast_thread_update(thread)
+
+        render json: { thread_id: thread.id, status: thread.status }
+      end
+
+      def dismiss
+        thread = @plan.comment_threads.find_by(id: params[:id])
+        unless thread
+          render json: { error: "Comment thread not found" }, status: :not_found
+          return
+        end
+
+        policy = CommentThreadPolicy.new(current_user, thread)
+        unless policy.dismiss?
+          render json: { error: "Not authorized" }, status: :forbidden
+          return
+        end
+
+        thread.dismiss!(current_user)
+        broadcast_thread_update(thread)
+
+        render json: { thread_id: thread.id, status: thread.status }
+      end
+
       def reply
         thread = @plan.comment_threads.find_by(id: params[:id])
         unless thread
@@ -68,6 +106,15 @@ module Api
         Turbo::StreamsChannel.broadcast_prepend_to(
           @plan,
           target: "comment-threads",
+          partial: "comment_threads/thread",
+          locals: { thread: thread, plan: @plan }
+        )
+      end
+
+      def broadcast_thread_update(thread)
+        Turbo::StreamsChannel.broadcast_replace_to(
+          @plan,
+          target: ActionView::RecordIdentifier.dom_id(thread),
           partial: "comment_threads/thread",
           locals: { thread: thread, plan: @plan }
         )

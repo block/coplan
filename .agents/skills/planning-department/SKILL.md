@@ -190,6 +190,26 @@ curl -s -X POST \
   "$PLANNING_BASE_URL/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/reply" | jq .
 ```
 
+### Resolve Thread
+
+Mark a comment thread as resolved (addressed by the plan author or thread creator).
+
+```bash
+curl -s -X PATCH \
+  -H "Authorization: Bearer $PLANNING_API_TOKEN" \
+  "$PLANNING_BASE_URL/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/resolve" | jq .
+```
+
+### Dismiss Thread
+
+Dismiss a comment thread (plan author only — for comments that are out of scope or not applicable).
+
+```bash
+curl -s -X PATCH \
+  -H "Authorization: Bearer $PLANNING_API_TOKEN" \
+  "$PLANNING_BASE_URL/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/dismiss" | jq .
+```
+
 ## Typical Workflow
 
 1. **Read** the plan: `GET /api/v1/plans/:id`
@@ -203,6 +223,7 @@ curl -s -X POST \
 | Code | Meaning |
 |------|---------|
 | 401 | Invalid or expired API token |
+| 403 | Not authorized for this action |
 | 404 | Plan not found (or no access) |
 | 409 | Edit lease conflict or stale revision |
 | 422 | Validation error or operation failed |
