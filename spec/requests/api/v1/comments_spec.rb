@@ -59,6 +59,55 @@ RSpec.describe "Api::V1::Comments", type: :request do
     expect(response).to have_http_status(:not_found)
   end
 
+  describe "PATCH resolve" do
+    it "resolves a thread" do
+      patch resolve_api_v1_plan_comment_path(plan, thread_record),
+        headers: headers,
+        as: :json
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["status"]).to eq("resolved")
+      expect(thread_record.reload.status).to eq("resolved")
+    end
+
+    it "returns 404 for nonexistent thread" do
+      patch resolve_api_v1_plan_comment_path(plan, "nonexistent-id"),
+        headers: headers,
+        as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
+  describe "PATCH dismiss" do
+    it "dismisses a thread" do
+      patch dismiss_api_v1_plan_comment_path(plan, thread_record),
+        headers: headers,
+        as: :json
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["status"]).to eq("dismissed")
+      expect(thread_record.reload.status).to eq("dismissed")
+    end
+
+    it "returns 404 for nonexistent thread" do
+      patch dismiss_api_v1_plan_comment_path(plan, "nonexistent-id"),
+        headers: headers,
+        as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "returns 403 when user is not the plan author" do
+      bob = create(:user, organization: org)
+      bob_token = create(:api_token, organization: org, user: bob, raw_token: "test-token-bob")
+      bob_headers = { "Authorization" => "Bearer test-token-bob" }
+
+      patch dismiss_api_v1_plan_comment_path(plan, thread_record),
+        headers: bob_headers,
+        as: :json
+      expect(response).to have_http_status(:forbidden)
+    end
+  end
+
   it "create comment requires auth" do
     post api_v1_plan_comments_path(plan),
       params: { body_markdown: "No auth" },
