@@ -29,10 +29,7 @@ class CommentThreadsController < ApplicationController
 
     broadcast_new_thread(thread)
 
-    respond_to do |format|
-      format.turbo_stream { render turbo_stream: [] }
-      format.html { redirect_to plan_path(@plan), notice: "Comment added." }
-    end
+    respond_with_stream_or_redirect("Comment added.")
   end
 
   def resolve
@@ -82,6 +79,8 @@ class CommentThreadsController < ApplicationController
     )
   end
 
+  # Broadcasts update all clients (including the submitter) via WebSocket.
+  # The empty turbo_stream response prevents Turbo from navigating (which causes scroll-to-top).
   def respond_with_stream_or_redirect(message)
     respond_to do |format|
       format.turbo_stream { render turbo_stream: [] }

@@ -20,6 +20,8 @@ class CommentsController < ApplicationController
       locals: { comment: comment }
     )
 
+    # The broadcast above updates all clients (including the submitter) via WebSocket.
+    # The empty turbo_stream response prevents Turbo from navigating (which causes scroll-to-top).
     respond_to do |format|
       format.turbo_stream { render turbo_stream: [] }
       format.html { redirect_to plan_path(@plan), notice: "Reply added." }
