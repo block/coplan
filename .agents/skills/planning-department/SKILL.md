@@ -172,13 +172,15 @@ curl -s -X POST \
   -H "Content-Type: application/json" \
   -d '{
     "body_markdown": "This section needs more detail.",
-    "anchor_text": "the exact text you are commenting on"
+    "anchor_text": "the exact text you are commenting on",
+    "agent_name": "Amp"
   }' \
   "$PLANNING_BASE_URL/api/v1/plans/$PLAN_ID/comments" | jq .
 ```
 
 - `anchor_text`: the exact text from the plan content that this comment is about. It will be highlighted in the UI and the comment will be anchored to it.
 - Omit `anchor_text` for a general (non-anchored) comment.
+- `agent_name`: optional identifier for the agent (e.g., `"Amp"`, `"Claude"`). Displayed in the UI as "User Name (Agent Name)".
 
 ### Reply to Thread
 
@@ -186,7 +188,7 @@ curl -s -X POST \
 curl -s -X POST \
   -H "Authorization: Bearer $PLANNING_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"body_markdown": "Good point, I will address this."}' \
+  -d '{"body_markdown": "Good point, I will address this.", "agent_name": "Amp"}' \
   "$PLANNING_BASE_URL/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/reply" | jq .
 ```
 

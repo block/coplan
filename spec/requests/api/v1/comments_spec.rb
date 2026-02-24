@@ -17,6 +17,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
       post api_v1_plan_comments_path(plan),
         params: {
           body_markdown: "API comment here",
+          agent_name: "Amp",
           start_line: 1,
           end_line: 3
         },
@@ -32,7 +33,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
   it "create general comment thread" do
     expect {
       post api_v1_plan_comments_path(plan),
-        params: { body_markdown: "General API feedback" },
+        params: { body_markdown: "General API feedback", agent_name: "Amp" },
         headers: headers,
         as: :json
     }.to change(CommentThread, :count).by(1)
@@ -42,7 +43,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
   it "reply to thread" do
     expect {
       post reply_api_v1_plan_comment_path(plan, thread_record),
-        params: { body_markdown: "API reply" },
+        params: { body_markdown: "API reply", agent_name: "Amp" },
         headers: headers,
         as: :json
     }.to change(Comment, :count).by(1)
@@ -106,6 +107,26 @@ RSpec.describe "Api::V1::Comments", type: :request do
         as: :json
       expect(response).to have_http_status(:forbidden)
     end
+  end
+
+  it "rejects comment without agent_name" do
+    post api_v1_plan_comments_path(plan),
+      params: { body_markdown: "Missing agent name" },
+      headers: headers,
+      as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    body = JSON.parse(response.body)
+    expect(body["error"]).to include("Agent name")
+  end
+
+  it "rejects reply without agent_name" do
+    post reply_api_v1_plan_comment_path(plan, thread_record),
+      params: { body_markdown: "Missing agent name" },
+      headers: headers,
+      as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    body = JSON.parse(response.body)
+    expect(body["error"]).to include("Agent name")
   end
 
   it "create comment requires auth" do
