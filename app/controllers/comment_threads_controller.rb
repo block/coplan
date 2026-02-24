@@ -116,5 +116,17 @@ class CommentThreadsController < ApplicationController
       target: "resolved-thread-count",
       html: resolved_count > 0 ? resolved_count.to_s : ""
     )
+
+    # Toggle empty-state placeholders
+    Turbo::StreamsChannel.broadcast_replace_to(
+      @plan,
+      target: "open-threads-empty",
+      html: %(<p class="text-sm text-muted" id="open-threads-empty" #{'style="display: none;"' if open_count > 0}>No open comments.</p>)
+    )
+    Turbo::StreamsChannel.broadcast_replace_to(
+      @plan,
+      target: "resolved-threads-empty",
+      html: %(<p class="text-sm text-muted" id="resolved-threads-empty" #{'style="display: none;"' if resolved_count > 0}>No resolved comments.</p>)
+    )
   end
 end

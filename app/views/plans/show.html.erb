@@ -33,9 +33,7 @@
               <% @active_threads.each do |thread| %>
                 <%= render partial: "comment_threads/thread", locals: { thread: thread, plan: @plan, current_user: current_user } %>
               <% end %>
-              <% if @active_threads.empty? %>
-                <p class="text-sm text-muted">No open comments.</p>
-              <% end %>
+              <p class="text-sm text-muted" id="open-threads-empty" <% if @active_threads.any? %>style="display: none;"<% end %>>No open comments.</p>
             </div>
           </div>
 
@@ -44,9 +42,7 @@
               <% @archived_threads.each do |thread| %>
                 <%= render partial: "comment_threads/thread", locals: { thread: thread, plan: @plan, current_user: current_user } %>
               <% end %>
-              <% if @archived_threads.empty? %>
-                <p class="text-sm text-muted">No resolved comments.</p>
-              <% end %>
+              <p class="text-sm text-muted" id="resolved-threads-empty" <% if @archived_threads.any? %>style="display: none;"<% end %>>No resolved comments.</p>
             </div>
           </div>
         </div>
