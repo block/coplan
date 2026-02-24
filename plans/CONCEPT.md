@@ -1,8 +1,8 @@
-# Planning Department — Concept
+# CoPlan — Concept
 
 ## What Is This?
 
-Planning Department is an open-source Rails application for managing the **Plan** phase of AI-assisted development workflows. When engineers use the Research → Plan → Implement (RPI) method with AI agents, the Plan phase produces Markdown documents — often living only on a local machine. Planning Department gives those documents a home where teammates can review them, leave inline feedback, and iterate on them with AI assistance.
+CoPlan is an open-source Rails application for managing the **Plan** phase of AI-assisted development workflows. When engineers use the Research → Plan → Implement (RPI) method with AI agents, the Plan phase produces Markdown documents — often living only on a local machine. CoPlan gives those documents a home where teammates can review them, leave inline feedback, and iterate on them with AI assistance.
 
 Think of it as **engineering design doc review, but purpose-built for AI-generated plans**.
 
@@ -64,7 +64,7 @@ Status transitions are decided by the Author (+ their agent). No formal approval
 
 ## Core Workflow
 
-1. **Create a Plan** — Author (often assisted by a local AI agent) writes a Markdown plan and uploads it to Planning Department
+1. **Create a Plan** — Author (often assisted by a local AI agent) writes a Markdown plan and uploads it to CoPlan
 2. **Request Review** — Author invites teammates to review the plan
 3. **Inline Feedback** — Reviewers leave line-level comments on any part of the document, threaded discussions develop
 4. **Agent Assistance** — AI agents can:
@@ -204,7 +204,7 @@ Authenticated via API tokens scoped to a user. Stateless request/response — ag
 ## Notifications
 
 - **Slack** — Primary notification channel (new comments, status changes, review requests)
-- **In-app** — Notification feed within Planning Department
+- **In-app** — Notification feed within CoPlan
 - Email is not planned for v1
 
 ## Decided

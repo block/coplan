@@ -1,4 +1,4 @@
-# Planning Department — Implementation Plan
+# CoPlan — Implementation Plan
 
 > Status: **Brainstorm**
 > Parent: [CONCEPT.md](./CONCEPT.md)
