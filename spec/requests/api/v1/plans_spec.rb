@@ -72,6 +72,71 @@ RSpec.describe "Api::V1::Plans", type: :request do
     expect(response).to have_http_status(:unprocessable_entity)
   end
 
+  describe "PATCH /api/v1/plans/:id" do
+    it "updates plan title" do
+      patch api_v1_plan_path(plan), params: { title: "New Title" }, headers: headers, as: :json
+      expect(response).to have_http_status(:success)
+      body = JSON.parse(response.body)
+      expect(body["title"]).to eq("New Title")
+      expect(plan.reload.title).to eq("New Title")
+    end
+
+    it "updates plan status" do
+      patch api_v1_plan_path(plan), params: { status: "developing" }, headers: headers, as: :json
+      expect(response).to have_http_status(:success)
+      body = JSON.parse(response.body)
+      expect(body["status"]).to eq("developing")
+      expect(plan.reload.status).to eq("developing")
+    end
+
+    it "updates plan tags" do
+      patch api_v1_plan_path(plan), params: { tags: ["infra", "api"] }, headers: headers, as: :json
+      expect(response).to have_http_status(:success)
+      body = JSON.parse(response.body)
+      expect(body["tags"]).to eq(["infra", "api"])
+      expect(plan.reload.tags).to eq(["infra", "api"])
+    end
+
+    it "updates multiple fields at once" do
+      patch api_v1_plan_path(plan), params: { title: "Updated", status: "developing", tags: ["v2"] }, headers: headers, as: :json
+      expect(response).to have_http_status(:success)
+      body = JSON.parse(response.body)
+      expect(body["title"]).to eq("Updated")
+      expect(body["status"]).to eq("developing")
+      expect(body["tags"]).to eq(["v2"])
+    end
+
+    it "leaves unchanged fields alone" do
+      original_title = plan.title
+      patch api_v1_plan_path(plan), params: { tags: ["new-tag"] }, headers: headers, as: :json
+      expect(response).to have_http_status(:success)
+      expect(plan.reload.title).to eq(original_title)
+    end
+
+    it "rejects invalid status" do
+      patch api_v1_plan_path(plan), params: { status: "invalid" }, headers: headers, as: :json
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+
+    it "returns 404 for other org plan" do
+      carol_token
+      patch api_v1_plan_path(plan), params: { title: "Hacked" }, headers: { "Authorization" => "Bearer test-token-carol" }, as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "returns 403 for non-author" do
+      bob = create(:user, organization: org)
+      bob_token = create(:api_token, organization: org, user: bob, raw_token: "test-token-bob")
+      patch api_v1_plan_path(plan), params: { title: "Nope" }, headers: { "Authorization" => "Bearer test-token-bob" }, as: :json
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it "requires auth" do
+      patch api_v1_plan_path(plan), params: { title: "No Auth" }, as: :json
+      expect(response).to have_http_status(:unauthorized)
+    end
+  end
+
   it "versions returns version list" do
     get versions_api_v1_plan_path(plan), headers: headers
     expect(response).to have_http_status(:success)
