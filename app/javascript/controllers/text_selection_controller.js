@@ -9,11 +9,13 @@ export default class extends Controller {
     this.contentTarget.addEventListener("mouseup", this.handleMouseUp.bind(this))
     document.addEventListener("mousedown", this.handleDocumentMouseDown.bind(this))
     this.highlightAnchors()
+    this.observeThreadLists()
   }
 
   disconnect() {
     this.contentTarget.removeEventListener("mouseup", this.handleMouseUp.bind(this))
     document.removeEventListener("mousedown", this.handleDocumentMouseDown.bind(this))
+    if (this.threadListObserver) this.threadListObserver.disconnect()
   }
 
   handleMouseUp(event) {
@@ -97,10 +99,6 @@ export default class extends Controller {
   resetCommentForm(event) {
     if (event.detail.success) {
       this.hideAndResetForm()
-      // Re-highlight anchors and reposition threads after the broadcast adds the new thread
-      setTimeout(() => {
-        this.highlightAnchors()
-      }, 100)
     }
   }
 
@@ -208,6 +206,19 @@ export default class extends Controller {
     })
 
     this.positionThreads()
+  }
+
+  // Re-highlight and reposition when threads are added/removed via turbo stream broadcasts
+  observeThreadLists() {
+    this.threadListObserver = new MutationObserver(() => {
+      // Debounce — multiple mutations may fire in quick succession
+      clearTimeout(this._repositionTimer)
+      this._repositionTimer = setTimeout(() => this.highlightAnchors(), 50)
+    })
+
+    this.element.querySelectorAll(".comment-threads-list").forEach(list => {
+      this.threadListObserver.observe(list, { childList: true })
+    })
   }
 
   repositionThreads() {
