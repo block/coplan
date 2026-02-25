@@ -118,7 +118,7 @@ RSpec.describe CommentThread, type: :model do
   end
 
   describe ".mark_out_of_date_for_new_version!" do
-    it "keeps thread when anchor text still present" do
+    it "marks out-of-date when thread lacks positional data" do
       thread_record.update_columns(anchor_text: "world domination")
 
       new_version = PlanVersion.create!(
@@ -132,25 +132,7 @@ RSpec.describe CommentThread, type: :model do
 
       plan.comment_threads.mark_out_of_date_for_new_version!(new_version)
       thread_record.reload
-      expect(thread_record).not_to be_out_of_date
-    end
-
-    it "marks thread when anchor text removed" do
-      thread_record.update_columns(anchor_text: "world domination")
-
-      new_version = PlanVersion.create!(
-        plan: plan,
-        organization: org,
-        revision: plan.current_revision + 1,
-        content_markdown: "# Plan\n\nCompletely new content here.",
-        actor_type: "human",
-        actor_id: user.id
-      )
-
-      plan.comment_threads.mark_out_of_date_for_new_version!(new_version)
-      thread_record.reload
       expect(thread_record).to be_out_of_date
-      expect(thread_record.out_of_date_since_version_id).to eq(new_version.id)
     end
 
     it "skips non-anchored threads" do
@@ -174,23 +156,6 @@ RSpec.describe CommentThread, type: :model do
 
       thread_record.send(:resolve_anchor_position)
       expect(thread_record.anchor_start).to be_nil
-    end
-
-    it "uses anchor_context when present" do
-      thread_record.update_columns(anchor_text: "plan", anchor_context: "Our plan for world domination")
-
-      new_version = PlanVersion.create!(
-        plan: plan,
-        organization: org,
-        revision: plan.current_revision + 1,
-        content_markdown: "# Plan\n\nWe have a plan but the context changed.",
-        actor_type: "human",
-        actor_id: user.id
-      )
-
-      plan.comment_threads.mark_out_of_date_for_new_version!(new_version)
-      thread_record.reload
-      expect(thread_record).to be_out_of_date
     end
   end
 end

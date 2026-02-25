@@ -22,65 +22,31 @@ class CommentThread < ApplicationRecord
   scope :archived, -> { where("status != 'open' OR out_of_date = ?", true) }
 
   def self.mark_out_of_date_for_new_version!(new_version)
-    content = new_version.content_markdown || ""
-    ops_json = new_version.operations_json || []
-
     threads = where(out_of_date: false).where.not(plan_version_id: new_version.id)
     threads.find_each do |thread|
       next unless thread.anchored?
 
-      if thread.anchor_start.present? && thread.anchor_end.present? && thread.anchor_revision.present?
-        # Position-based check: transform anchor range through all versions
-        # since the anchor was last updated, not just the latest one.
-        all_intervening = new_version.plan.plan_versions
-          .where("revision > ? AND revision <= ?", thread.anchor_revision, new_version.revision)
-          .order(revision: :asc)
-          .to_a
-        all_positional = all_intervening.all? { |v|
-          ops = v.operations_json || []
-          ops.empty? || ops.all? { |op| op.key?("resolved_range") || op.key?("replacements") }
-        }
+      unless thread.anchor_start.present? && thread.anchor_end.present? && thread.anchor_revision.present?
+        thread.update_columns(out_of_date: true, out_of_date_since_version_id: new_version.id)
+        next
+      end
 
-        if all_positional
-          begin
-            new_range = Plans::TransformRange.transform_through_versions(
-              [thread.anchor_start, thread.anchor_end],
-              all_intervening
-            )
-            thread.update_columns(
-              anchor_start: new_range[0],
-              anchor_end: new_range[1],
-              anchor_revision: new_version.revision
-            )
-          rescue Plans::TransformRange::Conflict
-            thread.update_columns(
-              out_of_date: true,
-              out_of_date_since_version_id: new_version.id
-            )
-          end
-        elsif all_intervening.any?
-          # Versions exist but lack positional data — fall back to text check
-          if thread.anchor_context.present?
-            unless content.include?(thread.anchor_context)
-              thread.update_columns(out_of_date: true, out_of_date_since_version_id: new_version.id)
-              next
-            end
-          else
-            unless content.include?(thread.anchor_text)
-              thread.update_columns(out_of_date: true, out_of_date_since_version_id: new_version.id)
-              next
-            end
-          end
-          thread.update_columns(anchor_revision: new_version.revision)
-        end
-      else
-        # Fallback to text-based check (for threads without position data)
-        if thread.anchor_context.present?
-          next if content.include?(thread.anchor_context)
-        else
-          next if content.include?(thread.anchor_text)
-        end
+      intervening = new_version.plan.plan_versions
+        .where("revision > ? AND revision <= ?", thread.anchor_revision, new_version.revision)
+        .order(revision: :asc)
+        .to_a
 
+      begin
+        new_range = Plans::TransformRange.transform_through_versions(
+          [thread.anchor_start, thread.anchor_end],
+          intervening
+        )
+        thread.update_columns(
+          anchor_start: new_range[0],
+          anchor_end: new_range[1],
+          anchor_revision: new_version.revision
+        )
+      rescue Plans::TransformRange::Conflict
         thread.update_columns(
           out_of_date: true,
           out_of_date_since_version_id: new_version.id

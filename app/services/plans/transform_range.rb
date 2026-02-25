@@ -76,6 +76,8 @@ module Plans
             end
           elsif op_data.key?("resolved_range")
             current_range = transform(current_range, op_data)
+          else
+            raise Conflict, "Operation lacks positional metadata (resolved_range or replacements)"
           end
         end
       end

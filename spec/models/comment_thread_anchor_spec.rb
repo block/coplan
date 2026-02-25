@@ -103,19 +103,19 @@ RSpec.describe CommentThread, "anchor tracking" do
       expect(thread.anchor_start).to eq(original_start + (new_len - first_len))
     end
 
-    it "falls back to text-based check for threads without position data" do
+    it "marks out-of-date when thread lacks positional data" do
       thread = plan.comment_threads.create!(
         organization: org, plan_version: plan.current_plan_version,
         created_by_user: user, anchor_text: "unit tests"
       )
-      # Remove position data to simulate old thread
       thread.update_columns(anchor_start: nil, anchor_end: nil, anchor_revision: nil)
 
-      new_content = content.sub("unit tests", "integration tests")
+      new_content = content.sub("Q1 2026", "Q2 2026")
+      anchor_pos = content.index("Q1 2026")
       version2 = PlanVersion.create!(
         plan: plan, organization: org, revision: 2,
         content_markdown: new_content, actor_type: "human", actor_id: user.id,
-        operations_json: []
+        operations_json: [{ "op" => "replace_exact", "resolved_range" => [anchor_pos, anchor_pos + 7], "new_range" => [anchor_pos, anchor_pos + 7], "delta" => 0 }]
       )
       plan.update!(current_plan_version: version2, current_revision: 2)
 
