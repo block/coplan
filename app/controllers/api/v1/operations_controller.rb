@@ -33,8 +33,8 @@ module Api
 
       def apply_with_session(operations, base_revision)
         session = @plan.edit_sessions.find_by(id: params[:session_id], actor_id: @api_token.id)
-        unless session&.open?
-          render json: { error: "Edit session not found or not open" }, status: :not_found
+        unless session&.active?
+          render json: { error: "Edit session not found, expired, or not open" }, status: :not_found
           return
         end
 
@@ -42,8 +42,8 @@ module Api
         ActiveRecord::Base.transaction do
           session.lock!
 
-          unless session.open?
-            render json: { error: "Edit session is no longer open" }, status: :conflict
+          unless session.active?
+            render json: { error: "Edit session is no longer active" }, status: :conflict
             return
           end
 

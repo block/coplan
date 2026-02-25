@@ -29,23 +29,46 @@ class CommentThread < ApplicationRecord
     threads.find_each do |thread|
       next unless thread.anchored?
 
-      if thread.anchor_start.present? && thread.anchor_end.present? && ops_json.any? { |op| op.key?("resolved_range") || op.key?("replacements") }
-        # Position-based check: transform anchor range through the new edit
-        begin
-          new_range = Plans::TransformRange.transform_through_versions(
-            [thread.anchor_start, thread.anchor_end],
-            [new_version]
-          )
-          thread.update_columns(
-            anchor_start: new_range[0],
-            anchor_end: new_range[1],
-            anchor_revision: new_version.revision
-          )
-        rescue Plans::TransformRange::Conflict
-          thread.update_columns(
-            out_of_date: true,
-            out_of_date_since_version_id: new_version.id
-          )
+      if thread.anchor_start.present? && thread.anchor_end.present? && thread.anchor_revision.present?
+        # Position-based check: transform anchor range through all versions
+        # since the anchor was last updated, not just the latest one.
+        all_intervening = new_version.plan.plan_versions
+          .where("revision > ? AND revision <= ?", thread.anchor_revision, new_version.revision)
+          .order(revision: :asc)
+          .to_a
+        positional = all_intervening.select { |v| (v.operations_json || []).any? { |op| op.key?("resolved_range") || op.key?("replacements") } }
+
+        if positional.any?
+          begin
+            new_range = Plans::TransformRange.transform_through_versions(
+              [thread.anchor_start, thread.anchor_end],
+              positional
+            )
+            thread.update_columns(
+              anchor_start: new_range[0],
+              anchor_end: new_range[1],
+              anchor_revision: new_version.revision
+            )
+          rescue Plans::TransformRange::Conflict
+            thread.update_columns(
+              out_of_date: true,
+              out_of_date_since_version_id: new_version.id
+            )
+          end
+        elsif all_intervening.any?
+          # Versions exist but lack positional data — fall back to text check
+          if thread.anchor_context.present?
+            unless content.include?(thread.anchor_context)
+              thread.update_columns(out_of_date: true, out_of_date_since_version_id: new_version.id)
+              next
+            end
+          else
+            unless content.include?(thread.anchor_text)
+              thread.update_columns(out_of_date: true, out_of_date_since_version_id: new_version.id)
+              next
+            end
+          end
+          thread.update_columns(anchor_revision: new_version.revision)
         end
       else
         # Fallback to text-based check (for threads without position data)

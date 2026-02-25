@@ -23,6 +23,10 @@ class EditSession < ApplicationRecord
     status == "open"
   end
 
+  def active?
+    open? && (expires_at.nil? || expires_at > Time.current)
+  end
+
   def committed?
     status == "committed"
   end
