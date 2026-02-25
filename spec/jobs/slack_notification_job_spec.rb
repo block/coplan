@@ -9,6 +9,12 @@ RSpec.describe SlackNotificationJob, type: :job do
     create(:comment_thread, plan: plan, organization: org,
       plan_version: plan.current_plan_version, created_by_user: commenter)
   end
+  let!(:first_comment) do
+    thread_record.comments.create!(
+      organization: org, author_type: "human",
+      author_id: commenter.id, body_markdown: "A comment body."
+    )
+  end
 
   before do
     allow(SlackClient).to receive(:configured?).and_return(true)
@@ -27,40 +33,44 @@ RSpec.describe SlackNotificationJob, type: :job do
 
     it "includes both anchor text and comment body when present" do
       thread_record.update_columns(anchor_text: "some highlighted text")
-      thread_record.comments.create!(
-        organization: org, author_type: "human",
-        author_id: commenter.id, body_markdown: "This needs work"
-      )
 
       described_class.perform_now(comment_thread_id: thread_record.id)
 
       expect(SlackClient).to have_received(:send_dm).with(
         email: plan_author.email,
-        text: a_string_including("some highlighted text").and(a_string_including("This needs work"))
+        text: a_string_including("some highlighted text").and(a_string_including("A comment body."))
       )
     end
 
-    it "falls back to first comment body when no anchor text" do
-      thread_record.comments.create!(
-        organization: org,
-        author_type: "human",
-        author_id: commenter.id,
-        body_markdown: "This needs work"
-      )
-
+    it "includes first comment body in the message" do
       described_class.perform_now(comment_thread_id: thread_record.id)
 
       expect(SlackClient).to have_received(:send_dm).with(
         email: plan_author.email,
-        text: a_string_including("This needs work")
+        text: a_string_including("A comment body.")
       )
     end
 
-    it "skips notification when commenter is the plan author" do
-      self_thread = create(:comment_thread, plan: plan, organization: org,
-        plan_version: plan.current_plan_version, created_by_user: plan_author)
+    it "skips notification when first comment author is the plan author" do
+      first_comment.update_columns(author_id: plan_author.id)
 
-      described_class.perform_now(comment_thread_id: self_thread.id)
+      described_class.perform_now(comment_thread_id: thread_record.id)
+
+      expect(SlackClient).not_to have_received(:send_dm)
+    end
+
+    it "sends notification for non-human comments (e.g. automated reviews)" do
+      first_comment.update_columns(author_type: "cloud_persona")
+
+      described_class.perform_now(comment_thread_id: thread_record.id)
+
+      expect(SlackClient).to have_received(:send_dm)
+    end
+
+    it "skips notification when thread has no comments" do
+      first_comment.destroy!
+
+      described_class.perform_now(comment_thread_id: thread_record.id)
 
       expect(SlackClient).not_to have_received(:send_dm)
     end

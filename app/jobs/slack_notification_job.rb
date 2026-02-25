@@ -10,9 +10,10 @@ class SlackNotificationJob < ApplicationJob
     thread = CommentThread.find(comment_thread_id)
     plan = thread.plan
     plan_author = plan.created_by_user
-    commenter = thread.created_by_user
+    first_comment = thread.comments.order(:created_at, :id).first
 
-    return if commenter == plan_author
+    return unless first_comment
+    return if first_comment.author_type == "human" && first_comment.author_id == plan_author.id
 
     text = compose_message(thread, plan)
     SlackClient.send_dm(email: plan_author.email, text: text)
@@ -34,7 +35,7 @@ class SlackNotificationJob < ApplicationJob
   end
 
   def first_comment_body(thread)
-    thread.comments.order(:created_at).first&.body_markdown || ""
+    thread.comments.order(:created_at, :id).first&.body_markdown || ""
   end
 
   def default_url_options
