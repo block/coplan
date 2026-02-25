@@ -16,6 +16,9 @@ class CommitExpiredSessionJob < ApplicationJob
     else
       session.update!(status: "expired", committed_at: Time.current)
     end
+  rescue Plans::CommitSession::SessionNotOpenError
+    # Session was closed concurrently (manual commit/cancel) — nothing to do
+    Rails.logger.info("CommitExpiredSessionJob: session #{session_id} already closed, skipping")
   rescue Plans::CommitSession::SessionConflictError, Plans::CommitSession::StaleSessionError, Plans::OperationError => e
     # Conflict during auto-commit — mark session as failed
     session.update!(status: "failed", change_summary: "Auto-commit failed: #{e.message}")
