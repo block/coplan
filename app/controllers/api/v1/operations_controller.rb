@@ -38,25 +38,38 @@ module Api
           return
         end
 
-        # Use draft_content if we've already applied ops, otherwise use the
-        # session's base revision snapshot so resolved ranges stay consistent
-        # with base_revision (not the potentially-advanced current content).
-        working_content = session.draft_content
-        unless working_content
-          base_version = @plan.plan_versions.find_by(revision: session.base_revision)
-          working_content = base_version&.content_markdown || @plan.current_content || ""
-        end
-        result = Plans::ApplyOperations.call(content: working_content, operations: operations)
+        applied_count = nil
+        ActiveRecord::Base.transaction do
+          session.lock!
 
-        session.update!(
-          operations_json: session.operations_json + result[:applied],
-          draft_content: result[:content]
-        )
+          unless session.open?
+            render json: { error: "Edit session is no longer open" }, status: :conflict
+            return
+          end
+
+          # Use draft_content if we've already applied ops, otherwise use the
+          # session's base revision snapshot so resolved ranges stay consistent
+          # with base_revision (not the potentially-advanced current content).
+          working_content = session.draft_content
+          unless working_content
+            base_version = @plan.plan_versions.find_by(revision: session.base_revision)
+            working_content = base_version&.content_markdown || @plan.current_content || ""
+          end
+          result = Plans::ApplyOperations.call(content: working_content, operations: operations)
+
+          session.update!(
+            operations_json: session.operations_json + result[:applied],
+            draft_content: result[:content]
+          )
+          applied_count = result[:applied].length
+        end
+
+        return if performed?
 
         render json: {
           session_id: session.id,
-          applied: result[:applied].length,
-          operations_pending: session.operations_json.length
+          applied: applied_count,
+          operations_pending: session.reload.operations_json.length
         }, status: :created
       end
 
@@ -77,7 +90,7 @@ module Api
           return
         end
 
-        create_version_from_operations(operations)
+        create_version_from_operations(operations, base_revision: base_revision)
       rescue EditLease::Conflict => e
         render json: { error: e.message }, status: :conflict
       end
@@ -179,9 +192,18 @@ module Api
         rebased_ops
       end
 
-      def create_version_from_operations(operations)
+      def create_version_from_operations(operations, base_revision:)
         ActiveRecord::Base.transaction do
           @plan.lock!
+          @plan.reload
+
+          if @plan.current_revision != base_revision
+            render json: {
+              error: "Stale revision. Expected #{@plan.current_revision}, got #{base_revision}",
+              current_revision: @plan.current_revision
+            }, status: :conflict
+            return
+          end
 
           current_content = @plan.current_content || ""
           result = Plans::ApplyOperations.call(content: current_content, operations: operations)
