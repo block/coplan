@@ -36,13 +36,16 @@ class CommentThread < ApplicationRecord
           .where("revision > ? AND revision <= ?", thread.anchor_revision, new_version.revision)
           .order(revision: :asc)
           .to_a
-        positional = all_intervening.select { |v| (v.operations_json || []).any? { |op| op.key?("resolved_range") || op.key?("replacements") } }
+        all_positional = all_intervening.all? { |v|
+          ops = v.operations_json || []
+          ops.empty? || ops.all? { |op| op.key?("resolved_range") || op.key?("replacements") }
+        }
 
-        if positional.any?
+        if all_positional
           begin
             new_range = Plans::TransformRange.transform_through_versions(
               [thread.anchor_start, thread.anchor_end],
-              positional
+              all_intervening
             )
             thread.update_columns(
               anchor_start: new_range[0],

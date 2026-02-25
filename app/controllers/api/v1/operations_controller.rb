@@ -140,6 +140,25 @@ module Api
           .order(revision: :asc)
           .to_a
 
+        # Reject rebase when any intervening version has operations without
+        # positional metadata (legacy versions created before the concurrent
+        # editing engine). We cannot safely transform ranges through them.
+        has_legacy_ops = intervening_versions.any? do |v|
+          ops = v.operations_json || []
+          ops.any? { |op|
+            op = op.transform_keys(&:to_s)
+            !op.key?("resolved_range") && !op.key?("replacements")
+          }
+        end
+
+        if has_legacy_ops
+          render json: {
+            error: "Cannot rebase: intervening revisions lack positional metadata. Re-read the plan.",
+            current_revision: @plan.current_revision
+          }, status: :conflict
+          return
+        end
+
         working_base = base_version.content_markdown
         verification_content = current_content.dup
         rebased_ops = []
