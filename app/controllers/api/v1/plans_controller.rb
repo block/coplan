@@ -99,6 +99,7 @@ module Api
         {
           id: thread.id,
           status: thread.status,
+          anchor_text: thread.anchor_text,
           start_line: thread.start_line,
           end_line: thread.end_line,
           out_of_date: thread.out_of_date,
