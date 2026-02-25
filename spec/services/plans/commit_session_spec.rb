@@ -349,4 +349,24 @@ RSpec.describe Plans::CommitSession do
       }.to raise_error(Plans::OperationError)
     end
   end
+
+  describe "committing a non-open session" do
+    it "raises SessionNotOpenError for a committed session" do
+      session = build_session(plan: plan, operations_json: [], draft_content: content)
+      session.update!(status: "committed", committed_at: Time.current)
+
+      expect {
+        described_class.call(session: session)
+      }.to raise_error(Plans::CommitSession::SessionNotOpenError, /not open/)
+    end
+
+    it "raises SessionNotOpenError for a cancelled session" do
+      session = build_session(plan: plan, operations_json: [], draft_content: content)
+      session.update!(status: "cancelled")
+
+      expect {
+        described_class.call(session: session)
+      }.to raise_error(Plans::CommitSession::SessionNotOpenError, /not open/)
+    end
+  end
 end

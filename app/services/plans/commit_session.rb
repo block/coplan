@@ -2,6 +2,7 @@ module Plans
   class CommitSession
     class StaleSessionError < StandardError; end
     class SessionConflictError < StandardError; end
+    class SessionNotOpenError < StandardError; end
 
     def self.call(session:, change_summary: nil)
       new(session:, change_summary:).call
@@ -13,7 +14,7 @@ module Plans
     end
 
     def call
-      raise "Session is not open" unless @session.open?
+      raise SessionNotOpenError, "Session is not open" unless @session.open?
 
       plan = @session.plan
 
@@ -50,6 +51,7 @@ module Plans
 
           # Transform each operation's resolved positions through intervening edits,
           # then re-apply using the transformed positions (not re-resolving from scratch)
+          verification_content = current_content.dup
           rebased_ops = []
           @session.operations_json.each do |op_data|
             op_data = op_data.transform_keys(&:to_s)
@@ -65,7 +67,7 @@ module Plans
                 raise SessionConflictError, "Conflict during rebase: #{e.message}"
               end
 
-              verify_text_at_range!(current_content, transformed_range, op_data)
+              verify_text_at_range!(verification_content, transformed_range, op_data)
               semantic_op["_pre_resolved_ranges"] = [transformed_range]
             elsif op_data.key?("replacements")
               transformed_ranges = op_data["replacements"].map do |rep|
@@ -78,11 +80,16 @@ module Plans
                 end
               end
 
-              transformed_ranges.each { |tr| verify_text_at_range!(current_content, tr, op_data) }
+              transformed_ranges.each { |tr| verify_text_at_range!(verification_content, tr, op_data) }
               semantic_op["_pre_resolved_ranges"] = transformed_ranges
             end
 
             rebased_ops << semantic_op
+
+            # Advance verification content so subsequent ops verify against
+            # the incrementally updated snapshot (not the original current_content).
+            step = Plans::ApplyOperations.call(content: verification_content, operations: [semantic_op])
+            verification_content = step[:content]
           end
 
           result = Plans::ApplyOperations.call(content: current_content, operations: rebased_ops)

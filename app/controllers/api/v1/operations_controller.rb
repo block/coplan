@@ -128,6 +128,7 @@ module Api
           .to_a
 
         working_base = base_version.content_markdown
+        verification_content = current_content.dup
         rebased_ops = []
 
         operations.each do |op|
@@ -140,7 +141,7 @@ module Api
 
             if op["op"] == "replace_exact" && op["old_text"]
               transformed_ranges.each do |tr|
-                actual = current_content[tr[0]...tr[1]]
+                actual = verification_content[tr[0]...tr[1]]
                 unless actual == op["old_text"]
                   render json: {
                     error: "Conflict: text at target position has changed",
@@ -161,6 +162,11 @@ module Api
             rebased_op = op.dup
             rebased_op["_pre_resolved_ranges"] = transformed_ranges
             rebased_ops << rebased_op
+
+            # Advance verification content so the next op's conflict check
+            # runs against the incrementally updated snapshot.
+            verify_step = Plans::ApplyOperations.call(content: verification_content, operations: [rebased_op])
+            verification_content = verify_step[:content]
           rescue Plans::TransformRange::Conflict => e
             render json: {
               error: "Conflict: #{e.message}",

@@ -114,6 +114,24 @@ RSpec.describe Plans::PositionResolver do
       end
     end
 
+    describe "occurrence: 0 is rejected" do
+      let(:content) { "foo bar foo" }
+      let(:operation) { { op: "replace_exact", old_text: "foo", new_text: "baz", occurrence: 0 } }
+
+      it "raises OperationError" do
+        expect { resolve }.to raise_error(Plans::OperationError, /occurrence must be >= 1/)
+      end
+    end
+
+    describe "negative occurrence is rejected" do
+      let(:content) { "foo bar foo" }
+      let(:operation) { { op: "replace_exact", old_text: "foo", new_text: "baz", occurrence: -1 } }
+
+      it "raises OperationError" do
+        expect { resolve }.to raise_error(Plans::OperationError, /occurrence must be >= 1/)
+      end
+    end
+
     describe "multiple matches without occurrence or replace_all (legacy)" do
       let(:content) { "foo bar foo" }
       let(:operation) { { op: "replace_exact", old_text: "foo", new_text: "baz" } }

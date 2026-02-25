@@ -33,6 +33,7 @@ module Plans
 
       replace_all = @op["replace_all"] == true
       occurrence = (@op["occurrence"] || 1).to_i
+      raise OperationError, "replace_exact: occurrence must be >= 1, got #{occurrence}" if occurrence < 1
 
       ranges = find_all_occurrences(old_text)
 

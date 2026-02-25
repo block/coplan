@@ -55,6 +55,8 @@ module Api
         end
 
         render json: response
+      rescue Plans::CommitSession::SessionNotOpenError => e
+        render json: { error: e.message }, status: :unprocessable_entity
       rescue Plans::CommitSession::StaleSessionError => e
         render json: { error: e.message }, status: :conflict
       rescue Plans::CommitSession::SessionConflictError => e
