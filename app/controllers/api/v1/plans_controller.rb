@@ -100,6 +100,8 @@ module Api
           id: thread.id,
           status: thread.status,
           anchor_text: thread.anchor_text,
+          anchor_context: thread.anchor_context_with_highlight,
+          anchor_valid: thread.anchor_valid?,
           start_line: thread.start_line,
           end_line: thread.end_line,
           out_of_date: thread.out_of_date,

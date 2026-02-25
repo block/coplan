@@ -1,6 +1,8 @@
 class CommentThread < ApplicationRecord
   STATUSES = %w[open resolved accepted dismissed].freeze
 
+  attr_accessor :anchor_occurrence
+
   belongs_to :plan
   belongs_to :organization
   belongs_to :plan_version
@@ -12,6 +14,8 @@ class CommentThread < ApplicationRecord
 
   validates :status, presence: true, inclusion: { in: STATUSES }
 
+  before_create :resolve_anchor_position
+
   scope :open_threads, -> { where(status: "open") }
   scope :current, -> { where(out_of_date: false) }
   scope :active, -> { where(status: "open", out_of_date: false) }
@@ -19,19 +23,43 @@ class CommentThread < ApplicationRecord
 
   def self.mark_out_of_date_for_new_version!(new_version)
     content = new_version.content_markdown || ""
+    ops_json = new_version.operations_json || []
+
     threads = where(out_of_date: false).where.not(plan_version_id: new_version.id)
     threads.find_each do |thread|
       next unless thread.anchored?
-      if thread.anchor_context.present?
-        next if content.include?(thread.anchor_context)
-      else
-        next if content.include?(thread.anchor_text)
-      end
 
-      thread.update_columns(
-        out_of_date: true,
-        out_of_date_since_version_id: new_version.id
-      )
+      if thread.anchor_start.present? && thread.anchor_end.present? && ops_json.any? { |op| op.key?("resolved_range") || op.key?("replacements") }
+        # Position-based check: transform anchor range through the new edit
+        begin
+          new_range = Plans::TransformRange.transform_through_versions(
+            [thread.anchor_start, thread.anchor_end],
+            [new_version]
+          )
+          thread.update_columns(
+            anchor_start: new_range[0],
+            anchor_end: new_range[1],
+            anchor_revision: new_version.revision
+          )
+        rescue Plans::TransformRange::Conflict
+          thread.update_columns(
+            out_of_date: true,
+            out_of_date_since_version_id: new_version.id
+          )
+        end
+      else
+        # Fallback to text-based check (for threads without position data)
+        if thread.anchor_context.present?
+          next if content.include?(thread.anchor_context)
+        else
+          next if content.include?(thread.anchor_text)
+        end
+
+        thread.update_columns(
+          out_of_date: true,
+          out_of_date_since_version_id: new_version.id
+        )
+      end
     end
   end
 
@@ -63,5 +91,51 @@ class CommentThread < ApplicationRecord
 
   def dismiss!(user)
     update!(status: "dismissed", resolved_by_user: user)
+  end
+
+  def anchor_valid?
+    return true unless anchored?
+    !out_of_date
+  end
+
+  def anchor_context_with_highlight(chars: 100)
+    return nil unless anchored? && anchor_start.present?
+
+    content = plan.current_content
+    return nil unless content.present?
+
+    context_start = [anchor_start - chars, 0].max
+    context_end = [anchor_end + chars, content.length].min
+
+    before = content[context_start...anchor_start]
+    anchor = content[anchor_start...anchor_end]
+    after = content[anchor_end...context_end]
+
+    "#{before}**#{anchor}**#{after}"
+  end
+
+  private
+
+  def resolve_anchor_position
+    return unless anchor_text.present?
+
+    content = plan.current_content
+    return unless content.present?
+
+    occurrence = self.anchor_occurrence || 1
+
+    ranges = []
+    start_pos = 0
+    while (idx = content.index(anchor_text, start_pos))
+      ranges << [idx, idx + anchor_text.length]
+      start_pos = idx + 1
+    end
+
+    if ranges.length >= occurrence
+      range = ranges[occurrence - 1]
+      self.anchor_start = range[0]
+      self.anchor_end = range[1]
+      self.anchor_revision = plan.current_revision
+    end
   end
 end
