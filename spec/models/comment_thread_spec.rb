@@ -168,6 +168,14 @@ RSpec.describe CommentThread, type: :model do
       expect(thread_record).not_to be_out_of_date
     end
 
+    it "ignores non-positive anchor_occurrence values" do
+      thread_record.update_columns(anchor_text: "plan")
+      thread_record.anchor_occurrence = 0
+
+      thread_record.send(:resolve_anchor_position)
+      expect(thread_record.anchor_start).to be_nil
+    end
+
     it "uses anchor_context when present" do
       thread_record.update_columns(anchor_text: "plan", anchor_context: "Our plan for world domination")
 

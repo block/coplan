@@ -110,7 +110,7 @@ module Plans
       start_pos = 0
       while (idx = @content.index(text, start_pos))
         ranges << [idx, idx + text.length]
-        start_pos = idx + 1
+        start_pos = idx + text.length
       end
       ranges
     end

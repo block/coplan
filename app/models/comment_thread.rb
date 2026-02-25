@@ -123,12 +123,13 @@ class CommentThread < ApplicationRecord
     return unless content.present?
 
     occurrence = self.anchor_occurrence || 1
+    return if occurrence < 1
 
     ranges = []
     start_pos = 0
     while (idx = content.index(anchor_text, start_pos))
       ranges << [idx, idx + anchor_text.length]
-      start_pos = idx + 1
+      start_pos = idx + anchor_text.length
     end
 
     if ranges.length >= occurrence

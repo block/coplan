@@ -85,14 +85,11 @@ RSpec.describe Plans::PositionResolver do
       let(:content) { "aaaa" }
       let(:operation) { { op: "replace_exact", old_text: "aa", new_text: "b", replace_all: true } }
 
-      it "resolves overlapping scan positions correctly" do
+      it "returns non-overlapping ranges" do
         result = resolve
-        # Scanning with start_pos = idx + 1 finds overlapping matches:
-        # idx=0 ("aa" at 0..2), idx=1 ("aa" at 1..3), idx=2 ("aa" at 2..4)
-        expect(result.ranges.length).to eq(3)
+        expect(result.ranges.length).to eq(2)
         expect(result.ranges[0]).to eq([0, 2])
-        expect(result.ranges[1]).to eq([1, 3])
-        expect(result.ranges[2]).to eq([2, 4])
+        expect(result.ranges[1]).to eq([2, 4])
       end
     end
 
