@@ -226,6 +226,63 @@ curl -s -X PATCH \
   "$PLANNING_BASE_URL/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/dismiss" | jq .
 ```
 
+## Reviewing a Plan
+
+When asked to review a plan (given a plan URL or ID), follow this workflow:
+
+### 1. Read the Plan and Comments
+
+Fetch the plan content and all comment threads:
+
+```bash
+curl -s -H "Authorization: Bearer $PLANNING_API_TOKEN" \
+  "$PLANNING_BASE_URL/api/v1/plans/$PLAN_ID" | jq .
+
+curl -s -H "Authorization: Bearer $PLANNING_API_TOKEN" \
+  "$PLANNING_BASE_URL/api/v1/plans/$PLAN_ID/comments" | jq .
+```
+
+### 2. Triage Comments
+
+Review each open comment thread and categorize it:
+
+- **Just do it** — Clear, actionable feedback that can be applied directly (typos, clarifications, missing details where the fix is obvious). Apply these edits without asking.
+- **Confirm first** — Substantive changes where the right fix is clear but the scope is large enough to warrant confirmation. Summarize the proposed change and ask the user before applying.
+- **Discuss** — Ambiguous feedback, disagreements, or comments that require a design decision. Present these to the user for discussion — do not attempt to resolve them.
+
+### 3. Present Summary
+
+Before making any changes, present a summary to the user:
+
+> **Plan Review: [Title]**
+>
+> **Will apply (N comments):** [list each with a one-line summary of the change]
+>
+> **Need confirmation (N comments):** [list each with the proposed change]
+>
+> **For discussion (N comments):** [list each with the question/issue]
+>
+> Shall I proceed with the "just do it" edits?
+
+### 4. Apply Edits
+
+For approved changes:
+
+1. Acquire an edit lease
+2. Apply operations (use `replace_exact`, `insert_under_heading`, or `delete_paragraph_containing`)
+3. Release the lease
+4. Resolve each comment thread that was addressed
+
+### 5. Resolve Threads
+
+After applying edits, resolve the comment threads that were addressed:
+
+```bash
+curl -s -X PATCH \
+  -H "Authorization: Bearer $PLANNING_API_TOKEN" \
+  "$PLANNING_BASE_URL/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/resolve" | jq .
+```
+
 ## Typical Workflow
 
 1. **Read** the plan: `GET /api/v1/plans/:id`
