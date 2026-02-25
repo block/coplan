@@ -66,7 +66,8 @@ if ApiToken.count == 0
     organization: square,
     user: hampton,
     name: "Development Agent",
-    token_digest: Digest::SHA256.hexdigest(raw_token)
+    token_digest: Digest::SHA256.hexdigest(raw_token),
+    token_prefix: raw_token[0, 8]
   )
   puts "  Created API token: #{raw_token}"
   puts "  (Save this — it won't be shown again)"
