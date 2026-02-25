@@ -51,6 +51,8 @@ gem "activeadmin", "~> 4.0.0.beta"
 gem "activeadmin_assets"
 # API rate limiting (Phase 9)
 gem "rack-attack"
+# Slack API client for notifications
+gem "slack-ruby-client"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
