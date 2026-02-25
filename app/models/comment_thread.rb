@@ -12,8 +12,6 @@ class CommentThread < ApplicationRecord
 
   validates :status, presence: true, inclusion: { in: STATUSES }
 
-  after_create_commit :notify_plan_author_via_slack
-
   scope :open_threads, -> { where(status: "open") }
   scope :current, -> { where(out_of_date: false) }
   scope :active, -> { where(status: "open", out_of_date: false) }
@@ -65,11 +63,5 @@ class CommentThread < ApplicationRecord
 
   def dismiss!(user)
     update!(status: "dismissed", resolved_by_user: user)
-  end
-
-  private
-
-  def notify_plan_author_via_slack
-    SlackNotificationJob.perform_later(comment_thread_id: id)
   end
 end

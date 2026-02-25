@@ -22,7 +22,7 @@ class SlackNotificationJob < ApplicationJob
 
   def compose_message(thread, plan)
     comment_body = first_comment_body(thread).truncate(300)
-    plan_url = Rails.application.routes.url_helpers.plan_url(plan, host: default_host)
+    plan_url = Rails.application.routes.url_helpers.plan_url(plan, **default_url_options)
 
     lines = ["New comment on *#{plan.title}*:"]
     if thread.anchor_text.present?
@@ -37,7 +37,7 @@ class SlackNotificationJob < ApplicationJob
     thread.comments.order(:created_at).first&.body_markdown || ""
   end
 
-  def default_host
-    Rails.application.config.action_mailer.default_url_options&.dig(:host) || "localhost:3000"
+  def default_url_options
+    Rails.application.config.action_mailer.default_url_options || { host: "localhost", port: 3000 }
   end
 end
