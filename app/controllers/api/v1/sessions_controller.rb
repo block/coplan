@@ -69,7 +69,7 @@ module Api
       private
 
       def set_session
-        @session = @plan.edit_sessions.find_by(id: params[:id])
+        @session = @plan.edit_sessions.find_by(id: params[:id], actor_id: @api_token.id)
         unless @session
           render json: { error: "Edit session not found" }, status: :not_found
         end

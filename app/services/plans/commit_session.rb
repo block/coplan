@@ -18,13 +18,16 @@ module Plans
 
       plan = @session.plan
 
-      # No operations: just mark committed, no version created
-      unless @session.has_operations?
-        @session.update!(status: "committed", committed_at: Time.current)
-        return { session: @session, version: nil }
-      end
-
       ActiveRecord::Base.transaction do
+        @session.lock!
+        raise SessionNotOpenError, "Session is not open" unless @session.open?
+
+        # No operations: just mark committed, no version created
+        unless @session.has_operations?
+          @session.update!(status: "committed", committed_at: Time.current)
+          return { session: @session, version: nil }
+        end
+
         plan.lock!
 
         base_revision = @session.base_revision

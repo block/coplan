@@ -32,7 +32,7 @@ module Api
       private
 
       def apply_with_session(operations, base_revision)
-        session = @plan.edit_sessions.find_by(id: params[:session_id])
+        session = @plan.edit_sessions.find_by(id: params[:session_id], actor_id: @api_token.id)
         unless session&.open?
           render json: { error: "Edit session not found or not open" }, status: :not_found
           return
