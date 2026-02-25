@@ -117,6 +117,15 @@ RSpec.describe CommentThread, type: :model do
     end
   end
 
+  describe "Slack notification callback" do
+    it "enqueues SlackNotificationJob after creation" do
+      expect {
+        create(:comment_thread, plan: plan, organization: org,
+          plan_version: plan.current_plan_version, created_by_user: user)
+      }.to have_enqueued_job(SlackNotificationJob)
+    end
+  end
+
   describe ".mark_out_of_date_for_new_version!" do
     it "keeps thread when anchor text still present" do
       thread_record.update_columns(anchor_text: "world domination")
