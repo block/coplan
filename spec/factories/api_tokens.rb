@@ -4,6 +4,7 @@ FactoryBot.define do
     user { association(:user, organization: organization) }
     sequence(:name) { |n| "Token #{n}" }
     token_digest { Digest::SHA256.hexdigest(SecureRandom.hex(32)) }
+    token_prefix { SecureRandom.hex(4) }
 
     transient do
       raw_token { nil }
@@ -12,6 +13,7 @@ FactoryBot.define do
     after(:build) do |token, evaluator|
       if evaluator.raw_token
         token.token_digest = Digest::SHA256.hexdigest(evaluator.raw_token)
+        token.token_prefix = evaluator.raw_token[0, 8]
       end
     end
 

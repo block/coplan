@@ -21,6 +21,16 @@ class ApiToken < ApplicationRecord
     SecureRandom.hex(32)
   end
 
+  def self.create_with_raw_token(**attributes)
+    raw_token = generate_token
+    api_token = create!(
+      **attributes,
+      token_digest: Digest::SHA256.hexdigest(raw_token),
+      token_prefix: raw_token[0, 8]
+    )
+    [api_token, raw_token]
+  end
+
   def revoked?
     revoked_at.present?
   end

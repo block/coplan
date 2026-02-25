@@ -1,6 +1,6 @@
 <div class="page-header">
-  <h1>API Tokens</h1>
-  <p class="page-header__subtitle">Manage tokens for agent access to the CoPlan API.</p>
+  <h1>Settings</h1>
+  <p class="page-header__subtitle">Manage API tokens for agent access</p>
 </div>
 
 <% if @raw_token.present? %>
@@ -15,7 +15,7 @@
 
 <div class="card">
   <h2>Create New Token</h2>
-  <%= form_with url: api_tokens_path, method: :post, class: "form-inline" do |f| %>
+  <%= form_with url: settings_tokens_path, method: :post, class: "form-inline" do |f| %>
     <div class="form-group">
       <%= f.label :name, "Token Name" %>
       <%= f.text_field :name, name: "api_token[name]", placeholder: "e.g. My Agent", required: true, class: "form-control" %>
@@ -40,7 +40,12 @@
       <tbody>
         <% @api_tokens.each do |token| %>
           <tr class="<%= 'data-table__row--muted' if token.revoked? %>">
-            <td><strong><%= token.name %></strong></td>
+            <td>
+              <strong><%= token.name %></strong>
+              <% if token.token_prefix.present? %>
+                <br><code><%= token.token_prefix %>…</code>
+              <% end %>
+            </td>
             <td>
               <% if token.revoked? %>
                 <span class="badge badge--danger">Revoked</span>
@@ -54,7 +59,7 @@
             <td><%= token.created_at.strftime("%b %d, %Y") %></td>
             <td>
               <% unless token.revoked? %>
-                <%= button_to "Revoke", revoke_api_token_path(token), method: :patch, class: "btn btn--danger btn--sm", data: { turbo_confirm: "Are you sure you want to revoke this token?" } %>
+                <%= button_to "Revoke", settings_token_path(token), method: :delete, class: "btn btn--danger btn--sm" %>
               <% end %>
             </td>
           </tr>

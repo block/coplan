@@ -29,8 +29,8 @@ Rails.application.routes.draw do
     end
   end
 
-  resources :api_tokens, only: [:index, :create] do
-    patch :revoke, on: :member
+  namespace :settings do
+    resources :tokens, only: [:index, :create, :destroy]
   end
 
   namespace :api do
