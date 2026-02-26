@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A Rails app for managing engineering design doc review, purpose-built for AI-generated plans. Humans comment, AI agents edit. Local agents interact via the REST API using skills (see `coplan` skill) and future CLIs.
+A Rails app for engineering design doc review, purpose-built for AI-assisted planning. Plans get better through collaboration — domain experts leave inline feedback, AI agents respond to that feedback and apply edits automatically, and every change is versioned with full provenance. Humans comment, AI agents edit. Local agents interact via the REST API using skills (see `coplan` skill) and future CLIs.
 
 ## Tech Stack & Philosophy
 
