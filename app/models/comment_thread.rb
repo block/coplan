@@ -27,18 +27,30 @@ class CommentThread < ApplicationRecord
   # on creation via resolve_anchor_position.
   def self.mark_out_of_date_for_new_version!(new_version)
     threads = where(out_of_date: false).where.not(plan_version_id: new_version.id)
-    threads.find_each do |thread|
-      next unless thread.anchored?
+    anchored_threads = threads.select(&:anchored?)
 
+    # Pre-fetch all versions that any thread might need (from the oldest
+    # anchor_revision to the new version) in a single query.
+    min_anchor_rev = anchored_threads
+      .filter_map { |t| t.anchor_revision if t.anchor_start.present? && t.anchor_end.present? && t.anchor_revision.present? }
+      .min
+
+    all_versions = if min_anchor_rev
+      new_version.plan.plan_versions
+        .where("revision > ? AND revision <= ?", min_anchor_rev, new_version.revision)
+        .order(revision: :asc)
+        .to_a
+    else
+      []
+    end
+
+    anchored_threads.each do |thread|
       unless thread.anchor_start.present? && thread.anchor_end.present? && thread.anchor_revision.present?
         thread.update_columns(out_of_date: true, out_of_date_since_version_id: new_version.id)
         next
       end
 
-      intervening = new_version.plan.plan_versions
-        .where("revision > ? AND revision <= ?", thread.anchor_revision, new_version.revision)
-        .order(revision: :asc)
-        .to_a
+      intervening = all_versions.select { |v| v.revision > thread.anchor_revision && v.revision <= new_version.revision }
 
       begin
         new_range = Plans::TransformRange.transform_through_versions(
