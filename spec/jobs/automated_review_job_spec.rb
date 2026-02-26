@@ -60,7 +60,7 @@ RSpec.describe CoPlan::AutomatedReviewJob, type: :job do
     end
 
     it "sets the triggered_by user as the thread creator" do
-      other_user = create(:user, organization: user.organization)
+      other_user = create(:user)
       described_class.perform_now(**perform_args.merge(triggered_by: other_user))
 
       CoPlan::CommentThread.last(3).each do |thread|

@@ -5,7 +5,7 @@ RSpec.describe CoPlan::Plans::TriggerAutomatedReviews do
   let(:user) { plan.created_by_user }
 
   before do
-    # Clear default reviewers created by Organization after_create callback
+    # Clear any existing reviewers
     CoPlan::AutomatedPlanReviewer.destroy_all
   end
 

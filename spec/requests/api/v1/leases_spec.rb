@@ -1,9 +1,8 @@
 require "rails_helper"
 
 RSpec.describe "Api::V1::Leases", type: :request do
-  let(:org) { create(:organization) }
-  let(:alice) { create(:user, :admin, organization: org) }
-  let(:bob) { create(:user, organization: org) }
+  let(:alice) { create(:user, :admin) }
+  let(:bob) { create(:user) }
   let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }
   let(:bob_token) { create(:api_token, user: bob, raw_token: "test-token-bob") }
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }

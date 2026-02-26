@@ -1,9 +1,8 @@
 require "rails_helper"
 
 RSpec.describe SlackNotificationJob, type: :job do
-  let(:org) { create(:organization) }
-  let(:plan_author) { create(:user, organization: org) }
-  let(:commenter) { create(:user, organization: org) }
+  let(:plan_author) { create(:user) }
+  let(:commenter) { create(:user) }
   let(:plan) { create(:plan, created_by_user: plan_author) }
   let(:thread_record) do
     create(:comment_thread, plan: plan,

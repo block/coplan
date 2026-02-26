@@ -1,8 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Settings::Tokens", type: :request do
-  let(:org) { create(:organization) }
-  let(:alice) { create(:user, :admin, organization: org) }
+  let(:alice) { create(:user, :admin) }
 
   before { sign_in_as(alice) }
 

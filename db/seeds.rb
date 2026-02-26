@@ -1,13 +1,7 @@
-puts "Seeding organizations..."
-square = Organization.find_or_create_by!(slug: "square") do |org|
-  org.name = "Square"
-  org.allowed_email_domains = ["squareup.com", "block.xyz"]
-end
-
 puts "Seeding users..."
-hampton = User.find_or_create_by!(organization: square, email: "hampton@squareup.com") do |u|
+hampton = User.find_or_create_by!(email: "hampton@squareup.com") do |u|
   u.name = "Hampton Lintorn-Catlin"
-  u.org_role = "admin"
+  u.role = "admin"
 end
 
 puts "Seeding plans..."
@@ -24,9 +18,9 @@ puts "Seeding comments..."
 if CoPlan::CommentThread.count == 0
   plan = CoPlan::Plan.first
   if plan&.current_plan_version
-    reviewer = User.find_or_create_by!(organization: square, email: "reviewer@squareup.com") do |u|
+    reviewer = User.find_or_create_by!(email: "reviewer@squareup.com") do |u|
       u.name = "Plan Reviewer"
-      u.org_role = "member"
+      u.role = "member"
     end
 
     thread = CoPlan::CommentThread.create!(
@@ -71,4 +65,4 @@ end
 puts "Seeding automated plan reviewers..."
 CoPlan::AutomatedPlanReviewer.create_defaults
 
-puts "Done! #{Organization.count} orgs, #{User.count} users, #{CoPlan::Plan.count} plans, #{CoPlan::CommentThread.count} threads, #{CoPlan::Comment.count} comments, #{CoPlan::ApiToken.count} API tokens, #{CoPlan::AutomatedPlanReviewer.count} reviewers."
+puts "Done! #{User.count} users, #{CoPlan::Plan.count} plans, #{CoPlan::CommentThread.count} threads, #{CoPlan::Comment.count} comments, #{CoPlan::ApiToken.count} API tokens, #{CoPlan::AutomatedPlanReviewer.count} reviewers."

@@ -1,10 +1,8 @@
 require "rails_helper"
 
 RSpec.describe "Api::V1::Plans", type: :request do
-  let(:org) { create(:organization) }
-  let(:other_org) { create(:organization, allowed_email_domains: ["other.com"]) }
-  let(:alice) { create(:user, :admin, organization: org) }
-  let(:carol) { create(:user, :admin, organization: other_org, email: "carol@other.com") }
+  let(:alice) { create(:user, :admin) }
+  let(:carol) { create(:user, :admin, email: "carol@other.com") }
   let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }
   let(:carol_token) { create(:api_token, user: carol, raw_token: "test-token-carol") }
   let(:revoked_token) { create(:api_token, :revoked, user: alice, raw_token: "test-token-revoked") }
@@ -118,14 +116,14 @@ RSpec.describe "Api::V1::Plans", type: :request do
       expect(response).to have_http_status(:unprocessable_entity)
     end
 
-    it "returns 403 for non-author from different org" do
+    it "returns 403 for non-author (carol)" do
       carol_token
       patch api_v1_plan_path(plan), params: { title: "Hacked" }, headers: { "Authorization" => "Bearer test-token-carol" }, as: :json
       expect(response).to have_http_status(:forbidden)
     end
 
     it "returns 403 for non-author" do
-      bob = create(:user, organization: org)
+      bob = create(:user)
       bob_token = create(:api_token, user: bob, raw_token: "test-token-bob")
       patch api_v1_plan_path(plan), params: { title: "Nope" }, headers: { "Authorization" => "Bearer test-token-bob" }, as: :json
       expect(response).to have_http_status(:forbidden)

@@ -1,8 +1,7 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::ApiToken, type: :model do
-  let(:org) { create(:organization) }
-  let(:user) { create(:user, organization: org) }
+  let(:user) { create(:user) }
 
   it "is valid with valid attributes" do
     token = create(:api_token, user: user)

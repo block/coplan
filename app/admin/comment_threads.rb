@@ -18,7 +18,6 @@ ActiveAdmin.register CoPlan::CommentThread, as: "CommentThread" do
     attributes_table do
       row :id
       row :plan
-      row :organization
       row :plan_version
       row :status
       row :start_line

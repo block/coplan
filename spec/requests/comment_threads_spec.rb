@@ -1,9 +1,8 @@
 require "rails_helper"
 
 RSpec.describe "CommentThreads", type: :request do
-  let(:org) { create(:organization) }
-  let(:alice) { create(:user, :admin, organization: org) }
-  let(:bob) { create(:user, organization: org) }
+  let(:alice) { create(:user, :admin) }
+  let(:bob) { create(:user) }
   let(:plan) { create(:plan, :considering, created_by_user: alice) }
 
   before { sign_in_as(alice) }

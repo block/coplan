@@ -16,7 +16,6 @@ ActiveAdmin.register CoPlan::Comment, as: "PlanComment" do
     attributes_table do
       row :id
       row :comment_thread
-      row :organization
       row :author_type
       row :author_id
       row :body_markdown
