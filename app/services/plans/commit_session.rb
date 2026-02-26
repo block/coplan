@@ -152,16 +152,34 @@ module Plans
     private
 
     def verify_text_at_range!(content, range, op_data)
-      return unless op_data["op"] == "replace_exact" && op_data["old_text"]
+      case op_data["op"]
+      when "replace_exact"
+        return unless op_data["old_text"]
+        actual_text = content[range[0]...range[1]]
+        return if actual_text == op_data["old_text"]
 
-      actual_text = content[range[0]...range[1]]
-      return if actual_text == op_data["old_text"]
+        context_start = [range[0] - 200, 0].max
+        context_end = [range[1] + 200, content.length].min
+        raise SessionConflictError,
+          "Content changed at conflict region. Expected '#{op_data["old_text"]}' " \
+          "but found '#{actual_text}'. Context: ...#{content[context_start...context_end]}..."
+      when "insert_under_heading"
+        return unless op_data["heading"]
+        line_start = range[0] > 0 ? (content.rindex("\n", range[0] - 1) || -1) + 1 : 0
+        line_text = content[line_start...range[0]]
+        return if line_text&.match?(/\A#{Regexp.escape(op_data["heading"])}\s*\z/)
 
-      context_start = [range[0] - 200, 0].max
-      context_end = [range[1] + 200, content.length].min
-      raise SessionConflictError,
-        "Content changed at conflict region. Expected '#{op_data["old_text"]}' " \
-        "but found '#{actual_text}'. Context: ...#{content[context_start...context_end]}..."
+        raise SessionConflictError,
+          "Heading changed at insert position. Expected '#{op_data["heading"]}' " \
+          "but found '#{line_text}'"
+      when "delete_paragraph_containing"
+        return unless op_data["needle"]
+        actual_text = content[range[0]...range[1]]
+        return if actual_text&.include?(op_data["needle"])
+
+        raise SessionConflictError,
+          "Paragraph at target position no longer contains '#{op_data["needle"]}'"
+      end
     end
   end
 end

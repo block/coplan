@@ -154,20 +154,8 @@ module Api
               Plans::TransformRange.transform_through_versions(range, intervening_versions)
             end
 
-            if op["op"] == "replace_exact" && op["old_text"]
-              transformed_ranges.each do |tr|
-                actual = verification_content[tr[0]...tr[1]]
-                unless actual == op["old_text"]
-                  render json: {
-                    error: "Conflict: text at target position has changed",
-                    current_revision: @plan.current_revision,
-                    expected: op["old_text"],
-                    found: actual
-                  }, status: :conflict
-                  return
-                end
-              end
-            end
+            verify_transformed_ranges!(op, transformed_ranges, verification_content)
+            return if performed?
 
             # Advance the working base snapshot so the next op resolves
             # against the result of this one (sequential semantics).
@@ -246,6 +234,54 @@ module Api
           applied: result[:applied].length,
           version_id: version.id
         }, status: :created
+      end
+
+      def verify_transformed_ranges!(op, transformed_ranges, content)
+        case op["op"]
+        when "replace_exact"
+          return unless op["old_text"]
+          transformed_ranges.each do |tr|
+            actual = content[tr[0]...tr[1]]
+            unless actual == op["old_text"]
+              render json: {
+                error: "Conflict: text at target position has changed",
+                current_revision: @plan.current_revision,
+                expected: op["old_text"],
+                found: actual
+              }, status: :conflict
+              return
+            end
+          end
+        when "insert_under_heading"
+          return unless op["heading"]
+          transformed_ranges.each do |tr|
+            line_start = tr[0] > 0 ? (content.rindex("\n", tr[0] - 1) || -1) + 1 : 0
+            line_text = content[line_start...tr[0]]
+            unless line_text&.match?(/\A#{Regexp.escape(op["heading"])}\s*\z/)
+              render json: {
+                error: "Conflict: heading at target position has changed",
+                current_revision: @plan.current_revision,
+                expected: op["heading"],
+                found: line_text
+              }, status: :conflict
+              return
+            end
+          end
+        when "delete_paragraph_containing"
+          return unless op["needle"]
+          transformed_ranges.each do |tr|
+            actual = content[tr[0]...tr[1]]
+            unless actual&.include?(op["needle"])
+              render json: {
+                error: "Conflict: paragraph no longer contains the expected text",
+                current_revision: @plan.current_revision,
+                expected_needle: op["needle"],
+                found: actual
+              }, status: :conflict
+              return
+            end
+          end
+        end
       end
 
       def broadcast_plan_update

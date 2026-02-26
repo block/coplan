@@ -302,6 +302,180 @@ RSpec.describe "Api::V1::Sessions", type: :request do
     end
   end
 
+  describe "stale rebase verification for non-replace ops" do
+    let(:rich_content) { "# My Plan\n\n## Overview\n\nThis is the overview.\n\n## Goals\n\nWe want to achieve great things.\n\n## Timeline\n\nQ1 2026 launch." }
+    let(:rich_plan) do
+      p = Plan.create!(organization: org, title: "Rich Plan", status: "considering", created_by_user: alice)
+      v = PlanVersion.create!(plan: p, organization: org, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
+      p.update!(current_plan_version: v, current_revision: 1)
+      p
+    end
+
+    def create_intervening_replace(plan, old_text, new_text)
+      content = plan.current_content
+      pos = content.index(old_text)
+      new_content = content.sub(old_text, new_text)
+      new_rev = plan.current_revision + 1
+      v = PlanVersion.create!(
+        plan: plan, organization: org, revision: new_rev,
+        content_markdown: new_content, actor_type: "human", actor_id: alice.id,
+        operations_json: [{
+          "op" => "replace_exact",
+          "old_text" => old_text, "new_text" => new_text,
+          "resolved_range" => [pos, pos + old_text.length],
+          "new_range" => [pos, pos + new_text.length],
+          "delta" => new_text.length - old_text.length
+        }]
+      )
+      plan.update!(current_plan_version: v, current_revision: new_rev)
+    end
+
+    it "returns 409 when stale insert_under_heading targets a renamed heading" do
+      stale_revision = rich_plan.current_revision
+
+      # Intervening edit renames "## Goals" to "## Objectives" (same position, different text)
+      create_intervening_replace(rich_plan, "## Goals", "## Objectives")
+
+      post api_v1_plan_operations_path(rich_plan),
+        params: {
+          base_revision: stale_revision,
+          operations: [{ op: "insert_under_heading", heading: "## Goals", content: "New goal item." }]
+        },
+        headers: headers, as: :json
+
+      expect(response).to have_http_status(:conflict)
+      expect(JSON.parse(response.body)["error"]).to include("heading")
+    end
+
+    it "succeeds when stale insert_under_heading heading is unchanged" do
+      stale_revision = rich_plan.current_revision
+
+      # Intervening edit changes unrelated content
+      create_intervening_replace(rich_plan, "Q1 2026 launch.", "Q2 2026 launch.")
+
+      post api_v1_plan_operations_path(rich_plan),
+        params: {
+          base_revision: stale_revision,
+          operations: [{ op: "insert_under_heading", heading: "## Goals", content: "\nNew goal item." }]
+        },
+        headers: headers, as: :json
+
+      expect(response).to have_http_status(:created)
+    end
+
+    it "returns 409 when stale delete_paragraph_containing target was modified" do
+      stale_revision = rich_plan.current_revision
+
+      # Intervening edit changes text inside the paragraph — TransformRange
+      # catches the overlap since the edit range is inside the paragraph range
+      create_intervening_replace(rich_plan, "great things", "small steps")
+
+      post api_v1_plan_operations_path(rich_plan),
+        params: {
+          base_revision: stale_revision,
+          operations: [{ op: "delete_paragraph_containing", needle: "great things" }]
+        },
+        headers: headers, as: :json
+
+      expect(response).to have_http_status(:conflict)
+    end
+
+    it "succeeds when stale delete_paragraph_containing needle still present" do
+      stale_revision = rich_plan.current_revision
+
+      # Intervening edit changes unrelated content
+      create_intervening_replace(rich_plan, "Q1 2026 launch.", "Q2 2026 launch.")
+
+      post api_v1_plan_operations_path(rich_plan),
+        params: {
+          base_revision: stale_revision,
+          operations: [{ op: "delete_paragraph_containing", needle: "great things" }]
+        },
+        headers: headers, as: :json
+
+      expect(response).to have_http_status(:created)
+    end
+  end
+
+  describe "stale session commit verification for non-replace ops" do
+    let(:rich_content) { "# My Plan\n\n## Overview\n\nThis is the overview.\n\n## Goals\n\nWe want to achieve great things.\n\n## Timeline\n\nQ1 2026 launch." }
+    let(:rich_plan) do
+      p = Plan.create!(organization: org, title: "Rich Plan", status: "considering", created_by_user: alice)
+      v = PlanVersion.create!(plan: p, organization: org, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
+      p.update!(current_plan_version: v, current_revision: 1)
+      p
+    end
+
+    def create_intervening_replace(plan, old_text, new_text)
+      content = plan.current_content
+      pos = content.index(old_text)
+      new_content = content.sub(old_text, new_text)
+      new_rev = plan.current_revision + 1
+      v = PlanVersion.create!(
+        plan: plan, organization: org, revision: new_rev,
+        content_markdown: new_content, actor_type: "human", actor_id: alice.id,
+        operations_json: [{
+          "op" => "replace_exact",
+          "old_text" => old_text, "new_text" => new_text,
+          "resolved_range" => [pos, pos + old_text.length],
+          "new_range" => [pos, pos + new_text.length],
+          "delta" => new_text.length - old_text.length
+        }]
+      )
+      plan.update!(current_plan_version: v, current_revision: new_rev)
+    end
+
+    it "raises conflict when stale session has insert_under_heading with renamed heading" do
+      # Open session at rev 1
+      post api_v1_plan_sessions_path(rich_plan), headers: headers, as: :json
+      session_id = JSON.parse(response.body)["id"]
+
+      # Apply insert_under_heading in the session
+      post api_v1_plan_operations_path(rich_plan),
+        params: {
+          session_id: session_id,
+          base_revision: rich_plan.current_revision,
+          operations: [{ op: "insert_under_heading", heading: "## Goals", content: "\nNew goal." }]
+        },
+        headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+
+      # Intervening edit renames the heading
+      create_intervening_replace(rich_plan, "## Goals", "## Objectives")
+
+      # Commit the stale session
+      post commit_api_v1_plan_session_path(rich_plan, session_id), headers: headers, as: :json
+
+      expect(response).to have_http_status(:conflict)
+      expect(JSON.parse(response.body)["error"]).to include("Heading changed")
+    end
+
+    it "raises conflict when stale session has delete_paragraph_containing with modified target" do
+      # Open session at rev 1
+      post api_v1_plan_sessions_path(rich_plan), headers: headers, as: :json
+      session_id = JSON.parse(response.body)["id"]
+
+      # Apply delete_paragraph_containing in the session
+      post api_v1_plan_operations_path(rich_plan),
+        params: {
+          session_id: session_id,
+          base_revision: rich_plan.current_revision,
+          operations: [{ op: "delete_paragraph_containing", needle: "great things" }]
+        },
+        headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+
+      # Intervening edit changes text inside the paragraph — TransformRange
+      # catches the overlap since the edit range is inside the paragraph range
+      create_intervening_replace(rich_plan, "great things", "small steps")
+
+      # Commit the stale session
+      post commit_api_v1_plan_session_path(rich_plan, session_id), headers: headers, as: :json
+
+      expect(response).to have_http_status(:conflict)
+    end
+  end
+
   describe "POST /api/v1/plans/:plan_id/operations with lease_token (legacy mode)" do
     it "existing behavior unchanged" do
       lease_token = SecureRandom.hex(32)
