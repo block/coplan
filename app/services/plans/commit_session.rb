@@ -1,4 +1,10 @@
 module Plans
+  # Commits an EditSession's accumulated operations as a single PlanVersion.
+  #
+  # If the session's base_revision is behind current_revision, each
+  # operation's resolved ranges are transformed through intervening versions
+  # via TransformRange (OT). All versions must have positional metadata —
+  # TransformRange raises Conflict if any operation lacks it.
   class CommitSession
     class StaleSessionError < StandardError; end
     class SessionConflictError < StandardError; end

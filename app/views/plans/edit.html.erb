@@ -8,16 +8,6 @@
     <%= f.text_field :title, required: true %>
   </div>
 
-  <div class="form-group">
-    <%= f.label :content_markdown, "Content (Markdown)" %>
-    <%= f.text_area :content_markdown, value: @plan.current_content, rows: 20 %>
-  </div>
-
-  <div class="form-group">
-    <%= f.label :change_summary, "Change summary (optional)" %>
-    <%= f.text_field :change_summary, placeholder: "Brief description of changes" %>
-  </div>
-
   <div class="plan-form__actions">
     <%= f.submit "Save Changes", class: "btn btn--primary" %>
     <%= link_to "Cancel", plan_path(@plan), class: "btn btn--secondary" %>

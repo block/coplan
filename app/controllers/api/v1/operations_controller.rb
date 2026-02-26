@@ -115,10 +115,12 @@ module Api
         end
       end
 
-      # Rebase stale operations: resolve each against a running base snapshot,
-      # transform through intervening versions, verify against current content,
-      # and return ops with pre-resolved ranges. Advances the working snapshot
-      # after each op so sequential ops see prior results.
+      # Rebase stale operations via OT: resolve each op to character ranges
+      # against the base_revision snapshot, transform those ranges through all
+      # intervening versions' positional metadata, verify the target text still
+      # matches at the transformed position, and return ops with pre-resolved
+      # ranges. All versions MUST have positional metadata in operations_json;
+      # TransformRange raises Conflict if any operation lacks it.
       def rebase_and_resolve(operations, base_revision, current_content)
         stale_gap = @plan.current_revision - base_revision
         if stale_gap > 20

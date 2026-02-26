@@ -1,4 +1,13 @@
 module Plans
+  # Operational Transform engine for character-range transformations.
+  #
+  # INVARIANT: Every PlanVersion's operations_json entries MUST contain
+  # positional metadata (resolved_range + new_range/delta, or replacements).
+  # All content edits flow through Plans::ApplyOperations which stores this
+  # data. There are no legacy or non-positional edit paths.
+  #
+  # If an operation lacks positional metadata, transform_through_versions
+  # raises Conflict rather than silently skipping it.
   class TransformRange
     class Conflict < StandardError; end
 

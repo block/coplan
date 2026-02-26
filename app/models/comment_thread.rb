@@ -21,6 +21,10 @@ class CommentThread < ApplicationRecord
   scope :active, -> { where(status: "open", out_of_date: false) }
   scope :archived, -> { where("status != 'open' OR out_of_date = ?", true) }
 
+  # Transforms anchor positions through intervening version edits using OT.
+  # Threads without positional data (anchor_start/anchor_end/anchor_revision)
+  # are marked out-of-date unconditionally — all new threads resolve positions
+  # on creation via resolve_anchor_position.
   def self.mark_out_of_date_for_new_version!(new_version)
     threads = where(out_of_date: false).where.not(plan_version_id: new_version.id)
     threads.find_each do |thread|
