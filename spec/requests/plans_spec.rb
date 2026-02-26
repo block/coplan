@@ -57,9 +57,9 @@ RSpec.describe "Plans", type: :request do
     expect(response).to redirect_to(plan_path(plan))
   end
 
-  it "cannot view brainstorm plan as non-author" do
+  it "can view brainstorm plan as non-author" do
     sign_in_as(bob)
     get plan_path(brainstorm_plan)
-    expect(response).to have_http_status(:not_found)
+    expect(response).to have_http_status(:ok)
   end
 end
