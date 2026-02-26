@@ -3,14 +3,14 @@ require "rails_helper"
 RSpec.describe "Api::V1::Operations", type: :request do
   let(:org) { create(:organization) }
   let(:alice) { create(:user, :admin, organization: org) }
-  let(:alice_token) { create(:api_token, organization: org, user: alice, raw_token: "test-token-alice") }
+  let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }
-  let(:plan) { create(:plan, :considering, organization: org, created_by_user: alice) }
+  let(:plan) { create(:plan, :considering, created_by_user: alice) }
   let(:lease_token) { SecureRandom.hex(32) }
 
   before do
     alice_token # ensure token exists
-    EditLease.acquire!(
+    CoPlan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",
       holder_id: alice_token.id,
@@ -30,14 +30,14 @@ RSpec.describe "Api::V1::Operations", type: :request do
         },
         headers: headers,
         as: :json
-    }.to change(PlanVersion, :count).by(1)
+    }.to change(CoPlan::PlanVersion, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["revision"]).to eq(plan.current_revision + 1)
   end
 
   it "apply operations fails without lease" do
-    EditLease.find_by(plan_id: plan.id)&.destroy
+    CoPlan::EditLease.find_by(plan_id: plan.id)&.destroy
 
     post api_v1_plan_operations_path(plan),
       params: {

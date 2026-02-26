@@ -1,7 +1,6 @@
 FactoryBot.define do
-  factory :edit_session do
+  factory :edit_session, class: "CoPlan::EditSession" do
     plan
-    organization { plan.organization }
     actor_type { "local_agent" }
     actor_id { SecureRandom.uuid_v7 }
     base_revision { plan.current_revision }

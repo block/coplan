@@ -1,4 +1,4 @@
-ActiveAdmin.register Comment, as: "PlanComment" do
+ActiveAdmin.register CoPlan::Comment, as: "PlanComment" do
   permit_params :body_markdown
 
   index do

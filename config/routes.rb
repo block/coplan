@@ -14,43 +14,5 @@ Rails.application.routes.draw do
   post "sign_in", to: "sessions#create"
   delete "sign_out", to: "sessions#destroy"
 
-  resources :plans, only: [:index, :show, :edit, :update] do
-    patch :update_status, on: :member
-    resources :versions, controller: "plan_versions", only: [:index, :show]
-    resources :automated_reviews, only: [:create]
-    resources :comment_threads, only: [:create] do
-      member do
-        patch :resolve
-        patch :accept
-        patch :dismiss
-        patch :reopen
-      end
-      resources :comments, only: [:create]
-    end
-  end
-
-  namespace :settings do
-    resources :tokens, only: [:index, :create, :destroy]
-  end
-
-  namespace :api do
-    namespace :v1 do
-      resources :plans, only: [:index, :show, :create, :update] do
-        get :versions, on: :member
-        get :comments, on: :member
-        resource :lease, only: [:create, :update, :destroy], controller: "leases"
-        resources :operations, only: [:create]
-        resources :sessions, only: [:create, :show], controller: "sessions" do
-          post :commit, on: :member
-        end
-        resources :comments, only: [:create], controller: "comments" do
-          post :reply, on: :member
-          patch :resolve, on: :member
-          patch :dismiss, on: :member
-        end
-      end
-    end
-  end
-
-  root "dashboard#show"
+  mount CoPlan::Engine => "/", as: :coplan
 end

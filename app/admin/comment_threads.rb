@@ -1,4 +1,4 @@
-ActiveAdmin.register CommentThread do
+ActiveAdmin.register CoPlan::CommentThread, as: "CommentThread" do
   permit_params :status, :out_of_date
 
   index do

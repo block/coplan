@@ -7,7 +7,7 @@ class SlackNotificationJob < ApplicationJob
   def perform(comment_thread_id:)
     return unless SlackClient.configured?
 
-    thread = CommentThread.find(comment_thread_id)
+    thread = CoPlan::CommentThread.find(comment_thread_id)
     plan = thread.plan
     plan_author = plan.created_by_user
     first_comment = thread.comments.order(:created_at, :id).first
@@ -23,7 +23,7 @@ class SlackNotificationJob < ApplicationJob
 
   def compose_message(thread, plan)
     comment_body = first_comment_body(thread).truncate(300)
-    plan_url = Rails.application.routes.url_helpers.plan_url(plan, **default_url_options)
+    plan_url = CoPlan::Engine.routes.url_helpers.plan_url(plan, **default_url_options)
 
     lines = ["New comment on *#{plan.title}*:"]
     if thread.anchor_text.present?

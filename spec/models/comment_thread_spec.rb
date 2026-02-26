@@ -1,10 +1,10 @@
 require "rails_helper"
 
-RSpec.describe CommentThread, type: :model do
+RSpec.describe CoPlan::CommentThread, type: :model do
   let(:org) { create(:organization) }
   let(:user) { create(:user, organization: org) }
-  let(:plan) { create(:plan, organization: org, created_by_user: user) }
-  let(:thread_record) { create(:comment_thread, plan: plan, organization: org, plan_version: plan.current_plan_version, created_by_user: user) }
+  let(:plan) { create(:plan, created_by_user: user) }
+  let(:thread_record) { create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: user) }
 
   it "is valid with valid attributes" do
     expect(thread_record).to be_valid
@@ -121,9 +121,8 @@ RSpec.describe CommentThread, type: :model do
     it "marks out-of-date when thread lacks positional data" do
       thread_record.update_columns(anchor_text: "world domination")
 
-      new_version = PlanVersion.create!(
+      new_version = CoPlan::PlanVersion.create!(
         plan: plan,
-        organization: org,
         revision: plan.current_revision + 1,
         content_markdown: "# Plan\n\nOur plan for world domination continues.",
         actor_type: "human",
@@ -136,9 +135,8 @@ RSpec.describe CommentThread, type: :model do
     end
 
     it "skips non-anchored threads" do
-      new_version = PlanVersion.create!(
+      new_version = CoPlan::PlanVersion.create!(
         plan: plan,
-        organization: org,
         revision: plan.current_revision + 1,
         content_markdown: "Completely different content.",
         actor_type: "human",

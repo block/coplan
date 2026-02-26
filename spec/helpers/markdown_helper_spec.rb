@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe MarkdownHelper, type: :helper do
+RSpec.describe CoPlan::MarkdownHelper, type: :helper do
   describe "#render_markdown" do
     it "converts markdown to HTML" do
       html = helper.render_markdown("# Hello\n\n**bold** text")

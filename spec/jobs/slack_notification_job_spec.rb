@@ -4,14 +4,14 @@ RSpec.describe SlackNotificationJob, type: :job do
   let(:org) { create(:organization) }
   let(:plan_author) { create(:user, organization: org) }
   let(:commenter) { create(:user, organization: org) }
-  let(:plan) { create(:plan, organization: org, created_by_user: plan_author) }
+  let(:plan) { create(:plan, created_by_user: plan_author) }
   let(:thread_record) do
-    create(:comment_thread, plan: plan, organization: org,
+    create(:comment_thread, plan: plan,
       plan_version: plan.current_plan_version, created_by_user: commenter)
   end
   let!(:first_comment) do
     thread_record.comments.create!(
-      organization: org, author_type: "human",
+      author_type: "human",
       author_id: commenter.id, body_markdown: "A comment body."
     )
   end

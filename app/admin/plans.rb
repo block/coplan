@@ -1,4 +1,4 @@
-ActiveAdmin.register Plan do
+ActiveAdmin.register CoPlan::Plan, as: "Plan" do
   permit_params :title, :status
 
   index do

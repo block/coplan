@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe PlanVersion, type: :model do
+RSpec.describe CoPlan::PlanVersion, type: :model do
   it "is valid with valid attributes" do
     plan = create(:plan)
     version = plan.current_plan_version
@@ -16,7 +16,7 @@ RSpec.describe PlanVersion, type: :model do
   it "validates revision uniqueness per plan" do
     plan = create(:plan)
     existing_version = plan.current_plan_version
-    version = build(:plan_version, plan: plan, organization: plan.organization, revision: existing_version.revision)
+    version = build(:plan_version, plan: plan, revision: existing_version.revision)
     expect(version).not_to be_valid
     expect(version.errors[:revision]).to include("has already been taken")
   end

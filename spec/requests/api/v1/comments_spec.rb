@@ -3,10 +3,10 @@ require "rails_helper"
 RSpec.describe "Api::V1::Comments", type: :request do
   let(:org) { create(:organization) }
   let(:alice) { create(:user, :admin, organization: org) }
-  let(:alice_token) { create(:api_token, organization: org, user: alice, raw_token: "test-token-alice") }
+  let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }
-  let(:plan) { create(:plan, :considering, organization: org, created_by_user: alice) }
-  let(:thread_record) { create(:comment_thread, plan: plan, organization: org, plan_version: plan.current_plan_version, created_by_user: alice) }
+  let(:plan) { create(:plan, :considering, created_by_user: alice) }
+  let(:thread_record) { create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice) }
 
   before do
     alice_token # ensure token exists
@@ -23,7 +23,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
         },
         headers: headers,
         as: :json
-    }.to change(CommentThread, :count).by(1).and change(Comment, :count).by(1)
+    }.to change(CoPlan::CommentThread, :count).by(1).and change(CoPlan::Comment, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["thread_id"]).to be_present
@@ -36,7 +36,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
         params: { body_markdown: "General API feedback", agent_name: "Amp" },
         headers: headers,
         as: :json
-    }.to change(CommentThread, :count).by(1)
+    }.to change(CoPlan::CommentThread, :count).by(1)
     expect(response).to have_http_status(:created)
   end
 
@@ -46,7 +46,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
         params: { body_markdown: "API reply", agent_name: "Amp" },
         headers: headers,
         as: :json
-    }.to change(Comment, :count).by(1)
+    }.to change(CoPlan::Comment, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["thread_id"]).to eq(thread_record.id)
@@ -99,7 +99,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
 
     it "returns 403 when user is not the plan author" do
       bob = create(:user, organization: org)
-      bob_token = create(:api_token, organization: org, user: bob, raw_token: "test-token-bob")
+      bob_token = create(:api_token, user: bob, raw_token: "test-token-bob")
       bob_headers = { "Authorization" => "Bearer test-token-bob" }
 
       patch dismiss_api_v1_plan_comment_path(plan, thread_record),

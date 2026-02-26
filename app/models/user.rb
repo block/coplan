@@ -1,6 +1,7 @@
 class User < ApplicationRecord
+  include CoPlan::UserModel
+
   belongs_to :organization
-  has_many :api_tokens, dependent: :destroy
 
   validates :email, presence: true
   validates :email, uniqueness: { scope: :organization_id }
@@ -11,6 +12,10 @@ class User < ApplicationRecord
 
   def admin?
     org_role == "admin"
+  end
+
+  def can_admin_coplan?
+    admin?
   end
 
   def email_domain

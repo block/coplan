@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Plans::TransformRange do
+RSpec.describe CoPlan::Plans::TransformRange do
   describe ".transform" do
     describe "basic transform" do
       it "shifts range when edit is entirely before" do

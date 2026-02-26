@@ -3,9 +3,9 @@ require "rails_helper"
 RSpec.describe "Api::V1::Sessions", type: :request do
   let(:org) { create(:organization) }
   let(:alice) { create(:user, :admin, organization: org) }
-  let(:alice_token) { create(:api_token, organization: org, user: alice, raw_token: "test-token-alice") }
+  let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }
-  let(:plan) { create(:plan, :considering, organization: org, created_by_user: alice) }
+  let(:plan) { create(:plan, :considering, created_by_user: alice) }
 
   before do
     alice_token # ensure token exists
@@ -15,7 +15,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
     it "creates a session with correct defaults" do
       expect {
         post api_v1_plan_sessions_path(plan), headers: headers, as: :json
-      }.to change(EditSession, :count).by(1)
+      }.to change(CoPlan::EditSession, :count).by(1)
 
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
@@ -35,7 +35,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
 
   describe "GET /api/v1/plans/:plan_id/sessions/:id" do
     it "returns session details" do
-      session = create(:edit_session, plan: plan, organization: org, actor_id: alice_token.id)
+      session = create(:edit_session, plan: plan, actor_id: alice_token.id)
 
       get api_v1_plan_session_path(plan, session), headers: headers, as: :json
       expect(response).to have_http_status(:ok)
@@ -54,10 +54,10 @@ RSpec.describe "Api::V1::Sessions", type: :request do
 
   describe "POST /api/v1/plans/:plan_id/sessions/:id/commit" do
     it "commits with operations and creates version" do
-      session = create(:edit_session, plan: plan, organization: org, actor_id: alice_token.id)
+      session = create(:edit_session, plan: plan, actor_id: alice_token.id)
       # Apply an operation to the session first
       current_content = plan.current_content
-      result = Plans::ApplyOperations.call(
+      result = CoPlan::Plans::ApplyOperations.call(
         content: current_content,
         operations: [{ "op" => "replace_exact", "old_text" => "Some content here.", "new_text" => "Updated content.", "count" => 1 }]
       )
@@ -68,7 +68,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
 
       expect {
         post commit_api_v1_plan_session_path(plan, session), headers: headers, as: :json
-      }.to change(PlanVersion, :count).by(1)
+      }.to change(CoPlan::PlanVersion, :count).by(1)
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -79,11 +79,11 @@ RSpec.describe "Api::V1::Sessions", type: :request do
     end
 
     it "commits with 0 operations — no version created" do
-      session = create(:edit_session, plan: plan, organization: org, actor_id: alice_token.id)
+      session = create(:edit_session, plan: plan, actor_id: alice_token.id)
 
       expect {
         post commit_api_v1_plan_session_path(plan, session), headers: headers, as: :json
-      }.not_to change(PlanVersion, :count)
+      }.not_to change(CoPlan::PlanVersion, :count)
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -92,9 +92,9 @@ RSpec.describe "Api::V1::Sessions", type: :request do
     end
 
     it "commits with change_summary param" do
-      session = create(:edit_session, plan: plan, organization: org, actor_id: alice_token.id)
+      session = create(:edit_session, plan: plan, actor_id: alice_token.id)
       current_content = plan.current_content
-      result = Plans::ApplyOperations.call(
+      result = CoPlan::Plans::ApplyOperations.call(
         content: current_content,
         operations: [{ "op" => "replace_exact", "old_text" => "Some content here.", "new_text" => "Changed.", "count" => 1 }]
       )
@@ -116,7 +116,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
 
   describe "POST /api/v1/plans/:plan_id/operations with session_id" do
     it "accumulates operations in session" do
-      session = create(:edit_session, plan: plan, organization: org, actor_id: alice_token.id)
+      session = create(:edit_session, plan: plan, actor_id: alice_token.id)
 
       post api_v1_plan_operations_path(plan),
         params: {
@@ -141,7 +141,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
     end
 
     it "second operation uses draft_content" do
-      session = create(:edit_session, plan: plan, organization: org, actor_id: alice_token.id)
+      session = create(:edit_session, plan: plan, actor_id: alice_token.id)
 
       # First operation
       post api_v1_plan_operations_path(plan),
@@ -206,7 +206,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
           },
           headers: headers,
           as: :json
-      }.to change(PlanVersion, :count).by(1)
+      }.to change(CoPlan::PlanVersion, :count).by(1)
 
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
@@ -224,9 +224,8 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       # Intervening edit changes the heading
       intervening_content = original_content.sub("# Plan Content", "# Updated Plan Title")
       new_rev = plan.current_revision + 1
-      intervening_version = PlanVersion.create!(
+      intervening_version = CoPlan::PlanVersion.create!(
         plan: plan,
-        organization: org,
         revision: new_rev,
         content_markdown: intervening_content,
         actor_type: "human",
@@ -254,7 +253,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
           },
           headers: headers,
           as: :json
-      }.to change(PlanVersion, :count).by(1)
+      }.to change(CoPlan::PlanVersion, :count).by(1)
 
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
@@ -268,9 +267,8 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       # Create an intervening version that changes the same text
       intervening_content = original_content.sub("Some content here.", "Completely different text.")
       new_rev = plan.current_revision + 1
-      intervening_version = PlanVersion.create!(
+      intervening_version = CoPlan::PlanVersion.create!(
         plan: plan,
-        organization: org,
         revision: new_rev,
         content_markdown: intervening_content,
         actor_type: "human",
@@ -305,8 +303,8 @@ RSpec.describe "Api::V1::Sessions", type: :request do
   describe "stale rebase verification for non-replace ops" do
     let(:rich_content) { "# My Plan\n\n## Overview\n\nThis is the overview.\n\n## Goals\n\nWe want to achieve great things.\n\n## Timeline\n\nQ1 2026 launch." }
     let(:rich_plan) do
-      p = Plan.create!(organization: org, title: "Rich Plan", status: "considering", created_by_user: alice)
-      v = PlanVersion.create!(plan: p, organization: org, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
+      p = CoPlan::Plan.create!(title: "Rich Plan", status: "considering", created_by_user: alice)
+      v = CoPlan::PlanVersion.create!(plan: p, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
       p.update!(current_plan_version: v, current_revision: 1)
       p
     end
@@ -316,8 +314,8 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       pos = content.index(old_text)
       new_content = content.sub(old_text, new_text)
       new_rev = plan.current_revision + 1
-      v = PlanVersion.create!(
-        plan: plan, organization: org, revision: new_rev,
+      v = CoPlan::PlanVersion.create!(
+        plan: plan, revision: new_rev,
         content_markdown: new_content, actor_type: "human", actor_id: alice.id,
         operations_json: [{
           "op" => "replace_exact",
@@ -400,8 +398,8 @@ RSpec.describe "Api::V1::Sessions", type: :request do
   describe "stale session commit verification for non-replace ops" do
     let(:rich_content) { "# My Plan\n\n## Overview\n\nThis is the overview.\n\n## Goals\n\nWe want to achieve great things.\n\n## Timeline\n\nQ1 2026 launch." }
     let(:rich_plan) do
-      p = Plan.create!(organization: org, title: "Rich Plan", status: "considering", created_by_user: alice)
-      v = PlanVersion.create!(plan: p, organization: org, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
+      p = CoPlan::Plan.create!(title: "Rich Plan", status: "considering", created_by_user: alice)
+      v = CoPlan::PlanVersion.create!(plan: p, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
       p.update!(current_plan_version: v, current_revision: 1)
       p
     end
@@ -411,8 +409,8 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       pos = content.index(old_text)
       new_content = content.sub(old_text, new_text)
       new_rev = plan.current_revision + 1
-      v = PlanVersion.create!(
-        plan: plan, organization: org, revision: new_rev,
+      v = CoPlan::PlanVersion.create!(
+        plan: plan, revision: new_rev,
         content_markdown: new_content, actor_type: "human", actor_id: alice.id,
         operations_json: [{
           "op" => "replace_exact",
@@ -479,7 +477,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
   describe "POST /api/v1/plans/:plan_id/operations with lease_token (legacy mode)" do
     it "existing behavior unchanged" do
       lease_token = SecureRandom.hex(32)
-      EditLease.acquire!(
+      CoPlan::EditLease.acquire!(
         plan: plan,
         holder_type: "local_agent",
         holder_id: alice_token.id,
@@ -497,7 +495,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
           },
           headers: headers,
           as: :json
-      }.to change(PlanVersion, :count).by(1)
+      }.to change(CoPlan::PlanVersion, :count).by(1)
 
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)

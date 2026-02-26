@@ -1,4 +1,4 @@
-ActiveAdmin.register EditSession do
+ActiveAdmin.register CoPlan::EditSession, as: "EditSession" do
   menu parent: "Plans"
 
   index do

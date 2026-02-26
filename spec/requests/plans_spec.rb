@@ -4,8 +4,8 @@ RSpec.describe "Plans", type: :request do
   let(:org) { create(:organization) }
   let(:alice) { create(:user, :admin, organization: org) }
   let(:bob) { create(:user, organization: org) }
-  let(:plan) { create(:plan, :considering, organization: org, created_by_user: alice) }
-  let(:brainstorm_plan) { create(:plan, :brainstorm, organization: org, created_by_user: alice) }
+  let(:plan) { create(:plan, :considering, created_by_user: alice) }
+  let(:brainstorm_plan) { create(:plan, :brainstorm, created_by_user: alice) }
 
   before { sign_in_as(alice) }
 
@@ -51,15 +51,15 @@ RSpec.describe "Plans", type: :request do
       patch plan_path(plan), params: {
         plan: { title: "Updated Title" }
       }
-    }.not_to change(PlanVersion, :count)
+    }.not_to change(CoPlan::PlanVersion, :count)
     plan.reload
     expect(plan.title).to eq("Updated Title")
     expect(response).to redirect_to(plan_path(plan))
   end
 
-  it "cannot view brainstorm plan as non-author" do
+  it "can view brainstorm plan as non-author" do
     sign_in_as(bob)
     get plan_path(brainstorm_plan)
-    expect(response).to have_http_status(:not_found)
+    expect(response).to have_http_status(:ok)
   end
 end

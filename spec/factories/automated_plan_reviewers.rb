@@ -1,6 +1,5 @@
 FactoryBot.define do
-  factory :automated_plan_reviewer do
-    organization
+  factory :automated_plan_reviewer, class: "CoPlan::AutomatedPlanReviewer" do
     sequence(:key) { |n| "reviewer-#{n}" }
     sequence(:name) { |n| "Reviewer #{n}" }
     prompt_text { "You are a reviewer. Review the plan." }

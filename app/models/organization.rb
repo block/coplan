@@ -1,12 +1,8 @@
 class Organization < ApplicationRecord
   has_many :users, dependent: :destroy
-  has_many :plans, dependent: :destroy
-  has_many :api_tokens, dependent: :destroy
-  has_many :edit_leases, dependent: :destroy
-  has_many :automated_plan_reviewers, dependent: :destroy
 
   after_initialize { self.allowed_email_domains ||= [] }
-  after_create { AutomatedPlanReviewer.create_defaults_for(self) }
+  after_create { CoPlan::AutomatedPlanReviewer.create_defaults }
 
   validates :name, presence: true
   validates :slug, presence: true, uniqueness: true,

@@ -22,12 +22,12 @@
   <body>
     <nav class="site-nav">
       <div class="site-nav__inner">
-        <%= link_to "📋 CoPlan", root_path, class: "site-nav__brand" %>
+        <%= link_to "📋 CoPlan", coplan.root_path, class: "site-nav__brand" %>
 
         <ul class="site-nav__links">
           <% if signed_in? %>
-            <li><%= link_to "Plans", plans_path %></li>
-            <li><%= link_to "Settings", settings_tokens_path %></li>
+            <li><%= link_to "Plans", coplan.plans_path %></li>
+            <li><%= link_to "Settings", coplan.settings_tokens_path %></li>
           <% end %>
           <%# TODO: Phase 8.2 — Notifications bell %>
         </ul>

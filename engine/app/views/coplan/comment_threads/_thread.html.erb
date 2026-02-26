@@ -1,0 +1,47 @@
+<div class="comment-thread card" id="<%= dom_id(thread) %>"
+     data-anchor-text="<%= thread.anchor_text %>"
+     data-anchor-context="<%= thread.anchor_context %>"
+     data-thread-id="<%= thread.id %>">
+  <div class="comment-thread__header">
+    <div class="comment-thread__meta">
+      <span class="badge badge--<%= thread.status == 'open' ? 'live' : 'abandoned' %>"><%= thread.status %></span>
+      <% if thread.out_of_date? %>
+        <span class="badge badge--abandoned">out of date</span>
+      <% end %>
+    </div>
+    <% if thread.anchored? %>
+      <blockquote class="comment-thread__anchor-quote" data-action="click->text-selection#scrollToAnchor" data-anchor="<%= thread.anchor_text %>" style="cursor: pointer;"><%= thread.anchor_preview %></blockquote>
+    <% end %>
+  </div>
+
+  <div class="comment-thread__comments" id="<%= dom_id(thread, :comments) %>">
+    <% thread.comments.each do |comment| %>
+      <%= render partial: "coplan/comments/comment", locals: { comment: comment } %>
+    <% end %>
+  </div>
+
+  <%# current_user may not be available during Turbo Stream broadcasts — show all actions in that case %>
+  <% viewer = local_assigns.fetch(:current_user, nil) %>
+  <% is_plan_author = viewer.nil? || plan.created_by_user_id == viewer.id %>
+  <% is_thread_author = viewer.nil? || thread.created_by_user_id == viewer.id %>
+
+  <% if thread.status == "open" %>
+    <%= render partial: "coplan/comment_threads/reply_form", locals: { thread: thread, plan: plan } %>
+
+    <div class="comment-thread__actions">
+      <% if is_plan_author || is_thread_author %>
+        <%= link_to "Resolve", resolve_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
+      <% end %>
+      <% if is_plan_author %>
+        <%= link_to "Accept", accept_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
+        <%= link_to "Dismiss", dismiss_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
+      <% end %>
+    </div>
+  <% else %>
+    <% if is_plan_author || is_thread_author %>
+      <div class="comment-thread__actions">
+        <%= link_to "Reopen", reopen_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
+      </div>
+    <% end %>
+  <% end %>
+</div>

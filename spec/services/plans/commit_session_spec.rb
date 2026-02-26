@@ -1,13 +1,13 @@
 require "rails_helper"
 
-RSpec.describe Plans::CommitSession do
+RSpec.describe CoPlan::Plans::CommitSession do
   let(:org) { create(:organization) }
   let(:user) { create(:user, organization: org) }
   let(:content) { "# My Plan\n\nFirst section content.\n\n## Goals\n\nWe should use unit tests.\n\n## Timeline\n\nQ1 2026 delivery." }
   let(:plan) do
-    plan = Plan.create!(organization: org, title: "Test Plan", created_by_user: user)
-    version = PlanVersion.create!(
-      plan: plan, organization: org, revision: 1,
+    plan = CoPlan::Plan.create!(title: "Test Plan", created_by_user: user)
+    version = CoPlan::PlanVersion.create!(
+      plan: plan, revision: 1,
       content_markdown: content, actor_type: "human", actor_id: user.id
     )
     plan.update!(current_plan_version: version, current_revision: 1)
@@ -15,9 +15,8 @@ RSpec.describe Plans::CommitSession do
   end
 
   def build_session(plan:, operations_json: [], draft_content: nil, base_revision: nil, **attrs)
-    EditSession.create!(
+    CoPlan::EditSession.create!(
       plan: plan,
-      organization: plan.organization,
       actor_type: "local_agent",
       actor_id: SecureRandom.uuid_v7,
       base_revision: base_revision || plan.current_revision,
@@ -40,12 +39,12 @@ RSpec.describe Plans::CommitSession do
 
       result = described_class.call(session: session)
 
-      expect(result[:version]).to be_a(PlanVersion)
+      expect(result[:version]).to be_a(CoPlan::PlanVersion)
       expect(result[:version].content_markdown).to eq(new_content)
       expect(result[:session].reload.status).to eq("committed")
       expect(result[:session].committed_at).to be_present
       expect(result[:session].plan_version_id).to eq(result[:version].id)
-      expect(PlanVersion.where(plan: plan).count).to eq(2)
+      expect(CoPlan::PlanVersion.where(plan: plan).count).to eq(2)
     end
 
     it "commits a session with 0 operations without creating a PlanVersion" do
@@ -56,7 +55,7 @@ RSpec.describe Plans::CommitSession do
       expect(result[:version]).to be_nil
       expect(result[:session].reload.status).to eq("committed")
       expect(result[:session].committed_at).to be_present
-      expect(PlanVersion.where(plan: plan).count).to eq(1)
+      expect(CoPlan::PlanVersion.where(plan: plan).count).to eq(1)
     end
 
     it "uses change_summary from param when provided" do
@@ -152,8 +151,8 @@ RSpec.describe Plans::CommitSession do
       new_text = "Updated first section."
       start_pos = content.index(old_text)
       end_pos = start_pos + old_text.length
-      PlanVersion.create!(
-        plan: plan, organization: org, revision: 2,
+      CoPlan::PlanVersion.create!(
+        plan: plan, revision: 2,
         content_markdown: v2_content, actor_type: "human", actor_id: user.id,
         operations_json: [{
           "op" => "replace_exact",
@@ -164,11 +163,11 @@ RSpec.describe Plans::CommitSession do
           "delta" => new_text.length - old_text.length
         }]
       )
-      plan.update!(current_revision: 2, current_plan_version: PlanVersion.find_by(plan: plan, revision: 2))
+      plan.update!(current_revision: 2, current_plan_version: CoPlan::PlanVersion.find_by(plan: plan, revision: 2))
 
       result = described_class.call(session: session)
 
-      expect(result[:version]).to be_a(PlanVersion)
+      expect(result[:version]).to be_a(CoPlan::PlanVersion)
       expect(result[:version].revision).to eq(3)
       expect(result[:version].content_markdown).to include("Updated first section.")
       expect(result[:version].content_markdown).to include("Q2 2026 delivery.")
@@ -197,8 +196,8 @@ RSpec.describe Plans::CommitSession do
       new_text = "We should use acceptance tests."
       start_pos = content.index(old_text)
       end_pos = start_pos + old_text.length
-      PlanVersion.create!(
-        plan: plan, organization: org, revision: 2,
+      CoPlan::PlanVersion.create!(
+        plan: plan, revision: 2,
         content_markdown: v2_content, actor_type: "human", actor_id: user.id,
         operations_json: [{
           "op" => "replace_exact",
@@ -209,11 +208,11 @@ RSpec.describe Plans::CommitSession do
           "delta" => new_text.length - old_text.length
         }]
       )
-      plan.update!(current_revision: 2, current_plan_version: PlanVersion.find_by(plan: plan, revision: 2))
+      plan.update!(current_revision: 2, current_plan_version: CoPlan::PlanVersion.find_by(plan: plan, revision: 2))
 
       expect {
         described_class.call(session: session)
-      }.to raise_error(Plans::CommitSession::SessionConflictError)
+      }.to raise_error(CoPlan::Plans::CommitSession::SessionConflictError)
     end
   end
 
@@ -249,18 +248,18 @@ RSpec.describe Plans::CommitSession do
       21.times do |i|
         rev = i + 2
         new_content = current_content + "\n\nRevision #{rev} content."
-        PlanVersion.create!(
-          plan: plan, organization: org, revision: rev,
+        CoPlan::PlanVersion.create!(
+          plan: plan, revision: rev,
           content_markdown: new_content, actor_type: "human", actor_id: user.id,
           operations_json: []
         )
         current_content = new_content
       end
-      plan.update!(current_revision: 22, current_plan_version: PlanVersion.find_by(plan: plan, revision: 22))
+      plan.update!(current_revision: 22, current_plan_version: CoPlan::PlanVersion.find_by(plan: plan, revision: 22))
 
       expect {
         described_class.call(session: session)
-      }.to raise_error(Plans::CommitSession::StaleSessionError, /too stale.*21 revisions behind/)
+      }.to raise_error(CoPlan::Plans::CommitSession::StaleSessionError, /too stale.*21 revisions behind/)
     end
 
     it "calls mark_out_of_date_for_new_version! on comment threads" do
@@ -272,9 +271,8 @@ RSpec.describe Plans::CommitSession do
       )
 
       # Create a comment thread anchored to text that will change
-      comment_thread = CommentThread.create!(
+      comment_thread = CoPlan::CommentThread.create!(
         plan: plan,
-        organization: org,
         plan_version: plan.current_plan_version,
         created_by_user: user,
         status: "open",
@@ -346,7 +344,7 @@ RSpec.describe Plans::CommitSession do
       # Commit B — should fail because the text was already changed
       expect {
         described_class.call(session: session_b)
-      }.to raise_error(Plans::OperationError)
+      }.to raise_error(CoPlan::Plans::OperationError)
     end
   end
 
@@ -357,7 +355,7 @@ RSpec.describe Plans::CommitSession do
 
       expect {
         described_class.call(session: session)
-      }.to raise_error(Plans::CommitSession::SessionNotOpenError, /not open/)
+      }.to raise_error(CoPlan::Plans::CommitSession::SessionNotOpenError, /not open/)
     end
 
     it "raises SessionNotOpenError for a cancelled session" do
@@ -366,7 +364,7 @@ RSpec.describe Plans::CommitSession do
 
       expect {
         described_class.call(session: session)
-      }.to raise_error(Plans::CommitSession::SessionNotOpenError, /not open/)
+      }.to raise_error(CoPlan::Plans::CommitSession::SessionNotOpenError, /not open/)
     end
   end
 end
