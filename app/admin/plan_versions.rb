@@ -1,4 +1,4 @@
-ActiveAdmin.register PlanVersion do
+ActiveAdmin.register CoPlan::PlanVersion, as: "PlanVersion" do
   actions :index, :show
 
   index do

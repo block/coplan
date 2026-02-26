@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Plan, type: :model do
+RSpec.describe CoPlan::Plan, type: :model do
   it "is valid with valid attributes" do
     plan = create(:plan)
     expect(plan).to be_valid
@@ -19,7 +19,7 @@ RSpec.describe Plan, type: :model do
   end
 
   it "defaults status to brainstorm" do
-    plan = Plan.new
+    plan = CoPlan::Plan.new
     expect(plan.status).to eq("brainstorm")
   end
 

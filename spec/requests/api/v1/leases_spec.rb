@@ -4,10 +4,10 @@ RSpec.describe "Api::V1::Leases", type: :request do
   let(:org) { create(:organization) }
   let(:alice) { create(:user, :admin, organization: org) }
   let(:bob) { create(:user, organization: org) }
-  let(:alice_token) { create(:api_token, organization: org, user: alice, raw_token: "test-token-alice") }
-  let(:bob_token) { create(:api_token, organization: org, user: bob, raw_token: "test-token-bob") }
+  let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }
+  let(:bob_token) { create(:api_token, user: bob, raw_token: "test-token-bob") }
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }
-  let(:plan) { create(:plan, :considering, organization: org, created_by_user: alice) }
+  let(:plan) { create(:plan, :considering, created_by_user: alice) }
 
   before do
     alice_token # ensure token exists
@@ -85,6 +85,6 @@ RSpec.describe "Api::V1::Leases", type: :request do
       headers: headers,
       as: :json
     expect(response).to have_http_status(:no_content)
-    expect(EditLease.find_by(plan_id: plan.id)).to be_nil
+    expect(CoPlan::EditLease.find_by(plan_id: plan.id)).to be_nil
   end
 end

@@ -17,6 +17,9 @@ RSpec.configure do |config|
 
   config.include FactoryBot::Syntax::Methods
   config.include ActiveSupport::Testing::TimeHelpers
+  config.include CoPlan::Engine.routes.url_helpers
+
+
 
   def sign_in_as(user)
     post sign_in_path, params: { email: user.email }

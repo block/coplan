@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Comment, type: :model do
+RSpec.describe CoPlan::Comment, type: :model do
   it "is valid with valid attributes" do
     comment = create(:comment)
     expect(comment).to be_valid
@@ -20,25 +20,25 @@ RSpec.describe Comment, type: :model do
 
   it "belongs to comment_thread" do
     thread = create(:comment_thread)
-    comment = create(:comment, comment_thread: thread, organization: thread.organization)
+    comment = create(:comment, comment_thread: thread)
     expect(comment.comment_thread).to eq(thread)
   end
 
   describe "Slack notification callback" do
     let(:thread_record) { create(:comment_thread) }
 
-    it "enqueues SlackNotificationJob for the first comment in a thread" do
+    it "enqueues NotificationJob for the first comment in a thread" do
       expect {
-        create(:comment, comment_thread: thread_record, organization: thread_record.organization)
-      }.to have_enqueued_job(SlackNotificationJob).with(comment_thread_id: thread_record.id)
+        create(:comment, comment_thread: thread_record)
+      }.to have_enqueued_job(CoPlan::NotificationJob)
     end
 
-    it "does not enqueue SlackNotificationJob for subsequent comments" do
-      create(:comment, comment_thread: thread_record, organization: thread_record.organization)
+    it "does not enqueue NotificationJob for subsequent comments" do
+      create(:comment, comment_thread: thread_record)
 
       expect {
-        create(:comment, comment_thread: thread_record, organization: thread_record.organization)
-      }.not_to have_enqueued_job(SlackNotificationJob)
+        create(:comment, comment_thread: thread_record)
+      }.not_to have_enqueued_job(CoPlan::NotificationJob)
     end
   end
 end

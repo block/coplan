@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Plans::PositionResolver do
+RSpec.describe CoPlan::Plans::PositionResolver do
   subject(:resolve) { described_class.call(content: content, operation: operation) }
 
   describe "replace_exact" do
@@ -98,7 +98,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "replace_exact", old_text: "missing", new_text: "found" } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /found 0 occurrences/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /found 0 occurrences/)
       end
     end
 
@@ -107,7 +107,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "replace_exact", old_text: "foo", new_text: "baz", occurrence: 5 } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /occurrence 5 requested but only 2 found/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /occurrence 5 requested but only 2 found/)
       end
     end
 
@@ -116,7 +116,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "replace_exact", old_text: "foo", new_text: "baz", occurrence: 0 } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /occurrence must be >= 1/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /occurrence must be >= 1/)
       end
     end
 
@@ -125,7 +125,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "replace_exact", old_text: "foo", new_text: "baz", occurrence: -1 } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /occurrence must be >= 1/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /occurrence must be >= 1/)
       end
     end
 
@@ -134,7 +134,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "replace_exact", old_text: "foo", new_text: "baz" } }
 
       it "raises error" do
-        expect { resolve }.to raise_error(Plans::OperationError, /found 2 occurrences, expected at most 1/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /found 2 occurrences, expected at most 1/)
       end
     end
 
@@ -155,7 +155,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "replace_exact", old_text: "foo", new_text: "baz", count: 1 } }
 
       it "raises error like default behavior" do
-        expect { resolve }.to raise_error(Plans::OperationError, /found 2 occurrences, expected at most 1/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /found 2 occurrences, expected at most 1/)
       end
     end
 
@@ -177,7 +177,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "replace_exact", old_text: "hello", new_text: "world" } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /found 0 occurrences/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /found 0 occurrences/)
       end
     end
 
@@ -186,7 +186,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "replace_exact", new_text: "Bye" } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /requires 'old_text'/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /requires 'old_text'/)
       end
     end
 
@@ -195,7 +195,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "replace_exact", old_text: "Hello" } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /requires 'new_text'/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /requires 'new_text'/)
       end
     end
 
@@ -262,7 +262,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "insert_under_heading", heading: "## Missing", content: "stuff" } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /no heading matching/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /no heading matching/)
       end
     end
 
@@ -271,7 +271,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "insert_under_heading", heading: "## Goals", content: "stuff" } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /found 2 headings/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /found 2 headings/)
       end
     end
 
@@ -280,7 +280,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "insert_under_heading", content: "stuff" } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /requires 'heading'/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /requires 'heading'/)
       end
     end
 
@@ -289,7 +289,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "insert_under_heading", heading: "# Title" } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /requires 'content'/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /requires 'content'/)
       end
     end
   end
@@ -386,7 +386,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "delete_paragraph_containing", needle: "missing" } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /no paragraph containing/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /no paragraph containing/)
       end
     end
 
@@ -395,7 +395,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "delete_paragraph_containing", needle: "deprecated" } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /found 2 paragraphs/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /found 2 paragraphs/)
       end
     end
 
@@ -404,7 +404,7 @@ RSpec.describe Plans::PositionResolver do
       let(:operation) { { op: "delete_paragraph_containing" } }
 
       it "raises OperationError" do
-        expect { resolve }.to raise_error(Plans::OperationError, /requires 'needle'/)
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /requires 'needle'/)
       end
     end
 
@@ -438,7 +438,7 @@ RSpec.describe Plans::PositionResolver do
     let(:operation) { { op: "bogus_op" } }
 
     it "raises OperationError" do
-      expect { resolve }.to raise_error(Plans::OperationError, /Unknown operation/)
+      expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /Unknown operation/)
     end
   end
 end

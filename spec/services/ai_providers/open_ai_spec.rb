@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe AiProviders::OpenAi do
+RSpec.describe CoPlan::AiProviders::OpenAi do
   let(:model) { "gpt-4o" }
   let(:system_prompt) { "You are a reviewer." }
   let(:user_content) { "# My Plan\n\nSome content." }
@@ -43,16 +43,17 @@ RSpec.describe AiProviders::OpenAi do
 
       expect {
         described_class.call(system_prompt: system_prompt, user_content: user_content, model: model)
-      }.to raise_error(AiProviders::OpenAi::Error, "No response content from OpenAI")
+      }.to raise_error(CoPlan::AiProviders::OpenAi::Error, "No response content from OpenAI")
     end
 
     it "raises an error when API key is not configured" do
+      allow(CoPlan.configuration).to receive(:ai_api_key).and_return(nil)
       allow(ENV).to receive(:[]).with("OPENAI_API_KEY").and_return(nil)
       allow(Rails.application.credentials).to receive(:dig).with(:openai, :api_key).and_return(nil)
 
       expect {
         described_class.call(system_prompt: system_prompt, user_content: user_content, model: model)
-      }.to raise_error(AiProviders::OpenAi::Error, "OpenAI API key not configured")
+      }.to raise_error(CoPlan::AiProviders::OpenAi::Error, "OpenAI API key not configured")
     end
   end
 end

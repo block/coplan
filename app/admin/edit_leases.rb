@@ -1,5 +1,5 @@
-ActiveAdmin.register EditLease do
-  permit_params :plan_id, :organization_id, :holder_type, :holder_id
+ActiveAdmin.register CoPlan::EditLease, as: "EditLease" do
+  permit_params :plan_id, :holder_type, :holder_id
 
   index do
     selectable_column

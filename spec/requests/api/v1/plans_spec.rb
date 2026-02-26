@@ -5,11 +5,11 @@ RSpec.describe "Api::V1::Plans", type: :request do
   let(:other_org) { create(:organization, allowed_email_domains: ["other.com"]) }
   let(:alice) { create(:user, :admin, organization: org) }
   let(:carol) { create(:user, :admin, organization: other_org, email: "carol@other.com") }
-  let(:alice_token) { create(:api_token, organization: org, user: alice, raw_token: "test-token-alice") }
-  let(:carol_token) { create(:api_token, organization: other_org, user: carol, raw_token: "test-token-carol") }
-  let(:revoked_token) { create(:api_token, :revoked, organization: org, user: alice, raw_token: "test-token-revoked") }
+  let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }
+  let(:carol_token) { create(:api_token, user: carol, raw_token: "test-token-carol") }
+  let(:revoked_token) { create(:api_token, :revoked, user: alice, raw_token: "test-token-revoked") }
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }
-  let(:plan) { create(:plan, :considering, organization: org, created_by_user: alice, title: "Acme Roadmap") }
+  let(:plan) { create(:plan, :considering, created_by_user: alice, title: "Acme Roadmap") }
 
   before do
     alice_token # ensure token exists
@@ -23,13 +23,13 @@ RSpec.describe "Api::V1::Plans", type: :request do
     expect(plans.any? { |p| p["title"] == "Acme Roadmap" }).to be true
   end
 
-  it "index excludes other org plans" do
+  it "index shows all non-brainstorm plans to any authenticated user" do
     plan # trigger creation
     carol_token # ensure token exists
     get api_v1_plans_path, headers: { "Authorization" => "Bearer test-token-carol" }
     expect(response).to have_http_status(:success)
     plans = JSON.parse(response.body)
-    expect(plans.any? { |p| p["title"] == "Acme Roadmap" }).to be false
+    expect(plans.any? { |p| p["title"] == "Acme Roadmap" }).to be true
   end
 
   it "index requires auth" do
@@ -51,16 +51,16 @@ RSpec.describe "Api::V1::Plans", type: :request do
     expect(body["current_content"]).to be_present
   end
 
-  it "show returns 404 for other org plan" do
+  it "show returns plan for any authenticated user" do
     carol_token # ensure token exists
     get api_v1_plan_path(plan), headers: { "Authorization" => "Bearer test-token-carol" }
-    expect(response).to have_http_status(:not_found)
+    expect(response).to have_http_status(:success)
   end
 
   it "create creates new plan" do
     expect {
       post api_v1_plans_path, params: { title: "API Plan", content: "# API Plan\n\nCreated via API." }, headers: headers, as: :json
-    }.to change(Plan, :count).by(1)
+    }.to change(CoPlan::Plan, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["title"]).to eq("API Plan")
@@ -118,15 +118,15 @@ RSpec.describe "Api::V1::Plans", type: :request do
       expect(response).to have_http_status(:unprocessable_entity)
     end
 
-    it "returns 404 for other org plan" do
+    it "returns 403 for non-author from different org" do
       carol_token
       patch api_v1_plan_path(plan), params: { title: "Hacked" }, headers: { "Authorization" => "Bearer test-token-carol" }, as: :json
-      expect(response).to have_http_status(:not_found)
+      expect(response).to have_http_status(:forbidden)
     end
 
     it "returns 403 for non-author" do
       bob = create(:user, organization: org)
-      bob_token = create(:api_token, organization: org, user: bob, raw_token: "test-token-bob")
+      bob_token = create(:api_token, user: bob, raw_token: "test-token-bob")
       patch api_v1_plan_path(plan), params: { title: "Nope" }, headers: { "Authorization" => "Bearer test-token-bob" }, as: :json
       expect(response).to have_http_status(:forbidden)
     end
@@ -145,7 +145,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
   end
 
   it "comments returns thread list with anchor_text" do
-    thread = create(:comment_thread, :with_anchor, plan: plan, organization: org,
+    thread = create(:comment_thread, :with_anchor, plan: plan,
       plan_version: plan.current_plan_version, created_by_user: alice, anchor_text: "original roadmap text")
     get comments_api_v1_plan_path(plan), headers: headers
     expect(response).to have_http_status(:success)

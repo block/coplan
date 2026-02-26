@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Plans::ReviewResponseParser do
+RSpec.describe CoPlan::Plans::ReviewResponseParser do
   let(:plan_content) { "# My Plan\n\nWe use API tokens scoped to a user.\n\nNo rate limiting yet." }
 
   describe ".call" do

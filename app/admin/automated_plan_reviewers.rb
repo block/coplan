@@ -1,5 +1,5 @@
-ActiveAdmin.register AutomatedPlanReviewer do
-  permit_params :organization_id, :key, :name, :prompt_text, :enabled, :ai_provider, :ai_model, trigger_statuses: []
+ActiveAdmin.register CoPlan::AutomatedPlanReviewer, as: "AutomatedPlanReviewer" do
+  permit_params :key, :name, :prompt_text, :enabled, :ai_provider, :ai_model, trigger_statuses: []
 
   index do
     selectable_column

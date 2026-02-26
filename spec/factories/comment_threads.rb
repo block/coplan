@@ -1,9 +1,8 @@
 FactoryBot.define do
-  factory :comment_thread do
+  factory :comment_thread, class: "CoPlan::CommentThread" do
     plan
-    organization { plan.organization }
     plan_version { plan.current_plan_version }
-    created_by_user { association(:user, organization: plan.organization) }
+    created_by_user { association(:user) }
     status { "open" }
     out_of_date { false }
 
@@ -20,7 +19,7 @@ FactoryBot.define do
 
     trait :resolved do
       status { "resolved" }
-      resolved_by_user { association(:user, organization: plan.organization) }
+      resolved_by_user { association(:user) }
     end
   end
 end

@@ -21,7 +21,7 @@ class SessionsController < ApplicationController
     user.update!(last_sign_in_at: Time.current)
 
     session[:user_id] = user.id
-    redirect_to root_path, notice: "Signed in as #{user.name}."
+    redirect_to coplan.root_path, notice: "Signed in as #{user.name}."
   end
 
   def destroy

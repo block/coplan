@@ -1,5 +1,5 @@
-ActiveAdmin.register ApiToken do
-  permit_params :name, :user_id, :organization_id
+ActiveAdmin.register CoPlan::ApiToken, as: "ApiToken" do
+  permit_params :name, :user_id
 
   index do
     selectable_column

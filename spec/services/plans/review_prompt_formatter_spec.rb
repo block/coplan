@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Plans::ReviewPromptFormatter do
+RSpec.describe CoPlan::Plans::ReviewPromptFormatter do
   describe ".call" do
     it "appends JSON response format instructions to the reviewer prompt" do
       result = described_class.call(reviewer_prompt: "Review for security issues.")

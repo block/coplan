@@ -1,9 +1,9 @@
 require "rails_helper"
 
-RSpec.describe Plans::Create do
+RSpec.describe CoPlan::Plans::Create do
   it "creates plan with initial version" do
     user = create(:user)
-    plan = Plans::Create.call(
+    plan = CoPlan::Plans::Create.call(
       title: "New Plan",
       content: "# New Plan\n\nSome content.",
       user: user
@@ -13,7 +13,6 @@ RSpec.describe Plans::Create do
     expect(plan.title).to eq("New Plan")
     expect(plan.status).to eq("brainstorm")
     expect(plan.created_by_user).to eq(user)
-    expect(plan.organization).to eq(user.organization)
     expect(plan.current_revision).to eq(1)
     expect(plan.plan_versions.count).to eq(1)
 

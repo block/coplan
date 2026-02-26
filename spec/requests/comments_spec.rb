@@ -3,8 +3,8 @@ require "rails_helper"
 RSpec.describe "Comments", type: :request do
   let(:org) { create(:organization) }
   let(:alice) { create(:user, :admin, organization: org) }
-  let(:plan) { create(:plan, :considering, organization: org, created_by_user: alice) }
-  let(:thread_record) { create(:comment_thread, plan: plan, organization: org, plan_version: plan.current_plan_version, created_by_user: alice) }
+  let(:plan) { create(:plan, :considering, created_by_user: alice) }
+  let(:thread_record) { create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice) }
 
   before { sign_in_as(alice) }
 
@@ -13,9 +13,9 @@ RSpec.describe "Comments", type: :request do
       post plan_comment_thread_comments_path(plan, thread_record), params: {
         comment: { body_markdown: "I agree with this." }
       }
-    }.to change(Comment, :count).by(1)
+    }.to change(CoPlan::Comment, :count).by(1)
     expect(response).to redirect_to(plan_path(plan))
-    comment = Comment.last
+    comment = CoPlan::Comment.last
     expect(comment.author_type).to eq("human")
     expect(comment.author_id).to eq(alice.id)
   end
