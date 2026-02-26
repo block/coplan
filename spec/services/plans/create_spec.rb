@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe CoPlan::Plans::Create do
   it "creates plan with initial version" do
-    user = create(:user)
+    user = create(:coplan_user)
     plan = CoPlan::Plans::Create.call(
       title: "New Plan",
       content: "# New Plan\n\nSome content.",

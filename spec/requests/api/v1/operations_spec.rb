@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Api::V1::Operations", type: :request do
-  let(:alice) { create(:user, :admin) }
+  let(:alice) { create(:coplan_user, :admin) }
   let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }
   let(:plan) { create(:plan, :considering, created_by_user: alice) }

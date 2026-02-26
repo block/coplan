@@ -2,7 +2,7 @@ module CoPlan
   class Plan < ApplicationRecord
     STATUSES = %w[brainstorm considering developing live abandoned].freeze
 
-    belongs_to :created_by_user, class_name: CoPlan.user_class_name
+    belongs_to :created_by_user, class_name: "CoPlan::User"
     belongs_to :current_plan_version, class_name: "PlanVersion", optional: true
     has_many :plan_versions, -> { order(revision: :asc) }, dependent: :destroy
     has_many :plan_collaborators, dependent: :destroy

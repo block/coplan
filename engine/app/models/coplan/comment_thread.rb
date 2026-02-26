@@ -6,8 +6,8 @@ module CoPlan
 
     belongs_to :plan
     belongs_to :plan_version
-    belongs_to :created_by_user, class_name: CoPlan.user_class_name
-    belongs_to :resolved_by_user, class_name: CoPlan.user_class_name, optional: true
+    belongs_to :created_by_user, class_name: "CoPlan::User"
+    belongs_to :resolved_by_user, class_name: "CoPlan::User", optional: true
     belongs_to :out_of_date_since_version, class_name: "PlanVersion", optional: true
     belongs_to :addressed_in_plan_version, class_name: "PlanVersion", optional: true
     has_many :comments, dependent: :destroy

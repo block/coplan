@@ -14,15 +14,17 @@
       <div class="site-nav__inner">
         <%= link_to "📋 CoPlan", coplan.root_path, class: "site-nav__brand" %>
         <ul class="site-nav__links">
-          <% if respond_to?(:signed_in?) && signed_in? %>
+          <% if signed_in? %>
             <li><%= link_to "Plans", coplan.plans_path %></li>
             <li><%= link_to "Settings", coplan.settings_tokens_path %></li>
           <% end %>
         </ul>
-        <% if respond_to?(:signed_in?) && signed_in? %>
+        <% if signed_in? %>
           <div class="site-nav__user">
             <span><%= current_user.name %></span>
-            <%= link_to "Sign out", main_app.sign_out_path, data: { turbo_method: :delete } %>
+            <% if main_app.respond_to?(:sign_out_path) %>
+              <%= link_to "Sign out", main_app.sign_out_path, data: { turbo_method: :delete } %>
+            <% end %>
           </div>
         <% end %>
       </div>

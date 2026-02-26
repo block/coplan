@@ -1,8 +1,8 @@
 require "rails_helper"
 
 RSpec.describe "Plans", type: :request do
-  let(:alice) { create(:user, :admin) }
-  let(:bob) { create(:user) }
+  let(:alice) { create(:coplan_user, :admin) }
+  let(:bob) { create(:coplan_user) }
   let(:plan) { create(:plan, :considering, created_by_user: alice) }
   let(:brainstorm_plan) { create(:plan, :brainstorm, created_by_user: alice) }
 

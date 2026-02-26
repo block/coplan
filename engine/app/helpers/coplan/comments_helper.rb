@@ -3,11 +3,11 @@ module CoPlan
     def comment_author_name(comment)
       case comment.author_type
       when "human"
-        CoPlan.user_class.find_by(id: comment.author_id)&.name || "Unknown"
+        CoPlan::User.find_by(id: comment.author_id)&.name || "Unknown"
       when "local_agent"
-        user_name = CoPlan.user_class
-          .joins("INNER JOIN coplan_api_tokens ON coplan_api_tokens.user_id = users.id")
-          .where("coplan_api_tokens.id = ?", comment.author_id)
+        user_name = CoPlan::User
+          .joins(:api_tokens)
+          .where(coplan_api_tokens: { id: comment.author_id })
           .pick(:name) || "Agent"
         comment.agent_name.present? ? "#{user_name} (#{comment.agent_name})" : user_name
       when "cloud_persona"

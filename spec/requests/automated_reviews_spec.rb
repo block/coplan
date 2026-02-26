@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "AutomatedReviews", type: :request do
-  let(:user) { create(:user, :admin) }
+  let(:user) { create(:coplan_user, :admin) }
   let(:plan) { create(:plan, :considering, created_by_user: user) }
   let!(:reviewer) { create(:automated_plan_reviewer, enabled: true) }
 

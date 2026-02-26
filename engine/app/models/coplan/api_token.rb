@@ -2,7 +2,7 @@ module CoPlan
   class ApiToken < ApplicationRecord
     HOLDER_TYPE = "local_agent"
 
-    belongs_to :user, class_name: CoPlan.user_class_name
+    belongs_to :user, class_name: "CoPlan::User"
 
     validates :name, presence: true
     validates :token_digest, presence: true, uniqueness: true

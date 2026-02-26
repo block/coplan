@@ -1,6 +1,6 @@
 FactoryBot.define do
   factory :plan, class: "CoPlan::Plan" do
-    created_by_user { association(:user) }
+    created_by_user { association(:coplan_user) }
     sequence(:title) { |n| "Plan #{n}" }
     status { "brainstorm" }
     tags { [] }

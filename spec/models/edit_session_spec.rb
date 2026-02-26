@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::EditSession, type: :model do
-  let(:user) { create(:user) }
+  let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
 
   describe "validations" do

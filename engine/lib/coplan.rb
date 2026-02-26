@@ -1,5 +1,4 @@
 require "coplan/configuration"
-require "coplan/user_model"
 require "coplan/engine"
 
 module CoPlan
@@ -10,14 +9,6 @@ module CoPlan
 
     def configure
       yield(configuration)
-    end
-
-    def user_class
-      configuration.user_class.constantize
-    end
-
-    def user_class_name
-      configuration.user_class
     end
   end
 end

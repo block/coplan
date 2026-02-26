@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::CommitExpiredSessionJob do
-  let(:user) { create(:user) }
+  let(:user) { create(:coplan_user) }
   let(:content) { "# Test Plan\n\nSome content here." }
   let(:plan) do
     plan = CoPlan::Plan.create!(title: "Test Plan", created_by_user: user)
