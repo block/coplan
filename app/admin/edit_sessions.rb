@@ -18,7 +18,6 @@ ActiveAdmin.register CoPlan::EditSession, as: "EditSession" do
     attributes_table do
       row :id
       row :plan
-      row :organization
       row :actor_type
       row :actor_id
       row :status

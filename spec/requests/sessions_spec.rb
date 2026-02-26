@@ -1,8 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Sessions", type: :request do
-  let(:org) { create(:organization, allowed_email_domains: ["acme.com"]) }
-  let!(:alice) { create(:user, :admin, organization: org, email: "alice@acme.com", name: "Alice") }
+  let!(:alice) { create(:user, :admin, email: "alice@acme.com", name: "Alice") }
 
   it "sign in page renders" do
     get sign_in_path
@@ -16,12 +15,6 @@ RSpec.describe "Sessions", type: :request do
     follow_redirect!
     expect(response).to have_http_status(:success)
     expect(response.body).to include("Alice")
-  end
-
-  it "sign in with unknown domain shows error" do
-    post sign_in_path, params: { email: "user@unknown.com" }
-    expect(response).to have_http_status(:unprocessable_entity)
-    expect(response.body).to include("No organization found")
   end
 
   it "sign in creates new user if not exists" do

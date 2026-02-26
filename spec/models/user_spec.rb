@@ -18,25 +18,17 @@ RSpec.describe User, type: :model do
     expect(user.errors[:name]).to include("can't be blank")
   end
 
-  it "validates email uniqueness within organization" do
+  it "validates email uniqueness" do
     existing = create(:user)
-    user = build(:user, organization: existing.organization, email: existing.email)
+    user = build(:user, email: existing.email)
     expect(user).not_to be_valid
     expect(user.errors[:email]).to include("has already been taken")
   end
 
-  it "allows same email in different orgs" do
-    org1 = create(:organization, allowed_email_domains: ["test.com"])
-    org2 = create(:organization, allowed_email_domains: ["test.com"])
-    create(:user, organization: org1, email: "same@test.com")
-    user = build(:user, organization: org2, email: "same@test.com")
-    expect(user).to be_valid
-  end
-
-  it "validates org_role inclusion" do
-    user = build(:user, org_role: "superadmin")
+  it "validates role inclusion" do
+    user = build(:user, role: "superadmin")
     expect(user).not_to be_valid
-    expect(user.errors[:org_role]).to include("is not included in the list")
+    expect(user.errors[:role]).to include("is not included in the list")
   end
 
   it "returns true for admin?" do
@@ -45,15 +37,8 @@ RSpec.describe User, type: :model do
   end
 
   it "returns false for admin? when member" do
-    user = create(:user, org_role: "member")
+    user = create(:user, role: "member")
     expect(user).not_to be_admin
-  end
-
-  it "validates email domain against org allowed domains" do
-    org = create(:organization, allowed_email_domains: ["acme.com"])
-    user = build(:user, organization: org, email: "user@other.com")
-    expect(user).not_to be_valid
-    expect(user.errors[:email]).to include("domain is not allowed for this organization")
   end
 
   it "extracts email domain" do

@@ -1,8 +1,7 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::CommentThread, type: :model do
-  let(:org) { create(:organization) }
-  let(:user) { create(:user, organization: org) }
+  let(:user) { create(:user) }
   let(:plan) { create(:plan, created_by_user: user) }
   let(:thread_record) { create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: user) }
 

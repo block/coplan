@@ -6,16 +6,8 @@ class SessionsController < ApplicationController
 
   def create
     email = params[:email].to_s.strip.downcase
-    domain = email.split("@").last
 
-    org = Organization.all.find { |o| o.email_domain_allowed?(email) }
-    if org.nil?
-      flash.now[:alert] = "No organization found for email domain \"#{domain}\"."
-      render :new, status: :unprocessable_entity
-      return
-    end
-
-    user = org.users.find_or_create_by!(email: email) do |u|
+    user = User.find_or_create_by!(email: email) do |u|
       u.name = email.split("@").first.titleize
     end
     user.update!(last_sign_in_at: Time.current)

@@ -6,7 +6,6 @@ ActiveAdmin.register CoPlan::AutomatedPlanReviewer, as: "AutomatedPlanReviewer" 
     id_column
     column :key
     column :name
-    column :organization
     column :enabled
     column :ai_provider
     column :ai_model
@@ -20,7 +19,6 @@ ActiveAdmin.register CoPlan::AutomatedPlanReviewer, as: "AutomatedPlanReviewer" 
       row :id
       row :key
       row :name
-      row :organization
       row :prompt_text
       row :enabled
       row :ai_provider

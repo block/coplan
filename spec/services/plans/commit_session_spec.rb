@@ -1,8 +1,7 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::Plans::CommitSession do
-  let(:org) { create(:organization) }
-  let(:user) { create(:user, organization: org) }
+  let(:user) { create(:user) }
   let(:content) { "# My Plan\n\nFirst section content.\n\n## Goals\n\nWe should use unit tests.\n\n## Timeline\n\nQ1 2026 delivery." }
   let(:plan) do
     plan = CoPlan::Plan.create!(title: "Test Plan", created_by_user: user)

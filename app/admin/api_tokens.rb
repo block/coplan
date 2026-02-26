@@ -6,7 +6,6 @@ ActiveAdmin.register CoPlan::ApiToken, as: "ApiToken" do
     id_column
     column :name
     column :user
-    column :organization
     column :last_used_at
     column :revoked_at
     column :expires_at
@@ -19,7 +18,6 @@ ActiveAdmin.register CoPlan::ApiToken, as: "ApiToken" do
       row :id
       row :name
       row :user
-      row :organization
       row :token_digest
       row :last_used_at
       row :revoked_at

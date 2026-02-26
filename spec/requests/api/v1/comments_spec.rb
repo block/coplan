@@ -1,8 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Api::V1::Comments", type: :request do
-  let(:org) { create(:organization) }
-  let(:alice) { create(:user, :admin, organization: org) }
+  let(:alice) { create(:user, :admin) }
   let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }
   let(:plan) { create(:plan, :considering, created_by_user: alice) }
@@ -98,7 +97,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
     end
 
     it "returns 403 when user is not the plan author" do
-      bob = create(:user, organization: org)
+      bob = create(:user)
       bob_token = create(:api_token, user: bob, raw_token: "test-token-bob")
       bob_headers = { "Authorization" => "Bearer test-token-bob" }
 

@@ -1,8 +1,6 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::AutomatedPlanReviewer, type: :model do
-  let(:org) { create(:organization) }
-
   it "is valid with valid attributes" do
     reviewer = create(:automated_plan_reviewer)
     expect(reviewer).to be_valid
@@ -45,7 +43,7 @@ RSpec.describe CoPlan::AutomatedPlanReviewer, type: :model do
     expect(reviewer.errors[:key]).to include("only allows lowercase letters, numbers, and hyphens")
   end
 
-  it "validates key uniqueness scoped to organization" do
+  it "validates key uniqueness" do
     existing = create(:automated_plan_reviewer)
     duplicate = build(:automated_plan_reviewer, key: existing.key)
     expect(duplicate).not_to be_valid

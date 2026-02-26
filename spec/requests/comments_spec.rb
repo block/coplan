@@ -1,8 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Comments", type: :request do
-  let(:org) { create(:organization) }
-  let(:alice) { create(:user, :admin, organization: org) }
+  let(:alice) { create(:user, :admin) }
   let(:plan) { create(:plan, :considering, created_by_user: alice) }
   let(:thread_record) { create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice) }
 

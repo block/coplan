@@ -5,7 +5,6 @@ ActiveAdmin.register CoPlan::EditLease, as: "EditLease" do
     selectable_column
     id_column
     column :plan
-    column :organization
     column :holder_type
     column :holder_id
     column :expires_at
@@ -18,7 +17,6 @@ ActiveAdmin.register CoPlan::EditLease, as: "EditLease" do
     attributes_table do
       row :id
       row :plan
-      row :organization
       row :holder_type
       row :holder_id
       row :lease_token_digest

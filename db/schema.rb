@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_26_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_26_193257) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -170,16 +170,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_000001) do
     t.index ["updated_at"], name: "index_coplan_plans_on_updated_at"
   end
 
-  create_table "organizations", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
-    t.json "allowed_email_domains"
-    t.datetime "created_at", null: false
-    t.string "name", null: false
-    t.text "slack_webhook_url"
-    t.string "slug", null: false
-    t.datetime "updated_at", null: false
-    t.index ["slug"], name: "index_organizations_on_slug", unique: true
-  end
-
   create_table "users", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email", null: false
@@ -187,11 +177,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_000001) do
     t.string "name", null: false
     t.string "oidc_provider"
     t.string "oidc_sub"
-    t.string "org_role", default: "member", null: false
-    t.string "organization_id", limit: 36, null: false
+    t.string "role", default: "member", null: false
     t.datetime "updated_at", null: false
-    t.index ["organization_id", "email"], name: "index_users_on_organization_id_and_email", unique: true
-    t.index ["organization_id"], name: "index_users_on_organization_id"
+    t.index ["email"], name: "index_users_on_email", unique: true
   end
 
   add_foreign_key "coplan_api_tokens", "users"
@@ -211,5 +199,4 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_000001) do
   add_foreign_key "coplan_plan_versions", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plans", "coplan_plan_versions", column: "current_plan_version_id"
   add_foreign_key "coplan_plans", "users", column: "created_by_user_id"
-  add_foreign_key "users", "organizations"
 end

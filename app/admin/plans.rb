@@ -7,7 +7,6 @@ ActiveAdmin.register CoPlan::Plan, as: "Plan" do
     column :title
     column :status
     column :current_revision
-    column :organization
     column :created_by_user
     column :updated_at
     actions
@@ -19,7 +18,6 @@ ActiveAdmin.register CoPlan::Plan, as: "Plan" do
       row :title
       row :status
       row :current_revision
-      row :organization
       row :created_by_user
       row :tags
       row :metadata
