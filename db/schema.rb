@@ -49,7 +49,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_000001) do
     t.text "prompt_text", null: false
     t.json "trigger_statuses", null: false
     t.datetime "updated_at", null: false
-    t.index ["key"], name: "idx_on_organization_id_key_29eb87b95c", unique: true
     t.index ["key"], name: "index_coplan_automated_plan_reviewers_on_key", unique: true
   end
 
@@ -167,9 +166,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_000001) do
     t.datetime "updated_at", null: false
     t.index ["created_by_user_id"], name: "index_coplan_plans_on_created_by_user_id"
     t.index ["current_plan_version_id"], name: "fk_rails_c401577583"
-    t.index ["status"], name: "index_coplan_plans_on_organization_id_and_status"
     t.index ["status"], name: "index_coplan_plans_on_status"
-    t.index ["updated_at"], name: "index_coplan_plans_on_organization_id_and_updated_at"
     t.index ["updated_at"], name: "index_coplan_plans_on_updated_at"
   end
 

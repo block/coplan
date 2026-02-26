@@ -48,6 +48,10 @@ module CoPlan
 
           @plan.update!(permitted)
 
+          if @plan.saved_changes?
+            Broadcaster.replace_to(@plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: @plan })
+          end
+
           if permitted.key?(:status) && @plan.saved_change_to_status?
             Plans::TriggerAutomatedReviews.call(plan: @plan, new_status: permitted[:status], triggered_by: current_user)
           end
