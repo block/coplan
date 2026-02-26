@@ -18,10 +18,10 @@ class CreateCoplanUsersAndMigrate < ActiveRecord::Migration[8.1]
     SQL
 
     # Update foreign keys to point to coplan_users instead of users
-    remove_foreign_key :coplan_api_tokens, :users
+    remove_foreign_key :coplan_api_tokens, column: :user_id
     remove_foreign_key :coplan_comment_threads, column: :created_by_user_id
     remove_foreign_key :coplan_comment_threads, column: :resolved_by_user_id
-    remove_foreign_key :coplan_plan_collaborators, :users
+    remove_foreign_key :coplan_plan_collaborators, column: :user_id
     remove_foreign_key :coplan_plan_collaborators, column: :added_by_user_id
     remove_foreign_key :coplan_plans, column: :created_by_user_id
 
@@ -34,17 +34,17 @@ class CreateCoplanUsersAndMigrate < ActiveRecord::Migration[8.1]
   end
 
   def down
-    remove_foreign_key :coplan_api_tokens, :coplan_users
+    remove_foreign_key :coplan_api_tokens, column: :user_id
     remove_foreign_key :coplan_comment_threads, column: :created_by_user_id
     remove_foreign_key :coplan_comment_threads, column: :resolved_by_user_id
-    remove_foreign_key :coplan_plan_collaborators, :coplan_users
+    remove_foreign_key :coplan_plan_collaborators, column: :user_id
     remove_foreign_key :coplan_plan_collaborators, column: :added_by_user_id
     remove_foreign_key :coplan_plans, column: :created_by_user_id
 
-    add_foreign_key :coplan_api_tokens, :users
+    add_foreign_key :coplan_api_tokens, :users, column: :user_id
     add_foreign_key :coplan_comment_threads, :users, column: :created_by_user_id
     add_foreign_key :coplan_comment_threads, :users, column: :resolved_by_user_id
-    add_foreign_key :coplan_plan_collaborators, :users
+    add_foreign_key :coplan_plan_collaborators, :users, column: :user_id
     add_foreign_key :coplan_plan_collaborators, :users, column: :added_by_user_id
     add_foreign_key :coplan_plans, :users, column: :created_by_user_id
 

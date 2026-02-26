@@ -39,6 +39,6 @@ RSpec.describe "Settings::Tokens", type: :request do
   it "requires authentication" do
     delete sign_out_path
     get settings_tokens_path
-    expect(response).to redirect_to(sign_in_path)
+    expect(response).to have_http_status(:unauthorized)
   end
 end
