@@ -45,16 +45,15 @@ RSpec.describe "Plans", type: :request do
     expect(response).to have_http_status(:success)
   end
 
-  it "update plan creates new version" do
+  it "update plan updates title without creating a version" do
     plan # trigger creation
     expect {
       patch plan_path(plan), params: {
-        plan: { title: "Updated Title", content_markdown: "# Updated", change_summary: "Revised" }
+        plan: { title: "Updated Title" }
       }
-    }.to change(PlanVersion, :count).by(1)
+    }.not_to change(PlanVersion, :count)
     plan.reload
     expect(plan.title).to eq("Updated Title")
-    expect(plan.current_revision).to eq(2)
     expect(response).to redirect_to(plan_path(plan))
   end
 
@@ -62,18 +61,5 @@ RSpec.describe "Plans", type: :request do
     sign_in_as(bob)
     get plan_path(brainstorm_plan)
     expect(response).to have_http_status(:not_found)
-  end
-
-  it "update marks existing threads as out of date" do
-    thread = create(:comment_thread, :with_anchor, plan: plan, organization: org, plan_version: plan.current_plan_version, created_by_user: alice, anchor_text: "original roadmap text")
-    expect(thread).not_to be_out_of_date
-
-    patch plan_path(plan), params: {
-      plan: { title: plan.title, content_markdown: "# Updated content", change_summary: "Updated" }
-    }
-
-    thread.reload
-    expect(thread).to be_out_of_date
-    expect(thread.out_of_date_since_version_id).not_to be_nil
   end
 end

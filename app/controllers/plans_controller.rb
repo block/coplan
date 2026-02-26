@@ -21,23 +21,10 @@ class PlansController < ApplicationController
   def update
     authorize!(@plan, :update?)
 
-    version = PlanVersion.create!(
-      plan: @plan,
-      organization: @organization,
-      revision: @plan.current_revision + 1,
-      content_markdown: params[:plan][:content_markdown],
-      actor_type: "human",
-      actor_id: current_user.id,
-      change_summary: params[:plan][:change_summary]
-    )
-
-    @plan.update!(
-      title: params[:plan][:title],
-      current_plan_version: version,
-      current_revision: version.revision
-    )
-
-    @plan.comment_threads.mark_out_of_date_for_new_version!(version)
+    # Content editing is done via the API operations endpoint (which stores
+    # positional metadata required by the OT engine). This action only
+    # updates metadata fields.
+    @plan.update!(title: params[:plan][:title])
 
     broadcast_plan_update(@plan)
     redirect_to plan_path(@plan), notice: "Plan updated."

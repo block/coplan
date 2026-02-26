@@ -74,14 +74,14 @@ RSpec.describe "Api::V1::Operations", type: :request do
     expect(response).to have_http_status(:unprocessable_entity)
   end
 
-  it "apply operations requires lease_token" do
+  it "apply operations without lease_token uses direct mode" do
     post api_v1_plan_operations_path(plan),
       params: {
         base_revision: plan.current_revision,
-        operations: [{ op: "replace_exact", old_text: "x", new_text: "y", count: 1 }]
+        operations: [{ op: "replace_exact", old_text: "Some content here.", new_text: "Direct edit.", count: 1 }]
       },
       headers: headers,
       as: :json
-    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response).to have_http_status(:created)
   end
 end

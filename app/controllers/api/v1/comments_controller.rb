@@ -9,6 +9,7 @@ module Api
           organization: current_organization,
           plan_version: @plan.current_plan_version,
           anchor_text: params[:anchor_text].presence,
+          anchor_occurrence: params[:anchor_occurrence]&.to_i,
           start_line: params[:start_line].presence,
           end_line: params[:end_line].presence,
           created_by_user: current_user

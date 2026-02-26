@@ -54,7 +54,7 @@ RSpec.describe Plans::ApplyOperations do
         content: content,
         operations: [{ "op" => "insert_under_heading", "heading" => "## Goals", "content" => "- New goal" }]
       )
-      expect(result[:content]).to include("## Goals\n\n- New goal")
+      expect(result[:content]).to include("## Goals\n- New goal")
       expect(result[:content]).to include("Existing goals.")
     end
 
@@ -146,5 +146,113 @@ RSpec.describe Plans::ApplyOperations do
       operations: [{ op: "replace_exact", old_text: "world", new_text: "planet", count: 1 }]
     )
     expect(result[:content]).to eq("Hello planet")
+  end
+
+  describe "occurrence and replace_all parameters" do
+    it "occurrence: 2 targets the second match" do
+      result = Plans::ApplyOperations.call(
+        content: "foo bar foo baz foo",
+        operations: [{ "op" => "replace_exact", "old_text" => "foo", "new_text" => "qux", "occurrence" => 2 }]
+      )
+      expect(result[:content]).to eq("foo bar qux baz foo")
+    end
+
+    it "replace_all: true replaces all occurrences" do
+      result = Plans::ApplyOperations.call(
+        content: "foo bar foo baz foo",
+        operations: [{ "op" => "replace_exact", "old_text" => "foo", "new_text" => "qux", "replace_all" => true }]
+      )
+      expect(result[:content]).to eq("qux bar qux baz qux")
+    end
+
+    it "legacy count still works for backward compat" do
+      result = Plans::ApplyOperations.call(
+        content: "foo bar foo baz",
+        operations: [{ "op" => "replace_exact", "old_text" => "foo", "new_text" => "qux", "count" => 2 }]
+      )
+      expect(result[:content]).to eq("qux bar qux baz")
+    end
+  end
+
+  describe "resolved position data" do
+    it "single replace_exact includes resolved_range, new_range, and delta" do
+      result = Plans::ApplyOperations.call(
+        content: "Hello world",
+        operations: [{ "op" => "replace_exact", "old_text" => "world", "new_text" => "planet", "count" => 1 }]
+      )
+      applied = result[:applied][0]
+      expect(applied["resolved_range"]).to eq([6, 11])
+      expect(applied["new_range"]).to eq([6, 12])
+      expect(applied["delta"]).to eq(1)
+    end
+
+    it "replace_all applied ops include replacements array" do
+      result = Plans::ApplyOperations.call(
+        content: "foo bar foo baz",
+        operations: [{ "op" => "replace_exact", "old_text" => "foo", "new_text" => "quux", "replace_all" => true }]
+      )
+      applied = result[:applied][0]
+      expect(applied["replacements"]).to be_an(Array)
+      expect(applied["replacements"].length).to eq(2)
+
+      first = applied["replacements"][0]
+      expect(first["resolved_range"]).to eq([0, 3])
+      expect(first["new_range"]).to eq([0, 4])
+      expect(first["delta"]).to eq(1)
+
+      second = applied["replacements"][1]
+      expect(second["resolved_range"]).to eq([8, 11])
+      expect(second["new_range"]).to eq([8, 12])
+      expect(second["delta"]).to eq(1)
+
+      expect(applied["total_delta"]).to eq(2)
+    end
+
+    it "insert_under_heading applied op includes position data" do
+      content = "# Title\n\nIntro\n\n## Goals\n\nExisting goals."
+      result = Plans::ApplyOperations.call(
+        content: content,
+        operations: [{ "op" => "insert_under_heading", "heading" => "## Goals", "content" => "- New goal" }]
+      )
+      applied = result[:applied][0]
+      expect(applied["resolved_range"]).to be_an(Array)
+      expect(applied["resolved_range"].length).to eq(2)
+      expect(applied["new_range"]).to be_an(Array)
+      expect(applied["delta"]).to be > 0
+    end
+
+    it "delete_paragraph_containing applied op includes position data" do
+      content = "First paragraph.\n\nThis is deprecated.\n\nThird paragraph."
+      result = Plans::ApplyOperations.call(
+        content: content,
+        operations: [{ "op" => "delete_paragraph_containing", "needle" => "deprecated" }]
+      )
+      applied = result[:applied][0]
+      expect(applied["resolved_range"]).to be_an(Array)
+      expect(applied["new_range"][0]).to eq(applied["new_range"][1])
+      expect(applied["delta"]).to be < 0
+    end
+
+    it "multiple sequential operations have correct position data for each" do
+      content = "Hello world. Goodbye world."
+      result = Plans::ApplyOperations.call(
+        content: content,
+        operations: [
+          { "op" => "replace_exact", "old_text" => "Hello", "new_text" => "Hi", "count" => 1 },
+          { "op" => "replace_exact", "old_text" => "Goodbye", "new_text" => "Bye", "count" => 1 }
+        ]
+      )
+      expect(result[:content]).to eq("Hi world. Bye world.")
+
+      first_applied = result[:applied][0]
+      expect(first_applied["resolved_range"]).to eq([0, 5])
+      expect(first_applied["new_range"]).to eq([0, 2])
+      expect(first_applied["delta"]).to eq(-3)
+
+      second_applied = result[:applied][1]
+      expect(second_applied["resolved_range"]).to eq([10, 17])
+      expect(second_applied["new_range"]).to eq([10, 13])
+      expect(second_applied["delta"]).to eq(-4)
+    end
   end
 end

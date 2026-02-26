@@ -8,6 +8,7 @@ class Plan < ApplicationRecord
   has_many :plan_collaborators, dependent: :destroy
   has_many :collaborators, through: :plan_collaborators, source: :user
   has_many :comment_threads, dependent: :destroy
+  has_many :edit_sessions, dependent: :destroy
   has_one :edit_lease, dependent: :destroy
 
   after_initialize { self.tags ||= [] }

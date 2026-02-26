@@ -40,6 +40,9 @@ Rails.application.routes.draw do
         get :comments, on: :member
         resource :lease, only: [:create, :update, :destroy], controller: "leases"
         resources :operations, only: [:create]
+        resources :sessions, only: [:create, :show], controller: "sessions" do
+          post :commit, on: :member
+        end
         resources :comments, only: [:create], controller: "comments" do
           post :reply, on: :member
           patch :resolve, on: :member

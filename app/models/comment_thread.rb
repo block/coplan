@@ -1,6 +1,8 @@
 class CommentThread < ApplicationRecord
   STATUSES = %w[open resolved accepted dismissed].freeze
 
+  attr_accessor :anchor_occurrence
+
   belongs_to :plan
   belongs_to :organization
   belongs_to :plan_version
@@ -12,26 +14,60 @@ class CommentThread < ApplicationRecord
 
   validates :status, presence: true, inclusion: { in: STATUSES }
 
+  before_create :resolve_anchor_position
+
   scope :open_threads, -> { where(status: "open") }
   scope :current, -> { where(out_of_date: false) }
   scope :active, -> { where(status: "open", out_of_date: false) }
   scope :archived, -> { where("status != 'open' OR out_of_date = ?", true) }
 
+  # Transforms anchor positions through intervening version edits using OT.
+  # Threads without positional data (anchor_start/anchor_end/anchor_revision)
+  # are marked out-of-date unconditionally — all new threads resolve positions
+  # on creation via resolve_anchor_position.
   def self.mark_out_of_date_for_new_version!(new_version)
-    content = new_version.content_markdown || ""
     threads = where(out_of_date: false).where.not(plan_version_id: new_version.id)
-    threads.find_each do |thread|
-      next unless thread.anchored?
-      if thread.anchor_context.present?
-        next if content.include?(thread.anchor_context)
-      else
-        next if content.include?(thread.anchor_text)
+    anchored_threads = threads.select(&:anchored?)
+
+    # Pre-fetch all versions that any thread might need (from the oldest
+    # anchor_revision to the new version) in a single query.
+    min_anchor_rev = anchored_threads
+      .filter_map { |t| t.anchor_revision if t.anchor_start.present? && t.anchor_end.present? && t.anchor_revision.present? }
+      .min
+
+    all_versions = if min_anchor_rev
+      new_version.plan.plan_versions
+        .where("revision > ? AND revision <= ?", min_anchor_rev, new_version.revision)
+        .order(revision: :asc)
+        .to_a
+    else
+      []
+    end
+
+    anchored_threads.each do |thread|
+      unless thread.anchor_start.present? && thread.anchor_end.present? && thread.anchor_revision.present?
+        thread.update_columns(out_of_date: true, out_of_date_since_version_id: new_version.id)
+        next
       end
 
-      thread.update_columns(
-        out_of_date: true,
-        out_of_date_since_version_id: new_version.id
-      )
+      intervening = all_versions.select { |v| v.revision > thread.anchor_revision && v.revision <= new_version.revision }
+
+      begin
+        new_range = Plans::TransformRange.transform_through_versions(
+          [thread.anchor_start, thread.anchor_end],
+          intervening
+        )
+        thread.update_columns(
+          anchor_start: new_range[0],
+          anchor_end: new_range[1],
+          anchor_revision: new_version.revision
+        )
+      rescue Plans::TransformRange::Conflict
+        thread.update_columns(
+          out_of_date: true,
+          out_of_date_since_version_id: new_version.id
+        )
+      end
     end
   end
 
@@ -63,5 +99,52 @@ class CommentThread < ApplicationRecord
 
   def dismiss!(user)
     update!(status: "dismissed", resolved_by_user: user)
+  end
+
+  def anchor_valid?
+    return true unless anchored?
+    !out_of_date
+  end
+
+  def anchor_context_with_highlight(chars: 100)
+    return nil unless anchored? && anchor_start.present?
+
+    content = plan.current_content
+    return nil unless content.present?
+
+    context_start = [anchor_start - chars, 0].max
+    context_end = [anchor_end + chars, content.length].min
+
+    before = content[context_start...anchor_start]
+    anchor = content[anchor_start...anchor_end]
+    after = content[anchor_end...context_end]
+
+    "#{before}**#{anchor}**#{after}"
+  end
+
+  private
+
+  def resolve_anchor_position
+    return unless anchor_text.present?
+
+    content = plan.current_content
+    return unless content.present?
+
+    occurrence = self.anchor_occurrence || 1
+    return if occurrence < 1
+
+    ranges = []
+    start_pos = 0
+    while (idx = content.index(anchor_text, start_pos))
+      ranges << [idx, idx + anchor_text.length]
+      start_pos = idx + anchor_text.length
+    end
+
+    if ranges.length >= occurrence
+      range = ranges[occurrence - 1]
+      self.anchor_start = range[0]
+      self.anchor_end = range[1]
+      self.anchor_revision = plan.current_revision
+    end
   end
 end
