@@ -22,6 +22,15 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include(plan.title)
   end
 
+  it "index filters to my plans" do
+    plan # created by alice
+    bobs_plan = create(:plan, :considering, created_by_user: bob)
+    get plans_path(scope: "mine")
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include(plan.title)
+    expect(response.body).not_to include(bobs_plan.title)
+  end
+
   it "show plan renders successfully" do
     get plan_path(plan)
     expect(response).to have_http_status(:success)

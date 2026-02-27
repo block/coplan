@@ -13,6 +13,13 @@ CoPlan is a Rails engine that manages collaborative planning documents. It owns 
 mount CoPlan::Engine, at: "/coplan"
 ```
 
+You can also mount at the root if CoPlan is the primary purpose of your app. When doing so, add `as: "coplan"` so the engine's route helpers resolve correctly:
+
+```ruby
+# config/routes.rb
+mount CoPlan::Engine, at: "/", as: "coplan"
+```
+
 ### 2. Install migrations
 
 ```bash
@@ -21,6 +28,8 @@ bin/rails db:migrate
 ```
 
 This creates the engine's tables (`coplan_users`, `coplan_plans`, etc.) in your database.
+
+> **Note:** The engine auto-appends its migration paths at boot, so you can skip `coplan:install:migrations` if you prefer — `db:migrate` will pick them up automatically. Use `install:migrations` if you want local copies you can inspect or modify.
 
 ### 3. Configure authentication
 
@@ -65,21 +74,6 @@ The callback is called on every CoPlan request. The engine automatically finds o
 Return `nil` to indicate the user is not authenticated (the engine will respond with `401 Unauthorized`).
 
 ## Authentication examples
-
-### Trogdor (Square internal)
-
-```ruby
-config.authenticate = ->(request) {
-  trogdor = Rails::Auth.credentials(request.env)["trogdor"]
-  return nil unless trogdor
-
-  {
-    external_id: trogdor.uid.to_s,
-    name: trogdor.username,
-    admin: trogdor.capabilities.include?("owners")
-  }
-}
-```
 
 ### Devise
 

@@ -1,12 +1,10 @@
 require "rails_helper"
 
 RSpec.describe SlackNotificationJob, type: :job do
-  let(:plan_author) { create(:coplan_user) }
-  let(:host_author) { User.create!(id: plan_author.external_id, email: "author@example.com", name: plan_author.name, role: "member") }
+  let(:plan_author) { create(:coplan_user, email: "author@example.com") }
   let(:commenter) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: plan_author) }
 
-  before { host_author }
   let(:thread_record) do
     create(:comment_thread, plan: plan,
       plan_version: plan.current_plan_version, created_by_user: commenter)
@@ -28,7 +26,7 @@ RSpec.describe SlackNotificationJob, type: :job do
       described_class.perform_now(comment_thread_id: thread_record.id)
 
       expect(SlackClient).to have_received(:send_dm).with(
-        email: host_author.email,
+        email: plan_author.email,
         text: a_string_including("New comment on *#{plan.title}*")
       )
     end
@@ -39,7 +37,7 @@ RSpec.describe SlackNotificationJob, type: :job do
       described_class.perform_now(comment_thread_id: thread_record.id)
 
       expect(SlackClient).to have_received(:send_dm).with(
-        email: host_author.email,
+        email: plan_author.email,
         text: a_string_including("some highlighted text").and(a_string_including("A comment body."))
       )
     end
@@ -48,7 +46,7 @@ RSpec.describe SlackNotificationJob, type: :job do
       described_class.perform_now(comment_thread_id: thread_record.id)
 
       expect(SlackClient).to have_received(:send_dm).with(
-        email: host_author.email,
+        email: plan_author.email,
         text: a_string_including("A comment body.")
       )
     end

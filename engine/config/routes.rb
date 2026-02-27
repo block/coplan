@@ -37,5 +37,5 @@ CoPlan::Engine.routes.draw do
     end
   end
 
-  root "dashboard#show"
+  root "plans#index"
 end

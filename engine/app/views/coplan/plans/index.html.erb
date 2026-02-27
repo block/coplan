@@ -3,9 +3,14 @@
 </div>
 
 <div class="status-filters">
-  <%= link_to "All", plans_path, class: "status-filter #{'status-filter--active' if params[:status].blank?}" %>
+  <%= link_to "All Plans", plans_path(params.permit(:status)), class: "status-filter #{'status-filter--active' if params[:scope].blank?}" %>
+  <%= link_to "My Plans", plans_path(params.permit(:status).merge(scope: "mine")), class: "status-filter #{'status-filter--active' if params[:scope] == 'mine'}" %>
+</div>
+
+<div class="status-filters">
+  <%= link_to "All", plans_path(params.permit(:scope)), class: "status-filter #{'status-filter--active' if params[:status].blank?}" %>
   <% CoPlan::Plan::STATUSES.each do |status| %>
-    <%= link_to status.titleize, plans_path(status: status), class: "status-filter status-filter--#{status} #{'status-filter--active' if params[:status] == status}" %>
+    <%= link_to status.titleize, plans_path(params.permit(:scope).merge(status: status)), class: "status-filter status-filter--#{status} #{'status-filter--active' if params[:status] == status}" %>
   <% end %>
 </div>
 

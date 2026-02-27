@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_26_193257) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_26_200000) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -170,33 +170,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_193257) do
     t.index ["updated_at"], name: "index_coplan_plans_on_updated_at"
   end
 
-  create_table "users", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+  create_table "coplan_users", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.boolean "admin", default: false, null: false
     t.datetime "created_at", null: false
-    t.string "email", null: false
-    t.timestamp "last_sign_in_at"
+    t.string "email"
+    t.string "external_id", null: false
+    t.json "metadata"
     t.string "name", null: false
-    t.string "oidc_provider"
-    t.string "oidc_sub"
-    t.string "role", default: "member", null: false
     t.datetime "updated_at", null: false
-    t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["email"], name: "index_coplan_users_on_email", unique: true
+    t.index ["external_id"], name: "index_coplan_users_on_external_id", unique: true
   end
 
-  add_foreign_key "coplan_api_tokens", "users"
+  add_foreign_key "coplan_api_tokens", "coplan_users", column: "user_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "addressed_in_plan_version_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "out_of_date_since_version_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "plan_version_id"
   add_foreign_key "coplan_comment_threads", "coplan_plans", column: "plan_id"
-  add_foreign_key "coplan_comment_threads", "users", column: "created_by_user_id"
-  add_foreign_key "coplan_comment_threads", "users", column: "resolved_by_user_id"
+  add_foreign_key "coplan_comment_threads", "coplan_users", column: "created_by_user_id"
+  add_foreign_key "coplan_comment_threads", "coplan_users", column: "resolved_by_user_id"
   add_foreign_key "coplan_comments", "coplan_comment_threads", column: "comment_thread_id"
   add_foreign_key "coplan_edit_leases", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_edit_sessions", "coplan_plan_versions", column: "plan_version_id"
   add_foreign_key "coplan_edit_sessions", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_plans", column: "plan_id"
-  add_foreign_key "coplan_plan_collaborators", "users"
-  add_foreign_key "coplan_plan_collaborators", "users", column: "added_by_user_id"
+  add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "added_by_user_id"
+  add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "user_id"
   add_foreign_key "coplan_plan_versions", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plans", "coplan_plan_versions", column: "current_plan_version_id"
-  add_foreign_key "coplan_plans", "users", column: "created_by_user_id"
+  add_foreign_key "coplan_plans", "coplan_users", column: "created_by_user_id"
 end
