@@ -4,13 +4,36 @@
 
 A Rails app for engineering design doc review, purpose-built for AI-assisted planning. Plans get better through collaboration — domain experts leave inline feedback, AI agents respond to that feedback and apply edits automatically, and every change is versioned with full provenance. Humans comment, AI agents edit. Local agents interact via the REST API using skills (see `coplan` skill) and future CLIs.
 
+## Architecture: Engine vs Host App
+
+Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), packaged as the `coplan` gem (path-based, in `Gemfile`). The top-level Rails app is a **thin host** that provides deployment configuration, ActiveAdmin, and app-specific glue.
+
+### Engine (`engine/`) — where the code lives
+- **Models** — all domain models live in `engine/app/models/coplan/` (Plan, PlanVersion, User, Comment, CommentThread, EditLease, EditSession, ApiToken, AutomatedPlanReviewer, PlanCollaborator)
+- **Controllers** — web UI and API controllers in `engine/app/controllers/coplan/`, including `api/v1/` for the REST API
+- **Services** — all service objects in `engine/app/services/coplan/` (Plans::Create, Plans::ApplyOperations, AI providers, etc.)
+- **Policies** — authorization policies in `engine/app/policies/coplan/`
+- **Jobs** — background jobs in `engine/app/jobs/coplan/`
+- **Views, helpers, assets, JS** — all Hotwire views and Stimulus controllers
+- **Migrations** — engine-owned tables go in `engine/db/migrate/`
+- **Routes** — engine routes in `engine/config/routes.rb`, mounted by the host
+
+### Host app (top-level) — thin deployment shell
+- **ActiveAdmin** — admin registrations in `app/admin/`
+- **Auth** — `SessionsController`, `User` model (legacy, being migrated to `CoPlan::User`)
+- **App-specific integrations** — `SlackClient`, `SlackNotificationJob`
+- **Migrations** — only for data migrations, FK rewiring, or host-specific tables in `db/migrate/` (the engine owns schema for `coplan_*` tables)
+- **Config** — database, deployment, environment, seeds
+
+**When adding new features, put them in the engine** unless they are deployment- or host-specific (admin UI, external integrations, auth).
+
 ## Tech Stack & Philosophy
 
 - **Rails** with importmaps — no Node, no bundler, no Webpack, no esbuild
 - **Hotwire** — Turbo Drive, Turbo Frames, Turbo Streams, Stimulus
 - **Plain CSS** — no Tailwind, no preprocessors
 - **Plain JavaScript** — via importmaps and Stimulus controllers only
-- **MySQL 8** — but schema must stay portable (no PG-only or MySQL-only features)
+- **MySQL 8** — but schema must stay portable (no PG-only or MySQL-only features); **no `default:` on JSON columns** (use `after_initialize` in the model instead)
 - **SolidQueue** for background jobs, **SolidCable** for ActionCable
 - **ActiveAdmin 4 beta** + `activeadmin_assets` for admin UI — no node/tailwind needed
 - **No Devise, no OmniAuth** — auth is hand-rolled (stub OIDC in dev, real OIDC later)
