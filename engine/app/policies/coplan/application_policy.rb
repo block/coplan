@@ -8,7 +8,7 @@ module CoPlan
     end
 
     def admin?
-      user.can_admin_coplan?
+      user.admin?
     end
   end
 end

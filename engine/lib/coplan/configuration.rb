@@ -1,12 +1,12 @@
 module CoPlan
   class Configuration
-    attr_accessor :user_class
+    attr_accessor :authenticate
     attr_accessor :ai_base_url, :ai_api_key, :ai_model
     attr_accessor :error_reporter
     attr_accessor :notification_handler
 
     def initialize
-      @user_class = "User"
+      @authenticate = nil
       @ai_base_url = "https://api.openai.com/v1"
       @ai_api_key = nil
       @ai_model = "gpt-4o"

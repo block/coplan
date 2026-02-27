@@ -9,14 +9,17 @@ class SlackNotificationJob < ApplicationJob
 
     thread = CoPlan::CommentThread.find(comment_thread_id)
     plan = thread.plan
-    plan_author = plan.created_by_user
+    coplan_author = plan.created_by_user
     first_comment = thread.comments.order(:created_at, :id).first
 
     return unless first_comment
-    return if first_comment.author_type == "human" && first_comment.author_id == plan_author.id
+    return if first_comment.author_type == "human" && first_comment.author_id == coplan_author.id
+
+    host_user = User.find_by(id: coplan_author.external_id)
+    return unless host_user
 
     text = compose_message(thread, plan)
-    SlackClient.send_dm(email: plan_author.email, text: text)
+    SlackClient.send_dm(email: host_user.email, text: text)
   end
 
   private

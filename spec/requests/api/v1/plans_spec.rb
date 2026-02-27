@@ -1,8 +1,8 @@
 require "rails_helper"
 
 RSpec.describe "Api::V1::Plans", type: :request do
-  let(:alice) { create(:user, :admin) }
-  let(:carol) { create(:user, :admin, email: "carol@other.com") }
+  let(:alice) { create(:coplan_user, :admin) }
+  let(:carol) { create(:coplan_user, :admin) }
   let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }
   let(:carol_token) { create(:api_token, user: carol, raw_token: "test-token-carol") }
   let(:revoked_token) { create(:api_token, :revoked, user: alice, raw_token: "test-token-revoked") }
@@ -123,7 +123,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
     end
 
     it "returns 403 for non-author" do
-      bob = create(:user)
+      bob = create(:coplan_user)
       bob_token = create(:api_token, user: bob, raw_token: "test-token-bob")
       patch api_v1_plan_path(plan), params: { title: "Nope" }, headers: { "Authorization" => "Bearer test-token-bob" }, as: :json
       expect(response).to have_http_status(:forbidden)
