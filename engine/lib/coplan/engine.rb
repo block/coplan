@@ -18,13 +18,6 @@ module CoPlan
       app.config.assets.paths << Engine.root.join("app/javascript")
     end
 
-    initializer "coplan.append_migrations", before: :load_config_initializers do |app|
-      config.paths["db/migrate"].expanded.each do |path|
-        app.config.paths["db/migrate"] << path
-        ActiveRecord::Migrator.migrations_paths << path
-      end
-    end
-
     initializer "coplan.factories", after: "factory_bot.set_factory_paths" do
       if defined?(FactoryBot)
         FactoryBot.definition_file_paths << Engine.root.join("spec", "factories")
