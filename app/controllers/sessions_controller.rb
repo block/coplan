@@ -7,10 +7,12 @@ class SessionsController < ApplicationController
   def create
     email = params[:email].to_s.strip.downcase
 
-    user = User.find_or_create_by!(email: email) do |u|
-      u.name = email.split("@").first.titleize
-    end
-    user.update!(last_sign_in_at: Time.current)
+    user = CoPlan::User.find_or_initialize_by(email: email)
+    user.assign_attributes(
+      external_id: user.external_id || email,
+      name: user.name || email.split("@").first.titleize
+    )
+    user.save!
 
     session[:user_id] = user.id
     redirect_to coplan.root_path, notice: "Signed in as #{user.name}."

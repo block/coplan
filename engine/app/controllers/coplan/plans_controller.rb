@@ -5,6 +5,7 @@ module CoPlan
     def index
       @plans = Plan.order(updated_at: :desc)
       @plans = @plans.where(status: params[:status]) if params[:status].present?
+      @plans = @plans.where(created_by_user: current_user) if params[:scope] == "mine"
     end
 
     def show

@@ -15,11 +15,10 @@ class SlackNotificationJob < ApplicationJob
     return unless first_comment
     return if first_comment.author_type == "human" && first_comment.author_id == coplan_author.id
 
-    host_user = User.find_by(id: coplan_author.external_id)
-    return unless host_user
+    return unless coplan_author.email.present?
 
     text = compose_message(thread, plan)
-    SlackClient.send_dm(email: host_user.email, text: text)
+    SlackClient.send_dm(email: coplan_author.email, text: text)
   end
 
   private

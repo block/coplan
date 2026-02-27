@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Sessions", type: :request do
-  let!(:alice) { create(:user, :admin, email: "alice@acme.com", name: "Alice") }
+  let!(:alice) { create(:coplan_user, :admin, email: "alice@acme.com", external_id: "alice@acme.com", name: "Alice") }
 
   it "sign in page renders" do
     get sign_in_path
@@ -20,7 +20,7 @@ RSpec.describe "Sessions", type: :request do
   it "sign in creates new user if not exists" do
     expect {
       post sign_in_path, params: { email: "newuser@acme.com" }
-    }.to change(User, :count).by(1)
+    }.to change(CoPlan::User, :count).by(1)
     expect(response).to redirect_to(root_path)
   end
 
@@ -30,11 +30,11 @@ RSpec.describe "Sessions", type: :request do
     expect(response).to redirect_to(sign_in_path)
 
     get root_path
-    expect(response).to redirect_to(sign_in_path)
+    expect(response).to have_http_status(:unauthorized)
   end
 
-  it "unauthenticated access redirects to sign in" do
+  it "unauthenticated access returns unauthorized" do
     get root_path
-    expect(response).to redirect_to(sign_in_path)
+    expect(response).to have_http_status(:unauthorized)
   end
 end

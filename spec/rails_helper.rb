@@ -22,11 +22,7 @@ RSpec.configure do |config|
 
 
   def sign_in_as(coplan_user)
-    host_user = User.find_or_create_by!(id: coplan_user.external_id) do |u|
-      u.email = "#{coplan_user.external_id}@test.example.com"
-      u.name = coplan_user.name
-      u.role = coplan_user.admin? ? "admin" : "member"
-    end
-    post sign_in_path, params: { email: host_user.email }
+    coplan_user.update!(email: "#{coplan_user.external_id}@test.example.com") unless coplan_user.email.present?
+    post sign_in_path, params: { email: coplan_user.email }
   end
 end

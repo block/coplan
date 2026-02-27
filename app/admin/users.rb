@@ -1,24 +1,23 @@
-ActiveAdmin.register User do
-  permit_params :email, :name, :role
+ActiveAdmin.register CoPlan::User, as: "User" do
+  permit_params :name, :email, :admin
 
   index do
     selectable_column
     id_column
     column :name
     column :email
-    column :role
-    column :last_sign_in_at
+    column :admin
+    column :created_at
     actions
   end
 
   show do
     attributes_table do
       row :id
+      row :external_id
       row :name
       row :email
-      row :role
-      row :oidc_provider
-      row :last_sign_in_at
+      row :admin
       row :created_at
       row :updated_at
     end
