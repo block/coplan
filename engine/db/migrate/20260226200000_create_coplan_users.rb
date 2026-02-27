@@ -4,7 +4,7 @@ class CreateCoplanUsers < ActiveRecord::Migration[8.1]
       t.string :external_id, null: false
       t.string :name, null: false
       t.boolean :admin, default: false, null: false
-      t.json :metadata, default: {}
+      t.json :metadata
       t.timestamps
     end
 
