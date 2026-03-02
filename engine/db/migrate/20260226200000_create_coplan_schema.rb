@@ -1,5 +1,8 @@
 class CreateCoplanSchema < ActiveRecord::Migration[8.1]
   def change
+    # Skip if tables already exist (transition from auto-inject to copied migrations)
+    return if table_exists?(:coplan_users)
+
     create_table :coplan_users, id: { type: :string, limit: 36 } do |t|
       t.string :external_id, null: false
       t.string :email
