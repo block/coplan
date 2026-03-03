@@ -26,6 +26,7 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
     add_index :coplan_plans, :status
     add_index :coplan_plans, :updated_at
     add_index :coplan_plans, :created_by_user_id
+    add_foreign_key :coplan_plans, :coplan_users, column: :created_by_user_id
 
     create_table :coplan_plan_versions, id: { type: :string, limit: 36 } do |t|
       t.string :plan_id, limit: 36, null: false
@@ -48,7 +49,10 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
     add_index :coplan_plan_versions, :plan_id
     add_index :coplan_plan_versions, [:plan_id, :revision], unique: true
     add_index :coplan_plan_versions, [:plan_id, :created_at]
-    add_index :coplan_plans, :current_plan_version_id
+    add_foreign_key :coplan_plan_versions, :coplan_plans, column: :plan_id
+
+    # Now that coplan_plan_versions exists, add the FK for current_plan_version_id
+    add_foreign_key :coplan_plans, :coplan_plan_versions, column: :current_plan_version_id
 
     create_table :coplan_plan_collaborators, id: { type: :string, limit: 36 } do |t|
       t.string :plan_id, limit: 36, null: false
@@ -62,6 +66,9 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
     add_index :coplan_plan_collaborators, :user_id
     add_index :coplan_plan_collaborators, :added_by_user_id
     add_index :coplan_plan_collaborators, [:plan_id, :user_id], unique: true
+    add_foreign_key :coplan_plan_collaborators, :coplan_plans, column: :plan_id
+    add_foreign_key :coplan_plan_collaborators, :coplan_users, column: :user_id
+    add_foreign_key :coplan_plan_collaborators, :coplan_users, column: :added_by_user_id
 
     create_table :coplan_comment_threads, id: { type: :string, limit: 36 } do |t|
       t.string :plan_id, limit: 36, null: false
@@ -84,11 +91,12 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
 
     add_index :coplan_comment_threads, [:plan_id, :status]
     add_index :coplan_comment_threads, [:plan_id, :out_of_date]
-    add_index :coplan_comment_threads, :plan_version_id
-    add_index :coplan_comment_threads, :created_by_user_id
-    add_index :coplan_comment_threads, :resolved_by_user_id
-    add_index :coplan_comment_threads, :addressed_in_plan_version_id
-    add_index :coplan_comment_threads, :out_of_date_since_version_id
+    add_foreign_key :coplan_comment_threads, :coplan_plans, column: :plan_id
+    add_foreign_key :coplan_comment_threads, :coplan_plan_versions, column: :plan_version_id
+    add_foreign_key :coplan_comment_threads, :coplan_plan_versions, column: :addressed_in_plan_version_id
+    add_foreign_key :coplan_comment_threads, :coplan_plan_versions, column: :out_of_date_since_version_id
+    add_foreign_key :coplan_comment_threads, :coplan_users, column: :created_by_user_id
+    add_foreign_key :coplan_comment_threads, :coplan_users, column: :resolved_by_user_id
 
     create_table :coplan_comments, id: { type: :string, limit: 36 } do |t|
       t.string :comment_thread_id, limit: 36, null: false
@@ -100,6 +108,7 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
     end
 
     add_index :coplan_comments, [:comment_thread_id, :created_at]
+    add_foreign_key :coplan_comments, :coplan_comment_threads, column: :comment_thread_id
 
     create_table :coplan_edit_leases, id: { type: :string, limit: 36 } do |t|
       t.string :plan_id, limit: 36, null: false
@@ -112,6 +121,7 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
     end
 
     add_index :coplan_edit_leases, :plan_id, unique: true
+    add_foreign_key :coplan_edit_leases, :coplan_plans, column: :plan_id
 
     create_table :coplan_edit_sessions, id: { type: :string, limit: 36 } do |t|
       t.string :plan_id, limit: 36, null: false
@@ -129,7 +139,8 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
     end
 
     add_index :coplan_edit_sessions, [:plan_id, :status]
-    add_index :coplan_edit_sessions, :plan_version_id
+    add_foreign_key :coplan_edit_sessions, :coplan_plans, column: :plan_id
+    add_foreign_key :coplan_edit_sessions, :coplan_plan_versions, column: :plan_version_id
 
     create_table :coplan_api_tokens, id: { type: :string, limit: 36 } do |t|
       t.string :user_id, limit: 36, null: false
@@ -144,6 +155,7 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
 
     add_index :coplan_api_tokens, :user_id
     add_index :coplan_api_tokens, :token_digest, unique: true
+    add_foreign_key :coplan_api_tokens, :coplan_users, column: :user_id
 
     create_table :coplan_automated_plan_reviewers, id: { type: :string, limit: 36 } do |t|
       t.string :key, null: false
