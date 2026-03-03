@@ -45,6 +45,7 @@ Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), 
 - Enums are stored as **strings** (not integers) — validated with constants and `inclusion:` validators
 - JSON columns for arrays/hashes (`tags`, `metadata`, `trigger_statuses`, `allowed_email_domains`)
 - No PG-only types (`citext`, `text[]`, `ON CONFLICT ... WHERE`) — use Rails validations and `json` columns
+- **No foreign key constraints** — the ODS/Aurora `app` DB user lacks `REFERENCES` privilege. Use indexes on relationship columns instead of `add_foreign_key`. Referential integrity is enforced at the application layer via validations.
 - `Current.organization` and `Current.user` are set per-request for scoping
 
 ## Model Conventions

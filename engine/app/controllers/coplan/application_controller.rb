@@ -43,7 +43,11 @@ module CoPlan
 
       attrs = callback.call(request)
       unless attrs && attrs[:external_id].present?
-        head :unauthorized
+        if CoPlan.configuration.sign_in_path
+          redirect_to CoPlan.configuration.sign_in_path, alert: "Please sign in."
+        else
+          head :unauthorized
+        end
         return
       end
 

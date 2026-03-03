@@ -1,4 +1,6 @@
 CoPlan.configure do |config|
+  config.sign_in_path = "/sign_in"
+
   config.authenticate = ->(request) {
     user_id = request.session[:user_id]
     return nil unless user_id
