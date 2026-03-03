@@ -1,3 +1,4 @@
+require "commonmarker"
 require "coplan/configuration"
 require "coplan/engine"
 
