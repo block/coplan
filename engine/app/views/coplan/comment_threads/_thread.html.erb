@@ -10,7 +10,7 @@
       <% end %>
     </div>
     <% if thread.anchored? %>
-      <blockquote class="comment-thread__anchor-quote" data-action="click->text-selection#scrollToAnchor" data-anchor="<%= thread.anchor_text %>" style="cursor: pointer;"><%= thread.anchor_preview %></blockquote>
+      <blockquote class="comment-thread__anchor-quote" data-action="click->coplan--text-selection#scrollToAnchor" data-anchor="<%= thread.anchor_text %>" style="cursor: pointer;"><%= thread.anchor_preview %></blockquote>
     <% end %>
   </div>
 

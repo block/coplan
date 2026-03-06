@@ -4,12 +4,12 @@
 
 <div class="plan-content card">
   <% if @plan.current_content.present? %>
-    <div class="plan-layout" data-controller="text-selection" data-text-selection-plan-id-value="<%= @plan.id %>">
-      <div class="plan-layout__content" data-text-selection-target="content">
+    <div class="plan-layout" data-controller="coplan--text-selection" data-coplan--text-selection-plan-id-value="<%= @plan.id %>">
+      <div class="plan-layout__content" data-coplan--text-selection-target="content">
         <%= render_markdown(@plan.current_content) %>
 
-        <div class="comment-popover" data-text-selection-target="popover" style="display: none;">
-          <button type="button" class="btn btn--primary btn--sm" data-action="text-selection#openCommentForm">
+        <div class="comment-popover" data-coplan--text-selection-target="popover" style="display: none;">
+          <button type="button" class="btn btn--primary btn--sm" data-action="coplan--text-selection#openCommentForm">
             💬 Comment
           </button>
         </div>
@@ -18,17 +18,17 @@
       <div class="plan-layout__sidebar">
         <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
 
-        <div class="comment-tabs" data-controller="tabs" data-tabs-active-class="comment-tab--active">
+        <div class="comment-tabs" data-controller="coplan--tabs" data-coplan--tabs-active-class="comment-tab--active">
           <div class="comment-tabs__nav">
-            <button class="comment-tab comment-tab--active" data-tabs-target="tab" data-action="tabs#switch text-selection#repositionThreads" data-index="0">
+            <button class="comment-tab comment-tab--active" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch coplan--text-selection#repositionThreads" data-index="0">
               Open <span class="comment-tab__count" id="open-thread-count"><%= @active_threads.size if @active_threads.any? %></span>
             </button>
-            <button class="comment-tab" data-tabs-target="tab" data-action="tabs#switch text-selection#repositionThreads" data-index="1">
+            <button class="comment-tab" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch coplan--text-selection#repositionThreads" data-index="1">
               Resolved <span class="comment-tab__count" id="resolved-thread-count"><%= @archived_threads.size if @archived_threads.any? %></span>
             </button>
           </div>
 
-          <div class="comment-tabs__panel" data-tabs-target="panel">
+          <div class="comment-tabs__panel" data-coplan--tabs-target="panel">
             <div class="comment-threads-list" id="comment-threads">
               <% @active_threads.each do |thread| %>
                 <%= render partial: "coplan/comment_threads/thread", locals: { thread: thread, plan: @plan, current_user: current_user } %>
@@ -37,7 +37,7 @@
             </div>
           </div>
 
-          <div class="comment-tabs__panel" data-tabs-target="panel" style="display: none;">
+          <div class="comment-tabs__panel" data-coplan--tabs-target="panel" style="display: none;">
             <div class="comment-threads-list" id="resolved-comment-threads">
               <% @archived_threads.each do |thread| %>
                 <%= render partial: "coplan/comment_threads/thread", locals: { thread: thread, plan: @plan, current_user: current_user } %>

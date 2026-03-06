@@ -7,11 +7,11 @@
   </div>
   <div class="page-header__actions">
     <% if CoPlan::AutomatedPlanReviewer.enabled.any? %>
-      <div class="dropdown" data-controller="dropdown">
-        <button class="btn btn--secondary" data-action="dropdown#toggle">
+      <div class="dropdown" data-controller="coplan--dropdown">
+        <button class="btn btn--secondary" data-action="coplan--dropdown#toggle">
           🤖 Run Reviewer ▾
         </button>
-        <div class="dropdown__menu" data-dropdown-target="menu" style="display: none;">
+        <div class="dropdown__menu" data-coplan--dropdown-target="menu" style="display: none;">
           <% CoPlan::AutomatedPlanReviewer.enabled.order(:name).each do |reviewer| %>
             <%= button_to reviewer.name,
                   plan_automated_reviews_path(plan, reviewer_id: reviewer.id),
