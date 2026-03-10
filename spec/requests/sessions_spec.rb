@@ -30,11 +30,11 @@ RSpec.describe "Sessions", type: :request do
     expect(response).to redirect_to(sign_in_path)
 
     get root_path
-    expect(response).to have_http_status(:unauthorized)
+    expect(response).to redirect_to(sign_in_path)
   end
 
-  it "unauthenticated access returns unauthorized" do
+  it "unauthenticated access redirects to sign in" do
     get root_path
-    expect(response).to have_http_status(:unauthorized)
+    expect(response).to redirect_to(sign_in_path)
   end
 end

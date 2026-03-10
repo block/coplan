@@ -1,0 +1,5 @@
+<%= turbo_stream.replace @token do %>
+  <%= render "token_row", token: @token %>
+<% end %>
+
+<%= turbo_stream.update "token-reveal", "" %>
