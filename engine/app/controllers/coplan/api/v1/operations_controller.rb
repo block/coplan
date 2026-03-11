@@ -33,7 +33,7 @@ module CoPlan
         private
 
         def apply_with_session(operations, base_revision)
-          session = @plan.edit_sessions.find_by(id: params[:session_id], actor_id: @api_token.id)
+          session = @plan.edit_sessions.find_by(id: params[:session_id], actor_id: api_actor_id)
           unless session&.active?
             render json: { error: "Edit session not found, expired, or not open" }, status: :not_found
             return
@@ -210,8 +210,8 @@ module CoPlan
             plan: @plan,
             revision: new_revision,
             content_markdown: result[:content],
-            actor_type: ApiToken::HOLDER_TYPE,
-            actor_id: @api_token.id,
+            actor_type: api_author_type,
+            actor_id: api_actor_id,
             change_summary: params[:change_summary],
             diff_unified: diff.presence,
             operations_json: result[:applied],

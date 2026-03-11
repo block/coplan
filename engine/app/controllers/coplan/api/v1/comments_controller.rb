@@ -18,8 +18,8 @@ module CoPlan
           thread.save!
 
           comment = thread.comments.create!(
-            author_type: ApiToken::HOLDER_TYPE,
-            author_id: @api_token.id,
+            author_type: api_author_type,
+            author_id: api_actor_id,
             body_markdown: params[:body_markdown],
             agent_name: params[:agent_name]
           )
@@ -83,8 +83,8 @@ module CoPlan
           end
 
           comment = thread.comments.create!(
-            author_type: ApiToken::HOLDER_TYPE,
-            author_id: @api_token.id,
+            author_type: api_author_type,
+            author_id: api_actor_id,
             body_markdown: params[:body_markdown],
             agent_name: params[:agent_name]
           )
