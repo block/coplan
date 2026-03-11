@@ -6,7 +6,16 @@ CoPlan is a Rails engine that manages collaborative planning documents. It owns 
 
 ## Setup
 
-### 1. Mount the engine
+### 1. Add the gem
+
+```ruby
+# Gemfile
+gem "coplan-engine", require: "coplan"
+```
+
+Then run `bundle install`.
+
+### 2. Mount the engine
 
 ```ruby
 # config/routes.rb
@@ -20,7 +29,7 @@ You can also mount at the root if CoPlan is the primary purpose of your app. Whe
 mount CoPlan::Engine, at: "/", as: "coplan"
 ```
 
-### 2. Install migrations
+### 3. Install migrations
 
 ```bash
 bin/rails coplan:install:migrations
@@ -31,7 +40,7 @@ This creates the engine's tables (`coplan_users`, `coplan_plans`, etc.) in your 
 
 > **Note:** The engine auto-appends its migration paths at boot, so you can skip `coplan:install:migrations` if you prefer — `db:migrate` will pick them up automatically. Use `install:migrations` if you want local copies you can inspect or modify.
 
-### 3. Configure authentication
+### 4. Configure authentication
 
 Provide an `authenticate` callback that receives a Rack request and returns user identity attributes (or `nil` if unauthenticated):
 

@@ -24,7 +24,17 @@ Plans get better when more eyes see them. An engineer drafts a plan — often wi
 - **SolidQueue** — background jobs
 - **SolidCable** — ActionCable adapter
 
-## Setup
+## Installation
+
+Add to your Gemfile:
+
+```ruby
+gem "coplan-engine", require: "coplan"
+```
+
+See the [Host App Integration Guide](./docs/HOST_APP_GUIDE.md) for full setup instructions.
+
+## Development Setup
 
 ```bash
 bin/setup

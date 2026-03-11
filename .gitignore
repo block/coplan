@@ -29,3 +29,6 @@
 !/tmp/storage/.keep
 
 /public/assets
+
+# Built gems
+*.gem
