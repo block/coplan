@@ -19,7 +19,7 @@ module CoPlan
           session = EditSession.create!(
             plan: @plan,
             actor_type: actor_type,
-            actor_id: @api_token.id,
+            actor_id: api_actor_id,
             base_revision: @plan.current_revision,
             expires_at: ttl.from_now
           )
@@ -69,7 +69,7 @@ module CoPlan
         private
 
         def set_session
-          @session = @plan.edit_sessions.find_by(id: params[:id], actor_id: @api_token.id)
+          @session = @plan.edit_sessions.find_by(id: params[:id], actor_id: api_actor_id)
           unless @session
             render json: { error: "Edit session not found" }, status: :not_found
           end

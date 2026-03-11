@@ -11,7 +11,7 @@ module CoPlan
           lease = EditLease.acquire!(
             plan: @plan,
             holder_type: ApiToken::HOLDER_TYPE,
-            holder_id: @api_token.id,
+            holder_id: api_actor_id,
             lease_token: lease_token
           )
 

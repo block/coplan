@@ -1,6 +1,6 @@
 module CoPlan
   class Configuration
-    attr_accessor :authenticate, :sign_in_path
+    attr_accessor :authenticate, :api_authenticate, :sign_in_path
     attr_accessor :ai_base_url, :ai_api_key, :ai_model
     attr_accessor :error_reporter
     attr_accessor :notification_handler
