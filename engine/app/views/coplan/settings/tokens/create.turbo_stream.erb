@@ -1,0 +1,11 @@
+<%= turbo_stream.update "token-reveal" do %>
+  <%= render "token_reveal", raw_token: @raw_token %>
+<% end %>
+
+<%= turbo_stream.update "create-token-form" do %>
+  <%= render "form" %>
+<% end %>
+
+<%= turbo_stream.prepend "tokens-list" do %>
+  <%= render "token_row", token: @api_token %>
+<% end %>

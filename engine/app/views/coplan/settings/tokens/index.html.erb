@@ -3,70 +3,30 @@
   <p class="page-header__subtitle">Manage API tokens for agent access</p>
 </div>
 
-<% if @raw_token.present? %>
-  <div class="token-reveal">
-    <h3>Your new API token</h3>
-    <p>Copy this token now. It will not be shown again.</p>
-    <div class="token-reveal__value">
-      <code><%= @raw_token %></code>
-    </div>
-  </div>
-<% end %>
-
-<div class="card">
-  <h2>Create New Token</h2>
-  <%= form_with url: settings_tokens_path, method: :post, class: "form-inline" do |f| %>
-    <div class="form-group">
-      <%= f.label :name, "Token Name" %>
-      <%= f.text_field :name, name: "api_token[name]", placeholder: "e.g. My Agent", required: true, class: "form-control" %>
-    </div>
-    <%= f.submit "Create Token", class: "btn btn--primary" %>
+<div id="token-reveal">
+  <% if flash[:raw_token].present? %>
+    <%= render "token_reveal", raw_token: flash[:raw_token] %>
   <% end %>
 </div>
 
-<div class="card">
+<div class="card" id="create-token-form">
+  <%= render "form" %>
+</div>
+
+<div class="card" id="tokens-card">
   <h2>Your Tokens</h2>
-  <% if @api_tokens.any? %>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Status</th>
-          <th>Last Used</th>
-          <th>Created</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @api_tokens.each do |token| %>
-          <tr class="<%= 'data-table__row--muted' if token.revoked? %>">
-            <td>
-              <strong><%= token.name %></strong>
-              <% if token.token_prefix.present? %>
-                <br><code><%= token.token_prefix %>…</code>
-              <% end %>
-            </td>
-            <td>
-              <% if token.revoked? %>
-                <span class="badge badge--danger">Revoked</span>
-              <% elsif token.expired? %>
-                <span class="badge badge--warning">Expired</span>
-              <% else %>
-                <span class="badge badge--success">Active</span>
-              <% end %>
-            </td>
-            <td><%= token.last_used_at ? time_ago_in_words(token.last_used_at) + " ago" : "Never" %></td>
-            <td><%= token.created_at.strftime("%b %d, %Y") %></td>
-            <td>
-              <% unless token.revoked? %>
-                <%= button_to "Revoke", settings_token_path(token), method: :delete, class: "btn btn--danger btn--sm" %>
-              <% end %>
-            </td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
-  <% else %>
-    <p class="text-muted">No tokens yet. Create one above to get started.</p>
-  <% end %>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Status</th>
+        <th>Last Used</th>
+        <th>Created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tokens-list">
+      <%= render partial: "token_row", collection: @api_tokens, as: :token %>
+    </tbody>
+  </table>
 </div>

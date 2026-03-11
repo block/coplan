@@ -1,0 +1,24 @@
+<tr id="<%= dom_id(token) %>" class="<%= 'data-table__row--muted' if token.revoked? %>">
+  <td>
+    <strong><%= token.name %></strong>
+    <% if token.token_prefix.present? %>
+      <br><code><%= token.token_prefix %>…</code>
+    <% end %>
+  </td>
+  <td>
+    <% if token.revoked? %>
+      <span class="badge badge--danger">Revoked</span>
+    <% elsif token.expired? %>
+      <span class="badge badge--warning">Expired</span>
+    <% else %>
+      <span class="badge badge--success">Active</span>
+    <% end %>
+  </td>
+  <td><%= token.last_used_at ? time_ago_in_words(token.last_used_at) + " ago" : "Never" %></td>
+  <td><%= token.created_at.strftime("%b %d, %Y") %></td>
+  <td>
+    <% unless token.revoked? %>
+      <%= button_to "Revoke", settings_token_path(token), method: :delete, class: "btn btn--danger btn--sm" %>
+    <% end %>
+  </td>
+</tr>

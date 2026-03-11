@@ -16,7 +16,8 @@ RSpec.describe "Settings::Tokens", type: :request do
     expect {
       post settings_tokens_path, params: { api_token: { name: "Test Token" } }
     }.to change(CoPlan::ApiToken, :count).by(1)
-    expect(response).to have_http_status(:success)
+    expect(response).to redirect_to(settings_tokens_path)
+    follow_redirect!
     expect(response.body).to include("token-reveal")
   end
 
@@ -39,6 +40,6 @@ RSpec.describe "Settings::Tokens", type: :request do
   it "requires authentication" do
     delete sign_out_path
     get settings_tokens_path
-    expect(response).to have_http_status(:unauthorized)
+    expect(response).to redirect_to(sign_in_path)
   end
 end

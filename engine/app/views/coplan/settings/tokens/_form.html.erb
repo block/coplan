@@ -1,0 +1,8 @@
+<h2>Create New Token</h2>
+<%= form_with url: settings_tokens_path, method: :post, class: "form-inline" do |f| %>
+  <div class="form-group">
+    <%= f.label :name, "Token Name" %>
+    <%= f.text_field :name, name: "api_token[name]", placeholder: "e.g. My Agent", required: true, class: "form-control" %>
+  </div>
+  <%= f.submit "Create Token", class: "btn btn--primary" %>
+<% end %>
