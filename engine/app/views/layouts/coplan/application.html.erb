@@ -12,7 +12,10 @@
   <body>
     <nav class="site-nav">
       <div class="site-nav__inner">
-        <%= link_to "📋 CoPlan", coplan.root_path, class: "site-nav__brand" %>
+        <%= link_to coplan.root_path, class: "site-nav__brand" do %>
+          <%= image_tag "/coplan-logo-sm.png", alt: "CoPlan", class: "site-nav__logo" %>
+          CoPlan
+        <% end %>
         <ul class="site-nav__links">
           <% if signed_in? %>
             <li><%= link_to "Plans", coplan.plans_path %></li>
