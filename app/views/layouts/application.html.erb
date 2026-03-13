@@ -12,7 +12,6 @@
     <%= yield :head %>
 
     <link rel="icon" href="/icon.png" type="image/png">
-    <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/icon.png">
 
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
@@ -22,7 +21,10 @@
   <body>
     <nav class="site-nav">
       <div class="site-nav__inner">
-        <%= link_to "📋 CoPlan", coplan.root_path, class: "site-nav__brand" %>
+        <%= link_to coplan.root_path, class: "site-nav__brand" do %>
+          <%= image_tag "/coplan-logo-sm.png", alt: "CoPlan", class: "site-nav__logo" %>
+          CoPlan
+        <% end %>
 
         <ul class="site-nav__links">
           <% if signed_in? %>

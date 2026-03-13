@@ -113,6 +113,12 @@ img, svg {
   gap: var(--space-sm);
 }
 
+.site-nav__logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
 .site-nav__brand:hover {
   text-decoration: none;
   color: var(--color-primary);
