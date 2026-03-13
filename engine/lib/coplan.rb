@@ -1,4 +1,5 @@
 require "commonmarker"
+require "diffy"
 require "coplan/configuration"
 require "coplan/engine"
 
