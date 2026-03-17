@@ -1,6 +1,7 @@
 <div class="comment-thread card" id="<%= dom_id(thread) %>"
      data-anchor-text="<%= thread.anchor_text %>"
      data-anchor-context="<%= thread.anchor_context %>"
+     data-anchor-occurrence="<%= thread.anchor_occurrence_index %>"
      data-thread-id="<%= thread.id %>">
   <div class="comment-thread__header">
     <div class="comment-thread__meta">
@@ -10,7 +11,7 @@
       <% end %>
     </div>
     <% if thread.anchored? %>
-      <blockquote class="comment-thread__anchor-quote" data-action="click->coplan--text-selection#scrollToAnchor" data-anchor="<%= thread.anchor_text %>" style="cursor: pointer;"><%= thread.anchor_preview %></blockquote>
+      <blockquote class="comment-thread__anchor-quote" data-action="click->coplan--text-selection#scrollToAnchor" data-anchor="<%= thread.anchor_text %>" data-anchor-occurrence="<%= thread.anchor_occurrence_index %>" style="cursor: pointer;"><%= thread.anchor_preview %></blockquote>
     <% end %>
   </div>
 

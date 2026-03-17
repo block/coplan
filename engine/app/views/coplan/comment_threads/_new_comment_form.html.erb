@@ -2,6 +2,7 @@
   <%= form_with url: plan_comment_threads_path(plan), method: :post, data: { action: "turbo:submit-end->coplan--text-selection#resetCommentForm" } do |f| %>
     <input type="hidden" name="comment_thread[anchor_text]" data-coplan--text-selection-target="anchorInput" value="">
     <input type="hidden" name="comment_thread[anchor_context]" data-coplan--text-selection-target="contextInput" value="">
+    <input type="hidden" name="comment_thread[anchor_occurrence]" data-coplan--text-selection-target="occurrenceInput" value="">
     <div class="comment-form__anchor" data-coplan--text-selection-target="anchorPreview" style="display: none;">
       <span class="text-sm text-muted">Commenting on:</span>
       <blockquote class="comment-form__quote" data-coplan--text-selection-target="anchorQuote"></blockquote>
