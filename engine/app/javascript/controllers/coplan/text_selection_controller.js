@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["content", "popover", "form", "anchorInput", "contextInput", "anchorPreview", "anchorQuote"]
+  static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote"]
   static values = { planId: String }
 
   connect() {
@@ -48,6 +48,7 @@ export default class extends Controller {
 
     this.selectedText = text
     this.selectedContext = this.extractContext(range, text)
+    this.selectedOccurrence = this.computeOccurrence(range, text)
 
     // Position popover near the selection
     const rect = range.getBoundingClientRect()
@@ -62,9 +63,10 @@ export default class extends Controller {
     event.preventDefault()
     if (!this.selectedText) return
 
-    // Set the anchor text and surrounding context
+    // Set the anchor text, surrounding context, and occurrence index
     this.anchorInputTarget.value = this.selectedText
     this.contextInputTarget.value = this.selectedContext || ""
+    this.occurrenceInputTarget.value = this.selectedOccurrence != null ? this.selectedOccurrence : ""
     this.anchorQuoteTarget.textContent = this.selectedText.length > 120
       ? this.selectedText.substring(0, 120) + "…"
       : this.selectedText
@@ -114,11 +116,13 @@ export default class extends Controller {
     this.formTarget.style.display = "none"
     this.anchorInputTarget.value = ""
     this.contextInputTarget.value = ""
+    this.occurrenceInputTarget.value = ""
     this.anchorPreviewTarget.style.display = "none"
     const textarea = this.formTarget.querySelector("textarea")
     if (textarea) textarea.value = ""
     this.selectedText = null
     this.selectedContext = null
+    this.selectedOccurrence = null
   }
 
   scrollToAnchor(event) {
@@ -126,16 +130,18 @@ export default class extends Controller {
     if (!anchor) return
 
     const context = event.currentTarget.closest("[data-anchor-context]")?.dataset.anchorContext || ""
+    const occurrence = event.currentTarget.dataset.anchorOccurrence
 
     // Remove existing highlights first
     this.contentTarget.querySelectorAll(".anchor-highlight--active").forEach(el => {
       el.classList.remove("anchor-highlight--active")
     })
 
-    // Find and highlight the anchor text using context for disambiguation
-    const highlighted = context
-      ? this.findAndHighlightWithContext(anchor, context, "anchor-highlight--active")
-      : this.findAndHighlight(anchor, "anchor-highlight--active")
+    // Build full text for position lookups
+    this.fullText = this.contentTarget.textContent
+
+    // Find and highlight using occurrence index (most reliable), then context, then first match
+    const highlighted = this.findAndHighlightForThread(anchor, context, occurrence, "anchor-highlight--active", null)
     if (highlighted) {
       highlighted.scrollIntoView({ behavior: "smooth", block: "center" })
     }
@@ -164,6 +170,21 @@ export default class extends Controller {
     const start = Math.max(0, offset - contextBefore)
     const end = Math.min(fullText.length, offset + selectedText.length + contextAfter)
     return fullText.slice(start, end)
+  }
+
+  // Computes the 1-based occurrence number of the selected text in the DOM content.
+  // This is sent to the server so resolve_anchor_position picks the right match.
+  computeOccurrence(range, text) {
+    const offset = this.getSelectionOffset(range)
+    const fullText = this.contentTarget.textContent
+
+    let count = 0
+    let pos = -1
+    while ((pos = fullText.indexOf(text, pos + 1)) !== -1) {
+      count++
+      if (pos >= offset) return count
+    }
+    return count > 0 ? count : 1
   }
 
   getSelectionOffset(range) {
@@ -200,8 +221,9 @@ export default class extends Controller {
     threads.forEach(thread => {
       const anchor = thread.dataset.anchorText
       const context = thread.dataset.anchorContext
+      const occurrence = thread.dataset.anchorOccurrence
       if (anchor && anchor.length > 0) {
-        this.findAndHighlightWithContext(anchor, context, "anchor-highlight")
+        this.findAndHighlightForThread(anchor, context, occurrence, "anchor-highlight", thread)
       }
     })
 
@@ -281,6 +303,53 @@ export default class extends Controller {
       thread.style.marginTop = `${y - cursor}px`
       cursor = y + thread.offsetHeight + gap
     })
+  }
+
+  // Primary highlight method: uses occurrence index (from server-side OT positions)
+  // to find the correct Nth occurrence of anchor text in the rendered DOM.
+  // Falls back to context matching, then to first occurrence.
+  findAndHighlightForThread(text, context, occurrence, className, threadEl) {
+    const fullText = this.fullText
+    let targetIndex = -1
+
+    // Strategy 1: Use the occurrence index from the server (most reliable)
+    if (occurrence !== undefined && occurrence !== "") {
+      const occurrenceNum = parseInt(occurrence, 10)
+      if (!isNaN(occurrenceNum)) {
+        targetIndex = this.findNthOccurrence(fullText, text, occurrenceNum)
+      }
+    }
+
+    // Strategy 2: Fall back to context matching
+    if (targetIndex === -1 && context && context.length > 0) {
+      const contextIndex = fullText.indexOf(context)
+      if (contextIndex !== -1) {
+        targetIndex = fullText.indexOf(text, contextIndex)
+        if (targetIndex === -1 || targetIndex > contextIndex + context.length) {
+          targetIndex = fullText.indexOf(text)
+        }
+      }
+    }
+
+    // Strategy 3: Fall back to first occurrence
+    if (targetIndex === -1) {
+      targetIndex = fullText.indexOf(text)
+    }
+
+    if (targetIndex === -1) return null
+
+    const mark = this.highlightAtIndex(targetIndex, text.length, className)
+    if (mark && threadEl) threadEl._highlightMark = mark
+    return mark
+  }
+
+  findNthOccurrence(text, search, n) {
+    let pos = -1
+    for (let i = 0; i <= n; i++) {
+      pos = text.indexOf(search, pos + 1)
+      if (pos === -1) return -1
+    }
+    return pos
   }
 
   findAndHighlightWithContext(text, context, className) {

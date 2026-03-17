@@ -106,6 +106,25 @@ module CoPlan
       !out_of_date
     end
 
+    # Returns the 0-based occurrence index of anchor_text in the raw markdown,
+    # computed from anchor_start. The frontend uses this to find the correct
+    # occurrence in the rendered DOM text instead of relying on context matching.
+    def anchor_occurrence_index
+      return nil unless anchored? && anchor_start.present?
+
+      content = plan.current_content
+      return nil unless content.present?
+
+      count = 0
+      pos = 0
+      while (idx = content.index(anchor_text, pos))
+        break if idx >= anchor_start
+        count += 1
+        pos = idx + 1
+      end
+      count
+    end
+
     def anchor_context_with_highlight(chars: 100)
       return nil unless anchored? && anchor_start.present?
 

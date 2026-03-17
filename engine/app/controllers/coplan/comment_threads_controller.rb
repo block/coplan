@@ -12,6 +12,7 @@ module CoPlan
         plan_version: @plan.current_plan_version,
         anchor_text: params[:comment_thread][:anchor_text].presence,
         anchor_context: params[:comment_thread][:anchor_context].presence,
+        anchor_occurrence: params[:comment_thread][:anchor_occurrence].presence&.to_i,
         start_line: params[:comment_thread][:start_line].presence,
         end_line: params[:comment_thread][:end_line].presence,
         created_by_user: current_user
