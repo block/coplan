@@ -36,10 +36,10 @@ RSpec.describe "Plans", type: :request do
     expect(response).to have_http_status(:success)
   end
 
-  it "show plan displays comments sidebar" do
+  it "show plan renders plan content" do
     get plan_path(plan)
     expect(response).to have_http_status(:success)
-    expect(response.body).to include("comment-threads-list")
+    expect(response.body).to include("plan-layout__content")
   end
 
   it "show plan includes turbo stream subscription" do

@@ -10,9 +10,6 @@ module CoPlan
 
     def show
       authorize!(@plan, :show?)
-      threads = @plan.comment_threads.includes(:comments, :created_by_user, :plan_version).order(created_at: :asc)
-      @active_threads = threads.active
-      @archived_threads = threads.archived
     end
 
     def edit

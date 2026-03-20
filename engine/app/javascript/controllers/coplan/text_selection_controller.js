@@ -9,13 +9,11 @@ export default class extends Controller {
     this.contentTarget.addEventListener("mouseup", this.handleMouseUp.bind(this))
     document.addEventListener("mousedown", this.handleDocumentMouseDown.bind(this))
     this.highlightAnchors()
-    this.observeThreadLists()
   }
 
   disconnect() {
     this.contentTarget.removeEventListener("mouseup", this.handleMouseUp.bind(this))
     document.removeEventListener("mousedown", this.handleDocumentMouseDown.bind(this))
-    if (this.threadListObserver) this.threadListObserver.disconnect()
   }
 
   handleMouseUp(event) {
@@ -72,13 +70,6 @@ export default class extends Controller {
       : this.selectedText
     this.anchorPreviewTarget.style.display = "block"
 
-    // Position the form in the sidebar at the same vertical level as the selection
-    const layoutRect = this.element.getBoundingClientRect()
-    const popoverRect = this.popoverTarget.getBoundingClientRect()
-    const offsetTop = popoverRect.top - layoutRect.top
-    this.formTarget.style.position = "absolute"
-    this.formTarget.style.top = `${offsetTop}px`
-
     // Show form, hide popover
     this.formTarget.style.display = "block"
     this.popoverTarget.style.display = "none"
@@ -129,7 +120,6 @@ export default class extends Controller {
     const anchor = event.currentTarget.dataset.anchor
     if (!anchor) return
 
-    const context = event.currentTarget.closest("[data-anchor-context]")?.dataset.anchorContext || ""
     const occurrence = event.currentTarget.dataset.anchorOccurrence
 
     // Remove existing highlights first
@@ -140,8 +130,7 @@ export default class extends Controller {
     // Build full text for position lookups
     this.fullText = this.contentTarget.textContent
 
-    // Find and highlight using occurrence index (most reliable), then context, then first match
-    const highlighted = this.findAndHighlightForThread(anchor, context, occurrence, "anchor-highlight--active", null)
+    const highlighted = this.findAndHighlight(anchor, occurrence, "anchor-highlight--active")
     if (highlighted) {
       highlighted.scrollIntoView({ behavior: "smooth", block: "center" })
     }
@@ -220,99 +209,19 @@ export default class extends Controller {
     const threads = this.element.querySelectorAll("[data-anchor-text]")
     threads.forEach(thread => {
       const anchor = thread.dataset.anchorText
-      const context = thread.dataset.anchorContext
       const occurrence = thread.dataset.anchorOccurrence
       if (anchor && anchor.length > 0) {
-        this.findAndHighlightForThread(anchor, context, occurrence, "anchor-highlight", thread)
+        this.findAndHighlight(anchor, occurrence, "anchor-highlight")
       }
     })
-
-    this.positionThreads()
   }
 
-  // Re-highlight and reposition when threads are added/removed via turbo stream broadcasts
-  observeThreadLists() {
-    this.threadListObserver = new MutationObserver(() => {
-      // Debounce — multiple mutations may fire in quick succession
-      clearTimeout(this._repositionTimer)
-      this._repositionTimer = setTimeout(() => this.highlightAnchors(), 50)
-    })
-
-    this.element.querySelectorAll(".comment-threads-list").forEach(list => {
-      this.threadListObserver.observe(list, { childList: true })
-    })
-  }
-
-  repositionThreads() {
-    // Small delay to let the tab panel become visible before measuring positions
-    setTimeout(() => this.positionThreads(), 10)
-  }
-
-  positionThreads() {
-    const sidebar = this.element.querySelector(".plan-layout__sidebar")
-    if (!sidebar) return
-
-    // Pause observer while reordering DOM to avoid triggering a rehighlight loop
-    if (this.threadListObserver) this.threadListObserver.disconnect()
-
-    this.positionThreadList("#comment-threads", sidebar)
-    this.positionThreadList("#resolved-comment-threads", sidebar)
-
-    // Re-observe after reordering
-    if (this.threadListObserver) {
-      this.element.querySelectorAll(".comment-threads-list").forEach(list => {
-        this.threadListObserver.observe(list, { childList: true })
-      })
-    }
-  }
-
-  positionThreadList(selector, sidebar) {
-    const threadList = this.element.querySelector(selector)
-    if (!threadList) return
-
-    const threads = Array.from(threadList.querySelectorAll(".comment-thread"))
-    if (threads.length === 0) return
-
-    const sidebarRect = sidebar.getBoundingClientRect()
-
-    // Sort threads by their anchor's vertical position in the document
-    threads.sort((a, b) => {
-      const markA = a._highlightMark
-      const markB = b._highlightMark
-      const yA = markA ? markA.getBoundingClientRect().top : Infinity
-      const yB = markB ? markB.getBoundingClientRect().top : Infinity
-      return yA - yB
-    })
-
-    // Reorder DOM within this list only
-    threads.forEach(thread => threadList.appendChild(thread))
-
-    // Position threads vertically
-    const gap = 8
-    let cursor = 0
-
-    threads.forEach(thread => {
-      const mark = thread._highlightMark
-      let desiredY = cursor
-
-      if (mark) {
-        desiredY = mark.getBoundingClientRect().top - sidebarRect.top + sidebar.scrollTop
-      }
-
-      const y = Math.max(desiredY, cursor)
-      thread.style.marginTop = `${y - cursor}px`
-      cursor = y + thread.offsetHeight + gap
-    })
-  }
-
-  // Primary highlight method: uses occurrence index (from server-side OT positions)
-  // to find the correct Nth occurrence of anchor text in the rendered DOM.
-  // Falls back to context matching, then to first occurrence.
-  findAndHighlightForThread(text, context, occurrence, className, threadEl) {
+  // Find and highlight the Nth occurrence of text in the rendered DOM.
+  // Uses the occurrence index from server-side positional data.
+  findAndHighlight(text, occurrence, className) {
     const fullText = this.fullText
     let targetIndex = -1
 
-    // Strategy 1: Use the occurrence index from the server (most reliable)
     if (occurrence !== undefined && occurrence !== "") {
       const occurrenceNum = parseInt(occurrence, 10)
       if (!isNaN(occurrenceNum)) {
@@ -320,27 +229,9 @@ export default class extends Controller {
       }
     }
 
-    // Strategy 2: Fall back to context matching
-    if (targetIndex === -1 && context && context.length > 0) {
-      const contextIndex = fullText.indexOf(context)
-      if (contextIndex !== -1) {
-        targetIndex = fullText.indexOf(text, contextIndex)
-        if (targetIndex === -1 || targetIndex > contextIndex + context.length) {
-          targetIndex = fullText.indexOf(text)
-        }
-      }
-    }
-
-    // Strategy 3: Fall back to first occurrence
-    if (targetIndex === -1) {
-      targetIndex = fullText.indexOf(text)
-    }
-
     if (targetIndex === -1) return null
 
-    const mark = this.highlightAtIndex(targetIndex, text.length, className)
-    if (mark && threadEl) threadEl._highlightMark = mark
-    return mark
+    return this.highlightAtIndex(targetIndex, text.length, className)
   }
 
   findNthOccurrence(text, search, n) {
@@ -350,43 +241,6 @@ export default class extends Controller {
       if (pos === -1) return -1
     }
     return pos
-  }
-
-  findAndHighlightWithContext(text, context, className) {
-    // Use context to find the right occurrence of the anchor text
-    const fullText = this.fullText
-    let targetIndex
-
-    if (context && context.length > 0) {
-      const contextIndex = fullText.indexOf(context)
-      if (contextIndex !== -1) {
-        // Find the anchor text within the context region
-        targetIndex = fullText.indexOf(text, contextIndex)
-        if (targetIndex === -1 || targetIndex > contextIndex + context.length) {
-          targetIndex = fullText.indexOf(text) // fallback
-        }
-      } else {
-        targetIndex = fullText.indexOf(text)
-      }
-    } else {
-      targetIndex = fullText.indexOf(text)
-    }
-
-    if (targetIndex === -1) return null
-
-    // Find the thread element to store the mark reference
-    const threads = this.element.querySelectorAll(".comment-thread[data-anchor-text]")
-    let threadEl = null
-    for (const t of threads) {
-      if (t.dataset.anchorText === text && t.dataset.anchorContext === (context || "")) {
-        threadEl = t
-        break
-      }
-    }
-
-    const mark = this.highlightAtIndex(targetIndex, text.length, className)
-    if (mark && threadEl) threadEl._highlightMark = mark
-    return mark
   }
 
   highlightAtIndex(startIndex, length, className) {
@@ -432,14 +286,5 @@ export default class extends Controller {
     }
 
     return firstHighlighted
-  }
-
-  // Keep legacy method for scrollToAnchor (single-use highlight)
-  findAndHighlight(text, className) {
-    if (!text || text.length === 0) return null
-    const fullText = this.contentTarget.textContent
-    const index = fullText.indexOf(text)
-    if (index === -1) return null
-    return this.highlightAtIndex(index, text.length, className)
   }
 }

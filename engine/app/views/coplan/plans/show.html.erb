@@ -15,38 +15,7 @@
         </div>
       </div>
 
-      <div class="plan-layout__sidebar">
-        <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
-
-        <div class="comment-tabs" data-controller="coplan--tabs" data-coplan--tabs-active-class="comment-tab--active">
-          <div class="comment-tabs__nav">
-            <button class="comment-tab comment-tab--active" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch coplan--text-selection#repositionThreads" data-index="0">
-              Open <span class="comment-tab__count" id="open-thread-count"><%= @active_threads.size if @active_threads.any? %></span>
-            </button>
-            <button class="comment-tab" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch coplan--text-selection#repositionThreads" data-index="1">
-              Resolved <span class="comment-tab__count" id="resolved-thread-count"><%= @archived_threads.size if @archived_threads.any? %></span>
-            </button>
-          </div>
-
-          <div class="comment-tabs__panel" data-coplan--tabs-target="panel">
-            <div class="comment-threads-list" id="comment-threads">
-              <% @active_threads.each do |thread| %>
-                <%= render partial: "coplan/comment_threads/thread", locals: { thread: thread, plan: @plan, current_user: current_user } %>
-              <% end %>
-              <p class="text-sm text-muted" id="open-threads-empty" <% if @active_threads.any? %>style="display: none;"<% end %>>No open comments.</p>
-            </div>
-          </div>
-
-          <div class="comment-tabs__panel" data-coplan--tabs-target="panel" style="display: none;">
-            <div class="comment-threads-list" id="resolved-comment-threads">
-              <% @archived_threads.each do |thread| %>
-                <%= render partial: "coplan/comment_threads/thread", locals: { thread: thread, plan: @plan, current_user: current_user } %>
-              <% end %>
-              <p class="text-sm text-muted" id="resolved-threads-empty" <% if @archived_threads.any? %>style="display: none;"<% end %>>No resolved comments.</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
     </div>
   <% else %>
     <div class="empty-state">
