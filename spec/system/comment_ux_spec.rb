@@ -241,6 +241,124 @@ RSpec.describe "Comment UX", type: :system do
     end
   end
 
+  describe "keyboard shortcuts" do
+    before { sign_in(author) }
+
+    it "focuses reply textarea when pressing r after navigating to a thread" do
+      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
+      create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
+      visit plan_path(plan)
+
+      # Navigate to the first thread with j
+      find("body").send_keys("j")
+      expect(page).to have_css("mark.anchor-highlight--active")
+      expect(page).to have_css(".thread-popover", visible: true)
+
+      # Press r to focus the reply textarea
+      find("body").send_keys("r")
+      active = page.evaluate_script("document.activeElement.tagName")
+      placeholder = page.evaluate_script("document.activeElement.placeholder")
+      expect(active).to eq("TEXTAREA")
+      expect(placeholder).to eq("Reply...")
+    end
+
+    it "focuses reply textarea when pressing r after mouse-clicking a highlight" do
+      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
+      create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
+      visit plan_path(plan)
+
+      # Open popover for the second thread via mouse click (not j/k)
+      marks = all("mark.anchor-highlight--open")
+      marks.last.click
+      expect(page).to have_css(".thread-popover", visible: true)
+
+      # Press r to focus the reply textarea in the correct (second) popover
+      find("body").send_keys("r")
+      active = page.evaluate_script("document.activeElement.tagName")
+      placeholder = page.evaluate_script("document.activeElement.placeholder")
+      expect(active).to eq("TEXTAREA")
+      expect(placeholder).to eq("Reply...")
+    end
+
+    it "does not fire r shortcut when typing in a textarea" do
+      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
+      visit plan_path(plan)
+
+      # Navigate and focus reply
+      find("body").send_keys("j")
+      expect(page).to have_css(".thread-popover", visible: true)
+      find("body").send_keys("r")
+
+      # Type 'r' inside the textarea — should insert character, not trigger shortcut
+      active_el = page.evaluate_script("document.activeElement.tagName")
+      expect(active_el).to eq("TEXTAREA")
+    end
+
+    it "submits reply form with Enter key" do
+      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
+      visit plan_path(plan)
+
+      find("mark.anchor-highlight--open").click
+      expect(page).to have_css(".thread-popover", visible: true)
+
+      within(".thread-popover") do
+        textarea = find("textarea[placeholder='Reply...']")
+        textarea.fill_in with: "Good point"
+        textarea.send_keys(:enter)
+      end
+
+      # Reply should be submitted and textarea cleared
+      expect(page).to have_content("Good point")
+      thread = plan.comment_threads.reload.first
+      expect(thread.comments.count).to eq(2)
+    end
+
+    it "inserts newline with Shift+Enter in reply textarea" do
+      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
+      visit plan_path(plan)
+
+      find("mark.anchor-highlight--open").click
+      expect(page).to have_css(".thread-popover", visible: true)
+
+      within(".thread-popover") do
+        textarea = find("textarea[placeholder='Reply...']")
+        textarea.fill_in with: "Line one"
+        textarea.send_keys([:shift, :enter])
+        textarea.send_keys("Line two")
+        value = textarea.value
+        expect(value).to include("Line one")
+        expect(value).to include("Line two")
+      end
+
+      # Form should NOT have been submitted
+      thread = plan.comment_threads.reload.first
+      expect(thread.comments.count).to eq(1)
+    end
+
+    it "submits new comment form with Enter key" do
+      visit plan_path(plan)
+
+      page.execute_script <<~JS
+        const form = document.getElementById('new-comment-form');
+        form.style.display = 'block';
+        form.querySelector('[name="comment_thread[anchor_text]"]').value = 'microservices architecture';
+        form.querySelector('[name="comment_thread[anchor_context]"]').value = '';
+        form.querySelector('[name="comment_thread[anchor_occurrence]"]').value = '1';
+      JS
+
+      within("#new-comment-form") do
+        textarea = find("textarea")
+        textarea.fill_in with: "Enter-submitted comment"
+        textarea.send_keys(:enter)
+      end
+
+      expect(page).not_to have_css("#new-comment-form", visible: true, wait: 5)
+      thread = plan.comment_threads.reload.last
+      expect(thread).to be_present
+      expect(thread.comments.first.body_markdown).to eq("Enter-submitted comment")
+    end
+  end
+
   describe "creating a new comment" do
     before { sign_in(author) }
 

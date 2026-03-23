@@ -31,6 +31,10 @@ export default class extends Controller {
         event.preventDefault()
         this.prev()
         break
+      case "r":
+        event.preventDefault()
+        this.focusReply()
+        break
     }
   }
 
@@ -81,6 +85,23 @@ export default class extends Controller {
     }
 
     this.updatePosition()
+  }
+
+  focusReply() {
+    let openPopover
+    try {
+      openPopover = document.querySelector(".thread-popover:popover-open")
+    } catch {
+      // :popover-open not supported — find the visible popover manually
+      openPopover = Array.from(document.querySelectorAll(".thread-popover[popover]"))
+        .find(el => el.checkVisibility?.())
+    }
+    if (!openPopover) return
+
+    const textarea = openPopover.querySelector(".thread-popover__reply textarea")
+    if (textarea) {
+      textarea.focus({ preventScroll: true })
+    }
   }
 
   toggleResolved() {
