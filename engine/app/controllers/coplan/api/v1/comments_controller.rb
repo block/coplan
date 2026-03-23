@@ -56,7 +56,7 @@ module CoPlan
           render json: { thread_id: thread.id, status: thread.status }
         end
 
-        def dismiss
+        def discard
           thread = @plan.comment_threads.find_by(id: params[:id])
           unless thread
             render json: { error: "Comment thread not found" }, status: :not_found
@@ -64,12 +64,12 @@ module CoPlan
           end
 
           policy = CommentThreadPolicy.new(current_user, thread)
-          unless policy.dismiss?
+          unless policy.discard?
             render json: { error: "Not authorized" }, status: :forbidden
             return
           end
 
-          thread.dismiss!(current_user)
+          thread.discard!(current_user)
           broadcast_thread_update(thread)
 
           render json: { thread_id: thread.id, status: thread.status }
@@ -104,10 +104,10 @@ module CoPlan
         private
 
         def broadcast_new_thread(thread)
-          Broadcaster.prepend_to(
+          Broadcaster.append_to(
             @plan,
-            target: "comment-threads",
-            partial: "coplan/comment_threads/thread",
+            target: "plan-threads",
+            partial: "coplan/comment_threads/thread_popover",
             locals: { thread: thread, plan: @plan }
           )
         end
@@ -116,7 +116,7 @@ module CoPlan
           Broadcaster.replace_to(
             @plan,
             target: ActionView::RecordIdentifier.dom_id(thread),
-            partial: "coplan/comment_threads/thread",
+            partial: "coplan/comment_threads/thread_popover",
             locals: { thread: thread, plan: @plan }
           )
         end

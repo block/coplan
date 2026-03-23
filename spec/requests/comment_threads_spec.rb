@@ -19,7 +19,7 @@ RSpec.describe "CommentThreads", type: :request do
     expect(response).to redirect_to(plan_path(plan))
     thread = CoPlan::CommentThread.last
     expect(thread.anchor_text).to eq("world domination")
-    expect(thread.status).to eq("open")
+    expect(thread.status).to eq("todo") # author's own comments start as todo
     expect(thread.plan_version_id).to eq(plan.current_plan_version_id)
   end
 
@@ -47,14 +47,14 @@ RSpec.describe "CommentThreads", type: :request do
     thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
     patch accept_plan_comment_thread_path(plan, thread)
     thread.reload
-    expect(thread.status).to eq("accepted")
+    expect(thread.status).to eq("todo")
   end
 
-  it "dismiss thread as plan author" do
+  it "discard thread as plan author" do
     thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
-    patch dismiss_plan_comment_thread_path(plan, thread)
+    patch discard_plan_comment_thread_path(plan, thread)
     thread.reload
-    expect(thread.status).to eq("dismissed")
+    expect(thread.status).to eq("discarded")
   end
 
   it "reopen resolved thread" do
@@ -62,7 +62,7 @@ RSpec.describe "CommentThreads", type: :request do
     thread.resolve!(alice)
     patch reopen_plan_comment_thread_path(plan, thread)
     thread.reload
-    expect(thread.status).to eq("open")
+    expect(thread.status).to eq("pending")
     expect(thread.resolved_by_user_id).to be_nil
   end
 
@@ -72,6 +72,6 @@ RSpec.describe "CommentThreads", type: :request do
     patch accept_plan_comment_thread_path(plan, thread)
     expect(response).to have_http_status(:not_found)
     thread.reload
-    expect(thread.status).to eq("open")
+    expect(thread.status).to eq("pending")
   end
 end

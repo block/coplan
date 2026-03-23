@@ -12,7 +12,7 @@ module CoPlan
       record.plan.created_by_user_id == user.id
     end
 
-    def dismiss?
+    def discard?
       record.plan.created_by_user_id == user.id
     end
 

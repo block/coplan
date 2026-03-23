@@ -47,21 +47,35 @@ RSpec.describe CoPlan::CommentThread, type: :model do
     expect(thread_record.resolved_by_user).to eq(user)
   end
 
-  it "accept! sets status and user" do
+  it "accept! sets status to todo" do
     thread_record.accept!(user)
-    expect(thread_record.status).to eq("accepted")
+    expect(thread_record.status).to eq("todo")
     expect(thread_record.resolved_by_user).to eq(user)
   end
 
-  it "dismiss! sets status and user" do
-    thread_record.dismiss!(user)
-    expect(thread_record.status).to eq("dismissed")
+  it "discard! sets status and user" do
+    thread_record.discard!(user)
+    expect(thread_record.status).to eq("discarded")
     expect(thread_record.resolved_by_user).to eq(user)
+  end
+
+  it "open? returns true for pending and todo" do
+    thread_record.status = "pending"
+    expect(thread_record).to be_open
+    thread_record.status = "todo"
+    expect(thread_record).to be_open
+  end
+
+  it "open? returns false for resolved and discarded" do
+    thread_record.status = "resolved"
+    expect(thread_record).not_to be_open
+    thread_record.status = "discarded"
+    expect(thread_record).not_to be_open
   end
 
   it "open_threads scope returns only open threads" do
     open_threads = plan.comment_threads.open_threads
-    expect(open_threads).to all(have_attributes(status: "open"))
+    expect(open_threads).to all(satisfy { |t| t.open? })
   end
 
   it "returns true for anchored? when anchor_text set" do
@@ -87,7 +101,7 @@ RSpec.describe CoPlan::CommentThread, type: :model do
     it "returns open non-out-of-date threads" do
       thread_record # ensure it exists
       active = plan.comment_threads.active
-      expect(active).to all(have_attributes(status: "open", out_of_date: false))
+      expect(active).to all(satisfy { |t| t.open? && !t.out_of_date? })
     end
 
     it "excludes resolved threads" do
@@ -106,7 +120,7 @@ RSpec.describe CoPlan::CommentThread, type: :model do
   describe ".archived scope" do
     it "returns non-open or out-of-date threads" do
       archived = plan.comment_threads.archived
-      expect(archived).to all(satisfy { |t| t.status != "open" || t.out_of_date? })
+      expect(archived).to all(satisfy { |t| !t.open? || t.out_of_date? })
     end
 
     it "includes resolved threads" do

@@ -5,7 +5,7 @@
      data-thread-id="<%= thread.id %>">
   <div class="comment-thread__header">
     <div class="comment-thread__meta">
-      <span class="badge badge--<%= thread.status == 'open' ? 'live' : 'abandoned' %>"><%= thread.status %></span>
+      <span class="badge badge--<%= thread.open? ? 'live' : 'abandoned' %>"><%= thread.status %></span>
       <% if thread.out_of_date? %>
         <span class="badge badge--abandoned">out of date</span>
       <% end %>
@@ -26,16 +26,13 @@
   <% is_plan_author = viewer.nil? || plan.created_by_user_id == viewer.id %>
   <% is_thread_author = viewer.nil? || thread.created_by_user_id == viewer.id %>
 
-  <% if thread.status == "open" %>
+  <% if thread.open? %>
     <%= render partial: "coplan/comment_threads/reply_form", locals: { thread: thread, plan: plan } %>
 
     <div class="comment-thread__actions">
-      <% if is_plan_author || is_thread_author %>
-        <%= link_to "Resolve", resolve_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
-      <% end %>
       <% if is_plan_author %>
         <%= link_to "Accept", accept_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
-        <%= link_to "Dismiss", dismiss_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
+        <%= link_to "Discard", discard_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
       <% end %>
     </div>
   <% else %>

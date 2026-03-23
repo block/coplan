@@ -3,10 +3,14 @@ module CoPlan
     include ActionView::RecordIdentifier
 
     before_action :set_plan
-    before_action :set_thread, only: [:resolve, :accept, :dismiss, :reopen]
+    before_action :set_thread, only: [:resolve, :accept, :discard, :reopen]
 
     def create
       authorize!(@plan, :show?)
+
+      # Author's own comments start as "todo" (self-assigned work item);
+      # non-author comments start as "pending" (awaiting author triage).
+      initial_status = current_user.id == @plan.created_by_user_id ? "todo" : "pending"
 
       thread = @plan.comment_threads.new(
         plan_version: @plan.current_plan_version,
@@ -15,7 +19,8 @@ module CoPlan
         anchor_occurrence: params[:comment_thread][:anchor_occurrence].presence&.to_i,
         start_line: params[:comment_thread][:start_line].presence,
         end_line: params[:comment_thread][:end_line].presence,
-        created_by_user: current_user
+        created_by_user: current_user,
+        status: initial_status
       )
 
       thread.save!
@@ -26,8 +31,14 @@ module CoPlan
         body_markdown: params[:comment_thread][:body_markdown]
       )
 
-      broadcast_new_thread(thread)
-      broadcast_tab_counts
+      if thread.anchored?
+        Broadcaster.append_to(
+          @plan,
+          target: "plan-threads",
+          partial: "coplan/comment_threads/thread_popover",
+          locals: { thread: thread, plan: @plan }
+        )
+      end
 
       respond_with_stream_or_redirect("Comment added.")
     end
@@ -35,34 +46,28 @@ module CoPlan
     def resolve
       authorize!(@thread, :resolve?)
       @thread.resolve!(current_user)
-      broadcast_thread_move(@thread, from: "comment-threads", to: "resolved-comment-threads")
+      broadcast_thread_replace(@thread)
       respond_with_stream_or_redirect("Thread resolved.")
     end
 
     def accept
       authorize!(@thread, :accept?)
       @thread.accept!(current_user)
-      broadcast_thread_move(@thread, from: "comment-threads", to: "resolved-comment-threads")
+      broadcast_thread_replace(@thread)
       respond_with_stream_or_redirect("Thread accepted.")
     end
 
-    def dismiss
-      authorize!(@thread, :dismiss?)
-      @thread.dismiss!(current_user)
-      broadcast_thread_move(@thread, from: "comment-threads", to: "resolved-comment-threads")
-      respond_with_stream_or_redirect("Thread dismissed.")
+    def discard
+      authorize!(@thread, :discard?)
+      @thread.discard!(current_user)
+      broadcast_thread_replace(@thread)
+      respond_with_stream_or_redirect("Thread discarded.")
     end
 
     def reopen
       authorize!(@thread, :reopen?)
-      @thread.update!(status: "open", resolved_by_user: nil)
-      # Out-of-date threads stay in the archived list even when reopened,
-      # since the active scope excludes out_of_date rows.
-      if @thread.out_of_date?
-        broadcast_thread_replace(@thread)
-      else
-        broadcast_thread_move(@thread, from: "resolved-comment-threads", to: "comment-threads")
-      end
+      @thread.update!(status: "pending", resolved_by_user: nil)
+      broadcast_thread_replace(@thread)
       respond_with_stream_or_redirect("Thread reopened.")
     end
 
@@ -76,15 +81,6 @@ module CoPlan
       @thread = @plan.comment_threads.find(params[:id])
     end
 
-    def broadcast_new_thread(thread)
-      Broadcaster.prepend_to(
-        @plan,
-        target: "comment-threads",
-        partial: "coplan/comment_threads/thread",
-        locals: { thread: thread, plan: @plan }
-      )
-    end
-
     # Broadcasts update all clients (including the submitter) via WebSocket.
     # The empty turbo_stream response prevents Turbo from navigating (which causes scroll-to-top).
     def respond_with_stream_or_redirect(message)
@@ -94,55 +90,13 @@ module CoPlan
       end
     end
 
-    # Replaces a thread in place (status changed but stays in the same list).
+    # Replaces a thread in place (status changed).
     def broadcast_thread_replace(thread)
       Broadcaster.replace_to(
         @plan,
         target: dom_id(thread),
-        partial: "coplan/comment_threads/thread",
+        partial: "coplan/comment_threads/thread_popover",
         locals: { thread: thread, plan: @plan }
-      )
-      broadcast_tab_counts
-    end
-
-    # Moves a thread between Open/Resolved lists and updates tab counts.
-    def broadcast_thread_move(thread, from:, to:)
-      Broadcaster.remove_to(@plan, target: dom_id(thread))
-      Broadcaster.append_to(
-        @plan,
-        target: to,
-        partial: "coplan/comment_threads/thread",
-        locals: { thread: thread, plan: @plan }
-      )
-      broadcast_tab_counts
-    end
-
-    def broadcast_tab_counts
-      threads = @plan.comment_threads
-      open_count = threads.active.count
-      resolved_count = threads.archived.count
-
-      Broadcaster.update_to(
-        @plan,
-        target: "open-thread-count",
-        html: open_count > 0 ? open_count.to_s : ""
-      )
-      Broadcaster.update_to(
-        @plan,
-        target: "resolved-thread-count",
-        html: resolved_count > 0 ? resolved_count.to_s : ""
-      )
-
-      # Toggle empty-state placeholders
-      Broadcaster.replace_to(
-        @plan,
-        target: "open-threads-empty",
-        html: %(<p class="text-sm text-muted" id="open-threads-empty" #{'style="display: none;"' if open_count > 0}>No open comments.</p>)
-      )
-      Broadcaster.replace_to(
-        @plan,
-        target: "resolved-threads-empty",
-        html: %(<p class="text-sm text-muted" id="resolved-threads-empty" #{'style="display: none;"' if resolved_count > 0}>No resolved comments.</p>)
       )
     end
   end

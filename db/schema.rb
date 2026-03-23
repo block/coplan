@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_13_211236) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_20_145506) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -68,7 +68,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_13_211236) do
     t.string "plan_version_id", limit: 36, null: false
     t.string "resolved_by_user_id", limit: 36
     t.integer "start_line"
-    t.string "status", default: "open", null: false
+    t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
     t.index ["addressed_in_plan_version_id"], name: "fk_rails_e7003e0df7"
     t.index ["created_by_user_id"], name: "fk_rails_88fb5e06ca"
