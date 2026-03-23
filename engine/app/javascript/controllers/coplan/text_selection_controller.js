@@ -40,17 +40,30 @@ export default class extends Controller {
 
   checkSelection(event) {
     const selection = window.getSelection()
+
+    if (!selection.rangeCount) return
+    const range = selection.getRangeAt(0)
+
+    // Make sure at least part of the selection is within the content area.
+    // Whole-line selections (e.g. triple-click) can set commonAncestorContainer
+    // to a parent element above contentTarget, so we check start/end individually.
+    const startInContent = this.contentTarget.contains(range.startContainer)
+    const endInContent = this.contentTarget.contains(range.endContainer)
+    if (!startInContent) {
+      return
+    }
+
+    // Clamp the range to contentTarget so selections that bleed into
+    // hidden siblings (popover, form) don't produce stale rects or text.
+    if (startInContent && !endInContent && this.contentTarget.lastChild) {
+      range.setEndAfter(this.contentTarget.lastChild)
+    }
+
+    // Extract text after clamping so it only contains content-area text
     const text = selection.toString().trim()
 
     if (text.length < 3) {
       this.popoverTarget.style.display = "none"
-      return
-    }
-
-    // Make sure selection is within the content area
-    if (!selection.rangeCount) return
-    const range = selection.getRangeAt(0)
-    if (!this.contentTarget.contains(range.commonAncestorContainer)) {
       return
     }
 
