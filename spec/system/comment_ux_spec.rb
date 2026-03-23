@@ -359,6 +359,32 @@ RSpec.describe "Comment UX", type: :system do
     end
   end
 
+  describe "whole-line text selection" do
+    before { sign_in(author) }
+
+    it "shows comment popover when selection extends past content boundary" do
+      visit plan_path(plan)
+
+      # Simulate a whole-line selection that bleeds past the content target.
+      # This reproduces the bug where commonAncestorContainer is above
+      # contentTarget, causing the old contains() check to reject it.
+      page.execute_script <<~JS
+        const content = document.querySelector('[data-coplan--text-selection-target="content"]');
+        const heading = content.querySelector('h2');
+        if (!heading) throw new Error('No h2 found in content');
+        const range = document.createRange();
+        range.setStart(heading.firstChild, 0);
+        range.setEndAfter(content);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        content.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      JS
+
+      expect(page).to have_css(".comment-popover", visible: true, wait: 3)
+    end
+  end
+
   describe "creating a new comment" do
     before { sign_in(author) }
 
