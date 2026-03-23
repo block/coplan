@@ -121,13 +121,23 @@ export default class extends Controller {
     const form = popover.querySelector(`form[data-action-name='${action}']`)
     if (!form) return
 
+    // Normalize currentIndex if popover was opened via mouse (not j/k)
+    if (this.currentIndex < 0) {
+      this.currentIndex = 0
+    }
+
+    // For accept (pending→todo), the thread stays open so we need to
+    // explicitly advance. For discard, the thread leaves openHighlights
+    // and the current index naturally points to the next one.
+    const shouldAdvance = action === "accept"
+
     // Watch for the broadcast DOM update that replaces the thread data,
     // then advance to the next thread once the highlights have changed.
     const threadsContainer = document.getElementById("plan-threads")
     if (threadsContainer) {
       const observer = new MutationObserver(() => {
         observer.disconnect()
-        this.advanceAfterAction()
+        this.advanceAfterAction(shouldAdvance)
       })
       observer.observe(threadsContainer, { childList: true, subtree: true })
     }
@@ -135,14 +145,16 @@ export default class extends Controller {
     form.requestSubmit()
   }
 
-  advanceAfterAction() {
+  advanceAfterAction(shouldAdvance) {
     const highlights = this.openHighlights
     if (highlights.length === 0) {
       this.currentIndex = -1
       this.updatePosition()
       return
     }
-    if (this.currentIndex >= highlights.length) {
+    if (shouldAdvance) {
+      this.currentIndex = (this.currentIndex + 1) % highlights.length
+    } else if (this.currentIndex >= highlights.length) {
       this.currentIndex = 0
     }
     this.navigateTo(highlights[this.currentIndex])
