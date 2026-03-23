@@ -3,10 +3,14 @@ module CoPlan
     include ActionView::RecordIdentifier
 
     before_action :set_plan
-    before_action :set_thread, only: [:resolve, :accept, :dismiss, :reopen]
+    before_action :set_thread, only: [:resolve, :accept, :discard, :reopen]
 
     def create
       authorize!(@plan, :show?)
+
+      # Author's own comments start as "todo" (self-assigned work item);
+      # non-author comments start as "pending" (awaiting author triage).
+      initial_status = current_user.id == @plan.created_by_user_id ? "todo" : "pending"
 
       thread = @plan.comment_threads.new(
         plan_version: @plan.current_plan_version,
@@ -15,7 +19,8 @@ module CoPlan
         anchor_occurrence: params[:comment_thread][:anchor_occurrence].presence&.to_i,
         start_line: params[:comment_thread][:start_line].presence,
         end_line: params[:comment_thread][:end_line].presence,
-        created_by_user: current_user
+        created_by_user: current_user,
+        status: initial_status
       )
 
       thread.save!
@@ -25,6 +30,15 @@ module CoPlan
         author_id: current_user.id,
         body_markdown: params[:comment_thread][:body_markdown]
       )
+
+      if thread.anchored?
+        Broadcaster.append_to(
+          @plan,
+          target: "plan-threads",
+          partial: "coplan/comment_threads/thread_popover",
+          locals: { thread: thread, plan: @plan }
+        )
+      end
 
       respond_with_stream_or_redirect("Comment added.")
     end
@@ -43,16 +57,16 @@ module CoPlan
       respond_with_stream_or_redirect("Thread accepted.")
     end
 
-    def dismiss
-      authorize!(@thread, :dismiss?)
-      @thread.dismiss!(current_user)
+    def discard
+      authorize!(@thread, :discard?)
+      @thread.discard!(current_user)
       broadcast_thread_replace(@thread)
-      respond_with_stream_or_redirect("Thread dismissed.")
+      respond_with_stream_or_redirect("Thread discarded.")
     end
 
     def reopen
       authorize!(@thread, :reopen?)
-      @thread.update!(status: "open", resolved_by_user: nil)
+      @thread.update!(status: "pending", resolved_by_user: nil)
       broadcast_thread_replace(@thread)
       respond_with_stream_or_redirect("Thread reopened.")
     end
@@ -81,7 +95,7 @@ module CoPlan
       Broadcaster.replace_to(
         @plan,
         target: dom_id(thread),
-        partial: "coplan/comment_threads/thread",
+        partial: "coplan/comment_threads/thread_popover",
         locals: { thread: thread, plan: @plan }
       )
     end

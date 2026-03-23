@@ -7,7 +7,7 @@ CoPlan::Engine.routes.draw do
       member do
         patch :resolve
         patch :accept
-        patch :dismiss
+        patch :discard
         patch :reopen
       end
       resources :comments, only: [:create]
@@ -31,7 +31,7 @@ CoPlan::Engine.routes.draw do
         resources :comments, only: [:create], controller: "comments" do
           post :reply, on: :member
           patch :resolve, on: :member
-          patch :dismiss, on: :member
+          patch :discard, on: :member
         end
       end
     end

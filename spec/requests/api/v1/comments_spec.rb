@@ -78,19 +78,19 @@ RSpec.describe "Api::V1::Comments", type: :request do
     end
   end
 
-  describe "PATCH dismiss" do
-    it "dismisses a thread" do
-      patch dismiss_api_v1_plan_comment_path(plan, thread_record),
+  describe "PATCH discard" do
+    it "discards a thread" do
+      patch discard_api_v1_plan_comment_path(plan, thread_record),
         headers: headers,
         as: :json
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
-      expect(body["status"]).to eq("dismissed")
-      expect(thread_record.reload.status).to eq("dismissed")
+      expect(body["status"]).to eq("discarded")
+      expect(thread_record.reload.status).to eq("discarded")
     end
 
     it "returns 404 for nonexistent thread" do
-      patch dismiss_api_v1_plan_comment_path(plan, "nonexistent-id"),
+      patch discard_api_v1_plan_comment_path(plan, "nonexistent-id"),
         headers: headers,
         as: :json
       expect(response).to have_http_status(:not_found)
@@ -101,7 +101,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
       bob_token = create(:api_token, user: bob, raw_token: "test-token-bob")
       bob_headers = { "Authorization" => "Bearer test-token-bob" }
 
-      patch dismiss_api_v1_plan_comment_path(plan, thread_record),
+      patch discard_api_v1_plan_comment_path(plan, thread_record),
         headers: bob_headers,
         as: :json
       expect(response).to have_http_status(:forbidden)

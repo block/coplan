@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote"]
+  static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote", "margin", "threads"]
   static values = { planId: String }
 
   connect() {
@@ -9,11 +9,21 @@ export default class extends Controller {
     this.contentTarget.addEventListener("mouseup", this.handleMouseUp.bind(this))
     document.addEventListener("mousedown", this.handleDocumentMouseDown.bind(this))
     this.highlightAnchors()
+
+    // Watch for broadcast-appended threads and re-highlight
+    if (this.hasThreadsTarget) {
+      this._threadsObserver = new MutationObserver(() => this.highlightAnchors())
+      this._threadsObserver.observe(this.threadsTarget, { childList: true })
+    }
   }
 
   disconnect() {
     this.contentTarget.removeEventListener("mouseup", this.handleMouseUp.bind(this))
     document.removeEventListener("mousedown", this.handleDocumentMouseDown.bind(this))
+    if (this._threadsObserver) {
+      this._threadsObserver.disconnect()
+      this._threadsObserver = null
+    }
   }
 
   handleMouseUp(event) {
@@ -70,7 +80,9 @@ export default class extends Controller {
       : this.selectedText
     this.anchorPreviewTarget.style.display = "block"
 
-    // Show form, hide popover
+    // Position form where the popover was, then show it
+    this.formTarget.style.top = this.popoverTarget.style.top
+    this.formTarget.style.left = this.popoverTarget.style.left
     this.formTarget.style.display = "block"
     this.popoverTarget.style.display = "none"
 
@@ -134,6 +146,49 @@ export default class extends Controller {
     if (highlighted) {
       highlighted.scrollIntoView({ behavior: "smooth", block: "center" })
     }
+  }
+
+  openThreadPopover(event) {
+    const threadId = event.currentTarget.dataset.threadId
+    if (!threadId) return
+
+    const popover = document.getElementById(`${threadId}_popover`)
+    if (!popover) return
+
+    // Position the popover near the clicked element
+    const trigger = event.currentTarget
+    const triggerRect = trigger.getBoundingClientRect()
+
+    // Hide visually while positioning to prevent flash
+    popover.style.visibility = "hidden"
+    popover.showPopover()
+
+    // Position after showing (popover needs to be in top layer first)
+    const popoverRect = popover.getBoundingClientRect()
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+
+    // Default: right of the content area, aligned with the trigger
+    let top = triggerRect.top
+    let left = triggerRect.right + 12
+
+    // If it would overflow right, position to the left
+    if (left + popoverRect.width > viewportWidth - 16) {
+      left = triggerRect.left - popoverRect.width - 12
+    }
+
+    // If it would overflow bottom, shift up
+    if (top + popoverRect.height > viewportHeight - 16) {
+      top = viewportHeight - popoverRect.height - 16
+    }
+
+    // Ensure it doesn't go outside viewport
+    if (top < 16) top = 16
+    if (left < 16) left = 16
+
+    popover.style.top = `${top}px`
+    popover.style.left = `${left}px`
+    popover.style.visibility = "visible"
   }
 
   extractContext(range, selectedText) {
@@ -203,6 +258,11 @@ export default class extends Controller {
     })
     this.contentTarget.normalize()
 
+    // Clear margin dots
+    if (this.hasMarginTarget) {
+      this.marginTarget.innerHTML = ""
+    }
+
     // Build full text once for position lookups
     this.fullText = this.contentTarget.textContent
 
@@ -210,10 +270,43 @@ export default class extends Controller {
     threads.forEach(thread => {
       const anchor = thread.dataset.anchorText
       const occurrence = thread.dataset.anchorOccurrence
+      const status = thread.dataset.threadStatus || "pending"
+      const threadId = thread.id
+
       if (anchor && anchor.length > 0) {
-        this.findAndHighlight(anchor, occurrence, "anchor-highlight")
+        const isOpen = status === "pending" || status === "todo"
+        const statusClass = isOpen ? "anchor-highlight--open" : "anchor-highlight--resolved"
+        const mark = this.findAndHighlight(anchor, occurrence, `anchor-highlight ${statusClass}`)
+
+        if (mark && threadId) {
+          // Make highlight clickable to open popover
+          mark.dataset.threadId = threadId
+          mark.style.cursor = "pointer"
+          mark.addEventListener("click", (e) => this.openThreadPopover(e))
+
+          // Create margin dot
+          if (this.hasMarginTarget) {
+            this.createMarginDot(mark, threadId, status)
+          }
+        }
       }
     })
+  }
+
+  createMarginDot(highlightMark, threadId, status) {
+    const contentRect = this.contentTarget.getBoundingClientRect()
+    const markRect = highlightMark.getBoundingClientRect()
+    const marginRect = this.marginTarget.getBoundingClientRect()
+
+    const dot = document.createElement("button")
+    const isOpen = status === "pending" || status === "todo"
+    dot.className = `margin-dot margin-dot--${isOpen ? "open" : "resolved"}`
+    dot.style.top = `${markRect.top - marginRect.top}px`
+    dot.dataset.threadId = threadId
+    dot.addEventListener("click", (e) => this.openThreadPopover(e))
+    dot.title = `${status} comment`
+
+    this.marginTarget.appendChild(dot)
   }
 
   // Find and highlight the Nth occurrence of text in the rendered DOM.

@@ -3,7 +3,7 @@ FactoryBot.define do
     plan
     plan_version { plan.current_plan_version }
     created_by_user { association(:coplan_user) }
-    status { "open" }
+    status { "pending" }
     out_of_date { false }
 
     trait :with_anchor do

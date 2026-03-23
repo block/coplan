@@ -5,6 +5,7 @@
 <div class="plan-content card">
   <% if @plan.current_content.present? %>
     <div class="plan-layout" data-controller="coplan--text-selection" data-coplan--text-selection-plan-id-value="<%= @plan.id %>">
+      <div class="plan-layout__margin" data-coplan--text-selection-target="margin"></div>
       <div class="plan-layout__content" data-coplan--text-selection-target="content">
         <%= render_markdown(@plan.current_content) %>
 
@@ -13,9 +14,15 @@
             💬 Comment
           </button>
         </div>
+
+        <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
       </div>
 
-      <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
+      <div id="plan-threads" data-coplan--text-selection-target="threads">
+        <% @threads.select(&:anchored?).each do |thread| %>
+          <%= render partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: @plan } %>
+        <% end %>
+      </div>
     </div>
   <% else %>
     <div class="empty-state">
@@ -23,3 +30,19 @@
     </div>
   <% end %>
 </div>
+
+<% open_count = @threads.count(&:open?) %>
+<% if @threads.any? %>
+  <div class="comment-toolbar" data-controller="coplan--comment-nav" data-coplan--comment-nav-plan-id-value="<%= @plan.id %>">
+    <span class="comment-toolbar__count">💬 <%= open_count %> open</span>
+    <div class="comment-toolbar__nav">
+      <button class="btn btn--secondary btn--sm" data-action="coplan--comment-nav#prev" title="Previous comment">↑</button>
+      <span class="comment-toolbar__position" data-coplan--comment-nav-target="position"></span>
+      <button class="btn btn--secondary btn--sm" data-action="coplan--comment-nav#next" title="Next comment">↓</button>
+    </div>
+    <label class="comment-toolbar__toggle">
+      <input type="checkbox" data-action="coplan--comment-nav#toggleResolved" data-coplan--comment-nav-target="resolvedToggle">
+      Show resolved (<%= @threads.count { |t| !t.open? } %>)
+    </label>
+  </div>
+<% end %>

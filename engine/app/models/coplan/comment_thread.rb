@@ -1,6 +1,8 @@
 module CoPlan
   class CommentThread < ApplicationRecord
-    STATUSES = %w[open resolved accepted dismissed].freeze
+    STATUSES = %w[pending todo resolved discarded].freeze
+    OPEN_STATUSES = %w[pending todo].freeze
+    CLOSED_STATUSES = %w[resolved discarded].freeze
 
     attr_accessor :anchor_occurrence
 
@@ -16,10 +18,10 @@ module CoPlan
 
     before_create :resolve_anchor_position
 
-    scope :open_threads, -> { where(status: "open") }
+    scope :open_threads, -> { where(status: OPEN_STATUSES) }
     scope :current, -> { where(out_of_date: false) }
-    scope :active, -> { where(status: "open", out_of_date: false) }
-    scope :archived, -> { where("status != 'open' OR out_of_date = ?", true) }
+    scope :active, -> { where(status: OPEN_STATUSES, out_of_date: false) }
+    scope :archived, -> { where("status NOT IN (?) OR out_of_date = ?", OPEN_STATUSES, true) }
 
     # Transforms anchor positions through intervening version edits using OT.
     # Threads without positional data (anchor_start/anchor_end/anchor_revision)
@@ -94,11 +96,15 @@ module CoPlan
     end
 
     def accept!(user)
-      update!(status: "accepted", resolved_by_user: user)
+      update!(status: "todo", resolved_by_user: user)
     end
 
-    def dismiss!(user)
-      update!(status: "dismissed", resolved_by_user: user)
+    def discard!(user)
+      update!(status: "discarded", resolved_by_user: user)
+    end
+
+    def open?
+      OPEN_STATUSES.include?(status)
     end
 
     def anchor_valid?

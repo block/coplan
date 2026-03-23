@@ -46,7 +46,7 @@ module CoPlan
           plan_version: version,
           created_by_user: created_by,
           anchor_text: item[:anchor_text],
-          status: "open"
+          status: "pending"
         )
 
         thread.comments.create!(
@@ -60,10 +60,10 @@ module CoPlan
     end
 
     def broadcast_new_thread(plan, thread)
-      Broadcaster.prepend_to(
+      Broadcaster.append_to(
         plan,
-        target: "comment-threads",
-        partial: "coplan/comment_threads/thread",
+        target: "plan-threads",
+        partial: "coplan/comment_threads/thread_popover",
         locals: { thread: thread, plan: plan }
       )
     end

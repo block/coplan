@@ -1,0 +1,57 @@
+<div class="thread-popover-data"
+     id="<%= dom_id(thread) %>"
+     data-anchor-text="<%= thread.anchor_text %>"
+     data-anchor-occurrence="<%= thread.anchor_occurrence_index %>"
+     data-thread-id="<%= thread.id %>"
+     data-thread-status="<%= thread.status %>">
+
+  <div popover="auto" id="<%= dom_id(thread) %>_popover" class="thread-popover">
+    <div class="thread-popover__header">
+      <span class="badge badge--<%= thread.open? ? 'live' : 'abandoned' %>"><%= thread.status %></span>
+      <% if thread.out_of_date? %>
+        <span class="badge badge--abandoned">out of date</span>
+      <% end %>
+    </div>
+
+    <% if thread.anchored? %>
+      <blockquote class="thread-popover__quote"><%= thread.anchor_preview %></blockquote>
+    <% end %>
+
+    <div class="thread-popover__comments" id="<%= dom_id(thread, :comments) %>">
+      <% thread.comments.each do |comment| %>
+        <%= render partial: "coplan/comments/comment", locals: { comment: comment } %>
+      <% end %>
+    </div>
+
+    <%# current_user may not be available during Turbo Stream broadcasts %>
+    <% viewer = local_assigns.fetch(:current_user, nil) %>
+    <% is_plan_author = viewer.nil? || plan.created_by_user_id == viewer&.id %>
+    <% is_thread_author = viewer.nil? || thread.created_by_user_id == viewer&.id %>
+
+    <% if thread.open? %>
+      <div class="thread-popover__reply">
+        <%= form_with url: plan_comment_thread_comments_path(plan, thread), method: :post, data: { action: "turbo:submit-end->coplan--text-selection#resetReplyForm" } do |f| %>
+          <div class="form-group">
+            <textarea name="comment[body_markdown]" rows="2" placeholder="Reply..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn--secondary btn--sm">Reply</button>
+        <% end %>
+      </div>
+
+      <div class="thread-popover__actions">
+        <% if is_plan_author %>
+          <% if thread.status == "pending" %>
+            <%= button_to "Accept", accept_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm" %>
+          <% end %>
+          <%= button_to "Discard", discard_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm" %>
+        <% end %>
+      </div>
+    <% else %>
+      <% if is_plan_author || is_thread_author %>
+        <div class="thread-popover__actions">
+          <%= button_to "Reopen", reopen_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm" %>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>
