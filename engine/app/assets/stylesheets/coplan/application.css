@@ -1026,24 +1026,47 @@ img, svg {
 /* Margin dots */
 .margin-dot {
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
+  border: 2px solid transparent;
+  background-clip: padding-box;
   cursor: pointer;
   left: 14px;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  outline: none;
+}
+
+.margin-dot::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
 }
 
 .margin-dot:hover {
-  transform: scale(1.3);
+  transform: scale(1.4);
 }
 
-.margin-dot--open {
-  background: var(--color-primary);
-  box-shadow: 0 0 6px rgba(37, 99, 235, 0.3);
+.margin-dot:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.margin-dot--pending {
+  background: var(--color-status-considering);
+  border-color: rgba(245, 158, 11, 0.3);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.25);
+}
+
+.margin-dot--todo {
+  background: var(--color-status-developing);
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.25);
 }
 
 .margin-dot--resolved {

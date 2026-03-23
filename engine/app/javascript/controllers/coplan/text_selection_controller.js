@@ -302,11 +302,12 @@ export default class extends Controller {
 
     const dot = document.createElement("button")
     const isOpen = status === "pending" || status === "todo"
-    dot.className = `margin-dot margin-dot--${isOpen ? "open" : "resolved"}`
+    const openClass = isOpen ? `margin-dot--open margin-dot--${status}` : "margin-dot--resolved"
+    dot.className = `margin-dot ${openClass}`
     dot.style.top = `${markRect.top - marginRect.top}px`
     dot.dataset.threadId = threadId
     dot.addEventListener("click", (e) => this.openThreadPopover(e))
-    dot.title = `${status} comment`
+    dot.setAttribute("aria-label", `${status} comment`)
 
     this.marginTarget.appendChild(dot)
   }

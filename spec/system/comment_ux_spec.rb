@@ -131,6 +131,16 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css(".margin-dot--open", count: 2)
     end
 
+    it "shows pending dots in amber and todo dots in blue" do
+      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
+      todo_thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
+      todo_thread.accept!(author)
+
+      visit plan_path(plan)
+      expect(page).to have_css(".margin-dot--pending", count: 1)
+      expect(page).to have_css(".margin-dot--todo", count: 1)
+    end
+
     it "hides resolved dots by default" do
       thread = create_anchored_thread(plan: plan, anchor_text: "Redis", body: "Do we need caching?", user: reviewer)
       thread.resolve!(author)
