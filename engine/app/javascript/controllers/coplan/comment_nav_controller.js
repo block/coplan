@@ -36,6 +36,14 @@ export default class extends Controller {
         event.preventDefault()
         this.focusReply()
         break
+      case "a":
+        event.preventDefault()
+        this.acceptCurrent()
+        break
+      case "d":
+        event.preventDefault()
+        this.discardCurrent()
+        break
     }
   }
 
@@ -89,19 +97,63 @@ export default class extends Controller {
   }
 
   focusReply() {
-    let openPopover
-    try {
-      openPopover = document.querySelector(".thread-popover:popover-open")
-    } catch {
-      // :popover-open not supported — find the visible popover manually
-      openPopover = Array.from(document.querySelectorAll(".thread-popover[popover]"))
-        .find(el => el.checkVisibility?.())
-    }
-    if (!openPopover) return
+    const popover = this.findOpenPopover()
+    if (!popover) return
 
-    const textarea = openPopover.querySelector(".thread-popover__reply textarea")
+    const textarea = popover.querySelector(".thread-popover__reply textarea")
     if (textarea) {
       textarea.focus({ preventScroll: true })
+    }
+  }
+
+  acceptCurrent() {
+    this.submitPopoverAction("accept")
+  }
+
+  discardCurrent() {
+    this.submitPopoverAction("discard")
+  }
+
+  submitPopoverAction(action) {
+    const popover = this.findOpenPopover()
+    if (!popover) return
+
+    const form = popover.querySelector(`form[data-action-name='${action}']`)
+    if (!form) return
+
+    // Watch for the broadcast DOM update that replaces the thread data,
+    // then advance to the next thread once the highlights have changed.
+    const threadsContainer = document.getElementById("plan-threads")
+    if (threadsContainer) {
+      const observer = new MutationObserver(() => {
+        observer.disconnect()
+        this.advanceAfterAction()
+      })
+      observer.observe(threadsContainer, { childList: true, subtree: true })
+    }
+
+    form.requestSubmit()
+  }
+
+  advanceAfterAction() {
+    const highlights = this.openHighlights
+    if (highlights.length === 0) {
+      this.currentIndex = -1
+      this.updatePosition()
+      return
+    }
+    if (this.currentIndex >= highlights.length) {
+      this.currentIndex = 0
+    }
+    this.navigateTo(highlights[this.currentIndex])
+  }
+
+  findOpenPopover() {
+    try {
+      return document.querySelector(".thread-popover:popover-open")
+    } catch {
+      return Array.from(document.querySelectorAll(".thread-popover[popover]"))
+        .find(el => el.checkVisibility?.())
     }
   }
 

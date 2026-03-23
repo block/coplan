@@ -42,9 +42,9 @@
       <div class="thread-popover__actions">
         <% if is_plan_author %>
           <% if thread.status == "pending" %>
-            <%= button_to "Accept", accept_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm" %>
+            <%= button_to "Accept", accept_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "accept" } %>
           <% end %>
-          <%= button_to "Discard", discard_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm" %>
+          <%= button_to "Discard", discard_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "discard" } %>
         <% end %>
       </div>
     <% else %>
