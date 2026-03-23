@@ -16,9 +16,10 @@ export default class extends Controller {
   }
 
   handleKeydown(event) {
-    // Don't intercept when typing in inputs/textareas
+    // Don't intercept when typing in inputs/textareas or when modifier keys are held
     const tag = event.target.tagName
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target.isContentEditable) return
+    if (event.metaKey || event.ctrlKey || event.altKey) return
 
     switch (event.key) {
       case "j":
@@ -30,6 +31,10 @@ export default class extends Controller {
       case "ArrowUp":
         event.preventDefault()
         this.prev()
+        break
+      case "r":
+        event.preventDefault()
+        this.focusReply()
         break
     }
   }
@@ -81,6 +86,23 @@ export default class extends Controller {
     }
 
     this.updatePosition()
+  }
+
+  focusReply() {
+    let openPopover
+    try {
+      openPopover = document.querySelector(".thread-popover:popover-open")
+    } catch {
+      // :popover-open not supported — find the visible popover manually
+      openPopover = Array.from(document.querySelectorAll(".thread-popover[popover]"))
+        .find(el => el.checkVisibility?.())
+    }
+    if (!openPopover) return
+
+    const textarea = openPopover.querySelector(".thread-popover__reply textarea")
+    if (textarea) {
+      textarea.focus({ preventScroll: true })
+    }
   }
 
   toggleResolved() {

@@ -1,7 +1,8 @@
 <div class="comment-thread__reply" id="<%= dom_id(thread, :reply_form) %>">
   <%= form_with url: plan_comment_thread_comments_path(plan, thread), method: :post, data: { action: "turbo:submit-end->coplan--text-selection#resetReplyForm" } do |f| %>
     <div class="form-group">
-      <textarea name="comment[body_markdown]" rows="2" placeholder="Reply..." required></textarea>
+      <textarea name="comment[body_markdown]" rows="2" placeholder="Reply..." required
+        data-controller="coplan--comment-form" data-action="keydown->coplan--comment-form#submitOnEnter"></textarea>
     </div>
     <button type="submit" class="btn btn--secondary btn--sm">Reply</button>
   <% end %>
