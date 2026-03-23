@@ -20,7 +20,7 @@
 
       <div id="plan-threads" data-coplan--text-selection-target="threads">
         <% @threads.select(&:anchored?).each do |thread| %>
-          <%= render partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: @plan } %>
+          <%= render partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: @plan, current_user: current_user } %>
         <% end %>
       </div>
     </div>
