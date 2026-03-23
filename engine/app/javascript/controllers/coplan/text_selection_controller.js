@@ -53,10 +53,13 @@ export default class extends Controller {
       return
     }
 
-    // Clamp the range to contentTarget so selections that bleed into
-    // hidden siblings (popover, form) don't produce stale rects or text.
-    if (startInContent && !endInContent && this.contentTarget.lastChild) {
-      range.setEndAfter(this.contentTarget.lastChild)
+    // Clamp the range to the last rendered markdown element, not the
+    // content wrapper's lastChild (which is a hidden popover/form control).
+    if (startInContent && !endInContent) {
+      const clampTarget = this.hasPopoverTarget
+        ? this.popoverTarget.previousElementSibling || this.popoverTarget.previousSibling
+        : this.contentTarget.lastChild
+      if (clampTarget) range.setEndAfter(clampTarget)
     }
 
     // Extract text after clamping so it only contains content-area text
