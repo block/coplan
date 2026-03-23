@@ -371,6 +371,52 @@ RSpec.describe "Comment UX", type: :system do
       expect(thread.comments.count).to eq(1)
     end
 
+    it "accepts a pending thread with 'a' key and auto-advances" do
+      thread1 = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback 1", user: reviewer)
+      thread2 = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Feedback 2", user: reviewer)
+      visit plan_path(plan)
+
+      # Navigate to first thread
+      find("body").send_keys("j")
+      expect(page).to have_css("mark.anchor-highlight--active")
+      expect(page).to have_css(".thread-popover", visible: true)
+      expect(page).to have_css(".comment-toolbar__position", text: "1 of 2")
+
+      # Press 'a' to accept
+      find("body").send_keys("a")
+
+      # Wait for the thread data attribute to update via broadcast
+      expect(page).to have_css("[data-thread-status='todo']", visible: :all, wait: 5)
+      expect(thread1.reload.status).to eq("todo")
+    end
+
+    it "discards a pending thread with 'd' key" do
+      thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Not relevant", user: reviewer)
+      visit plan_path(plan)
+
+      find("body").send_keys("j")
+      expect(page).to have_css("mark.anchor-highlight--active")
+      expect(page).to have_css(".thread-popover", visible: true)
+
+      find("body").send_keys("d")
+
+      expect(page).to have_css("[data-thread-status='discarded']", visible: :all, wait: 5)
+      expect(thread.reload.status).to eq("discarded")
+    end
+
+    it "does not fire a/d shortcuts when typing in a textarea" do
+      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
+      visit plan_path(plan)
+
+      find("body").send_keys("j")
+      expect(page).to have_css(".thread-popover", visible: true)
+      find("body").send_keys("r")
+
+      # Type 'a' inside the textarea — should not trigger accept
+      active_el = page.evaluate_script("document.activeElement.tagName")
+      expect(active_el).to eq("TEXTAREA")
+    end
+
     it "submits new comment form with Enter key" do
       visit plan_path(plan)
 
