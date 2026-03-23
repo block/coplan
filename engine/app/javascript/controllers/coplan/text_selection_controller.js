@@ -295,7 +295,9 @@ export default class extends Controller {
       if (anchor && anchor.length > 0) {
         const isOpen = status === "pending" || status === "todo"
         const statusClass = isOpen ? "anchor-highlight--open" : "anchor-highlight--resolved"
-        const mark = this.findAndHighlight(anchor, occurrence, `anchor-highlight ${statusClass}`)
+        const specificClass = isOpen ? `anchor-highlight--${status}` : ""
+        const classes = `anchor-highlight ${statusClass} ${specificClass}`.trim()
+        const mark = this.findAndHighlight(anchor, occurrence, classes)
 
         if (mark && threadId) {
           // Make highlight clickable to open popover
@@ -319,11 +321,12 @@ export default class extends Controller {
 
     const dot = document.createElement("button")
     const isOpen = status === "pending" || status === "todo"
-    dot.className = `margin-dot margin-dot--${isOpen ? "open" : "resolved"}`
+    const openClass = isOpen ? `margin-dot--open margin-dot--${status}` : "margin-dot--resolved"
+    dot.className = `margin-dot ${openClass}`
     dot.style.top = `${markRect.top - marginRect.top}px`
     dot.dataset.threadId = threadId
     dot.addEventListener("click", (e) => this.openThreadPopover(e))
-    dot.title = `${status} comment`
+    dot.setAttribute("aria-label", `${status} comment`)
 
     this.marginTarget.appendChild(dot)
   }

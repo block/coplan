@@ -7,7 +7,7 @@
 
   <div popover="auto" id="<%= dom_id(thread) %>_popover" class="thread-popover">
     <div class="thread-popover__header">
-      <span class="badge badge--<%= thread.open? ? 'live' : 'abandoned' %>"><%= thread.status %></span>
+      <span class="badge badge--<%= thread.status %>"><%= thread.status %></span>
       <% if thread.out_of_date? %>
         <span class="badge badge--abandoned">out of date</span>
       <% end %>
