@@ -111,7 +111,10 @@ export default class extends Controller {
     if (event.detail.success) {
       const form = event.target
       const textarea = form.querySelector("textarea")
-      if (textarea) textarea.value = ""
+      if (textarea) {
+        textarea.value = ""
+        textarea.blur()
+      }
     }
   }
 
