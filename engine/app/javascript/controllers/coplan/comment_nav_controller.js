@@ -16,9 +16,10 @@ export default class extends Controller {
   }
 
   handleKeydown(event) {
-    // Don't intercept when typing in inputs/textareas
+    // Don't intercept when typing in inputs/textareas or when modifier keys are held
     const tag = event.target.tagName
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target.isContentEditable) return
+    if (event.metaKey || event.ctrlKey || event.altKey) return
 
     switch (event.key) {
       case "j":
