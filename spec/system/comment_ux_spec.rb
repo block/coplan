@@ -79,6 +79,22 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css("mark.anchor-highlight--open", text: "microservices architecture")
     end
 
+    it "renders pending highlights in amber and todo highlights in blue" do
+      pending_thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
+      todo_thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
+      todo_thread.accept!(author)
+
+      visit plan_path(plan)
+
+      pending_mark = find("mark.anchor-highlight--pending")
+      pending_border = pending_mark.evaluate_script("getComputedStyle(this).borderBottomColor")
+      expect(pending_border).to include("245")  # amber/orange channel
+
+      todo_mark = find("mark.anchor-highlight--todo")
+      todo_border = todo_mark.evaluate_script("getComputedStyle(this).borderBottomColor")
+      expect(todo_border).to include("130")  # blue channel (59, 130, 246)
+    end
+
     it "renders resolved thread highlights unstyled by default" do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
@@ -154,6 +170,16 @@ RSpec.describe "Comment UX", type: :system do
 
       within(".thread-popover") do
         expect(page).to have_css("textarea[placeholder='Reply...']")
+      end
+    end
+
+    it "shows status-specific badge in popover" do
+      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
+      visit plan_path(plan)
+      find("mark.anchor-highlight--open").click
+
+      within(".thread-popover") do
+        expect(page).to have_css(".badge--pending")
       end
     end
 

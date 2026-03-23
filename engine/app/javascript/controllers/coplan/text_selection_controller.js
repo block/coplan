@@ -276,7 +276,9 @@ export default class extends Controller {
       if (anchor && anchor.length > 0) {
         const isOpen = status === "pending" || status === "todo"
         const statusClass = isOpen ? "anchor-highlight--open" : "anchor-highlight--resolved"
-        const mark = this.findAndHighlight(anchor, occurrence, `anchor-highlight ${statusClass}`)
+        const specificClass = isOpen ? `anchor-highlight--${status}` : ""
+        const classes = `anchor-highlight ${statusClass} ${specificClass}`.trim()
+        const mark = this.findAndHighlight(anchor, occurrence, classes)
 
         if (mark && threadId) {
           // Make highlight clickable to open popover
