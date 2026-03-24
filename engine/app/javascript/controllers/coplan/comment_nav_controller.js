@@ -6,13 +6,18 @@ export default class extends Controller {
 
   connect() {
     this.currentIndex = -1
+    this.activeMark = null
+    this.activePopover = null
     this.updatePosition()
     this.handleKeydown = this.handleKeydown.bind(this)
+    this.handleScroll = this.handleScroll.bind(this)
     document.addEventListener("keydown", this.handleKeydown)
+    window.addEventListener("scroll", this.handleScroll, { passive: true })
   }
 
   disconnect() {
     document.removeEventListener("keydown", this.handleKeydown)
+    window.removeEventListener("scroll", this.handleScroll)
   }
 
   handleKeydown(event) {
@@ -77,23 +82,67 @@ export default class extends Controller {
       el.classList.remove("anchor-highlight--active")
     })
 
+    // Close any currently open popover first — showPopover() throws
+    // InvalidStateError if the same popover is already open, and
+    // auto-dismiss only works when showing a *different* popover.
+    const openPopover = this.findOpenPopover()
+    if (openPopover) {
+      try { openPopover.hidePopover() } catch {}
+    }
+
     // Add active class and scroll into view
     mark.classList.add("anchor-highlight--active")
-    mark.scrollIntoView({ behavior: "smooth", block: "center" })
+    mark.scrollIntoView({ behavior: "instant", block: "center" })
 
     // Open the thread popover if there's one
     const threadId = mark.dataset.threadId
     if (threadId) {
       const popover = document.getElementById(`${threadId}_popover`)
       if (popover) {
-        const markRect = mark.getBoundingClientRect()
+        popover.style.visibility = "hidden"
         popover.showPopover()
-        popover.style.top = `${markRect.top}px`
-        popover.style.left = `${markRect.right + 12}px`
+        this.positionPopoverAtMark(popover, mark)
+        popover.style.visibility = "visible"
+        this.activeMark = mark
+        this.activePopover = popover
       }
     }
 
     this.updatePosition()
+  }
+
+  handleScroll() {
+    if (!this.activeMark || !this.activePopover) return
+    try {
+      if (!this.activePopover.matches(":popover-open")) {
+        this.activeMark = null
+        this.activePopover = null
+        return
+      }
+    } catch { return }
+    this.positionPopoverAtMark(this.activePopover, this.activeMark)
+  }
+
+  positionPopoverAtMark(popover, mark) {
+    const markRect = mark.getBoundingClientRect()
+    const popoverRect = popover.getBoundingClientRect()
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+
+    let top = markRect.top
+    let left = markRect.right + 12
+
+    if (left + popoverRect.width > viewportWidth - 16) {
+      left = markRect.left - popoverRect.width - 12
+    }
+    if (top + popoverRect.height > viewportHeight - 16) {
+      top = viewportHeight - popoverRect.height - 16
+    }
+    if (top < 16) top = 16
+    if (left < 16) left = 16
+
+    popover.style.top = `${top}px`
+    popover.style.left = `${left}px`
   }
 
   focusReply() {

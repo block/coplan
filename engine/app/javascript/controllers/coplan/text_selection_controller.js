@@ -6,8 +6,12 @@ export default class extends Controller {
 
   connect() {
     this.selectedText = null
+    this._activeMark = null
+    this._activePopover = null
     this.contentTarget.addEventListener("mouseup", this.handleMouseUp.bind(this))
     document.addEventListener("mousedown", this.handleDocumentMouseDown.bind(this))
+    this._handleScroll = this._handleScroll.bind(this)
+    window.addEventListener("scroll", this._handleScroll, { passive: true })
     this.highlightAnchors()
 
     // Watch for broadcast-appended threads and re-highlight
@@ -20,6 +24,7 @@ export default class extends Controller {
   disconnect() {
     this.contentTarget.removeEventListener("mouseup", this.handleMouseUp.bind(this))
     document.removeEventListener("mousedown", this.handleDocumentMouseDown.bind(this))
+    window.removeEventListener("scroll", this._handleScroll)
     if (this._threadsObserver) {
       this._threadsObserver.disconnect()
       this._threadsObserver = null
@@ -174,40 +179,49 @@ export default class extends Controller {
     const popover = document.getElementById(`${threadId}_popover`)
     if (!popover) return
 
-    // Position the popover near the clicked element
     const trigger = event.currentTarget
-    const triggerRect = trigger.getBoundingClientRect()
 
-    // Hide visually while positioning to prevent flash
     popover.style.visibility = "hidden"
     popover.showPopover()
+    this._positionPopoverAtMark(popover, trigger)
+    popover.style.visibility = "visible"
 
-    // Position after showing (popover needs to be in top layer first)
+    this._activeMark = trigger
+    this._activePopover = popover
+  }
+
+  _handleScroll() {
+    if (!this._activeMark || !this._activePopover) return
+    try {
+      if (!this._activePopover.matches(":popover-open")) {
+        this._activeMark = null
+        this._activePopover = null
+        return
+      }
+    } catch { return }
+    this._positionPopoverAtMark(this._activePopover, this._activeMark)
+  }
+
+  _positionPopoverAtMark(popover, mark) {
+    const markRect = mark.getBoundingClientRect()
     const popoverRect = popover.getBoundingClientRect()
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
 
-    // Default: right of the content area, aligned with the trigger
-    let top = triggerRect.top
-    let left = triggerRect.right + 12
+    let top = markRect.top
+    let left = markRect.right + 12
 
-    // If it would overflow right, position to the left
     if (left + popoverRect.width > viewportWidth - 16) {
-      left = triggerRect.left - popoverRect.width - 12
+      left = markRect.left - popoverRect.width - 12
     }
-
-    // If it would overflow bottom, shift up
     if (top + popoverRect.height > viewportHeight - 16) {
       top = viewportHeight - popoverRect.height - 16
     }
-
-    // Ensure it doesn't go outside viewport
     if (top < 16) top = 16
     if (left < 16) left = 16
 
     popover.style.top = `${top}px`
     popover.style.left = `${left}px`
-    popover.style.visibility = "visible"
   }
 
   extractContext(range, selectedText) {

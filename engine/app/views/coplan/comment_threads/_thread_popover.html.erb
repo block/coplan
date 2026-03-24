@@ -32,7 +32,7 @@
       <div class="thread-popover__reply">
         <%= form_with url: plan_comment_thread_comments_path(plan, thread), method: :post, data: { action: "turbo:submit-end->coplan--text-selection#resetReplyForm" } do |f| %>
           <div class="form-group">
-            <textarea name="comment[body_markdown]" rows="2" placeholder="Reply..." required
+            <textarea name="comment[body_markdown]" rows="2" placeholder="Press r to reply" required
               data-controller="coplan--comment-form" data-action="keydown->coplan--comment-form#submitOnEnter"></textarea>
           </div>
           <button type="submit" class="btn btn--secondary btn--sm">Reply</button>
@@ -42,9 +42,9 @@
       <div class="thread-popover__actions">
         <% if is_plan_author %>
           <% if thread.status == "pending" %>
-            <%= button_to "Accept", accept_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "accept" } %>
+            <%= button_to "Accept (a)", accept_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "accept" } %>
           <% end %>
-          <%= button_to "Discard", discard_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "discard" } %>
+          <%= button_to "Discard (d)", discard_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "discard" } %>
         <% end %>
       </div>
     <% else %>
