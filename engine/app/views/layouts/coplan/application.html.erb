@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
+    <%= coplan_favicon_tag %>
     <%= yield :head %>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,6 +19,7 @@
         <%= link_to coplan.root_path, class: "site-nav__brand" do %>
           <%= image_tag "coplan/coplan-logo-sm.png", alt: "CoPlan", class: "site-nav__logo" %>
           CoPlan
+          <%= coplan_environment_badge %>
         <% end %>
         <ul class="site-nav__links">
           <% if signed_in? %>
