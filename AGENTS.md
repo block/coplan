@@ -62,6 +62,7 @@ Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), 
 - No npm packages — everything through importmaps or inline
 - Views use Turbo Frames for partial page updates, Turbo Streams for realtime broadcasts
 - Keep it simple: no React, no Vue, no component libraries
+- **Prefer server-rendered HTML with standard Stimulus bindings** (`data-controller`, `data-action`, `data-*-target`) — direct `addEventListener` is a last resort, only when elements are created dynamically in JS and Stimulus can't bind to them (e.g., inline text highlights wrapping arbitrary DOM ranges). Even these cases should be revisited for server-side alternatives when practical.
 
 ## Testing
 
@@ -99,3 +100,32 @@ Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), 
 - **Edit leases**: one agent edits at a time, enforced by a lease with TTL
 - **Cloud Personas** (AutomatedPlanReviewers): server-side prompt templates that run as SolidQueue jobs
 - **Versions are immutable** — every edit creates a new PlanVersion with full provenance
+
+## Comment & Review UX
+
+The comment system is central to the collaboration workflow. Domain experts leave inline feedback anchored to specific text in the plan, and the plan author triages that feedback.
+
+### Thread lifecycle
+- **Reviewer comments** start as `pending` (awaiting author triage)
+- **Author's own comments** start as `todo` (self-assigned work items)
+- Author triages pending feedback: **Accept** (`pending → todo`) or **Discard** (`pending → discarded`)
+- Author marks completed work: **Resolve** (`todo → resolved`)
+- Resolved/discarded threads can be **Reopened** back to `pending`
+
+### Inline review UI
+- **Highlights**: anchored text is wrapped in `<mark>` elements — amber for `pending`, blue for `todo`, unstyled for `resolved`
+- **Margin dots**: colored indicators in the left margin aligned to each highlight's vertical position
+- **Thread popovers**: native HTML Popover API (`popover="auto"`) showing the comment thread, reply form, and action buttons; positioned relative to the anchor and tracked on scroll
+- **Comment toolbar**: fixed bottom bar showing open thread count, j/k navigation, and a "Show resolved" toggle
+
+### Keyboard shortcuts
+- `j` / `k` — navigate between open threads (scrolls to highlight, opens popover)
+- `r` — focus the reply textarea in the current popover
+- `a` — accept the current pending thread
+- `d` — discard the current pending thread
+- `Enter` — submit reply; `Shift+Enter` — newline
+
+### How thread data flows
+- Thread data is **server-rendered** as hidden `[data-anchor-text]` elements in `#plan-threads` (via `_thread_popover.html.erb`)
+- The `text_selection_controller` reads that data and creates highlight marks + margin dots client-side (text range wrapping requires browser DOM APIs)
+- Status changes broadcast via Turbo Streams → `Broadcaster.replace_to` replaces the thread data in-place → `MutationObserver` on `#plan-threads` re-runs `highlightAnchors()` to update the visual state
