@@ -119,6 +119,17 @@ img, svg {
   border-radius: 6px;
 }
 
+.env-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.4;
+}
+
 .site-nav__brand:hover {
   text-decoration: none;
   color: var(--color-primary);

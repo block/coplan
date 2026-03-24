@@ -7,6 +7,7 @@ class ApplicationController < ActionController::Base
 
   before_action :authenticate_user!
 
+  helper CoPlan::ApplicationHelper
   helper_method :current_user, :signed_in?
 
   private
