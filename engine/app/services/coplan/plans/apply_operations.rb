@@ -21,6 +21,8 @@ module CoPlan
             apply_insert_under_heading(op, index)
           when "delete_paragraph_containing"
             apply_delete_paragraph_containing(op, index)
+          when "replace_section"
+            apply_replace_section(op, index)
           else
             raise OperationError, "Operation #{index}: unknown op '#{op["op"]}'"
           end
@@ -100,6 +102,29 @@ module CoPlan
         applied_data["resolved_range"] = insert_point
         applied_data["new_range"] = [insert_point[0], insert_point[0] + content_to_insert.length]
         applied_data["delta"] = content_to_insert.length
+        applied_data
+      end
+
+      def apply_replace_section(op, index)
+        heading = op["heading"]
+        new_content = op["new_content"]
+
+        raise OperationError, "Operation #{index}: replace_section requires 'heading'" if heading.blank?
+        raise OperationError, "Operation #{index}: replace_section requires 'new_content'" if new_content.nil?
+
+        range = if op.key?("_pre_resolved_ranges")
+          op["_pre_resolved_ranges"][0]
+        else
+          Plans::PositionResolver.call(content: @content, operation: op).ranges[0]
+        end
+
+        @content = @content[0...range[0]] + new_content + @content[range[1]..]
+
+        delta = new_content.length - (range[1] - range[0])
+        applied_data = op.except("_pre_resolved_ranges")
+        applied_data["resolved_range"] = range
+        applied_data["new_range"] = [range[0], range[0] + new_content.length]
+        applied_data["delta"] = delta
         applied_data
       end
 

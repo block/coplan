@@ -281,6 +281,20 @@ module CoPlan
                 return
               end
             end
+          when "replace_section"
+            return unless op["heading"]
+            transformed_ranges.each do |tr|
+              actual = content[tr[0]...tr[1]]
+              unless actual&.include?(op["heading"]) || !op.fetch("include_heading", true)
+                render json: {
+                  error: "Conflict: section at target position has changed",
+                  current_revision: @plan.current_revision,
+                  expected_heading: op["heading"],
+                  found: actual&.slice(0, 200)
+                }, status: :conflict
+                return
+              end
+            end
           end
         end
 

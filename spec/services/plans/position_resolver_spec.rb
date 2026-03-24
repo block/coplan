@@ -433,6 +433,121 @@ RSpec.describe CoPlan::Plans::PositionResolver do
     end
   end
 
+  describe "replace_section" do
+    describe "basic section replacement" do
+      let(:content) { "# Title\n\nIntro.\n\n## Goals\n\nGoal 1.\n\n## Timeline\n\nQ1." }
+      let(:operation) { { op: "replace_section", heading: "## Goals", new_content: "## Goals\n\nNew." } }
+
+      it "resolves to the section range from heading to next equal-level heading" do
+        result = resolve
+        expect(result.op).to eq("replace_section")
+        range = result.ranges.first
+        section_text = content[range[0]...range[1]]
+        expect(section_text).to include("## Goals")
+        expect(section_text).to include("Goal 1.")
+        expect(section_text).not_to include("## Timeline")
+      end
+    end
+
+    describe "last section extends to EOF" do
+      let(:content) { "# Title\n\n## Goals\n\nGoal 1.\n\n## Timeline\n\nQ1 2025." }
+      let(:operation) { { op: "replace_section", heading: "## Timeline", new_content: "New." } }
+
+      it "resolves range to end of document" do
+        result = resolve
+        range = result.ranges.first
+        section_text = content[range[0]...range[1]]
+        expect(section_text).to include("## Timeline")
+        expect(section_text).to include("Q1 2025.")
+      end
+    end
+
+    describe "include_heading: false" do
+      let(:content) { "# Title\n\n## Goals\n\nGoal 1.\n\n## Timeline\n\nQ1." }
+      let(:operation) { { op: "replace_section", heading: "## Goals", new_content: "New body.", include_heading: false } }
+
+      it "resolves range to body only (excludes heading line)" do
+        result = resolve
+        range = result.ranges.first
+        section_text = content[range[0]...range[1]]
+        expect(section_text).not_to include("## Goals")
+        expect(section_text).to include("Goal 1.")
+      end
+    end
+
+    describe "sub-headings are included in section" do
+      let(:content) { "## Section\n\nBody.\n\n### Sub\n\nSub body.\n\n## Next\n\nOther." }
+      let(:operation) { { op: "replace_section", heading: "## Section", new_content: "New." } }
+
+      it "includes sub-headings in the section range" do
+        result = resolve
+        range = result.ranges.first
+        section_text = content[range[0]...range[1]]
+        expect(section_text).to include("### Sub")
+        expect(section_text).to include("Sub body.")
+        expect(section_text).not_to include("## Next")
+      end
+    end
+
+    describe "code fence protection" do
+      let(:content) { "## Real\n\nContent.\n\n```\n## Fake\n```\n\n## After\n\nMore." }
+      let(:operation) { { op: "replace_section", heading: "## Real", new_content: "New." } }
+
+      it "does not treat headings inside code fences as section boundaries" do
+        result = resolve
+        range = result.ranges.first
+        section_text = content[range[0]...range[1]]
+        expect(section_text).to include("## Fake")
+        expect(section_text).not_to include("## After")
+      end
+    end
+
+    describe "heading not found" do
+      let(:content) { "# Title\n\nContent." }
+      let(:operation) { { op: "replace_section", heading: "## Missing", new_content: "x" } }
+
+      it "raises OperationError with heading_not_found" do
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /heading_not_found/)
+      end
+    end
+
+    describe "ambiguous heading" do
+      let(:content) { "## Goals\n\nFirst.\n\n## Goals\n\nSecond." }
+      let(:operation) { { op: "replace_section", heading: "## Goals", new_content: "x" } }
+
+      it "raises OperationError with ambiguous_heading and line numbers" do
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /ambiguous_heading/)
+      end
+    end
+
+    describe "requires heading" do
+      let(:content) { "# Title" }
+      let(:operation) { { op: "replace_section", new_content: "x" } }
+
+      it "raises OperationError" do
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /requires 'heading'/)
+      end
+    end
+
+    describe "requires new_content" do
+      let(:content) { "# Title" }
+      let(:operation) { { op: "replace_section", heading: "# Title" } }
+
+      it "raises OperationError" do
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /requires 'new_content'/)
+      end
+    end
+
+    describe "heading inside code fence is not matched" do
+      let(:content) { "```\n## InFence\n```\n\nParagraph." }
+      let(:operation) { { op: "replace_section", heading: "## InFence", new_content: "x" } }
+
+      it "raises heading_not_found" do
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /heading_not_found/)
+      end
+    end
+  end
+
   describe "unknown operation" do
     let(:content) { "Hello" }
     let(:operation) { { op: "bogus_op" } }
