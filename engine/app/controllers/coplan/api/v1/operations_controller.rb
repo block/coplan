@@ -283,16 +283,38 @@ module CoPlan
             end
           when "replace_section"
             return unless op["heading"]
+            include_heading = op.fetch("include_heading", true)
+            include_heading = include_heading != false && include_heading != "false"
+
             transformed_ranges.each do |tr|
-              actual = content[tr[0]...tr[1]]
-              unless actual&.include?(op["heading"]) || !op.fetch("include_heading", true)
-                render json: {
-                  error: "Conflict: section at target position has changed",
-                  current_revision: @plan.current_revision,
-                  expected_heading: op["heading"],
-                  found: actual&.slice(0, 200)
-                }, status: :conflict
-                return
+              if include_heading
+                actual = content[tr[0]...tr[1]]
+                unless actual&.include?(op["heading"])
+                  render json: {
+                    error: "Conflict: section at target position has changed",
+                    current_revision: @plan.current_revision,
+                    expected_heading: op["heading"],
+                    found: actual&.slice(0, 200)
+                  }, status: :conflict
+                  return
+                end
+              else
+                # Body-only: verify the heading appears on the line before tr[0].
+                # Walk backwards past any blank lines to find the heading text.
+                search_pos = tr[0]
+                search_pos -= 1 while search_pos > 0 && content[search_pos - 1] == "\n"
+                heading_line_end = search_pos
+                heading_line_start = search_pos > 0 ? (content.rindex("\n", search_pos - 1) || -1) + 1 : 0
+                heading_text = content[heading_line_start...heading_line_end]
+                unless heading_text == op["heading"]
+                  render json: {
+                    error: "Conflict: section heading before target position has changed",
+                    current_revision: @plan.current_revision,
+                    expected_heading: op["heading"],
+                    found: heading_text
+                  }, status: :conflict
+                  return
+                end
               end
             end
           end

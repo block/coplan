@@ -475,6 +475,23 @@ RSpec.describe CoPlan::Plans::PositionResolver do
       end
     end
 
+    describe "include_heading: false on last section with only trailing newlines" do
+      let(:content) { "## Solo\n\n" }
+      let(:operation) { { op: "replace_section", heading: "## Solo", new_content: "Body.", include_heading: false } }
+
+      it "resolves to an empty range after the heading newline" do
+        result = resolve
+        range = result.ranges.first
+        expect(range[0]).to be <= range[1]
+        expect(range[0]).to eq(range[1])
+        # Insertion point must be after the heading's newline
+        expect(range[0]).to eq(content.index("\n", 0) + 1)
+        # Applying the replacement should keep heading and body separated
+        reconstructed = content[0...range[0]] + "Body." + content[range[1]..]
+        expect(reconstructed).to start_with("## Solo\nBody.")
+      end
+    end
+
     describe "sub-headings are included in section" do
       let(:content) { "## Section\n\nBody.\n\n### Sub\n\nSub body.\n\n## Next\n\nOther." }
       let(:operation) { { op: "replace_section", heading: "## Section", new_content: "New." } }

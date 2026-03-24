@@ -207,7 +207,10 @@ module CoPlan
             while body_start < section_end && @content[body_start] == "\n"
               body_start += 1
             end
-            [body_start, section_end]
+            # When trailing newlines are stripped, section_end can retreat
+            # behind body_start. Use an empty range at body_start to avoid
+            # an inverted range and keep the insertion point after the heading newline.
+            [body_start, [body_start, section_end].max]
           else
             # Heading is the only line — body is empty
             [section_end, section_end]
