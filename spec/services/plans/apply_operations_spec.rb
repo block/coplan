@@ -134,6 +134,14 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect(result[:content]).not_to include("Goal 1.")
     end
 
+    it "separates heading from body when include_heading is false on heading-only content" do
+      result = CoPlan::Plans::ApplyOperations.call(
+        content: "## Solo",
+        operations: [{ "op" => "replace_section", "heading" => "## Solo", "new_content" => "New body.", "include_heading" => false }]
+      )
+      expect(result[:content]).to eq("## Solo\nNew body.")
+    end
+
     it "replaces the last section (extends to EOF)" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: content,

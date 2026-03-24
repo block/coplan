@@ -118,12 +118,21 @@ module CoPlan
           Plans::PositionResolver.call(content: @content, operation: op).ranges[0]
         end
 
-        @content = @content[0...range[0]] + new_content + @content[range[1]..]
+        # For body-only replacements (include_heading: false), ensure a
+        # newline separates the heading from the new content when the range
+        # starts at a position not preceded by a newline.
+        include_heading = op.fetch("include_heading", true)
+        include_heading = include_heading != false && include_heading != "false"
+        needs_separator = !include_heading && range[0] == range[1] &&
+          range[0] > 0 && @content[range[0] - 1] != "\n"
+        effective_content = needs_separator ? "\n#{new_content}" : new_content
 
-        delta = new_content.length - (range[1] - range[0])
+        @content = @content[0...range[0]] + effective_content + @content[range[1]..]
+
+        delta = effective_content.length - (range[1] - range[0])
         applied_data = op.except("_pre_resolved_ranges")
         applied_data["resolved_range"] = range
-        applied_data["new_range"] = [range[0], range[0] + new_content.length]
+        applied_data["new_range"] = [range[0], range[0] + effective_content.length]
         applied_data["delta"] = delta
         applied_data
       end

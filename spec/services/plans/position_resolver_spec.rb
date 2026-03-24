@@ -519,6 +519,29 @@ RSpec.describe CoPlan::Plans::PositionResolver do
       end
     end
 
+    describe "code fence with longer opener" do
+      let(:content) { "````\n## Fake\n```\nstill fenced\n````\n\n## Real\n\nBody." }
+      let(:operation) { { op: "replace_section", heading: "## Real", new_content: "## Real\n\nNew." } }
+
+      it "does not close fence until matching length" do
+        result = resolve
+        range = result.ranges.first
+        section_text = content[range[0]...range[1]]
+        expect(section_text).to include("## Real")
+        expect(section_text).not_to include("## Fake")
+      end
+    end
+
+    describe "mismatched fence characters" do
+      let(:content) { "```\n## Fake\n~~~\n\n## Real\n\nBody." }
+      let(:operation) { { op: "replace_section", heading: "## Real", new_content: "New." } }
+
+      it "does not close backtick fence with tilde fence" do
+        # ## Real is inside an unclosed ``` fence, so it's not found
+        expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /heading_not_found/)
+      end
+    end
+
     describe "heading not found" do
       let(:content) { "# Title\n\nContent." }
       let(:operation) { { op: "replace_section", heading: "## Missing", new_content: "x" } }

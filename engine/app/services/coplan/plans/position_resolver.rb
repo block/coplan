@@ -223,6 +223,8 @@ module CoPlan
       def parse_headings(content)
         headings = []
         in_code_fence = false
+        fence_char = nil
+        fence_length = 0
         line_number = 0
         pos = 0
 
@@ -232,8 +234,18 @@ module CoPlan
           line_end = pos + line.length
           stripped = line.chomp
 
-          if stripped.match?(/\A(```|~~~)/)
-            in_code_fence = !in_code_fence
+          fence_match = stripped.match(/\A(`{3,}|~{3,})/)
+          if fence_match
+            if in_code_fence
+              # Close only if the fence char and length match the opener
+              if fence_match[1][0] == fence_char && fence_match[1].length >= fence_length
+                in_code_fence = false
+              end
+            else
+              in_code_fence = true
+              fence_char = fence_match[1][0]
+              fence_length = fence_match[1].length
+            end
           elsif !in_code_fence && (m = stripped.match(/\A(\#{1,6})\s+(.+)/))
             headings << {
               level: m[1].length,
