@@ -234,17 +234,19 @@ module CoPlan
           line_end = pos + line.length
           stripped = line.chomp
 
-          fence_match = stripped.match(/\A(`{3,}|~{3,})/)
+          fence_match = stripped.match(/\A(`{3,}|~{3,})(.*)\z/)
           if fence_match
+            fence_chars = fence_match[1]
+            info_string = fence_match[2]
             if in_code_fence
-              # Close only if the fence char and length match the opener
-              if fence_match[1][0] == fence_char && fence_match[1].length >= fence_length
+              # Close only if fence char and length match, and no info string
+              if fence_chars[0] == fence_char && fence_chars.length >= fence_length && info_string.strip.empty?
                 in_code_fence = false
               end
             else
               in_code_fence = true
-              fence_char = fence_match[1][0]
-              fence_length = fence_match[1].length
+              fence_char = fence_chars[0]
+              fence_length = fence_chars.length
             end
           elsif !in_code_fence && (m = stripped.match(/\A(\#{1,6})\s+(.+)/))
             headings << {
