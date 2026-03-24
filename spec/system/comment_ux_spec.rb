@@ -179,7 +179,7 @@ RSpec.describe "Comment UX", type: :system do
       find("mark.anchor-highlight--open").click
 
       within(".thread-popover") do
-        expect(page).to have_css("textarea[placeholder='Reply...']")
+        expect(page).to have_css("textarea[placeholder='Press r to reply']")
       end
     end
 
@@ -199,8 +199,8 @@ RSpec.describe "Comment UX", type: :system do
       find("mark.anchor-highlight--open").click
 
       within(".thread-popover") do
-        expect(page).to have_button("Accept")
-        expect(page).to have_button("Discard")
+        expect(page).to have_button("Accept (a)")
+        expect(page).to have_button("Discard (d)")
       end
     end
   end
@@ -241,6 +241,10 @@ RSpec.describe "Comment UX", type: :system do
       click_button "↓"
       expect(page).to have_css("mark.anchor-highlight--active")
       expect(page).to have_css(".comment-toolbar__position", text: "1 of 2")
+
+      # Dismiss the popover so it doesn't cover the toolbar button
+      find("body").send_keys(:escape)
+      expect(page).not_to have_css(".thread-popover", visible: true)
 
       click_button "↓"
       expect(page).to have_css(".comment-toolbar__position", text: "2 of 2")
@@ -295,7 +299,7 @@ RSpec.describe "Comment UX", type: :system do
       active = page.evaluate_script("document.activeElement.tagName")
       placeholder = page.evaluate_script("document.activeElement.placeholder")
       expect(active).to eq("TEXTAREA")
-      expect(placeholder).to eq("Reply...")
+      expect(placeholder).to eq("Press r to reply")
     end
 
     it "focuses reply textarea when pressing r after mouse-clicking a highlight" do
@@ -313,7 +317,7 @@ RSpec.describe "Comment UX", type: :system do
       active = page.evaluate_script("document.activeElement.tagName")
       placeholder = page.evaluate_script("document.activeElement.placeholder")
       expect(active).to eq("TEXTAREA")
-      expect(placeholder).to eq("Reply...")
+      expect(placeholder).to eq("Press r to reply")
     end
 
     it "does not fire r shortcut when typing in a textarea" do
@@ -338,7 +342,7 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css(".thread-popover", visible: true)
 
       within(".thread-popover") do
-        textarea = find("textarea[placeholder='Reply...']")
+        textarea = find("textarea[placeholder='Press r to reply']")
         textarea.fill_in with: "Good point"
         textarea.send_keys(:enter)
       end
@@ -357,7 +361,7 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css(".thread-popover", visible: true)
 
       within(".thread-popover") do
-        textarea = find("textarea[placeholder='Reply...']")
+        textarea = find("textarea[placeholder='Press r to reply']")
         textarea.fill_in with: "Line one"
         textarea.send_keys([:shift, :enter])
         textarea.send_keys("Line two")
