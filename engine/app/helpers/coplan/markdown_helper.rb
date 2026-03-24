@@ -11,6 +11,7 @@ module CoPlan
       blockquote hr br
       dd dt dl
       sup sub
+      details summary
     ].freeze
 
     ALLOWED_ATTRIBUTES = %w[id class href src alt title].freeze
