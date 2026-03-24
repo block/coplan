@@ -14,6 +14,13 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).not_to match(/<script>/)
     end
 
+    it "allows details/summary collapse elements" do
+      html = helper.render_markdown('<details><summary>Click me</summary>Hidden content</details>')
+      expect(html).to include("<details>")
+      expect(html).to include("<summary>")
+      expect(html).to include("Hidden content")
+    end
+
     it "handles nil gracefully" do
       html = helper.render_markdown(nil)
       expect(html).to include("markdown-rendered")
