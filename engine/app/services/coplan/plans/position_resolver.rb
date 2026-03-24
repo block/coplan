@@ -186,14 +186,12 @@ module CoPlan
         next_heading = headings.find { |h| h[:line_start] > match[:line_start] && h[:level] <= target_level }
         section_end = next_heading ? next_heading[:line_start] : @content.length
 
-        # Strip trailing whitespace from section end to avoid extra blank lines
+        # Strip all trailing newlines from the section range so the separator
+        # between sections falls outside the replaced range. This ensures
+        # replacement content won't merge into the next heading.
         section_end = section_end.to_i
         while section_end > section_start && @content[section_end - 1] == "\n"
           section_end -= 1
-        end
-        # Keep one trailing newline if the section doesn't end at EOF
-        if next_heading && section_end < @content.length
-          section_end += 1
         end
 
         range = if include_heading

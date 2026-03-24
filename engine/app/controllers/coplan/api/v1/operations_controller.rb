@@ -288,13 +288,15 @@ module CoPlan
 
             transformed_ranges.each do |tr|
               if include_heading
-                actual = content[tr[0]...tr[1]]
-                unless actual&.include?(op["heading"])
+                # Verify the heading is the first line of the section range
+                first_line_end = content.index("\n", tr[0]) || tr[1]
+                first_line = content[tr[0]...[first_line_end, tr[1]].min]
+                unless first_line&.rstrip == op["heading"]&.rstrip
                   render json: {
                     error: "Conflict: section at target position has changed",
                     current_revision: @plan.current_revision,
                     expected_heading: op["heading"],
-                    found: actual&.slice(0, 200)
+                    found: content[tr[0]...tr[1]]&.slice(0, 200)
                   }, status: :conflict
                   return
                 end
