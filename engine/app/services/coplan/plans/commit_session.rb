@@ -65,7 +65,7 @@ module CoPlan
             rebased_ops = []
             @session.operations_json.each do |op_data|
               op_data = op_data.transform_keys(&:to_s)
-              semantic_keys = %w[op old_text new_text heading content needle occurrence replace_all count]
+              semantic_keys = %w[op old_text new_text heading content needle occurrence replace_all count new_content include_heading]
               semantic_op = op_data.slice(*semantic_keys)
 
               if op_data["resolved_range"]
@@ -179,6 +179,31 @@ module CoPlan
 
           raise SessionConflictError,
             "Paragraph at target position no longer contains '#{op_data["needle"]}'"
+        when "replace_section"
+          return unless op_data["heading"]
+          include_heading = op_data.fetch("include_heading", true)
+          include_heading = include_heading != false && include_heading != "false"
+
+          if include_heading
+            first_line_end = content.index("\n", range[0]) || range[1]
+            first_line = content[range[0]...[first_line_end, range[1]].min]
+            return if first_line&.rstrip == op_data["heading"]&.rstrip
+
+            raise SessionConflictError,
+              "Section heading changed at target position. Expected '#{op_data["heading"]}' " \
+              "but found '#{first_line}'"
+          else
+            search_pos = range[0]
+            search_pos -= 1 while search_pos > 0 && content[search_pos - 1] == "\n"
+            heading_line_end = search_pos
+            heading_line_start = search_pos > 0 ? (content.rindex("\n", search_pos - 1) || -1) + 1 : 0
+            heading_text = content[heading_line_start...heading_line_end]
+            return if heading_text == op_data["heading"]
+
+            raise SessionConflictError,
+              "Section heading before target position changed. Expected '#{op_data["heading"]}' " \
+              "but found '#{heading_text}'"
+          end
         end
       end
     end

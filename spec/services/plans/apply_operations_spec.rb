@@ -109,6 +109,137 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     end
   end
 
+  describe "replace_section" do
+    let(:content) do
+      "# Title\n\nIntro paragraph.\n\n## Goals\n\nGoal 1.\nGoal 2.\n\n## Timeline\n\nQ1 2025."
+    end
+
+    it "replaces an entire section including heading" do
+      result = CoPlan::Plans::ApplyOperations.call(
+        content: content,
+        operations: [{ "op" => "replace_section", "heading" => "## Goals", "new_content" => "## Goals\n\nNew goals here." }]
+      )
+      expect(result[:content]).to include("## Goals\n\nNew goals here.")
+      expect(result[:content]).not_to include("Goal 1.")
+      expect(result[:content]).to include("## Timeline")
+    end
+
+    it "replaces section body only when include_heading is false" do
+      result = CoPlan::Plans::ApplyOperations.call(
+        content: content,
+        operations: [{ "op" => "replace_section", "heading" => "## Goals", "new_content" => "Replaced body.", "include_heading" => false }]
+      )
+      expect(result[:content]).to include("## Goals")
+      expect(result[:content]).to include("Replaced body.")
+      expect(result[:content]).not_to include("Goal 1.")
+    end
+
+    it "separates heading from body when include_heading is false on heading-only content" do
+      result = CoPlan::Plans::ApplyOperations.call(
+        content: "## Solo",
+        operations: [{ "op" => "replace_section", "heading" => "## Solo", "new_content" => "New body.", "include_heading" => false }]
+      )
+      expect(result[:content]).to eq("## Solo\nNew body.")
+    end
+
+    it "replaces the last section (extends to EOF)" do
+      result = CoPlan::Plans::ApplyOperations.call(
+        content: content,
+        operations: [{ "op" => "replace_section", "heading" => "## Timeline", "new_content" => "## Timeline\n\nNew timeline." }]
+      )
+      expect(result[:content]).to include("## Timeline\n\nNew timeline.")
+      expect(result[:content]).not_to include("Q1 2025.")
+      expect(result[:content]).to include("## Goals")
+    end
+
+    it "respects code fences — does not match headings inside code blocks" do
+      fenced_content = "# Title\n\n## Real\n\nContent.\n\n```\n## Fake\n\nNot real.\n```\n\n## After\n\nMore."
+      result = CoPlan::Plans::ApplyOperations.call(
+        content: fenced_content,
+        operations: [{ "op" => "replace_section", "heading" => "## Real", "new_content" => "## Real\n\nReplaced." }]
+      )
+      # ## Fake inside code fence is NOT a section boundary, so the ## Real
+      # section extends from ## Real all the way to ## After (including the fence)
+      expect(result[:content]).to include("## Real\n\nReplaced.")
+      expect(result[:content]).not_to include("Content.")
+      expect(result[:content]).not_to include("Not real.")
+      expect(result[:content]).to include("## After")
+    end
+
+    it "fails when heading not found" do
+      expect {
+        CoPlan::Plans::ApplyOperations.call(
+          content: content,
+          operations: [{ "op" => "replace_section", "heading" => "## Missing", "new_content" => "x" }]
+        )
+      }.to raise_error(CoPlan::Plans::OperationError, /heading_not_found/)
+    end
+
+    it "fails when heading is ambiguous" do
+      dup_content = "## Goals\n\nFirst.\n\n## Goals\n\nSecond."
+      expect {
+        CoPlan::Plans::ApplyOperations.call(
+          content: dup_content,
+          operations: [{ "op" => "replace_section", "heading" => "## Goals", "new_content" => "x" }]
+        )
+      }.to raise_error(CoPlan::Plans::OperationError, /ambiguous_heading/)
+    end
+
+    it "requires heading" do
+      expect {
+        CoPlan::Plans::ApplyOperations.call(
+          content: content,
+          operations: [{ "op" => "replace_section", "new_content" => "x" }]
+        )
+      }.to raise_error(CoPlan::Plans::OperationError, /requires 'heading'/)
+    end
+
+    it "requires new_content" do
+      expect {
+        CoPlan::Plans::ApplyOperations.call(
+          content: content,
+          operations: [{ "op" => "replace_section", "heading" => "## Goals" }]
+        )
+      }.to raise_error(CoPlan::Plans::OperationError, /requires 'new_content'/)
+    end
+
+    it "includes resolved position data" do
+      result = CoPlan::Plans::ApplyOperations.call(
+        content: content,
+        operations: [{ "op" => "replace_section", "heading" => "## Goals", "new_content" => "## Goals\n\nNew." }]
+      )
+      applied = result[:applied][0]
+      expect(applied["resolved_range"]).to be_an(Array)
+      expect(applied["new_range"]).to be_an(Array)
+      expect(applied).to have_key("delta")
+    end
+
+    it "does not match sub-headings as section end" do
+      nested = "# Title\n\n## Section\n\nBody.\n\n### Subsection\n\nSub body.\n\n## Next\n\nOther."
+      result = CoPlan::Plans::ApplyOperations.call(
+        content: nested,
+        operations: [{ "op" => "replace_section", "heading" => "## Section", "new_content" => "## Section\n\nAll new." }]
+      )
+      expect(result[:content]).to include("## Section\n\nAll new.")
+      expect(result[:content]).not_to include("### Subsection")
+      expect(result[:content]).not_to include("Sub body.")
+      expect(result[:content]).to include("## Next")
+    end
+
+    it "can be mixed with other operations" do
+      result = CoPlan::Plans::ApplyOperations.call(
+        content: content,
+        operations: [
+          { "op" => "replace_section", "heading" => "## Goals", "new_content" => "## Goals\n\nNew goals." },
+          { "op" => "replace_exact", "old_text" => "Q1 2025.", "new_text" => "Q2 2025.", "count" => 1 }
+        ]
+      )
+      expect(result[:content]).to include("New goals.")
+      expect(result[:content]).to include("Q2 2025.")
+      expect(result[:applied].length).to eq(2)
+    end
+  end
+
   it "raises error for unknown operation" do
     expect {
       CoPlan::Plans::ApplyOperations.call(

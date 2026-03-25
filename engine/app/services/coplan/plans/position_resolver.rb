@@ -20,6 +20,8 @@ module CoPlan
           resolve_insert_under_heading
         when "delete_paragraph_containing"
           resolve_delete_paragraph_containing
+        when "replace_section"
+          resolve_replace_section
         else
           raise OperationError, "Unknown operation: #{@op["op"]}"
         end
@@ -151,6 +153,115 @@ module CoPlan
         end
 
         paragraphs
+      end
+
+      def resolve_replace_section
+        heading = @op["heading"]
+        raise OperationError, "replace_section requires 'heading'" if heading.blank?
+        raise OperationError, "replace_section requires 'new_content'" if @op["new_content"].nil?
+
+        include_heading = @op.fetch("include_heading", true)
+        # Normalize: accept both string and boolean
+        include_heading = include_heading != false && include_heading != "false"
+
+        headings = parse_headings(@content)
+        matches = headings.select { |h| h[:text] == heading }
+
+        if matches.empty?
+          raise OperationError, "replace_section: heading_not_found — no heading matching '#{heading}'"
+        end
+
+        if matches.length > 1
+          match_details = matches.map { |m| { heading: m[:text], line: m[:line] } }
+          raise OperationError, "replace_section: ambiguous_heading — found #{matches.length} headings matching '#{heading}': #{match_details.inspect}"
+        end
+
+        match = matches.first
+        target_level = match[:level]
+
+        # Section starts at the heading line start
+        section_start = match[:line_start]
+
+        # Section ends at the next heading of equal or higher level, or EOF
+        next_heading = headings.find { |h| h[:line_start] > match[:line_start] && h[:level] <= target_level }
+        section_end = next_heading ? next_heading[:line_start] : @content.length
+
+        # Strip all trailing newlines from the section range so the separator
+        # between sections falls outside the replaced range. This ensures
+        # replacement content won't merge into the next heading.
+        section_end = section_end.to_i
+        while section_end > section_start && @content[section_end - 1] == "\n"
+          section_end -= 1
+        end
+
+        range = if include_heading
+          [section_start, section_end]
+        else
+          # Skip past the heading line itself
+          heading_line_end = @content.index("\n", section_start)
+          if heading_line_end
+            body_start = heading_line_end + 1
+            # Skip blank line after heading
+            while body_start < section_end && @content[body_start] == "\n"
+              body_start += 1
+            end
+            # When trailing newlines are stripped, section_end can retreat
+            # behind body_start. Use an empty range at body_start to avoid
+            # an inverted range and keep the insertion point after the heading newline.
+            [body_start, [body_start, section_end].max]
+          else
+            # Heading is the only line — body is empty
+            [section_end, section_end]
+          end
+        end
+
+        Resolution.new(op: "replace_section", ranges: [range])
+      end
+
+      # Parse markdown headings, respecting code fences (``` blocks).
+      # Returns an array of hashes: { text:, level:, line:, line_start:, line_end: }
+      def parse_headings(content)
+        headings = []
+        in_code_fence = false
+        fence_char = nil
+        fence_length = 0
+        line_number = 0
+        pos = 0
+
+        content.each_line do |line|
+          line_number += 1
+          line_start = pos
+          line_end = pos + line.length
+          stripped = line.chomp
+
+          fence_match = stripped.match(/\A(`{3,}|~{3,})(.*)\z/)
+          if fence_match
+            fence_chars = fence_match[1]
+            info_string = fence_match[2]
+            if in_code_fence
+              # Close only if fence char and length match, and no info string
+              if fence_chars[0] == fence_char && fence_chars.length >= fence_length && info_string.strip.empty?
+                in_code_fence = false
+              end
+            else
+              in_code_fence = true
+              fence_char = fence_chars[0]
+              fence_length = fence_chars.length
+            end
+          elsif !in_code_fence && (m = stripped.match(/\A(\#{1,6})\s+(.+)/))
+            headings << {
+              level: m[1].length,
+              text: stripped,
+              line: line_number,
+              line_start: line_start,
+              line_end: line_end
+            }
+          end
+
+          pos = line_end
+        end
+
+        headings
       end
 
       # Determine the character range to delete so that removing
