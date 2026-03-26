@@ -8,9 +8,11 @@ export default class extends Controller {
     this.selectedText = null
     this._activeMark = null
     this._activePopover = null
-    this.contentTarget.addEventListener("mouseup", this.handleMouseUp.bind(this))
-    document.addEventListener("mousedown", this.handleDocumentMouseDown.bind(this))
+    this._boundHandleMouseUp = this.handleMouseUp.bind(this)
+    this._boundHandleDocumentMouseDown = this.handleDocumentMouseDown.bind(this)
     this._handleScroll = this._handleScroll.bind(this)
+    this.contentTarget.addEventListener("mouseup", this._boundHandleMouseUp)
+    document.addEventListener("mousedown", this._boundHandleDocumentMouseDown)
     window.addEventListener("scroll", this._handleScroll, { passive: true })
     this.highlightAnchors()
 
@@ -22,8 +24,8 @@ export default class extends Controller {
   }
 
   disconnect() {
-    this.contentTarget.removeEventListener("mouseup", this.handleMouseUp.bind(this))
-    document.removeEventListener("mousedown", this.handleDocumentMouseDown.bind(this))
+    this.contentTarget.removeEventListener("mouseup", this._boundHandleMouseUp)
+    document.removeEventListener("mousedown", this._boundHandleDocumentMouseDown)
     window.removeEventListener("scroll", this._handleScroll)
     if (this._threadsObserver) {
       this._threadsObserver.disconnect()
@@ -326,6 +328,8 @@ export default class extends Controller {
         }
       }
     })
+
+    this.element.dispatchEvent(new CustomEvent("coplan:anchors-updated", { bubbles: true }))
   }
 
   createMarginDot(highlightMark, threadId, status) {

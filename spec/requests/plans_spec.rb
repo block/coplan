@@ -42,6 +42,37 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include("plan-layout__content")
   end
 
+  it "show plan renders content navigation sidebar" do
+    get plan_path(plan)
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include('class="content-nav"')
+    expect(response.body).to include('data-coplan--content-nav-target="sidebar"')
+    expect(response.body).to include('data-coplan--content-nav-target="list"')
+    expect(response.body).to include("content-nav-show-btn")
+  end
+
+  it "show plan wires up both text-selection and content-nav controllers" do
+    get plan_path(plan)
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include('data-controller="coplan--text-selection coplan--content-nav"')
+  end
+
+  it "show plan shares content target between controllers" do
+    get plan_path(plan)
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include('data-coplan--content-nav-target="content"')
+    expect(response.body).to include('data-coplan--text-selection-target="content"')
+  end
+
+  it "show plan without content does not render content nav sidebar" do
+    empty_plan = create(:plan, :considering, created_by_user: alice)
+    empty_plan.current_plan_version.update!(content_markdown: "")
+    get plan_path(empty_plan)
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include("empty-state")
+    expect(response.body).not_to include('class="content-nav"')
+  end
+
   it "show plan includes turbo stream subscription" do
     get plan_path(plan)
     expect(response).to have_http_status(:success)
