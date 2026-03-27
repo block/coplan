@@ -1,6 +1,8 @@
 <%= turbo_stream_from @plan %>
 
-<%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
+<div data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>">
+  <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
+</div>
 
 <div class="plan-content card">
   <% if @plan.current_content.present? %>

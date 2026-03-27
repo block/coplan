@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_20_145506) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_27_151037) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -154,6 +154,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_20_145506) do
     t.index ["plan_id"], name: "index_coplan_plan_versions_on_plan_id"
   end
 
+  create_table "coplan_plan_viewers", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "last_seen_at", null: false
+    t.string "plan_id", limit: 36, null: false
+    t.datetime "updated_at", null: false
+    t.string "user_id", limit: 36, null: false
+    t.index ["last_seen_at"], name: "index_coplan_plan_viewers_on_last_seen_at"
+    t.index ["plan_id", "user_id"], name: "index_coplan_plan_viewers_on_plan_id_and_user_id", unique: true
+    t.index ["user_id"], name: "fk_rails_6e3ee700a1"
+  end
+
   create_table "coplan_plans", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "created_by_user_id", limit: 36, null: false
@@ -197,6 +208,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_20_145506) do
   add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "added_by_user_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "user_id"
   add_foreign_key "coplan_plan_versions", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_plan_viewers", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_plan_viewers", "coplan_users", column: "user_id"
   add_foreign_key "coplan_plans", "coplan_plan_versions", column: "current_plan_version_id"
   add_foreign_key "coplan_plans", "coplan_users", column: "created_by_user_id"
 end
