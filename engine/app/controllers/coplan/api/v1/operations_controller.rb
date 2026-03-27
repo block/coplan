@@ -10,12 +10,12 @@ module CoPlan
           base_revision = params[:base_revision]&.to_i
 
           unless base_revision.present?
-            render json: { error: "base_revision is required" }, status: :unprocessable_entity
+            render json: { error: "base_revision is required" }, status: :unprocessable_content
             return
           end
 
           unless operations.is_a?(Array) && operations.any?
-            render json: { error: "operations must be a non-empty array" }, status: :unprocessable_entity
+            render json: { error: "operations must be a non-empty array" }, status: :unprocessable_content
             return
           end
 
@@ -27,7 +27,7 @@ module CoPlan
             apply_direct(operations, base_revision)
           end
         rescue Plans::OperationError => e
-          render json: { error: e.message }, status: :unprocessable_entity
+          render json: { error: e.message }, status: :unprocessable_content
         end
 
         private

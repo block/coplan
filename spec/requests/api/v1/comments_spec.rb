@@ -113,7 +113,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
       params: { body_markdown: "Missing agent name" },
       headers: headers,
       as: :json
-    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response).to have_http_status(:unprocessable_content)
     body = JSON.parse(response.body)
     expect(body["error"]).to include("Agent name")
   end
@@ -123,7 +123,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
       params: { body_markdown: "Missing agent name" },
       headers: headers,
       as: :json
-    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response).to have_http_status(:unprocessable_content)
     body = JSON.parse(response.body)
     expect(body["error"]).to include("Agent name")
   end

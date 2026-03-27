@@ -20,7 +20,7 @@ module CoPlan
       rescue ActiveRecord::RecordInvalid => e
         @api_tokens = current_user.api_tokens.order(created_at: :desc)
         flash.now[:alert] = e.message
-        render :index, status: :unprocessable_entity
+        render :index, status: :unprocessable_content
       end
 
       def destroy

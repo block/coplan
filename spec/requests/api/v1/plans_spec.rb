@@ -67,7 +67,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
 
   it "create without title fails" do
     post api_v1_plans_path, params: { content: "no title" }, headers: headers, as: :json
-    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response).to have_http_status(:unprocessable_content)
   end
 
   describe "PATCH /api/v1/plans/:id" do
@@ -113,7 +113,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
 
     it "rejects invalid status" do
       patch api_v1_plan_path(plan), params: { status: "invalid" }, headers: headers, as: :json
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
 
     it "returns 403 for non-author (carol)" do

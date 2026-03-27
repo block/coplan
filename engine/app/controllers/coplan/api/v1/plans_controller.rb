@@ -32,7 +32,7 @@ module CoPlan
             current_revision: plan.current_revision
           ), status: :created
         rescue ActiveRecord::RecordInvalid => e
-          render json: { error: e.message }, status: :unprocessable_entity
+          render json: { error: e.message }, status: :unprocessable_content
         end
 
         def update
@@ -61,7 +61,7 @@ module CoPlan
             current_revision: @plan.current_revision
           )
         rescue ActiveRecord::RecordInvalid => e
-          render json: { error: e.record.errors.full_messages.join(", ") }, status: :unprocessable_entity
+          render json: { error: e.record.errors.full_messages.join(", ") }, status: :unprocessable_content
         end
 
         def versions

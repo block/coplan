@@ -11,7 +11,7 @@ module CoPlan
         def create
           actor_type = params[:actor_type].presence || ApiToken::HOLDER_TYPE
           unless EditSession::ACTOR_TYPES.include?(actor_type)
-            render json: { error: "Invalid actor_type" }, status: :unprocessable_entity
+            render json: { error: "Invalid actor_type" }, status: :unprocessable_content
             return
           end
           ttl = actor_type == "cloud_persona" ? EditSession::CLOUD_PERSONA_TTL : EditSession::LOCAL_AGENT_TTL
@@ -56,7 +56,7 @@ module CoPlan
 
           render json: response
         rescue Plans::CommitSession::SessionNotOpenError => e
-          render json: { error: e.message }, status: :unprocessable_entity
+          render json: { error: e.message }, status: :unprocessable_content
         rescue Plans::CommitSession::StaleSessionError => e
           render json: { error: e.message }, status: :conflict
         rescue Plans::CommitSession::SessionConflictError => e
