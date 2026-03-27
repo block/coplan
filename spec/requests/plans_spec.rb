@@ -66,7 +66,7 @@ RSpec.describe "Plans", type: :request do
 
   it "show plan without content does not render content nav sidebar" do
     empty_plan = create(:plan, :considering, created_by_user: alice)
-    empty_plan.current_plan_version.update!(content_markdown: "")
+    empty_plan.current_plan_version.update_columns(content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
     get plan_path(empty_plan)
     expect(response).to have_http_status(:success)
     expect(response.body).to include("empty-state")
