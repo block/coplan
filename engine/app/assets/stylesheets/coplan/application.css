@@ -210,6 +210,34 @@ img, svg {
   border: 2px solid var(--color-surface);
   margin-left: -0.5rem;
   cursor: default;
+  position: relative;
+}
+
+.plan-viewers__avatar--you {
+  background: var(--color-success);
+}
+
+.plan-viewers__avatar::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-text);
+  color: var(--color-surface);
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+
+.plan-viewers__avatar:hover::after {
+  opacity: 1;
 }
 
 .plan-viewers__avatars > :last-child {

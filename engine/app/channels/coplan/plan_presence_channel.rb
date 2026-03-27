@@ -15,6 +15,7 @@ module CoPlan
     def unsubscribed
       return unless @plan
 
+      PlanViewer.expire(plan: @plan, user: current_user)
       broadcast_viewers
     end
 
@@ -22,6 +23,7 @@ module CoPlan
       return unless @plan
 
       PlanViewer.track(plan: @plan, user: current_user)
+      broadcast_viewers
     end
 
     private

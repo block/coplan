@@ -32,7 +32,7 @@ export default class extends Controller {
   startPinging() {
     this.pingInterval = setInterval(() => {
       if (this.channel) this.channel.perform("ping")
-    }, 30000)
+    }, 15000)
   }
 
   stopPinging() {

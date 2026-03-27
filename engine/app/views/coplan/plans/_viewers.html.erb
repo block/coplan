@@ -2,7 +2,8 @@
   <% if viewers.any? %>
     <div class="plan-viewers__avatars">
       <% viewers.first(8).each do |viewer| %>
-        <span class="plan-viewers__avatar" title="<%= viewer.name %>">
+        <% is_you = defined?(current_user) && current_user&.id == viewer.id %>
+        <span class="plan-viewers__avatar<%= ' plan-viewers__avatar--you' if is_you %>" data-tooltip="<%= is_you ? "#{viewer.name} (you)" : viewer.name %>">
           <%= viewer.name.split.map { |w| w[0] }.first(2).join.upcase %>
         </span>
       <% end %>

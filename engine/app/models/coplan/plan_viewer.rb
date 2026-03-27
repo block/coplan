@@ -1,6 +1,6 @@
 module CoPlan
   class PlanViewer < ApplicationRecord
-    STALE_THRESHOLD = 2.minutes
+    STALE_THRESHOLD = 45.seconds
 
     belongs_to :plan
     belongs_to :user, class_name: "CoPlan::User"
@@ -13,6 +13,10 @@ module CoPlan
       record
     rescue ActiveRecord::RecordNotUnique
       retry
+    end
+
+    def self.expire(plan:, user:)
+      where(plan: plan, user: user).update_all(last_seen_at: STALE_THRESHOLD.ago - 1.second)
     end
 
     def self.active_viewers_for(plan)

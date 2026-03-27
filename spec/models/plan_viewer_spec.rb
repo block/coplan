@@ -40,7 +40,7 @@ RSpec.describe CoPlan::PlanViewer, type: :model do
     it "excludes stale viewers" do
       CoPlan::PlanViewer.track(plan: plan, user: user)
 
-      travel 3.minutes do
+      travel 1.minute do
         viewers = CoPlan::PlanViewer.active_viewers_for(plan)
         expect(viewers).to be_empty
       end
@@ -77,7 +77,7 @@ RSpec.describe CoPlan::PlanViewer, type: :model do
     it "excludes stale viewers" do
       viewer = CoPlan::PlanViewer.track(plan: plan, user: user)
 
-      travel 3.minutes do
+      travel 1.minute do
         expect(CoPlan::PlanViewer.active).not_to include(viewer)
       end
     end

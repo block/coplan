@@ -29,14 +29,15 @@ RSpec.describe CoPlan::PlanPresenceChannel, type: :channel do
   end
 
   describe "#unsubscribed" do
-    it "broadcasts updated viewer list without removing the record" do
+    it "expires the viewer record so they disappear immediately" do
       subscribe(plan_id: plan.id)
-      expect(CoPlan::PlanViewer.where(plan: plan, user: user)).to exist
+      expect(CoPlan::PlanViewer.active.where(plan: plan, user: user)).to exist
 
       subscription.unsubscribe_from_channel
 
-      # Record is NOT deleted — relies on stale threshold expiration
+      # Record still exists but is expired (not active)
       expect(CoPlan::PlanViewer.where(plan: plan, user: user)).to exist
+      expect(CoPlan::PlanViewer.active.where(plan: plan, user: user)).not_to exist
     end
   end
 

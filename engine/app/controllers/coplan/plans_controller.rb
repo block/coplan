@@ -11,6 +11,7 @@ module CoPlan
     def show
       authorize!(@plan, :show?)
       @threads = @plan.comment_threads.includes(:comments, :created_by_user).order(:created_at)
+      PlanViewer.track(plan: @plan, user: current_user)
     end
 
     def edit
