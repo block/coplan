@@ -1,3 +1,14 @@
+<% content_for(:title, "#{@plan.title} — CoPlan") %>
+<% content_for(:head) do %>
+  <meta property="og:title" content="<%= @plan.title %>">
+  <meta property="og:description" content="<%= plan_og_description(@plan) %>">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="CoPlan">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="<%= @plan.title %>">
+  <meta name="twitter:description" content="<%= plan_og_description(@plan) %>">
+<% end %>
+
 <%= turbo_stream_from @plan %>
 
 <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>

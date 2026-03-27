@@ -73,6 +73,14 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).not_to include('class="content-nav"')
   end
 
+  it "show plan includes Open Graph meta tags" do
+    get plan_path(plan)
+    expect(response.body).to include('property="og:title"')
+    expect(response.body).to include('property="og:description"')
+    expect(response.body).to include('property="og:site_name"')
+    expect(response.body).to include('name="twitter:card"')
+  end
+
   it "show plan includes turbo stream subscription" do
     get plan_path(plan)
     expect(response).to have_http_status(:success)
