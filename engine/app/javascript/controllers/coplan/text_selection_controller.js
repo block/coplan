@@ -38,6 +38,20 @@ export default class extends Controller {
     setTimeout(() => this.checkSelection(event), 10)
   }
 
+  dismiss(event) {
+    // Close the comment form if it's visible
+    if (this.hasFormTarget && this.formTarget.style.display === "block") {
+      event.preventDefault()
+      this.hideAndResetForm()
+      return
+    }
+    // Close the selection popover if it's visible
+    if (this.hasPopoverTarget && this.popoverTarget.style.display === "block") {
+      event.preventDefault()
+      this.popoverTarget.style.display = "none"
+    }
+  }
+
   handleDocumentMouseDown(event) {
     // Hide popover if clicking outside it
     if (this.hasPopoverTarget && !this.popoverTarget.contains(event.target)) {

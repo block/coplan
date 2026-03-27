@@ -445,6 +445,46 @@ RSpec.describe "Comment UX", type: :system do
     end
   end
 
+  describe "escape key dismisses comment form" do
+    before { sign_in(author) }
+
+    it "closes the new comment form when pressing Escape with textarea focused" do
+      visit plan_path(plan)
+
+      # Open the comment form programmatically (simulating text selection flow)
+      page.execute_script <<~JS
+        const form = document.getElementById('new-comment-form');
+        form.style.display = 'block';
+        form.querySelector('[name="comment_thread[anchor_text]"]').value = 'microservices architecture';
+        form.querySelector('textarea').focus();
+      JS
+
+      expect(page).to have_css("#new-comment-form", visible: true)
+
+      # Press Escape while textarea is focused
+      find("textarea", visible: true, match: :first).send_keys(:escape)
+
+      expect(page).not_to have_css("#new-comment-form", visible: true)
+    end
+
+    it "closes the new comment form when pressing Escape without textarea focused" do
+      visit plan_path(plan)
+
+      page.execute_script <<~JS
+        const form = document.getElementById('new-comment-form');
+        form.style.display = 'block';
+        form.querySelector('[name="comment_thread[anchor_text]"]').value = 'microservices architecture';
+      JS
+
+      expect(page).to have_css("#new-comment-form", visible: true)
+
+      # Press Escape from the body (no textarea focus)
+      find("body").send_keys(:escape)
+
+      expect(page).not_to have_css("#new-comment-form", visible: true)
+    end
+  end
+
   describe "whole-line text selection" do
     before { sign_in(author) }
 
