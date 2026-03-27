@@ -722,6 +722,18 @@ img, svg {
   min-width: 0;
 }
 
+#plan-threads {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#plan-threads .thread-popover {
+  pointer-events: auto;
+}
+
 /* Comment form */
 .comment-form {
   position: absolute;
@@ -1142,4 +1154,195 @@ body:has(.comment-toolbar) .main-content {
 
 .comment-toolbar__toggle input[type="checkbox"] {
   cursor: pointer;
+}
+
+/* Content navigation sidebar */
+.content-nav {
+  position: sticky;
+  top: calc(var(--nav-height) + var(--space-lg));
+  align-self: flex-start;
+  width: 220px;
+  flex-shrink: 0;
+  max-height: calc(100vh - var(--nav-height) - var(--space-xl) * 2);
+  transition: width 0.2s ease, opacity 0.2s ease;
+  margin-right: var(--space-lg);
+}
+
+.content-nav--hidden {
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-right: 0;
+}
+
+.content-nav__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.content-nav__title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.content-nav__toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 2px;
+  font-size: var(--text-sm);
+  line-height: 1;
+  border-radius: var(--radius);
+  transition: color 0.15s;
+}
+
+.content-nav__toggle:hover {
+  color: var(--color-text);
+}
+
+.content-nav__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+  max-height: calc(100vh - var(--nav-height) - 8rem);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.content-nav__item {
+  margin: 0;
+}
+
+.content-nav__item--h1 {
+  /* top level — no indent */
+}
+
+.content-nav__item--h2 {
+  padding-left: var(--space-md);
+}
+
+.content-nav__item--h3 {
+  padding-left: var(--space-xl);
+}
+
+.content-nav__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 3px var(--space-sm);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  border-radius: var(--radius);
+  border-left: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  word-break: break-word;
+}
+
+.content-nav__link:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+  text-decoration: none;
+}
+
+.content-nav__link--active {
+  color: var(--color-primary);
+  border-left-color: var(--color-primary);
+  font-weight: 600;
+}
+
+.content-nav__link-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.content-nav__badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: white;
+  line-height: 1;
+}
+
+.content-nav__badge--pending {
+  background: var(--color-status-considering);
+}
+
+.content-nav__badge--todo {
+  background: var(--color-status-developing);
+}
+
+/* Toggle button when sidebar is hidden — shown outside the sidebar */
+.content-nav-show-btn {
+  position: sticky;
+  top: calc(var(--nav-height) + var(--space-lg));
+  align-self: flex-start;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  box-shadow: var(--shadow);
+  transition: color 0.15s, box-shadow 0.15s;
+  margin-right: var(--space-sm);
+  display: none;
+  white-space: nowrap;
+}
+
+.content-nav-show-btn:hover {
+  color: var(--color-text);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.content-nav-show-btn kbd {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 0 4px;
+  color: var(--color-text-muted);
+}
+
+.content-nav--hidden + .content-nav-show-btn {
+  display: block;
+}
+
+/* Add scroll-margin to headings so they clear the sticky nav */
+.markdown-rendered h1,
+.markdown-rendered h2,
+.markdown-rendered h3,
+.markdown-rendered h4,
+.markdown-rendered h5,
+.markdown-rendered h6 {
+  scroll-margin-top: calc(var(--nav-height) + var(--space-lg));
+}
+
+/* Hide sidebar on small screens */
+@media (max-width: 1024px) {
+  .content-nav {
+    display: none;
+  }
+  .content-nav-show-btn {
+    display: none !important;
+  }
 }
