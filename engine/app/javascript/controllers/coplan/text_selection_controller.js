@@ -69,8 +69,11 @@ export default class extends Controller {
       if (clampTarget) range.setEndAfter(clampTarget)
     }
 
-    // Extract text after clamping so it only contains content-area text
-    const text = selection.toString().trim()
+    // Extract text after clamping so it only contains content-area text.
+    // Normalize tabs to spaces — browser selections across table cells
+    // produce tab-separated text, but the server matches against
+    // space-separated plain text extracted from the markdown AST.
+    const text = selection.toString().replace(/\t/g, " ").trim()
 
     if (text.length < 3) {
       this.popoverTarget.style.display = "none"
@@ -253,15 +256,22 @@ export default class extends Controller {
 
   // Computes the 1-based occurrence number of the selected text in the DOM content.
   // This is sent to the server so resolve_anchor_position picks the right match.
+  // Uses whitespace-normalized matching for consistency with findAndHighlight.
   computeOccurrence(range, text) {
     const offset = this.getSelectionOffset(range)
     const fullText = this.contentTarget.textContent
+    const { normText, origIndices } = this._buildNormalizedMap(fullText)
+    const normSearch = this._normalizeWhitespace(text)
+
+    // Map the DOM offset to the normalized string offset
+    let normOffset = origIndices.findIndex(orig => orig >= offset)
+    if (normOffset === -1) normOffset = normText.length
 
     let count = 0
     let pos = -1
-    while ((pos = fullText.indexOf(text, pos + 1)) !== -1) {
+    while ((pos = normText.indexOf(normSearch, pos + 1)) !== -1) {
       count++
-      if (pos >= offset) return count
+      if (pos >= normOffset) return count
     }
     return count > 0 ? count : 1
   }
@@ -313,17 +323,19 @@ export default class extends Controller {
         const statusClass = isOpen ? "anchor-highlight--open" : "anchor-highlight--resolved"
         const specificClass = isOpen ? `anchor-highlight--${status}` : ""
         const classes = `anchor-highlight ${statusClass} ${specificClass}`.trim()
-        const mark = this.findAndHighlight(anchor, occurrence, classes)
+        const marks = this.findAndHighlightAll(anchor, occurrence, classes)
 
-        if (mark && threadId) {
-          // Make highlight clickable to open popover
-          mark.dataset.threadId = threadId
-          mark.style.cursor = "pointer"
-          mark.addEventListener("click", (e) => this.openThreadPopover(e))
+        if (marks.length > 0 && threadId) {
+          // Make all highlight marks clickable to open popover
+          marks.forEach(mark => {
+            mark.dataset.threadId = threadId
+            mark.style.cursor = "pointer"
+            mark.addEventListener("click", (e) => this.openThreadPopover(e))
+          })
 
-          // Create margin dot
+          // Create margin dot aligned to the first mark
           if (this.hasMarginTarget) {
-            this.createMarginDot(mark, threadId, status)
+            this.createMarginDot(marks[0], threadId, status)
           }
         }
       }
@@ -351,33 +363,94 @@ export default class extends Controller {
 
   // Find and highlight the Nth occurrence of text in the rendered DOM.
   // Uses the occurrence index from server-side positional data.
+  // Performs whitespace-normalized matching so that anchor text captured
+  // from browser selections (which may differ in whitespace from the DOM
+  // textContent, e.g. tabs in table selections) can still be located.
   findAndHighlight(text, occurrence, className) {
     const fullText = this.fullText
-    let targetIndex = -1
 
-    if (occurrence !== undefined && occurrence !== "") {
-      const occurrenceNum = parseInt(occurrence, 10)
-      if (!isNaN(occurrenceNum)) {
-        targetIndex = this.findNthOccurrence(fullText, text, occurrenceNum)
+    if (occurrence === undefined || occurrence === "") return null
+
+    const occurrenceNum = parseInt(occurrence, 10)
+    if (isNaN(occurrenceNum)) return null
+
+    const match = this._findNthNormalized(fullText, text, occurrenceNum)
+    if (!match) return null
+
+    return this.highlightAtIndex(match.startIndex, match.matchLength, className)
+  }
+
+  // Like findAndHighlight but returns all created/reused marks (for multi-cell spans).
+  findAndHighlightAll(text, occurrence, className) {
+    const fullText = this.fullText
+
+    if (occurrence === undefined || occurrence === "") return []
+
+    const occurrenceNum = parseInt(occurrence, 10)
+    if (isNaN(occurrenceNum)) return []
+
+    const match = this._findNthNormalized(fullText, text, occurrenceNum)
+    if (!match) return []
+
+    return this.highlightAtIndexAll(match.startIndex, match.matchLength, className)
+  }
+
+  // Collapses runs of whitespace (spaces, tabs, newlines) into single spaces.
+  _normalizeWhitespace(str) {
+    return str.replace(/\s+/g, " ")
+  }
+
+  // Builds a whitespace-normalized version of `text` with a parallel array
+  // mapping each normalized position back to its original index.
+  // Returns { normText, origIndices } where origIndices[i] is the original
+  // index of the character at normalized position i.
+  _buildNormalizedMap(text) {
+    let normText = ""
+    const origIndices = []
+    let inWhitespace = false
+
+    for (let i = 0; i < text.length; i++) {
+      if (/\s/.test(text[i])) {
+        if (!inWhitespace) {
+          normText += " "
+          origIndices.push(i)
+          inWhitespace = true
+        }
+      } else {
+        normText += text[i]
+        origIndices.push(i)
+        inWhitespace = false
       }
     }
 
-    if (targetIndex === -1) return null
-
-    return this.highlightAtIndex(targetIndex, text.length, className)
+    return { normText, origIndices }
   }
 
-  findNthOccurrence(text, search, n) {
+  // Finds the Nth occurrence of `search` in `text` using whitespace-normalized
+  // matching. Returns { startIndex, matchLength } in the *original* text,
+  // or null if not found.
+  _findNthNormalized(text, search, n) {
+    const { normText, origIndices } = this._buildNormalizedMap(text)
+    const normSearch = this._normalizeWhitespace(search)
+
     let pos = -1
     for (let i = 0; i <= n; i++) {
-      pos = text.indexOf(search, pos + 1)
-      if (pos === -1) return -1
+      pos = normText.indexOf(normSearch, pos + 1)
+      if (pos === -1) return null
     }
-    return pos
+
+    const origStart = origIndices[pos]
+    const origEnd = origIndices[pos + normSearch.length - 1] + 1
+    return { startIndex: origStart, matchLength: origEnd - origStart }
   }
 
   highlightAtIndex(startIndex, length, className) {
-    if (startIndex < 0 || length <= 0) return null
+    const marks = this.highlightAtIndexAll(startIndex, length, className)
+    return marks[0] || null
+  }
+
+  highlightAtIndexAll(startIndex, length, className) {
+    if (startIndex < 0 || length <= 0) return []
 
     const walker = document.createTreeWalker(
       this.contentTarget,
@@ -395,7 +468,7 @@ export default class extends Controller {
     }
 
     const matchEnd = startIndex + length
-    let firstHighlighted = null
+    const marks = []
 
     for (let i = 0; i < textNodes.length; i++) {
       const tn = textNodes[i]
@@ -404,8 +477,24 @@ export default class extends Controller {
       if (nodeEnd <= startIndex) continue
       if (tn.start >= matchEnd) break
 
+      // Skip structural whitespace text nodes inside table elements —
+      // wrapping these in <mark> produces invalid HTML and breaks table layout.
+      const parentTag = tn.node.parentElement?.tagName
+      if (parentTag && /^(TABLE|THEAD|TBODY|TFOOT|TR)$/.test(parentTag)) continue
+
       const localStart = Math.max(0, startIndex - tn.start)
       const localEnd = Math.min(tn.node.textContent.length, matchEnd - tn.start)
+
+      // Skip zero-length ranges (e.g. from text node splits by prior highlights)
+      if (localEnd <= localStart) continue
+
+      // If the text is already inside a highlight mark (from another thread
+      // anchored to the same text), reuse that mark instead of nesting.
+      const existingMark = tn.node.parentElement?.closest("mark.anchor-highlight")
+      if (existingMark) {
+        if (!marks.includes(existingMark)) marks.push(existingMark)
+        continue
+      }
 
       const range = document.createRange()
       range.setStart(tn.node, localStart)
@@ -415,9 +504,9 @@ export default class extends Controller {
       mark.className = className
       range.surroundContents(mark)
 
-      if (!firstHighlighted) firstHighlighted = mark
+      marks.push(mark)
     }
 
-    return firstHighlighted
+    return marks
   }
 }

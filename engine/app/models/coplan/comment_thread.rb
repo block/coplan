@@ -112,23 +112,25 @@ module CoPlan
       !out_of_date
     end
 
-    # Returns the 0-based occurrence index of anchor_text in the raw markdown,
-    # computed from anchor_start. The frontend uses this to find the correct
-    # occurrence in the rendered DOM text instead of relying on context matching.
+    # Returns the 0-based occurrence index of anchor_text in the rendered
+    # (stripped) content, computed from anchor_start. The frontend uses this
+    # to find the correct occurrence in the rendered DOM text.
     def anchor_occurrence_index
       return nil unless anchored? && anchor_start.present?
 
       content = plan.current_content
       return nil unless content.present?
 
-      count = 0
-      pos = 0
-      while (idx = content.index(anchor_text, pos))
-        break if idx >= anchor_start
-        count += 1
-        pos = idx + 1
-      end
-      count
+      stripped, pos_map = self.class.strip_markdown(content)
+      # Map raw anchor_start to its position in the stripped string.
+      # Use >= to find the closest valid position if anchor_start falls
+      # on a stripped formatting character.
+      stripped_start = pos_map.index { |raw_idx| raw_idx >= anchor_start }
+      return nil if stripped_start.nil?
+
+      normalized_anchor = anchor_text.gsub("\t", " ")
+      ranges = find_all_occurrences(stripped, normalized_anchor)
+      ranges.index { |s, _| s >= stripped_start } || 0
     end
 
     def anchor_context_with_highlight(chars: 100)
@@ -147,6 +149,10 @@ module CoPlan
       "#{before}**#{anchor}**#{after}"
     end
 
+    def self.strip_markdown(content)
+      Plans::MarkdownTextExtractor.call(content)
+    end
+
     private
 
     def resolve_anchor_position
@@ -158,11 +164,26 @@ module CoPlan
       occurrence = self.anchor_occurrence || 1
       return if occurrence < 1
 
-      ranges = []
-      start_pos = 0
-      while (idx = content.index(anchor_text, start_pos))
-        ranges << [idx, idx + anchor_text.length]
-        start_pos = idx + anchor_text.length
+      # First, try an exact match against the raw markdown.
+      ranges = find_all_occurrences(content, anchor_text)
+
+      # If no exact match, the selected text may span markdown formatting
+      # (e.g. DOM text "Hello me you" vs raw "Hello `me` you", or table
+      # cell text without pipe delimiters). Parse the markdown AST to
+      # extract plain text with source position mapping.
+      if ranges.empty?
+        stripped, pos_map = self.class.strip_markdown(content)
+        # Normalize tabs to spaces — browser selections across table cells
+        # produce tab-separated text, but the stripped markdown uses spaces.
+        normalized_anchor = anchor_text.gsub("\t", " ")
+        stripped_ranges = find_all_occurrences(stripped, normalized_anchor)
+
+        ranges = stripped_ranges.map do |s, e|
+          raw_start = first_real_pos(pos_map, s, :forward)
+          raw_end = first_real_pos(pos_map, e - 1, :backward)
+          next nil unless raw_start && raw_end
+          [raw_start, raw_end + 1]
+        end.compact
       end
 
       if ranges.length >= occurrence
@@ -171,6 +192,27 @@ module CoPlan
         self.anchor_end = range[1]
         self.anchor_revision = plan.current_revision
       end
+    end
+
+    # Finds the nearest non-sentinel (-1) position in the pos_map,
+    # scanning forward or backward from the given index.
+    def first_real_pos(pos_map, idx, direction)
+      step = direction == :forward ? 1 : -1
+      while idx >= 0 && idx < pos_map.length
+        return pos_map[idx] if pos_map[idx] >= 0
+        idx += step
+      end
+      nil
+    end
+
+    def find_all_occurrences(text, search)
+      ranges = []
+      start_pos = 0
+      while (idx = text.index(search, start_pos))
+        ranges << [idx, idx + search.length]
+        start_pos = idx + search.length
+      end
+      ranges
     end
   end
 end
