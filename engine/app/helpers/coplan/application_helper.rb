@@ -1,5 +1,6 @@
 module CoPlan
   module ApplicationHelper
+    include MarkdownHelper
     FAVICON_COLORS = {
       "production"  => { start: "#3B82F6", stop: "#1E40AF" },
       "staging"     => { start: "#F59E0B", stop: "#D97706" },
@@ -35,6 +36,18 @@ module CoPlan
 
       data_uri = "data:image/svg+xml,#{ERB::Util.url_encode(svg.strip)}"
       tag.link(rel: "icon", type: "image/svg+xml", href: data_uri)
+    end
+
+    def plan_og_description(plan)
+      status = plan.status.capitalize
+      author = plan.created_by_user.name
+      prefix = "#{status} · by #{author}"
+      content = plan.current_content
+      return prefix if content.blank?
+
+      plain = markdown_to_plain_text(content)
+      truncated = truncate(plain, length: 200, omission: "…")
+      "#{prefix} — #{truncated}"
     end
 
     def coplan_environment_badge

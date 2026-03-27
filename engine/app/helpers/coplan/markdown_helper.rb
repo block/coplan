@@ -22,6 +22,11 @@ module CoPlan
       tag.div(sanitized, class: "markdown-rendered")
     end
 
+    def markdown_to_plain_text(content)
+      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), plugins: { syntax_highlighter: nil })
+      Nokogiri::HTML::DocumentFragment.parse(html).text.squish
+    end
+
     def render_line_view(content)
       lines = content.to_s.split("\n", -1)
       line_divs = lines.each_with_index.map do |line, index|
