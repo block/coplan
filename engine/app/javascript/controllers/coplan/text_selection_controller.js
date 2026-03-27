@@ -340,11 +340,15 @@ export default class extends Controller {
         const marks = this.findAndHighlightAll(anchor, occurrence, classes)
 
         if (marks.length > 0 && threadId) {
-          // Make all highlight marks clickable to open popover
+          // Make all highlight marks clickable to open popover.
+          // If a mark is shared with another thread, keep the first
+          // thread's binding — the margin dot still provides access.
           marks.forEach(mark => {
-            mark.dataset.threadId = threadId
-            mark.style.cursor = "pointer"
-            mark.addEventListener("click", (e) => this.openThreadPopover(e))
+            if (!mark.dataset.threadId) {
+              mark.dataset.threadId = threadId
+              mark.style.cursor = "pointer"
+              mark.addEventListener("click", (e) => this.openThreadPopover(e))
+            }
           })
 
           // Create margin dot aligned to the first mark
