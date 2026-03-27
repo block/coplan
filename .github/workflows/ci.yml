@@ -12,7 +12,7 @@ jobs:
 
     env:
       RAILS_ENV: test
-      DATABASE_URL: mysql2://root@127.0.0.1:3306/planning_department_test
+      DATABASE_URL: mysql2://root:root@127.0.0.1:3306/planning_department_test
 
     steps:
       - uses: actions/checkout@v4
