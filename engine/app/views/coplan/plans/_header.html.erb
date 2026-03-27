@@ -6,6 +6,7 @@
     </div>
   </div>
   <div class="page-header__actions">
+    <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(plan), current_user: current_user } %>
     <% if CoPlan::AutomatedPlanReviewer.enabled.any? %>
       <div class="dropdown" data-controller="coplan--dropdown">
         <button class="btn btn--secondary" data-action="coplan--dropdown#toggle">

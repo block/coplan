@@ -186,6 +186,87 @@ img, svg {
   font-weight: 700;
 }
 
+/* Plan viewers / presence */
+.plan-viewers {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.plan-viewers__avatars {
+  display: flex;
+  flex-direction: row-reverse;
+}
+
+.plan-viewers__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 2px solid var(--color-surface);
+  margin-left: -0.5rem;
+  cursor: default;
+  position: relative;
+}
+
+.plan-viewers__avatar--you {
+  background: var(--color-success);
+}
+
+.plan-viewers__avatar::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-text);
+  color: var(--color-surface);
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+
+.plan-viewers__avatar:hover::after {
+  opacity: 1;
+}
+
+.plan-viewers__avatars > :last-child {
+  margin-left: 0;
+}
+
+.plan-viewers__overflow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 2px solid var(--color-surface);
+  margin-left: -0.5rem;
+}
+
+.plan-viewers__label {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
 /* Flash messages */
 .flash {
   padding: var(--space-md) var(--space-lg);
