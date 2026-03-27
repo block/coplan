@@ -14,7 +14,6 @@ export default class extends Controller {
 
     this.buildToc()
     this.setupScrollTracking()
-    this.setupThreadsObserver()
 
     this.handleKeydown = this.handleKeydown.bind(this)
     document.addEventListener("keydown", this.handleKeydown)
@@ -26,10 +25,6 @@ export default class extends Controller {
   disconnect() {
     if (this._scrollHandler) {
       window.removeEventListener("scroll", this._scrollHandler)
-    }
-    if (this._threadsObserver) {
-      this._threadsObserver.disconnect()
-      this._threadsObserver = null
     }
     document.removeEventListener("keydown", this.handleKeydown)
     if (this._handleAnchorsUpdated) {
@@ -194,19 +189,6 @@ export default class extends Controller {
     }
   }
 
-  setupThreadsObserver() {
-    const threadsContainer = document.getElementById("plan-threads")
-    if (!threadsContainer) return
-
-    this._threadsObserver = new MutationObserver(() => this.updateCommentBadges())
-    this._threadsObserver.observe(threadsContainer, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["data-thread-status"]
-    })
-  }
-
   updateCommentBadges() {
     if (!this._headings || this._headings.length === 0) return
 
@@ -215,16 +197,13 @@ export default class extends Controller {
 
     this._headings.forEach((heading, index) => {
       const nextHeading = this._headings[index + 1]
-      const marks = this.collectMarksBetween(heading, nextHeading, rendered)
+      const threads = this.collectThreadsBetween(heading, nextHeading, rendered)
 
       let pendingCount = 0
       let todoCount = 0
-      marks.forEach(mark => {
-        if (mark.classList.contains("anchor-highlight--pending")) {
-          pendingCount++
-        } else if (mark.classList.contains("anchor-highlight--todo")) {
-          todoCount++
-        }
+      threads.forEach(status => {
+        if (status === "pending") pendingCount++
+        else if (status === "todo") todoCount++
       })
 
       const item = this._itemsById?.get(heading.id)
@@ -244,8 +223,9 @@ export default class extends Controller {
     })
   }
 
-  collectMarksBetween(startHeading, endHeading, container) {
-    const marks = []
+  collectThreadsBetween(startHeading, endHeading, container) {
+    const seen = new Set()
+    const threads = []
     let collecting = false
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, null)
 
@@ -258,10 +238,15 @@ export default class extends Controller {
       if (endHeading && node === endHeading) break
 
       if (collecting && node.tagName === "MARK" && node.classList.contains("anchor-highlight--open")) {
-        marks.push(node)
+        const threadId = node.dataset.threadId
+        if (threadId && !seen.has(threadId)) {
+          seen.add(threadId)
+          const status = node.classList.contains("anchor-highlight--pending") ? "pending" : "todo"
+          threads.push(status)
+        }
       }
     }
 
-    return marks
+    return threads
   }
 }

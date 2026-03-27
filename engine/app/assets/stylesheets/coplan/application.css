@@ -730,6 +730,10 @@ img, svg {
   pointer-events: none;
 }
 
+#plan-threads .thread-popover {
+  pointer-events: auto;
+}
+
 /* Comment form */
 .comment-form {
   position: absolute;
