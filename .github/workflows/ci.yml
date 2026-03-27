@@ -10,25 +10,15 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
     env:
       RAILS_ENV: test
-      DATABASE_URL: mysql2://root@127.0.0.1:3306/planning_department_test
+      DATABASE_URL: mysql2://root:root@127.0.0.1:3306/planning_department_test
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Start MySQL
+        run: sudo systemctl start mysql
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -40,4 +30,4 @@ jobs:
         run: bin/rails db:create db:schema:load
 
       - name: Run tests
-        run: bin/rails test
+        run: bundle exec rspec

@@ -17,7 +17,7 @@ module CoPlan
     ALLOWED_ATTRIBUTES = %w[id class href src alt title].freeze
 
     def render_markdown(content)
-      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), plugins: { syntax_highlighter: nil })
+      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { render: { unsafe: true } }, plugins: { syntax_highlighter: nil })
       sanitized = sanitize(html, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       tag.div(sanitized, class: "markdown-rendered")
     end
