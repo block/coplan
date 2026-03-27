@@ -1,6 +1,9 @@
 <div class="comment" id="<%= dom_id(comment) %>">
   <div class="comment__header text-sm text-muted">
     <strong><%= comment_author_name(comment) %></strong>
+    <% if comment.agent? %>
+      <span class="badge badge--agent">agent</span>
+    <% end %>
     · <%= time_ago_in_words(comment.created_at) %> ago
   </div>
   <div class="comment__body">

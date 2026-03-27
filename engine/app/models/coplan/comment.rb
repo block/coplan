@@ -11,6 +11,10 @@ module CoPlan
 
     after_create_commit :notify_plan_author, if: :first_comment_in_thread?
 
+    def agent?
+      agent_name.present? || author_type.in?(%w[local_agent cloud_persona])
+    end
+
     private
 
     def first_comment_in_thread?
