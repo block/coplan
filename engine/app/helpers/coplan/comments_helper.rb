@@ -1,20 +1,21 @@
 module CoPlan
   module CommentsHelper
     def comment_author_name(comment)
-      case comment.author_type
+      user_name = case comment.author_type
       when "human"
         CoPlan::User.find_by(id: comment.author_id)&.name || "Unknown"
       when "local_agent"
-        user_name = CoPlan::User
+        CoPlan::User
           .joins(:api_tokens)
           .where(coplan_api_tokens: { id: comment.author_id })
           .pick(:name) || "Agent"
-        comment.agent_name.present? ? "#{user_name} (#{comment.agent_name})" : user_name
       when "cloud_persona"
         AutomatedPlanReviewer.find_by(id: comment.author_id)&.name || "Reviewer"
       else
         comment.author_type
       end
+
+      comment.agent_name.present? ? "#{comment.agent_name} (via #{user_name})" : user_name
     end
   end
 end

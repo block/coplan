@@ -21,6 +21,8 @@
   --color-status-developing: #3b82f6;
   --color-status-live: #10b981;
   --color-status-abandoned: #6b7280;
+--color-agent: #4338ca;
+--color-agent-bg: #e0e7ff;
 
   /* Spacing */
   --space-xs: 0.25rem;
@@ -283,6 +285,7 @@ img, svg {
 .badge--todo        { background: #dbeafe; color: var(--color-status-developing); }
 .badge--discarded   { background: #f3f4f6; color: var(--color-status-abandoned); }
 .badge--resolved    { background: #d1fae5; color: var(--color-status-live); }
+.badge--agent       { background: var(--color-agent-bg); color: var(--color-agent); font-size: 0.65rem; padding: 1px 6px; vertical-align: middle; }
 
 /* Forms */
 .form-group {
