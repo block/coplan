@@ -34,7 +34,7 @@ module CoPlan
           }, status: :created
 
         rescue ActiveRecord::RecordInvalid => e
-          render json: { error: e.message }, status: :unprocessable_entity
+          render json: { error: e.message }, status: :unprocessable_content
         end
 
         def resolve
@@ -98,7 +98,7 @@ module CoPlan
           }, status: :created
 
         rescue ActiveRecord::RecordInvalid => e
-          render json: { error: e.message }, status: :unprocessable_entity
+          render json: { error: e.message }, status: :unprocessable_content
         end
 
         private
