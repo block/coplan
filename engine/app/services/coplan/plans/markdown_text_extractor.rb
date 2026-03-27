@@ -60,7 +60,7 @@ module CoPlan
       end
 
       # Block-level node types that should be separated by newlines.
-      BLOCK_TYPES = %i[paragraph heading table table_row item block_quote list].to_set.freeze
+      BLOCK_TYPES = %i[paragraph heading table table_row item block_quote list code_block].to_set.freeze
 
       # Recursively walks the AST, appending text content to `stripped` and
       # character-index mappings to `pos_map`. Inserts whitespace between
@@ -103,6 +103,22 @@ module CoPlan
             text.each_char.with_index do |char, i|
               stripped << char
               pos_map << (content_char_start + i)
+            end
+          when :code_block
+            # Fenced code blocks: source_position spans from the opening
+            # fence to the closing fence. The string_content is the inner
+            # text (excluding fences). Content starts on the line after
+            # the opening fence.
+            pos = child.source_position
+            text = child.string_content
+            content_line = pos[:start_line] + 1
+            if content_line <= line_byte_offsets.length - 1
+              content_byte = line_byte_offsets[content_line]
+              char_idx = byte_to_char[content_byte]
+              text.each_char.with_index do |char, i|
+                stripped << char
+                pos_map << (char_idx + i)
+              end
             end
           when :softbreak, :linebreak
             pos = child.source_position

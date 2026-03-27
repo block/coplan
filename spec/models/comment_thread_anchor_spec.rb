@@ -202,6 +202,11 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
         )
       end
 
+      it "fenced code block text" do
+        md = "# Plan\n\n```ruby\ndef hello\n  puts 'hi'\nend\n```\n\nDone."
+        assert_anchor_resolves(md, "def hello", "def hello")
+      end
+
       it "plain text still works via exact match (fast path)" do
         assert_anchor_resolves(
           "Plain text without any formatting.",
