@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_27_151037) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_27_170858) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -120,6 +120,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_27_151037) do
     t.index ["plan_version_id"], name: "fk_rails_14c3f0737b"
   end
 
+  create_table "coplan_notifications", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "comment_id", limit: 36
+    t.string "comment_thread_id", limit: 36, null: false
+    t.datetime "created_at", null: false
+    t.string "plan_id", limit: 36, null: false
+    t.timestamp "read_at"
+    t.string "reason", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_id", limit: 36, null: false
+    t.index ["comment_id"], name: "fk_rails_c70f93334a"
+    t.index ["comment_thread_id", "user_id"], name: "index_coplan_notifications_on_thread_and_user"
+    t.index ["plan_id"], name: "index_coplan_notifications_on_plan_id"
+    t.index ["user_id", "read_at"], name: "index_coplan_notifications_on_user_id_and_read_at"
+  end
+
   create_table "coplan_plan_collaborators", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.string "added_by_user_id", limit: 36
     t.datetime "created_at", null: false
@@ -204,6 +219,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_27_151037) do
   add_foreign_key "coplan_edit_leases", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_edit_sessions", "coplan_plan_versions", column: "plan_version_id"
   add_foreign_key "coplan_edit_sessions", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_notifications", "coplan_comment_threads", column: "comment_thread_id"
+  add_foreign_key "coplan_notifications", "coplan_comments", column: "comment_id"
+  add_foreign_key "coplan_notifications", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_notifications", "coplan_users", column: "user_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "added_by_user_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "user_id"

@@ -21,6 +21,10 @@
         <div class="plans-list__header">
           <%= link_to plan.title, plan_path(plan), class: "plans-list__title" %>
           <span class="badge badge--<%= plan.status %>"><%= plan.status %></span>
+          <% plan_unread = @plan_unread_counts[plan.id] || 0 %>
+          <% if plan_unread > 0 %>
+            <span class="inbox-badge"><%= plan_unread %></span>
+          <% end %>
         </div>
         <div class="plans-list__meta text-sm text-muted">
           by <%= plan.created_by_user.name %> · v<%= plan.current_revision %> · updated <%= time_ago_in_words(plan.updated_at) %> ago

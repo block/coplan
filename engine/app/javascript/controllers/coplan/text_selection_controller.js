@@ -1,8 +1,8 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote", "margin", "threads"]
-  static values = { planId: String }
+  static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote", "threads"]
+  static values = { planId: String, focusThread: String }
 
   connect() {
     this.selectedText = null
@@ -20,6 +20,13 @@ export default class extends Controller {
     if (this.hasThreadsTarget) {
       this._threadsObserver = new MutationObserver(() => this.highlightAnchors())
       this._threadsObserver.observe(this.threadsTarget, { childList: true })
+    }
+
+    // Auto-open a specific thread if linked via ?thread=ID (set as a Stimulus value)
+    if (this.focusThreadValue) {
+      this._pendingThreadId = this.focusThreadValue
+      this.focusThreadValue = ""
+      this._openLinkedThread()
     }
   }
 
@@ -317,11 +324,6 @@ export default class extends Controller {
     })
     this.contentTarget.normalize()
 
-    // Clear margin dots
-    if (this.hasMarginTarget) {
-      this.marginTarget.innerHTML = ""
-    }
-
     // Build full text once for position lookups
     this.fullText = this.contentTarget.textContent
 
@@ -340,9 +342,6 @@ export default class extends Controller {
         const marks = this.findAndHighlightAll(anchor, occurrence, classes)
 
         if (marks.length > 0 && threadId) {
-          // Make all highlight marks clickable to open popover.
-          // If a mark is shared with another thread, keep the first
-          // thread's binding — the margin dot still provides access.
           marks.forEach(mark => {
             if (!mark.dataset.threadId) {
               mark.dataset.threadId = threadId
@@ -350,33 +349,11 @@ export default class extends Controller {
               mark.addEventListener("click", (e) => this.openThreadPopover(e))
             }
           })
-
-          // Create margin dot aligned to the first mark
-          if (this.hasMarginTarget) {
-            this.createMarginDot(marks[0], threadId, status)
-          }
         }
       }
     })
 
     this.element.dispatchEvent(new CustomEvent("coplan:anchors-updated", { bubbles: true }))
-  }
-
-  createMarginDot(highlightMark, threadId, status) {
-    const contentRect = this.contentTarget.getBoundingClientRect()
-    const markRect = highlightMark.getBoundingClientRect()
-    const marginRect = this.marginTarget.getBoundingClientRect()
-
-    const dot = document.createElement("button")
-    const isOpen = status === "pending" || status === "todo"
-    const openClass = isOpen ? `margin-dot--open margin-dot--${status}` : "margin-dot--resolved"
-    dot.className = `margin-dot ${openClass}`
-    dot.style.top = `${markRect.top - marginRect.top}px`
-    dot.dataset.threadId = threadId
-    dot.addEventListener("click", (e) => this.openThreadPopover(e))
-    dot.setAttribute("aria-label", `${status} comment`)
-
-    this.marginTarget.appendChild(dot)
   }
 
   // Find and highlight the Nth occurrence of text in the rendered DOM.
@@ -460,6 +437,28 @@ export default class extends Controller {
     const origStart = origIndices[pos]
     const origEnd = origIndices[pos + normSearch.length - 1] + 1
     return { startIndex: origStart, matchLength: origEnd - origStart }
+  }
+
+  _openLinkedThread(attempt = 0) {
+    const threadId = this._pendingThreadId
+    if (!threadId) return
+
+    const domId = `comment_thread_${threadId}`
+    const mark = this.contentTarget.querySelector(`mark[data-thread-id="${domId}"]`)
+    if (mark) {
+      this._pendingThreadId = null
+      requestAnimationFrame(() => {
+        mark.scrollIntoView({ behavior: "instant", block: "center" })
+        this.openThreadPopover({ currentTarget: mark })
+      })
+      return
+    }
+
+    // Marks may not exist yet (Turbo Drive render timing).
+    // Retry a few times with increasing delay.
+    if (attempt < 10) {
+      setTimeout(() => this._openLinkedThread(attempt + 1), 100)
+    }
   }
 
   highlightAtIndex(startIndex, length, className) {

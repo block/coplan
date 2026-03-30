@@ -12,6 +12,13 @@ module CoPlan
         body_markdown: params[:comment][:body_markdown]
       )
 
+      Notifications::Create.call(
+        comment_thread: @thread,
+        actor_id: current_user.id,
+        comment: comment,
+        reason: "reply"
+      )
+
       Broadcaster.append_to(
         @plan,
         target: ActionView::RecordIdentifier.dom_id(@thread, :comments),

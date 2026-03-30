@@ -17,7 +17,7 @@
 
 <div class="plan-content card">
   <% if @plan.current_content.present? %>
-    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav" data-coplan--text-selection-plan-id-value="<%= @plan.id %>" data-action="keydown.esc@document->coplan--text-selection#dismiss">
+    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav" data-coplan--text-selection-plan-id-value="<%= @plan.id %>" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss">
       <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
         <div class="content-nav__header">
           <span class="content-nav__title">Contents</span>
@@ -27,7 +27,6 @@
       </nav>
       <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (])">☰ <kbd>]</kbd></button>
 
-      <div class="plan-layout__margin" data-coplan--text-selection-target="margin"></div>
       <div class="plan-layout__content" data-coplan--text-selection-target="content" data-coplan--content-nav-target="content">
         <%= render_markdown(@plan.current_content) %>
 

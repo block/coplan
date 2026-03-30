@@ -13,6 +13,7 @@ module CoPlan
     belongs_to :out_of_date_since_version, class_name: "PlanVersion", optional: true
     belongs_to :addressed_in_plan_version, class_name: "PlanVersion", optional: true
     has_many :comments, dependent: :destroy
+    has_many :notifications, dependent: :destroy
 
     validates :status, presence: true, inclusion: { in: STATUSES }
 

@@ -1,0 +1,23 @@
+<%= content_tag :div, id: dom_id(notification), class: "card notifications-list__item #{'notifications-list__item--read' if notification.read?}" do %>
+  <div class="notifications-list__header">
+    <%= link_to notification.plan.title, notification_path(notification), class: "notifications-list__plan-title" %>
+    <span class="badge badge--<%= notification.reason.dasherize %>"><%= notification.reason.humanize %></span>
+    <% unless notification.read? %>
+      <%= button_to "Mark read", mark_read_notification_path(notification), method: :patch, class: "btn btn--secondary btn--sm", form: { data: { turbo_stream: true } } %>
+    <% end %>
+  </div>
+  <div class="notifications-list__body">
+    <% thread = notification.comment_thread %>
+    <% if thread.anchored? %>
+      <span class="notifications-list__anchor">"<%= thread.anchor_preview(max_length: 60) %>"</span>
+    <% end %>
+    <% first_comment = thread.comments.first %>
+    <% if first_comment %>
+      <p class="notifications-list__comment text-sm"><%= truncate(first_comment.body_markdown, length: 120) %></p>
+    <% end %>
+  </div>
+  <div class="notifications-list__meta text-sm text-muted">
+    <%= time_ago_in_words(notification.created_at) %> ago
+    · by <%= thread.created_by_user&.name || "Unknown" %>
+  </div>
+<% end %>
