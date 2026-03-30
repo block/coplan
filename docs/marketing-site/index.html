@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CoPlan 1.0 — AI-Native Engineering Planning</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --text: #e4e4ef;
+      --text-muted: #8888a0;
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.15);
+      --amber: #f59e0b;
+      --blue: #3b82f6;
+      --green: #10b981;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 6rem 2rem 4rem;
+      background: radial-gradient(ellipse at 50% 0%, var(--accent-glow) 0%, transparent 60%);
+    }
+
+    .hero-logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 1.5rem;
+      filter: drop-shadow(0 0 30px rgba(99, 102, 241, 0.3));
+    }
+
+    .hero h1 {
+      font-size: 4rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 0.5rem;
+    }
+
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .version-badge {
+      display: inline-block;
+      background: var(--accent);
+      color: white;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.3rem 0.8rem;
+      border-radius: 999px;
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.05em;
+    }
+
+    .hero p {
+      font-size: 1.35rem;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 2rem;
+    }
+
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--accent);
+      color: white;
+      padding: 0.85rem 2rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1.05rem;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .hero-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+    }
+
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin: -2rem auto 0;
+      max-width: 800px;
+      position: relative;
+      z-index: 1;
+    }
+    .stat {
+      background: var(--surface);
+      padding: 1.5rem 1rem;
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent);
+    }
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 0.25rem;
+    }
+
+    /* Features */
+    .features { padding: 6rem 0; }
+
+    .section-title {
+      text-align: center;
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .section-subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      margin-bottom: 4rem;
+    }
+
+    .feature {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+      margin-bottom: 5rem;
+    }
+    .feature:nth-child(even) { direction: rtl; }
+    .feature:nth-child(even) > * { direction: ltr; }
+
+    .feature-text h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .feature-text p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      line-height: 1.7;
+    }
+    .feature-tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+    }
+    .tag-new { background: rgba(16, 185, 129, 0.15); color: var(--green); }
+    .tag-improved { background: rgba(59, 130, 246, 0.15); color: var(--blue); }
+    .tag-core { background: rgba(245, 158, 11, 0.15); color: var(--amber); }
+
+    .feature-image {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+    .feature-image img {
+      width: 100%;
+      display: block;
+    }
+
+    /* Changelog */
+    .changelog {
+      padding: 4rem 0 6rem;
+    }
+
+    .changelog-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+
+    .changelog-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+    }
+    .changelog-item h4 {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .changelog-item p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    .changelog-version {
+      font-size: 0.7rem;
+      background: var(--border);
+      color: var(--text-muted);
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    /* API Section */
+    .api-section {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 4rem 0;
+      text-align: center;
+    }
+
+    .api-section h2 { margin-bottom: 0.5rem; }
+    .api-section .section-subtitle { margin-bottom: 2rem; }
+
+    .code-block {
+      background: #0d0d14;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      text-align: left;
+      max-width: 700px;
+      margin: 0 auto;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.85rem;
+      line-height: 1.8;
+      overflow-x: auto;
+    }
+    .code-comment { color: #4a4a6a; }
+    .code-method { color: #a78bfa; }
+    .code-url { color: #6366f1; }
+    .code-key { color: #f59e0b; }
+    .code-string { color: #10b981; }
+
+    /* Footer */
+    footer {
+      padding: 3rem 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* Keyboard shortcuts */
+    .shortcuts {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .shortcut {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .shortcut kbd {
+      display: inline-block;
+      background: #1a1a2e;
+      border: 1px solid #2a2a3e;
+      border-radius: 4px;
+      padding: 0.2rem 0.5rem;
+      font-family: 'SF Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+    .shortcut span {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 2.5rem; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .feature { grid-template-columns: 1fr; }
+      .feature:nth-child(even) { direction: ltr; }
+      .changelog-grid { grid-template-columns: 1fr; }
+      .shortcuts { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <img src="screenshots/coplan-logo.png" alt="CoPlan" class="hero-logo">
+    <div class="version-badge">v1.0</div>
+    <h1>AI-native<br><span>engineering planning.</span></h1>
+    <p>AI agents write and iterate on design docs. Humans steer with inline feedback. Every change is versioned with full provenance — so you always know who wrote what, and why.</p>
+    <a href="https://github.com/block/coplan" class="hero-cta">View on GitHub →</a>
+  </section>
+
+  <!-- Stats -->
+  <div class="container">
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-number">5</div>
+        <div class="stat-label">Releases</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">68</div>
+        <div class="stat-label">Pull Requests</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">∞</div>
+        <div class="stat-label">AI Reviews</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number">0</div>
+        <div class="stat-label">Node Modules</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <section class="features">
+    <div class="container">
+      <h2 class="section-title">Everything in 1.0</h2>
+      <p class="section-subtitle">Six releases of features, from 0.1 to 1.0 — here's what shipped.</p>
+
+      <!-- Feature 1: Inline Review UX -->
+      <div class="feature">
+        <div class="feature-text">
+          <div class="feature-tag tag-core">Core Feature</div>
+          <h3>Inline Comment Review</h3>
+          <p>Select any text in a plan to leave feedback anchored to that exact passage. Comments appear as highlighted marks — amber for pending review, blue for accepted work items. Popovers show the full thread inline, no sidebar required.</p>
+        </div>
+        <div class="feature-image">
+          <img src="screenshots/03-inline-comment-popover.png" alt="Inline comment popover showing a review thread anchored to specific text">
+        </div>
+      </div>
+
+      <!-- Feature 2: Content Navigation Sidebar -->
+      <div class="feature">
+        <div class="feature-text">
+          <div class="feature-tag tag-new">New in 0.4+</div>
+          <h3>Content Navigation Sidebar</h3>
+          <p>A collapsible document outline that shows every heading in the plan with badge counts for open comment threads per section. Jump to any section instantly. Toggle with <kbd>]</kbd>.</p>
+        </div>
+        <div class="feature-image">
+          <img src="screenshots/02-plan-view-with-sidebar.png" alt="Plan view with the content navigation sidebar showing document outline and comment counts">
+        </div>
+      </div>
+
+      <!-- Feature 3: Comment Navigation & Keyboard Shortcuts -->
+      <div class="feature">
+        <div class="feature-text">
+          <div class="feature-tag tag-core">Core Feature</div>
+          <h3>Keyboard-First Review</h3>
+          <p>Navigate between comment threads with <kbd>j</kbd>/<kbd>k</kbd>, accept with <kbd>a</kbd>, discard with <kbd>d</kbd>, reply with <kbd>r</kbd>. The bottom toolbar tracks open thread count and lets you toggle resolved threads. Feels like reviewing a PR.</p>
+          <div class="shortcuts">
+            <div class="shortcut"><kbd>j / k</kbd><span>Navigate threads</span></div>
+            <div class="shortcut"><kbd>a / d</kbd><span>Accept / Discard</span></div>
+            <div class="shortcut"><kbd>r</kbd><span>Reply to thread</span></div>
+          </div>
+        </div>
+        <div class="feature-image">
+          <img src="screenshots/04-comment-navigation.png" alt="Comment navigation with j/k keyboard shortcuts and thread toolbar">
+        </div>
+      </div>
+
+      <!-- Feature 4: Table & Rich Content Highlighting -->
+      <div class="feature">
+        <div class="feature-text">
+          <div class="feature-tag tag-new">New in 0.4+</div>
+          <h3>Highlights Everywhere</h3>
+          <p>Comments anchor to any content — including table cells, code blocks, bold/italic text, and list items. Highlights wrap correctly across formatted markdown and complex DOM structures. No content is off-limits for feedback.</p>
+        </div>
+        <div class="feature-image">
+          <img src="screenshots/10-table-highlight.png" alt="Comment popover anchored to highlighted text inside a table cell">
+        </div>
+      </div>
+
+      <!-- Feature 5: Plans Dashboard -->
+      <div class="feature">
+        <div class="feature-text">
+          <div class="feature-tag tag-core">Core Feature</div>
+          <h3>Plans Dashboard</h3>
+          <p>Browse all plans across your organization with status filtering (brainstorm → considering → developing → live). See authorship, version count, and last activity at a glance. Filter by "My Plans" for your own work.</p>
+        </div>
+        <div class="feature-image">
+          <img src="screenshots/01-plans-dashboard.png" alt="Plans dashboard showing filterable list of engineering plans">
+        </div>
+      </div>
+
+      <!-- Feature 5: Real-time Presence -->
+      <div class="feature">
+        <div class="feature-text">
+          <div class="feature-tag tag-new">New in 0.4+</div>
+          <h3>Real-Time Presence</h3>
+          <p>See who's viewing a plan right now with live presence indicators powered by ActionCable. No more "are you looking at this?" in Slack. Presence updates instantly as viewers come and go.</p>
+        </div>
+        <div class="feature-image">
+          <img src="screenshots/02-plan-view-with-sidebar.png" alt="Plan view showing real-time presence indicators">
+        </div>
+      </div>
+
+      <!-- Feature 6: API & Agent Workflow -->
+      <div class="feature">
+        <div class="feature-text">
+          <div class="feature-tag tag-core">Core Feature</div>
+          <h3>API Tokens & Agent Access</h3>
+          <p>Generate personal access tokens for the REST API. Local AI agents interact with CoPlan via semantic operations — <code>replace_exact</code>, <code>insert_under_heading</code>, <code>replace_section</code> — with edit leases ensuring one agent edits at a time.</p>
+        </div>
+        <div class="feature-image">
+          <img src="screenshots/06-api-tokens.png" alt="Settings page for managing API tokens">
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- API Section -->
+  <section class="api-section">
+    <div class="container">
+      <h2 class="section-title">Built for Agents</h2>
+      <p class="section-subtitle">Full REST API with semantic editing operations. AI writes, humans steer.</p>
+      <div class="code-block">
+        <span class="code-comment"># Acquire an edit lease</span><br>
+        <span class="code-method">POST</span> <span class="code-url">/api/v1/plans/:id/edit_sessions</span><br><br>
+        <span class="code-comment"># Apply semantic operations</span><br>
+        <span class="code-method">POST</span> <span class="code-url">/api/v1/plans/:id/operations</span><br>
+        { <span class="code-key">"operations"</span>: [{<br>
+        &nbsp;&nbsp;<span class="code-key">"type"</span>: <span class="code-string">"replace_section"</span>,<br>
+        &nbsp;&nbsp;<span class="code-key">"heading"</span>: <span class="code-string">"Executive Summary"</span>,<br>
+        &nbsp;&nbsp;<span class="code-key">"new_body"</span>: <span class="code-string">"Updated content..."</span><br>
+        }]}<br><br>
+        <span class="code-comment"># Leave review comments</span><br>
+        <span class="code-method">POST</span> <span class="code-url">/api/v1/plans/:id/comment_threads</span><br>
+        { <span class="code-key">"anchor_text"</span>: <span class="code-string">"specific passage"</span>,<br>
+        &nbsp;&nbsp;<span class="code-key">"body"</span>: <span class="code-string">"Consider using..."</span> }
+      </div>
+    </div>
+  </section>
+
+  <!-- Changelog -->
+  <section class="changelog">
+    <div class="container">
+      <h2 class="section-title">Release Timeline</h2>
+      <p class="section-subtitle">From first commit to 1.0 — every milestone.</p>
+
+      <div class="changelog-grid">
+        <div class="changelog-item">
+          <h4>🚀 Real-Time Presence <span class="changelog-version">v0.4+</span></h4>
+          <p>See who's viewing a plan live via ActionCable. Presence tracking updates instantly as collaborators open and close plans.</p>
+        </div>
+        <div class="changelog-item">
+          <h4>🔗 Open Graph Previews <span class="changelog-version">v0.4+</span></h4>
+          <p>Share plan links in Slack and get rich previews with title, description, status, and author — no more mystery URLs.</p>
+        </div>
+        <div class="changelog-item">
+          <h4>📑 Content Navigation <span class="changelog-version">v0.4+</span></h4>
+          <p>Collapsible document outline sidebar with comment count badges per section and keyboard toggle.</p>
+        </div>
+        <div class="changelog-item">
+          <h4>🤖 Agent Badges <span class="changelog-version">v0.4+</span></h4>
+          <p>AI-authored comments now show a distinct robot badge, making it clear which feedback came from agents vs humans.</p>
+        </div>
+        <div class="changelog-item">
+          <h4>✂️ replace_section Operation <span class="changelog-version">v0.4</span></h4>
+          <p>New semantic operation for whole-section replacement with OT rebase verification. Agents can replace entire sections cleanly.</p>
+        </div>
+        <div class="changelog-item">
+          <h4>🎨 Environment Favicons <span class="changelog-version">v0.4</span></h4>
+          <p>Color-coded favicons and badges per environment (development, staging, production) so you always know where you are.</p>
+        </div>
+        <div class="changelog-item">
+          <h4>💬 Inline Comment UX <span class="changelog-version">v0.2</span></h4>
+          <p>Complete rebuild of the comment system: inline highlights, native popovers, margin dots, and the comment toolbar.</p>
+        </div>
+        <div class="changelog-item">
+          <h4>⌨️ Keyboard Navigation <span class="changelog-version">v0.2–0.3</span></h4>
+          <p>j/k to navigate threads, r to reply, a to accept, d to discard, Enter to submit. Full keyboard-first review workflow.</p>
+        </div>
+        <div class="changelog-item">
+          <h4>🏷️ Status Highlights <span class="changelog-version">v0.3</span></h4>
+          <p>Amber highlights for pending feedback, blue for accepted todo items. Visual status at a glance across the entire document.</p>
+        </div>
+        <div class="changelog-item">
+          <h4>📦 Engine Architecture <span class="changelog-version">v0.1</span></h4>
+          <p>CoPlan extracted as a Rails engine gem (coplan-engine) — mount it in any Rails app with a single line in your Gemfile.</p>
+        </div>
+        <div class="changelog-item">
+          <h4>🔌 REST API <span class="changelog-version">v0.1</span></h4>
+          <p>Full CRUD API for plans, versions, comments, and edit sessions. Token authentication and configurable auth hooks.</p>
+        </div>
+        <div class="changelog-item">
+          <h4>📋 Turbo Streams <span class="changelog-version">v0.1</span></h4>
+          <p>Real-time updates via Turbo Streams — token management, comment status changes, and plan edits broadcast live.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>CoPlan is an open-source project by <a href="https://github.com/block">Block</a>. Built with Rails, Hotwire, and zero Node modules.</p>
+      <p style="margin-top: 0.5rem;">
+        <a href="https://github.com/block/coplan">GitHub</a> · 
+        <a href="https://rubygems.org/gems/coplan-engine">RubyGems</a>
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>
