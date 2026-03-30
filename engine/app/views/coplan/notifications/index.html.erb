@@ -1,0 +1,23 @@
+<div class="page-header">
+  <h1>Inbox</h1>
+  <% if @unread_count > 0 %>
+    <%= button_to "Mark all read", mark_all_read_notifications_path, method: :post, class: "btn btn--secondary" %>
+  <% end %>
+</div>
+
+<div class="status-filters">
+  <%= link_to "Unread", notifications_path, class: "status-filter #{'status-filter--active' if @filter == 'unread'}" %>
+  <%= link_to "All", notifications_path(filter: "all"), class: "status-filter #{'status-filter--active' if @filter == 'all'}" %>
+</div>
+
+<% if @notifications.any? %>
+  <div class="notifications-list">
+    <% @notifications.each do |notification| %>
+      <%= render partial: "coplan/notifications/notification", locals: { notification: notification } %>
+    <% end %>
+  </div>
+<% else %>
+  <div class="empty-state card">
+    <p><%= @filter == "unread" ? "No unread notifications." : "No notifications yet." %></p>
+  </div>
+<% end %>

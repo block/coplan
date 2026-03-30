@@ -11,6 +11,7 @@ module CoPlan
     has_many :edit_sessions, dependent: :destroy
     has_one :edit_lease, dependent: :destroy
     has_many :plan_viewers, dependent: :destroy
+    has_many :notifications, dependent: :destroy
 
     after_initialize { self.tags ||= [] }
     after_initialize { self.metadata ||= {} }

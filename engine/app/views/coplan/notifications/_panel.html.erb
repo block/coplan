@@ -1,0 +1,54 @@
+<%= turbo_frame_tag "inbox-panel" do %>
+<div class="inbox-panel__header">
+  <span class="inbox-panel__title">Inbox</span>
+  <% if @unread_count > 0 %>
+    <%= button_to "Mark all read", mark_all_read_notifications_path, method: :post, class: "btn btn--secondary btn--sm", data: { turbo: false } %>
+  <% end %>
+</div>
+
+<% if @notifications.any? %>
+  <div class="inbox-panel__list">
+    <% @notifications.each do |notification| %>
+      <% thread = notification.comment_thread %>
+      <% triggering_comment = notification.comment || thread.comments.first %>
+      <%= link_to notification_path(notification), class: "inbox-row #{'inbox-row--unread' unless notification.read?}", data: { turbo: false } do %>
+        <div class="inbox-row__indicator">
+          <% unless notification.read? %>
+            <span class="inbox-row__dot"></span>
+          <% end %>
+        </div>
+        <div class="inbox-row__main">
+          <div class="inbox-row__top">
+            <span class="inbox-row__author">
+              <% if triggering_comment %>
+                <%= comment_author_name(triggering_comment) %>
+              <% else %>
+                <%= thread.created_by_user&.name || "Someone" %>
+              <% end %>
+            </span>
+            <span class="inbox-row__time"><%= time_ago_in_words(notification.created_at) %></span>
+          </div>
+          <div class="inbox-row__body">
+            <% if triggering_comment %>
+              <%= truncate(triggering_comment.body_markdown, length: 100) %>
+            <% else %>
+              Thread <%= notification.reason.humanize.downcase %>
+            <% end %>
+          </div>
+          <div class="inbox-row__footer">
+            <span class="inbox-row__plan"><%= notification.plan.title %></span>
+            <span class="badge badge--<%= thread.status %>"><%= thread.status %></span>
+            <% if triggering_comment&.agent? %>
+              <span class="badge badge--agent">agent</span>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+<% else %>
+  <div class="inbox-panel__empty">
+    No unread notifications
+  </div>
+<% end %>
+<% end %>

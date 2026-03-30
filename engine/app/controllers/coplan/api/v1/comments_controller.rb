@@ -24,6 +24,14 @@ module CoPlan
             agent_name: params[:agent_name]
           )
 
+          reason = comment.agent? ? "agent_response" : "new_comment"
+          Notifications::Create.call(
+            comment_thread: thread,
+            actor_id: api_actor_id,
+            comment: comment,
+            reason: reason
+          )
+
           broadcast_new_thread(thread)
 
           render json: {
@@ -51,6 +59,7 @@ module CoPlan
           end
 
           thread.resolve!(current_user)
+          Notifications::Create.call(comment_thread: thread, actor_id: current_user.id, reason: "status_change")
           broadcast_thread_update(thread)
 
           render json: { thread_id: thread.id, status: thread.status }
@@ -70,6 +79,7 @@ module CoPlan
           end
 
           thread.discard!(current_user)
+          Notifications::Create.call(comment_thread: thread, actor_id: current_user.id, reason: "status_change")
           broadcast_thread_update(thread)
 
           render json: { thread_id: thread.id, status: thread.status }
@@ -87,6 +97,14 @@ module CoPlan
             author_id: api_actor_id,
             body_markdown: params[:body_markdown],
             agent_name: params[:agent_name]
+          )
+
+          reason = comment.agent? ? "agent_response" : "reply"
+          Notifications::Create.call(
+            comment_thread: thread,
+            actor_id: api_actor_id,
+            comment: comment,
+            reason: reason
           )
 
           broadcast_new_comment(thread, comment)

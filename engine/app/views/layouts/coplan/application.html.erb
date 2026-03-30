@@ -28,11 +28,26 @@
           <% end %>
         </ul>
         <% if signed_in? %>
-          <div class="site-nav__user">
-            <span><%= current_user.name %></span>
-            <% if main_app.respond_to?(:sign_out_path) %>
-              <%= link_to "Sign out", main_app.sign_out_path, data: { turbo_method: :delete } %>
-            <% end %>
+          <div class="site-nav__right">
+            <div class="inbox-dropdown" data-controller="coplan--inbox">
+              <%= turbo_stream_from "coplan_notifications:#{current_user.id}" %>
+              <button type="button" class="site-nav__bell" data-action="coplan--inbox#toggle" aria-label="Notifications">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                <% unread = current_user.notifications.unread.count %>
+                <span id="inbox-badge" class="inbox-badge<%= ' inbox-badge--hidden' if unread == 0 %>" data-controller="coplan--inbox-badge"><%= unread %></span>
+              </button>
+              <div class="inbox-panel" data-coplan--inbox-target="panel" style="display: none;">
+                <%= turbo_frame_tag "inbox-panel", src: coplan.notifications_path(panel: true), loading: :lazy do %>
+                  <div class="inbox-panel__loading">Loading…</div>
+                <% end %>
+              </div>
+            </div>
+            <div class="site-nav__user">
+              <span><%= current_user.name %></span>
+              <% if main_app.respond_to?(:sign_out_path) %>
+                <%= link_to "Sign out", main_app.sign_out_path, data: { turbo_method: :delete } %>
+              <% end %>
+            </div>
           </div>
         <% end %>
       </div>

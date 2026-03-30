@@ -56,9 +56,8 @@ RSpec.describe "Comment UX", type: :system do
   describe "plan show page layout" do
     before { sign_in(author) }
 
-    it "renders the margin column" do
+    it "renders the plan layout" do
       visit plan_path(plan)
-      expect(page).to have_css(".plan-layout__margin")
       expect(page).to have_css(".plan-layout__content")
     end
 
@@ -120,35 +119,7 @@ RSpec.describe "Comment UX", type: :system do
     end
   end
 
-  describe "margin dots" do
-    before { sign_in(author) }
 
-    it "creates a dot for each anchored open thread" do
-      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
-      create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
-
-      visit plan_path(plan)
-      expect(page).to have_css(".margin-dot--open", count: 2)
-    end
-
-    it "shows pending dots in amber and todo dots in blue" do
-      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
-      todo_thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
-      todo_thread.accept!(author)
-
-      visit plan_path(plan)
-      expect(page).to have_css(".margin-dot--pending", count: 1)
-      expect(page).to have_css(".margin-dot--todo", count: 1)
-    end
-
-    it "hides resolved dots by default" do
-      thread = create_anchored_thread(plan: plan, anchor_text: "Redis", body: "Do we need caching?", user: reviewer)
-      thread.resolve!(author)
-
-      visit plan_path(plan)
-      expect(page).not_to have_css(".margin-dot--resolved", visible: true)
-    end
-  end
 
   describe "thread popovers" do
     before { sign_in(author) }
@@ -158,16 +129,6 @@ RSpec.describe "Comment UX", type: :system do
       visit plan_path(plan)
 
       find("mark.anchor-highlight--open").click
-
-      expect(page).to have_css(".thread-popover", visible: true)
-      expect(page).to have_content("Why not monolith?")
-    end
-
-    it "opens a popover when clicking a margin dot" do
-      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
-      visit plan_path(plan)
-
-      find(".margin-dot--open").click
 
       expect(page).to have_css(".thread-popover", visible: true)
       expect(page).to have_content("Why not monolith?")

@@ -6,6 +6,11 @@ module CoPlan
       @plans = Plan.order(updated_at: :desc)
       @plans = @plans.where(status: params[:status]) if params[:status].present?
       @plans = @plans.where(created_by_user: current_user) if params[:scope] == "mine"
+
+      @plan_unread_counts = current_user.notifications.unread
+        .where(plan_id: @plans.select(:id))
+        .group(:plan_id)
+        .count
     end
 
     def show

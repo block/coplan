@@ -213,13 +213,13 @@ export default class extends Controller {
       if (existing) existing.remove()
 
       const total = pendingCount + todoCount
-      if (total === 0) return
-
-      const badge = document.createElement("span")
-      const badgeType = pendingCount > 0 ? "pending" : "todo"
-      badge.className = `content-nav__badge content-nav__badge--${badgeType}`
-      badge.textContent = total
-      item.querySelector(".content-nav__link").appendChild(badge)
+      if (total > 0) {
+        const badge = document.createElement("span")
+        const badgeType = pendingCount > 0 ? "pending" : "todo"
+        badge.className = `content-nav__badge content-nav__badge--${badgeType}`
+        badge.textContent = total
+        item.querySelector(".content-nav__link").appendChild(badge)
+      }
     })
   }
 
