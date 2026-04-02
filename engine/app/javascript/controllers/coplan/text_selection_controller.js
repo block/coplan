@@ -371,10 +371,11 @@ export default class extends Controller {
       if (!isNaN(occurrenceNum)) {
         match = this._findNthNormalized(fullText, text, occurrenceNum)
       }
-    }
-
-    // Fallback: if occurrence was missing or not found, try the first occurrence
-    if (!match) {
+    } else {
+      // Fallback only when occurrence is missing/blank (not when a specific
+      // occurrence was requested but couldn't be found — that means the
+      // content has changed and highlighting the wrong passage is worse
+      // than showing no highlight).
       match = this._findNthNormalized(fullText, text, 0)
     }
 
@@ -394,10 +395,8 @@ export default class extends Controller {
       if (!isNaN(occurrenceNum)) {
         match = this._findNthNormalized(fullText, text, occurrenceNum)
       }
-    }
-
-    // Fallback: if occurrence was missing or not found, try the first occurrence
-    if (!match) {
+    } else {
+      // Fallback only when occurrence is missing/blank
       match = this._findNthNormalized(fullText, text, 0)
     }
 
