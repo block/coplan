@@ -364,12 +364,20 @@ export default class extends Controller {
   findAndHighlight(text, occurrence, className) {
     const fullText = this.fullText
 
-    if (occurrence === undefined || occurrence === "") return null
+    let match = null
 
-    const occurrenceNum = parseInt(occurrence, 10)
-    if (isNaN(occurrenceNum)) return null
+    if (occurrence !== undefined && occurrence !== "") {
+      const occurrenceNum = parseInt(occurrence, 10)
+      if (!isNaN(occurrenceNum)) {
+        match = this._findNthNormalized(fullText, text, occurrenceNum)
+      }
+    }
 
-    const match = this._findNthNormalized(fullText, text, occurrenceNum)
+    // Fallback: if occurrence was missing or not found, try the first occurrence
+    if (!match) {
+      match = this._findNthNormalized(fullText, text, 0)
+    }
+
     if (!match) return null
 
     return this.highlightAtIndex(match.startIndex, match.matchLength, className)
@@ -379,12 +387,20 @@ export default class extends Controller {
   findAndHighlightAll(text, occurrence, className) {
     const fullText = this.fullText
 
-    if (occurrence === undefined || occurrence === "") return []
+    let match = null
 
-    const occurrenceNum = parseInt(occurrence, 10)
-    if (isNaN(occurrenceNum)) return []
+    if (occurrence !== undefined && occurrence !== "") {
+      const occurrenceNum = parseInt(occurrence, 10)
+      if (!isNaN(occurrenceNum)) {
+        match = this._findNthNormalized(fullText, text, occurrenceNum)
+      }
+    }
 
-    const match = this._findNthNormalized(fullText, text, occurrenceNum)
+    // Fallback: if occurrence was missing or not found, try the first occurrence
+    if (!match) {
+      match = this._findNthNormalized(fullText, text, 0)
+    }
+
     if (!match) return []
 
     return this.highlightAtIndexAll(match.startIndex, match.matchLength, className)
