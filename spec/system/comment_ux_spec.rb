@@ -585,4 +585,85 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css(".comment-toolbar__position", text: "2 of 2")
     end
   end
+
+  describe "short text selection" do
+    # Selecting a single character or number (e.g. "3" in "3 months") should
+    # trigger the comment popover. Previously, selections shorter than 3
+    # characters were silently ignored.
+
+    before { sign_in(author) }
+
+    it "shows the comment popover when selecting a two-character string" do
+      visit plan_path(plan)
+
+      # Select "We" (2 chars) from "We use PostgreSQL..." — this would have
+      # been silently ignored by the old text.length < 3 check.
+      page.execute_script <<~JS
+        const content = document.querySelector('[data-coplan--text-selection-target="content"]');
+        const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+        let node;
+        while (node = walker.nextNode()) {
+          const idx = node.textContent.indexOf('We');
+          if (idx !== -1) {
+            const range = document.createRange();
+            range.setStart(node, idx);
+            range.setEnd(node, idx + 2);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            content.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+            break;
+          }
+        }
+      JS
+
+      expect(page).to have_css(".comment-popover", visible: true, wait: 3)
+    end
+
+    it "allows creating and highlighting a single-character anchor" do
+      create_anchored_thread(
+        plan: plan,
+        anchor_text: "a",
+        body: "Why use 'a' here?",
+        user: reviewer
+      )
+
+      visit plan_path(plan)
+      expect(page).to have_css("mark.anchor-highlight", text: "a")
+    end
+
+    it "shows the comment popover for a number like '3'" do
+      # Use plan content that contains a number
+      number_plan = CoPlan::Plan.create!(title: "Number Plan", created_by_user: author)
+      version = CoPlan::PlanVersion.create!(
+        plan: number_plan, revision: 1,
+        content_markdown: "We need exactly 3 MySQL clusters for this deployment.",
+        actor_type: "human", actor_id: author.id
+      )
+      number_plan.update!(current_plan_version: version, current_revision: 1)
+
+      visit plan_path(number_plan)
+
+      page.execute_script <<~JS
+        const content = document.querySelector('[data-coplan--text-selection-target="content"]');
+        const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+        let node;
+        while (node = walker.nextNode()) {
+          const idx = node.textContent.indexOf('3');
+          if (idx !== -1) {
+            const range = document.createRange();
+            range.setStart(node, idx);
+            range.setEnd(node, idx + 1);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            content.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+            break;
+          }
+        }
+      JS
+
+      expect(page).to have_css(".comment-popover", visible: true, wait: 3)
+    end
+  end
 end

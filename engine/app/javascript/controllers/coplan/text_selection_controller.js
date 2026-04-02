@@ -96,7 +96,7 @@ export default class extends Controller {
     // space-separated plain text extracted from the markdown AST.
     const text = selection.toString().replace(/\t/g, " ").trim()
 
-    if (text.length < 3) {
+    if (text.length < 1) {
       this.popoverTarget.style.display = "none"
       return
     }
