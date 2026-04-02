@@ -94,7 +94,9 @@ export default class extends Controller {
     // matches this.contentTarget.textContent (used for occurrence lookup
     // and highlighting). selection.toString() can differ — e.g. tables
     // produce tab-separated text via toString() but not via textContent.
-    const text = range.cloneContents().textContent.trim()
+    // Normalize whitespace (collapse runs of spaces/tabs/newlines) so the
+    // stored anchor_text matches the server-side canonical form.
+    const text = this._normalizeWhitespace(range.cloneContents().textContent).trim()
 
     if (text.length < 1) {
       this.popoverTarget.style.display = "none"
