@@ -504,4 +504,85 @@ RSpec.describe "Comment UX", type: :system do
       expect(thread.comments.first.body_markdown).to eq("Should we reconsider this?")
     end
   end
+
+  describe "j/k navigation with multi-node anchors" do
+    before { sign_in(author) }
+
+    let(:bold_content) do
+      <<~MARKDOWN
+        # Overview
+
+        This system uses a **microservices** architecture with three components.
+
+        ## Database
+
+        We use PostgreSQL for persistence with Redis for caching.
+      MARKDOWN
+    end
+
+    let(:bold_plan) do
+      p = CoPlan::Plan.create!(title: "Bold Content Plan", created_by_user: author)
+      version = CoPlan::PlanVersion.create!(
+        plan: p, revision: 1,
+        content_markdown: bold_content, actor_type: "human", actor_id: author.id
+      )
+      p.update!(current_plan_version: version, current_revision: 1)
+      p
+    end
+
+    def create_cross_element_thread(plan:, anchor_text:, body:, user:)
+      thread = plan.comment_threads.create!(
+        plan_version: plan.current_plan_version,
+        anchor_text: anchor_text,
+        anchor_occurrence: 1,
+        anchor_start: 0,
+        anchor_end: anchor_text.length,
+        anchor_revision: plan.current_revision,
+        created_by_user: user,
+        status: "pending"
+      )
+      thread.comments.create!(
+        author_type: "human",
+        author_id: user.id,
+        body_markdown: body
+      )
+      thread
+    end
+
+    it "counts each thread as one navigation stop even when anchor spans multiple DOM nodes" do
+      create_cross_element_thread(
+        plan: bold_plan,
+        anchor_text: "uses a microservices architecture",
+        body: "Spans bold boundary",
+        user: reviewer
+      )
+      create_anchored_thread(
+        plan: bold_plan,
+        anchor_text: "PostgreSQL",
+        body: "Second thread",
+        user: reviewer
+      )
+
+      visit plan_path(bold_plan)
+
+      # The cross-element anchor produces multiple <mark> elements
+      mark_count = page.all("mark.anchor-highlight").count
+      expect(mark_count).to be > 2
+
+      # But toolbar should show only 2 open threads
+      expect(page).to have_content("💬 2 open")
+
+      # j navigates to first thread
+      find("body").send_keys("j")
+      expect(page).to have_css(".comment-toolbar__position", text: "1 of 2")
+
+      # Dismiss popover so next j press works cleanly
+      find("body").send_keys(:escape)
+      expect(page).not_to have_css(".thread-popover", visible: true)
+
+      # j navigates to second thread (not "2 of 4" as the bug would show)
+      find("body").send_keys("j")
+      expect(page).to have_css(".comment-toolbar__position", text: "2 of 2")
+    end
+  end
 end

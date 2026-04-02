@@ -53,11 +53,11 @@ export default class extends Controller {
   }
 
   get openHighlights() {
-    return Array.from(document.querySelectorAll("mark.anchor-highlight--open"))
+    return Array.from(document.querySelectorAll("mark.anchor-highlight--open[data-thread-id]"))
   }
 
   get allHighlights() {
-    return Array.from(document.querySelectorAll("mark.anchor-highlight"))
+    return Array.from(document.querySelectorAll("mark.anchor-highlight[data-thread-id]"))
   }
 
   next() {
