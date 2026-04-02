@@ -15,6 +15,7 @@ CoPlan::Engine.routes.draw do
   end
 
   namespace :settings do
+    root "settings#index"
     resources :tokens, only: [:index, :create, :destroy]
   end
 

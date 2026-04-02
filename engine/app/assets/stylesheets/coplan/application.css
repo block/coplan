@@ -1388,6 +1388,7 @@ body:has(.comment-toolbar) .main-content {
 /* Inbox dropdown */
 .inbox-dropdown {
   position: relative;
+  display: inline-flex;
 }
 
 .site-nav__icon-link {
@@ -1397,6 +1398,7 @@ body:has(.comment-toolbar) .main-content {
   color: var(--color-text-muted);
   padding: var(--space-xs);
   border-radius: var(--radius);
+  line-height: normal;
   transition: color 0.15s, background 0.15s;
 }
 
