@@ -53,11 +53,28 @@ export default class extends Controller {
   }
 
   get openHighlights() {
-    return Array.from(document.querySelectorAll("mark.anchor-highlight--open"))
+    return this._deduplicateByThread(
+      Array.from(document.querySelectorAll("mark.anchor-highlight--open[data-thread-id]"))
+    )
   }
 
   get allHighlights() {
-    return Array.from(document.querySelectorAll("mark.anchor-highlight"))
+    return this._deduplicateByThread(
+      Array.from(document.querySelectorAll("mark.anchor-highlight[data-thread-id]"))
+    )
+  }
+
+  // Multi-node anchors produce multiple <mark> fragments with the same
+  // data-thread-id. Keep only the first mark per thread so j/k navigation
+  // treats each thread as a single stop.
+  _deduplicateByThread(marks) {
+    const seen = new Set()
+    return marks.filter(mark => {
+      const id = mark.dataset.threadId
+      if (seen.has(id)) return false
+      seen.add(id)
+      return true
+    })
   }
 
   next() {
