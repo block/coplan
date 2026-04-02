@@ -90,11 +90,13 @@ export default class extends Controller {
       if (clampTarget) range.setEndAfter(clampTarget)
     }
 
-    // Extract text after clamping so it only contains content-area text.
-    // Normalize tabs to spaces — browser selections across table cells
-    // produce tab-separated text, but the server matches against
-    // space-separated plain text extracted from the markdown AST.
-    const text = selection.toString().replace(/\t/g, " ").trim()
+    // Extract text using the range's cloneContents().textContent so it
+    // matches this.contentTarget.textContent (used for occurrence lookup
+    // and highlighting). selection.toString() can differ — e.g. tables
+    // produce tab-separated text via toString() but not via textContent.
+    // Normalize whitespace (collapse runs of spaces/tabs/newlines) so the
+    // stored anchor_text matches the server-side canonical form.
+    const text = this._normalizeWhitespace(range.cloneContents().textContent).trim()
 
     if (text.length < 1) {
       this.popoverTarget.style.display = "none"
@@ -502,6 +504,11 @@ export default class extends Controller {
     const matchEnd = startIndex + length
     const marks = []
 
+    // Table-structural elements can only contain specific children (e.g.
+    // <tr> can only contain <td>/<th>). Wrapping a text node inside one of
+    // these with <mark> produces invalid HTML and breaks table layout.
+    const TABLE_PARENTS = new Set(["TABLE", "THEAD", "TBODY", "TFOOT", "TR"])
+
     for (let i = 0; i < textNodes.length; i++) {
       const tn = textNodes[i]
       const nodeEnd = tn.start + tn.node.textContent.length
@@ -509,10 +516,8 @@ export default class extends Controller {
       if (nodeEnd <= startIndex) continue
       if (tn.start >= matchEnd) break
 
-      // Skip structural whitespace text nodes inside table elements —
-      // wrapping these in <mark> produces invalid HTML and breaks table layout.
-      const parentTag = tn.node.parentElement?.tagName
-      if (parentTag && /^(TABLE|THEAD|TBODY|TFOOT|TR)$/.test(parentTag)) continue
+      // Skip whitespace-only text nodes inside table structure
+      if (TABLE_PARENTS.has(tn.node.parentElement?.tagName)) continue
 
       const localStart = Math.max(0, startIndex - tn.start)
       const localEnd = Math.min(tn.node.textContent.length, matchEnd - tn.start)

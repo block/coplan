@@ -666,4 +666,128 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css(".comment-popover", visible: true, wait: 3)
     end
   end
+
+  describe "table anchoring" do
+    let(:table_content) do
+      <<~MARKDOWN
+        # Resource Plan
+
+        | Phase   | Engineers | Duration  | Cost   |
+        |---------|-----------|-----------|--------|
+        | Phase 1 | 15        | 3 months  | $1.2M  |
+        | Phase 2 | 35        | 5 months  | $5.8M  |
+        | Phase 3 | 40        | 6 months  | $8.0M  |
+
+        ## Notes
+
+        Budget approved by finance team.
+      MARKDOWN
+    end
+
+    let(:table_plan) do
+      p = CoPlan::Plan.create!(title: "Table Plan", created_by_user: author)
+      version = CoPlan::PlanVersion.create!(
+        plan: p, revision: 1,
+        content_markdown: table_content, actor_type: "human", actor_id: author.id
+      )
+      p.update!(current_plan_version: version, current_revision: 1)
+      p
+    end
+
+    before { sign_in(author) }
+
+    it "preserves table structure when highlighting text that spans multiple cells" do
+      visit plan_path(table_plan)
+      anchor = page.evaluate_script(
+        "document.querySelector('table tbody tr:nth-child(2)').textContent.trim()"
+      )
+      expect(anchor).to be_present
+
+      thread = table_plan.comment_threads.new(
+        plan_version: table_plan.current_plan_version,
+        anchor_text: anchor,
+        created_by_user: reviewer,
+        status: "pending",
+        anchor_start: 0,
+        anchor_end: anchor.length,
+        anchor_revision: table_plan.current_revision
+      )
+      thread.save!(validate: true)
+      thread.comments.create!(
+        author_type: "human",
+        author_id: reviewer.id,
+        body_markdown: "This row looks expensive"
+      )
+
+      visit plan_path(table_plan)
+
+      data_rows = all("table tbody tr")
+      expect(data_rows.length).to eq(3)
+      data_rows.each do |row|
+        cells = row.all("td")
+        expect(cells.length).to eq(4), "expected 4 cells per row, got #{cells.length} in row '#{row.text}'"
+      end
+
+      header_cells = all("table thead tr th")
+      expect(header_cells.length).to eq(4)
+
+      expect(page).to have_css("td mark.anchor-highlight", minimum: 1)
+
+      invalid_marks = page.evaluate_script(
+        "document.querySelectorAll('tr > mark').length"
+      )
+      expect(invalid_marks).to eq(0), "found <mark> elements as direct children of <tr>"
+    end
+
+    it "highlights single-cell table text without breaking layout" do
+      create_anchored_thread(
+        plan: table_plan,
+        anchor_text: "Phase 1",
+        body: "Should we start here?",
+        user: reviewer
+      )
+
+      visit plan_path(table_plan)
+
+      expect(page).to have_css("td mark.anchor-highlight", text: "Phase 1")
+
+      all("table tbody tr").each do |row|
+        expect(row.all("td").length).to eq(4)
+      end
+    end
+
+    it "creates a comment on table text via the UI and highlights it" do
+      visit plan_path(table_plan)
+
+      rendered_text = page.evaluate_script(
+        "document.querySelector('table').textContent"
+      )
+      cell_text = "Phase 1"
+      expect(rendered_text).to include(cell_text)
+
+      page.execute_script <<~JS
+        const form = document.getElementById('new-comment-form');
+        form.style.display = 'block';
+        form.querySelector('[name="comment_thread[anchor_text]"]').value = '#{cell_text}';
+        form.querySelector('[name="comment_thread[anchor_context]"]').value = '';
+        form.querySelector('[name="comment_thread[anchor_occurrence]"]').value = '1';
+      JS
+
+      within("#new-comment-form") do
+        fill_in "comment_thread[body_markdown]", with: "Review this phase"
+        click_button "Comment"
+      end
+
+      expect(page).not_to have_css("#new-comment-form", visible: true)
+
+      thread = table_plan.comment_threads.reload.last
+      expect(thread).to be_present
+      expect(thread.anchor_text).to eq(cell_text)
+      expect(page).to have_css("td mark.anchor-highlight", text: cell_text)
+
+      all("table tbody tr").each do |row|
+        expect(row.all("td").length).to eq(4)
+      end
+    end
+  end
 end
