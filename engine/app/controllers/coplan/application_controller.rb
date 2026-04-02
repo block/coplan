@@ -17,7 +17,7 @@ module CoPlan
     before_action :authenticate_coplan_user!
     before_action :set_coplan_current
 
-    helper_method :current_user, :signed_in?
+    helper_method :current_user, :signed_in?, :show_api_tokens?
 
     class NotAuthorizedError < StandardError; end
 
@@ -65,6 +65,14 @@ module CoPlan
 
     def set_coplan_current
       CoPlan::Current.user = current_user
+    end
+
+    def show_api_tokens?
+      CoPlan.configuration.show_api_tokens?
+    end
+
+    def require_api_tokens_enabled
+      head :not_found unless show_api_tokens?
     end
 
     def authorize!(record, action)

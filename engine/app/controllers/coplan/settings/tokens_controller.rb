@@ -1,6 +1,8 @@
 module CoPlan
   module Settings
     class TokensController < ApplicationController
+      before_action :require_api_tokens_enabled, only: [:create, :destroy]
+
       def index
         @api_tokens = current_user.api_tokens.order(created_at: :desc)
       end

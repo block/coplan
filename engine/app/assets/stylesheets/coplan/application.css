@@ -1390,6 +1390,22 @@ body:has(.comment-toolbar) .main-content {
   position: relative;
 }
 
+.site-nav__icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  padding: var(--space-xs);
+  border-radius: var(--radius);
+  transition: color 0.15s, background 0.15s;
+}
+
+.site-nav__icon-link:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+  text-decoration: none;
+}
+
 .site-nav__bell {
   position: relative;
   display: inline-flex;

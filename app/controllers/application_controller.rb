@@ -8,7 +8,7 @@ class ApplicationController < ActionController::Base
   before_action :authenticate_user!
 
   helper CoPlan::ApplicationHelper
-  helper_method :current_user, :signed_in?
+  helper_method :current_user, :signed_in?, :show_api_tokens?
 
   private
 
@@ -18,6 +18,10 @@ class ApplicationController < ActionController::Base
 
   def signed_in?
     current_user.present?
+  end
+
+  def show_api_tokens?
+    CoPlan.configuration.show_api_tokens?
   end
 
   def authenticate_user!

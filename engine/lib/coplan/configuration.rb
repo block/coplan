@@ -13,5 +13,9 @@ module CoPlan
       @error_reporter = ->(exception, context) { Rails.error.report(exception, context: context) }
       @notification_handler = nil
     end
+
+    def show_api_tokens?
+      @api_authenticate.nil?
+    end
   end
 end
