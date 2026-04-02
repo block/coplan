@@ -117,21 +117,27 @@ module CoPlan
     # (stripped) content, computed from anchor_start. The frontend uses this
     # to find the correct occurrence in the rendered DOM text.
     def anchor_occurrence_index
-      return nil unless anchored? && anchor_start.present?
+      return nil unless anchored?
 
       content = plan.current_content
       return nil unless content.present?
 
-      stripped, pos_map = self.class.strip_markdown(content)
-      # Map raw anchor_start to its position in the stripped string.
-      # Use >= to find the closest valid position if anchor_start falls
-      # on a stripped formatting character.
-      stripped_start = pos_map.index { |raw_idx| raw_idx >= anchor_start }
-      return nil if stripped_start.nil?
+      # When anchor_start is known, count occurrences before it.
+      if anchor_start.present?
+        stripped, pos_map = self.class.strip_markdown(content)
+        # Map raw anchor_start to its position in the stripped string.
+        # Use >= to find the closest valid position if anchor_start falls
+        # on a stripped formatting character.
+        stripped_start = pos_map.index { |raw_idx| raw_idx >= anchor_start }
+        return nil if stripped_start.nil?
 
-      normalized_anchor = anchor_text.gsub("\t", " ")
-      ranges = find_all_occurrences(stripped, normalized_anchor)
-      ranges.index { |s, _| s >= stripped_start } || 0
+        normalized_anchor = anchor_text.gsub("\t", " ")
+        ranges = find_all_occurrences(stripped, normalized_anchor)
+        return ranges.index { |s, _| s >= stripped_start } || 0
+      end
+
+      # Fallback: anchor_start was never resolved — default to 0 (first occurrence).
+      0
     end
 
     def anchor_context_with_highlight(chars: 100)

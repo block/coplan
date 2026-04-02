@@ -364,12 +364,21 @@ export default class extends Controller {
   findAndHighlight(text, occurrence, className) {
     const fullText = this.fullText
 
-    if (occurrence === undefined || occurrence === "") return null
+    let match = null
 
-    const occurrenceNum = parseInt(occurrence, 10)
-    if (isNaN(occurrenceNum)) return null
+    if (occurrence !== undefined && occurrence !== "") {
+      const occurrenceNum = parseInt(occurrence, 10)
+      if (!isNaN(occurrenceNum)) {
+        match = this._findNthNormalized(fullText, text, occurrenceNum)
+      }
+    } else {
+      // Fallback only when occurrence is missing/blank (not when a specific
+      // occurrence was requested but couldn't be found — that means the
+      // content has changed and highlighting the wrong passage is worse
+      // than showing no highlight).
+      match = this._findNthNormalized(fullText, text, 0)
+    }
 
-    const match = this._findNthNormalized(fullText, text, occurrenceNum)
     if (!match) return null
 
     return this.highlightAtIndex(match.startIndex, match.matchLength, className)
@@ -379,12 +388,18 @@ export default class extends Controller {
   findAndHighlightAll(text, occurrence, className) {
     const fullText = this.fullText
 
-    if (occurrence === undefined || occurrence === "") return []
+    let match = null
 
-    const occurrenceNum = parseInt(occurrence, 10)
-    if (isNaN(occurrenceNum)) return []
+    if (occurrence !== undefined && occurrence !== "") {
+      const occurrenceNum = parseInt(occurrence, 10)
+      if (!isNaN(occurrenceNum)) {
+        match = this._findNthNormalized(fullText, text, occurrenceNum)
+      }
+    } else {
+      // Fallback only when occurrence is missing/blank
+      match = this._findNthNormalized(fullText, text, 0)
+    }
 
-    const match = this._findNthNormalized(fullText, text, occurrenceNum)
     if (!match) return []
 
     return this.highlightAtIndexAll(match.startIndex, match.matchLength, className)
