@@ -8,7 +8,7 @@ module CoPlan
         private
 
         def set_agent_instructions_header
-          response.headers["X-Agent-Instructions"] = "/agent-instructions"
+          response.headers["X-Agent-Instructions"] = CoPlan::Engine.routes.url_helpers.agent_instructions_path
         end
 
         def authenticate_api!

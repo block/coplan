@@ -87,7 +87,7 @@ module CoPlan
     end
 
     def set_agent_instructions_header
-      response.headers["X-Agent-Instructions"] = "/agent-instructions"
+      response.headers["X-Agent-Instructions"] = coplan.agent_instructions_path
     end
 
     def agent_request?
@@ -104,7 +104,7 @@ module CoPlan
 
         To interact with CoPlan programmatically, use the API. Full instructions are at:
 
-        #{base}/agent-instructions
+        #{base}#{coplan.agent_instructions_path}
 
         Read that document for authentication setup, endpoint reference, and usage examples.
       MARKDOWN
