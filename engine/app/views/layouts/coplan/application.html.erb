@@ -49,6 +49,9 @@
         <% end %>
       </div>
     </nav>
+    <% if @show_onboarding_banner %>
+      <div class="onboarding-banner"><%= CoPlan.configuration.onboarding_banner.html_safe %></div>
+    <% end %>
     <main class="main-content">
       <% if notice.present? %>
         <div class="flash flash--notice"><%= notice %></div>

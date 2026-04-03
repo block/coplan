@@ -11,6 +11,9 @@ module CoPlan
         .where(plan_id: @plans.select(:id))
         .group(:plan_id)
         .count
+
+      @show_onboarding_banner = CoPlan.configuration.onboarding_banner.present? &&
+        !current_user.created_plans.exists?
     end
 
     def show
