@@ -7,6 +7,7 @@ module CoPlan
     attr_accessor :onboarding_banner
     attr_accessor :agent_auth_instructions
     attr_accessor :agent_curl_prefix
+    attr_accessor :user_search
 
     def initialize
       @authenticate = nil
