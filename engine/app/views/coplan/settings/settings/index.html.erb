@@ -1,0 +1,7 @@
+<div class="page-header">
+  <h1>Settings</h1>
+</div>
+
+<% if show_api_tokens? %>
+  <%= render "coplan/settings/tokens/tokens", api_tokens: @api_tokens %>
+<% end %>
