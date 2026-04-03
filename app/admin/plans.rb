@@ -1,6 +1,12 @@
 ActiveAdmin.register CoPlan::Plan, as: "Plan" do
   permit_params :title, :status
 
+  filter :title
+  filter :status, as: :select, collection: CoPlan::Plan::STATUSES
+  filter :plan_type, as: :select
+  filter :created_at
+  filter :updated_at
+
   index do
     selectable_column
     id_column

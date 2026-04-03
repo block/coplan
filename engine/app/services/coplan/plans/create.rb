@@ -1,19 +1,20 @@
 module CoPlan
   module Plans
     class Create
-      def self.call(title:, content:, user:)
-        new(title:, content:, user:).call
+      def self.call(title:, content:, user:, plan_type_id: nil)
+        new(title:, content:, user:, plan_type_id:).call
       end
 
-      def initialize(title:, content:, user:)
+      def initialize(title:, content:, user:, plan_type_id: nil)
         @title = title
         @content = content
         @user = user
+        @plan_type_id = plan_type_id
       end
 
       def call
         ActiveRecord::Base.transaction do
-          plan = Plan.create!(title: @title, created_by_user: @user)
+          plan = Plan.create!(title: @title, created_by_user: @user, plan_type_id: @plan_type_id)
           version = PlanVersion.create!(
             plan: plan,
             revision: 1,

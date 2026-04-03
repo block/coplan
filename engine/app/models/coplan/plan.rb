@@ -4,6 +4,7 @@ module CoPlan
 
     belongs_to :created_by_user, class_name: "CoPlan::User"
     belongs_to :current_plan_version, class_name: "PlanVersion", optional: true
+    belongs_to :plan_type, optional: true
     has_many :plan_versions, -> { order(revision: :asc) }, dependent: :destroy
     has_many :plan_collaborators, dependent: :destroy
     has_many :collaborators, through: :plan_collaborators, source: :user
@@ -18,6 +19,14 @@ module CoPlan
 
     validates :title, presence: true
     validates :status, presence: true, inclusion: { in: STATUSES }
+
+    def self.ransackable_attributes(auth_object = nil)
+      %w[id title status plan_type_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
+    end
+
+    def self.ransackable_associations(auth_object = nil)
+      %w[plan_type created_by_user]
+    end
 
     def to_param
       id

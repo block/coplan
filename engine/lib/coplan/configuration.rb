@@ -7,6 +7,7 @@ module CoPlan
     attr_accessor :onboarding_banner
     attr_accessor :agent_auth_instructions
     attr_accessor :agent_curl_prefix
+    attr_accessor :seed_plan_types
 
     # Lambda for user search used by the /api/v1/users/search endpoint.
     # Accepts a query string, returns an array of hashes with keys:
@@ -28,6 +29,7 @@ module CoPlan
       @notification_handler = nil
       @onboarding_banner = 'Want to upload Agentic plans? Give your agent <a href="/agent-instructions">these instructions</a>.'
       @agent_curl_prefix = 'curl -s -H "Authorization: Bearer $TOKEN"'
+      @seed_plan_types = []
       @agent_auth_instructions = <<~MARKDOWN
         ## Authentication
 

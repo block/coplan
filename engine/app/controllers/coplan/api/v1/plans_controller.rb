@@ -7,6 +7,7 @@ module CoPlan
 
         def index
           plans = Plan
+            .includes(:plan_type, :created_by_user)
             .where.not(status: "brainstorm")
             .or(Plan.where(created_by_user: current_user))
             .order(updated_at: :desc)
@@ -25,7 +26,8 @@ module CoPlan
           plan = Plans::Create.call(
             title: params[:title],
             content: params[:content] || "",
-            user: current_user
+            user: current_user,
+            plan_type_id: params[:plan_type_id].presence
           )
           render json: plan_json(plan).merge(
             current_content: plan.current_content,
@@ -33,6 +35,8 @@ module CoPlan
           ), status: :created
         rescue ActiveRecord::RecordInvalid => e
           render json: { error: e.message }, status: :unprocessable_content
+        rescue ActiveRecord::InvalidForeignKey
+          render json: { error: "Invalid plan_type_id" }, status: :unprocessable_content
         end
 
         def update
@@ -83,6 +87,8 @@ module CoPlan
             status: plan.status,
             current_revision: plan.current_revision,
             tags: plan.tags,
+            plan_type_id: plan.plan_type_id,
+            plan_type_name: plan.plan_type&.name,
             created_by: plan.created_by_user.name,
             created_at: plan.created_at,
             updated_at: plan.updated_at
