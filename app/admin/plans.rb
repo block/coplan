@@ -25,7 +25,7 @@ ActiveAdmin.register CoPlan::Plan, as: "Plan" do
       row :status
       row :current_revision
       row :created_by_user
-      row :tags
+      row(:tags) { |plan| plan.tag_names.join(", ") }
       row :metadata
       row :created_at
       row :updated_at

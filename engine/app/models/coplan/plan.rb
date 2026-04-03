@@ -11,10 +11,11 @@ module CoPlan
     has_many :comment_threads, dependent: :destroy
     has_many :edit_sessions, dependent: :destroy
     has_one :edit_lease, dependent: :destroy
+    has_many :plan_tags, dependent: :destroy
+    has_many :tags, through: :plan_tags, source: :tag
     has_many :plan_viewers, dependent: :destroy
     has_many :notifications, dependent: :destroy
 
-    after_initialize { self.tags ||= [] }
     after_initialize { self.metadata ||= {} }
 
     validates :title, presence: true
@@ -34,6 +35,15 @@ module CoPlan
 
     def current_content
       current_plan_version&.content_markdown
+    end
+
+    def tag_names
+      tags.pluck(:name)
+    end
+
+    def tag_names=(names)
+      desired = Array(names).map(&:strip).reject(&:blank?).uniq
+      self.tags = desired.map { |name| Tag.find_or_create_by!(name: name) }
     end
   end
 end

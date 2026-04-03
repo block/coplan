@@ -46,6 +46,26 @@ Update plan metadata (title, status, tags). Only fields included in the request 
 
 Allowed fields: `title` (string), `status` (string), `tags` (array of strings).
 
+### List Tags
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/tags" | jq .
+```
+
+Returns all tags sorted by usage frequency (most-used first). Each tag includes `id`, `name`, `plans_count`.
+
+### Tags
+
+Tags categorize plans for discovery. Use them to help people find related plans.
+
+**Guidelines:**
+- Check existing tags with `GET /api/v1/tags` before creating new ones — reuse over invention.
+- Use lowercase, hyphenated names (e.g., `infrastructure`, `api-design`, `cost-reduction`).
+- Apply 1–3 tags per plan. Too many tags dilute meaning.
+- Update tags via `PATCH /api/v1/plans/:id` with `{"tags": ["tag-1", "tag-2"]}`.
+- Good tags describe the *domain* or *concern* (e.g., `security`, `onboarding`), not the status or team.
+
 ### Plan Statuses
 
 Plans move through a lifecycle. **Keep the status current** — update it as the plan progresses.

@@ -48,8 +48,8 @@ module CoPlan
           permitted = {}
           permitted[:title] = params[:title] if params.key?(:title)
           permitted[:status] = params[:status] if params.key?(:status)
-          permitted[:tags] = params[:tags] if params.key?(:tags)
 
+          @plan.tag_names = params[:tags] if params.key?(:tags)
           @plan.update!(permitted)
 
           if @plan.saved_changes?
@@ -86,7 +86,7 @@ module CoPlan
             title: plan.title,
             status: plan.status,
             current_revision: plan.current_revision,
-            tags: plan.tags,
+            tags: plan.tag_names,
             plan_type_id: plan.plan_type_id,
             plan_type_name: plan.plan_type&.name,
             created_by: plan.created_by_user.name,

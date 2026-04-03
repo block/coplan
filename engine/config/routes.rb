@@ -24,6 +24,7 @@ CoPlan::Engine.routes.draw do
       resources :users, only: [] do
         get :search, on: :collection
       end
+      resources :tags, only: [:index]
       resources :plans, only: [:index, :show, :create, :update] do
         get :versions, on: :member
         get :comments, on: :member

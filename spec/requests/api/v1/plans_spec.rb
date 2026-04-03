@@ -107,8 +107,8 @@ RSpec.describe "Api::V1::Plans", type: :request do
       patch api_v1_plan_path(plan), params: { tags: ["infra", "api"] }, headers: headers, as: :json
       expect(response).to have_http_status(:success)
       body = JSON.parse(response.body)
-      expect(body["tags"]).to eq(["infra", "api"])
-      expect(plan.reload.tags).to eq(["infra", "api"])
+      expect(body["tags"]).to match_array(["infra", "api"])
+      expect(plan.reload.tag_names).to match_array(["infra", "api"])
     end
 
     it "updates multiple fields at once" do
