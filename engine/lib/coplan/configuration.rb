@@ -7,6 +7,16 @@ module CoPlan
     attr_accessor :onboarding_banner
     attr_accessor :agent_auth_instructions
     attr_accessor :agent_curl_prefix
+
+    # Lambda for user search used by the /api/v1/users/search endpoint.
+    # Accepts a query string, returns an array of hashes with keys:
+    #   :id, :name, :email, :avatar_url, :title, :team
+    # When nil (default), falls back to LIKE search on local coplan_users table.
+    #
+    # Example:
+    #   config.user_search = ->(query) {
+    #     PeopleApi.search(query).map { |p| { id: p.id, name: p.name, email: p.email } }
+    #   }
     attr_accessor :user_search
 
     def initialize
