@@ -34,6 +34,11 @@ RSpec.describe "Comment UX", type: :system do
     visit sign_in_path
     fill_in "Email address", with: user.email
     click_button "Sign In"
+    # Wait for the Turbo-driven redirect to the plans index to complete before
+    # asserting page content; without this, Selenium can reference a stale DOM
+    # node from the sign-in page mid-navigation, causing "Node with given id
+    # does not belong to the document".
+    expect(page).to have_current_path(root_path)
     expect(page).to have_content("Sign out")
   end
 

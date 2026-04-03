@@ -5,6 +5,7 @@ RSpec.describe "Token management", type: :system do
     visit sign_in_path
     fill_in "Email address", with: "testuser@example.com"
     click_button "Sign In"
+    expect(page).to have_current_path(root_path)
     expect(page).to have_content("Sign out")
   end
 
