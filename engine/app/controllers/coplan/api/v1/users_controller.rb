@@ -8,28 +8,27 @@ module CoPlan
             return render json: []
           end
 
-          if CoPlan.configuration.user_search
-            results = CoPlan.configuration.user_search.call(query)
-            render json: results
+          users = if CoPlan.configuration.user_search
+            CoPlan.configuration.user_search.call(query)
           else
-            users = CoPlan::User
-              .where("name LIKE :q OR email LIKE :q", q: "%#{query}%")
+            sanitized = CoPlan::User.sanitize_sql_like(query)
+            CoPlan::User
+              .where("name LIKE :q OR email LIKE :q", q: "%#{sanitized}%")
               .limit(20)
-            render json: users.map { |u| user_json(u) }
           end
+          render json: users.map { |u| user_json(u) }
         end
 
         private
 
+        ALLOWED_FIELDS = %i[id name email avatar_url title team].freeze
+
         def user_json(user)
-          {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            avatar_url: user.avatar_url,
-            title: user.title,
-            team: user.team
-          }
+          if user.respond_to?(:id)
+            ALLOWED_FIELDS.to_h { |f| [f, user.public_send(f)] }
+          else
+            ALLOWED_FIELDS.to_h { |f| [f, user[f]] }
+          end
         end
       end
     end

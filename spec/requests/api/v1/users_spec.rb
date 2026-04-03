@@ -53,7 +53,7 @@ RSpec.describe "Api::V1::Users", type: :request do
     end
 
     context "with user_search hook configured" do
-      let(:hook_results) { [{ id: "ext-1", name: "Hooked User", email: "hooked@example.com" }] }
+      let(:hook_results) { [{ id: "ext-1", name: "Hooked User", email: "hooked@example.com", secret: "should-not-leak" }] }
 
       before do
         CoPlan.configuration.user_search = ->(query) { hook_results }
@@ -63,11 +63,13 @@ RSpec.describe "Api::V1::Users", type: :request do
         CoPlan.configuration.user_search = nil
       end
 
-      it "delegates to the hook" do
+      it "delegates to the hook and filters fields" do
         get search_api_v1_users_path, params: { q: "hooked" }, headers: headers
         results = JSON.parse(response.body)
         expect(results.length).to eq(1)
         expect(results.first["name"]).to eq("Hooked User")
+        expect(results.first.keys).to match_array(%w[id name email avatar_url title team])
+        expect(results.first).not_to have_key("secret")
       end
     end
   end
