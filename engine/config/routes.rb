@@ -47,5 +47,8 @@ CoPlan::Engine.routes.draw do
     end
   end
 
+  get "llms.txt", to: "llms#show", as: :llms_txt
+  get "agent-instructions", to: "agent_instructions#show", as: :agent_instructions
+
   root "plans#index"
 end

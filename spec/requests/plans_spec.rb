@@ -109,4 +109,36 @@ RSpec.describe "Plans", type: :request do
     get plan_path(brainstorm_plan)
     expect(response).to have_http_status(:ok)
   end
+
+  describe "onboarding banner" do
+    it "shows banner when user has no plans" do
+      sign_in_as(bob)
+      get plans_path
+      expect(response.body).to include("onboarding-banner")
+    end
+
+    it "hides banner when user has created a plan" do
+      plan # alice has a plan
+      get plans_path
+      expect(response.body).not_to include("onboarding-banner")
+    end
+
+    it "hides banner when onboarding_banner config is nil" do
+      sign_in_as(bob)
+      original = CoPlan.configuration.onboarding_banner
+      CoPlan.configuration.onboarding_banner = nil
+      get plans_path
+      expect(response.body).not_to include("onboarding-banner")
+      CoPlan.configuration.onboarding_banner = original
+    end
+
+    it "displays custom banner text from configuration" do
+      sign_in_as(bob)
+      original = CoPlan.configuration.onboarding_banner
+      CoPlan.configuration.onboarding_banner = "Custom onboarding message"
+      get plans_path
+      expect(response.body).to include("Custom onboarding message")
+      CoPlan.configuration.onboarding_banner = original
+    end
+  end
 end

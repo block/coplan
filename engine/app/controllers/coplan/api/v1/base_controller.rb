@@ -3,8 +3,13 @@ module CoPlan
     module V1
       class BaseController < ActionController::API
         before_action :authenticate_api!
+        after_action :set_agent_instructions_header
 
         private
+
+        def set_agent_instructions_header
+          response.headers["X-Agent-Instructions"] = "/agent-instructions"
+        end
 
         def authenticate_api!
           token = request.headers["Authorization"]&.delete_prefix("Bearer ")

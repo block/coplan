@@ -23,6 +23,8 @@ RSpec.configure do |config|
 
 
 
+
+
   def sign_in_as(coplan_user)
     coplan_user.update!(email: "#{coplan_user.external_id}@test.example.com") unless coplan_user.email.present?
     post sign_in_path, params: { email: coplan_user.email }
