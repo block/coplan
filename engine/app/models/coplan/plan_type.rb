@@ -8,7 +8,7 @@ module CoPlan
     validates :name, presence: true, uniqueness: true
 
     def self.ransackable_attributes(auth_object = nil)
-      %w[id name description created_at updated_at]
+      %w[id name description template_content created_at updated_at]
     end
 
     def self.ransackable_associations(auth_object = nil)
