@@ -53,7 +53,7 @@ module CoPlan
         ids = Set[plan.created_by_user_id]
         ids.merge(
           plan.plan_collaborators
-            .where(role: %w[author reviewer])
+            .where(role: "author")
             .pluck(:user_id)
         )
         ids
