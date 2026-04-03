@@ -211,15 +211,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_03_195628) do
 
   create_table "coplan_users", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.boolean "admin", default: false, null: false
-    t.string "avatar_url"
     t.datetime "created_at", null: false
     t.string "email"
     t.string "external_id", null: false
     t.json "metadata"
     t.string "name", null: false
-    t.json "notification_preferences"
-    t.string "team"
-    t.string "title"
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_coplan_users_on_email", unique: true
     t.index ["external_id"], name: "index_coplan_users_on_external_id", unique: true

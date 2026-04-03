@@ -1,12 +1,11 @@
 ActiveAdmin.register CoPlan::PlanType, as: "PlanType" do
-  permit_params :name, :description, :template_content, default_tags: []
+  permit_params :name, :description, :template_content
 
   index do
     selectable_column
     id_column
     column :name
     column :description
-    column :default_tags
     column :created_at
     actions
   end

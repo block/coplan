@@ -23,4 +23,30 @@ RSpec.describe CoPlan::Plans::Create do
     expect(version.actor_id).to eq(user.id)
     expect(version.content_sha256).to be_present
   end
+
+  it "creates plan with plan_type" do
+    user = create(:coplan_user)
+    plan_type = create(:plan_type)
+    plan = CoPlan::Plans::Create.call(
+      title: "Typed Plan",
+      content: "# Typed",
+      user: user,
+      plan_type_id: plan_type.id
+    )
+
+    expect(plan).to be_persisted
+    expect(plan.plan_type).to eq(plan_type)
+  end
+
+  it "creates plan without plan_type" do
+    user = create(:coplan_user)
+    plan = CoPlan::Plans::Create.call(
+      title: "Untyped Plan",
+      content: "# Untyped",
+      user: user
+    )
+
+    expect(plan).to be_persisted
+    expect(plan.plan_type_id).to be_nil
+  end
 end
