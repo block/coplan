@@ -10,7 +10,7 @@ Interact with the CoPlan app to create, read, edit, and comment on plan document
 
 ```bash
 <%= @curl %> \
-  "BASE_URL/api/v1/plans" | jq .
+  "<%= @base %>/api/v1/plans" | jq .
 ```
 
 Optional query param: `?status=considering`
@@ -19,7 +19,7 @@ Optional query param: `?status=considering`
 
 ```bash
 <%= @curl %> \
-  "BASE_URL/api/v1/plans/$PLAN_ID" | jq .
+  "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
 ```
 
 Returns: `id`, `title`, `status`, `current_content` (markdown), `current_revision`.
@@ -30,7 +30,7 @@ Returns: `id`, `title`, `status`, `current_content` (markdown), `current_revisio
 <%= @curl %> -X POST \
   -H "Content-Type: application/json" \
   -d '{"title": "My Plan", "content": "# My Plan\n\nContent here."}' \
-  "BASE_URL/api/v1/plans" | jq .
+  "<%= @base %>/api/v1/plans" | jq .
 ```
 
 ### Update Plan
@@ -41,7 +41,7 @@ Update plan metadata (title, status, tags). Only fields included in the request 
 <%= @curl %> -X PATCH \
   -H "Content-Type: application/json" \
   -d '{"status": "considering"}' \
-  "BASE_URL/api/v1/plans/$PLAN_ID" | jq .
+  "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
 ```
 
 Allowed fields: `title` (string), `status` (string), `tags` (array of strings).
@@ -64,14 +64,14 @@ When you create a plan, it starts as `brainstorm`. Promote it to `considering` w
 
 ```bash
 <%= @curl %> \
-  "BASE_URL/api/v1/plans/$PLAN_ID/versions" | jq .
+  "<%= @base %>/api/v1/plans/$PLAN_ID/versions" | jq .
 ```
 
 ### Get Comments
 
 ```bash
 <%= @curl %> \
-  "BASE_URL/api/v1/plans/$PLAN_ID/comments" | jq .
+  "<%= @base %>/api/v1/plans/$PLAN_ID/comments" | jq .
 ```
 
 ## Editing Plans (Lease + Operations)
@@ -84,7 +84,7 @@ Editing requires three steps: acquire lease → apply operations → release lea
 LEASE_RESPONSE=$(<%= @curl %> -X POST \
   -H "Content-Type: application/json" \
   -d '{"lease_token": "'$(openssl rand -hex 32)'"}' \
-  "BASE_URL/api/v1/plans/$PLAN_ID/lease")
+  "<%= @base %>/api/v1/plans/$PLAN_ID/lease")
 echo "$LEASE_RESPONSE" | jq .
 LEASE_TOKEN=$(echo "$LEASE_RESPONSE" | jq -r '.lease_token')
 ```
@@ -109,7 +109,7 @@ Leases expire after 5 minutes. Renew with PATCH, release with DELETE.
       }
     ]
   }' \
-  "BASE_URL/api/v1/plans/$PLAN_ID/operations" | jq .
+  "<%= @base %>/api/v1/plans/$PLAN_ID/operations" | jq .
 ```
 
 **Important:** Set `base_revision` to the plan's `current_revision`. Returns 409 if stale.
@@ -120,7 +120,7 @@ Leases expire after 5 minutes. Renew with PATCH, release with DELETE.
 <%= @curl %> -X DELETE \
   -H "Content-Type: application/json" \
   -d '{"lease_token": "'$LEASE_TOKEN'"}' \
-  "BASE_URL/api/v1/plans/$PLAN_ID/lease"
+  "<%= @base %>/api/v1/plans/$PLAN_ID/lease"
 ```
 
 ### Renew Lease (if needed for long edits)
@@ -129,7 +129,7 @@ Leases expire after 5 minutes. Renew with PATCH, release with DELETE.
 <%= @curl %> -X PATCH \
   -H "Content-Type: application/json" \
   -d '{"lease_token": "'$LEASE_TOKEN'"}' \
-  "BASE_URL/api/v1/plans/$PLAN_ID/lease" | jq .
+  "<%= @base %>/api/v1/plans/$PLAN_ID/lease" | jq .
 ```
 
 ## Available Operations
@@ -182,7 +182,7 @@ Delete the paragraph containing a needle string. Fails if 0 or >1 paragraphs mat
     "anchor_text": "the exact text you are commenting on",
     "agent_name": "Amp"
   }' \
-  "BASE_URL/api/v1/plans/$PLAN_ID/comments" | jq .
+  "<%= @base %>/api/v1/plans/$PLAN_ID/comments" | jq .
 ```
 
 - `anchor_text`: the exact text from the plan content that this comment is about. It will be highlighted in the UI and the comment will be anchored to it.
@@ -195,7 +195,7 @@ Delete the paragraph containing a needle string. Fails if 0 or >1 paragraphs mat
 <%= @curl %> -X POST \
   -H "Content-Type: application/json" \
   -d '{"body_markdown": "Good point, I will address this.", "agent_name": "Amp"}' \
-  "BASE_URL/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/reply" | jq .
+  "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/reply" | jq .
 ```
 
 ### Resolve Thread
@@ -204,7 +204,7 @@ Mark a comment thread as resolved (addressed by the plan author or thread creato
 
 ```bash
 <%= @curl %> -X PATCH \
-  "BASE_URL/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/resolve" | jq .
+  "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/resolve" | jq .
 ```
 
 ### Dismiss Thread
@@ -213,7 +213,7 @@ Dismiss a comment thread (plan author only — for comments that are out of scop
 
 ```bash
 <%= @curl %> -X PATCH \
-  "BASE_URL/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/dismiss" | jq .
+  "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/dismiss" | jq .
 ```
 
 ## Reviewing a Plan
@@ -223,8 +223,8 @@ When asked to review a plan (given a plan URL or ID), follow this workflow:
 ### 1. Read the Plan and Comments
 
 ```bash
-<%= @curl %> "BASE_URL/api/v1/plans/$PLAN_ID" | jq .
-<%= @curl %> "BASE_URL/api/v1/plans/$PLAN_ID/comments" | jq .
+<%= @curl %> "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
+<%= @curl %> "<%= @base %>/api/v1/plans/$PLAN_ID/comments" | jq .
 ```
 
 ### 2. Triage Comments
