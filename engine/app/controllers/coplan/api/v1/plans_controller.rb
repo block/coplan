@@ -25,7 +25,8 @@ module CoPlan
           plan = Plans::Create.call(
             title: params[:title],
             content: params[:content] || "",
-            user: current_user
+            user: current_user,
+            plan_type_id: params[:plan_type_id]
           )
           render json: plan_json(plan).merge(
             current_content: plan.current_content,
@@ -83,6 +84,8 @@ module CoPlan
             status: plan.status,
             current_revision: plan.current_revision,
             tags: plan.tags,
+            plan_type_id: plan.plan_type_id,
+            plan_type_name: plan.plan_type&.name,
             created_by: plan.created_by_user.name,
             created_at: plan.created_at,
             updated_at: plan.updated_at
