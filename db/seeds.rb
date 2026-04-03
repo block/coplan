@@ -63,6 +63,26 @@ if CoPlan::ApiToken.count == 0
   puts "  (Save this — it won't be shown again)"
 end
 
+puts "Seeding plan types..."
+general = CoPlan::PlanType.find_or_create_by!(name: "General") do |pt|
+  pt.description = "General-purpose plan"
+end
+CoPlan::PlanType.find_or_create_by!(name: "RFC") do |pt|
+  pt.description = "Request for Comments — propose a significant change for team review"
+  pt.default_tags = ["rfc"]
+end
+CoPlan::PlanType.find_or_create_by!(name: "Design Doc") do |pt|
+  pt.description = "Technical design document for a new system or feature"
+  pt.default_tags = ["design"]
+end
+CoPlan::PlanType.find_or_create_by!(name: "ADR") do |pt|
+  pt.description = "Architecture Decision Record — document a key technical decision"
+  pt.default_tags = ["adr"]
+end
+
+# Backfill any plans without a plan type
+CoPlan::Plan.where(plan_type_id: nil).update_all(plan_type_id: general.id)
+
 puts "Seeding automated plan reviewers..."
 CoPlan::AutomatedPlanReviewer.create_defaults
 
