@@ -28,15 +28,24 @@ RSpec.describe CoPlan::Notifications::Create do
       expect(result).to be_nil
     end
 
-    it "notifies plan collaborators with author/reviewer role" do
-      create(:plan_collaborator, plan: plan, user: reviewer, role: "reviewer")
+    it "notifies plan collaborators with author role" do
+      co_author = create(:coplan_user)
+      create(:plan_collaborator, plan: plan, user: co_author, role: "author")
 
       expect {
         described_class.call(comment_thread: thread, actor_id: commenter.id, reason: "new_comment")
       }.to change(CoPlan::Notification, :count).by(2)
 
       notified_user_ids = CoPlan::Notification.pluck(:user_id)
-      expect(notified_user_ids).to contain_exactly(plan_author.id, reviewer.id)
+      expect(notified_user_ids).to contain_exactly(plan_author.id, co_author.id)
+    end
+
+    it "does not notify reviewer collaborators" do
+      create(:plan_collaborator, plan: plan, user: reviewer, role: "reviewer")
+
+      described_class.call(comment_thread: thread, actor_id: commenter.id, reason: "new_comment")
+      notified_user_ids = CoPlan::Notification.pluck(:user_id)
+      expect(notified_user_ids).not_to include(reviewer.id)
     end
 
     it "does not notify viewer collaborators" do
@@ -57,6 +66,15 @@ RSpec.describe CoPlan::Notifications::Create do
 
       notified_user_ids = CoPlan::Notification.pluck(:user_id)
       expect(notified_user_ids).to contain_exactly(plan_author.id, commenter.id)
+    end
+
+    it "does not notify reviewer collaborators who are not thread participants" do
+      other_reviewer = create(:coplan_user)
+      create(:plan_collaborator, plan: plan, user: other_reviewer, role: "reviewer")
+
+      described_class.call(comment_thread: thread, actor_id: create(:coplan_user).id, reason: "reply")
+      notified_user_ids = CoPlan::Notification.pluck(:user_id)
+      expect(notified_user_ids).not_to include(other_reviewer.id)
     end
 
     it "notifies prior human commenters in the thread" do
