@@ -53,7 +53,7 @@
           </div>
         <% end %>
         <div class="plans-list__meta text-sm text-muted">
-          by <%= plan.created_by_user.name %> · v<%= plan.current_revision %> · updated <%= time_ago_in_words(plan.updated_at) %> ago
+          <%= user_avatar(plan.created_by_user) %> <%= plan.created_by_user.name %> · v<%= plan.current_revision %> · updated <%= time_ago_in_words(plan.updated_at) %> ago
         </div>
       </div>
     <% end %>

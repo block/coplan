@@ -219,6 +219,7 @@ img, svg {
   margin-left: -0.5rem;
   cursor: default;
   position: relative;
+  object-fit: cover;
 }
 
 .plan-viewers__avatar--you {
@@ -378,6 +379,29 @@ img, svg {
 .badge--tag:hover   { background: #e5e7eb; color: #111827; }
 .badge--tag-active  { background: #374151; color: #fff; }
 .badge--tag-active:hover { background: #1f2937; color: #fff; }
+
+/* Avatars */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.avatar--sm { width: 1.5rem; height: 1.5rem; font-size: 0.6rem; }
+.avatar--md { width: 2rem; height: 2rem; font-size: 0.7rem; }
+
+.avatar--initials {
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+img.avatar {
+  object-fit: cover;
+}
 
 /* Forms */
 .form-group {

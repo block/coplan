@@ -3,9 +3,14 @@
     <div class="plan-viewers__avatars">
       <% viewers.first(8).each do |viewer| %>
         <% is_you = defined?(current_user) && current_user&.id == viewer.id %>
-        <span class="plan-viewers__avatar<%= ' plan-viewers__avatar--you' if is_you %>" data-tooltip="<%= is_you ? "#{viewer.name} (you)" : viewer.name %>">
-          <%= viewer.name.split.map { |w| w[0] }.first(2).join.upcase %>
-        </span>
+        <% tooltip = is_you ? "#{viewer.name} (you)" : viewer.name %>
+        <% if viewer.avatar_url.present? %>
+          <img src="<%= viewer.avatar_url %>" alt="<%= viewer.name %>" class="plan-viewers__avatar<%= ' plan-viewers__avatar--you' if is_you %>" data-tooltip="<%= tooltip %>" loading="lazy">
+        <% else %>
+          <span class="plan-viewers__avatar<%= ' plan-viewers__avatar--you' if is_you %>" data-tooltip="<%= tooltip %>">
+            <%= viewer.name.split.map { |w| w[0] }.first(2).join.upcase %>
+          </span>
+        <% end %>
       <% end %>
       <% if viewers.size > 8 %>
         <span class="plan-viewers__overflow">+<%= viewers.size - 8 %></span>

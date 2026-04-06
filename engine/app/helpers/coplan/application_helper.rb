@@ -50,6 +50,15 @@ module CoPlan
       "#{prefix} — #{truncated}"
     end
 
+    def user_avatar(user, size: "sm")
+      initials = user.name.split.map { |w| w[0] }.first(2).join.upcase
+      if user.avatar_url.present?
+        tag.img(src: user.avatar_url, alt: user.name, class: "avatar avatar--#{size}", loading: "lazy")
+      else
+        tag.span(initials, class: "avatar avatar--#{size} avatar--initials", title: user.name)
+      end
+    end
+
     def coplan_environment_badge
       return if Rails.env.production?
 

@@ -3,7 +3,11 @@ hampton = CoPlan::User.find_or_create_by!(email: "hampton@squareup.com") do |u|
   u.external_id = "hampton@squareup.com"
   u.name = "Hampton Lintorn-Catlin"
   u.admin = true
+  u.avatar_url = "https://avatars.githubusercontent.com/u/111?s=80"
+  u.title = "Staff Engineer"
+  u.team = "Developer Tools"
 end
+hampton.update!(avatar_url: "https://avatars.githubusercontent.com/u/111?s=80") if hampton.avatar_url.blank?
 
 puts "Seeding plans..."
 if CoPlan::Plan.count == 0
@@ -22,6 +26,8 @@ if CoPlan::CommentThread.count == 0
     reviewer = CoPlan::User.find_or_create_by!(email: "reviewer@squareup.com") do |u|
       u.external_id = "reviewer@squareup.com"
       u.name = "Plan Reviewer"
+      u.title = "Senior Engineer"
+      u.team = "Platform"
     end
 
     thread = CoPlan::CommentThread.create!(
