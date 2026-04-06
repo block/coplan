@@ -23,11 +23,21 @@ module CoPlan
         end
 
         def create
+          if params[:plan_type].present?
+            plan_type = PlanType.find_by(name: params[:plan_type])
+            unless plan_type
+              available = PlanType.order(:name).pluck(:name)
+              message = "Unknown plan_type \"#{params[:plan_type]}\"."
+              message += " Available types: #{available.map { |n| "\"#{n}\"" }.join(", ")}." if available.any?
+              return render json: { error: message }, status: :unprocessable_content
+            end
+          end
+
           plan = Plans::Create.call(
             title: params[:title],
             content: params[:content] || "",
             user: current_user,
-            plan_type_id: params[:plan_type_id].presence
+            plan_type_id: plan_type&.id
           )
           render json: plan_json(plan).merge(
             current_content: plan.current_content,
@@ -35,8 +45,6 @@ module CoPlan
           ), status: :created
         rescue ActiveRecord::RecordInvalid => e
           render json: { error: e.message }, status: :unprocessable_content
-        rescue ActiveRecord::InvalidForeignKey
-          render json: { error: "Invalid plan_type_id" }, status: :unprocessable_content
         end
 
         def update
