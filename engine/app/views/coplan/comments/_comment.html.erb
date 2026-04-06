@@ -1,5 +1,9 @@
 <div class="comment" id="<%= dom_id(comment) %>">
   <div class="comment__header text-sm text-muted">
+    <% author = comment_author_user(comment) %>
+    <% if author %>
+      <%= user_avatar(author) %>
+    <% end %>
     <strong><%= comment_author_name(comment) %></strong>
     <% if comment.agent? %>
       <span class="badge badge--agent">agent</span>
