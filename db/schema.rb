@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_03_202530) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_03_220001) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -148,6 +148,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_03_202530) do
     t.index ["user_id"], name: "index_coplan_plan_collaborators_on_user_id"
   end
 
+  create_table "coplan_plan_tags", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "plan_id", limit: 36, null: false
+    t.string "tag_id", limit: 36, null: false
+    t.datetime "updated_at", null: false
+    t.index ["plan_id", "tag_id"], name: "index_coplan_plan_tags_on_plan_id_and_tag_id", unique: true
+    t.index ["tag_id"], name: "index_coplan_plan_tags_on_tag_id"
+  end
+
   create_table "coplan_plan_types", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.json "default_tags"
@@ -199,7 +208,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_03_202530) do
     t.json "metadata"
     t.string "plan_type_id", limit: 36
     t.string "status", default: "brainstorm", null: false
-    t.json "tags"
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.index ["created_by_user_id"], name: "index_coplan_plans_on_created_by_user_id"
@@ -207,6 +215,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_03_202530) do
     t.index ["plan_type_id"], name: "index_coplan_plans_on_plan_type_id"
     t.index ["status"], name: "index_coplan_plans_on_status"
     t.index ["updated_at"], name: "index_coplan_plans_on_updated_at"
+  end
+
+  create_table "coplan_tags", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.integer "plans_count", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_coplan_tags_on_name", unique: true
   end
 
   create_table "coplan_users", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -243,6 +259,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_03_202530) do
   add_foreign_key "coplan_plan_collaborators", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "added_by_user_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "user_id"
+  add_foreign_key "coplan_plan_tags", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_plan_tags", "coplan_tags", column: "tag_id"
   add_foreign_key "coplan_plan_versions", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_viewers", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_viewers", "coplan_users", column: "user_id"
