@@ -6,6 +6,9 @@
       <% if plan.plan_type %>
         · <span class="badge badge--type"><%= plan.plan_type.name %></span>
       <% end %>
+      <% plan.tags.each do |tag| %>
+        <%= link_to tag.name, plans_path(tag: tag.name), class: "badge badge--tag" %>
+      <% end %>
     </div>
   </div>
   <div class="page-header__actions">

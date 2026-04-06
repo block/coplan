@@ -83,6 +83,41 @@ end
 # Backfill any plans without a plan type
 CoPlan::Plan.where(plan_type_id: nil).update_all(plan_type_id: general.id)
 
+puts "Seeding tags on plans..."
+CoPlan::Plan.includes(:tags, :plan_type).find_each do |p|
+  if p.tags.empty? && p.plan_type&.default_tags&.any?
+    p.tag_names = p.plan_type.default_tags
+  end
+end
+
+# Add some demo plans with tags for local development
+if CoPlan::Plan.count < 3
+  rfc_type = CoPlan::PlanType.find_by(name: "RFC")
+  design_type = CoPlan::PlanType.find_by(name: "Design Doc")
+
+  api_plan = CoPlan::Plans::Create.call(
+    title: "API Rate Limiting Strategy",
+    content: "# API Rate Limiting Strategy\n\n## Problem\n\nOur API endpoints have no rate limiting, leading to occasional abuse.\n\n## Proposal\n\nImplement token-bucket rate limiting at the gateway level.\n\n## Alternatives Considered\n\n- Per-IP limiting\n- API key quotas\n",
+    user: hampton,
+    plan_type_id: rfc_type&.id
+  )
+  api_plan.update!(status: "considering")
+  api_plan.tag_names = ["api", "infrastructure", "security"]
+
+  auth_plan = CoPlan::Plans::Create.call(
+    title: "Authentication System Redesign",
+    content: "# Authentication System Redesign\n\n## Goals\n\n- Migrate from session-based to token-based auth\n- Support SSO providers\n- Improve security posture\n\n## Architecture\n\nOIDC-based flow with JWT access tokens.\n",
+    user: hampton,
+    plan_type_id: design_type&.id
+  )
+  auth_plan.update!(status: "developing")
+  auth_plan.tag_names = ["security", "infrastructure", "design"]
+end
+
+# Tag the original Q3 roadmap if it has no tags
+q3 = CoPlan::Plan.find_by(title: "Q3 Product Roadmap")
+q3.tag_names = ["roadmap", "product"] if q3 && q3.tags.empty?
+
 puts "Seeding automated plan reviewers..."
 CoPlan::AutomatedPlanReviewer.create_defaults
 

@@ -31,6 +31,41 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).not_to include(bobs_plan.title)
   end
 
+  it "index filters by tag" do
+    plan.tag_names = ["infra"]
+    other = create(:plan, :considering, created_by_user: alice, title: "Other Plan")
+    other.tag_names = ["frontend"]
+    get plans_path(tag: "infra")
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include(plan.title)
+    expect(response.body).not_to include("Other Plan")
+  end
+
+  it "index shows tag badges on plan cards" do
+    plan.tag_names = ["infra", "api"]
+    get plans_path
+    expect(response.body).to include("badge--tag")
+    expect(response.body).to include("infra")
+    expect(response.body).to include("api")
+  end
+
+  it "index shows active tag filter bar" do
+    plan.tag_names = ["infra"]
+    get plans_path(tag: "infra")
+    expect(response.body).to include("active-filter")
+    expect(response.body).to include("infra")
+    expect(response.body).to include("Clear")
+  end
+
+  it "show plan renders tag badges in header" do
+    plan.tag_names = ["infra", "security"]
+    get plan_path(plan)
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include("badge--tag")
+    expect(response.body).to include("infra")
+    expect(response.body).to include("security")
+  end
+
   it "show plan renders successfully" do
     get plan_path(plan)
     expect(response).to have_http_status(:success)

@@ -21,6 +21,8 @@ module CoPlan
     validates :title, presence: true
     validates :status, presence: true, inclusion: { in: STATUSES }
 
+    scope :with_tag, ->(name) { joins(:tags).where(coplan_tags: { name: name }) }
+
     def self.ransackable_attributes(auth_object = nil)
       %w[id title status plan_type_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
     end
