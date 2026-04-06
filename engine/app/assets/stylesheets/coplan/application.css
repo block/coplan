@@ -373,6 +373,7 @@ img, svg {
 .badge--discarded   { background: #f3f4f6; color: var(--color-status-abandoned); }
 .badge--resolved    { background: #d1fae5; color: var(--color-status-live); }
 .badge--agent       { background: var(--color-agent-bg); color: var(--color-agent); font-size: 0.65rem; padding: 1px 6px; vertical-align: middle; }
+.badge--type        { background: #f0fdf4; color: #166534; }
 
 /* Forms */
 .form-group {

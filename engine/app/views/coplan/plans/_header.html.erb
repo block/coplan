@@ -3,6 +3,9 @@
     <h1><%= plan.title %></h1>
     <div class="text-sm text-muted mt-md">
       by <%= plan.created_by_user.name %> · v<%= plan.current_revision %> · <span class="badge badge--<%= plan.status %>"><%= plan.status %></span>
+      <% if plan.plan_type %>
+        · <span class="badge badge--type"><%= plan.plan_type.name %></span>
+      <% end %>
     </div>
   </div>
   <div class="page-header__actions">

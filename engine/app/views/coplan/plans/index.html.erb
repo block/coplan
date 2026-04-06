@@ -8,11 +8,20 @@
 </div>
 
 <div class="status-filters">
-  <%= link_to "All", plans_path(params.permit(:scope)), class: "status-filter #{'status-filter--active' if params[:status].blank?}" %>
+  <%= link_to "All", plans_path(params.permit(:scope, :plan_type)), class: "status-filter #{'status-filter--active' if params[:status].blank?}" %>
   <% CoPlan::Plan::STATUSES.each do |status| %>
-    <%= link_to status.titleize, plans_path(params.permit(:scope).merge(status: status)), class: "status-filter status-filter--#{status} #{'status-filter--active' if params[:status] == status}" %>
+    <%= link_to status.titleize, plans_path(params.permit(:scope, :plan_type).merge(status: status)), class: "status-filter status-filter--#{status} #{'status-filter--active' if params[:status] == status}" %>
   <% end %>
 </div>
+
+<% if @plan_types.any? %>
+  <div class="status-filters">
+    <%= link_to "All Types", plans_path(params.permit(:scope, :status)), class: "status-filter #{'status-filter--active' if params[:plan_type].blank?}" %>
+    <% @plan_types.each do |pt| %>
+      <%= link_to pt.name, plans_path(params.permit(:scope, :status).merge(plan_type: pt.id)), class: "status-filter #{'status-filter--active' if params[:plan_type] == pt.id}" %>
+    <% end %>
+  </div>
+<% end %>
 
 <% if @plans.any? %>
   <div class="plans-list">
@@ -21,6 +30,9 @@
         <div class="plans-list__header">
           <%= link_to plan.title, plan_path(plan), class: "plans-list__title" %>
           <span class="badge badge--<%= plan.status %>"><%= plan.status %></span>
+          <% if plan.plan_type %>
+            <span class="badge badge--type"><%= plan.plan_type.name %></span>
+          <% end %>
           <% plan_unread = @plan_unread_counts[plan.id] || 0 %>
           <% if plan_unread > 0 %>
             <span class="inbox-badge"><%= plan_unread %></span>
