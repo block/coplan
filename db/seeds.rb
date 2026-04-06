@@ -2,6 +2,7 @@ puts "Seeding users..."
 hampton = CoPlan::User.find_or_create_by!(email: "hampton@squareup.com") do |u|
   u.external_id = "hampton@squareup.com"
   u.name = "Hampton Lintorn-Catlin"
+  u.username = "hampton"
   u.admin = true
 end
 

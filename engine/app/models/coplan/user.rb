@@ -8,16 +8,19 @@ module CoPlan
     validates :external_id, presence: true, uniqueness: true
     validates :name, presence: true
     validates :email, uniqueness: true, allow_nil: true
+    validates :username, uniqueness: true, allow_nil: true,
+      format: { with: /\A[a-z0-9][a-z0-9._-]*\z/, message: "must be lowercase alphanumeric (dots, hyphens, underscores allowed)" }
 
     after_initialize { self.metadata ||= {} }
     after_initialize { self.notification_preferences ||= {} }
 
     def self.ransackable_attributes(auth_object = nil)
-      %w[id external_id name email admin avatar_url title team created_at updated_at]
+      %w[id external_id name username email admin avatar_url title team created_at updated_at]
     end
 
     def self.ransackable_associations(auth_object = nil)
       %w[api_tokens plan_collaborators]
     end
+
   end
 end

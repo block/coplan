@@ -56,13 +56,13 @@ module CoPlan
 
       external_id = attrs[:external_id].to_s
       @current_coplan_user = CoPlan::User.find_or_initialize_by(external_id: external_id)
-      @current_coplan_user.assign_attributes(attrs.slice(:name, :admin, :metadata).compact)
+      @current_coplan_user.assign_attributes(attrs.slice(:name, :username, :admin, :metadata, :avatar_url, :title, :team).compact)
       if @current_coplan_user.new_record? || @current_coplan_user.changed?
         @current_coplan_user.save!
       end
     rescue ActiveRecord::RecordNotUnique
       @current_coplan_user = CoPlan::User.find_by!(external_id: external_id)
-      @current_coplan_user.assign_attributes(attrs.slice(:name, :admin, :metadata).compact)
+      @current_coplan_user.assign_attributes(attrs.slice(:name, :username, :admin, :metadata, :avatar_url, :title, :team).compact)
       @current_coplan_user.save! if @current_coplan_user.changed?
     end
 

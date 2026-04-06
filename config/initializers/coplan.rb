@@ -11,7 +11,8 @@ CoPlan.configure do |config|
     {
       external_id: user.external_id,
       name: user.name,
-      admin: user.admin?
+      admin: user.admin?,
+      username: user.username || user.external_id.to_s.split("@").first.downcase.gsub(/[^a-z0-9._-]/, "").sub(/\A[^a-z0-9]+/, "").presence
     }
   }
 
