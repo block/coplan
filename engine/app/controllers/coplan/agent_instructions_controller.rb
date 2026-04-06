@@ -6,6 +6,7 @@ module CoPlan
       @auth_instructions = CoPlan.configuration.agent_auth_instructions
       @curl = CoPlan.configuration.agent_curl_prefix
       @base = request.base_url
+      @plan_types = PlanType.order(:name)
       render layout: false, content_type: "text/markdown", formats: [:text]
     end
   end

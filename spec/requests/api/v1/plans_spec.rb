@@ -65,20 +65,24 @@ RSpec.describe "Api::V1::Plans", type: :request do
     expect(body["current_revision"]).to eq(1)
   end
 
-  it "create with plan_type_id" do
-    plan_type = create(:plan_type)
-    post api_v1_plans_path, params: { title: "Typed Plan", content: "# Typed", plan_type_id: plan_type.id }, headers: headers, as: :json
+  it "create with plan_type by name" do
+    plan_type = create(:plan_type, name: "design-doc")
+    post api_v1_plans_path, params: { title: "Typed Plan", content: "# Typed", plan_type: "design-doc" }, headers: headers, as: :json
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["plan_type_id"]).to eq(plan_type.id)
-    expect(body["plan_type_name"]).to eq(plan_type.name)
+    expect(body["plan_type_name"]).to eq("design-doc")
   end
 
-  it "create with invalid plan_type_id returns 422" do
-    post api_v1_plans_path, params: { title: "Bad Type", plan_type_id: "nonexistent-id" }, headers: headers, as: :json
+  it "create with unknown plan_type returns 422 with available types" do
+    create(:plan_type, name: "design-doc")
+    create(:plan_type, name: "rfc")
+    post api_v1_plans_path, params: { title: "Bad Type", plan_type: "nope" }, headers: headers, as: :json
     expect(response).to have_http_status(:unprocessable_content)
     body = JSON.parse(response.body)
-    expect(body["error"]).to include("plan_type_id")
+    expect(body["error"]).to include("nope")
+    expect(body["error"]).to include("design-doc")
+    expect(body["error"]).to include("rfc")
   end
 
   it "create without title fails" do

@@ -29,9 +29,11 @@ Returns: `id`, `title`, `status`, `current_content` (markdown), `current_revisio
 ```bash
 <%= @curl %> -X POST \
   -H "Content-Type: application/json" \
-  -d '{"title": "My Plan", "content": "# My Plan\n\nContent here."}' \
+  -d '{"title": "My Plan", "content": "# My Plan\n\nContent here.", "plan_type": "general"}' \
   "<%= @base %>/api/v1/plans" | jq .
 ```
+
+Optional fields: `plan_type` (string) — the name of a plan type to use. See [Plan Types](#plan-types) below.
 
 ### Update Plan
 
@@ -79,6 +81,23 @@ Plans move through a lifecycle. **Keep the status current** — update it as the
 | `abandoned` | No longer pursuing | Plan was dropped or superseded |
 
 When you create a plan, it starts as `brainstorm`. Promote it to `considering` when it's ready for review. Move to `developing` when implementation begins. Don't leave plans in stale states.
+
+### Plan Types
+
+Plan types provide templates and default tags for common plan categories. When creating a plan, pass `plan_type` to use a type's template as the initial content.
+<% if @plan_types.any? %>
+
+**Available plan types:**
+
+| Name | Description |
+|------|-------------|
+<% @plan_types.each do |pt| %>
+| `<%= pt.name %>` | <%= pt.description.present? ? pt.description : "—" %> |
+<% end %>
+<% else %>
+
+No plan types are currently configured.
+<% end %>
 
 ### Get Versions
 
