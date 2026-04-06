@@ -374,6 +374,10 @@ img, svg {
 .badge--resolved    { background: #d1fae5; color: var(--color-status-live); }
 .badge--agent       { background: var(--color-agent-bg); color: var(--color-agent); font-size: 0.65rem; padding: 1px 6px; vertical-align: middle; }
 .badge--type        { background: #f0fdf4; color: #166534; }
+.badge--tag         { background: #f3f4f6; color: #374151; text-decoration: none; font-size: 0.7rem; text-transform: none; letter-spacing: normal; }
+.badge--tag:hover   { background: #e5e7eb; color: #111827; }
+.badge--tag-active  { background: #374151; color: #fff; }
+.badge--tag-active:hover { background: #1f2937; color: #fff; }
 
 /* Forms */
 .form-group {
@@ -525,8 +529,37 @@ img, svg {
   color: var(--color-primary);
 }
 
+.plans-list__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
 .plans-list__meta {
   margin-top: var(--space-xs);
+}
+
+.active-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: #f9fafb;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-md);
+}
+
+.active-filter__clear {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.active-filter__clear:hover {
+  color: var(--color-text);
 }
 
 /* Plan form */

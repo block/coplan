@@ -3,10 +3,11 @@ module CoPlan
     before_action :set_plan, only: [:show, :edit, :update, :update_status]
 
     def index
-      @plans = Plan.includes(:plan_type).order(updated_at: :desc)
+      @plans = Plan.includes(:plan_type, :tags).order(updated_at: :desc)
       @plans = @plans.where(status: params[:status]) if params[:status].present?
       @plans = @plans.where(created_by_user: current_user) if params[:scope] == "mine"
       @plans = @plans.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?
+      @plans = @plans.with_tag(params[:tag]) if params[:tag].present?
 
       @plan_types = PlanType.order(:name)
 

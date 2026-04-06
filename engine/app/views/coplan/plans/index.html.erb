@@ -3,23 +3,30 @@
 </div>
 
 <div class="status-filters">
-  <%= link_to "All Plans", plans_path(params.permit(:status)), class: "status-filter #{'status-filter--active' if params[:scope].blank?}" %>
-  <%= link_to "My Plans", plans_path(params.permit(:status).merge(scope: "mine")), class: "status-filter #{'status-filter--active' if params[:scope] == 'mine'}" %>
+  <%= link_to "All Plans", plans_path(params.permit(:status, :tag)), class: "status-filter #{'status-filter--active' if params[:scope].blank?}" %>
+  <%= link_to "My Plans", plans_path(params.permit(:status, :tag).merge(scope: "mine")), class: "status-filter #{'status-filter--active' if params[:scope] == 'mine'}" %>
 </div>
 
 <div class="status-filters">
-  <%= link_to "All", plans_path(params.permit(:scope, :plan_type)), class: "status-filter #{'status-filter--active' if params[:status].blank?}" %>
+  <%= link_to "All", plans_path(params.permit(:scope, :plan_type, :tag)), class: "status-filter #{'status-filter--active' if params[:status].blank?}" %>
   <% CoPlan::Plan::STATUSES.each do |status| %>
-    <%= link_to status.titleize, plans_path(params.permit(:scope, :plan_type).merge(status: status)), class: "status-filter status-filter--#{status} #{'status-filter--active' if params[:status] == status}" %>
+    <%= link_to status.titleize, plans_path(params.permit(:scope, :plan_type, :tag).merge(status: status)), class: "status-filter status-filter--#{status} #{'status-filter--active' if params[:status] == status}" %>
   <% end %>
 </div>
 
 <% if @plan_types.any? %>
   <div class="status-filters">
-    <%= link_to "All Types", plans_path(params.permit(:scope, :status)), class: "status-filter #{'status-filter--active' if params[:plan_type].blank?}" %>
+    <%= link_to "All Types", plans_path(params.permit(:scope, :status, :tag)), class: "status-filter #{'status-filter--active' if params[:plan_type].blank?}" %>
     <% @plan_types.each do |pt| %>
-      <%= link_to pt.name, plans_path(params.permit(:scope, :status).merge(plan_type: pt.id)), class: "status-filter #{'status-filter--active' if params[:plan_type] == pt.id}" %>
+      <%= link_to pt.name, plans_path(params.permit(:scope, :status, :tag).merge(plan_type: pt.id)), class: "status-filter #{'status-filter--active' if params[:plan_type] == pt.id}" %>
     <% end %>
+  </div>
+<% end %>
+
+<% if params[:tag].present? %>
+  <div class="active-filter">
+    Filtered by tag: <span class="badge badge--tag badge--tag-active"><%= params[:tag] %></span>
+    <%= link_to "✕ Clear", plans_path(params.permit(:scope, :status, :plan_type)), class: "active-filter__clear" %>
   </div>
 <% end %>
 
@@ -38,6 +45,13 @@
             <span class="inbox-badge"><%= plan_unread %></span>
           <% end %>
         </div>
+        <% if plan.tags.any? %>
+          <div class="plans-list__tags">
+            <% plan.tags.each do |tag| %>
+              <%= link_to tag.name, plans_path(params.permit(:scope, :status, :plan_type).merge(tag: tag.name)), class: "badge badge--tag #{'badge--tag-active' if params[:tag] == tag.name}" %>
+            <% end %>
+          </div>
+        <% end %>
         <div class="plans-list__meta text-sm text-muted">
           by <%= plan.created_by_user.name %> · v<%= plan.current_revision %> · updated <%= time_ago_in_words(plan.updated_at) %> ago
         </div>
