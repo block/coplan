@@ -1,4 +1,8 @@
-# Automatically copy engine migrations before db:migrate so hosts
-# never silently fall behind on schema changes.
-# Rails derives the task name from CoPlan → co_plan.
-Rake::Task["db:migrate"].enhance(["co_plan:install:migrations"]) if Rake::Task.task_defined?("db:migrate")
+# Engine migrations are copied into the host app manually when bumping
+# the coplan-engine gem version, via:
+#
+#   bin/rails co_plan:install:migrations
+#   bin/rails db:migrate
+#
+# We intentionally do NOT enhance db:migrate with install:migrations
+# because deployed containers have a read-only filesystem.
