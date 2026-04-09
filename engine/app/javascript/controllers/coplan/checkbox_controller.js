@@ -18,16 +18,12 @@ export default class extends Controller {
 
     // Optimistic UI: update immediately
     checkbox.dataset.lineText = newText
-    const li = checkbox.closest("li")
-    if (li) {
-      li.classList.toggle("task-list-item--checked", nowChecked)
-    }
 
     this.inflight = true
-    this.#sendToggle({ checkbox, li, oldText, newText, nowChecked, retried: false })
+    this.#sendToggle({ checkbox, oldText, newText, nowChecked, retried: false })
   }
 
-  #sendToggle({ checkbox, li, oldText, newText, nowChecked, retried }) {
+  #sendToggle({ checkbox, oldText, newText, nowChecked, retried }) {
     const token = document.querySelector('meta[name="csrf-token"]')?.content
 
     fetch(this.toggleUrlValue, {
@@ -54,20 +50,19 @@ export default class extends Controller {
           if (data.current_revision) {
             this.revisionValue = data.current_revision
           }
-          this.#sendToggle({ checkbox, li, oldText, newText, nowChecked, retried: true })
+          this.#sendToggle({ checkbox, oldText, newText, nowChecked, retried: true })
         })
       } else {
-        this.#revert(checkbox, li, oldText, nowChecked)
+        this.#revert(checkbox, oldText, nowChecked)
       }
     }).catch(() => {
-      this.#revert(checkbox, li, oldText, nowChecked)
+      this.#revert(checkbox, oldText, nowChecked)
     })
   }
 
-  #revert(checkbox, li, oldText, nowChecked) {
+  #revert(checkbox, oldText, nowChecked) {
     checkbox.checked = !nowChecked
     checkbox.dataset.lineText = oldText
-    if (li) li.classList.toggle("task-list-item--checked", !nowChecked)
     this.inflight = false
   }
 }

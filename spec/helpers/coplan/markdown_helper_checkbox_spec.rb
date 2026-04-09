@@ -41,14 +41,12 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include("task-list-item")
     end
 
-    it "adds task-list-item--checked class for checked items" do
-      html = helper.render_markdown("- [x] Done")
-      expect(html).to include("task-list-item--checked")
-    end
-
-    it "does not add task-list-item--checked for unchecked items" do
-      html = helper.render_markdown("- [ ] Not done")
-      expect(html).not_to include("task-list-item--checked")
+    it "wraps checkbox li contents in a label for clickability" do
+      html = helper.render_markdown("- [ ] Click me")
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      label = doc.at_css("li.task-list-item label")
+      expect(label).to be_present
+      expect(label.at_css('input[type="checkbox"]')).to be_present
     end
 
     it "handles mixed task and non-task items" do

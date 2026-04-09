@@ -712,10 +712,11 @@ img.avatar {
   padding-left: var(--space-md);
 }
 
-.markdown-rendered .task-list-item {
+.markdown-rendered .task-list-item label {
   display: flex;
   align-items: baseline;
   gap: var(--space-sm);
+  cursor: pointer;
 }
 
 .markdown-rendered .task-list-item input[type="checkbox"] {
@@ -724,10 +725,6 @@ img.avatar {
   margin: 0;
   position: relative;
   top: 1px;
-}
-
-.markdown-rendered .task-list-item--checked {
-  color: var(--color-text-muted);
 }
 
 .markdown-rendered pre {

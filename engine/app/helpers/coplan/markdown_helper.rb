@@ -6,7 +6,7 @@ module CoPlan
       ul ol li
       table thead tbody tfoot tr th td
       pre code
-      a img input
+      a img input label
       strong em b i u s del
       blockquote hr br
       dd dt dl
@@ -61,7 +61,11 @@ module CoPlan
         li = cb.parent
         next unless li&.name == "li"
         li.add_class("task-list-item")
-        li.add_class("task-list-item--checked") if cb["checked"]
+
+        # Wrap li contents in a <label> so the whole text is clickable
+        label = Nokogiri::XML::Node.new("label", doc)
+        li.children.each { |child| label.add_child(child) }
+        li.add_child(label)
 
         ul = li.parent
         ul.add_class("task-list") if ul&.name == "ul"
