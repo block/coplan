@@ -3,7 +3,10 @@ module CoPlan
     before_action :set_plan, only: [:show, :edit, :update, :update_status, :toggle_checkbox]
 
     def index
-      @plans = Plan.includes(:plan_type, :tags).order(updated_at: :desc)
+      @plans = Plan.includes(:plan_type, :tags)
+        .where.not(status: "brainstorm")
+        .or(Plan.where(created_by_user: current_user))
+        .order(updated_at: :desc)
       @plans = @plans.where(status: params[:status]) if params[:status].present?
       @plans = @plans.where(created_by_user: current_user) if params[:scope] == "mine"
       @plans = @plans.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?

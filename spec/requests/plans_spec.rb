@@ -139,6 +139,21 @@ RSpec.describe "Plans", type: :request do
     expect(response).to redirect_to(plan_path(plan))
   end
 
+  it "index hides other users brainstorm plans" do
+    brainstorm_plan # alice's brainstorm
+    sign_in_as(bob)
+    get plans_path
+    expect(response).to have_http_status(:success)
+    expect(response.body).not_to include(brainstorm_plan.title)
+  end
+
+  it "index shows own brainstorm plans" do
+    brainstorm_plan # alice's brainstorm
+    get plans_path
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include(brainstorm_plan.title)
+  end
+
   it "can view brainstorm plan as non-author" do
     sign_in_as(bob)
     get plan_path(brainstorm_plan)
