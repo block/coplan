@@ -6,7 +6,7 @@ module CoPlan
       ul ol li
       table thead tbody tfoot tr th td
       pre code
-      a img
+      a img input
       strong em b i u s del
       blockquote hr br
       dd dt dl
@@ -14,12 +14,13 @@ module CoPlan
       details summary
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class href src alt title].freeze
+    ALLOWED_ATTRIBUTES = %w[id class href src alt title type checked disabled data-line-text data-action data-coplan--checkbox-target].freeze
 
     def render_markdown(content)
       html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { render: { unsafe: true } }, plugins: { syntax_highlighter: nil })
       sanitized = sanitize(html, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
-      tag.div(sanitized, class: "markdown-rendered")
+      interactive = make_checkboxes_interactive(sanitized, content)
+      tag.div(interactive.html_safe, class: "markdown-rendered")
     end
 
     def markdown_to_plain_text(content)
@@ -37,6 +38,36 @@ module CoPlan
       end
 
       tag.div(safe_join(line_divs), class: "line-view", data: { controller: "line-selection" })
+    end
+
+    private
+
+    def make_checkboxes_interactive(html, content)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      checkboxes = doc.css('input[type="checkbox"]')
+      return html if checkboxes.empty?
+
+      task_lines = content.to_s.lines.map(&:rstrip).select { |l| l.match?(/^\s*[*+-]\s+\[[ xX]\]\s/) }
+
+      checkboxes.each_with_index do |cb, i|
+        line_text = task_lines[i]
+        next unless line_text
+
+        cb.remove_attribute("disabled")
+        cb["data-action"] = "coplan--checkbox#toggle"
+        cb["data-coplan--checkbox-target"] = "checkbox"
+        cb["data-line-text"] = line_text.lstrip
+
+        li = cb.parent
+        next unless li&.name == "li"
+        li.add_class("task-list-item")
+        li.add_class("task-list-item--checked") if cb["checked"]
+
+        ul = li.parent
+        ul.add_class("task-list") if ul&.name == "ul"
+      end
+
+      doc.to_html
     end
   end
 end

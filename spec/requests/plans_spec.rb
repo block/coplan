@@ -89,7 +89,7 @@ RSpec.describe "Plans", type: :request do
   it "show plan wires up both text-selection and content-nav controllers" do
     get plan_path(plan)
     expect(response).to have_http_status(:success)
-    expect(response.body).to include('data-controller="coplan--text-selection coplan--content-nav"')
+    expect(response.body).to include('data-controller="coplan--text-selection coplan--content-nav coplan--checkbox"')
   end
 
   it "show plan shares content target between controllers" do

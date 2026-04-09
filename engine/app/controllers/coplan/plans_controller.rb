@@ -1,6 +1,6 @@
 module CoPlan
   class PlansController < ApplicationController
-    before_action :set_plan, only: [:show, :edit, :update, :update_status]
+    before_action :set_plan, only: [:show, :edit, :update, :update_status, :toggle_checkbox]
 
     def index
       @plans = Plan.includes(:plan_type, :tags).order(updated_at: :desc)
@@ -49,6 +49,58 @@ module CoPlan
       else
         redirect_to plan_path(@plan), alert: "Invalid status."
       end
+    end
+
+    def toggle_checkbox
+      authorize!(@plan, :show?)
+
+      old_text = params[:old_text]
+      new_text = params[:new_text]
+      base_revision = params[:base_revision]&.to_i
+
+      unless old_text.present? && new_text.present? && base_revision.present?
+        render json: { error: "old_text, new_text, and base_revision are required" }, status: :unprocessable_content
+        return
+      end
+
+      ActiveRecord::Base.transaction do
+        @plan.lock!
+        @plan.reload
+
+        if @plan.current_revision != base_revision
+          render json: { error: "Conflict", current_revision: @plan.current_revision }, status: :conflict
+          return
+        end
+
+        current_content = @plan.current_content || ""
+        result = Plans::ApplyOperations.call(
+          content: current_content,
+          operations: [{ "op" => "replace_exact", "old_text" => old_text, "new_text" => new_text }]
+        )
+
+        new_revision = @plan.current_revision + 1
+        diff = Diffy::Diff.new(current_content, result[:content]).to_s
+
+        version = PlanVersion.create!(
+          plan: @plan,
+          revision: new_revision,
+          content_markdown: result[:content],
+          actor_type: "human",
+          actor_id: current_user.id,
+          change_summary: "Toggle checkbox",
+          diff_unified: diff.presence,
+          operations_json: result[:applied],
+          base_revision: base_revision
+        )
+
+        @plan.update!(current_plan_version: version, current_revision: new_revision)
+        @plan.comment_threads.mark_out_of_date_for_new_version!(version)
+      end
+
+      broadcast_plan_update(@plan)
+      render json: { revision: @plan.current_revision }
+    rescue Plans::OperationError => e
+      render json: { error: e.message }, status: :unprocessable_content
     end
 
     private
