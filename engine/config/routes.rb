@@ -1,6 +1,7 @@
 CoPlan::Engine.routes.draw do
   resources :plans, only: [:index, :show, :edit, :update] do
     patch :update_status, on: :member
+    patch :toggle_checkbox, on: :member
     resources :versions, controller: "plan_versions", only: [:index, :show]
     resources :automated_reviews, only: [:create]
     resources :comment_threads, only: [:create] do
