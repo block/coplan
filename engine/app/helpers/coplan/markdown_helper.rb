@@ -47,7 +47,7 @@ module CoPlan
       checkboxes = doc.css('input[type="checkbox"]')
       return html if checkboxes.empty?
 
-      task_lines = content.to_s.lines.map(&:rstrip).select { |l| l.match?(/^\s*[*+-]\s+\[[ xX]\]\s/) }
+      task_lines = extract_task_lines(content)
 
       checkboxes.each_with_index do |cb, i|
         line_text = task_lines[i]
@@ -56,7 +56,7 @@ module CoPlan
         cb.remove_attribute("disabled")
         cb["data-action"] = "coplan--checkbox#toggle"
         cb["data-coplan--checkbox-target"] = "checkbox"
-        cb["data-line-text"] = line_text.lstrip
+        cb["data-line-text"] = line_text
 
         li = cb.parent
         next unless li&.name == "li"
@@ -68,6 +68,21 @@ module CoPlan
       end
 
       doc.to_html
+    end
+
+    def extract_task_lines(content)
+      lines = []
+      in_fence = false
+      content.to_s.each_line do |line|
+        stripped = line.rstrip
+        if stripped.match?(/\A(`{3,}|~{3,})/)
+          in_fence = !in_fence
+          next
+        end
+        next if in_fence
+        lines << stripped if stripped.match?(/^\s*[*+-]\s+\[[ xX]\]\s/)
+      end
+      lines
     end
   end
 end

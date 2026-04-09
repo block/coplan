@@ -79,5 +79,23 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       html = helper.render_markdown("- [ ] Item")
       expect(html).to include('class="markdown-rendered"')
     end
+
+    it "ignores task lines inside fenced code blocks" do
+      md = "```\n- [ ] Fake checkbox\n```\n\n- [ ] Real checkbox"
+      html = helper.render_markdown(md)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      checkboxes = doc.css('input[type="checkbox"]')
+      expect(checkboxes.length).to eq(1)
+      expect(checkboxes[0]["data-line-text"]).to eq("- [ ] Real checkbox")
+    end
+
+    it "preserves indentation in data-line-text for nested tasks" do
+      md = "- [ ] Parent\n  - [ ] Nested child"
+      html = helper.render_markdown(md)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      checkboxes = doc.css('input[type="checkbox"]')
+      nested = checkboxes.find { |cb| cb["data-line-text"]&.include?("Nested") }
+      expect(nested["data-line-text"]).to eq("  - [ ] Nested child")
+    end
   end
 end

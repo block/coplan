@@ -78,6 +78,17 @@ RSpec.describe "Toggle Checkbox", type: :request do
       expect(response).to have_http_status(:unprocessable_content)
     end
 
+    it "returns 422 when payload is not a checkbox toggle" do
+      patch toggle_checkbox_plan_path(plan), params: {
+        old_text: "arbitrary text to replace",
+        new_text: "sneaky replacement",
+        base_revision: plan.current_revision
+      }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["error"]).to include("task list")
+    end
+
     it "returns 422 when old_text is not found in content" do
       patch toggle_checkbox_plan_path(plan), params: {
         old_text: "- [ ] Nonexistent task",

@@ -63,6 +63,12 @@ module CoPlan
         return
       end
 
+      checkbox_pattern = /\A\s*[*+-]\s+\[[ xX]\]\s/
+      unless old_text.match?(checkbox_pattern) && new_text.match?(checkbox_pattern)
+        render json: { error: "old_text and new_text must be task list items" }, status: :unprocessable_content
+        return
+      end
+
       ActiveRecord::Base.transaction do
         @plan.lock!
         @plan.reload
