@@ -22,7 +22,7 @@ Optional query param: `?status=considering`
   "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
 ```
 
-Returns: `id`, `title`, `status`, `current_content` (markdown), `current_revision`.
+Returns: `id`, `title`, `status`, `current_content` (markdown), `current_revision`, `references` (array of linked resources).
 
 ### Create Plan
 
@@ -46,7 +46,7 @@ Update plan metadata (title, status, tags). Only fields included in the request 
   "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
 ```
 
-Allowed fields: `title` (string), `status` (string), `tags` (array of strings).
+Allowed fields: `title` (string), `status` (string), `tags` (array of strings), `references` (array — see [References](#references) below).
 
 ### List Tags
 
@@ -98,6 +98,64 @@ Plan types categorize plans and provide default tags. When creating a plan, pass
 
 No plan types are currently configured.
 <% end %>
+
+### References
+
+References connect plans to external resources (repos, PRs, docs) and to other plans. **Always add references** when your plan mentions GitHub repos, PRs, design docs, or other plans — they make plans discoverable and show the connective tissue between work.
+
+Links in plan content are **auto-extracted** as references. You can also add explicit references via the API.
+
+**Add references on create or update:**
+
+```bash
+<%= @curl %> -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"title": "My Plan", "content": "...", "references": [{"url": "https://github.com/org/repo", "key": "main-repo", "title": "Main Repo"}, {"url": "https://github.com/org/repo/pull/42", "key": "impl-pr", "title": "Implementation PR"}]}' \
+  "<%= @base %>/api/v1/plans" | jq .
+```
+
+Each reference object takes: `url` (required), `key` (optional — a short identifier like `auth-repo` or `impl-pr`), `title` (optional). The `reference_type` is auto-classified from the URL (repository, pull_request, plan, document, link).
+
+Keys let you give references semantic meaning that persists across edits. Use lowercase alphanumeric characters, hyphens, and underscores (e.g., `auth-service`, `main_repo`, `impl-pr`). Keys must be unique per plan. You can also define keys using markdown reference-style links in your content:
+
+```
+See the [auth-repo] for implementation details.
+
+[auth-repo]: https://github.com/org/auth-service "Auth Service"
+```
+
+These are auto-extracted with both the key and title preserved.
+
+**List references for a plan:**
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/references" | jq .
+```
+
+**Add a reference to an existing plan:**
+
+```bash
+<%= @curl %> -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://github.com/org/repo", "key": "service-repo", "title": "Service Repo"}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/references" | jq .
+```
+
+**Find plans that reference a URL:**
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/references/search?url=https://github.com/org/repo" | jq .
+```
+
+**Guidelines:**
+- **Always set a `key`** when adding explicit references — it gives the reference a stable semantic identity (e.g., `auth-repo`, `impl-pr`, `design-doc`).
+- Add references to any GitHub repos, PRs, design docs, or related plans mentioned in your plan.
+- Links in plan content are auto-extracted — you don't need to add those manually.
+- Use explicit references for resources not linked in the content but still relevant.
+- Reference titles should be human-readable (e.g., "Auth Service Repo", not the raw URL).
+- Use markdown reference-style links (`[key]: url "title"`) in content to auto-extract keyed references.
 
 ### Get Versions
 

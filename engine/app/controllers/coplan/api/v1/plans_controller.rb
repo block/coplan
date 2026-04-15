@@ -18,7 +18,18 @@ module CoPlan
         def show
           render json: plan_json(@plan).merge(
             current_content: @plan.current_content,
-            current_revision: @plan.current_revision
+            current_revision: @plan.current_revision,
+            references: @plan.references.map { |r|
+              {
+                id: r.id,
+                key: r.key,
+                url: r.url,
+                title: r.title,
+                reference_type: r.reference_type,
+                source: r.source,
+                target_plan_id: r.target_plan_id
+              }
+            }
           )
         end
 
@@ -39,6 +50,17 @@ module CoPlan
             user: current_user,
             plan_type_id: plan_type&.id
           )
+
+          if params[:references].is_a?(Array)
+            params[:references].each do |ref_params|
+              next unless ref_params[:url].present?
+              ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url])
+              ref = plan.references.find_or_initialize_by(url: ref_params[:url])
+              ref.assign_attributes(key: ref_params[:key], title: ref_params[:title], reference_type: ref_type, source: "explicit")
+              ref.save!
+            end
+          end
+
           render json: plan_json(plan).merge(
             current_content: plan.current_content,
             current_revision: plan.current_revision
@@ -66,6 +88,16 @@ module CoPlan
 
           if permitted.key?(:status) && @plan.saved_change_to_status?
             Plans::TriggerAutomatedReviews.call(plan: @plan, new_status: permitted[:status], triggered_by: current_user)
+          end
+
+          if params[:references].is_a?(Array)
+            params[:references].each do |ref_params|
+              next unless ref_params[:url].present?
+              ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url])
+              ref = @plan.references.find_or_initialize_by(url: ref_params[:url])
+              ref.assign_attributes(key: ref_params[:key], title: ref_params[:title], reference_type: ref_type, source: "explicit")
+              ref.save!
+            end
           end
 
           render json: plan_json(@plan).merge(

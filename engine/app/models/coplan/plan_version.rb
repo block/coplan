@@ -13,8 +13,13 @@ module CoPlan
     validates :actor_type, presence: true, inclusion: { in: ACTOR_TYPES }
 
     before_validation :compute_sha256, if: -> { content_markdown.present? && content_sha256.blank? }
+    after_create_commit :extract_references
 
     private
+
+    def extract_references
+      CoPlan::References::ExtractFromContent.call(plan: plan, content: content_markdown)
+    end
 
     def compute_sha256
       self.content_sha256 = Digest::SHA256.hexdigest(content_markdown)

@@ -3,6 +3,7 @@ CoPlan::Engine.routes.draw do
     patch :update_status, on: :member
     patch :toggle_checkbox, on: :member
     resources :versions, controller: "plan_versions", only: [:index, :show]
+    resources :references, controller: "references", only: [:create, :destroy]
     resources :automated_reviews, only: [:create]
     resources :comment_threads, only: [:create] do
       member do
@@ -39,6 +40,10 @@ CoPlan::Engine.routes.draw do
           patch :resolve, on: :member
           patch :discard, on: :member
         end
+        resources :references, only: [:index, :create, :destroy]
+      end
+      resources :references, only: [] do
+        get :search, on: :collection
       end
     end
   end
