@@ -13,13 +13,15 @@ module CoPlan
         target_plan_id = candidate_id if candidate_id && candidate_id != @plan.id && Plan.exists?(candidate_id)
       end
 
-      @plan.references.find_or_create_by!(url: url) do |r|
-        r.key = params[:reference][:key].presence
-        r.title = params[:reference][:title].presence
-        r.reference_type = ref_type
-        r.source = "explicit"
-        r.target_plan_id = target_plan_id
-      end
+      ref = @plan.references.find_or_initialize_by(url: url)
+      ref.assign_attributes(
+        key: params[:reference][:key].presence || ref.key,
+        title: params[:reference][:title].presence || ref.title,
+        reference_type: ref_type,
+        source: "explicit",
+        target_plan_id: target_plan_id
+      )
+      ref.save!
 
       redirect_to plan_path(@plan), notice: "Reference added."
     rescue ActiveRecord::RecordInvalid => e

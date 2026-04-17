@@ -74,7 +74,7 @@ module CoPlan
         end
 
         # Match bare URLs that aren't already inside markdown link syntax
-        stripped = content.gsub(/\[([^\]]*)\]\(([^)]+)\)/, "").gsub(/^\[([^\]]+)\]:\s+\S+.*$/m, "")
+        stripped = content.gsub(/\[([^\]]*)\]\(([^)]+)\)/, "").gsub(/^\[([^\]]+)\]:\s+\S+.*$/, "")
         stripped.scan(%r{https?://[^\s<>\]\)]+}) do |url|
           url = url.chomp(".").chomp(",").chomp(")").chomp(";")
           urls[url] ||= { title: nil, key: nil }
