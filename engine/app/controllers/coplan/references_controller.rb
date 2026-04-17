@@ -62,7 +62,7 @@ module CoPlan
         ),
         turbo_stream.replace(
           "references-count",
-          html: content_tag(:span, references.size, class: "plan-tabs__count", id: "references-count")
+          html: helpers.content_tag(:span, references.size, class: "plan-tabs__count", id: "references-count")
         )
       ]
     end

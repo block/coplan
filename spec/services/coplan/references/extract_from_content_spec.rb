@@ -62,8 +62,9 @@ RSpec.describe CoPlan::References::ExtractFromContent do
       update_content(plan, "No links here.")
       described_class.call(plan: plan)
 
-      expect(plan.references.count).to eq(1)
-      expect(plan.references.first.source).to eq("explicit")
+      refs = plan.references.reload
+      expect(refs.count).to eq(1)
+      expect(refs.first.source).to eq("explicit")
     end
 
     it "does not overwrite explicit references with extracted ones" do
