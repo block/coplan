@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_06_200000) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_10_182145) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -70,13 +70,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_200000) do
     t.integer "start_line"
     t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
-    t.index ["addressed_in_plan_version_id"], name: "fk_rails_e7003e0df7"
-    t.index ["created_by_user_id"], name: "fk_rails_88fb5e06ca"
-    t.index ["out_of_date_since_version_id"], name: "fk_rails_be37c1499d"
+    t.index ["addressed_in_plan_version_id"], name: "fk_rails_a77cc69a6e"
+    t.index ["created_by_user_id"], name: "fk_rails_34dfdd2aac"
+    t.index ["out_of_date_since_version_id"], name: "fk_rails_60a8d49098"
     t.index ["plan_id", "out_of_date"], name: "index_coplan_comment_threads_on_plan_id_and_out_of_date"
     t.index ["plan_id", "status"], name: "index_coplan_comment_threads_on_plan_id_and_status"
-    t.index ["plan_version_id"], name: "fk_rails_676660f283"
-    t.index ["resolved_by_user_id"], name: "fk_rails_8625e1eb43"
+    t.index ["plan_version_id"], name: "fk_rails_514df5a253"
+    t.index ["resolved_by_user_id"], name: "fk_rails_e5ed569cf1"
   end
 
   create_table "coplan_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -117,7 +117,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_200000) do
     t.string "status", default: "open", null: false
     t.datetime "updated_at", null: false
     t.index ["plan_id", "status"], name: "index_coplan_edit_sessions_on_plan_id_and_status"
-    t.index ["plan_version_id"], name: "fk_rails_14c3f0737b"
+    t.index ["plan_version_id"], name: "fk_rails_55d7ec476a"
   end
 
   create_table "coplan_notifications", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -211,10 +211,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_200000) do
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.index ["created_by_user_id"], name: "index_coplan_plans_on_created_by_user_id"
-    t.index ["current_plan_version_id"], name: "fk_rails_c401577583"
+    t.index ["current_plan_version_id"], name: "fk_rails_4193983681"
     t.index ["plan_type_id"], name: "index_coplan_plans_on_plan_type_id"
     t.index ["status"], name: "index_coplan_plans_on_status"
     t.index ["updated_at"], name: "index_coplan_plans_on_updated_at"
+  end
+
+  create_table "coplan_references", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "key"
+    t.string "plan_id", limit: 36, null: false
+    t.string "reference_type", null: false
+    t.string "source", null: false
+    t.string "target_plan_id", limit: 36
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.string "url", null: false
+    t.index ["plan_id", "key"], name: "index_coplan_references_on_plan_id_and_key", unique: true
+    t.index ["plan_id", "url"], name: "index_coplan_references_on_plan_id_and_url", unique: true
+    t.index ["source"], name: "index_coplan_references_on_source"
+    t.index ["target_plan_id"], name: "index_coplan_references_on_target_plan_id"
   end
 
   create_table "coplan_tags", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -269,4 +285,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_200000) do
   add_foreign_key "coplan_plans", "coplan_plan_types", column: "plan_type_id"
   add_foreign_key "coplan_plans", "coplan_plan_versions", column: "current_plan_version_id"
   add_foreign_key "coplan_plans", "coplan_users", column: "created_by_user_id"
+  add_foreign_key "coplan_references", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_references", "coplan_plans", column: "target_plan_id"
 end

@@ -15,41 +15,52 @@
   <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
 </div>
 
-<div class="plan-content card">
-  <% if @plan.current_content.present? %>
-    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox" data-coplan--text-selection-plan-id-value="<%= @plan.id %>" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss" data-coplan--checkbox-plan-id-value="<%= @plan.id %>" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>">
-      <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
-        <div class="content-nav__header">
-          <span class="content-nav__title">Contents</span>
-          <button type="button" class="content-nav__toggle" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="toggleBtn" aria-label="Hide table of contents" title="Toggle (])">✕</button>
+<div class="plan-tabs" data-controller="coplan--tabs">
+  <div class="plan-tabs__nav">
+    <a href="#tab-content" class="plan-tabs__tab<%= ' plan-tabs__tab--active' unless params[:tab] == 'references' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="content">📄 Content</a>
+    <a href="#tab-references" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if params[:tab] == 'references' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="references">📎 References <span class="plan-tabs__count" id="references-count"><%= @references.size %></span></a>
+  </div>
+
+  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' if params[:tab] == 'references' %>" id="tab-content" data-coplan--tabs-target="panel">
+    <% if @plan.current_content.present? %>
+      <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox" data-coplan--text-selection-plan-id-value="<%= @plan.id %>" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss" data-coplan--checkbox-plan-id-value="<%= @plan.id %>" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>">
+        <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
+          <div class="content-nav__header">
+            <span class="content-nav__title">Contents</span>
+            <button type="button" class="content-nav__toggle" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="toggleBtn" aria-label="Hide table of contents" title="Toggle (])">✕</button>
+          </div>
+          <ul class="content-nav__list" data-coplan--content-nav-target="list"></ul>
+        </nav>
+        <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (])">☰ <kbd>]</kbd></button>
+
+        <div class="plan-layout__content" data-coplan--text-selection-target="content" data-coplan--content-nav-target="content">
+          <%= render_markdown(@plan.current_content) %>
+
+          <div class="comment-popover" data-coplan--text-selection-target="popover" style="display: none;">
+            <button type="button" class="btn btn--primary btn--sm" data-action="coplan--text-selection#openCommentForm">
+              💬 Comment
+            </button>
+          </div>
+
+          <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
         </div>
-        <ul class="content-nav__list" data-coplan--content-nav-target="list"></ul>
-      </nav>
-      <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (])">☰ <kbd>]</kbd></button>
 
-      <div class="plan-layout__content" data-coplan--text-selection-target="content" data-coplan--content-nav-target="content">
-        <%= render_markdown(@plan.current_content) %>
-
-        <div class="comment-popover" data-coplan--text-selection-target="popover" style="display: none;">
-          <button type="button" class="btn btn--primary btn--sm" data-action="coplan--text-selection#openCommentForm">
-            💬 Comment
-          </button>
+        <div id="plan-threads" data-coplan--text-selection-target="threads">
+          <% @threads.select(&:anchored?).each do |thread| %>
+            <%= render partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: @plan, current_user: current_user } %>
+          <% end %>
         </div>
-
-        <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
       </div>
-
-      <div id="plan-threads" data-coplan--text-selection-target="threads">
-        <% @threads.select(&:anchored?).each do |thread| %>
-          <%= render partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: @plan, current_user: current_user } %>
-        <% end %>
+    <% else %>
+      <div class="empty-state">
+        <p>This plan has no content yet.</p>
       </div>
-    </div>
-  <% else %>
-    <div class="empty-state">
-      <p>This plan has no content yet.</p>
-    </div>
-  <% end %>
+    <% end %>
+  </div>
+
+  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless params[:tab] == 'references' %>" id="tab-references" data-coplan--tabs-target="panel">
+    <%= render partial: "coplan/plans/references", locals: { references: @references, plan: @plan } %>
+  </div>
 </div>
 
 <% open_count = @threads.count(&:open?) %>

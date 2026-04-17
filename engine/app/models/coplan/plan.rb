@@ -15,6 +15,7 @@ module CoPlan
     has_many :tags, through: :plan_tags, source: :tag
     has_many :plan_viewers, dependent: :destroy
     has_many :notifications, dependent: :destroy
+    has_many :references, dependent: :destroy
 
     after_initialize { self.metadata ||= {} }
 

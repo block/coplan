@@ -1,0 +1,52 @@
+<div class="references-section" id="plan-references">
+  <div class="references-section__header">
+    <details class="references-add">
+      <summary class="btn btn--secondary btn--sm">+ Add Reference</summary>
+      <%= form_with url: plan_references_path(plan), method: :post, class: "references-add__form" do |f| %>
+        <div class="form-group">
+          <%= f.text_field :url, placeholder: "https://...", required: true, name: "reference[url]" %>
+        </div>
+        <div class="form-group">
+          <%= f.text_field :title, placeholder: "Title (optional)", name: "reference[title]" %>
+        </div>
+        <div class="form-group">
+          <%= f.text_field :key, placeholder: "Key (optional, e.g. auth-repo)", name: "reference[key]" %>
+        </div>
+        <%= f.submit "Add", class: "btn btn--primary btn--sm" %>
+      <% end %>
+    </details>
+  </div>
+
+  <% if references.any? %>
+    <ul class="references-list">
+      <% references.group_by(&:reference_type).each do |type, refs| %>
+        <% refs.each do |ref| %>
+          <li class="references-list__item">
+            <span class="references-list__icon"><%= reference_icon(type) %></span>
+            <div class="references-list__content">
+              <a href="<%= ref.url %>" target="_blank" rel="noopener" class="references-list__link">
+                <%= ref.title.presence || truncate(ref.url, length: 80) %>
+              </a>
+              <span class="references-list__meta">
+                <% if ref.key.present? %>
+                  <code class="badge badge--ref-key"><%= ref.key %></code>
+                <% end %>
+                <span class="badge badge--ref-type"><%= type.humanize %></span>
+                <% if ref.source == "extracted" %>
+                  <span class="references-list__source">auto-extracted</span>
+                <% end %>
+              </span>
+            </div>
+            <% if ref.source == "explicit" %>
+              <%= button_to "✕", plan_reference_path(plan, ref), method: :delete, class: "references-list__remove", title: "Remove reference", data: { turbo_confirm: "Remove this reference?", turbo_stream: true } %>
+            <% end %>
+          </li>
+        <% end %>
+      <% end %>
+    </ul>
+  <% else %>
+    <div class="empty-state">
+      <p>No references yet. Links in the plan content are auto-extracted, or add one manually.</p>
+    </div>
+  <% end %>
+</div>

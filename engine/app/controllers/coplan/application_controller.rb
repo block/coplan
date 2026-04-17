@@ -10,6 +10,7 @@ module CoPlan
     helper CoPlan::ApplicationHelper
     helper CoPlan::MarkdownHelper
     helper CoPlan::CommentsHelper
+    helper CoPlan::ReferencesHelper
 
     # Skip host auth — CoPlan handles authentication internally via config.authenticate
     skip_before_action :authenticate_user!, raise: false
