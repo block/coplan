@@ -18,7 +18,7 @@
 <div class="plan-tabs" data-controller="coplan--tabs">
   <div class="plan-tabs__nav">
     <a href="#tab-content" class="plan-tabs__tab<%= ' plan-tabs__tab--active' unless params[:tab] == 'references' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="content">📄 Content</a>
-    <a href="#tab-references" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if params[:tab] == 'references' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="references">📎 References <span class="plan-tabs__count"><%= @references.size %></span></a>
+    <a href="#tab-references" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if params[:tab] == 'references' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="references">📎 References <span class="plan-tabs__count" id="references-count"><%= @references.size %></span></a>
   </div>
 
   <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' if params[:tab] == 'references' %>" id="tab-content" data-coplan--tabs-target="panel">

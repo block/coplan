@@ -54,11 +54,17 @@ module CoPlan
 
     def render_references_stream
       references = @plan.references.reload.order(reference_type: :asc, created_at: :desc)
-      render turbo_stream: turbo_stream.replace(
-        "plan-references",
-        partial: "coplan/plans/references",
-        locals: { references: references, plan: @plan }
-      )
+      render turbo_stream: [
+        turbo_stream.replace(
+          "plan-references",
+          partial: "coplan/plans/references",
+          locals: { references: references, plan: @plan }
+        ),
+        turbo_stream.replace(
+          "references-count",
+          html: content_tag(:span, references.size, class: "plan-tabs__count", id: "references-count")
+        )
+      ]
     end
   end
 end
