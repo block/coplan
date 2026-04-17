@@ -23,9 +23,15 @@ module CoPlan
       )
       ref.save!
 
-      redirect_to plan_path(@plan), notice: "Reference added."
+      respond_to do |format|
+        format.turbo_stream { render_references_stream }
+        format.html { redirect_to plan_path(@plan, tab: "references"), notice: "Reference added." }
+      end
     rescue ActiveRecord::RecordInvalid => e
-      redirect_to plan_path(@plan), alert: e.message
+      respond_to do |format|
+        format.turbo_stream { render_references_stream }
+        format.html { redirect_to plan_path(@plan, tab: "references"), alert: e.message }
+      end
     end
 
     def destroy
@@ -33,13 +39,26 @@ module CoPlan
 
       ref = @plan.references.find(params[:id])
       ref.destroy!
-      redirect_to plan_path(@plan), notice: "Reference removed."
+
+      respond_to do |format|
+        format.turbo_stream { render_references_stream }
+        format.html { redirect_to plan_path(@plan, tab: "references"), notice: "Reference removed." }
+      end
     end
 
     private
 
     def set_plan
       @plan = Plan.find(params[:plan_id])
+    end
+
+    def render_references_stream
+      references = @plan.references.reload.order(reference_type: :asc, created_at: :desc)
+      render turbo_stream: turbo_stream.replace(
+        "plan-references",
+        partial: "coplan/plans/references",
+        locals: { references: references, plan: @plan }
+      )
     end
   end
 end

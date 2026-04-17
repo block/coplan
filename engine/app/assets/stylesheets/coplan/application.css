@@ -2006,20 +2006,57 @@ body:has(.comment-toolbar) .main-content {
   background: var(--color-bg);
 }
 
-.references-add {
-  margin-top: var(--space-md);
+.references-section__header {
+  margin-bottom: var(--space-md);
 }
 
 .references-add summary {
   cursor: pointer;
+  list-style: none;
+}
+
+.references-add summary::-webkit-details-marker {
+  display: none;
 }
 
 .references-add__form {
   margin-top: var(--space-sm);
   display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  max-width: 400px;
+  align-items: flex-end;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.references-add__form .form-group {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 140px;
+}
+
+.references-add__form input[type="text"] {
+  width: 100%;
+  padding: 6px var(--space-sm);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  transition: border-color 0.15s;
+}
+
+.references-add__form input[type="text"]:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.references-add__form input[type="text"]::placeholder {
+  color: var(--color-text-muted);
+}
+
+.references-add__form .btn {
+  flex-shrink: 0;
 }
 
 /* Hide sidebar on small screens */
