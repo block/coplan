@@ -1,16 +1,19 @@
+<p class="mb-md"><%= link_to "← Back to plan", plan_path(@plan, tab: "history") %></p>
+
 <div class="page-header">
   <div>
     <h1><%= @plan.title %> — v<%= @version.revision %></h1>
     <div class="text-sm text-muted mt-md">
-      <%= @version.actor_type %> · <%= time_ago_in_words(@version.created_at) %> ago
+      <% if @version.actor_user %>
+        <%= user_avatar(@version.actor_user) %> <%= @version.actor_user.name %>
+      <% else %>
+        <%= @version.actor_type %>
+      <% end %>
+      · <%= time_ago_in_words(@version.created_at) %> ago
       <% if @version.change_summary.present? %>
         · <%= @version.change_summary %>
       <% end %>
     </div>
-  </div>
-  <div class="page-header__actions">
-    <%= link_to "All Versions", plan_versions_path(@plan), class: "btn btn--secondary" %>
-    <%= link_to "Current", plan_path(@plan), class: "btn btn--secondary" %>
   </div>
 </div>
 
@@ -23,7 +26,17 @@
   </div>
 <% end %>
 
-<div class="plan-content card">
-  <h3>Full Content</h3>
-  <%= render_markdown(@version.content_markdown) %>
+<div class="plan-layout" data-controller="coplan--content-nav">
+  <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
+    <div class="content-nav__header">
+      <span class="content-nav__title">Contents</span>
+      <button type="button" class="content-nav__toggle" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="toggleBtn" aria-label="Hide table of contents" title="Toggle (])">✕</button>
+    </div>
+    <ul class="content-nav__list" data-coplan--content-nav-target="list"></ul>
+  </nav>
+  <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (])">☰ <kbd>]</kbd></button>
+
+  <div class="plan-layout__content card" data-coplan--content-nav-target="content">
+    <%= render_markdown(@version.content_markdown, interactive: false) %>
+  </div>
 </div>

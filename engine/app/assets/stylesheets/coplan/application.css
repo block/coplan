@@ -743,22 +743,97 @@ img.avatar {
 }
 
 /* Version list */
-.versions-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
+/* History split view */
+.history-split {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 0;
+  min-height: 400px;
 }
 
-.versions-list__header {
+.history-split__list {
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.history-split__item {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  text-decoration: none;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.history-split__item:hover {
+  background: var(--color-bg-muted);
+  text-decoration: none;
+}
+
+.history-split__item--active {
+  background: var(--color-primary-light);
+  border-left: 3px solid var(--color-primary);
+  padding-left: calc(var(--space-md) - 3px);
+}
+
+.history-split__item--active:hover {
+  background: var(--color-primary-light);
+}
+
+.history-split__version {
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+}
+
+.history-split__meta {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
+  gap: var(--space-xs);
+  font-size: var(--text-sm);
+  margin-top: 2px;
 }
 
-.versions-list__link {
-  font-weight: 600;
-  font-size: var(--text-lg);
+.history-split__summary {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.history-split__time {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.history-split__detail {
+  padding: var(--space-md) var(--space-lg);
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.history-split__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+}
+
+/* Version diff preview */
+.version-diff-preview__header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.version-diff-preview__header h3 {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  margin: 0;
 }
 
 /* Diff view */

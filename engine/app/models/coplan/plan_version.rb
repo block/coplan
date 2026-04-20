@@ -3,6 +3,7 @@ module CoPlan
     ACTOR_TYPES = %w[human local_agent cloud_persona system].freeze
 
     belongs_to :plan
+    belongs_to :actor_user, class_name: "CoPlan::User", foreign_key: "actor_id", optional: true
     has_many :comment_threads, dependent: :nullify
 
     after_initialize { self.operations_json ||= [] }
@@ -14,12 +15,28 @@ module CoPlan
 
     before_validation :compute_sha256, if: -> { content_markdown.present? && content_sha256.blank? }
     after_create_commit :extract_references
+    after_create_commit :broadcast_history_update
 
     private
 
     def extract_references
       CoPlan::References::ExtractFromContent.call(plan: plan, content: content_markdown)
       broadcast_references_update
+    end
+
+    def broadcast_history_update
+      Broadcaster.prepend_to(
+        plan,
+        target: "plan-history-list",
+        partial: "coplan/plans/version_item",
+        locals: { version: self, plan: plan }
+      )
+      count = plan.plan_versions.count
+      Broadcaster.replace_to(
+        plan,
+        target: "history-count",
+        html: ApplicationController.helpers.content_tag(:span, count, class: "plan-tabs__count", id: "history-count")
+      )
     end
 
     def broadcast_references_update

@@ -1,0 +1,16 @@
+<%= link_to diff_plan_version_path(plan, version),
+      class: "history-split__item",
+      data: { turbo_frame: "version-diff", action: "coplan--history#select" } do %>
+  <div class="history-split__version">v<%= version.revision %></div>
+  <div class="history-split__meta">
+    <% if version.actor_user %>
+      <%= user_avatar(version.actor_user) %> <span><%= version.actor_user.name %></span>
+    <% else %>
+      <span class="badge badge--considering"><%= version.actor_type %></span>
+    <% end %>
+  </div>
+  <% if version.change_summary.present? %>
+    <div class="history-split__summary"><%= version.change_summary %></div>
+  <% end %>
+  <div class="history-split__time"><%= time_ago_in_words(version.created_at) %> ago</div>
+<% end %>

@@ -15,13 +15,15 @@
   <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
 </div>
 
+<% active_tab = %w[references history].include?(params[:tab]) ? params[:tab] : "content" %>
 <div class="plan-tabs" data-controller="coplan--tabs">
   <div class="plan-tabs__nav">
-    <a href="#tab-content" class="plan-tabs__tab<%= ' plan-tabs__tab--active' unless params[:tab] == 'references' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="content">📄 Content</a>
-    <a href="#tab-references" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if params[:tab] == 'references' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="references">📎 References <span class="plan-tabs__count" id="references-count"><%= @references.size %></span></a>
+    <a href="#tab-content" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'content' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="content">📄 Content</a>
+    <a href="#tab-references" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'references' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="references">📎 References <span class="plan-tabs__count" id="references-count"><%= @references.size %></span></a>
+    <a href="#tab-history" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'history' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="history">📜 History <span class="plan-tabs__count" id="history-count"><%= @plan.plan_versions.count %></span></a>
   </div>
 
-  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' if params[:tab] == 'references' %>" id="tab-content" data-coplan--tabs-target="panel">
+  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'content' %>" id="tab-content" data-coplan--tabs-target="panel">
     <% if @plan.current_content.present? %>
       <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox" data-coplan--text-selection-plan-id-value="<%= @plan.id %>" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss" data-coplan--checkbox-plan-id-value="<%= @plan.id %>" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>">
         <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
@@ -58,8 +60,16 @@
     <% end %>
   </div>
 
-  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless params[:tab] == 'references' %>" id="tab-references" data-coplan--tabs-target="panel">
+  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'references' %>" id="tab-references" data-coplan--tabs-target="panel">
     <%= render partial: "coplan/plans/references", locals: { references: @references, plan: @plan } %>
+  </div>
+
+  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'history' %>" id="tab-history" data-coplan--tabs-target="panel">
+    <turbo-frame id="plan-history-frame" src="<%= history_plan_path(@plan) %>" loading="lazy">
+      <div class="history-split__placeholder">
+        <p class="text-muted">Loading…</p>
+      </div>
+    </turbo-frame>
   </div>
 </div>
 
