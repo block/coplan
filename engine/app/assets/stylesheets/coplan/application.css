@@ -1433,13 +1433,9 @@ img.avatar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-md) 0;
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: var(--space-xl);
 }
 
 .settings-row__label {
-  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text);
 }
@@ -1467,7 +1463,7 @@ img.avatar {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--color-text-muted);
