@@ -1428,44 +1428,70 @@ img.avatar {
   color: var(--color-text-muted);
 }
 
-/* Theme options */
-.theme-options {
+/* Settings row */
+.settings-row {
   display: flex;
-  gap: var(--space-md);
-  margin-top: var(--space-md);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-xl);
 }
 
-.theme-option {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  padding: var(--space-md);
+.settings-row__label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Theme switcher (segmented control) */
+.theme-switcher {
+  display: inline-flex;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  flex: 1;
+  overflow: hidden;
 }
 
-.theme-option:hover {
-  border-color: var(--color-border-strong);
+.theme-switcher__option {
+  cursor: pointer;
+  margin: 0;
+}
+
+.theme-switcher__option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.theme-switcher__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  transition: background 0.15s, color 0.15s;
+  border-right: 1px solid var(--color-border);
+}
+
+.theme-switcher__option:last-child .theme-switcher__btn {
+  border-right: none;
+}
+
+.theme-switcher__btn svg {
+  flex-shrink: 0;
+}
+
+.theme-switcher__option:hover .theme-switcher__btn {
   background: var(--color-bg-muted);
+  color: var(--color-text);
 }
 
-.theme-option:has(input:checked) {
-  border-color: var(--color-primary);
+.theme-switcher__option:has(input:checked) .theme-switcher__btn {
   background: var(--color-primary-light);
-}
-
-.theme-option input[type="radio"] {
-  margin-top: 3px;
-  cursor: pointer;
-}
-
-.theme-option__label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 /* Page header */
