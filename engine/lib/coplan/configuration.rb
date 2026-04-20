@@ -55,7 +55,7 @@ module CoPlan
     end
 
     def show_api_tokens?
-      @api_authenticate.nil?
+      true
     end
   end
 end
