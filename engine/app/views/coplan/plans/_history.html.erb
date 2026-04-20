@@ -1,0 +1,15 @@
+<div class="history-split" id="plan-history" data-controller="coplan--history">
+  <div class="history-split__list" id="plan-history-list">
+    <% versions.each_with_index do |version, i| %>
+      <%= render partial: "coplan/plans/version_item", locals: { version: version, plan: plan } %>
+    <% end %>
+  </div>
+
+  <div class="history-split__detail">
+    <turbo-frame id="version-diff" src="<%= versions.any? ? diff_plan_version_path(plan, versions.first) : nil %>">
+      <div class="history-split__placeholder">
+        <p class="text-muted">Loading…</p>
+      </div>
+    </turbo-frame>
+  </div>
+</div>

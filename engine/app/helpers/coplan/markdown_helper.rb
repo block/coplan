@@ -16,11 +16,11 @@ module CoPlan
 
     ALLOWED_ATTRIBUTES = %w[id class href src alt title type checked disabled data-line-text data-action data-coplan--checkbox-target].freeze
 
-    def render_markdown(content)
+    def render_markdown(content, interactive: true)
       html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { render: { unsafe: true } }, plugins: { syntax_highlighter: nil })
       sanitized = sanitize(html, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
-      interactive = make_checkboxes_interactive(sanitized, content)
-      tag.div(interactive.html_safe, class: "markdown-rendered")
+      result = interactive ? make_checkboxes_interactive(sanitized, content) : sanitized
+      tag.div(result.html_safe, class: "markdown-rendered")
     end
 
     def markdown_to_plain_text(content)

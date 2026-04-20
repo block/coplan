@@ -1,0 +1,29 @@
+<turbo-frame id="version-diff">
+  <div class="version-diff-preview">
+    <div class="version-diff-preview__header">
+      <h3>v<%= @version.revision %></h3>
+      <span class="text-sm text-muted">
+        <% if @version.actor_user %>
+          <%= user_avatar(@version.actor_user) %> <%= @version.actor_user.name %> ·
+        <% else %>
+          <%= @version.actor_type %> ·
+        <% end %>
+        <%= time_ago_in_words(@version.created_at) %> ago
+        <% if @version.change_summary.present? %>
+          · <%= @version.change_summary %>
+        <% end %>
+      </span>
+      <%= link_to "View full version →", plan_version_path(@plan, @version), class: "text-sm", data: { turbo_frame: "_top" } %>
+    </div>
+
+    <% if @diff %>
+      <div class="diff-view">
+        <%= @diff.to_s(:html).html_safe %>
+      </div>
+    <% else %>
+      <div class="text-sm text-muted" style="padding: var(--space-lg) 0;">
+        Initial version — no previous version to compare.
+      </div>
+    <% end %>
+  </div>
+</turbo-frame>

@@ -1,6 +1,6 @@
 module CoPlan
   class PlansController < ApplicationController
-    before_action :set_plan, only: [:show, :edit, :update, :update_status, :toggle_checkbox]
+    before_action :set_plan, only: [:show, :edit, :update, :update_status, :toggle_checkbox, :history]
 
     def index
       @plans = Plan.includes(:plan_type, :tags)
@@ -28,6 +28,12 @@ module CoPlan
       @threads = @plan.comment_threads.includes(:comments, :created_by_user).order(:created_at)
       @references = @plan.references.order(reference_type: :asc, created_at: :desc)
       PlanViewer.track(plan: @plan, user: current_user)
+    end
+
+    def history
+      authorize!(@plan, :show?)
+      @versions = @plan.plan_versions.includes(:actor_user).order(revision: :desc)
+      render layout: false
     end
 
     def edit
