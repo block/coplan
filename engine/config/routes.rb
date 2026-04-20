@@ -22,6 +22,7 @@ CoPlan::Engine.routes.draw do
   namespace :settings do
     root "settings#index"
     resources :tokens, only: [:index, :create, :destroy]
+    patch "theme", to: "settings#update_theme"
   end
 
   namespace :api do

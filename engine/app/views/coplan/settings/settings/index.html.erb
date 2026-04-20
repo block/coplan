@@ -2,4 +2,34 @@
   <h1>Settings</h1>
 </div>
 
+<h2>Appearance</h2>
+<p class="settings-section-subtitle">Choose how CoPlan looks to you</p>
+
+<div class="card mb-md" data-controller="coplan--theme" data-coplan--theme-url-value="<%= coplan.settings_theme_path %>">
+  <h3>Theme</h3>
+  <div class="theme-options">
+    <label class="theme-option">
+      <input type="radio" name="theme" value="system" <%= "checked" if current_user.theme_preference == "system" %> data-action="coplan--theme#select">
+      <span class="theme-option__label">
+        <strong>System</strong>
+        <span class="text-muted text-sm">Follow your device settings</span>
+      </span>
+    </label>
+    <label class="theme-option">
+      <input type="radio" name="theme" value="light" <%= "checked" if current_user.theme_preference == "light" %> data-action="coplan--theme#select">
+      <span class="theme-option__label">
+        <strong>Light</strong>
+        <span class="text-muted text-sm">Always use light theme</span>
+      </span>
+    </label>
+    <label class="theme-option">
+      <input type="radio" name="theme" value="dark" <%= "checked" if current_user.theme_preference == "dark" %> data-action="coplan--theme#select">
+      <span class="theme-option__label">
+        <strong>Dark</strong>
+        <span class="text-muted text-sm">Always use dark theme</span>
+      </span>
+    </label>
+  </div>
+</div>
+
 <%= render "coplan/settings/tokens/tokens", api_tokens: @api_tokens %>

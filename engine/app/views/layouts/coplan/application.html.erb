@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html<% if signed_in? && current_user.theme_preference != "system" %> data-theme="<%= current_user.theme_preference %>"<% end %>>
   <head>
     <title><%= content_for(:title) || "CoPlan" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="color-scheme" content="light dark">
+    <meta name="color-scheme" content="<%= signed_in? && current_user.theme_preference != 'system' ? current_user.theme_preference : 'light dark' %>">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
     <%= coplan_favicon_tag %>
