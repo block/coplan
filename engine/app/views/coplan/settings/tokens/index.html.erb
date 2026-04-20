@@ -2,8 +2,7 @@
   <h1>Settings</h1>
 </div>
 
-<% if show_api_tokens? %>
-  <p class="settings-section-subtitle">Manage API tokens for agent access</p>
+<p class="settings-section-subtitle">Manage API tokens for agent access</p>
 
   <div id="token-reveal">
     <% if flash[:raw_token].present? %>
@@ -32,4 +31,3 @@
       </tbody>
     </table>
   </div>
-<% end %>
