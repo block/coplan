@@ -1015,6 +1015,7 @@ img.avatar {
 .anchor-highlight {
   cursor: pointer;
   transition: background 0.2s;
+  color: inherit;
 }
 
 .anchor-highlight--open {
