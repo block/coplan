@@ -24,6 +24,17 @@ Optional query param: `?status=considering`
 
 Returns: `id`, `title`, `status`, `current_content` (markdown), `current_revision`, `references` (array of linked resources).
 
+### Get Plan Snapshot (Recommended)
+
+Returns everything about a plan in one request — use this instead of calling multiple endpoints.
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/snapshot" | jq .
+```
+
+Returns: plan metadata, `current_content`, `current_revision`, `comment_threads` (with nested comments), `references`, and `collaborators`. This replaces the need to call GET plan + GET comments + GET references separately.
+
 ### Create Plan
 
 ```bash
@@ -317,12 +328,13 @@ Dismiss a comment thread (plan author only — for comments that are out of scop
 
 When asked to review a plan (given a plan URL or ID), follow this workflow:
 
-### 1. Read the Plan and Comments
+### 1. Read the Plan Snapshot
 
 ```bash
-<%= @curl %> "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
-<%= @curl %> "<%= @base %>/api/v1/plans/$PLAN_ID/comments" | jq .
+<%= @curl %> "<%= @base %>/api/v1/plans/$PLAN_ID/snapshot" | jq .
 ```
+
+This returns the plan content, all comment threads with comments, references, and collaborators in one call.
 
 ### 2. Triage Comments
 
@@ -338,7 +350,7 @@ For approved changes: acquire lease → apply operations → release lease → r
 
 ## Typical Workflow
 
-1. **Read** the plan: `GET /api/v1/plans/:id`
+1. **Read** the plan: `GET /api/v1/plans/:id/snapshot`
 2. **Acquire lease**: `POST /api/v1/plans/:id/lease`
 3. **Apply operations**: `POST /api/v1/plans/:id/operations` (can call multiple times while lease is held)
 4. **Release lease**: `DELETE /api/v1/plans/:id/lease`

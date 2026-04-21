@@ -34,6 +34,7 @@ CoPlan::Engine.routes.draw do
       resources :plans, only: [:index, :show, :create, :update] do
         get :versions, on: :member
         get :comments, on: :member
+        get :snapshot, on: :member
         resource :lease, only: [:create, :update, :destroy], controller: "leases"
         resources :operations, only: [:create]
         resources :sessions, only: [:create, :show], controller: "sessions" do

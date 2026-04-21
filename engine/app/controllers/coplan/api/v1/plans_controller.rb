@@ -2,8 +2,8 @@ module CoPlan
   module Api
     module V1
       class PlansController < BaseController
-        before_action :set_plan, only: [:show, :update, :versions, :comments]
-        before_action :authorize_plan_access!, only: [:show, :update, :versions, :comments]
+        before_action :set_plan, only: [:show, :update, :versions, :comments, :snapshot]
+        before_action :authorize_plan_access!, only: [:show, :update, :versions, :comments, :snapshot]
 
         def index
           plans = Plan
@@ -19,17 +19,7 @@ module CoPlan
           render json: plan_json(@plan).merge(
             current_content: @plan.current_content,
             current_revision: @plan.current_revision,
-            references: @plan.references.map { |r|
-              {
-                id: r.id,
-                key: r.key,
-                url: r.url,
-                title: r.title,
-                reference_type: r.reference_type,
-                source: r.source,
-                target_plan_id: r.target_plan_id
-              }
-            }
+            references: @plan.references.map { |r| reference_json(r) }
           )
         end
 
@@ -121,6 +111,20 @@ module CoPlan
           render json: threads.map { |t| thread_json(t) }
         end
 
+        def snapshot
+          threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)
+          references = @plan.references.order(created_at: :desc)
+          collaborators = @plan.plan_collaborators.includes(:user)
+
+          render json: plan_json(@plan).merge(
+            current_content: @plan.current_content,
+            current_revision: @plan.current_revision,
+            comment_threads: snapshot_threads_json(threads),
+            references: references.map { |r| reference_json(r) },
+            collaborators: collaborators.map { |c| collaborator_json(c) }
+          )
+        end
+
         private
 
         def plan_json(plan)
@@ -132,7 +136,8 @@ module CoPlan
             tags: plan.tag_names,
             plan_type_id: plan.plan_type_id,
             plan_type_name: plan.plan_type&.name,
-            created_by: plan.created_by_user.name,
+            created_by: plan.created_by_user&.name,
+            created_by_user: user_json(plan.created_by_user),
             created_at: plan.created_at,
             updated_at: plan.updated_at
           }
@@ -149,6 +154,58 @@ module CoPlan
           }
         end
 
+        def reference_json(ref)
+          {
+            id: ref.id,
+            key: ref.key,
+            url: ref.url,
+            title: ref.title,
+            reference_type: ref.reference_type,
+            source: ref.source,
+            target_plan_id: ref.target_plan_id
+          }
+        end
+
+        def collaborator_json(collaborator)
+          {
+            id: collaborator.id,
+            user: user_json(collaborator.user),
+            role: collaborator.role
+          }
+        end
+
+        def snapshot_threads_json(threads)
+          content = @plan.current_content
+          stripped_data = if content.present?
+            stripped, pos_map = CoPlan::CommentThread.strip_markdown(content)
+            { stripped: stripped, pos_map: pos_map }
+          end
+
+          threads.map do |t|
+            occurrence = compute_anchor_occurrence(t, content, stripped_data)
+            thread_json(t).merge(anchor_occurrence: occurrence)
+          end
+        end
+
+        def compute_anchor_occurrence(thread, content, stripped_data)
+          return nil unless thread.anchored?
+          return 0 unless content.present? && thread.anchor_start.present? && stripped_data
+
+          stripped = stripped_data[:stripped]
+          pos_map = stripped_data[:pos_map]
+          stripped_start = pos_map.index { |raw_idx| raw_idx >= thread.anchor_start }
+          return nil if stripped_start.nil?
+
+          normalized_anchor = thread.anchor_text.gsub("\t", " ")
+          ranges = []
+          start_pos = 0
+          while (idx = stripped.index(normalized_anchor, start_pos))
+            ranges << idx
+            start_pos = idx + normalized_anchor.length
+          end
+          ranges.index { |s| s >= stripped_start } || 0
+        end
+
         def thread_json(thread)
           {
             id: thread.id,
@@ -159,17 +216,27 @@ module CoPlan
             start_line: thread.start_line,
             end_line: thread.end_line,
             out_of_date: thread.out_of_date,
-            created_by: thread.created_by_user.name,
+            created_by: thread.created_by_user&.name,
+            created_by_user: user_json(thread.created_by_user),
             created_at: thread.created_at,
-            comments: thread.comments.order(created_at: :asc).map { |c|
+            comments: thread.comments.sort_by(&:created_at).map { |c|
               {
                 id: c.id,
                 author_type: c.author_type,
+                author_id: c.author_id,
                 agent_name: c.agent_name,
                 body_markdown: c.body_markdown,
                 created_at: c.created_at
               }
             }
+          }
+        end
+
+        def user_json(user)
+          return nil unless user
+          {
+            id: user.id,
+            name: user.name
           }
         end
       end
