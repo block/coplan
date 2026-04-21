@@ -1,5 +1,7 @@
 module CoPlan
   class User < ApplicationRecord
+    THEME_PREFERENCES = %w[system light dark].freeze
+
     has_many :api_tokens, dependent: :destroy
     has_many :created_plans, class_name: "CoPlan::Plan", foreign_key: :created_by_user_id, dependent: :nullify, inverse_of: :created_by_user
     has_many :plan_collaborators, dependent: :destroy
@@ -20,6 +22,15 @@ module CoPlan
 
     def self.ransackable_associations(auth_object = nil)
       %w[api_tokens plan_collaborators]
+    end
+
+    def theme_preference
+      metadata&.dig("theme_preference") || "system"
+    end
+
+    def theme_preference=(value)
+      self.metadata ||= {}
+      self.metadata["theme_preference"] = value
     end
 
   end

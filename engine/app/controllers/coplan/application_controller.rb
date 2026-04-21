@@ -57,14 +57,22 @@ module CoPlan
 
       external_id = attrs[:external_id].to_s
       @current_coplan_user = CoPlan::User.find_or_initialize_by(external_id: external_id)
-      @current_coplan_user.assign_attributes(attrs.slice(:name, :username, :admin, :metadata, :avatar_url, :title, :team).compact)
+      sync_user_attrs(@current_coplan_user, attrs)
       if @current_coplan_user.new_record? || @current_coplan_user.changed?
         @current_coplan_user.save!
       end
     rescue ActiveRecord::RecordNotUnique
       @current_coplan_user = CoPlan::User.find_by!(external_id: external_id)
-      @current_coplan_user.assign_attributes(attrs.slice(:name, :username, :admin, :metadata, :avatar_url, :title, :team).compact)
+      sync_user_attrs(@current_coplan_user, attrs)
       @current_coplan_user.save! if @current_coplan_user.changed?
+    end
+
+    def sync_user_attrs(user, attrs)
+      safe_attrs = attrs.slice(:name, :username, :admin, :avatar_url, :title, :team).compact
+      user.assign_attributes(safe_attrs)
+      if attrs.key?(:metadata) && attrs[:metadata].is_a?(Hash)
+        user.metadata = (user.metadata || {}).merge(attrs[:metadata])
+      end
     end
 
     def set_coplan_current
