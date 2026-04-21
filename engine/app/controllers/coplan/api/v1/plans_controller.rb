@@ -188,8 +188,8 @@ module CoPlan
         end
 
         def compute_anchor_occurrence(thread, content, stripped_data)
-          return nil unless thread.anchored? && content.present? && thread.anchor_start.present?
-          return nil unless stripped_data
+          return nil unless thread.anchored?
+          return 0 unless content.present? && thread.anchor_start.present? && stripped_data
 
           stripped = stripped_data[:stripped]
           pos_map = stripped_data[:pos_map]
