@@ -172,4 +172,59 @@ RSpec.describe "Api::V1::Plans", type: :request do
     matching = threads.find { |t| t["id"] == thread.id }
     expect(matching["anchor_text"]).to eq("original roadmap text")
   end
+
+  describe "GET /api/v1/plans/:id/snapshot" do
+    it "returns plan with all nested data in one response" do
+      thread = create(:comment_thread, :with_positioned_anchor, plan: plan,
+        plan_version: plan.current_plan_version, created_by_user: alice)
+      comment = create(:comment, comment_thread: thread, body_markdown: "Snapshot comment")
+      ref = create(:reference, plan: plan, url: "https://example.com/snapshot", title: "Snapshot Ref")
+      collaborator = create(:plan_collaborator, plan: plan, user: carol, role: "reviewer")
+
+      get snapshot_api_v1_plan_path(plan), headers: headers
+
+      expect(response).to have_http_status(:success)
+      body = JSON.parse(response.body)
+
+      # Plan metadata — created_by preserved as string, created_by_user added as object
+      expect(body["id"]).to eq(plan.id)
+      expect(body["title"]).to eq("Acme Roadmap")
+      expect(body["current_content"]).to be_present
+      expect(body["current_revision"]).to be_present
+      expect(body["created_by"]).to eq(alice.name)
+      expect(body["created_by_user"]).to eq({ "id" => alice.id, "name" => alice.name })
+
+      # Comment threads with anchor_occurrence and structured created_by_user
+      expect(body["comment_threads"]).to be_a(Array)
+      matching_thread = body["comment_threads"].find { |t| t["id"] == thread.id }
+      expect(matching_thread["anchor_text"]).to eq("some anchor text")
+      expect(matching_thread).to have_key("anchor_occurrence")
+      expect(matching_thread["created_by"]).to eq(alice.name)
+      expect(matching_thread["created_by_user"]).to eq({ "id" => alice.id, "name" => alice.name })
+      expect(matching_thread["comments"]).to be_a(Array)
+      matching_comment = matching_thread["comments"].find { |c| c["body_markdown"] == "Snapshot comment" }
+      expect(matching_comment).to be_present
+      expect(matching_comment).to have_key("author_id")
+
+      # References
+      expect(body["references"]).to be_a(Array)
+      expect(body["references"].any? { |r| r["url"] == "https://example.com/snapshot" }).to be true
+
+      # Collaborators with structured user
+      expect(body["collaborators"]).to be_a(Array)
+      matching_collab = body["collaborators"].find { |c| c.dig("user", "id") == carol.id }
+      expect(matching_collab["role"]).to eq("reviewer")
+      expect(matching_collab["user"]["name"]).to eq(carol.name)
+    end
+
+    it "requires auth" do
+      get snapshot_api_v1_plan_path(plan)
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it "returns 404 for nonexistent plan" do
+      get snapshot_api_v1_plan_path(id: "nonexistent"), headers: headers
+      expect(response).to have_http_status(:not_found)
+    end
+  end
 end
