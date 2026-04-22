@@ -8,7 +8,7 @@ module CoPlan
       plans = Plan.includes(:plan_type, :tags, :created_by_user)
         .where.not(status: "brainstorm")
         .or(Plan.where(created_by_user: current_user))
-        .order(updated_at: :desc)
+        .order(updated_at: :desc, id: :desc)
       plans = plans.where(status: params[:status]) if params[:status].present?
       plans = plans.where(created_by_user: current_user) if params[:scope] == "mine"
       plans = plans.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?
