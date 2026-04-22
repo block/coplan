@@ -2,25 +2,35 @@ module CoPlan
   class PlansController < ApplicationController
     before_action :set_plan, only: [:show, :edit, :update, :update_status, :toggle_checkbox, :history]
 
+    PER_PAGE = 20
+
     def index
-      @plans = Plan.includes(:plan_type, :tags)
+      plans = Plan.includes(:plan_type, :tags, :created_by_user)
         .where.not(status: "brainstorm")
         .or(Plan.where(created_by_user: current_user))
         .order(updated_at: :desc)
-      @plans = @plans.where(status: params[:status]) if params[:status].present?
-      @plans = @plans.where(created_by_user: current_user) if params[:scope] == "mine"
-      @plans = @plans.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?
-      @plans = @plans.with_tag(params[:tag]) if params[:tag].present?
+      plans = plans.where(status: params[:status]) if params[:status].present?
+      plans = plans.where(created_by_user: current_user) if params[:scope] == "mine"
+      plans = plans.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?
+      plans = plans.with_tag(params[:tag]) if params[:tag].present?
 
-      @plan_types = PlanType.order(:name)
+      @page = (params[:page] || 1).to_i
+      @plans = plans.limit(PER_PAGE + 1).offset((@page - 1) * PER_PAGE)
+      @has_next_page = @plans.size > PER_PAGE
+      @plans = @plans.first(PER_PAGE)
 
       @plan_unread_counts = current_user.notifications.unread
-        .where(plan_id: @plans.select(:id))
+        .where(plan_id: @plans.map(&:id))
         .group(:plan_id)
         .count
 
-      @show_onboarding_banner = CoPlan.configuration.onboarding_banner.present? &&
-        !current_user.created_plans.exists?
+      if turbo_frame_request?
+        render partial: "coplan/plans/plan_page", locals: { plans: @plans, plan_unread_counts: @plan_unread_counts, page: @page, has_next_page: @has_next_page }, layout: false
+      else
+        @plan_types = PlanType.order(:name)
+        @show_onboarding_banner = CoPlan.configuration.onboarding_banner.present? &&
+          !current_user.created_plans.exists?
+      end
     end
 
     def show
