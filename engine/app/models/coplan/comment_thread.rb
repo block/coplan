@@ -124,7 +124,7 @@ module CoPlan
 
       # When anchor_start is known, count occurrences before it.
       if anchor_start.present?
-        stripped, pos_map = self.class.strip_markdown(content)
+        stripped, pos_map = plan.stripped_content
         # Map raw anchor_start to its position in the stripped string.
         # Use >= to find the closest valid position if anchor_start falls
         # on a stripped formatting character.

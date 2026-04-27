@@ -40,6 +40,16 @@ module CoPlan
       current_plan_version&.content_markdown
     end
 
+    # Memoized stripped-markdown + position map for the current content.
+    # Reused by multiple CommentThread#anchor_occurrence_index calls within
+    # the same request to avoid re-parsing the full plan for each thread.
+    def stripped_content
+      @stripped_content ||= begin
+        content = current_content
+        content.present? ? Plans::MarkdownTextExtractor.call(content) : [+"", []]
+      end
+    end
+
     def tag_names
       tags.pluck(:name)
     end

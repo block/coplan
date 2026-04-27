@@ -11,6 +11,8 @@
     · <%= time_ago_in_words(comment.created_at) %> ago
   </div>
   <div class="comment__body">
-    <%= render_markdown(comment.body_markdown) %>
+    <%= cache(comment) do %>
+      <%= render_markdown(comment.body_markdown) %>
+    <% end %>
   </div>
 </div>

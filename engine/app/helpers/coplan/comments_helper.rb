@@ -13,16 +13,10 @@ module CoPlan
     end
 
     def comment_author_user(comment)
-      case comment.author_type
-      when "human"
-        CoPlan::User.find_by(id: comment.author_id)
-      when "local_agent"
-        CoPlan::User
-          .joins(:api_tokens)
-          .where(coplan_api_tokens: { id: comment.author_id })
-          .first
-      else
-        nil
+      @_comment_author_cache ||= {}
+      cache_key = "#{comment.author_type}:#{comment.author_id}"
+      @_comment_author_cache.fetch(cache_key) do
+        @_comment_author_cache[cache_key] = comment.author
       end
     end
   end

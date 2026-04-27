@@ -15,10 +15,21 @@ module CoPlan
       agent_name.present? || author_type.in?(%w[local_agent cloud_persona])
     end
 
+    # Resolves the comment author to a CoPlan::User instance, or nil for
+    # author types that don't map to a user (cloud_persona, system).
+    def author
+      case author_type
+      when "human"
+        CoPlan::User.find_by(id: author_id)
+      when "local_agent"
+        CoPlan::User.joins(:api_tokens).where(coplan_api_tokens: { id: author_id }).first
+      end
+    end
+
     private
 
     def first_comment_in_thread?
-      self == comment_thread.comments.order(:created_at).first
+      !comment_thread.comments.where("id < ?", id).exists?
     end
 
     def notify_plan_author
