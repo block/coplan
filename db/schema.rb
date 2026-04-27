@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_10_182145) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_22_202551) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -70,13 +70,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_10_182145) do
     t.integer "start_line"
     t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
-    t.index ["addressed_in_plan_version_id"], name: "fk_rails_a77cc69a6e"
-    t.index ["created_by_user_id"], name: "fk_rails_34dfdd2aac"
-    t.index ["out_of_date_since_version_id"], name: "fk_rails_60a8d49098"
+    t.index ["addressed_in_plan_version_id"], name: "fk_rails_e7003e0df7"
+    t.index ["created_by_user_id"], name: "fk_rails_88fb5e06ca"
+    t.index ["out_of_date_since_version_id"], name: "fk_rails_be37c1499d"
     t.index ["plan_id", "out_of_date"], name: "index_coplan_comment_threads_on_plan_id_and_out_of_date"
     t.index ["plan_id", "status"], name: "index_coplan_comment_threads_on_plan_id_and_status"
-    t.index ["plan_version_id"], name: "fk_rails_514df5a253"
-    t.index ["resolved_by_user_id"], name: "fk_rails_e5ed569cf1"
+    t.index ["plan_version_id"], name: "fk_rails_676660f283"
+    t.index ["resolved_by_user_id"], name: "fk_rails_8625e1eb43"
   end
 
   create_table "coplan_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -117,7 +117,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_10_182145) do
     t.string "status", default: "open", null: false
     t.datetime "updated_at", null: false
     t.index ["plan_id", "status"], name: "index_coplan_edit_sessions_on_plan_id_and_status"
-    t.index ["plan_version_id"], name: "fk_rails_55d7ec476a"
+    t.index ["plan_version_id"], name: "fk_rails_14c3f0737b"
   end
 
   create_table "coplan_notifications", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -137,7 +137,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_10_182145) do
 
   create_table "coplan_plan_collaborators", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.string "added_by_user_id", limit: 36
+    t.datetime "approved_at"
     t.datetime "created_at", null: false
+    t.text "highlighted_reason"
     t.string "plan_id", limit: 36, null: false
     t.string "role", null: false
     t.datetime "updated_at", null: false
@@ -211,7 +213,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_10_182145) do
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.index ["created_by_user_id"], name: "index_coplan_plans_on_created_by_user_id"
-    t.index ["current_plan_version_id"], name: "fk_rails_4193983681"
+    t.index ["current_plan_version_id"], name: "fk_rails_c401577583"
     t.index ["plan_type_id"], name: "index_coplan_plans_on_plan_type_id"
     t.index ["status"], name: "index_coplan_plans_on_status"
     t.index ["updated_at"], name: "index_coplan_plans_on_updated_at"
