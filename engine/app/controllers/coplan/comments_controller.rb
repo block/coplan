@@ -12,10 +12,10 @@ module CoPlan
         body_markdown: params[:comment][:body_markdown]
       )
 
-      Notifications::Create.call(
-        comment_thread: @thread,
+      CreateNotificationsJob.perform_later(
+        comment_thread_id: @thread.id,
         actor_id: current_user.id,
-        comment: comment,
+        comment_id: comment.id,
         reason: "reply"
       )
 

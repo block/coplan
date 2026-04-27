@@ -17,7 +17,7 @@ module CoPlan
         subscriber_ids.delete(@actor_id)
         return if subscriber_ids.empty?
 
-        notifications = subscriber_ids.map do |user_id|
+        subscriber_ids.each do |user_id|
           Notification.create!(
             user_id: user_id,
             plan_id: @comment_thread.plan_id,
@@ -27,8 +27,7 @@ module CoPlan
           )
         end
 
-        broadcast_badge_updates(notifications)
-        notifications
+        broadcast_badge_updates(subscriber_ids)
       end
 
       private
@@ -75,13 +74,13 @@ module CoPlan
         ids
       end
 
-      def broadcast_badge_updates(notifications)
-        notifications.group_by(&:user_id).each do |user_id, _|
-          count = Notification.where(user_id: user_id).unread.count
+      def broadcast_badge_updates(subscriber_ids)
+        counts = Notification.where(user_id: subscriber_ids).unread.group(:user_id).count
+        subscriber_ids.each do |user_id|
           Broadcaster.update_to(
             "coplan_notifications:#{user_id}",
             target: "inbox-badge",
-            html: count.to_s
+            html: (counts[user_id] || 0).to_s
           )
         end
       end
