@@ -167,11 +167,14 @@ module CoPlan
         end
 
         def collaborator_json(collaborator)
-          {
+          json = {
             id: collaborator.id,
             user: user_json(collaborator.user),
             role: collaborator.role
           }
+          json[:approved_at] = collaborator.approved_at if collaborator.role == "approver"
+          json[:highlighted_reason] = collaborator.highlighted_reason if collaborator.role == "highlighted"
+          json
         end
 
         def snapshot_threads_json(threads)
