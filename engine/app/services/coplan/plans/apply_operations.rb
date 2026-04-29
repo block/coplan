@@ -38,8 +38,17 @@ module CoPlan
         old_text = op["old_text"]
         new_text = op["new_text"]
 
-        raise OperationError, "Operation #{index}: replace_exact requires 'old_text'" if old_text.blank?
+        # old_text may be empty ONLY when _pre_resolved_ranges is supplied
+        # (e.g. pure insertions emitted by Plans::DiffToOperations). Without
+        # pre-resolved ranges, PositionResolver has nothing to search for.
+        if old_text.blank? && !op.key?("_pre_resolved_ranges")
+          raise OperationError, "Operation #{index}: replace_exact requires 'old_text'"
+        end
         raise OperationError, "Operation #{index}: replace_exact requires 'new_text'" if new_text.nil?
+
+        # Coerce to string so length/delta arithmetic below is always safe
+        # — clients supplying _pre_resolved_ranges may omit old_text entirely.
+        old_text = old_text.to_s
 
         ranges = if op.key?("_pre_resolved_ranges")
           op["_pre_resolved_ranges"]
@@ -59,7 +68,14 @@ module CoPlan
 
             @content = @content[0...adjusted_start] + new_text + @content[adjusted_end..]
 
-            delta = new_text.length - old_text.length
+            # Delta is computed from the actual range slice, NOT from
+            # old_text.length. Otherwise a client supplying mismatched
+            # `_pre_resolved_ranges` and `old_text` (e.g. ranges=[[0,100]],
+            # old_text="") would corrupt cumulative_delta and persist
+            # broken positional metadata into the new PlanVersion's
+            # operations_json — silently breaking all future OT transforms
+            # through this version.
+            delta = new_text.length - (range[1] - range[0])
             replacements << {
               "resolved_range" => range,
               "new_range" => [range[0], range[0] + new_text.length],
@@ -74,7 +90,10 @@ module CoPlan
           range = ranges[0]
           @content = @content[0...range[0]] + new_text + @content[range[1]..]
 
-          delta = new_text.length - old_text.length
+          # See comment above — delta MUST be computed from the actual
+          # range being replaced, not from the (potentially mismatched)
+          # `old_text` supplied by the caller.
+          delta = new_text.length - (range[1] - range[0])
           applied_data["resolved_range"] = range
           applied_data["new_range"] = [range[0], range[0] + new_text.length]
           applied_data["delta"] = delta

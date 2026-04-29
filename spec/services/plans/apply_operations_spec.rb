@@ -385,5 +385,30 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect(second_applied["new_range"]).to eq([10, 13])
       expect(second_applied["delta"]).to eq(-4)
     end
+
+    # Regression: delta MUST be computed from the actual range slice, not
+    # from a (possibly mismatched) caller-supplied old_text. Otherwise a
+    # client passing _pre_resolved_ranges with empty/stale old_text could
+    # corrupt cumulative_delta and persist broken positional metadata that
+    # silently breaks all future OT transforms through this version.
+    it "computes delta from the resolved range, not from old_text length" do
+      content = "0123456789ABCDEFGHIJ"  # 20 chars
+      result = CoPlan::Plans::ApplyOperations.call(
+        content: content,
+        operations: [
+          {
+            "op" => "replace_exact",
+            "old_text" => "",  # intentionally wrong / empty
+            "new_text" => "x",
+            "_pre_resolved_ranges" => [[0, 10]]
+          }
+        ]
+      )
+
+      expect(result[:content]).to eq("xABCDEFGHIJ")
+      expect(result[:applied][0]["delta"]).to eq(-9)  # 1 - (10 - 0), NOT 1 - 0
+      expect(result[:applied][0]["resolved_range"]).to eq([0, 10])
+      expect(result[:applied][0]["new_range"]).to eq([0, 1])
+    end
   end
 end
