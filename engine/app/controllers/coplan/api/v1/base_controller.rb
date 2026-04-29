@@ -2,6 +2,13 @@ module CoPlan
   module Api
     module V1
       class BaseController < ActionController::API
+        # Disable Rails' wrap_parameters middleware: it auto-wraps the
+        # JSON body under the controller's resource name, which collides
+        # with body params that share that name (e.g. PUT /content with
+        # `{ "content": "..." }` would silently nest the body under
+        # params[:content]).
+        wrap_parameters false
+
         before_action :authenticate_api!
         after_action :set_agent_instructions_header
 

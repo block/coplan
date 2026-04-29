@@ -182,9 +182,44 @@ These are auto-extracted with both the key and title preserved.
   "<%= @base %>/api/v1/plans/$PLAN_ID/comments" | jq .
 ```
 
-## Editing Plans (Lease + Operations)
+## Editing Plans (Recommended: Full Content Replacement)
 
-Editing requires three steps: acquire lease → apply operations → release lease.
+The simplest and recommended way to edit a plan is to read its current content, edit the markdown locally, and PUT the entire updated content back. The server diffs your version against the current revision, decomposes the change into granular operations, and creates a new immutable PlanVersion. Comment anchors in unchanged regions are preserved automatically.
+
+**No lease required.** Optimistic concurrency is enforced via `base_revision`.
+
+### Replace Plan Content
+
+```bash
+# 1. Read the current plan to get its content and revision
+PLAN_DATA=$(<%= @curl %> "<%= @base %>/api/v1/plans/$PLAN_ID")
+CURRENT_REVISION=$(echo "$PLAN_DATA" | jq -r '.current_revision')
+echo "$PLAN_DATA" | jq -r '.current_content' > /tmp/plan.md
+
+# 2. Edit /tmp/plan.md locally however you like
+
+# 3. PUT the new content back
+<%= @curl %> -X PUT \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n \
+        --arg content "$(cat /tmp/plan.md)" \
+        --argjson rev "$CURRENT_REVISION" \
+        --arg summary "Rewrote goals section" \
+        '{base_revision: $rev, content: $content, change_summary: $summary}')" \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/content" | jq .
+```
+
+Returns:
+- `201 Created` with `{revision, content_sha256, applied, version_id}` on success
+- `200 OK` with `{no_op: true}` if the content is unchanged
+- `409 Conflict` with `{current_revision}` if `base_revision` is stale (re-read the plan and retry)
+- `422 Unprocessable Content` if `content` or `base_revision` is missing or invalid
+
+This is the right tool for any non-trivial edit: rewriting a section, adding multiple paragraphs, restructuring headings, applying many small fixes at once, or doing a wholesale rewrite.
+
+## Editing Plans (Advanced: Lease + Operations)
+
+For surgical, targeted edits where you want to express the change as a single operation (and keep the diff minimal), use the lease + operations path. Editing requires three steps: acquire lease → apply operations → release lease.
 
 ### 1. Acquire Edit Lease
 
@@ -346,9 +381,18 @@ Review each open comment thread and categorize it:
 
 ### 3. Apply Edits
 
-For approved changes: acquire lease → apply operations → release lease → resolve threads.
+For approved changes, the recommended path is: read the snapshot → edit the markdown locally → `PUT /api/v1/plans/:id/content` → resolve the addressed threads. Use the lease + operations path only for surgical, single-operation edits.
 
 ## Typical Workflow
+
+### Recommended (full content replacement)
+
+1. **Read** the plan: `GET /api/v1/plans/:id/snapshot`
+2. **Edit** the markdown locally
+3. **Replace** content: `PUT /api/v1/plans/:id/content` with `{base_revision, content, change_summary}`
+4. **Comment** on changes: `POST /api/v1/plans/:id/comments`
+
+### Advanced (surgical operations)
 
 1. **Read** the plan: `GET /api/v1/plans/:id/snapshot`
 2. **Acquire lease**: `POST /api/v1/plans/:id/lease`
