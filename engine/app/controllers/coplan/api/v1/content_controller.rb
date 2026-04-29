@@ -20,9 +20,19 @@ module CoPlan
             return render json: { error: "content is required" }, status: :unprocessable_content
           end
 
-          base_revision = params[:base_revision]&.to_i
-          unless base_revision.present?
+          raw_base_revision = params[:base_revision]
+          if raw_base_revision.blank?
             return render json: { error: "base_revision is required" }, status: :unprocessable_content
+          end
+
+          begin
+            base_revision = Integer(raw_base_revision)
+          rescue ArgumentError, TypeError
+            return render json: { error: "base_revision must be a positive integer" }, status: :unprocessable_content
+          end
+
+          if base_revision <= 0
+            return render json: { error: "base_revision must be a positive integer" }, status: :unprocessable_content
           end
 
           result = Plans::ReplaceContent.call(
