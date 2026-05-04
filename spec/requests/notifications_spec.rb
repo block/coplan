@@ -84,5 +84,19 @@ RSpec.describe "Notifications", type: :request do
       post mark_all_read_notifications_path
       expect(other_notification.reload.read_at).to be_nil
     end
+
+    it "responds with a turbo_stream that updates the badge and replaces the inbox panel" do
+      create(:notification, user: user, plan: plan, comment_thread: thread)
+
+      post mark_all_read_notifications_path, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq(Mime[:turbo_stream])
+      expect(response.body).to include('target="inbox-badge"')
+      expect(response.body).to include('action="update"')
+      expect(response.body).to include('target="inbox-panel"')
+      expect(response.body).to include('action="replace"')
+      expect(user.notifications.unread.count).to eq(0)
+    end
   end
 end

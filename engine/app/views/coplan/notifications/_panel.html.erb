@@ -2,7 +2,7 @@
 <div class="inbox-panel__header">
   <span class="inbox-panel__title">Inbox</span>
   <% if @unread_count > 0 %>
-    <%= button_to "Mark all read", mark_all_read_notifications_path, method: :post, class: "btn btn--secondary btn--sm", data: { turbo: false } %>
+    <%= button_to "Mark all read", mark_all_read_notifications_path, method: :post, class: "btn btn--secondary btn--sm", form: { data: { turbo_stream: true } } %>
   <% end %>
 </div>
 
