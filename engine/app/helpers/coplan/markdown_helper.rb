@@ -14,13 +14,41 @@ module CoPlan
       details summary
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class href src alt title type checked disabled data-line-text data-action data-coplan--checkbox-target].freeze
+    ALLOWED_ATTRIBUTES = %w[id class href src alt title type checked disabled data-line-text data-action data-coplan--checkbox-target data-mention-username].freeze
+
+    # Matches `[@username](mention:username)` where the bracket text and link
+    # target encode the same username. Username allows letters, digits, dots,
+    # dashes, and underscores. The pattern must round-trip exactly so that
+    # casual `[foo](mention:bar)` typed by hand doesn't get rendered as a chip.
+    MENTION_PATTERN = /\[@([\w.-]+)\]\(mention:\1\)/
 
     def render_markdown(content, interactive: true)
       html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { render: { unsafe: true } }, plugins: { syntax_highlighter: nil })
-      sanitized = sanitize(html, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
+      with_chips = transform_mention_anchors(html)
+      sanitized = sanitize(with_chips, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       result = interactive ? make_checkboxes_interactive(sanitized, content) : sanitized
       tag.div(result.html_safe, class: "markdown-rendered")
+    end
+
+    # Replaces `<a href="mention:username">@username</a>` produced by
+    # Commonmarker with a styled `<span>` chip. Runs on the parsed HTML so
+    # that mentions inside fenced code blocks or inline code stay as literal
+    # text — Commonmarker doesn't emit `<a>` tags inside code, so they're
+    # naturally skipped here.
+    def transform_mention_anchors(html)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      doc.css('a[href^="mention:"]').each do |anchor|
+        username = anchor["href"].sub(/\Amention:/, "")
+        next unless username.match?(/\A[\w.-]+\z/)
+        next unless anchor.content == "@#{username}"
+
+        span = Nokogiri::XML::Node.new("span", doc)
+        span["class"] = "mention"
+        span["data-mention-username"] = username
+        span.content = "@#{username}"
+        anchor.replace(span)
+      end
+      doc.to_html
     end
 
     def markdown_to_plain_text(content)

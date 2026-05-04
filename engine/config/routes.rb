@@ -27,9 +27,6 @@ CoPlan::Engine.routes.draw do
 
   namespace :api do
     namespace :v1 do
-      resources :users, only: [] do
-        get :search, on: :collection
-      end
       resources :tags, only: [:index]
       resources :plans, only: [:index, :show, :create, :update] do
         get :versions, on: :member
@@ -52,6 +49,10 @@ CoPlan::Engine.routes.draw do
         get :search, on: :collection
       end
     end
+  end
+
+  resources :users, only: [] do
+    get :search, on: :collection
   end
 
   resources :notifications, only: [:index, :show] do
