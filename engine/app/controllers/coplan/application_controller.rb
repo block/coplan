@@ -38,13 +38,8 @@ module CoPlan
     end
 
     def authenticate_coplan_user!
-      callback = CoPlan.configuration.authenticate
-      unless callback
-        raise "CoPlan.configure { |c| c.authenticate = ->(request) { ... } } is required"
-      end
-
-      attrs = callback.call(request)
-      unless attrs && attrs[:external_id].present?
+      @current_coplan_user = CoPlan::Authentication.user_from_request(request)
+      unless @current_coplan_user
         if agent_request?
           render plain: agent_redirect_instructions, content_type: "text/markdown", status: :unauthorized
         elsif CoPlan.configuration.sign_in_path
@@ -52,26 +47,6 @@ module CoPlan
         else
           head :unauthorized
         end
-        return
-      end
-
-      external_id = attrs[:external_id].to_s
-      @current_coplan_user = CoPlan::User.find_or_initialize_by(external_id: external_id)
-      sync_user_attrs(@current_coplan_user, attrs)
-      if @current_coplan_user.new_record? || @current_coplan_user.changed?
-        @current_coplan_user.save!
-      end
-    rescue ActiveRecord::RecordNotUnique
-      @current_coplan_user = CoPlan::User.find_by!(external_id: external_id)
-      sync_user_attrs(@current_coplan_user, attrs)
-      @current_coplan_user.save! if @current_coplan_user.changed?
-    end
-
-    def sync_user_attrs(user, attrs)
-      safe_attrs = attrs.slice(:name, :username, :admin, :avatar_url, :title, :team).compact
-      user.assign_attributes(safe_attrs)
-      if attrs.key?(:metadata) && attrs[:metadata].is_a?(Hash)
-        user.metadata = (user.metadata || {}).merge(attrs[:metadata])
       end
     end
 

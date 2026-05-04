@@ -16,6 +16,20 @@ RSpec.describe CoPlan::PlanPresenceChannel, type: :channel do
       expect(CoPlan::PlanViewer.where(plan: plan, user: user)).to exist
     end
 
+    it "authenticates through the engine callback when the connection has no current_user" do
+      stub_connection(request: ActionDispatch::Request.empty)
+      allow(CoPlan.configuration).to receive(:authenticate).and_return(
+        ->(_request) { { external_id: "websocket-user", name: "Websocket User" } }
+      )
+      plan = create(:plan, created_by_user: user)
+
+      subscribe(plan_id: plan.id)
+
+      websocket_user = CoPlan::User.find_by!(external_id: "websocket-user")
+      expect(subscription).to be_confirmed
+      expect(CoPlan::PlanViewer.where(plan: plan, user: websocket_user)).to exist
+    end
+
     it "rejects when plan does not exist" do
       subscribe(plan_id: "nonexistent")
       expect(subscription).to be_rejected
