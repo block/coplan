@@ -11,7 +11,9 @@ module CoPlan
 
     before_save :rewrite_plain_mentions, if: :body_markdown_changed?
     after_create_commit :notify_plan_author, if: :first_comment_in_thread?
-    after_create_commit :process_mentions
+    # Runs on save (not just create) so adding a mention via edit also
+    # notifies. ProcessMentions uses find_or_create_by to dedupe.
+    after_save_commit :process_mentions, if: :saved_change_to_body_markdown?
 
     def agent?
       agent_name.present? || author_type.in?(%w[local_agent cloud_persona])

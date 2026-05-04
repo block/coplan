@@ -52,7 +52,7 @@ export default class extends Controller {
         this.moveHighlight(-1)
         return
       }
-      if (event.key === "Enter" || event.key === "Tab") {
+      if ((event.key === "Enter" || event.key === "Tab") && !event.isComposing) {
         if (this._highlightIndex >= 0 && this._results[this._highlightIndex]) {
           event.preventDefault()
           event.stopImmediatePropagation()

@@ -9,7 +9,8 @@ module CoPlan
     attr_accessor :agent_curl_prefix
     attr_accessor :seed_plan_types
 
-    # Lambda for user search used by the /api/v1/users/search endpoint.
+    # Lambda for user search used by the /users/search endpoint (typeahead
+    # for in-app pickers like @-mentions).
     # Accepts a query string, returns an array of hashes with keys:
     #   :id, :name, :email, :avatar_url, :title, :team
     # When nil (default), falls back to LIKE search on local coplan_users table.

@@ -73,5 +73,16 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       # The pattern shouldn't match (has < which isn't in [\w.-]), so it's plain.
       expect(html).not_to include('class="mention"')
     end
+
+    it "does not render chips inside fenced code blocks" do
+      html = helper.render_markdown("```\n[@hampton](mention:hampton)\n```")
+      expect(html).not_to include('class="mention"')
+      expect(html).to include("[@hampton](mention:hampton)")
+    end
+
+    it "does not render chips inside inline code" do
+      html = helper.render_markdown("`[@hampton](mention:hampton)`")
+      expect(html).not_to include('class="mention"')
+    end
   end
 end

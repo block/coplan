@@ -51,4 +51,28 @@ RSpec.describe CoPlan::Comments::ProcessMentions do
       make_comment("[hello](mention:hampton) is not a mention")
     }.not_to change(CoPlan::Notification.where(reason: "mention"), :count)
   end
+
+  it "does not duplicate notifications when a comment is edited and re-saved" do
+    comment = make_comment("[@hampton](mention:hampton) take a look")
+    expect(CoPlan::Notification.where(reason: "mention", comment_id: comment.id).count).to eq(1)
+
+    comment.update!(body_markdown: "[@hampton](mention:hampton) and [@casey](mention:casey)")
+
+    notifications = CoPlan::Notification.where(reason: "mention", comment_id: comment.id)
+    expect(notifications.pluck(:user_id)).to match_array([hampton.id, casey.id])
+    expect(notifications.where(user_id: hampton.id).count).to eq(1)
+  end
+
+  it "does not exclude any user when the comment author is a local_agent" do
+    api_token = create(:api_token, user: author)
+    expect {
+      create(:comment,
+        comment_thread: thread,
+        author_type: "local_agent",
+        author_id: api_token.id,
+        agent_name: "robot",
+        body_markdown: "[@hampton](mention:hampton)"
+      )
+    }.to change(CoPlan::Notification.where(reason: "mention", user_id: hampton.id), :count).by(1)
+  end
 end

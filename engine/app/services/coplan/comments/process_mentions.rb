@@ -23,20 +23,27 @@ module CoPlan
         return if usernames.empty?
 
         mentioned_users = CoPlan::User.where(username: usernames)
+        author_user_id = @comment.author_type == "human" ? @comment.author_id : nil
+        notified_user_ids = []
 
         mentioned_users.each do |user|
-          next if user.id == @comment.author_id && @comment.author_type == "human"
+          next if user.id == author_user_id
 
-          Notification.create!(
+          # find_or_create_by to dedupe across edits — if a comment is
+          # updated and re-mentions the same user, we don't pile on extra
+          # inbox rows.
+          notification = Notification.find_or_create_by!(
             user_id: user.id,
-            plan_id: @comment.comment_thread.plan_id,
-            comment_thread_id: @comment.comment_thread_id,
             comment_id: @comment.id,
             reason: "mention"
-          )
+          ) do |n|
+            n.plan_id = @comment.comment_thread.plan_id
+            n.comment_thread_id = @comment.comment_thread_id
+          end
+          notified_user_ids << user.id if notification.previously_new_record?
         end
 
-        broadcast_badge_updates(mentioned_users.pluck(:id) - [@comment.author_id])
+        broadcast_badge_updates(notified_user_ids)
       end
 
       private
