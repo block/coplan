@@ -9,7 +9,9 @@ module CoPlan
     validates :agent_name, presence: { message: "is required for agent comments" }, if: -> { author_type == "local_agent" }
     validates :agent_name, length: { maximum: 20 }, allow_nil: true
 
+    before_save :rewrite_plain_mentions, if: :body_markdown_changed?
     after_create_commit :notify_plan_author, if: :first_comment_in_thread?
+    after_create_commit :process_mentions
 
     def agent?
       agent_name.present? || author_type.in?(%w[local_agent cloud_persona])
@@ -34,6 +36,14 @@ module CoPlan
 
     def notify_plan_author
       CoPlan::NotificationJob.perform_later("comment_created", { comment_thread_id: comment_thread_id })
+    end
+
+    def process_mentions
+      CoPlan::Comments::ProcessMentions.call(self)
+    end
+
+    def rewrite_plain_mentions
+      self.body_markdown = CoPlan::Comments::RewriteMentions.call(body_markdown)
     end
   end
 end

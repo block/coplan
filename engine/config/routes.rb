@@ -54,6 +54,10 @@ CoPlan::Engine.routes.draw do
     end
   end
 
+  resources :users, only: [] do
+    get :search, on: :collection
+  end
+
   resources :notifications, only: [:index, :show] do
     member do
       patch :mark_read

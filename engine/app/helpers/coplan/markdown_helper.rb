@@ -14,13 +14,28 @@ module CoPlan
       details summary
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class href src alt title type checked disabled data-line-text data-action data-coplan--checkbox-target].freeze
+    ALLOWED_ATTRIBUTES = %w[id class href src alt title type checked disabled data-line-text data-action data-coplan--checkbox-target data-mention-username].freeze
+
+    # Matches `[@username](mention:username)` where the bracket text and link
+    # target encode the same username. Username allows letters, digits, dots,
+    # dashes, and underscores. The pattern must round-trip exactly so that
+    # casual `[foo](mention:bar)` typed by hand doesn't get rendered as a chip.
+    MENTION_PATTERN = /\[@([\w.-]+)\]\(mention:\1\)/
 
     def render_markdown(content, interactive: true)
-      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { render: { unsafe: true } }, plugins: { syntax_highlighter: nil })
+      transformed = transform_mentions(content.to_s)
+      html = Commonmarker.to_html(transformed.encode("UTF-8"), options: { render: { unsafe: true } }, plugins: { syntax_highlighter: nil })
       sanitized = sanitize(html, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       result = interactive ? make_checkboxes_interactive(sanitized, content) : sanitized
       tag.div(result.html_safe, class: "markdown-rendered")
+    end
+
+    def transform_mentions(content)
+      content.gsub(MENTION_PATTERN) do
+        username = ::Regexp.last_match(1)
+        escaped = ERB::Util.html_escape(username)
+        %(<span class="mention" data-mention-username="#{escaped}">@#{escaped}</span>)
+      end
     end
 
     def markdown_to_plain_text(content)

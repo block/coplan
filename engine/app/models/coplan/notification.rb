@@ -1,6 +1,6 @@
 module CoPlan
   class Notification < ApplicationRecord
-    REASONS = %w[new_comment reply agent_response status_change].freeze
+    REASONS = %w[new_comment reply agent_response status_change mention].freeze
 
     belongs_to :user, class_name: "CoPlan::User"
     belongs_to :plan, class_name: "CoPlan::Plan"
