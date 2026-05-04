@@ -1,9 +1,14 @@
 module CoPlan
   class PlanPresenceChannel < ActionCable::Channel::Base
     def subscribed
+      unless current_user
+        reject
+        return
+      end
+
       @plan = Plan.find_by(id: params[:plan_id])
       policy = @plan && PlanPolicy.new(current_user, @plan)
-      unless @plan && policy.show?
+      unless @plan && policy&.show?
         reject
         return
       end
@@ -29,7 +34,13 @@ module CoPlan
     private
 
     def current_user
-      connection.current_user
+      @current_user ||= resolve_current_user
+    end
+
+    def resolve_current_user
+      return connection.current_user if connection.respond_to?(:current_user) && connection.current_user
+
+      CoPlan::Authentication.user_from_request(connection.request)
     end
 
     def broadcast_viewers
