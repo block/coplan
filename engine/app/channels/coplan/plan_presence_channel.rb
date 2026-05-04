@@ -1,20 +1,19 @@
 module CoPlan
   class PlanPresenceChannel < ActionCable::Channel::Base
     def subscribed
-      @current_user = resolve_current_user
-      unless @current_user
+      unless current_user
         reject
         return
       end
 
       @plan = Plan.find_by(id: params[:plan_id])
-      policy = @plan && PlanPolicy.new(@current_user, @plan)
+      policy = @plan && PlanPolicy.new(current_user, @plan)
       unless @plan && policy&.show?
         reject
         return
       end
 
-      PlanViewer.track(plan: @plan, user: @current_user)
+      PlanViewer.track(plan: @plan, user: current_user)
       broadcast_viewers
     end
 
