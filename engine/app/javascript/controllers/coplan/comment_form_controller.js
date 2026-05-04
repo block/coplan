@@ -9,6 +9,13 @@ import { Controller } from "@hotwired/stimulus"
 // the picker when it's open (Enter selects the highlighted user instead of
 // submitting the form).
 export default class extends Controller {
+  // Search URL is supplied per-form via a Stimulus value so it respects the
+  // engine's mount point (host apps may mount CoPlan under e.g. `/coplan`).
+  // The default is fine for hosts that mount at root.
+  static values = {
+    searchUrl: { type: String, default: "/users/search" }
+  }
+
   connect() {
     this._picker = null
     this._results = []
@@ -128,7 +135,7 @@ export default class extends Controller {
 
   async fetchResults(query) {
     try {
-      const response = await fetch(`/users/search?q=${encodeURIComponent(query)}`, {
+      const response = await fetch(`${this.searchUrlValue}?q=${encodeURIComponent(query)}`, {
         headers: { Accept: "application/json" },
         credentials: "same-origin",
       })
