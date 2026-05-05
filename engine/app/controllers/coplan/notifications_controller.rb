@@ -45,7 +45,20 @@ module CoPlan
 
       broadcast_badge_update
 
-      redirect_to notifications_path, notice: "All notifications marked as read."
+      respond_to do |format|
+        format.turbo_stream {
+          @notifications = current_user.notifications
+            .includes(:plan, :comment, comment_thread: [:created_by_user])
+            .newest_first
+            .unread
+          @unread_count = 0
+          render turbo_stream: [
+            turbo_stream.update("inbox-badge", "0"),
+            turbo_stream.replace("inbox-panel", partial: "coplan/notifications/panel")
+          ]
+        }
+        format.html { redirect_to notifications_path, notice: "All notifications marked as read." }
+      end
     end
 
     private
