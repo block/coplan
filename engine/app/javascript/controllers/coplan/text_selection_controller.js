@@ -8,9 +8,18 @@ export default class extends Controller {
     this.selectedText = null
     this._activeMark = null
     this._activePopover = null
+    // "hover" popovers auto-close on mouseleave; "pinned" (click / j-k) stay open
+    // until explicitly dismissed (Esc, click outside, native light-dismiss).
+    this._openMode = null
+    this._hoverOpenTimer = null
+    this._hoverCloseTimer = null
+    this._hoverPendingMark = null
     this._boundHandleMouseUp = this.handleMouseUp.bind(this)
     this._boundHandleDocumentMouseDown = this.handleDocumentMouseDown.bind(this)
     this._handleScroll = this._handleScroll.bind(this)
+    this._boundPopoverEnter = this._cancelHoverClose.bind(this)
+    this._boundPopoverLeave = this._handlePopoverLeave.bind(this)
+    this._boundPopoverToggle = this._handlePopoverToggle.bind(this)
     this.contentTarget.addEventListener("mouseup", this._boundHandleMouseUp)
     document.addEventListener("mousedown", this._boundHandleDocumentMouseDown)
     window.addEventListener("scroll", this._handleScroll, { passive: true })
@@ -34,6 +43,8 @@ export default class extends Controller {
     this.contentTarget.removeEventListener("mouseup", this._boundHandleMouseUp)
     document.removeEventListener("mousedown", this._boundHandleDocumentMouseDown)
     window.removeEventListener("scroll", this._handleScroll)
+    this._cancelHoverOpen()
+    this._cancelHoverClose()
     if (this._threadsObserver) {
       this._threadsObserver.disconnect()
       this._threadsObserver = null
@@ -201,21 +212,186 @@ export default class extends Controller {
   }
 
   openThreadPopover(event) {
-    const threadId = event.currentTarget.dataset.threadId
-    if (!threadId) return
+    this._showThreadPopoverFor(event.currentTarget, "pinned")
+  }
+
+  // Internal: open the popover for a given mark in either "hover" or "pinned" mode.
+  // Returns true if the popover was shown, false otherwise.
+  _showThreadPopoverFor(trigger, mode) {
+    if (!trigger) return false
+    const threadId = trigger.dataset.threadId
+    if (!threadId) return false
 
     const popover = document.getElementById(`${threadId}_popover`)
-    if (!popover) return
+    if (!popover) return false
 
-    const trigger = event.currentTarget
+    // Cancel any pending hover timers — we're committing to this popover now.
+    this._cancelHoverOpen()
+    this._cancelHoverClose()
 
-    popover.style.visibility = "hidden"
-    popover.showPopover()
+    // If a different popover is already open, close it first. showPopover() throws
+    // InvalidStateError if the same popover is already open.
+    if (this._activePopover && this._activePopover !== popover) {
+      this._detachPopoverHoverListeners(this._activePopover)
+      try { this._activePopover.hidePopover() } catch {}
+    }
+
+    const wasOpen = this._activePopover === popover
+    if (!wasOpen) {
+      popover.style.visibility = "hidden"
+      try {
+        popover.showPopover()
+      } catch {
+        // Already open — fall through to repositioning.
+      }
+    }
     this._positionPopoverAtMark(popover, trigger)
     popover.style.visibility = "visible"
 
     this._activeMark = trigger
     this._activePopover = popover
+    this._openMode = mode
+
+    this._attachPopoverHoverListeners(popover)
+    this._attachPopoverToggleListener(popover)
+    return true
+  }
+
+  handleMarkHoverEnter(mark) {
+    // Already showing this exact popover — just keep it alive.
+    if (this._activePopover && this._activeMark === mark) {
+      this._cancelHoverClose()
+      return
+    }
+
+    // Already showing some other hover popover — switch immediately (snappier
+    // than waiting another full open delay, like a tooltip group).
+    if (this._openMode === "hover" && this._activePopover) {
+      this._cancelHoverOpen()
+      this._cancelHoverClose()
+      this._showThreadPopoverFor(mark, "hover")
+      return
+    }
+
+    // A pinned popover (click here or j/k from comment_nav) is open — don't
+    // fight the user with a flicker. Check the DOM, not just our own state,
+    // because comment_nav opens popovers without going through this controller.
+    if (this._isAnyPopoverOpen()) return
+
+    this._scheduleHoverOpen(mark)
+  }
+
+  _isAnyPopoverOpen() {
+    return !!this._findOpenPopover()
+  }
+
+  // Mirror comment_nav_controller#findOpenPopover so we work in browsers where
+  // the :popover-open selector throws (older Safari, etc.).
+  _findOpenPopover() {
+    try {
+      return document.querySelector(".thread-popover:popover-open")
+    } catch {
+      return Array.from(document.querySelectorAll(".thread-popover[popover]"))
+        .find(el => el.checkVisibility?.()) || null
+    }
+  }
+
+  handleMarkHoverLeave(mark) {
+    // If the open delay was pending for this mark, cancel it.
+    if (this._hoverPendingMark === mark) {
+      this._cancelHoverOpen()
+    }
+    // Only auto-close hover-opened popovers; pinned ones stay until dismissed.
+    if (this._openMode === "hover" && this._activeMark === mark) {
+      this._scheduleHoverClose()
+    }
+  }
+
+  _scheduleHoverOpen(mark) {
+    this._cancelHoverOpen()
+    this._hoverPendingMark = mark
+    this._hoverOpenTimer = setTimeout(() => {
+      this._hoverOpenTimer = null
+      this._hoverPendingMark = null
+      // Re-check guards in case state changed during the delay. Don't open
+      // if any other popover is currently pinned (click or j/k).
+      const ourPopover = document.getElementById(`${mark.dataset.threadId}_popover`)
+      const openInDom = this._findOpenPopover()
+      if (openInDom && openInDom !== ourPopover) return
+      this._showThreadPopoverFor(mark, "hover")
+    }, 350)
+  }
+
+  _cancelHoverOpen() {
+    if (this._hoverOpenTimer) {
+      clearTimeout(this._hoverOpenTimer)
+      this._hoverOpenTimer = null
+    }
+    this._hoverPendingMark = null
+  }
+
+  _scheduleHoverClose() {
+    this._cancelHoverClose()
+    this._hoverCloseTimer = setTimeout(() => {
+      this._hoverCloseTimer = null
+      if (this._openMode !== "hover" || !this._activePopover) return
+      this._detachPopoverHoverListeners(this._activePopover)
+      try { this._activePopover.hidePopover() } catch {}
+      this._activePopover = null
+      this._activeMark = null
+      this._openMode = null
+    }, 250)
+  }
+
+  _cancelHoverClose() {
+    if (this._hoverCloseTimer) {
+      clearTimeout(this._hoverCloseTimer)
+      this._hoverCloseTimer = null
+    }
+  }
+
+  _handlePopoverLeave() {
+    // Only restart the close timer for hover-opened popovers.
+    if (this._openMode === "hover") {
+      this._scheduleHoverClose()
+    }
+  }
+
+  _attachPopoverHoverListeners(popover) {
+    if (popover._coplanHoverBound) return
+    popover.addEventListener("mouseenter", this._boundPopoverEnter)
+    popover.addEventListener("mouseleave", this._boundPopoverLeave)
+    popover._coplanHoverBound = true
+  }
+
+  _detachPopoverHoverListeners(popover) {
+    if (!popover._coplanHoverBound) return
+    popover.removeEventListener("mouseenter", this._boundPopoverEnter)
+    popover.removeEventListener("mouseleave", this._boundPopoverLeave)
+    popover._coplanHoverBound = false
+  }
+
+  // Bind once per popover element. The toggle listener stays attached for the
+  // life of the element so we always learn about native light-dismiss (Esc,
+  // click outside, another popover="auto" opening) — not just our own
+  // hidePopover() calls.
+  _attachPopoverToggleListener(popover) {
+    if (popover._coplanToggleBound) return
+    popover.addEventListener("toggle", this._boundPopoverToggle)
+    popover._coplanToggleBound = true
+  }
+
+  // Without this, native light-dismiss would leave _activePopover/_openMode
+  // stale, which then blocks future hover-opens (the "pinned popover already
+  // open" guard would short-circuit forever).
+  _handlePopoverToggle(event) {
+    if (event.newState !== "closed") return
+    if (event.target !== this._activePopover) return
+    this._cancelHoverClose()
+    this._detachPopoverHoverListeners(event.target)
+    this._activePopover = null
+    this._activeMark = null
+    this._openMode = null
   }
 
   _handleScroll() {
@@ -349,6 +525,8 @@ export default class extends Controller {
               mark.dataset.threadId = threadId
               mark.style.cursor = "pointer"
               mark.addEventListener("click", (e) => this.openThreadPopover(e))
+              mark.addEventListener("mouseenter", () => this.handleMarkHoverEnter(mark))
+              mark.addEventListener("mouseleave", () => this.handleMarkHoverLeave(mark))
             }
           })
         }
