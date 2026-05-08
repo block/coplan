@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_29_191637) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_08_203305) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -261,6 +261,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_29_191637) do
     t.index ["username"], name: "index_coplan_users_on_username", unique: true
   end
 
+  create_table "coplan_web_push_subscriptions", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "auth_key", limit: 100, null: false
+    t.datetime "created_at", null: false
+    t.text "endpoint", null: false
+    t.string "endpoint_digest", limit: 64, null: false
+    t.datetime "last_delivered_at"
+    t.datetime "last_seen_at"
+    t.integer "notifications_delivered_count", default: 0, null: false
+    t.string "p256dh_key", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_agent"
+    t.string "user_id", limit: 36, null: false
+    t.index ["endpoint_digest"], name: "index_coplan_web_push_subscriptions_on_endpoint_digest", unique: true
+    t.index ["user_id"], name: "index_coplan_web_push_subscriptions_on_user_id"
+  end
+
   add_foreign_key "coplan_api_tokens", "coplan_users", column: "user_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "addressed_in_plan_version_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "out_of_date_since_version_id"
@@ -289,4 +305,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_29_191637) do
   add_foreign_key "coplan_plans", "coplan_users", column: "created_by_user_id"
   add_foreign_key "coplan_references", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_references", "coplan_plans", column: "target_plan_id"
+  add_foreign_key "coplan_web_push_subscriptions", "coplan_users", column: "user_id"
 end

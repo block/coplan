@@ -3,6 +3,7 @@ module CoPlan
     class SettingsController < ApplicationController
       def index
         @api_tokens = current_user.api_tokens.order(created_at: :desc)
+        @web_push_subscriptions = current_user.web_push_subscriptions.order(created_at: :desc)
       end
 
       def update_theme

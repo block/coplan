@@ -9,6 +9,14 @@ module CoPlan
     attr_accessor :agent_curl_prefix
     attr_accessor :seed_plan_types
 
+    # VAPID (Voluntary Application Server Identification) keys for Web Push.
+    # Generate once with `bundle exec rails coplan:web_push:generate_keys`.
+    # Public key is shared with the browser; private key signs push messages.
+    # Subject must be a mailto: or https: URL identifying who runs the server.
+    # When any of these are nil, Web Push is disabled and SubscriptionsController
+    # returns 503.
+    attr_accessor :vapid_public_key, :vapid_private_key, :vapid_subject
+
     # Lambda for user search used by the /users/search endpoint (typeahead
     # for in-app pickers like @-mentions).
     # Accepts a query string, returns an array of hashes with keys:
@@ -57,6 +65,10 @@ module CoPlan
 
     def show_api_tokens?
       true
+    end
+
+    def web_push_configured?
+      vapid_public_key.present? && vapid_private_key.present? && vapid_subject.present?
     end
   end
 end

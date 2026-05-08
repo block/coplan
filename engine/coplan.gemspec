@@ -22,4 +22,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "turbo-rails"
   spec.add_dependency "stimulus-rails"
   spec.add_dependency "jbuilder"
+  spec.add_dependency "web-push", "~> 3.0"
 end
