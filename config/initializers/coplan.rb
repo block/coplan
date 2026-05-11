@@ -32,11 +32,23 @@ CoPlan.configure do |config|
     end
   }
 
-  # Web Push (VAPID) keys for browser notifications. For local dev these are
-  # checked in; in production they should come from Rails encrypted credentials
-  # or your secrets manager. Generate fresh keys with:
+  # Web Push (VAPID) keys for browser notifications. Always read from ENV (or
+  # Rails encrypted credentials in real deployments). When unset, web push is
+  # simply disabled (CoPlan.configuration.web_push_configured? returns false
+  # and the Settings UI / subscription endpoints stay quiet).
+  #
+  # Generate fresh keys with:
   #   bundle exec rake coplan:web_push:generate_keys
-  config.vapid_public_key  = ENV["COPLAN_VAPID_PUBLIC_KEY"]  || "BPY5NsdGJ4vEmHHNz3SqK2XsmV93j-iR3-kqN-RMbl4JRd9jnKpzunwdXDwFwlzbRlPErn3x379e6Cz7DfdSS6o="
-  config.vapid_private_key = ENV["COPLAN_VAPID_PRIVATE_KEY"] || "1HoYR1d8QIlf8RYTfugJQFTyLlBat3zd-EFkj5dO9WQ="
-  config.vapid_subject     = ENV["COPLAN_VAPID_SUBJECT"]     || "mailto:dev@coplan.local"
+  config.vapid_public_key  = ENV["COPLAN_VAPID_PUBLIC_KEY"]
+  config.vapid_private_key = ENV["COPLAN_VAPID_PRIVATE_KEY"]
+  config.vapid_subject     = ENV["COPLAN_VAPID_SUBJECT"]
+
+  # In development only, fall back to a checked-in throwaway keypair so the
+  # Settings UI is testable out-of-the-box. Never used outside development —
+  # production must set COPLAN_VAPID_* env vars (or wire credentials in).
+  if Rails.env.development?
+    config.vapid_public_key  ||= "BP7TzhJX7-UzFR0TRI9onFdILyvEto7fpK0NA9aagCXxSCoA4t6RBMD5zaugFetaq6zrxkEGY4ji49T7P7YNrV0="
+    config.vapid_private_key ||= "96blWvgu38KWqP3Sa7Uiuohzoz-X32936ZtgIT7e0Tg="
+    config.vapid_subject     ||= "mailto:dev@coplan.local"
+  end
 end
