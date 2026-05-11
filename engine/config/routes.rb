@@ -67,5 +67,16 @@ CoPlan::Engine.routes.draw do
   get "llms.txt", to: "llms#show", as: :llms_txt
   get "agent-instructions", to: "agent_instructions#show", as: :agent_instructions
 
+  # Service worker — served from a route (not the asset pipeline) so it has a
+  # stable URL the browser can update in place. Scope is whatever the engine
+  # is mounted at in the host app.
+  get "coplan_service_worker.js", to: "service_workers#show", as: :service_worker
+
+  # Web Push subscription management. Endpoint URLs come from the browser's
+  # PushManager and uniquely identify a (browser, device, app) tuple per user.
+  scope :web_push, module: "web_push", as: :web_push do
+    resource :subscription, only: [:create, :destroy], controller: "subscriptions"
+  end
+
   root "plans#index"
 end

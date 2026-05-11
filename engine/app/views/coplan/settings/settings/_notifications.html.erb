@@ -1,0 +1,55 @@
+<% return unless CoPlan.configuration.web_push_configured? %>
+
+<div class="card mb-md" data-controller="coplan--web-push-settings">
+  <div class="settings-row">
+    <div class="settings-row__main">
+      <div class="settings-row__label">Browser notifications</div>
+      <div class="settings-row__hint">
+        Get a desktop notification when someone replies to your comments or mentions you.
+        Enable this once per browser you want notifications on.
+      </div>
+    </div>
+    <div class="settings-row__action">
+      <button type="button"
+              data-coplan--web-push-settings-target="enableButton"
+              data-action="coplan--web-push-settings#enable"
+              class="btn btn--primary btn--sm"
+              hidden>
+        Enable on this device
+      </button>
+      <button type="button"
+              data-coplan--web-push-settings-target="disableButton"
+              data-action="coplan--web-push-settings#disable"
+              class="btn btn--secondary btn--sm"
+              hidden>
+        Disable on this device
+      </button>
+      <span data-coplan--web-push-settings-target="status" class="settings-row__status"></span>
+    </div>
+  </div>
+
+  <% if @web_push_subscriptions.any? %>
+    <div class="settings-subsection">
+      <div class="settings-subsection__heading">Devices receiving notifications</div>
+      <ul class="device-list">
+        <% @web_push_subscriptions.each do |sub| %>
+          <li class="device-list__item">
+            <div class="device-list__name"><%= sub.device_label %></div>
+            <div class="device-list__meta">
+              Added <%= time_ago_in_words(sub.created_at) %> ago
+              <% if sub.last_delivered_at %>
+                · last notified <%= time_ago_in_words(sub.last_delivered_at) %> ago
+                · <%= pluralize(sub.notifications_delivered_count, "notification") %>
+              <% else %>
+                · no notifications yet
+              <% end %>
+            </div>
+          </li>
+        <% end %>
+      </ul>
+      <p class="settings-subsection__hint">
+        To remove a device, sign in to CoPlan from that browser and click "Disable on this device".
+      </p>
+    </div>
+  <% end %>
+</div>

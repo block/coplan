@@ -6,6 +6,10 @@
     <meta name="color-scheme" content="<%= signed_in? && current_user.theme_preference != 'system' ? current_user.theme_preference : 'light dark' %>">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
+    <% if CoPlan.configuration.web_push_configured? %>
+      <meta name="coplan-vapid-public-key" content="<%= CoPlan.configuration.vapid_public_key %>">
+      <meta name="coplan-service-worker-url" content="<%= coplan.service_worker_path %>">
+    <% end %>
     <%= coplan_favicon_tag %>
     <%= yield :head %>
     <link rel="preconnect" href="https://fonts.googleapis.com">

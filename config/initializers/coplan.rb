@@ -31,4 +31,12 @@ CoPlan.configure do |config|
       SlackNotificationJob.perform_later(comment_thread_id: payload[:comment_thread_id])
     end
   }
+
+  # Web Push (VAPID) keys for browser notifications. For local dev these are
+  # checked in; in production they should come from Rails encrypted credentials
+  # or your secrets manager. Generate fresh keys with:
+  #   bundle exec rake coplan:web_push:generate_keys
+  config.vapid_public_key  = ENV["COPLAN_VAPID_PUBLIC_KEY"]  || "BPY5NsdGJ4vEmHHNz3SqK2XsmV93j-iR3-kqN-RMbl4JRd9jnKpzunwdXDwFwlzbRlPErn3x379e6Cz7DfdSS6o="
+  config.vapid_private_key = ENV["COPLAN_VAPID_PRIVATE_KEY"] || "1HoYR1d8QIlf8RYTfugJQFTyLlBat3zd-EFkj5dO9WQ="
+  config.vapid_subject     = ENV["COPLAN_VAPID_SUBJECT"]     || "mailto:dev@coplan.local"
 end
