@@ -2425,3 +2425,98 @@ body:has(.comment-toolbar) .main-content {
   color: var(--color-text-muted);
   font-size: 0.9em;
 }
+
+/* Web Push encouragement banner — bottom-right toast that appears after a
+   user posts a comment, inviting them to enable browser notifications.
+   Stays above the comment toolbar (z-index 50) and any thread popovers. */
+.web-push-banner {
+  position: fixed;
+  right: var(--space-lg);
+  /* Sit above the comment toolbar (when present) without overlapping. */
+  bottom: calc(var(--space-lg) + 3.5rem);
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  width: min(420px, calc(100vw - var(--space-lg) * 2));
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  animation: web-push-banner-in 220ms ease-out;
+}
+
+body:not(:has(.comment-toolbar)) .web-push-banner {
+  bottom: var(--space-lg);
+}
+
+@keyframes web-push-banner-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.web-push-banner[hidden] {
+  display: none;
+}
+
+.web-push-banner__icon {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  border-radius: 999px;
+}
+
+.web-push-banner__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.web-push-banner__title {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  margin-bottom: 2px;
+}
+
+.web-push-banner__hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.web-push-banner__hint a {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
+.web-push-banner__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.web-push-banner__btn {
+  /* Slightly chunkier than the default btn--sm so the CTA reads as a real
+     decision point rather than a footnote. */
+  padding: 0.4rem 0.9rem;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .web-push-banner {
+    right: var(--space-md);
+    left: var(--space-md);
+    width: auto;
+  }
+
+  .web-push-banner__actions .btn {
+    flex: 1;
+  }
+}
