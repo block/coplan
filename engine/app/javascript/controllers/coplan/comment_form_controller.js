@@ -25,20 +25,36 @@ export default class extends Controller {
     this._docClickHandler = this.handleDocumentClick.bind(this)
     this._inputHandler = this.handleInput.bind(this)
     this._keydownHandler = this.handleKeydown.bind(this)
+    this._submitEndHandler = this.handleSubmitEnd.bind(this)
 
     this.element.addEventListener("input", this._inputHandler)
     // keydown listens with capture so the picker handles Enter/Arrows
     // before the legacy submitOnEnter action fires.
     this.element.addEventListener("keydown", this._keydownHandler, true)
     document.addEventListener("click", this._docClickHandler)
+
+    // Notify the global Web Push encouragement banner that this user just
+    // posted a comment — gives the banner a chance to surface itself.
+    this._submitForm = this.element.closest("form")
+    if (this._submitForm) {
+      this._submitForm.addEventListener("turbo:submit-end", this._submitEndHandler)
+    }
   }
 
   disconnect() {
     this.element.removeEventListener("input", this._inputHandler)
     this.element.removeEventListener("keydown", this._keydownHandler, true)
     document.removeEventListener("click", this._docClickHandler)
+    if (this._submitForm) {
+      this._submitForm.removeEventListener("turbo:submit-end", this._submitEndHandler)
+    }
     this.closePicker()
     if (this._debounce) clearTimeout(this._debounce)
+  }
+
+  handleSubmitEnd(event) {
+    if (!event.detail?.success) return
+    document.dispatchEvent(new CustomEvent("coplan:web-push-banner:nudge"))
   }
 
   // Legacy keep-alive entry point (still wired in views via data-action).
