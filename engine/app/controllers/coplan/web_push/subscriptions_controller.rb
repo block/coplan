@@ -17,6 +17,15 @@ module CoPlan
         render json: { id: record.id, created_at: record.created_at }, status: :created
       end
 
+      # GET /web_push/devices
+      # Renders the device list inside its turbo-frame so the Settings page
+      # can refresh just that section after enabling/disabling on this browser.
+      def devices
+        @web_push_subscriptions = current_user.web_push_subscriptions.order(created_at: :desc)
+        render partial: "coplan/settings/settings/devices",
+               locals: { web_push_subscriptions: @web_push_subscriptions }
+      end
+
       # DELETE /web_push/subscription
       # Body: { subscription: { endpoint } }
       def destroy

@@ -5,6 +5,7 @@ import * as WebPush from "coplan/web_push"
 // browser's subscription state (which the server can't know — it's per-device).
 export default class extends Controller {
   static targets = ["enableButton", "disableButton", "status"]
+  static values  = { devicesUrl: { type: String, default: "" } }
 
   async connect() {
     await this._refresh()
@@ -15,6 +16,7 @@ export default class extends Controller {
     try {
       await WebPush.subscribe()
       this._setStatus("Notifications enabled on this device.")
+      this._reloadDevices()
     } catch (err) {
       this._setStatus(this._friendlyError(err))
     }
@@ -26,10 +28,21 @@ export default class extends Controller {
     try {
       await WebPush.unsubscribe()
       this._setStatus("Notifications disabled on this device.")
+      this._reloadDevices()
     } catch (err) {
       this._setStatus(this._friendlyError(err))
     }
     await this._refresh()
+  }
+
+  // Tell the device-list turbo-frame to refetch itself so the row for this
+  // browser appears (or disappears) without a full page reload.
+  _reloadDevices() {
+    if (!this.devicesUrlValue) return
+    const frame = document.getElementById("web-push-devices")
+    if (!frame) return
+    // Setting src triggers a fetch even when the URL hasn't changed.
+    frame.src = this.devicesUrlValue
   }
 
   // ---- internals ----
