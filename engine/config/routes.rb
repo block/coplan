@@ -76,6 +76,10 @@ CoPlan::Engine.routes.draw do
   # PushManager and uniquely identify a (browser, device, app) tuple per user.
   scope :web_push, module: "web_push", as: :web_push do
     resource :subscription, only: [:create, :destroy], controller: "subscriptions"
+    # Turbo-frame target for the per-device list on the Settings page.
+    # Reloaded by the settings Stimulus controller after enable/disable so
+    # the list reflects the new browser without a full page refresh.
+    get "devices", to: "subscriptions#devices", as: :devices
   end
 
   root "plans#index"
