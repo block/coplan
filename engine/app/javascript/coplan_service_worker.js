@@ -14,24 +14,41 @@ self.addEventListener("activate", (event) => {
 // Push payloads are JSON: { title, body, url, tag }
 // `tag` groups/dedups notifications (e.g., "comment-thread-#{id}").
 // `url` may include a hash for deep-linking to a thread popover.
+//
+// We always call showNotification() — even when the push has no data — both
+// because Chrome will spawn a generic "This site has been updated in the
+// background" notification if we don't (counts as a violation of the
+// userVisibleOnly: true contract), and because it makes the DevTools
+// "Push" test button useful for verifying the SW is actually wired up.
 self.addEventListener("push", (event) => {
-  if (!event.data) return
-
-  let payload
-  try {
-    payload = event.data.json()
-  } catch {
-    payload = { title: "CoPlan", body: event.data.text() }
+  let payload = { title: "CoPlan", body: "" }
+  if (event.data) {
+    try {
+      payload = event.data.json()
+    } catch {
+      payload = { title: "CoPlan", body: event.data.text() }
+    }
+  } else {
+    payload = { title: "CoPlan", body: "Test push (no payload)" }
   }
 
   const title = payload.title || "CoPlan"
   const options = {
     body: payload.body || "",
     tag: payload.tag,
-    data: { url: payload.url }
+    data: { url: payload.url },
+    // Substituted by ServiceWorkersController at request time so the SW always
+    // picks up the current digested asset path for the CoPlan logo.
+    icon: "__COPLAN_NOTIFICATION_ICON__",
+    badge: "__COPLAN_NOTIFICATION_ICON__"
   }
 
-  event.waitUntil(self.registration.showNotification(title, options))
+  console.log("[coplan-sw] push received, showing notification", { title, options })
+  event.waitUntil(
+    self.registration.showNotification(title, options).catch((err) => {
+      console.error("[coplan-sw] showNotification failed", err)
+    })
+  )
 })
 
 self.addEventListener("notificationclick", (event) => {

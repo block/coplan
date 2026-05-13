@@ -5,7 +5,10 @@ module CoPlan
     # specific thread; tag groups updates for the same thread so successive
     # replies replace each other rather than piling up.
     class PayloadForNotification
-      BODY_TRUNCATE = 140
+      # macOS / Chrome show roughly 80–100 chars of body before truncating with
+      # an ellipsis of their own — keep the payload close to that so we control
+      # where the cut happens and don't end mid-word.
+      BODY_TRUNCATE = 90
 
       def self.call(notification)
         new(notification).call
