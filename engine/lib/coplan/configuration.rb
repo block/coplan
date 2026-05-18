@@ -18,6 +18,19 @@ module CoPlan
     # The engine ships a generic default at "coplan/welcome/default_landing".
     attr_accessor :landing_page_partial
 
+    # Partial used to render the "Built for any AI agent" section of the
+    # landing page. This is the single piece of the landing page that hosts
+    # most often need to customize: the generic engine partial points users
+    # at `/agent-instructions`, while a deployment like coplan-square wants
+    # to tell its users to run `sq agents skills add coplan` instead.
+    #
+    # Swapping just this partial (rather than the whole landing page) lets
+    # hosts customize the agents callout without duplicating the hero, the
+    # how-it-works steps, or the CSS.
+    #
+    # The engine ships a generic default at "coplan/welcome/default_agents".
+    attr_accessor :landing_agents_partial
+
     # VAPID (Voluntary Application Server Identification) keys for Web Push.
     # Generate once with `bundle exec rails coplan:web_push:generate_keys`.
     # Public key is shared with the browser; private key signs push messages.
@@ -49,6 +62,7 @@ module CoPlan
       @agent_curl_prefix = 'curl -s -H "Authorization: Bearer $TOKEN"'
       @seed_plan_types = []
       @landing_page_partial = "coplan/welcome/default_landing"
+      @landing_agents_partial = "coplan/welcome/default_agents"
       @agent_auth_instructions = <<~MARKDOWN
         ## Authentication
 
