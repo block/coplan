@@ -1,0 +1,4 @@
+<%# Rendered plan markdown. Lives inside #plan-content-body so it can be
+    swapped wholesale by live-update broadcasts when an agent (or anyone)
+    commits a new revision in another tab. -%>
+<%= render_markdown(plan.current_content) %>

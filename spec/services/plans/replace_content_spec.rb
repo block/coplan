@@ -27,6 +27,24 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
     plan
   end
 
+  describe "broadcasts" do
+    let(:new_content) { initial_content.sub("unit tests", "integration tests") }
+
+    it "broadcasts the new content body so other tabs live-update" do
+      expect(CoPlan::Broadcaster).to receive(:replace_plan_content).with(plan).and_call_original
+      allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to)
+      allow(Turbo::StreamsChannel).to receive(:broadcast_replace_to)
+
+      described_class.call(
+        plan: plan,
+        new_content: new_content,
+        base_revision: 1,
+        actor_type: "local_agent",
+        actor_id: user.id
+      )
+    end
+  end
+
   describe "happy path" do
     let(:new_content) { initial_content.sub("unit tests", "integration tests") }
 
