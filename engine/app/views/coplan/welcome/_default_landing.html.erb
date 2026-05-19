@@ -51,15 +51,13 @@
     </div>
   </section>
 
-  <section class="landing__agents">
-    <h2 class="landing__section-title">Built for any AI agent</h2>
-    <p>
-      CoPlan exposes a self-describing REST API at
-      <%= link_to "/agent-instructions", agent_instructions_path, class: "landing__inline-link" %>.
-      Point any AI agent — Amp, Claude Code, Cursor, your own — at it and it can create plans,
-      apply edits, and leave review comments on your behalf.
-    </p>
-  </section>
+  <%# The agents section is the one piece of the landing page hosts most often
+      need to customize — generic CoPlan points at /agent-instructions, while
+      a deployment like coplan-square wants to tell its users to run
+      `sq agents skills add coplan` instead. Renders via configuration so a
+      host can swap this single section without forking the whole landing
+      page. See `CoPlan.configuration.landing_agents_partial`. %>
+  <%= render CoPlan.configuration.landing_agents_partial %>
 
   <% if signed_in? %>
     <footer class="landing__footer">

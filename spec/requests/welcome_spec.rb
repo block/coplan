@@ -88,4 +88,50 @@ RSpec.describe "Welcome", type: :request do
       expect(response.body).not_to include("Design docs, built for AI-assisted planning")
     end
   end
+
+  describe "landing_agents_partial configuration override" do
+    # The agents section is the one piece of the landing page we expect hosts
+    # to most often swap out (generic /agent-instructions vs deployment-
+    # specific install commands like `sq agents skills add coplan`). Verify
+    # the swap happens *and* that the rest of the landing page is untouched.
+
+    before { sign_in_as(bob) }
+
+    context "with the default partial" do
+      it "renders the generic agents section pointing at /agent-instructions" do
+        get welcome_path
+        expect(response.body).to include("Built for any AI agent")
+        expect(response.body).to include("/agent-instructions")
+      end
+    end
+
+    context "with a host-configured override" do
+      around do |ex|
+        original = CoPlan.configuration.landing_agents_partial
+        CoPlan.configuration.landing_agents_partial = "coplan/welcome/test_agents_override"
+        ex.run
+        CoPlan.configuration.landing_agents_partial = original
+      end
+
+      before do
+        view_path = CoPlan::Engine.root.join("app/views/coplan/welcome/_test_agents_override.html.erb")
+        File.write(view_path, "<section class=\"host-agents\">sq agents skills add coplan</section>\n")
+        @tmp_view = view_path
+      end
+
+      after { File.delete(@tmp_view) if @tmp_view&.exist? }
+
+      it "swaps the agents section while keeping the rest of the landing page" do
+        get welcome_path
+
+        # The host's agents copy is rendered…
+        expect(response.body).to include("sq agents skills add coplan")
+        # …the default agents copy is gone…
+        expect(response.body).not_to include("Built for any AI agent")
+        # …but the hero and how-it-works steps are still the engine defaults.
+        expect(response.body).to include("Design docs, built for AI-assisted planning")
+        expect(response.body).to include("How it works")
+      end
+    end
+  end
 end
