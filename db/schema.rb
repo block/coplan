@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_08_203305) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_19_011926) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -148,6 +148,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_08_203305) do
     t.index ["plan_id", "user_id"], name: "index_coplan_plan_collaborators_on_plan_id_and_user_id", unique: true
     t.index ["plan_id"], name: "index_coplan_plan_collaborators_on_plan_id"
     t.index ["user_id"], name: "index_coplan_plan_collaborators_on_user_id"
+  end
+
+  create_table "coplan_plan_events", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "actor_id", limit: 36
+    t.string "actor_type", null: false
+    t.text "after_value"
+    t.text "before_value"
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.string "field"
+    t.json "metadata"
+    t.string "plan_id", limit: 36, null: false
+    t.index ["event_type"], name: "index_coplan_plan_events_on_event_type"
+    t.index ["plan_id", "created_at"], name: "index_coplan_plan_events_on_plan_id_and_created_at"
+    t.index ["plan_id"], name: "index_coplan_plan_events_on_plan_id"
   end
 
   create_table "coplan_plan_tags", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|

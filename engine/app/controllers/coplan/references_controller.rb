@@ -14,6 +14,7 @@ module CoPlan
       end
 
       ref = @plan.references.find_or_initialize_by(url: url)
+      was_new = ref.new_record?
       ref.assign_attributes(
         key: params[:reference][:key].presence || ref.key,
         title: params[:reference][:title].presence || ref.title,
@@ -22,6 +23,16 @@ module CoPlan
         target_plan_id: target_plan_id
       )
       ref.save!
+
+      if was_new
+        Plans::LogEvent.call(
+          plan: @plan,
+          actor: current_user,
+          event_type: "reference_added",
+          after: ref.url,
+          metadata: { title: ref.title, reference_type: ref.reference_type }
+        )
+      end
 
       respond_to do |format|
         format.turbo_stream { render_references_stream }
@@ -38,7 +49,18 @@ module CoPlan
       authorize!(@plan, :update?)
 
       ref = @plan.references.find(params[:id])
+      removed_url = ref.url
+      removed_title = ref.title
+      removed_type = ref.reference_type
       ref.destroy!
+
+      Plans::LogEvent.call(
+        plan: @plan,
+        actor: current_user,
+        event_type: "reference_removed",
+        before: removed_url,
+        metadata: { title: removed_title, reference_type: removed_type }
+      )
 
       respond_to do |format|
         format.turbo_stream { render_references_stream }

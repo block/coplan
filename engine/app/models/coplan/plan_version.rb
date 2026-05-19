@@ -14,6 +14,13 @@ module CoPlan
     validates :actor_type, presence: true, inclusion: { in: ACTOR_TYPES }
 
     before_validation :compute_sha256, if: -> { content_markdown.present? && content_sha256.blank? }
+
+    # Marker so a mixed history feed (PlanVersion + PlanEvent) can render each
+    # item appropriately without introspecting class names.
+    def history_kind
+      :version
+    end
+
     after_create_commit :extract_references
     after_create_commit :broadcast_history_update
 
@@ -31,7 +38,7 @@ module CoPlan
         partial: "coplan/plans/version_item",
         locals: { version: self, plan: plan }
       )
-      count = plan.plan_versions.count
+      count = plan.plan_versions.count + plan.plan_events.count
       Broadcaster.replace_to(
         plan,
         target: "history-count",

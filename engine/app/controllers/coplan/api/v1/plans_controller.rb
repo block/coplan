@@ -72,6 +72,11 @@ module CoPlan
           permitted[:title] = params[:title] if params.key?(:title)
           permitted[:status] = params[:status] if params.key?(:status)
 
+          # Snapshot before-state so LogEvent can record meaningful diffs.
+          old_title = @plan.title
+          old_status = @plan.status
+          old_tag_names = @plan.tag_names
+
           @plan.tag_names = params[:tags] if params.key?(:tags)
           @plan.update!(permitted)
 
@@ -79,8 +84,29 @@ module CoPlan
             Broadcaster.replace_to(@plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: @plan })
           end
 
+          if permitted.key?(:title) && @plan.saved_change_to_title?
+            Plans::LogEvent.call(
+              plan: @plan, actor: current_user, event_type: "title_changed",
+              before: old_title, after: @plan.title
+            )
+          end
+
           if permitted.key?(:status) && @plan.saved_change_to_status?
+            Plans::LogEvent.call(
+              plan: @plan, actor: current_user, event_type: "status_changed",
+              before: old_status, after: @plan.status
+            )
             Plans::TriggerAutomatedReviews.call(plan: @plan, new_status: permitted[:status], triggered_by: current_user)
+          end
+
+          if params.key?(:tags)
+            new_tag_names = @plan.tag_names
+            (new_tag_names - old_tag_names).each do |added|
+              Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "tag_added", after: added)
+            end
+            (old_tag_names - new_tag_names).each do |removed|
+              Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "tag_removed", before: removed)
+            end
           end
 
           if params[:references].is_a?(Array)
@@ -88,8 +114,17 @@ module CoPlan
               next unless ref_params[:url].present?
               ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url])
               ref = @plan.references.find_or_initialize_by(url: ref_params[:url])
+              # Only emit a "reference_added" event for genuinely new references;
+              # existing-reference updates fall through silently for now.
+              was_new = ref.new_record?
               ref.assign_attributes(key: ref_params[:key], title: ref_params[:title], reference_type: ref_type, source: "explicit")
               ref.save!
+              if was_new
+                Plans::LogEvent.call(
+                  plan: @plan, actor: current_user, event_type: "reference_added",
+                  after: ref.url, metadata: { title: ref.title, reference_type: ref.reference_type }
+                )
+              end
             end
           end
 

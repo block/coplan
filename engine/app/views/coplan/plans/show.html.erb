@@ -20,7 +20,7 @@
   <div class="plan-tabs__nav">
     <a href="#tab-content" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'content' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="content">📄 Content</a>
     <a href="#tab-references" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'references' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="references">📎 References <span class="plan-tabs__count" id="references-count"><%= @references.size %></span></a>
-    <a href="#tab-history" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'history' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="history">📜 History <span class="plan-tabs__count" id="history-count"><%= @plan.plan_versions.count %></span></a>
+    <a href="#tab-history" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'history' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="history">📜 History <span class="plan-tabs__count" id="history-count"><%= @plan.plan_versions.count + @plan.plan_events.count %></span></a>
   </div>
 
   <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'content' %>" id="tab-content" data-coplan--tabs-target="panel">

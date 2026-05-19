@@ -1,0 +1,18 @@
+<%# A metadata event in the unified history feed. Rendered alongside
+    _version_item.html.erb. Non-interactive (no turbo-frame target) since
+    there's no separate diff to display — the event payload itself is the
+    diff. %>
+<div class="history-split__item history-split__item--event">
+  <div class="history-split__event-chip"><%= event.field || event.event_type %></div>
+  <div class="history-split__meta">
+    <% if event.actor_user %>
+      <%= user_avatar(event.actor_user) %> <span><%= event.actor_user.name %></span>
+    <% else %>
+      <span class="badge badge--considering"><%= event.actor_type %></span>
+    <% end %>
+  </div>
+  <div class="history-split__summary">
+    <%= render_event_summary(event) %>
+  </div>
+  <div class="history-split__time"><%= time_ago_in_words(event.created_at) %> ago</div>
+</div>
