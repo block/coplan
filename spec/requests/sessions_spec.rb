@@ -29,12 +29,20 @@ RSpec.describe "Sessions", type: :request do
     delete sign_out_path
     expect(response).to redirect_to(sign_in_path)
 
-    get root_path
+    # /plans is auth-gated; / (welcome) is intentionally public per CIRCLE-49.
+    get plans_path
     expect(response).to redirect_to(sign_in_path)
   end
 
-  it "unauthenticated access redirects to sign in" do
-    get root_path
+  it "unauthenticated access to a protected page redirects to sign in" do
+    # /plans requires authentication; / (welcome) is the public landing page.
+    get plans_path
     expect(response).to redirect_to(sign_in_path)
+  end
+
+  it "unauthenticated access to / renders the public landing page" do
+    get root_path
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("Design docs, built for AI-assisted planning")
   end
 end

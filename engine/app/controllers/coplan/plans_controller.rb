@@ -124,6 +124,7 @@ module CoPlan
       end
 
       broadcast_plan_update(@plan)
+      Broadcaster.replace_plan_content(@plan)
       render json: { revision: @plan.current_revision }
     rescue Plans::OperationError => e
       render json: { error: e.message }, status: :unprocessable_content

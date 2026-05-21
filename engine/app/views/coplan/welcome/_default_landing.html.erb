@@ -1,0 +1,70 @@
+<div class="landing">
+  <header class="landing__hero">
+    <h1 class="landing__title">Design docs, built for AI-assisted planning.</h1>
+    <p class="landing__lede">
+      CoPlan is where engineers and AI agents collaborate on plans together.
+      Humans leave inline feedback. AI agents respond to that feedback and apply edits automatically.
+      Every change is versioned with full provenance.
+    </p>
+
+    <div class="landing__cta-row">
+      <% if signed_in? %>
+        <%= link_to "Browse plans", plans_path, class: "btn btn--primary" %>
+      <% end %>
+      <%= link_to "Read the agent API", agent_instructions_path, class: "btn btn--secondary" %>
+    </div>
+  </header>
+
+  <section class="landing__how">
+    <h2 class="landing__section-title">How it works</h2>
+
+    <div class="landing__steps">
+      <div class="landing__step">
+        <div class="landing__step-number">1</div>
+        <h3>Write a plan</h3>
+        <p>
+          A plan is a Markdown design doc. Author it yourself, or have an AI agent draft one
+          for you using the API. Plans live through a clear lifecycle: brainstorm → considering
+          → developing → live.
+        </p>
+      </div>
+
+      <div class="landing__step">
+        <div class="landing__step-number">2</div>
+        <h3>Get inline feedback</h3>
+        <p>
+          Domain experts highlight any sentence and leave a comment. Threads stay anchored to the
+          exact text they reference, so context never gets lost. Mention people with
+          <code>@username</code> to pull them in.
+        </p>
+      </div>
+
+      <div class="landing__step">
+        <div class="landing__step-number">3</div>
+        <h3>Agents apply the edits</h3>
+        <p>
+          AI agents read the comments, apply targeted edits to the plan, and resolve the threads.
+          Every edit creates a new immutable version with full attribution — you can see exactly
+          who (or what) changed what, and why.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <%# The agents section is the one piece of the landing page hosts most often
+      need to customize — generic CoPlan points at /agent-instructions, while
+      a deployment like coplan-square wants to tell its users to run
+      `sq agents skills add coplan` instead. Renders via configuration so a
+      host can swap this single section without forking the whole landing
+      page. See `CoPlan.configuration.landing_agents_partial`. %>
+  <%= render CoPlan.configuration.landing_agents_partial %>
+
+  <% if signed_in? %>
+    <footer class="landing__footer">
+      <p>
+        Signed in as <strong><%= current_user.name %></strong>.
+        <%= link_to "Browse all plans →", plans_path, class: "landing__inline-link" %>
+      </p>
+    </footer>
+  <% end %>
+</div>

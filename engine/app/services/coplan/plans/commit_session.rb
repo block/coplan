@@ -144,6 +144,7 @@ module CoPlan
             partial: "coplan/plans/header",
             locals: { plan: plan }
           )
+          Broadcaster.replace_plan_content(plan)
 
           { session: @session, version: version }
         end

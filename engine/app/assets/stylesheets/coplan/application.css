@@ -2520,3 +2520,156 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
     flex: 1;
   }
 }
+
+/* Landing page (rendered at "/" for users with no plans, and at "/welcome") */
+.landing {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: var(--space-2xl) var(--space-lg);
+}
+
+.landing__hero {
+  text-align: center;
+  margin-bottom: var(--space-2xl);
+}
+
+.landing__title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 var(--space-md);
+  color: var(--color-text);
+}
+
+.landing__lede {
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  max-width: 40rem;
+  margin: 0 auto var(--space-xl);
+}
+
+.landing__cta-row {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.landing__section-title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  margin: 0 0 var(--space-lg);
+  color: var(--color-text);
+}
+
+.landing__how {
+  margin-bottom: var(--space-2xl);
+}
+
+.landing__steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-lg);
+}
+
+.landing__step {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-lg);
+}
+
+.landing__step h3 {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin: var(--space-sm) 0;
+  color: var(--color-text);
+}
+
+.landing__step p {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+.landing__step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.landing__agents {
+  background: var(--color-bg-muted);
+  border-radius: var(--radius);
+  padding: var(--space-xl);
+  margin-bottom: var(--space-xl);
+}
+
+.landing__agents p {
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+.landing__inline-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.landing__footer {
+  text-align: center;
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 640px) {
+  .landing {
+    padding: var(--space-xl) var(--space-md);
+  }
+
+  .landing__title {
+    font-size: 1.75rem;
+  }
+}
+
+/* Stale-content banner — shown when the plan body was updated in another tab
+   but the local tab has a dirty draft (textarea/contenteditable). User can't
+   safely auto-swap, so we warn them and offer a reload button. */
+.plan-stale-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin: 0 0 var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  position: sticky;
+  top: var(--space-sm);
+  z-index: 5;
+}
+
+.plan-stale-banner__message {
+  flex: 1;
+  line-height: 1.5;
+}
+
+.plan-stale-banner__reload {
+  flex-shrink: 0;
+}

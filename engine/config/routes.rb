@@ -82,5 +82,7 @@ CoPlan::Engine.routes.draw do
     get "devices", to: "subscriptions#devices", as: :devices
   end
 
-  root "plans#index"
+  get "welcome", to: "welcome#show", as: :welcome
+
+  root "welcome#show"
 end

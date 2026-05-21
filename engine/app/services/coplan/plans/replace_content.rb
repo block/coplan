@@ -121,6 +121,7 @@ module CoPlan
             partial: "coplan/plans/header",
             locals: { plan: @plan }
           )
+          Broadcaster.replace_plan_content(@plan)
 
           { version: version, plan: @plan, applied: result[:applied].length, no_op: false }
         end
