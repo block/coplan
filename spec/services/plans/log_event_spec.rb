@@ -67,5 +67,21 @@ RSpec.describe CoPlan::Plans::LogEvent do
       described_class.call(plan: plan, actor: user, event_type: "tag_added", after: 42)
       expect(CoPlan::PlanEvent.last.after_value).to eq("42")
     end
+
+    it "lets callers override actor_type/actor_id so API token edits attribute to the agent, not the token owner" do
+      token = create(:api_token, user: user)
+      described_class.call(
+        plan: plan,
+        actor: user,
+        event_type: "title_changed",
+        before: "old",
+        after: "new",
+        actor_type: CoPlan::ApiToken::HOLDER_TYPE,
+        actor_id: token.id
+      )
+      event = CoPlan::PlanEvent.last
+      expect(event.actor_type).to eq("local_agent")
+      expect(event.actor_id).to eq(token.id)
+    end
   end
 end

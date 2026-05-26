@@ -87,14 +87,16 @@ module CoPlan
           if permitted.key?(:title) && @plan.saved_change_to_title?
             Plans::LogEvent.call(
               plan: @plan, actor: current_user, event_type: "title_changed",
-              before: old_title, after: @plan.title
+              before: old_title, after: @plan.title,
+              actor_type: api_author_type, actor_id: api_actor_id
             )
           end
 
           if permitted.key?(:status) && @plan.saved_change_to_status?
             Plans::LogEvent.call(
               plan: @plan, actor: current_user, event_type: "status_changed",
-              before: old_status, after: @plan.status
+              before: old_status, after: @plan.status,
+              actor_type: api_author_type, actor_id: api_actor_id
             )
             Plans::TriggerAutomatedReviews.call(plan: @plan, new_status: permitted[:status], triggered_by: current_user)
           end
@@ -102,10 +104,16 @@ module CoPlan
           if params.key?(:tags)
             new_tag_names = @plan.tag_names
             (new_tag_names - old_tag_names).each do |added|
-              Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "tag_added", after: added)
+              Plans::LogEvent.call(
+                plan: @plan, actor: current_user, event_type: "tag_added", after: added,
+                actor_type: api_author_type, actor_id: api_actor_id
+              )
             end
             (old_tag_names - new_tag_names).each do |removed|
-              Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "tag_removed", before: removed)
+              Plans::LogEvent.call(
+                plan: @plan, actor: current_user, event_type: "tag_removed", before: removed,
+                actor_type: api_author_type, actor_id: api_actor_id
+              )
             end
           end
 
@@ -122,7 +130,8 @@ module CoPlan
               if was_new
                 Plans::LogEvent.call(
                   plan: @plan, actor: current_user, event_type: "reference_added",
-                  after: ref.url, metadata: { title: ref.title, reference_type: ref.reference_type }
+                  after: ref.url, metadata: { title: ref.title, reference_type: ref.reference_type },
+                  actor_type: api_author_type, actor_id: api_actor_id
                 )
               end
             end

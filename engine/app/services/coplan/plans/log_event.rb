@@ -26,7 +26,7 @@ module CoPlan
         new(**kwargs).call
       end
 
-      def initialize(plan:, actor:, event_type:, field: nil, before: nil, after: nil, metadata: {})
+      def initialize(plan:, actor:, event_type:, field: nil, before: nil, after: nil, metadata: {}, actor_type: nil, actor_id: nil)
         @plan = plan
         @actor = actor
         @event_type = event_type.to_s
@@ -34,6 +34,8 @@ module CoPlan
         @before = stringify(before)
         @after = stringify(after)
         @metadata = metadata || {}
+        @actor_type_override = actor_type&.to_s
+        @actor_id_override = actor_id
       end
 
       def call
@@ -57,14 +59,17 @@ module CoPlan
       private
 
       def actor_id
+        return @actor_id_override unless @actor_id_override.nil?
         @actor.respond_to?(:id) ? @actor.id : nil
       end
 
       # Mirror PlanVersion's actor model: prefer "human" when we have a user,
-      # otherwise treat as a system event (e.g. backfill jobs). Callers that
-      # need to record agent activity should pass an actor with the right
-      # bookkeeping in place.
+      # otherwise treat as a system event (e.g. backfill jobs). API callers
+      # authenticating via bearer token should pass an explicit `actor_type`
+      # ("local_agent") so agent-driven metadata changes aren't attributed to
+      # the token owner as if they were human edits.
       def actor_type
+        return @actor_type_override if @actor_type_override.present?
         @actor.present? ? "human" : "system"
       end
 
