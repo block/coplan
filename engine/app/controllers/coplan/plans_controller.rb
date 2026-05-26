@@ -42,7 +42,7 @@ module CoPlan
 
     def history
       authorize!(@plan, :show?)
-      @versions = @plan.plan_versions.includes(:actor_user).order(revision: :desc)
+      @history_items = @plan.history_items
       render layout: false
     end
 
@@ -52,7 +52,16 @@ module CoPlan
 
     def update
       authorize!(@plan, :update?)
-      @plan.update!(title: params[:plan][:title])
+      old_title = @plan.title
+      new_title = params[:plan][:title]
+      @plan.update!(title: new_title)
+      Plans::LogEvent.call(
+        plan: @plan,
+        actor: current_user,
+        event_type: "title_changed",
+        before: old_title,
+        after: new_title
+      )
       broadcast_plan_update(@plan)
       redirect_to plan_path(@plan), notice: "Plan updated."
     end
@@ -60,9 +69,17 @@ module CoPlan
     def update_status
       authorize!(@plan, :update_status?)
       new_status = params[:status]
+      old_status = @plan.status
       if Plan::STATUSES.include?(new_status) && @plan.update(status: new_status)
         broadcast_plan_update(@plan)
         if @plan.saved_change_to_status?
+          Plans::LogEvent.call(
+            plan: @plan,
+            actor: current_user,
+            event_type: "status_changed",
+            before: old_status,
+            after: new_status
+          )
           Plans::TriggerAutomatedReviews.call(plan: @plan, new_status: new_status, triggered_by: current_user)
         end
         redirect_to plan_path(@plan), notice: "Status updated to #{new_status}."

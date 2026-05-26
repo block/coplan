@@ -880,6 +880,35 @@ img.avatar {
   margin-top: 2px;
 }
 
+/* Metadata events in the history feed (status changes, tag adds, etc.).
+   Reuses .history-split__item layout but is non-interactive — clicking does
+   not load a diff because the event payload *is* the diff. */
+.history-split__item--event {
+  cursor: default;
+}
+
+.history-split__item--event:hover {
+  background: inherit;
+}
+
+.history-split__event-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--radius);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+}
+
+.history-split__event-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
 .history-split__detail {
   padding: var(--space-md) var(--space-lg);
   overflow-y: auto;
