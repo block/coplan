@@ -15,7 +15,7 @@ module CoPlan
 
     queue_as :default
 
-    discard_on AiProviders::OpenAi::Error
+    discard_on CoPlan::Ai::Error
 
     def perform(plan_id:)
       plan = Plan.find_by(id: plan_id)
@@ -37,7 +37,7 @@ module CoPlan
       content = plan.current_content
       return nil if content.blank?
 
-      AiProviders::OpenAi.call(
+      CoPlan::Ai.call(
         system_prompt: File.read(PROMPT_PATH),
         user_content: content
       ).to_s.strip.presence

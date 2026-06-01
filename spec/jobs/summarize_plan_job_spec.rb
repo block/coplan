@@ -7,14 +7,14 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
   let(:current_sha) { plan.current_plan_version.content_sha256 }
 
   before do
-    allow(CoPlan::AiProviders::OpenAi).to receive(:call).and_return("Fresh summary.")
+    allow(CoPlan::Ai).to receive(:call).and_return("Fresh summary.")
   end
 
   describe "#perform" do
-    it "passes the summarize prompt and plan content to the AI provider" do
+    it "passes the summarize prompt and plan content to CoPlan::Ai" do
       described_class.perform_now(plan_id: plan.id)
 
-      expect(CoPlan::AiProviders::OpenAi).to have_received(:call).with(
+      expect(CoPlan::Ai).to have_received(:call).with(
         system_prompt: File.read(CoPlan::SummarizePlanJob::PROMPT_PATH),
         user_content: plan.current_content
       )
@@ -32,7 +32,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
     end
 
     it "strips whitespace from the AI response before persisting" do
-      allow(CoPlan::AiProviders::OpenAi).to receive(:call).and_return("  trimmed\n\n")
+      allow(CoPlan::Ai).to receive(:call).and_return("  trimmed\n\n")
 
       described_class.perform_now(plan_id: plan.id)
 
@@ -48,7 +48,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
 
       described_class.perform_now(plan_id: plan.id)
 
-      expect(CoPlan::AiProviders::OpenAi).not_to have_received(:call)
+      expect(CoPlan::Ai).not_to have_received(:call)
       expect(plan.reload.summary).to eq("Existing.")
     end
 
@@ -65,7 +65,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
     end
 
     it "does not update when the AI returns blank" do
-      allow(CoPlan::AiProviders::OpenAi).to receive(:call).and_return("   \n")
+      allow(CoPlan::Ai).to receive(:call).and_return("   \n")
 
       expect {
         described_class.perform_now(plan_id: plan.id)
@@ -77,7 +77,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
 
       described_class.perform_now(plan_id: plan.id)
 
-      expect(CoPlan::AiProviders::OpenAi).not_to have_received(:call)
+      expect(CoPlan::Ai).not_to have_received(:call)
     end
 
     it "no-ops when the plan has been deleted" do
@@ -86,7 +86,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
       expect {
         described_class.perform_now(plan_id: missing_id)
       }.not_to raise_error
-      expect(CoPlan::AiProviders::OpenAi).not_to have_received(:call)
+      expect(CoPlan::Ai).not_to have_received(:call)
     end
 
     # Race-condition guard: a slow job started against revision N must
@@ -97,7 +97,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
       # Simulate "a newer version landed while the AI was thinking" by
       # mutating the plan's current_plan_version between the AI call and
       # the persist step.
-      allow(CoPlan::AiProviders::OpenAi).to receive(:call) do
+      allow(CoPlan::Ai).to receive(:call) do
         newer = create(:plan_version, plan: plan, revision: plan.current_revision + 1,
                                        content_markdown: "# Fresher\n\nNewer body.")
         plan.update!(current_plan_version: newer, current_revision: newer.revision,
@@ -113,9 +113,8 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
       expect(plan.summary_content_sha256).not_to eq(stale_sha)
     end
 
-    it "discards on AI provider errors instead of retrying" do
-      allow(CoPlan::AiProviders::OpenAi).to receive(:call)
-        .and_raise(CoPlan::AiProviders::OpenAi::Error, "boom")
+    it "discards on AI errors instead of retrying" do
+      allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "boom")
 
       expect {
         perform_enqueued_jobs { described_class.perform_later(plan_id: plan.id) }
