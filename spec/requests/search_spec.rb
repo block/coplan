@@ -52,10 +52,20 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
         expect(response.body).to include("Quarterly Sitewide Roadmap")
       end
 
-      it "logs the query to recent searches" do
+      it "logs explicit navigations to recent searches" do
         expect {
           get search_path, params: { q: "roadmap" }
         }.to change { CoPlan::SearchQuery.where(user: alice).count }.by(1)
+      end
+
+      it "does NOT log typeahead requests (frame=results) to recent searches" do
+        # Otherwise typing 'roadmap' would log r, ro, roa, … and evict the
+        # user's real recent searches.
+        expect {
+          get search_path, params: { q: "r",   frame: "results" }
+          get search_path, params: { q: "ro",  frame: "results" }
+          get search_path, params: { q: "roa", frame: "results" }
+        }.not_to change { CoPlan::SearchQuery.where(user: alice).count }
       end
 
       it "includes the signed-in user's own brainstorm plans in results" do

@@ -63,6 +63,18 @@ RSpec.describe CoPlan::Plan, type: :model do
       expect(plan.reload.search_text).to include("infrastructure")
     end
 
+    it "refreshes every associated plan when a tag is renamed" do
+      tag = CoPlan::Tag.find_or_create_by!(name: "old-name")
+      plan = create(:plan, :considering)
+      plan.tags = [tag]
+      expect(plan.reload.search_text).to include("old-name")
+
+      tag.update!(name: "new-name")
+
+      expect(plan.reload.search_text).to include("new-name")
+      expect(plan.search_text).not_to include("old-name")
+    end
+
     it "does not crash when the PlanTag callback fires after the parent plan is destroyed" do
       # Simulates the after_commit on PlanTag running when its parent Plan
       # row is already gone — this happens during dependent: :destroy cascade.

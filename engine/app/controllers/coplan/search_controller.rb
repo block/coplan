@@ -25,7 +25,12 @@ module CoPlan
         []
       end
 
-      SearchQuery.log!(user: current_user, query: @query) if @query.present?
+      # Only persist explicit navigations as recent searches — not every
+      # typeahead `frame=results` request fired on each keystroke. Otherwise
+      # typing "roadmap" would log r, ro, roa, … and evict actual recents.
+      if @query.present? && params[:frame] != "results"
+        SearchQuery.log!(user: current_user, query: @query)
+      end
 
       @recent_queries = SearchQuery.recent_for(current_user).pluck(:query)
 
