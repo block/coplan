@@ -84,5 +84,7 @@ CoPlan::Engine.routes.draw do
 
   get "welcome", to: "welcome#show", as: :welcome
 
+  get "search", to: "search#index", as: :search
+
   root "welcome#show"
 end

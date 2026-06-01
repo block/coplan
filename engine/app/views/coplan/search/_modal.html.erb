@@ -1,0 +1,41 @@
+<%# Sitewide search modal, rendered once per page in the global layout.
+    Opens via:
+      * Click on the header bar ("Search plans…")
+      * The `/` keyboard shortcut from anywhere outside an input
+
+    Built on the native HTML Popover API (`popover="auto"`) to match the
+    convention used by comment thread popovers — see AGENTS.md. The browser
+    handles backdrop, top-layer rendering, and light-dismiss/Esc-to-close;
+    the Stimulus controller (`coplan--search`) handles input debouncing,
+    keyboard navigation, and `/` shortcut wiring. %>
+<div id="search-modal"
+     popover="auto"
+     class="search-modal"
+     data-controller="coplan--search"
+     data-coplan--search-url-value="<%= coplan.search_path %>"
+     data-coplan--search-debounce-value="150"
+     data-action="toggle->coplan--search#onToggle">
+  <%# Wrapped in a <form> so that hitting Enter before the JS debounce/Turbo
+      response lands still navigates the user to the full /search page (a
+      reliable fallback). The Stimulus controller intercepts Enter when a
+      result is selected and clicks the link instead. %>
+  <form action="<%= coplan.search_path %>" method="get" class="search-modal__header">
+    <input type="search"
+           name="q"
+           class="search-modal__input"
+           placeholder="Search plans…"
+           autocomplete="off"
+           data-coplan--search-target="input"
+           data-action="input->coplan--search#onInput keydown->coplan--search#onKeydown">
+    <kbd class="search-modal__hint">Esc</kbd>
+  </form>
+  <div class="search-modal__body" data-coplan--search-target="body">
+    <%# Modal is only rendered for signed-in users (see layout), so the
+        recent-searches lookup here is always safe. %>
+    <%= render partial: "coplan/search/results", locals: {
+      query: "",
+      results: [],
+      recent_queries: CoPlan::SearchQuery.recent_for(current_user).pluck(:query)
+    } %>
+  </div>
+</div>
