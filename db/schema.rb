@@ -224,6 +224,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_01_202711) do
     t.integer "current_revision", default: 0, null: false
     t.json "metadata"
     t.string "plan_type_id", limit: 36
+    t.text "search_text", size: :medium
     t.string "status", default: "brainstorm", null: false
     t.text "summary"
     t.string "summary_content_sha256", limit: 64
@@ -233,6 +234,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_01_202711) do
     t.index ["created_by_user_id"], name: "index_coplan_plans_on_created_by_user_id"
     t.index ["current_plan_version_id"], name: "fk_rails_c401577583"
     t.index ["plan_type_id"], name: "index_coplan_plans_on_plan_type_id"
+    t.index ["search_text"], name: "index_coplan_plans_on_search_text", type: :fulltext
     t.index ["status"], name: "index_coplan_plans_on_status"
     t.index ["updated_at"], name: "index_coplan_plans_on_updated_at"
   end
@@ -251,6 +253,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_01_202711) do
     t.index ["plan_id", "url"], name: "index_coplan_references_on_plan_id_and_url", unique: true
     t.index ["source"], name: "index_coplan_references_on_source"
     t.index ["target_plan_id"], name: "index_coplan_references_on_target_plan_id"
+  end
+
+  create_table "coplan_search_queries", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.timestamp "created_at", null: false
+    t.string "query", null: false
+    t.string "user_id", limit: 36, null: false
+    t.index ["user_id", "created_at"], name: "index_coplan_search_queries_on_user_id_and_created_at"
   end
 
   create_table "coplan_tags", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -323,5 +332,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_01_202711) do
   add_foreign_key "coplan_plans", "coplan_users", column: "created_by_user_id"
   add_foreign_key "coplan_references", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_references", "coplan_plans", column: "target_plan_id"
+  add_foreign_key "coplan_search_queries", "coplan_users", column: "user_id"
   add_foreign_key "coplan_web_push_subscriptions", "coplan_users", column: "user_id"
 end

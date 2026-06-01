@@ -1,0 +1,22 @@
+<%# Full-page search results, used when /search?q=... is navigated to directly
+    (bookmark, link, or modal-closed-while-typing). The modal fetches the
+    `frame=results` variant instead. %>
+<% content_for :title, @query.present? ? "Search: #{@query}" : "Search" %>
+
+<div class="page-header">
+  <h1>Search</h1>
+</div>
+
+<form action="<%= coplan.search_path %>" method="get" class="search-page__form">
+  <input type="search" name="q" value="<%= @query %>" placeholder="Search plans…" autofocus class="search-page__input">
+</form>
+
+<div class="search-page__results">
+  <%# Distinct frame_id avoids colliding with the layout-rendered modal frame. %>
+  <%= render partial: "coplan/search/results", locals: {
+    query: @query,
+    results: @results,
+    recent_queries: @recent_queries,
+    frame_id: "search-page-results"
+  } %>
+</div>

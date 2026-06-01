@@ -1,0 +1,64 @@
+<%# Renders the contents of the search results region. Used by:
+    * The search modal — body of `<turbo-frame id="search-results">` that
+      gets re-fetched as the user types.
+    * The full-page /search route — wraps its own frame with a different
+      ID (`search-page-results`) so the layout-rendered modal frame can
+      coexist with the page frame without colliding.
+
+    The keyboard-nav Stimulus controller (`coplan--search`) looks for
+    `[data-search-result]` items; keep that hook intact when changing markup. %>
+<% frame_id = local_assigns.fetch(:frame_id, "search-results") %>
+<%# `target="_top"` so clicks on result anchors inside this frame navigate
+    the whole page rather than trying to load the plan page into the frame
+    (which would render "Content missing" since no matching frame exists
+    on the target page). %>
+<turbo-frame id="<%= frame_id %>" target="_top">
+  <% if query.blank? %>
+    <% if recent_queries.any? %>
+      <div class="search-modal__section-label">Recent searches</div>
+      <ul class="search-modal__list" role="listbox">
+        <% recent_queries.each_with_index do |q, i| %>
+          <li>
+            <a href="<%= coplan.search_path(q: q) %>"
+               class="search-modal__result"
+               data-search-result
+               data-search-recent-query="<%= q %>"
+               data-action="click->coplan--search#selectRecent"
+               role="option"
+               tabindex="-1">
+              <span class="search-modal__result-title"><%= q %></span>
+              <span class="search-modal__result-meta">recent</span>
+            </a>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <div class="search-modal__empty">Type to search plans.</div>
+    <% end %>
+  <% elsif results.empty? %>
+    <div class="search-modal__empty">No plans match “<%= query %>”.</div>
+  <% else %>
+    <ul class="search-modal__list" role="listbox">
+      <% results.each do |plan| %>
+        <li>
+          <a href="<%= coplan.plan_path(plan) %>"
+             class="search-modal__result"
+             data-search-result
+             role="option"
+             tabindex="-1">
+            <span class="search-modal__result-title"><%= plan.title %></span>
+            <span class="search-modal__result-meta">
+              <span class="status-filter--<%= plan.status %> search-modal__status"><%= plan.status %></span>
+              <% if plan.created_by_user %>
+                · <%= plan.created_by_user.name %>
+              <% end %>
+              <% if plan.tags.any? %>
+                · <%= plan.tags.map(&:name).first(3).join(", ") %>
+              <% end %>
+            </span>
+          </a>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+</turbo-frame>
