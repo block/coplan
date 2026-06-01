@@ -23,6 +23,7 @@ module CoPlan
 
     after_create_commit :extract_references
     after_create_commit :broadcast_history_update
+    after_create_commit :enqueue_summary_regeneration
 
     private
 
@@ -63,6 +64,14 @@ module CoPlan
 
     def compute_sha256
       self.content_sha256 = Digest::SHA256.hexdigest(content_markdown)
+    end
+
+    # Fire SummarizePlanJob after every new version. The job is debounced
+    # against `plan.summary_content_sha256`, so rapid back-to-back versions
+    # collapse to a single AI call. The `wait` further reduces wasted calls
+    # during a burst of edits (e.g. a session commit followed by another).
+    def enqueue_summary_regeneration
+      SummarizePlanJob.set(wait: 10.seconds).perform_later(plan_id: plan_id)
     end
   end
 end
