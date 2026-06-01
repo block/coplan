@@ -2,14 +2,16 @@ module CoPlan
   # Regenerates a plan's AI-generated summary.
   #
   # Enqueued from PlanVersion#after_create_commit. Debounced via
-  # `plan.summary_content_sha256`: if the plan's current content sha
-  # already matches the sha the existing summary was generated from,
-  # the job no-ops. This is safe under rapid back-to-back edits — each
-  # PlanVersion enqueues a job, but only one ends up calling the AI.
+  # `plan.summary_content_sha256`: each job atomically "claims" the
+  # current content sha before calling the AI. Two workers that wake
+  # up against the same plan-and-sha will race on the claim — only one
+  # wins, the other no-ops. Without the atomic claim, both would pass
+  # a naive pre-check, both call the AI, and waste a full AI request.
   #
-  # AI provider errors are discarded rather than retried — a stale
-  # summary is fine, and the next PlanVersion will trigger another
-  # attempt.
+  # AI errors are discarded rather than retried — a stale summary is
+  # fine, and the next PlanVersion will trigger another attempt. The
+  # claim survives the failure, which is intentional: we'd rather skip
+  # this revision than retry a broken prompt in a loop.
   class SummarizePlanJob < ApplicationJob
     PROMPT_PATH = CoPlan::Engine.root.join("prompts", "summarize.md").freeze
 
@@ -23,7 +25,8 @@ module CoPlan
 
       current_sha = plan.current_plan_version&.content_sha256
       return if current_sha.blank?
-      return if plan.summary_content_sha256 == current_sha
+
+      return unless claim_sha(plan, current_sha)
 
       summary = generate_summary(plan)
       return if summary.blank?
@@ -32,6 +35,19 @@ module CoPlan
     end
 
     private
+
+    # Atomic claim: set summary_content_sha256 = current_sha only if it
+    # isn't already current_sha. Returns true if THIS job won the claim.
+    #
+    # Using a single conditional UPDATE (one round-trip, atomic at the
+    # DB) means concurrent workers can't both pass the check and both
+    # call the AI — exactly one row update succeeds per sha.
+    def claim_sha(plan, current_sha)
+      claimed = Plan.where(id: plan.id)
+                    .where("summary_content_sha256 IS NULL OR summary_content_sha256 != ?", current_sha)
+                    .update_all(summary_content_sha256: current_sha)
+      claimed.positive?
+    end
 
     def generate_summary(plan)
       content = plan.current_content
@@ -43,22 +59,12 @@ module CoPlan
       ).to_s.strip.presence
     end
 
-    # Persist the summary only if the plan's current content sha still
-    # matches the sha we generated from. Without this check, a slow job
-    # that started against revision N could overwrite a fresher summary
-    # generated against revision N+1 — AI calls take seconds, plenty of
-    # time for a newer version to land first.
+    # Write the summary only if our claim is still current — if a newer
+    # version landed mid-flight, a fresher job has already re-claimed
+    # the sha and we'd be stomping its work.
     def persist_summary(plan, summary, expected_sha)
-      plan.with_lock do
-        plan.reload
-        return if plan.current_plan_version&.content_sha256 != expected_sha
-
-        plan.update!(
-          summary: summary,
-          summary_generated_at: Time.current,
-          summary_content_sha256: expected_sha
-        )
-      end
+      Plan.where(id: plan.id, summary_content_sha256: expected_sha)
+          .update_all(summary: summary, summary_generated_at: Time.current)
     end
   end
 end

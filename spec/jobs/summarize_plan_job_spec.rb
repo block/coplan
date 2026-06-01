@@ -89,6 +89,25 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
       expect(CoPlan::Ai).not_to have_received(:call)
     end
 
+    # Concurrency guard: two workers waking up against the same plan-and-sha
+    # must collapse to a single AI call. Without the atomic claim, both jobs
+    # would pass a naive pre-check and both burn an AI request.
+    it "claims the sha before calling AI so a concurrent worker skips" do
+      call_count = 0
+      allow(CoPlan::Ai).to receive(:call) do
+        call_count += 1
+        # Simulate a second worker firing while we're mid-AI-call. With the
+        # claim already taken, this inner perform should no-op.
+        described_class.perform_now(plan_id: plan.id)
+        "Fresh summary."
+      end
+
+      described_class.perform_now(plan_id: plan.id)
+
+      expect(call_count).to eq(1)
+      expect(plan.reload.summary).to eq("Fresh summary.")
+    end
+
     # Race-condition guard: a slow job started against revision N must
     # NOT overwrite a fresher summary already persisted for revision N+1.
     it "does not overwrite a fresher summary when a newer version landed mid-flight" do
