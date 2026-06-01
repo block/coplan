@@ -1,5 +1,5 @@
 <%= turbo_frame_tag "plans-page-#{page}" do %>
-  <% previous_status = nil %>
+  <% previous_status = local_assigns.fetch(:previous_status, nil) %>
   <% plans.each do |plan| %>
     <% if grouped_by_status && plan.status != previous_status %>
       <h2 class="plans-list__section plans-list__section--<%= plan.status %>">
@@ -49,8 +49,10 @@
   <% end %>
 
   <% if has_next_page %>
+    <% next_page_params = params.permit(:scope, :status, :plan_type, :tag).merge(page: page + 1) %>
+    <% next_page_params[:prev_status] = plans.last.status if grouped_by_status && plans.any? %>
     <%= turbo_frame_tag "plans-page-#{page + 1}",
-          src: plans_path(params.permit(:scope, :status, :plan_type, :tag).merge(page: page + 1)),
+          src: plans_path(next_page_params),
           loading: :lazy do %>
       <div class="plans-list__loading text-muted text-sm">Loading more plans…</div>
     <% end %>

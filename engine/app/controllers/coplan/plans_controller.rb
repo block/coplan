@@ -46,6 +46,7 @@ module CoPlan
             page: @page,
             has_next_page: @has_next_page,
             grouped_by_status: @grouped_by_status,
+            previous_status: params[:prev_status].presence,
           },
           layout: false
       else

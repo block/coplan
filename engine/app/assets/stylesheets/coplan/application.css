@@ -766,14 +766,14 @@ img.avatar {
 .plans-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
 .plans-list__item {
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-md);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-xs);
 }
 
 .plans-list__section {
@@ -782,9 +782,7 @@ img.avatar {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
-  margin: var(--space-sm) 0 2px;
-  padding-bottom: 2px;
-  border-bottom: 1px solid var(--color-border);
+  margin: var(--space-sm) 0 0;
 }
 
 .plans-list__section:first-child {
