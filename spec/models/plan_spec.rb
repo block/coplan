@@ -139,12 +139,6 @@ RSpec.describe CoPlan::Plan, type: :model do
       expect(results).to include(brainstorm)
     end
 
-    it "hides all brainstorm plans from signed-out visitors" do
-      results = CoPlan::Plan.search("sitewide", user: nil).to_a
-      expect(results).to include(published, other_published)
-      expect(results).not_to include(brainstorm)
-    end
-
     it "returns no results for a blank query" do
       expect(CoPlan::Plan.search("", user: author).to_a).to eq([])
     end

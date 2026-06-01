@@ -30,10 +30,12 @@
     <kbd class="search-modal__hint">Esc</kbd>
   </form>
   <div class="search-modal__body" data-coplan--search-target="body">
+    <%# Modal is only rendered for signed-in users (see layout), so the
+        recent-searches lookup here is always safe. %>
     <%= render partial: "coplan/search/results", locals: {
       query: "",
       results: [],
-      recent_queries: signed_in? ? CoPlan::SearchQuery.recent_for(current_user).pluck(:query) : []
+      recent_queries: CoPlan::SearchQuery.recent_for(current_user).pluck(:query)
     } %>
   </div>
 </div>

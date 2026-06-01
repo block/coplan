@@ -39,13 +39,15 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
         get search_path, params: { q: "roadmap" }
         expect(response).to have_http_status(:ok)
         expect(response.body).to include("Quarterly Sitewide Roadmap")
-        expect(response.body).to include("<turbo-frame id=\"search-results\">")
+        # Full-page route uses its own frame id to avoid colliding with the
+        # layout-rendered modal frame.
+        expect(response.body).to match(/<turbo-frame id="search-page-results"/)
       end
 
       it "returns only the results partial when frame=results" do
         get search_path, params: { q: "roadmap", frame: "results" }
         expect(response).to have_http_status(:ok)
-        expect(response.body).to include("<turbo-frame id=\"search-results\">")
+        expect(response.body).to match(/<turbo-frame id="search-results"/)
         expect(response.body).not_to include("<html") # layout suppressed
         expect(response.body).to include("Quarterly Sitewide Roadmap")
       end
@@ -74,14 +76,9 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
     end
 
     context "signed-out" do
-      it "allows anonymous access" do
+      it "redirects anonymous visitors to sign-in instead of leaking plan data" do
         get search_path, params: { q: "roadmap" }
-        expect(response).to have_http_status(:ok)
-      end
-
-      it "returns only published plans (brainstorm hidden)" do
-        get search_path, params: { q: "brainstorm" }
-        expect(response.body).not_to include("Personal Brainstorm Memo")
+        expect(response).to redirect_to("/sign_in")
       end
 
       it "does not persist a SearchQuery row" do
@@ -93,14 +90,20 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
   end
 
   describe "header search bar in the layout" do
-    it "is visible to signed-out users" do
+    it "is hidden from signed-out users" do
       get root_path
-      expect(response.body).to include('class="site-nav__search"')
-      expect(response.body).to include('popovertarget="search-modal"')
+      expect(response.body).not_to include('class="site-nav__search"')
+      expect(response.body).not_to include('id="search-modal"')
     end
 
-    it "renders the search modal in the layout once" do
+    it "is visible to signed-in users" do
+      sign_in_as(alice)
+      # `/` redirects signed-in users who already have plans (alice does);
+      # follow through to land on the actual plans index, which uses the
+      # same layout we want to verify.
       get root_path
+      follow_redirect! if response.redirect?
+      expect(response.body).to include('class="site-nav__search"')
       expect(response.body.scan('id="search-modal"').size).to eq(1)
     end
   end

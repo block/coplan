@@ -2747,6 +2747,9 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
 }
 
 .search-modal {
+  /* Layout for the open state. The user-agent stylesheet keeps
+     `[popover]:not(:popover-open)` hidden by default, but we override
+     `display` here, so re-establish the hidden default explicitly. */
   position: fixed;
   top: 10vh;
   left: 50%;
@@ -2761,8 +2764,15 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   color: var(--color-text);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
   overflow: hidden;
-  display: flex;
   flex-direction: column;
+}
+
+.search-modal:not(:popover-open) {
+  display: none;
+}
+
+.search-modal:popover-open {
+  display: flex;
 }
 
 .search-modal::backdrop {

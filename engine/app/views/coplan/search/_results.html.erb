@@ -8,7 +8,11 @@
     The keyboard-nav Stimulus controller (`coplan--search`) looks for
     `[data-search-result]` items; keep that hook intact when changing markup. %>
 <% frame_id = local_assigns.fetch(:frame_id, "search-results") %>
-<turbo-frame id="<%= frame_id %>">
+<%# `target="_top"` so clicks on result anchors inside this frame navigate
+    the whole page rather than trying to load the plan page into the frame
+    (which would render "Content missing" since no matching frame exists
+    on the target page). %>
+<turbo-frame id="<%= frame_id %>" target="_top">
   <% if query.blank? %>
     <% if recent_queries.any? %>
       <div class="search-modal__section-label">Recent searches</div>

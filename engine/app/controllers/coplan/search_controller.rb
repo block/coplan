@@ -8,13 +8,10 @@ module CoPlan
   # * `frame=results` query param — just the results list partial, used by
   #   the modal's Turbo Frame to swap in results as the user types.
   #
-  # Anonymous access is allowed — signed-out users see only published plans
-  # (this matches `Plan.search`'s visibility filter). Recent searches are
-  # only persisted for signed-in users.
+  # Sign-in required. Anonymous visitors get the usual redirect to the
+  # sign-in page — we don't want search leaking plan titles or content to
+  # unauthenticated callers.
   class SearchController < ApplicationController
-    skip_before_action :authenticate_coplan_user!
-    before_action :resolve_optional_coplan_user
-
     MAX_RESULTS = 20
 
     def index
@@ -28,11 +25,9 @@ module CoPlan
         []
       end
 
-      if @query.present? && current_user
-        SearchQuery.log!(user: current_user, query: @query)
-      end
+      SearchQuery.log!(user: current_user, query: @query) if @query.present?
 
-      @recent_queries = current_user ? SearchQuery.recent_for(current_user).pluck(:query) : []
+      @recent_queries = SearchQuery.recent_for(current_user).pluck(:query)
 
       if params[:frame] == "results"
         render partial: "coplan/search/results", layout: false, locals: {
@@ -41,12 +36,6 @@ module CoPlan
           recent_queries: @recent_queries
         }
       end
-    end
-
-    private
-
-    def resolve_optional_coplan_user
-      @current_coplan_user = CoPlan::Authentication.user_from_request(request)
     end
   end
 end

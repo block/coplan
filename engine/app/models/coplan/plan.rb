@@ -33,19 +33,13 @@ module CoPlan
     # natural-language threshold on small datasets.
     #
     # Visibility: brainstorm plans are hidden from everyone except their
-    # author (signed-out users see only published plans). This matches the
-    # `index` action's filter.
-    scope :search, ->(query, user: nil) {
+    # author — matches the `index` action's filter. `user` is required;
+    # the controller enforces sign-in so we don't have to handle nil here.
+    scope :search, ->(query, user:) {
       term = sanitize_fulltext_term(query)
       return none if term.blank?
 
-      visible = if user
-        where.not(status: "brainstorm").or(where(created_by_user_id: user.id))
-      else
-        where.not(status: "brainstorm")
-      end
-
-      visible
+      where.not(status: "brainstorm").or(where(created_by_user_id: user.id))
         .where("MATCH(search_text) AGAINST (? IN BOOLEAN MODE)", term)
         .order(Arel.sql("MATCH(search_text) AGAINST (#{connection.quote(term)} IN BOOLEAN MODE) DESC"))
     }
