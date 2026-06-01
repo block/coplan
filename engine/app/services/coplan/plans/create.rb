@@ -13,7 +13,7 @@ module CoPlan
       end
 
       def call
-        ActiveRecord::Base.transaction do
+        plan = ActiveRecord::Base.transaction do
           plan = Plan.create!(title: @title, created_by_user: @user, plan_type_id: @plan_type_id)
           version = PlanVersion.create!(
             plan: plan,
@@ -25,6 +25,17 @@ module CoPlan
           plan.update!(current_plan_version: version, current_revision: 1)
           plan
         end
+
+        CoPlan::Analytics.track(
+          "plan_created",
+          user: @user,
+          plan_id: plan.id,
+          plan_type_id: plan.plan_type_id,
+          status: plan.status,
+          content_length: @content.to_s.length
+        )
+
+        plan
       end
     end
   end

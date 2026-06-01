@@ -81,6 +81,16 @@ module CoPlan
             after: new_status
           )
           Plans::TriggerAutomatedReviews.call(plan: @plan, new_status: new_status, triggered_by: current_user)
+          if new_status == "considering" && old_status != "considering"
+            CoPlan::Analytics.track(
+              "plan_published",
+              user: current_user,
+              plan_id: @plan.id,
+              plan_type_id: @plan.plan_type_id,
+              previous_status: old_status,
+              via: "web"
+            )
+          end
         end
         redirect_to plan_path(@plan), notice: "Status updated to #{new_status}."
       else

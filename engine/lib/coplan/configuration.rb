@@ -4,6 +4,25 @@ module CoPlan
     attr_accessor :ai_base_url, :ai_api_key, :ai_model
     attr_accessor :error_reporter
     attr_accessor :notification_handler
+
+    # Lambda invoked for every analytics event tracked via
+    # `CoPlan::Analytics.track`. Receives (event_name, payload_hash).
+    # No-op by default; hosts wire this to write to a destination
+    # (MySQL events table, Snowflake, Datadog, etc.).
+    #
+    # The handler is called inline on the request thread and must not
+    # raise — any exception is swallowed and reported via `error_reporter`
+    # so a broken sink never breaks user requests. Hosts that need
+    # heavyweight writes should enqueue a job from inside the handler.
+    #
+    # Payload always includes:
+    #   :event, :timestamp, :user_id, :properties (Hash)
+    #
+    # Example:
+    #   config.track_event = ->(event, payload) {
+    #     AnalyticsEvent.create!(name: event, payload: payload)
+    #   }
+    attr_accessor :track_event
     attr_accessor :onboarding_banner
     attr_accessor :agent_auth_instructions
     attr_accessor :agent_curl_prefix
@@ -58,6 +77,7 @@ module CoPlan
       @ai_model = "gpt-4o"
       @error_reporter = ->(exception, context) { Rails.error.report(exception, context: context) }
       @notification_handler = nil
+      @track_event = nil
       @onboarding_banner = 'Want to upload Agentic plans? Give your agent <a href="/agent-instructions">these instructions</a>.'
       @agent_curl_prefix = 'curl -s -H "Authorization: Bearer $TOKEN"'
       @seed_plan_types = []

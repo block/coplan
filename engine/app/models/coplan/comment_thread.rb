@@ -93,7 +93,17 @@ module CoPlan
     end
 
     def resolve!(user)
+      previous_status = status
       update!(status: "resolved", resolved_by_user: user)
+      CoPlan::Analytics.track(
+        "thread_resolved",
+        user: user,
+        plan_id: plan_id,
+        comment_thread_id: id,
+        previous_status: previous_status,
+        comment_count: comments.count,
+        anchored: anchored?
+      )
     end
 
     def accept!(user)

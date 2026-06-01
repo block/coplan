@@ -99,6 +99,16 @@ module CoPlan
               actor_type: api_author_type, actor_id: api_actor_id
             )
             Plans::TriggerAutomatedReviews.call(plan: @plan, new_status: permitted[:status], triggered_by: current_user)
+            if @plan.status == "considering" && old_status != "considering"
+              CoPlan::Analytics.track(
+                "plan_published",
+                user: current_user,
+                plan_id: @plan.id,
+                plan_type_id: @plan.plan_type_id,
+                previous_status: old_status,
+                via: "api"
+              )
+            end
           end
 
           if params.key?(:tags)

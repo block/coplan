@@ -1,6 +1,7 @@
 require "commonmarker"
 require "diffy"
 require "coplan/configuration"
+require "coplan/analytics"
 require "coplan/engine"
 
 module CoPlan
