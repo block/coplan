@@ -20,5 +20,17 @@ FactoryBot.define do
     trait :brainstorm do
       status { "brainstorm" }
     end
+
+    trait :developing do
+      status { "developing" }
+    end
+
+    trait :live do
+      status { "live" }
+    end
+
+    trait :abandoned do
+      status { "abandoned" }
+    end
   end
 end

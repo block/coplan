@@ -139,10 +139,10 @@ RSpec.describe "Plans", type: :request do
     expect(response).to redirect_to(plan_path(plan))
   end
 
-  it "index hides other users brainstorm plans" do
+  it "index hides other users brainstorm plans on the All scope" do
     brainstorm_plan # alice's brainstorm
     sign_in_as(bob)
-    get plans_path
+    get plans_path(scope: "all")
     expect(response).to have_http_status(:success)
     expect(response.body).not_to include(brainstorm_plan.title)
   end
@@ -152,6 +152,64 @@ RSpec.describe "Plans", type: :request do
     get plans_path
     expect(response).to have_http_status(:success)
     expect(response.body).to include(brainstorm_plan.title)
+  end
+
+  describe "default scope" do
+    it "defaults to 'mine' and hides other users' plans" do
+      plan # alice's
+      bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Roadmap")
+      get plans_path
+      expect(response.body).to include(plan.title)
+      expect(response.body).not_to include(bobs_plan.title)
+    end
+
+    it "scope=all shows everyone's published plans" do
+      plan # alice's
+      bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Roadmap")
+      get plans_path(scope: "all")
+      expect(response.body).to include(plan.title)
+      expect(response.body).to include(bobs_plan.title)
+    end
+
+    it "groups My Plans by status with section headers" do
+      create(:plan, :developing,  created_by_user: alice, title: "Developing Plan")
+      create(:plan, :considering, created_by_user: alice, title: "Considering Plan")
+      create(:plan, :brainstorm,  created_by_user: alice, title: "Brainstorm Plan")
+      get plans_path
+      expect(response.body).to include("plans-list__section")
+      # active work appears before brainstorm
+      expect(response.body.index("Developing Plan")).to be < response.body.index("Brainstorm Plan")
+      expect(response.body.index("Considering Plan")).to be < response.body.index("Brainstorm Plan")
+    end
+
+    it "does not group when filtered to a single status" do
+      create(:plan, :developing, created_by_user: alice, title: "Developing Plan")
+      get plans_path(status: "developing")
+      expect(response.body).not_to include("plans-list__section")
+      expect(response.body).to include("Developing Plan")
+    end
+
+    it "scope=all does not group by status" do
+      create(:plan, :developing, created_by_user: alice, title: "Developing Plan")
+      get plans_path(scope: "all")
+      expect(response.body).not_to include("plans-list__section")
+    end
+  end
+
+  describe "content preview on cards" do
+    it "renders a markdown-stripped preview when there is no AI summary" do
+      plan.current_plan_version.update!(content_markdown: "# Heading\n\nThis is the **plan body** with [links](https://example.com).")
+      get plans_path
+      expect(response.body).to include("plans-list__summary")
+      expect(response.body).to include("This is the plan body with links")
+      expect(response.body).not_to include("**plan body**")
+    end
+
+    it "omits the summary block when the plan has no content" do
+      plan.current_plan_version.update_columns(content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
+      get plans_path
+      expect(response.body).not_to include("plans-list__summary")
+    end
   end
 
   it "can view brainstorm plan as non-author" do

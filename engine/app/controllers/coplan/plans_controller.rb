@@ -4,15 +4,29 @@ module CoPlan
 
     PER_PAGE = 20
 
+    SCOPES = %w[mine all].freeze
+    DEFAULT_SCOPE = "mine".freeze
+
     def index
-      plans = Plan.includes(:plan_type, :tags, :created_by_user)
-        .where.not(status: "brainstorm")
-        .or(Plan.where(created_by_user: current_user))
-        .order(updated_at: :desc, id: :desc)
+      @scope = SCOPES.include?(params[:scope]) ? params[:scope] : DEFAULT_SCOPE
+
+      plans = Plan.includes(:plan_type, :tags, :created_by_user, :current_plan_version)
+
+      if @scope == "mine"
+        plans = plans.where(created_by_user: current_user)
+      else
+        plans = plans.where.not(status: "brainstorm")
+          .or(Plan.where(created_by_user: current_user))
+      end
+
       plans = plans.where(status: params[:status]) if params[:status].present?
-      plans = plans.where(created_by_user: current_user) if params[:scope] == "mine"
       plans = plans.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?
       plans = plans.with_tag(params[:tag]) if params[:tag].present?
+
+      # Group "My Plans" by status (active → brainstorm) when not already filtered
+      # to a single status. The "All" view stays sorted by recency.
+      @grouped_by_status = @scope == "mine" && params[:status].blank?
+      plans = @grouped_by_status ? plans.prioritized_by_status : plans.order(updated_at: :desc, id: :desc)
 
       @page = (params[:page] || 1).to_i
       @plans = plans.limit(PER_PAGE + 1).offset((@page - 1) * PER_PAGE)
@@ -25,7 +39,16 @@ module CoPlan
         .count
 
       if turbo_frame_request?
-        render partial: "coplan/plans/plan_page", locals: { plans: @plans, plan_unread_counts: @plan_unread_counts, page: @page, has_next_page: @has_next_page }, layout: false
+        render partial: "coplan/plans/plan_page",
+          locals: {
+            plans: @plans,
+            plan_unread_counts: @plan_unread_counts,
+            page: @page,
+            has_next_page: @has_next_page,
+            grouped_by_status: @grouped_by_status,
+            previous_status: params[:prev_status].presence,
+          },
+          layout: false
       else
         @plan_types = PlanType.order(:name)
         @show_onboarding_banner = CoPlan.configuration.onboarding_banner.present? &&

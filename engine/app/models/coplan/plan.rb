@@ -2,6 +2,19 @@ module CoPlan
   class Plan < ApplicationRecord
     STATUSES = %w[brainstorm considering developing live abandoned].freeze
 
+    # Order used when grouping "My Plans" on the index: active work first,
+    # brainstorms next, abandoned last.
+    STATUS_PRIORITY = %w[developing live considering brainstorm abandoned].freeze
+
+    # Order plans by STATUS_PRIORITY, then most-recently-updated within each group.
+    scope :prioritized_by_status, -> {
+      whens = STATUS_PRIORITY.each_with_index.map { |status, i|
+        sanitize_sql_array(["WHEN status = ? THEN ?", status, i])
+      }.join(" ")
+      order(Arel.sql("CASE #{whens} ELSE #{STATUS_PRIORITY.length} END"))
+        .order(updated_at: :desc, id: :desc)
+    }
+
     belongs_to :created_by_user, class_name: "CoPlan::User"
     belongs_to :current_plan_version, class_name: "PlanVersion", optional: true
     belongs_to :plan_type, optional: true

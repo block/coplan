@@ -63,7 +63,7 @@
     <footer class="landing__footer">
       <p>
         Signed in as <strong><%= current_user.name %></strong>.
-        <%= link_to "Browse all plans →", plans_path, class: "landing__inline-link" %>
+        <%= link_to "Browse all plans →", plans_path(scope: "all"), class: "landing__inline-link" %>
       </p>
     </footer>
   <% end %>
