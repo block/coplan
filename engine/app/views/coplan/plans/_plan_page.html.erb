@@ -1,7 +1,17 @@
 <%= turbo_frame_tag "plans-page-#{page}" do %>
+  <% previous_status = nil %>
   <% plans.each do |plan| %>
-    <div class="card plans-list__item">
-      <div class="plans-list__header">
+    <% if grouped_by_status && plan.status != previous_status %>
+      <h2 class="plans-list__section plans-list__section--<%= plan.status %>">
+        <%= plan.status.titleize %>
+      </h2>
+      <% previous_status = plan.status %>
+    <% end %>
+
+    <% summary = plan.try(:summary).presence || plan_content_preview(plan) %>
+
+    <article class="card plans-list__item">
+      <header class="plans-list__header">
         <%= link_to plan.title, plan_path(plan), class: "plans-list__title", data: { turbo_frame: "_top" } %>
         <span class="badge badge--<%= plan.status %>"><%= plan.status %></span>
         <% if plan.plan_type %>
@@ -11,22 +21,37 @@
         <% if plan_unread > 0 %>
           <span class="inbox-badge"><%= plan_unread %></span>
         <% end %>
-      </div>
-      <% if plan.tags.any? %>
-        <div class="plans-list__tags">
-          <% plan.tags.each do |tag| %>
-            <%= link_to tag.name, plans_path(params.permit(:scope, :status, :plan_type).merge(tag: tag.name)), class: "badge badge--tag #{'badge--tag-active' if params[:tag] == tag.name}", data: { turbo_frame: "_top" } %>
-          <% end %>
-        </div>
+      </header>
+
+      <% if summary.present? %>
+        <p class="plans-list__summary"><%= summary %></p>
       <% end %>
+
       <div class="plans-list__meta text-sm text-muted">
-        <%= user_avatar(plan.created_by_user) %> <%= plan.created_by_user.name %> · v<%= plan.current_revision %> · updated <%= time_ago_in_words(plan.updated_at) %> ago
+        <span class="plans-list__meta-item plans-list__meta-item--author">
+          <%= user_avatar(plan.created_by_user) %>
+          <%= plan.created_by_user.name %>
+        </span>
+        <span class="plans-list__meta-item">v<%= plan.current_revision %></span>
+        <span class="plans-list__meta-item">updated <%= time_ago_in_words(plan.updated_at) %> ago</span>
+        <% if plan.tags.any? %>
+          <span class="plans-list__meta-item plans-list__tags">
+            <% plan.tags.each do |tag| %>
+              <%= link_to tag.name,
+                    plans_path(params.permit(:scope, :status, :plan_type).merge(tag: tag.name)),
+                    class: "badge badge--tag #{'badge--tag-active' if params[:tag] == tag.name}",
+                    data: { turbo_frame: "_top" } %>
+            <% end %>
+          </span>
+        <% end %>
       </div>
-    </div>
+    </article>
   <% end %>
 
   <% if has_next_page %>
-    <%= turbo_frame_tag "plans-page-#{page + 1}", src: plans_path(params.permit(:scope, :status, :plan_type, :tag).merge(page: page + 1)), loading: :lazy do %>
+    <%= turbo_frame_tag "plans-page-#{page + 1}",
+          src: plans_path(params.permit(:scope, :status, :plan_type, :tag).merge(page: page + 1)),
+          loading: :lazy do %>
       <div class="plans-list__loading text-muted text-sm">Loading more plans…</div>
     <% end %>
   <% end %>

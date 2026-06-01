@@ -1,41 +1,53 @@
-<div class="page-header">
-  <h1>Plans</h1>
-</div>
+<div class="plans-toolbar">
+  <div class="plans-toolbar__row">
+    <%= link_to "Mine", plans_path(params.permit(:status, :plan_type, :tag)),
+          class: "status-filter #{'status-filter--active' if @scope == 'mine'}" %>
+    <%= link_to "All", plans_path(params.permit(:status, :plan_type, :tag).merge(scope: "all")),
+          class: "status-filter #{'status-filter--active' if @scope == 'all'}" %>
+    <span class="plans-toolbar__divider" aria-hidden="true"></span>
+    <%= link_to "Any status", plans_path(params.permit(:scope, :plan_type, :tag)),
+          class: "status-filter #{'status-filter--active' if params[:status].blank?}" %>
+    <% CoPlan::Plan::STATUSES.each do |status| %>
+      <%= link_to status.titleize, plans_path(params.permit(:scope, :plan_type, :tag).merge(status: status)),
+            class: "status-filter status-filter--#{status} #{'status-filter--active' if params[:status] == status}" %>
+    <% end %>
+  </div>
 
-<div class="status-filters">
-  <%= link_to "All Plans", plans_path(params.permit(:status, :tag)), class: "status-filter #{'status-filter--active' if params[:scope].blank?}" %>
-  <%= link_to "My Plans", plans_path(params.permit(:status, :tag).merge(scope: "mine")), class: "status-filter #{'status-filter--active' if params[:scope] == 'mine'}" %>
-</div>
+  <% if @plan_types.any? %>
+    <div class="plans-toolbar__row plans-toolbar__row--secondary">
+      <%= link_to "Any type", plans_path(params.permit(:scope, :status, :tag)),
+            class: "status-filter #{'status-filter--active' if params[:plan_type].blank?}" %>
+      <% @plan_types.each do |pt| %>
+        <%= link_to pt.name, plans_path(params.permit(:scope, :status, :tag).merge(plan_type: pt.id)),
+              class: "status-filter #{'status-filter--active' if params[:plan_type] == pt.id}" %>
+      <% end %>
+    </div>
+  <% end %>
 
-<div class="status-filters">
-  <%= link_to "All", plans_path(params.permit(:scope, :plan_type, :tag)), class: "status-filter #{'status-filter--active' if params[:status].blank?}" %>
-  <% CoPlan::Plan::STATUSES.each do |status| %>
-    <%= link_to status.titleize, plans_path(params.permit(:scope, :plan_type, :tag).merge(status: status)), class: "status-filter status-filter--#{status} #{'status-filter--active' if params[:status] == status}" %>
+  <% if params[:tag].present? %>
+    <div class="active-filter">
+      Filtered by tag: <span class="badge badge--tag badge--tag-active"><%= params[:tag] %></span>
+      <%= link_to "✕ Clear", plans_path(params.permit(:scope, :status, :plan_type)), class: "active-filter__clear" %>
+    </div>
   <% end %>
 </div>
 
-<% if @plan_types.any? %>
-  <div class="status-filters">
-    <%= link_to "All Types", plans_path(params.permit(:scope, :status, :tag)), class: "status-filter #{'status-filter--active' if params[:plan_type].blank?}" %>
-    <% @plan_types.each do |pt| %>
-      <%= link_to pt.name, plans_path(params.permit(:scope, :status, :tag).merge(plan_type: pt.id)), class: "status-filter #{'status-filter--active' if params[:plan_type] == pt.id}" %>
-    <% end %>
-  </div>
-<% end %>
-
-<% if params[:tag].present? %>
-  <div class="active-filter">
-    Filtered by tag: <span class="badge badge--tag badge--tag-active"><%= params[:tag] %></span>
-    <%= link_to "✕ Clear", plans_path(params.permit(:scope, :status, :plan_type)), class: "active-filter__clear" %>
-  </div>
-<% end %>
-
 <% if @plans.any? %>
   <div class="plans-list">
-    <%= render partial: "coplan/plans/plan_page", locals: { plans: @plans, plan_unread_counts: @plan_unread_counts, page: @page, has_next_page: @has_next_page } %>
+    <%= render partial: "coplan/plans/plan_page", locals: {
+      plans: @plans,
+      plan_unread_counts: @plan_unread_counts,
+      page: @page,
+      has_next_page: @has_next_page,
+      grouped_by_status: @grouped_by_status,
+    } %>
   </div>
 <% else %>
   <div class="empty-state card">
-    <p>No plans yet. Plans are created via the API.</p>
+    <% if @scope == "mine" %>
+      <p>You haven't created any plans yet. Plans are created via the API.</p>
+    <% else %>
+      <p>No plans yet. Plans are created via the API.</p>
+    <% end %>
   </div>
 <% end %>
