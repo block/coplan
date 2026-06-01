@@ -19,6 +19,7 @@ module CoPlan
     before_action :authenticate_coplan_user!
     before_action :set_coplan_current
     after_action :set_agent_instructions_header
+    after_action :track_page_view
 
     helper_method :current_user, :signed_in?, :show_api_tokens?
 
@@ -69,6 +70,26 @@ module CoPlan
       unless policy.public_send(action)
         raise NotAuthorizedError
       end
+    end
+
+    # Fires once per successful, signed-in HTML GET. Skips Turbo Frame
+    # requests (those are partial reloads within an already-counted page),
+    # non-2xx responses, agent/API traffic, and anything that isn't HTML.
+    def track_page_view
+      return unless current_user
+      return unless request.get?
+      return unless response.media_type == "text/html"
+      return unless response.status >= 200 && response.status < 300
+      return if turbo_frame_request?
+      return if agent_request?
+
+      CoPlan::Analytics.track(
+        "page_view",
+        user: current_user,
+        path: request.path,
+        controller: controller_path,
+        action: action_name
+      )
     end
 
     def set_agent_instructions_header

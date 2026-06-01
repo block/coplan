@@ -148,5 +148,18 @@ CoPlan.configure do |config|
 
   # Notifications (optional)
   config.notification_handler = ->(event, payload) { ... }
+
+  # Analytics (optional)
+  #
+  # Fires for every event the engine instruments (page_view, plan_created,
+  # plan_published, comment_created, thread_resolved, ...). Called inline on
+  # the request thread; if your handler is slow, enqueue a job from inside it.
+  # Exceptions raised by the handler are swallowed and reported via
+  # `error_reporter`, so a broken sink will never break a user request.
+  #
+  # Payload always contains: :event, :timestamp, :user_id, :properties (Hash).
+  config.track_event = ->(event, payload) {
+    AnalyticsEvent.create!(name: event, payload: payload)
+  }
 end
 ```

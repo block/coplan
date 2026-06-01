@@ -49,4 +49,29 @@ RSpec.describe CoPlan::Plans::Create do
     expect(plan).to be_persisted
     expect(plan.plan_type_id).to be_nil
   end
+
+  it "tracks a plan_created analytics event" do
+    user = create(:coplan_user)
+    plan_type = create(:plan_type)
+
+    events = capture_analytics_events do
+      CoPlan::Plans::Create.call(
+        title: "Tracked",
+        content: "# Tracked\n\nbody",
+        user: user,
+        plan_type_id: plan_type.id
+      )
+    end
+
+    expect(events.length).to eq(1)
+    event_name, payload = events.first
+    expect(event_name).to eq("plan_created")
+    expect(payload[:user_id]).to eq(user.id)
+    expect(payload[:properties]).to include(
+      plan_type_id: plan_type.id,
+      status: "brainstorm",
+      content_length: "# Tracked\n\nbody".length
+    )
+    expect(payload[:properties][:plan_id]).to be_present
+  end
 end
