@@ -25,6 +25,71 @@ module CoPlan
 
     scope :with_tag, ->(name) { joins(:tags).where(coplan_tags: { name: name }) }
 
+    after_save_commit :refresh_search_text!, if: :search_text_needs_refresh?
+
+    # Sitewide search over a denormalized `search_text` column maintained by
+    # `refresh_search_text!`. Uses MySQL FULLTEXT in BOOLEAN mode so we can
+    # support prefix matches (`foo*`) and don't trip MySQL's 50%-of-rows
+    # natural-language threshold on small datasets.
+    #
+    # Visibility: brainstorm plans are hidden from everyone except their
+    # author (signed-out users see only published plans). This matches the
+    # `index` action's filter.
+    scope :search, ->(query, user: nil) {
+      term = sanitize_fulltext_term(query)
+      return none if term.blank?
+
+      visible = if user
+        where.not(status: "brainstorm").or(where(created_by_user_id: user.id))
+      else
+        where.not(status: "brainstorm")
+      end
+
+      visible
+        .where("MATCH(search_text) AGAINST (? IN BOOLEAN MODE)", term)
+        .order(Arel.sql("MATCH(search_text) AGAINST (#{connection.quote(term)} IN BOOLEAN MODE) DESC"))
+    }
+
+    def self.sanitize_fulltext_term(query)
+      # FULLTEXT BOOLEAN-mode operators we strip so user input can't break the
+      # query: + - > < ( ) ~ * " @ and stray backslashes. After stripping we
+      # split on whitespace, drop empty tokens, and append `*` to each so
+      # typing "foo bar" matches "foobar baz" mid-stream — important for the
+      # search-as-you-type UX.
+      cleaned = query.to_s.gsub(/[+\-><()~*"@\\]/, " ")
+      tokens = cleaned.split(/\s+/).reject(&:blank?)
+      tokens.map { |t| "#{t}*" }.join(" ")
+    end
+
+    # Recomputes the denormalized `search_text` column from the plan's title,
+    # author name, tag names, and stripped current content. Called from the
+    # after-commit hook above and from the backfill migration.
+    def refresh_search_text!
+      new_text = self.class.build_search_text(self)
+      return if new_text == search_text
+      update_columns(search_text: new_text)
+    end
+
+    # Builds the denormalized search text for a plan. Exposed as a class
+    # method so the backfill migration can call it without instantiating
+    # callbacks.
+    #
+    # Uses `map(&:name)` rather than `pluck(:name)` so callers that preload
+    # `:tags` (e.g. the migration backfill) don't trigger an extra query per
+    # plan.
+    def self.build_search_text(plan)
+      parts = []
+      parts << plan.title.to_s
+      parts << plan.created_by_user&.name.to_s
+      parts << plan.tags.map(&:name).join(" ") if plan.persisted?
+      content = plan.current_plan_version&.content_markdown
+      if content.present?
+        stripped, _ = Plans::MarkdownTextExtractor.call(content)
+        parts << stripped
+      end
+      parts.reject(&:blank?).join(" ")
+    end
+
     def self.ransackable_attributes(auth_object = nil)
       %w[id title status plan_type_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
     end
@@ -71,6 +136,15 @@ module CoPlan
       versions = plan_versions.includes(:actor_user).order(revision: :desc).to_a
       events = plan_events.includes(:actor_user).order(created_at: :desc).to_a
       (versions + events).sort_by { |item| -item.created_at.to_f }
+    end
+
+    private
+
+    # Refresh `search_text` when any of the inputs that feed into it have
+    # changed at the Plan level. Tag and PlanVersion changes call
+    # `refresh_search_text!` directly from their own callbacks.
+    def search_text_needs_refresh?
+      saved_change_to_title? || saved_change_to_current_plan_version_id? || saved_change_to_created_by_user_id?
     end
   end
 end
