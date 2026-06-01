@@ -87,7 +87,8 @@ module CoPlan
               user: current_user,
               plan_id: @plan.id,
               plan_type_id: @plan.plan_type_id,
-              previous_status: old_status
+              previous_status: old_status,
+              via: "web"
             )
           end
         end

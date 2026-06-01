@@ -42,6 +42,13 @@ module CoPlan
     end
 
     def track_comment_created
+      # NOTE: We deliberately don't reuse `first_comment_in_thread?` here —
+      # that helper compares UUIDs with `id < ?`, which is not insertion-
+      # ordered. After-create-commit guarantees the row is persisted, so a
+      # total count of 1 is the reliable signal for "this comment opened
+      # the thread."
+      is_first = comment_thread.comments.count == 1
+
       CoPlan::Analytics.track(
         "comment_created",
         user: author,
@@ -49,7 +56,7 @@ module CoPlan
         comment_thread_id: comment_thread_id,
         comment_id: id,
         author_type: author_type,
-        is_first_in_thread: first_comment_in_thread?,
+        is_first_in_thread: is_first,
         body_length: body_markdown.to_s.length
       )
     end

@@ -42,4 +42,28 @@ RSpec.describe CoPlan::Comment, "analytics" do
     _, payload = events.find { |name, _| name == "comment_created" }
     expect(payload[:properties][:is_first_in_thread]).to be(false)
   end
+
+  # `first_comment_in_thread?` (used by notify_plan_author) compares UUID
+  # strings with `id < ?`, which is not insertion-ordered. The analytics
+  # path uses a total-count check instead, so a reply whose UUID happens
+  # to sort before the existing first comment still records is_first=false.
+  it "is not fooled by a reply whose UUID sorts before earlier comments" do
+    high_id = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+    low_id  = "00000000-0000-0000-0000-000000000001"
+
+    create(:comment, comment_thread: thread, body_markdown: "first", id: high_id)
+
+    events = capture_analytics_events do
+      thread.comments.create!(
+        author_type: "human",
+        author_id: user.id,
+        body_markdown: "reply",
+        id: low_id
+      )
+    end
+
+    reply_event = events.find { |name, payload| name == "comment_created" && payload[:properties][:comment_id] == low_id }
+    expect(reply_event).not_to be_nil
+    expect(reply_event.last[:properties][:is_first_in_thread]).to be(false)
+  end
 end
