@@ -9,7 +9,7 @@ A Rails app for engineering design doc review, purpose-built for AI-assisted pla
 Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), packaged as the `coplan` gem (path-based, in `Gemfile`). The top-level Rails app is a **thin host** that provides deployment configuration, ActiveAdmin, and app-specific glue.
 
 ### Engine (`engine/`) — where the code lives
-- **Models** — all domain models live in `engine/app/models/coplan/` (Plan, PlanVersion, User, Comment, CommentThread, EditLease, EditSession, ApiToken, AutomatedPlanReviewer, PlanCollaborator)
+- **Models** — all domain models live in `engine/app/models/coplan/` (Plan, PlanVersion, User, Comment, CommentThread, EditLease, EditSession, ApiToken, PlanCollaborator)
 - **Controllers** — web UI and API controllers in `engine/app/controllers/coplan/`, including `api/v1/` for the REST API
 - **Services** — all service objects in `engine/app/services/coplan/` (Plans::Create, Plans::ApplyOperations, AI providers, etc.)
 - **Policies** — authorization policies in `engine/app/policies/coplan/`
@@ -49,7 +49,7 @@ Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), 
 
 ## Model Conventions
 
-- Define valid values as **frozen constants** on the model (e.g., `Plan::STATUSES`, `AutomatedPlanReviewer::AI_PROVIDERS`)
+- Define valid values as **frozen constants** on the model (e.g., `Plan::STATUSES`, `Comment::AUTHOR_TYPES`)
 - Use `inclusion:` validations against those constants
 - Use `after_initialize` for defaults on JSON array columns (e.g., `self.tags ||= []`)
 - Service objects live in `app/services/` namespaced by model (e.g., `Plans::Create`)
@@ -80,7 +80,6 @@ Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), 
 
 - `db/seeds.rb` must be **idempotent** — use `find_or_create_by!` or guard with count checks
 - Seeds should provide enough data to demo features from a fresh checkout
-- `AutomatedPlanReviewer.create_defaults_for(org)` handles reviewer seeding
 
 ## Code Review
 
@@ -98,7 +97,6 @@ Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), 
 - **Brainstorm** plans are private; **considering+** are published to the org
 - **Editing model**: humans comment, AI agents apply edits via semantic operations (`replace_exact`, `insert_under_heading`, `delete_paragraph_containing`)
 - **Edit leases**: one agent edits at a time, enforced by a lease with TTL
-- **Cloud Personas** (AutomatedPlanReviewers): server-side prompt templates that run as SolidQueue jobs
 - **Versions are immutable** — every edit creates a new PlanVersion with full provenance
 
 ## Comment & Review UX
