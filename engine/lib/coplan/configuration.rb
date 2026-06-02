@@ -1,7 +1,6 @@
 module CoPlan
   class Configuration
     attr_accessor :authenticate, :api_authenticate, :sign_in_path
-    attr_accessor :ai_base_url, :ai_api_key, :ai_model
     attr_accessor :error_reporter
     attr_accessor :notification_handler
 
@@ -70,14 +69,46 @@ module CoPlan
     #   }
     attr_accessor :user_search
 
+    # Pluggable AI surface. Invoked by CoPlan::Ai whenever the engine needs
+    # a single-shot completion.
+    #
+    # The callable receives a keyword arg `messages:` (Array of
+    # `{role:, content:}` hashes; roles are :system / :user / :assistant)
+    # and must return the assistant's text response as a String. Exceptions
+    # raised inside the callable are wrapped in CoPlan::Ai::Error so call
+    # sites can `discard_on` without knowing the underlying provider.
+    #
+    # Hosts wire whatever backend they want — a built-in OpenAI plugin
+    # (used by default; reads its key from Rails credentials
+    # `:openai/:api_key` or `ENV["OPENAI_API_KEY"]`), an internal LLM
+    # gateway like Gondola, an Anthropic client, a Bedrock client, a
+    # test stub, etc. Model choice and any deployment policy (project
+    # routing, rate limits, observability) live inside the callable —
+    # not in the engine's API surface.
+    #
+    # The default lambda is lazy: it dispatches to the OpenAI provider on
+    # call, and the provider raises CoPlan::Ai::Error at call time if no
+    # key is configured. AI-powered jobs (e.g. SummarizePlanJob) discard
+    # cleanly on that error.
+    #
+    # Example (host initializer):
+    #   config.ai_call = ->(messages:) {
+    #     GondolaProvider.call(messages: messages, model: "gpt-4o")
+    #   }
+    attr_accessor :ai_call
+
     def initialize
       @authenticate = nil
-      @ai_base_url = "https://api.openai.com/v1"
-      @ai_api_key = nil
-      @ai_model = "gpt-4o"
       @error_reporter = ->(exception, context) { Rails.error.report(exception, context: context) }
       @notification_handler = nil
       @track_event = nil
+      # Built-in OpenAI default. Always wired so credential-backed
+      # deployments work without any explicit boot-time check; the
+      # provider itself resolves the API key (Rails credentials → ENV)
+      # and raises CoPlan::Ai::Error at call time if nothing is set.
+      # Hosts can override this in their initializer to plug in a
+      # different backend.
+      @ai_call = ->(messages:) { CoPlan::AiProviders::OpenAi.call(messages: messages) }
       @onboarding_banner = 'Want to upload Agentic plans? Give your agent <a href="/agent-instructions">these instructions</a>.'
       @agent_curl_prefix = 'curl -s -H "Authorization: Bearer $TOKEN"'
       @seed_plan_types = []
@@ -114,5 +145,6 @@ module CoPlan
     def web_push_configured?
       vapid_public_key.present? && vapid_private_key.present? && vapid_subject.present?
     end
+
   end
 end
