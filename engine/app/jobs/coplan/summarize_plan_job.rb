@@ -54,8 +54,8 @@ module CoPlan
       return nil if content.blank?
 
       CoPlan::Ai.call(
-        system_prompt: File.read(PROMPT_PATH),
-        user_content: content
+        system: File.read(PROMPT_PATH),
+        user: content
       ).to_s.strip.presence
     end
 

@@ -15,8 +15,8 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
       described_class.perform_now(plan_id: plan.id)
 
       expect(CoPlan::Ai).to have_received(:call).with(
-        system_prompt: File.read(CoPlan::SummarizePlanJob::PROMPT_PATH),
-        user_content: plan.current_content
+        system: File.read(CoPlan::SummarizePlanJob::PROMPT_PATH),
+        user: plan.current_content
       )
     end
 

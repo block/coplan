@@ -16,8 +16,6 @@ CoPlan.configure do |config|
     }
   }
 
-  config.ai_api_key = Rails.application.credentials.dig(:openai, :api_key) || ENV["OPENAI_API_KEY"]
-  config.ai_model = "gpt-4o"
 
   # Optional: delegate user search to an external directory (e.g., People API).
   # When unset, /api/v1/users/search queries the local coplan_users table.
