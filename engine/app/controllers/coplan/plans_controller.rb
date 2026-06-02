@@ -103,7 +103,6 @@ module CoPlan
             before: old_status,
             after: new_status
           )
-          Plans::TriggerAutomatedReviews.call(plan: @plan, new_status: new_status, triggered_by: current_user)
           if new_status == "considering" && old_status != "considering"
             CoPlan::Analytics.track(
               "plan_published",

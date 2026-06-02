@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_01_202711) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_02_170000) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -37,19 +37,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_01_202711) do
     t.string "user_id", limit: 36, null: false
     t.index ["token_digest"], name: "index_coplan_api_tokens_on_token_digest", unique: true
     t.index ["user_id"], name: "index_coplan_api_tokens_on_user_id"
-  end
-
-  create_table "coplan_automated_plan_reviewers", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
-    t.string "ai_model", null: false
-    t.string "ai_provider", default: "openai", null: false
-    t.datetime "created_at", null: false
-    t.boolean "enabled", default: true, null: false
-    t.string "key", null: false
-    t.string "name", null: false
-    t.text "prompt_text", null: false
-    t.json "trigger_statuses", null: false
-    t.datetime "updated_at", null: false
-    t.index ["key"], name: "index_coplan_automated_plan_reviewers_on_key", unique: true
   end
 
   create_table "coplan_comment_threads", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|

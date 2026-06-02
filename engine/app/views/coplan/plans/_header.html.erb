@@ -13,20 +13,5 @@
   </div>
   <div class="page-header__actions">
     <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(plan), current_user: current_user } %>
-    <% if CoPlan::AutomatedPlanReviewer.enabled.any? %>
-      <div class="dropdown" data-controller="coplan--dropdown">
-        <button class="btn btn--secondary" data-action="coplan--dropdown#toggle">
-          🤖 Run Reviewer ▾
-        </button>
-        <div class="dropdown__menu" data-coplan--dropdown-target="menu" style="display: none;">
-          <% CoPlan::AutomatedPlanReviewer.enabled.order(:name).each do |reviewer| %>
-            <%= button_to reviewer.name,
-                  plan_automated_reviews_path(plan, reviewer_id: reviewer.id),
-                  method: :post,
-                  class: "dropdown__item" %>
-          <% end %>
-        </div>
-      </div>
-    <% end %>
   </div>
 </div>

@@ -7,7 +7,6 @@ CoPlan::Engine.routes.draw do
       get :diff, on: :member
     end
     resources :references, controller: "references", only: [:create, :destroy]
-    resources :automated_reviews, only: [:create]
     resources :comment_threads, only: [:create] do
       member do
         patch :resolve

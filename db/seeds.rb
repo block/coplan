@@ -125,7 +125,4 @@ end
 q3 = CoPlan::Plan.find_by(title: "Q3 Product Roadmap")
 q3.tag_names = ["roadmap", "product"] if q3 && q3.tags.empty?
 
-puts "Seeding automated plan reviewers..."
-CoPlan::AutomatedPlanReviewer.create_defaults
-
-puts "Done! #{CoPlan::User.count} users, #{CoPlan::Plan.count} plans, #{CoPlan::CommentThread.count} threads, #{CoPlan::Comment.count} comments, #{CoPlan::ApiToken.count} API tokens, #{CoPlan::AutomatedPlanReviewer.count} reviewers."
+puts "Done! #{CoPlan::User.count} users, #{CoPlan::Plan.count} plans, #{CoPlan::CommentThread.count} threads, #{CoPlan::Comment.count} comments, #{CoPlan::ApiToken.count} API tokens."
