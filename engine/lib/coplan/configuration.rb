@@ -79,14 +79,17 @@ module CoPlan
     # sites can `discard_on` without knowing the underlying provider.
     #
     # Hosts wire whatever backend they want — a built-in OpenAI plugin
-    # (auto-wired below when ENV["OPENAI_API_KEY"] is present), an
-    # internal LLM gateway like Gondola, an Anthropic client, a Bedrock
-    # client, a test stub, etc. Model choice and any deployment policy
-    # (project routing, rate limits, observability) live inside the
-    # callable — not in the engine's API surface.
+    # (used by default; reads its key from Rails credentials
+    # `:openai/:api_key` or `ENV["OPENAI_API_KEY"]`), an internal LLM
+    # gateway like Gondola, an Anthropic client, a Bedrock client, a
+    # test stub, etc. Model choice and any deployment policy (project
+    # routing, rate limits, observability) live inside the callable —
+    # not in the engine's API surface.
     #
-    # When nil, CoPlan::Ai raises CoPlan::Ai::NoProviderError on use and
-    # AI-powered jobs (e.g. SummarizePlanJob) discard cleanly.
+    # The default lambda is lazy: it dispatches to the OpenAI provider on
+    # call, and the provider raises CoPlan::Ai::Error at call time if no
+    # key is configured. AI-powered jobs (e.g. SummarizePlanJob) discard
+    # cleanly on that error.
     #
     # Example (host initializer):
     #   config.ai_call = ->(messages:) {
@@ -99,13 +102,13 @@ module CoPlan
       @error_reporter = ->(exception, context) { Rails.error.report(exception, context: context) }
       @notification_handler = nil
       @track_event = nil
-      # Built-in OpenAI default: auto-wired when an API key is available
-      # in the environment, so a standalone deployment gets working AI
-      # with zero config beyond setting OPENAI_API_KEY. Hosts can override
-      # this in their initializer to plug in a different backend.
-      @ai_call = if ENV["OPENAI_API_KEY"].present?
-        ->(messages:) { CoPlan::AiProviders::OpenAi.call(messages: messages) }
-      end
+      # Built-in OpenAI default. Always wired so credential-backed
+      # deployments work without any explicit boot-time check; the
+      # provider itself resolves the API key (Rails credentials → ENV)
+      # and raises CoPlan::Ai::Error at call time if nothing is set.
+      # Hosts can override this in their initializer to plug in a
+      # different backend.
+      @ai_call = ->(messages:) { CoPlan::AiProviders::OpenAi.call(messages: messages) }
       @onboarding_banner = 'Want to upload Agentic plans? Give your agent <a href="/agent-instructions">these instructions</a>.'
       @agent_curl_prefix = 'curl -s -H "Authorization: Bearer $TOKEN"'
       @seed_plan_types = []
@@ -143,8 +146,5 @@ module CoPlan
       vapid_public_key.present? && vapid_private_key.present? && vapid_subject.present?
     end
 
-    def ai_call_configured?
-      !ai_call.nil?
-    end
   end
 end

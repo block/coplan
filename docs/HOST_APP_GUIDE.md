@@ -63,9 +63,11 @@ CoPlan.configure do |config|
     }
   }
 
-  # Optional: AI provider configuration
-  config.ai_api_key = ENV["OPENAI_API_KEY"]
-  config.ai_model = "gpt-4o"
+  # Optional: AI provider (see "AI provider" section below). The engine
+  # ships with a built-in OpenAI plugin that auto-wires when an API key
+  # is present in Rails credentials (`openai.api_key`) or the env
+  # (`OPENAI_API_KEY`). Override `config.ai_call` to plug in a different
+  # backend.
 end
 ```
 
@@ -137,9 +139,21 @@ CoPlan.configure do |config|
   config.authenticate = ->(request) { ... }
 
   # AI provider (optional)
-  config.ai_base_url = "https://api.openai.com/v1"  # default
-  config.ai_api_key = nil
-  config.ai_model = "gpt-4o"                         # default
+  #
+  # The engine calls `config.ai_call` for every single-shot AI completion
+  # (e.g. plan summarization). The callable receives a `messages:` array
+  # of `{ role:, content: }` hashes (roles `:system`, `:user`,
+  # `:assistant`) and must return the assistant's text as a String.
+  #
+  # Defaults to a built-in OpenAI plugin that auto-resolves its key from
+  # Rails credentials (`openai.api_key`) or `ENV["OPENAI_API_KEY"]`, and
+  # picks the model from `ENV["OPENAI_MODEL"]` (default `gpt-4o`). Set
+  # to `nil` to disable AI features (jobs that need AI will discard
+  # cleanly). Override to plug in any other backend:
+  #
+  #   config.ai_call = ->(messages:) {
+  #     MyLlmGateway.call(messages: messages, model: "claude-3-5-sonnet")
+  #   }
 
   # Error reporting (optional)
   config.error_reporter = ->(exception, context) {

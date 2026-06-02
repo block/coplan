@@ -28,8 +28,9 @@ module CoPlan
   # CoPlan::Ai::Error, so callers can `discard_on CoPlan::Ai::Error`
   # without coupling to the underlying provider.
   #
-  # When no callable is configured, raises CoPlan::Ai::NoProviderError
-  # (a subclass of Error) so jobs still `discard_on` cleanly.
+  # When a host has explicitly disabled AI by setting
+  # `config.ai_call = nil`, raises CoPlan::Ai::NoProviderError (a subclass
+  # of Error) so jobs still `discard_on` cleanly.
   module Ai
     class Error < StandardError; end
     class NoProviderError < Error; end
@@ -47,8 +48,7 @@ module CoPlan
       callable = CoPlan.configuration.ai_call
       unless callable
         raise NoProviderError,
-          "No AI provider configured. Set CoPlan.configuration.ai_call in your host initializer " \
-          "(or set OPENAI_API_KEY to auto-wire the built-in OpenAI plugin)."
+          "No AI provider configured. Set CoPlan.configuration.ai_call in your host initializer."
       end
 
       begin
