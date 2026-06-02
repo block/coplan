@@ -14,10 +14,20 @@ module CoPlan
     after_create_commit :track_comment_created
     # Runs on save (not just create) so adding a mention via edit also
     # notifies. ProcessMentions uses find_or_create_by to dedupe.
-    after_save_commit :process_mentions, if: :saved_change_to_body_markdown?
+    after_save_commit :process_mentions, if: -> { saved_change_to_body_markdown? && !deleted? }
+
+    scope :kept, -> { where(deleted_at: nil) }
 
     def agent?
       agent_name.present? || author_type.in?(%w[local_agent cloud_persona])
+    end
+
+    def deleted?
+      deleted_at.present?
+    end
+
+    def soft_delete!
+      update!(deleted_at: Time.current)
     end
 
     # Resolves the comment author to a CoPlan::User instance, or nil for

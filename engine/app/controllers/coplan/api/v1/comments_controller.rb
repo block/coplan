@@ -85,6 +85,41 @@ module CoPlan
           render json: { thread_id: thread.id, status: thread.status }
         end
 
+        def destroy
+          # Scope the lookup to this plan's comments so an ID from another
+          # plan returns 404 rather than being acted on. (The policy also
+          # gates on authorship, but scoping here keeps the resource
+          # boundary explicit and the 404 correct.)
+          comment = @plan.comments.find_by(id: params[:id])
+
+          unless comment
+            render json: { error: "Comment not found" }, status: :not_found
+            return
+          end
+
+          policy = CommentPolicy.new(current_user, comment)
+          unless policy.delete?
+            render json: { error: "Not authorized" }, status: :forbidden
+            return
+          end
+
+          Comments::SoftDelete.call(comment: comment, actor: current_user)
+
+          thread = comment.comment_thread
+          if thread.reload.empty?
+            Broadcaster.remove_to(@plan, target: ActionView::RecordIdentifier.dom_id(thread))
+          else
+            Broadcaster.replace_to(
+              @plan,
+              target: ActionView::RecordIdentifier.dom_id(comment),
+              partial: "coplan/comments/comment",
+              locals: { comment: comment }
+            )
+          end
+
+          render json: { comment_id: comment.id, deleted_at: comment.deleted_at }
+        end
+
         def reply
           thread = @plan.comment_threads.find_by(id: params[:id])
           unless thread

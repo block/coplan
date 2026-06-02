@@ -14,7 +14,7 @@ CoPlan::Engine.routes.draw do
         patch :discard
         patch :reopen
       end
-      resources :comments, only: [:create]
+      resources :comments, only: [:create, :destroy]
     end
   end
 
@@ -42,6 +42,9 @@ CoPlan::Engine.routes.draw do
           patch :resolve, on: :member
           patch :discard, on: :member
         end
+        # Deletes an individual comment (by comment ID, not thread ID).
+        # Distinct from the routes above, which key off thread ID.
+        delete "comments/:id/delete", to: "comments#destroy", as: :destroy_comment
         resources :references, only: [:index, :create, :destroy]
       end
       resources :references, only: [] do

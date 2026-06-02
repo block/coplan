@@ -23,6 +23,16 @@ module CoPlan
     scope :current, -> { where(out_of_date: false) }
     scope :active, -> { where(status: OPEN_STATUSES, out_of_date: false) }
     scope :archived, -> { where("status NOT IN (?) OR out_of_date = ?", OPEN_STATUSES, true) }
+    # Threads with at least one non-deleted comment. A thread whose only
+    # comments have all been soft-deleted is effectively gone — hide it
+    # from the doc view rather than leaving a dangling anchor + popover.
+    scope :with_kept_comments, -> {
+      where(id: CoPlan::Comment.kept.select(:comment_thread_id))
+    }
+
+    def empty?
+      comments.kept.none?
+    end
 
     # Transforms anchor positions through intervening version edits using OT.
     # Threads without positional data (anchor_start/anchor_end/anchor_revision)

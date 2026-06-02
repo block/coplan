@@ -128,6 +128,51 @@ RSpec.describe "Api::V1::Comments", type: :request do
     expect(body["error"]).to include("Agent name")
   end
 
+  describe "DELETE destroy" do
+    let!(:comment) do
+      create(:comment, comment_thread: thread_record, author_type: "human", author_id: alice.id, body_markdown: "to be deleted")
+    end
+
+    it "soft-deletes the human author's own comment via hook auth" do
+      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_req) { { external_id: alice.external_id } })
+
+      delete api_v1_plan_destroy_comment_path(plan, id: comment.id), as: :json
+      expect(response).to have_http_status(:ok)
+      expect(comment.reload.deleted_at).to be_present
+    end
+
+    it "forbids agent (token auth) callers from deleting their own agent comment" do
+      agent_comment = create(:comment,
+        comment_thread: thread_record,
+        author_type: "local_agent",
+        author_id: alice_token.id,
+        agent_name: "Amp",
+        body_markdown: "agent output")
+
+      delete api_v1_plan_destroy_comment_path(plan, id: agent_comment.id),
+        headers: headers,
+        as: :json
+      expect(response).to have_http_status(:forbidden)
+      expect(agent_comment.reload.deleted_at).to be_nil
+    end
+
+    it "forbids a different human from deleting" do
+      bob = create(:coplan_user)
+      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_req) { { external_id: bob.external_id } })
+
+      delete api_v1_plan_destroy_comment_path(plan, id: comment.id), as: :json
+      expect(response).to have_http_status(:forbidden)
+      expect(comment.reload.deleted_at).to be_nil
+    end
+
+    it "returns 404 for a missing comment" do
+      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_req) { { external_id: alice.external_id } })
+
+      delete api_v1_plan_destroy_comment_path(plan, id: "nonexistent-id"), as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
   it "create comment requires auth" do
     post api_v1_plan_comments_path(plan),
       params: { body_markdown: "No auth" },

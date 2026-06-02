@@ -1,18 +1,41 @@
-<div class="comment" id="<%= dom_id(comment) %>">
-  <div class="comment__header text-sm text-muted">
-    <% author = comment_author_user(comment) %>
-    <% if author %>
-      <%= user_avatar(author) %>
+<%# Per-viewer affordances (Delete) are hidden client-side by the
+    comment_actions Stimulus controller — broadcasts render once with no
+    `current_user`, so we ship the button on every human comment and let
+    the browser remove it for non-authors. Server still enforces auth. %>
+<div class="comment <%= 'comment--deleted' if comment.deleted? %>"
+     id="<%= dom_id(comment) %>"
+     data-controller="coplan--comment-actions"
+     data-coplan--comment-actions-author-id-value="<%= comment.author_id %>"
+     data-coplan--comment-actions-author-type-value="<%= comment.author_type %>">
+  <% if comment.deleted? %>
+    <div class="comment__body text-sm text-muted">
+      <em>Comment deleted</em>
+    </div>
+  <% else %>
+    <div class="comment__header text-sm text-muted">
+      <% author = comment_author_user(comment) %>
+      <% if author %>
+        <%= user_avatar(author) %>
+      <% end %>
+      <strong><%= comment_author_name(comment) %></strong>
+      <% if comment.agent? %>
+        <span class="badge badge--agent">agent</span>
+      <% end %>
+      · <%= time_ago_in_words(comment.created_at) %> ago
+    </div>
+    <div class="comment__body">
+      <%= cache(comment) do %>
+        <%= render_markdown(comment.body_markdown) %>
+      <% end %>
+    </div>
+    <% if comment.author_type == "human" %>
+      <div class="comment__actions" data-coplan--comment-actions-target="delete" hidden>
+        <%= button_to "Delete",
+              plan_comment_thread_comment_path(comment.comment_thread.plan, comment.comment_thread, comment),
+              method: :delete,
+              form: { data: { turbo_confirm: "Delete this comment?" } },
+              class: "btn btn--secondary btn--sm" %>
+      </div>
     <% end %>
-    <strong><%= comment_author_name(comment) %></strong>
-    <% if comment.agent? %>
-      <span class="badge badge--agent">agent</span>
-    <% end %>
-    · <%= time_ago_in_words(comment.created_at) %> ago
-  </div>
-  <div class="comment__body">
-    <%= cache(comment) do %>
-      <%= render_markdown(comment.body_markdown) %>
-    <% end %>
-  </div>
+  <% end %>
 </div>
