@@ -177,9 +177,20 @@ RSpec.describe "Plans", type: :request do
       create(:plan, :brainstorm,  created_by_user: alice, title: "Brainstorm Plan")
       get plans_path
       expect(response.body).to include("plans-list__section")
-      # active work appears before brainstorm
-      expect(response.body.index("Developing Plan")).to be < response.body.index("Brainstorm Plan")
-      expect(response.body.index("Considering Plan")).to be < response.body.index("Brainstorm Plan")
+      # brainstorms are pinned first (COPLAN-32), then active work by maturity
+      expect(response.body.index("Brainstorm Plan")).to be < response.body.index("Considering Plan")
+      expect(response.body.index("Considering Plan")).to be < response.body.index("Developing Plan")
+    end
+
+    # COPLAN-32: with more active plans than fit on the first page, the
+    # author's own brainstorms must still land on page 1 of the default
+    # Mine/Any-status view rather than being buried past the pagination cut.
+    it "surfaces the author's own brainstorms on page 1 despite many active plans" do
+      brainstorm = create(:plan, :brainstorm, created_by_user: alice, title: "Buried Brainstorm")
+      create_list(:plan, CoPlan::PlansController::PER_PAGE + 5, :developing, created_by_user: alice)
+      get plans_path
+      expect(response).to have_http_status(:success)
+      expect(response.body).to include(brainstorm.title)
     end
 
     it "does not group when filtered to a single status" do
