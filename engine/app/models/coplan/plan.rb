@@ -2,9 +2,12 @@ module CoPlan
   class Plan < ApplicationRecord
     STATUSES = %w[brainstorm considering developing live abandoned].freeze
 
-    # Order used when grouping "My Plans" on the index: active work first,
-    # brainstorms next, abandoned last.
-    STATUS_PRIORITY = %w[developing live considering brainstorm abandoned].freeze
+    # Order used when grouping "My Plans" on the index: brainstorms first
+    # (private drafts, most relevant to the author), then active work by
+    # maturity, abandoned last. Pinning brainstorm to the top keeps the
+    # author's own brainstorms on page 1 instead of buried past the
+    # PER_PAGE pagination cut (see COPLAN-32).
+    STATUS_PRIORITY = %w[brainstorm considering developing live abandoned].freeze
 
     # Order plans by STATUS_PRIORITY, then most-recently-updated within each group.
     scope :prioritized_by_status, -> {
