@@ -19,7 +19,7 @@ module CoPlan
 
           comment = thread.comments.create!(
             author_type: api_author_type,
-            author_id: api_actor_id,
+            author_id: current_user&.id,
             body_markdown: params[:body_markdown],
             agent_name: params[:agent_name]
           )
@@ -94,7 +94,7 @@ module CoPlan
 
           comment = thread.comments.create!(
             author_type: api_author_type,
-            author_id: api_actor_id,
+            author_id: current_user&.id,
             body_markdown: params[:body_markdown],
             agent_name: params[:agent_name]
           )

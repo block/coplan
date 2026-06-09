@@ -22,13 +22,14 @@ module CoPlan
 
     # Resolves the comment author to a CoPlan::User instance, or nil for
     # author types that don't map to a user (cloud_persona, system).
+    # For both human and local_agent comments, author_id is the user's id
+    # (local_agent rows store the user behind the API token, not the token
+    # id), so a single find_by resolves both — agent_name distinguishes
+    # which agent posted on the user's behalf.
     def author
-      case author_type
-      when "human"
-        CoPlan::User.find_by(id: author_id)
-      when "local_agent"
-        CoPlan::User.joins(:api_tokens).where(coplan_api_tokens: { id: author_id }).first
-      end
+      return unless author_type.in?(%w[human local_agent])
+
+      CoPlan::User.find_by(id: author_id)
     end
 
     private

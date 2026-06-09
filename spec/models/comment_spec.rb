@@ -24,6 +24,25 @@ RSpec.describe CoPlan::Comment, type: :model do
     expect(comment.comment_thread).to eq(thread)
   end
 
+  describe "#author" do
+    it "resolves a human comment to its user via direct lookup" do
+      user = create(:coplan_user)
+      comment = create(:comment, author_type: "human", author_id: user.id)
+      expect(comment.author).to eq(user)
+    end
+
+    it "resolves a local_agent comment to its user via direct lookup (no join)" do
+      user = create(:coplan_user)
+      comment = create(:comment, author_type: "local_agent", agent_name: "Amp", author_id: user.id)
+      expect(comment.author).to eq(user)
+    end
+
+    it "returns nil for author types that don't map to a user" do
+      comment = create(:comment, author_type: "system", author_id: SecureRandom.uuid)
+      expect(comment.author).to be_nil
+    end
+  end
+
   describe "Slack notification callback" do
     let(:thread_record) { create(:comment_thread) }
 
