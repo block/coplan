@@ -27,6 +27,12 @@ RSpec.describe "Api::V1::Comments", type: :request do
     body = JSON.parse(response.body)
     expect(body["thread_id"]).to be_present
     expect(body["comment_id"]).to be_present
+
+    comment = CoPlan::Comment.find(body["comment_id"])
+    expect(comment.author_type).to eq("local_agent")
+    expect(comment.author_id).to eq(alice.id)
+    expect(comment.author_id).not_to eq(alice_token.id)
+    expect(comment.author).to eq(alice)
   end
 
   it "create general comment thread" do
@@ -49,6 +55,10 @@ RSpec.describe "Api::V1::Comments", type: :request do
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["thread_id"]).to eq(thread_record.id)
+
+    comment = CoPlan::Comment.find(body["comment_id"])
+    expect(comment.author_id).to eq(alice.id)
+    expect(comment.author_id).not_to eq(alice_token.id)
   end
 
   it "reply to nonexistent thread" do
