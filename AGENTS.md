@@ -15,14 +15,14 @@ Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), 
 - **Policies** — authorization policies in `engine/app/policies/coplan/`
 - **Jobs** — background jobs in `engine/app/jobs/coplan/`
 - **Views, helpers, assets, JS** — all Hotwire views and Stimulus controllers
-- **Migrations** — engine-owned tables go in `engine/db/migrate/`
+- **Migrations** — engine-owned tables go in `engine/db/migrate/`. Data/backfill migrations supporting engine behavior also belong here (the gem only packages `engine/`, so host-only migrations don't reach gem consumers); copy them into the host with `bin/rails co_plan:install:migrations`.
 - **Routes** — engine routes in `engine/config/routes.rb`, mounted by the host
 
 ### Host app (top-level) — thin deployment shell
 - **ActiveAdmin** — admin registrations in `app/admin/`
 - **Auth** — `SessionsController`, `User` model (legacy, being migrated to `CoPlan::User`)
 - **App-specific integrations** — `SlackClient`, `SlackNotificationJob`
-- **Migrations** — only for data migrations, FK rewiring, or host-specific tables in `db/migrate/` (the engine owns schema for `coplan_*` tables)
+- **Migrations** — this app is just the example/demo host, so `db/migrate/` mostly holds the `*.co_plan.rb` copies of engine migrations (the engine owns schema for `coplan_*` tables)
 - **Config** — database, deployment, environment, seeds
 
 **When adding new features, put them in the engine** unless they are deployment- or host-specific (admin UI, external integrations, auth).
