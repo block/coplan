@@ -1,5 +1,5 @@
 require "rails_helper"
-require Rails.root.join("db/migrate/20260609000000_backfill_local_agent_comment_author_ids.rb")
+require CoPlan::Engine.root.join("db/migrate/20260609000000_backfill_local_agent_comment_author_ids.rb")
 
 RSpec.describe BackfillLocalAgentCommentAuthorIds do
   subject(:migration) { described_class.new }
