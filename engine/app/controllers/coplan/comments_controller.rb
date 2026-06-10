@@ -34,6 +34,32 @@ module CoPlan
       end
     end
 
+    def destroy
+      comment = @thread.comments.find(params[:id])
+      policy = CommentPolicy.new(current_user, comment)
+      unless policy.delete?
+        redirect_to plan_path(@plan), alert: "Not authorized to delete this comment." and return
+      end
+
+      Comments::SoftDelete.call(comment: comment, actor: current_user)
+
+      if @thread.reload.empty?
+        Broadcaster.remove_to(@plan, target: ActionView::RecordIdentifier.dom_id(@thread))
+      else
+        Broadcaster.replace_to(
+          @plan,
+          target: ActionView::RecordIdentifier.dom_id(comment),
+          partial: "coplan/comments/comment",
+          locals: { comment: comment }
+        )
+      end
+
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: [] }
+        format.html { redirect_to plan_path(@plan), notice: "Comment deleted." }
+      end
+    end
+
     private
 
     def set_plan

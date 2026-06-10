@@ -75,4 +75,28 @@ RSpec.describe CoPlan::Comment, type: :model do
       }.not_to have_enqueued_job(CoPlan::NotificationJob)
     end
   end
+
+  describe "soft delete" do
+    let(:comment) { create(:comment) }
+
+    it "soft_delete! sets deleted_at" do
+      expect { comment.soft_delete! }.to change { comment.reload.deleted_at }.from(nil)
+      expect(comment.deleted?).to be(true)
+    end
+
+    it "kept scope excludes deleted comments" do
+      kept = create(:comment)
+      deleted = create(:comment)
+      deleted.soft_delete!
+
+      expect(CoPlan::Comment.kept).to include(kept)
+      expect(CoPlan::Comment.kept).not_to include(deleted)
+    end
+
+    it "does not re-fire ProcessMentions when soft-deleting" do
+      comment # create before block, so ProcessMentions runs once on creation
+      expect(CoPlan::Comments::ProcessMentions).not_to receive(:call)
+      comment.soft_delete!
+    end
+  end
 end

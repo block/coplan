@@ -73,6 +73,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_09_185102) do
     t.text "body_markdown", null: false
     t.string "comment_thread_id", limit: 36, null: false
     t.datetime "created_at", null: false
+    t.datetime "deleted_at"
     t.datetime "updated_at", null: false
     t.index ["comment_thread_id", "created_at"], name: "index_coplan_comments_on_comment_thread_id_and_created_at"
   end

@@ -9,6 +9,28 @@ RSpec.describe CoPlan::CommentThread, type: :model do
     expect(thread_record).to be_valid
   end
 
+  describe "kept comments lifecycle" do
+    it "with_kept_comments excludes threads whose only comment is soft-deleted" do
+      with_live = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: user)
+      create(:comment, comment_thread: with_live)
+
+      all_deleted = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: user)
+      c = create(:comment, comment_thread: all_deleted)
+      c.soft_delete!
+
+      result = CoPlan::CommentThread.with_kept_comments
+      expect(result).to include(with_live)
+      expect(result).not_to include(all_deleted)
+    end
+
+    it "#empty? is true when all comments are soft-deleted, false otherwise" do
+      c = create(:comment, comment_thread: thread_record)
+      expect(thread_record).not_to be_empty
+      c.soft_delete!
+      expect(thread_record.reload).to be_empty
+    end
+  end
+
   it "validates status inclusion" do
     thread_record.status = "invalid"
     expect(thread_record).not_to be_valid

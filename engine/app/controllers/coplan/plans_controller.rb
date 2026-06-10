@@ -58,7 +58,7 @@ module CoPlan
 
     def show
       authorize!(@plan, :show?)
-      @threads = @plan.comment_threads.includes(:comments, :created_by_user).order(:created_at)
+      @threads = @plan.comment_threads.with_kept_comments.includes(:comments, :created_by_user).order(:created_at)
       @references = @plan.references.order(reference_type: :asc, created_at: :desc)
       PlanViewer.track(plan: @plan, user: current_user)
     end
