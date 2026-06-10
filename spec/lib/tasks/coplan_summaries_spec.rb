@@ -49,6 +49,26 @@ RSpec.describe "coplan:summaries:backfill", type: :task do
     expect(enqueued_jobs.map { |job| job[:args].first["plan_id"] }).to eq([eligible.id])
   end
 
+  it "clears a stale sha claim on a summary-less plan so the retried job isn't debounced away" do
+    plan = create(:plan)
+    # Simulate a prior job that claimed the sha but failed/blanked:
+    # summary stays nil while the sha is already claimed.
+    plan.update_columns(summary_content_sha256: plan.current_plan_version.content_sha256)
+
+    expect { run_task }.to have_enqueued_job(CoPlan::SummarizePlanJob).with(plan_id: plan.id)
+    expect(plan.reload.summary_content_sha256).to be_nil
+  end
+
+  it "leaves an already-summarized plan's sha claim intact" do
+    plan = create(:plan)
+    sha = plan.current_plan_version.content_sha256
+    plan.update_columns(summary: "Done.", summary_content_sha256: sha)
+
+    run_task
+
+    expect(plan.reload.summary_content_sha256).to eq(sha)
+  end
+
   it "falls back to defaults when BATCH_SIZE/INTERVAL are blank" do
     plan = create(:plan)
     ENV["BATCH_SIZE"] = ""
