@@ -1762,6 +1762,22 @@ img.avatar {
   border-top: 1px solid var(--color-border);
 }
 
+/* Viewer-specific thread actions.
+   Broadcasts re-render thread partials for every subscriber with no
+   current_user, so these are rendered unconditionally and hidden by default.
+   The coplan--viewer-role controller tags each thread with the viewer's role
+   (.viewer-is-plan-author / .viewer-is-thread-author) to reveal them. */
+.comment-actions--plan-author,
+.comment-actions--owner {
+  display: none;
+}
+
+.viewer-is-plan-author .comment-actions--plan-author,
+.viewer-is-plan-author .comment-actions--owner,
+.viewer-is-thread-author .comment-actions--owner {
+  display: flex;
+}
+
 /* Ensure content doesn't get hidden behind fixed toolbar */
 body:has(.comment-toolbar) .main-content {
   padding-bottom: 3.5rem;

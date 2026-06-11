@@ -51,9 +51,11 @@
           <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
         </div>
 
-        <div id="plan-threads" data-coplan--text-selection-target="threads">
+        <div id="plan-threads" data-coplan--text-selection-target="threads"
+             data-controller="coplan--viewer-role"
+             data-coplan--viewer-role-viewer-id-value="<%= current_user&.id %>">
           <% @threads.select(&:anchored?).each do |thread| %>
-            <%= render partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: @plan, current_user: current_user } %>
+            <%= render partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: @plan } %>
           <% end %>
         </div>
       </div>
