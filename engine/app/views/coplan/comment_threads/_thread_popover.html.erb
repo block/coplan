@@ -3,7 +3,9 @@
      data-anchor-text="<%= thread.anchor_text %>"
      data-anchor-occurrence="<%= thread.anchor_occurrence_index %>"
      data-thread-id="<%= thread.id %>"
-     data-thread-status="<%= thread.status %>">
+     data-thread-status="<%= thread.status %>"
+     data-plan-author-id="<%= plan.created_by_user_id %>"
+     data-thread-author-id="<%= thread.created_by_user_id %>">
 
   <div popover="auto" id="<%= dom_id(thread) %>_popover" class="thread-popover">
     <div class="thread-popover__header">
@@ -23,11 +25,10 @@
       <% end %>
     </div>
 
-    <%# current_user may not be available during Turbo Stream broadcasts %>
-    <% viewer = local_assigns.fetch(:current_user, nil) %>
-    <% is_plan_author = viewer.nil? || plan.created_by_user_id == viewer&.id %>
-    <% is_thread_author = viewer.nil? || thread.created_by_user_id == viewer&.id %>
-
+    <%# Action visibility is gated client-side by coplan--viewer-role: broadcasts
+        re-render this partial for every subscriber with no current_user, so the
+        server can't decide who may act. The buttons are always rendered and the
+        viewer's role (plan author / thread author) reveals them via CSS. %>
     <% if thread.open? %>
       <div class="thread-popover__reply">
         <%= form_with url: plan_comment_thread_comments_path(plan, thread), method: :post, data: { action: "turbo:submit-end->coplan--text-selection#resetReplyForm" } do |f| %>
@@ -39,20 +40,16 @@
         <% end %>
       </div>
 
-      <div class="thread-popover__actions">
-        <% if is_plan_author %>
-          <% if thread.status == "pending" %>
-            <%= button_to "Accept (a)", accept_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "accept" } %>
-          <% end %>
-          <%= button_to "Discard (d)", discard_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "discard" } %>
+      <div class="thread-popover__actions comment-actions--plan-author">
+        <% if thread.status == "pending" %>
+          <%= button_to "Accept (a)", accept_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "accept" } %>
         <% end %>
+        <%= button_to "Discard (d)", discard_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "discard" } %>
       </div>
     <% else %>
-      <% if is_plan_author || is_thread_author %>
-        <div class="thread-popover__actions">
-          <%= button_to "Reopen", reopen_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm" %>
-        </div>
-      <% end %>
+      <div class="thread-popover__actions comment-actions--owner">
+        <%= button_to "Reopen", reopen_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm" %>
+      </div>
     <% end %>
   </div>
 </div>

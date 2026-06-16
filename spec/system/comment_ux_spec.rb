@@ -171,6 +171,56 @@ RSpec.describe "Comment UX", type: :system do
     end
   end
 
+  describe "thread popovers as a non-author" do
+    before { sign_in(reviewer) }
+
+    it "does not show Accept/Discard to someone who isn't the plan author" do
+      # The reviewer authored this comment but does not own the plan, so they
+      # must not see the author-only triage actions.
+      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
+      visit plan_path(plan)
+      find("mark.anchor-highlight--open").click
+
+      within(".thread-popover") do
+        expect(page).to have_css("textarea[placeholder='Press r to reply']")
+        expect(page).to have_no_button("Accept (a)")
+        expect(page).to have_no_button("Discard (d)")
+      end
+    end
+
+    it "shows Reopen on a closed thread to the thread author" do
+      # The reviewer authored this thread, so they may reopen it even though
+      # they don't own the plan.
+      thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
+      thread.discard!(author)
+      visit plan_path(plan)
+      check "Show resolved"
+      find("mark.anchor-highlight--resolved").click
+
+      within(".thread-popover") do
+        expect(page).to have_button("Reopen")
+      end
+    end
+  end
+
+  describe "thread popovers as an uninvolved viewer" do
+    let(:bystander) { create(:coplan_user, email: "bystander@example.com") }
+
+    before { sign_in(bystander) }
+
+    it "does not show Reopen on a closed thread the viewer neither owns nor authored" do
+      thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
+      thread.discard!(author)
+      visit plan_path(plan)
+      check "Show resolved"
+      find("mark.anchor-highlight--resolved").click
+
+      within(".thread-popover") do
+        expect(page).to have_no_button("Reopen")
+      end
+    end
+  end
+
   describe "comment toolbar" do
     before { sign_in(author) }
 

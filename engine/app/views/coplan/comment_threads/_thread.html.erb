@@ -2,7 +2,9 @@
      data-anchor-text="<%= thread.anchor_text %>"
      data-anchor-context="<%= thread.anchor_context %>"
      data-anchor-occurrence="<%= thread.anchor_occurrence_index %>"
-     data-thread-id="<%= thread.id %>">
+     data-thread-id="<%= thread.id %>"
+     data-plan-author-id="<%= plan.created_by_user_id %>"
+     data-thread-author-id="<%= thread.created_by_user_id %>">
   <div class="comment-thread__header">
     <div class="comment-thread__meta">
       <span class="badge badge--<%= thread.open? ? 'live' : 'abandoned' %>"><%= thread.status %></span>
@@ -21,25 +23,20 @@
     <% end %>
   </div>
 
-  <%# current_user may not be available during Turbo Stream broadcasts — show all actions in that case %>
-  <% viewer = local_assigns.fetch(:current_user, nil) %>
-  <% is_plan_author = viewer.nil? || plan.created_by_user_id == viewer.id %>
-  <% is_thread_author = viewer.nil? || thread.created_by_user_id == viewer.id %>
-
+  <%# Action visibility is gated client-side by coplan--viewer-role: broadcasts
+      re-render this partial for every subscriber with no current_user, so the
+      server can't decide who may act. The buttons are always rendered and the
+      viewer's role (plan author / thread author) reveals them via CSS. %>
   <% if thread.open? %>
     <%= render partial: "coplan/comment_threads/reply_form", locals: { thread: thread, plan: plan } %>
 
-    <div class="comment-thread__actions">
-      <% if is_plan_author %>
-        <%= link_to "Accept", accept_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
-        <%= link_to "Discard", discard_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
-      <% end %>
+    <div class="comment-thread__actions comment-actions--plan-author">
+      <%= link_to "Accept", accept_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
+      <%= link_to "Discard", discard_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
     </div>
   <% else %>
-    <% if is_plan_author || is_thread_author %>
-      <div class="comment-thread__actions">
-        <%= link_to "Reopen", reopen_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
-      </div>
-    <% end %>
+    <div class="comment-thread__actions comment-actions--owner">
+      <%= link_to "Reopen", reopen_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
+    </div>
   <% end %>
 </div>
