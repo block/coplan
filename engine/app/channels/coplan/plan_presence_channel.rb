@@ -40,7 +40,7 @@ module CoPlan
     def resolve_current_user
       return connection.current_user if connection.respond_to?(:current_user) && connection.current_user
 
-      CoPlan::Authentication.user_from_request(connection.request)
+      CoPlan::Authentication.user_from_request(connection.__send__(:request))
     end
 
     def broadcast_viewers

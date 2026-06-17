@@ -30,6 +30,29 @@ RSpec.describe CoPlan::PlanPresenceChannel, type: :channel do
       expect(CoPlan::PlanViewer.where(plan: plan, user: websocket_user)).to exist
     end
 
+    it "authenticates through the engine callback when ActionCable keeps the request private" do
+      request = ActionDispatch::Request.empty
+      private_request_connection = Class.new do
+        def initialize(request)
+          @request = request
+        end
+
+        private
+
+        attr_reader :request
+      end.new(request)
+      channel = described_class.allocate
+      allow(channel).to receive(:connection).and_return(private_request_connection)
+      allow(CoPlan.configuration).to receive(:authenticate).and_return(
+        ->(received_request) { { external_id: "private-request-user", name: received_request.object_id.to_s } }
+      )
+
+      websocket_user = channel.send(:resolve_current_user)
+
+      expect(websocket_user.external_id).to eq("private-request-user")
+      expect(websocket_user.name).to eq(request.object_id.to_s)
+    end
+
     it "rejects when plan does not exist" do
       subscribe(plan_id: "nonexistent")
       expect(subscription).to be_rejected
