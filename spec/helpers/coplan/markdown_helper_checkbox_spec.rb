@@ -96,4 +96,40 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(nested["data-line-text"]).to eq("  - [ ] Nested child")
     end
   end
+
+  describe "#render_markdown data-line attribute" do
+    it "sets data-line to the 1-based source line number" do
+      md = "# Heading\n\n- [ ] First\n- [x] Second"
+      html = helper.render_markdown(md)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      checkboxes = doc.css('input[type="checkbox"]')
+      expect(checkboxes.map { |cb| cb["data-line"] }).to eq(%w[3 4])
+    end
+
+    it "keeps line numbers accurate across fenced code blocks" do
+      md = "```\n- [ ] Fake checkbox\n```\n- [ ] Real checkbox"
+      html = helper.render_markdown(md)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      checkboxes = doc.css('input[type="checkbox"]')
+      expect(checkboxes.length).to eq(1)
+      expect(checkboxes[0]["data-line"]).to eq("4")
+    end
+
+    it "keeps line numbers accurate across multiple lists and duplicates" do
+      md = "- [ ] TODO\n\nSome text\n\n- [ ] TODO\n- [ ] Other"
+      html = helper.render_markdown(md)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      checkboxes = doc.css('input[type="checkbox"]')
+      expect(checkboxes.map { |cb| cb["data-line"] }).to eq(%w[1 5 6])
+      expect(checkboxes[0]["data-line-text"]).to eq(checkboxes[1]["data-line-text"])
+    end
+
+    it "numbers nested tasks by their own source lines" do
+      md = "- [ ] Parent\n  - [ ] Nested child"
+      html = helper.render_markdown(md)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      nested = doc.css('input[type="checkbox"]').find { |cb| cb["data-line-text"]&.include?("Nested") }
+      expect(nested["data-line"]).to eq("2")
+    end
+  end
 end

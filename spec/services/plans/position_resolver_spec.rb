@@ -209,6 +209,126 @@ RSpec.describe CoPlan::Plans::PositionResolver do
         expect(content[result.ranges.first[0]...result.ranges.first[1]]).to eq("world")
       end
     end
+
+    describe "lines qualifier" do
+      let(:content) { "# Tasks\n- [ ] TODO\nsome text\n- [ ] TODO\n- [ ] Deploy to staging\n- [ ] Deploy" }
+
+      describe "single-line box disambiguates duplicate lines" do
+        let(:operation) { { op: "replace_exact", old_text: "- [ ] TODO", new_text: "- [x] TODO", lines: 4 } }
+
+        it "resolves only the occurrence on that line" do
+          result = resolve
+          expect(result.ranges.length).to eq(1)
+          range = result.ranges.first
+          expect(range[0]).to eq(content.index("some text\n- [ ] TODO") + "some text\n".length)
+          expect(content[range[0]...range[1]]).to eq("- [ ] TODO")
+        end
+      end
+
+      describe "prefix collision" do
+        let(:operation) { { op: "replace_exact", old_text: "- [ ] Deploy", new_text: "- [x] Deploy", lines: 6 } }
+
+        it "resolves the standalone line, not the longer line containing the prefix" do
+          result = resolve
+          expect(result.ranges.length).to eq(1)
+          expect(result.ranges.first[0]).to eq(content.rindex("- [ ] Deploy"))
+        end
+      end
+
+      describe "match on last line without trailing newline" do
+        let(:content) { "- [ ] TODO\n- [ ] TODO" }
+        let(:operation) { { op: "replace_exact", old_text: "- [ ] TODO", new_text: "- [x] TODO", lines: 2 } }
+
+        it "resolves the last-line occurrence" do
+          result = resolve
+          expect(result.ranges.first).to eq([11, 21])
+        end
+      end
+
+      describe "text exists globally but not within the box" do
+        let(:operation) { { op: "replace_exact", old_text: "- [ ] TODO", new_text: "- [x] TODO", lines: 3 } }
+
+        it "raises with the global count and box" do
+          expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /found 2 occurrence\(s\) of the text, but none within lines 3\.\.3/)
+        end
+      end
+
+      describe "multi-line old_text within a multi-line box" do
+        let(:operation) { { op: "replace_exact", old_text: "- [ ] TODO\nsome text", new_text: "replaced", lines: [2, 3] } }
+
+        it "resolves the multi-line match" do
+          result = resolve
+          range = result.ranges.first
+          expect(content[range[0]...range[1]]).to eq("- [ ] TODO\nsome text")
+        end
+      end
+
+      describe "old_text straddling the box boundary" do
+        let(:operation) { { op: "replace_exact", old_text: "- [ ] TODO\nsome text", new_text: "replaced", lines: [2, 2] } }
+
+        it "is filtered out and raises" do
+          expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /none within lines 2\.\.2/)
+        end
+      end
+
+      describe "composes with occurrence" do
+        let(:content) { "foo foo\nfoo foo foo\nfoo" }
+        let(:operation) { { op: "replace_exact", old_text: "foo", new_text: "bar", lines: 2, occurrence: 2 } }
+
+        it "indexes occurrences within the box" do
+          result = resolve
+          expect(result.ranges.first).to eq([12, 15])
+        end
+      end
+
+      describe "composes with replace_all" do
+        let(:content) { "foo foo\nfoo foo foo\nfoo" }
+        let(:operation) { { op: "replace_exact", old_text: "foo", new_text: "bar", lines: [2, 2], replace_all: true } }
+
+        it "replaces only in-box occurrences" do
+          result = resolve
+          expect(result.ranges).to eq([[8, 11], [12, 15], [16, 19]])
+        end
+      end
+
+      describe "still ambiguous within the box" do
+        let(:content) { "foo foo\nbar" }
+        let(:operation) { { op: "replace_exact", old_text: "foo", new_text: "baz", lines: 1 } }
+
+        it "raises the existing ambiguity error" do
+          expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /found 2 occurrences, expected at most 1/)
+        end
+      end
+
+      describe "box beyond end of document" do
+        let(:operation) { { op: "replace_exact", old_text: "- [ ] TODO", new_text: "- [x] TODO", lines: 99 } }
+
+        it "raises out of range" do
+          expect { resolve }.to raise_error(CoPlan::Plans::OperationError, /lines 99\.\.99 out of range \(document has 6 lines\)/)
+        end
+      end
+
+      describe "invalid values" do
+        [0, -1, "3", [2], [2, 3, 4], ["2", "3"], [3, 2], { start: 1 }].each do |invalid|
+          it "rejects #{invalid.inspect}" do
+            operation = { op: "replace_exact", old_text: "- [ ] TODO", new_text: "- [x] TODO", lines: invalid }
+            expect {
+              described_class.call(content: content, operation: operation)
+            }.to raise_error(CoPlan::Plans::OperationError, /'lines' must/)
+          end
+        end
+      end
+
+      describe "fenced duplicate vs real task line" do
+        let(:content) { "```\n- [ ] TODO\n```\n- [ ] TODO" }
+        let(:operation) { { op: "replace_exact", old_text: "- [ ] TODO", new_text: "- [x] TODO", lines: 4 } }
+
+        it "targets the real task line outside the fence" do
+          result = resolve
+          expect(result.ranges.first[0]).to eq(content.rindex("- [ ] TODO"))
+        end
+      end
+    end
   end
 
   describe "insert_under_heading" do

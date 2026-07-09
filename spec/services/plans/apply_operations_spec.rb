@@ -45,6 +45,30 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
         )
       }.to raise_error(CoPlan::Plans::OperationError, /requires 'old_text'/)
     end
+
+    it "scopes replacement with a lines qualifier and records it in applied data" do
+      content = "- [ ] TODO\n- [ ] TODO\n- [ ] Other"
+      result = CoPlan::Plans::ApplyOperations.call(
+        content: content,
+        operations: [{ "op" => "replace_exact", "old_text" => "- [ ] TODO", "new_text" => "- [x] TODO", "lines" => 2 }]
+      )
+      expect(result[:content]).to eq("- [ ] TODO\n- [x] TODO\n- [ ] Other")
+
+      applied = result[:applied].first
+      expect(applied["lines"]).to eq(2)
+      expect(applied["resolved_range"]).to eq([11, 21])
+      expect(applied["new_range"]).to eq([11, 21])
+      expect(applied["delta"]).to eq(0)
+    end
+
+    it "replaces multi-line old_text within a [start, end] lines box" do
+      content = "intro\nalpha\nbeta\nalpha\nbeta"
+      result = CoPlan::Plans::ApplyOperations.call(
+        content: content,
+        operations: [{ "op" => "replace_exact", "old_text" => "alpha\nbeta", "new_text" => "gamma", "lines" => [4, 5] }]
+      )
+      expect(result[:content]).to eq("intro\nalpha\nbeta\ngamma")
+    end
   end
 
   describe "insert_under_heading" do
