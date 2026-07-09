@@ -14,7 +14,7 @@ module CoPlan
       details summary
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class href src alt title type checked disabled data-line-text data-action data-coplan--checkbox-target data-mention-username].freeze
+    ALLOWED_ATTRIBUTES = %w[id class href src alt title type checked disabled data-line data-line-text data-action data-coplan--checkbox-target data-mention-username].freeze
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -78,13 +78,14 @@ module CoPlan
       task_lines = extract_task_lines(content)
 
       checkboxes.each_with_index do |cb, i|
-        line_text = task_lines[i]
+        line_number, line_text = task_lines[i]
         next unless line_text
 
         cb.remove_attribute("disabled")
         cb["data-action"] = "coplan--checkbox#toggle"
         cb["data-coplan--checkbox-target"] = "checkbox"
         cb["data-line-text"] = line_text
+        cb["data-line"] = line_number.to_s
 
         li = cb.parent
         next unless li&.name == "li"
@@ -102,17 +103,20 @@ module CoPlan
       doc.to_html
     end
 
+    # Returns [1-based line number, rstripped line text] pairs for each task
+    # line, in document order. Fenced lines are counted (so numbering stays
+    # accurate) but never treated as task lines.
     def extract_task_lines(content)
       lines = []
       in_fence = false
-      content.to_s.each_line do |line|
+      content.to_s.each_line.with_index(1) do |line, line_number|
         stripped = line.rstrip
         if stripped.match?(/\A(`{3,}|~{3,})/)
           in_fence = !in_fence
           next
         end
         next if in_fence
-        lines << stripped if stripped.match?(/^\s*[*+-]\s+\[[ xX]\]\s/)
+        lines << [line_number, stripped] if stripped.match?(/^\s*[*+-]\s+\[[ xX]\]\s/)
       end
       lines
     end

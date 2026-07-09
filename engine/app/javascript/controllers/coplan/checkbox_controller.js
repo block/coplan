@@ -16,14 +16,17 @@ export default class extends Controller {
       ? lineText.replace(/([*+-]\s+)\[[ ]\]/, "$1[x]")
       : lineText.replace(/([*+-]\s+)\[[xX]\]/, "$1[ ]")
 
+    // Source line number disambiguates duplicate task-line text server-side.
+    const line = parseInt(checkbox.dataset.line, 10)
+
     // Optimistic UI: update immediately
     checkbox.dataset.lineText = newText
 
     this.inflight = true
-    this.#sendToggle({ checkbox, oldText, newText, nowChecked, retried: false })
+    this.#sendToggle({ checkbox, oldText, newText, line, nowChecked, retried: false })
   }
 
-  #sendToggle({ checkbox, oldText, newText, nowChecked, retried }) {
+  #sendToggle({ checkbox, oldText, newText, line, nowChecked, retried }) {
     const token = document.querySelector('meta[name="csrf-token"]')?.content
 
     fetch(this.toggleUrlValue, {
@@ -36,7 +39,8 @@ export default class extends Controller {
       body: JSON.stringify({
         old_text: oldText,
         new_text: newText,
-        base_revision: this.revisionValue
+        base_revision: this.revisionValue,
+        ...(Number.isInteger(line) && line >= 1 ? { line } : {})
       })
     }).then(response => {
       if (response.ok) {
@@ -50,7 +54,7 @@ export default class extends Controller {
           if (data.current_revision) {
             this.revisionValue = data.current_revision
           }
-          this.#sendToggle({ checkbox, oldText, newText, nowChecked, retried: true })
+          this.#sendToggle({ checkbox, oldText, newText, line, nowChecked, retried: true })
         })
       } else {
         this.#revert(checkbox, oldText, nowChecked)

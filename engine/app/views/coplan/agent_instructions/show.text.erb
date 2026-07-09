@@ -290,6 +290,22 @@ Find and replace exact text. Fails if text not found or count exceeded.
 }
 ```
 
+Optional `lines` qualifier: a 1-based inclusive line range scoping the match — an
+integer (single line) or a `[start, end]` pair. Use it to disambiguate text that
+appears more than once (only occurrences fully inside the range are considered;
+`occurrence`/`replace_all`/`count` then apply within it). Multi-line `old_text`
+is allowed as long as the match fits inside the range. Fails if the text isn't
+found within the range.
+
+```json
+{
+  "op": "replace_exact",
+  "old_text": "- [ ] Write tests",
+  "new_text": "- [x] Write tests",
+  "lines": 12
+}
+```
+
 ### insert_under_heading
 
 Insert content after a markdown heading. Fails if heading not found or ambiguous.

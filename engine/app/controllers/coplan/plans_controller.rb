@@ -138,6 +138,17 @@ module CoPlan
         return
       end
 
+      # Optional source line number scoping the replacement to a single-line
+      # box, so identical task lines elsewhere in the document can't collide.
+      line = nil
+      if params[:line].present?
+        line = Integer(params[:line], exception: false)
+        if line.nil? || line < 1
+          render json: { error: "line must be a positive integer" }, status: :unprocessable_content
+          return
+        end
+      end
+
       ActiveRecord::Base.transaction do
         @plan.lock!
         @plan.reload
@@ -148,9 +159,11 @@ module CoPlan
         end
 
         current_content = @plan.current_content || ""
+        operation = { "op" => "replace_exact", "old_text" => old_text, "new_text" => new_text }
+        operation["lines"] = line if line
         result = Plans::ApplyOperations.call(
           content: current_content,
-          operations: [{ "op" => "replace_exact", "old_text" => old_text, "new_text" => new_text }]
+          operations: [operation]
         )
 
         new_revision = @plan.current_revision + 1

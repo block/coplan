@@ -65,6 +65,8 @@ module CoPlan
             rebased_ops = []
             @session.operations_json.each do |op_data|
               op_data = op_data.transform_keys(&:to_s)
+              # "lines" is intentionally absent: this fallback re-resolves against
+              # *current* content, where a base-revision line box would be wrong.
               semantic_keys = %w[op old_text new_text heading content needle occurrence replace_all count new_content include_heading]
               semantic_op = op_data.slice(*semantic_keys)
 

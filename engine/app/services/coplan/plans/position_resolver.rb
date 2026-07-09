@@ -38,10 +38,23 @@ module CoPlan
         occurrence = (@op["occurrence"] || 1).to_i
         raise OperationError, "replace_exact: occurrence must be >= 1, got #{occurrence}" if occurrence < 1
 
+        line_box = parse_line_box
+
         ranges = find_all_occurrences(old_text)
 
         if ranges.empty?
           raise OperationError, "replace_exact found 0 occurrences of the specified text"
+        end
+
+        if line_box
+          box = char_range_for_lines(*line_box)
+          total = ranges.length
+          # Only occurrences fully contained in the box survive; the
+          # occurrence/replace_all/count rules below then index within it.
+          ranges = ranges.select { |s, e| s >= box[0] && e <= box[1] }
+          if ranges.empty?
+            raise OperationError, "replace_exact found #{total} occurrence(s) of the text, but none within lines #{line_box[0]}..#{line_box[1]}"
+          end
         end
 
         if replace_all
@@ -106,6 +119,49 @@ module CoPlan
         ranges = [deletion_range_for(para, paragraphs)]
 
         Resolution.new(op: "delete_paragraph_containing", ranges: ranges)
+      end
+
+      # Optional "lines" qualifier: a 1-based inclusive line range ("boxed
+      # context") that scopes replace_exact matching. Accepts an Integer
+      # (single-line box) or a two-element [start, end] pair. Multi-line
+      # old_text is fine as long as the match fits inside the box.
+      def parse_line_box
+        raw = @op["lines"]
+        return nil if raw.nil?
+
+        bounds = raw.is_a?(Array) ? raw : [raw, raw]
+        unless bounds.length == 2 && bounds.all?(Integer)
+          raise OperationError, "replace_exact: 'lines' must be an integer line number or a [start, end] pair of integers"
+        end
+
+        start_line, end_line = bounds
+        if start_line < 1 || end_line < start_line
+          raise OperationError, "replace_exact: 'lines' must satisfy 1 <= start <= end, got #{start_line}..#{end_line}"
+        end
+
+        [start_line, end_line]
+      end
+
+      # Character range [start, end) covering the given 1-based inclusive
+      # line range, including the end line's terminator so a match may end
+      # at the end of that line.
+      def char_range_for_lines(start_line, end_line)
+        total = 0
+        box_start = nil
+        box_end = nil
+        pos = 0
+        @content.each_line do |line|
+          total += 1
+          box_start = pos if total == start_line
+          pos += line.length
+          box_end = pos if total == end_line
+        end
+
+        if box_start.nil? || box_end.nil?
+          raise OperationError, "replace_exact: lines #{start_line}..#{end_line} out of range (document has #{total} lines)"
+        end
+
+        [box_start, box_end]
       end
 
       def find_all_occurrences(text)
