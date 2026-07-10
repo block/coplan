@@ -131,5 +131,115 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       nested = doc.css('input[type="checkbox"]').find { |cb| cb["data-line-text"]&.include?("Nested") }
       expect(nested["data-line"]).to eq("2")
     end
+
+    it "strips sourcepos metadata from the rendered output" do
+      html = helper.render_markdown("# Heading\n\n- [ ] Task")
+      expect(html).not_to include("data-sourcepos")
+    end
+  end
+
+  describe "renderer/resolver agreement" do
+    def interactive_checkboxes(md)
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(md))
+      doc.css('input[type="checkbox"]').partition { |cb| cb["data-action"].present? }
+    end
+
+    # The invariant the toggle flow rests on: every interactive checkbox's
+    # data-line must point at the source line whose rstripped text equals its
+    # data-line-text, and the resolver must accept that (old_text, lines) pair.
+    def expect_agreement(md)
+      interactive, = interactive_checkboxes(md)
+      source_lines = md.each_line.map(&:rstrip)
+      interactive.each do |cb|
+        line = Integer(cb["data-line"])
+        expect(source_lines[line - 1]).to eq(cb["data-line-text"])
+        resolution = CoPlan::Plans::PositionResolver.call(
+          content: md,
+          operation: { "op" => "replace_exact", "old_text" => cb["data-line-text"],
+                       "new_text" => cb["data-line-text"], "lines" => line }
+        )
+        expect(resolution.ranges.length).to eq(1)
+      end
+      interactive
+    end
+
+    it "does not pair a checkbox with a task-looking line inside an indented fence" do
+      md = " ```\n- [ ] inside indented fence\n ```\n\n- [ ] real task"
+      interactive = expect_agreement(md)
+      expect(interactive.map { |cb| cb["data-line"] }).to eq(["5"])
+    end
+
+    it "does not treat a ~~~ line inside a backtick fence as a fence boundary" do
+      md = "```\n~~~\n- [ ] inside fence\n```\n\n- [ ] real task"
+      interactive = expect_agreement(md)
+      expect(interactive.map { |cb| cb["data-line"] }).to eq(["6"])
+    end
+
+    it "does not close a fence with fewer backticks than it was opened with" do
+      md = "````\n```\n- [ ] inside fence\n````\n\n- [ ] real task"
+      interactive = expect_agreement(md)
+      expect(interactive.map { |cb| cb["data-line"] }).to eq(["6"])
+    end
+
+    it "does not pair a checkbox with a task-looking line in a 4-space indented code block" do
+      md = "Some paragraph\n\n    - [ ] indented code task\n\n- [ ] real task"
+      interactive = expect_agreement(md)
+      expect(interactive.map { |cb| cb["data-line"] }).to eq(["5"])
+    end
+
+    it "does not pair a checkbox with a task-looking line inside an HTML block" do
+      md = "<div>\n- [ ] inside html block\n</div>\n\n- [ ] real task"
+      interactive = expect_agreement(md)
+      expect(interactive.map { |cb| cb["data-line"] }).to eq(["5"])
+    end
+
+    it "leaves ordered-list task checkboxes disabled instead of mis-pairing them" do
+      md = "1. [ ] ordered task\n\n- [ ] real task"
+      interactive, disabled = interactive_checkboxes(md)
+      expect_agreement(md)
+      expect(interactive.map { |cb| cb["data-line"] }).to eq(["3"])
+      expect(disabled.length).to eq(1)
+      expect(disabled.first.has_attribute?("disabled")).to be(true)
+    end
+
+    it "leaves blockquoted task checkboxes disabled instead of mis-pairing them" do
+      md = "> - [ ] quoted task\n\n- [ ] real task"
+      interactive, disabled = interactive_checkboxes(md)
+      expect_agreement(md)
+      expect(interactive.map { |cb| cb["data-line"] }).to eq(["3"])
+      expect(disabled.length).to eq(1)
+    end
+
+    it "leaves empty-text task checkboxes disabled" do
+      md = "- [ ] \n- [ ] real task"
+      interactive, = interactive_checkboxes(md)
+      expect_agreement(md)
+      expect(interactive.map { |cb| cb["data-line"] }).to eq(["2"])
+    end
+
+    it "keeps duplicate task lines correctly paired across a gauntlet of divergent constructs" do
+      md = <<~MD
+        # Tasks
+
+        ```
+        - [ ] TODO
+        ~~~
+        ```
+
+        1. [ ] ordered
+
+        > - [ ] quoted
+
+        - [ ] TODO
+        - [ ] TODO
+
+        <div>
+        - [ ] TODO
+        </div>
+      MD
+      interactive = expect_agreement(md)
+      expect(interactive.map { |cb| cb["data-line"] }).to eq(%w[12 13])
+      expect(interactive.map { |cb| cb["data-line-text"] }.uniq).to eq(["- [ ] TODO"])
+    end
   end
 end
