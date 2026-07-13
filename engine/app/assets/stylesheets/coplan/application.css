@@ -1132,6 +1132,34 @@ img.avatar {
   border-radius: 3px;
 }
 
+.markdown-rendered .mermaid-diagram {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.markdown-rendered .mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.markdown-rendered .mermaid-diagram--error {
+  border-color: var(--color-danger);
+}
+
+.markdown-rendered .mermaid-diagram__error-message {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--color-danger);
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
 .markdown-rendered blockquote {
   border-left: 3px solid var(--color-border);
   padding-left: var(--space-md);

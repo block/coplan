@@ -15,6 +15,7 @@ export default class extends Controller {
     if (meta) {
       meta.content = theme === "system" ? "light dark" : theme
     }
+    window.dispatchEvent(new CustomEvent("coplan:theme-changed"))
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
     fetch(this.urlValue, {

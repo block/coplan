@@ -46,6 +46,20 @@ Returns: plan metadata, `current_content`, `current_revision`, `comment_threads`
 
 Optional fields: `plan_type` (string) — the name of a plan type to use. See [Plan Types](#plan-types) below.
 
+#### Diagrams
+
+Plans support Mermaid diagrams. When a diagram communicates architecture, data flow, sequence, or state more clearly than prose, write a fenced `mermaid` block in the plan Markdown:
+
+````markdown
+```mermaid
+flowchart LR
+  Client --> API
+  API --> Database
+```
+````
+
+The web UI renders these blocks as diagrams. Keep the Mermaid source in the plan so humans and agents can review and edit it alongside the surrounding Markdown.
+
 ### Update Plan
 
 Update plan metadata (title, status, tags). Only fields included in the request body are changed.
