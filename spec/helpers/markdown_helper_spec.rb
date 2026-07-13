@@ -25,6 +25,14 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       html = helper.render_markdown(nil)
       expect(html).to include("markdown-rendered")
     end
+
+    it "marks rendered markdown for Mermaid enhancement" do
+      html = helper.render_markdown("```mermaid\ngraph LR\n  A --> B\n```")
+
+      expect(html).to include('data-controller="coplan--mermaid"')
+      expect(html).to include('<pre lang="mermaid"><code>')
+      expect(html).to include("graph LR")
+    end
   end
 
   describe "#render_line_view" do

@@ -14,7 +14,7 @@ module CoPlan
       details summary
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class href src alt title type checked disabled data-line-text data-action data-coplan--checkbox-target data-mention-username].freeze
+    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title type checked disabled data-line-text data-action data-coplan--checkbox-target data-mention-username].freeze
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -27,7 +27,7 @@ module CoPlan
       with_chips = transform_mention_anchors(html)
       sanitized = sanitize(with_chips, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       result = interactive ? make_checkboxes_interactive(sanitized, content) : sanitized
-      tag.div(result.html_safe, class: "markdown-rendered")
+      tag.div(result.html_safe, class: "markdown-rendered", data: { controller: "coplan--mermaid" })
     end
 
     # Replaces `<a href="mention:username">@username</a>` produced by

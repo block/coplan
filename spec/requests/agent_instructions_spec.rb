@@ -7,6 +7,7 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response).to have_http_status(:success)
       expect(response.content_type).to include("text/markdown")
       expect(response.body).to include("# CoPlan API")
+      expect(response.body).to include("```mermaid")
     end
 
     it "includes plan types when they exist" do

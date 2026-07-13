@@ -71,6 +71,44 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_content("Architecture Overview")
       expect(page).to have_content("microservices architecture")
     end
+
+    it "renders Mermaid fences as diagrams" do
+      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+        # Request flow
+
+        ```mermaid
+        flowchart LR
+          Client --> API
+          API --> Database
+        ```
+      MARKDOWN
+
+      visit plan_path(plan)
+
+      expect(page).to have_css(".mermaid-diagram svg", wait: 10)
+      expect(page).not_to have_css('pre[lang="mermaid"]')
+
+      page.execute_script(<<~JS)
+        document.documentElement.dataset.theme = "dark"
+        window.dispatchEvent(new CustomEvent("coplan:theme-changed"))
+      JS
+      expect(page).to have_css('.mermaid-diagram[data-mermaid-theme="dark"]', wait: 10)
+    end
+
+    it "keeps invalid Mermaid source readable" do
+      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+        ```mermaid
+        not a valid diagram
+        ```
+      MARKDOWN
+
+      visit plan_path(plan)
+
+      expect(page).to have_css(".mermaid-diagram--error", wait: 10)
+      expect(page).to have_content("Diagram could not be rendered.")
+      expect(page).to have_content("not a valid diagram")
+      expect(page).not_to have_css('[id^="dcoplan-mermaid-"]', visible: :all)
+    end
   end
 
   describe "inline highlights" do
