@@ -13,6 +13,13 @@
       <% if thread.out_of_date? %>
         <span class="badge badge--abandoned">out of date</span>
       <% end %>
+      <%= link_to plan_path(plan, thread: thread.id),
+                  class: "thread-popover__permalink btn btn--secondary btn--sm",
+                  title: "Copy link to this comment",
+                  data: { action: "coplan--text-selection#copyThreadLink" } do %>
+        <span aria-hidden="true">🔗</span>
+        <span data-copy-label>Copy link</span>
+      <% end %>
     </div>
 
     <% if thread.anchored? %>
