@@ -215,6 +215,23 @@ export default class extends Controller {
     this._showThreadPopoverFor(event.currentTarget, "pinned")
   }
 
+  async copyThreadLink(event) {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+
+    event.preventDefault()
+    const link = event.currentTarget
+    const label = link.querySelector("[data-copy-label]")
+
+    try {
+      await navigator.clipboard.writeText(link.href)
+      label.textContent = "Copied!"
+      setTimeout(() => { label.textContent = "Copy link" }, 2000)
+    } catch {
+      label.textContent = "Copy failed"
+      setTimeout(() => { label.textContent = "Copy link" }, 2000)
+    }
+  }
+
   // Internal: open the popover for a given mark in either "hover" or "pinned" mode.
   // Returns true if the popover was shown, false otherwise.
   _showThreadPopoverFor(trigger, mode) {

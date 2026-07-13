@@ -1709,6 +1709,10 @@ img.avatar {
   margin-bottom: var(--space-sm);
 }
 
+.thread-popover__permalink {
+  margin-left: auto;
+}
+
 .thread-popover__quote {
   border-left: 3px solid var(--color-quote-info-border);
   padding: var(--space-xs) var(--space-sm);

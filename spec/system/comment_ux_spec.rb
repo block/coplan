@@ -139,6 +139,20 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_content("Why not monolith?")
     end
 
+    it "opens a linked comment and exposes its permalink" do
+      thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
+
+      visit plan_path(plan, thread: thread.id)
+
+      expect(page).to have_css(".thread-popover", visible: true)
+      within(".thread-popover") do
+        expect(page).to have_link("Copy link", href: plan_path(plan, thread: thread.id))
+        expect(page).to have_content("Why not monolith?")
+        click_link "Copy link"
+        expect(page).to have_link("Copied!")
+      end
+    end
+
     it "shows reply form for open threads" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
       visit plan_path(plan)
