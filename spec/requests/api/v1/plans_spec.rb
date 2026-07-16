@@ -108,25 +108,25 @@ RSpec.describe "Api::V1::Plans", type: :request do
     end
 
     it "updates plan tags" do
-      patch api_v1_plan_path(plan), params: { tags: ["infra", "api"] }, headers: headers, as: :json
+      patch api_v1_plan_path(plan), params: { tags: [ "infra", "api" ] }, headers: headers, as: :json
       expect(response).to have_http_status(:success)
       body = JSON.parse(response.body)
-      expect(body["tags"]).to match_array(["infra", "api"])
-      expect(plan.reload.tag_names).to match_array(["infra", "api"])
+      expect(body["tags"]).to match_array([ "infra", "api" ])
+      expect(plan.reload.tag_names).to match_array([ "infra", "api" ])
     end
 
     it "updates multiple fields at once" do
-      patch api_v1_plan_path(plan), params: { title: "Updated", status: "developing", tags: ["v2"] }, headers: headers, as: :json
+      patch api_v1_plan_path(plan), params: { title: "Updated", status: "developing", tags: [ "v2" ] }, headers: headers, as: :json
       expect(response).to have_http_status(:success)
       body = JSON.parse(response.body)
       expect(body["title"]).to eq("Updated")
       expect(body["status"]).to eq("developing")
-      expect(body["tags"]).to eq(["v2"])
+      expect(body["tags"]).to eq([ "v2" ])
     end
 
     it "leaves unchanged fields alone" do
       original_title = plan.title
-      patch api_v1_plan_path(plan), params: { tags: ["new-tag"] }, headers: headers, as: :json
+      patch api_v1_plan_path(plan), params: { tags: [ "new-tag" ] }, headers: headers, as: :json
       expect(response).to have_http_status(:success)
       expect(plan.reload.title).to eq(original_title)
     end
@@ -224,6 +224,18 @@ RSpec.describe "Api::V1::Plans", type: :request do
         expect {
           patch api_v1_plan_path(plan), params: { folder_id: folder.id }, headers: headers, as: :json
         }.not_to change(CoPlan::PlanEvent, :count)
+      end
+
+      it "rolls back folder_path creation when the rest of the update fails" do
+        patch api_v1_plan_path(plan),
+          params: { folder_path: "New Team/Sub", status: "bogus" },
+          headers: headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(plan.reload.folder).to be_nil
+        # The invalid status aborted the whole update — no orphaned shared
+        # folders left behind for a move that never happened.
+        expect(CoPlan::Folder.count).to eq(0)
       end
     end
   end

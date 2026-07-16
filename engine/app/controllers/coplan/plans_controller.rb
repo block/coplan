@@ -34,14 +34,7 @@ module CoPlan
         end
       end
 
-      plans = Plan.includes(:plan_type, :tags, :created_by_user, :current_plan_version, :folder)
-
-      if @scope == "mine"
-        plans = plans.where(created_by_user: current_user)
-      else
-        # Brainstorm plans are private drafts — never show other users'.
-        plans = plans.visible_to(current_user)
-      end
+      plans = scoped_plans_base.includes(:plan_type, :tags, :created_by_user, :current_plan_version, :folder)
 
       plans = plans.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?
       plans = plans.with_tag(params[:tag]) if params[:tag].present?
@@ -268,6 +261,18 @@ module CoPlan
         .count
     end
 
+    # The base relation for the active workspace scope. Used by both the
+    # main-pane plan lists and the sidebar counts so folder/tag counts
+    # always match what clicking through shows.
+    def scoped_plans_base
+      if @scope == "mine"
+        Plan.where(created_by_user: current_user)
+      else
+        # Brainstorm plans are private drafts — never show other users'.
+        Plan.visible_to(current_user)
+      end
+    end
+
     # One query for the whole folder tree; everything else (children map,
     # subtree ids, expanded state, aggregate counts) is derived in memory.
     def load_folder_tree
@@ -290,12 +295,13 @@ module CoPlan
       ids
     end
 
-    # Sidebar data: the folder tree with per-folder visible-plan counts,
-    # and the most-used tags. Counts and tag usage are restricted to plans
-    # the current user can see (Plan.visible_to) so other users' private
-    # brainstorm plans never leak through folder counts or tag lists.
+    # Sidebar data: the folder tree with per-folder plan counts, and the
+    # most-used tags. Counts and tag usage use the same base relation as
+    # the main pane (scoped_plans_base) so they match what clicking shows —
+    # which also means other users' private brainstorm plans never leak
+    # through folder counts or tag lists (Plan.visible_to).
     def load_workspace_sidebar
-      direct_counts = Plan.visible_to(current_user)
+      direct_counts = scoped_plans_base
         .where.not(folder_id: nil)
         .group(:folder_id)
         .count
@@ -314,7 +320,7 @@ module CoPlan
 
       @top_tags = Tag
         .joins(:plan_tags)
-        .where(coplan_plan_tags: { plan_id: Plan.visible_to(current_user).select(:id) })
+        .where(coplan_plan_tags: { plan_id: scoped_plans_base.select(:id) })
         .group("coplan_tags.id", "coplan_tags.name")
         .order(Arel.sql("COUNT(*) DESC"), "coplan_tags.name ASC")
         .limit(8)

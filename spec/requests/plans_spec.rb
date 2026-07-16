@@ -372,13 +372,26 @@ RSpec.describe "Plans", type: :request do
       create(:plan, :brainstorm, created_by_user: bob).update!(folder: folder)
 
       sign_in_as(alice)
-      get plans_path
+      get plans_path(scope: "all")
       # The folder shows with a zero count — its only plan is Bob's private brainstorm.
       expect(response.body).to match(%r{Secret Stash</span>\s*<span class="sidebar__count">0</span>})
 
       sign_in_as(bob)
-      get plans_path
+      get plans_path(scope: "all")
       expect(response.body).to match(%r{Secret Stash</span>\s*<span class="sidebar__count">1</span>})
+    end
+
+    it "scopes folder counts to the active workspace scope" do
+      folder = create(:folder, name: "Bobs Corner", created_by_user: bob)
+      create(:plan, :considering, created_by_user: bob).update!(folder: folder)
+
+      # My plans: the folder holds none of alice's plans, so it counts 0 —
+      # matching the empty list clicking it would show.
+      get plans_path
+      expect(response.body).to match(%r{Bobs Corner</span>\s*<span class="sidebar__count">0</span>})
+
+      get plans_path(scope: "all")
+      expect(response.body).to match(%r{Bobs Corner</span>\s*<span class="sidebar__count">1</span>})
     end
 
     it "includes subfolder plans in parent folder counts" do
@@ -395,9 +408,17 @@ RSpec.describe "Plans", type: :request do
       visible = create(:plan, :considering, created_by_user: bob)
       visible.tag_names = [ "public-tag" ]
 
-      get plans_path
+      get plans_path(scope: "all")
       expect(response.body).to include("public-tag")
       expect(response.body).not_to include("secret-tag")
+    end
+
+    it "scopes sidebar tags to the active workspace scope" do
+      others = create(:plan, :considering, created_by_user: bob)
+      others.tag_names = [ "bobs-tag" ]
+
+      get plans_path
+      expect(response.body).not_to include("bobs-tag")
     end
 
     it "shows a New folder form" do

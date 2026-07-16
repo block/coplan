@@ -72,20 +72,26 @@ module CoPlan
           permitted[:title] = params[:title] if params.key?(:title)
           permitted[:status] = params[:status] if params.key?(:status)
 
-          if params.key?(:folder_id) || params.key?(:folder_path)
-            folder = resolve_folder_params
-            return if performed? # resolve_folder_params rendered an error
-            @plan.folder = folder
-          end
-
           # Snapshot before-state so LogEvent can record meaningful diffs.
           old_title = @plan.title
           old_status = @plan.status
           old_tag_names = @plan.tag_names
-          old_folder_path = @plan.folder_id_was.present? ? Folder.find_by(id: @plan.folder_id_was)&.path : nil
+          old_folder_path = @plan.folder&.path
 
-          @plan.tag_names = params[:tags] if params.key?(:tags)
-          @plan.update!(permitted)
+          # Folder resolution (which may create folders via folder_path) and
+          # the plan update are one transaction: a request combining
+          # folder_path with an invalid attribute must not leave behind
+          # orphaned shared folders for a move that never happened.
+          ActiveRecord::Base.transaction do
+            if params.key?(:folder_id) || params.key?(:folder_path)
+              folder = resolve_folder_params
+              return if performed? # resolve_folder_params rendered an error
+              @plan.folder = folder
+            end
+
+            @plan.tag_names = params[:tags] if params.key?(:tags)
+            @plan.update!(permitted)
+          end
 
           if @plan.saved_changes?
             Broadcaster.replace_to(@plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: @plan })
