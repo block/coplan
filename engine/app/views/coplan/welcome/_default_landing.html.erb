@@ -12,13 +12,10 @@
     <div class="landing__cta-row">
       <% if signed_in? %>
         <%= link_to "Browse plans", plans_path, class: "btn btn--primary" %>
-        <%= link_to "Connect your agent", agent_instructions_path, class: "btn btn--secondary" %>
-      <% else %>
-        <% if CoPlan.configuration.sign_in_path %>
-          <%= link_to "Sign in to get started", CoPlan.configuration.sign_in_path, class: "btn btn--primary" %>
-        <% end %>
-        <%= link_to "Connect your agent", agent_instructions_path, class: "btn btn--secondary" %>
+      <% elsif CoPlan.configuration.sign_in_path %>
+        <%= link_to "Sign in to get started", CoPlan.configuration.sign_in_path, class: "btn btn--primary" %>
       <% end %>
+      <%= link_to "Connect your agent", agent_instructions_path, class: "btn btn--secondary" %>
     </div>
   </header>
 

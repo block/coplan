@@ -9,17 +9,9 @@
       review comments on your behalf.
     </p>
 
-    <div class="agent-instructions__url-card"
-         data-controller="coplan--clipboard"
-         data-coplan--clipboard-text-value="<%= @instructions_url %>">
+    <div class="agent-instructions__url-card">
       <div class="agent-instructions__url-label">Instructions URL — paste this into your agent</div>
-      <div class="agent-instructions__url-row">
-        <code class="agent-instructions__url" data-coplan--clipboard-target="source"><%= @instructions_url %></code>
-        <button type="button"
-                class="btn btn--primary copy-button"
-                data-action="coplan--clipboard#copy"
-                data-coplan--clipboard-target="button">Copy URL</button>
-      </div>
+      <%= render "coplan/shared/copy_url", url: @instructions_url, button_class: "btn btn--primary" %>
     </div>
 
     <div class="agent-instructions__fetch">

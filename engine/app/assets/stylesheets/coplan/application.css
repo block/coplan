@@ -2832,15 +2832,18 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   color: var(--color-text-muted);
 }
 
-.landing__agents-url {
+/* Copy-to-clipboard URL chip — shared partial coplan/shared/_copy_url */
+.copy-url {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-sm);
   flex-wrap: wrap;
-  margin-top: var(--space-md);
 }
 
-.landing__agents-url code {
+.copy-url__value {
+  flex: 1 1 16rem;
+  display: flex;
+  align-items: center;
   padding: 0.4rem 0.75rem;
   background: var(--color-code-bg);
   border: 1px solid var(--color-border);
@@ -2849,6 +2852,10 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   font-size: var(--text-sm);
   color: var(--color-text);
   overflow-wrap: anywhere;
+}
+
+.landing__agents .copy-url {
+  margin-top: var(--space-md);
 }
 
 /* Landing mock — an illustrative, CSS-only rendering of the review loop
@@ -3036,27 +3043,6 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   font-weight: 600;
   color: var(--color-text-muted);
   margin-bottom: var(--space-sm);
-}
-
-.agent-instructions__url-row {
-  display: flex;
-  align-items: stretch;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-}
-
-.agent-instructions__url {
-  flex: 1 1 16rem;
-  display: flex;
-  align-items: center;
-  padding: 0.4rem 0.75rem;
-  background: var(--color-code-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--color-text);
-  overflow-wrap: anywhere;
 }
 
 .agent-instructions__fetch-hint {

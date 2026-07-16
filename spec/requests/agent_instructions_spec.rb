@@ -109,6 +109,22 @@ RSpec.describe "Agent Instructions", type: :request do
         expect(response.body).to include("# CoPlan API")
         expect(response.body).not_to include("<html")
       end
+
+      it "forces the HTML page at .html regardless of the Accept header" do
+        get agent_instructions_path(format: :html), headers: { "Accept" => "*/*" }
+
+        expect(response.content_type).to include("text/html")
+        expect(response.body).to include("Connect your AI agent")
+      end
+
+      it "renders the signed-in nav chrome for signed-in users" do
+        user = create(:coplan_user, name: "Naveen Chrome")
+        sign_in_as(user)
+
+        get agent_instructions_path, headers: { "Accept" => browser_accept }
+
+        expect(response.body).to include("Naveen Chrome")
+      end
     end
   end
 end

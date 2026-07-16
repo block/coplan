@@ -54,5 +54,11 @@ export default class extends Controller {
 
   disconnect() {
     clearTimeout(this.resetTimer)
+    // Restore the label so Turbo's page cache never snapshots a stale
+    // "Copied!" state.
+    if (this.hasButtonTarget && this.buttonTarget.dataset.originalLabel) {
+      this.buttonTarget.textContent = this.buttonTarget.dataset.originalLabel
+      this.buttonTarget.classList.remove("copy-button--copied")
+    }
   }
 }
