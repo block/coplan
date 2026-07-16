@@ -30,6 +30,12 @@ module CoPlan
     # (ordered-list or blockquoted tasks) stay disabled.
     TASK_LINE_PATTERN = /\A\s*[*+-]\s+\[[ xX]\]\s/
 
+    # Fragment caches of rendered markdown are keyed on content SHA plus this
+    # version. Bump it whenever the rendering pipeline changes output for the
+    # same input (new tags, attribute changes, checkbox wiring, etc.), or
+    # stale HTML will be served from cache.
+    RENDER_CACHE_VERSION = 1
+
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
     # dashes, and underscores. The pattern must round-trip exactly so that
