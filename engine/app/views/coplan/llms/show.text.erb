@@ -4,6 +4,8 @@
 
 CoPlan has a REST API that AI agents can use to create plans, apply edits, and leave review comments.
 
+The editing model is simple: read a plan's content and revision, edit the Markdown locally, and PUT the whole document back with `base_revision` for optimistic concurrency. The server diffs, versions, and preserves comment anchors automatically — no operation-by-operation editing required.
+
 ## API
 
 - [Agent Instructions](<%= coplan.agent_instructions_path %>): Full API reference for AI agents, including authentication, endpoints, editing workflow, and commenting.

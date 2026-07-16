@@ -41,5 +41,19 @@ RSpec.describe "Agent Instructions", type: :request do
       get agent_instructions_path
       expect(response.body).to include('"plan_type"')
     end
+
+    it "builds example URLs from the request base (root mount)" do
+      get agent_instructions_path
+      expect(response.body).to include("http://www.example.com/api/v1/plans")
+      expect(response.body).not_to include("example.com//api")
+    end
+
+    it "includes the engine mount prefix in example URLs" do
+      # Host apps may mount the engine under a prefix (HOST_APP_GUIDE
+      # documents mount at "/coplan"); examples must include it or agents
+      # 404 on their first read.
+      get agent_instructions_path, env: { "SCRIPT_NAME" => "/coplan" }
+      expect(response.body).to include("http://www.example.com/coplan/api/v1/plans")
+    end
   end
 end
