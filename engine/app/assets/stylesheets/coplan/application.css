@@ -3064,3 +3064,98 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   overflow: hidden;
   background: var(--color-surface);
 }
+
+/* Plan owner actions row (show page) */
+.plan-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.plan-actions__hint {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* Markdown editor (edit_content page) */
+.editor__tabs {
+  display: flex;
+  gap: var(--space-xs);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-md);
+}
+
+.editor__tab {
+  padding: var(--space-sm) var(--space-md);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.editor__tab--active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
+}
+
+.editor__textarea {
+  width: 100%;
+  min-height: 60vh;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  resize: vertical;
+  tab-size: 2;
+}
+
+.editor__preview {
+  min-height: 60vh;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.editor__draft-notice,
+.editor__conflict {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+
+.editor__draft-notice {
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+}
+
+.editor__conflict {
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning);
+  display: block;
+}
+
+.editor__hint {
+  margin-left: auto;
+}
+
+.editor__hint kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-size: var(--text-xs);
+  background: var(--color-bg-muted);
+}

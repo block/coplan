@@ -1,6 +1,6 @@
 module CoPlan
   class PlansController < ApplicationController
-    before_action :set_plan, only: [:show, :edit, :update, :update_status, :toggle_checkbox, :history]
+    before_action :set_plan, only: [:show, :edit, :update, :update_status, :toggle_checkbox, :history, :edit_content, :update_content, :preview]
 
     PER_PAGE = 20
 
@@ -76,17 +76,88 @@ module CoPlan
     def update
       authorize!(@plan, :update?)
       old_title = @plan.title
+      old_tag_names = @plan.tag_names
       new_title = params[:plan][:title]
+
+      if params[:plan].key?(:tag_names)
+        @plan.tag_names = params[:plan][:tag_names].to_s.split(",")
+      end
       @plan.update!(title: new_title)
-      Plans::LogEvent.call(
-        plan: @plan,
-        actor: current_user,
-        event_type: "title_changed",
-        before: old_title,
-        after: new_title
-      )
+
+      if @plan.saved_change_to_title?
+        Plans::LogEvent.call(
+          plan: @plan,
+          actor: current_user,
+          event_type: "title_changed",
+          before: old_title,
+          after: new_title
+        )
+      end
+
+      new_tag_names = @plan.tag_names
+      (new_tag_names - old_tag_names).each do |added|
+        Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "tag_added", after: added)
+      end
+      (old_tag_names - new_tag_names).each do |removed|
+        Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "tag_removed", before: removed)
+      end
+
       broadcast_plan_update(@plan)
       redirect_to plan_path(@plan), notice: "Plan updated."
+    end
+
+    def edit_content
+      authorize!(@plan, :edit_content?)
+      @draft_content = @plan.current_content
+      @base_revision = @plan.current_revision
+    end
+
+    # Human whole-document editing goes through the same pipeline as agent
+    # edits: Plans::ReplaceContent diffs against the base revision, creates
+    # an immutable PlanVersion with actor_type "human", preserves comment
+    # anchors in unchanged regions, and broadcasts the new body. Optimistic
+    # concurrency: a stale base_revision re-renders the editor with the
+    # user's draft intact instead of clobbering intervening edits.
+    def update_content
+      authorize!(@plan, :edit_content?)
+
+      # After a conflict, the form keeps its stale base_revision so an
+      # unreviewed re-save fails loudly again instead of silently clobbering
+      # the intervening edit. "Save anyway" submits overwrite_revision —
+      # explicit consent to replace that specific revision; if the plan has
+      # moved on again since, this still conflicts.
+      base_revision = (params[:overwrite_revision].presence || params[:base_revision]).to_i
+
+      result = Plans::ReplaceContent.call(
+        plan: @plan,
+        new_content: params[:content].to_s,
+        base_revision: base_revision,
+        actor_type: "human",
+        actor_id: current_user.id,
+        change_summary: params[:change_summary].presence || "Edited in web UI"
+      )
+
+      if result[:no_op]
+        redirect_to plan_path(@plan), notice: "No changes to save."
+      else
+        redirect_to plan_path(@plan), notice: "Plan content updated."
+      end
+    rescue Plans::ReplaceContent::StaleRevisionError => e
+      @draft_content = params[:content].to_s
+      @base_revision = params[:base_revision].to_i
+      @conflict_revision = e.current_revision
+      @conflict = true
+      flash.now[:alert] = "This plan was updated to v#{e.current_revision} while you were editing. " \
+                          "Your draft is preserved below — review the latest version before saving again."
+      render :edit_content, status: :conflict
+    end
+
+    # Renders submitted markdown for the editor's preview pane. Non-interactive
+    # render: no checkbox wiring, since the content isn't saved yet.
+    def preview
+      authorize!(@plan, :show?)
+      html = helpers.render_markdown(params[:content].to_s, interactive: false)
+      render html: html, layout: false
     end
 
     def update_status

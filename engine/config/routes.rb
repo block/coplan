@@ -3,6 +3,9 @@ CoPlan::Engine.routes.draw do
     patch :update_status, on: :member
     patch :toggle_checkbox, on: :member
     get :history, on: :member
+    get :edit_content, on: :member
+    patch :update_content, on: :member
+    post :preview, on: :member
     resources :versions, controller: "plan_versions", only: [:show] do
       get :diff, on: :member
     end
