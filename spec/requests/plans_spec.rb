@@ -77,6 +77,16 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include("plan-layout__content")
   end
 
+  it "scopes comment footnote ids so they can't collide with the plan body's" do
+    thread = create(:comment_thread, :with_anchor, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
+    comment = create(:comment, comment_thread: thread, author_type: "human", author_id: alice.id,
+                     body_markdown: "Noted.[^1]\n\n[^1]: A comment footnote.")
+
+    get plan_path(plan)
+    expect(response.body).to include(%(id="comment-#{comment.id}-fn-1"))
+    expect(response.body).to include(%(href="#comment-#{comment.id}-fn-1"))
+  end
+
   it "show plan renders content navigation sidebar" do
     get plan_path(plan)
     expect(response).to have_http_status(:success)

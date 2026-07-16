@@ -73,6 +73,15 @@ module CoPlan
       end
     end
 
+    # Boolean form of authorize! for views that show or hide affordances.
+    # Only safe in request-rendered templates — broadcast-rendered partials
+    # have no current_user and must gate client-side instead.
+    def allowed_to?(record, action)
+      policy_class = "CoPlan::#{record.class.name.demodulize}Policy".constantize
+      policy_class.new(current_user, record).public_send(action)
+    end
+    helper_method :allowed_to?
+
     # Fires once per successful, signed-in HTML GET. Skips Turbo Frame
     # requests (those are partial reloads within an already-counted page),
     # non-2xx responses, agent/API traffic, and anything that isn't HTML.

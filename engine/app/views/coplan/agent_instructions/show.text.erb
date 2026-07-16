@@ -60,6 +60,16 @@ flowchart LR
 
 The web UI renders these blocks as diagrams. Keep the Mermaid source in the plan so humans and agents can review and edit it alongside the surrounding Markdown.
 
+#### Rich formatting
+
+Beyond standard Markdown (tables, task lists, strikethrough), plans support:
+
+- **Footnotes** — `Some claim.[^1]` with `[^1]: Supporting detail or citation.` anywhere in the document. Rendered as numbered superscript links with a footnote section at the bottom. Use these for caveats, citations, and asides that would clutter the main text.
+- **Collapsible sections** — `<details><summary>Title shown when collapsed</summary>` … `</details>`. Use for long appendices, raw logs, or optional deep-dives so the document stays scannable. Add `open` to the `<details>` tag to render expanded by default. Leave a blank line after `<summary>…</summary>` so Markdown inside the section still renders.
+- **Hover definitions** — `<abbr title="Definition shown on hover">TERM</abbr>`. Use for acronyms and project-specific jargon so readers outside the team can follow along.
+
+Other raw HTML is stripped on render (the Markdown source is preserved), so stick to these plus standard Markdown.
+
 ### Update Plan
 
 Update plan metadata (title, status, tags). Only fields included in the request body are changed.
@@ -368,6 +378,25 @@ Delete the paragraph containing a needle string. Fails if 0 or >1 paragraphs mat
   "needle": "This approach is deprecated"
 }
 ```
+
+### replace_section
+
+Replace an entire section — a heading plus everything under it, up to the next
+heading of equal or higher level. Use this to scope a rewrite to one part of the
+document when the same text appears elsewhere. Fails if the heading is not found
+or matches more than one heading.
+
+```json
+{
+  "op": "replace_section",
+  "heading": "## Testing Strategy",
+  "new_content": "## Testing Strategy\n\nUnit tests only for v1."
+}
+```
+
+- `heading`: the full heading line, including the `#` markers.
+- `new_content`: replaces the whole section. With `"include_heading": false`,
+  only the section body is replaced and the heading line is kept.
 
 ## Commenting
 
