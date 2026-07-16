@@ -80,6 +80,70 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
       expect(plan.reload.current_content).to eq("# Plan\n\nSomeone else edited.\n")
     end
 
+    it "keeps the stale base_revision in the conflict re-render so a plain re-save conflicts again" do
+      stale = plan.current_revision
+      new_version = create(:plan_version, plan: plan, revision: stale + 1,
+                           content_markdown: "# Plan\n\nSomeone else edited.\n", actor_id: other_user.id)
+      plan.update!(current_plan_version: new_version, current_revision: new_version.revision)
+
+      patch update_content_plan_path(plan), params: {
+        content: "# Plan\n\nMy conflicting draft.\n",
+        base_revision: stale
+      }
+
+      # The hidden field must still carry the stale revision — advancing it
+      # here would let an unreviewed second save overwrite the other edit.
+      expect(response.body).to include(%(name="base_revision" id="base_revision" value="#{stale}"))
+
+      expect {
+        patch update_content_plan_path(plan), params: {
+          content: "# Plan\n\nMy conflicting draft.\n",
+          base_revision: stale
+        }
+      }.not_to change(CoPlan::PlanVersion, :count)
+      expect(response).to have_http_status(:conflict)
+      expect(plan.reload.current_content).to eq("# Plan\n\nSomeone else edited.\n")
+    end
+
+    it "overwrites only with explicit overwrite_revision consent" do
+      stale = plan.current_revision
+      new_version = create(:plan_version, plan: plan, revision: stale + 1,
+                           content_markdown: "# Plan\n\nSomeone else edited.\n", actor_id: other_user.id)
+      plan.update!(current_plan_version: new_version, current_revision: new_version.revision)
+
+      expect {
+        patch update_content_plan_path(plan), params: {
+          content: "# Plan\n\nMy conflicting draft.\n",
+          base_revision: stale,
+          overwrite_revision: new_version.revision
+        }
+      }.to change(CoPlan::PlanVersion, :count).by(1)
+
+      expect(response).to redirect_to(plan_path(plan))
+      expect(plan.reload.current_content).to eq("# Plan\n\nMy conflicting draft.\n")
+    end
+
+    it "conflicts again when the plan moved past the consented overwrite_revision" do
+      stale = plan.current_revision
+      v2 = create(:plan_version, plan: plan, revision: stale + 1,
+                  content_markdown: "# Plan\n\nEdit two.\n", actor_id: other_user.id)
+      v3 = create(:plan_version, plan: plan, revision: stale + 2,
+                  content_markdown: "# Plan\n\nEdit three.\n", actor_id: other_user.id)
+      plan.update!(current_plan_version: v3, current_revision: v3.revision)
+
+      # User consented to overwrite v2, but the plan is now at v3.
+      expect {
+        patch update_content_plan_path(plan), params: {
+          content: "# Plan\n\nMy conflicting draft.\n",
+          base_revision: stale,
+          overwrite_revision: v2.revision
+        }
+      }.not_to change(CoPlan::PlanVersion, :count)
+
+      expect(response).to have_http_status(:conflict)
+      expect(plan.reload.current_content).to eq("# Plan\n\nEdit three.\n")
+    end
+
     it "rejects non-authors" do
       sign_in_as(other_user)
       patch update_content_plan_path(plan), params: {

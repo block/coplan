@@ -28,9 +28,21 @@
 
   <% if @conflict %>
     <div class="editor__conflict">
-      <strong>Heads up:</strong> this plan changed while you were editing.
-      <%= link_to "Review the latest version", plan_path(@plan), target: "_blank", rel: "noopener" %>
-      before saving — your save will apply on top of v<%= @base_revision %>.
+      <p>
+        <strong>Heads up:</strong> this plan changed to v<%= @conflict_revision %> while you were
+        editing (your draft started from v<%= @base_revision %>). Saving normally will keep failing
+        so their change isn't lost by accident.
+      </p>
+      <p>
+        <%= link_to "Review the latest version", plan_path(@plan), target: "_blank", rel: "noopener" %>,
+        fold anything you want to keep into your draft below, then:
+      </p>
+      <%= button_tag "Save anyway — replace v#{@conflict_revision} with my draft",
+            type: :submit,
+            name: "overwrite_revision",
+            value: @conflict_revision,
+            class: "btn btn--danger btn--sm" %>
+      <span class="text-sm text-muted">The replaced version stays in the plan's history.</span>
     </div>
   <% end %>
 

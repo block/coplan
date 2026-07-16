@@ -121,10 +121,17 @@ module CoPlan
     def update_content
       authorize!(@plan, :edit_content?)
 
+      # After a conflict, the form keeps its stale base_revision so an
+      # unreviewed re-save fails loudly again instead of silently clobbering
+      # the intervening edit. "Save anyway" submits overwrite_revision —
+      # explicit consent to replace that specific revision; if the plan has
+      # moved on again since, this still conflicts.
+      base_revision = (params[:overwrite_revision].presence || params[:base_revision]).to_i
+
       result = Plans::ReplaceContent.call(
         plan: @plan,
         new_content: params[:content].to_s,
-        base_revision: params[:base_revision].to_i,
+        base_revision: base_revision,
         actor_type: "human",
         actor_id: current_user.id,
         change_summary: params[:change_summary].presence || "Edited in web UI"
@@ -137,7 +144,8 @@ module CoPlan
       end
     rescue Plans::ReplaceContent::StaleRevisionError => e
       @draft_content = params[:content].to_s
-      @base_revision = e.current_revision
+      @base_revision = params[:base_revision].to_i
+      @conflict_revision = e.current_revision
       @conflict = true
       flash.now[:alert] = "This plan was updated to v#{e.current_revision} while you were editing. " \
                           "Your draft is preserved below — review the latest version before saving again."
