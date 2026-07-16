@@ -3,20 +3,25 @@
   <% if can_edit %>
     <div class="attachments-section__header">
       <%= form_with url: plan_attachments_path(plan), method: :post, multipart: true,
-            class: "attachments-upload", data: { controller: "coplan--file-input" } do |f| %>
-        <label class="btn btn--secondary btn--sm attachments-upload__choose">
-          🖇️ Choose files…
-          <%= f.file_field :files, multiple: true, name: "files[]", class: "attachments-upload__input",
+            class: "attachments-dropzone",
+            data: {
+              controller: "coplan--dropzone",
+              action: "dragover->coplan--dropzone#dragOver dragleave->coplan--dropzone#dragLeave drop->coplan--dropzone#drop"
+            } do |f| %>
+        <label class="attachments-dropzone__inner">
+          <span class="attachments-dropzone__icon" aria-hidden="true">🖇️</span>
+          <span class="attachments-dropzone__text" data-coplan--dropzone-target="text">
+            <strong>Drag &amp; drop files here</strong> or <span class="attachments-dropzone__browse">browse</span>
+          </span>
+          <span class="attachments-dropzone__hint">
+            Up to <%= CoPlan::Plan::ATTACHMENT_MAX_BYTES / 1.megabyte %> MB per file ·
+            images, PDF, text/markdown/CSV/JSON, and ZIP
+          </span>
+          <%= f.file_field :files, multiple: true, name: "files[]", class: "attachments-dropzone__input",
                 accept: CoPlan::Plan::ATTACHMENT_CONTENT_TYPES.join(","),
-                data: { "coplan--file-input-target": "input", action: "change->coplan--file-input#changed" } %>
+                data: { "coplan--dropzone-target": "input", action: "change->coplan--dropzone#changed" } %>
         </label>
-        <span class="attachments-upload__filenames" data-coplan--file-input-target="filenames">No files selected</span>
-        <%= f.submit "Upload", class: "btn btn--primary btn--sm", data: { "coplan--file-input-target": "submit" } %>
       <% end %>
-      <p class="attachments-upload__hint text-muted">
-        Up to <%= CoPlan::Plan::ATTACHMENT_MAX_BYTES / 1.megabyte %> MB per file.
-        Images, PDF, text/markdown/CSV/JSON, and ZIP files.
-      </p>
     </div>
   <% end %>
 

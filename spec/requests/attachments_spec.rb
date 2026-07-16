@@ -97,7 +97,7 @@ RSpec.describe "Attachments (web)", type: :request do
       expect(response.body).to include("diagram.png")
       expect(response.body).to include("disposition=attachment")
       # Viewers can't upload or delete.
-      expect(response.body).not_to include("attachments-upload")
+      expect(response.body).not_to include("attachments-dropzone")
     end
 
     it "shows the upload form to the plan author" do
@@ -105,7 +105,7 @@ RSpec.describe "Attachments (web)", type: :request do
       get plan_path(plan, tab: "attachments")
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("attachments-upload")
+      expect(response.body).to include("attachments-dropzone")
     end
   end
 end
