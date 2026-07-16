@@ -32,6 +32,19 @@ RSpec.describe "Comments", type: :request do
     expect(response.body).to include("Inline, no cable round-trip.")
   end
 
+  it "broadcasts via requestless partial render, never the request-scoped HTML" do
+    # Request-rendered HTML embeds the actor's session authenticity token in
+    # any forms; broadcasting it would send that secret to every viewer.
+    expect(CoPlan::Broadcaster).to receive(:append_to) do |_streamable, **kwargs|
+      expect(kwargs[:partial]).to eq("coplan/comments/comment")
+      expect(kwargs[:html]).to be_nil
+    end
+
+    post plan_comment_thread_comments_path(plan, thread_record), params: {
+      comment: { body_markdown: "Broadcast me safely." }
+    }
+  end
+
   describe "DELETE destroy" do
     let!(:comment) do
       create(:comment, comment_thread: thread_record, author_type: "human", author_id: alice.id, body_markdown: "to be deleted")

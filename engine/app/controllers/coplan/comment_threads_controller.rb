@@ -40,8 +40,13 @@ module CoPlan
 
       inline_streams = []
       if thread.anchored?
-        html = render_to_string(partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: @plan }, formats: [:html])
-        Broadcaster.append_to(@plan, target: "plan-threads", html: html)
+        locals = { thread: thread, plan: @plan }
+        # The popover contains forms; the broadcast copy is rendered
+        # requestless so other viewers never receive this request's session
+        # authenticity tokens. The inline copy for the actor stays
+        # request-scoped.
+        Broadcaster.append_to(@plan, target: "plan-threads", partial: "coplan/comment_threads/thread_popover", locals: locals)
+        html = render_to_string(partial: "coplan/comment_threads/thread_popover", locals: locals, formats: [:html])
         inline_streams << turbo_stream.append("plan-threads", html)
       end
 
@@ -103,10 +108,14 @@ module CoPlan
     end
 
     # Replaces a thread in place (status changed) for other viewers and
-    # returns the inline stream for the actor's own response.
+    # returns the inline stream for the actor's own response. The broadcast
+    # renders requestless (the popover contains forms — request-rendered
+    # HTML would leak this session's authenticity tokens to every viewer);
+    # only the actor's inline copy is request-scoped.
     def broadcast_thread_replace(thread)
-      html = render_to_string(partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: @plan }, formats: [:html])
-      Broadcaster.replace_to(@plan, target: dom_id(thread), html: html)
+      locals = { thread: thread, plan: @plan }
+      Broadcaster.replace_to(@plan, target: dom_id(thread), partial: "coplan/comment_threads/thread_popover", locals: locals)
+      html = render_to_string(partial: "coplan/comment_threads/thread_popover", locals: locals, formats: [:html])
       turbo_stream.replace(dom_id(thread), html)
     end
   end

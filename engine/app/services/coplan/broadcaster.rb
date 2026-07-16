@@ -1,5 +1,11 @@
 module CoPlan
   module Broadcaster
+    # Prefer partial:/locals: over html: — partials are rendered here in a
+    # requestless context. Never pass request-rendered HTML that contains
+    # forms via html:: form_with/button_to embed the acting user's session
+    # authenticity token, and a broadcast would send that secret to every
+    # subscribed viewer. html: is fine for form-free fragments the caller
+    # already rendered for its own inline response.
     class << self
       def prepend_to(streamable, target:, html: nil, partial: nil, locals: {})
         html ||= render(partial:, locals:)

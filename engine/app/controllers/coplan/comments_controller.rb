@@ -20,9 +20,12 @@ module CoPlan
       )
 
       target = ActionView::RecordIdentifier.dom_id(@thread, :comments)
-      html = render_to_string(partial: "coplan/comments/comment", locals: { comment: comment }, formats: [:html])
+      locals = { comment: comment }
 
-      Broadcaster.append_to(@plan, target: target, html: html)
+      # Broadcast payloads are rendered requestless (via partial:) so they
+      # never embed this request's session — form authenticity tokens in
+      # request-rendered HTML must not be sent to other viewers.
+      Broadcaster.append_to(@plan, target: target, partial: "coplan/comments/comment", locals: locals)
 
       # The author's tab gets the append inline in the HTTP response — no
       # cable round-trip between submit and seeing the comment. The broadcast
@@ -30,7 +33,10 @@ module CoPlan
       # before appending, so the author's copy isn't duplicated when the
       # broadcast echoes back.
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: turbo_stream.append(target, html) }
+        format.turbo_stream do
+          html = render_to_string(partial: "coplan/comments/comment", locals: locals, formats: [:html])
+          render turbo_stream: turbo_stream.append(target, html)
+        end
         format.html { redirect_to plan_path(@plan), notice: "Reply added." }
       end
     end
@@ -50,8 +56,10 @@ module CoPlan
         inline_stream = turbo_stream.remove(target)
       else
         target = ActionView::RecordIdentifier.dom_id(comment)
-        html = render_to_string(partial: "coplan/comments/comment", locals: { comment: comment }, formats: [:html])
-        Broadcaster.replace_to(@plan, target: target, html: html)
+        locals = { comment: comment }
+        # Requestless render for the broadcast; request-scoped only inline.
+        Broadcaster.replace_to(@plan, target: target, partial: "coplan/comments/comment", locals: locals)
+        html = render_to_string(partial: "coplan/comments/comment", locals: locals, formats: [:html])
         inline_stream = turbo_stream.replace(target, html)
       end
 
