@@ -2,10 +2,16 @@
 <div class="attachments-section" id="plan-attachments">
   <% if can_edit %>
     <div class="attachments-section__header">
-      <%= form_with url: plan_attachments_path(plan), method: :post, multipart: true, class: "attachments-upload" do |f| %>
-        <%= f.file_field :files, multiple: true, name: "files[]", required: true, class: "attachments-upload__input",
-              accept: CoPlan::Plan::ATTACHMENT_CONTENT_TYPES.join(",") %>
-        <%= f.submit "Upload", class: "btn btn--primary btn--sm" %>
+      <%= form_with url: plan_attachments_path(plan), method: :post, multipart: true,
+            class: "attachments-upload", data: { controller: "coplan--file-input" } do |f| %>
+        <label class="btn btn--secondary btn--sm attachments-upload__choose">
+          🖇️ Choose files…
+          <%= f.file_field :files, multiple: true, name: "files[]", class: "attachments-upload__input",
+                accept: CoPlan::Plan::ATTACHMENT_CONTENT_TYPES.join(","),
+                data: { "coplan--file-input-target": "input", action: "change->coplan--file-input#changed" } %>
+        </label>
+        <span class="attachments-upload__filenames" data-coplan--file-input-target="filenames">No files selected</span>
+        <%= f.submit "Upload", class: "btn btn--primary btn--sm", data: { "coplan--file-input-target": "submit" } %>
       <% end %>
       <p class="attachments-upload__hint text-muted">
         Up to <%= CoPlan::Plan::ATTACHMENT_MAX_BYTES / 1.megabyte %> MB per file.
