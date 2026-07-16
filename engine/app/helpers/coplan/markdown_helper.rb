@@ -12,9 +12,16 @@ module CoPlan
       dd dt dl
       sup sub
       details summary
+      abbr
+      section
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title type checked disabled data-line data-line-text data-action data-coplan--checkbox-target data-mention-username data-sourcepos].freeze
+    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title type checked disabled open aria-label data-line data-line-text data-action data-coplan--checkbox-target data-mention-username data-sourcepos data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
+
+    # Commonmarker extensions beyond the gem defaults (tables, tasklist,
+    # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
+    # `[^1]: definition` block anywhere in the document.
+    EXTENSION_OPTIONS = { footnotes: true }.freeze
 
     # A source line the toggle endpoint will accept as a task item. Shared
     # between the renderer and PlansController#toggle_checkbox so a checkbox
@@ -34,7 +41,7 @@ module CoPlan
       # Sourcepos is only needed to wire checkboxes to their source lines;
       # make_checkboxes_interactive strips it from the final output.
       render_options[:sourcepos] = true if interactive
-      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { render: render_options }, plugins: { syntax_highlighter: nil })
+      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
       sanitized = sanitize(with_chips, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       result = interactive ? make_checkboxes_interactive(sanitized, content) : sanitized
@@ -63,7 +70,7 @@ module CoPlan
     end
 
     def markdown_to_plain_text(content)
-      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), plugins: { syntax_highlighter: nil })
+      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
       Nokogiri::HTML::DocumentFragment.parse(html).text.squish
     end
 

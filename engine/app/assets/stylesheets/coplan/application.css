@@ -1200,6 +1200,57 @@ img.avatar {
   border-radius: var(--radius);
 }
 
+.markdown-rendered abbr[title] {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+.markdown-rendered details {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.markdown-rendered details[open] {
+  padding-bottom: var(--space-md);
+}
+
+.markdown-rendered summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin: calc(var(--space-sm) * -1) calc(var(--space-md) * -1);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.markdown-rendered details[open] summary {
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-md);
+}
+
+.markdown-rendered .footnote-ref a,
+.markdown-rendered sup a[data-footnote-ref] {
+  text-decoration: none;
+  padding: 0 2px;
+}
+
+.markdown-rendered section[data-footnotes] {
+  margin-top: var(--space-xl);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-md);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.markdown-rendered section[data-footnotes] p {
+  margin-bottom: var(--space-xs);
+}
+
+.markdown-rendered a[data-footnote-backref] {
+  text-decoration: none;
+}
+
 /* Comment popover (appears on text selection) */
 .comment-popover {
   position: absolute;
