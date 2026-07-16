@@ -2,12 +2,12 @@ module CoPlan
   module Api
     module V1
       class PlansController < BaseController
-        before_action :set_plan, only: [:show, :update, :versions, :comments, :snapshot]
-        before_action :authorize_plan_access!, only: [:show, :update, :versions, :comments, :snapshot]
+        before_action :set_plan, only: [ :show, :update, :versions, :comments, :snapshot ]
+        before_action :authorize_plan_access!, only: [ :show, :update, :versions, :comments, :snapshot ]
 
         def index
           plans = Plan
-            .includes(:plan_type, :created_by_user, folder: :parent)
+            .includes(:plan_type, :created_by_user, folder: { parent: :parent })
             .visible_to(current_user)
             .order(updated_at: :desc)
           plans = plans.where(status: params[:status]) if params[:status].present?

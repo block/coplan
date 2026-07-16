@@ -111,7 +111,7 @@ Each folder includes `id`, `name`, `parent_id`, `path` (e.g. `"Team EBT/Q3"`), a
 ```bash
 <%= @curl %> -X POST \
   -H "Content-Type: application/json" \
-  -d '{"name": "Q3", "parent_id": "$PARENT_FOLDER_ID"}' \
+  -d '{"name": "Q3", "parent_id": "'$PARENT_FOLDER_ID'"}' \
   "<%= @base %>/api/v1/folders" | jq .
 ```
 

@@ -44,8 +44,9 @@ module CoPlan
     end
 
     # All folders nested under this one (children, grandchildren, ...).
+    # Cycle-guarded like #ancestors so bad data can't recurse forever.
     def descendants
-      children.flat_map { |child| [child] + child.descendants }
+      collect_descendants(Set.new([ id ]))
     end
 
     # 1 for a root folder, 2 for its children, etc.
@@ -55,7 +56,7 @@ module CoPlan
 
     # Human-readable location, e.g. "Team EBT/Q3".
     def path
-      (ancestors + [self]).map(&:name).join("/")
+      (ancestors + [ self ]).map(&:name).join("/")
     end
 
     # Finds or creates the folder hierarchy for a "/"-separated path like
@@ -68,10 +69,30 @@ module CoPlan
       segments = path.to_s.split("/").map(&:strip).reject(&:blank?)
       return nil if segments.empty?
 
-      segments.reduce(nil) do |parent, name|
-        where(parent_id: parent&.id).where("LOWER(name) = ?", name.downcase).first ||
-          create!(name: name, parent: parent, created_by_user: created_by_user)
+      # Transactional so a failure partway (e.g. "A/B/C/D" exceeding
+      # MAX_DEPTH) doesn't leave half-created hierarchy behind.
+      transaction do
+        segments.reduce(nil) do |parent, name|
+          where(parent_id: parent&.id).where("LOWER(name) = ?", name.downcase).first ||
+            create!(name: name, parent: parent, created_by_user: created_by_user)
+        end
       end
+    end
+
+    # Full "A/B/C" path for every given folder, keyed by id, computed from
+    # the in-memory list (no per-folder queries). Shared by the folders API
+    # and the folder-picker helper.
+    def self.paths_by_id(folders = order(:name).to_a)
+      by_id = folders.index_by(&:id)
+      folders.index_with do |folder|
+        names = [ folder.name ]
+        node = folder
+        while node.parent_id && (node = by_id[node.parent_id])
+          names.unshift(node.name)
+          break if names.length > MAX_DEPTH # cycle guard on bad data
+        end
+        names.join("/")
+      end.transform_keys(&:id)
     end
 
     def self.ransackable_attributes(_auth_object = nil)
@@ -109,8 +130,8 @@ module CoPlan
       # Skip when a cycle error is already present — depth would loop.
       return if errors[:parent].any?
 
-      subtree_height = persisted? ? ([0] + descendants.map { |d| d.ancestors_until(self).length + 1 }).max : 0
-      if parent.depth + 1 + subtree_height > MAX_DEPTH
+      height = persisted? ? subtree_height(Set.new([ id ])) : 0
+      if parent.depth + 1 + height > MAX_DEPTH
         errors.add(:parent, "would exceed the maximum folder depth of #{MAX_DEPTH}")
       end
     end
@@ -128,17 +149,21 @@ module CoPlan
 
     protected
 
-    # Number of ancestors strictly below `stop` (used to measure subtree
-    # height when re-parenting a folder that already has children).
-    def ancestors_until(stop)
-      node = parent
-      chain = []
-      while node && node.id != stop.id
-        break if chain.include?(node)
-        chain << node
-        node = node.parent
+    # Levels of subfolders below this one (0 when it has none). Used to
+    # measure subtree height when re-parenting a folder that already has
+    # children. `visited` guards against cycles in bad data.
+    def subtree_height(visited)
+      kids = children.reject { |child| visited.include?(child.id) }
+      return 0 if kids.empty?
+
+      1 + kids.map { |child| child.subtree_height(visited << child.id) }.max
+    end
+
+    def collect_descendants(visited)
+      children.reject { |child| visited.include?(child.id) }.flat_map do |child|
+        visited << child.id
+        [ child ] + child.collect_descendants(visited)
       end
-      chain
     end
   end
 end

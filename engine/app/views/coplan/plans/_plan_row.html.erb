@@ -10,7 +10,6 @@
          data-status="<%= plan.status %>"
          <% if author %>
            draggable="true"
-           data-coplan--folder-dnd-target="row"
            data-move-url="<%= move_to_folder_plan_path(plan) %>"
            data-action="dragstart->coplan--folder-dnd#dragStart dragend->coplan--folder-dnd#dragEnd"
          <% end %>>
@@ -18,7 +17,7 @@
     <%= link_to plan.title, plan_path(plan), class: "plan-row__title", data: { turbo_frame: "_top" } %>
     <span class="badge badge--<%= plan.status %>"><%= plan.status %></span>
     <% if plan.folder %>
-      <%= link_to plans_path(params.permit(:scope, :plan_type, :tag).merge(folder: plan.folder_id)),
+      <%= link_to plans_path(params.permit(:scope, :status, :plan_type, :tag).merge(folder: plan.folder_id)),
             class: "plan-row__folder", data: { turbo_frame: "_top" } do %>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
         <%= folder_path_for(plan.folder) %>
@@ -26,7 +25,7 @@
     <% end %>
     <% plan.tags.each do |tag| %>
       <%= link_to tag.name,
-            plans_path(params.permit(:scope, :plan_type, :folder).merge(tag: tag.name)),
+            plans_path(params.permit(:scope, :status, :plan_type, :folder).merge(tag: tag.name)),
             class: "badge badge--tag #{'badge--tag-active' if params[:tag] == tag.name}",
             data: { turbo_frame: "_top" } %>
     <% end %>
@@ -44,10 +43,10 @@
               move redirect (and its flash) must replace the whole page. %>
           <%= form_with url: move_to_folder_plan_path(plan), method: :patch,
                 class: "plan-row__move-form", data: { turbo_frame: "_top" } do |f| %>
-            <label class="plan-row__move-label">Move to folder</label>
+            <label class="plan-row__move-label" for="move-folder-<%= plan.id %>">Move to folder</label>
             <%= f.select :folder_id,
                   options_for_select([["No folder", ""]] + folder_select_options.map { |path, id, _| [path, id] }, plan.folder_id),
-                  {}, class: "plan-row__move-select" %>
+                  {}, class: "plan-row__move-select", id: "move-folder-#{plan.id}" %>
             <%= f.submit "Move", class: "btn btn--sm" %>
           <% end %>
         </div>

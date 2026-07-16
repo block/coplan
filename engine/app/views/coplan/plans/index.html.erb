@@ -4,7 +4,7 @@
   <div class="workspace__main">
     <% active_filters = [] %>
     <% if @folder %>
-      <% active_filters << ["Folder: #{@folder.path}", plans_path(params.permit(:scope, :status, :plan_type, :tag))] %>
+      <% active_filters << ["Folder: #{folder_path_for(@folder)}", plans_path(params.permit(:scope, :status, :plan_type, :tag))] %>
     <% end %>
     <% if params[:tag].present? %>
       <% active_filters << ["Tag: #{params[:tag]}", plans_path(params.permit(:scope, :status, :plan_type, :folder))] %>
@@ -43,6 +43,13 @@
             </li>
           <% end %>
         </ul>
+        <% remaining = @attention_unread_counts.size - @attention_plans.size %>
+        <% if remaining > 0 %>
+          <p class="attention__more text-muted text-sm">
+            + <%= pluralize(remaining, "more plan") %> with unread comments —
+            <%= link_to "see notifications", notifications_path, class: "attention__link" %>
+          </p>
+        <% end %>
       </section>
     <% end %>
 
@@ -56,7 +63,7 @@
       <% else %>
         <div class="empty-state card">
           <% if @folder %>
-            <p>No plans <%= "you can see " if @scope == "all" %>in <strong><%= @folder.path %></strong> yet.</p>
+            <p>No plans <%= "you can see " if @scope == "all" %>in <strong><%= folder_path_for(@folder) %></strong> yet.</p>
             <p class="text-muted text-sm">Drag a plan row onto this folder in the sidebar, or use a plan's row menu to move it here.</p>
           <% elsif params[:tag].present? || params[:plan_type].present? %>
             <p>No plans match the current filters.</p>

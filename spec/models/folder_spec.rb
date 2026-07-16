@@ -83,12 +83,12 @@ RSpec.describe CoPlan::Folder, type: :model do
     let!(:sibling) { create(:folder, name: "Q4", parent: root) }
 
     it "returns ancestors root-first" do
-      expect(leaf.ancestors).to eq([root, mid])
+      expect(leaf.ancestors).to eq([ root, mid ])
       expect(root.ancestors).to eq([])
     end
 
     it "returns all nested descendants" do
-      expect(root.descendants).to match_array([mid, leaf, sibling])
+      expect(root.descendants).to match_array([ mid, leaf, sibling ])
       expect(leaf.descendants).to eq([])
     end
 
@@ -157,6 +157,28 @@ RSpec.describe CoPlan::Folder, type: :model do
       expect {
         described_class.find_or_create_by_path!("A/B/C/D", created_by_user: user)
       }.to raise_error(ActiveRecord::RecordInvalid, /maximum folder depth/)
+    end
+
+    it "creates nothing when the path is too deep (transactional)" do
+      expect {
+        described_class.find_or_create_by_path!("A/B/C/D", created_by_user: user)
+      }.to raise_error(ActiveRecord::RecordInvalid)
+      expect(described_class.count).to eq(0)
+    end
+  end
+
+  describe ".paths_by_id" do
+    it "returns the full path for every folder without per-folder queries" do
+      root = create(:folder, name: "Team EBT")
+      sub = create(:folder, name: "Q3", parent: root)
+      other = create(:folder, name: "Infra")
+
+      paths = described_class.paths_by_id
+      expect(paths).to eq(
+        root.id => "Team EBT",
+        sub.id => "Team EBT/Q3",
+        other.id => "Infra"
+      )
     end
   end
 end

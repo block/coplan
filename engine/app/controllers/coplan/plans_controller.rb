@@ -1,6 +1,6 @@
 module CoPlan
   class PlansController < ApplicationController
-    before_action :set_plan, only: [:show, :edit, :update, :update_status, :move_to_folder, :toggle_checkbox, :history]
+    before_action :set_plan, only: [ :show, :edit, :update, :update_status, :move_to_folder, :toggle_checkbox, :history ]
 
     PER_PAGE = 20
 
@@ -23,9 +23,18 @@ module CoPlan
     # and render only the row page partial.
     def index
       @scope = SCOPES.include?(params[:scope]) ? params[:scope] : DEFAULT_SCOPE
-      @folder = Folder.find_by(id: params[:folder]) if params[:folder].present?
+      load_folder_tree
 
-      plans = Plan.includes(:plan_type, :tags, :created_by_user, :current_plan_version, folder: :parent)
+      if params[:folder].present?
+        @folder = @folders_by_id[params[:folder]]
+        if @folder.nil? && !turbo_frame_request?
+          redirect_to plans_path(params.permit(:scope, :status, :plan_type, :tag).to_h),
+            alert: "That folder no longer exists."
+          return
+        end
+      end
+
+      plans = Plan.includes(:plan_type, :tags, :created_by_user, :current_plan_version, :folder)
 
       if @scope == "mine"
         plans = plans.where(created_by_user: current_user)
@@ -38,13 +47,15 @@ module CoPlan
       plans = plans.with_tag(params[:tag]) if params[:tag].present?
       # A folder filter includes its subfolders — clicking "Team EBT" shows
       # everything under it.
-      plans = plans.where(folder_id: [@folder] + @folder.descendants) if @folder
+      plans = plans.where(folder_id: folder_subtree_ids(@folder)) if @folder
+      # Stale frame fetch for a since-deleted folder: render an empty page.
+      plans = plans.none if params[:folder].present? && @folder.nil?
 
       if params[:status].present? || turbo_frame_request?
         plans = plans.where(status: params[:status]) if params[:status].present?
         plans = plans.order(updated_at: :desc, id: :desc)
 
-        @page = (params[:page] || 1).to_i
+        @page = [ params[:page].to_i, 1 ].max
         @plans = plans.limit(PER_PAGE + 1).offset((@page - 1) * PER_PAGE)
         @has_next_page = @plans.size > PER_PAGE
         @plans = @plans.first(PER_PAGE)
@@ -58,7 +69,7 @@ module CoPlan
               page: @page,
               has_next_page: @has_next_page,
               group_key: params[:group].presence || "results",
-              frame_status: params[:status].presence,
+              frame_status: params[:status].presence
             },
             layout: false
           return
@@ -76,7 +87,7 @@ module CoPlan
             status: status,
             count: count,
             plans: group_plans.first(PER_PAGE),
-            has_next_page: group_plans.size > PER_PAGE,
+            has_next_page: group_plans.size > PER_PAGE
           }
         end
         @plan_unread_counts = unread_counts_for(@groups.flat_map { |g| g[:plans] })
@@ -219,7 +230,7 @@ module CoPlan
         current_content = @plan.current_content || ""
         result = Plans::ApplyOperations.call(
           content: current_content,
-          operations: [{ "op" => "replace_exact", "old_text" => old_text, "new_text" => new_text }]
+          operations: [ { "op" => "replace_exact", "old_text" => old_text, "new_text" => new_text } ]
         )
 
         new_revision = @plan.current_revision + 1
@@ -257,23 +268,49 @@ module CoPlan
         .count
     end
 
+    # One query for the whole folder tree; everything else (children map,
+    # subtree ids, expanded state, aggregate counts) is derived in memory.
+    def load_folder_tree
+      @folders = Folder.order(:name).to_a
+      @folders_by_id = @folders.index_by(&:id)
+      @folder_children = @folders.group_by(&:parent_id)
+      @root_folders = @folder_children[nil] || []
+    end
+
+    # Ids of a folder plus all folders nested under it, walked over the
+    # in-memory tree (the visited check doubles as a cycle guard).
+    def folder_subtree_ids(folder)
+      ids = []
+      queue = [ folder.id ]
+      while (id = queue.shift)
+        next if ids.include?(id)
+        ids << id
+        queue.concat((@folder_children[id] || []).map(&:id))
+      end
+      ids
+    end
+
     # Sidebar data: the folder tree with per-folder visible-plan counts,
     # and the most-used tags. Counts and tag usage are restricted to plans
     # the current user can see (Plan.visible_to) so other users' private
     # brainstorm plans never leak through folder counts or tag lists.
     def load_workspace_sidebar
-      @folders = Folder.order(:name).to_a
-      @folder_children = @folders.group_by(&:parent_id)
-      @root_folders = @folder_children[nil] || []
-
       direct_counts = Plan.visible_to(current_user)
         .where.not(folder_id: nil)
         .group(:folder_id)
         .count
       # Displayed counts include subfolders, matching what clicking the
       # folder shows.
-      @folder_counts = {}
-      @folders.each { |f| @folder_counts[f.id] = aggregate_folder_count(f, direct_counts) }
+      @folder_counts = @folders.index_with do |folder|
+        folder_subtree_ids(folder).sum { |id| direct_counts.fetch(id, 0) }
+      end.transform_keys(&:id)
+
+      # Folder nodes rendered expanded: the active folder and its ancestors.
+      @open_folder_ids = Set.new
+      node = @folder
+      while node && @open_folder_ids.add?(node.id)
+        node = @folders_by_id[node.parent_id]
+      end
 
       @top_tags = Tag
         .joins(:plan_tags)
@@ -282,25 +319,22 @@ module CoPlan
         .order(Arel.sql("COUNT(*) DESC"), "coplan_tags.name ASC")
         .limit(8)
         .count
-        .map { |(_id, name), count| [name, count] }
+        .map { |(_id, name), count| [ name, count ] }
     end
 
-    def aggregate_folder_count(folder, direct_counts)
-      children = @folder_children[folder.id] || []
-      direct_counts.fetch(folder.id, 0) +
-        children.sum { |child| aggregate_folder_count(child, direct_counts) }
-    end
+    ATTENTION_LIMIT = 5
 
     # "Needs attention" strip: plans with unread comment notifications for
     # the current user, most-unread first. Independent of the active
-    # sidebar filters — it's an inbox, not a search result.
+    # sidebar filters — it's an inbox, not a search result. Bounded: only
+    # the top ATTENTION_LIMIT plans are loaded.
     def load_needs_attention
       unread_by_plan = current_user.notifications.unread.group(:plan_id).count
       @attention_unread_counts = unread_by_plan
-      @attention_plans = Plan.includes(:created_by_user)
-        .where(id: unread_by_plan.keys)
+      top_ids = unread_by_plan.sort_by { |_id, count| -count }
+        .first(ATTENTION_LIMIT).map(&:first)
+      @attention_plans = Plan.where(id: top_ids)
         .sort_by { |plan| -unread_by_plan.fetch(plan.id, 0) }
-        .first(5)
     end
 
     def set_plan

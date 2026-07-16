@@ -2,11 +2,11 @@ module CoPlan
   module Api
     module V1
       class FoldersController < BaseController
-        before_action :set_folder, only: [:update, :destroy]
+        before_action :set_folder, only: [ :update, :destroy ]
 
         def index
           folders = Folder.order(:name).to_a
-          by_id = folders.index_by(&:id)
+          paths = Folder.paths_by_id(folders)
 
           # Visible-plan counts only — never leak the existence of other
           # users' private brainstorm plans through folder counts.
@@ -15,7 +15,7 @@ module CoPlan
             .group(:folder_id)
             .count
 
-          render json: folders.map { |f| folder_json(f, by_id: by_id, counts: counts) }
+          render json: folders.map { |f| folder_json(f, paths: paths, counts: counts) }
         end
 
         def create
@@ -79,30 +79,20 @@ module CoPlan
           render json: { error: "Folder not found" }, status: :not_found unless @folder
         end
 
-        # `by_id` and `counts` let index serialize the whole tree without
+        # `paths` and `counts` let index serialize the whole tree without
         # per-folder queries. `plans_count` is the folder's own visible
         # plans (not including subfolders).
-        def folder_json(folder, by_id: nil, counts: nil)
+        def folder_json(folder, paths: nil, counts: nil)
           {
             id: folder.id,
             name: folder.name,
             parent_id: folder.parent_id,
-            path: by_id ? path_from(folder, by_id) : folder.path,
+            path: paths ? paths[folder.id] : folder.path,
             plans_count: counts ? counts.fetch(folder.id, 0) : folder.plans.visible_to(current_user).count,
             created_by: folder.created_by_user&.name,
             created_at: folder.created_at,
             updated_at: folder.updated_at
           }
-        end
-
-        def path_from(folder, by_id)
-          names = [folder.name]
-          node = folder
-          while node.parent_id && (node = by_id[node.parent_id])
-            names.unshift(node.name)
-            break if names.length > Folder::MAX_DEPTH # cycle guard
-          end
-          names.join("/")
         end
       end
     end

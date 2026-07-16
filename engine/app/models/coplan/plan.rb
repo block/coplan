@@ -2,22 +2,6 @@ module CoPlan
   class Plan < ApplicationRecord
     STATUSES = %w[brainstorm considering developing live abandoned].freeze
 
-    # Order used when grouping "My Plans" on the index: brainstorms first
-    # (private drafts, most relevant to the author), then active work by
-    # maturity, abandoned last. Pinning brainstorm to the top keeps the
-    # author's own brainstorms on page 1 instead of buried past the
-    # PER_PAGE pagination cut (see COPLAN-32).
-    STATUS_PRIORITY = %w[brainstorm considering developing live abandoned].freeze
-
-    # Order plans by STATUS_PRIORITY, then most-recently-updated within each group.
-    scope :prioritized_by_status, -> {
-      whens = STATUS_PRIORITY.each_with_index.map { |status, i|
-        sanitize_sql_array(["WHEN status = ? THEN ?", status, i])
-      }.join(" ")
-      order(Arel.sql("CASE #{whens} ELSE #{STATUS_PRIORITY.length} END"))
-        .order(updated_at: :desc, id: :desc)
-    }
-
     belongs_to :created_by_user, class_name: "CoPlan::User"
     belongs_to :current_plan_version, class_name: "PlanVersion", optional: true
     belongs_to :plan_type, optional: true
@@ -65,7 +49,7 @@ module CoPlan
       term = sanitize_fulltext_term(query)
       return none if term.blank?
 
-      where.not(status: "brainstorm").or(where(created_by_user_id: user.id))
+      visible_to(user)
         .where("MATCH(search_text) AGAINST (? IN BOOLEAN MODE)", term)
         .order(Arel.sql("MATCH(search_text) AGAINST (#{connection.quote(term)} IN BOOLEAN MODE) DESC"))
     }
@@ -132,7 +116,7 @@ module CoPlan
     def stripped_content
       @stripped_content ||= begin
         content = current_content
-        content.present? ? Plans::MarkdownTextExtractor.call(content) : [+"", []]
+        content.present? ? Plans::MarkdownTextExtractor.call(content) : [ +"", [] ]
       end
     end
 

@@ -32,9 +32,9 @@ RSpec.describe "Plans", type: :request do
   end
 
   it "index filters by tag" do
-    plan.tag_names = ["infra"]
+    plan.tag_names = [ "infra" ]
     other = create(:plan, :considering, created_by_user: alice, title: "Other Plan")
-    other.tag_names = ["frontend"]
+    other.tag_names = [ "frontend" ]
     get plans_path(tag: "infra")
     expect(response).to have_http_status(:success)
     expect(response.body).to include(plan.title)
@@ -42,7 +42,7 @@ RSpec.describe "Plans", type: :request do
   end
 
   it "index shows tag badges on plan cards" do
-    plan.tag_names = ["infra", "api"]
+    plan.tag_names = [ "infra", "api" ]
     get plans_path
     expect(response.body).to include("badge--tag")
     expect(response.body).to include("infra")
@@ -50,7 +50,7 @@ RSpec.describe "Plans", type: :request do
   end
 
   it "index shows active tag filter bar" do
-    plan.tag_names = ["infra"]
+    plan.tag_names = [ "infra" ]
     get plans_path(tag: "infra")
     expect(response.body).to include("active-filter")
     expect(response.body).to include("infra")
@@ -58,7 +58,7 @@ RSpec.describe "Plans", type: :request do
   end
 
   it "show plan renders tag badges in header" do
-    plan.tag_names = ["infra", "security"]
+    plan.tag_names = [ "infra", "security" ]
     get plan_path(plan)
     expect(response).to have_http_status(:success)
     expect(response.body).to include("badge--tag")
@@ -317,11 +317,11 @@ RSpec.describe "Plans", type: :request do
     end
 
     it "combines folder with tag and scope filters" do
-      root_plan.tag_names = ["infra"]
-      sub_plan.tag_names = ["frontend"]
+      root_plan.tag_names = [ "infra" ]
+      sub_plan.tag_names = [ "frontend" ]
       bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Foldered Plan")
       bobs_plan.update!(folder: root)
-      bobs_plan.tag_names = ["infra"]
+      bobs_plan.tag_names = [ "infra" ]
 
       get plans_path(folder: root.id, tag: "infra", scope: "all")
       expect(response.body).to include("Root Level Plan")
@@ -343,6 +343,18 @@ RSpec.describe "Plans", type: :request do
     it "shows folder breadcrumbs on rows" do
       get plans_path
       expect(response.body).to include("Team EBT/Q3")
+    end
+
+    it "redirects with an alert when the folder no longer exists" do
+      get plans_path(folder: "gone", tag: "infra")
+      expect(response).to redirect_to(plans_path(tag: "infra"))
+      expect(flash[:alert]).to include("no longer exists")
+    end
+
+    it "clamps a non-positive page param instead of erroring" do
+      get plans_path(status: "considering", page: "0")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Root Level Plan")
     end
   end
 
@@ -379,9 +391,9 @@ RSpec.describe "Plans", type: :request do
 
     it "does not surface tags used only on other users' brainstorms" do
       secret = create(:plan, :brainstorm, created_by_user: bob)
-      secret.tag_names = ["secret-tag"]
+      secret.tag_names = [ "secret-tag" ]
       visible = create(:plan, :considering, created_by_user: bob)
-      visible.tag_names = ["public-tag"]
+      visible.tag_names = [ "public-tag" ]
 
       get plans_path
       expect(response.body).to include("public-tag")
@@ -497,6 +509,12 @@ RSpec.describe "Plans", type: :request do
       create(:folder, name: "Team EBT")
       post folders_path, params: { folder: { name: "Team EBT" } }
       expect(flash[:alert]).to include("Couldn't create folder")
+    end
+
+    it "rejects an unknown parent instead of creating a root folder" do
+      post folders_path, params: { folder: { name: "Q3", parent_id: "gone" } }
+      expect(CoPlan::Folder.find_by(name: "Q3")).to be_nil
+      expect(flash[:alert]).to include("parent folder no longer exists")
     end
   end
 end

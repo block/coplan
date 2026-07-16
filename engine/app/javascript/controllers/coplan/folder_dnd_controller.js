@@ -9,14 +9,14 @@ import { Controller } from "@hotwired/stimulus"
 const PLAN_MIME = "application/x-coplan-plan"
 
 export default class extends Controller {
-  static targets = ["folder", "row"]
+  static targets = ["folder"]
 
   dragStart(event) {
     const row = event.currentTarget
     event.dataTransfer.effectAllowed = "move"
-    event.dataTransfer.setData(PLAN_MIME, "1")
+    // The move URL rides along in the drag payload (readable on drop).
+    event.dataTransfer.setData(PLAN_MIME, row.dataset.moveUrl)
     event.dataTransfer.setData("text/plain", row.dataset.planId)
-    this.moveUrl = row.dataset.moveUrl
     row.classList.add("plan-row--dragging")
     this.element.classList.add("workspace--dragging")
   }
@@ -42,10 +42,11 @@ export default class extends Controller {
     event.preventDefault()
     const target = event.currentTarget
     target.classList.remove("folder-tree__link--drop")
-    if (!this.moveUrl) return
+    const moveUrl = event.dataTransfer.getData(PLAN_MIME)
+    if (!moveUrl) return
 
     const token = document.querySelector('meta[name="csrf-token"]')?.content
-    fetch(this.moveUrl, {
+    fetch(moveUrl, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -68,7 +69,6 @@ export default class extends Controller {
         }
       })
       .catch(error => this.#toast(error.message, "alert"))
-      .finally(() => { this.moveUrl = null })
   }
 
   #toast(message, kind) {
