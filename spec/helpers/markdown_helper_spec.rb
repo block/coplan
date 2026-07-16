@@ -69,6 +69,21 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include("[^brackets]")
       expect(html).not_to include("footnote-ref")
     end
+
+    it "scopes footnote ids and hrefs with footnote_prefix" do
+      html = helper.render_markdown(markdown, footnote_prefix: "comment-abc")
+      expect(html).to include('id="comment-abc-fnref-1"')
+      expect(html).to include('href="#comment-abc-fn-1"')
+      expect(html).to include('id="comment-abc-fn-1"')
+      expect(html).to include('href="#comment-abc-fnref-1"')
+      expect(html).not_to match(/id="fn(ref)?-1"/)
+    end
+
+    it "leaves non-footnote ids and anchors alone when prefixing" do
+      html = helper.render_markdown("# Heading\n\n[jump](#fnord) <span id=\"fnord\">x</span>\n\n" + markdown, footnote_prefix: "p")
+      expect(html).to include('href="#fnord"')
+      expect(html).to include('id="fnord"')
+    end
   end
 
   describe "hover definitions (abbr)" do

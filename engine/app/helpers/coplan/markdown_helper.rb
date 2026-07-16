@@ -36,7 +36,11 @@ module CoPlan
     # casual `[foo](mention:bar)` typed by hand doesn't get rendered as a chip.
     MENTION_PATTERN = /\[@([\w.-]+)\]\(mention:\1\)/
 
-    def render_markdown(content, interactive: true)
+    # footnote_prefix: pass a DOM-unique string when a page renders more than
+    # one markdown fragment (e.g. each comment) — commonmarker numbers
+    # footnote ids from #fn-1 per document, so unprefixed fragments collide
+    # and reference/backref links jump to the wrong footnote.
+    def render_markdown(content, interactive: true, footnote_prefix: nil)
       render_options = { unsafe: true }
       # Sourcepos is only needed to wire checkboxes to their source lines;
       # make_checkboxes_interactive strips it from the final output.
@@ -45,6 +49,7 @@ module CoPlan
       with_chips = transform_mention_anchors(html)
       sanitized = sanitize(with_chips, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       result = interactive ? make_checkboxes_interactive(sanitized, content) : sanitized
+      result = scope_footnote_ids(result, footnote_prefix) if footnote_prefix
       tag.div(result.html_safe, class: "markdown-rendered", data: { controller: "coplan--mermaid" })
     end
 
@@ -123,6 +128,24 @@ module CoPlan
       end
 
       doc.css("[data-sourcepos]").each { |el| el.remove_attribute("data-sourcepos") }
+      doc.to_html
+    end
+
+    # Rewrites commonmarker's per-document footnote ids (#fn-N / #fnref-N)
+    # and the hrefs that point at them so multiple fragments can coexist in
+    # one DOM. Only ids/fragments with the fn-/fnref- shape are touched —
+    # heading anchors and user-supplied ids pass through untouched.
+    FOOTNOTE_ID_PATTERN = /\A(fn|fnref)-/
+
+    def scope_footnote_ids(html, prefix)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      doc.css("[id]").each do |el|
+        el["id"] = "#{prefix}-#{el["id"]}" if el["id"].match?(FOOTNOTE_ID_PATTERN)
+      end
+      doc.css(%(a[href^="#fn"])).each do |a|
+        fragment = a["href"].delete_prefix("#")
+        a["href"] = "##{prefix}-#{fragment}" if fragment.match?(FOOTNOTE_ID_PATTERN)
+      end
       doc.to_html
     end
 
