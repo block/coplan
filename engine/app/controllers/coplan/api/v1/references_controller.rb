@@ -71,14 +71,6 @@ module CoPlan
 
         private
 
-        def authorize_plan_write!
-          return unless @plan
-          policy = CoPlan::PlanPolicy.new(current_user, @plan)
-          unless policy.update?
-            render json: { error: "Not authorized" }, status: :forbidden
-          end
-        end
-
         def reference_json(ref)
           {
             id: ref.id,

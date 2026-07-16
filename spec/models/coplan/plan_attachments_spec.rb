@@ -39,4 +39,14 @@ RSpec.describe CoPlan::Plan, "attachments", type: :model do
     plan.reload
     expect(plan.update(title: "New title")).to be(true)
   end
+
+  it "does not let a legacy invalid attachment block new uploads" do
+    attach(filename: "notes.txt", content_type: "text/plain")
+    # Simulate an attachment persisted under older, looser rules.
+    plan.attachments.first.blob.update_columns(byte_size: described_class::ATTACHMENT_MAX_BYTES + 1)
+
+    plan.reload
+    expect(attach(filename: "new.txt", content_type: "text/plain")).to be_truthy
+    expect(plan.reload.attachments.count).to eq(2)
+  end
 end

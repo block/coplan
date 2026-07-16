@@ -39,19 +39,23 @@ module CoPlan
           metadata: uploader_metadata
         )
 
-        # `attach` on a persisted record saves the plan, which runs the model
-        # backstop validation. If content-type sniffing (blob identification)
-        # reclassified the file into a disallowed type, the save fails — purge
-        # the orphaned blob and surface the validation error.
-        if @plan.attachments.attach(blob).nil?
+        # `attach` on a persisted, unchanged record saves the plan, which runs
+        # the model backstop validation. If content-type sniffing (blob
+        # identification) reclassified the file into a disallowed type, the
+        # save fails — purge the orphaned blob and surface the validation
+        # error. Success is judged by the attachment row actually being
+        # persisted (not just attach's return value), so a dirty plan record
+        # that skips the save path is also treated as a failure.
+        @plan.attachments.attach(blob)
+        attachment = @plan.attachments.attachments.find { |a| a.blob_id == blob.id && a.persisted? }
+
+        if attachment.nil?
           error = @plan.errors.full_messages.to_sentence.presence || "Could not attach file"
           @plan.errors.clear
           @plan.attachment_changes.delete("attachments")
           blob.purge
           return Result.new(error: error)
         end
-
-        attachment = @plan.attachments.attachments.find { |a| a.blob_id == blob.id }
 
         LogEvent.call(
           plan: @plan,

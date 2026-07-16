@@ -169,14 +169,18 @@ module CoPlan
     # Plans::AddAttachment (which can reject before a blob is even created),
     # but this guarantees no code path can persist an oversized or disallowed
     # attachment — `attachments.attach` on a persisted record goes through
-    # `save`, so a failure here aborts the attach. Only pending changes are
-    # validated: already-persisted attachments passed this check when they
-    # were attached, and re-validating them would add a query to every save.
+    # `save`, so a failure here aborts the attach. Only newly-built attachment
+    # records in the pending change are validated: `attach` re-assigns
+    # existing blobs alongside the new one, and re-validating already
+    # persisted attachments would let one legacy attachment (attached under
+    # older, looser rules) block every future upload on the plan.
     def attachments_within_limits
       change = attachment_changes["attachments"]
-      return unless change.respond_to?(:blobs)
+      return unless change.respond_to?(:attachments)
 
-      change.blobs.each do |blob|
+      change.attachments.each do |attachment|
+        next if attachment.persisted?
+        blob = attachment.blob
         next unless blob
 
         if blob.byte_size.to_i > ATTACHMENT_MAX_BYTES

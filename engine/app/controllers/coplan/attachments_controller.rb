@@ -29,7 +29,9 @@ module CoPlan
       attachment = @plan.attachments_attachments.find(params[:id])
       filename = attachment.blob&.filename.to_s
       content_type = attachment.blob&.content_type
-      attachment.purge
+      # purge_later: deletes the attachment row now, pushes the storage-service
+      # file deletion to a background job so the request doesn't block on I/O.
+      attachment.purge_later
 
       Plans::LogEvent.call(
         plan: @plan,

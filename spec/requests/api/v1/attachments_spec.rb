@@ -31,6 +31,11 @@ RSpec.describe "Api::V1::Attachments", type: :request do
       expect(data["url"]).to include("/rails/active_storage/blobs/")
       expect(data["download_url"]).to include("disposition=attachment")
       expect(data["markdown"]).to eq("![sample.png](#{data["url"]})")
+
+      # The returned URL must actually resolve through the host app's
+      # ActiveStorage routes (redirect mode → 302 to the service URL).
+      get data["url"]
+      expect(response).to have_http_status(:found)
     end
 
     it "stamps the uploader into the blob metadata" do
@@ -118,6 +123,12 @@ RSpec.describe "Api::V1::Attachments", type: :request do
         expect(a["download_url"]).to include("disposition=attachment")
         expect(a["uploaded_by"]).to eq(user.name)
       end
+
+      # Markdown snippets: image embed for images, plain link for other types.
+      png = data.find { |a| a["filename"] == "sample.png" }
+      txt = data.find { |a| a["filename"] == "sample.txt" }
+      expect(png["markdown"]).to eq("![sample.png](#{png["url"]})")
+      expect(txt["markdown"]).to eq("[sample.txt](#{txt["url"]})")
     end
 
     it "allows any authenticated viewer to list" do

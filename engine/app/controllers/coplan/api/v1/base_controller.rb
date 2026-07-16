@@ -81,6 +81,14 @@ module CoPlan
             render json: { error: "Plan not found" }, status: :not_found
           end
         end
+
+        def authorize_plan_write!
+          return unless @plan
+          policy = CoPlan::PlanPolicy.new(current_user, @plan)
+          unless policy.update?
+            render json: { error: "Not authorized" }, status: :forbidden
+          end
+        end
       end
     end
   end

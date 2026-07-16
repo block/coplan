@@ -2,6 +2,10 @@ module CoPlan
   module Api
     module V1
       class AttachmentsController < BaseController
+        # For attachment_markdown_snippet — keeps the embed-snippet format in
+        # one place so the API and the web UI can't drift apart.
+        include CoPlan::AttachmentsHelper
+
         before_action :set_plan, only: [ :index, :create, :destroy ]
         before_action :authorize_plan_access!, only: [ :index, :create, :destroy ]
         before_action :authorize_plan_write!, only: [ :create, :destroy ]
@@ -43,7 +47,9 @@ module CoPlan
 
           filename = attachment.blob&.filename.to_s
           content_type = attachment.blob&.content_type
-          attachment.purge
+          # purge_later: deletes the attachment row now, pushes the
+          # storage-service file deletion to a background job.
+          attachment.purge_later
 
           Plans::LogEvent.call(
             plan: @plan,
@@ -60,14 +66,6 @@ module CoPlan
 
         private
 
-        def authorize_plan_write!
-          return unless @plan
-          policy = CoPlan::PlanPolicy.new(current_user, @plan)
-          unless policy.update?
-            render json: { error: "Not authorized" }, status: :forbidden
-          end
-        end
-
         def attachment_json(attachment)
           blob = attachment.blob
           url = main_app.rails_blob_path(blob, only_path: true)
@@ -81,7 +79,7 @@ module CoPlan
             created_at: attachment.created_at,
             url: url,
             download_url: main_app.rails_blob_url(blob, disposition: "attachment"),
-            markdown: "![#{blob.filename}](#{url})"
+            markdown: attachment_markdown_snippet(blob, url)
           }
         end
       end

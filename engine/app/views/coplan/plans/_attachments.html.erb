@@ -18,14 +18,15 @@
     <ul class="attachments-list">
       <% attachments.each do |attachment| %>
         <% blob = attachment.blob %>
+        <% blob_path = main_app.rails_blob_path(blob) %>
         <% image = blob.content_type.to_s.start_with?("image/") %>
         <li class="attachments-list__item">
           <% if image %>
             <%# Plain <img> rather than a variant: variants require a system
                 image processor (libvips/ImageMagick) that host apps can't be
                 assumed to have. The browser downsizes via CSS. %>
-            <a href="<%= main_app.rails_blob_path(blob) %>" target="_blank" rel="noopener" class="attachments-list__thumb-link">
-              <img src="<%= main_app.rails_blob_path(blob) %>" alt="<%= blob.filename %>" class="attachments-list__thumb" loading="lazy">
+            <a href="<%= blob_path %>" target="_blank" rel="noopener" class="attachments-list__thumb-link">
+              <img src="<%= blob_path %>" alt="<%= blob.filename %>" class="attachments-list__thumb" loading="lazy">
             </a>
           <% else %>
             <span class="attachments-list__icon"><%= attachment_icon(blob.content_type) %></span>
@@ -44,7 +45,7 @@
           </div>
           <span class="attachments-list__actions"
                 data-controller="coplan--clipboard"
-                data-coplan--clipboard-text-value="<%= attachment_markdown_snippet(blob) %>">
+                data-coplan--clipboard-text-value="<%= attachment_markdown_snippet(blob, blob_path) %>">
             <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--clipboard#copy"
                     data-coplan--clipboard-target="button" title="Copy markdown to embed this file in the plan">
               📋 Markdown

@@ -11,11 +11,15 @@
 # * `active_storage_attachments.record_id` is `string, limit: 36` (instead of
 #   bigint) because it's a polymorphic FK that must hold CoPlan's string UUID
 #   primary keys (e.g. coplan_plans.id).
-# * Everything is wrapped in `unless table_exists?` guards so hosts that have
-#   already installed ActiveStorage (with their own record_id type) don't
-#   blow up when they copy the engine's migrations.
+# * Table creation is guarded with `table_exists?` so hosts that already have
+#   ActiveStorage don't blow up. Hosts that installed ActiveStorage via the
+#   stock migration normally never receive this file (install:migrations
+#   skips same-named migrations), but the guard also covers schema-loaded
+#   databases. If a pre-existing active_storage_attachments table has a
+#   non-string record_id, we warn loudly: CoPlan's UUID plan ids cannot be
+#   stored in a bigint record_id column.
 class CreateActiveStorageTables < ActiveRecord::Migration[8.1]
-  def change
+  def up
     unless table_exists?(:active_storage_blobs)
       create_table :active_storage_blobs do |t|
         t.string   :key,          null: false
@@ -32,7 +36,14 @@ class CreateActiveStorageTables < ActiveRecord::Migration[8.1]
       end
     end
 
-    unless table_exists?(:active_storage_attachments)
+    if table_exists?(:active_storage_attachments)
+      record_id_type = columns(:active_storage_attachments).find { |c| c.name == "record_id" }&.type
+      unless record_id_type == :string
+        say "WARNING: active_storage_attachments.record_id is #{record_id_type.inspect}, not :string.", true
+        say "CoPlan attachments store string(36) UUIDs in record_id and WILL NOT WORK until the column is widened.", true
+        say "See the 'File attachments (ActiveStorage)' section of CoPlan's HOST_APP_GUIDE.md.", true
+      end
+    else
       create_table :active_storage_attachments do |t|
         t.string :name,        null: false
         t.string :record_type, null: false
@@ -55,5 +66,14 @@ class CreateActiveStorageTables < ActiveRecord::Migration[8.1]
         t.foreign_key :active_storage_blobs, column: :blob_id
       end
     end
+  end
+
+  # Mirrors the stock ActiveStorage install migration's rollback: drops the
+  # three tables. `if_exists` keeps the rollback idempotent for hosts where
+  # `up` no-op'd because the tables already existed.
+  def down
+    drop_table :active_storage_variant_records, if_exists: true
+    drop_table :active_storage_attachments, if_exists: true
+    drop_table :active_storage_blobs, if_exists: true
   end
 end
