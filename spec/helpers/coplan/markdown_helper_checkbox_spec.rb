@@ -96,4 +96,93 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(nested["data-line-text"]).to eq("  - [ ] Nested child")
     end
   end
+
+  describe "#render_markdown data-line attribute" do
+    def checkboxes_for(md)
+      html = helper.render_markdown(md)
+      Nokogiri::HTML::DocumentFragment.parse(html).css('input[type="checkbox"]')
+    end
+
+    it "sets data-line to the 1-based source line number" do
+      checkboxes = checkboxes_for("# Heading\n\n- [ ] First\n- [x] Second")
+      expect(checkboxes.map { |cb| cb["data-line"] }).to eq(%w[3 4])
+    end
+
+    it "keeps line numbers accurate across fenced code blocks" do
+      checkboxes = checkboxes_for("```\n- [ ] Fake checkbox\n```\n- [ ] Real checkbox")
+      interactive = checkboxes.reject { |cb| cb["disabled"] }
+      expect(interactive.length).to eq(1)
+      expect(interactive[0]["data-line"]).to eq("4")
+    end
+
+    it "keeps line numbers accurate for duplicate task lines" do
+      checkboxes = checkboxes_for("- [ ] TODO\n\nSome text\n\n- [ ] TODO\n- [ ] Other")
+      expect(checkboxes.map { |cb| cb["data-line"] }).to eq(%w[1 5 6])
+      expect(checkboxes[0]["data-line-text"]).to eq(checkboxes[1]["data-line-text"])
+    end
+
+    it "numbers nested tasks by their own source lines" do
+      checkboxes = checkboxes_for("- [ ] Parent\n  - [ ] Nested child")
+      nested = checkboxes.find { |cb| cb["data-line-text"]&.include?("Nested") }
+      expect(nested["data-line"]).to eq("2")
+    end
+
+    it "handles indented code blocks that contain task-shaped lines" do
+      md = "Intro:\n\n    - [ ] not a task\n\n- [ ] Real task"
+      checkboxes = checkboxes_for(md)
+      interactive = checkboxes.reject { |cb| cb["disabled"] }
+      expect(interactive.map { |cb| cb["data-line"] }).to eq(%w[5])
+    end
+
+    it "leaves ordered-list tasks non-interactive (toggle endpoint rejects them)" do
+      checkboxes = checkboxes_for("1. [ ] Ordered task\n\n- [ ] Bullet task")
+      interactive = checkboxes.reject { |cb| cb["disabled"] }
+      expect(interactive.map { |cb| cb["data-line-text"] }).to eq(["- [ ] Bullet task"])
+    end
+
+    it "strips data-sourcepos from the rendered output" do
+      html = helper.render_markdown("# Heading\n\n- [ ] Task\n\nParagraph.")
+      expect(html).not_to include("data-sourcepos")
+    end
+
+    it "does not emit data-sourcepos in non-interactive renders" do
+      html = helper.render_markdown("- [ ] Task", interactive: false)
+      expect(html).not_to include("data-sourcepos")
+      expect(html).not_to include("data-line")
+    end
+
+    it "keeps every interactive checkbox's line and text in agreement (gauntlet)" do
+      md = <<~MD
+        # Plan
+
+        - [ ] TODO
+        - [ ] TODO
+        - [ ] Deploy
+        - [ ] Deploy to staging
+
+        ```
+        - [ ] fenced fake
+        ~~~
+        - [ ] nested fence fake
+        ```
+
+        1. [ ] ordered task
+
+        > - [ ] quoted task
+
+        - [x] Final real task
+      MD
+
+      source_lines = md.each_line.map(&:rstrip)
+      checkboxes = checkboxes_for(md)
+      interactive = checkboxes.reject { |cb| cb["disabled"] }
+      expect(interactive).not_to be_empty
+
+      interactive.each do |cb|
+        line = Integer(cb["data-line"])
+        expect(source_lines[line - 1]).to eq(cb["data-line-text"])
+        expect(cb["data-line-text"]).to match(CoPlan::MarkdownHelper::TASK_LINE_PATTERN)
+      end
+    end
+  end
 end

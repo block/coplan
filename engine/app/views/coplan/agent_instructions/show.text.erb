@@ -327,6 +327,25 @@ Delete the paragraph containing a needle string. Fails if 0 or >1 paragraphs mat
 }
 ```
 
+### replace_section
+
+Replace an entire section — a heading plus everything under it, up to the next
+heading of equal or higher level. Use this to scope a rewrite to one part of the
+document when the same text appears elsewhere. Fails if the heading is not found
+or matches more than one heading.
+
+```json
+{
+  "op": "replace_section",
+  "heading": "## Testing Strategy",
+  "new_content": "## Testing Strategy\n\nUnit tests only for v1."
+}
+```
+
+- `heading`: the full heading line, including the `#` markers.
+- `new_content`: replaces the whole section. With `"include_heading": false`,
+  only the section body is replaced and the heading line is kept.
+
 ## Commenting
 
 ### Create Comment Thread

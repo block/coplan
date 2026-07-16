@@ -14,7 +14,14 @@ module CoPlan
       details summary
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title type checked disabled data-line-text data-action data-coplan--checkbox-target data-mention-username].freeze
+    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title type checked disabled data-line data-line-text data-action data-coplan--checkbox-target data-mention-username data-sourcepos].freeze
+
+    # A source line the toggle endpoint will accept as a task item. Shared
+    # between the renderer and PlansController#toggle_checkbox so a checkbox
+    # is only wired up when the server would accept toggling its line —
+    # constructs Commonmarker renders as checkboxes but the endpoint rejects
+    # (ordered-list or blockquoted tasks) stay disabled.
+    TASK_LINE_PATTERN = /\A\s*[*+-]\s+\[[ xX]\]\s/
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -23,7 +30,11 @@ module CoPlan
     MENTION_PATTERN = /\[@([\w.-]+)\]\(mention:\1\)/
 
     def render_markdown(content, interactive: true)
-      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { render: { unsafe: true } }, plugins: { syntax_highlighter: nil })
+      render_options = { unsafe: true }
+      # Sourcepos is only needed to wire checkboxes to their source lines;
+      # make_checkboxes_interactive strips it from the final output.
+      render_options[:sourcepos] = true if interactive
+      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
       sanitized = sanitize(with_chips, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       result = interactive ? make_checkboxes_interactive(sanitized, content) : sanitized
@@ -70,24 +81,29 @@ module CoPlan
 
     private
 
+    # Wires rendered task checkboxes to their source lines via Commonmarker's
+    # sourcepos metadata, so the parser that decides what renders as a
+    # checkbox is also the authority on which line it came from. A checkbox
+    # only becomes interactive when its own source line matches
+    # TASK_LINE_PATTERN.
     def make_checkboxes_interactive(html, content)
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
-      checkboxes = doc.css('input[type="checkbox"]')
-      return html if checkboxes.empty?
+      source_lines = content.to_s.each_line.map(&:rstrip)
 
-      task_lines = extract_task_lines(content)
+      doc.css('input[type="checkbox"]').each do |cb|
+        li = cb.ancestors("li").first
+        line_number = sourcepos_start_line(li)
+        next unless line_number
 
-      checkboxes.each_with_index do |cb, i|
-        line_text = task_lines[i]
-        next unless line_text
+        line_text = source_lines[line_number - 1]
+        next unless line_text&.match?(TASK_LINE_PATTERN)
 
         cb.remove_attribute("disabled")
         cb["data-action"] = "coplan--checkbox#toggle"
         cb["data-coplan--checkbox-target"] = "checkbox"
         cb["data-line-text"] = line_text
+        cb["data-line"] = line_number.to_s
 
-        li = cb.parent
-        next unless li&.name == "li"
         li.add_class("task-list-item")
 
         # Wrap li contents in a <label> so the whole text is clickable
@@ -99,22 +115,18 @@ module CoPlan
         ul.add_class("task-list") if ul&.name == "ul"
       end
 
+      doc.css("[data-sourcepos]").each { |el| el.remove_attribute("data-sourcepos") }
       doc.to_html
     end
 
-    def extract_task_lines(content)
-      lines = []
-      in_fence = false
-      content.to_s.each_line do |line|
-        stripped = line.rstrip
-        if stripped.match?(/\A(`{3,}|~{3,})/)
-          in_fence = !in_fence
-          next
-        end
-        next if in_fence
-        lines << stripped if stripped.match?(/^\s*[*+-]\s+\[[ xX]\]\s/)
-      end
-      lines
+    # Extracts the 1-based start line from an li's data-sourcepos
+    # ("3:1-4:0" -> 3).
+    def sourcepos_start_line(li)
+      raw = li&.[]("data-sourcepos")
+      return nil if raw.nil?
+
+      line = raw.split(":").first.to_i
+      line >= 1 ? line : nil
     end
   end
 end
