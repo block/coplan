@@ -1,6 +1,9 @@
 class DropCoplanAutomatedPlanReviewers < ActiveRecord::Migration[8.0]
   def up
-    drop_table :coplan_automated_plan_reviewers
+    # if_exists: on a fresh database, `db:migrate` loads schema.rb first
+    # (which already reflects this drop) and then runs pending migrations,
+    # so the table may legitimately be gone by the time this runs.
+    drop_table :coplan_automated_plan_reviewers, if_exists: true
   end
 
   def down

@@ -12,6 +12,7 @@ module CoPlan
     helper CoPlan::CommentsHelper
     helper CoPlan::ReferencesHelper
     helper CoPlan::PlanEventsHelper
+    helper CoPlan::AttachmentsHelper
     helper CoPlan::FoldersHelper
 
     # Skip host auth — CoPlan handles authentication internally via config.authenticate

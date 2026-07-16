@@ -46,11 +46,12 @@
   </div>
 <% end %>
 
-<% active_tab = %w[references history].include?(params[:tab]) ? params[:tab] : "content" %>
+<% active_tab = %w[references attachments history].include?(params[:tab]) ? params[:tab] : "content" %>
 <div class="plan-tabs" data-controller="coplan--tabs">
   <div class="plan-tabs__nav">
     <a href="#tab-content" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'content' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="content">📄 Content</a>
     <a href="#tab-references" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'references' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="references">📎 References <span class="plan-tabs__count" id="references-count"><%= @references.size %></span></a>
+    <a href="#tab-attachments" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'attachments' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="attachments">🖇️ Attachments <span class="plan-tabs__count" id="attachments-count"><%= @attachments.size %></span></a>
     <a href="#tab-history" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'history' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="history">📜 History <span class="plan-tabs__count" id="history-count"><%= @plan.plan_versions.count + @plan.plan_events.count %></span></a>
   </div>
 
@@ -99,6 +100,10 @@
 
   <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'references' %>" id="tab-references" data-coplan--tabs-target="panel">
     <%= render partial: "coplan/plans/references", locals: { references: @references, plan: @plan } %>
+  </div>
+
+  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'attachments' %>" id="tab-attachments" data-coplan--tabs-target="panel">
+    <%= render partial: "coplan/plans/attachments", locals: { attachments: @attachments, plan: @plan } %>
   </div>
 
   <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'history' %>" id="tab-history" data-coplan--tabs-target="panel">

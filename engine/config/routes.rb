@@ -11,6 +11,7 @@ CoPlan::Engine.routes.draw do
       get :diff, on: :member
     end
     resources :references, controller: "references", only: [:create, :destroy]
+    resources :attachments, controller: "attachments", only: [:create, :destroy]
     resources :comment_threads, only: [:create] do
       member do
         patch :resolve
@@ -55,6 +56,7 @@ CoPlan::Engine.routes.draw do
         # Distinct from the routes above, which key off thread ID.
         delete "comments/:id/delete", to: "comments#destroy", as: :destroy_comment
         resources :references, only: [:index, :create, :destroy]
+        resources :attachments, only: [:index, :create, :destroy]
       end
       resources :references, only: [] do
         get :search, on: :collection

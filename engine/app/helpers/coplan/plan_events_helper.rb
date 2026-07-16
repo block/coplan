@@ -42,6 +42,10 @@ module CoPlan
         url = event.before_value.to_s
         label = title || url
         safe_join(["Removed reference ", content_tag(:span, label, class: "history-split__event-link")])
+      when "attachment_added"
+        safe_join(["Added attachment ", content_tag(:code, event.after_value.to_s)])
+      when "attachment_removed"
+        safe_join(["Removed attachment ", content_tag(:code, event.before_value.to_s)])
       when "moved_to_folder"
         if event.after_value.present?
           safe_join(["Moved to folder ", content_tag(:strong, event.after_value)])

@@ -2,6 +2,18 @@ module CoPlan
   class Plan < ApplicationRecord
     STATUSES = %w[brainstorm considering developing live abandoned].freeze
 
+    # Server-side limits for file attachments. Content types are an allowlist:
+    # anything renderable-but-scriptable (html, svg, js) is deliberately
+    # excluded so an attachment can never execute in a viewer's browser.
+    ATTACHMENT_MAX_BYTES = 25.megabytes
+    ATTACHMENT_CONTENT_TYPES = %w[
+      image/png image/jpeg image/gif image/webp
+      application/pdf
+      text/plain text/markdown text/csv
+      application/json
+      application/zip
+    ].freeze
+
     belongs_to :created_by_user, class_name: "CoPlan::User"
     belongs_to :current_plan_version, class_name: "PlanVersion", optional: true
     belongs_to :plan_type, optional: true
@@ -19,11 +31,13 @@ module CoPlan
     has_many :plan_viewers, dependent: :destroy
     has_many :notifications, dependent: :destroy
     has_many :references, dependent: :destroy
+    has_many_attached :attachments
 
     after_initialize { self.metadata ||= {} }
 
     validates :title, presence: true
     validates :status, presence: true, inclusion: { in: STATUSES }
+    validate :attachments_within_limits
 
     scope :with_tag, ->(name) { joins(:tags).where(coplan_tags: { name: name }) }
 
@@ -143,6 +157,33 @@ module CoPlan
     end
 
     private
+
+    # Backstop validation for attachment size/type. The primary check lives in
+    # Plans::AddAttachment (which can reject before a blob is even created),
+    # but this guarantees no code path can persist an oversized or disallowed
+    # attachment — `attachments.attach` on a persisted record goes through
+    # `save`, so a failure here aborts the attach. Only newly-built attachment
+    # records in the pending change are validated: `attach` re-assigns
+    # existing blobs alongside the new one, and re-validating already
+    # persisted attachments would let one legacy attachment (attached under
+    # older, looser rules) block every future upload on the plan.
+    def attachments_within_limits
+      change = attachment_changes["attachments"]
+      return unless change.respond_to?(:attachments)
+
+      change.attachments.each do |attachment|
+        next if attachment.persisted?
+        blob = attachment.blob
+        next unless blob
+
+        if blob.byte_size.to_i > ATTACHMENT_MAX_BYTES
+          errors.add(:attachments, "#{blob.filename} is too large (maximum is #{ATTACHMENT_MAX_BYTES / 1.megabyte} MB)")
+        end
+        unless ATTACHMENT_CONTENT_TYPES.include?(blob.content_type)
+          errors.add(:attachments, "#{blob.filename} has a disallowed content type (#{blob.content_type.presence || "unknown"})")
+        end
+      end
+    end
 
     # Refresh `search_text` when any of the inputs that feed into it have
     # changed at the Plan level. Tag and PlanVersion changes call

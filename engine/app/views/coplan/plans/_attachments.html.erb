@@ -1,0 +1,65 @@
+<% can_edit = current_user && CoPlan::PlanPolicy.new(current_user, plan).update? %>
+<div class="attachments-section" id="plan-attachments">
+  <% if can_edit %>
+    <div class="attachments-section__header">
+      <%= form_with url: plan_attachments_path(plan), method: :post, multipart: true, class: "attachments-upload" do |f| %>
+        <%= f.file_field :files, multiple: true, name: "files[]", required: true, class: "attachments-upload__input",
+              accept: CoPlan::Plan::ATTACHMENT_CONTENT_TYPES.join(",") %>
+        <%= f.submit "Upload", class: "btn btn--primary btn--sm" %>
+      <% end %>
+      <p class="attachments-upload__hint text-muted">
+        Up to <%= CoPlan::Plan::ATTACHMENT_MAX_BYTES / 1.megabyte %> MB per file.
+        Images, PDF, text/markdown/CSV/JSON, and ZIP files.
+      </p>
+    </div>
+  <% end %>
+
+  <% if attachments.any? %>
+    <ul class="attachments-list">
+      <% attachments.each do |attachment| %>
+        <% blob = attachment.blob %>
+        <% blob_path = main_app.rails_blob_path(blob) %>
+        <% image = blob.content_type.to_s.start_with?("image/") %>
+        <li class="attachments-list__item">
+          <% if image %>
+            <%# Plain <img> rather than a variant: variants require a system
+                image processor (libvips/ImageMagick) that host apps can't be
+                assumed to have. The browser downsizes via CSS. %>
+            <a href="<%= blob_path %>" target="_blank" rel="noopener" class="attachments-list__thumb-link">
+              <img src="<%= blob_path %>" alt="<%= blob.filename %>" class="attachments-list__thumb" loading="lazy">
+            </a>
+          <% else %>
+            <span class="attachments-list__icon"><%= attachment_icon(blob.content_type) %></span>
+          <% end %>
+          <div class="attachments-list__content">
+            <a href="<%= main_app.rails_blob_path(blob, disposition: :attachment) %>" class="attachments-list__link" download>
+              <%= blob.filename %>
+            </a>
+            <span class="attachments-list__meta">
+              <%= number_to_human_size(blob.byte_size) %>
+              <% if (uploader = attachment_uploader_name(blob)) %>
+                · uploaded by <%= uploader %>
+              <% end %>
+              · <%= time_ago_in_words(attachment.created_at) %> ago
+            </span>
+          </div>
+          <span class="attachments-list__actions"
+                data-controller="coplan--clipboard"
+                data-coplan--clipboard-text-value="<%= attachment_markdown_snippet(blob, blob_path) %>">
+            <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--clipboard#copy"
+                    data-coplan--clipboard-target="button" title="Copy markdown to embed this file in the plan">
+              📋 Markdown
+            </button>
+          </span>
+          <% if can_edit %>
+            <%= button_to "✕", plan_attachment_path(plan, attachment), method: :delete, class: "attachments-list__remove", title: "Delete attachment", data: { turbo_confirm: "Delete #{blob.filename}?" } %>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  <% else %>
+    <div class="empty-state">
+      <p>No attachments yet.<% if can_edit %> Upload files to share diagrams, screenshots, or documents alongside the plan.<% end %></p>
+    </div>
+  <% end %>
+</div>

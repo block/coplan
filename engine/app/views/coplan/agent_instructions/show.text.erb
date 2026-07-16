@@ -234,6 +234,36 @@ These are auto-extracted with both the key and title preserved.
 - Reference titles should be human-readable (e.g., "Auth Service Repo", not the raw URL).
 - Use markdown reference-style links (`[key]: url "title"`) in content to auto-extract keyed references.
 
+### Attachments
+
+Plans can carry file attachments (diagrams, screenshots, PDFs, data files). Limits: **25 MB per file**; allowed types are images (png/jpg/gif/webp), pdf, txt/md/csv/json, and zip. Only the plan author can upload or delete; anyone who can see the plan can list and download.
+
+**Upload a file (multipart form):**
+
+```bash
+<%= @curl %> -X POST \
+  -F "file=@./architecture-diagram.png" \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/attachments" | jq .
+```
+
+Returns `201 Created` with `id`, `filename`, `content_type`, `byte_size`, `url` (permanent path), `download_url`, and a ready-to-paste `markdown` snippet. Returns `422` with an error message if the file is too large or its content type is not allowed.
+
+**Embed in the plan:** paste the returned `markdown` snippet (e.g. `![diagram.png](/rails/active_storage/blobs/redirect/...)`) into the plan content — image attachments render inline in the plan body.
+
+**List attachments:**
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/attachments" | jq .
+```
+
+**Delete an attachment:**
+
+```bash
+<%= @curl %> -X DELETE \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/attachments/$ATTACHMENT_ID"
+```
+
 ### Get Versions
 
 ```bash
