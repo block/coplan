@@ -4,6 +4,19 @@ Interact with the CoPlan app to create, read, edit, and comment on plan document
 
 <%= @auth_instructions %>
 
+## Quick Start: The Editing Loop
+
+Keeping a local Markdown file and syncing whole documents is the intended workflow — you do not need to express edits as granular operations. The canonical loop:
+
+1. **Read** — `GET /api/v1/plans/$PLAN_ID/snapshot`. Save `current_content` to a local file and note `current_revision`.
+2. **Edit** the local file however you like.
+3. **Write** — `PUT /api/v1/plans/$PLAN_ID/content` with the full new content, `base_revision` set to the revision you read, and a specific `change_summary` (it becomes the version's label in the plan history — "Tightened rollout plan per Sam's feedback", not "Update").
+4. **On `409 Conflict`** someone edited in between: re-read the snapshot, re-apply your changes to the fresh content, and PUT again with the new revision. Never retry with the stale `base_revision`.
+
+The server diffs your content against the current revision, records granular operations automatically, and preserves comment anchors in unchanged regions. Re-read before every editing session — don't trust a local copy that's more than a few minutes old, and don't keep long-lived local state between tasks.
+
+See [Editing Plans](#editing-plans-recommended-full-content-replacement) for the full request/response reference, and the lease + operations path only when you need a surgical single-operation edit.
+
 ## API Reference
 
 ### List Plans
