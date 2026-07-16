@@ -11,40 +11,36 @@
 
 <%= turbo_stream_from @plan %>
 
-<div data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>">
-  <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
-</div>
+<div data-controller="coplan--status-menu">
+  <div data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>">
+    <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
+  </div>
 
-<%# Owner affordances live outside the broadcast-replaced #plan-header so
-    they can be policy-gated server-side (broadcast renders have no
-    current_user). %>
-<% if allowed_to?(@plan, :edit_content?) || allowed_to?(@plan, :update_status?) %>
-  <div class="plan-actions">
-    <% if allowed_to?(@plan, :edit_content?) %>
+  <%# Owner affordances live outside the broadcast-replaced #plan-header so
+      they can be policy-gated server-side (broadcast renders have no
+      current_user). The status menu opens from the header's status badge —
+      see status_menu_controller.js. %>
+  <% if allowed_to?(@plan, :update_status?) %>
+    <div class="dropdown__menu" data-coplan--status-menu-target="menu" style="display: none;">
+      <% CoPlan::Plan::STATUSES.each do |status| %>
+        <% next if status == @plan.status %>
+        <%= button_to update_status_plan_path(@plan, status: status),
+              method: :patch,
+              class: "dropdown__item",
+              form: (status_publishes?(@plan, status) ? { data: { turbo_confirm: "Moving to “#{status}” publishes this plan to everyone in the org. Continue?" } } : {}) do %>
+          <span class="badge badge--<%= status %>"><%= status %></span>
+          <span class="plan-actions__hint"><%= plan_status_hint(status) %></span>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
+  <% if allowed_to?(@plan, :edit_content?) %>
+    <div class="plan-actions">
       <%= link_to edit_content_plan_path(@plan), class: "btn btn--secondary btn--sm" do %>✏️ Edit content<% end %>
       <%= link_to edit_plan_path(@plan), class: "btn btn--secondary btn--sm" do %>Title &amp; tags<% end %>
-    <% end %>
-    <% if allowed_to?(@plan, :update_status?) %>
-      <div class="dropdown" data-controller="coplan--dropdown">
-        <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--dropdown#toggle">
-          Move to… ▾
-        </button>
-        <div class="dropdown__menu" data-coplan--dropdown-target="menu" style="display: none;">
-          <% CoPlan::Plan::STATUSES.each do |status| %>
-            <% next if status == @plan.status %>
-            <%= button_to update_status_plan_path(@plan, status: status),
-                  method: :patch,
-                  class: "dropdown__item",
-                  form: (status_publishes?(@plan, status) ? { data: { turbo_confirm: "Moving to “#{status}” publishes this plan to everyone in the org. Continue?" } } : {}) do %>
-              <span class="badge badge--<%= status %>"><%= status %></span>
-              <span class="plan-actions__hint"><%= plan_status_hint(status) %></span>
-            <% end %>
-          <% end %>
-        </div>
-      </div>
-    <% end %>
-  </div>
-<% end %>
+    </div>
+  <% end %>
+</div>
 
 <% active_tab = %w[references attachments history].include?(params[:tab]) ? params[:tab] : "content" %>
 <div class="plan-tabs" data-controller="coplan--tabs">
