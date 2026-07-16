@@ -27,7 +27,11 @@ module CoPlan
       content = plan.current_content
       return nil if content.blank?
 
-      plain = markdown_to_plain_text(content)
+      # Cached per content SHA: without this, every index page fell back to a
+      # full Commonmarker + Nokogiri parse per plan without an AI summary.
+      cache_key = ["coplan/plan-preview", MarkdownHelper::RENDER_CACHE_VERSION, plan.id,
+                   plan.current_plan_version&.content_sha256 || plan.current_revision]
+      plain = Rails.cache.fetch(cache_key) { markdown_to_plain_text(content) }
       return nil if plain.blank?
 
       truncate(plain, length: limit, omission: "…", separator: " ")
