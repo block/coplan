@@ -12,9 +12,16 @@ module CoPlan
       dd dt dl
       sup sub
       details summary
+      abbr
+      section
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title type checked disabled data-line data-line-text data-action data-coplan--checkbox-target data-mention-username data-sourcepos].freeze
+    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title type checked disabled open aria-label data-line data-line-text data-action data-coplan--checkbox-target data-mention-username data-sourcepos data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
+
+    # Commonmarker extensions beyond the gem defaults (tables, tasklist,
+    # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
+    # `[^1]: definition` block anywhere in the document.
+    EXTENSION_OPTIONS = { footnotes: true }.freeze
 
     # A source line the toggle endpoint will accept as a task item. Shared
     # between the renderer and PlansController#toggle_checkbox so a checkbox
@@ -29,15 +36,20 @@ module CoPlan
     # casual `[foo](mention:bar)` typed by hand doesn't get rendered as a chip.
     MENTION_PATTERN = /\[@([\w.-]+)\]\(mention:\1\)/
 
-    def render_markdown(content, interactive: true)
+    # footnote_prefix: pass a DOM-unique string when a page renders more than
+    # one markdown fragment (e.g. each comment) — commonmarker numbers
+    # footnote ids from #fn-1 per document, so unprefixed fragments collide
+    # and reference/backref links jump to the wrong footnote.
+    def render_markdown(content, interactive: true, footnote_prefix: nil)
       render_options = { unsafe: true }
       # Sourcepos is only needed to wire checkboxes to their source lines;
       # make_checkboxes_interactive strips it from the final output.
       render_options[:sourcepos] = true if interactive
-      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { render: render_options }, plugins: { syntax_highlighter: nil })
+      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
       sanitized = sanitize(with_chips, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       result = interactive ? make_checkboxes_interactive(sanitized, content) : sanitized
+      result = scope_footnote_ids(result, footnote_prefix) if footnote_prefix
       tag.div(result.html_safe, class: "markdown-rendered", data: { controller: "coplan--mermaid" })
     end
 
@@ -63,7 +75,7 @@ module CoPlan
     end
 
     def markdown_to_plain_text(content)
-      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), plugins: { syntax_highlighter: nil })
+      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
       Nokogiri::HTML::DocumentFragment.parse(html).text.squish
     end
 
@@ -116,6 +128,24 @@ module CoPlan
       end
 
       doc.css("[data-sourcepos]").each { |el| el.remove_attribute("data-sourcepos") }
+      doc.to_html
+    end
+
+    # Rewrites commonmarker's per-document footnote ids (#fn-N / #fnref-N)
+    # and the hrefs that point at them so multiple fragments can coexist in
+    # one DOM. Only ids/fragments with the fn-/fnref- shape are touched —
+    # heading anchors and user-supplied ids pass through untouched.
+    FOOTNOTE_ID_PATTERN = /\A(fn|fnref)-/
+
+    def scope_footnote_ids(html, prefix)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      doc.css("[id]").each do |el|
+        el["id"] = "#{prefix}-#{el["id"]}" if el["id"].match?(FOOTNOTE_ID_PATTERN)
+      end
+      doc.css(%(a[href^="#fn"])).each do |a|
+        fragment = a["href"].delete_prefix("#")
+        a["href"] = "##{prefix}-#{fragment}" if fragment.match?(FOOTNOTE_ID_PATTERN)
+      end
       doc.to_html
     end
 

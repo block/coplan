@@ -25,8 +25,10 @@
     </div>
     <div class="comment__body">
       <%# The record version invalidates edits; bump this namespace when Markdown rendering changes. %>
-      <%= cache(["comment-body-v1", comment], skip_digest: true) do %>
-        <%= render_markdown(comment.body_markdown) %>
+      <%= cache(["comment-body-v2", comment], skip_digest: true) do %>
+        <%# footnote_prefix keeps footnote ids unique per comment — the plan
+            body and every other comment render in the same DOM. %>
+        <%= render_markdown(comment.body_markdown, footnote_prefix: "comment-#{comment.id}") %>
       <% end %>
     </div>
     <% if comment.author_type == "human" %>
