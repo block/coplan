@@ -93,6 +93,48 @@ Tags categorize plans for discovery. Use them to help people find related plans.
 - Update tags via `PATCH /api/v1/plans/:id` with `{"tags": ["tag-1", "tag-2"]}`.
 - Good tags describe the *domain* or *concern* (e.g., `security`, `onboarding`), not the status or team.
 
+### Folders
+
+Folders are shared, hierarchical **locations** for plans (max 3 levels deep). Each plan lives in at most one folder — think team folders with project subfolders. Tags remain the cross-cutting labels; use folders for "where does this plan live?" and tags for "what is it about?".
+
+**List folders:**
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/folders" | jq .
+```
+
+Each folder includes `id`, `name`, `parent_id`, `path` (e.g. `"Team EBT/Q3"`), and `plans_count`.
+
+**Create a folder:**
+
+```bash
+<%= @curl %> -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Q3", "parent_id": "$PARENT_FOLDER_ID"}' \
+  "<%= @base %>/api/v1/folders" | jq .
+```
+
+`parent_id` is optional — omit it for a top-level folder. Rename with `PATCH /api/v1/folders/:id` (`{"name": "..."}`); delete with `DELETE /api/v1/folders/:id` (only empty folders can be deleted, and only by their creator or an admin).
+
+**Move a plan into a folder** (plan author only):
+
+```bash
+<%= @curl %> -X PATCH \
+  -H "Content-Type: application/json" \
+  -d '{"folder_path": "Team EBT/Q3"}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
+```
+
+- `folder_path` finds or creates the whole hierarchy — the easiest way to organize plans.
+- Alternatively pass `folder_id` with an existing folder's ID.
+- Pass an empty `folder_id` (`{"folder_id": ""}`) to move a plan out of its folder.
+
+**Guidelines:**
+- Check `GET /api/v1/folders` before creating new folders — reuse the existing structure.
+- Folder names read like places (`Team EBT`, `Infra`, `Q3 Launch`), not labels.
+- You can offer to organize a user's plans: list their plans, propose a folder structure, and move plans with `folder_path` once they agree.
+
 ### Plan Statuses
 
 Plans move through a lifecycle. **Keep the status current** — update it as the plan progresses.

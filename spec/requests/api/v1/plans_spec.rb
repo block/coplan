@@ -153,6 +153,79 @@ RSpec.describe "Api::V1::Plans", type: :request do
       patch api_v1_plan_path(plan), params: { title: "No Auth" }, as: :json
       expect(response).to have_http_status(:unauthorized)
     end
+
+    describe "folder assignment" do
+      it "moves the plan into a folder by folder_id and logs an event" do
+        folder = create(:folder, name: "Infra")
+        expect {
+          patch api_v1_plan_path(plan), params: { folder_id: folder.id }, headers: headers, as: :json
+        }.to change(CoPlan::PlanEvent, :count).by(1)
+        expect(response).to have_http_status(:success)
+        body = JSON.parse(response.body)
+        expect(body["folder_id"]).to eq(folder.id)
+        expect(body["folder_path"]).to eq("Infra")
+        expect(plan.reload.folder).to eq(folder)
+
+        event = CoPlan::PlanEvent.order(:created_at).last
+        expect(event.event_type).to eq("moved_to_folder")
+        expect(event.field).to eq("folder")
+        expect(event.before_value).to be_nil
+        expect(event.after_value).to eq("Infra")
+      end
+
+      it "finds-or-creates the hierarchy via folder_path" do
+        expect {
+          patch api_v1_plan_path(plan), params: { folder_path: "Team EBT/Q3" }, headers: headers, as: :json
+        }.to change(CoPlan::Folder, :count).by(2)
+        expect(response).to have_http_status(:success)
+        expect(JSON.parse(response.body)["folder_path"]).to eq("Team EBT/Q3")
+        expect(plan.reload.folder.path).to eq("Team EBT/Q3")
+        expect(plan.folder.created_by_user).to eq(alice)
+      end
+
+      it "reuses existing folders via folder_path" do
+        root = create(:folder, name: "Team EBT")
+        sub = create(:folder, name: "Q3", parent: root)
+        expect {
+          patch api_v1_plan_path(plan), params: { folder_path: "Team EBT/Q3" }, headers: headers, as: :json
+        }.not_to change(CoPlan::Folder, :count)
+        expect(plan.reload.folder).to eq(sub)
+      end
+
+      it "moves the plan out of a folder with a blank folder_id" do
+        folder = create(:folder, name: "Infra")
+        plan.update!(folder: folder)
+
+        patch api_v1_plan_path(plan), params: { folder_id: "" }, headers: headers, as: :json
+        expect(response).to have_http_status(:success)
+        expect(plan.reload.folder).to be_nil
+
+        event = CoPlan::PlanEvent.order(:created_at).last
+        expect(event.event_type).to eq("moved_to_folder")
+        expect(event.before_value).to eq("Infra")
+        expect(event.after_value).to be_nil
+      end
+
+      it "rejects an unknown folder_id" do
+        patch api_v1_plan_path(plan), params: { folder_id: "nope" }, headers: headers, as: :json
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(JSON.parse(response.body)["error"]).to include("Unknown folder_id")
+        expect(plan.reload.folder).to be_nil
+      end
+
+      it "rejects a folder_path deeper than the max depth" do
+        patch api_v1_plan_path(plan), params: { folder_path: "A/B/C/D" }, headers: headers, as: :json
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      it "does not log an event when the folder is unchanged" do
+        folder = create(:folder, name: "Infra")
+        plan.update!(folder: folder)
+        expect {
+          patch api_v1_plan_path(plan), params: { folder_id: folder.id }, headers: headers, as: :json
+        }.not_to change(CoPlan::PlanEvent, :count)
+      end
+    end
   end
 
   it "versions returns version list" do

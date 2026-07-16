@@ -21,6 +21,7 @@ module CoPlan
     belongs_to :created_by_user, class_name: "CoPlan::User"
     belongs_to :current_plan_version, class_name: "PlanVersion", optional: true
     belongs_to :plan_type, optional: true
+    belongs_to :folder, optional: true, inverse_of: :plans
     has_many :plan_versions, -> { order(revision: :asc) }, dependent: :destroy
     has_many :plan_events, dependent: :destroy
     has_many :plan_collaborators, dependent: :destroy
@@ -41,6 +42,14 @@ module CoPlan
     validates :status, presence: true, inclusion: { in: STATUSES }
 
     scope :with_tag, ->(name) { joins(:tags).where(coplan_tags: { name: name }) }
+
+    # Plans `user` is allowed to see: everything published (non-brainstorm)
+    # plus the user's own brainstorms. Brainstorm plans are private drafts —
+    # any list, count, or folder content shown to a user must go through
+    # this scope so private brainstorm existence never leaks.
+    scope :visible_to, ->(user) {
+      where.not(status: "brainstorm").or(where(created_by_user_id: user.id))
+    }
 
     after_save_commit :refresh_search_text!, if: :search_text_needs_refresh?
 
@@ -102,7 +111,7 @@ module CoPlan
     end
 
     def self.ransackable_attributes(auth_object = nil)
-      %w[id title status plan_type_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
+      %w[id title status plan_type_id folder_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
     end
 
     def self.ransackable_associations(auth_object = nil)

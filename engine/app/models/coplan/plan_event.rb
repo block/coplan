@@ -24,6 +24,7 @@ module CoPlan
       reference_added
       reference_removed
       comment_deleted
+      moved_to_folder
     ].freeze
 
     belongs_to :plan
