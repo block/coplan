@@ -1,0 +1,59 @@
+<%# Compact plan row for the workspace index. Only the plan's author can
+    move it between folders, so only author rows are draggable and get the
+    "Move to folder" row menu (server-rendered gating — this page doesn't
+    broadcast). %>
+<% author = plan.created_by_user_id == current_user.id %>
+<% summary = plan.try(:summary).presence || plan_content_preview(plan) %>
+
+<article class="plan-row"
+         data-plan-id="<%= plan.id %>"
+         data-status="<%= plan.status %>"
+         <% if author %>
+           draggable="true"
+           data-move-url="<%= move_to_folder_plan_path(plan) %>"
+           data-action="dragstart->coplan--folder-dnd#dragStart dragend->coplan--folder-dnd#dragEnd"
+         <% end %>>
+  <div class="plan-row__line">
+    <%= link_to plan.title, plan_path(plan), class: "plan-row__title", data: { turbo_frame: "_top" } %>
+    <span class="badge badge--<%= plan.status %>"><%= plan.status %></span>
+    <% if plan.folder %>
+      <%= link_to plans_path(params.permit(:scope, :status, :plan_type, :tag).merge(folder: plan.folder_id)),
+            class: "plan-row__folder", data: { turbo_frame: "_top" } do %>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        <%= folder_path_for(plan.folder) %>
+      <% end %>
+    <% end %>
+    <% plan.tags.each do |tag| %>
+      <%= link_to tag.name,
+            plans_path(params.permit(:scope, :status, :plan_type, :folder).merge(tag: tag.name)),
+            class: "badge badge--tag #{'badge--tag-active' if params[:tag] == tag.name}",
+            data: { turbo_frame: "_top" } %>
+    <% end %>
+    <span class="plan-row__spacer"></span>
+    <% if unread > 0 %>
+      <span class="inbox-badge" title="<%= pluralize(unread, "unread comment") %>"><%= unread %></span>
+    <% end %>
+    <span class="plan-row__time text-muted" title="<%= plan.updated_at %>"><%= time_ago_in_words(plan.updated_at) %> ago</span>
+    <span class="plan-row__avatar"><%= user_avatar(plan.created_by_user) %></span>
+    <% if author %>
+      <details class="plan-row__menu">
+        <summary class="plan-row__menu-toggle" aria-label="Plan actions">⋯</summary>
+        <div class="plan-row__menu-panel">
+          <%# turbo_frame: _top — rows render inside pagination frames, but the
+              move redirect (and its flash) must replace the whole page. %>
+          <%= form_with url: move_to_folder_plan_path(plan), method: :patch,
+                class: "plan-row__move-form", data: { turbo_frame: "_top" } do |f| %>
+            <label class="plan-row__move-label" for="move-folder-<%= plan.id %>">Move to folder</label>
+            <%= f.select :folder_id,
+                  options_for_select([["No folder", ""]] + folder_select_options.map { |path, id, _| [path, id] }, plan.folder_id),
+                  {}, class: "plan-row__move-select", id: "move-folder-#{plan.id}" %>
+            <%= f.submit "Move", class: "btn btn--sm" %>
+          <% end %>
+        </div>
+      </details>
+    <% end %>
+  </div>
+  <% if summary.present? %>
+    <p class="plan-row__summary text-muted"><%= summary %></p>
+  <% end %>
+</article>

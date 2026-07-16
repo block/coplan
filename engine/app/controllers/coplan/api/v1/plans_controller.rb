@@ -2,16 +2,16 @@ module CoPlan
   module Api
     module V1
       class PlansController < BaseController
-        before_action :set_plan, only: [:show, :update, :versions, :comments, :snapshot]
-        before_action :authorize_plan_access!, only: [:show, :update, :versions, :comments, :snapshot]
+        before_action :set_plan, only: [ :show, :update, :versions, :comments, :snapshot ]
+        before_action :authorize_plan_access!, only: [ :show, :update, :versions, :comments, :snapshot ]
 
         def index
           plans = Plan
-            .includes(:plan_type, :created_by_user)
-            .where.not(status: "brainstorm")
-            .or(Plan.where(created_by_user: current_user))
+            .includes(:plan_type, :created_by_user, folder: { parent: :parent })
+            .visible_to(current_user)
             .order(updated_at: :desc)
           plans = plans.where(status: params[:status]) if params[:status].present?
+          plans = plans.where(folder_id: params[:folder_id]) if params[:folder_id].present?
           render json: plans.map { |p| plan_json(p) }
         end
 
@@ -76,9 +76,22 @@ module CoPlan
           old_title = @plan.title
           old_status = @plan.status
           old_tag_names = @plan.tag_names
+          old_folder_path = @plan.folder&.path
 
-          @plan.tag_names = params[:tags] if params.key?(:tags)
-          @plan.update!(permitted)
+          # Folder resolution (which may create folders via folder_path) and
+          # the plan update are one transaction: a request combining
+          # folder_path with an invalid attribute must not leave behind
+          # orphaned shared folders for a move that never happened.
+          ActiveRecord::Base.transaction do
+            if params.key?(:folder_id) || params.key?(:folder_path)
+              folder = resolve_folder_params
+              return if performed? # resolve_folder_params rendered an error
+              @plan.folder = folder
+            end
+
+            @plan.tag_names = params[:tags] if params.key?(:tags)
+            @plan.update!(permitted)
+          end
 
           if @plan.saved_changes?
             Broadcaster.replace_to(@plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: @plan })
@@ -108,6 +121,14 @@ module CoPlan
                 via: "api"
               )
             end
+          end
+
+          if @plan.saved_change_to_folder_id?
+            Plans::LogEvent.call(
+              plan: @plan, actor: current_user, event_type: "moved_to_folder",
+              before: old_folder_path, after: @plan.folder&.path,
+              actor_type: api_author_type, actor_id: api_actor_id
+            )
           end
 
           if params.key?(:tags)
@@ -180,6 +201,22 @@ module CoPlan
 
         private
 
+        # Resolves `folder_id` / `folder_path` update params to a Folder (or
+        # nil to clear). `folder_path` finds-or-creates the hierarchy, which
+        # is what lets an AI librarian agent organize plans into folders that
+        # don't exist yet. Renders an error and returns early on bad input.
+        def resolve_folder_params
+          if params[:folder_id].present?
+            folder = Folder.find_by(id: params[:folder_id])
+            render json: { error: "Unknown folder_id" }, status: :unprocessable_content unless folder
+            folder
+          elsif params[:folder_path].present?
+            Folder.find_or_create_by_path!(params[:folder_path], created_by_user: current_user)
+          else
+            nil # blank folder_id / folder_path clears the folder
+          end
+        end
+
         def plan_json(plan)
           {
             id: plan.id,
@@ -187,6 +224,8 @@ module CoPlan
             status: plan.status,
             current_revision: plan.current_revision,
             tags: plan.tag_names,
+            folder_id: plan.folder_id,
+            folder_path: plan.folder&.path,
             plan_type_id: plan.plan_type_id,
             plan_type_name: plan.plan_type&.name,
             created_by: plan.created_by_user&.name,
