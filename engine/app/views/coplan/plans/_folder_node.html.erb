@@ -1,0 +1,37 @@
+<%# One node in the sidebar folder tree. Uses @folder_children /
+    @folder_counts / @folder (active filter) from PlansController#index.
+    Branches with children render as <details> so the tree is collapsible
+    without JS; the subtree containing the active folder starts open. %>
+<% children = (@folder_children[folder.id] || []).sort_by { |f| f.name.downcase } %>
+<% active = @folder&.id == folder.id %>
+<% link_attrs = {
+     class: "folder-tree__link #{'folder-tree__link--active' if active}",
+     data: {
+       "coplan--folder-dnd-target": "folder",
+       folder_id: folder.id,
+       action: "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",
+     },
+   } %>
+<li class="folder-tree__node">
+  <% if children.any? %>
+    <% open = active || folder.descendants.any? { |f| f.id == @folder&.id } %>
+    <details class="folder-tree__branch" <%= "open" if open %>>
+      <summary class="folder-tree__summary">
+        <%= link_to plans_path(params.permit(:scope, :status, :plan_type, :tag).merge(folder: folder.id)), **link_attrs do %>
+          <span class="folder-tree__name"><%= folder.name %></span>
+          <span class="sidebar__count"><%= @folder_counts[folder.id] %></span>
+        <% end %>
+      </summary>
+      <ul class="folder-tree folder-tree--nested">
+        <% children.each do |child| %>
+          <%= render "coplan/plans/folder_node", folder: child %>
+        <% end %>
+      </ul>
+    </details>
+  <% else %>
+    <%= link_to plans_path(params.permit(:scope, :status, :plan_type, :tag).merge(folder: folder.id)), **link_attrs do %>
+      <span class="folder-tree__name"><%= folder.name %></span>
+      <span class="sidebar__count"><%= @folder_counts[folder.id] %></span>
+    <% end %>
+  <% end %>
+</li>
