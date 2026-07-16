@@ -1,0 +1,59 @@
+<% content_for(:title, "Edit — #{@plan.title} — CoPlan") %>
+
+<div class="page-header">
+  <div>
+    <h1>Editing: <%= @plan.title %></h1>
+    <div class="text-sm text-muted mt-md">
+      Editing from v<%= @base_revision %> · saving creates a new version with full history — nothing is overwritten
+    </div>
+  </div>
+</div>
+
+<%= form_with url: update_content_plan_path(@plan), method: :patch,
+      class: "editor card",
+      data: {
+        turbo: false,
+        controller: "coplan--editor",
+        action: "submit->coplan--editor#submit",
+        "coplan--editor-plan-id-value": @plan.id,
+        "coplan--editor-revision-value": @base_revision,
+        "coplan--editor-preview-url-value": preview_plan_path(@plan)
+      } do %>
+
+  <div class="editor__draft-notice" data-coplan--editor-target="draftNotice" hidden>
+    <span>Restored an unsaved draft from this browser.</span>
+    <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--editor#discardDraft">Discard draft</button>
+    <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--editor#dismissDraftNotice">Keep it</button>
+  </div>
+
+  <% if @conflict %>
+    <div class="editor__conflict">
+      <strong>Heads up:</strong> this plan changed while you were editing.
+      <%= link_to "Review the latest version", plan_path(@plan), target: "_blank", rel: "noopener" %>
+      before saving — your save will apply on top of v<%= @base_revision %>.
+    </div>
+  <% end %>
+
+  <div class="editor__tabs">
+    <button type="button" class="editor__tab editor__tab--active" data-coplan--editor-target="writeTab" data-action="coplan--editor#showWrite">✏️ Write</button>
+    <button type="button" class="editor__tab" data-coplan--editor-target="previewTab" data-action="coplan--editor#showPreview">👁 Preview</button>
+  </div>
+
+  <%= hidden_field_tag :base_revision, @base_revision %>
+  <%= text_area_tag :content, @draft_content,
+        class: "editor__textarea",
+        spellcheck: "false",
+        data: { "coplan--editor-target": "textarea", action: "input->coplan--editor#input keydown->coplan--editor#keydown" } %>
+  <div class="editor__preview markdown-body" data-coplan--editor-target="previewPane" hidden></div>
+
+  <div class="form-group mt-md">
+    <%= label_tag :change_summary, "Change summary (optional)" %>
+    <%= text_field_tag :change_summary, nil, placeholder: "e.g. Tightened the rollout section", maxlength: 200 %>
+  </div>
+
+  <div class="plan-form__actions">
+    <%= submit_tag "Save new version", class: "btn btn--primary" %>
+    <%= link_to "Cancel", plan_path(@plan), class: "btn btn--secondary" %>
+    <span class="text-sm text-muted editor__hint"><kbd>⌘</kbd>+<kbd>Enter</kbd> to save</span>
+  </div>
+<% end %>
