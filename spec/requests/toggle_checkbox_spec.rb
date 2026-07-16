@@ -111,4 +111,114 @@ RSpec.describe "Toggle Checkbox", type: :request do
       expect(response).to have_http_status(:ok)
     end
   end
+
+  describe "PATCH toggle_checkbox with duplicate task lines" do
+    before do
+      plan.current_plan_version.update!(
+        content_markdown: "# Tasks\n\n- [ ] TODO\n- [ ] TODO\n- [ ] Deploy to staging\n- [ ] Deploy"
+      )
+    end
+
+    it "toggles the checkbox on the given line, leaving its duplicate untouched" do
+      patch toggle_checkbox_plan_path(plan), params: {
+        old_text: "- [ ] TODO",
+        new_text: "- [x] TODO",
+        base_revision: plan.current_revision,
+        line: 4
+      }, as: :json
+
+      expect(response).to have_http_status(:ok)
+      plan.reload
+      expect(plan.current_content).to eq("# Tasks\n\n- [ ] TODO\n- [x] TODO\n- [ ] Deploy to staging\n- [ ] Deploy")
+    end
+
+    it "toggles a line whose text is a prefix of another task line" do
+      patch toggle_checkbox_plan_path(plan), params: {
+        old_text: "- [ ] Deploy",
+        new_text: "- [x] Deploy",
+        base_revision: plan.current_revision,
+        line: 6
+      }, as: :json
+
+      expect(response).to have_http_status(:ok)
+      plan.reload
+      expect(plan.current_content).to eq("# Tasks\n\n- [ ] TODO\n- [ ] TODO\n- [ ] Deploy to staging\n- [x] Deploy")
+    end
+
+    it "returns 422 when the text is not on the given line" do
+      patch toggle_checkbox_plan_path(plan), params: {
+        old_text: "- [ ] TODO",
+        new_text: "- [x] TODO",
+        base_revision: plan.current_revision,
+        line: 5
+      }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["error"]).to include("does not match line 5")
+      plan.reload
+      expect(plan.current_content).not_to include("- [x] TODO")
+    end
+
+    it "returns 422 when the line is past the end of the document" do
+      patch toggle_checkbox_plan_path(plan), params: {
+        old_text: "- [ ] TODO",
+        new_text: "- [x] TODO",
+        base_revision: plan.current_revision,
+        line: 99
+      }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    it "returns 422 without a line param when duplicates exist (ambiguity preserved)" do
+      patch toggle_checkbox_plan_path(plan), params: {
+        old_text: "- [ ] TODO",
+        new_text: "- [x] TODO",
+        base_revision: plan.current_revision
+      }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    it "returns 422 for a non-integer line param" do
+      patch toggle_checkbox_plan_path(plan), params: {
+        old_text: "- [ ] TODO",
+        new_text: "- [x] TODO",
+        base_revision: plan.current_revision,
+        line: "abc"
+      }, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["error"]).to include("line must be a positive integer")
+    end
+
+    it "records a plain replace_exact with an occurrence ordinal in operations_json" do
+      patch toggle_checkbox_plan_path(plan), params: {
+        old_text: "- [ ] TODO",
+        new_text: "- [x] TODO",
+        base_revision: plan.current_revision,
+        line: 4
+      }, as: :json
+
+      expect(response).to have_http_status(:ok)
+      op = plan.reload.current_plan_version.operations_json.first
+      expect(op["op"]).to eq("replace_exact")
+      expect(op["occurrence"]).to eq(2)
+      expect(op).not_to have_key("lines")
+      expect(op["resolved_range"]).to be_present
+    end
+
+    it "still toggles a unique line when line is provided" do
+      patch toggle_checkbox_plan_path(plan), params: {
+        old_text: "- [ ] Deploy to staging",
+        new_text: "- [x] Deploy to staging",
+        base_revision: plan.current_revision,
+        line: 5
+      }, as: :json
+
+      expect(response).to have_http_status(:ok)
+      plan.reload
+      expect(plan.current_content).to include("- [x] Deploy to staging")
+    end
+  end
 end

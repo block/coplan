@@ -23,7 +23,10 @@ module CoPlan
       tag_removed
       reference_added
       reference_removed
+      attachment_added
+      attachment_removed
       comment_deleted
+      moved_to_folder
     ].freeze
 
     belongs_to :plan

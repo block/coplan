@@ -125,4 +125,14 @@ end
 q3 = CoPlan::Plan.find_by(title: "Q3 Product Roadmap")
 q3.tag_names = ["roadmap", "product"] if q3 && q3.tags.empty?
 
-puts "Done! #{CoPlan::User.count} users, #{CoPlan::Plan.count} plans, #{CoPlan::CommentThread.count} threads, #{CoPlan::Comment.count} comments, #{CoPlan::ApiToken.count} API tokens."
+puts "Seeding folders..."
+if CoPlan::Folder.count == 0
+  product = CoPlan::Folder.find_or_create_by_path!("Product/Q3", created_by_user: hampton)
+  infra = CoPlan::Folder.find_or_create_by_path!("Infrastructure", created_by_user: hampton)
+
+  q3&.update!(folder: product) if q3&.folder_id.nil?
+  api_seed = CoPlan::Plan.find_by(title: "API Rate Limiting Strategy")
+  api_seed&.update!(folder: infra) if api_seed&.folder_id.nil?
+end
+
+puts "Done! #{CoPlan::User.count} users, #{CoPlan::Plan.count} plans, #{CoPlan::Folder.count} folders, #{CoPlan::CommentThread.count} threads, #{CoPlan::Comment.count} comments, #{CoPlan::ApiToken.count} API tokens."

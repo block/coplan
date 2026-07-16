@@ -1,57 +1,17 @@
-<%= turbo_frame_tag "plans-page-#{page}" do %>
-  <% previous_status = local_assigns.fetch(:previous_status, nil) %>
+<%# One page of plan rows within a list (a status group, or the flat
+    ?status= results list), plus the lazily-loaded next-page frame.
+    `group_key` namespaces the frame ids so multiple groups can paginate
+    independently on the same page; `frame_status` is the status filter the
+    next-page request should carry. %>
+<%= turbo_frame_tag "plans-#{group_key}-page-#{page}" do %>
   <% plans.each do |plan| %>
-    <% if grouped_by_status && plan.status != previous_status %>
-      <h2 class="plans-list__section plans-list__section--<%= plan.status %>">
-        <%= plan.status.titleize %>
-      </h2>
-      <% previous_status = plan.status %>
-    <% end %>
-
-    <% summary = plan.try(:summary).presence || plan_content_preview(plan) %>
-
-    <article class="card plans-list__item">
-      <header class="plans-list__header">
-        <%= link_to plan.title, plan_path(plan), class: "plans-list__title", data: { turbo_frame: "_top" } %>
-        <span class="badge badge--<%= plan.status %>"><%= plan.status %></span>
-        <% if plan.plan_type %>
-          <span class="badge badge--type"><%= plan.plan_type.name %></span>
-        <% end %>
-        <% plan_unread = plan_unread_counts[plan.id] || 0 %>
-        <% if plan_unread > 0 %>
-          <span class="inbox-badge"><%= plan_unread %></span>
-        <% end %>
-      </header>
-
-      <% if summary.present? %>
-        <p class="plans-list__summary"><%= summary %></p>
-      <% end %>
-
-      <div class="plans-list__meta text-sm text-muted">
-        <span class="plans-list__meta-item plans-list__meta-item--author">
-          <%= user_avatar(plan.created_by_user) %>
-          <%= plan.created_by_user.name %>
-        </span>
-        <span class="plans-list__meta-item">v<%= plan.current_revision %></span>
-        <span class="plans-list__meta-item">updated <%= time_ago_in_words(plan.updated_at) %> ago</span>
-        <% if plan.tags.any? %>
-          <span class="plans-list__meta-item plans-list__tags">
-            <% plan.tags.each do |tag| %>
-              <%= link_to tag.name,
-                    plans_path(params.permit(:scope, :status, :plan_type).merge(tag: tag.name)),
-                    class: "badge badge--tag #{'badge--tag-active' if params[:tag] == tag.name}",
-                    data: { turbo_frame: "_top" } %>
-            <% end %>
-          </span>
-        <% end %>
-      </div>
-    </article>
+    <%= render "coplan/plans/plan_row", plan: plan, unread: plan_unread_counts[plan.id].to_i %>
   <% end %>
 
   <% if has_next_page %>
-    <% next_page_params = params.permit(:scope, :status, :plan_type, :tag).merge(page: page + 1) %>
-    <% next_page_params[:prev_status] = plans.last.status if grouped_by_status && plans.any? %>
-    <%= turbo_frame_tag "plans-page-#{page + 1}",
+    <% next_page_params = params.permit(:scope, :plan_type, :tag, :folder)
+         .merge(page: page + 1, group: group_key, status: frame_status) %>
+    <%= turbo_frame_tag "plans-#{group_key}-page-#{page + 1}",
           src: plans_path(next_page_params),
           loading: :lazy do %>
       <div class="plans-list__loading text-muted text-sm">Loading more plans…</div>

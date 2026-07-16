@@ -35,6 +35,84 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
     end
   end
 
+  describe "footnotes" do
+    let(:markdown) { "A bold claim.[^1]\n\n[^1]: The supporting detail." }
+
+    it "renders footnote references as superscript links" do
+      html = helper.render_markdown(markdown)
+      expect(html).to include('<sup class="footnote-ref">')
+      expect(html).to include('href="#fn-1"')
+      expect(html).to include('data-footnote-ref')
+    end
+
+    it "renders the footnote section with a backreference" do
+      html = helper.render_markdown(markdown)
+      expect(html).to match(/<section class="footnotes" data-footnotes(="")?>/)
+      expect(html).to include("The supporting detail.")
+      expect(html).to include('data-footnote-backref')
+      expect(html).to include('href="#fnref-1"')
+    end
+
+    it "works in non-interactive mode" do
+      html = helper.render_markdown(markdown, interactive: false)
+      expect(html).to include('data-footnotes')
+    end
+
+    it "keeps footnote text in plain-text extraction without literal markers" do
+      plain = helper.markdown_to_plain_text(markdown)
+      expect(plain).to include("The supporting detail.")
+      expect(plain).not_to include("[^1]")
+    end
+
+    it "does not treat unreferenced bracket-caret text as a footnote" do
+      html = helper.render_markdown("Just [^brackets] with no definition.")
+      expect(html).to include("[^brackets]")
+      expect(html).not_to include("footnote-ref")
+    end
+
+    it "scopes footnote ids and hrefs with footnote_prefix" do
+      html = helper.render_markdown(markdown, footnote_prefix: "comment-abc")
+      expect(html).to include('id="comment-abc-fnref-1"')
+      expect(html).to include('href="#comment-abc-fn-1"')
+      expect(html).to include('id="comment-abc-fn-1"')
+      expect(html).to include('href="#comment-abc-fnref-1"')
+      expect(html).not_to match(/id="fn(ref)?-1"/)
+    end
+
+    it "leaves non-footnote ids and anchors alone when prefixing" do
+      html = helper.render_markdown("# Heading\n\n[jump](#fnord) <span id=\"fnord\">x</span>\n\n" + markdown, footnote_prefix: "p")
+      expect(html).to include('href="#fnord"')
+      expect(html).to include('id="fnord"')
+    end
+  end
+
+  describe "hover definitions (abbr)" do
+    it "preserves abbr elements with their title" do
+      html = helper.render_markdown('The <abbr title="Optimistic Concurrency Control">OCC</abbr> check.')
+      expect(html).to include('<abbr title="Optimistic Concurrency Control">OCC</abbr>')
+    end
+
+    it "strips event-handler attributes from abbr" do
+      html = helper.render_markdown('<abbr title="ok" onmouseover="alert(1)">X</abbr>')
+      expect(html).to include("<abbr")
+      expect(html).not_to include("onmouseover")
+    end
+  end
+
+  describe "collapsible sections" do
+    it "preserves the open attribute on details" do
+      html = helper.render_markdown("<details open><summary>Expanded</summary>\n\nBody text.\n\n</details>")
+      expect(html).to match(/<details open(="")?>/)
+    end
+
+    it "renders markdown inside a details block separated by blank lines" do
+      html = helper.render_markdown("<details>\n<summary>More</summary>\n\n- [ ] Task inside\n\n</details>")
+      expect(html).to include('type="checkbox"')
+      expect(html).to include('data-line-text="- [ ] Task inside"')
+      expect(html).not_to include("disabled")
+    end
+  end
+
   describe "#render_line_view" do
     it "creates numbered divs" do
       html = helper.render_line_view("line one\nline two\nline three")

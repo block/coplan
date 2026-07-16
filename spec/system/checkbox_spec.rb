@@ -153,6 +153,38 @@ RSpec.describe "Interactive checkboxes", type: :system do
     expect(plan.current_content).to include("- [x] Write documentation")
   end
 
+  it "toggles the correct checkbox when task lines are duplicated" do
+    plan.current_plan_version.update!(
+      content_markdown: "# Tasks\n\n- [ ] TODO\n- [ ] TODO\n- [ ] Deploy\n- [ ] Deploy to staging"
+    )
+
+    visit plan_path(plan)
+
+    checkboxes = all('input[type="checkbox"]')
+    checkboxes[1].click
+
+    wait_for_version(plan, 2)
+
+    plan.reload
+    expect(plan.current_content).to eq("# Tasks\n\n- [ ] TODO\n- [x] TODO\n- [ ] Deploy\n- [ ] Deploy to staging")
+  end
+
+  it "toggles a task whose text is a prefix of another task" do
+    plan.current_plan_version.update!(
+      content_markdown: "# Tasks\n\n- [ ] Deploy to staging\n- [ ] Deploy"
+    )
+
+    visit plan_path(plan)
+
+    checkboxes = all('input[type="checkbox"]')
+    checkboxes[1].click
+
+    wait_for_version(plan, 2)
+
+    plan.reload
+    expect(plan.current_content).to eq("# Tasks\n\n- [ ] Deploy to staging\n- [x] Deploy")
+  end
+
   private
 
   def wait_for_version(plan, expected_revision, timeout: 5)

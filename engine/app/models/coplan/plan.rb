@@ -2,25 +2,22 @@ module CoPlan
   class Plan < ApplicationRecord
     STATUSES = %w[brainstorm considering developing live abandoned].freeze
 
-    # Order used when grouping "My Plans" on the index: brainstorms first
-    # (private drafts, most relevant to the author), then active work by
-    # maturity, abandoned last. Pinning brainstorm to the top keeps the
-    # author's own brainstorms on page 1 instead of buried past the
-    # PER_PAGE pagination cut (see COPLAN-32).
-    STATUS_PRIORITY = %w[brainstorm considering developing live abandoned].freeze
-
-    # Order plans by STATUS_PRIORITY, then most-recently-updated within each group.
-    scope :prioritized_by_status, -> {
-      whens = STATUS_PRIORITY.each_with_index.map { |status, i|
-        sanitize_sql_array(["WHEN status = ? THEN ?", status, i])
-      }.join(" ")
-      order(Arel.sql("CASE #{whens} ELSE #{STATUS_PRIORITY.length} END"))
-        .order(updated_at: :desc, id: :desc)
-    }
+    # Server-side limits for file attachments. Content types are an allowlist:
+    # anything renderable-but-scriptable (html, svg, js) is deliberately
+    # excluded so an attachment can never execute in a viewer's browser.
+    ATTACHMENT_MAX_BYTES = 25.megabytes
+    ATTACHMENT_CONTENT_TYPES = %w[
+      image/png image/jpeg image/gif image/webp
+      application/pdf
+      text/plain text/markdown text/csv
+      application/json
+      application/zip
+    ].freeze
 
     belongs_to :created_by_user, class_name: "CoPlan::User"
     belongs_to :current_plan_version, class_name: "PlanVersion", optional: true
     belongs_to :plan_type, optional: true
+    belongs_to :folder, optional: true, inverse_of: :plans
     has_many :plan_versions, -> { order(revision: :asc) }, dependent: :destroy
     has_many :plan_events, dependent: :destroy
     has_many :plan_collaborators, dependent: :destroy
@@ -34,13 +31,23 @@ module CoPlan
     has_many :plan_viewers, dependent: :destroy
     has_many :notifications, dependent: :destroy
     has_many :references, dependent: :destroy
+    has_many_attached :attachments
 
     after_initialize { self.metadata ||= {} }
 
     validates :title, presence: true
     validates :status, presence: true, inclusion: { in: STATUSES }
+    validate :attachments_within_limits
 
     scope :with_tag, ->(name) { joins(:tags).where(coplan_tags: { name: name }) }
+
+    # Plans `user` is allowed to see: everything published (non-brainstorm)
+    # plus the user's own brainstorms. Brainstorm plans are private drafts —
+    # any list, count, or folder content shown to a user must go through
+    # this scope so private brainstorm existence never leaks.
+    scope :visible_to, ->(user) {
+      where.not(status: "brainstorm").or(where(created_by_user_id: user.id))
+    }
 
     after_save_commit :refresh_search_text!, if: :search_text_needs_refresh?
 
@@ -56,7 +63,7 @@ module CoPlan
       term = sanitize_fulltext_term(query)
       return none if term.blank?
 
-      where.not(status: "brainstorm").or(where(created_by_user_id: user.id))
+      visible_to(user)
         .where("MATCH(search_text) AGAINST (? IN BOOLEAN MODE)", term)
         .order(Arel.sql("MATCH(search_text) AGAINST (#{connection.quote(term)} IN BOOLEAN MODE) DESC"))
     }
@@ -102,7 +109,7 @@ module CoPlan
     end
 
     def self.ransackable_attributes(auth_object = nil)
-      %w[id title status plan_type_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
+      %w[id title status plan_type_id folder_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
     end
 
     def self.ransackable_associations(auth_object = nil)
@@ -123,7 +130,7 @@ module CoPlan
     def stripped_content
       @stripped_content ||= begin
         content = current_content
-        content.present? ? Plans::MarkdownTextExtractor.call(content) : [+"", []]
+        content.present? ? Plans::MarkdownTextExtractor.call(content) : [ +"", [] ]
       end
     end
 
@@ -150,6 +157,33 @@ module CoPlan
     end
 
     private
+
+    # Backstop validation for attachment size/type. The primary check lives in
+    # Plans::AddAttachment (which can reject before a blob is even created),
+    # but this guarantees no code path can persist an oversized or disallowed
+    # attachment — `attachments.attach` on a persisted record goes through
+    # `save`, so a failure here aborts the attach. Only newly-built attachment
+    # records in the pending change are validated: `attach` re-assigns
+    # existing blobs alongside the new one, and re-validating already
+    # persisted attachments would let one legacy attachment (attached under
+    # older, looser rules) block every future upload on the plan.
+    def attachments_within_limits
+      change = attachment_changes["attachments"]
+      return unless change.respond_to?(:attachments)
+
+      change.attachments.each do |attachment|
+        next if attachment.persisted?
+        blob = attachment.blob
+        next unless blob
+
+        if blob.byte_size.to_i > ATTACHMENT_MAX_BYTES
+          errors.add(:attachments, "#{blob.filename} is too large (maximum is #{ATTACHMENT_MAX_BYTES / 1.megabyte} MB)")
+        end
+        unless ATTACHMENT_CONTENT_TYPES.include?(blob.content_type)
+          errors.add(:attachments, "#{blob.filename} has a disallowed content type (#{blob.content_type.presence || "unknown"})")
+        end
+      end
+    end
 
     # Refresh `search_text` when any of the inputs that feed into it have
     # changed at the Plan level. Tag and PlanVersion changes call

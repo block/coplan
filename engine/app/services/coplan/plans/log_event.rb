@@ -42,7 +42,7 @@ module CoPlan
         # No-op when nothing changed. Callers can fire on every save without
         # worrying about whether the value actually moved — keeps call sites
         # short and predictable.
-        return nil if @before == @after && %w[status_changed title_changed plan_type_changed].include?(@event_type)
+        return nil if @before == @after && %w[status_changed title_changed plan_type_changed moved_to_folder].include?(@event_type)
 
         PlanEvent.create!(
           plan: @plan,
@@ -80,7 +80,9 @@ module CoPlan
         when "plan_type_changed" then "plan_type"
         when "tag_added", "tag_removed" then "tags"
         when "reference_added", "reference_removed" then "references"
+        when "attachment_added", "attachment_removed" then "attachments"
         when "comment_deleted" then "comments"
+        when "moved_to_folder" then "folder"
         end
       end
 
