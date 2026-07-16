@@ -132,10 +132,23 @@ module CoPlan
         return
       end
 
-      checkbox_pattern = /\A\s*[*+-]\s+\[[ xX]\]\s/
+      checkbox_pattern = MarkdownHelper::TASK_LINE_PATTERN
       unless old_text.match?(checkbox_pattern) && new_text.match?(checkbox_pattern)
         render json: { error: "old_text and new_text must be task list items" }, status: :unprocessable_content
         return
+      end
+
+      # Optional 1-based source line carried by the rendered checkbox
+      # (data-line). The line's text must equal old_text, so duplicate task
+      # lines elsewhere can't collide and a stale client fails loudly
+      # instead of toggling a lookalike.
+      line = nil
+      if params[:line].present?
+        line = Integer(params[:line], exception: false)
+        if line.nil? || line < 1
+          render json: { error: "line must be a positive integer" }, status: :unprocessable_content
+          return
+        end
       end
 
       ActiveRecord::Base.transaction do
@@ -148,9 +161,18 @@ module CoPlan
         end
 
         current_content = @plan.current_content || ""
+        operation = { "op" => "replace_exact", "old_text" => old_text, "new_text" => new_text }
+        if line
+          occurrence = occurrence_at_line(current_content, old_text, line)
+          if occurrence.nil?
+            render json: { error: "old_text does not match line #{line}", current_revision: @plan.current_revision }, status: :unprocessable_content
+            return
+          end
+          operation["occurrence"] = occurrence
+        end
         result = Plans::ApplyOperations.call(
           content: current_content,
-          operations: [{ "op" => "replace_exact", "old_text" => old_text, "new_text" => new_text }]
+          operations: [operation]
         )
 
         new_revision = @plan.current_revision + 1
@@ -180,6 +202,25 @@ module CoPlan
     end
 
     private
+
+    # Maps a verified (line, old_text) pair to the occurrence ordinal the
+    # position resolver will select, keeping the toggle a plain
+    # replace_exact. Returns nil unless the line's rstripped text is exactly
+    # old_text — line and text must both agree for the edit to land.
+    def occurrence_at_line(content, old_text, line)
+      lines = content.each_line.to_a
+      return nil if line > lines.length
+      return nil unless lines[line - 1].rstrip == old_text
+
+      line_start = lines.first(line - 1).sum(&:length)
+      occurrence = 1
+      pos = 0
+      while (idx = content.index(old_text, pos)) && idx < line_start
+        occurrence += 1
+        pos = idx + old_text.length
+      end
+      occurrence
+    end
 
     def set_plan
       @plan = Plan.find(params[:id])
