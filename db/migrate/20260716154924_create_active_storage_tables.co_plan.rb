@@ -20,9 +20,14 @@
 #   non-string record_id, we warn loudly: CoPlan's UUID plan ids cannot be
 #   stored in a bigint record_id column.
 class CreateActiveStorageTables < ActiveRecord::Migration[8.1]
+  # Ownership marker: `down` only drops tables carrying this comment, so a
+  # rollback can never destroy ActiveStorage tables (and data) that the host
+  # app created before installing CoPlan.
+  OWNERSHIP_COMMENT = "Created by CoPlan engine".freeze
+
   def up
     unless table_exists?(:active_storage_blobs)
-      create_table :active_storage_blobs do |t|
+      create_table :active_storage_blobs, comment: OWNERSHIP_COMMENT do |t|
         t.string   :key,          null: false
         t.string   :filename,     null: false
         t.string   :content_type
@@ -45,7 +50,7 @@ class CreateActiveStorageTables < ActiveRecord::Migration[8.1]
         say "See the 'File attachments (ActiveStorage)' section of CoPlan's HOST_APP_GUIDE.md.", true
       end
     else
-      create_table :active_storage_attachments do |t|
+      create_table :active_storage_attachments, comment: OWNERSHIP_COMMENT do |t|
         t.string :name,        null: false
         t.string :record_type, null: false
         t.string :record_id,   null: false, limit: 36
@@ -59,7 +64,7 @@ class CreateActiveStorageTables < ActiveRecord::Migration[8.1]
     end
 
     unless table_exists?(:active_storage_variant_records)
-      create_table :active_storage_variant_records do |t|
+      create_table :active_storage_variant_records, comment: OWNERSHIP_COMMENT do |t|
         t.belongs_to :blob, null: false, index: false, type: :bigint
         t.string :variation_digest, null: false
 
@@ -69,12 +74,20 @@ class CreateActiveStorageTables < ActiveRecord::Migration[8.1]
     end
   end
 
-  # Mirrors the stock ActiveStorage install migration's rollback: drops the
-  # three tables. `if_exists` keeps the rollback idempotent for hosts where
-  # `up` no-op'd because the tables already existed.
+  # Mirrors the stock ActiveStorage install migration's rollback, but only
+  # for tables this migration actually created (identified by the ownership
+  # comment set in `up`). Tables that pre-existed — the host app installed
+  # ActiveStorage before CoPlan, so `up` skipped them — are left untouched:
+  # dropping them would destroy host-owned data.
   def down
-    drop_table :active_storage_variant_records, if_exists: true
-    drop_table :active_storage_attachments, if_exists: true
-    drop_table :active_storage_blobs, if_exists: true
+    [ :active_storage_variant_records, :active_storage_attachments, :active_storage_blobs ].each do |table|
+      next unless table_exists?(table)
+
+      if connection.table_comment(table) == OWNERSHIP_COMMENT
+        drop_table table
+      else
+        say "Skipping drop of #{table}: not created by the CoPlan engine (no ownership comment).", true
+      end
+    end
   end
 end

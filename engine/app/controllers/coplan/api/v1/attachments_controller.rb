@@ -8,6 +8,7 @@ module CoPlan
 
         before_action :set_plan, only: [ :index, :create, :destroy ]
         before_action :authorize_plan_access!, only: [ :index, :create, :destroy ]
+        before_action :authorize_plan_visibility!, only: [ :index, :create, :destroy ]
         before_action :authorize_plan_write!, only: [ :create, :destroy ]
 
         def index
@@ -65,6 +66,23 @@ module CoPlan
         end
 
         private
+
+        # Brainstorm plans are private drafts: only their author may see them
+        # (mirrors the visibility predicate used by the plans index and
+        # search — published OR owned by the caller). PlanPolicy#show?
+        # currently allows everyone, which is fine for published plans but
+        # would let any authenticated caller enumerate a private draft's
+        # attachments and mint signed blob URLs for them. Scoped to this
+        # controller rather than PlanPolicy so we don't change authorization
+        # for the rest of the app. 404 (not 403) so the plan's existence
+        # doesn't leak.
+        def authorize_plan_visibility!
+          return unless @plan
+          return if @plan.status != "brainstorm"
+          return if current_user && @plan.created_by_user_id == current_user.id
+
+          render json: { error: "Plan not found" }, status: :not_found
+        end
 
         def attachment_json(attachment)
           blob = attachment.blob

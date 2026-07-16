@@ -176,4 +176,48 @@ RSpec.describe "Api::V1::Attachments", type: :request do
       expect(response).to have_http_status(:not_found)
     end
   end
+
+  describe "brainstorm plan visibility" do
+    let(:brainstorm) { create(:plan, :brainstorm, created_by_user: user) }
+
+    before { other_token }
+
+    it "hides another user's brainstorm plan attachments behind a 404" do
+      upload_file(plan: brainstorm)
+
+      get api_v1_plan_attachments_path(brainstorm), headers: other_headers
+      expect(response).to have_http_status(:not_found)
+      expect(JSON.parse(response.body)["error"]).to eq("Plan not found")
+    end
+
+    it "returns 404 (not 403) for non-owner writes so existence doesn't leak" do
+      upload_file(plan: brainstorm)
+      attachment = brainstorm.attachments_attachments.first
+
+      post api_v1_plan_attachments_path(brainstorm),
+        params: { file: fixture_file_upload("sample.png", "image/png") },
+        headers: other_headers
+      expect(response).to have_http_status(:not_found)
+
+      delete api_v1_plan_attachment_path(brainstorm, attachment.id), headers: other_headers
+      expect(response).to have_http_status(:not_found)
+      expect(brainstorm.attachments_attachments.count).to eq(1)
+    end
+
+    it "lets the owner list their own brainstorm plan attachments" do
+      upload_file(plan: brainstorm)
+
+      get api_v1_plan_attachments_path(brainstorm), headers: headers
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body).length).to eq(1)
+    end
+
+    it "lets other users list attachments on published plans" do
+      upload_file
+
+      get api_v1_plan_attachments_path(plan), headers: other_headers
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body).length).to eq(1)
+    end
+  end
 end
