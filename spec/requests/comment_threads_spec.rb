@@ -23,6 +23,29 @@ RSpec.describe "CommentThreads", type: :request do
     expect(thread.plan_version_id).to eq(plan.current_plan_version_id)
   end
 
+  it "broadcasts the popover via requestless partial render, never request-scoped HTML" do
+    # The popover contains reply/action forms; request-rendered HTML embeds
+    # the actor's session authenticity token, which must not be broadcast.
+    expect(CoPlan::Broadcaster).to receive(:append_to) do |_streamable, **kwargs|
+      expect(kwargs[:partial]).to eq("coplan/comment_threads/thread_popover")
+      expect(kwargs[:html]).to be_nil
+    end
+
+    post plan_comment_threads_path(plan), params: {
+      comment_thread: { anchor_text: "world domination", body_markdown: "Broadcast safely." }
+    }
+  end
+
+  it "broadcasts thread status changes via requestless partial render" do
+    thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
+    expect(CoPlan::Broadcaster).to receive(:replace_to) do |_streamable, **kwargs|
+      expect(kwargs[:partial]).to eq("coplan/comment_threads/thread_popover")
+      expect(kwargs[:html]).to be_nil
+    end
+
+    patch resolve_plan_comment_thread_path(plan, thread)
+  end
+
   it "create general comment thread" do
     expect {
       post plan_comment_threads_path(plan), params: {

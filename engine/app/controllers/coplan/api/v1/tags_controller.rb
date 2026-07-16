@@ -3,8 +3,7 @@ module CoPlan
     module V1
       class TagsController < BaseController
         def index
-          visible_plans = Plan.where.not(status: "brainstorm")
-            .or(Plan.where(created_by_user: current_user))
+          visible_plans = Plan.visible_to(current_user)
 
           tags = Tag
             .joins(:plan_tags)

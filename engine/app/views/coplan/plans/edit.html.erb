@@ -8,6 +8,12 @@
     <%= f.text_field :title, required: true %>
   </div>
 
+  <div class="form-group">
+    <%= label_tag "plan_tag_names", "Tags" %>
+    <%= text_field_tag "plan[tag_names]", @plan.tag_names.join(", "), id: "plan_tag_names", placeholder: "security, api-design" %>
+    <p class="text-sm text-muted">Comma-separated. Reuse existing tags where possible.</p>
+  </div>
+
   <div class="plan-form__actions">
     <%= f.submit "Save Changes", class: "btn btn--primary" %>
     <%= link_to "Cancel", plan_path(@plan), class: "btn btn--secondary" %>

@@ -46,6 +46,12 @@ module CoPlan
         safe_join(["Added attachment ", content_tag(:code, event.after_value.to_s)])
       when "attachment_removed"
         safe_join(["Removed attachment ", content_tag(:code, event.before_value.to_s)])
+      when "moved_to_folder"
+        if event.after_value.present?
+          safe_join(["Moved to folder ", content_tag(:strong, event.after_value)])
+        else
+          safe_join(["Removed from folder ", content_tag(:strong, event.before_value.to_s)])
+        end
       when "comment_deleted"
         preview = event.metadata.is_a?(Hash) ? event.metadata["body_preview"].to_s.presence : nil
         if preview

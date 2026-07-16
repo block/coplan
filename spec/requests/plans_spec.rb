@@ -32,9 +32,9 @@ RSpec.describe "Plans", type: :request do
   end
 
   it "index filters by tag" do
-    plan.tag_names = ["infra"]
+    plan.tag_names = [ "infra" ]
     other = create(:plan, :considering, created_by_user: alice, title: "Other Plan")
-    other.tag_names = ["frontend"]
+    other.tag_names = [ "frontend" ]
     get plans_path(tag: "infra")
     expect(response).to have_http_status(:success)
     expect(response.body).to include(plan.title)
@@ -42,7 +42,7 @@ RSpec.describe "Plans", type: :request do
   end
 
   it "index shows tag badges on plan cards" do
-    plan.tag_names = ["infra", "api"]
+    plan.tag_names = [ "infra", "api" ]
     get plans_path
     expect(response.body).to include("badge--tag")
     expect(response.body).to include("infra")
@@ -50,7 +50,7 @@ RSpec.describe "Plans", type: :request do
   end
 
   it "index shows active tag filter bar" do
-    plan.tag_names = ["infra"]
+    plan.tag_names = [ "infra" ]
     get plans_path(tag: "infra")
     expect(response.body).to include("active-filter")
     expect(response.body).to include("infra")
@@ -58,7 +58,7 @@ RSpec.describe "Plans", type: :request do
   end
 
   it "show plan renders tag badges in header" do
-    plan.tag_names = ["infra", "security"]
+    plan.tag_names = [ "infra", "security" ]
     get plan_path(plan)
     expect(response).to have_http_status(:success)
     expect(response.body).to include("badge--tag")
@@ -75,6 +75,16 @@ RSpec.describe "Plans", type: :request do
     get plan_path(plan)
     expect(response).to have_http_status(:success)
     expect(response.body).to include("plan-layout__content")
+  end
+
+  it "scopes comment footnote ids so they can't collide with the plan body's" do
+    thread = create(:comment_thread, :with_anchor, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
+    comment = create(:comment, comment_thread: thread, author_type: "human", author_id: alice.id,
+                     body_markdown: "Noted.[^1]\n\n[^1]: A comment footnote.")
+
+    get plan_path(plan)
+    expect(response.body).to include(%(id="comment-#{comment.id}-fn-1"))
+    expect(response.body).to include(%(href="#comment-#{comment.id}-fn-1"))
   end
 
   it "show plan renders content navigation sidebar" do
@@ -171,21 +181,37 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include(bobs_plan.title)
     end
 
-    it "groups My Plans by status with section headers" do
+    it "groups plans into collapsible status groups, active work first" do
       create(:plan, :developing,  created_by_user: alice, title: "Developing Plan")
       create(:plan, :considering, created_by_user: alice, title: "Considering Plan")
       create(:plan, :brainstorm,  created_by_user: alice, title: "Brainstorm Plan")
       get plans_path
-      expect(response.body).to include("plans-list__section")
-      # brainstorms are pinned first (COPLAN-32), then active work by maturity
-      expect(response.body.index("Brainstorm Plan")).to be < response.body.index("Considering Plan")
-      expect(response.body.index("Considering Plan")).to be < response.body.index("Developing Plan")
+      expect(response.body).to include("plan-group")
+      expect(response.body.index("Developing Plan")).to be < response.body.index("Considering Plan")
+      expect(response.body.index("Considering Plan")).to be < response.body.index("Brainstorm Plan")
     end
 
-    # COPLAN-32: with more active plans than fit on the first page, the
-    # author's own brainstorms must still land on page 1 of the default
-    # Mine/Any-status view rather than being buried past the pagination cut.
-    it "surfaces the author's own brainstorms on page 1 despite many active plans" do
+    it "marks the brainstorm group as collapsed by default" do
+      create(:plan, :brainstorm, created_by_user: alice)
+      create(:plan, :developing, created_by_user: alice)
+      get plans_path
+      brainstorm_group = response.body[/<section class="plan-group"[^>]*data-group-key="brainstorm"[^>]*>/]
+      developing_group = response.body[/<section class="plan-group"[^>]*data-group-key="developing"[^>]*>/]
+      expect(brainstorm_group).to include("data-default-collapsed")
+      expect(developing_group).not_to include("data-default-collapsed")
+    end
+
+    it "omits status groups with no plans" do
+      create(:plan, :developing, created_by_user: alice)
+      get plans_path
+      expect(response.body).to include('data-group-key="developing"')
+      expect(response.body).not_to include('data-group-key="abandoned"')
+    end
+
+    # COPLAN-32 successor: every status gets its own group with its own
+    # pagination, so the author's brainstorms always render on the first
+    # page load no matter how many active plans exist.
+    it "surfaces the author's own brainstorms on the first page despite many active plans" do
       brainstorm = create(:plan, :brainstorm, created_by_user: alice, title: "Buried Brainstorm")
       create_list(:plan, CoPlan::PlansController::PER_PAGE + 5, :developing, created_by_user: alice)
       get plans_path
@@ -193,33 +219,41 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include(brainstorm.title)
     end
 
-    it "does not group when filtered to a single status" do
+    it "paginates within a group via a group-scoped lazy frame" do
+      create_list(:plan, CoPlan::PlansController::PER_PAGE + 2, :developing, created_by_user: alice)
+      get plans_path
+      expect(response.body).to include('id="plans-developing-page-2"')
+      expect(response.body).to include("group=developing")
+    end
+
+    it "renders a flat list when filtered to a single status" do
       create(:plan, :developing, created_by_user: alice, title: "Developing Plan")
       get plans_path(status: "developing")
-      expect(response.body).not_to include("plans-list__section")
+      expect(response.body).not_to include("plan-group__toggle")
       expect(response.body).to include("Developing Plan")
     end
 
-    it "scope=all does not group by status" do
-      create(:plan, :developing, created_by_user: alice, title: "Developing Plan")
+    it "scope=all groups everyone's visible plans by status" do
+      create(:plan, :developing, created_by_user: bob, title: "Bobs Developing Plan")
       get plans_path(scope: "all")
-      expect(response.body).not_to include("plans-list__section")
+      expect(response.body).to include('data-group-key="developing"')
+      expect(response.body).to include("Bobs Developing Plan")
     end
   end
 
-  describe "content preview on cards" do
+  describe "content preview on rows" do
     it "renders a markdown-stripped preview when there is no AI summary" do
       plan.current_plan_version.update!(content_markdown: "# Heading\n\nThis is the **plan body** with [links](https://example.com).")
       get plans_path
-      expect(response.body).to include("plans-list__summary")
+      expect(response.body).to include("plan-row__summary")
       expect(response.body).to include("This is the plan body with links")
       expect(response.body).not_to include("**plan body**")
     end
 
-    it "omits the summary block when the plan has no content" do
+    it "omits the summary line when the plan has no content" do
       plan.current_plan_version.update_columns(content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
       get plans_path
-      expect(response.body).not_to include("plans-list__summary")
+      expect(response.body).not_to include("plan-row__summary")
     end
   end
 
@@ -258,6 +292,260 @@ RSpec.describe "Plans", type: :request do
       get plans_path
       expect(response.body).to include("Custom onboarding message")
       CoPlan.configuration.onboarding_banner = original
+    end
+  end
+
+  describe "folder filtering" do
+    let!(:root) { create(:folder, name: "Team EBT", created_by_user: alice) }
+    let!(:sub) { create(:folder, name: "Q3", parent: root, created_by_user: alice) }
+    let!(:root_plan) { create(:plan, :considering, created_by_user: alice, title: "Root Level Plan") }
+    let!(:sub_plan) { create(:plan, :considering, created_by_user: alice, title: "Subfolder Plan") }
+    let!(:loose_plan) { create(:plan, :considering, created_by_user: alice, title: "Unfiled Plan") }
+
+    before do
+      root_plan.update!(folder: root)
+      sub_plan.update!(folder: sub)
+    end
+
+    it "filters to a folder including its subfolders" do
+      get plans_path(folder: root.id)
+      expect(response.body).to include("Root Level Plan")
+      expect(response.body).to include("Subfolder Plan")
+      expect(response.body).not_to include("Unfiled Plan")
+    end
+
+    it "filters to a leaf folder only" do
+      get plans_path(folder: sub.id)
+      expect(response.body).to include("Subfolder Plan")
+      expect(response.body).not_to include("Root Level Plan")
+    end
+
+    it "shows a clearable folder filter chip" do
+      get plans_path(folder: root.id)
+      expect(response.body).to include("Folder: Team EBT")
+      expect(response.body).to include("Clear all")
+    end
+
+    it "combines folder with tag and scope filters" do
+      root_plan.tag_names = [ "infra" ]
+      sub_plan.tag_names = [ "frontend" ]
+      bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Foldered Plan")
+      bobs_plan.update!(folder: root)
+      bobs_plan.tag_names = [ "infra" ]
+
+      get plans_path(folder: root.id, tag: "infra", scope: "all")
+      expect(response.body).to include("Root Level Plan")
+      expect(response.body).to include("Bobs Foldered Plan")
+      expect(response.body).not_to include("Subfolder Plan")
+
+      get plans_path(folder: root.id, tag: "infra", scope: "mine")
+      expect(response.body).to include("Root Level Plan")
+      expect(response.body).not_to include("Bobs Foldered Plan")
+    end
+
+    it "renders a folder-specific empty state" do
+      empty = create(:folder, name: "Empty Folder", created_by_user: alice)
+      get plans_path(folder: empty.id)
+      expect(response.body).to include("empty-state")
+      expect(response.body).to include("Empty Folder")
+    end
+
+    it "shows folder breadcrumbs on rows" do
+      get plans_path
+      expect(response.body).to include("Team EBT/Q3")
+    end
+
+    it "redirects with an alert when the folder no longer exists" do
+      get plans_path(folder: "gone", tag: "infra")
+      expect(response).to redirect_to(plans_path(tag: "infra"))
+      expect(flash[:alert]).to include("no longer exists")
+    end
+
+    it "clamps a non-positive page param instead of erroring" do
+      get plans_path(status: "considering", page: "0")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Root Level Plan")
+    end
+  end
+
+  describe "sidebar" do
+    it "renders the folder tree with visible-plan counts" do
+      folder = create(:folder, name: "Infra", created_by_user: alice)
+      create(:plan, :considering, created_by_user: alice).update!(folder: folder)
+      get plans_path
+      expect(response.body).to include("folder-tree")
+      expect(response.body).to include("Infra")
+    end
+
+    it "does not count other users' brainstorm plans in folder counts" do
+      folder = create(:folder, name: "Secret Stash", created_by_user: bob)
+      create(:plan, :brainstorm, created_by_user: bob).update!(folder: folder)
+
+      sign_in_as(alice)
+      get plans_path(scope: "all")
+      # The folder shows with a zero count — its only plan is Bob's private brainstorm.
+      expect(response.body).to match(%r{Secret Stash</span>\s*<span class="sidebar__count">0</span>})
+
+      sign_in_as(bob)
+      get plans_path(scope: "all")
+      expect(response.body).to match(%r{Secret Stash</span>\s*<span class="sidebar__count">1</span>})
+    end
+
+    it "scopes folder counts to the active workspace scope" do
+      folder = create(:folder, name: "Bobs Corner", created_by_user: bob)
+      create(:plan, :considering, created_by_user: bob).update!(folder: folder)
+
+      # My plans: the folder holds none of alice's plans, so it counts 0 —
+      # matching the empty list clicking it would show.
+      get plans_path
+      expect(response.body).to match(%r{Bobs Corner</span>\s*<span class="sidebar__count">0</span>})
+
+      get plans_path(scope: "all")
+      expect(response.body).to match(%r{Bobs Corner</span>\s*<span class="sidebar__count">1</span>})
+    end
+
+    it "includes subfolder plans in parent folder counts" do
+      root = create(:folder, name: "Team EBT", created_by_user: alice)
+      sub = create(:folder, name: "Q3", parent: root, created_by_user: alice)
+      create(:plan, :considering, created_by_user: alice).update!(folder: sub)
+      get plans_path
+      expect(response.body).to match(%r{Team EBT</span>\s*<span class="sidebar__count">1</span>})
+    end
+
+    it "does not surface tags used only on other users' brainstorms" do
+      secret = create(:plan, :brainstorm, created_by_user: bob)
+      secret.tag_names = [ "secret-tag" ]
+      visible = create(:plan, :considering, created_by_user: bob)
+      visible.tag_names = [ "public-tag" ]
+
+      get plans_path(scope: "all")
+      expect(response.body).to include("public-tag")
+      expect(response.body).not_to include("secret-tag")
+    end
+
+    it "scopes sidebar tags to the active workspace scope" do
+      others = create(:plan, :considering, created_by_user: bob)
+      others.tag_names = [ "bobs-tag" ]
+
+      get plans_path
+      expect(response.body).not_to include("bobs-tag")
+    end
+
+    it "shows a New folder form" do
+      get plans_path
+      expect(response.body).to include("New folder")
+      expect(response.body).to include('action="/folders"')
+    end
+  end
+
+  describe "needs attention strip" do
+    it "lists plans with unread comments for the current user" do
+      thread = create(:comment_thread, plan: plan, created_by_user: bob)
+      create(:notification, user: alice, plan: plan, comment_thread: thread)
+
+      get plans_path
+      expect(response.body).to include("Needs attention (1)")
+      expect(response.body).to include("1 unread comment")
+    end
+
+    it "is omitted when nothing is unread" do
+      plan # visible plan, no notifications
+      get plans_path
+      expect(response.body).not_to include("Needs attention")
+    end
+  end
+
+  describe "PATCH /plans/:id/move_to_folder" do
+    let(:folder) { create(:folder, name: "Infra", created_by_user: bob) }
+
+    it "moves the author's plan and logs an event" do
+      expect {
+        patch move_to_folder_plan_path(plan), params: { folder_id: folder.id }
+      }.to change(CoPlan::PlanEvent, :count).by(1)
+      expect(response).to redirect_to(plans_path)
+      expect(flash[:notice]).to include("Infra")
+      expect(plan.reload.folder).to eq(folder)
+
+      event = CoPlan::PlanEvent.order(:created_at).last
+      expect(event.event_type).to eq("moved_to_folder")
+      expect(event.after_value).to eq("Infra")
+    end
+
+    it "responds with JSON for the drag-and-drop controller" do
+      patch move_to_folder_plan_path(plan),
+        params: { folder_id: folder.id }.to_json,
+        headers: { "Content-Type" => "application/json", "Accept" => "application/json" }
+      expect(response).to have_http_status(:success)
+      body = JSON.parse(response.body)
+      expect(body["folder_id"]).to eq(folder.id)
+      expect(body["folder_path"]).to eq("Infra")
+      expect(body["message"]).to include("Infra")
+    end
+
+    it "clears the folder with a blank folder_id" do
+      plan.update!(folder: folder)
+      patch move_to_folder_plan_path(plan), params: { folder_id: "" }
+      expect(plan.reload.folder).to be_nil
+    end
+
+    it "denies non-authors" do
+      sign_in_as(bob)
+      patch move_to_folder_plan_path(plan), params: { folder_id: folder.id }
+      expect(response).to have_http_status(:not_found)
+      expect(plan.reload.folder).to be_nil
+    end
+
+    it "rejects an unknown folder" do
+      patch move_to_folder_plan_path(plan),
+        params: { folder_id: "nope" }.to_json,
+        headers: { "Content-Type" => "application/json", "Accept" => "application/json" }
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    it "does not log an event for a no-op move" do
+      plan.update!(folder: folder)
+      expect {
+        patch move_to_folder_plan_path(plan), params: { folder_id: folder.id }
+      }.not_to change(CoPlan::PlanEvent, :count)
+    end
+
+    it "only renders drag handles and move menus for the author's rows" do
+      plan # alice's plan
+      bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Plan")
+      get plans_path(scope: "all")
+      rows = response.body.scan(/<article class="plan-row"[^>]*>/)
+      alice_row = rows.find { |r| r.include?(plan.id) }
+      bob_row = rows.find { |r| r.include?(bobs_plan.id) }
+      expect(alice_row).to include('draggable="true"')
+      expect(bob_row).not_to include("draggable")
+    end
+  end
+
+  describe "POST /folders (web)" do
+    it "creates a folder and filters to it" do
+      post folders_path, params: { folder: { name: "Team EBT" } }
+      folder = CoPlan::Folder.find_by(name: "Team EBT")
+      expect(folder).to be_present
+      expect(folder.created_by_user).to eq(alice)
+      expect(response).to redirect_to(plans_path(folder: folder.id))
+    end
+
+    it "creates a nested folder" do
+      parent = create(:folder, name: "Team EBT")
+      post folders_path, params: { folder: { name: "Q3", parent_id: parent.id } }
+      expect(CoPlan::Folder.find_by(name: "Q3").parent).to eq(parent)
+    end
+
+    it "surfaces validation errors via flash" do
+      create(:folder, name: "Team EBT")
+      post folders_path, params: { folder: { name: "Team EBT" } }
+      expect(flash[:alert]).to include("Couldn't create folder")
+    end
+
+    it "rejects an unknown parent instead of creating a root folder" do
+      post folders_path, params: { folder: { name: "Q3", parent_id: "gone" } }
+      expect(CoPlan::Folder.find_by(name: "Q3")).to be_nil
+      expect(flash[:alert]).to include("parent folder no longer exists")
     end
   end
 end
