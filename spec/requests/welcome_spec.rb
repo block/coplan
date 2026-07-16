@@ -5,6 +5,27 @@ RSpec.describe "Welcome", type: :request do
   let(:bob) { create(:coplan_user) }
 
   describe "GET /" do
+    context "anonymous visitor" do
+      it "renders the landing page without requiring sign-in" do
+        get root_path
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("Design docs, built for AI-assisted planning")
+        expect(response.body).to include("How it works")
+      end
+
+      it "shows a sign-in CTA instead of the plans CTA" do
+        get root_path
+        expect(response.body).to include("Sign in to get started")
+        expect(response.body).not_to include("Browse plans")
+      end
+
+      it "points visitors at the agent instructions" do
+        get root_path
+        expect(response.body).to include("Connect your agent")
+        expect(response.body).to include("/agent-instructions")
+      end
+    end
+
     context "signed-in user with no plans" do
       before { sign_in_as(bob) }
 
@@ -102,6 +123,12 @@ RSpec.describe "Welcome", type: :request do
         get welcome_path
         expect(response.body).to include("Built for any AI agent")
         expect(response.body).to include("/agent-instructions")
+      end
+
+      it "includes a copy-URL element carrying the full instructions URL" do
+        get welcome_path
+        expect(response.body).to include('data-controller="coplan--clipboard"')
+        expect(response.body).to include(%(data-coplan--clipboard-text-value="http://www.example.com/agent-instructions"))
       end
     end
 
