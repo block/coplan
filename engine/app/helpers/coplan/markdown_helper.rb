@@ -16,6 +16,12 @@ module CoPlan
 
     ALLOWED_ATTRIBUTES = %w[id class lang href src alt title type checked disabled data-line-text data-action data-coplan--checkbox-target data-mention-username].freeze
 
+    # Fragment caches of rendered markdown are keyed on content SHA plus this
+    # version. Bump it whenever the rendering pipeline changes output for the
+    # same input (new tags, attribute changes, checkbox wiring, etc.), or
+    # stale HTML will be served from cache.
+    RENDER_CACHE_VERSION = 1
+
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
     # dashes, and underscores. The pattern must round-trip exactly so that

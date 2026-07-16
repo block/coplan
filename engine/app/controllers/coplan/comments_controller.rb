@@ -19,17 +19,18 @@ module CoPlan
         reason: "reply"
       )
 
-      Broadcaster.append_to(
-        @plan,
-        target: ActionView::RecordIdentifier.dom_id(@thread, :comments),
-        partial: "coplan/comments/comment",
-        locals: { comment: comment }
-      )
+      target = ActionView::RecordIdentifier.dom_id(@thread, :comments)
+      html = render_to_string(partial: "coplan/comments/comment", locals: { comment: comment }, formats: [:html])
 
-      # The broadcast above updates all clients (including the submitter) via WebSocket.
-      # The empty turbo_stream response prevents Turbo from navigating (which causes scroll-to-top).
+      Broadcaster.append_to(@plan, target: target, html: html)
+
+      # The author's tab gets the append inline in the HTTP response — no
+      # cable round-trip between submit and seeing the comment. The broadcast
+      # above still updates every other viewer; Turbo removes same-id children
+      # before appending, so the author's copy isn't duplicated when the
+      # broadcast echoes back.
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: [] }
+        format.turbo_stream { render turbo_stream: turbo_stream.append(target, html) }
         format.html { redirect_to plan_path(@plan), notice: "Reply added." }
       end
     end
@@ -44,18 +45,20 @@ module CoPlan
       Comments::SoftDelete.call(comment: comment, actor: current_user)
 
       if @thread.reload.empty?
-        Broadcaster.remove_to(@plan, target: ActionView::RecordIdentifier.dom_id(@thread))
+        target = ActionView::RecordIdentifier.dom_id(@thread)
+        Broadcaster.remove_to(@plan, target: target)
+        inline_stream = turbo_stream.remove(target)
       else
-        Broadcaster.replace_to(
-          @plan,
-          target: ActionView::RecordIdentifier.dom_id(comment),
-          partial: "coplan/comments/comment",
-          locals: { comment: comment }
-        )
+        target = ActionView::RecordIdentifier.dom_id(comment)
+        html = render_to_string(partial: "coplan/comments/comment", locals: { comment: comment }, formats: [:html])
+        Broadcaster.replace_to(@plan, target: target, html: html)
+        inline_stream = turbo_stream.replace(target, html)
       end
 
+      # Inline response updates the actor immediately; the broadcast handles
+      # other viewers (remove/replace are idempotent on echo).
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: [] }
+        format.turbo_stream { render turbo_stream: inline_stream }
         format.html { redirect_to plan_path(@plan), notice: "Comment deleted." }
       end
     end

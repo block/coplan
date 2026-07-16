@@ -1,12 +1,14 @@
 module CoPlan
   module Broadcaster
     class << self
-      def prepend_to(streamable, target:, partial:, locals: {})
-        Turbo::StreamsChannel.broadcast_prepend_to(streamable, target: target, html: render(partial:, locals:))
+      def prepend_to(streamable, target:, html: nil, partial: nil, locals: {})
+        html ||= render(partial:, locals:)
+        Turbo::StreamsChannel.broadcast_prepend_to(streamable, target: target, html: html)
       end
 
-      def append_to(streamable, target:, partial:, locals: {})
-        Turbo::StreamsChannel.broadcast_append_to(streamable, target: target, html: render(partial:, locals:))
+      def append_to(streamable, target:, html: nil, partial: nil, locals: {})
+        html ||= render(partial:, locals:)
+        Turbo::StreamsChannel.broadcast_append_to(streamable, target: target, html: html)
       end
 
       def replace_to(streamable, target:, html: nil, partial: nil, locals: {})

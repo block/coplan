@@ -19,6 +19,19 @@ RSpec.describe "Comments", type: :request do
     expect(comment.author_id).to eq(alice.id)
   end
 
+  it "returns the appended comment inline in the turbo_stream response" do
+    post plan_comment_thread_comments_path(plan, thread_record),
+      params: { comment: { body_markdown: "Inline, no cable round-trip." } },
+      headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+    expect(response).to have_http_status(:ok)
+    comment = CoPlan::Comment.last
+    expect(response.body).to include(%(action="append"))
+    expect(response.body).to include("comments_comment_thread_#{thread_record.id}")
+    expect(response.body).to include(ActionView::RecordIdentifier.dom_id(comment))
+    expect(response.body).to include("Inline, no cable round-trip.")
+  end
+
   describe "DELETE destroy" do
     let!(:comment) do
       create(:comment, comment_thread: thread_record, author_type: "human", author_id: alice.id, body_markdown: "to be deleted")
