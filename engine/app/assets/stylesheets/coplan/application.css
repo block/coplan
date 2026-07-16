@@ -2499,6 +2499,111 @@ body:has(.comment-toolbar) .main-content {
   flex-shrink: 0;
 }
 
+/* Attachments section */
+.attachments-section {
+  padding: var(--space-lg);
+}
+
+.attachments-section__header {
+  margin-bottom: var(--space-md);
+}
+
+.attachments-upload {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.attachments-upload__input {
+  font-size: var(--text-sm);
+}
+
+.attachments-upload__hint {
+  margin: var(--space-xs) 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.attachments-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.attachments-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.attachments-list__item:last-child {
+  border-bottom: none;
+}
+
+.attachments-list__icon {
+  flex-shrink: 0;
+  width: 48px;
+  text-align: center;
+  font-size: var(--text-lg);
+  line-height: 1.4;
+}
+
+.attachments-list__thumb-link {
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.attachments-list__thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.attachments-list__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.attachments-list__link {
+  display: block;
+  word-break: break-all;
+  font-size: var(--text-sm);
+}
+
+.attachments-list__meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.attachments-list__actions {
+  flex-shrink: 0;
+}
+
+.attachments-list__remove {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: var(--text-sm);
+  border-radius: var(--radius);
+  transition: color 0.15s, background 0.15s;
+}
+
+.attachments-list__remove:hover {
+  color: var(--color-danger);
+  background: var(--color-bg);
+}
+
 /* Hide sidebar on small screens */
 @media (max-width: 1024px) {
   .content-nav {

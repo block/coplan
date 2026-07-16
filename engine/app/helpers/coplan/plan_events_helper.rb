@@ -42,6 +42,10 @@ module CoPlan
         url = event.before_value.to_s
         label = title || url
         safe_join(["Removed reference ", content_tag(:span, label, class: "history-split__event-link")])
+      when "attachment_added"
+        safe_join(["Added attachment ", content_tag(:code, event.after_value.to_s)])
+      when "attachment_removed"
+        safe_join(["Removed attachment ", content_tag(:code, event.before_value.to_s)])
       when "comment_deleted"
         preview = event.metadata.is_a?(Hash) ? event.metadata["body_preview"].to_s.presence : nil
         if preview

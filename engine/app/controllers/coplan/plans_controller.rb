@@ -60,6 +60,7 @@ module CoPlan
       authorize!(@plan, :show?)
       @threads = @plan.comment_threads.with_kept_comments.includes(:comments, :created_by_user).order(:created_at)
       @references = @plan.references.order(reference_type: :asc, created_at: :desc)
+      @attachments = @plan.attachments_attachments.includes(:blob).order(created_at: :desc)
       PlanViewer.track(plan: @plan, user: current_user)
     end
 

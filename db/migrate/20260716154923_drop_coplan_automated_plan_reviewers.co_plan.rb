@@ -1,3 +1,4 @@
+# This migration comes from co_plan (originally 20260602170000)
 class DropCoplanAutomatedPlanReviewers < ActiveRecord::Migration[8.0]
   def up
     # if_exists: on a fresh database, `db:migrate` loads schema.rb first
