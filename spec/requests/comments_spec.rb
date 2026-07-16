@@ -45,6 +45,22 @@ RSpec.describe "Comments", type: :request do
     }
   end
 
+  it "does not calculate a template digest while broadcasting a reply" do
+    original_perform_caching = ActionController::Base.perform_caching
+    ActionController::Base.perform_caching = true
+    allow(ActionView::Digestor).to receive(:digest).and_call_original
+    allow(Rails.cache).to receive(:read).and_call_original
+
+    post plan_comment_thread_comments_path(plan, thread_record), params: {
+      comment: { body_markdown: "This should return without digesting the partial." }
+    }
+
+    expect(Rails.cache).to have_received(:read)
+    expect(ActionView::Digestor).not_to have_received(:digest)
+  ensure
+    ActionController::Base.perform_caching = original_perform_caching
+  end
+
   describe "DELETE destroy" do
     let!(:comment) do
       create(:comment, comment_thread: thread_record, author_type: "human", author_id: alice.id, body_markdown: "to be deleted")
