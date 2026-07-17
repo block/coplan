@@ -1,3 +1,4 @@
+# This migration comes from co_plan (originally 20260717010000)
 class CreateLibrariesAndPlacements < ActiveRecord::Migration[8.1]
   class MigrationFolder < ActiveRecord::Base
     self.table_name = "coplan_folders"
