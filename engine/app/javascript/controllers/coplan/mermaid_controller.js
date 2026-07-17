@@ -43,9 +43,14 @@ export default class extends Controller {
 
     const theme = configureMermaid(mermaid)
     const generation = ++this.renderGeneration
+    let rendered = false
 
     for (const { container, source } of sources) {
-      await this.renderDiagram(mermaid, container, source, theme, generation)
+      rendered = await this.renderDiagram(mermaid, container, source, theme, generation) || rendered
+    }
+
+    if (rendered && this.element.isConnected && generation === this.renderGeneration) {
+      this.element.dispatchEvent(new CustomEvent("coplan:mermaid-rendered", { bubbles: true }))
     }
   }
 
@@ -54,7 +59,7 @@ export default class extends Controller {
 
     try {
       const { svg, bindFunctions } = await mermaid.render(id, source)
-      if (!this.element.isConnected || generation !== this.renderGeneration) return
+      if (!this.element.isConnected || generation !== this.renderGeneration) return false
 
       const diagram = document.createElement("div")
       diagram.className = "mermaid-diagram"
@@ -65,10 +70,12 @@ export default class extends Controller {
       diagram.innerHTML = svg
       sourceContainer.replaceWith(diagram)
       bindFunctions?.(diagram)
+      return true
     } catch {
       document.getElementById(id)?.remove()
       document.getElementById(`d${id}`)?.remove()
       this.showError(sourceContainer)
+      return false
     }
   }
 

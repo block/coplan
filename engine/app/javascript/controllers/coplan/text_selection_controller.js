@@ -215,6 +215,11 @@ export default class extends Controller {
     this._showThreadPopoverFor(event.currentTarget, "pinned")
   }
 
+  handleMermaidRendered() {
+    this.highlightAnchors()
+    if (this._pendingThreadId) this._openLinkedThread()
+  }
+
   async copyThreadLink(event) {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
 
@@ -657,11 +662,31 @@ export default class extends Controller {
 
     const domId = `comment_thread_${threadId}`
     const mark = this.contentTarget.querySelector(`mark[data-thread-id="${domId}"]`)
+    // Mermaid replaces its source block asynchronously. Wait for the rendered
+    // label instead of opening a popover against a source mark that will detach.
+    if (mark?.closest('pre[lang="mermaid"]')) {
+      if (attempt < 10) {
+        setTimeout(() => this._openLinkedThread(attempt + 1), 100)
+      }
+      return
+    }
+
     if (mark) {
-      this._pendingThreadId = null
       requestAnimationFrame(() => {
-        mark.scrollIntoView({ behavior: "instant", block: "center" })
-        this.openThreadPopover({ currentTarget: mark })
+        if (this._pendingThreadId !== threadId) return
+
+        const currentMark = this.contentTarget.querySelector(`mark[data-thread-id="${domId}"]`)
+        if (currentMark?.isConnected) {
+          currentMark.scrollIntoView({ behavior: "instant", block: "center" })
+          if (this._showThreadPopoverFor(currentMark, "pinned")) {
+            this._pendingThreadId = null
+            return
+          }
+        }
+
+        if (attempt < 10) {
+          setTimeout(() => this._openLinkedThread(attempt + 1), 100)
+        }
       })
       return
     }

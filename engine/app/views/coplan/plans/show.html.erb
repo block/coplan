@@ -67,7 +67,7 @@
         </nav>
         <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (])">☰ <kbd>]</kbd></button>
 
-        <div class="plan-layout__content" data-coplan--text-selection-target="content" data-coplan--content-nav-target="content">
+        <div class="plan-layout__content" data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-action="coplan:mermaid-rendered->coplan--text-selection#handleMermaidRendered">
           <div id="plan-content-body"
                data-controller="coplan--live-update"
                data-coplan--live-update-revision-value="<%= @plan.current_revision %>">
