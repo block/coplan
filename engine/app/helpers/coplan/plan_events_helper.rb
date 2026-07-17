@@ -8,7 +8,7 @@ module CoPlan
     def render_event_summary(event)
       case event.event_type
       when "published"
-        "Published — visible to everyone"
+        "Published — listed for everyone"
       when "archived"
         "Archived"
       when "unarchived"

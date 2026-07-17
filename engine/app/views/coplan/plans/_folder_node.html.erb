@@ -5,7 +5,7 @@
 <% children = (@folder_children[folder.id] || []).sort_by { |f| f.name.downcase } %>
 <% active = @folder&.id == folder.id %>
 <% folder_link = capture do %>
-  <%= link_to plans_path(params.permit(:scope, :status, :plan_type, :tag).merge(folder: folder.id)),
+  <%= link_to plans_path(params.permit(:scope, :filter, :plan_type, :tag).merge(folder: folder.id)),
         class: "folder-tree__link #{'folder-tree__link--active' if active}",
         data: {
           "coplan--folder-dnd-target": "folder",

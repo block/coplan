@@ -2,7 +2,7 @@ module CoPlan
   module Plans
     class Create
       # Plans are shared by default: they're created published unless the
-      # caller explicitly asks for a private draft.
+      # caller explicitly asks for an unlisted draft.
       def self.call(title:, content:, user:, plan_type_id: nil, visibility: "published")
         new(title:, content:, user:, plan_type_id:, visibility:).call
       end

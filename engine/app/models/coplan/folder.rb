@@ -1,12 +1,13 @@
 module CoPlan
-  # A shared, org-wide location for plans — Dropbox Paper / Google Docs style.
-  # Folders form a small hierarchy (max MAX_DEPTH levels) and each plan lives
-  # in at most one folder (Plan#folder_id). Tags remain the cross-cutting
-  # labels; folders answer "where does this plan live?".
+  # A shelf in a library. Folders form a small hierarchy (max MAX_DEPTH
+  # levels) inside exactly one library, and hold plans via placements —
+  # a plan sits in at most one folder per library, but can be shelved in
+  # many libraries at once. Tags remain the cross-cutting labels; folders
+  # answer "where did this library's owner file this plan?".
   #
-  # Anyone signed in can create folders and move their own plans into or out
-  # of any folder. Rename/delete is limited to the folder's creator or an
-  # admin (see FolderPolicy).
+  # Folders belong to their library, never directly to a user — write
+  # access is the library's call (Library#writable_by?), which is what
+  # lets a future team library reuse all of this unchanged.
   class Folder < ApplicationRecord
     MAX_DEPTH = 3
 
@@ -14,18 +15,20 @@ module CoPlan
     # (e.g. "Team EBT/Q3"), so it can't appear in a folder name.
     NAME_FORMAT = %r{\A[^/]+\z}
 
+    belongs_to :library, class_name: "CoPlan::Library", inverse_of: :folders
     belongs_to :parent, class_name: "CoPlan::Folder", optional: true, inverse_of: :children
     has_many :children, class_name: "CoPlan::Folder", foreign_key: :parent_id,
       inverse_of: :parent, dependent: nil
     belongs_to :created_by_user, class_name: "CoPlan::User", optional: true
-    has_many :plans, class_name: "CoPlan::Plan", foreign_key: :folder_id,
-      inverse_of: :folder, dependent: nil
+    has_many :placements, class_name: "CoPlan::PlanPlacement", inverse_of: :folder, dependent: nil
+    has_many :plans, class_name: "CoPlan::Plan", through: :placements
 
     validates :name, presence: true,
-      uniqueness: { scope: :parent_id, case_sensitive: false },
+      uniqueness: { scope: [ :library_id, :parent_id ], case_sensitive: false },
       format: { with: NAME_FORMAT, message: "cannot contain \"/\"" },
       length: { maximum: 100 }
     validate :parent_cannot_create_cycle
+    validate :parent_must_share_library
     validate :depth_within_limit
     before_destroy :ensure_empty
 
@@ -60,12 +63,13 @@ module CoPlan
     end
 
     # Finds or creates the folder hierarchy for a "/"-separated path like
-    # "Team EBT/Q3". This is what lets an AI librarian agent organize plans
-    # without pre-creating folders. Raises ActiveRecord::RecordInvalid when
-    # the path is too deep or a segment is invalid. Returns nil for a blank
-    # path. Lookup is case-insensitive (matching the uniqueness validation);
-    # creation preserves the given casing.
-    def self.find_or_create_by_path!(path, created_by_user: nil)
+    # "Team EBT/Q3" inside one library. This is what lets an agent organize
+    # a library without pre-creating folders. Raises
+    # ActiveRecord::RecordInvalid when the path is too deep or a segment is
+    # invalid. Returns nil for a blank path. Lookup is case-insensitive
+    # (matching the uniqueness validation); creation preserves the given
+    # casing.
+    def self.find_or_create_by_path!(path, library:, created_by_user: nil)
       segments = path.to_s.split("/").map(&:strip).reject(&:blank?)
       return nil if segments.empty?
 
@@ -73,8 +77,8 @@ module CoPlan
       # MAX_DEPTH) doesn't leave half-created hierarchy behind.
       transaction do
         segments.reduce(nil) do |parent, name|
-          where(parent_id: parent&.id).where("LOWER(name) = ?", name.downcase).first ||
-            create!(name: name, parent: parent, created_by_user: created_by_user)
+          library.folders.where(parent_id: parent&.id).where("LOWER(name) = ?", name.downcase).first ||
+            create!(name: name, parent: parent, library: library, created_by_user: created_by_user)
         end
       end
     end
@@ -96,11 +100,11 @@ module CoPlan
     end
 
     def self.ransackable_attributes(_auth_object = nil)
-      %w[id name parent_id created_by_user_id created_at updated_at]
+      %w[id name library_id parent_id created_by_user_id created_at updated_at]
     end
 
     def self.ransackable_associations(_auth_object = nil)
-      %w[parent children plans created_by_user]
+      %w[library parent children placements plans created_by_user]
     end
 
     private
@@ -125,6 +129,13 @@ module CoPlan
       end
     end
 
+    def parent_must_share_library
+      return if parent.nil?
+      return if parent.library_id == library_id
+
+      errors.add(:parent, "must belong to the same library")
+    end
+
     def depth_within_limit
       return if parent.nil?
       # Skip when a cycle error is already present — depth would loop.
@@ -137,7 +148,7 @@ module CoPlan
     end
 
     def ensure_empty
-      if plans.exists?
+      if placements.exists?
         errors.add(:base, "Cannot delete a folder that contains plans — move the plans out first")
         throw :abort
       end

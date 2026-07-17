@@ -32,7 +32,7 @@
       <%= button_to publish_plan_path(@plan),
             method: :patch,
             class: "btn btn--primary btn--sm",
-            form: { data: { turbo_confirm: "Publishing makes this plan visible to everyone in the org. Continue?" } } do %>
+            form: { data: { turbo_confirm: "Publishing lists this plan for everyone in the org. Continue?" } } do %>
         Publish
       <% end %>
     <% end %>
@@ -46,6 +46,8 @@
     <% end %>
   </div>
 <% end %>
+
+<%= render partial: "coplan/plans/shelves", locals: { plan: @plan, placements: @shelf_placements, my_folders: @my_folders } %>
 
 <% active_tab = %w[references attachments history].include?(params[:tab]) ? params[:tab] : "content" %>
 <div class="plan-tabs" data-controller="coplan--tabs">

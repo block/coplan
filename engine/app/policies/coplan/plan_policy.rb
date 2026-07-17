@@ -1,11 +1,19 @@
 module CoPlan
   class PlanPolicy < ApplicationPolicy
-    # THE visibility predicate. Every surface that shows a plan — lists,
-    # feeds, search, folder contents, library placements, profile pages —
-    # must answer through here (or the mirrored Plan.visible_to scope for
-    # set-based queries). Never test `visibility`/`archived_at` inline in
-    # controllers or views.
+    # Drafts are unlisted, not locked: anyone who has the URL may read the
+    # plan (share a link to get early feedback). What "draft" withholds is
+    # discovery — lists, feeds, search, counts, shelves — which is decided
+    # by `listed?` / Plan.visible_to, never here.
     def show?
+      true
+    end
+
+    # THE discovery predicate, mirroring the Plan.visible_to scope. Every
+    # surface that *surfaces* a plan — lists, feeds, search, folder
+    # contents, library placements, profile pages — must answer through
+    # here (or the scope for set-based queries). Never test
+    # `visibility`/`archived_at` inline in controllers or views.
+    def listed?
       record.published? || record.created_by_user_id == user&.id
     end
 

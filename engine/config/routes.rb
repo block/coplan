@@ -35,6 +35,11 @@ CoPlan::Engine.routes.draw do
   # through the API or admin for now.
   resources :folders, only: [:create]
 
+  # Read-only library browsing (folder-jump discovery). "library" without
+  # an id is the signed-in user's own — handy for nav links.
+  resources :libraries, only: [:show]
+  get "library", to: "libraries#mine", as: :my_library
+
   namespace :api do
     namespace :v1 do
       resources :tags, only: [:index]

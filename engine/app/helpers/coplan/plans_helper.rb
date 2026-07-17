@@ -7,7 +7,7 @@ module CoPlan
     # broadcast partials (derives from the plan alone, no current_user).
     def plan_state_badge(plan)
       badges = []
-      badges << content_tag(:span, "Draft", class: "badge badge--draft", title: "Private draft — only the author can see it") if plan.draft?
+      badges << content_tag(:span, "Draft", class: "badge badge--draft", title: "Unlisted draft — anyone with the link can read it, but it stays out of lists and search") if plan.draft?
       badges << content_tag(:span, "Archived", class: "badge badge--archived", title: "Hidden from lists unless filtered for") if plan.archived?
       return "".html_safe if badges.empty?
 

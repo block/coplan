@@ -48,11 +48,11 @@ RSpec.describe "Analytics instrumentation", type: :request do
   end
 
   describe "plan_published" do
-    it "tracks plan_published when status crosses to considering" do
-      plan = create(:plan, :brainstorm, created_by_user: user)
+    it "tracks plan_published when a draft is published from the web" do
+      plan = create(:plan, :draft, created_by_user: user)
 
       events = capture_analytics_events do
-        patch update_status_plan_path(plan), params: { status: "considering" }
+        patch publish_plan_path(plan)
       end
 
       published = events.select { |name, _| name == "plan_published" }
@@ -61,38 +61,40 @@ RSpec.describe "Analytics instrumentation", type: :request do
       expect(payload[:user_id]).to eq(user.id)
       expect(payload[:properties]).to include(
         plan_id: plan.id,
-        previous_status: "brainstorm"
+        via: "web"
       )
     end
 
-    it "does not track plan_published when status changes between non-considering states" do
-      plan = create(:plan, :brainstorm, created_by_user: user)
+    it "does not track plan_published when archiving" do
+      plan = create(:plan, :draft, created_by_user: user)
 
       events = capture_analytics_events do
-        patch update_status_plan_path(plan), params: { status: "abandoned" }
+        patch archive_plan_path(plan)
       end
 
       expect(events.select { |name, _| name == "plan_published" }).to be_empty
     end
 
-    it "does not track plan_published when re-saving status considering" do
+    it "does not track plan_published when re-saving an already published plan via the API" do
       plan = create(:plan, :considering, created_by_user: user)
+      create(:api_token, user: user, raw_token: "publish-token")
 
       events = capture_analytics_events do
-        patch update_status_plan_path(plan), params: { status: "considering" }
+        patch api_v1_plan_path(plan),
+          params: { visibility: "published" }.to_json,
+          headers: { "Authorization" => "Bearer publish-token", "Content-Type" => "application/json" }
       end
 
       expect(events.select { |name, _| name == "plan_published" }).to be_empty
     end
 
     it "tracks plan_published when the API publishes a plan" do
-      plan = create(:plan, :brainstorm, created_by_user: user)
-      token = create(:api_token, user: user, raw_token: "publish-token")
-      token # ensure persisted
+      plan = create(:plan, :draft, created_by_user: user)
+      create(:api_token, user: user, raw_token: "publish-token")
 
       events = capture_analytics_events do
         patch api_v1_plan_path(plan),
-          params: { status: "considering" }.to_json,
+          params: { visibility: "published" }.to_json,
           headers: { "Authorization" => "Bearer publish-token", "Content-Type" => "application/json" }
       end
 
@@ -102,7 +104,6 @@ RSpec.describe "Analytics instrumentation", type: :request do
       expect(payload[:user_id]).to eq(user.id)
       expect(payload[:properties]).to include(
         plan_id: plan.id,
-        previous_status: "brainstorm",
         via: "api"
       )
     end

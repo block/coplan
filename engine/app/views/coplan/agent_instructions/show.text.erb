@@ -116,20 +116,20 @@ Tags categorize plans for discovery. Use them to help people find related plans.
 - Update tags via `PATCH /api/v1/plans/:id` with `{"tags": ["tag-1", "tag-2"]}`.
 - Good tags describe the *domain* or *concern* (e.g., `security`, `onboarding`), not the status or team.
 
-### Folders
+### Libraries &amp; Folders
 
-Folders are shared, hierarchical **locations** for plans (max 3 levels deep). Each plan lives in at most one folder — think team folders with project subfolders. Tags remain the cross-cutting labels; use folders for "where does this plan live?" and tags for "what is it about?".
+Every user has a personal **library**: a private-to-write, public-to-browse folder tree (max 3 levels deep). Folders are shelves in *your* library — filing a plan is a **placement** on your shelf, not a property of the plan, so the same plan can sit in many people's libraries at once. You can shelve anyone's published plan, not just your own. Tags remain the cross-cutting labels; use folders for "where do I keep this?" and tags for "what is it about?".
 
-**List folders:**
+**List folders** (defaults to your library; pass `?library_id=` to browse someone else's read-only):
 
 ```bash
 <%= @curl %> \
   "<%= @base %>/api/v1/folders" | jq .
 ```
 
-Each folder includes `id`, `name`, `parent_id`, `path` (e.g. `"Team EBT/Q3"`), and `plans_count`.
+Each folder includes `id`, `name`, `library_id`, `parent_id`, `path` (e.g. `"Team EBT/Q3"`), and `plans_count` (only plans you can see).
 
-**Create a folder:**
+**Create a folder** (always in your own library):
 
 ```bash
 <%= @curl %> -X POST \
@@ -138,9 +138,9 @@ Each folder includes `id`, `name`, `parent_id`, `path` (e.g. `"Team EBT/Q3"`), a
   "<%= @base %>/api/v1/folders" | jq .
 ```
 
-`parent_id` is optional — omit it for a top-level folder. Rename with `PATCH /api/v1/folders/:id` (`{"name": "..."}`); delete with `DELETE /api/v1/folders/:id` (only empty folders can be deleted, and only by their creator or an admin).
+`parent_id` is optional — omit it for a top-level folder. Rename with `PATCH /api/v1/folders/:id` (`{"name": "..."}`); delete with `DELETE /api/v1/folders/:id` (only empty folders, only in your own library).
 
-**Move a plan into a folder** (plan author only):
+**Shelve a plan in a folder:**
 
 ```bash
 <%= @curl %> -X PATCH \
@@ -149,14 +149,15 @@ Each folder includes `id`, `name`, `parent_id`, `path` (e.g. `"Team EBT/Q3"`), a
   "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
 ```
 
-- `folder_path` finds or creates the whole hierarchy — the easiest way to organize plans.
-- Alternatively pass `folder_id` with an existing folder's ID.
-- Pass an empty `folder_id` (`{"folder_id": ""}`) to move a plan out of its folder.
+- `folder_path` finds or creates the whole hierarchy in your library — the easiest way to organize.
+- Alternatively pass `folder_id` with an existing folder's ID from your library.
+- Pass an empty `folder_id` (`{"folder_id": ""}`) to take a plan off your shelf.
+- `folder_id`/`folder_path` in plan responses are **yours**: where *you* shelved that plan, `null` if you haven't.
 
 **Guidelines:**
 - Check `GET /api/v1/folders` before creating new folders — reuse the existing structure.
 - Folder names read like places (`Team EBT`, `Infra`, `Q3 Launch`), not labels.
-- You can offer to organize a user's plans: list their plans, propose a folder structure, and move plans with `folder_path` once they agree.
+- You can offer to organize a user's library: list their plans, propose a folder structure, and shelve plans with `folder_path` once they agree.
 
 ### Visibility & Archiving
 
@@ -164,12 +165,12 @@ Plans have two orthogonal state fields — there is no multi-step lifecycle to m
 
 | Field | Values | Meaning |
 |-------|--------|---------|
-| `visibility` | `draft` / `published` | Drafts are private to the author. Published plans are visible to the whole org. |
+| `visibility` | `draft` / `published` | Drafts are **unlisted, not locked**: anyone with the plan's URL/id can read it, but it never appears in anyone else's lists, search, or shelves. Published plans are listed for the whole org. |
 | `archived` | `true` / `false` | Archived plans stay readable at their URL but disappear from lists and search unless explicitly filtered for. |
 
 Rules that matter for agents:
 
-- **New plans are published (org-visible) from the moment they're created.** Sharing is the default. Pass `"visibility": "draft"` on create only when the user explicitly wants a private draft; publish a draft later with `PATCH {"visibility": "published"}`. Publishing is one-way (a published plan cannot return to draft; archive it instead).
+- **New plans are published (org-listed) from the moment they're created.** Sharing is the default. Pass `"visibility": "draft"` on create only when the user explicitly wants an unlisted draft (shareable by link); publish it later with `PATCH {"visibility": "published"}`. Publishing is one-way (a published plan cannot return to draft; archive it instead).
 - Archive (`{"archived": true}`) anything that is dead, superseded, or was created by mistake — including your own duplicates. Unarchive with `{"archived": false}`.
 - **Never create a new plan to "replace" one you can edit.** Plans have full version history; edit the existing plan (see Editing Plans). If a plan genuinely supersedes another, add a reference between them and archive the old one.
 - If a plan has a real rollout lifecycle worth tracking, use tags (e.g. `developing`, `live`) — status fields for that no longer exist.

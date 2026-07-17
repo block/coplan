@@ -11,7 +11,7 @@ RSpec.describe CoPlan::Plans::Create do
 
     expect(plan).to be_persisted
     expect(plan.title).to eq("New Plan")
-    expect(plan.status).to eq("brainstorm")
+    expect(plan.visibility).to eq("published")
     expect(plan.created_by_user).to eq(user)
     expect(plan.current_revision).to eq(1)
     expect(plan.plan_versions.count).to eq(1)
@@ -69,7 +69,7 @@ RSpec.describe CoPlan::Plans::Create do
     expect(payload[:user_id]).to eq(user.id)
     expect(payload[:properties]).to include(
       plan_type_id: plan_type.id,
-      status: "brainstorm",
+      visibility: "published",
       content_length: "# Tracked\n\nbody".length
     )
     expect(payload[:properties][:plan_id]).to be_present

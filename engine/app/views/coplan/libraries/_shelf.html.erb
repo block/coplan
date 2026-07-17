@@ -1,0 +1,33 @@
+<%# One folder of a browsed library: its visible plans, then subfolders.
+    Uses @folder_children / @placements_by_folder from LibrariesController.
+    Open by default — a library page is for reading the whole shelf. %>
+<% placements = @placements_by_folder[folder.id] || [] %>
+<% children = (@folder_children[folder.id] || []).sort_by { |f| f.name.downcase } %>
+
+<details class="library-shelf library-shelf--depth-<%= depth %>" open id="folder-<%= folder.id %>">
+  <summary class="library-shelf__summary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+    <span class="library-shelf__name"><%= folder.name %></span>
+    <span class="library-shelf__count text-muted"><%= placements.size %></span>
+  </summary>
+
+  <% if placements.any? %>
+    <ul class="library-shelf__plans">
+      <% placements.each do |placement| %>
+        <% plan = placement.plan %>
+        <li class="library-shelf__plan">
+          <%= link_to plan.title, plan_path(plan), class: "library-shelf__plan-title" %><%= plan_state_badge(plan) %>
+          <span class="library-shelf__plan-meta text-muted">
+            by <%= plan.created_by_user.name %> · updated <%= time_ago_in_words(plan.updated_at) %> ago
+          </span>
+        </li>
+      <% end %>
+    </ul>
+  <% elsif children.empty? %>
+    <p class="library-shelf__empty text-muted text-sm">Empty shelf.</p>
+  <% end %>
+
+  <% children.each do |child| %>
+    <%= render "coplan/libraries/shelf", folder: child, depth: depth + 1 %>
+  <% end %>
+</details>

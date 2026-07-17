@@ -12,15 +12,15 @@ RSpec.describe CoPlan::Plan, type: :model do
     expect(plan.errors[:title]).to include("can't be blank")
   end
 
-  it "validates status inclusion" do
+  it "validates visibility inclusion" do
     plan = create(:plan)
-    plan.status = "invalid"
+    plan.visibility = "invalid"
     expect(plan).not_to be_valid
   end
 
-  it "defaults status to brainstorm" do
+  it "is born published" do
     plan = CoPlan::Plan.new
-    expect(plan.status).to eq("brainstorm")
+    expect(plan.visibility).to eq("published")
   end
 
   it "returns current content from version" do

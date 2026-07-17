@@ -12,7 +12,7 @@ RSpec.describe "Folders workspace", type: :system do
   let!(:brainstorm_plan) { create(:plan, :brainstorm, created_by_user: author, title: "Secret Idea") }
   let!(:foldered_plan) do
     plan = create(:plan, :considering, created_by_user: author, title: "Q3 Launch Plan")
-    plan.update!(folder: q3)
+    CoPlan::Plans::Place.call(plan: plan, folder: q3, actor: author)
     plan
   end
 
@@ -102,7 +102,7 @@ RSpec.describe "Folders workspace", type: :system do
       end
 
       expect(page).to have_css(".flash--notice", text: "Infra", wait: 5)
-      expect(developing_plan.reload.folder).to eq(infra)
+      expect(author.library.placements.find_by(plan_id: developing_plan.id).folder).to eq(infra)
 
       # The row now shows its folder breadcrumb after the refresh.
       expect(page).to have_css(".plan-row[data-plan-id='#{developing_plan.id}'] .plan-row__folder", text: "Infra")
@@ -118,16 +118,16 @@ RSpec.describe "Folders workspace", type: :system do
       end
 
       expect(page).to have_css(".flash--notice", text: "Team EBT/Q3")
-      expect(developing_plan.reload.folder).to eq(q3)
+      expect(author.library.placements.find_by(plan_id: developing_plan.id).folder).to eq(q3)
     end
 
-    it "does not offer move controls on other users' plans" do
+    it "offers move controls on other users' plans too (shelving)" do
       other_plan = create(:plan, :considering, created_by_user: other, title: "Someone Elses Plan")
       visit plans_path(scope: "all")
 
       row = find(".plan-row[data-plan-id='#{other_plan.id}']")
-      expect(row["draggable"]).not_to eq("true")
-      expect(row).to have_no_css(".plan-row__menu")
+      expect(row["draggable"]).to eq("true")
+      expect(row).to have_css(".plan-row__menu", visible: :all)
     end
   end
 end

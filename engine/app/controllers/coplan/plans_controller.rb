@@ -8,7 +8,7 @@ module CoPlan
     DEFAULT_SCOPE = "mine".freeze
 
     # Display order for the main-pane groups: published work first, then the
-    # viewer's private drafts. Archived plans are opt-in (?filter=archived)
+    # viewer's unlisted drafts. Archived plans are opt-in (?filter=archived)
     # and never render as a default group.
     GROUP_ORDER = %w[published draft].freeze
     FILTERS = %w[published draft archived].freeze
@@ -37,13 +37,17 @@ module CoPlan
         end
       end
 
-      plans = scoped_plans_base.includes(:plan_type, :tags, :created_by_user, :current_plan_version, :folder)
+      plans = scoped_plans_base.includes(:plan_type, :tags, :created_by_user, :current_plan_version)
 
       plans = plans.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?
       plans = plans.with_tag(params[:tag]) if params[:tag].present?
       # A folder filter includes its subfolders — clicking "Team EBT" shows
-      # everything under it.
-      plans = plans.where(folder_id: folder_subtree_ids(@folder)) if @folder
+      # everything under it. Folder ids come from the viewer's own library
+      # tree, so the placement join is already library-scoped.
+      if @folder
+        plans = plans.joins(:placements)
+          .where(coplan_plan_placements: { folder_id: folder_subtree_ids(@folder) })
+      end
       # Stale frame fetch for a since-deleted folder: render an empty page.
       plans = plans.none if params[:folder].present? && @folder.nil?
 
@@ -99,13 +103,13 @@ module CoPlan
     end
 
     # Web endpoint behind the sidebar drag-and-drop and the row-menu
-    # "Move to folder" fallback. Author-only (PlanPolicy#update?).
+    # "Move to folder" fallback. Shelves the plan in the current user's own
+    # library — any visible plan can be shelved, not just your own
+    # (Plans::Place enforces both sides).
     def move_to_folder
-      authorize!(@plan, :update?)
-
       folder = nil
       if params[:folder_id].present?
-        folder = Folder.find_by(id: params[:folder_id])
+        folder = current_user.library.folders.find_by(id: params[:folder_id])
         unless folder
           respond_to do |format|
             format.json { render json: { error: "Unknown folder" }, status: :unprocessable_content }
@@ -115,27 +119,37 @@ module CoPlan
         end
       end
 
-      if @plan.folder_id != folder&.id
-        old_path = @plan.folder&.path
-        @plan.update!(folder: folder)
-        Plans::LogEvent.call(
-          plan: @plan,
-          actor: current_user,
-          event_type: "moved_to_folder",
-          before: old_path,
-          after: folder&.path
-        )
+      result = Plans::Place.call(plan: @plan, folder: folder, actor: current_user)
+      unless result.success?
+        respond_to do |format|
+          format.json { render json: { error: result.error }, status: :unprocessable_content }
+          format.html { redirect_back fallback_location: plans_path, alert: result.error }
+        end
+        return
       end
 
       notice = folder ? "Moved “#{@plan.title}” to #{folder.path}." : "Removed “#{@plan.title}” from its folder."
       respond_to do |format|
-        format.json { render json: { folder_id: @plan.folder_id, folder_path: @plan.folder&.path, message: notice } }
+        format.json do
+          render json: {
+            folder_id: result.placement&.folder_id,
+            folder_path: result.placement&.folder&.path,
+            message: notice
+          }
+        end
         format.html { redirect_back fallback_location: plans_path, notice: notice }
       end
     end
 
     def show
       authorize!(@plan, :show?)
+      # Folder-jump discovery: every shelf this plan sits on. The plan
+      # itself is already authorized above, and placements inherit the
+      # plan's visibility — a shelf never reveals more than the plan does.
+      @shelf_placements = @plan.placements
+        .includes(:library, folder: { parent: :parent })
+        .sort_by { |p| p.created_at }
+      @my_folders = current_user.library.folders.order(:name).to_a
       @threads = @plan.comment_threads.with_kept_comments.includes(:comments, :created_by_user).order(:created_at)
       @references = @plan.references.order(reference_type: :asc, created_at: :desc)
       @attachments = @plan.attachments_attachments.includes(:blob).order(created_at: :desc)
@@ -384,17 +398,23 @@ module CoPlan
     # always match what clicking through shows.
     def scoped_plans_base
       if @scope == "mine"
-        Plan.where(created_by_user: current_user)
+        # The workspace is your plans *and* your placements — a plan you
+        # shelved from someone else belongs on your operating surface too.
+        base = Plan.visible_to(current_user)
+        base.where(created_by_user_id: current_user.id)
+          .or(base.where(id: current_user.library.placements.select(:plan_id)))
       else
-        # Brainstorm plans are private drafts — never show other users'.
+        # Draft plans are private — never show other users'.
         Plan.visible_to(current_user)
       end
     end
 
-    # One query for the whole folder tree; everything else (children map,
-    # subtree ids, expanded state, aggregate counts) is derived in memory.
+    # One query for the viewer's whole library tree; everything else
+    # (children map, subtree ids, expanded state, aggregate counts) is
+    # derived in memory.
     def load_folder_tree
-      @folders = Folder.order(:name).to_a
+      @library = current_user.library
+      @folders = @library.folders.order(:name).to_a
       @folders_by_id = @folders.index_by(&:id)
       @folder_children = @folders.group_by(&:parent_id)
       @root_folders = @folder_children[nil] || []
@@ -416,14 +436,15 @@ module CoPlan
     # Sidebar data: the folder tree with per-folder plan counts, and the
     # most-used tags. Counts and tag usage use the same base relation as
     # the main pane (scoped_plans_base) so they match what clicking shows —
-    # which also means other users' private draft plans never leak
+    # which also means other users’ unlisted drafts never surface
     # through folder counts or tag lists (Plan.visible_to).
     def load_workspace_sidebar
       # Archived plans are hidden from default lists, so they're excluded
       # from folder/tag counts too — counts always match what clicking shows.
       direct_counts = scoped_plans_base.active
-        .where.not(folder_id: nil)
-        .group(:folder_id)
+        .joins(:placements)
+        .where(coplan_plan_placements: { library_id: @library.id })
+        .group("coplan_plan_placements.folder_id")
         .count
       # Displayed counts include subfolders, matching what clicking the
       # folder shows.

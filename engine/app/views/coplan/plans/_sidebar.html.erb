@@ -1,6 +1,9 @@
 <aside class="workspace__sidebar" aria-label="Plan filters">
   <div class="sidebar__section">
-    <h3 class="sidebar__heading">Folders</h3>
+    <h3 class="sidebar__heading">Folders
+      <%# Same tree, but as the shareable read-only page others see. %>
+      <%= link_to "View library →", my_library_path, class: "sidebar__heading-link", data: { turbo_frame: "_top" } %>
+    </h3>
     <ul class="folder-tree">
       <li class="folder-tree__node">
         <%= link_to plans_path(params.permit(:scope, :filter, :plan_type, :tag)),

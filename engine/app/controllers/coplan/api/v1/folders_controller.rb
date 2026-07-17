@@ -4,30 +4,44 @@ module CoPlan
       class FoldersController < BaseController
         before_action :set_folder, only: [ :update, :destroy ]
 
+        # Defaults to the caller's own library; pass library_id to browse
+        # another library's tree read-only (counts stay viewer-filtered).
         def index
-          folders = Folder.order(:name).to_a
+          library = if params[:library_id].present?
+            Library.find_by(id: params[:library_id])
+          else
+            current_user.library
+          end
+          return render json: { error: "Library not found" }, status: :not_found unless library
+
+          folders = library.folders.order(:name).to_a
           paths = Folder.paths_by_id(folders)
 
           # Visible-plan counts only — never leak the existence of other
-          # users' private draft plans through folder counts.
-          counts = Plan.visible_to(current_user)
-            .where.not(folder_id: nil)
+          # users' unlisted drafts through folder counts.
+          counts = PlanPlacement.where(library_id: library.id)
+            .visible_to(current_user)
             .group(:folder_id)
             .count
 
           render json: folders.map { |f| folder_json(f, paths: paths, counts: counts) }
         end
 
+        # Always creates in the caller's own library — you can't write to
+        # someone else's shelf.
         def create
+          library = current_user.library
+
           parent = nil
           if params[:parent_id].present?
-            parent = Folder.find_by(id: params[:parent_id])
+            parent = library.folders.find_by(id: params[:parent_id])
             return render json: { error: "Unknown parent_id" }, status: :unprocessable_content unless parent
           end
 
           folder = Folder.create!(
             name: params[:name],
             parent: parent,
+            library: library,
             created_by_user: current_user
           )
           render json: folder_json(folder), status: :created
@@ -45,7 +59,7 @@ module CoPlan
           attrs[:name] = params[:name] if params.key?(:name)
           if params.key?(:parent_id)
             if params[:parent_id].present?
-              parent = Folder.find_by(id: params[:parent_id])
+              parent = @folder.library.folders.find_by(id: params[:parent_id])
               return render json: { error: "Unknown parent_id" }, status: :unprocessable_content unless parent
               attrs[:parent] = parent
             else
@@ -81,14 +95,15 @@ module CoPlan
 
         # `paths` and `counts` let index serialize the whole tree without
         # per-folder queries. `plans_count` is the folder's own visible
-        # plans (not including subfolders).
+        # placements (not including subfolders).
         def folder_json(folder, paths: nil, counts: nil)
           {
             id: folder.id,
             name: folder.name,
+            library_id: folder.library_id,
             parent_id: folder.parent_id,
             path: paths ? paths[folder.id] : folder.path,
-            plans_count: counts ? counts.fetch(folder.id, 0) : folder.plans.visible_to(current_user).count,
+            plans_count: counts ? counts.fetch(folder.id, 0) : folder.placements.visible_to(current_user).count,
             created_by: folder.created_by_user&.name,
             created_at: folder.created_at,
             updated_at: folder.updated_at

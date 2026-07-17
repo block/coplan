@@ -598,6 +598,7 @@ img, svg {
 
 .avatar--sm { width: 1.5rem; height: 1.5rem; font-size: 0.6rem; }
 .avatar--md { width: 2rem; height: 2rem; font-size: 0.7rem; }
+.avatar--lg { width: 3rem; height: 3rem; font-size: 1rem; }
 
 .avatar--initials {
   background: var(--color-primary);
@@ -3191,6 +3192,165 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   opacity: 0.65;
 }
 
+/* Folder-jump strip on the plan page: which library shelves hold this
+   plan, plus the "add to your library" quick control. */
+.plan-shelves {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+  margin-bottom: var(--space-md);
+  font-size: var(--text-sm);
+}
+
+.plan-shelves__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.plan-shelves__shelf {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: var(--text-xs);
+}
+
+.plan-shelves__shelf:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.plan-shelves__none {
+  font-size: var(--text-xs);
+}
+
+.plan-shelves__add-select {
+  font-size: var(--text-xs);
+  padding: 2px 6px;
+  border: 1px dashed var(--color-border);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  max-width: 200px;
+}
+
+/* Library browsing page (read-only shelves) */
+.library {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+.library__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.library__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.library__title {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.library__subtitle {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+}
+
+.library__empty {
+  padding: var(--space-xl) 0;
+  text-align: center;
+}
+
+.library-shelf {
+  margin-bottom: var(--space-sm);
+}
+
+.library-shelf .library-shelf {
+  margin-left: var(--space-lg);
+  margin-bottom: 0;
+  margin-top: var(--space-xs);
+}
+
+.library-shelf__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.library-shelf__summary::-webkit-details-marker {
+  display: none;
+}
+
+.library-shelf__summary:hover {
+  background: var(--color-surface-hover);
+}
+
+.library-shelf__count {
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+.library-shelf__plans {
+  list-style: none;
+  margin: 0 0 var(--space-xs);
+  padding: 0 0 0 calc(var(--space-lg) + 2px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.library-shelf__plan {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  padding: 2px 0;
+}
+
+.library-shelf__plan-title {
+  text-decoration: none;
+  color: var(--color-text);
+}
+
+.library-shelf__plan-title:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.library-shelf__plan-meta {
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-shelf__empty {
+  margin: 0 0 var(--space-xs);
+  padding-left: calc(var(--space-lg) + 2px);
+}
+
 .plan-actions__hint {
   display: block;
   font-size: var(--text-xs);
@@ -3336,6 +3496,19 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
+}
+
+.sidebar__heading-link {
+  float: right;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.sidebar__heading-link:hover {
+  color: var(--color-primary);
 }
 
 .sidebar__list {

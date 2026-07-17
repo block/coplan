@@ -18,6 +18,13 @@ module CoPlan
     after_initialize { self.metadata ||= {} }
     after_initialize { self.notification_preferences ||= {} }
 
+    # Every user always has a library — it's an invariant, materialized on
+    # first touch. Never read the association directly; this accessor is
+    # what guarantees "user without a library" isn't a state that exists.
+    def library
+      @library ||= Library.for(self)
+    end
+
     def self.ransackable_attributes(auth_object = nil)
       %w[id external_id name username email admin avatar_url title team created_at updated_at]
     end

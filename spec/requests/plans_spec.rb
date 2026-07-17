@@ -181,31 +181,29 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include(bobs_plan.title)
     end
 
-    it "groups plans into collapsible status groups, active work first" do
-      create(:plan, :developing,  created_by_user: alice, title: "Developing Plan")
-      create(:plan, :considering, created_by_user: alice, title: "Considering Plan")
-      create(:plan, :brainstorm,  created_by_user: alice, title: "Brainstorm Plan")
+    it "groups plans into collapsible visibility groups, published work first" do
+      create(:plan, :published, created_by_user: alice, title: "Published Plan")
+      create(:plan, :draft,     created_by_user: alice, title: "Draft Plan")
       get plans_path
       expect(response.body).to include("plan-group")
-      expect(response.body.index("Developing Plan")).to be < response.body.index("Considering Plan")
-      expect(response.body.index("Considering Plan")).to be < response.body.index("Brainstorm Plan")
+      expect(response.body.index("Published Plan")).to be < response.body.index("Draft Plan")
     end
 
-    it "marks the brainstorm group as collapsed by default" do
-      create(:plan, :brainstorm, created_by_user: alice)
-      create(:plan, :developing, created_by_user: alice)
+    it "marks the draft group as collapsed by default" do
+      create(:plan, :draft, created_by_user: alice)
+      create(:plan, :published, created_by_user: alice)
       get plans_path
-      brainstorm_group = response.body[/<section class="plan-group"[^>]*data-group-key="brainstorm"[^>]*>/]
-      developing_group = response.body[/<section class="plan-group"[^>]*data-group-key="developing"[^>]*>/]
-      expect(brainstorm_group).to include("data-default-collapsed")
-      expect(developing_group).not_to include("data-default-collapsed")
+      draft_group = response.body[/<section class="plan-group"[^>]*data-group-key="draft"[^>]*>/]
+      published_group = response.body[/<section class="plan-group"[^>]*data-group-key="published"[^>]*>/]
+      expect(draft_group).to include("data-default-collapsed")
+      expect(published_group).not_to include("data-default-collapsed")
     end
 
-    it "omits status groups with no plans" do
-      create(:plan, :developing, created_by_user: alice)
+    it "omits groups with no plans" do
+      create(:plan, :published, created_by_user: alice)
       get plans_path
-      expect(response.body).to include('data-group-key="developing"')
-      expect(response.body).not_to include('data-group-key="abandoned"')
+      expect(response.body).to include('data-group-key="published"')
+      expect(response.body).not_to include('data-group-key="draft"')
     end
 
     # COPLAN-32 successor: every status gets its own group with its own
@@ -220,24 +218,24 @@ RSpec.describe "Plans", type: :request do
     end
 
     it "paginates within a group via a group-scoped lazy frame" do
-      create_list(:plan, CoPlan::PlansController::PER_PAGE + 2, :developing, created_by_user: alice)
+      create_list(:plan, CoPlan::PlansController::PER_PAGE + 2, :published, created_by_user: alice)
       get plans_path
-      expect(response.body).to include('id="plans-developing-page-2"')
-      expect(response.body).to include("group=developing")
+      expect(response.body).to include('id="plans-published-page-2"')
+      expect(response.body).to include("group=published")
     end
 
-    it "renders a flat list when filtered to a single status" do
-      create(:plan, :developing, created_by_user: alice, title: "Developing Plan")
-      get plans_path(status: "developing")
+    it "renders a flat list when filtered to a single group" do
+      create(:plan, :published, created_by_user: alice, title: "Published Plan")
+      get plans_path(filter: "published")
       expect(response.body).not_to include("plan-group__toggle")
-      expect(response.body).to include("Developing Plan")
+      expect(response.body).to include("Published Plan")
     end
 
-    it "scope=all groups everyone's visible plans by status" do
-      create(:plan, :developing, created_by_user: bob, title: "Bobs Developing Plan")
+    it "scope=all groups everyone's visible plans" do
+      create(:plan, :published, created_by_user: bob, title: "Bobs Published Plan")
       get plans_path(scope: "all")
-      expect(response.body).to include('data-group-key="developing"')
-      expect(response.body).to include("Bobs Developing Plan")
+      expect(response.body).to include('data-group-key="published"')
+      expect(response.body).to include("Bobs Published Plan")
     end
   end
 
@@ -303,8 +301,8 @@ RSpec.describe "Plans", type: :request do
     let!(:loose_plan) { create(:plan, :considering, created_by_user: alice, title: "Unfiled Plan") }
 
     before do
-      root_plan.update!(folder: root)
-      sub_plan.update!(folder: sub)
+      CoPlan::Plans::Place.call(plan: root_plan, folder: root, actor: alice)
+      CoPlan::Plans::Place.call(plan: sub_plan, folder: sub, actor: alice)
     end
 
     it "filters to a folder including its subfolders" do
@@ -330,17 +328,14 @@ RSpec.describe "Plans", type: :request do
       root_plan.tag_names = [ "infra" ]
       sub_plan.tag_names = [ "frontend" ]
       bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Foldered Plan")
-      bobs_plan.update!(folder: root)
+      # Alice shelves Bob's plan in her own folder — it joins her workspace.
+      CoPlan::Plans::Place.call(plan: bobs_plan, folder: root, actor: alice)
       bobs_plan.tag_names = [ "infra" ]
 
       get plans_path(folder: root.id, tag: "infra", scope: "all")
       expect(response.body).to include("Root Level Plan")
       expect(response.body).to include("Bobs Foldered Plan")
       expect(response.body).not_to include("Subfolder Plan")
-
-      get plans_path(folder: root.id, tag: "infra", scope: "mine")
-      expect(response.body).to include("Root Level Plan")
-      expect(response.body).not_to include("Bobs Foldered Plan")
     end
 
     it "renders a folder-specific empty state" do
@@ -371,43 +366,43 @@ RSpec.describe "Plans", type: :request do
   describe "sidebar" do
     it "renders the folder tree with visible-plan counts" do
       folder = create(:folder, name: "Infra", created_by_user: alice)
-      create(:plan, :considering, created_by_user: alice).update!(folder: folder)
+      CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: folder, actor: alice)
       get plans_path
       expect(response.body).to include("folder-tree")
       expect(response.body).to include("Infra")
     end
 
-    it "does not count other users' brainstorm plans in folder counts" do
+    it "shows only the viewer's own library in the sidebar" do
       folder = create(:folder, name: "Secret Stash", created_by_user: bob)
-      create(:plan, :brainstorm, created_by_user: bob).update!(folder: folder)
+      CoPlan::Plans::Place.call(plan: create(:plan, :draft, created_by_user: bob), folder: folder, actor: bob)
 
       sign_in_as(alice)
       get plans_path(scope: "all")
-      # The folder shows with a zero count — its only plan is Bob's private brainstorm.
-      expect(response.body).to match(%r{Secret Stash</span>\s*<span class="sidebar__count">0</span>})
+      # Bob's folders are his library, not part of alice's workspace sidebar.
+      expect(response.body).not_to include("Secret Stash")
 
       sign_in_as(bob)
       get plans_path(scope: "all")
       expect(response.body).to match(%r{Secret Stash</span>\s*<span class="sidebar__count">1</span>})
     end
 
-    it "scopes folder counts to the active workspace scope" do
-      folder = create(:folder, name: "Bobs Corner", created_by_user: bob)
-      create(:plan, :considering, created_by_user: bob).update!(folder: folder)
+    it "counts shelved plans in the viewer's workspace, whoever wrote them" do
+      folder = create(:folder, name: "My Corner", created_by_user: alice)
+      CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: bob), folder: folder, actor: alice)
 
-      # My plans: the folder holds none of alice's plans, so it counts 0 —
-      # matching the empty list clicking it would show.
+      # A placement makes the plan part of alice's workspace even in the
+      # default "mine" scope — the shelf is hers.
       get plans_path
-      expect(response.body).to match(%r{Bobs Corner</span>\s*<span class="sidebar__count">0</span>})
+      expect(response.body).to match(%r{My Corner</span>\s*<span class="sidebar__count">1</span>})
 
       get plans_path(scope: "all")
-      expect(response.body).to match(%r{Bobs Corner</span>\s*<span class="sidebar__count">1</span>})
+      expect(response.body).to match(%r{My Corner</span>\s*<span class="sidebar__count">1</span>})
     end
 
     it "includes subfolder plans in parent folder counts" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       sub = create(:folder, name: "Q3", parent: root, created_by_user: alice)
-      create(:plan, :considering, created_by_user: alice).update!(folder: sub)
+      CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: sub, actor: alice)
       get plans_path
       expect(response.body).to match(%r{Team EBT</span>\s*<span class="sidebar__count">1</span>})
     end
@@ -456,15 +451,19 @@ RSpec.describe "Plans", type: :request do
   end
 
   describe "PATCH /plans/:id/move_to_folder" do
-    let(:folder) { create(:folder, name: "Infra", created_by_user: bob) }
+    let(:folder) { create(:folder, name: "Infra", created_by_user: alice) }
 
-    it "moves the author's plan and logs an event" do
+    def alice_placement
+      alice.library.placements.find_by(plan_id: plan.id)
+    end
+
+    it "shelves the author's plan and logs an event" do
       expect {
         patch move_to_folder_plan_path(plan), params: { folder_id: folder.id }
       }.to change(CoPlan::PlanEvent, :count).by(1)
       expect(response).to redirect_to(plans_path)
       expect(flash[:notice]).to include("Infra")
-      expect(plan.reload.folder).to eq(folder)
+      expect(alice_placement.folder).to eq(folder)
 
       event = CoPlan::PlanEvent.order(:created_at).last
       expect(event.event_type).to eq("moved_to_folder")
@@ -482,17 +481,32 @@ RSpec.describe "Plans", type: :request do
       expect(body["message"]).to include("Infra")
     end
 
-    it "clears the folder with a blank folder_id" do
-      plan.update!(folder: folder)
+    it "unfiles with a blank folder_id" do
+      CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
       patch move_to_folder_plan_path(plan), params: { folder_id: "" }
-      expect(plan.reload.folder).to be_nil
+      expect(alice_placement).to be_nil
     end
 
-    it "denies non-authors" do
+    it "lets a non-author shelve a published plan in their own library" do
+      bobs_folder = create(:folder, name: "Bobs Shelf", created_by_user: bob)
       sign_in_as(bob)
-      patch move_to_folder_plan_path(plan), params: { folder_id: folder.id }
-      expect(response).to have_http_status(:not_found)
-      expect(plan.reload.folder).to be_nil
+
+      expect {
+        patch move_to_folder_plan_path(plan), params: { folder_id: bobs_folder.id }
+      }.not_to change(CoPlan::PlanEvent, :count) # curating someone else's shelf isn't a plan event
+
+      placement = bob.library.placements.find_by(plan_id: plan.id)
+      expect(placement.folder).to eq(bobs_folder)
+      # Alice's own library is untouched.
+      expect(alice_placement).to be_nil
+    end
+
+    it "rejects shelving into someone else's folder" do
+      bobs_folder = create(:folder, name: "Bobs Shelf", created_by_user: bob)
+      patch move_to_folder_plan_path(plan), params: { folder_id: bobs_folder.id }
+      # Not in alice's library, so it reads as unknown.
+      expect(flash[:alert]).to include("Unknown folder")
+      expect(alice_placement).to be_nil
     end
 
     it "rejects an unknown folder" do
@@ -503,21 +517,22 @@ RSpec.describe "Plans", type: :request do
     end
 
     it "does not log an event for a no-op move" do
-      plan.update!(folder: folder)
+      CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
       expect {
         patch move_to_folder_plan_path(plan), params: { folder_id: folder.id }
       }.not_to change(CoPlan::PlanEvent, :count)
     end
 
-    it "only renders drag handles and move menus for the author's rows" do
+    it "renders drag handles and move menus on every row" do
       plan # alice's plan
       bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Plan")
       get plans_path(scope: "all")
       rows = response.body.scan(/<article class="plan-row"[^>]*>/)
       alice_row = rows.find { |r| r.include?(plan.id) }
       bob_row = rows.find { |r| r.include?(bobs_plan.id) }
+      # Anyone can shelve any visible plan into their own library.
       expect(alice_row).to include('draggable="true"')
-      expect(bob_row).not_to include("draggable")
+      expect(bob_row).to include('draggable="true"')
     end
   end
 
@@ -531,13 +546,13 @@ RSpec.describe "Plans", type: :request do
     end
 
     it "creates a nested folder" do
-      parent = create(:folder, name: "Team EBT")
+      parent = create(:folder, name: "Team EBT", created_by_user: alice)
       post folders_path, params: { folder: { name: "Q3", parent_id: parent.id } }
       expect(CoPlan::Folder.find_by(name: "Q3").parent).to eq(parent)
     end
 
     it "surfaces validation errors via flash" do
-      create(:folder, name: "Team EBT")
+      create(:folder, name: "Team EBT", created_by_user: alice)
       post folders_path, params: { folder: { name: "Team EBT" } }
       expect(flash[:alert]).to include("Couldn't create folder")
     end

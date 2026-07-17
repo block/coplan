@@ -22,7 +22,8 @@ module CoPlan
     belongs_to :created_by_user, class_name: "CoPlan::User"
     belongs_to :current_plan_version, class_name: "PlanVersion", optional: true
     belongs_to :plan_type, optional: true
-    belongs_to :folder, optional: true, inverse_of: :plans
+    has_many :placements, class_name: "CoPlan::PlanPlacement", inverse_of: :plan, dependent: :destroy
+    has_many :libraries, through: :placements
     has_many :plan_versions, -> { order(revision: :asc) }, dependent: :destroy
     has_many :plan_events, dependent: :destroy
     has_many :plan_collaborators, dependent: :destroy
@@ -46,11 +47,12 @@ module CoPlan
 
     scope :with_tag, ->(name) { joins(:tags).where(coplan_tags: { name: name }) }
 
-    # Plans `user` is allowed to see: everything published plus the user's
-    # own drafts. Drafts are private — any list, count, feed, search result,
-    # or folder content shown to a user must go through this scope (or
-    # PlanPolicy#show?, which mirrors it) so private draft existence never
-    # leaks. This is THE visibility predicate: never test `visibility`
+    # Plans `user` discovers on their own: everything published plus the
+    # user's own drafts. Drafts are unlisted, not locked — direct URLs work
+    # for anyone (PlanPolicy#show?), but every list, count, feed, search
+    # result, or shelf shown to a user must go through this scope (or
+    # PlanPolicy#listed?, which mirrors it) so drafts never surface
+    # uninvited. This is THE discovery predicate: never test `visibility`
     # inline elsewhere.
     scope :visible_to, ->(user) {
       where(visibility: "published").or(where(created_by_user_id: user.id))
@@ -124,7 +126,7 @@ module CoPlan
     end
 
     def self.ransackable_attributes(auth_object = nil)
-      %w[id title visibility archived_at plan_type_id folder_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
+      %w[id title visibility archived_at plan_type_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
     end
 
     def self.ransackable_associations(auth_object = nil)

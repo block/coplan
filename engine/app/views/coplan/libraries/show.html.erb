@@ -1,0 +1,39 @@
+<% owner_name = @owner.respond_to?(:name) ? @owner.name : @library.name %>
+<% mine = @library.writable_by?(current_user) %>
+
+<div class="library">
+  <header class="library__header">
+    <div class="library__identity">
+      <% if @owner.is_a?(CoPlan::User) %>
+        <%= user_avatar(@owner, size: "lg") %>
+      <% end %>
+      <div>
+        <h1 class="library__title"><%= mine ? "Your library" : "#{owner_name}’s library" %></h1>
+        <p class="library__subtitle text-muted">
+          <%= pluralize(@plan_count, "plan") %> across <%= pluralize(@folders.size, "folder") %>
+          <% unless mine %> · curated by <%= owner_name %><% end %>
+        </p>
+      </div>
+    </div>
+    <% if mine %>
+      <%= link_to "Organize in workspace", plans_path, class: "btn btn--secondary btn--sm" %>
+    <% end %>
+  </header>
+
+  <% if @folders.empty? %>
+    <div class="library__empty">
+      <p>Nothing on these shelves yet.</p>
+      <% if mine %>
+        <p class="text-muted text-sm">Create folders in your <%= link_to "workspace", plans_path %> sidebar and drag plans onto them — yours or anyone’s published work.</p>
+      <% else %>
+        <p class="text-muted text-sm"><%= owner_name %> hasn’t organized any plans into folders yet.</p>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="library__shelves">
+      <% @root_folders.sort_by { |f| f.name.downcase }.each do |folder| %>
+        <%= render "coplan/libraries/shelf", folder: folder, depth: 1 %>
+      <% end %>
+    </div>
+  <% end %>
+</div>

@@ -7,9 +7,9 @@ module CoPlan
         include CoPlan::AttachmentsHelper
 
         before_action :set_plan, only: [ :index, :create, :destroy ]
-        # authorize_plan_access! (PlanPolicy#show?) is the single visibility
-        # gate: drafts 404 for everyone but their author, so attachment
-        # enumeration / signed blob URL minting can't leak a private draft.
+        # authorize_plan_access! (PlanPolicy#show?): attachments follow the
+        # plan — drafts are unlisted, not locked, so anyone holding the
+        # plan's URL/id can read them too.
         before_action :authorize_plan_access!, only: [ :index, :create, :destroy ]
         before_action :authorize_plan_write!, only: [ :create, :destroy ]
 

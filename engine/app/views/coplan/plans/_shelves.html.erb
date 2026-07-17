@@ -1,0 +1,32 @@
+<%# Folder-jump discovery strip: every library shelf this plan sits on,
+    plus a quick "shelve it yourself" control. Lives outside the broadcast
+    #plan-header region — it's viewer-relative (needs current_user). %>
+<% my_placement = placements.find { |p| p.library.writable_by?(current_user) } %>
+
+<div class="plan-shelves">
+  <span class="plan-shelves__label text-muted">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+    Shelved in
+  </span>
+
+  <% if placements.any? %>
+    <% placements.each do |placement| %>
+      <% owner = placement.library.owner %>
+      <% owner_label = placement.library.writable_by?(current_user) ? "your library" : "#{owner.respond_to?(:name) ? owner.name : placement.library.name}’s" %>
+      <%= link_to library_path(placement.library, anchor: "folder-#{placement.folder_id}"), class: "plan-shelves__shelf" do %>
+        <%= owner_label %> · <%= placement.folder.path %>
+      <% end %>
+    <% end %>
+  <% else %>
+    <span class="plan-shelves__none text-muted">nobody’s library yet</span>
+  <% end %>
+
+  <% if my_placement.nil? && my_folders.any? %>
+    <%= form_with url: move_to_folder_plan_path(plan), method: :patch, class: "plan-shelves__add-form" do |f| %>
+      <%= f.select :folder_id,
+            options_for_select([["Add to your library…", ""]] + CoPlan::Folder.paths_by_id(my_folders).sort_by { |_id, path| path.downcase }.map { |id, path| [path, id] }),
+            {}, class: "plan-shelves__add-select", aria: { label: "Add to your library" },
+            onchange: "if(this.value) this.form.requestSubmit()" %>
+    <% end %>
+  <% end %>
+</div>

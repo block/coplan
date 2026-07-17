@@ -24,21 +24,29 @@ RSpec.describe "Plan metadata event logging", type: :request do
     end
   end
 
-  describe "PATCH /plans/:id/status (web)" do
-    it "records a status_changed event when the status moves" do
+  describe "PATCH /plans/:id/archive and /unarchive (web)" do
+    it "records archived and unarchived events" do
       expect {
-        patch update_status_plan_path(plan), params: { status: "developing" }
-      }.to change { plan.plan_events.where(event_type: "status_changed").count }.by(1)
+        patch archive_plan_path(plan)
+      }.to change { plan.plan_events.where(event_type: "archived").count }.by(1)
 
-      event = plan.plan_events.where(event_type: "status_changed").last
-      expect(event.before_value).to eq("considering")
-      expect(event.after_value).to eq("developing")
+      expect {
+        patch unarchive_plan_path(plan)
+      }.to change { plan.plan_events.where(event_type: "unarchived").count }.by(1)
     end
+  end
 
-    it "does not record an event when the status doesn't actually change" do
+  describe "PATCH /plans/:id/publish (web)" do
+    it "records a published event when a draft goes live" do
+      draft = create(:plan, :draft, created_by_user: user)
+
       expect {
-        patch update_status_plan_path(plan), params: { status: "considering" }
-      }.not_to change { plan.plan_events.count }
+        patch publish_plan_path(draft)
+      }.to change { draft.plan_events.where(event_type: "published").count }.by(1)
+
+      event = draft.plan_events.where(event_type: "published").last
+      expect(event.before_value).to eq("draft")
+      expect(event.after_value).to eq("published")
     end
   end
 
@@ -74,19 +82,19 @@ RSpec.describe "Plan metadata event logging", type: :request do
     let!(:token) { create(:api_token, user: user, raw_token: raw_token) }
     let(:auth_headers) { { "Authorization" => "Bearer #{raw_token}" } }
 
-    it "records events for title, status, and tag diffs in a single request" do
+    it "records events for title, archival, and tag diffs in a single request" do
       plan.tag_names = ["existing"]
 
       expect {
         patch "/api/v1/plans/#{plan.id}", params: {
           title: "API-renamed",
-          status: "developing",
+          archived: true,
           tags: ["existing", "added"]
         }, headers: auth_headers, as: :json
       }.to change { plan.plan_events.count }.by(3)
 
       expect(plan.plan_events.pluck(:event_type)).to contain_exactly(
-        "title_changed", "status_changed", "tag_added"
+        "title_changed", "archived", "tag_added"
       )
     end
 

@@ -302,7 +302,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
   describe "stale rebase verification for non-replace ops" do
     let(:rich_content) { "# My Plan\n\n## Overview\n\nThis is the overview.\n\n## Goals\n\nWe want to achieve great things.\n\n## Timeline\n\nQ1 2026 launch." }
     let(:rich_plan) do
-      p = CoPlan::Plan.create!(title: "Rich Plan", status: "considering", created_by_user: alice)
+      p = CoPlan::Plan.create!(title: "Rich Plan", created_by_user: alice)
       v = CoPlan::PlanVersion.create!(plan: p, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
       p.update!(current_plan_version: v, current_revision: 1)
       p
@@ -397,7 +397,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
   describe "stale session commit verification for non-replace ops" do
     let(:rich_content) { "# My Plan\n\n## Overview\n\nThis is the overview.\n\n## Goals\n\nWe want to achieve great things.\n\n## Timeline\n\nQ1 2026 launch." }
     let(:rich_plan) do
-      p = CoPlan::Plan.create!(title: "Rich Plan", status: "considering", created_by_user: alice)
+      p = CoPlan::Plan.create!(title: "Rich Plan", created_by_user: alice)
       v = CoPlan::PlanVersion.create!(plan: p, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
       p.update!(current_plan_version: v, current_revision: 1)
       p
