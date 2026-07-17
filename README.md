@@ -73,9 +73,6 @@ and follows the API on its own instead of being handed the URL each time.
 [`EXAMPLE_SKILL.md`](./EXAMPLE_SKILL.md) is a ready-to-adapt template — set
 `BASE_URL` to your instance and install it wherever your agent loads skills.
 
-Install the skill once and any future session picks it up automatically
-whenever a task mentions a CoPlan plan or URL.
-
 ## Project Resources
 
 | Resource | Description |
