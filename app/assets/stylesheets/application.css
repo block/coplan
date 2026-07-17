@@ -356,11 +356,8 @@ img, svg {
   letter-spacing: 0.025em;
 }
 
-.badge--brainstorm  { background: var(--color-status-brainstorm-bg); color: var(--color-status-brainstorm); }
-.badge--considering { background: var(--color-status-considering-bg); color: var(--color-status-considering); }
-.badge--developing  { background: var(--color-status-developing-bg); color: var(--color-status-developing); }
-.badge--live        { background: var(--color-status-live-bg); color: var(--color-status-live); }
-.badge--abandoned   { background: var(--color-status-abandoned-bg); color: var(--color-status-abandoned); }
+.badge--draft    { background: var(--color-status-brainstorm-bg); color: var(--color-status-brainstorm); }
+.badge--archived { background: var(--color-status-abandoned-bg); color: var(--color-status-abandoned); }
 .badge--success     { background: var(--color-success-soft); color: var(--color-success); }
 .badge--warning     { background: var(--color-warning-soft); color: var(--color-warning); }
 .badge--danger      { background: var(--color-danger-soft); color: var(--color-danger); }

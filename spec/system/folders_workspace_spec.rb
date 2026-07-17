@@ -65,20 +65,20 @@ RSpec.describe "Folders workspace", type: :system do
     end
   end
 
-  describe "collapsible status groups" do
-    it "collapses brainstorms by default and persists toggles across reloads" do
+  describe "collapsible visibility groups" do
+    it "collapses drafts by default and persists toggles across reloads" do
       visit plans_path
 
-      # Brainstorm group is collapsed by default: header visible, rows hidden.
-      expect(page).to have_css('[data-group-key="brainstorm"]')
+      # Draft group is collapsed by default: header visible, rows hidden.
+      expect(page).to have_css('[data-group-key="draft"]')
       expect(page).not_to have_content("Secret Idea")
 
       # Expand it.
-      find('[data-group-key="brainstorm"] .plan-group__toggle').click
+      find('[data-group-key="draft"] .plan-group__toggle').click
       expect(page).to have_content("Secret Idea")
 
-      # Collapse developing.
-      find('[data-group-key="developing"] .plan-group__toggle').click
+      # Collapse published.
+      find('[data-group-key="published"] .plan-group__toggle').click
       expect(page).not_to have_content("Payments Plan")
 
       # State persists across a reload (localStorage).

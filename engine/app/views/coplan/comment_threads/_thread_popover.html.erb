@@ -11,7 +11,7 @@
     <div class="thread-popover__header">
       <span class="badge badge--<%= thread.status %>"><%= thread.status %></span>
       <% if thread.out_of_date? %>
-        <span class="badge badge--abandoned">out of date</span>
+        <span class="badge badge--archived">out of date</span>
       <% end %>
       <%= link_to plan_path(plan, thread: thread.id),
                   class: "thread-popover__permalink btn btn--secondary btn--sm",

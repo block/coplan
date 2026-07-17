@@ -4,7 +4,7 @@ RSpec.describe "Human plan editing", type: :system do
   let(:author) { create(:coplan_user, email: "author@example.com") }
 
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "Editable Plan", status: "considering", created_by_user: author)
+    p = CoPlan::Plan.create!(title: "Editable Plan", visibility: "published", created_by_user: author)
     version = CoPlan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: "# Editable Plan\n\nFirst draft body.\n",
@@ -54,14 +54,27 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_field("content", with: /Preview me/)
   end
 
-  it "changes status from the dropdown" do
+  it "publishes a draft from the plan page" do
+    plan.update!(visibility: "draft")
     visit plan_path(plan)
 
-    click_button "Move to…"
-    within(".dropdown__menu") { click_button "developing" }
+    accept_confirm { click_button "Publish" }
 
-    expect(page).to have_content("Status updated to developing.")
-    expect(plan.reload.status).to eq("developing")
+    expect(page).to have_content("Plan published — everyone can see it now.")
+    expect(plan.reload.visibility).to eq("published")
+    expect(page).not_to have_button("Publish")
+  end
+
+  it "archives and restores the plan" do
+    visit plan_path(plan)
+
+    click_button "Archive"
+    expect(page).to have_content("Plan archived.")
+    expect(plan.reload.archived?).to be(true)
+
+    click_button "Restore"
+    expect(page).to have_content("Plan restored.")
+    expect(plan.reload.archived?).to be(false)
   end
 
   it "hides owner controls from non-authors" do
@@ -72,6 +85,7 @@ RSpec.describe "Human plan editing", type: :system do
     visit plan_path(plan)
     expect(page).to have_content("Editable Plan")
     expect(page).not_to have_link("Edit content")
-    expect(page).not_to have_button("Move to…")
+    expect(page).not_to have_button("Archive")
+    expect(page).not_to have_button("Publish")
   end
 end

@@ -39,9 +39,15 @@ module CoPlan
     end
 
     def plan_og_description(plan)
-      status = plan.status.capitalize
+      state = if plan.archived?
+        "Archived"
+      elsif plan.draft?
+        "Draft"
+      else
+        "Plan"
+      end
       author = plan.created_by_user.name
-      prefix = "#{status} · by #{author}"
+      prefix = "#{state} · by #{author}"
       content = plan.current_content
       return prefix if content.blank?
 

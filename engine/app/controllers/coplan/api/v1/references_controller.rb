@@ -63,7 +63,8 @@ module CoPlan
             reference_json(r).merge(
               plan_id: r.plan_id,
               plan_title: r.plan.title,
-              plan_status: r.plan.status
+              plan_visibility: r.plan.visibility,
+              plan_status: r.plan.legacy_status
             )
           }
         end

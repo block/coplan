@@ -9,7 +9,7 @@ module CoPlan
           paths = Folder.paths_by_id(folders)
 
           # Visible-plan counts only — never leak the existence of other
-          # users' private brainstorm plans through folder counts.
+          # users' private draft plans through folder counts.
           counts = Plan.visible_to(current_user)
             .where.not(folder_id: nil)
             .group(:folder_id)

@@ -68,7 +68,7 @@ module CoPlan
     # support prefix matches (`foo*`) and don't trip MySQL's 50%-of-rows
     # natural-language threshold on small datasets.
     #
-    # Visibility: brainstorm plans are hidden from everyone except their
+    # Visibility: draft plans are hidden from everyone except their
     # author — matches the `index` action's filter. `user` is required;
     # the controller enforces sign-in so we don't have to handle nil here.
     scope :search, ->(query, user:) {

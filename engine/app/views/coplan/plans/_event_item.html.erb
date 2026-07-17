@@ -8,7 +8,7 @@
     <% if event.actor_user %>
       <%= user_avatar(event.actor_user) %> <span><%= event.actor_user.name %></span>
     <% else %>
-      <span class="badge badge--considering"><%= event.actor_type %></span>
+      <span class="badge badge--type"><%= event.actor_type %></span>
     <% end %>
   </div>
   <div class="history-split__summary">

@@ -416,7 +416,7 @@ module CoPlan
     # Sidebar data: the folder tree with per-folder plan counts, and the
     # most-used tags. Counts and tag usage use the same base relation as
     # the main pane (scoped_plans_base) so they match what clicking shows —
-    # which also means other users' private brainstorm plans never leak
+    # which also means other users' private draft plans never leak
     # through folder counts or tag lists (Plan.visible_to).
     def load_workspace_sidebar
       # Archived plans are hidden from default lists, so they're excluded

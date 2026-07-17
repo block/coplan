@@ -13,10 +13,10 @@ module CoPlan
     #   Plans::LogEvent.call(
     #     plan: plan,
     #     actor: current_user,
-    #     event_type: "status_changed",
-    #     field: "status",
-    #     before: "considering",
-    #     after: "developing"
+    #     event_type: "published",
+    #     field: "visibility",
+    #     before: "draft",
+    #     after: "published"
     #   )
     #
     # For events without a meaningful before/after (e.g. a reference being

@@ -7,9 +7,9 @@
      data-thread-author-id="<%= thread.created_by_user_id %>">
   <div class="comment-thread__header">
     <div class="comment-thread__meta">
-      <span class="badge badge--<%= thread.open? ? 'live' : 'abandoned' %>"><%= thread.status %></span>
+      <span class="badge badge--<%= thread.open? ? 'resolved' : 'discarded' %>"><%= thread.status %></span>
       <% if thread.out_of_date? %>
-        <span class="badge badge--abandoned">out of date</span>
+        <span class="badge badge--archived">out of date</span>
       <% end %>
     </div>
     <% if thread.anchored? %>
