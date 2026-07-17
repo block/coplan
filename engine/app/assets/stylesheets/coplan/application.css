@@ -555,6 +555,10 @@ img, svg {
   letter-spacing: 0.025em;
 }
 
+/* Status badge that opens the status menu (decorated by status_menu_controller). */
+.badge--menu { cursor: pointer; }
+.badge--menu::after { content: " ▾"; opacity: 0.7; }
+
 .badge--brainstorm  { background: var(--color-status-brainstorm-bg); color: var(--color-status-brainstorm); }
 .badge--considering { background: var(--color-status-considering-bg); color: var(--color-status-considering); }
 .badge--developing  { background: var(--color-status-developing-bg); color: var(--color-status-developing); }
@@ -1555,18 +1559,20 @@ img.avatar {
   right: 0;
   top: 100%;
   margin-top: var(--space-xs);
+  padding: var(--space-xs) 0;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
-  min-width: 200px;
+  min-width: 220px;
   z-index: 100;
 }
 
 .dropdown__item {
   display: block;
   width: 100%;
-  padding: var(--space-sm) var(--space-md);
+  padding: 0.625rem var(--space-md);
+  line-height: 1.45;
   text-align: left;
   background: none;
   border: none;
@@ -3213,7 +3219,7 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   display: block;
   font-size: var(--text-xs);
   color: var(--color-text-muted);
-  margin-top: 2px;
+  margin-top: var(--space-xs);
 }
 
 /* Markdown editor (edit_content page) */

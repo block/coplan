@@ -54,10 +54,10 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_field("content", with: /Preview me/)
   end
 
-  it "changes status from the dropdown" do
+  it "changes status by clicking the status badge" do
     visit plan_path(plan)
 
-    click_button "Move to…"
+    find("#plan-header .badge--status[role='button']").click
     within(".dropdown__menu") { click_button "developing" }
 
     expect(page).to have_content("Status updated to developing.")
@@ -72,6 +72,8 @@ RSpec.describe "Human plan editing", type: :system do
     visit plan_path(plan)
     expect(page).to have_content("Editable Plan")
     expect(page).not_to have_link("Edit content")
-    expect(page).not_to have_button("Move to…")
+    # The status badge stays a plain label — no menu, no button affordance.
+    expect(page).not_to have_css(".dropdown__menu")
+    expect(page).not_to have_css(".badge--menu")
   end
 end
