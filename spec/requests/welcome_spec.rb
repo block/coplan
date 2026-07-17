@@ -20,6 +20,20 @@ RSpec.describe "Welcome", type: :request do
       end
     end
 
+    context "anonymous visitor" do
+      it "offers a way to sign in (host exposes sign_in_path)" do
+        get root_path
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include(main_app.sign_in_path)
+        expect(response.body).to include("Sign in")
+      end
+
+      it "does not show the signed-in 'Browse plans' CTA" do
+        get root_path
+        expect(response.body).not_to include("Browse plans")
+      end
+    end
+
     context "signed-in user with at least one plan" do
       before do
         sign_in_as(alice)

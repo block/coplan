@@ -10,6 +10,8 @@
     <div class="landing__cta-row">
       <% if signed_in? %>
         <%= link_to "Browse plans", plans_path, class: "btn btn--primary" %>
+      <% elsif main_app.respond_to?(:sign_in_path) %>
+        <%= link_to "Sign in", main_app.sign_in_path, class: "btn btn--primary" %>
       <% end %>
       <%= link_to "Read the agent API", agent_instructions_path, class: "btn btn--secondary" %>
     </div>
