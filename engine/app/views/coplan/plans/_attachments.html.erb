@@ -2,15 +2,26 @@
 <div class="attachments-section" id="plan-attachments">
   <% if can_edit %>
     <div class="attachments-section__header">
-      <%= form_with url: plan_attachments_path(plan), method: :post, multipart: true, class: "attachments-upload" do |f| %>
-        <%= f.file_field :files, multiple: true, name: "files[]", required: true, class: "attachments-upload__input",
-              accept: CoPlan::Plan::ATTACHMENT_CONTENT_TYPES.join(",") %>
-        <%= f.submit "Upload", class: "btn btn--primary btn--sm" %>
+      <%= form_with url: plan_attachments_path(plan), method: :post, multipart: true,
+            class: "attachments-dropzone",
+            data: {
+              controller: "coplan--dropzone",
+              action: "dragover->coplan--dropzone#dragOver dragleave->coplan--dropzone#dragLeave drop->coplan--dropzone#drop"
+            } do |f| %>
+        <label class="attachments-dropzone__inner">
+          <span class="attachments-dropzone__icon" aria-hidden="true">🖇️</span>
+          <span class="attachments-dropzone__text" data-coplan--dropzone-target="text">
+            <strong>Drag &amp; drop files here</strong> or <span class="attachments-dropzone__browse">browse</span>
+          </span>
+          <span class="attachments-dropzone__hint">
+            Up to <%= CoPlan::Plan::ATTACHMENT_MAX_BYTES / 1.megabyte %> MB per file ·
+            images, PDF, text/markdown/CSV/JSON, and ZIP
+          </span>
+          <%= f.file_field :files, multiple: true, name: "files[]", class: "attachments-dropzone__input",
+                accept: CoPlan::Plan::ATTACHMENT_CONTENT_TYPES.join(","),
+                data: { "coplan--dropzone-target": "input", action: "change->coplan--dropzone#changed" } %>
+        </label>
       <% end %>
-      <p class="attachments-upload__hint text-muted">
-        Up to <%= CoPlan::Plan::ATTACHMENT_MAX_BYTES / 1.megabyte %> MB per file.
-        Images, PDF, text/markdown/CSV/JSON, and ZIP files.
-      </p>
     </div>
   <% end %>
 

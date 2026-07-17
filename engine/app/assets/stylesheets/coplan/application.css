@@ -2535,39 +2535,94 @@ body:has(.comment-toolbar) .main-content {
   margin-bottom: var(--space-md);
 }
 
-.attachments-upload {
+/* Drag-and-drop upload zone (see dropzone_controller.js). The whole inner
+   area is a <label>, so clicking anywhere opens the file picker; the real
+   input is visually hidden (not display:none, so it stays focusable). */
+.attachments-dropzone__inner {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
+  gap: var(--space-xs);
+  padding: var(--space-xl) var(--space-lg);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-surface-muted);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
 }
 
-.attachments-upload__input {
+.attachments-dropzone__inner:hover,
+.attachments-dropzone--active .attachments-dropzone__inner {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.attachments-dropzone__inner:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.attachments-dropzone--uploading .attachments-dropzone__inner {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.attachments-dropzone__icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.attachments-dropzone__text {
   font-size: var(--text-sm);
+  color: var(--color-text);
 }
 
-.attachments-upload__hint {
-  margin: var(--space-xs) 0 0;
+.attachments-dropzone__browse {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.attachments-dropzone__hint {
   font-size: 0.75rem;
   color: var(--color-text-muted);
+}
+
+.attachments-dropzone__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .attachments-list {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
 }
 
 .attachments-list__item {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.attachments-list__item:last-child {
-  border-bottom: none;
+.attachments-list__item:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow);
 }
 
 .attachments-list__icon {
