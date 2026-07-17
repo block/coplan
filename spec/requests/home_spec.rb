@@ -13,7 +13,9 @@ RSpec.describe "Home feed", type: :request do
       get home_path
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("Fresh Plan")
-      expect(response.body).to include("published")
+      # First appearance reads as "new" — published is the unmarked normal state.
+      expect(response.body).to include("home__item-activity--new")
+      expect(response.body).not_to include("published ·")
     end
 
     it "never shows drafts or archived plans — not even your own" do

@@ -91,11 +91,26 @@
   /* Layout */
   --max-width: 72rem;
   --nav-height: 3.5rem;
-  --radius: 0.375rem;
+  --radius: 0.625rem;
+  --radius-lg: 0.875rem;
   --shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
   --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
   --shadow-top: 0 -2px 8px rgba(15, 23, 42, 0.05);
   --shadow-pop: 0 2px 6px rgba(15, 23, 42, 0.1);
+
+  /* Liquid glass: a soft gradient mesh behind everything, translucent
+     blurred panels on top. Panels use --glass-*; the mesh spots are
+     --mesh-*. Rows and other high-count elements get the cheaper
+     --surface-translucent (no backdrop blur). */
+  --mesh-1: rgba(59, 130, 246, 0.14);
+  --mesh-2: rgba(168, 85, 247, 0.11);
+  --mesh-3: rgba(20, 184, 166, 0.11);
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.72);
+  --glass-edge: rgba(255, 255, 255, 0.75);
+  --glass-blur: blur(16px) saturate(1.6);
+  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 30px rgba(15, 23, 42, 0.08);
+  --surface-translucent: rgba(255, 255, 255, 0.6);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -163,6 +178,15 @@
     --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.45);
     --shadow-top: 0 -2px 10px rgba(0, 0, 0, 0.3);
     --shadow-pop: 0 6px 16px rgba(0, 0, 0, 0.35);
+    --mesh-1: rgba(59, 130, 246, 0.2);
+    --mesh-2: rgba(139, 92, 246, 0.16);
+    --mesh-3: rgba(6, 182, 212, 0.13);
+    --glass-bg: rgba(15, 23, 42, 0.45);
+    --glass-bg-strong: rgba(17, 26, 43, 0.66);
+    --glass-edge: rgba(148, 163, 184, 0.18);
+    --glass-blur: blur(16px) saturate(1.4);
+    --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
+    --surface-translucent: rgba(21, 32, 51, 0.55);
   }
 }
 
@@ -231,6 +255,15 @@
   --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.45);
   --shadow-top: 0 -2px 10px rgba(0, 0, 0, 0.3);
   --shadow-pop: 0 6px 16px rgba(0, 0, 0, 0.35);
+  --mesh-1: rgba(59, 130, 246, 0.2);
+  --mesh-2: rgba(139, 92, 246, 0.16);
+  --mesh-3: rgba(6, 182, 212, 0.13);
+  --glass-bg: rgba(15, 23, 42, 0.45);
+  --glass-bg-strong: rgba(17, 26, 43, 0.66);
+  --glass-edge: rgba(148, 163, 184, 0.18);
+  --glass-blur: blur(16px) saturate(1.4);
+  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
+  --surface-translucent: rgba(21, 32, 51, 0.55);
 }
 
 /* Forced light theme — overrides system dark preference */
@@ -259,6 +292,13 @@ body {
   display: flex;
   flex-direction: column;
   background-color: var(--color-bg);
+  /* The liquid-glass backdrop: three soft color spots that panels blur
+     over. Fixed so scrolling glides content across the light. */
+  background-image:
+    radial-gradient(42rem 30rem at 12% -8%, var(--mesh-1), transparent 60%),
+    radial-gradient(38rem 28rem at 88% 10%, var(--mesh-2), transparent 60%),
+    radial-gradient(50rem 38rem at 45% 115%, var(--mesh-3), transparent 65%);
+  background-attachment: fixed;
   color: var(--color-text);
 }
 
@@ -278,8 +318,10 @@ img, svg {
 
 /* Navigation */
 .site-nav {
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-edge);
   height: var(--nav-height);
   position: sticky;
   top: 0;
@@ -522,13 +564,15 @@ img, svg {
 }
 
 .btn--primary {
-  background: var(--color-primary);
+  background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: var(--color-text-inverse);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 1px 2px rgba(15, 23, 42, 0.2);
 }
 
 .btn--primary:hover {
-  background: var(--color-primary-hover);
+  filter: brightness(1.07);
   color: var(--color-text-inverse);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 6px rgba(15, 23, 42, 0.25);
 }
 
 .btn--secondary {
@@ -565,11 +609,13 @@ img, svg {
 
 /* Cards */
 .card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
   padding: var(--space-lg);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-glass);
 }
 
 /* Status badges */
@@ -586,8 +632,24 @@ img, svg {
 /* Plan state badges. Published-and-active plans get no badge — these mark
    the exceptional states only. (The --color-status-* tokens are shared
    with comment-thread badges below.) */
-.badge--draft    { background: var(--color-status-brainstorm-bg); color: var(--color-status-brainstorm); }
 .badge--archived { background: var(--color-status-abandoned-bg); color: var(--color-status-abandoned); }
+
+/* Hidden-state flag: a quiet crossed-out eye + word, no background. The
+   normal (published) state is deliberately unmarked. */
+.state-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.state-flag__eye {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
 .badge--pending     { background: var(--color-status-considering-bg); color: var(--color-status-considering); }
 .badge--todo        { background: var(--color-status-developing-bg); color: var(--color-status-developing); }
 .badge--discarded   { background: var(--color-status-abandoned-bg); color: var(--color-status-abandoned); }
@@ -800,6 +862,76 @@ img.avatar {
   display: flex;
   gap: var(--space-sm);
   margin-top: var(--space-md);
+}
+
+/* Chip-style tag editor: an input-shaped shell holding tag pills plus a
+   borderless inline text field. */
+.tag-input {
+  padding: 6px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-input-bg);
+  cursor: text;
+}
+
+.tag-input:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.tag-input__chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-input__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 10px;
+  border-radius: 9999px;
+  background: var(--color-tag-bg);
+  color: var(--color-tag-text);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.tag-input__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tag-input__remove:hover {
+  background: var(--color-tag-hover-bg);
+  color: var(--color-danger);
+}
+
+.tag-input__field {
+  flex: 1;
+  min-width: 140px;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--text-sm);
+}
+
+.tag-input__field:focus {
+  outline: none;
 }
 
 /* Plan content */
@@ -1873,20 +2005,26 @@ body:has(.comment-toolbar) .main-content {
 }
 
 /* Comment toolbar (bottom-pinned) */
+/* Floating glass pill, not a full-width band. */
 .comment-toolbar {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
-  padding: var(--space-sm) var(--space-lg);
+  bottom: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 2 * var(--space-md));
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: 9999px;
+  padding: var(--space-xs) var(--space-lg);
   display: flex;
   align-items: center;
   gap: var(--space-lg);
   z-index: 50;
   justify-content: center;
-  box-shadow: var(--shadow-top);
+  box-shadow: var(--shadow-lg);
 }
 
 .comment-toolbar__count {
@@ -2181,9 +2319,11 @@ body:has(.comment-toolbar) .main-content {
   right: 0;
   width: 420px;
   max-height: 480px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   z-index: 200;
   overflow: hidden;
@@ -2379,6 +2519,9 @@ body:has(.comment-toolbar) .main-content {
 }
 
 .plan-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: var(--space-sm) var(--space-lg);
   font-size: var(--text-sm);
   font-weight: 500;
@@ -2389,6 +2532,15 @@ body:has(.comment-toolbar) .main-content {
   border-radius: var(--radius) var(--radius) 0 0;
   transition: color 0.15s, background 0.15s;
   cursor: pointer;
+}
+
+.plan-tabs__icon {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.plan-tabs__tab--active .plan-tabs__icon {
+  opacity: 1;
 }
 
 .plan-tabs__tab:hover {
@@ -2566,20 +2718,60 @@ body:has(.comment-toolbar) .main-content {
 }
 
 .attachments-upload {
+  display: block;
+}
+
+/* The designed replacement for the native file input: a full-width,
+   softly dashed target that reacts to hover and drag. */
+.dropzone {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-}
-
-.attachments-upload__input {
-  font-size: var(--text-sm);
-}
-
-.attachments-upload__hint {
-  margin: var(--space-xs) 0 0;
-  font-size: 0.75rem;
+  gap: 4px;
+  width: 100%;
+  padding: var(--space-lg) var(--space-md);
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: calc(var(--radius) * 2);
+  background: var(--color-surface-muted);
   color: var(--color-text-muted);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.dropzone:hover,
+.dropzone--active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.dropzone--busy {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.dropzone__icon {
+  margin-bottom: 2px;
+}
+
+.dropzone__title {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.dropzone:hover .dropzone__title,
+.dropzone--active .dropzone__title {
+  color: var(--color-primary);
+}
+
+.dropzone__hint {
+  font-size: 0.75rem;
+}
+
+.dropzone__input {
+  display: none;
 }
 
 .attachments-list {
@@ -3040,9 +3232,11 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   max-height: 70vh;
   padding: 0;
   margin: 0;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   color: var(--color-text);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
   overflow: hidden;
@@ -3233,34 +3427,38 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   font-size: var(--text-sm);
 }
 
-.plan-shelves__label {
+/* Drive-style folder chip: small folder glyph + the folder's name. */
+.plan-shelves__chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-}
-
-.plan-shelves__shelf {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
+  gap: 6px;
+  padding: 3px 12px 3px 9px;
   border: 1px solid var(--color-border);
   border-radius: 9999px;
   background: var(--color-surface);
   color: var(--color-text);
   text-decoration: none;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
-.plan-shelves__shelf:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+.plan-shelves__chip:hover {
+  background: var(--color-bg-muted);
+  border-color: var(--color-border-strong);
 }
 
-.plan-shelves__none {
+.plan-shelves__chip-icon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.plan-shelves__chip--theirs .plan-shelves__chip-icon {
+  color: var(--color-agent);
+}
+
+.plan-shelves__chip-owner {
+  color: var(--color-text-muted);
   font-size: var(--text-xs);
 }
 
@@ -3311,6 +3509,18 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
 
 .library-shelf {
   margin-bottom: var(--space-sm);
+}
+
+/* On the library page, each top-level shelf is its own glass panel
+   (profile pages embed shelves inside an existing panel). */
+.library__shelves > .library-shelf {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glass);
 }
 
 .library-shelf .library-shelf {
@@ -3549,10 +3759,17 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   margin: 0 0 var(--space-sm);
 }
 
+/* Each day's rollup floats as one glass panel over the mesh. */
 .home__feed {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: var(--space-xs) var(--space-lg);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glass);
 }
 
 .home__item {
@@ -3601,9 +3818,9 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   white-space: nowrap;
 }
 
-.home__item-activity--published {
+/* A plan's first appearance gets a whisper of accent — not a badge. */
+.home__item-activity--new {
   color: var(--color-primary);
-  font-weight: 600;
 }
 
 .home__item-meta {
@@ -4045,13 +4262,17 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
 }
 
 .plan-group__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-.plan-group__label--draft { color: var(--color-status-brainstorm); }
+/* Drafts are just quieter, not a different color — hidden, not special. */
+.plan-group__label--draft { color: var(--color-text-muted); }
 
 .plan-group__count {
   font-size: 0.75rem;
@@ -4065,10 +4286,19 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
 /* Compact plan rows */
 .plan-row {
   padding: var(--space-sm) var(--space-md);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  /* Translucent without backdrop blur — rows are numerous and per-row
+     blur is a GPU tax; the mesh still glows through faintly. */
+  background: var(--surface-translucent);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
   margin-bottom: var(--space-xs);
+  transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+.plan-row:hover {
+  background: var(--glass-bg-strong);
+  box-shadow: var(--shadow-pop);
+  transform: translateY(-1px);
 }
 
 .plan-row--dragging {
@@ -4167,8 +4397,10 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   z-index: 30;
   min-width: 14rem;
   padding: var(--space-sm);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
   box-shadow: var(--shadow-pop);
 }

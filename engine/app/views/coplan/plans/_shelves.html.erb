@@ -1,32 +1,36 @@
 <%# Folder-jump discovery strip: every library shelf this plan sits on,
-    plus a quick "shelve it yourself" control. Lives outside the broadcast
-    #plan-header region — it's viewer-relative (needs current_user). %>
+    rendered Drive-style — a quiet folder chip with just the folder name.
+    Whose library it is lives in the tooltip (and the link target). Lives
+    outside the broadcast #plan-header region — it's viewer-relative
+    (needs current_user). %>
 <% my_placement = placements.find { |p| p.library.writable_by?(current_user) } %>
 
-<div class="plan-shelves">
-  <span class="plan-shelves__label text-muted">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-    Shelved in
-  </span>
-
-  <% if placements.any? %>
+<% if placements.any? || my_folders.any? %>
+  <div class="plan-shelves">
     <% placements.each do |placement| %>
+      <% mine = placement.library.writable_by?(current_user) %>
       <% owner = placement.library.owner %>
-      <% owner_label = placement.library.writable_by?(current_user) ? "your library" : "#{owner.respond_to?(:name) ? owner.name : placement.library.name}’s" %>
-      <%= link_to library_path(placement.library, anchor: "folder-#{placement.folder_id}"), class: "plan-shelves__shelf" do %>
-        <%= owner_label %> · <%= placement.folder.path %>
+      <% owner_name = owner.respond_to?(:name) ? owner.name : placement.library.name %>
+      <% title = mine ? "In your library — #{placement.folder.path}" : "In #{owner_name}’s library — #{placement.folder.path}" %>
+      <%# Your own shelf opens the folder in your workspace; someone else's
+          opens their read-only library at that shelf. %>
+      <% href = mine ? plans_path(folder: placement.folder_id) : library_path(placement.library, anchor: "folder-#{placement.folder_id}") %>
+      <%= link_to href, class: "plan-shelves__chip#{' plan-shelves__chip--theirs' unless mine}", title: title do %>
+        <svg class="plan-shelves__chip-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        <span class="plan-shelves__chip-name"><%= placement.folder.name %></span>
+        <% unless mine %>
+          <span class="plan-shelves__chip-owner"><%= owner_name.split.first %></span>
+        <% end %>
       <% end %>
     <% end %>
-  <% else %>
-    <span class="plan-shelves__none text-muted">nobody’s library yet</span>
-  <% end %>
 
-  <% if my_placement.nil? && my_folders.any? %>
-    <%= form_with url: move_to_folder_plan_path(plan), method: :patch, class: "plan-shelves__add-form" do |f| %>
-      <%= f.select :folder_id,
-            options_for_select([["Add to your library…", ""]] + CoPlan::Folder.paths_by_id(my_folders).sort_by { |_id, path| path.downcase }.map { |id, path| [path, id] }),
-            {}, class: "plan-shelves__add-select", aria: { label: "Add to your library" },
-            onchange: "if(this.value) this.form.requestSubmit()" %>
+    <% if my_placement.nil? && my_folders.any? %>
+      <%= form_with url: move_to_folder_plan_path(plan), method: :patch, class: "plan-shelves__add-form" do |f| %>
+        <%= f.select :folder_id,
+              options_for_select([["＋ Add to folder", ""]] + CoPlan::Folder.paths_by_id(my_folders).sort_by { |_id, path| path.downcase }.map { |id, path| [path, id] }),
+              {}, class: "plan-shelves__add-select", aria: { label: "Add to a folder in your library" },
+              onchange: "if(this.value) this.form.requestSubmit()" %>
+      <% end %>
     <% end %>
-  <% end %>
-</div>
+  </div>
+<% end %>

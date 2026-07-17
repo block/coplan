@@ -11,10 +11,12 @@ module CoPlan
     MAX_ITEMS = 40
 
     Item = Struct.new(:plan, :date, :published, :edits, :comments, :last_activity_at, keyword_init: true) do
-      # One human phrase for the day's activity, e.g. "published · 3 edits".
+      # One human phrase for the day's activity, e.g. "new · 3 edits".
+      # "new", not "published" — published is the unmarked normal state;
+      # the interesting fact is that the plan just appeared.
       def summary_parts
         parts = []
-        parts << "published" if published
+        parts << "new" if published
         parts << "#{edits} #{edits == 1 ? "edit" : "edits"}" if edits.positive?
         parts << "#{comments} #{comments == 1 ? "comment" : "comments"}" if comments.positive?
         parts

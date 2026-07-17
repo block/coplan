@@ -33,10 +33,11 @@
           <div class="site-nav__links">
             <%= link_to "Home", coplan.home_path,
                   class: "site-nav__link #{'site-nav__link--active' if request.path == coplan.home_path}" %>
+            <%# Two surfaces, not three: the library isn't a separate place —
+                it's the shareable face of your workspace (linked from the
+                workspace sidebar and from profiles). %>
             <%= link_to "Workspace", coplan.plans_path,
-                  class: "site-nav__link #{'site-nav__link--active' if request.path == coplan.plans_path}" %>
-            <%= link_to "Library", coplan.my_library_path,
-                  class: "site-nav__link #{'site-nav__link--active' if request.path.start_with?(coplan.my_library_path, '/libraries')}" %>
+                  class: "site-nav__link #{'site-nav__link--active' if request.path == coplan.plans_path || request.path.start_with?(coplan.my_library_path)}" %>
           </div>
           <button type="button"
                   class="site-nav__search"

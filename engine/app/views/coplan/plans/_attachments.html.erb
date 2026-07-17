@@ -2,15 +2,20 @@
 <div class="attachments-section" id="plan-attachments">
   <% if can_edit %>
     <div class="attachments-section__header">
-      <%= form_with url: plan_attachments_path(plan), method: :post, multipart: true, class: "attachments-upload" do |f| %>
-        <%= f.file_field :files, multiple: true, name: "files[]", required: true, class: "attachments-upload__input",
-              accept: CoPlan::Plan::ATTACHMENT_CONTENT_TYPES.join(",") %>
-        <%= f.submit "Upload", class: "btn btn--primary btn--sm" %>
+      <%# One designed dropzone instead of the native file input: click to
+          browse or drag files on; choosing files uploads immediately. %>
+      <%= form_with url: plan_attachments_path(plan), method: :post, multipart: true,
+            class: "attachments-upload", data: { controller: "coplan--dropzone" } do |f| %>
+        <button type="button" class="dropzone" data-coplan--dropzone-target="zone"
+                data-action="click->coplan--dropzone#open dragover->coplan--dropzone#dragOver dragleave->coplan--dropzone#dragLeave drop->coplan--dropzone#drop">
+          <svg class="dropzone__icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+          <span class="dropzone__title" data-coplan--dropzone-target="label">Drop files here, or click to browse</span>
+          <span class="dropzone__hint">Images, PDF, text, markdown, CSV, JSON, ZIP · up to <%= CoPlan::Plan::ATTACHMENT_MAX_BYTES / 1.megabyte %> MB each</span>
+        </button>
+        <%= f.file_field :files, multiple: true, name: "files[]", class: "dropzone__input",
+              accept: CoPlan::Plan::ATTACHMENT_CONTENT_TYPES.join(","),
+              data: { "coplan--dropzone-target": "input", action: "change->coplan--dropzone#changed" } %>
       <% end %>
-      <p class="attachments-upload__hint text-muted">
-        Up to <%= CoPlan::Plan::ATTACHMENT_MAX_BYTES / 1.megabyte %> MB per file.
-        Images, PDF, text/markdown/CSV/JSON, and ZIP files.
-      </p>
     </div>
   <% end %>
 
@@ -48,7 +53,7 @@
                 data-coplan--clipboard-text-value="<%= attachment_markdown_snippet(blob, blob_path) %>">
             <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--clipboard#copy"
                     data-coplan--clipboard-target="button" title="Copy markdown to embed this file in the plan">
-              📋 Markdown
+              Copy markdown
             </button>
           </span>
           <% if can_edit %>

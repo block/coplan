@@ -3,6 +3,11 @@
 
   <div class="workspace__main">
     <% active_filters = [] %>
+    <% if @scope == "all" %>
+      <%# Reachable from Home's tag links etc. — the sidebar no longer
+          offers it, so show it as a clearable state, not a mode. %>
+      <% active_filters << ["Everyone’s plans", plans_path(params.permit(:filter, :plan_type, :tag, :folder))] %>
+    <% end %>
     <% if @folder %>
       <% active_filters << ["Folder: #{folder_path_for(@folder)}", plans_path(params.permit(:scope, :filter, :plan_type, :tag))] %>
     <% end %>

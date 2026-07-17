@@ -4,9 +4,8 @@
   <header class="home__header">
     <div>
       <h1 class="home__title">What’s happening</h1>
-      <p class="home__subtitle text-muted">Published plans across the org, rolled up by day. Your own work lives in the <%= link_to "workspace", plans_path %>.</p>
+      <p class="home__subtitle text-muted">Plans across the org, rolled up by day. Your own work lives in the <%= link_to "workspace", plans_path %>.</p>
     </div>
-    <%= link_to "Your workspace", plans_path, class: "btn btn--secondary btn--sm" %>
   </header>
 
   <% if @items.empty? %>
@@ -33,8 +32,14 @@
                 <div class="home__item-line">
                   <%= link_to plan.title, plan_path(plan), class: "home__item-title" %>
                   <% if item.summary_parts.any? %>
-                    <span class="home__item-activity<%= " home__item-activity--published" if item.published %>">
-                      <%= item.summary_parts.join(" · ") %>
+                    <span class="home__item-activity">
+                      <% if item.published %>
+                        <%# Only the word "new" gets the accent — the rest of
+                            the rollup stays quiet. %>
+                        <span class="home__item-activity--new">new</span><%= " · #{item.summary_parts.drop(1).join(" · ")}" if item.summary_parts.size > 1 %>
+                      <% else %>
+                        <%= item.summary_parts.join(" · ") %>
+                      <% end %>
                     </span>
                   <% end %>
                 </div>

@@ -299,7 +299,7 @@ RSpec.describe "Comment UX", type: :system do
       visit plan_path(plan)
 
       expect(page).to have_css(".comment-toolbar")
-      expect(page).to have_content("💬 1 open")
+      expect(page).to have_content("1 open")
     end
 
     it "does not show the toolbar when no threads" do
@@ -314,7 +314,7 @@ RSpec.describe "Comment UX", type: :system do
       resolved.resolve!(author)
 
       visit plan_path(plan)
-      expect(page).to have_content("💬 2 open")
+      expect(page).to have_content("2 open")
       expect(page).to have_content("Show resolved (1)")
     end
 
@@ -695,7 +695,7 @@ RSpec.describe "Comment UX", type: :system do
       expect(mark_count).to be > 2
 
       # But toolbar should show only 2 open threads
-      expect(page).to have_content("💬 2 open")
+      expect(page).to have_content("2 open")
 
       # j navigates to first thread
       find("body").send_keys("j")

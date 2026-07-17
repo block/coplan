@@ -164,6 +164,9 @@ module CoPlan
 
     def edit
       authorize!(@plan, :update?)
+      # Datalist suggestions for the tag chip editor — reusing an existing
+      # tag beats coining a near-duplicate.
+      @tag_suggestions = CoPlan::Tag.order(:name).limit(200).pluck(:name)
     end
 
     def update

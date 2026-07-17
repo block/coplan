@@ -1,8 +1,9 @@
 <aside class="workspace__sidebar" aria-label="Plan filters">
   <div class="sidebar__section">
-    <h3 class="sidebar__heading">Folders
-      <%# Same tree, but as the shareable read-only page others see. %>
-      <%= link_to "View library →", my_library_path, class: "sidebar__heading-link", data: { turbo_frame: "_top" } %>
+    <%# The folder tree IS your library — the my_library page is just its
+        shareable read-only face (what others see from your profile). %>
+    <h3 class="sidebar__heading">My library
+      <%= link_to "Public view →", my_library_path, class: "sidebar__heading-link", title: "The read-only view others see", data: { turbo_frame: "_top" } %>
     </h3>
     <ul class="folder-tree">
       <li class="folder-tree__node">
@@ -13,7 +14,7 @@
                 folder_id: "",
                 action: "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",
               } do %>
-          <span class="folder-tree__name">All plans</span>
+          <span class="folder-tree__name">Everything</span>
         <% end %>
       </li>
       <% @root_folders.each do |folder| %>
@@ -60,16 +61,11 @@
   <% end %>
 
   <div class="sidebar__section">
+    <%# No org-wide browsing here — the workspace is *your* stuff. Everyone
+        else's work is discovered via Home, search, and people's profiles
+        (?scope=all still works as a link target, e.g. from Home's tags). %>
     <h3 class="sidebar__heading">Filters</h3>
     <ul class="sidebar__list">
-      <li>
-        <%= link_to "My plans", plans_path(params.permit(:filter, :plan_type, :tag, :folder)),
-              class: "sidebar__item #{'sidebar__item--active' if @scope == 'mine'}" %>
-      </li>
-      <li>
-        <%= link_to "All plans", plans_path(params.permit(:filter, :plan_type, :tag, :folder).merge(scope: "all")),
-              class: "sidebar__item #{'sidebar__item--active' if @scope == 'all'}" %>
-      </li>
       <li>
         <%= link_to "Drafts", plans_path(params.permit(:scope, :plan_type, :tag, :folder).merge(filter: @filter == "draft" ? nil : "draft")),
               class: "sidebar__item #{'sidebar__item--active' if @filter == 'draft'}" %>
