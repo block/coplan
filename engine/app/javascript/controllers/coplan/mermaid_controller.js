@@ -33,24 +33,24 @@ export default class extends Controller {
     ]
     if (sources.length === 0) return
 
-    let mermaid
-    try {
-      mermaid = await loadMermaid()
-    } catch {
-      sources.forEach(({ container }) => this.showError(container))
-      return
-    }
-
-    const theme = configureMermaid(mermaid)
     const generation = ++this.renderGeneration
-    let rendered = false
 
-    for (const { container, source } of sources) {
-      rendered = await this.renderDiagram(mermaid, container, source, theme, generation) || rendered
-    }
+    try {
+      const mermaid = await loadMermaid()
+      if (!this.element.isConnected || generation !== this.renderGeneration) return
 
-    if (rendered && this.element.isConnected && generation === this.renderGeneration) {
-      this.element.dispatchEvent(new CustomEvent("coplan:mermaid-rendered", { bubbles: true }))
+      const theme = configureMermaid(mermaid)
+      for (const { container, source } of sources) {
+        await this.renderDiagram(mermaid, container, source, theme, generation)
+      }
+    } catch {
+      if (this.element.isConnected && generation === this.renderGeneration) {
+        sources.forEach(({ container }) => this.showError(container))
+      }
+    } finally {
+      if (this.element.isConnected && generation === this.renderGeneration) {
+        this.element.dispatchEvent(new CustomEvent("coplan:mermaid-settled", { bubbles: true }))
+      }
     }
   }
 
@@ -59,7 +59,7 @@ export default class extends Controller {
 
     try {
       const { svg, bindFunctions } = await mermaid.render(id, source)
-      if (!this.element.isConnected || generation !== this.renderGeneration) return false
+      if (!this.element.isConnected || generation !== this.renderGeneration) return
 
       const diagram = document.createElement("div")
       diagram.className = "mermaid-diagram"
@@ -70,12 +70,12 @@ export default class extends Controller {
       diagram.innerHTML = svg
       sourceContainer.replaceWith(diagram)
       bindFunctions?.(diagram)
-      return true
     } catch {
       document.getElementById(id)?.remove()
       document.getElementById(`d${id}`)?.remove()
-      this.showError(sourceContainer)
-      return false
+      if (this.element.isConnected && generation === this.renderGeneration) {
+        this.showError(sourceContainer)
+      }
     }
   }
 
