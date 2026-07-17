@@ -55,6 +55,7 @@ gem "rack-attack"
 gem "slack-ruby-client"
 # CoPlan engine (core functionality)
 gem "coplan-engine", path: "engine", require: "coplan"
+gem "coplan-slack", path: "integrations/slack", require: "coplan/slack"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem

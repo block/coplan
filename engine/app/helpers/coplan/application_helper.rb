@@ -39,15 +39,8 @@ module CoPlan
     end
 
     def plan_og_description(plan)
-      status = plan.status.capitalize
-      author = plan.created_by_user.name
-      prefix = "#{status} · by #{author}"
-      content = plan.current_content
-      return prefix if content.blank?
-
-      plain = markdown_to_plain_text(content)
-      truncated = truncate(plain, length: 200, omission: "…")
-      "#{prefix} — #{truncated}"
+      preview = LinkPreviews.for_plan(plan, base_url: request.base_url + coplan.root_path)
+      truncate([ preview.context, preview.description ].compact.join(" — "), length: 250, omission: "…")
     end
 
     def user_avatar(user, size: "sm")
