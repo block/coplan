@@ -1034,6 +1034,7 @@ img.avatar {
 }
 
 .markdown-rendered .mermaid-diagram {
+  position: relative;
   display: flex;
   justify-content: center;
   overflow-x: auto;
@@ -1042,6 +1043,67 @@ img.avatar {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
+  cursor: zoom-in;
+}
+
+.markdown-rendered .mermaid-diagram__expand {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  cursor: zoom-in;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.markdown-rendered .mermaid-diagram:hover .mermaid-diagram__expand,
+.markdown-rendered .mermaid-diagram__expand:focus-visible {
+  opacity: 1;
+}
+
+.mermaid-lightbox {
+  width: 94vw;
+  height: 92vh;
+  max-width: 94vw;
+  max-height: 92vh;
+  padding: var(--space-lg);
+  margin: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+  cursor: zoom-out;
+}
+
+.mermaid-lightbox::backdrop {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.mermaid-lightbox__close {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.mermaid-lightbox__close:hover {
+  color: var(--color-text);
 }
 
 .markdown-rendered .mermaid-diagram svg {
@@ -1055,7 +1117,10 @@ img.avatar {
    height mermaid laid out for. */
 .markdown-rendered .mermaid-diagram foreignObject div,
 .markdown-rendered .mermaid-diagram foreignObject span,
-.markdown-rendered .mermaid-diagram foreignObject p {
+.markdown-rendered .mermaid-diagram foreignObject p,
+.mermaid-lightbox foreignObject div,
+.mermaid-lightbox foreignObject span,
+.mermaid-lightbox foreignObject p {
   line-height: 1.2;
 }
 

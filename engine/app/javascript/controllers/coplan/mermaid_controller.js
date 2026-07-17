@@ -18,6 +18,7 @@ export default class extends Controller {
     this.renderGeneration += 1
     window.removeEventListener("coplan:theme-changed", this.boundThemeChange)
     this.colorSchemeQuery.removeEventListener("change", this.boundThemeChange)
+    this.lightbox?.close()
   }
 
   async renderDiagrams() {
@@ -63,6 +64,7 @@ export default class extends Controller {
       diagram.dataset.mermaidSource = source
       diagram.dataset.mermaidTheme = theme
       diagram.innerHTML = svg
+      this.makeExpandable(diagram)
       sourceContainer.replaceWith(diagram)
       bindFunctions?.(diagram)
     } catch {
@@ -70,6 +72,57 @@ export default class extends Controller {
       document.getElementById(`d${id}`)?.remove()
       this.showError(sourceContainer)
     }
+  }
+
+  makeExpandable(diagram) {
+    const expand = document.createElement("button")
+    expand.type = "button"
+    expand.className = "mermaid-diagram__expand"
+    expand.setAttribute("aria-label", "Expand diagram")
+    expand.title = "Expand diagram"
+    expand.innerHTML = EXPAND_ICON
+    diagram.append(expand)
+
+    diagram.addEventListener("click", event => {
+      // Let clicks on interactive nodes inside the diagram behave normally.
+      if (event.target.closest("a")) return
+      this.openLightbox(diagram)
+    })
+  }
+
+  openLightbox(diagram) {
+    const svg = diagram.querySelector("svg")
+    if (!svg || this.lightbox) return
+
+    const lightbox = document.createElement("dialog")
+    lightbox.className = "mermaid-lightbox"
+    lightbox.setAttribute("aria-label", "Expanded Mermaid diagram")
+    lightbox.dataset.turboTemporary = ""
+
+    const close = document.createElement("button")
+    close.type = "button"
+    close.className = "mermaid-lightbox__close"
+    close.setAttribute("aria-label", "Close expanded diagram")
+    close.title = "Close"
+    close.innerHTML = CLOSE_ICON
+
+    const content = svg.cloneNode(true)
+    content.removeAttribute("width")
+    content.removeAttribute("height")
+    content.style.maxWidth = "none"
+    content.style.width = "100%"
+    content.style.height = "100%"
+
+    lightbox.append(close, content)
+    lightbox.addEventListener("click", () => lightbox.close())
+    lightbox.addEventListener("close", () => {
+      lightbox.remove()
+      if (this.lightbox === lightbox) this.lightbox = null
+    })
+
+    this.lightbox = lightbox
+    document.body.append(lightbox)
+    lightbox.showModal()
   }
 
   showError(sourceContainer) {
@@ -84,6 +137,18 @@ export default class extends Controller {
     sourceContainer.prepend(message)
   }
 }
+
+const EXPAND_ICON = `
+  <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/>
+  </svg>
+`
+
+const CLOSE_ICON = `
+  <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+    <path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>
+  </svg>
+`
 
 function loadMermaid() {
   if (mermaidPromise) return mermaidPromise
