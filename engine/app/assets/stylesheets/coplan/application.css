@@ -1049,6 +1049,16 @@ img.avatar {
   height: auto;
 }
 
+/* Mermaid sizes node boxes assuming its own label line-height (~1.2); the
+   page's inherited line-height (1.6) makes wrapped labels taller than the
+   boxes mermaid measured, clipping the second line. Pin labels back to the
+   height mermaid laid out for. */
+.markdown-rendered .mermaid-diagram foreignObject div,
+.markdown-rendered .mermaid-diagram foreignObject span,
+.markdown-rendered .mermaid-diagram foreignObject p {
+  line-height: 1.2;
+}
+
 .markdown-rendered .mermaid-diagram--error {
   border-color: var(--color-danger);
 }
