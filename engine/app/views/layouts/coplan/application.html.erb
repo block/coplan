@@ -62,6 +62,13 @@
               <% end %>
             </div>
           </div>
+        <% elsif main_app.respond_to?(:sign_in_path) %>
+          <%# Signed-out visitors need a way in when the host exposes its own
+              sign-in route (hosts gating at the perimeter never render this
+              state — they arrive authenticated). %>
+          <div class="site-nav__right">
+            <%= link_to "Sign in", main_app.sign_in_path, class: "btn btn--primary btn--sm" %>
+          </div>
         <% end %>
       </div>
     </nav>
