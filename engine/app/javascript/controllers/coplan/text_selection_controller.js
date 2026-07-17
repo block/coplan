@@ -215,6 +215,11 @@ export default class extends Controller {
     this._showThreadPopoverFor(event.currentTarget, "pinned")
   }
 
+  handleMermaidSettled() {
+    this.highlightAnchors()
+    if (this._pendingThreadId) this._openLinkedThread()
+  }
+
   async copyThreadLink(event) {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
 
@@ -272,6 +277,22 @@ export default class extends Controller {
     this._attachPopoverHoverListeners(popover)
     this._attachPopoverToggleListener(popover)
     return true
+  }
+
+  _restoreActiveThreadPopover(threadId, mode) {
+    if (!threadId || !this._activePopover) return
+
+    const replacementMark = this.contentTarget.querySelector(`mark[data-thread-id="${threadId}"]`)
+    if (replacementMark && this._findOpenPopover() === this._activePopover) {
+      this._showThreadPopoverFor(replacementMark, mode || "pinned")
+      return
+    }
+
+    this._detachPopoverHoverListeners(this._activePopover)
+    try { this._activePopover.hidePopover() } catch {}
+    this._activeMark = null
+    this._activePopover = null
+    this._openMode = null
   }
 
   handleMarkHoverEnter(mark) {
@@ -511,6 +532,9 @@ export default class extends Controller {
   }
 
   highlightAnchors() {
+    const activeThreadId = this._activeMark?.dataset.threadId
+    const activeMode = this._openMode
+
     // Remove existing anchor highlights before re-highlighting
     this.contentTarget.querySelectorAll("mark.anchor-highlight").forEach(mark => {
       const parent = mark.parentNode
@@ -550,6 +574,7 @@ export default class extends Controller {
       }
     })
 
+    this._restoreActiveThreadPopover(activeThreadId, activeMode)
     this.element.dispatchEvent(new CustomEvent("coplan:anchors-updated", { bubbles: true }))
   }
 
@@ -657,11 +682,31 @@ export default class extends Controller {
 
     const domId = `comment_thread_${threadId}`
     const mark = this.contentTarget.querySelector(`mark[data-thread-id="${domId}"]`)
+    // Mermaid replaces its source block asynchronously. Wait for the rendered
+    // label instead of opening a popover against a source mark that will detach.
+    if (mark?.closest('pre[lang="mermaid"]')) {
+      if (attempt < 10) {
+        setTimeout(() => this._openLinkedThread(attempt + 1), 100)
+      }
+      return
+    }
+
     if (mark) {
-      this._pendingThreadId = null
       requestAnimationFrame(() => {
-        mark.scrollIntoView({ behavior: "instant", block: "center" })
-        this.openThreadPopover({ currentTarget: mark })
+        if (this._pendingThreadId !== threadId) return
+
+        const currentMark = this.contentTarget.querySelector(`mark[data-thread-id="${domId}"]`)
+        if (currentMark?.isConnected) {
+          currentMark.scrollIntoView({ behavior: "instant", block: "center" })
+          if (this._showThreadPopoverFor(currentMark, "pinned")) {
+            this._pendingThreadId = null
+            return
+          }
+        }
+
+        if (attempt < 10) {
+          setTimeout(() => this._openLinkedThread(attempt + 1), 100)
+        }
       })
       return
     }
