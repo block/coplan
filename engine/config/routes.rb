@@ -107,6 +107,8 @@ CoPlan::Engine.routes.draw do
     get "devices", to: "subscriptions#devices", as: :devices
   end
 
+  get "home", to: "home#show", as: :home
+
   get "welcome", to: "welcome#show", as: :welcome
 
   get "search", to: "search#index", as: :search

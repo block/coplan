@@ -13,6 +13,7 @@ module CoPlan
   # unauthenticated callers.
   class SearchController < ApplicationController
     MAX_RESULTS = 20
+    MAX_PEOPLE = 5
 
     def index
       @query = params[:q].to_s.strip
@@ -20,6 +21,19 @@ module CoPlan
         Plan.search(@query, user: current_user)
           .includes(:created_by_user, :tags)
           .limit(MAX_RESULTS)
+          .to_a
+      else
+        []
+      end
+
+      # Search finds people too — landing on a profile is how you get to
+      # someone's library. Local-table match; the directory adapter enriches
+      # the profile itself, not the search.
+      @people = if @query.present?
+        sanitized = User.sanitize_sql_like(@query)
+        User.where("name LIKE :q OR username LIKE :q OR email LIKE :q", q: "%#{sanitized}%")
+          .order(:name)
+          .limit(MAX_PEOPLE)
           .to_a
       else
         []
@@ -38,6 +52,7 @@ module CoPlan
         render partial: "coplan/search/results", layout: false, locals: {
           query: @query,
           results: @results,
+          people: @people,
           recent_queries: @recent_queries
         }
       end

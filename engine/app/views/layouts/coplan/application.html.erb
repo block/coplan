@@ -30,12 +30,20 @@
           <%= coplan_environment_badge %>
         <% end %>
         <% if signed_in? %>
+          <div class="site-nav__links">
+            <%= link_to "Home", coplan.home_path,
+                  class: "site-nav__link #{'site-nav__link--active' if request.path == coplan.home_path}" %>
+            <%= link_to "Workspace", coplan.plans_path,
+                  class: "site-nav__link #{'site-nav__link--active' if request.path == coplan.plans_path}" %>
+            <%= link_to "Library", coplan.my_library_path,
+                  class: "site-nav__link #{'site-nav__link--active' if request.path.start_with?(coplan.my_library_path, '/libraries')}" %>
+          </div>
           <button type="button"
                   class="site-nav__search"
-                  aria-label="Search plans"
+                  aria-label="Search plans and people"
                   popovertarget="search-modal">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <span class="site-nav__search-label">Search plans…</span>
+            <span class="site-nav__search-label">Search plans and people…</span>
             <kbd class="site-nav__search-kbd">/</kbd>
           </button>
           <div class="site-nav__right">
@@ -56,7 +64,7 @@
               </div>
             </div>
             <div class="site-nav__user">
-              <span><%= current_user.name %></span>
+              <%= link_to current_user.name, coplan.profile_path(current_user.username.presence || current_user.id), class: "site-nav__profile-link" %>
               <% if main_app.respond_to?(:sign_out_path) %>
                 <%= link_to "Sign out", main_app.sign_out_path, data: { turbo_method: :delete } %>
               <% end %>

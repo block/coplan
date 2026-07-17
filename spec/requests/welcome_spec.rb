@@ -40,9 +40,9 @@ RSpec.describe "Welcome", type: :request do
         create(:plan, :considering, created_by_user: alice)
       end
 
-      it "redirects to the plans index" do
+      it "redirects to Home" do
         get root_path
-        expect(response).to redirect_to(plans_path)
+        expect(response).to redirect_to(home_path)
       end
 
       it "renders the landing page when force=1 is passed (escape hatch)" do
@@ -60,9 +60,9 @@ RSpec.describe "Welcome", type: :request do
         create(:plan, :considering, created_by_user: alice)
       end
 
-      it "redirects to the plans index just like /" do
+      it "redirects to Home just like /" do
         get welcome_path
-        expect(response).to redirect_to(plans_path)
+        expect(response).to redirect_to(home_path)
       end
     end
 

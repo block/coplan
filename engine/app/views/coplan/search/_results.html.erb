@@ -8,6 +8,7 @@
     The keyboard-nav Stimulus controller (`coplan--search`) looks for
     `[data-search-result]` items; keep that hook intact when changing markup. %>
 <% frame_id = local_assigns.fetch(:frame_id, "search-results") %>
+<% people = local_assigns.fetch(:people, []) %>
 <%# `target="_top"` so clicks on result anchors inside this frame navigate
     the whole page rather than trying to load the plan page into the frame
     (which would render "Content missing" since no matching frame exists
@@ -35,9 +36,32 @@
     <% else %>
       <div class="search-modal__empty">Type to search plans.</div>
     <% end %>
-  <% elsif results.empty? %>
-    <div class="search-modal__empty">No plans match “<%= query %>”.</div>
+  <% elsif results.empty? && people.empty? %>
+    <div class="search-modal__empty">Nothing matches “<%= query %>”.</div>
   <% else %>
+    <% if people.any? %>
+      <div class="search-modal__section-label">People</div>
+      <ul class="search-modal__list" role="listbox">
+        <% people.each do |person| %>
+          <li>
+            <a href="<%= coplan.profile_path(person.username.presence || person.id) %>"
+               class="search-modal__result search-modal__result--person"
+               data-search-result
+               role="option"
+               tabindex="-1">
+              <%= user_avatar(person, size: "md") %>
+              <span class="search-modal__result-text">
+                <span class="search-modal__result-title"><%= person.name %></span>
+                <span class="search-modal__result-meta">
+                  <%= [person.title, person.team].compact_blank.join(" · ").presence || "profile" %>
+                </span>
+              </span>
+            </a>
+          </li>
+        <% end %>
+      </ul>
+      <% if results.any? %><div class="search-modal__section-label">Plans</div><% end %>
+    <% end %>
     <ul class="search-modal__list" role="listbox">
       <% results.each do |plan| %>
         <li>
