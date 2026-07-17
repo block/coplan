@@ -525,6 +525,18 @@ img, svg {
   background: var(--color-bg);
 }
 
+/* Quiet text-style button for low-emphasis actions (e.g. Archive). */
+.btn--ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  border-color: transparent;
+}
+
+.btn--ghost:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
 .btn--danger {
   background: var(--color-danger);
   color: var(--color-text-inverse);
@@ -555,11 +567,11 @@ img, svg {
   letter-spacing: 0.025em;
 }
 
-.badge--brainstorm  { background: var(--color-status-brainstorm-bg); color: var(--color-status-brainstorm); }
-.badge--considering { background: var(--color-status-considering-bg); color: var(--color-status-considering); }
-.badge--developing  { background: var(--color-status-developing-bg); color: var(--color-status-developing); }
-.badge--live        { background: var(--color-status-live-bg); color: var(--color-status-live); }
-.badge--abandoned   { background: var(--color-status-abandoned-bg); color: var(--color-status-abandoned); }
+/* Plan state badges. Published-and-active plans get no badge — these mark
+   the exceptional states only. (The --color-status-* tokens are shared
+   with comment-thread badges below.) */
+.badge--draft    { background: var(--color-status-brainstorm-bg); color: var(--color-status-brainstorm); }
+.badge--archived { background: var(--color-status-abandoned-bg); color: var(--color-status-abandoned); }
 .badge--pending     { background: var(--color-status-considering-bg); color: var(--color-status-considering); }
 .badge--todo        { background: var(--color-status-developing-bg); color: var(--color-status-developing); }
 .badge--discarded   { background: var(--color-status-abandoned-bg); color: var(--color-status-abandoned); }
@@ -3154,6 +3166,31 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   margin-bottom: var(--space-md);
 }
 
+/* Archive sits apart from the constructive actions, pushed to the far edge. */
+.plan-actions__archive {
+  margin-left: auto;
+}
+
+/* Full-width state banner on the plan page (e.g. archived notice). */
+.plan-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-status-abandoned-bg);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Archived rows stay legible but visually recede. */
+.plan-row--archived {
+  opacity: 0.65;
+}
+
 .plan-actions__hint {
   display: block;
   font-size: var(--text-xs);
@@ -3565,11 +3602,7 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   letter-spacing: 0.05em;
 }
 
-.plan-group__label--brainstorm  { color: var(--color-status-brainstorm); }
-.plan-group__label--considering { color: var(--color-status-considering); }
-.plan-group__label--developing  { color: var(--color-status-developing); }
-.plan-group__label--live        { color: var(--color-status-live); }
-.plan-group__label--abandoned   { color: var(--color-status-abandoned); }
+.plan-group__label--draft { color: var(--color-status-brainstorm); }
 
 .plan-group__count {
   font-size: 0.75rem;

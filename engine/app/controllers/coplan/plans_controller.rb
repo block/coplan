@@ -1,34 +1,37 @@
 module CoPlan
   class PlansController < ApplicationController
-    before_action :set_plan, only: [:show, :edit, :update, :update_status, :move_to_folder, :toggle_checkbox, :history, :edit_content, :update_content, :preview]
+    before_action :set_plan, only: [:show, :edit, :update, :publish, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :history, :edit_content, :update_content, :preview]
 
     PER_PAGE = 20
 
     SCOPES = %w[mine all].freeze
     DEFAULT_SCOPE = "mine".freeze
 
-    # Display order for the main-pane status groups: active work first,
-    # brainstorms (collapsed by default) and abandoned plans last.
-    STATUS_GROUP_ORDER = %w[developing considering live brainstorm abandoned].freeze
+    # Display order for the main-pane groups: published work first, then the
+    # viewer's private drafts. Archived plans are opt-in (?filter=archived)
+    # and never render as a default group.
+    GROUP_ORDER = %w[published draft].freeze
+    FILTERS = %w[published draft archived].freeze
 
     # Sidebar workspace index. Two rendering modes:
     #
-    # - Grouped (default): collapsible status groups, each with its own
-    #   "load more" turbo-frame pagination (frames carry group + status
+    # - Grouped (default): collapsible published/draft groups, each with its
+    #   own "load more" turbo-frame pagination (frames carry group + filter
     #   params back here).
-    # - Flat: when ?status= filters to a single status, one recency-sorted
-    #   paginated list.
+    # - Flat: when ?filter= narrows to one group (or opts into archived),
+    #   one recency-sorted paginated list.
     #
     # Turbo-frame requests are always page fetches for one of those lists
     # and render only the row page partial.
     def index
       @scope = SCOPES.include?(params[:scope]) ? params[:scope] : DEFAULT_SCOPE
+      @filter = FILTERS.include?(params[:filter]) ? params[:filter] : nil
       load_folder_tree
 
       if params[:folder].present?
         @folder = @folders_by_id[params[:folder]]
         if @folder.nil? && !turbo_frame_request?
-          redirect_to plans_path(params.permit(:scope, :status, :plan_type, :tag).to_h),
+          redirect_to plans_path(params.permit(:scope, :filter, :plan_type, :tag).to_h),
             alert: "That folder no longer exists."
           return
         end
@@ -44,8 +47,8 @@ module CoPlan
       # Stale frame fetch for a since-deleted folder: render an empty page.
       plans = plans.none if params[:folder].present? && @folder.nil?
 
-      if params[:status].present? || turbo_frame_request?
-        plans = plans.where(status: params[:status]) if params[:status].present?
+      if @filter.present? || turbo_frame_request?
+        plans = filtered_plans(plans, @filter)
         plans = plans.order(updated_at: :desc, id: :desc)
 
         @page = [ params[:page].to_i, 1 ].max
@@ -62,22 +65,24 @@ module CoPlan
               page: @page,
               has_next_page: @has_next_page,
               group_key: params[:group].presence || "results",
-              frame_status: params[:status].presence
+              frame_filter: @filter
             },
             layout: false
           return
         end
       else
-        @group_counts = plans.group(:status).count
-        @groups = STATUS_GROUP_ORDER.filter_map do |status|
-          count = @group_counts[status].to_i
+        active = plans.active
+        @group_counts = active.group(:visibility).count
+        @archived_count = plans.archived.count
+        @groups = GROUP_ORDER.filter_map do |visibility|
+          count = @group_counts[visibility].to_i
           next if count.zero?
 
-          group_plans = plans.where(status: status)
+          group_plans = active.where(visibility: visibility)
             .order(updated_at: :desc, id: :desc)
             .limit(PER_PAGE + 1).to_a
           {
-            status: status,
+            group: visibility,
             count: count,
             plans: group_plans.first(PER_PAGE),
             has_next_page: group_plans.size > PER_PAGE
@@ -234,35 +239,44 @@ module CoPlan
       render html: html, layout: false
     end
 
-    def update_status
-      authorize!(@plan, :update_status?)
-      new_status = params[:status]
-      old_status = @plan.status
-      if Plan::STATUSES.include?(new_status) && @plan.update(status: new_status)
-        broadcast_plan_update(@plan)
-        if @plan.saved_change_to_status?
-          Plans::LogEvent.call(
-            plan: @plan,
-            actor: current_user,
-            event_type: "status_changed",
-            before: old_status,
-            after: new_status
-          )
-          if new_status == "considering" && old_status != "considering"
-            CoPlan::Analytics.track(
-              "plan_published",
-              user: current_user,
-              plan_id: @plan.id,
-              plan_type_id: @plan.plan_type_id,
-              previous_status: old_status,
-              via: "web"
-            )
-          end
-        end
-        redirect_to plan_path(@plan), notice: "Status updated to #{new_status}."
-      else
-        redirect_to plan_path(@plan), alert: "Invalid status."
-      end
+    # Publishing is the one-way door out of draft: explicit, confirmed in
+    # the UI, and irreversible by design (archive is the tool for "done
+    # with this", not unpublish).
+    def publish
+      authorize!(@plan, :publish?)
+      @plan.update!(visibility: "published")
+      broadcast_plan_update(@plan)
+      Plans::LogEvent.call(
+        plan: @plan,
+        actor: current_user,
+        event_type: "published",
+        before: "draft",
+        after: "published"
+      )
+      CoPlan::Analytics.track(
+        "plan_published",
+        user: current_user,
+        plan_id: @plan.id,
+        plan_type_id: @plan.plan_type_id,
+        via: "web"
+      )
+      redirect_to plan_path(@plan), notice: "Plan published — everyone can see it now."
+    end
+
+    def archive
+      authorize!(@plan, :archive?)
+      @plan.update!(archived_at: Time.current)
+      broadcast_plan_update(@plan)
+      Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "archived")
+      redirect_to plan_path(@plan), notice: "Plan archived. It's hidden from lists unless someone filters for archived plans."
+    end
+
+    def unarchive
+      authorize!(@plan, :unarchive?)
+      @plan.update!(archived_at: nil)
+      broadcast_plan_update(@plan)
+      Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "unarchived")
+      redirect_to plan_path(@plan), notice: "Plan restored."
     end
 
     def toggle_checkbox
@@ -348,6 +362,16 @@ module CoPlan
 
     private
 
+    # Narrows a relation to one workspace filter. Archived plans are opt-in
+    # everywhere: no filter means active plans only.
+    def filtered_plans(plans, filter)
+      case filter
+      when "archived" then plans.archived
+      when "draft", "published" then plans.active.where(visibility: filter)
+      else plans.active
+      end
+    end
+
     def unread_counts_for(plans)
       current_user.notifications.unread
         .where(plan_id: plans.map(&:id))
@@ -395,7 +419,9 @@ module CoPlan
     # which also means other users' private brainstorm plans never leak
     # through folder counts or tag lists (Plan.visible_to).
     def load_workspace_sidebar
-      direct_counts = scoped_plans_base
+      # Archived plans are hidden from default lists, so they're excluded
+      # from folder/tag counts too — counts always match what clicking shows.
+      direct_counts = scoped_plans_base.active
         .where.not(folder_id: nil)
         .group(:folder_id)
         .count
@@ -414,7 +440,7 @@ module CoPlan
 
       @top_tags = Tag
         .joins(:plan_tags)
-        .where(coplan_plan_tags: { plan_id: scoped_plans_base.select(:id) })
+        .where(coplan_plan_tags: { plan_id: scoped_plans_base.active.select(:id) })
         .group("coplan_tags.id", "coplan_tags.name")
         .order(Arel.sql("COUNT(*) DESC"), "coplan_tags.name ASC")
         .limit(8)

@@ -1,6 +1,11 @@
 module CoPlan
   class Plan < ApplicationRecord
-    STATUSES = %w[brainstorm considering developing live abandoned].freeze
+    VISIBILITIES = %w[draft published].freeze
+
+    # Legacy API compatibility: the pre-2026-07 five-state `status` field.
+    # Accepted on writes and emitted on reads for a deprecation window; the
+    # canonical model is `visibility` + `archived_at`.
+    LEGACY_STATUSES = %w[brainstorm considering developing live abandoned].freeze
 
     # Server-side limits for file attachments. Content types are an allowlist:
     # anything renderable-but-scriptable (html, svg, js) is deliberately
@@ -36,18 +41,25 @@ module CoPlan
     after_initialize { self.metadata ||= {} }
 
     validates :title, presence: true
-    validates :status, presence: true, inclusion: { in: STATUSES }
+    validates :visibility, presence: true, inclusion: { in: VISIBILITIES }
     validate :attachments_within_limits
 
     scope :with_tag, ->(name) { joins(:tags).where(coplan_tags: { name: name }) }
 
-    # Plans `user` is allowed to see: everything published (non-brainstorm)
-    # plus the user's own brainstorms. Brainstorm plans are private drafts —
-    # any list, count, or folder content shown to a user must go through
-    # this scope so private brainstorm existence never leaks.
+    # Plans `user` is allowed to see: everything published plus the user's
+    # own drafts. Drafts are private — any list, count, feed, search result,
+    # or folder content shown to a user must go through this scope (or
+    # PlanPolicy#show?, which mirrors it) so private draft existence never
+    # leaks. This is THE visibility predicate: never test `visibility`
+    # inline elsewhere.
     scope :visible_to, ->(user) {
-      where.not(status: "brainstorm").or(where(created_by_user_id: user.id))
+      where(visibility: "published").or(where(created_by_user_id: user.id))
     }
+
+    # Archived plans are hidden from every default surface; callers opt in
+    # with `.archived` or by dropping the `.active` scope explicitly.
+    scope :active, -> { where(archived_at: nil) }
+    scope :archived, -> { where.not(archived_at: nil) }
 
     after_save_commit :refresh_search_text!, if: :search_text_needs_refresh?
 
@@ -63,7 +75,10 @@ module CoPlan
       term = sanitize_fulltext_term(query)
       return none if term.blank?
 
-      visible_to(user)
+      # Archived plans stay out of search — they remain reachable by direct
+      # URL and via explicit archived filters, but never resurface on their
+      # own.
+      visible_to(user).active
         .where("MATCH(search_text) AGAINST (? IN BOOLEAN MODE)", term)
         .order(Arel.sql("MATCH(search_text) AGAINST (#{connection.quote(term)} IN BOOLEAN MODE) DESC"))
     }
@@ -109,7 +124,7 @@ module CoPlan
     end
 
     def self.ransackable_attributes(auth_object = nil)
-      %w[id title status plan_type_id folder_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
+      %w[id title visibility archived_at plan_type_id folder_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
     end
 
     def self.ransackable_associations(auth_object = nil)
@@ -118,6 +133,40 @@ module CoPlan
 
     def to_param
       id
+    end
+
+    def draft?
+      visibility == "draft"
+    end
+
+    def published?
+      visibility == "published"
+    end
+
+    def archived?
+      archived_at.present?
+    end
+
+    # Legacy API compatibility (see LEGACY_STATUSES). Emits the closest
+    # five-state equivalent of the current visibility/archival state.
+    def legacy_status
+      return "brainstorm" if draft?
+      return "abandoned" if archived?
+      "considering"
+    end
+
+    # Maps a legacy five-state status write onto the canonical fields.
+    # Returns the attributes to assign; raises nothing — validation of the
+    # mapped values happens on save.
+    def self.attributes_for_legacy_status(status)
+      case status.to_s
+      when "brainstorm" then { visibility: "draft", archived_at: nil }
+      # Archiving must never implicitly publish: a draft archived via the
+      # legacy API stays a (archived) draft rather than leaking.
+      when "abandoned" then { archived_at: Time.current }
+      when *LEGACY_STATUSES then { visibility: "published", archived_at: nil }
+      else {}
+      end
     end
 
     def current_content

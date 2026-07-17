@@ -1,8 +1,8 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Collapsible status groups on the plans index. Collapsed state is
+// Collapsible plan groups on the plans index. Collapsed state is
 // persisted per user in localStorage; groups marked with
-// [data-default-collapsed] (brainstorms) start collapsed until the user
+// [data-default-collapsed] (drafts) start collapsed until the user
 // explicitly expands them.
 const STORAGE_KEY = "coplan:plans:collapsed-groups"
 

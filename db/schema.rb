@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_16_154924) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_17_205624) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -244,6 +244,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_154924) do
   end
 
   create_table "coplan_plans", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "archived_at"
     t.datetime "created_at", null: false
     t.string "created_by_user_id", limit: 36, null: false
     t.string "current_plan_version_id", limit: 36
@@ -252,19 +253,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_154924) do
     t.json "metadata"
     t.string "plan_type_id", limit: 36
     t.text "search_text", size: :medium
-    t.string "status", default: "brainstorm", null: false
     t.text "summary"
     t.string "summary_content_sha256", limit: 64
     t.datetime "summary_generated_at"
     t.string "title", null: false
     t.datetime "updated_at", null: false
+    t.string "visibility", default: "published", null: false
+    t.index ["archived_at"], name: "index_coplan_plans_on_archived_at"
     t.index ["created_by_user_id"], name: "index_coplan_plans_on_created_by_user_id"
     t.index ["current_plan_version_id"], name: "fk_rails_c401577583"
     t.index ["folder_id"], name: "index_coplan_plans_on_folder_id"
     t.index ["plan_type_id"], name: "index_coplan_plans_on_plan_type_id"
     t.index ["search_text"], name: "index_coplan_plans_on_search_text", type: :fulltext
-    t.index ["status"], name: "index_coplan_plans_on_status"
     t.index ["updated_at"], name: "index_coplan_plans_on_updated_at"
+    t.index ["visibility"], name: "index_coplan_plans_on_visibility"
   end
 
   create_table "coplan_references", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|

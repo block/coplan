@@ -1,8 +1,8 @@
-<%# One page of plan rows within a list (a status group, or the flat
-    ?status= results list), plus the lazily-loaded next-page frame.
+<%# One page of plan rows within a list (a published/draft group, or the
+    flat ?filter= results list), plus the lazily-loaded next-page frame.
     `group_key` namespaces the frame ids so multiple groups can paginate
-    independently on the same page; `frame_status` is the status filter the
-    next-page request should carry. %>
+    independently on the same page; `frame_filter` is the workspace filter
+    the next-page request should carry. %>
 <%= turbo_frame_tag "plans-#{group_key}-page-#{page}" do %>
   <% plans.each do |plan| %>
     <%= render "coplan/plans/plan_row", plan: plan, unread: plan_unread_counts[plan.id].to_i %>
@@ -10,7 +10,7 @@
 
   <% if has_next_page %>
     <% next_page_params = params.permit(:scope, :plan_type, :tag, :folder)
-         .merge(page: page + 1, group: group_key, status: frame_status) %>
+         .merge(page: page + 1, group: group_key, filter: frame_filter) %>
     <%= turbo_frame_tag "plans-#{group_key}-page-#{page + 1}",
           src: plans_path(next_page_params),
           loading: :lazy do %>

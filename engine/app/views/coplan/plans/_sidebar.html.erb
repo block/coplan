@@ -3,7 +3,7 @@
     <h3 class="sidebar__heading">Folders</h3>
     <ul class="folder-tree">
       <li class="folder-tree__node">
-        <%= link_to plans_path(params.permit(:scope, :status, :plan_type, :tag)),
+        <%= link_to plans_path(params.permit(:scope, :filter, :plan_type, :tag)),
               class: "folder-tree__link #{'folder-tree__link--active' unless @folder}",
               data: {
                 "coplan--folder-dnd-target": "folder",
@@ -45,7 +45,7 @@
       <ul class="sidebar__list">
         <% @top_tags.each do |name, count| %>
           <li>
-            <%= link_to plans_path(params.permit(:scope, :status, :plan_type, :folder).merge(tag: params[:tag] == name ? nil : name)),
+            <%= link_to plans_path(params.permit(:scope, :filter, :plan_type, :folder).merge(tag: params[:tag] == name ? nil : name)),
                   class: "sidebar__item #{'sidebar__item--active' if params[:tag] == name}" do %>
               <span class="sidebar__item-label">#<%= name %></span>
               <span class="sidebar__count"><%= count %></span>
@@ -60,12 +60,22 @@
     <h3 class="sidebar__heading">Filters</h3>
     <ul class="sidebar__list">
       <li>
-        <%= link_to "My plans", plans_path(params.permit(:status, :plan_type, :tag, :folder)),
+        <%= link_to "My plans", plans_path(params.permit(:filter, :plan_type, :tag, :folder)),
               class: "sidebar__item #{'sidebar__item--active' if @scope == 'mine'}" %>
       </li>
       <li>
-        <%= link_to "All plans", plans_path(params.permit(:status, :plan_type, :tag, :folder).merge(scope: "all")),
+        <%= link_to "All plans", plans_path(params.permit(:filter, :plan_type, :tag, :folder).merge(scope: "all")),
               class: "sidebar__item #{'sidebar__item--active' if @scope == 'all'}" %>
+      </li>
+      <li>
+        <%= link_to "Drafts", plans_path(params.permit(:scope, :plan_type, :tag, :folder).merge(filter: @filter == "draft" ? nil : "draft")),
+              class: "sidebar__item #{'sidebar__item--active' if @filter == 'draft'}" %>
+      </li>
+      <li>
+        <%# Archived plans are hidden everywhere else — this is the explicit
+            opt-in view. %>
+        <%= link_to "Archived", plans_path(params.permit(:scope, :plan_type, :tag, :folder).merge(filter: @filter == "archived" ? nil : "archived")),
+              class: "sidebar__item sidebar__item--archived #{'sidebar__item--active' if @filter == 'archived'}" %>
       </li>
     </ul>
   </div>
@@ -77,7 +87,7 @@
         <% @plan_types.each do |pt| %>
           <li>
             <%= link_to pt.name,
-                  plans_path(params.permit(:scope, :status, :tag, :folder).merge(plan_type: params[:plan_type] == pt.id ? nil : pt.id)),
+                  plans_path(params.permit(:scope, :filter, :tag, :folder).merge(plan_type: params[:plan_type] == pt.id ? nil : pt.id)),
                   class: "sidebar__item #{'sidebar__item--active' if params[:plan_type] == pt.id}" %>
           </li>
         <% end %>

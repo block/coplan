@@ -1,8 +1,9 @@
 ActiveAdmin.register CoPlan::Plan, as: "Plan" do
-  permit_params :title, :status
+  permit_params :title, :visibility, :archived_at
 
   filter :title
-  filter :status, as: :select, collection: CoPlan::Plan::STATUSES
+  filter :visibility, as: :select, collection: CoPlan::Plan::VISIBILITIES
+  filter :archived_at
   filter :plan_type, as: :select
   filter :created_at
   filter :updated_at
@@ -11,7 +12,8 @@ ActiveAdmin.register CoPlan::Plan, as: "Plan" do
     selectable_column
     id_column
     column :title
-    column :status
+    column :visibility
+    column("Archived") { |plan| plan.archived? }
     column :current_revision
     column :created_by_user
     column :updated_at
@@ -22,7 +24,8 @@ ActiveAdmin.register CoPlan::Plan, as: "Plan" do
     attributes_table do
       row :id
       row :title
-      row :status
+      row :visibility
+      row :archived_at
       row :current_revision
       row :created_by_user
       row(:tags) { |plan| plan.tag_names.join(", ") }

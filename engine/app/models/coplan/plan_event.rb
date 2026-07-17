@@ -15,7 +15,12 @@ module CoPlan
     # be rendered uniformly.
     ACTOR_TYPES = %w[human local_agent cloud_persona system].freeze
 
+    # status_changed is retired (no new writes) but stays valid so
+    # pre-visibility historical rows keep rendering.
     EVENT_TYPES = %w[
+      published
+      archived
+      unarchived
       status_changed
       title_changed
       plan_type_changed

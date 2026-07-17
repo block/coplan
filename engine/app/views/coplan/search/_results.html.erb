@@ -48,9 +48,11 @@
              tabindex="-1">
             <span class="search-modal__result-title"><%= plan.title %></span>
             <span class="search-modal__result-meta">
-              <span class="status-filter--<%= plan.status %> search-modal__status"><%= plan.status %></span>
+              <% if plan.draft? %>
+                <span class="badge badge--draft">Draft</span> ·
+              <% end %>
               <% if plan.created_by_user %>
-                · <%= plan.created_by_user.name %>
+                <%= plan.created_by_user.name %>
               <% end %>
               <% if plan.tags.any? %>
                 · <%= plan.tags.map(&:name).first(3).join(", ") %>

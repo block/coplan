@@ -26,7 +26,7 @@ See [Editing Plans](#editing-plans-recommended-full-content-replacement) for the
   "<%= @base %>/api/v1/plans" | jq .
 ```
 
-Optional query param: `?status=considering`
+Optional query params: `?visibility=draft` or `?visibility=published` (drafts are only ever your own), `?archived=true` (archived plans are excluded unless you ask for them).
 
 ### Get Plan
 
@@ -35,7 +35,7 @@ Optional query param: `?status=considering`
   "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
 ```
 
-Returns: `id`, `title`, `status`, `current_content` (markdown), `current_revision`, `references` (array of linked resources).
+Returns: `id`, `title`, `visibility`, `archived`, `current_content` (markdown), `current_revision`, `references` (array of linked resources).
 
 ### Get Plan Snapshot (Recommended)
 
@@ -57,7 +57,7 @@ Returns: plan metadata, `current_content`, `current_revision`, `comment_threads`
   "<%= @base %>/api/v1/plans" | jq .
 ```
 
-Optional fields: `plan_type` (string) — the name of a plan type to use. See [Plan Types](#plan-types) below.
+Optional fields: `plan_type` (string) — the name of a plan type to use (see [Plan Types](#plan-types) below); `visibility` (string) — plans are **published to the whole org by default**; pass `"draft"` to start private instead (see [Visibility &amp; Archiving](#visibility--archiving)).
 
 #### Diagrams
 
@@ -85,16 +85,16 @@ Other raw HTML is stripped on render (the Markdown source is preserved), so stic
 
 ### Update Plan
 
-Update plan metadata (title, status, tags). Only fields included in the request body are changed.
+Update plan metadata (title, visibility, tags). Only fields included in the request body are changed.
 
 ```bash
 <%= @curl %> -X PATCH \
   -H "Content-Type: application/json" \
-  -d '{"status": "considering"}' \
+  -d '{"visibility": "published"}' \
   "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
 ```
 
-Allowed fields: `title` (string), `status` (string), `tags` (array of strings), `references` (array — see [References](#references) below).
+Allowed fields: `title` (string), `visibility` (`"published"` — see [Visibility &amp; Archiving](#visibility--archiving)), `archived` (boolean), `tags` (array of strings), `references` (array — see [References](#references) below).
 
 ### List Tags
 
@@ -158,19 +158,23 @@ Each folder includes `id`, `name`, `parent_id`, `path` (e.g. `"Team EBT/Q3"`), a
 - Folder names read like places (`Team EBT`, `Infra`, `Q3 Launch`), not labels.
 - You can offer to organize a user's plans: list their plans, propose a folder structure, and move plans with `folder_path` once they agree.
 
-### Plan Statuses
+### Visibility & Archiving
 
-Plans move through a lifecycle. **Keep the status current** — update it as the plan progresses.
+Plans have two orthogonal state fields — there is no multi-step lifecycle to maintain:
 
-| Status | Meaning | When to use |
-|--------|---------|-------------|
-| `brainstorm` | Private draft, only visible to the author | Initial creation, not ready for anyone else to see |
-| `considering` | Published, open for review and feedback | Ready for others to read and comment on |
-| `developing` | Actively being implemented | Work has started based on the plan |
-| `live` | Shipped, in production | Implementation is complete |
-| `abandoned` | No longer pursuing | Plan was dropped or superseded |
+| Field | Values | Meaning |
+|-------|--------|---------|
+| `visibility` | `draft` / `published` | Drafts are private to the author. Published plans are visible to the whole org. |
+| `archived` | `true` / `false` | Archived plans stay readable at their URL but disappear from lists and search unless explicitly filtered for. |
 
-When you create a plan, it starts as `brainstorm`. Promote it to `considering` when it's ready for review. Move to `developing` when implementation begins. Don't leave plans in stale states.
+Rules that matter for agents:
+
+- **New plans are published (org-visible) from the moment they're created.** Sharing is the default. Pass `"visibility": "draft"` on create only when the user explicitly wants a private draft; publish a draft later with `PATCH {"visibility": "published"}`. Publishing is one-way (a published plan cannot return to draft; archive it instead).
+- Archive (`{"archived": true}`) anything that is dead, superseded, or was created by mistake — including your own duplicates. Unarchive with `{"archived": false}`.
+- **Never create a new plan to "replace" one you can edit.** Plans have full version history; edit the existing plan (see Editing Plans). If a plan genuinely supersedes another, add a reference between them and archive the old one.
+- If a plan has a real rollout lifecycle worth tracking, use tags (e.g. `developing`, `live`) — status fields for that no longer exist.
+
+The API also accepts the legacy `status` field (`brainstorm`/`considering`/`developing`/`live`/`abandoned`) for older integrations, mapping it onto visibility/archived. New integrations should use `visibility` and `archived`.
 
 ### Plan Types
 
