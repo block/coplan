@@ -128,6 +128,24 @@ export default class extends Controller {
     this.updatePosition()
   }
 
+  handleAnchorsUpdated() {
+    this.updatePosition()
+    if (!this.activeMark || !this.activePopover) return
+
+    const threadId = this.activeMark.dataset.threadId
+    const replacementMark = this.allHighlights.find(mark => mark.dataset.threadId === threadId)
+    if (replacementMark && this.findOpenPopover() === this.activePopover) {
+      replacementMark.classList.add("anchor-highlight--active")
+      this.activeMark = replacementMark
+      this.positionPopoverAtMark(this.activePopover, replacementMark)
+      return
+    }
+
+    try { this.activePopover.hidePopover() } catch {}
+    this.activeMark = null
+    this.activePopover = null
+  }
+
   handleScroll() {
     if (!this.activeMark || !this.activePopover) return
     try {

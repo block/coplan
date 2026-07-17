@@ -195,6 +195,103 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_content("Why not monolith?")
     end
 
+    it "opens a popover for a comment anchored to a Mermaid label" do
+      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+        # Request flow
+
+        ```mermaid
+        flowchart LR
+          Queue["assignment — first<br/>fetching device wins"] --> Printer
+        ```
+      MARKDOWN
+      thread = create_anchored_thread(
+        plan: plan,
+        anchor_text: "firstfetching device wins",
+        body: "Does this claim time out?",
+        user: reviewer
+      )
+
+      visit plan_path(plan)
+
+      expect(page).to have_css(".mermaid-diagram svg", wait: 10)
+      mark_selector = ".mermaid-diagram mark[data-thread-id='comment_thread_#{thread.id}']"
+      find(mark_selector, match: :first, wait: 10).click
+      expect(page).to have_css("#comment_thread_#{thread.id}_popover", visible: true)
+
+      initial_theme = find(".mermaid-diagram")["data-mermaid-theme"]
+      replacement_theme = initial_theme == "dark" ? "light" : "dark"
+      page.execute_script(<<~JS)
+        document.documentElement.dataset.theme = "#{replacement_theme}"
+        window.dispatchEvent(new CustomEvent("coplan:theme-changed"))
+      JS
+      expect(page).to have_css(
+        ".mermaid-diagram[data-mermaid-theme='#{replacement_theme}']",
+        wait: 10
+      )
+
+      expect(page).to have_css("#comment_thread_#{thread.id}_popover", visible: true)
+      expect(page).to have_content("Does this claim time out?")
+      active_mark_is_rendered = page.evaluate_script(<<~JS)
+        (() => {
+          const layout = document.querySelector('[data-controller~="coplan--text-selection"]')
+          const controller = window.Stimulus.getControllerForElementAndIdentifier(
+            layout,
+            "coplan--text-selection"
+          )
+          return controller._activeMark?.isConnected &&
+            controller._activeMark.closest(".mermaid-diagram") !== null
+        })()
+      JS
+      expect(active_mark_is_rendered).to be(true)
+    end
+
+    it "keeps a keyboard-opened Mermaid popover attached across re-renders" do
+      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+        ```mermaid
+        flowchart LR
+          Queue["assignment"] --> Printer
+        ```
+      MARKDOWN
+      thread = create_anchored_thread(
+        plan: plan,
+        anchor_text: "assignment",
+        body: "Does this need a lease?",
+        user: reviewer
+      )
+
+      visit plan_path(plan)
+
+      expect(page).to have_css(".mermaid-diagram svg", wait: 10)
+      find("body").send_keys("j")
+      expect(page).to have_css("#comment_thread_#{thread.id}_popover", visible: true)
+
+      initial_theme = find(".mermaid-diagram")["data-mermaid-theme"]
+      replacement_theme = initial_theme == "dark" ? "light" : "dark"
+      page.execute_script(<<~JS)
+        document.documentElement.dataset.theme = "#{replacement_theme}"
+        window.dispatchEvent(new CustomEvent("coplan:theme-changed"))
+      JS
+      expect(page).to have_css(
+        ".mermaid-diagram[data-mermaid-theme='#{replacement_theme}']",
+        wait: 10
+      )
+
+      expect(page).to have_css("#comment_thread_#{thread.id}_popover", visible: true)
+      active_mark_is_rendered = page.evaluate_script(<<~JS)
+        (() => {
+          const toolbar = document.querySelector('[data-controller~="coplan--comment-nav"]')
+          const controller = window.Stimulus.getControllerForElementAndIdentifier(
+            toolbar,
+            "coplan--comment-nav"
+          )
+          return controller.activeMark?.isConnected &&
+            controller.activeMark.dataset.threadId === "comment_thread_#{thread.id}" &&
+            controller.activeMark.closest(".mermaid-diagram") !== null
+        })()
+      JS
+      expect(active_mark_is_rendered).to be(true)
+    end
+
     it "opens a linked comment and exposes its permalink" do
       thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
 
@@ -207,6 +304,95 @@ RSpec.describe "Comment UX", type: :system do
         click_link "Copy link"
         expect(page).to have_link("Copied!")
       end
+    end
+
+    it "opens a linked comment anchored to a Mermaid label" do
+      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+        ```mermaid
+        flowchart LR
+          Queue["~3 min retries"] --> Printer
+        ```
+      MARKDOWN
+      thread = create_anchored_thread(
+        plan: plan,
+        anchor_text: "~3 min retries",
+        body: "Is the retry window configurable?",
+        user: reviewer
+      )
+
+      visit plan_path(plan, thread: thread.id)
+
+      expect(page).to have_css(".mermaid-diagram svg", wait: 10)
+      expect(page).to have_css("#comment_thread_#{thread.id}_popover", visible: true)
+      expect(page).to have_content("Is the retry window configurable?")
+      active_mark_is_rendered = page.evaluate_script(<<~JS)
+        (() => {
+          const layout = document.querySelector('[data-controller~="coplan--text-selection"]')
+          const controller = window.Stimulus.getControllerForElementAndIdentifier(
+            layout,
+            "coplan--text-selection"
+          )
+          return controller._activeMark?.isConnected &&
+            controller._activeMark.closest(".mermaid-diagram") !== null
+        })()
+      JS
+      expect(active_mark_is_rendered).to be(true)
+    end
+
+    it "opens a pending linked comment after Mermaid rendering fails" do
+      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+        ```mermaid
+        not a valid diagram
+        ```
+      MARKDOWN
+      thread = create_anchored_thread(
+        plan: plan,
+        anchor_text: "not a valid diagram",
+        body: "The source still needs feedback.",
+        user: reviewer
+      )
+
+      visit plan_path(plan)
+
+      expect(page).to have_css(".mermaid-diagram--error", wait: 10)
+      page.execute_script(<<~JS)
+        const source = document.querySelector(".mermaid-diagram--error")
+        source.querySelector(".mermaid-diagram__error-message")?.remove()
+        source.classList.remove("mermaid-diagram--error")
+        source.setAttribute("lang", "mermaid")
+
+        const layout = document.querySelector('[data-controller~="coplan--text-selection"]')
+        const textSelection = window.Stimulus.getControllerForElementAndIdentifier(
+          layout,
+          "coplan--text-selection"
+        )
+        textSelection._pendingThreadId = "#{thread.id}"
+        textSelection._openLinkedThread(10)
+
+        const markdown = document.querySelector('[data-controller~="coplan--mermaid"]')
+        const mermaid = window.Stimulus.getControllerForElementAndIdentifier(
+          markdown,
+          "coplan--mermaid"
+        )
+        mermaid.renderDiagrams()
+      JS
+
+      expect(page).to have_css(".mermaid-diagram--error", wait: 10)
+      expect(page).to have_css("#comment_thread_#{thread.id}_popover", visible: true)
+      expect(page).to have_content("The source still needs feedback.")
+      linked_source_is_stable = page.evaluate_script(<<~JS)
+        (() => {
+          const layout = document.querySelector('[data-controller~="coplan--text-selection"]')
+          const controller = window.Stimulus.getControllerForElementAndIdentifier(
+            layout,
+            "coplan--text-selection"
+          )
+          return controller._pendingThreadId === null &&
+            controller._activeMark?.isConnected &&
+            controller._activeMark.closest(".mermaid-diagram--error") !== null
+        })()
+      JS
+      expect(linked_source_is_stable).to be(true)
     end
 
     it "shows reply form for open threads" do

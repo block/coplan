@@ -34,19 +34,24 @@ export default class extends Controller {
     ]
     if (sources.length === 0) return
 
-    let mermaid
-    try {
-      mermaid = await loadMermaid()
-    } catch {
-      sources.forEach(({ container }) => this.showError(container))
-      return
-    }
-
-    const theme = configureMermaid(mermaid)
     const generation = ++this.renderGeneration
 
-    for (const { container, source } of sources) {
-      await this.renderDiagram(mermaid, container, source, theme, generation)
+    try {
+      const mermaid = await loadMermaid()
+      if (!this.element.isConnected || generation !== this.renderGeneration) return
+
+      const theme = configureMermaid(mermaid)
+      for (const { container, source } of sources) {
+        await this.renderDiagram(mermaid, container, source, theme, generation)
+      }
+    } catch {
+      if (this.element.isConnected && generation === this.renderGeneration) {
+        sources.forEach(({ container }) => this.showError(container))
+      }
+    } finally {
+      if (this.element.isConnected && generation === this.renderGeneration) {
+        this.element.dispatchEvent(new CustomEvent("coplan:mermaid-settled", { bubbles: true }))
+      }
     }
   }
 
@@ -70,7 +75,9 @@ export default class extends Controller {
     } catch {
       document.getElementById(id)?.remove()
       document.getElementById(`d${id}`)?.remove()
-      this.showError(sourceContainer)
+      if (this.element.isConnected && generation === this.renderGeneration) {
+        this.showError(sourceContainer)
+      }
     }
   }
 
