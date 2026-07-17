@@ -333,6 +333,7 @@ img, svg {
   align-items: center;
   gap: var(--space-lg);
   list-style: none;
+  margin-left: var(--space-lg);
 }
 
 .site-nav__links a {
@@ -373,6 +374,7 @@ img, svg {
   gap: var(--space-sm);
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+  white-space: nowrap;
 }
 
 /* Main content */
@@ -3448,6 +3450,16 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
   margin: 0 0 var(--space-md);
+}
+
+/* The embedded shelf column is narrow — let plan meta wrap under the
+   title instead of ellipsizing into "by Hampton Lintorn-Catli…". */
+.profile__library .library-shelf__plan {
+  flex-wrap: wrap;
+}
+
+.profile__library .library-shelf__plan-meta {
+  white-space: normal;
 }
 
 .profile__library-link {
