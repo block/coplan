@@ -56,6 +56,18 @@ module CoPlan
       "#{prefix} — #{truncated}"
     end
 
+    # Canonical URL for a user's profile — username when they have one
+    # (readable, stable), id otherwise.
+    def profile_path_for(user)
+      profile_path(user.username.presence || user.id)
+    end
+
+    # Author names everywhere in the app link to profiles.
+    def profile_link(user, css_class: "profile-link")
+      return "" unless user
+      link_to user.name, profile_path_for(user), class: css_class
+    end
+
     def user_avatar(user, size: "sm")
       initials = user.name.split.map { |w| w[0] }.first(2).join.upcase
       if user.avatar_url.present?

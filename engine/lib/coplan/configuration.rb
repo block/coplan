@@ -70,6 +70,30 @@ module CoPlan
     #   }
     attr_accessor :user_search
 
+    # Lambda for enriching profile pages from the host's people directory
+    # (LDAP, a People API, ...). Receives a CoPlan::User, returns a hash
+    # with any of :name, :avatar_url, :title, :team, :profile_url —
+    # values present override the local coplan_users columns, and
+    # :profile_url adds a "view in directory" link out to the canonical
+    # people page. Return nil (or omit keys) to fall back to local data.
+    #
+    # Called on the request thread when rendering a profile; exceptions
+    # are swallowed and reported via `error_reporter`, so a flaky
+    # directory degrades to the minimal local profile instead of a 500.
+    # Hosts should cache inside the lambda if their directory is slow.
+    #
+    # Example:
+    #   config.directory_profile = ->(user) {
+    #     person = PeopleApi.lookup(email: user.email)
+    #     {
+    #       avatar_url: person.photo_url,
+    #       title: person.job_title,
+    #       team: person.org_name,
+    #       profile_url: person.canonical_url
+    #     }
+    #   }
+    attr_accessor :directory_profile
+
     def initialize
       @authenticate = nil
       @ai_base_url = "https://api.openai.com/v1"

@@ -40,6 +40,11 @@ CoPlan::Engine.routes.draw do
   resources :libraries, only: [:show]
   get "library", to: "libraries#mine", as: :my_library
 
+  # Profile pages — the front door to a person's library. :id is a
+  # username or user id; usernames may contain dots, so the constraint
+  # keeps Rails from peeling ".l" off "hampton.l" as a format.
+  get "people/:id", to: "profiles#show", as: :profile, constraints: { id: %r{[^/]+} }
+
   namespace :api do
     namespace :v1 do
       resources :tags, only: [:index]

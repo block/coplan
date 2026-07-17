@@ -18,7 +18,7 @@
         <li class="library-shelf__plan">
           <%= link_to plan.title, plan_path(plan), class: "library-shelf__plan-title" %><%= plan_state_badge(plan) %>
           <span class="library-shelf__plan-meta text-muted">
-            by <%= plan.created_by_user.name %> · updated <%= time_ago_in_words(plan.updated_at) %> ago
+            by <%= profile_link(plan.created_by_user) %> · updated <%= time_ago_in_words(plan.updated_at) %> ago
           </span>
         </li>
       <% end %>

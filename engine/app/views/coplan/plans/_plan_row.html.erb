@@ -31,7 +31,7 @@
       <span class="inbox-badge" title="<%= pluralize(unread, "unread comment") %>"><%= unread %></span>
     <% end %>
     <span class="plan-row__time text-muted" title="<%= plan.updated_at %>"><%= time_ago_in_words(plan.updated_at) %> ago</span>
-    <span class="plan-row__avatar"><%= user_avatar(plan.created_by_user) %></span>
+    <span class="plan-row__avatar"><%= link_to user_avatar(plan.created_by_user), profile_path_for(plan.created_by_user), title: plan.created_by_user.name, data: { turbo_frame: "_top" } %></span>
     <details class="plan-row__menu">
       <summary class="plan-row__menu-toggle" aria-label="Plan actions">⋯</summary>
       <div class="plan-row__menu-panel">

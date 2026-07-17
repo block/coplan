@@ -2,7 +2,7 @@
   <div>
     <h1><%= plan.title %></h1>
     <div class="text-sm text-muted mt-md">
-      <%= user_avatar(plan.created_by_user) %> <%= plan.created_by_user.name %> · v<%= plan.current_revision %><%= plan_state_badge(plan) %>
+      <%= user_avatar(plan.created_by_user) %> <%= profile_link(plan.created_by_user) %> · v<%= plan.current_revision %><%= plan_state_badge(plan) %>
       <% if plan.plan_type %>
         · <span class="badge badge--type"><%= plan.plan_type.name %></span>
       <% end %>

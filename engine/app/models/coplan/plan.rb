@@ -63,6 +63,12 @@ module CoPlan
     scope :active, -> { where(archived_at: nil) }
     scope :archived, -> { where.not(archived_at: nil) }
 
+    # The viewer-independent subset of visible_to: what *everyone* may
+    # discover. Used by them-facing surfaces (profiles, the Home feed)
+    # where even your own drafts and archived plans stay hidden — a
+    # profile is a public shelf, not a workspace.
+    scope :publicly_listed, -> { active.where(visibility: "published") }
+
     after_save_commit :refresh_search_text!, if: :search_text_needs_refresh?
 
     # Sitewide search over a denormalized `search_text` column maintained by

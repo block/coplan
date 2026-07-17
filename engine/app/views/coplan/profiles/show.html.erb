@@ -1,0 +1,69 @@
+<% content_for(:title, "#{@profile.name} — CoPlan") %>
+<% mine = @user == current_user %>
+
+<div class="profile">
+  <header class="profile__header">
+    <div class="profile__identity">
+      <% if @profile.avatar_url.present? %>
+        <img src="<%= @profile.avatar_url %>" alt="<%= @profile.name %>" class="avatar avatar--xl" loading="lazy">
+      <% else %>
+        <span class="avatar avatar--xl avatar--initials"><%= @profile.name.split.map { |w| w[0] }.first(2).join.upcase %></span>
+      <% end %>
+      <div>
+        <h1 class="profile__name"><%= @profile.name %></h1>
+        <p class="profile__meta text-muted">
+          <%= [@profile.title, @profile.team].compact_blank.join(" · ") %>
+          <% if @user.username.present? %>
+            <span class="profile__username">@<%= @user.username %></span>
+          <% end %>
+        </p>
+        <p class="profile__stats text-muted text-sm">
+          <%= pluralize(@plans.size, "published plan") %>
+          <% if @shelved_count.positive? %> · <%= pluralize(@shelved_count, "plan") %> on their shelves<% end %>
+          <% if @profile.profile_url.present? %>
+            · <%= link_to "View in directory ↗", @profile.profile_url, target: "_blank", rel: "noopener", class: "profile__directory-link" %>
+          <% end %>
+        </p>
+      </div>
+    </div>
+    <% if mine %>
+      <%= link_to "Your workspace", plans_path, class: "btn btn--secondary btn--sm" %>
+    <% end %>
+  </header>
+
+  <div class="profile__columns">
+    <section class="profile__plans">
+      <h2 class="profile__section-title">Published plans</h2>
+      <% if @plans.empty? %>
+        <p class="text-muted">Nothing published yet.</p>
+      <% else %>
+        <ul class="profile__plan-list">
+          <% @plans.each do |plan| %>
+            <li class="profile__plan">
+              <%= link_to plan.title, plan_path(plan), class: "profile__plan-title" %>
+              <span class="profile__plan-meta text-muted">
+                <% if plan.plan_type %><span class="badge badge--type"><%= plan.plan_type.name %></span><% end %>
+                updated <%= time_ago_in_words(plan.updated_at) %> ago
+              </span>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+    </section>
+
+    <section class="profile__library">
+      <h2 class="profile__section-title">
+        <%= link_to library_path(@library), class: "profile__library-link" do %>Library →<% end %>
+      </h2>
+      <% if @root_folders.empty? %>
+        <p class="text-muted"><%= mine ? "You haven’t" : "#{@profile.name} hasn’t" %> organized any shelves yet.</p>
+      <% else %>
+        <div class="library__shelves">
+          <% @root_folders.sort_by { |f| f.name.downcase }.each do |folder| %>
+            <%= render "coplan/libraries/shelf", folder: folder, depth: 1 %>
+          <% end %>
+        </div>
+      <% end %>
+    </section>
+  </div>
+</div>

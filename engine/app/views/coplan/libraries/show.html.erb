@@ -11,7 +11,7 @@
         <h1 class="library__title"><%= mine ? "Your library" : "#{owner_name}’s library" %></h1>
         <p class="library__subtitle text-muted">
           <%= pluralize(@plan_count, "plan") %> across <%= pluralize(@folders.size, "folder") %>
-          <% unless mine %> · curated by <%= owner_name %><% end %>
+          <% if !mine && @owner.is_a?(CoPlan::User) %> · curated by <%= profile_link(@owner) %><% end %>
         </p>
       </div>
     </div>
