@@ -10,10 +10,10 @@ RSpec.describe CoPlan::ApplicationHelper, type: :helper do
       expect(result).to include(plan.created_by_user.name)
     end
 
-    it "labels drafts and archived plans" do
+    it "labels private and archived plans" do
       draft = create(:plan, :draft)
       archived = create(:plan, archived_at: 1.day.ago)
-      expect(helper.plan_og_description(draft)).to start_with("Draft")
+      expect(helper.plan_og_description(draft)).to start_with("Private")
       expect(helper.plan_og_description(archived)).to start_with("Archived")
     end
 

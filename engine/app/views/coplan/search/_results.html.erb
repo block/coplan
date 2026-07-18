@@ -66,21 +66,24 @@
       <% results.each do |plan| %>
         <li>
           <a href="<%= coplan.plan_path(plan) %>"
-             class="search-modal__result"
+             class="search-modal__result search-modal__result--plan"
              data-search-result
              role="option"
              tabindex="-1">
-            <span class="search-modal__result-title"><%= plan.title %></span>
-            <span class="search-modal__result-meta">
-              <% if plan.draft? %>
-                <span class="state-flag" title="Unlisted draft"><svg class="state-flag__eye" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>Draft</span> ·
-              <% end %>
-              <% if plan.created_by_user %>
-                <%= plan.created_by_user.name %>
-              <% end %>
-              <% if plan.tags.any? %>
-                · <%= plan.tags.map(&:name).first(3).join(", ") %>
-              <% end %>
+            <%= plan_type_icon(plan, size: :sm) %>
+            <span class="search-modal__result-text">
+              <span class="search-modal__result-title"><%= plan.title %></span>
+              <span class="search-modal__result-meta">
+                <% if plan.draft? %>
+                  <span class="state-flag" title="Not shared — hidden from lists and search for others"><svg class="state-flag__eye" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>Private</span> ·
+                <% end %>
+                <% if plan.created_by_user %>
+                  <%= plan.created_by_user.name %>
+                <% end %>
+                <% if plan.tags.any? %>
+                  · <%= plan.tags.map(&:name).first(3).join(", ") %>
+                <% end %>
+              </span>
             </span>
           </a>
         </li>

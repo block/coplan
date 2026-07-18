@@ -26,7 +26,7 @@ See [Editing Plans](#editing-plans-recommended-full-content-replacement) for the
   "<%= @base %>/api/v1/plans" | jq .
 ```
 
-Optional query params: `?visibility=draft` or `?visibility=published` (drafts are only ever your own), `?archived=true` (archived plans are excluded unless you ask for them).
+Optional query params: `?visibility=draft` (your own private/unshared plans) or `?visibility=published`, `?archived=true` (archived plans are excluded unless you ask for them).
 
 ### Get Plan
 
@@ -57,7 +57,7 @@ Returns: plan metadata, `current_content`, `current_revision`, `comment_threads`
   "<%= @base %>/api/v1/plans" | jq .
 ```
 
-Optional fields: `plan_type` (string) — the name of a plan type to use (see [Plan Types](#plan-types) below); `visibility` (string) — plans are **published to the whole org by default**; pass `"draft"` to start private instead (see [Visibility &amp; Archiving](#visibility--archiving)).
+Optional fields: `plan_type` (string) — the name of a plan type to use (see [Plan Types](#plan-types) below); `visibility` (string) — plans are **shared with the whole org by default**; `"draft"` (shown as "private" in the UI) exists as a rare escape hatch, not a normal step (see [Visibility &amp; Archiving](#visibility--archiving)).
 
 #### Diagrams
 
@@ -165,12 +165,12 @@ Plans have two orthogonal state fields — there is no multi-step lifecycle to m
 
 | Field | Values | Meaning |
 |-------|--------|---------|
-| `visibility` | `draft` / `published` | Drafts are **unlisted, not locked**: anyone with the plan's URL/id can read it, but it never appears in anyone else's lists, search, or shelves. Published plans are listed for the whole org. |
+| `visibility` | `draft` / `published` | `draft` renders as **"private"** in the UI and is **unlisted, not locked**: anyone with the plan's URL/id can read it, but it never appears in anyone else's lists, search, or shelves. Published plans are listed for the whole org. |
 | `archived` | `true` / `false` | Archived plans stay readable at their URL but disappear from lists and search unless explicitly filtered for. |
 
 Rules that matter for agents:
 
-- **New plans are published (org-listed) from the moment they're created.** Sharing is the default. Pass `"visibility": "draft"` on create only when the user explicitly wants an unlisted draft (shareable by link); publish it later with `PATCH {"visibility": "published"}`. Publishing is one-way (a published plan cannot return to draft; archive it instead).
+- **New plans are shared (org-listed) from the moment they're created.** CoPlan is a sharing platform — there are very few good reasons to keep a plan private. Pass `"visibility": "draft"` on create **only when the user explicitly asks** for a private/unshared plan (still readable by link); share it later with `PATCH {"visibility": "published"}`. Sharing is one-way (a shared plan cannot go private again; archive it instead — archiving is also the right tool for work that didn't pan out).
 - Archive (`{"archived": true}`) anything that is dead, superseded, or was created by mistake — including your own duplicates. Unarchive with `{"archived": false}`.
 - **Never create a new plan to "replace" one you can edit.** Plans have full version history; edit the existing plan (see Editing Plans). If a plan genuinely supersedes another, add a reference between them and archive the old one.
 - If a plan has a real rollout lifecycle worth tracking, use tags (e.g. `developing`, `live`) — status fields for that no longer exist.

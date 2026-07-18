@@ -11,11 +11,6 @@ module CoPlan
         .sort_by { |path, _id, _depth| path.downcase }
     end
 
-    # Full "Parent/Child" path for a folder without walking associations.
-    def folder_path_for(folder)
-      folder_paths_by_id[folder.id] || folder.path
-    end
-
     # Where the current user shelved this plan in their own library (nil
     # when unfiled). One placements query per request, not per row.
     def viewer_folder_id(plan)

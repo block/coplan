@@ -1,3 +1,5 @@
+require "zlib"
+
 module CoPlan
   module PlansHelper
     include MarkdownHelper
@@ -5,7 +7,7 @@ module CoPlan
     # Everything a workspace (plans index) link may carry. Filter links
     # build on the current params via workspace_path so no call site has
     # to re-list this whitelist — or remember which param to omit.
-    WORKSPACE_LINK_PARAMS = %i[scope filter plan_type tag folder].freeze
+    WORKSPACE_LINK_PARAMS = %i[scope filter plan_type tag folder updated].freeze
 
     # A plans-index URL carrying the current filters with `overrides`
     # applied; pass nil to clear a filter (blank values are dropped).
@@ -26,7 +28,7 @@ module CoPlan
 
     def plan_state_badge(plan)
       flags = []
-      flags << hidden_state_flag("Draft", "Unlisted draft — anyone with the link can read it, but it stays out of lists and search") if plan.draft?
+      flags << hidden_state_flag("Private", "Not shared — hidden from lists and search; anyone with the link can still read it") if plan.draft?
       flags << hidden_state_flag("Archived", "Hidden from lists unless filtered for") if plan.archived?
       return "".html_safe if flags.empty?
 
@@ -54,17 +56,29 @@ module CoPlan
       "wrench" => %(<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>),
     }.freeze
 
-    # Icon + name chip for a plan's document type — the "what is this"
-    # marker that leads rows, feed items, and the plan header. Returns
-    # nothing for untyped plans. Safe in broadcast partials (derives from
-    # the plan alone, no current_user).
-    def plan_type_chip(plan)
-      plan_type = plan.plan_type
-      return "".html_safe if plan_type.nil?
+    # How many tint classes exist in CSS (.plan-type-icon--0 … --N-1).
+    PLAN_TYPE_COLOR_COUNT = 6
 
-      paths = PLAN_TYPE_ICONS[plan_type.icon] || PLAN_TYPE_ICONS["file-text"]
-      icon = %(<svg class="plan-type-chip__icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">#{paths}</svg>).html_safe
-      content_tag(:span, safe_join([icon, plan_type.name]), class: "plan-type-chip")
+    # The document's file icon — a colored rounded square with the type's
+    # glyph, like a Drive/Finder file icon. Leads the title in rows, the
+    # plan header, feed items, and search results; the type's name lives in
+    # the tooltip so it never reads as a tag. Untyped plans get the neutral
+    # document glyph. Safe in broadcast partials (derives from the plan
+    # alone, no current_user).
+    def plan_type_icon(plan, size: :md)
+      plan_type = plan.plan_type
+      paths = PLAN_TYPE_ICONS[plan_type&.icon] || PLAN_TYPE_ICONS["file-text"]
+      # Stable per-name tint (Zlib.crc32, not #hash — that differs across
+      # processes) so a type keeps its color everywhere, every request.
+      tint = plan_type ? Zlib.crc32(plan_type.name) % PLAN_TYPE_COLOR_COUNT : nil
+      glyph = %(<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">#{paths}</svg>).html_safe
+
+      classes = [ "plan-type-icon", "plan-type-icon--#{size}" ]
+      classes << "plan-type-icon--#{tint}" if tint
+      content_tag(:span, glyph,
+        class: classes.join(" "),
+        title: plan_type&.name,
+        aria: { label: plan_type ? "#{plan_type.name} document" : "Document" })
     end
 
     def plan_content_preview(plan, limit: 200)

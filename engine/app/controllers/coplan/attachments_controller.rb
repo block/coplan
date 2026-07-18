@@ -3,7 +3,9 @@ module CoPlan
     before_action :set_plan
 
     def create
-      authorize!(@plan, :update?)
+      # Anyone signed in can contribute files (like a comment); removal
+      # stays with the author.
+      authorize!(@plan, :contribute?)
 
       files = Array(params[:files]).reject(&:blank?)
       if files.empty?

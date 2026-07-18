@@ -3,7 +3,9 @@ module CoPlan
     before_action :set_plan
 
     def create
-      authorize!(@plan, :update?)
+      # Anyone signed in can contribute a reference (like a comment);
+      # removal stays with the author.
+      authorize!(@plan, :contribute?)
 
       reference_params = params.expect(reference: [ :url, :key, :title ])
       url = reference_params[:url]

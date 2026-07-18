@@ -141,10 +141,28 @@ export default class extends Controller {
       : this.selectedText
     this.anchorPreviewTarget.style.display = "block"
 
-    // Position form where the popover was, then show it
-    this.formTarget.style.top = this.popoverTarget.style.top
-    this.formTarget.style.left = this.popoverTarget.style.left
+    // Position the form: next to the selection on desktop, or as a fixed
+    // full-width bottom sheet on small screens — an absolutely-positioned
+    // box runs off a phone viewport, and the keyboard makes it worse.
+    if (this._isMobile()) {
+      this.formTarget.classList.add("comment-form--sheet")
+      this.formTarget.style.top = ""
+      this.formTarget.style.left = ""
+    } else {
+      this.formTarget.classList.remove("comment-form--sheet")
+      this.formTarget.style.top = this.popoverTarget.style.top
+      this.formTarget.style.left = this.popoverTarget.style.left
+    }
     this.formTarget.style.display = "block"
+    if (this._isMobile()) {
+      // position:fixed alone won't pin the sheet to the viewport: the
+      // glass panel's backdrop-filter makes it the containing block, so
+      // "fixed" resolves against the panel. The popover top layer escapes
+      // that; "manual" keeps our own show/hide in charge (no light-dismiss
+      // mid-typing).
+      this.formTarget.setAttribute("popover", "manual")
+      try { this.formTarget.showPopover() } catch {}
+    }
     this.popoverTarget.style.display = "none"
 
     // Clear browser selection
@@ -180,6 +198,10 @@ export default class extends Controller {
   }
 
   hideAndResetForm() {
+    if (this.formTarget.hasAttribute("popover")) {
+      try { this.formTarget.hidePopover() } catch {}
+      this.formTarget.removeAttribute("popover")
+    }
     this.formTarget.style.display = "none"
     this.anchorInputTarget.value = ""
     this.contextInputTarget.value = ""
@@ -424,7 +446,21 @@ export default class extends Controller {
     this._positionPopoverAtMark(this._activePopover, this._activeMark)
   }
 
+  _isMobile() {
+    return window.matchMedia("(max-width: 640px)").matches
+  }
+
   _positionPopoverAtMark(popover, mark) {
+    // Small screens: thread popovers become a fixed bottom sheet instead
+    // of floating beside the mark (where they'd overflow the viewport).
+    if (this._isMobile()) {
+      popover.classList.add("thread-popover--sheet")
+      popover.style.top = ""
+      popover.style.left = ""
+      return
+    }
+    popover.classList.remove("thread-popover--sheet")
+
     const markRect = mark.getBoundingClientRect()
     const popoverRect = popover.getBoundingClientRect()
     const viewportWidth = window.innerWidth

@@ -1,6 +1,8 @@
-<% can_edit = current_user && CoPlan::PlanPolicy.new(current_user, plan).update? %>
+<% policy = CoPlan::PlanPolicy.new(current_user, plan) %>
+<% can_add = current_user && policy.contribute? %>
+<% can_remove = current_user && policy.update? %>
 <div class="attachments-section" id="plan-attachments">
-  <% if can_edit %>
+  <% if can_add %>
     <div class="attachments-section__header">
       <button type="button" class="btn btn--secondary btn--sm" popovertarget="add-attachment-modal">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
@@ -63,7 +65,7 @@
               Copy markdown
             </button>
           </span>
-          <% if can_edit %>
+          <% if can_remove %>
             <%= button_to "✕", plan_attachment_path(plan, attachment), method: :delete, class: "attachments-list__remove", title: "Delete attachment", data: { turbo_confirm: "Delete #{blob.filename}?" } %>
           <% end %>
         </li>
@@ -71,7 +73,7 @@
     </ul>
   <% else %>
     <div class="empty-state">
-      <p>No attachments yet.<% if can_edit %> Upload files to share diagrams, screenshots, or documents alongside the plan.<% end %></p>
+      <p>No attachments yet.<% if can_add %> Upload files to share diagrams, screenshots, or documents alongside the plan.<% end %></p>
     </div>
   <% end %>
 </div>

@@ -7,52 +7,52 @@ module CoPlan
     SCOPES = %w[mine all].freeze
     DEFAULT_SCOPE = "mine".freeze
 
-    FILTERS = %w[published draft archived].freeze
+    # "private" is the user-facing name; "draft" is the stored visibility
+    # value and stays accepted so old links keep working.
+    FILTERS = %w[published draft private archived].freeze
+    UPDATED_WINDOWS = { "7d" => 7.days, "30d" => 30.days }.freeze
 
-    # Sidebar workspace index. Two rendering modes:
+    # Sidebar workspace index — a Drive-style file browser. Two modes:
     #
-    # - Grouped (default): the viewer's filing tree as collapsible groups —
-    #   one per root folder (containing its whole subtree) plus "Unfiled" —
-    #   topped by a "since you last looked" strip. Each group has its own
-    #   "load more" turbo-frame pagination (frames carry group + folder +
-    #   filter params back here).
-    # - Flat: when ?filter= or ?folder= narrows the view, one recency-sorted
-    #   paginated list.
+    # - Level view (default): the current folder's contents — its direct
+    #   subfolders (even empty ones) plus the plans filed directly in it.
+    #   Root level shows root folders plus plans not filed anywhere.
+    #   Breadcrumbs navigate up; clicking a folder goes down.
+    # - Flat results: when ?filter=/?tag=/?plan_type=/?updated= narrows the
+    #   view, one recency-sorted paginated list over the current folder's
+    #   whole subtree (or everything, at root).
     #
-    # Turbo-frame requests are always page fetches for one of those lists
-    # and render only the row page partial.
+    # Turbo-frame requests are page fetches for one of those lists and
+    # render only the row page partial (`group` param: "level" pages the
+    # direct-placement list, anything else the flat results).
     def index
       @scope = SCOPES.include?(params[:scope]) ? params[:scope] : DEFAULT_SCOPE
       @filter = FILTERS.include?(params[:filter]) ? params[:filter] : nil
+      @filter = "draft" if @filter == "private"
+      @updated_window = UPDATED_WINDOWS[params[:updated]] && params[:updated]
       load_folder_tree
 
       if params[:folder].present?
         @folder = @folders_by_id[params[:folder]]
         if @folder.nil? && !turbo_frame_request?
-          redirect_to plans_path(params.permit(:scope, :filter, :plan_type, :tag).to_h),
+          redirect_to plans_path(params.permit(:scope, :filter, :plan_type, :tag, :updated).to_h),
             alert: "That folder no longer exists."
           return
         end
       end
 
       plans = scoped_plans_base.includes(:plan_type, :tags, :created_by_user, :current_plan_version)
-
-      plans = plans.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?
-      plans = plans.with_tag(params[:tag]) if params[:tag].present?
-      # A folder filter includes its subfolders — clicking "Team EBT" shows
-      # everything under it. Folder ids come from the viewer's own library
-      # tree, so the placement join is already library-scoped.
-      if @folder
-        plans = plans.joins(:placements)
-          .where(coplan_plan_placements: { folder_id: folder_subtree_ids(@folder) })
-      end
+      plans = apply_workspace_filters(plans)
       # Stale frame fetch for a since-deleted folder: render an empty page.
       plans = plans.none if params[:folder].present? && @folder.nil?
-      # Page fetches for the "Unfiled" group: plans not shelved anywhere in
-      # the viewer's library.
-      plans = plans.where.not(id: @library.placements.select(:plan_id)) if params[:group] == "unfiled"
 
-      if @filter.present? || @folder.present? || turbo_frame_request?
+      if filtered_view? || turbo_frame_request?
+        plans = if params[:group] == "level" || (!filtered_view? && turbo_frame_request?)
+          # Page fetch for the level view: direct placements only.
+          placed_directly_in(plans, @folder)
+        else
+          in_folder_subtree(plans, @folder)
+        end
         plans = filtered_plans(plans, @filter)
         plans = plans.order(updated_at: :desc, id: :desc)
 
@@ -78,13 +78,19 @@ module CoPlan
           return
         end
       else
-        active = plans.active
-        @archived_count = plans.archived.count
-        @groups = folder_groups_for(active)
-        @plan_unread_counts = unread_counts_for(@groups.flat_map { |g| g[:plans] })
-        load_recently_updated
+        # Level view: this folder's subfolders + the plans filed right here.
+        @subfolders = ((@folder ? @folder_children[@folder.id] : @root_folders) || [])
+          .sort_by { |f| f.name.downcase }
+        level = filtered_plans(placed_directly_in(plans, @folder), nil)
+          .order(updated_at: :desc, id: :desc)
+        page_rows = level.limit(PER_PAGE + 1).to_a
+        @level_has_next_page = page_rows.size > PER_PAGE
+        @level_plans = page_rows.first(PER_PAGE)
+        @plan_unread_counts = unread_counts_for(@level_plans)
+        load_recently_updated if @folder.nil?
       end
 
+      @breadcrumbs = folder_ancestry(@folder)
       load_workspace_sidebar
       load_needs_attention
       @plan_types = PlanType.order(:name)
@@ -143,6 +149,10 @@ module CoPlan
       @threads = @plan.comment_threads.with_kept_comments.includes(:comments, :created_by_user).order(:created_at)
       @references = @plan.references.order(reference_type: :asc, created_at: :desc)
       @attachments = @plan.attachments_attachments.includes(:blob).order(created_at: :desc)
+      # Order matters: compute the one-time "changed since you last looked"
+      # highlights against the old last_seen_at, then advance it — so the
+      # next visit renders clean.
+      @changed_section_keys = changed_sections_since_last_visit
       PlanViewer.track(plan: @plan, user: current_user)
     end
 
@@ -366,53 +376,58 @@ module CoPlan
       changed
     end
 
-    # Main-pane groups mirror the sidebar's filing tree: one collapsible
-    # group per root folder (spanning its whole subtree), plus "Unfiled"
-    # for plans not shelved anywhere in the viewer's library. Grouping is
-    # viewer-relative — the same plan sits on different shelves for
-    # different people. Drafts aren't a separate group; draft rows carry
-    # their own quiet flag wherever they're filed.
-    def folder_groups_for(active)
-      # One grouped count for all folders (these counts respect the active
-      # plan_type/tag params, so they can't be shared with the sidebar's).
-      # Per-group page queries below only run for non-empty groups.
-      direct_counts = active.joins(:placements)
-        .where(coplan_plan_placements: { library_id: @library.id })
-        .group("coplan_plan_placements.folder_id")
-        .count
+    # True when a non-folder filter narrows the workspace — the main pane
+    # switches from the Drive-style level view to flat results.
+    def filtered_view?
+      @filter.present? || params[:tag].present? || params[:plan_type].present? ||
+        @updated_window.present?
+    end
 
-      groups = @root_folders.filter_map do |folder|
-        subtree_ids = folder_subtree_ids(folder)
-        count = subtree_ids.sum { |id| direct_counts.fetch(id, 0) }
-        next if count.zero?
+    # The non-folder workspace filters. Folder scoping is separate
+    # (placed_directly_in / in_folder_subtree) because the two view modes
+    # apply it differently.
+    def apply_workspace_filters(plans)
+      plans = plans.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?
+      plans = plans.with_tag(params[:tag]) if params[:tag].present?
+      plans = plans.where(updated_at: UPDATED_WINDOWS[@updated_window].ago..) if @updated_window
+      plans
+    end
 
-        subtree = active.joins(:placements)
-          .where(coplan_plan_placements: { library_id: @library.id, folder_id: subtree_ids })
-        page = subtree.order(updated_at: :desc, id: :desc).limit(PER_PAGE + 1).to_a
-        {
-          key: "folder-#{folder.id}",
-          folder: folder,
-          label: folder.name,
-          count: count,
-          plans: page.first(PER_PAGE),
-          has_next_page: page.size > PER_PAGE
-        }
+    # Plans filed directly in `folder` in the viewer's library — or, at
+    # root (nil), plans not filed anywhere. Root-level docs aren't a
+    # special "Unfiled" category, they're just what sits at the top level,
+    # like files loose in Drive's root.
+    def placed_directly_in(plans, folder)
+      if folder
+        plans.joins(:placements)
+          .where(coplan_plan_placements: { library_id: @library.id, folder_id: folder.id })
+      else
+        plans.where.not(id: @library.placements.select(:plan_id))
       end
+    end
 
-      unfiled = active.where.not(id: @library.placements.select(:plan_id))
-      count = unfiled.count
-      if count.positive?
-        page = unfiled.order(updated_at: :desc, id: :desc).limit(PER_PAGE + 1).to_a
-        groups << {
-          key: "unfiled",
-          folder: nil,
-          label: "Unfiled",
-          count: count,
-          plans: page.first(PER_PAGE),
-          has_next_page: page.size > PER_PAGE
-        }
+    # Everything under `folder` including subfolders — what filtered
+    # results cover when you filter inside a folder. Folder ids come from
+    # the viewer's own tree, so the placement join is already
+    # library-scoped. nil folder = no narrowing.
+    def in_folder_subtree(plans, folder)
+      return plans unless folder
+
+      plans.joins(:placements)
+        .where(coplan_plan_placements: { folder_id: folder_subtree_ids(folder) })
+    end
+
+    # [root, ..., current] chain for the breadcrumb, walked over the
+    # in-memory tree (cycle-guarded by the seen set).
+    def folder_ancestry(folder)
+      chain = []
+      seen = Set.new
+      node = folder
+      while node && seen.add?(node.id)
+        chain.unshift(node)
+        node = @folders_by_id[node.parent_id]
       end
-      groups
+      chain
     end
 
     RECENT_LIMIT = 5
@@ -510,15 +525,15 @@ module CoPlan
       ids
     end
 
-    # Sidebar data: the folder tree with per-folder plan counts, and the
-    # most-used tags. Counts and tag usage use the same base relation as
-    # the main pane (scoped_plans_base) so they match what clicking shows —
-    # which also means other users’ unlisted drafts never surface
-    # through folder counts or tag lists (Plan.visible_to).
+    # Sidebar data: folder tree counts, tag list, and type counts. Every
+    # count answers "what would clicking this show?" — so each list is
+    # computed with every *other* active filter applied (tag counts respect
+    # the current folder/type/date, type counts respect tag/folder/date,
+    # folder counts respect tag/type/date). All from scoped_plans_base, so
+    # other users' private plans never leak through counts
+    # (Plan.visible_to). Archived plans are opt-in and excluded everywhere.
     def load_workspace_sidebar
-      # Archived plans are hidden from default lists, so they're excluded
-      # from folder/tag counts too — counts always match what clicking shows.
-      direct_counts = scoped_plans_base.active
+      direct_counts = apply_workspace_filters(scoped_plans_base.active)
         .joins(:placements)
         .where(coplan_plan_placements: { library_id: @library.id })
         .group("coplan_plan_placements.folder_id")
@@ -536,14 +551,24 @@ module CoPlan
         node = @folders_by_id[node.parent_id]
       end
 
+      tag_base = scoped_plans_base.active
+      tag_base = tag_base.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?
+      tag_base = tag_base.where(updated_at: UPDATED_WINDOWS[@updated_window].ago..) if @updated_window
+      tag_base = in_folder_subtree(tag_base, @folder)
       @top_tags = Tag
         .joins(:plan_tags)
-        .where(coplan_plan_tags: { plan_id: scoped_plans_base.active.select(:id) })
+        .where(coplan_plan_tags: { plan_id: tag_base.select("coplan_plans.id") })
         .group("coplan_tags.id", "coplan_tags.name")
         .order(Arel.sql("COUNT(*) DESC"), "coplan_tags.name ASC")
         .limit(8)
         .count
         .map { |(_id, name), count| [ name, count ] }
+
+      type_base = scoped_plans_base.active
+      type_base = type_base.with_tag(params[:tag]) if params[:tag].present?
+      type_base = type_base.where(updated_at: UPDATED_WINDOWS[@updated_window].ago..) if @updated_window
+      type_base = in_folder_subtree(type_base, @folder)
+      @type_counts = type_base.where.not(plan_type_id: nil).group(:plan_type_id).count
     end
 
     ATTENTION_LIMIT = 5
@@ -561,6 +586,25 @@ module CoPlan
       # unlisted draft.
       @attention_plans = Plan.visible_to(current_user).active.where(id: top_ids)
         .sort_by { |plan| -unread_by_plan.fetch(plan.id, 0) }
+    end
+
+    # Section keys (see Plans::ChangedSections) for content that changed
+    # after the viewer's last visit. Empty on a first visit — highlighting
+    # the whole document would say nothing.
+    def changed_sections_since_last_visit
+      seen_at = PlanViewer.where(plan: @plan, user: current_user).pick(:last_seen_at)
+      return [] if seen_at.nil?
+
+      current = @plan.current_plan_version
+      return [] if current.nil? || current.created_at <= seen_at
+
+      base = @plan.plan_versions.where(created_at: ..seen_at).order(revision: :desc).first
+      return [] if base.nil?
+
+      Plans::ChangedSections.call(
+        old_content: base.content_markdown,
+        new_content: current.content_markdown
+      )
     end
 
     def set_plan

@@ -42,7 +42,7 @@ module CoPlan
       state = if plan.archived?
         "Archived"
       elsif plan.draft?
-        "Draft"
+        "Private"
       else
         "Plan"
       end

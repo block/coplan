@@ -70,15 +70,15 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_field("content", with: /Preview me/)
   end
 
-  it "publishes a draft from the plan page" do
+  it "shares a private plan with everyone from the plan page" do
     plan.update!(visibility: "draft")
     visit plan_path(plan)
 
-    accept_confirm { click_button "Publish" }
+    accept_confirm { click_button "Share with everyone" }
 
     expect(page).to have_content("Plan published — everyone can see it now.")
     expect(plan.reload.visibility).to eq("published")
-    expect(page).not_to have_button("Publish")
+    expect(page).not_to have_button("Share with everyone")
   end
 
   it "archives and restores the plan" do
@@ -102,6 +102,6 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_content("Editable Plan")
     expect(page).not_to have_css("a[aria-label='Edit plan']")
     expect(page).not_to have_button("Archive")
-    expect(page).not_to have_button("Publish")
+    expect(page).not_to have_button("Share with everyone")
   end
 end

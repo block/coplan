@@ -50,7 +50,7 @@
                 <% end %>
               </span>
             </div>
-            <% if ref.source == "explicit" %>
+            <% if ref.source == "explicit" && current_user && CoPlan::PlanPolicy.new(current_user, plan).update? %>
               <%= button_to "✕", plan_reference_path(plan, ref), method: :delete, class: "references-list__remove", title: "Remove reference", data: { turbo_confirm: "Remove this reference?", turbo_stream: true } %>
             <% end %>
           </li>

@@ -6,8 +6,21 @@ export default class extends Controller {
   switch(event) {
     event.preventDefault()
     const targetId = event.currentTarget.getAttribute("href").replace("#", "")
-    const tabName = event.currentTarget.dataset.tabName
+    this._activate(targetId, event.currentTarget.dataset.tabName)
+  }
 
+  // "+" beside a tab label: activate that tab, then open its add modal.
+  // Order matters — a popover inside a still-hidden panel can't render,
+  // so the panel must be visible before showPopover().
+  openAdd(event) {
+    event.preventDefault()
+    const { panelId, tabName, modalId } = event.currentTarget.dataset
+    this._activate(panelId, tabName)
+    const modal = document.getElementById(modalId)
+    try { modal?.showPopover() } catch {}
+  }
+
+  _activate(targetId, tabName) {
     this.tabTargets.forEach(tab => {
       tab.classList.toggle("plan-tabs__tab--active", tab.getAttribute("href") === `#${targetId}`)
     })

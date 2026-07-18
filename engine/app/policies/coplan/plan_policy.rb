@@ -21,6 +21,13 @@ module CoPlan
       record.created_by_user_id == user.id
     end
 
+    # Adding references and attachments is collaboration, not authorship —
+    # open to any signed-in user, like commenting. Removing them stays with
+    # the plan's author (update?).
+    def contribute?
+      user.present?
+    end
+
     # Publishing a draft is explicit and confirmed in the UI ("publishes to
     # everyone"). There is no unpublish — retracting an already-read document
     # is a lie; archiving is the tool for "I'm done with this".

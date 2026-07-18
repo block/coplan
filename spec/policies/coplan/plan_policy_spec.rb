@@ -37,6 +37,18 @@ RSpec.describe CoPlan::PlanPolicy do
     end
   end
 
+  describe "#contribute?" do
+    it "lets any signed-in user add references and attachments" do
+      plan = create(:plan, :published, created_by_user: author)
+      expect(described_class.new(other_user, plan).contribute?).to be(true)
+    end
+
+    it "forbids contributions from signed-out visitors" do
+      plan = create(:plan, :published, created_by_user: author)
+      expect(described_class.new(nil, plan).contribute?).to be(false)
+    end
+  end
+
   describe "#publish?" do
     it "allows the author to publish their draft" do
       draft = create(:plan, :draft, created_by_user: author)

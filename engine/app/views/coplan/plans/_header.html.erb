@@ -1,8 +1,10 @@
-<div class="page-header" id="plan-header">
-  <div>
-    <h1><%= plan.title %></h1>
-    <div class="text-sm text-muted mt-md">
-      <%= plan_type_chip(plan) %>
+<div class="page-header page-header--plan" id="plan-header">
+  <div class="page-header__main">
+    <div class="page-header__title-row">
+      <%= plan_type_icon(plan, size: :lg) %>
+      <h1 class="page-header__title"><%= plan.title %></h1>
+    </div>
+    <div class="page-header__byline text-sm text-muted">
       <%= user_avatar(plan.created_by_user) %> <%= profile_link(plan.created_by_user) %> · v<%= plan.current_revision %><%= plan_state_badge(plan) %>
       <% plan.tags.each do |tag| %>
         <%= link_to tag.name, plans_path(tag: tag.name), class: "badge badge--tag" %>

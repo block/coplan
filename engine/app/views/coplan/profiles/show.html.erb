@@ -40,9 +40,9 @@
         <ul class="profile__plan-list">
           <% @plans.each do |plan| %>
             <li class="profile__plan">
+              <%= plan_type_icon(plan, size: :sm) %>
               <%= link_to plan.title, plan_path(plan), class: "profile__plan-title" %>
               <span class="profile__plan-meta text-muted">
-                <%= plan_type_chip(plan) %>
                 updated <%= time_ago_in_words(plan.updated_at) %> ago
               </span>
             </li>

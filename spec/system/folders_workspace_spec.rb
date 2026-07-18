@@ -25,23 +25,61 @@ RSpec.describe "Folders workspace", type: :system do
 
   before { sign_in(author) }
 
-  describe "sidebar navigation" do
-    it "filters plans by folder, including subfolders" do
+  describe "Drive-style navigation" do
+    it "walks down through folders and back up via breadcrumbs" do
       visit plans_path
 
-      # Both plans visible before filtering
-      expect(page).to have_content("Payments Plan")
-      expect(page).to have_content("Q3 Launch Plan")
+      # Root level: loose docs and folder rows; filed docs are a click away.
+      expect(page).to have_css(".plan-row[data-plan-id='#{developing_plan.id}']")
+      expect(page).to have_css(".folder-row", text: "Team EBT")
+      expect(page).not_to have_css(".plan-row[data-plan-id='#{foldered_plan.id}']")
 
-      # Clicking the parent folder shows subfolder contents too
+      find(".folder-row", text: "Team EBT").click
+      expect(page).to have_css(".folder-row", text: "Q3")
+      expect(page).not_to have_css(".plan-row[data-plan-id='#{developing_plan.id}']")
+
+      find(".folder-row", text: "Q3").click
+      expect(page).to have_content("Q3 Launch Plan")
+      # Breadcrumb trail: My Plans › Team EBT › Q3
+      within(".workspace-crumbs") do
+        expect(page).to have_link("Team EBT")
+        click_link "My Plans"
+      end
+      expect(page).to have_css(".plan-row[data-plan-id='#{developing_plan.id}']")
+    end
+
+    it "quietly flags private plans in the level view" do
+      visit plans_path
+      row = find(".plan-row[data-plan-id='#{brainstorm_plan.id}']")
+      expect(row).to have_css(".state-flag", text: "Private")
+    end
+
+    it "navigates docs and folders with j/k/Enter and goes up with Backspace" do
+      visit plans_path
+
+      find("body").send_keys("j")
+      expect(page).to have_css(".workspace-key-selected", count: 1)
+
+      # First item is the first folder row (folders list before docs).
+      selected = find(".workspace-key-selected")
+      expect(selected.text).to include("Infra")
+
+      find("body").send_keys(:enter)
+      expect(page).to have_css(".workspace-crumbs__crumb--current", text: "Infra")
+
+      find("body").send_keys(:backspace)
+      expect(page).to have_css(".workspace-crumbs__crumb--current", text: "My Plans")
+    end
+  end
+
+  describe "sidebar navigation" do
+    it "jumps into a folder from the sidebar tree" do
+      visit plans_path
+
       within(".workspace__sidebar") { click_link "Team EBT" }
-      expect(page).to have_content("Q3 Launch Plan")
-      expect(page).not_to have_content("Payments Plan")
-      expect(page).to have_content("Folder: Team EBT")
-
-      # Clear the filter
-      click_link "Clear all"
-      expect(page).to have_content("Payments Plan")
+      expect(page).to have_css(".workspace-crumbs__crumb--current", text: "Team EBT")
+      expect(page).to have_css(".folder-row", text: "Q3")
+      expect(page).not_to have_css(".plan-row[data-plan-id='#{developing_plan.id}']")
     end
 
     it "filters by tag from the sidebar" do
@@ -53,42 +91,25 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page).not_to have_content("Q3 Launch Plan")
     end
 
-    it "creates a folder inline from the sidebar" do
-      visit plans_path
-      find(".sidebar__new-folder-toggle").click
-      # Opening the disclosure focuses the input; Enter submits.
-      input = find(".sidebar__new-folder-input")
-      input.fill_in with: "Fresh Folder"
-      input.send_keys(:enter)
+    it "creates a nested folder through the popover, defaulting to the current folder" do
+      visit plans_path(folder: team.id)
+      within(".workspace__sidebar") { find(".sidebar__new-folder-toggle").click }
+
+      within("#new-folder-modal") do
+        # Regression: scope: :folder used to bind @folder and prefill the
+        # current folder's own name.
+        expect(find("#new_folder_name").value).to be_blank
+        fill_in "Name", with: "Fresh Folder"
+        # Parent preselected to the folder being viewed.
+        expect(page).to have_select("Inside", selected: "Team EBT")
+        click_button "Create folder"
+      end
 
       expect(page).to have_content("Folder “Fresh Folder” created.")
-      expect(page).to have_content("No plans")
-      within(".workspace__sidebar") { expect(page).to have_content("Fresh Folder") }
-    end
-  end
-
-  describe "collapsible folder groups" do
-    it "shows drafts inline and persists folder-group collapse across reloads" do
-      visit plans_path
-
-      # Drafts are no longer a separate group — the row is just quietly
-      # flagged wherever it's filed.
-      expect(page).not_to have_css('[data-group-key="draft"]')
-      expect(page).to have_content("Secret Idea")
-
-      # The filing tree is the grouping: Team EBT (whole subtree) + Unfiled.
-      expect(page).to have_css("[data-group-key='folder-#{team.id}']")
-      expect(page).to have_css('[data-group-key="unfiled"]')
-
-      # Collapse Team EBT: its rows hide, unfiled rows stay.
-      find("[data-group-key='folder-#{team.id}'] .plan-group__toggle").click
-      expect(page).not_to have_content("Q3 Launch Plan")
-      expect(page).to have_content("Payments Plan")
-
-      # State persists across a reload (localStorage).
-      visit plans_path
-      expect(page).not_to have_content("Q3 Launch Plan")
-      expect(page).to have_content("Payments Plan")
+      # Redirected into the new (empty) folder, nested under Team EBT.
+      expect(page).to have_css(".workspace-crumbs__crumb--current", text: "Fresh Folder")
+      expect(page).to have_css(".workspace-crumbs__crumb", text: "Team EBT")
+      expect(page).to have_content("Nothing in")
     end
   end
 
@@ -108,9 +129,26 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page).to have_css(".flash--notice", text: "Infra", wait: 5)
       expect(author.library.placements.find_by(plan_id: developing_plan.id).folder).to eq(infra)
 
-      # After the refresh the row files under the Infra group (the exact
-      # same-folder breadcrumb chip is suppressed inside its own group).
-      expect(page).to have_css("[data-group-key='folder-#{infra.id}'] .plan-row[data-plan-id='#{developing_plan.id}']")
+      # After the refresh the doc lives inside Infra, not at the root.
+      expect(page).not_to have_css(".plan-row[data-plan-id='#{developing_plan.id}']")
+      find(".folder-row", text: "Infra").click
+      expect(page).to have_css(".plan-row[data-plan-id='#{developing_plan.id}']")
+    end
+
+    it "moves a plan by dragging it onto a folder row in the main pane" do
+      visit plans_path
+
+      row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
+      target = find(".folder-row", text: "Team EBT")
+
+      begin
+        row.drag_to(target, html5: true)
+      rescue Capybara::NotSupportedByDriverError, ArgumentError
+        skip "driver does not support HTML5 drag and drop"
+      end
+
+      expect(page).to have_css(".flash--notice", text: "Team EBT", wait: 5)
+      expect(author.library.placements.find_by(plan_id: developing_plan.id).folder).to eq(team)
     end
 
     it "nests one folder under another by dragging its tree node" do
@@ -149,6 +187,22 @@ RSpec.describe "Folders workspace", type: :system do
       row = find(".plan-row[data-plan-id='#{other_plan.id}']")
       expect(row["draggable"]).to eq("true")
       expect(row).to have_css(".plan-row__menu", visible: :all)
+    end
+  end
+
+  describe "mobile sidebar" do
+    it "collapses the sidebar behind a toggle at phone widths" do
+      page.driver.browser.manage.window.resize_to(390, 844)
+      visit plans_path
+
+      expect(page).to have_css(".workspace__sidebar-toggle", visible: :visible)
+      expect(page).to have_css(".workspace__sidebar-sections", visible: :hidden)
+
+      find(".workspace__sidebar-toggle").click
+      expect(page).to have_css(".workspace__sidebar-sections", visible: :visible)
+      expect(find(".workspace__sidebar-toggle")["aria-expanded"]).to eq("true")
+    ensure
+      page.driver.browser.manage.window.resize_to(1400, 900)
     end
   end
 end

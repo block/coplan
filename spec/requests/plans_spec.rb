@@ -99,7 +99,7 @@ RSpec.describe "Plans", type: :request do
   it "show plan wires up both text-selection and content-nav controllers" do
     get plan_path(plan)
     expect(response).to have_http_status(:success)
-    expect(response.body).to include('data-controller="coplan--text-selection coplan--content-nav coplan--checkbox"')
+    expect(response.body).to include('data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections"')
   end
 
   it "show plan shares content target between controllers" do
@@ -181,7 +181,7 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include(bobs_plan.title)
     end
 
-    it "groups the main pane by root folder, with unshelved plans under Unfiled" do
+    it "lists folders and loose docs at the root level; filed docs live inside their folder" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       filed = create(:plan, :published, created_by_user: alice, title: "Filed Plan")
       CoPlan::Plans::Place.call(plan: filed, folder: root, actor: alice)
@@ -189,51 +189,48 @@ RSpec.describe "Plans", type: :request do
 
       get plans_path
 
-      expect(response.body).to include(%(data-group-key="folder-#{root.id}"))
-      expect(response.body).to include('data-group-key="unfiled"')
+      expect(response.body).to include("folder-row")
       expect(response.body).to include("Team EBT")
-      expect(response.body.index("Filed Plan")).to be < response.body.index('data-group-key="unfiled"')
-      expect(response.body.index("Loose Plan")).to be > response.body.index('data-group-key="unfiled"')
+      expect(response.body).to include("Loose Plan")
+      # The filed doc is one click away, not flattened into the root list.
+      expect(response.body).not_to include("Filed Plan")
     end
 
-    it "rolls subfolder plans up into their root folder's group" do
+    it "shows one level at a time: entering a folder shows its subfolders, not their contents" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       sub = create(:folder, name: "Q3", parent: root, created_by_user: alice)
       nested = create(:plan, :published, created_by_user: alice, title: "Nested Plan")
       CoPlan::Plans::Place.call(plan: nested, folder: sub, actor: alice)
 
-      get plans_path
+      get plans_path(folder: root.id)
+      expect(response.body).to include("Q3")
+      expect(response.body).not_to include("Nested Plan")
 
-      expect(response.body).to include(%(data-group-key="folder-#{root.id}"))
-      expect(response.body).not_to include(%(data-group-key="folder-#{sub.id}"))
+      get plans_path(folder: sub.id)
       expect(response.body).to include("Nested Plan")
     end
 
-    it "omits folder groups with no plans" do
-      empty = create(:folder, name: "Empty Folder", created_by_user: alice)
+    it "renders empty folders — an empty folder is a place to put things" do
+      create(:folder, name: "Empty Folder", created_by_user: alice)
       create(:plan, :published, created_by_user: alice)
 
       get plans_path
 
-      expect(response.body).not_to include(%(data-group-key="folder-#{empty.id}"))
-      expect(response.body).to include('data-group-key="unfiled"')
+      expect(response.body).to include("Empty Folder")
+      expect(response.body).to match(/folder-row__count[^>]*>\s*empty\s*</)
     end
 
-    it "mixes drafts into their folder group instead of a separate drafts group" do
+    it "mixes private plans into the level view instead of a separate group" do
       create(:plan, :draft, created_by_user: alice, title: "Quiet Draft")
       create(:plan, :published, created_by_user: alice, title: "Published Plan")
 
       get plans_path
 
-      expect(response.body).not_to include('data-group-key="draft"')
       expect(response.body).to include("Quiet Draft")
       expect(response.body).to include("Published Plan")
     end
 
-    # COPLAN-32 successor: every group paginates independently, so plans in
-    # a small folder always render on the first page load no matter how many
-    # unfiled plans exist.
-    it "surfaces filed plans on the first page despite many unfiled plans" do
+    it "keeps folders visible on the first page despite many loose docs" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       filed = create(:plan, :published, created_by_user: alice, title: "Small Folder Plan")
       CoPlan::Plans::Place.call(plan: filed, folder: root, actor: alice)
@@ -242,51 +239,51 @@ RSpec.describe "Plans", type: :request do
       get plans_path
 
       expect(response).to have_http_status(:success)
-      expect(response.body).to include(filed.title)
+      expect(response.body).to include("Team EBT")
     end
 
-    it "paginates the Unfiled group via a group-scoped lazy frame" do
+    it "paginates the level's doc list via a lazy frame" do
       create_list(:plan, CoPlan::PlansController::PER_PAGE + 2, :published, created_by_user: alice)
       get plans_path
-      expect(response.body).to include('id="plans-unfiled-page-2"')
-      expect(response.body).to include("group=unfiled")
+      expect(response.body).to include('id="plans-level-page-2"')
+      expect(response.body).to include("group=level")
     end
 
-    it "paginates a folder group with the folder scope carried on the frame" do
+    it "paginates inside a folder with the folder scope carried on the frame" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       create_list(:plan, CoPlan::PlansController::PER_PAGE + 2, :published, created_by_user: alice).each do |p|
         CoPlan::Plans::Place.call(plan: p, folder: root, actor: alice)
       end
 
-      get plans_path
+      get plans_path(folder: root.id)
 
-      expect(response.body).to include(%(id="plans-folder-#{root.id}-page-2"))
+      expect(response.body).to include('id="plans-level-page-2"')
       expect(response.body).to include("folder=#{root.id}")
     end
 
-    it "serves Unfiled page fetches without leaking filed plans" do
+    it "serves level page fetches without leaking filed plans into the root" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       filed = create(:plan, :published, created_by_user: alice, title: "Filed Plan")
       CoPlan::Plans::Place.call(plan: filed, folder: root, actor: alice)
       create(:plan, :published, created_by_user: alice, title: "Loose Plan")
 
-      get plans_path(group: "unfiled", page: 1), headers: { "Turbo-Frame" => "plans-unfiled-page-1" }
+      get plans_path(group: "level", page: 1), headers: { "Turbo-Frame" => "plans-level-page-1" }
 
       expect(response.body).to include("Loose Plan")
       expect(response.body).not_to include("Filed Plan")
     end
 
-    it "renders a flat list when filtered to a single visibility" do
+    it "renders a flat list (no folder rows) when filtered to a single visibility" do
+      create(:folder, name: "Team EBT", created_by_user: alice)
       create(:plan, :published, created_by_user: alice, title: "Published Plan")
       get plans_path(filter: "published")
-      expect(response.body).not_to include("plan-group__toggle")
+      expect(response.body).not_to include("folder-row")
       expect(response.body).to include("Published Plan")
     end
 
-    it "scope=all groups everyone's visible plans" do
+    it "scope=all shows everyone's visible plans at the root level" do
       create(:plan, :published, created_by_user: bob, title: "Bobs Published Plan")
       get plans_path(scope: "all")
-      expect(response.body).to include('data-group-key="unfiled"')
       expect(response.body).to include("Bobs Published Plan")
     end
   end
@@ -368,27 +365,37 @@ RSpec.describe "Plans", type: :request do
   end
 
   describe "document type prominence" do
-    it "leads rows with an icon + type chip" do
+    it "leads rows with the type's file icon, name in the tooltip — never a chip" do
       rfc = create(:plan_type, name: "RFC", icon: "scroll")
       create(:plan, :published, created_by_user: alice, plan_type: rfc, title: "Typed Plan")
       get plans_path
-      expect(response.body).to include("plan-type-chip")
-      expect(response.body).to include("plan-type-chip__icon")
-      expect(response.body).to include("RFC")
+      expect(response.body).to include("plan-type-icon")
+      expect(response.body).to include('title="RFC"')
+      expect(response.body).to include('aria-label="RFC document"')
+      expect(response.body).not_to include("plan-type-chip")
     end
 
-    it "falls back to the document icon for unknown icon names" do
+    it "colors the icon with a stable per-name tint" do
+      rfc = create(:plan_type, name: "RFC", icon: "scroll")
+      create(:plan, :published, created_by_user: alice, plan_type: rfc)
+      get plans_path
+      tint = Zlib.crc32("RFC") % CoPlan::PlansHelper::PLAN_TYPE_COLOR_COUNT
+      expect(response.body).to include("plan-type-icon--#{tint}")
+    end
+
+    it "falls back to the document glyph for unknown icon names" do
       weird = create(:plan_type, name: "Mystery Type", icon: "definitely-not-real")
       create(:plan, :published, created_by_user: alice, plan_type: weird)
       get plans_path
-      expect(response.body).to include("plan-type-chip")
-      expect(response.body).to include("Mystery Type")
+      expect(response.body).to include("plan-type-icon")
+      expect(response.body).to include('title="Mystery Type"')
     end
 
-    it "renders no chip for untyped plans" do
+    it "renders a neutral, untinted document icon for untyped plans" do
       create(:plan, :published, created_by_user: alice, plan_type: nil)
       get plans_path
-      expect(response.body).not_to include("plan-type-chip")
+      expect(response.body).to include('aria-label="Document"')
+      expect(response.body).not_to match(/plan-type-icon--\d/)
     end
   end
 
@@ -458,8 +465,19 @@ RSpec.describe "Plans", type: :request do
       CoPlan::Plans::Place.call(plan: sub_plan, folder: sub, actor: alice)
     end
 
-    it "filters to a folder including its subfolders" do
+    it "shows the folder's own docs and subfolders at that level" do
       get plans_path(folder: root.id)
+      expect(response.body).to include("Root Level Plan")
+      expect(response.body).to include("Q3") # subfolder row, one click away
+      expect(response.body).not_to include("Subfolder Plan")
+      expect(response.body).not_to include("Unfiled Plan")
+    end
+
+    it "covers the folder's whole subtree when a filter narrows the view" do
+      root_plan.tag_names = [ "infra" ]
+      sub_plan.tag_names = [ "infra" ]
+
+      get plans_path(folder: root.id, tag: "infra")
       expect(response.body).to include("Root Level Plan")
       expect(response.body).to include("Subfolder Plan")
       expect(response.body).not_to include("Unfiled Plan")
@@ -471,10 +489,13 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).not_to include("Root Level Plan")
     end
 
-    it "shows a clearable folder filter chip" do
-      get plans_path(folder: root.id)
-      expect(response.body).to include("Folder: Team EBT")
-      expect(response.body).to include("Clear all")
+    it "shows the folder trail as breadcrumbs, not a filter chip" do
+      get plans_path(folder: sub.id)
+      expect(response.body).to include("workspace-crumbs")
+      expect(response.body).to include("My Plans")
+      expect(response.body).to include("Team EBT")
+      expect(response.body).to match(/aria-current="location"[^>]*>Q3|Q3<[^>]*aria-current/)
+      expect(response.body).not_to include("Folder: Team EBT")
     end
 
     it "combines folder with tag and scope filters" do
@@ -498,8 +519,9 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include("Empty Folder")
     end
 
-    it "shows folder breadcrumbs on rows" do
-      get plans_path
+    it "shows the filing location on rows in flat results" do
+      sub_plan.tag_names = [ "infra" ]
+      get plans_path(tag: "infra")
       expect(response.body).to include("Team EBT/Q3")
     end
 
@@ -510,7 +532,7 @@ RSpec.describe "Plans", type: :request do
     end
 
     it "clamps a non-positive page param instead of erroring" do
-      get plans_path(status: "considering", page: "0")
+      get plans_path(filter: "published", page: "0")
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("Root Level Plan")
     end
@@ -583,6 +605,68 @@ RSpec.describe "Plans", type: :request do
       get plans_path
       expect(response.body).to include("New folder")
       expect(response.body).to include('action="/folders"')
+    end
+
+    it "scopes tag counts to the current folder" do
+      payments = create(:folder, name: "Payments", created_by_user: alice)
+      2.times do |i|
+        loose = create(:plan, :considering, created_by_user: alice, title: "Loose #{i}")
+        loose.tag_names = [ "kmp" ]
+      end
+
+      get plans_path
+      expect(response.body).to match(%r{#kmp</span>\s*<span class="sidebar__count">2</span>})
+
+      # Inside an empty folder no plans match — the tag disappears rather
+      # than advertising a count that clicking can't produce.
+      get plans_path(folder: payments.id)
+      expect(response.body).not_to include("#kmp")
+    end
+
+    it "lists document types with counts scoped to the other active filters" do
+      rfc = create(:plan_type, name: "RFC", icon: "scroll")
+      design = create(:plan_type, name: "Design Doc", icon: "pen-tool")
+      tagged = create(:plan, :considering, created_by_user: alice, plan_type: rfc)
+      tagged.tag_names = [ "infra" ]
+      create(:plan, :considering, created_by_user: alice, plan_type: design)
+
+      get plans_path
+      expect(response.body).to match(%r{RFC</span>\s*<span class="sidebar__count">1</span>})
+      expect(response.body).to match(%r{Design Doc</span>\s*<span class="sidebar__count">1</span>})
+
+      # Under the tag filter only the RFC matches; Design Doc drops out
+      # instead of showing a dead count.
+      get plans_path(tag: "infra")
+      expect(response.body).to match(%r{RFC</span>\s*<span class="sidebar__count">1</span>})
+      expect(response.body).not_to include("Design Doc")
+    end
+  end
+
+  describe "updated-window filter" do
+    it "narrows to recently updated plans and shows a clearable chip" do
+      fresh = create(:plan, :considering, created_by_user: alice, title: "Fresh Plan")
+      stale = create(:plan, :considering, created_by_user: alice, title: "Stale Plan")
+      stale.update_columns(updated_at: 2.months.ago)
+
+      get plans_path(updated: "7d")
+      expect(response).to have_http_status(:success)
+      expect(response.body).to include(fresh.title)
+      expect(response.body).not_to include(stale.title)
+      expect(response.body).to include("Updated: last 7 days")
+    end
+
+    it "offers 7 and 30 day windows in the sidebar" do
+      get plans_path
+      expect(response.body).to include("Last 7 days")
+      expect(response.body).to include("Last 30 days")
+    end
+
+    it "ignores unknown window values" do
+      plan
+      get plans_path(updated: "9999d")
+      expect(response).to have_http_status(:success)
+      expect(response.body).to include(plan.title)
+      expect(response.body).not_to include("Updated: last")
     end
   end
 

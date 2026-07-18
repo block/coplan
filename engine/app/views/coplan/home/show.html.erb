@@ -27,7 +27,7 @@
               </span>
               <div class="home__item-body">
                 <div class="home__item-line">
-                  <%= plan_type_chip(plan) %>
+                  <%= plan_type_icon(plan, size: :sm) %>
                   <%= link_to plan.title, plan_path(plan), class: "home__item-title" %>
                   <% if item.summary_parts.any? %>
                     <span class="home__item-activity">

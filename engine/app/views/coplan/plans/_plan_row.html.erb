@@ -1,24 +1,29 @@
 <%# Compact plan row for the workspace index. Shelving is viewer-relative:
     any row can be dragged into (or re-filed within) the current user's own
     library, whoever wrote the plan — the folder shown is where *you* filed
-    it (server-rendered per viewer — this page doesn't broadcast). %>
+    it (server-rendered per viewer — this page doesn't broadcast).
+
+    draggable="false" on every inner link/image: links are natively
+    draggable, so without it a drag that starts on the title picks up the
+    *link* payload instead of the row's — the "only works if you grab the
+    right spot" bug. %>
 <% summary = plan.try(:summary).presence || plan_content_preview(plan) %>
 <% my_folder_id = viewer_folder_id(plan) %>
 
 <article class="plan-row<%= " plan-row--archived" if plan.archived? %>"
          data-plan-id="<%= plan.id %>"
+         data-plan-url="<%= plan_path(plan) %>"
          data-visibility="<%= plan.visibility %>"
+         data-coplan--workspace-keys-target="item"
          draggable="true"
          data-move-url="<%= move_to_folder_plan_path(plan) %>"
          data-action="dragstart->coplan--folder-dnd#dragStart dragend->coplan--folder-dnd#dragEnd">
   <div class="plan-row__line">
-    <%# Type + title are the headline — everything else on the line is
-        secondary. %>
-    <%= plan_type_chip(plan) %>
-    <%= link_to plan.title, plan_path(plan), class: "plan-row__title", data: { turbo_frame: "_top" } %><%= plan_state_badge(plan) %>
+    <%= plan_type_icon(plan, size: :sm) %>
+    <%= link_to plan.title, plan_path(plan), class: "plan-row__title", draggable: false, data: { turbo_frame: "_top" } %><%= plan_state_badge(plan) %>
     <% if my_folder_id && my_folder_id != local_assigns[:suppress_folder_id] %>
       <%= link_to workspace_path(folder: my_folder_id),
-            class: "plan-row__folder", data: { turbo_frame: "_top" } do %>
+            class: "plan-row__folder", draggable: false, data: { turbo_frame: "_top" } do %>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
         <%= folder_paths_by_id[my_folder_id] %>
       <% end %>
@@ -27,6 +32,7 @@
       <%= link_to tag.name,
             workspace_path(tag: tag.name),
             class: "badge badge--tag #{'badge--tag-active' if params[:tag] == tag.name}",
+            draggable: false,
             data: { turbo_frame: "_top" } %>
     <% end %>
     <span class="plan-row__spacer"></span>
@@ -34,7 +40,7 @@
       <span class="inbox-badge" title="<%= pluralize(unread, "unread comment") %>"><%= unread %></span>
     <% end %>
     <span class="plan-row__time text-muted" title="<%= plan.updated_at %>"><%= time_ago_in_words(plan.updated_at) %> ago</span>
-    <span class="plan-row__avatar"><%= link_to user_avatar(plan.created_by_user), profile_path_for(plan.created_by_user), title: plan.created_by_user.name, data: { turbo_frame: "_top" } %></span>
+    <span class="plan-row__avatar"><%= link_to user_avatar(plan.created_by_user), profile_path_for(plan.created_by_user), title: plan.created_by_user.name, draggable: false, data: { turbo_frame: "_top" } %></span>
     <details class="plan-row__menu">
       <summary class="plan-row__menu-toggle" aria-label="Plan actions">⋯</summary>
       <div class="plan-row__menu-panel">
@@ -44,7 +50,7 @@
               class: "plan-row__move-form", data: { turbo_frame: "_top" } do |f| %>
           <label class="plan-row__move-label" for="move-folder-<%= plan.id %>">Move to folder</label>
           <%= f.select :folder_id,
-                options_for_select([["No folder", ""]] + folder_select_options.map { |path, id, _| [path, id] }, my_folder_id),
+                options_for_select([["No folder (top level)", ""]] + folder_select_options.map { |path, id, _| [path, id] }, my_folder_id),
                 {}, class: "plan-row__move-select", id: "move-folder-#{plan.id}" %>
           <%= f.submit "Move", class: "btn btn--sm" %>
         <% end %>

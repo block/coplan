@@ -141,6 +141,15 @@ export default class extends Controller {
   }
 
   positionPopoverAtMark(popover, mark) {
+    // Mirrors text_selection_controller: bottom sheet on small screens.
+    if (window.matchMedia("(max-width: 640px)").matches) {
+      popover.classList.add("thread-popover--sheet")
+      popover.style.top = ""
+      popover.style.left = ""
+      return
+    }
+    popover.classList.remove("thread-popover--sheet")
+
     const markRect = mark.getBoundingClientRect()
     const popoverRect = popover.getBoundingClientRect()
     const viewportWidth = window.innerWidth
