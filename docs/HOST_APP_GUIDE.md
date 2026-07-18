@@ -121,6 +121,48 @@ class Notification < ApplicationRecord
 end
 ```
 
+## File attachments (ActiveStorage)
+
+Plans support file attachments (images, PDFs, text/CSV/JSON, ZIP — max 25 MB per file), built on ActiveStorage.
+
+### Migrations
+
+The engine ships the ActiveStorage table migrations (`active_storage_blobs`, `active_storage_attachments`, `active_storage_variant_records`) alongside its own migrations, so they're installed the same way:
+
+```bash
+bin/rails co_plan:install:migrations
+bin/rails db:migrate
+```
+
+The engine's copy differs from the stock Rails install migration in one way: `active_storage_attachments.record_id` is a `string(36)` column so it can hold CoPlan's UUID primary keys. The migration is guarded with `table_exists?` checks, so it's a no-op if your app already has ActiveStorage installed.
+
+> **Warning:** If your app already has ActiveStorage with a **bigint** `record_id`, CoPlan attachments won't work — the polymorphic `record_id` column can't store CoPlan's string UUIDs. You'll need to widen the column to `string(36)` (existing integer IDs will store fine as strings, but verify any raw-SQL queries you have against that table).
+
+### Storage service
+
+Configure a storage service per environment (this is standard Rails — see the [ActiveStorage guide](https://guides.rubyonrails.org/active_storage_overview.html)):
+
+```yaml
+# config/storage.yml
+local:
+  service: Disk
+  root: <%= Rails.root.join("storage") %>
+
+amazon:
+  service: S3
+  access_key_id: <%= Rails.application.credentials.dig(:aws, :access_key_id) %>
+  secret_access_key: <%= Rails.application.credentials.dig(:aws, :secret_access_key) %>
+  region: us-east-1
+  bucket: your-bucket-<%= Rails.env %>
+```
+
+```ruby
+# config/environments/production.rb
+config.active_storage.service = :amazon   # or :local for single-node Disk storage
+```
+
+The local `Disk` service is fine for development and single-node deployments (make sure `storage/` is on a persistent volume). Use S3 (add `gem "aws-sdk-s3"`) or another cloud service for multi-node production deployments.
+
 ## API tokens
 
 CoPlan provides a REST API for programmatic access. Users create API tokens in the Settings UI. API requests authenticate via `Authorization: Bearer <token>` headers — no session or callback required.

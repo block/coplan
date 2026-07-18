@@ -4,6 +4,19 @@ Interact with the CoPlan app to create, read, edit, and comment on plan document
 
 <%= @auth_instructions %>
 
+## Quick Start: The Editing Loop
+
+Keeping a local Markdown file and syncing whole documents is the intended workflow — you do not need to express edits as granular operations. The canonical loop:
+
+1. **Read** — `GET <%= @base %>/api/v1/plans/$PLAN_ID/snapshot`. Save `current_content` to a local file and note `current_revision`.
+2. **Edit** the local file however you like.
+3. **Write** — `PUT <%= @base %>/api/v1/plans/$PLAN_ID/content` with the full new content, `base_revision` set to the revision you read, and a specific `change_summary` (it becomes the version's label in the plan history — "Tightened rollout plan per Sam's feedback", not "Update").
+4. **On `409 Conflict`** someone edited in between: re-read the snapshot, re-apply your changes to the fresh content, and PUT again with the new revision. Never retry with the stale `base_revision`.
+
+The server diffs your content against the current revision, records granular operations automatically, and preserves comment anchors in unchanged regions. Re-read before every editing session — don't trust a local copy that's more than a few minutes old, and don't keep long-lived local state between tasks.
+
+See [Editing Plans](#editing-plans-recommended-full-content-replacement) for the full request/response reference, and the lease + operations path only when you need a surgical single-operation edit.
+
 ## API Reference
 
 ### List Plans
@@ -60,6 +73,16 @@ flowchart LR
 
 The web UI renders these blocks as diagrams. Keep the Mermaid source in the plan so humans and agents can review and edit it alongside the surrounding Markdown.
 
+#### Rich formatting
+
+Beyond standard Markdown (tables, task lists, strikethrough), plans support:
+
+- **Footnotes** — `Some claim.[^1]` with `[^1]: Supporting detail or citation.` anywhere in the document. Rendered as numbered superscript links with a footnote section at the bottom. Use these for caveats, citations, and asides that would clutter the main text.
+- **Collapsible sections** — `<details><summary>Title shown when collapsed</summary>` … `</details>`. Use for long appendices, raw logs, or optional deep-dives so the document stays scannable. Add `open` to the `<details>` tag to render expanded by default. Leave a blank line after `<summary>…</summary>` so Markdown inside the section still renders.
+- **Hover definitions** — `<abbr title="Definition shown on hover">TERM</abbr>`. Use for acronyms and project-specific jargon so readers outside the team can follow along.
+
+Other raw HTML is stripped on render (the Markdown source is preserved), so stick to these plus standard Markdown.
+
 ### Update Plan
 
 Update plan metadata (title, status, tags). Only fields included in the request body are changed.
@@ -92,6 +115,48 @@ Tags categorize plans for discovery. Use them to help people find related plans.
 - Apply 1–3 tags per plan. Too many tags dilute meaning.
 - Update tags via `PATCH /api/v1/plans/:id` with `{"tags": ["tag-1", "tag-2"]}`.
 - Good tags describe the *domain* or *concern* (e.g., `security`, `onboarding`), not the status or team.
+
+### Folders
+
+Folders are shared, hierarchical **locations** for plans (max 3 levels deep). Each plan lives in at most one folder — think team folders with project subfolders. Tags remain the cross-cutting labels; use folders for "where does this plan live?" and tags for "what is it about?".
+
+**List folders:**
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/folders" | jq .
+```
+
+Each folder includes `id`, `name`, `parent_id`, `path` (e.g. `"Team EBT/Q3"`), and `plans_count`.
+
+**Create a folder:**
+
+```bash
+<%= @curl %> -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Q3", "parent_id": "'$PARENT_FOLDER_ID'"}' \
+  "<%= @base %>/api/v1/folders" | jq .
+```
+
+`parent_id` is optional — omit it for a top-level folder. Rename with `PATCH /api/v1/folders/:id` (`{"name": "..."}`); delete with `DELETE /api/v1/folders/:id` (only empty folders can be deleted, and only by their creator or an admin).
+
+**Move a plan into a folder** (plan author only):
+
+```bash
+<%= @curl %> -X PATCH \
+  -H "Content-Type: application/json" \
+  -d '{"folder_path": "Team EBT/Q3"}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
+```
+
+- `folder_path` finds or creates the whole hierarchy — the easiest way to organize plans.
+- Alternatively pass `folder_id` with an existing folder's ID.
+- Pass an empty `folder_id` (`{"folder_id": ""}`) to move a plan out of its folder.
+
+**Guidelines:**
+- Check `GET /api/v1/folders` before creating new folders — reuse the existing structure.
+- Folder names read like places (`Team EBT`, `Infra`, `Q3 Launch`), not labels.
+- You can offer to organize a user's plans: list their plans, propose a folder structure, and move plans with `folder_path` once they agree.
 
 ### Plan Statuses
 
@@ -181,6 +246,36 @@ These are auto-extracted with both the key and title preserved.
 - Use explicit references for resources not linked in the content but still relevant.
 - Reference titles should be human-readable (e.g., "Auth Service Repo", not the raw URL).
 - Use markdown reference-style links (`[key]: url "title"`) in content to auto-extract keyed references.
+
+### Attachments
+
+Plans can carry file attachments (diagrams, screenshots, PDFs, data files). Limits: **25 MB per file**; allowed types are images (png/jpg/gif/webp), pdf, txt/md/csv/json, and zip. Only the plan author can upload or delete; anyone who can see the plan can list and download.
+
+**Upload a file (multipart form):**
+
+```bash
+<%= @curl %> -X POST \
+  -F "file=@./architecture-diagram.png" \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/attachments" | jq .
+```
+
+Returns `201 Created` with `id`, `filename`, `content_type`, `byte_size`, `url` (permanent path), `download_url`, and a ready-to-paste `markdown` snippet. Returns `422` with an error message if the file is too large or its content type is not allowed.
+
+**Embed in the plan:** paste the returned `markdown` snippet (e.g. `![diagram.png](/rails/active_storage/blobs/redirect/...)`) into the plan content — image attachments render inline in the plan body.
+
+**List attachments:**
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/attachments" | jq .
+```
+
+**Delete an attachment:**
+
+```bash
+<%= @curl %> -X DELETE \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/attachments/$ATTACHMENT_ID"
+```
 
 ### Get Versions
 
@@ -326,6 +421,25 @@ Delete the paragraph containing a needle string. Fails if 0 or >1 paragraphs mat
   "needle": "This approach is deprecated"
 }
 ```
+
+### replace_section
+
+Replace an entire section — a heading plus everything under it, up to the next
+heading of equal or higher level. Use this to scope a rewrite to one part of the
+document when the same text appears elsewhere. Fails if the heading is not found
+or matches more than one heading.
+
+```json
+{
+  "op": "replace_section",
+  "heading": "## Testing Strategy",
+  "new_content": "## Testing Strategy\n\nUnit tests only for v1."
+}
+```
+
+- `heading`: the full heading line, including the `#` markers.
+- `new_content`: replaces the whole section. With `"include_heading": false`,
+  only the section body is replaced and the heading line is kept.
 
 ## Commenting
 

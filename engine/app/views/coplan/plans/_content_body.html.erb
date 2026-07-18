@@ -1,4 +1,12 @@
 <%# Rendered plan markdown. Lives inside #plan-content-body so it can be
     swapped wholesale by live-update broadcasts when an agent (or anyone)
-    commits a new revision in another tab. -%>
-<%= render_markdown(plan.current_content) %>
+    commits a new revision in another tab.
+
+    Cached per content SHA: rendering is Commonmarker + two Nokogiri passes +
+    sanitize, and this partial is re-rendered on every show AND every
+    content-mutation broadcast. skip_digest avoids the template-digest cost
+    on write paths; the explicit RENDER_CACHE_VERSION key handles renderer
+    changes instead. -%>
+<% cache ["coplan/plan-content-body", CoPlan::MarkdownHelper::RENDER_CACHE_VERSION, plan.id, plan.current_plan_version&.content_sha256 || plan.current_revision], skip_digest: true do %>
+  <%= render_markdown(plan.current_content) %>
+<% end %>

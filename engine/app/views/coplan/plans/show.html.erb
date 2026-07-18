@@ -11,15 +11,43 @@
 
 <%= turbo_stream_from @plan %>
 
-<div data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>">
-  <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
+<div data-controller="coplan--status-menu">
+  <div data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>">
+    <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
+  </div>
+
+  <%# Owner affordances live outside the broadcast-replaced #plan-header so
+      they can be policy-gated server-side (broadcast renders have no
+      current_user). The status menu opens from the header's status badge —
+      see status_menu_controller.js. %>
+  <% if allowed_to?(@plan, :update_status?) %>
+    <div class="dropdown__menu" data-coplan--status-menu-target="menu" style="display: none;">
+      <% CoPlan::Plan::STATUSES.each do |status| %>
+        <% next if status == @plan.status %>
+        <%= button_to update_status_plan_path(@plan, status: status),
+              method: :patch,
+              class: "dropdown__item",
+              form: (status_publishes?(@plan, status) ? { data: { turbo_confirm: "Moving to “#{status}” publishes this plan to everyone in the org. Continue?" } } : {}) do %>
+          <span class="badge badge--<%= status %>"><%= status %></span>
+          <span class="plan-actions__hint"><%= plan_status_hint(status) %></span>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
+  <% if allowed_to?(@plan, :edit_content?) %>
+    <div class="plan-actions">
+      <%= link_to edit_content_plan_path(@plan), class: "btn btn--secondary btn--sm" do %>✏️ Edit content<% end %>
+      <%= link_to edit_plan_path(@plan), class: "btn btn--secondary btn--sm" do %>Title &amp; tags<% end %>
+    </div>
+  <% end %>
 </div>
 
-<% active_tab = %w[references history].include?(params[:tab]) ? params[:tab] : "content" %>
+<% active_tab = %w[references attachments history].include?(params[:tab]) ? params[:tab] : "content" %>
 <div class="plan-tabs" data-controller="coplan--tabs">
   <div class="plan-tabs__nav">
     <a href="#tab-content" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'content' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="content">📄 Content</a>
     <a href="#tab-references" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'references' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="references">📎 References <span class="plan-tabs__count" id="references-count"><%= @references.size %></span></a>
+    <a href="#tab-attachments" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'attachments' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="attachments">🖇️ Attachments <span class="plan-tabs__count" id="attachments-count"><%= @attachments.size %></span></a>
     <a href="#tab-history" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'history' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="history">📜 History <span class="plan-tabs__count" id="history-count"><%= @plan.plan_versions.count + @plan.plan_events.count %></span></a>
   </div>
 
@@ -35,7 +63,7 @@
         </nav>
         <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (])">☰ <kbd>]</kbd></button>
 
-        <div class="plan-layout__content" data-coplan--text-selection-target="content" data-coplan--content-nav-target="content">
+        <div class="plan-layout__content" data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-action="coplan:mermaid-settled->coplan--text-selection#handleMermaidSettled">
           <div id="plan-content-body"
                data-controller="coplan--live-update"
                data-coplan--live-update-revision-value="<%= @plan.current_revision %>">
@@ -70,6 +98,10 @@
     <%= render partial: "coplan/plans/references", locals: { references: @references, plan: @plan } %>
   </div>
 
+  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'attachments' %>" id="tab-attachments" data-coplan--tabs-target="panel">
+    <%= render partial: "coplan/plans/attachments", locals: { attachments: @attachments, plan: @plan } %>
+  </div>
+
   <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'history' %>" id="tab-history" data-coplan--tabs-target="panel">
     <turbo-frame id="plan-history-frame" src="<%= history_plan_path(@plan) %>" loading="lazy">
       <div class="history-split__placeholder">
@@ -81,7 +113,7 @@
 
 <% open_count = @threads.count(&:open?) %>
 <% if @threads.any? %>
-  <div class="comment-toolbar" data-controller="coplan--comment-nav" data-coplan--comment-nav-plan-id-value="<%= @plan.id %>">
+  <div class="comment-toolbar" data-controller="coplan--comment-nav" data-coplan--comment-nav-plan-id-value="<%= @plan.id %>" data-action="coplan:anchors-updated@document->coplan--comment-nav#handleAnchorsUpdated">
     <span class="comment-toolbar__count">💬 <%= open_count %> open</span>
     <div class="comment-toolbar__nav">
       <button class="btn btn--secondary btn--sm" data-action="coplan--comment-nav#prev" title="Previous comment">↑</button>

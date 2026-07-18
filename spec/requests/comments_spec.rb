@@ -19,6 +19,48 @@ RSpec.describe "Comments", type: :request do
     expect(comment.author_id).to eq(alice.id)
   end
 
+  it "returns the appended comment inline in the turbo_stream response" do
+    post plan_comment_thread_comments_path(plan, thread_record),
+      params: { comment: { body_markdown: "Inline, no cable round-trip." } },
+      headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+    expect(response).to have_http_status(:ok)
+    comment = CoPlan::Comment.last
+    expect(response.body).to include(%(action="append"))
+    expect(response.body).to include("comments_comment_thread_#{thread_record.id}")
+    expect(response.body).to include(ActionView::RecordIdentifier.dom_id(comment))
+    expect(response.body).to include("Inline, no cable round-trip.")
+  end
+
+  it "broadcasts via requestless partial render, never the request-scoped HTML" do
+    # Request-rendered HTML embeds the actor's session authenticity token in
+    # any forms; broadcasting it would send that secret to every viewer.
+    expect(CoPlan::Broadcaster).to receive(:append_to) do |_streamable, **kwargs|
+      expect(kwargs[:partial]).to eq("coplan/comments/comment")
+      expect(kwargs[:html]).to be_nil
+    end
+
+    post plan_comment_thread_comments_path(plan, thread_record), params: {
+      comment: { body_markdown: "Broadcast me safely." }
+    }
+  end
+
+  it "does not calculate a template digest while broadcasting a reply" do
+    original_perform_caching = ActionController::Base.perform_caching
+    ActionController::Base.perform_caching = true
+    allow(ActionView::Digestor).to receive(:digest).and_call_original
+    allow(Rails.cache).to receive(:read).and_call_original
+
+    post plan_comment_thread_comments_path(plan, thread_record), params: {
+      comment: { body_markdown: "This should return without digesting the partial." }
+    }
+
+    expect(Rails.cache).to have_received(:read)
+    expect(ActionView::Digestor).not_to have_received(:digest)
+  ensure
+    ActionController::Base.perform_caching = original_perform_caching
+  end
+
   describe "DELETE destroy" do
     let!(:comment) do
       create(:comment, comment_thread: thread_record, author_type: "human", author_id: alice.id, body_markdown: "to be deleted")

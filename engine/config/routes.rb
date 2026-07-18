@@ -2,11 +2,16 @@ CoPlan::Engine.routes.draw do
   resources :plans, only: [:index, :show, :edit, :update] do
     patch :update_status, on: :member
     patch :toggle_checkbox, on: :member
+    patch :move_to_folder, on: :member
     get :history, on: :member
+    get :edit_content, on: :member
+    patch :update_content, on: :member
+    post :preview, on: :member
     resources :versions, controller: "plan_versions", only: [:show] do
       get :diff, on: :member
     end
     resources :references, controller: "references", only: [:create, :destroy]
+    resources :attachments, controller: "attachments", only: [:create, :destroy]
     resources :comment_threads, only: [:create] do
       member do
         patch :resolve
@@ -24,9 +29,14 @@ CoPlan::Engine.routes.draw do
     patch "theme", to: "settings#update_theme"
   end
 
+  # Web folder creation (sidebar "New folder" form). Rename/delete go
+  # through the API or admin for now.
+  resources :folders, only: [:create]
+
   namespace :api do
     namespace :v1 do
       resources :tags, only: [:index]
+      resources :folders, only: [:index, :create, :update, :destroy]
       resources :plans, only: [:index, :show, :create, :update] do
         get :versions, on: :member
         get :comments, on: :member
@@ -46,6 +56,7 @@ CoPlan::Engine.routes.draw do
         # Distinct from the routes above, which key off thread ID.
         delete "comments/:id/delete", to: "comments#destroy", as: :destroy_comment
         resources :references, only: [:index, :create, :destroy]
+        resources :attachments, only: [:index, :create, :destroy]
       end
       resources :references, only: [] do
         get :search, on: :collection

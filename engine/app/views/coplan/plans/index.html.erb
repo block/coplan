@@ -1,53 +1,95 @@
-<div class="plans-toolbar">
-  <div class="plans-toolbar__row">
-    <%= link_to "Mine", plans_path(params.permit(:status, :plan_type, :tag)),
-          class: "status-filter #{'status-filter--active' if @scope == 'mine'}" %>
-    <%= link_to "All", plans_path(params.permit(:status, :plan_type, :tag).merge(scope: "all")),
-          class: "status-filter #{'status-filter--active' if @scope == 'all'}" %>
-    <span class="plans-toolbar__divider" aria-hidden="true"></span>
-    <%= link_to "Any status", plans_path(params.permit(:scope, :plan_type, :tag)),
-          class: "status-filter #{'status-filter--active' if params[:status].blank?}" %>
-    <% CoPlan::Plan::STATUSES.each do |status| %>
-      <%= link_to status.titleize, plans_path(params.permit(:scope, :plan_type, :tag).merge(status: status)),
-            class: "status-filter status-filter--#{status} #{'status-filter--active' if params[:status] == status}" %>
-    <% end %>
-  </div>
+<div class="workspace" data-controller="coplan--plan-groups coplan--folder-dnd">
+  <%= render "coplan/plans/sidebar" %>
 
-  <% if @plan_types.any? %>
-    <div class="plans-toolbar__row plans-toolbar__row--secondary">
-      <%= link_to "Any type", plans_path(params.permit(:scope, :status, :tag)),
-            class: "status-filter #{'status-filter--active' if params[:plan_type].blank?}" %>
-      <% @plan_types.each do |pt| %>
-        <%= link_to pt.name, plans_path(params.permit(:scope, :status, :tag).merge(plan_type: pt.id)),
-              class: "status-filter #{'status-filter--active' if params[:plan_type] == pt.id}" %>
+  <div class="workspace__main">
+    <% active_filters = [] %>
+    <% if @folder %>
+      <% active_filters << ["Folder: #{folder_path_for(@folder)}", plans_path(params.permit(:scope, :status, :plan_type, :tag))] %>
+    <% end %>
+    <% if params[:tag].present? %>
+      <% active_filters << ["Tag: #{params[:tag]}", plans_path(params.permit(:scope, :status, :plan_type, :folder))] %>
+    <% end %>
+    <% if params[:plan_type].present? %>
+      <% type_name = @plan_types&.find { |pt| pt.id == params[:plan_type] }&.name || "Type" %>
+      <% active_filters << ["Type: #{type_name}", plans_path(params.permit(:scope, :status, :tag, :folder))] %>
+    <% end %>
+    <% if params[:status].present? %>
+      <% active_filters << ["Status: #{params[:status].titleize}", plans_path(params.permit(:scope, :plan_type, :tag, :folder))] %>
+    <% end %>
+
+    <% if active_filters.any? %>
+      <div class="active-filter workspace__filters">
+        <% active_filters.each do |label, clear_path| %>
+          <span class="workspace__filter-chip">
+            <%= label %>
+            <%= link_to "✕", clear_path, class: "workspace__filter-clear", aria: { label: "Clear #{label} filter" } %>
+          </span>
+        <% end %>
+        <%= link_to "Clear all", plans_path(@scope == "mine" ? {} : { scope: @scope }), class: "active-filter__clear" %>
+      </div>
+    <% end %>
+
+    <% if @attention_plans.present? %>
+      <section class="attention" aria-label="Plans that need your attention">
+        <h2 class="attention__heading">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Needs attention (<%= @attention_unread_counts.size %>)
+        </h2>
+        <ul class="attention__list">
+          <% @attention_plans.each do |plan| %>
+            <li class="attention__item">
+              <%= link_to plan.title, plan_path(plan), class: "attention__link" %>
+              <span class="attention__unread"><%= pluralize(@attention_unread_counts[plan.id].to_i, "unread comment") %></span>
+            </li>
+          <% end %>
+        </ul>
+        <% remaining = @attention_unread_counts.size - @attention_plans.size %>
+        <% if remaining > 0 %>
+          <p class="attention__more text-muted text-sm">
+            + <%= pluralize(remaining, "more plan") %> with unread comments —
+            <%= link_to "see notifications", notifications_path, class: "attention__link" %>
+          </p>
+        <% end %>
+      </section>
+    <% end %>
+
+    <% if @groups %>
+      <% if @groups.any? %>
+        <div class="plans-list">
+          <% @groups.each do |group| %>
+            <%= render "coplan/plans/plan_group", group: group %>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="empty-state card">
+          <% if @folder %>
+            <p>No plans <%= "you can see " if @scope == "all" %>in <strong><%= folder_path_for(@folder) %></strong> yet.</p>
+            <p class="text-muted text-sm">Drag a plan row onto this folder in the sidebar, or use a plan's row menu to move it here.</p>
+          <% elsif params[:tag].present? || params[:plan_type].present? %>
+            <p>No plans match the current filters.</p>
+          <% elsif @scope == "mine" %>
+            <p>You haven't created any plans yet. Plans are created via the API.</p>
+          <% else %>
+            <p>No plans yet. Plans are created via the API.</p>
+          <% end %>
+        </div>
       <% end %>
-    </div>
-  <% end %>
-
-  <% if params[:tag].present? %>
-    <div class="active-filter">
-      Filtered by tag: <span class="badge badge--tag badge--tag-active"><%= params[:tag] %></span>
-      <%= link_to "✕ Clear", plans_path(params.permit(:scope, :status, :plan_type)), class: "active-filter__clear" %>
-    </div>
-  <% end %>
-</div>
-
-<% if @plans.any? %>
-  <div class="plans-list">
-    <%= render partial: "coplan/plans/plan_page", locals: {
-      plans: @plans,
-      plan_unread_counts: @plan_unread_counts,
-      page: @page,
-      has_next_page: @has_next_page,
-      grouped_by_status: @grouped_by_status,
-    } %>
-  </div>
-<% else %>
-  <div class="empty-state card">
-    <% if @scope == "mine" %>
-      <p>You haven't created any plans yet. Plans are created via the API.</p>
     <% else %>
-      <p>No plans yet. Plans are created via the API.</p>
+      <%# Flat mode: filtered to a single status via ?status= %>
+      <% if @plans.any? %>
+        <div class="plans-list">
+          <%= render "coplan/plans/plan_page", plans: @plans,
+                plan_unread_counts: @plan_unread_counts,
+                page: @page,
+                has_next_page: @has_next_page,
+                group_key: "results",
+                frame_status: params[:status].presence %>
+        </div>
+      <% else %>
+        <div class="empty-state card">
+          <p>No <%= params[:status] %> plans match the current filters.</p>
+        </div>
+      <% end %>
     <% end %>
   </div>
-<% end %>
+</div>

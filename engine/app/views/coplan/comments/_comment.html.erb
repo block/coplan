@@ -1,5 +1,5 @@
 <%# Per-viewer affordances (Delete) are hidden client-side by the
-    comment_actions Stimulus controller — broadcasts render once with no
+    comment_actions Stimulus controller — one broadcast is shared with every
     `current_user`, so we ship the button on every human comment and let
     the browser remove it for non-authors. Server still enforces auth. %>
 <div class="comment <%= 'comment--deleted' if comment.deleted? %>"
@@ -24,8 +24,11 @@
       · <%= time_ago_in_words(comment.created_at) %> ago
     </div>
     <div class="comment__body">
-      <%= cache(comment) do %>
-        <%= render_markdown(comment.body_markdown) %>
+      <%# The record version invalidates edits; bump this namespace when Markdown rendering changes. %>
+      <%= cache(["comment-body-v2", comment], skip_digest: true) do %>
+        <%# footnote_prefix keeps footnote ids unique per comment — the plan
+            body and every other comment render in the same DOM. %>
+        <%= render_markdown(comment.body_markdown, footnote_prefix: "comment-#{comment.id}") %>
       <% end %>
     </div>
     <% if comment.author_type == "human" %>

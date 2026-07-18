@@ -2,9 +2,9 @@ module CoPlan
   module Api
     module V1
       class ReferencesController < BaseController
-        before_action :set_plan, only: [:index, :create, :destroy]
-        before_action :authorize_plan_access!, only: [:index, :create, :destroy]
-        before_action :authorize_plan_write!, only: [:create, :destroy]
+        before_action :set_plan, only: [ :index, :create, :destroy ]
+        before_action :authorize_plan_access!, only: [ :index, :create, :destroy ]
+        before_action :authorize_plan_write!, only: [ :create, :destroy ]
 
         def index
           references = @plan.references.order(created_at: :desc)
@@ -53,8 +53,7 @@ module CoPlan
             return
           end
 
-          visible_plans = Plan.where.not(status: "brainstorm")
-            .or(Plan.where(created_by_user: current_user))
+          visible_plans = Plan.visible_to(current_user)
 
           references = Reference.where(url: url, plan_id: visible_plans.select(:id))
             .includes(:plan)
@@ -70,14 +69,6 @@ module CoPlan
         end
 
         private
-
-        def authorize_plan_write!
-          return unless @plan
-          policy = CoPlan::PlanPolicy.new(current_user, @plan)
-          unless policy.update?
-            render json: { error: "Not authorized" }, status: :forbidden
-          end
-        end
 
         def reference_json(ref)
           {

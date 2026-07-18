@@ -14,5 +14,6 @@ Rails.application.routes.draw do
   post "sign_in", to: "sessions#create"
   delete "sign_out", to: "sessions#destroy"
 
+  mount CoPlan::Slack::Engine => "/integrations/slack", as: :coplan_slack
   mount CoPlan::Engine => "/", as: :coplan
 end
