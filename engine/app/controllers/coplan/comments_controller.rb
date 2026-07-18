@@ -9,7 +9,7 @@ module CoPlan
       comment = @thread.comments.create!(
         author_type: "human",
         author_id: current_user.id,
-        body_markdown: params[:comment][:body_markdown]
+        body_markdown: params.expect(comment: [ :body_markdown ])[:body_markdown]
       )
 
       CreateNotificationsJob.perform_later(

@@ -71,21 +71,24 @@ if CoPlan::ApiToken.count == 0
 end
 
 puts "Seeding plan types..."
+# Icons come from the built-in named set (CoPlan::PlansHelper::PLAN_TYPE_ICONS)
+# so each install can brand its document types.
 general = CoPlan::PlanType.find_or_create_by!(name: "General") do |pt|
   pt.description = "General-purpose plan"
 end
+general.update!(icon: "file-text") if general.icon.blank?
 CoPlan::PlanType.find_or_create_by!(name: "RFC") do |pt|
   pt.description = "Request for Comments — propose a significant change for team review"
   pt.default_tags = ["rfc"]
-end
+end.tap { |pt| pt.update!(icon: "scroll") if pt.icon.blank? }
 CoPlan::PlanType.find_or_create_by!(name: "Design Doc") do |pt|
   pt.description = "Technical design document for a new system or feature"
   pt.default_tags = ["design"]
-end
+end.tap { |pt| pt.update!(icon: "compass") if pt.icon.blank? }
 CoPlan::PlanType.find_or_create_by!(name: "ADR") do |pt|
   pt.description = "Architecture Decision Record — document a key technical decision"
   pt.default_tags = ["adr"]
-end
+end.tap { |pt| pt.update!(icon: "scale") if pt.icon.blank? }
 
 # Backfill any plans without a plan type
 CoPlan::Plan.where(plan_type_id: nil).update_all(plan_type_id: general.id)

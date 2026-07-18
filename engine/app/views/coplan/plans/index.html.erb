@@ -6,21 +6,21 @@
     <% if @scope == "all" %>
       <%# Reachable from Home's tag links etc. — the sidebar no longer
           offers it, so show it as a clearable state, not a mode. %>
-      <% active_filters << ["Everyone’s plans", plans_path(params.permit(:filter, :plan_type, :tag, :folder))] %>
+      <% active_filters << ["Everyone’s plans", workspace_path(scope: nil)] %>
     <% end %>
     <% if @folder %>
-      <% active_filters << ["Folder: #{folder_path_for(@folder)}", plans_path(params.permit(:scope, :filter, :plan_type, :tag))] %>
+      <% active_filters << ["Folder: #{folder_path_for(@folder)}", workspace_path(folder: nil)] %>
     <% end %>
     <% if params[:tag].present? %>
-      <% active_filters << ["Tag: #{params[:tag]}", plans_path(params.permit(:scope, :filter, :plan_type, :folder))] %>
+      <% active_filters << ["Tag: #{params[:tag]}", workspace_path(tag: nil)] %>
     <% end %>
     <% if params[:plan_type].present? %>
       <% type_name = @plan_types&.find { |pt| pt.id == params[:plan_type] }&.name || "Type" %>
-      <% active_filters << ["Type: #{type_name}", plans_path(params.permit(:scope, :filter, :tag, :folder))] %>
+      <% active_filters << ["Type: #{type_name}", workspace_path(plan_type: nil)] %>
     <% end %>
     <% if @filter.present? %>
       <% filter_label = { "draft" => "Drafts", "published" => "Published", "archived" => "Archived" }.fetch(@filter) %>
-      <% active_filters << [filter_label, plans_path(params.permit(:scope, :plan_type, :tag, :folder))] %>
+      <% active_filters << [filter_label, workspace_path(filter: nil)] %>
     <% end %>
 
     <% if active_filters.any? %>
@@ -60,6 +60,27 @@
     <% end %>
 
     <% if @groups %>
+      <% if @recent_updates.present? %>
+        <section class="recent-updates" aria-label="Changed since you last looked">
+          <h2 class="recent-updates__heading">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+            Since you last looked
+          </h2>
+          <ul class="recent-updates__list">
+            <% @recent_updates.each do |entry| %>
+              <% plan = entry[:plan] %>
+              <li class="recent-updates__item">
+                <%= link_to plan.title, plan_path(plan), class: "recent-updates__link" %>
+                <span class="recent-updates__badge recent-updates__badge--<%= entry[:badge].parameterize %>"><%= entry[:badge] %></span>
+                <span class="recent-updates__meta text-muted">
+                  <%= plan.created_by_user.name %> · <%= time_ago_in_words(plan.updated_at) %> ago
+                </span>
+              </li>
+            <% end %>
+          </ul>
+        </section>
+      <% end %>
+
       <% if @groups.any? %>
         <div class="plans-list">
           <% @groups.each do |group| %>
@@ -68,10 +89,7 @@
         </div>
       <% else %>
         <div class="empty-state card">
-          <% if @folder %>
-            <p>No plans <%= "you can see " if @scope == "all" %>in <strong><%= folder_path_for(@folder) %></strong> yet.</p>
-            <p class="text-muted text-sm">Drag a plan row onto this folder in the sidebar, or use a plan's row menu to move it here.</p>
-          <% elsif params[:tag].present? || params[:plan_type].present? %>
+          <% if params[:tag].present? || params[:plan_type].present? %>
             <p>No plans match the current filters.</p>
           <% elsif @scope == "mine" %>
             <p>You haven't created any plans yet. Plans are created via the API.</p>
@@ -81,7 +99,7 @@
         </div>
       <% end %>
     <% else %>
-      <%# Flat mode: narrowed to one group (or archived opt-in) via ?filter= %>
+      <%# Flat mode: narrowed by ?filter= and/or ?folder= %>
       <% if @plans.any? %>
         <div class="plans-list">
           <%= render "coplan/plans/plan_page", plans: @plans,
@@ -89,13 +107,17 @@
                 page: @page,
                 has_next_page: @has_next_page,
                 group_key: "results",
-                frame_filter: @filter %>
+                frame_filter: @filter,
+                frame_folder: @folder&.id %>
         </div>
       <% else %>
         <div class="empty-state card">
           <% if @filter == "archived" %>
             <p>Nothing in the archive<%= " matches the current filters" if params[:tag].present? || params[:plan_type].present? || @folder %>.</p>
             <p class="text-muted text-sm">Archiving a plan hides it from lists and search without deleting it — it will show up here.</p>
+          <% elsif @folder && @filter.blank? %>
+            <p>No plans <%= "you can see " if @scope == "all" %>in <strong><%= folder_path_for(@folder) %></strong> yet.</p>
+            <p class="text-muted text-sm">Drag a plan row onto this folder in the sidebar, or use a plan's row menu to move it here.</p>
           <% else %>
             <p>No <%= @filter %> plans match the current filters.</p>
           <% end %>

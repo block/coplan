@@ -42,7 +42,7 @@
             <li class="profile__plan">
               <%= link_to plan.title, plan_path(plan), class: "profile__plan-title" %>
               <span class="profile__plan-meta text-muted">
-                <% if plan.plan_type %><span class="badge badge--type"><%= plan.plan_type.name %></span><% end %>
+                <%= plan_type_chip(plan) %>
                 updated <%= time_ago_in_words(plan.updated_at) %> ago
               </span>
             </li>
@@ -52,9 +52,7 @@
     </section>
 
     <section class="profile__library">
-      <h2 class="profile__section-title">
-        <%= link_to library_path(@library), class: "profile__library-link" do %>Library →<% end %>
-      </h2>
+      <h2 class="profile__section-title">Library</h2>
       <% if @root_folders.empty? %>
         <p class="text-muted"><%= mine ? "You haven’t" : "#{@profile.name} hasn’t" %> organized any shelves yet.</p>
       <% else %>

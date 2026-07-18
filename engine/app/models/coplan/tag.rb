@@ -3,6 +3,10 @@ module CoPlan
     has_many :plan_tags, dependent: :destroy
     has_many :plans, through: :plan_tags
 
+    # Squish on the way in so "rails " and "rails" can't become two tags,
+    # whichever write path created them.
+    normalizes :name, with: ->(name) { name.squish }
+
     validates :name, presence: true, uniqueness: true
 
     # Tag names are baked into each plan's denormalized `search_text` (for

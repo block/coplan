@@ -11,7 +11,6 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include('type="checkbox"')
       expect(html).not_to include("disabled")
       expect(html).to include('data-action="coplan--checkbox#toggle"')
-      expect(html).to include('data-coplan--checkbox-target="checkbox"')
     end
 
     it "renders checked task items as checked interactive checkboxes" do

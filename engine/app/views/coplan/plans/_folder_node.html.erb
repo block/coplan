@@ -5,12 +5,17 @@
 <% children = (@folder_children[folder.id] || []).sort_by { |f| f.name.downcase } %>
 <% active = @folder&.id == folder.id %>
 <% folder_link = capture do %>
-  <%= link_to plans_path(params.permit(:scope, :filter, :plan_type, :tag).merge(folder: folder.id)),
+  <%# Both a drop target (plans and folders land here) and a drag source
+      (drag onto another folder to nest it, onto "Everything" to make it
+      top-level). %>
+  <%= link_to workspace_path(folder: folder.id),
         class: "folder-tree__link #{'folder-tree__link--active' if active}",
+        draggable: true,
         data: {
-          "coplan--folder-dnd-target": "folder",
           folder_id: folder.id,
-          action: "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",
+          reparent_url: folder_path(folder),
+          action: "dragstart->coplan--folder-dnd#folderDragStart dragend->coplan--folder-dnd#folderDragEnd " \
+                  "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",
         } do %>
     <span class="folder-tree__name"><%= folder.name %></span>
     <span class="sidebar__count"><%= @folder_counts[folder.id] %></span>

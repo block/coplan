@@ -1,9 +1,9 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Collapsible plan groups on the plans index. Collapsed state is
-// persisted per user in localStorage; groups marked with
-// [data-default-collapsed] (drafts) start collapsed until the user
-// explicitly expands them.
+// Collapsible plan groups on the plans index (one per root folder, plus
+// Unfiled). Collapsed state is persisted per user in localStorage, keyed
+// by data-group-key; groups marked with [data-default-collapsed] start
+// collapsed until the user explicitly expands them.
 const STORAGE_KEY = "coplan:plans:collapsed-groups"
 
 export default class extends Controller {
@@ -28,6 +28,10 @@ export default class extends Controller {
     group.classList.toggle("plan-group--collapsed", collapsed)
     const button = group.querySelector(".plan-group__toggle")
     if (button) button.setAttribute("aria-expanded", String(!collapsed))
+    // hidden takes collapsed content out of the accessibility tree, not
+    // just off-screen.
+    const body = group.querySelector(".plan-group__body")
+    if (body) body.hidden = collapsed
   }
 
   #isCollapsed(group, state) {

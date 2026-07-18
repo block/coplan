@@ -25,7 +25,7 @@ RSpec.describe "Human plan editing", type: :system do
 
   it "edits plan content through the web editor" do
     visit plan_path(plan)
-    click_link "Edit content"
+    find("a[aria-label='Edit plan']").click
 
     expect(page).to have_field("content", with: /First draft body/)
 
@@ -33,7 +33,7 @@ RSpec.describe "Human plan editing", type: :system do
     fill_in "change_summary", with: "Browser edit"
     click_button "Save new version"
 
-    expect(page).to have_content("Plan content updated.")
+    expect(page).to have_content("Plan updated.")
     expect(page).to have_content("Revised body from the browser.")
 
     plan.reload
@@ -42,15 +42,31 @@ RSpec.describe "Human plan editing", type: :system do
     expect(plan.current_plan_version.change_summary).to eq("Browser edit")
   end
 
+  it "edits title and tags through the unified editor" do
+    plan.tag_names = ["security"]
+    plan.save!
+
+    visit edit_content_plan_path(plan)
+    fill_in "Title", with: "Renamed In Editor"
+    # Tag chips: type a tag and press Enter to commit it as a chip.
+    find("#plan_tag_field").send_keys("api-design", :enter)
+    click_button "Save new version"
+
+    expect(page).to have_content("Plan updated.")
+    plan.reload
+    expect(plan.title).to eq("Renamed In Editor")
+    expect(plan.tag_names).to contain_exactly("security", "api-design")
+  end
+
   it "previews markdown before saving" do
     visit edit_content_plan_path(plan)
 
     fill_in "content", with: "# Preview me\n\n**bold text**\n"
-    click_button "👁 Preview"
+    click_button "Preview"
 
     expect(page).to have_css("strong", text: "bold text")
 
-    click_button "✏️ Write"
+    click_button "Write"
     expect(page).to have_field("content", with: /Preview me/)
   end
 
@@ -84,7 +100,7 @@ RSpec.describe "Human plan editing", type: :system do
 
     visit plan_path(plan)
     expect(page).to have_content("Editable Plan")
-    expect(page).not_to have_link("Edit content")
+    expect(page).not_to have_css("a[aria-label='Edit plan']")
     expect(page).not_to have_button("Archive")
     expect(page).not_to have_button("Publish")
   end

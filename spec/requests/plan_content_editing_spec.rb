@@ -155,6 +155,73 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
     end
   end
 
+  # The unified editor carries title/tags alongside the body — the whole
+  # metadata path rides update_content, not the legacy #update action.
+  describe "PATCH update_content with metadata" do
+    it "applies title and tag changes alongside content and logs their events" do
+      plan.tag_names = ["security"]
+      plan.save!
+
+      patch update_content_plan_path(plan), params: {
+        content: "# Plan\n\nEdited with metadata.\n",
+        base_revision: plan.current_revision,
+        plan: { title: "Renamed Plan", tag_names: "security, api-design" }
+      }
+
+      expect(response).to redirect_to(plan_path(plan))
+      plan.reload
+      expect(plan.title).to eq("Renamed Plan")
+      expect(plan.tag_names).to contain_exactly("security", "api-design")
+      expect(plan.current_content).to eq("# Plan\n\nEdited with metadata.\n")
+      expect(plan.plan_events.where(event_type: "title_changed")).to exist
+      expect(plan.plan_events.where(event_type: "tag_added").map(&:after_value)).to include("api-design")
+    end
+
+    it "says 'Plan updated.' when only metadata changed" do
+      patch update_content_plan_path(plan), params: {
+        content: plan.current_content,
+        base_revision: plan.current_revision,
+        plan: { title: "Rename Only" }
+      }
+
+      expect(response).to redirect_to(plan_path(plan))
+      expect(flash[:notice]).to eq("Plan updated.")
+      expect(plan.reload.title).to eq("Rename Only")
+    end
+
+    it "says 'No changes to save.' when nothing changed" do
+      patch update_content_plan_path(plan), params: {
+        content: plan.current_content,
+        base_revision: plan.current_revision,
+        plan: { title: plan.title }
+      }
+
+      expect(response).to redirect_to(plan_path(plan))
+      expect(flash[:notice]).to eq("No changes to save.")
+    end
+
+    it "persists metadata even when the content save hits a conflict" do
+      stale = plan.current_revision
+      new_version = create(:plan_version, plan: plan, revision: stale + 1,
+                           content_markdown: "# Plan\n\nSomeone else edited.\n", actor_id: other_user.id)
+      plan.update!(current_plan_version: new_version, current_revision: new_version.revision)
+
+      patch update_content_plan_path(plan), params: {
+        content: "# Plan\n\nMy conflicting draft.\n",
+        base_revision: stale,
+        plan: { title: "Renamed During Conflict" }
+      }
+
+      # The body conflicts, but the rename must not be lost to someone
+      # else's edit — metadata applies up front.
+      expect(response).to have_http_status(:conflict)
+      plan.reload
+      expect(plan.title).to eq("Renamed During Conflict")
+      expect(plan.plan_events.where(event_type: "title_changed")).to exist
+      expect(plan.current_content).to eq("# Plan\n\nSomeone else edited.\n")
+    end
+  end
+
   describe "POST preview" do
     it "renders submitted markdown without interactive checkboxes" do
       post preview_plan_path(plan), params: { content: "# Preview\n\n- [ ] task" }, as: :json

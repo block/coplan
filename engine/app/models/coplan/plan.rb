@@ -139,10 +139,6 @@ module CoPlan
       %w[plan_type created_by_user]
     end
 
-    def to_param
-      id
-    end
-
     def draft?
       visibility == "draft"
     end

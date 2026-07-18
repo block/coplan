@@ -5,7 +5,8 @@ module CoPlan
     def create
       authorize!(@plan, :update?)
 
-      url = params[:reference][:url]
+      reference_params = params.expect(reference: [ :url, :key, :title ])
+      url = reference_params[:url]
       ref_type = Reference.classify_url(url)
       target_plan_id = nil
       if ref_type == "plan"
@@ -16,8 +17,8 @@ module CoPlan
       ref = @plan.references.find_or_initialize_by(url: url)
       was_new = ref.new_record?
       ref.assign_attributes(
-        key: params[:reference][:key].presence || ref.key,
-        title: params[:reference][:title].presence || ref.title,
+        key: reference_params[:key].presence || ref.key,
+        title: reference_params[:title].presence || ref.title,
         reference_type: ref_type,
         source: "explicit",
         target_plan_id: target_plan_id

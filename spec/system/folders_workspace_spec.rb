@@ -53,11 +53,13 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page).not_to have_content("Q3 Launch Plan")
     end
 
-    it "creates a folder from the sidebar" do
+    it "creates a folder inline from the sidebar" do
       visit plans_path
       find(".sidebar__new-folder-toggle").click
-      fill_in "Folder name", with: "Fresh Folder"
-      click_button "Create"
+      # Opening the disclosure focuses the input; Enter submits.
+      input = find(".sidebar__new-folder-input")
+      input.fill_in with: "Fresh Folder"
+      input.send_keys(:enter)
 
       expect(page).to have_content("Folder “Fresh Folder” created.")
       expect(page).to have_content("No plans")
@@ -65,26 +67,28 @@ RSpec.describe "Folders workspace", type: :system do
     end
   end
 
-  describe "collapsible visibility groups" do
-    it "collapses drafts by default and persists toggles across reloads" do
+  describe "collapsible folder groups" do
+    it "shows drafts inline and persists folder-group collapse across reloads" do
       visit plans_path
 
-      # Draft group is collapsed by default: header visible, rows hidden.
-      expect(page).to have_css('[data-group-key="draft"]')
-      expect(page).not_to have_content("Secret Idea")
-
-      # Expand it.
-      find('[data-group-key="draft"] .plan-group__toggle').click
+      # Drafts are no longer a separate group — the row is just quietly
+      # flagged wherever it's filed.
+      expect(page).not_to have_css('[data-group-key="draft"]')
       expect(page).to have_content("Secret Idea")
 
-      # Collapse published.
-      find('[data-group-key="published"] .plan-group__toggle').click
-      expect(page).not_to have_content("Payments Plan")
+      # The filing tree is the grouping: Team EBT (whole subtree) + Unfiled.
+      expect(page).to have_css("[data-group-key='folder-#{team.id}']")
+      expect(page).to have_css('[data-group-key="unfiled"]')
+
+      # Collapse Team EBT: its rows hide, unfiled rows stay.
+      find("[data-group-key='folder-#{team.id}'] .plan-group__toggle").click
+      expect(page).not_to have_content("Q3 Launch Plan")
+      expect(page).to have_content("Payments Plan")
 
       # State persists across a reload (localStorage).
       visit plans_path
-      expect(page).to have_content("Secret Idea")
-      expect(page).not_to have_content("Payments Plan")
+      expect(page).not_to have_content("Q3 Launch Plan")
+      expect(page).to have_content("Payments Plan")
     end
   end
 
@@ -104,8 +108,25 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page).to have_css(".flash--notice", text: "Infra", wait: 5)
       expect(author.library.placements.find_by(plan_id: developing_plan.id).folder).to eq(infra)
 
-      # The row now shows its folder breadcrumb after the refresh.
-      expect(page).to have_css(".plan-row[data-plan-id='#{developing_plan.id}'] .plan-row__folder", text: "Infra")
+      # After the refresh the row files under the Infra group (the exact
+      # same-folder breadcrumb chip is suppressed inside its own group).
+      expect(page).to have_css("[data-group-key='folder-#{infra.id}'] .plan-row[data-plan-id='#{developing_plan.id}']")
+    end
+
+    it "nests one folder under another by dragging its tree node" do
+      visit plans_path
+
+      source = find(".folder-tree__link", text: "Infra")
+      target = find(".folder-tree__link", text: "Team EBT")
+
+      begin
+        source.drag_to(target, html5: true)
+      rescue Capybara::NotSupportedByDriverError, ArgumentError
+        skip "driver does not support HTML5 drag and drop"
+      end
+
+      expect(page).to have_css(".flash--notice", text: "Moved “Infra” to Team EBT", wait: 5)
+      expect(infra.reload.parent).to eq(team)
     end
 
     it "moves a plan via the row menu fallback" do

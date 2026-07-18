@@ -51,17 +51,33 @@ RSpec.describe "Plan references", type: :system do
   end
 
   describe "adding references via Turbo Stream" do
+    it "closes the add-modal via the X button and via Escape" do
+      visit plan_path(plan, tab: "references")
+
+      click_button "Add reference"
+      expect(page).to have_css(".add-modal:popover-open")
+      within(".add-modal") { find(".add-modal__close").click }
+      expect(page).not_to have_css(".add-modal:popover-open")
+
+      click_button "Add reference"
+      expect(page).to have_css(".add-modal:popover-open")
+      find("body").send_keys(:escape)
+      expect(page).not_to have_css(".add-modal:popover-open")
+    end
+
     it "appends reference to the DOM without navigating away from the tab" do
       visit plan_path(plan, tab: "references")
 
-      # Open the <details> form
-      find("summary", text: "+ Add Reference").click
-      expect(page).to have_css("details[open]")
+      # Open the add-reference lightbox
+      click_button "Add reference"
+      expect(page).to have_css(".add-modal:popover-open")
 
-      fill_in "reference[url]", with: "https://github.com/org/repo"
-      fill_in "reference[title]", with: "My Repo"
-      fill_in "reference[key]", with: "my-repo"
-      click_button "Add"
+      within(".add-modal") do
+        fill_in "reference[url]", with: "https://github.com/org/repo"
+        fill_in "reference[title]", with: "My Repo"
+        fill_in "reference[key]", with: "my-repo"
+        click_button "Add reference"
+      end
 
       # Turbo Stream replaces the list — reference appears without navigation
       expect(page).to have_link("My Repo", href: "https://github.com/org/repo")
@@ -79,19 +95,23 @@ RSpec.describe "Plan references", type: :system do
     it "supports sequential adds with form re-expansion" do
       visit plan_path(plan, tab: "references")
 
-      find("summary", text: "+ Add Reference").click
-      fill_in "reference[url]", with: "https://github.com/org/repo"
-      fill_in "reference[title]", with: "Repo One"
-      click_button "Add"
+      click_button "Add reference"
+      within(".add-modal") do
+        fill_in "reference[url]", with: "https://github.com/org/repo"
+        fill_in "reference[title]", with: "Repo One"
+        click_button "Add reference"
+      end
       expect(page).to have_content("Repo One")
       expect(page).to have_css("#references-count", text: "1")
 
-      # After Turbo Stream replaces the partial, <details> is collapsed;
-      # user must be able to re-expand and add another
-      find("summary", text: "+ Add Reference").click
-      fill_in "reference[url]", with: "https://github.com/org/other"
-      fill_in "reference[title]", with: "Repo Two"
-      click_button "Add"
+      # The Turbo Stream replace swaps out the whole section — including the
+      # lightbox, which closes it; user must be able to reopen and add another
+      click_button "Add reference"
+      within(".add-modal") do
+        fill_in "reference[url]", with: "https://github.com/org/other"
+        fill_in "reference[title]", with: "Repo Two"
+        click_button "Add reference"
+      end
 
       expect(page).to have_content("Repo One")
       expect(page).to have_content("Repo Two")
@@ -128,10 +148,12 @@ RSpec.describe "Plan references", type: :system do
 
       # Switch to references, add one
       click_link "References"
-      find("summary", text: "+ Add Reference").click
-      fill_in "reference[url]", with: "https://github.com/org/repo"
-      fill_in "reference[title]", with: "My Repo"
-      click_button "Add"
+      click_button "Add reference"
+      within(".add-modal") do
+        fill_in "reference[url]", with: "https://github.com/org/repo"
+        fill_in "reference[title]", with: "My Repo"
+        click_button "Add reference"
+      end
 
       # Count updated via Turbo Stream — visible even in the tab nav
       expect(page).to have_css("#references-count", text: "1")

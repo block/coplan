@@ -39,8 +39,6 @@
   --color-focus-ring: rgba(37, 99, 235, 0.12);
 
   /* Status colors */
-  --color-status-brainstorm: #8b5cf6;
-  --color-status-brainstorm-bg: #ede9fe;
   --color-status-considering: #f59e0b;
   --color-status-considering-bg: #fef3c7;
   --color-status-developing: #3b82f6;
@@ -148,7 +146,6 @@
     --color-code-bg: #0f172a;
     --color-overlay: rgba(2, 6, 23, 0.4);
     --color-focus-ring: rgba(96, 165, 250, 0.24);
-    --color-status-brainstorm-bg: rgba(139, 92, 246, 0.18);
     --color-status-considering-bg: rgba(245, 158, 11, 0.16);
     --color-status-developing-bg: rgba(59, 130, 246, 0.18);
     --color-status-live-bg: rgba(16, 185, 129, 0.16);
@@ -225,7 +222,6 @@
   --color-code-bg: #0f172a;
   --color-overlay: rgba(2, 6, 23, 0.4);
   --color-focus-ring: rgba(96, 165, 250, 0.24);
-  --color-status-brainstorm-bg: rgba(139, 92, 246, 0.18);
   --color-status-considering-bg: rgba(245, 158, 11, 0.16);
   --color-status-developing-bg: rgba(59, 130, 246, 0.18);
   --color-status-live-bg: rgba(16, 185, 129, 0.16);
@@ -663,6 +659,29 @@ img, svg {
 .badge--tag:hover   { background: var(--color-tag-hover-bg); color: var(--color-tag-hover-text); }
 .badge--tag-active  { background: var(--color-tag-active-bg); color: var(--color-text-inverse); }
 .badge--tag-active:hover { background: var(--color-tag-active-hover-bg); color: var(--color-text-inverse); }
+
+/* Document-type chip: icon + name, the "what is this" marker that leads
+   rows, feed items, and the plan header. Prominent but not shouty —
+   type + title are the headline, everything else is secondary. */
+.plan-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 1px 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 9999px;
+  background: var(--color-type-bg);
+  color: var(--color-type-text);
+  white-space: nowrap;
+}
+
+.plan-type-chip__icon {
+  flex-shrink: 0;
+}
 
 /* Avatars */
 .avatar {
@@ -1106,15 +1125,6 @@ img.avatar {
 .text-sm    { font-size: var(--text-sm); }
 .mt-md      { margin-top: var(--space-md); }
 .mb-md      { margin-bottom: var(--space-md); }
-
-/* Plan view toggle */
-.plan-view-toggle {
-  display: flex;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-md);
-  padding-bottom: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
-}
 
 /* Rendered markdown */
 .markdown-rendered h1,
@@ -1706,41 +1716,6 @@ img.avatar {
   min-width: 200px;
 }
 
-/* Dropdown */
-.dropdown {
-  position: relative;
-  display: inline-block;
-}
-
-.dropdown__menu {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: var(--space-xs);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  min-width: 200px;
-  z-index: 100;
-}
-
-.dropdown__item {
-  display: block;
-  width: 100%;
-  padding: var(--space-sm) var(--space-md);
-  text-align: left;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: var(--text-sm);
-  color: var(--color-text);
-}
-
-.dropdown__item:hover {
-  background: var(--color-bg-muted);
-}
-
 .settings-section-subtitle {
   margin-bottom: var(--space-md);
   color: var(--color-text-muted);
@@ -1889,12 +1864,6 @@ img.avatar {
   font-weight: 600;
 }
 
-/* Page header */
-.page-header__subtitle {
-  color: var(--color-text-muted);
-  margin-top: var(--space-xs);
-}
-
 /* Thread popover data containers (hidden, provide data for JS) */
 .thread-popover-data {
   display: contents;
@@ -1997,66 +1966,6 @@ img.avatar {
 .viewer-is-plan-author .comment-actions--owner,
 .viewer-is-thread-author .comment-actions--owner {
   display: flex;
-}
-
-/* Ensure content doesn't get hidden behind fixed toolbar */
-body:has(.comment-toolbar) .main-content {
-  padding-bottom: 3.5rem;
-}
-
-/* Comment toolbar (bottom-pinned) */
-/* Floating glass pill, not a full-width band. */
-.comment-toolbar {
-  position: fixed;
-  bottom: var(--space-md);
-  left: 50%;
-  transform: translateX(-50%);
-  width: max-content;
-  max-width: calc(100vw - 2 * var(--space-md));
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-edge);
-  border-radius: 9999px;
-  padding: var(--space-xs) var(--space-lg);
-  display: flex;
-  align-items: center;
-  gap: var(--space-lg);
-  z-index: 50;
-  justify-content: center;
-  box-shadow: var(--shadow-lg);
-}
-
-.comment-toolbar__count {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.comment-toolbar__nav {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.comment-toolbar__position {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  min-width: 4rem;
-  text-align: center;
-}
-
-.comment-toolbar__toggle {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.comment-toolbar__toggle input[type="checkbox"] {
-  cursor: pointer;
 }
 
 /* Content navigation sidebar */
@@ -2551,9 +2460,19 @@ body:has(.comment-toolbar) .main-content {
 
 .plan-tabs__tab--active {
   color: var(--color-text);
-  background: var(--color-surface);
-  border-color: var(--color-border);
+  /* Match the glass panel it merges into, so tab + panel read as one
+     surface instead of two stacked rounded corners. */
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-edge);
   font-weight: 600;
+}
+
+/* The tab strip owns the top-left corner — square it off on the panel so
+   the active tab's curve is the only curve there. */
+.plan-tabs .plan-tabs__panel {
+  border-top-left-radius: 0;
 }
 
 .plan-tabs__count {
@@ -2659,30 +2578,91 @@ body:has(.comment-toolbar) .main-content {
   margin-bottom: var(--space-md);
 }
 
-.references-add summary {
-  cursor: pointer;
-  list-style: none;
+/* Reusable "add" lightbox (references, attachments). Same glass treatment
+   as the search modal; the Popover API supplies backdrop and dismissal. */
+.add-modal {
+  position: fixed;
+  top: 14vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(440px, 92vw);
+  max-height: 72vh;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--color-text);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
 }
 
-.references-add summary::-webkit-details-marker {
+.add-modal:not(:popover-open) {
   display: none;
 }
 
-.references-add__form {
-  margin-top: var(--space-sm);
+.add-modal:popover-open {
   display: flex;
-  align-items: flex-end;
-  gap: var(--space-xs);
-  flex-wrap: wrap;
+  flex-direction: column;
 }
 
-.references-add__form .form-group {
-  margin-bottom: 0;
-  flex: 1;
-  min-width: 140px;
+.add-modal::backdrop {
+  background: rgba(0, 0, 0, 0.35);
 }
 
-.references-add__form input[type="text"] {
+.add-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.add-modal__title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.add-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.add-modal__close:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.add-modal__body {
+  padding: var(--space-lg);
+  overflow-y: auto;
+}
+
+.add-modal__form .form-group {
+  margin-bottom: var(--space-md);
+}
+
+.add-modal__form label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.add-modal__form input[type="text"] {
   width: 100%;
   padding: 6px var(--space-sm);
   font-size: var(--text-sm);
@@ -2694,18 +2674,20 @@ body:has(.comment-toolbar) .main-content {
   transition: border-color 0.15s;
 }
 
-.references-add__form input[type="text"]:focus {
+.add-modal__form input[type="text"]:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
 
-.references-add__form input[type="text"]::placeholder {
+.add-modal__form input[type="text"]::placeholder {
   color: var(--color-text-muted);
 }
 
-.references-add__form .btn {
-  flex-shrink: 0;
+.add-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-lg);
 }
 
 /* Attachments section */
@@ -2930,13 +2912,11 @@ body:has(.comment-toolbar) .main-content {
 }
 
 /* Web Push encouragement banner — bottom-right toast that appears after a
-   user posts a comment, inviting them to enable browser notifications.
-   Stays above the comment toolbar (z-index 50) and any thread popovers. */
+   user posts a comment, inviting them to enable browser notifications. */
 .web-push-banner {
   position: fixed;
   right: var(--space-lg);
-  /* Sit above the comment toolbar (when present) without overlapping. */
-  bottom: calc(var(--space-lg) + 3.5rem);
+  bottom: var(--space-lg);
   z-index: 60;
   display: flex;
   align-items: flex-start;
@@ -2948,10 +2928,6 @@ body:has(.comment-toolbar) .main-content {
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
   animation: web-push-banner-in 220ms ease-out;
-}
-
-body:not(:has(.comment-toolbar)) .web-push-banner {
-  bottom: var(--space-lg);
 }
 
 @keyframes web-push-banner-in {
@@ -3348,13 +3324,6 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   flex-wrap: wrap;
 }
 
-.search-modal__status {
-  text-transform: capitalize;
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-
 .search-modal__empty {
   padding: var(--space-xl) var(--space-lg);
   text-align: center;
@@ -3383,17 +3352,30 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   background: var(--color-surface);
 }
 
-/* Plan owner actions row (show page) */
+/* Plan owner actions (show page): quiet icon buttons tucked at the top
+   right of the document, out of the content's way. */
 .plan-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-sm);
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
 }
 
-/* Archive sits apart from the constructive actions, pushed to the far edge. */
+/* Square icon-only button. */
+.btn--icon {
+  padding: var(--space-xs) var(--space-sm);
+  line-height: 1;
+}
+
+.btn--icon svg {
+  display: block;
+}
+
+/* Archive sits slightly apart from the constructive actions — same
+   corner, small gap (a full-width split reads as a stray icon). */
 .plan-actions__archive {
-  margin-left: auto;
+  margin-left: var(--space-sm);
 }
 
 /* Full-width state banner on the plan page (e.g. archived notice). */
@@ -3672,15 +3654,6 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   white-space: normal;
 }
 
-.profile__library-link {
-  color: inherit;
-  text-decoration: none;
-}
-
-.profile__library-link:hover {
-  color: var(--color-primary);
-}
-
 .profile__plan-list {
   list-style: none;
   margin: 0;
@@ -3735,11 +3708,6 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
 .home__title {
   margin: 0;
   font-size: 1.5rem;
-}
-
-.home__subtitle {
-  margin: 4px 0 0;
-  font-size: var(--text-sm);
 }
 
 .home__empty {
@@ -3844,14 +3812,21 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   padding-top: 3px;
 }
 
-.plan-actions__hint {
-  display: block;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  margin-top: 2px;
+/* Markdown editor (edit_content page) */
+/* Title + tags row at the top of the unified editor. */
+.editor__meta {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
 }
 
-/* Markdown editor (edit_content page) */
+@media (max-width: 720px) {
+  .editor__meta {
+    grid-template-columns: 1fr;
+  }
+}
+
 .editor__tabs {
   display: flex;
   gap: var(--space-xs);
@@ -3991,19 +3966,6 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   color: var(--color-text-muted);
 }
 
-.sidebar__heading-link {
-  float: right;
-  font-weight: 500;
-  text-transform: none;
-  letter-spacing: normal;
-  color: var(--color-text-muted);
-  text-decoration: none;
-}
-
-.sidebar__heading-link:hover {
-  color: var(--color-primary);
-}
-
 .sidebar__list {
   list-style: none;
   margin: 0;
@@ -4078,8 +4040,7 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   margin-top: var(--space-xs);
 }
 
-.sidebar__new-folder-input,
-.sidebar__new-folder-select {
+.sidebar__new-folder-input {
   width: 100%;
   padding: 4px var(--space-sm);
   font-size: var(--text-sm);
@@ -4163,10 +4124,16 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   font-weight: 500;
 }
 
-.folder-tree__link--drop {
+/* Live drop target under the cursor — folder links and group headings. */
+.dnd-drop {
   outline: 2px dashed var(--color-primary);
   outline-offset: -2px;
   background: var(--color-primary-light);
+  border-radius: var(--radius);
+}
+
+.folder-tree__link--dragging {
+  opacity: 0.5;
 }
 
 .folder-tree__name {
@@ -4229,20 +4196,105 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   white-space: nowrap;
 }
 
-/* Status groups */
+/* "Since you last looked" strip — recency against your own reading
+   history, quieter than the warning-toned attention strip. */
+.recent-updates {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius);
+  background: var(--surface-translucent);
+}
+
+.recent-updates__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-xs);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+}
+
+.recent-updates__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recent-updates__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+
+.recent-updates__link {
+  font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-updates__badge {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0 6px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.recent-updates__badge--new-to-you {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.recent-updates__meta {
+  margin-left: auto;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* Folder groups (main pane) */
 .plan-group + .plan-group {
   margin-top: var(--space-md);
 }
 
 .plan-group__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   margin: 0 0 var(--space-xs);
+}
+
+.plan-group__open {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  color: var(--color-text-muted);
+  border-radius: var(--radius);
+  transition: color 0.15s;
+}
+
+.plan-group__open:hover {
+  color: var(--color-text);
 }
 
 .plan-group__toggle {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 2px 0;
   background: none;
   border: none;
@@ -4270,9 +4322,6 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-
-/* Drafts are just quieter, not a different color — hidden, not special. */
-.plan-group__label--draft { color: var(--color-text-muted); }
 
 .plan-group__count {
   font-size: 0.75rem;
@@ -4453,12 +4502,148 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
     gap: var(--space-md);
   }
 
+  /* Content first on small screens — the sidebar becomes a filter block
+     you scroll to, not a wall you scroll past. */
+  .workspace__main {
+    order: 1;
+    min-width: 0;
+  }
+
   .workspace__sidebar {
+    order: 2;
     position: static;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
     gap: var(--space-md);
-    padding-bottom: var(--space-sm);
-    border-bottom: 1px solid var(--color-border);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--color-border);
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+/* ---- Phone-sized screens ----
+   Reviewing your agents' work from a phone is a first-class flow —
+   reading, commenting, and finding the right doc all have to work at
+   ~390px. Chrome collapses to icons; content goes single-column. */
+@media (max-width: 640px) {
+  .site-nav__inner {
+    padding: 0 var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  /* Icons over labels: brand text, env badge, search placeholder, the
+     "/" hint, the settings gear, and the sign-out link all yield to the
+     things a phone visit is actually for. */
+  .site-nav__brand-text,
+  .env-badge,
+  .site-nav__search-label,
+  .site-nav__search-kbd,
+  .site-nav__icon-link,
+  .site-nav__user a[data-turbo-method="delete"] {
+    display: none;
+  }
+
+  .site-nav__links {
+    margin-left: var(--space-xs);
+    gap: var(--space-md);
+  }
+
+  .site-nav__search {
+    flex: 0 0 auto;
+    gap: 0;
+    padding: 8px;
+    margin: 0;
+    margin-left: auto;
+    border-radius: 9999px;
+  }
+
+  .site-nav__right {
+    gap: var(--space-md);
+  }
+
+  /* Nothing in the chrome gets crushed to make room for the user's full
+     name — the name is what truncates. */
+  .site-nav__brand,
+  .site-nav__logo,
+  .site-nav__bell,
+  .inbox-dropdown {
+    flex-shrink: 0;
+  }
+
+  .site-nav__user {
+    min-width: 0;
+  }
+
+  .site-nav__profile-link {
+    display: inline-block;
+    max-width: 6.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+
+  .main-content {
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .page-header {
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .page-header h1 {
+    font-size: var(--text-xl);
+    overflow-wrap: anywhere;
+  }
+
+  /* Tabs scroll sideways instead of wrapping into a two-row muddle. */
+  .plan-tabs__nav {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .plan-tabs__nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .plan-tabs__tab {
+    padding: var(--space-sm) var(--space-md);
+    white-space: nowrap;
+  }
+
+  .plan-tabs .plan-tabs__panel,
+  .references-section,
+  .attachments-section {
+    padding: var(--space-md);
+  }
+
+  .plan-actions {
+    flex-wrap: wrap;
+  }
+
+  /* Comment surfaces clamp to the viewport instead of overflowing it. */
+  .comment-form {
+    width: min(360px, calc(100vw - 2 * var(--space-md)));
+  }
+
+  .thread-popover {
+    width: min(380px, calc(100vw - 2 * var(--space-md)));
+  }
+
+  /* Strip rows stack their meta under the title instead of squeezing it. */
+  .recent-updates__item,
+  .attention__item {
+    flex-wrap: wrap;
+  }
+
+  .recent-updates__meta {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+
+  .home__item-time {
+    font-size: 0.75rem;
   }
 }

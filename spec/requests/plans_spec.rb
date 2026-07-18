@@ -132,9 +132,9 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include("turbo-cable-stream-source")
   end
 
-  it "edit plan" do
+  it "edit redirects to the unified editor (title/tags merged into it)" do
     get edit_plan_path(plan)
-    expect(response).to have_http_status(:success)
+    expect(response).to redirect_to(edit_content_plan_path(plan))
   end
 
   it "update plan updates title without creating a version" do
@@ -181,50 +181,102 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include(bobs_plan.title)
     end
 
-    it "groups plans into collapsible visibility groups, published work first" do
+    it "groups the main pane by root folder, with unshelved plans under Unfiled" do
+      root = create(:folder, name: "Team EBT", created_by_user: alice)
+      filed = create(:plan, :published, created_by_user: alice, title: "Filed Plan")
+      CoPlan::Plans::Place.call(plan: filed, folder: root, actor: alice)
+      create(:plan, :published, created_by_user: alice, title: "Loose Plan")
+
+      get plans_path
+
+      expect(response.body).to include(%(data-group-key="folder-#{root.id}"))
+      expect(response.body).to include('data-group-key="unfiled"')
+      expect(response.body).to include("Team EBT")
+      expect(response.body.index("Filed Plan")).to be < response.body.index('data-group-key="unfiled"')
+      expect(response.body.index("Loose Plan")).to be > response.body.index('data-group-key="unfiled"')
+    end
+
+    it "rolls subfolder plans up into their root folder's group" do
+      root = create(:folder, name: "Team EBT", created_by_user: alice)
+      sub = create(:folder, name: "Q3", parent: root, created_by_user: alice)
+      nested = create(:plan, :published, created_by_user: alice, title: "Nested Plan")
+      CoPlan::Plans::Place.call(plan: nested, folder: sub, actor: alice)
+
+      get plans_path
+
+      expect(response.body).to include(%(data-group-key="folder-#{root.id}"))
+      expect(response.body).not_to include(%(data-group-key="folder-#{sub.id}"))
+      expect(response.body).to include("Nested Plan")
+    end
+
+    it "omits folder groups with no plans" do
+      empty = create(:folder, name: "Empty Folder", created_by_user: alice)
+      create(:plan, :published, created_by_user: alice)
+
+      get plans_path
+
+      expect(response.body).not_to include(%(data-group-key="folder-#{empty.id}"))
+      expect(response.body).to include('data-group-key="unfiled"')
+    end
+
+    it "mixes drafts into their folder group instead of a separate drafts group" do
+      create(:plan, :draft, created_by_user: alice, title: "Quiet Draft")
       create(:plan, :published, created_by_user: alice, title: "Published Plan")
-      create(:plan, :draft,     created_by_user: alice, title: "Draft Plan")
-      get plans_path
-      expect(response.body).to include("plan-group")
-      expect(response.body.index("Published Plan")).to be < response.body.index("Draft Plan")
-    end
 
-    it "marks the draft group as collapsed by default" do
-      create(:plan, :draft, created_by_user: alice)
-      create(:plan, :published, created_by_user: alice)
       get plans_path
-      draft_group = response.body[/<section class="plan-group"[^>]*data-group-key="draft"[^>]*>/]
-      published_group = response.body[/<section class="plan-group"[^>]*data-group-key="published"[^>]*>/]
-      expect(draft_group).to include("data-default-collapsed")
-      expect(published_group).not_to include("data-default-collapsed")
-    end
 
-    it "omits groups with no plans" do
-      create(:plan, :published, created_by_user: alice)
-      get plans_path
-      expect(response.body).to include('data-group-key="published"')
       expect(response.body).not_to include('data-group-key="draft"')
+      expect(response.body).to include("Quiet Draft")
+      expect(response.body).to include("Published Plan")
     end
 
-    # COPLAN-32 successor: every status gets its own group with its own
-    # pagination, so the author's brainstorms always render on the first
-    # page load no matter how many active plans exist.
-    it "surfaces the author's own brainstorms on the first page despite many active plans" do
-      brainstorm = create(:plan, :brainstorm, created_by_user: alice, title: "Buried Brainstorm")
-      create_list(:plan, CoPlan::PlansController::PER_PAGE + 5, :developing, created_by_user: alice)
+    # COPLAN-32 successor: every group paginates independently, so plans in
+    # a small folder always render on the first page load no matter how many
+    # unfiled plans exist.
+    it "surfaces filed plans on the first page despite many unfiled plans" do
+      root = create(:folder, name: "Team EBT", created_by_user: alice)
+      filed = create(:plan, :published, created_by_user: alice, title: "Small Folder Plan")
+      CoPlan::Plans::Place.call(plan: filed, folder: root, actor: alice)
+      create_list(:plan, CoPlan::PlansController::PER_PAGE + 5, :published, created_by_user: alice)
+
       get plans_path
+
       expect(response).to have_http_status(:success)
-      expect(response.body).to include(brainstorm.title)
+      expect(response.body).to include(filed.title)
     end
 
-    it "paginates within a group via a group-scoped lazy frame" do
+    it "paginates the Unfiled group via a group-scoped lazy frame" do
       create_list(:plan, CoPlan::PlansController::PER_PAGE + 2, :published, created_by_user: alice)
       get plans_path
-      expect(response.body).to include('id="plans-published-page-2"')
-      expect(response.body).to include("group=published")
+      expect(response.body).to include('id="plans-unfiled-page-2"')
+      expect(response.body).to include("group=unfiled")
     end
 
-    it "renders a flat list when filtered to a single group" do
+    it "paginates a folder group with the folder scope carried on the frame" do
+      root = create(:folder, name: "Team EBT", created_by_user: alice)
+      create_list(:plan, CoPlan::PlansController::PER_PAGE + 2, :published, created_by_user: alice).each do |p|
+        CoPlan::Plans::Place.call(plan: p, folder: root, actor: alice)
+      end
+
+      get plans_path
+
+      expect(response.body).to include(%(id="plans-folder-#{root.id}-page-2"))
+      expect(response.body).to include("folder=#{root.id}")
+    end
+
+    it "serves Unfiled page fetches without leaking filed plans" do
+      root = create(:folder, name: "Team EBT", created_by_user: alice)
+      filed = create(:plan, :published, created_by_user: alice, title: "Filed Plan")
+      CoPlan::Plans::Place.call(plan: filed, folder: root, actor: alice)
+      create(:plan, :published, created_by_user: alice, title: "Loose Plan")
+
+      get plans_path(group: "unfiled", page: 1), headers: { "Turbo-Frame" => "plans-unfiled-page-1" }
+
+      expect(response.body).to include("Loose Plan")
+      expect(response.body).not_to include("Filed Plan")
+    end
+
+    it "renders a flat list when filtered to a single visibility" do
       create(:plan, :published, created_by_user: alice, title: "Published Plan")
       get plans_path(filter: "published")
       expect(response.body).not_to include("plan-group__toggle")
@@ -234,8 +286,109 @@ RSpec.describe "Plans", type: :request do
     it "scope=all groups everyone's visible plans" do
       create(:plan, :published, created_by_user: bob, title: "Bobs Published Plan")
       get plans_path(scope: "all")
-      expect(response.body).to include('data-group-key="published"')
+      expect(response.body).to include('data-group-key="unfiled"')
       expect(response.body).to include("Bobs Published Plan")
+    end
+  end
+
+  describe "since you last looked" do
+    it "flags plans updated after the viewer's last visit" do
+      seen_plan = create(:plan, :published, created_by_user: bob, title: "Moved On")
+      create(:plan_viewer, plan: seen_plan, user: alice, last_seen_at: 2.days.ago)
+      seen_plan.update!(updated_at: 1.hour.ago)
+      # Alice shelves it so it's part of her workspace scope.
+      root = create(:folder, name: "Reading", created_by_user: alice)
+      CoPlan::Plans::Place.call(plan: seen_plan, folder: root, actor: alice)
+
+      get plans_path
+
+      expect(response.body).to include("Since you last looked")
+      expect(response.body).to include("recent-updates__badge--updated")
+    end
+
+    it "flags never-opened plans by other people as new to you" do
+      other = create(:plan, :published, created_by_user: bob, title: "Fresh From Bob")
+      root = create(:folder, name: "Reading", created_by_user: alice)
+      CoPlan::Plans::Place.call(plan: other, folder: root, actor: alice)
+
+      get plans_path
+
+      expect(response.body).to include("recent-updates__badge--new-to-you")
+      expect(response.body).to include("Fresh From Bob")
+    end
+
+    it "does not flag the viewer's own unopened plans" do
+      create(:plan, :published, created_by_user: alice, title: "My Own Plan")
+
+      get plans_path
+
+      expect(response.body).not_to include("Since you last looked")
+    end
+
+    it "does not flag plans the viewer has seen since their last update" do
+      seen_plan = create(:plan, :published, created_by_user: bob, title: "Old News")
+      root = create(:folder, name: "Reading", created_by_user: alice)
+      CoPlan::Plans::Place.call(plan: seen_plan, folder: root, actor: alice)
+      create(:plan_viewer, plan: seen_plan, user: alice, last_seen_at: Time.current)
+
+      get plans_path
+
+      expect(response.body).not_to include("Since you last looked")
+    end
+
+    it "omits archived plans even when recently touched" do
+      buried = create(:plan, :archived, created_by_user: bob, title: "Archived But Fresh")
+      buried.update!(updated_at: 1.minute.ago)
+
+      get plans_path(scope: "all")
+
+      expect(response.body).not_to include("Archived But Fresh")
+    end
+
+    it "caps the strip at RECENT_LIMIT entries" do
+      7.times { |i| create(:plan, :published, created_by_user: bob, title: "Bulk Update #{i}") }
+
+      get plans_path(scope: "all")
+
+      count = response.body.scan("recent-updates__badge--new-to-you").size
+      expect(count).to eq(CoPlan::PlansController::RECENT_LIMIT)
+    end
+
+    it "only considers the newest RECENT_CANDIDATES plans" do
+      stale = create(:plan, :published, created_by_user: bob, title: "Ancient Unseen")
+      stale.update!(updated_at: 1.year.ago)
+      CoPlan::PlansController::RECENT_CANDIDATES.times do |i|
+        create(:plan, :published, created_by_user: bob, title: "Noise #{i}")
+      end
+
+      get plans_path(scope: "all")
+
+      expect(response.body).not_to include("Ancient Unseen")
+    end
+  end
+
+  describe "document type prominence" do
+    it "leads rows with an icon + type chip" do
+      rfc = create(:plan_type, name: "RFC", icon: "scroll")
+      create(:plan, :published, created_by_user: alice, plan_type: rfc, title: "Typed Plan")
+      get plans_path
+      expect(response.body).to include("plan-type-chip")
+      expect(response.body).to include("plan-type-chip__icon")
+      expect(response.body).to include("RFC")
+    end
+
+    it "falls back to the document icon for unknown icon names" do
+      weird = create(:plan_type, name: "Mystery Type", icon: "definitely-not-real")
+      create(:plan, :published, created_by_user: alice, plan_type: weird)
+      get plans_path
+      expect(response.body).to include("plan-type-chip")
+      expect(response.body).to include("Mystery Type")
+    end
+
+    it "renders no chip for untyped plans" do
+      create(:plan, :published, created_by_user: alice, plan_type: nil)
+      get plans_path
+      expect(response.body).not_to include("plan-type-chip")
     end
   end
 
@@ -448,6 +601,24 @@ RSpec.describe "Plans", type: :request do
       get plans_path
       expect(response.body).not_to include("Needs attention")
     end
+
+    it "never resurfaces an archived plan through stale notifications" do
+      archived = create(:plan, :archived, created_by_user: alice, title: "Buried Plan")
+      thread = create(:comment_thread, plan: archived, created_by_user: bob)
+      create(:notification, user: alice, plan: archived, comment_thread: thread)
+
+      get plans_path
+      expect(response.body).not_to include("Buried Plan")
+    end
+
+    it "never leaks another user's draft title through notifications" do
+      bobs_draft = create(:plan, :draft, created_by_user: bob, title: "Bobs Secret Draft")
+      thread = create(:comment_thread, plan: bobs_draft, created_by_user: bob)
+      create(:notification, user: alice, plan: bobs_draft, comment_thread: thread)
+
+      get plans_path
+      expect(response.body).not_to include("Bobs Secret Draft")
+    end
   end
 
   describe "PATCH /plans/:id/move_to_folder" do
@@ -561,6 +732,59 @@ RSpec.describe "Plans", type: :request do
       post folders_path, params: { folder: { name: "Q3", parent_id: "gone" } }
       expect(CoPlan::Folder.find_by(name: "Q3")).to be_nil
       expect(flash[:alert]).to include("parent folder no longer exists")
+    end
+  end
+
+  describe "PATCH /folders/:id (web reparenting)" do
+    let!(:team) { create(:folder, name: "Team EBT", created_by_user: alice) }
+    let!(:q3) { create(:folder, name: "Q3", created_by_user: alice) }
+
+    def reparent(folder, parent_id)
+      patch folder_path(folder), params: { parent_id: parent_id }, as: :json
+    end
+
+    it "nests a folder under another" do
+      reparent(q3, team.id)
+      expect(response).to have_http_status(:ok)
+      expect(q3.reload.parent).to eq(team)
+      expect(response.parsed_body["path"]).to eq("Team EBT/Q3")
+    end
+
+    it "promotes a folder to top level with a blank parent" do
+      q3.update!(parent: team)
+      reparent(q3, "")
+      expect(response).to have_http_status(:ok)
+      expect(q3.reload.parent).to be_nil
+    end
+
+    it "rejects nesting a folder inside its own subtree" do
+      q3.update!(parent: team)
+      reparent(team, q3.id)
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["error"]).to include("subfolders")
+      expect(team.reload.parent).to be_nil
+    end
+
+    it "rejects moves that would exceed the depth cap" do
+      mid = create(:folder, name: "Mid", parent: team, created_by_user: alice)
+      leaf = create(:folder, name: "Leaf", parent: mid, created_by_user: alice)
+      reparent(q3, leaf.id)
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["error"]).to include("depth")
+      expect(q3.reload.parent).to be_nil
+    end
+
+    it "cannot touch folders in someone else's library" do
+      bobs = create(:folder, name: "Bobs Folder", created_by_user: bob)
+      reparent(bobs, team.id)
+      expect(response).to have_http_status(:not_found)
+      expect(bobs.reload.parent).to be_nil
+    end
+
+    it "rejects an unknown destination folder" do
+      reparent(q3, "gone")
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(q3.reload.parent).to be_nil
     end
   end
 end

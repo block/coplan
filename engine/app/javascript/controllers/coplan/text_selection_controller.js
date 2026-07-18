@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote", "threads"]
-  static values = { planId: String, focusThread: String }
+  static values = { focusThread: String }
 
   connect() {
     this.selectedText = null
@@ -45,6 +45,7 @@ export default class extends Controller {
     window.removeEventListener("scroll", this._handleScroll)
     this._cancelHoverOpen()
     this._cancelHoverClose()
+    clearTimeout(this._linkedThreadRetry)
     if (this._threadsObserver) {
       this._threadsObserver.disconnect()
       this._threadsObserver = null
@@ -667,9 +668,10 @@ export default class extends Controller {
     }
 
     // Marks may not exist yet (Turbo Drive render timing).
-    // Retry a few times with increasing delay.
+    // Retry a few times; the timer is cleared in disconnect() so a quick
+    // navigation away can't fire it against a dead controller.
     if (attempt < 10) {
-      setTimeout(() => this._openLinkedThread(attempt + 1), 100)
+      this._linkedThreadRetry = setTimeout(() => this._openLinkedThread(attempt + 1), 100)
     }
   }
 

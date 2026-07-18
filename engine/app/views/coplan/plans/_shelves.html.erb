@@ -13,8 +13,14 @@
       <% owner_name = owner.respond_to?(:name) ? owner.name : placement.library.name %>
       <% title = mine ? "In your library — #{placement.folder.path}" : "In #{owner_name}’s library — #{placement.folder.path}" %>
       <%# Your own shelf opens the folder in your workspace; someone else's
-          opens their read-only library at that shelf. %>
-      <% href = mine ? plans_path(folder: placement.folder_id) : library_path(placement.library, anchor: "folder-#{placement.folder_id}") %>
+          opens their profile at that shelf (the library's public face). %>
+      <% href = if mine
+           plans_path(folder: placement.folder_id)
+         elsif owner.is_a?(CoPlan::User)
+           profile_path(owner.username.presence || owner.id, anchor: "folder-#{placement.folder_id}")
+         else
+           library_path(placement.library, anchor: "folder-#{placement.folder_id}")
+         end %>
       <%= link_to href, class: "plan-shelves__chip#{' plan-shelves__chip--theirs' unless mine}", title: title do %>
         <svg class="plan-shelves__chip-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
         <span class="plan-shelves__chip-name"><%= placement.folder.name %></span>

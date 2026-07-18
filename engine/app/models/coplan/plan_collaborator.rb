@@ -22,7 +22,6 @@ module CoPlan
     public
 
     scope :authors, -> { where(role: "author") }
-    scope :reviewers, -> { where(role: "reviewer") }
     scope :approvers, -> { where(role: "approver") }
     scope :highlighted, -> { where(role: "highlighted") }
 

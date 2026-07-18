@@ -31,9 +31,10 @@ CoPlan::Engine.routes.draw do
     patch "theme", to: "settings#update_theme"
   end
 
-  # Web folder creation (sidebar "New folder" form). Rename/delete go
-  # through the API or admin for now.
-  resources :folders, only: [:create]
+  # Web folder creation (sidebar "New folder" input) and reparenting (drag
+  # a folder onto a folder). Rename/delete go through the API or admin for
+  # now.
+  resources :folders, only: [:create, :update]
 
   # Read-only library browsing (folder-jump discovery). "library" without
   # an id is the signed-in user's own — handy for nav links.

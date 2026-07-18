@@ -1,11 +1,8 @@
-<% content_for(:title, "Home — CoPlan") %>
+<% content_for(:title, "Feed — CoPlan") %>
 
 <div class="home">
   <header class="home__header">
-    <div>
-      <h1 class="home__title">What’s happening</h1>
-      <p class="home__subtitle text-muted">Plans across the org, rolled up by day. Your own work lives in the <%= link_to "workspace", plans_path %>.</p>
-    </div>
+    <h1 class="home__title">Feed</h1>
   </header>
 
   <% if @items.empty? %>
@@ -30,6 +27,7 @@
               </span>
               <div class="home__item-body">
                 <div class="home__item-line">
+                  <%= plan_type_chip(plan) %>
                   <%= link_to plan.title, plan_path(plan), class: "home__item-title" %>
                   <% if item.summary_parts.any? %>
                     <span class="home__item-activity">
@@ -45,7 +43,6 @@
                 </div>
                 <div class="home__item-meta text-muted">
                   by <%= profile_link(plan.created_by_user) %>
-                  <% if plan.plan_type %> · <%= plan.plan_type.name %><% end %>
                   <% plan.tags.first(3).each do |tag| %>
                     <%= link_to "##{tag.name}", plans_path(scope: "all", tag: tag.name), class: "home__item-tag" %>
                   <% end %>

@@ -1,16 +1,13 @@
 <aside class="workspace__sidebar" aria-label="Plan filters">
   <div class="sidebar__section">
-    <%# The folder tree IS your library — the my_library page is just its
-        shareable read-only face (what others see from your profile). %>
-    <h3 class="sidebar__heading">My library
-      <%= link_to "Public view →", my_library_path, class: "sidebar__heading-link", title: "The read-only view others see", data: { turbo_frame: "_top" } %>
-    </h3>
+    <%# The folder tree IS your library; its public face lives on your
+        profile, so there's no separate page to link to. %>
+    <h3 class="sidebar__heading">Folders</h3>
     <ul class="folder-tree">
       <li class="folder-tree__node">
-        <%= link_to plans_path(params.permit(:scope, :filter, :plan_type, :tag)),
+        <%= link_to workspace_path(folder: nil),
               class: "folder-tree__link #{'folder-tree__link--active' unless @folder}",
               data: {
-                "coplan--folder-dnd-target": "folder",
                 folder_id: "",
                 action: "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",
               } do %>
@@ -28,17 +25,18 @@
       </p>
     <% end %>
 
-    <details class="sidebar__new-folder">
+    <%# Inline creation: opening the disclosure focuses the input; Enter
+        creates a top-level folder, Esc closes. Nesting happens by dragging
+        folders onto folders, so there's no parent picker. %>
+    <details class="sidebar__new-folder" data-controller="coplan--new-folder"
+             data-action="toggle->coplan--new-folder#focus">
       <summary class="sidebar__new-folder-toggle">+ New folder</summary>
       <%= form_with url: folders_path, scope: :folder, method: :post, class: "sidebar__new-folder-form" do |f| %>
-        <%= f.text_field :name, placeholder: "Folder name", required: true, maxlength: 100, class: "sidebar__new-folder-input" %>
-        <% parent_options = folder_select_options.reject { |_path, _id, depth| depth >= CoPlan::Folder::MAX_DEPTH } %>
-        <% if parent_options.any? %>
-          <%= f.select :parent_id,
-                options_for_select([["Top level", ""]] + parent_options.map { |path, id, _| [path, id] }),
-                {}, class: "sidebar__new-folder-select", aria: { label: "Parent folder" } %>
-        <% end %>
-        <%= f.submit "Create", class: "btn btn--sm" %>
+        <%= f.text_field :name, placeholder: "Name, then Enter", required: true, maxlength: 100,
+              class: "sidebar__new-folder-input",
+              aria: { label: "Folder name" },
+              data: { "coplan--new-folder-target": "input",
+                      action: "keydown.esc->coplan--new-folder#close" } %>
       <% end %>
     </details>
   </div>
@@ -49,7 +47,7 @@
       <ul class="sidebar__list">
         <% @top_tags.each do |name, count| %>
           <li>
-            <%= link_to plans_path(params.permit(:scope, :filter, :plan_type, :folder).merge(tag: params[:tag] == name ? nil : name)),
+            <%= link_to workspace_path(tag: params[:tag] == name ? nil : name),
                   class: "sidebar__item #{'sidebar__item--active' if params[:tag] == name}" do %>
               <span class="sidebar__item-label">#<%= name %></span>
               <span class="sidebar__count"><%= count %></span>
@@ -67,13 +65,13 @@
     <h3 class="sidebar__heading">Filters</h3>
     <ul class="sidebar__list">
       <li>
-        <%= link_to "Drafts", plans_path(params.permit(:scope, :plan_type, :tag, :folder).merge(filter: @filter == "draft" ? nil : "draft")),
+        <%= link_to "Drafts", workspace_path(filter: @filter == "draft" ? nil : "draft"),
               class: "sidebar__item #{'sidebar__item--active' if @filter == 'draft'}" %>
       </li>
       <li>
         <%# Archived plans are hidden everywhere else — this is the explicit
             opt-in view. %>
-        <%= link_to "Archived", plans_path(params.permit(:scope, :plan_type, :tag, :folder).merge(filter: @filter == "archived" ? nil : "archived")),
+        <%= link_to "Archived", workspace_path(filter: @filter == "archived" ? nil : "archived"),
               class: "sidebar__item sidebar__item--archived #{'sidebar__item--active' if @filter == 'archived'}" %>
       </li>
     </ul>
@@ -86,7 +84,7 @@
         <% @plan_types.each do |pt| %>
           <li>
             <%= link_to pt.name,
-                  plans_path(params.permit(:scope, :filter, :tag, :folder).merge(plan_type: params[:plan_type] == pt.id ? nil : pt.id)),
+                  workspace_path(plan_type: params[:plan_type] == pt.id ? nil : pt.id),
                   class: "sidebar__item #{'sidebar__item--active' if params[:plan_type] == pt.id}" %>
           </li>
         <% end %>

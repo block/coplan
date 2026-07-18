@@ -1,14 +1,11 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["position", "resolvedToggle"]
-  static values = { planId: String }
 
   connect() {
     this.currentIndex = -1
     this.activeMark = null
     this.activePopover = null
-    this.updatePosition()
     this.handleKeydown = this.handleKeydown.bind(this)
     this.handleScroll = this.handleScroll.bind(this)
     document.addEventListener("keydown", this.handleKeydown)
@@ -18,6 +15,7 @@ export default class extends Controller {
   disconnect() {
     document.removeEventListener("keydown", this.handleKeydown)
     window.removeEventListener("scroll", this.handleScroll)
+    this.cancelPendingAdvance()
   }
 
   handleKeydown(event) {
@@ -48,6 +46,10 @@ export default class extends Controller {
       case "d":
         event.preventDefault()
         this.discardCurrent()
+        break
+      case "s":
+        event.preventDefault()
+        this.toggleResolved()
         break
     }
   }
@@ -124,8 +126,6 @@ export default class extends Controller {
         this.activePopover = popover
       }
     }
-
-    this.updatePosition()
   }
 
   handleScroll() {
@@ -199,23 +199,34 @@ export default class extends Controller {
 
     // Watch for the broadcast DOM update that replaces the thread data,
     // then advance to the next thread once the highlights have changed.
+    // One pending advance at a time, with a timeout so a failed submit
+    // (which never mutates the DOM) can't leave an observer behind to
+    // fire on some unrelated broadcast later.
     const threadsContainer = document.getElementById("plan-threads")
     if (threadsContainer) {
-      const observer = new MutationObserver(() => {
-        observer.disconnect()
+      this.cancelPendingAdvance()
+      this.advanceObserver = new MutationObserver(() => {
+        this.cancelPendingAdvance()
         this.advanceAfterAction(shouldAdvance)
       })
-      observer.observe(threadsContainer, { childList: true, subtree: true })
+      this.advanceObserver.observe(threadsContainer, { childList: true, subtree: true })
+      this.advanceTimeout = setTimeout(() => this.cancelPendingAdvance(), 5000)
     }
 
     form.requestSubmit()
+  }
+
+  cancelPendingAdvance() {
+    this.advanceObserver?.disconnect()
+    this.advanceObserver = null
+    clearTimeout(this.advanceTimeout)
+    this.advanceTimeout = null
   }
 
   advanceAfterAction(shouldAdvance) {
     const highlights = this.openHighlights
     if (highlights.length === 0) {
       this.currentIndex = -1
-      this.updatePosition()
       return
     }
     if (shouldAdvance) {
@@ -235,30 +246,12 @@ export default class extends Controller {
     }
   }
 
+  // Keyboard "s": show/hide resolved-thread highlights (the visible
+  // toolbar checkbox is gone — this is deliberately a power-user toggle).
   toggleResolved() {
     const planLayout = document.querySelector(".plan-layout")
     if (!planLayout) return
 
-    if (this.resolvedToggleTarget.checked) {
-      planLayout.classList.add("plan-layout--show-resolved")
-    } else {
-      planLayout.classList.remove("plan-layout--show-resolved")
-    }
-  }
-
-  updatePosition() {
-    if (!this.hasPositionTarget) return
-
-    const highlights = this.openHighlights
-    if (highlights.length === 0) {
-      this.positionTarget.textContent = ""
-      return
-    }
-
-    if (this.currentIndex < 0) {
-      this.positionTarget.textContent = `${highlights.length} total`
-    } else {
-      this.positionTarget.textContent = `${this.currentIndex + 1} of ${highlights.length}`
-    }
+    planLayout.classList.toggle("plan-layout--show-resolved")
   }
 }

@@ -23,6 +23,10 @@ module CoPlan
     has_many :placements, class_name: "CoPlan::PlanPlacement", inverse_of: :folder, dependent: nil
     has_many :plans, class_name: "CoPlan::Plan", through: :placements
 
+    # Strip on the way in so every write path gets clean names, not just
+    # find_or_create_by_path!.
+    normalizes :name, with: ->(name) { name.strip }
+
     validates :name, presence: true,
       uniqueness: { scope: [ :library_id, :parent_id ], case_sensitive: false },
       format: { with: NAME_FORMAT, message: "cannot contain \"/\"" },

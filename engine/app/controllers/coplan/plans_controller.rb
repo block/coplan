@@ -7,19 +7,17 @@ module CoPlan
     SCOPES = %w[mine all].freeze
     DEFAULT_SCOPE = "mine".freeze
 
-    # Display order for the main-pane groups: published work first, then the
-    # viewer's unlisted drafts. Archived plans are opt-in (?filter=archived)
-    # and never render as a default group.
-    GROUP_ORDER = %w[published draft].freeze
     FILTERS = %w[published draft archived].freeze
 
     # Sidebar workspace index. Two rendering modes:
     #
-    # - Grouped (default): collapsible published/draft groups, each with its
-    #   own "load more" turbo-frame pagination (frames carry group + filter
-    #   params back here).
-    # - Flat: when ?filter= narrows to one group (or opts into archived),
-    #   one recency-sorted paginated list.
+    # - Grouped (default): the viewer's filing tree as collapsible groups —
+    #   one per root folder (containing its whole subtree) plus "Unfiled" —
+    #   topped by a "since you last looked" strip. Each group has its own
+    #   "load more" turbo-frame pagination (frames carry group + folder +
+    #   filter params back here).
+    # - Flat: when ?filter= or ?folder= narrows the view, one recency-sorted
+    #   paginated list.
     #
     # Turbo-frame requests are always page fetches for one of those lists
     # and render only the row page partial.
@@ -50,15 +48,19 @@ module CoPlan
       end
       # Stale frame fetch for a since-deleted folder: render an empty page.
       plans = plans.none if params[:folder].present? && @folder.nil?
+      # Page fetches for the "Unfiled" group: plans not shelved anywhere in
+      # the viewer's library.
+      plans = plans.where.not(id: @library.placements.select(:plan_id)) if params[:group] == "unfiled"
 
-      if @filter.present? || turbo_frame_request?
+      if @filter.present? || @folder.present? || turbo_frame_request?
         plans = filtered_plans(plans, @filter)
         plans = plans.order(updated_at: :desc, id: :desc)
 
         @page = [ params[:page].to_i, 1 ].max
-        @plans = plans.limit(PER_PAGE + 1).offset((@page - 1) * PER_PAGE)
-        @has_next_page = @plans.size > PER_PAGE
-        @plans = @plans.first(PER_PAGE)
+        # to_a first: sizing the unloaded relation would issue an extra COUNT.
+        page_rows = plans.limit(PER_PAGE + 1).offset((@page - 1) * PER_PAGE).to_a
+        @has_next_page = page_rows.size > PER_PAGE
+        @plans = page_rows.first(PER_PAGE)
         @plan_unread_counts = unread_counts_for(@plans)
 
         if turbo_frame_request?
@@ -69,30 +71,18 @@ module CoPlan
               page: @page,
               has_next_page: @has_next_page,
               group_key: params[:group].presence || "results",
-              frame_filter: @filter
+              frame_filter: @filter,
+              frame_folder: params[:folder].presence
             },
             layout: false
           return
         end
       else
         active = plans.active
-        @group_counts = active.group(:visibility).count
         @archived_count = plans.archived.count
-        @groups = GROUP_ORDER.filter_map do |visibility|
-          count = @group_counts[visibility].to_i
-          next if count.zero?
-
-          group_plans = active.where(visibility: visibility)
-            .order(updated_at: :desc, id: :desc)
-            .limit(PER_PAGE + 1).to_a
-          {
-            group: visibility,
-            count: count,
-            plans: group_plans.first(PER_PAGE),
-            has_next_page: group_plans.size > PER_PAGE
-          }
-        end
+        @groups = folder_groups_for(active)
         @plan_unread_counts = unread_counts_for(@groups.flat_map { |g| g[:plans] })
+        load_recently_updated
       end
 
       load_workspace_sidebar
@@ -148,7 +138,7 @@ module CoPlan
       # plan's visibility — a shelf never reveals more than the plan does.
       @shelf_placements = @plan.placements
         .includes(:library, folder: { parent: :parent })
-        .sort_by { |p| p.created_at }
+        .order(:created_at)
       @my_folders = current_user.library.folders.order(:name).to_a
       @threads = @plan.comment_threads.with_kept_comments.includes(:comments, :created_by_user).order(:created_at)
       @references = @plan.references.order(reference_type: :asc, created_at: :desc)
@@ -162,42 +152,21 @@ module CoPlan
       render layout: false
     end
 
+    # The separate title-and-tags page merged into the unified editor —
+    # keep the route working for old links.
     def edit
       authorize!(@plan, :update?)
-      # Datalist suggestions for the tag chip editor — reusing an existing
-      # tag beats coining a near-duplicate.
-      @tag_suggestions = CoPlan::Tag.order(:name).limit(200).pluck(:name)
+      redirect_to edit_content_plan_path(@plan)
     end
 
     def update
       authorize!(@plan, :update?)
-      old_title = @plan.title
-      old_tag_names = @plan.tag_names
-      new_title = params[:plan][:title]
-
-      if params[:plan].key?(:tag_names)
-        @plan.tag_names = params[:plan][:tag_names].to_s.split(",")
-      end
-      @plan.update!(title: new_title)
-
-      if @plan.saved_change_to_title?
-        Plans::LogEvent.call(
-          plan: @plan,
-          actor: current_user,
-          event_type: "title_changed",
-          before: old_title,
-          after: new_title
-        )
-      end
-
-      new_tag_names = @plan.tag_names
-      (new_tag_names - old_tag_names).each do |added|
-        Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "tag_added", after: added)
-      end
-      (old_tag_names - new_tag_names).each do |removed|
-        Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "tag_removed", before: removed)
-      end
-
+      # expect (Rails 8) turns a malformed payload into a 400, not a 500.
+      plan_params = params.expect(plan: [ :title, :tag_names ])
+      apply_metadata_changes!(
+        title: plan_params[:title],
+        tag_names: plan_params.key?(:tag_names) ? plan_params[:tag_names] : nil
+      )
       broadcast_plan_update(@plan)
       redirect_to plan_path(@plan), notice: "Plan updated."
     end
@@ -206,6 +175,7 @@ module CoPlan
       authorize!(@plan, :edit_content?)
       @draft_content = @plan.current_content
       @base_revision = @plan.current_revision
+      load_tag_suggestions
     end
 
     # Human whole-document editing goes through the same pipeline as agent
@@ -216,6 +186,21 @@ module CoPlan
     # user's draft intact instead of clobbering intervening edits.
     def update_content
       authorize!(@plan, :edit_content?)
+
+      # The editor is the one place a plan gets edited, so it carries
+      # title/tags too. Metadata isn't revisioned — apply it up front, even
+      # if the content save below hits a conflict (a rename shouldn't be
+      # lost to someone else's body edit).
+      metadata_changed = if params[:plan].present?
+        plan_params = params.expect(plan: [ :title, :tag_names ])
+        apply_metadata_changes!(
+          title: plan_params[:title],
+          tag_names: plan_params.key?(:tag_names) ? plan_params[:tag_names] : nil
+        )
+      else
+        false
+      end
+      broadcast_plan_update(@plan) if metadata_changed
 
       # After a conflict, the form keeps its stale base_revision so an
       # unreviewed re-save fails loudly again instead of silently clobbering
@@ -234,15 +219,17 @@ module CoPlan
       )
 
       if result[:no_op]
-        redirect_to plan_path(@plan), notice: "No changes to save."
+        notice = metadata_changed ? "Plan updated." : "No changes to save."
+        redirect_to plan_path(@plan), notice: notice
       else
-        redirect_to plan_path(@plan), notice: "Plan content updated."
+        redirect_to plan_path(@plan), notice: "Plan updated."
       end
     rescue Plans::ReplaceContent::StaleRevisionError => e
       @draft_content = params[:content].to_s
       @base_revision = params[:base_revision].to_i
       @conflict_revision = e.current_revision
       @conflict = true
+      load_tag_suggestions
       flash.now[:alert] = "This plan was updated to v#{e.current_revision} while you were editing. " \
                           "Your draft is preserved below — review the latest version before saving again."
       render :edit_content, status: :conflict
@@ -315,9 +302,7 @@ module CoPlan
       end
 
       # Optional 1-based source line carried by the rendered checkbox
-      # (data-line). The line's text must equal old_text, so duplicate task
-      # lines elsewhere can't collide and a stale client fails loudly
-      # instead of toggling a lookalike.
+      # (data-line); the service verifies line and text agree.
       line = nil
       if params[:line].present?
         line = Integer(params[:line], exception: false)
@@ -327,57 +312,137 @@ module CoPlan
         end
       end
 
-      ActiveRecord::Base.transaction do
-        @plan.lock!
-        @plan.reload
+      Plans::ToggleCheckbox.call(
+        plan: @plan,
+        old_text: old_text,
+        new_text: new_text,
+        base_revision: base_revision,
+        actor_id: current_user.id,
+        line: line
+      )
 
-        if @plan.current_revision != base_revision
-          render json: { error: "Conflict", current_revision: @plan.current_revision }, status: :conflict
-          return
-        end
-
-        current_content = @plan.current_content || ""
-        operation = { "op" => "replace_exact", "old_text" => old_text, "new_text" => new_text }
-        if line
-          occurrence = occurrence_at_line(current_content, old_text, line)
-          if occurrence.nil?
-            render json: { error: "old_text does not match line #{line}", current_revision: @plan.current_revision }, status: :unprocessable_content
-            return
-          end
-          operation["occurrence"] = occurrence
-        end
-        result = Plans::ApplyOperations.call(
-          content: current_content,
-          operations: [operation]
-        )
-
-        new_revision = @plan.current_revision + 1
-        diff = Diffy::Diff.new(current_content, result[:content]).to_s
-
-        version = PlanVersion.create!(
-          plan: @plan,
-          revision: new_revision,
-          content_markdown: result[:content],
-          actor_type: "human",
-          actor_id: current_user.id,
-          change_summary: "Toggle checkbox",
-          diff_unified: diff.presence,
-          operations_json: result[:applied],
-          base_revision: base_revision
-        )
-
-        @plan.update!(current_plan_version: version, current_revision: new_revision)
-        @plan.comment_threads.mark_out_of_date_for_new_version!(version)
-      end
-
-      broadcast_plan_update(@plan)
-      Broadcaster.replace_plan_content(@plan)
       render json: { revision: @plan.current_revision }
+    rescue Plans::ReplaceContent::StaleRevisionError => e
+      render json: { error: "Conflict", current_revision: e.current_revision }, status: :conflict
+    rescue Plans::ToggleCheckbox::LineMismatchError => e
+      render json: { error: e.message, current_revision: e.current_revision }, status: :unprocessable_content
     rescue Plans::OperationError => e
       render json: { error: e.message }, status: :unprocessable_content
     end
 
     private
+
+    # Title/tag updates with their audit events — shared by the metadata
+    # PATCH (#update) and the unified editor (#update_content). Returns
+    # true when anything actually changed.
+    def apply_metadata_changes!(title:, tag_names:)
+      old_title = @plan.title
+      old_tag_names = @plan.tag_names
+
+      @plan.tag_names = tag_names.to_s.split(",") unless tag_names.nil?
+      @plan.update!(title: title) if title.present?
+
+      changed = false
+      if @plan.saved_change_to_title?
+        changed = true
+        Plans::LogEvent.call(
+          plan: @plan,
+          actor: current_user,
+          event_type: "title_changed",
+          before: old_title,
+          after: @plan.title
+        )
+      end
+
+      new_tag_names = @plan.tag_names
+      (new_tag_names - old_tag_names).each do |added|
+        changed = true
+        Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "tag_added", after: added)
+      end
+      (old_tag_names - new_tag_names).each do |removed|
+        changed = true
+        Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "tag_removed", before: removed)
+      end
+      changed
+    end
+
+    # Main-pane groups mirror the sidebar's filing tree: one collapsible
+    # group per root folder (spanning its whole subtree), plus "Unfiled"
+    # for plans not shelved anywhere in the viewer's library. Grouping is
+    # viewer-relative — the same plan sits on different shelves for
+    # different people. Drafts aren't a separate group; draft rows carry
+    # their own quiet flag wherever they're filed.
+    def folder_groups_for(active)
+      # One grouped count for all folders (these counts respect the active
+      # plan_type/tag params, so they can't be shared with the sidebar's).
+      # Per-group page queries below only run for non-empty groups.
+      direct_counts = active.joins(:placements)
+        .where(coplan_plan_placements: { library_id: @library.id })
+        .group("coplan_plan_placements.folder_id")
+        .count
+
+      groups = @root_folders.filter_map do |folder|
+        subtree_ids = folder_subtree_ids(folder)
+        count = subtree_ids.sum { |id| direct_counts.fetch(id, 0) }
+        next if count.zero?
+
+        subtree = active.joins(:placements)
+          .where(coplan_plan_placements: { library_id: @library.id, folder_id: subtree_ids })
+        page = subtree.order(updated_at: :desc, id: :desc).limit(PER_PAGE + 1).to_a
+        {
+          key: "folder-#{folder.id}",
+          folder: folder,
+          label: folder.name,
+          count: count,
+          plans: page.first(PER_PAGE),
+          has_next_page: page.size > PER_PAGE
+        }
+      end
+
+      unfiled = active.where.not(id: @library.placements.select(:plan_id))
+      count = unfiled.count
+      if count.positive?
+        page = unfiled.order(updated_at: :desc, id: :desc).limit(PER_PAGE + 1).to_a
+        groups << {
+          key: "unfiled",
+          folder: nil,
+          label: "Unfiled",
+          count: count,
+          plans: page.first(PER_PAGE),
+          has_next_page: page.size > PER_PAGE
+        }
+      end
+      groups
+    end
+
+    RECENT_LIMIT = 5
+    RECENT_CANDIDATES = 30
+
+    # "Since you last looked": plans that changed after the viewer's last
+    # visit, or that they've never opened and didn't write. Derived from
+    # PlanViewer.last_seen_at — recency against your own reading history,
+    # not workflow state. Bounded: only the newest RECENT_CANDIDATES are
+    # considered, and at most RECENT_LIMIT surface.
+    def load_recently_updated
+      candidates = scoped_plans_base.active
+        .includes(:created_by_user)
+        .order(updated_at: :desc, id: :desc)
+        .limit(RECENT_CANDIDATES)
+      last_seen = PlanViewer.where(user: current_user, plan_id: candidates.map(&:id))
+        .pluck(:plan_id, :last_seen_at).to_h
+
+      @recent_updates = candidates.filter_map do |plan|
+        seen_at = last_seen[plan.id]
+        if seen_at.nil?
+          # Your own unvisited plan is just a plan you made elsewhere (API,
+          # agent) — not news.
+          next if plan.created_by_user_id == current_user.id
+          { plan: plan, badge: "new to you" }
+        elsif plan.updated_at > seen_at
+          { plan: plan, badge: "updated" }
+        end
+      end.first(RECENT_LIMIT)
+    end
 
     # Narrows a relation to one workspace filter. Archived plans are opt-in
     # everywhere: no filter means active plans only.
@@ -389,11 +454,20 @@ module CoPlan
       end
     end
 
+    # The editor also edits title/tags; suggestions for the tag chips —
+    # reusing an existing tag beats coining a near-duplicate.
+    def load_tag_suggestions
+      @tag_suggestions = CoPlan::Tag.order(:name).limit(200).pluck(:name)
+    end
+
+    # One grouped query per request, shared between the per-row unread
+    # badges and the "needs attention" strip.
+    def unread_by_plan
+      @unread_by_plan ||= current_user.notifications.unread.group(:plan_id).count
+    end
+
     def unread_counts_for(plans)
-      current_user.notifications.unread
-        .where(plan_id: plans.map(&:id))
-        .group(:plan_id)
-        .count
+      unread_by_plan.slice(*plans.map(&:id))
     end
 
     # The base relation for the active workspace scope. Used by both the
@@ -479,31 +553,14 @@ module CoPlan
     # sidebar filters — it's an inbox, not a search result. Bounded: only
     # the top ATTENTION_LIMIT plans are loaded.
     def load_needs_attention
-      unread_by_plan = current_user.notifications.unread.group(:plan_id).count
       @attention_unread_counts = unread_by_plan
       top_ids = unread_by_plan.sort_by { |_id, count| -count }
         .first(ATTENTION_LIMIT).map(&:first)
-      @attention_plans = Plan.where(id: top_ids)
+      # Even an inbox routes through the discovery predicate — a stale
+      # notification must not resurface an archived plan or another user's
+      # unlisted draft.
+      @attention_plans = Plan.visible_to(current_user).active.where(id: top_ids)
         .sort_by { |plan| -unread_by_plan.fetch(plan.id, 0) }
-    end
-
-    # Maps a verified (line, old_text) pair to the occurrence ordinal the
-    # position resolver will select, keeping the toggle a plain
-    # replace_exact. Returns nil unless the line's rstripped text is exactly
-    # old_text — line and text must both agree for the edit to land.
-    def occurrence_at_line(content, old_text, line)
-      lines = content.each_line.to_a
-      return nil if line > lines.length
-      return nil unless lines[line - 1].rstrip == old_text
-
-      line_start = lines.first(line - 1).sum(&:length)
-      occurrence = 1
-      pos = 0
-      while (idx = content.index(old_text, pos)) && idx < line_start
-        occurrence += 1
-        pos = idx + old_text.length
-      end
-      occurrence
     end
 
     def set_plan

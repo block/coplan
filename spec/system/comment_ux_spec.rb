@@ -167,16 +167,30 @@ RSpec.describe "Comment UX", type: :system do
       expect(border).to eq("none")
     end
 
-    it "shows resolved highlights with dashed underline when toggle is checked" do
+    it "shows resolved highlights with dashed underline after pressing s" do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
 
       visit plan_path(plan)
-      check "Show resolved"
+      find("body").send_keys("s")
 
       mark = find("mark.anchor-highlight--resolved")
       border = mark.evaluate_script("getComputedStyle(this).borderBottomStyle")
       expect(border).to eq("dashed")
+    end
+
+    it "does not toggle resolved visibility while typing s in a reply box" do
+      open_thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
+      resolved = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
+      resolved.resolve!(author)
+
+      visit plan_path(plan)
+      find("mark[data-thread-id='comment_thread_#{open_thread.id}']").click
+      within(".thread-popover:popover-open") do
+        find("textarea").send_keys("s")
+      end
+
+      expect(page).not_to have_css(".plan-layout--show-resolved")
     end
   end
 
@@ -264,7 +278,7 @@ RSpec.describe "Comment UX", type: :system do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.discard!(author)
       visit plan_path(plan)
-      check "Show resolved"
+      find("body").send_keys("s")
       find("mark.anchor-highlight--resolved").click
 
       within(".thread-popover") do
@@ -282,7 +296,7 @@ RSpec.describe "Comment UX", type: :system do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.discard!(author)
       visit plan_path(plan)
-      check "Show resolved"
+      find("body").send_keys("s")
       find("mark.anchor-highlight--resolved").click
 
       within(".thread-popover") do
@@ -291,49 +305,32 @@ RSpec.describe "Comment UX", type: :system do
     end
   end
 
-  describe "comment toolbar" do
+  describe "headless comment navigation" do
     before { sign_in(author) }
 
-    it "shows the toolbar when threads exist" do
+    it "renders no floating toolbar — navigation is keyboard-only" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
       visit plan_path(plan)
 
-      expect(page).to have_css(".comment-toolbar")
-      expect(page).to have_content("1 open")
-    end
-
-    it "does not show the toolbar when no threads" do
-      visit plan_path(plan)
+      expect(page).to have_css("mark.anchor-highlight--open")
       expect(page).not_to have_css(".comment-toolbar")
     end
 
-    it "shows correct open count with mixed statuses" do
-      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Open 1", user: reviewer)
-      create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Open 2", user: reviewer)
-      resolved = create_anchored_thread(plan: plan, anchor_text: "Redis", body: "Resolved", user: reviewer)
-      resolved.resolve!(author)
-
-      visit plan_path(plan)
-      expect(page).to have_content("2 open")
-      expect(page).to have_content("Show resolved (1)")
-    end
-
-    it "navigates to next/prev with toolbar buttons" do
+    it "steps through threads with j/k" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "First", user: reviewer)
       create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Second", user: reviewer)
 
       visit plan_path(plan)
 
-      click_button "↓"
+      find("body").send_keys("j")
       expect(page).to have_css("mark.anchor-highlight--active")
-      expect(page).to have_css(".comment-toolbar__position", text: "1 of 2")
+      expect(find(".thread-popover", visible: true)).to have_content("First")
 
-      # Dismiss the popover so it doesn't cover the toolbar button
       find("body").send_keys(:escape)
       expect(page).not_to have_css(".thread-popover", visible: true)
 
-      click_button "↓"
-      expect(page).to have_css(".comment-toolbar__position", text: "2 of 2")
+      find("body").send_keys("j")
+      expect(find(".thread-popover", visible: true)).to have_content("Second")
     end
   end
 
@@ -469,8 +466,7 @@ RSpec.describe "Comment UX", type: :system do
       # Navigate to first thread
       find("body").send_keys("j")
       expect(page).to have_css("mark.anchor-highlight--active")
-      expect(page).to have_css(".thread-popover", visible: true)
-      expect(page).to have_css(".comment-toolbar__position", text: "1 of 2")
+      expect(find(".thread-popover", visible: true)).to have_content("Feedback 1")
 
       # Press 'a' to accept
       find("body").send_keys("a")
@@ -694,20 +690,25 @@ RSpec.describe "Comment UX", type: :system do
       mark_count = page.all("mark.anchor-highlight").count
       expect(mark_count).to be > 2
 
-      # But toolbar should show only 2 open threads
-      expect(page).to have_content("2 open")
-
-      # j navigates to first thread
+      # But j/k should treat them as only 2 navigation stops:
+      # first j lands on the cross-element thread once...
       find("body").send_keys("j")
-      expect(page).to have_css(".comment-toolbar__position", text: "1 of 2")
+      expect(find(".thread-popover", visible: true)).to have_content("Spans bold boundary")
 
       # Dismiss popover so next j press works cleanly
       find("body").send_keys(:escape)
       expect(page).not_to have_css(".thread-popover", visible: true)
 
-      # j navigates to second thread (not "2 of 4" as the bug would show)
+      # ...then the second thread (not the same anchor's next fragment,
+      # as the pre-dedup bug would show)
       find("body").send_keys("j")
-      expect(page).to have_css(".comment-toolbar__position", text: "2 of 2")
+      expect(find(".thread-popover", visible: true)).to have_content("Second thread")
+
+      # ...and a third j wraps back to the first thread, proving 2 stops
+      find("body").send_keys(:escape)
+      expect(page).not_to have_css(".thread-popover", visible: true)
+      find("body").send_keys("j")
+      expect(find(".thread-popover", visible: true)).to have_content("Spans bold boundary")
     end
   end
 

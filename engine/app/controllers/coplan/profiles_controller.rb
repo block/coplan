@@ -22,9 +22,9 @@ module CoPlan
 
       placements = @library.placements
         .where(plan: Plan.publicly_listed)
+        .joins(:plan).order("coplan_plans.updated_at DESC")
         .includes(plan: [ :created_by_user, :plan_type ])
-        .sort_by { |p| p.plan.updated_at }
-        .reverse
+        .to_a
       @placements_by_folder = placements.group_by(&:folder_id)
       @shelved_count = placements.size
     end

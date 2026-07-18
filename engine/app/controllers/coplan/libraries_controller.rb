@@ -1,18 +1,23 @@
 module CoPlan
-  # Read-only library browsing — the addressable page behind folder-jump
-  # discovery ("this plan was useful; what does its author keep next to
-  # it?"). Anyone signed in can look; what they see inside is filtered
-  # per-plan by Plan.visible_to, and archived plans stay hidden here like
-  # everywhere else. Editing a library happens in its owner's workspace,
-  # never on this page.
+  # A library is a data-model concept, not a destination: a person's
+  # library is browsed on their profile, so these routes redirect there
+  # (fragments like #folder-x survive the redirect). The standalone page
+  # only renders for a future non-user owner (e.g. a team) that has no
+  # profile to redirect to.
   class LibrariesController < ApplicationController
     def mine
-      redirect_to library_path(current_user.library)
+      redirect_to profile_path(current_user.username.presence || current_user.id)
     end
 
     def show
       @library = Library.find(params[:id])
       authorize!(@library, :show?)
+
+      if @library.owner.is_a?(CoPlan::User)
+        owner = @library.owner
+        redirect_to profile_path(owner.username.presence || owner.id)
+        return
+      end
 
       @owner = @library.owner
       @folders = @library.folders.order(:name).to_a
@@ -22,9 +27,9 @@ module CoPlan
       placements = @library.placements
         .visible_to(current_user)
         .where(plan: Plan.active)
+        .joins(:plan).order("coplan_plans.updated_at DESC")
         .includes(plan: [ :created_by_user, :plan_type, :tags ])
-        .sort_by { |p| p.plan.updated_at }
-        .reverse
+        .to_a
       @placements_by_folder = placements.group_by(&:folder_id)
       @plan_count = placements.size
     end

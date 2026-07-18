@@ -16,7 +16,7 @@ module CoPlan
       section
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title type checked disabled open aria-label data-line data-line-text data-action data-coplan--checkbox-target data-mention-username data-sourcepos data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
+    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title type checked disabled open aria-label data-line data-line-text data-action data-mention-username data-sourcepos data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
 
     # Commonmarker extensions beyond the gem defaults (tables, tasklist,
     # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
@@ -85,18 +85,6 @@ module CoPlan
       Nokogiri::HTML::DocumentFragment.parse(html).text.squish
     end
 
-    def render_line_view(content)
-      lines = content.to_s.split("\n", -1)
-      line_divs = lines.each_with_index.map do |line, index|
-        n = index + 1
-        escaped = ERB::Util.html_escape(line)
-        inner = escaped.blank? ? "&nbsp;".html_safe : escaped
-        tag.div(inner, class: "line-view__line", id: "L#{n}", data: { line: n })
-      end
-
-      tag.div(safe_join(line_divs), class: "line-view", data: { controller: "line-selection" })
-    end
-
     private
 
     # Wires rendered task checkboxes to their source lines via Commonmarker's
@@ -118,7 +106,6 @@ module CoPlan
 
         cb.remove_attribute("disabled")
         cb["data-action"] = "coplan--checkbox#toggle"
-        cb["data-coplan--checkbox-target"] = "checkbox"
         cb["data-line-text"] = line_text
         cb["data-line"] = line_number.to_s
 

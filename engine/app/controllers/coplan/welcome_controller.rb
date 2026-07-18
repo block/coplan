@@ -3,8 +3,7 @@ module CoPlan
   #
   # Behavior at "/" (root):
   # * Signed-in users who already have at least one plan are redirected to
-  #   Home (the activity feed) — they know what CoPlan is and don't need the
-  #   intro.
+  #   their Workspace — that's home base; the Feed is a nav click away.
   # * Everyone else (signed-in users with no plans yet, or anyone hitting the
   #   page anonymously) sees the landing partial configured via
   #   `CoPlan.configuration.landing_page_partial`.
@@ -25,7 +24,7 @@ module CoPlan
 
     def show
       if signed_in? && current_user.created_plans.exists? && params[:force].blank?
-        redirect_to home_path and return
+        redirect_to plans_path and return
       end
 
       @landing_partial = CoPlan.configuration.landing_page_partial
