@@ -28,6 +28,9 @@ export default class extends Controller {
     const tag = event.target.tagName
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target.isContentEditable) return
     if (this._popoverOpen()) return
+    // A focused button/link/summary owns its activation keys — a keyboard
+    // user tabbed to "New folder" must get the button, not the selected row.
+    const activation = !!event.target.closest("a, button, summary")
 
     switch (event.key) {
       case "j":
@@ -39,12 +42,13 @@ export default class extends Controller {
         this._move(-1)
         break
       case "Enter":
-        if (this._selected()) {
+        if (!activation && this._selected()) {
           event.preventDefault()
           this._open(this._selected())
         }
         break
       case "Backspace":
+        if (activation) return
         event.preventDefault()
         this._goUp()
         break

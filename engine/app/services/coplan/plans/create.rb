@@ -21,7 +21,10 @@ module CoPlan
           version = PlanVersion.create!(
             plan: plan,
             revision: 1,
-            content_markdown: @content,
+            # Normalize line endings on the way in (ReplaceContent does the
+            # same) — otherwise a CRLF-created document diffs against its
+            # LF-edited successor on every line.
+            content_markdown: @content.to_s.delete("\r"),
             actor_type: "human",
             actor_id: @user.id
           )

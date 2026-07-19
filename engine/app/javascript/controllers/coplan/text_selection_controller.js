@@ -17,6 +17,12 @@ export default class extends Controller {
     this._boundHandleMouseUp = this.handleMouseUp.bind(this)
     this._boundHandleDocumentMouseDown = this.handleDocumentMouseDown.bind(this)
     this._handleScroll = this._handleScroll.bind(this)
+    // Close the comment form before Turbo snapshots the page: a cached
+    // copy would otherwise restore with popover="manual" + display:block
+    // but outside the top layer — a mispositioned form with stale anchor
+    // inputs.
+    this._boundBeforeCache = () => { if (this.hasFormTarget) this.hideAndResetForm() }
+    document.addEventListener("turbo:before-cache", this._boundBeforeCache)
     this._boundPopoverEnter = this._cancelHoverClose.bind(this)
     this._boundPopoverLeave = this._handlePopoverLeave.bind(this)
     this._boundPopoverToggle = this._handlePopoverToggle.bind(this)
@@ -42,6 +48,7 @@ export default class extends Controller {
   disconnect() {
     this.contentTarget.removeEventListener("mouseup", this._boundHandleMouseUp)
     document.removeEventListener("mousedown", this._boundHandleDocumentMouseDown)
+    document.removeEventListener("turbo:before-cache", this._boundBeforeCache)
     window.removeEventListener("scroll", this._handleScroll)
     this._cancelHoverOpen()
     this._cancelHoverClose()

@@ -20,8 +20,13 @@ export default class extends Controller {
   dragStart(event) {
     const row = event.currentTarget
     event.dataTransfer.effectAllowed = "move"
-    // The move URL rides along in the drag payload (readable on drop).
-    event.dataTransfer.setData(PLAN_MIME, row.dataset.moveUrl)
+    // The move URL and current folder ride along in the drag payload
+    // (readable on drop) — the folder so a drop where the plan already
+    // lives is a quiet no-op instead of a PATCH + reload + "moved" toast.
+    event.dataTransfer.setData(PLAN_MIME, JSON.stringify({
+      url: row.dataset.moveUrl,
+      folderId: row.dataset.currentFolderId || "",
+    }))
     event.dataTransfer.setData("text/plain", row.dataset.planId)
     row.classList.add("plan-row--dragging")
     this.element.classList.add("workspace--dragging")
@@ -41,6 +46,7 @@ export default class extends Controller {
     event.dataTransfer.setData(FOLDER_MIME, JSON.stringify({
       url: node.dataset.reparentUrl,
       id: node.dataset.folderId,
+      parentId: node.dataset.parentId || "",
     }))
     event.dataTransfer.setData("text/plain", node.dataset.folderId)
     node.classList.add("folder-tree__link--dragging")
@@ -69,17 +75,24 @@ export default class extends Controller {
     const target = event.currentTarget
     target.classList.remove(DROP_CLASS)
 
+    const targetFolderId = target.dataset.folderId || ""
+
     if (event.dataTransfer.types.includes(FOLDER_MIME)) {
       let payload = {}
       try { payload = JSON.parse(event.dataTransfer.getData(FOLDER_MIME)) } catch {}
       if (!payload.url) return
-      // Dropping a folder on itself is a no-op, not an error toast.
-      if (payload.id && payload.id === target.dataset.folderId) return
-      this.#patch(payload.url, { parent_id: target.dataset.folderId || "" }, "Folder moved.")
+      // Dropping a folder on itself or where it already sits is a quiet
+      // no-op, not a PATCH + reload + toast.
+      if (payload.id && payload.id === targetFolderId) return
+      if ((payload.parentId || "") === targetFolderId) return
+      this.#patch(payload.url, { parent_id: targetFolderId }, "Folder moved.")
     } else {
-      const moveUrl = event.dataTransfer.getData(PLAN_MIME)
-      if (!moveUrl) return
-      this.#patch(moveUrl, { folder_id: target.dataset.folderId || "" }, "Plan moved.")
+      let payload = {}
+      try { payload = JSON.parse(event.dataTransfer.getData(PLAN_MIME)) } catch {}
+      if (!payload.url) return
+      // Same quiet no-op when the plan is already filed right here.
+      if ((payload.folderId || "") === targetFolderId) return
+      this.#patch(payload.url, { folder_id: targetFolderId }, "Plan moved.")
     }
   }
 

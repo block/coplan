@@ -53,7 +53,9 @@ module CoPlan
             return
           end
 
-          visible_plans = Plan.visible_to(current_user)
+          # Match Plan.search: archived plans stay out of discovery — they
+          # remain reachable by direct URL but never resurface on their own.
+          visible_plans = Plan.visible_to(current_user).active
 
           references = Reference.where(url: url, plan_id: visible_plans.select(:id))
             .includes(:plan)

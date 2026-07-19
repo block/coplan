@@ -70,4 +70,40 @@ RSpec.describe CoPlan::Plans::ChangedSections do
     expect(call(nil, nil)).to eq([])
     expect(call(nil, "# Hi\n\nbody\n")).to contain_exactly("hi")
   end
+
+  it "treats setext headings as section boundaries, like the renderer" do
+    old_md = "Title\n=====\n\nintro\n\nSub\n---\n\nold\n"
+    new_md = "Title\n=====\n\nintro\n\nSub\n---\n\nnew\n"
+    expect(call(old_md, new_md)).to eq([ "sub" ])
+  end
+
+  it "recognizes ATX headings indented up to three spaces" do
+    old_md = "   ## Indented\n\nold\n"
+    new_md = "   ## Indented\n\nnew\n"
+    expect(call(old_md, new_md)).to eq([ "indented" ])
+  end
+
+  it "is not fooled by info strings or fence nesting" do
+    old_md = "# Setup\n\n````\n```ruby\n# phantom heading\n```\n````\n\nold\n"
+    new_md = "# Setup\n\n````\n```ruby\n# phantom heading\n```\n````\n\nnew\n"
+    expect(call(old_md, new_md)).to eq([ "setup" ])
+  end
+
+  it "ignores CRLF vs LF line-ending differences between versions" do
+    old_md = "# Title\r\n\r\nsame body\r\n\r\n## Extra\r\n\r\nalso same\r\n"
+    new_md = "# Title\n\nsame body\n\n## Extra\n\nalso same\n"
+    expect(call(old_md, new_md)).to eq([])
+  end
+
+  it "flags a newly added heading even when it has no body yet" do
+    old_md = "# T\n\nbody\n"
+    new_md = "# T\n\nbody\n\n## New steps"
+    expect(call(old_md, new_md)).to eq([ "new-steps" ])
+  end
+
+  it "slugs HTML entities the way the rendered DOM reads them" do
+    old_md = "## AT&amp;T merger\n\nold\n"
+    new_md = "## AT&amp;T merger\n\nnew\n"
+    expect(call(old_md, new_md)).to eq([ "att-merger" ])
+  end
 end

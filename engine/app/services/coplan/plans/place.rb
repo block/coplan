@@ -31,22 +31,24 @@ module CoPlan
         if @folder && @folder.library_id != @library.id
           return Result.new(error: "Folder belongs to a different library")
         end
-        # Shelving requires the plan to be listable for you — an unlisted
-        # draft someone linked you can be read, but filing it onto a
-        # browsable shelf would surface what its author hasn't published.
-        unless PlanPolicy.new(@actor, @plan).listed?
-          return Result.new(error: "Only published plans (or your own drafts) can be shelved")
-        end
-
         placement = @library.placements.find_by(plan_id: @plan.id)
         old_path = placement&.folder&.path
 
+        # Removal is always allowed — you can take anything off your own
+        # shelf, even if the plan has since stopped being listable to you.
         if @folder.nil?
           return Result.new(placement: nil) if placement.nil?
 
           placement.destroy!
           log_move(old_path, nil)
           return Result.new(placement: nil)
+        end
+
+        # Shelving requires the plan to be listable for you — an unlisted
+        # draft someone linked you can be read, but filing it onto a
+        # browsable shelf would surface what its author hasn't published.
+        unless PlanPolicy.new(@actor, @plan).listed?
+          return Result.new(error: "Only published plans (or your own drafts) can be shelved")
         end
 
         if placement
@@ -62,6 +64,13 @@ module CoPlan
         Result.new(placement:)
       rescue ActiveRecord::RecordInvalid => e
         Result.new(error: e.record.errors.full_messages.join(", "))
+      rescue ActiveRecord::RecordNotUnique
+        # Two concurrent shelves of the same plan raced past find_by; the
+        # unique [plan_id, library_id] index caught it. Retry once — the
+        # placement now exists, so this becomes a plain re-file.
+        raise if @retried_unique
+        @retried_unique = true
+        retry
       end
 
       private

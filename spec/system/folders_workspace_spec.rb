@@ -70,6 +70,21 @@ RSpec.describe "Folders workspace", type: :system do
       find("body").send_keys(:backspace)
       expect(page).to have_css(".workspace-crumbs__crumb--current", text: "My Plans")
     end
+
+    it "clears filters with Escape, then jumps home from a folder" do
+      developing_plan.tag_names = [ "security" ]
+      visit plans_path(tag: "security")
+
+      expect(page).to have_css(".active-filter__clear")
+      find("body").send_keys(:escape)
+      expect(page).not_to have_css(".active-filter__clear")
+
+      # No filters left: Escape from inside a folder jumps back to the root.
+      find(".folder-row", text: "Team EBT").click
+      expect(page).to have_css(".workspace-crumbs__crumb--current", text: "Team EBT")
+      find("body").send_keys(:escape)
+      expect(page).to have_css(".workspace-crumbs__crumb--current", text: "My Plans")
+    end
   end
 
   describe "sidebar navigation" do

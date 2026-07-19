@@ -13,6 +13,7 @@
         draggable: true,
         data: {
           folder_id: folder.id,
+          parent_id: folder.parent_id,
           reparent_url: folder_path(folder),
           action: "dragstart->coplan--folder-dnd#folderDragStart dragend->coplan--folder-dnd#folderDragEnd " \
                   "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",

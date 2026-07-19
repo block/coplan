@@ -531,6 +531,30 @@ RSpec.describe "Plans", type: :request do
       expect(flash[:alert]).to include("no longer exists")
     end
 
+    it "pages a folder's level view past the first 20 without losing the folder scope" do
+      21.times do |i|
+        p = create(:plan, :considering, created_by_user: alice, title: "Paged Plan #{format('%02d', i)}")
+        CoPlan::Plans::Place.call(plan: p, folder: root, actor: alice)
+        p.update_columns(updated_at: (i + 1).hours.ago)
+      end
+      root_plan.update_columns(updated_at: 2.days.ago) # oldest, lands on page 2
+
+      get plans_path(folder: root.id)
+      expect(response.body).to include("Paged Plan 00")
+      expect(response.body).not_to include("Root Level Plan")
+      # The lazy next-page frame must carry the folder, or page 2 would
+      # silently fall back to the whole workspace.
+      expect(response.body).to include("page=2")
+      expect(response.body).to include("folder=#{root.id}")
+
+      get plans_path(folder: root.id, group: "level", page: 2),
+        headers: { "Turbo-Frame" => "plans-level-page-2" }
+      expect(response.body).to include("Root Level Plan")
+      expect(response.body).to include("Paged Plan 20")
+      expect(response.body).not_to include("Paged Plan 00")
+      expect(response.body).not_to include("Subfolder Plan") # still level-scoped
+    end
+
     it "clamps a non-positive page param instead of erroring" do
       get plans_path(filter: "published", page: "0")
       expect(response).to have_http_status(:ok)
@@ -621,6 +645,23 @@ RSpec.describe "Plans", type: :request do
       # than advertising a count that clicking can't produce.
       get plans_path(folder: payments.id)
       expect(response.body).not_to include("#kmp")
+    end
+
+    it "scopes folder counts to the Hidden filter — count = what clicking shows" do
+      folder = create(:folder, name: "Mixed", created_by_user: alice)
+      active = create(:plan, :considering, created_by_user: alice)
+      buried = create_list(:plan, 2, :archived, created_by_user: alice)
+      ([ active ] + buried).each do |p|
+        CoPlan::Plans::Place.call(plan: p, folder: folder, actor: alice)
+      end
+
+      # WORKSPACE_LINK_PARAMS carries :filter, so a sidebar folder link
+      # keeps the archived filter — its count must match that destination.
+      get plans_path
+      expect(response.body).to match(%r{Mixed</span>\s*<span class="sidebar__count">1</span>})
+
+      get plans_path(filter: "archived")
+      expect(response.body).to match(%r{Mixed</span>\s*<span class="sidebar__count">2</span>})
     end
 
     it "lists document types with counts scoped to the other active filters" do
@@ -754,6 +795,20 @@ RSpec.describe "Plans", type: :request do
       expect(placement.folder).to eq(bobs_folder)
       # Alice's own library is untouched.
       expect(alice_placement).to be_nil
+    end
+
+    it "refuses to shelve someone else's unlisted draft, even with the URL in hand" do
+      bobs_draft = create(:plan, :draft, created_by_user: bob)
+
+      patch move_to_folder_plan_path(bobs_draft),
+        params: { folder_id: folder.id }.to_json,
+        headers: { "Content-Type" => "application/json", "Accept" => "application/json" }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(alice.library.placements.where(plan_id: bobs_draft.id)).to be_empty
+
+      patch move_to_folder_plan_path(bobs_draft), params: { folder_id: folder.id }
+      expect(flash[:alert]).to be_present
+      expect(alice.library.placements.where(plan_id: bobs_draft.id)).to be_empty
     end
 
     it "rejects shelving into someone else's folder" do

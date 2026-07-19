@@ -21,6 +21,11 @@ module CoPlan
 
     belongs_to :created_by_user, class_name: "CoPlan::User"
     belongs_to :current_plan_version, class_name: "PlanVersion", optional: true
+    # Lean handle on the current version for list pages: the preview cache
+    # key needs content_sha256, nothing else — preloading the full row drags
+    # MEDIUMTEXT content, diffs, and operation logs out of MySQL per row.
+    belongs_to :current_version_stub, -> { select(:id, :content_sha256) },
+      class_name: "PlanVersion", foreign_key: :current_plan_version_id, optional: true
     belongs_to :plan_type, optional: true
     has_many :placements, class_name: "CoPlan::PlanPlacement", inverse_of: :plan, dependent: :destroy
     has_many :libraries, through: :placements

@@ -9,6 +9,7 @@
       draggable: true,
       data: {
         folder_id: folder.id,
+        parent_id: folder.parent_id,
         reparent_url: folder_path(folder),
         "coplan--workspace-keys-target": "item",
         action: "dragstart->coplan--folder-dnd#folderDragStart dragend->coplan--folder-dnd#folderDragEnd " \

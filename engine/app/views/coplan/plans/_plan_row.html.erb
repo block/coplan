@@ -17,6 +17,7 @@
          data-coplan--workspace-keys-target="item"
          draggable="true"
          data-move-url="<%= move_to_folder_plan_path(plan) %>"
+         data-current-folder-id="<%= my_folder_id %>"
          data-action="dragstart->coplan--folder-dnd#dragStart dragend->coplan--folder-dnd#dragEnd">
   <div class="plan-row__line">
     <%= plan_type_icon(plan, size: :sm) %>

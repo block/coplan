@@ -34,10 +34,12 @@ module CoPlan
 
     def create
       library = current_user.library
+      # expect (Rails 8) turns a malformed payload into a 400, not a 500.
+      folder_params = params.expect(folder: [ :name, :parent_id ])
 
       parent = nil
-      if params.dig(:folder, :parent_id).present?
-        parent = library.folders.find_by(id: params.dig(:folder, :parent_id))
+      if folder_params[:parent_id].present?
+        parent = library.folders.find_by(id: folder_params[:parent_id])
         if parent.nil?
           # Don't silently create a root folder when the chosen parent has
           # since been deleted (matches the API's unknown-parent handling).
@@ -48,7 +50,7 @@ module CoPlan
       end
 
       folder = Folder.new(
-        name: params.dig(:folder, :name),
+        name: folder_params[:name],
         parent: parent,
         library: library,
         created_by_user: current_user

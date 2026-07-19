@@ -33,7 +33,9 @@ export default class extends Controller {
       if (marking) node.classList.add("section-changed")
     }
 
-    if (markedAny) this._insertNote(rendered)
+    // A Turbo snapshot restore re-runs connect() against cached HTML that
+    // already contains the note — don't stack a second one.
+    if (markedAny && !this.element.querySelector(".changed-sections-note")) this._insertNote(rendered)
   }
 
   _slug(text, used) {

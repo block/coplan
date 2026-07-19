@@ -41,7 +41,7 @@ module CoPlan
         end
       end
 
-      plans = scoped_plans_base.includes(:plan_type, :tags, :created_by_user, :current_plan_version)
+      plans = scoped_plans_base.includes(:plan_type, :tags, :created_by_user, :current_version_stub)
       plans = apply_workspace_filters(plans)
       # Stale frame fetch for a since-deleted folder: render an empty page.
       plans = plans.none if params[:folder].present? && @folder.nil?
@@ -529,11 +529,16 @@ module CoPlan
     # count answers "what would clicking this show?" — so each list is
     # computed with every *other* active filter applied (tag counts respect
     # the current folder/type/date, type counts respect tag/folder/date,
-    # folder counts respect tag/type/date). All from scoped_plans_base, so
-    # other users' private plans never leak through counts
-    # (Plan.visible_to). Archived plans are opt-in and excluded everywhere.
+    # folder counts respect tag/type/date), INCLUDING the Hidden filter:
+    # folder/tag/type links carry `filter` (WORKSPACE_LINK_PARAMS), so with
+    # "Archived" active a folder count means "archived plans in here". All
+    # from scoped_plans_base, so other users' private plans never leak
+    # through counts (Plan.visible_to). Without a filter, archived plans
+    # are opt-in and excluded (filtered_plans defaults to .active).
     def load_workspace_sidebar
-      direct_counts = apply_workspace_filters(scoped_plans_base.active)
+      count_base = filtered_plans(scoped_plans_base, @filter)
+
+      direct_counts = apply_workspace_filters(count_base)
         .joins(:placements)
         .where(coplan_plan_placements: { library_id: @library.id })
         .group("coplan_plan_placements.folder_id")
@@ -551,7 +556,7 @@ module CoPlan
         node = @folders_by_id[node.parent_id]
       end
 
-      tag_base = scoped_plans_base.active
+      tag_base = count_base
       tag_base = tag_base.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?
       tag_base = tag_base.where(updated_at: UPDATED_WINDOWS[@updated_window].ago..) if @updated_window
       tag_base = in_folder_subtree(tag_base, @folder)
@@ -564,7 +569,7 @@ module CoPlan
         .count
         .map { |(_id, name), count| [ name, count ] }
 
-      type_base = scoped_plans_base.active
+      type_base = count_base
       type_base = type_base.with_tag(params[:tag]) if params[:tag].present?
       type_base = type_base.where(updated_at: UPDATED_WINDOWS[@updated_window].ago..) if @updated_window
       type_base = in_folder_subtree(type_base, @folder)

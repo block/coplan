@@ -18,9 +18,11 @@ module CoPlan
           paths = Folder.paths_by_id(folders)
 
           # Visible-plan counts only — never leak the existence of other
-          # users' unlisted drafts through folder counts.
+          # users' unlisted drafts through folder counts. Archived plans
+          # are excluded too, matching the web sidebar and library page.
           counts = PlanPlacement.where(library_id: library.id)
             .visible_to(current_user)
+            .where(plan: Plan.active)
             .group(:folder_id)
             .count
 
@@ -103,7 +105,7 @@ module CoPlan
             library_id: folder.library_id,
             parent_id: folder.parent_id,
             path: paths ? paths[folder.id] : folder.path,
-            plans_count: counts ? counts.fetch(folder.id, 0) : folder.placements.visible_to(current_user).count,
+            plans_count: counts ? counts.fetch(folder.id, 0) : folder.placements.visible_to(current_user).where(plan: Plan.active).count,
             created_by: folder.created_by_user&.name,
             created_at: folder.created_at,
             updated_at: folder.updated_at

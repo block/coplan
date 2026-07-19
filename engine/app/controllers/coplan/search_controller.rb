@@ -19,7 +19,7 @@ module CoPlan
       @query = params[:q].to_s.strip
       @results = if @query.present?
         Plan.search(@query, user: current_user)
-          .includes(:created_by_user, :tags)
+          .includes(:created_by_user, :tags, :plan_type)
           .limit(MAX_RESULTS)
           .to_a
       else
