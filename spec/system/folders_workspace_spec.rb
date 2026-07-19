@@ -108,7 +108,7 @@ RSpec.describe "Folders workspace", type: :system do
 
     it "creates a nested folder through the popover, defaulting to the current folder" do
       visit plans_path(folder: team.id)
-      within(".workspace__sidebar") { find(".sidebar__new-folder-toggle").click }
+      click_button "New folder"
 
       within("#new-folder-modal") do
         # Regression: scope: :folder used to bind @folder and prefill the
@@ -182,26 +182,44 @@ RSpec.describe "Folders workspace", type: :system do
       expect(infra.reload.parent).to eq(team)
     end
 
-    it "moves a plan via the row menu fallback" do
+    it "files a plan via the row bookmark's folder navigator" do
       visit plans_path
 
-      within(".plan-row[data-plan-id='#{developing_plan.id}']") do
-        find(".plan-row__menu-toggle").click
-        select "Team EBT/Q3", from: "folder_id"
-        click_button "Move"
+      row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
+      row.find(".plan-row__save", visible: :all).click
+
+      within("#folder-picker-modal") do
+        # The tree is hierarchical: Q3 nests under Team EBT.
+        expect(page).to have_css(".folder-picker__tree--nested .folder-picker__name", text: "Q3")
+        find(".folder-picker__option", text: "Q3").click
       end
 
-      expect(page).to have_css(".flash--notice", text: "Team EBT/Q3")
+      expect(page).to have_css(".flash--notice", text: "Team EBT/Q3", wait: 5)
       expect(author.library.placements.find_by(plan_id: developing_plan.id).folder).to eq(q3)
     end
 
-    it "offers move controls on other users' plans too (shelving)" do
+    it "removes a filed plan from the library via the navigator" do
+      CoPlan::Plans::Place.call(plan: developing_plan, folder: q3, actor: author)
+      visit plans_path(folder: q3.id)
+
+      row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
+      row.find(".plan-row__save", visible: :all).click
+
+      within("#folder-picker-modal") do
+        click_button "Remove from my library"
+      end
+
+      expect(page).to have_css(".flash--notice", text: "Removed", wait: 5)
+      expect(author.library.placements.where(plan_id: developing_plan.id)).to be_empty
+    end
+
+    it "offers save controls on other users' plans too (shelving)" do
       other_plan = create(:plan, :considering, created_by_user: other, title: "Someone Elses Plan")
       visit plans_path(scope: "all")
 
       row = find(".plan-row[data-plan-id='#{other_plan.id}']")
       expect(row["draggable"]).to eq("true")
-      expect(row).to have_css(".plan-row__menu", visible: :all)
+      expect(row).to have_css(".plan-row__save", visible: :all)
     end
   end
 

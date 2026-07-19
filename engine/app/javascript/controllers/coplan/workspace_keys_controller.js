@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 // Keyboard navigation for the workspace file browser:
 //
-//   j / k        step down/up through folders and plans
+//   j / k, ↓ / ↑ step down/up through folders and plans
 //   Enter        open the selected folder or plan
 //   Backspace    go up one folder level (breadcrumb parent)
 //   Escape       clear active filters; with none, jump back to the root
@@ -34,10 +34,12 @@ export default class extends Controller {
 
     switch (event.key) {
       case "j":
+      case "ArrowDown":
         event.preventDefault()
         this._move(1)
         break
       case "k":
+      case "ArrowUp":
         event.preventDefault()
         this._move(-1)
         break

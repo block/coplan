@@ -1,6 +1,7 @@
 CoPlan::Engine.routes.draw do
   resources :plans, only: [:index, :show, :edit, :update] do
     patch :publish, on: :member
+    patch :hide, on: :member
     patch :archive, on: :member
     patch :unarchive, on: :member
     patch :toggle_checkbox, on: :member

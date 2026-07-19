@@ -647,6 +647,22 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).not_to include("#kmp")
     end
 
+    it "counts the updated windows combinatorially and drops empty ones" do
+      fresh = create(:plan, :considering, created_by_user: alice, title: "Fresh One")
+      fresh.tag_names = [ "infra" ]
+      stale = create(:plan, :considering, created_by_user: alice, title: "Stale One")
+      stale.tag_names = [ "legacy" ]
+      stale.update_columns(updated_at: 2.months.ago)
+
+      get plans_path
+      expect(response.body).to match(%r{Last 7 days</span>\s*<span class="sidebar__count">1</span>})
+
+      # Under a tag whose only plan is months old the windows would show 0 —
+      # they drop out instead, like tags and types do.
+      get plans_path(tag: "legacy")
+      expect(response.body).not_to include("Last 7 days")
+    end
+
     it "scopes folder counts to the Hidden filter — count = what clicking shows" do
       folder = create(:folder, name: "Mixed", created_by_user: alice)
       active = create(:plan, :considering, created_by_user: alice)
@@ -696,7 +712,8 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include("Updated: last 7 days")
     end
 
-    it "offers 7 and 30 day windows in the sidebar" do
+    it "offers 7 and 30 day windows in the sidebar when they'd show something" do
+      plan # a fresh plan matches both windows
       get plans_path
       expect(response.body).to include("Last 7 days")
       expect(response.body).to include("Last 30 days")
@@ -833,7 +850,7 @@ RSpec.describe "Plans", type: :request do
       }.not_to change(CoPlan::PlanEvent, :count)
     end
 
-    it "renders drag handles and move menus on every row" do
+    it "renders drag handles and save bookmarks on every row" do
       plan # alice's plan
       bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Plan")
       get plans_path(scope: "all")
@@ -843,6 +860,9 @@ RSpec.describe "Plans", type: :request do
       # Anyone can shelve any visible plan into their own library.
       expect(alice_row).to include('draggable="true"')
       expect(bob_row).to include('draggable="true"')
+      expect(response.body.scan("plan-row__save").size).to be >= 2
+      # One shared navigator popover per page, with the folder tree inside.
+      expect(response.body.scan('id="folder-picker-modal"').size).to eq(1)
     end
   end
 

@@ -1,6 +1,6 @@
 module CoPlan
   class PlansController < ApplicationController
-    before_action :set_plan, only: [:show, :edit, :update, :publish, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :history, :edit_content, :update_content, :preview]
+    before_action :set_plan, only: [:show, :edit, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :history, :edit_content, :update_content, :preview]
 
     PER_PAGE = 20
 
@@ -139,6 +139,9 @@ module CoPlan
 
     def show
       authorize!(@plan, :show?)
+      # Old ?tab=history links: history is its own page now (the other
+      # former tabs are same-page sections).
+      return redirect_to history_plan_path(@plan) if params[:tab] == "history"
       # Folder-jump discovery: every shelf this plan sits on. The plan
       # itself is already authorized above, and placements inherit the
       # plan's visibility — a shelf never reveals more than the plan does.
@@ -156,10 +159,11 @@ module CoPlan
       PlanViewer.track(plan: @plan, user: current_user)
     end
 
+    # A full page (reached from the header's clock icon), not a tab —
+    # Backspace or the back link returns to the document.
     def history
       authorize!(@plan, :show?)
       @history_items = @plan.history_items
-      render layout: false
     end
 
     # The separate title-and-tags page merged into the unified editor —
@@ -274,7 +278,37 @@ module CoPlan
         plan_type_id: @plan.plan_type_id,
         via: "web"
       )
-      redirect_to plan_path(@plan), notice: "Plan published — everyone can see it now."
+      respond_to do |format|
+        format.json { render json: { visibility: @plan.visibility } }
+        format.html { redirect_to plan_path(@plan), notice: "Plan published — everyone can see it now." }
+      end
+    end
+
+    # The other direction of the header eye: take a shared plan back to
+    # Private. The URL keeps working (drafts are unlisted, not locked) —
+    # this only withdraws the plan from discovery.
+    def hide
+      authorize!(@plan, :hide?)
+      @plan.update!(visibility: "draft")
+      broadcast_plan_update(@plan)
+      Plans::LogEvent.call(
+        plan: @plan,
+        actor: current_user,
+        event_type: "hidden",
+        before: "published",
+        after: "draft"
+      )
+      CoPlan::Analytics.track(
+        "plan_hidden",
+        user: current_user,
+        plan_id: @plan.id,
+        plan_type_id: @plan.plan_type_id,
+        via: "web"
+      )
+      respond_to do |format|
+        format.json { render json: { visibility: @plan.visibility } }
+        format.html { redirect_to plan_path(@plan), notice: "Plan is private again — hidden from lists and search." }
+      end
     end
 
     def archive
@@ -574,6 +608,16 @@ module CoPlan
       type_base = type_base.where(updated_at: UPDATED_WINDOWS[@updated_window].ago..) if @updated_window
       type_base = in_folder_subtree(type_base, @folder)
       @type_counts = type_base.where.not(plan_type_id: nil).group(:plan_type_id).count
+
+      # Updated windows count combinatorially too — every base includes all
+      # the *other* active filters, never its own dimension.
+      window_base = count_base
+      window_base = window_base.where(plan_type_id: params[:plan_type]) if params[:plan_type].present?
+      window_base = window_base.with_tag(params[:tag]) if params[:tag].present?
+      window_base = in_folder_subtree(window_base, @folder)
+      @updated_counts = UPDATED_WINDOWS.to_h do |window, duration|
+        [ window, window_base.where(updated_at: duration.ago..).count ]
+      end
     end
 
     ATTENTION_LIMIT = 5

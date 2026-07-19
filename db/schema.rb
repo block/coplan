@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_18_171748) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_19_165429) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -211,6 +211,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_18_171748) do
     t.string "plan_id", limit: 36, null: false
     t.datetime "updated_at", null: false
     t.index ["folder_id"], name: "index_coplan_plan_placements_on_folder_id"
+    t.index ["library_id", "folder_id", "plan_id"], name: "index_coplan_placements_covering_folder_counts"
     t.index ["library_id"], name: "index_coplan_plan_placements_on_library_id"
     t.index ["placed_by_user_id"], name: "fk_rails_ef17324b42"
     t.index ["plan_id", "library_id"], name: "index_coplan_plan_placements_on_plan_id_and_library_id", unique: true
@@ -285,11 +286,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_18_171748) do
     t.datetime "updated_at", null: false
     t.string "visibility", default: "published", null: false
     t.index ["archived_at"], name: "index_coplan_plans_on_archived_at"
+    t.index ["created_by_user_id", "updated_at"], name: "index_coplan_plans_on_author_and_updated_at"
     t.index ["created_by_user_id"], name: "index_coplan_plans_on_created_by_user_id"
     t.index ["current_plan_version_id"], name: "fk_rails_c401577583"
     t.index ["plan_type_id"], name: "index_coplan_plans_on_plan_type_id"
     t.index ["search_text"], name: "index_coplan_plans_on_search_text", type: :fulltext
     t.index ["updated_at"], name: "index_coplan_plans_on_updated_at"
+    t.index ["visibility", "updated_at"], name: "index_coplan_plans_on_visibility_and_updated_at"
     t.index ["visibility"], name: "index_coplan_plans_on_visibility"
   end
 

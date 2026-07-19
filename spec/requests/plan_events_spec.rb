@@ -50,6 +50,39 @@ RSpec.describe "Plan metadata event logging", type: :request do
     end
   end
 
+  describe "PATCH /plans/:id/hide (web)" do
+    it "records a hidden event when a shared plan goes back to Private" do
+      shared = create(:plan, :published, created_by_user: user)
+
+      expect {
+        patch hide_plan_path(shared)
+      }.to change { shared.plan_events.where(event_type: "hidden").count }.by(1)
+
+      expect(shared.reload.visibility).to eq("draft")
+      event = shared.plan_events.where(event_type: "hidden").last
+      expect(event.before_value).to eq("published")
+      expect(event.after_value).to eq("draft")
+    end
+
+    it "refuses non-authors" do
+      other = create(:coplan_user)
+      shared = create(:plan, :published, created_by_user: other)
+
+      patch hide_plan_path(shared)
+      expect(response).to have_http_status(:not_found)
+      expect(shared.reload.visibility).to eq("published")
+    end
+
+    it "answers JSON for the header eye" do
+      shared = create(:plan, :published, created_by_user: user)
+      patch hide_plan_path(shared), headers: { "Accept" => "application/json" }
+      expect(response.parsed_body["visibility"]).to eq("draft")
+
+      patch publish_plan_path(shared), headers: { "Accept" => "application/json" }
+      expect(response.parsed_body["visibility"]).to eq("published")
+    end
+  end
+
   describe "POST /plans/:id/references (web)" do
     it "records a reference_added event with the URL and metadata" do
       expect {

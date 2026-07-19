@@ -35,31 +35,34 @@
       <%# The folder tree IS your library; its public face lives on your
           profile, so there's no separate page to link to. %>
       <h3 class="sidebar__heading">Folders</h3>
-      <ul class="folder-tree">
-        <li class="folder-tree__node">
+      <%# "My Plans" is the root of your library; every folder is its child,
+          the way a drive hangs everything off one root. (One day a "+" up
+          on the heading will add more libraries next to it.) %>
+      <ul class="folder-tree folder-tree--rooted">
+        <li class="folder-tree__node folder-tree__node--root">
           <%= link_to workspace_path(folder: nil),
-                class: "folder-tree__link #{'folder-tree__link--active' unless @folder}",
+                class: "folder-tree__link folder-tree__link--root #{'folder-tree__link--active' unless @folder}",
                 data: {
                   folder_id: "",
                   action: "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",
                 } do %>
             <span class="folder-tree__name">My Plans</span>
           <% end %>
+          <% if @root_folders.any? %>
+            <ul class="folder-tree folder-tree--nested">
+              <% @root_folders.each do |folder| %>
+                <%= render "coplan/plans/folder_node", folder: folder %>
+              <% end %>
+            </ul>
+          <% end %>
         </li>
-        <% @root_folders.each do |folder| %>
-          <%= render "coplan/plans/folder_node", folder: folder %>
-        <% end %>
       </ul>
 
       <% if @folders.empty? %>
         <p class="sidebar__hint text-muted text-sm">
-          Folders keep related plans together — like a team folder with project subfolders.
+          Folders keep related plans together — like a team folder with project subfolders. Create one with “New folder” above your plans.
         </p>
       <% end %>
-
-      <button type="button" class="sidebar__new-folder-toggle" popovertarget="new-folder-modal">
-        + New folder
-      </button>
     </div>
 
     <% if @top_tags.present? %>
@@ -79,19 +82,27 @@
       </div>
     <% end %>
 
-    <div class="sidebar__section">
-      <h3 class="sidebar__heading">Updated</h3>
-      <ul class="sidebar__list">
-        <li>
-          <%= link_to "Last 7 days", workspace_path(updated: @updated_window == "7d" ? nil : "7d"),
-                class: "sidebar__item #{'sidebar__item--active' if @updated_window == '7d'}" %>
-        </li>
-        <li>
-          <%= link_to "Last 30 days", workspace_path(updated: @updated_window == "30d" ? nil : "30d"),
-                class: "sidebar__item #{'sidebar__item--active' if @updated_window == '30d'}" %>
-        </li>
-      </ul>
-    </div>
+    <%# Same rule as tags/types: count = what clicking shows given the other
+        active filters; zero-count windows drop out (unless active, so the
+        filter can still be cleared). %>
+    <% visible_windows = [["7d", "Last 7 days"], ["30d", "Last 30 days"]]
+         .select { |w, _| @updated_counts[w].to_i.positive? || @updated_window == w } %>
+    <% if visible_windows.any? %>
+      <div class="sidebar__section">
+        <h3 class="sidebar__heading">Updated</h3>
+        <ul class="sidebar__list">
+          <% visible_windows.each do |window, label| %>
+            <li>
+              <%= link_to workspace_path(updated: @updated_window == window ? nil : window),
+                    class: "sidebar__item #{'sidebar__item--active' if @updated_window == window}" do %>
+                <span class="sidebar__item-label"><%= label %></span>
+                <span class="sidebar__count"><%= @updated_counts[window].to_i %></span>
+              <% end %>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
 
     <div class="sidebar__section">
       <%# No org-wide browsing here — the workspace is *your* stuff. Everyone

@@ -16,7 +16,7 @@ RSpec.describe "Attachments (web)", type: :request do
       }.to change { plan.attachments_attachments.count }.by(2)
         .and change { plan.plan_events.where(event_type: "attachment_added").count }.by(2)
 
-      expect(response).to redirect_to(plan_path(plan, tab: "attachments"))
+      expect(response).to redirect_to(plan_path(plan, anchor: "footnote-attachments"))
       follow_redirect!
       expect(flash[:notice]).to include("2 files uploaded")
 
@@ -32,7 +32,7 @@ RSpec.describe "Attachments (web)", type: :request do
         files: [ fixture_file_upload("sample.html", "text/html") ]
       }
 
-      expect(response).to redirect_to(plan_path(plan, tab: "attachments"))
+      expect(response).to redirect_to(plan_path(plan, anchor: "footnote-attachments"))
       expect(flash[:alert]).to include("sample.html")
       expect(flash[:alert]).to include("not allowed")
       expect(plan.attachments.count).to eq(0)
@@ -47,7 +47,7 @@ RSpec.describe "Attachments (web)", type: :request do
         }
       }.to change { plan.attachments_attachments.count }.by(1)
 
-      expect(response).to redirect_to(plan_path(plan, tab: "attachments"))
+      expect(response).to redirect_to(plan_path(plan, anchor: "footnote-attachments"))
       event = plan.plan_events.find_by(event_type: "attachment_added")
       expect(event.actor_id).to eq(viewer.id)
     end
@@ -80,7 +80,7 @@ RSpec.describe "Attachments (web)", type: :request do
         delete plan_attachment_path(plan, attachment)
       }.to change { plan.attachments_attachments.count }.by(-1)
 
-      expect(response).to redirect_to(plan_path(plan, tab: "attachments"))
+      expect(response).to redirect_to(plan_path(plan, anchor: "footnote-attachments"))
       event = plan.plan_events.find_by(event_type: "attachment_removed")
       expect(event.before_value).to eq("sample.png")
     end
@@ -104,7 +104,7 @@ RSpec.describe "Attachments (web)", type: :request do
       )
 
       sign_in_as(viewer)
-      get plan_path(plan, tab: "attachments")
+      get plan_path(plan, anchor: "footnote-attachments")
 
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("diagram.png")
@@ -116,7 +116,7 @@ RSpec.describe "Attachments (web)", type: :request do
 
     it "shows the upload form to the plan author" do
       sign_in_as(author)
-      get plan_path(plan, tab: "attachments")
+      get plan_path(plan, anchor: "footnote-attachments")
 
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("attachments-upload")

@@ -2,13 +2,10 @@
 <% can_add = current_user && policy.contribute? %>
 <% can_remove = current_user && policy.update? %>
 <div class="attachments-section" id="plan-attachments">
+  <%# The visible "+" lives in the footnote-section header; only the modal
+      is rendered here. %>
   <% if can_add %>
-    <div class="attachments-section__header">
-      <button type="button" class="btn btn--secondary btn--sm" popovertarget="add-attachment-modal">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-        Add files
-      </button>
-      <%= render layout: "coplan/shared/add_modal", locals: { id: "add-attachment-modal", title: "Add files" } do %>
+    <%= render layout: "coplan/shared/add_modal", locals: { id: "add-attachment-modal", title: "Add files" } do %>
         <%# One designed dropzone instead of the native file input: click to
             browse or drag files on; choosing files uploads immediately (the
             upload redirect reloads the page, which closes the lightbox). %>
@@ -24,8 +21,7 @@
                 accept: CoPlan::Plan::ATTACHMENT_CONTENT_TYPES.join(","),
                 data: { "coplan--dropzone-target": "input", action: "change->coplan--dropzone#changed" } %>
         <% end %>
-      <% end %>
-    </div>
+    <% end %>
   <% end %>
 
   <% if attachments.any? %>

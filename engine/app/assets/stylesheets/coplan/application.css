@@ -2519,91 +2519,231 @@ img.avatar {
   margin-top: var(--space-sm);
 }
 
-/* Plan tabs */
-.plan-tabs__nav {
+/* Plan document + footnotes: one page, no tabs. The document is the main
+   glass card; references and attachments follow like back matter — same
+   page, quieter surface. */
+.plan-footnotes {
+  margin-top: var(--space-xl);
   display: flex;
-  gap: var(--space-xs);
-  margin-bottom: calc(-1px);
-  position: relative;
-  z-index: 1;
+  flex-direction: column;
+  gap: var(--space-lg);
 }
 
-.plan-tabs__tab {
-  display: inline-flex;
+.plan-footnote {
+  /* Set apart from the document proper: flatter, edge-lit, no heavy card. */
+  background: var(--surface-translucent);
+  border: 1px solid var(--glass-edge);
+  border-left: 3px solid var(--color-border);
+  border-radius: var(--radius);
+  scroll-margin-top: var(--space-lg);
+}
+
+.plan-footnote__header {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: var(--space-sm) var(--space-lg);
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg) 0;
+}
+
+.plan-footnote__title {
+  margin: 0;
   font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--color-text-muted);
-  text-decoration: none;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: var(--radius) var(--radius) 0 0;
-  transition: color 0.15s, background 0.15s;
-  cursor: pointer;
-}
-
-.plan-tabs__icon {
-  flex-shrink: 0;
-  opacity: 0.75;
-}
-
-.plan-tabs__tab--active .plan-tabs__icon {
-  opacity: 1;
-}
-
-.plan-tabs__tab:hover {
-  color: var(--color-text);
-  background: var(--color-bg);
-  text-decoration: none;
-}
-
-.plan-tabs__tab--active {
-  color: var(--color-text);
-  /* Match the glass panel it merges into, so tab + panel read as one
-     surface instead of two stacked rounded corners. */
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border-color: var(--glass-edge);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
 }
 
-/* The tab strip owns the top-left corner — square it off on the panel so
-   the active tab's curve is the only curve there. */
-.plan-tabs .plan-tabs__panel {
-  border-top-left-radius: 0;
-}
-
-.plan-tabs__count {
+.section-count {
   font-size: 0.75rem;
   color: var(--color-text-muted);
   font-weight: 400;
 }
 
-.plan-tabs__panel--hidden {
+/* The round "+" leading a footnote section — one click, opens the add
+   modal. Icon only; the section title is right beside it. */
+.section-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.section-add:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-bg);
+}
+
+/* Back-matter links at the bottom of the document outline. */
+.content-nav__list--footnotes {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.content-nav__footnote-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: 2px var(--space-sm);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  border-radius: var(--radius);
+}
+
+.content-nav__footnote-link:hover {
+  color: var(--color-text);
+  background: var(--color-bg-muted);
+  text-decoration: none;
+}
+
+/* The visibility eye: slash appears when Private (matching the state
+   flag's crossed eye); armed = mid-flip, waiting for the confirming
+   second click. */
+.visibility-toggle .visibility-toggle__slash {
   display: none;
 }
 
-/* "+" beside the References/Attachments tabs — jumps to the tab and opens
-   its add modal. Same visual weight as the tab labels. */
-.plan-tabs__add {
-  display: inline-flex;
+.visibility-toggle--hidden .visibility-toggle__slash {
+  display: initial;
+}
+
+.visibility-toggle--armed {
+  color: var(--color-primary);
+  animation: visibility-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes visibility-pulse {
+  50% { opacity: 0.45; }
+}
+
+/* Folder-picker navigator (the bookmark's popover) */
+.folder-picker__plan {
+  margin: 0 0 var(--space-sm);
+}
+
+.folder-picker__tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
+.folder-picker__tree--nested {
+  padding-left: var(--space-md);
+  max-height: none;
+  overflow: visible;
+}
+
+.folder-picker__option {
+  display: flex;
   align-items: center;
-  align-self: center;
-  padding: 4px;
-  margin-left: -4px;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: 5px var(--space-sm);
   background: none;
   border: none;
   border-radius: var(--radius);
-  color: var(--color-text-muted);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
-.plan-tabs__add:hover {
+.folder-picker__option:hover {
+  background: var(--color-bg-muted);
   color: var(--color-primary);
-  background: var(--color-bg);
+}
+
+.folder-picker__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.folder-picker__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-picker__check {
+  visibility: hidden;
+  color: var(--color-primary);
+}
+
+.folder-picker__option--current .folder-picker__check {
+  visibility: visible;
+}
+
+.folder-picker__option--current {
+  font-weight: 600;
+}
+
+.folder-picker__remove {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  width: 100%;
+  margin-top: var(--space-sm);
+  padding: 6px var(--space-sm);
+  background: none;
+  border: none;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.folder-picker__remove:hover {
+  color: var(--color-danger, #e0637a);
+}
+
+.folder-picker__remove-hint {
+  font-size: var(--text-xs);
+  opacity: 0.7;
+}
+
+/* History page (the plan's time machine) */
+.history-page {
+  padding: var(--space-lg);
+}
+
+.history-back {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+}
+
+.history-back:hover {
+  color: var(--color-primary);
+  background: var(--color-bg-muted);
+}
+
+.history-title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.history-title-link:hover {
+  color: var(--color-primary);
 }
 
 /* References section */
@@ -3566,14 +3706,30 @@ img.avatar {
   font-size: var(--text-xs);
 }
 
-.plan-shelves__add-select {
+/* The header bookmark: save/move/remove via the folder navigator. */
+.plan-shelves__bookmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: var(--text-xs);
-  padding: 2px 6px;
+  font-family: inherit;
+  padding: 3px 8px;
   border: 1px dashed var(--color-border);
   border-radius: 9999px;
   background: transparent;
   color: var(--color-text-muted);
-  max-width: 200px;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.plan-shelves__bookmark:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.plan-shelves__bookmark--saved {
+  color: var(--color-primary);
+  border-style: solid;
 }
 
 /* Library browsing page (read-only shelves) */
@@ -4166,22 +4322,6 @@ img.avatar {
   line-height: 1.4;
 }
 
-.sidebar__new-folder-toggle {
-  margin-top: var(--space-sm);
-  padding: 0;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
-  font-family: inherit;
-  text-align: left;
-}
-
-.sidebar__new-folder-toggle:hover {
-  color: var(--color-primary);
-}
-
 /* Folder tree */
 .folder-tree {
   list-style: none;
@@ -4194,6 +4334,17 @@ img.avatar {
 
 .folder-tree--nested {
   padding-left: var(--space-md);
+}
+
+/* The rooted tree: "My Plans" is the drive root; folders hang off it with
+   a slightly tighter indent than regular nesting. */
+.folder-tree__node--root > .folder-tree--nested {
+  padding-left: var(--space-sm);
+  margin-top: 1px;
+}
+
+.folder-tree__link--root {
+  font-weight: 600;
 }
 
 .folder-tree__branch > .folder-tree__summary {
@@ -4483,6 +4634,9 @@ img.avatar {
 
 /* Compact plan rows */
 .plan-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
   /* Translucent without backdrop blur — rows are numerous and per-row
      blur is a GPU tax; the mesh still glows through faintly. */
@@ -4491,6 +4645,17 @@ img.avatar {
   border-radius: var(--radius);
   margin-bottom: var(--space-xs);
   transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+/* The file icon spans both text rows — a Drive/Finder file entry. */
+.plan-row__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.plan-row__main {
+  flex: 1;
+  min-width: 0;
 }
 
 .plan-row:hover {
@@ -4564,68 +4729,33 @@ img.avatar {
   overflow: hidden;
 }
 
-/* Row menu (move-to-folder fallback) */
-.plan-row__menu {
-  position: relative;
-}
-
-.plan-row__menu-toggle {
+/* Row bookmark — the keyboard/no-drag door into the folder navigator. */
+.plan-row__save {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
   cursor: pointer;
-  list-style: none;
-  padding: 0 var(--space-xs);
-  border-radius: var(--radius);
-  color: var(--color-text-muted);
-  font-weight: 700;
-  line-height: 1.2;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
 }
 
-.plan-row__menu-toggle::-webkit-details-marker {
-  display: none;
+.plan-row:hover .plan-row__save,
+.plan-row__save:focus-visible,
+.plan-row__save--saved {
+  opacity: 1;
 }
 
-.plan-row__menu-toggle:hover {
+.plan-row__save:hover {
+  color: var(--color-primary);
   background: var(--color-bg-muted);
-  color: var(--color-text);
 }
 
-.plan-row__menu-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  z-index: 30;
-  min-width: 14rem;
-  padding: var(--space-sm);
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-edge);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-pop);
-}
-
-.plan-row__move-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.plan-row__move-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-}
-
-.plan-row__move-select {
-  width: 100%;
-  padding: 4px var(--space-sm);
-  font-size: var(--text-sm);
-  font-family: inherit;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-input-bg);
-  color: var(--color-text);
+.plan-row__save--saved {
+  color: var(--color-primary);
 }
 
 /* Toasts (drag & drop feedback) */
@@ -4749,22 +4879,7 @@ img.avatar {
     overflow-wrap: anywhere;
   }
 
-  /* Tabs scroll sideways instead of wrapping into a two-row muddle. */
-  .plan-tabs__nav {
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .plan-tabs__nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .plan-tabs__tab {
-    padding: var(--space-sm) var(--space-md);
-    white-space: nowrap;
-  }
-
-  .plan-tabs .plan-tabs__panel,
+  .plan-document,
   .references-section,
   .attachments-section {
     padding: var(--space-md);

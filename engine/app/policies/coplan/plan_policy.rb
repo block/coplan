@@ -28,11 +28,16 @@ module CoPlan
       user.present?
     end
 
-    # Publishing a draft is explicit and confirmed in the UI ("publishes to
-    # everyone"). There is no unpublish — retracting an already-read document
-    # is a lie; archiving is the tool for "I'm done with this".
+    # Visibility is a two-way toggle for the author (the header eye):
+    # publish? shares a private plan, hide? takes a shared one back to
+    # Private. Hiding doesn't lock anyone out — the URL still works — it
+    # just withdraws the plan from discovery (see listed?).
     def publish?
       update? && record.draft?
+    end
+
+    def hide?
+      update? && record.published? && !record.archived?
     end
 
     def archive?

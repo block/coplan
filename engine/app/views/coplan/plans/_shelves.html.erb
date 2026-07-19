@@ -5,7 +5,7 @@
     (needs current_user). %>
 <% my_placement = placements.find { |p| p.library.writable_by?(current_user) } %>
 
-<% if placements.any? || my_folders.any? %>
+<% if current_user || placements.any? %>
   <div class="plan-shelves">
     <% placements.each do |placement| %>
       <% mine = placement.library.writable_by?(current_user) %>
@@ -30,13 +30,21 @@
       <% end %>
     <% end %>
 
-    <% if my_placement.nil? && my_folders.any? %>
-      <%= form_with url: move_to_folder_plan_path(plan), method: :patch, class: "plan-shelves__add-form" do |f| %>
-        <%= f.select :folder_id,
-              options_for_select([["＋ Add to folder", ""]] + CoPlan::Folder.paths_by_id(my_folders).sort_by { |_id, path| path.downcase }.map { |id, path| [path, id] }),
-              {}, class: "plan-shelves__add-select", aria: { label: "Add to a folder in your library" },
-              onchange: "if(this.value) this.form.requestSubmit()" %>
-      <% end %>
+    <% if current_user %>
+      <%# The bookmark: save this plan into (or move it within, or remove it
+          from) your own library via the folder navigator. Filled once it's
+          shelved — like a saved bookmark. %>
+      <button type="button"
+              class="plan-shelves__bookmark<%= " plan-shelves__bookmark--saved" if my_placement %>"
+              data-action="coplan--folder-picker#open"
+              data-move-url="<%= move_to_folder_plan_path(plan) %>"
+              data-current-folder-id="<%= my_placement&.folder_id %>"
+              data-plan-title="<%= plan.title %>"
+              title="<%= my_placement ? "Saved in #{my_placement.folder.path} — click to move or remove" : "Save to a folder in your library" %>"
+              aria-label="Save to your library">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="<%= my_placement ? "currentColor" : "none" %>" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+        <% unless my_placement %><span class="plan-shelves__bookmark-label">Save</span><% end %>
+      </button>
     <% end %>
   </div>
 <% end %>

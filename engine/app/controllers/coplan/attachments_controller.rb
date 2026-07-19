@@ -9,7 +9,7 @@ module CoPlan
 
       files = Array(params[:files]).reject(&:blank?)
       if files.empty?
-        return redirect_to plan_path(@plan, tab: "attachments"), alert: "Choose at least one file to upload."
+        return redirect_to plan_path(@plan, anchor: "footnote-attachments"), alert: "Choose at least one file to upload."
       end
 
       errors = []
@@ -22,7 +22,7 @@ module CoPlan
       flash_options = {}
       flash_options[:notice] = "#{uploaded} #{"file".pluralize(uploaded)} uploaded." if uploaded.positive?
       flash_options[:alert] = errors.join(" ") if errors.any?
-      redirect_to plan_path(@plan, tab: "attachments"), flash_options
+      redirect_to plan_path(@plan, anchor: "footnote-attachments"), flash_options
     end
 
     def destroy
@@ -43,7 +43,7 @@ module CoPlan
         metadata: { content_type: content_type }
       )
 
-      redirect_to plan_path(@plan, tab: "attachments"), notice: "Attachment removed."
+      redirect_to plan_path(@plan, anchor: "footnote-attachments"), notice: "Attachment removed."
     end
 
     private

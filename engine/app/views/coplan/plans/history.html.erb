@@ -1,3 +1,28 @@
-<turbo-frame id="plan-history-frame">
-  <%= render partial: "coplan/plans/history", locals: { history_items: @history_items, plan: @plan } %>
-</turbo-frame>
+<% content_for(:title, "History — #{@plan.title} — CoPlan") %>
+
+<%# New versions/events broadcast into #plan-history-list while you watch. %>
+<%= turbo_stream_from @plan %>
+
+<%# The plan's time machine: a full page, not a tab. Backspace (or the back
+    link) returns to the document. %>
+<div data-controller="coplan--plan-keys"
+     data-coplan--plan-keys-fallback-url-value="<%= plan_path(@plan) %>">
+  <div class="page-header page-header--plan">
+    <div class="page-header__main">
+      <div class="page-header__title-row">
+        <%= link_to plan_path(@plan), class: "history-back", title: "Back to the document (Backspace)", aria: { label: "Back to #{@plan.title}" } do %>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+        <% end %>
+        <%= plan_type_icon(@plan, size: :lg) %>
+        <h1 class="page-header__title"><%= link_to @plan.title, plan_path(@plan), class: "history-title-link" %></h1>
+      </div>
+      <div class="page-header__byline text-sm text-muted">
+        History — every version and change · <span class="section-count" id="history-count"><%= @plan.plan_versions.count + @plan.plan_events.count %></span> entries
+      </div>
+    </div>
+  </div>
+
+  <div class="card history-page">
+    <%= render partial: "coplan/plans/history", locals: { history_items: @history_items, plan: @plan } %>
+  </div>
+</div>

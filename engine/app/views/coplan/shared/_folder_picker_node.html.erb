@@ -1,0 +1,17 @@
+<%# One folder in the picker tree; nests exactly like the sidebar. %>
+<% children = (children_by_parent[folder.id] || []).sort_by { |f| f.name.downcase } %>
+<li class="folder-picker__node">
+  <button type="button" class="folder-picker__option" role="option"
+          data-folder-id="<%= folder.id %>" data-action="coplan--folder-picker#choose">
+    <svg class="folder-picker__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+    <span class="folder-picker__name"><%= folder.name %></span>
+    <svg class="folder-picker__check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+  </button>
+  <% if children.any? %>
+    <ul class="folder-picker__tree folder-picker__tree--nested">
+      <% children.each do |child| %>
+        <%= render "coplan/shared/folder_picker_node", folder: child, children_by_parent: children_by_parent %>
+      <% end %>
+    </ul>
+  <% end %>
+</li>

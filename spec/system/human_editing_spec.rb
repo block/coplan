@@ -70,15 +70,31 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_field("content", with: /Preview me/)
   end
 
-  it "shares a private plan with everyone from the plan page" do
+  it "toggles visibility with the header eye — two clicks each way, no reload" do
     plan.update!(visibility: "draft")
     visit plan_path(plan)
 
-    accept_confirm { click_button "Share with everyone" }
-
-    expect(page).to have_content("Plan published — everyone can see it now.")
+    eye = find(".visibility-toggle")
+    eye.click # arm: previews the flip
+    eye.click # confirm: commits via fetch
+    expect(page).to have_css(".visibility-toggle[title^='Shared']", wait: 5)
     expect(plan.reload.visibility).to eq("published")
-    expect(page).not_to have_button("Share with everyone")
+
+    # And back — hiding a shared plan is allowed now, same two clicks.
+    eye.click
+    eye.click
+    expect(page).to have_css(".visibility-toggle--hidden[title^='Private']", wait: 5)
+    expect(plan.reload.visibility).to eq("draft")
+  end
+
+  it "reverts an unconfirmed visibility flip instead of committing it" do
+    plan.update!(visibility: "draft")
+    visit plan_path(plan)
+
+    find(".visibility-toggle").click # armed…
+    # …but never confirmed: the preview reverts on its own.
+    expect(page).to have_css(".visibility-toggle--hidden[title^='Private']", wait: 6)
+    expect(plan.reload.visibility).to eq("draft")
   end
 
   it "archives and restores the plan" do
@@ -102,6 +118,6 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_content("Editable Plan")
     expect(page).not_to have_css("a[aria-label='Edit plan']")
     expect(page).not_to have_button("Archive")
-    expect(page).not_to have_button("Share with everyone")
+    expect(page).not_to have_css(".visibility-toggle")
   end
 end

@@ -1,12 +1,9 @@
 <div class="references-section" id="plan-references">
-  <div class="references-section__header">
-    <button type="button" class="btn btn--secondary btn--sm" popovertarget="add-reference-modal">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-      Add reference
-    </button>
-    <%# The modal lives inside #plan-references on purpose: the create action
-        replaces this container via turbo_stream, which closes the lightbox
-        the moment the reference lands. %>
+  <%# The visible "+" lives in the footnote-section header (outside this
+      container); the modal stays inside #plan-references on purpose: the
+      create action replaces this container via turbo_stream, which closes
+      the lightbox the moment the reference lands. %>
+  <% if current_user %>
     <%= render layout: "coplan/shared/add_modal", locals: { id: "add-reference-modal", title: "Add a reference" } do %>
       <%= form_with url: plan_references_path(plan), method: :post, class: "add-modal__form" do |f| %>
         <div class="form-group">
@@ -28,7 +25,7 @@
         </div>
       <% end %>
     <% end %>
-  </div>
+  <% end %>
 
   <% if references.any? %>
     <ul class="references-list">

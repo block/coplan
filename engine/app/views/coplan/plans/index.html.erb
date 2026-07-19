@@ -5,8 +5,9 @@
   <meta name="turbo-cache-control" content="no-cache">
 <% end %>
 
-<div class="workspace" data-controller="coplan--folder-dnd coplan--workspace-keys">
+<div class="workspace" data-controller="coplan--folder-dnd coplan--workspace-keys coplan--folder-picker">
   <%= render "coplan/plans/sidebar" %>
+  <%= render partial: "coplan/shared/folder_picker", locals: { folders: @folders } %>
 
   <div class="workspace__main">
     <%# Drive-style breadcrumb: where you are in your library. Segments are
@@ -160,7 +161,7 @@
         <div class="empty-state card">
           <% if @folder %>
             <p>Nothing in <strong><%= @folder.name %></strong> yet.</p>
-            <p class="text-muted text-sm">Drag a plan here from another folder, or use a plan row's ⋯ menu to move it.</p>
+            <p class="text-muted text-sm">Drag a plan here from another folder, or use a row's bookmark to file it.</p>
           <% elsif @scope == "mine" %>
             <p>You haven't created any plans yet. Plans are created via the API.</p>
           <% else %>

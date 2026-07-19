@@ -55,7 +55,7 @@ RSpec.describe CoPlan::PlanPolicy do
       expect(described_class.new(author, draft).publish?).to be(true)
     end
 
-    it "is a one-way door: published plans cannot be re-published" do
+    it "does not apply to already-shared plans (that's hide?'s side)" do
       plan = create(:plan, :published, created_by_user: author)
       expect(described_class.new(author, plan).publish?).to be(false)
     end
@@ -63,6 +63,25 @@ RSpec.describe CoPlan::PlanPolicy do
     it "forbids publishing someone else's draft" do
       draft = create(:plan, :draft, created_by_user: author)
       expect(described_class.new(other_user, draft).publish?).to be(false)
+    end
+  end
+
+  describe "#hide?" do
+    it "lets the author take a shared plan back to Private" do
+      plan = create(:plan, :published, created_by_user: author)
+      expect(described_class.new(author, plan).hide?).to be(true)
+    end
+
+    it "does not apply to drafts (already hidden) or archived plans" do
+      draft = create(:plan, :draft, created_by_user: author)
+      archived = create(:plan, :archived, created_by_user: author)
+      expect(described_class.new(author, draft).hide?).to be(false)
+      expect(described_class.new(author, archived).hide?).to be(false)
+    end
+
+    it "forbids hiding someone else's plan" do
+      plan = create(:plan, :published, created_by_user: author)
+      expect(described_class.new(other_user, plan).hide?).to be(false)
     end
   end
 end

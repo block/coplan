@@ -39,12 +39,12 @@ module CoPlan
 
       respond_to do |format|
         format.turbo_stream { render_references_stream }
-        format.html { redirect_to plan_path(@plan, tab: "references"), notice: "Reference added." }
+        format.html { redirect_to plan_path(@plan, anchor: "footnote-references"), notice: "Reference added." }
       end
     rescue ActiveRecord::RecordInvalid => e
       respond_to do |format|
         format.turbo_stream { render_references_stream }
-        format.html { redirect_to plan_path(@plan, tab: "references"), alert: e.message }
+        format.html { redirect_to plan_path(@plan, anchor: "footnote-references"), alert: e.message }
       end
     end
 
@@ -67,7 +67,7 @@ module CoPlan
 
       respond_to do |format|
         format.turbo_stream { render_references_stream }
-        format.html { redirect_to plan_path(@plan, tab: "references"), notice: "Reference removed." }
+        format.html { redirect_to plan_path(@plan, anchor: "footnote-references"), notice: "Reference removed." }
       end
     end
 
@@ -87,7 +87,7 @@ module CoPlan
         ),
         turbo_stream.replace(
           "references-count",
-          html: helpers.content_tag(:span, references.size, class: "plan-tabs__count", id: "references-count")
+          html: helpers.content_tag(:span, references.size, class: "section-count", id: "references-count")
         )
       ]
     end

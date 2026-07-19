@@ -19,6 +19,7 @@ module CoPlan
     # pre-visibility historical rows keep rendering.
     EVENT_TYPES = %w[
       published
+      hidden
       archived
       unarchived
       status_changed
@@ -76,7 +77,7 @@ module CoPlan
       Broadcaster.replace_to(
         plan,
         target: "history-count",
-        html: ApplicationController.helpers.content_tag(:span, count, class: "plan-tabs__count", id: "history-count")
+        html: ApplicationController.helpers.content_tag(:span, count, class: "section-count", id: "history-count")
       )
     end
   end
