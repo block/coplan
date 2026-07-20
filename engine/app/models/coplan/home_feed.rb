@@ -38,10 +38,16 @@ module CoPlan
       end
 
       # Revision 1 is the plan coming into existence — for born-published
-      # plans that IS the publish moment, so it reads as "published".
+      # plans that IS the publish moment, so it reads as "published". Plans
+      # with a "published" event got listed later: their publish moment comes
+      # from the event query below, and their revision 1 predates being
+      # visible at all, so it isn't feed activity.
+      published_by_event = PlanEvent.where(plan_id: listed, event_type: "published")
+        .distinct.pluck(:plan_id).to_set
       PlanVersion.where(plan_id: listed).where(created_at: since..)
         .pluck(:plan_id, :created_at, :revision)
         .each do |plan_id, at, revision|
+          next if revision == 1 && published_by_event.include?(plan_id)
           rollup = note.call(plan_id, at)
           revision == 1 ? rollup[:published] = true : rollup[:edits] += 1
         end
