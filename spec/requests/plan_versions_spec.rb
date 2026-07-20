@@ -23,7 +23,10 @@ RSpec.describe "Plan versions", type: :request do
 
       get diff_plan_version_path(plan, v2)
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("Changed line")
+      # Assert on text, not raw HTML: Diffy shells out to the platform diff
+      # binary, and GNU vs BSD diff pair changed lines differently — the
+      # inline <strong> word-highlights can split the phrase mid-word.
+      expect(Nokogiri::HTML(response.body).text).to include("Changed line")
     end
 
     it "handles revision 1, which has no previous version" do

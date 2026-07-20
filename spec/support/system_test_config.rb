@@ -24,6 +24,10 @@ RSpec.configure do |config|
       # Pinned to a major version for reproducibility (151 also introduced a
       # doubled-navigation behavior that races Capybara's visit).
       options.browser_version = "150"
+      # CI runners give /dev/shm a small tmpfs; Chrome uses it for shared
+      # memory and dies mid-suite when it fills ("Chrome instance exited"
+      # at session creation). Spill to /tmp instead — harmless locally.
+      options.add_argument("--disable-dev-shm-usage")
     end
   end
 end
