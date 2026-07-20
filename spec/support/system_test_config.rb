@@ -2,8 +2,10 @@ require "capybara/rspec"
 
 # Make selenium-manager provision Chrome for Testing instead of picking up
 # the system Chrome (see the note on driven_by below). Cached after the
-# first download, so this doesn't hit the network on every run.
-ENV["SE_FORCE_BROWSER_DOWNLOAD"] ||= "true"
+# first download, so this doesn't hit the network on every run. Local-only:
+# CI runners ship an unmanaged, matched Chrome + chromedriver pair, and
+# forcing downloads there fights selenium-manager into mismatched pairs.
+ENV["SE_FORCE_BROWSER_DOWNLOAD"] ||= "true" unless ENV["CI"]
 
 RSpec.configure do |config|
   config.before(:each, type: :system) do
@@ -23,7 +25,11 @@ RSpec.configure do |config|
       # Testing has a different bundle ID, so managed policies never apply.
       # Pinned to a major version for reproducibility (151 also introduced a
       # doubled-navigation behavior that races Capybara's visit).
-      options.browser_version = "150"
+      #
+      # Local-only, like the forced download above: this is a workaround for
+      # managed developer machines. CI uses the runner's own Chrome +
+      # chromedriver pair, same as before the pin.
+      options.browser_version = "150" unless ENV["CI"]
       # CI runners give /dev/shm a small tmpfs; Chrome uses it for shared
       # memory and dies mid-suite when it fills ("Chrome instance exited"
       # at session creation). Spill to /tmp instead — harmless locally.

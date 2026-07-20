@@ -29,13 +29,5 @@ jobs:
       - name: Create database
         run: bin/rails db:create db:schema:load
 
-      # The runner image ships a chromedriver in PATH that can drift out of
-      # sync with its Chrome (e.g. driver 150 vs Chrome 151, which exits at
-      # session creation). A PATH driver takes precedence over selenium-
-      # manager, so remove it and let selenium-manager provision a matched
-      # Chrome for Testing + driver pair (same setup system specs use locally).
-      - name: Remove preinstalled ChromeDriver
-        run: sudo rm -f /usr/bin/chromedriver /usr/local/bin/chromedriver
-
       - name: Run tests
         run: bundle exec rspec
