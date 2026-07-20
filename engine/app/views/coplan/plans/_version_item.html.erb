@@ -6,7 +6,7 @@
     <% if version.actor_user %>
       <%= user_avatar(version.actor_user) %> <span><%= version.actor_user.name %></span>
     <% else %>
-      <span class="badge badge--considering"><%= version.actor_type %></span>
+      <span class="badge badge--type"><%= version.actor_type %></span>
     <% end %>
   </div>
   <% if version.change_summary.present? %>

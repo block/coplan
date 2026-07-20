@@ -75,7 +75,16 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
 
       it "renders 'no results' messaging when nothing matches" do
         get search_path, params: { q: "noplanmatcheszzz" }
-        expect(response.body).to include("No plans match")
+        expect(response.body).to include("Nothing matches")
+      end
+
+      it "finds people by name and links to their profile" do
+        create(:coplan_user, name: "Searchable Sam", username: "sam.s", title: "Designer")
+
+        get search_path, params: { q: "searchable" }
+        expect(response.body).to include("Searchable Sam")
+        expect(response.body).to include(profile_path("sam.s"))
+        expect(response.body).to include("Designer")
       end
 
       it "renders 'Type to search' when query is blank" do

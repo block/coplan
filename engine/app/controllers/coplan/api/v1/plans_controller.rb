@@ -7,11 +7,20 @@ module CoPlan
 
         def index
           plans = Plan
-            .includes(:plan_type, :created_by_user, folder: { parent: :parent })
+            .includes(:plan_type, :created_by_user)
             .visible_to(current_user)
             .order(updated_at: :desc)
-          plans = plans.where(status: params[:status]) if params[:status].present?
-          plans = plans.where(folder_id: params[:folder_id]) if params[:folder_id].present?
+          plans = apply_index_filters(plans)
+          # folder_id filters by placement — any library's folder works
+          # (folder ids are global), and the plans themselves stay
+          # viewer-filtered above.
+          if params[:folder_id].present?
+            plans = plans.joins(:placements)
+              .where(coplan_plan_placements: { folder_id: params[:folder_id] })
+          end
+          @viewer_placements = current_user.library.placements
+            .includes(folder: { parent: :parent })
+            .index_by(&:plan_id)
           render json: plans.map { |p| plan_json(p) }
         end
 
@@ -34,13 +43,21 @@ module CoPlan
             end
           end
 
+          # Plans are born published; `"visibility": "draft"` is the opt-in
+          # for starting private.
+          visibility = params[:visibility].presence || "published"
+          unless Plan::VISIBILITIES.include?(visibility)
+            return render json: { error: "visibility must be one of: #{Plan::VISIBILITIES.join(", ")}" }, status: :unprocessable_content
+          end
+
           plan = nil
           ActiveRecord::Base.transaction do
             plan = Plans::Create.call(
               title: params[:title],
               content: params[:content] || "",
               user: current_user,
-              plan_type_id: plan_type&.id
+              plan_type_id: plan_type&.id,
+              visibility: visibility
             )
 
             if params[:references].is_a?(Array)
@@ -70,28 +87,36 @@ module CoPlan
 
           permitted = {}
           permitted[:title] = params[:title] if params.key?(:title)
-          permitted[:status] = params[:status] if params.key?(:status)
+          visibility_updates = visibility_params_for_update
+          return if performed? # visibility_params_for_update rendered an error
+          permitted.merge!(visibility_updates)
 
           # Snapshot before-state so LogEvent can record meaningful diffs.
           old_title = @plan.title
-          old_status = @plan.status
+          old_visibility = @plan.visibility
+          old_archived = @plan.archived?
           old_tag_names = @plan.tag_names
-          old_folder_path = @plan.folder&.path
 
-          # Folder resolution (which may create folders via folder_path) and
-          # the plan update are one transaction: a request combining
-          # folder_path with an invalid attribute must not leave behind
-          # orphaned shared folders for a move that never happened.
+          # Folder resolution (which may create folders via folder_path in
+          # the caller's library), the placement move, and the plan update
+          # are one transaction: a request combining folder_path with an
+          # invalid attribute must not leave behind orphaned folders or a
+          # placement for an update that never happened.
           ActiveRecord::Base.transaction do
             if params.key?(:folder_id) || params.key?(:folder_path)
               folder = resolve_folder_params
               return if performed? # resolve_folder_params rendered an error
-              @plan.folder = folder
+              result = Plans::Place.call(plan: @plan, folder: folder, actor: current_user)
+              unless result.success?
+                render json: { error: result.error }, status: :unprocessable_content
+                raise ActiveRecord::Rollback
+              end
             end
 
             @plan.tag_names = params[:tags] if params.key?(:tags)
             @plan.update!(permitted)
           end
+          return if performed? # placement error rendered inside the transaction
 
           if @plan.saved_changes?
             Broadcaster.replace_to(@plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: @plan })
@@ -105,28 +130,25 @@ module CoPlan
             )
           end
 
-          if permitted.key?(:status) && @plan.saved_change_to_status?
+          if @plan.saved_change_to_visibility? && @plan.published? && old_visibility == "draft"
             Plans::LogEvent.call(
-              plan: @plan, actor: current_user, event_type: "status_changed",
-              before: old_status, after: @plan.status,
+              plan: @plan, actor: current_user, event_type: "published",
+              before: "draft", after: "published",
               actor_type: api_author_type, actor_id: api_actor_id
             )
-            if @plan.status == "considering" && old_status != "considering"
-              CoPlan::Analytics.track(
-                "plan_published",
-                user: current_user,
-                plan_id: @plan.id,
-                plan_type_id: @plan.plan_type_id,
-                previous_status: old_status,
-                via: "api"
-              )
-            end
+            CoPlan::Analytics.track(
+              "plan_published",
+              user: current_user,
+              plan_id: @plan.id,
+              plan_type_id: @plan.plan_type_id,
+              via: "api"
+            )
           end
 
-          if @plan.saved_change_to_folder_id?
+          if @plan.saved_change_to_archived_at? && @plan.archived? != old_archived
             Plans::LogEvent.call(
-              plan: @plan, actor: current_user, event_type: "moved_to_folder",
-              before: old_folder_path, after: @plan.folder&.path,
+              plan: @plan, actor: current_user,
+              event_type: @plan.archived? ? "archived" : "unarchived",
               actor_type: api_author_type, actor_id: api_actor_id
             )
           end
@@ -201,31 +223,106 @@ module CoPlan
 
         private
 
+        # Index filtering. Canonical params: `visibility` (draft|published)
+        # and `archived` (true opts archived plans in — they're excluded by
+        # default). The legacy `status` param maps onto the same axes for
+        # the deprecation window.
+        def apply_index_filters(plans)
+          if params[:archived].to_s == "true"
+            plans = plans.archived
+          elsif params[:status].present?
+            plans = case params[:status]
+            when "abandoned" then plans.archived
+            when "brainstorm" then plans.active.where(visibility: "draft")
+            else plans.active.where(visibility: "published")
+            end
+            return plans
+          else
+            plans = plans.active
+          end
+          plans = plans.where(visibility: params[:visibility]) if Plan::VISIBILITIES.include?(params[:visibility])
+          plans
+        end
+
+        # Maps update params onto the canonical visibility/archival fields.
+        # Accepts `visibility` + `archived` (canonical) and legacy `status`.
+        # Publishing is one-way: an attempt to move a published plan back to
+        # draft renders a 422 rather than silently unpublishing a document
+        # people may have already read.
+        def visibility_params_for_update
+          updates = {}
+          if params.key?(:status)
+            unless Plan::LEGACY_STATUSES.include?(params[:status].to_s)
+              render json: { error: "status is a legacy field; use visibility/archived. Legacy values: #{Plan::LEGACY_STATUSES.join(", ")}" }, status: :unprocessable_content
+              return {}
+            end
+            updates.merge!(Plan.attributes_for_legacy_status(params[:status]))
+          end
+          if params.key?(:visibility)
+            unless Plan::VISIBILITIES.include?(params[:visibility])
+              render json: { error: "visibility must be one of: #{Plan::VISIBILITIES.join(", ")}" }, status: :unprocessable_content
+              return {}
+            end
+            updates[:visibility] = params[:visibility]
+          end
+          if params.key?(:archived)
+            updates[:archived_at] = params[:archived].to_s == "true" ? (@plan.archived_at || Time.current) : nil
+          end
+
+          if updates[:visibility] == "draft" && @plan.published?
+            render json: { error: "Published plans cannot return to draft. Archive the plan instead." }, status: :unprocessable_content
+            return {}
+          end
+          updates.delete(:visibility) if updates[:visibility] == @plan.visibility
+          updates
+        end
+
         # Resolves `folder_id` / `folder_path` update params to a Folder (or
-        # nil to clear). `folder_path` finds-or-creates the hierarchy, which
-        # is what lets an AI librarian agent organize plans into folders that
-        # don't exist yet. Renders an error and returns early on bad input.
+        # nil to unfile). `folder_path` finds-or-creates the hierarchy in the
+        # caller's own library, which is what lets an agent organize a
+        # library into folders that don't exist yet. Renders an error and
+        # returns early on bad input.
         def resolve_folder_params
           if params[:folder_id].present?
             folder = Folder.find_by(id: params[:folder_id])
             render json: { error: "Unknown folder_id" }, status: :unprocessable_content unless folder
             folder
           elsif params[:folder_path].present?
-            Folder.find_or_create_by_path!(params[:folder_path], created_by_user: current_user)
+            Folder.find_or_create_by_path!(
+              params[:folder_path],
+              library: current_user.library,
+              created_by_user: current_user
+            )
           else
-            nil # blank folder_id / folder_path clears the folder
+            nil # blank folder_id / folder_path unfiles the plan
+          end
+        end
+
+        # folder_id/folder_path are viewer-relative: where *the caller*
+        # shelved this plan in their own library. One query per call — index
+        # batches placements up front via @viewer_placements.
+        def viewer_placement_for(plan)
+          if defined?(@viewer_placements) && @viewer_placements
+            @viewer_placements[plan.id]
+          else
+            current_user.library.placements.find_by(plan_id: plan.id)
           end
         end
 
         def plan_json(plan)
+          placement = viewer_placement_for(plan)
           {
             id: plan.id,
             title: plan.title,
-            status: plan.status,
+            visibility: plan.visibility,
+            archived: plan.archived?,
+            archived_at: plan.archived_at,
+            # Legacy five-state field, kept for the deprecation window.
+            status: plan.legacy_status,
             current_revision: plan.current_revision,
             tags: plan.tag_names,
-            folder_id: plan.folder_id,
-            folder_path: plan.folder&.path,
+            folder_id: placement&.folder_id,
+            folder_path: placement&.folder&.path,
             plan_type_id: plan.plan_type_id,
             plan_type_name: plan.plan_type&.name,
             created_by: plan.created_by_user&.name,

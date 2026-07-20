@@ -8,7 +8,7 @@
 </div>
 
 <form action="<%= coplan.search_path %>" method="get" class="search-page__form">
-  <input type="search" name="q" value="<%= @query %>" placeholder="Search plans…" autofocus class="search-page__input">
+  <input type="search" name="q" value="<%= @query %>" placeholder="Search plans and people…" autofocus class="search-page__input">
 </form>
 
 <div class="search-page__results">
@@ -16,6 +16,7 @@
   <%= render partial: "coplan/search/results", locals: {
     query: @query,
     results: @results,
+    people: @people,
     recent_queries: @recent_queries,
     frame_id: "search-page-results"
   } %>

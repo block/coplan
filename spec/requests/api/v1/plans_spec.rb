@@ -99,12 +99,15 @@ RSpec.describe "Api::V1::Plans", type: :request do
       expect(plan.reload.title).to eq("New Title")
     end
 
-    it "updates plan status" do
-      patch api_v1_plan_path(plan), params: { status: "developing" }, headers: headers, as: :json
+    it "maps legacy status writes onto visibility/archived" do
+      draft = create(:plan, :draft, created_by_user: alice)
+      patch api_v1_plan_path(draft), params: { status: "developing" }, headers: headers, as: :json
       expect(response).to have_http_status(:success)
       body = JSON.parse(response.body)
-      expect(body["status"]).to eq("developing")
-      expect(plan.reload.status).to eq("developing")
+      expect(body["visibility"]).to eq("published")
+      # Legacy echo: active published plans read back as "considering".
+      expect(body["status"]).to eq("considering")
+      expect(draft.reload.published?).to be(true)
     end
 
     it "updates plan tags" do
@@ -116,11 +119,11 @@ RSpec.describe "Api::V1::Plans", type: :request do
     end
 
     it "updates multiple fields at once" do
-      patch api_v1_plan_path(plan), params: { title: "Updated", status: "developing", tags: [ "v2" ] }, headers: headers, as: :json
+      patch api_v1_plan_path(plan), params: { title: "Updated", archived: true, tags: [ "v2" ] }, headers: headers, as: :json
       expect(response).to have_http_status(:success)
       body = JSON.parse(response.body)
       expect(body["title"]).to eq("Updated")
-      expect(body["status"]).to eq("developing")
+      expect(body["archived"]).to be(true)
       expect(body["tags"]).to eq([ "v2" ])
     end
 
@@ -154,9 +157,13 @@ RSpec.describe "Api::V1::Plans", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    describe "folder assignment" do
-      it "moves the plan into a folder by folder_id and logs an event" do
-        folder = create(:folder, name: "Infra")
+    describe "folder assignment (placements in the caller's library)" do
+      def alice_placement
+        alice.library.placements.find_by(plan_id: plan.id)
+      end
+
+      it "shelves the plan in a folder by folder_id and logs an event" do
+        folder = create(:folder, name: "Infra", created_by_user: alice)
         expect {
           patch api_v1_plan_path(plan), params: { folder_id: folder.id }, headers: headers, as: :json
         }.to change(CoPlan::PlanEvent, :count).by(1)
@@ -164,7 +171,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
         body = JSON.parse(response.body)
         expect(body["folder_id"]).to eq(folder.id)
         expect(body["folder_path"]).to eq("Infra")
-        expect(plan.reload.folder).to eq(folder)
+        expect(alice_placement.folder).to eq(folder)
 
         event = CoPlan::PlanEvent.order(:created_at).last
         expect(event.event_type).to eq("moved_to_folder")
@@ -173,32 +180,39 @@ RSpec.describe "Api::V1::Plans", type: :request do
         expect(event.after_value).to eq("Infra")
       end
 
-      it "finds-or-creates the hierarchy via folder_path" do
+      it "finds-or-creates the hierarchy in the caller's library via folder_path" do
         expect {
           patch api_v1_plan_path(plan), params: { folder_path: "Team EBT/Q3" }, headers: headers, as: :json
         }.to change(CoPlan::Folder, :count).by(2)
         expect(response).to have_http_status(:success)
         expect(JSON.parse(response.body)["folder_path"]).to eq("Team EBT/Q3")
-        expect(plan.reload.folder.path).to eq("Team EBT/Q3")
-        expect(plan.folder.created_by_user).to eq(alice)
+        expect(alice_placement.folder.path).to eq("Team EBT/Q3")
+        expect(alice_placement.folder.library).to eq(alice.library)
       end
 
       it "reuses existing folders via folder_path" do
-        root = create(:folder, name: "Team EBT")
-        sub = create(:folder, name: "Q3", parent: root)
+        root = create(:folder, name: "Team EBT", created_by_user: alice)
+        sub = create(:folder, name: "Q3", parent: root, created_by_user: alice, library: root.library)
         expect {
           patch api_v1_plan_path(plan), params: { folder_path: "Team EBT/Q3" }, headers: headers, as: :json
         }.not_to change(CoPlan::Folder, :count)
-        expect(plan.reload.folder).to eq(sub)
+        expect(alice_placement.folder).to eq(sub)
       end
 
-      it "moves the plan out of a folder with a blank folder_id" do
-        folder = create(:folder, name: "Infra")
-        plan.update!(folder: folder)
+      it "rejects a folder_id from someone else's library" do
+        other_folder = create(:folder, name: "Not Yours")
+        patch api_v1_plan_path(plan), params: { folder_id: other_folder.id }, headers: headers, as: :json
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(alice_placement).to be_nil
+      end
+
+      it "takes the plan off the shelf with a blank folder_id" do
+        folder = create(:folder, name: "Infra", created_by_user: alice)
+        CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
 
         patch api_v1_plan_path(plan), params: { folder_id: "" }, headers: headers, as: :json
         expect(response).to have_http_status(:success)
-        expect(plan.reload.folder).to be_nil
+        expect(alice_placement).to be_nil
 
         event = CoPlan::PlanEvent.order(:created_at).last
         expect(event.event_type).to eq("moved_to_folder")
@@ -210,7 +224,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
         patch api_v1_plan_path(plan), params: { folder_id: "nope" }, headers: headers, as: :json
         expect(response).to have_http_status(:unprocessable_content)
         expect(JSON.parse(response.body)["error"]).to include("Unknown folder_id")
-        expect(plan.reload.folder).to be_nil
+        expect(alice_placement).to be_nil
       end
 
       it "rejects a folder_path deeper than the max depth" do
@@ -219,8 +233,8 @@ RSpec.describe "Api::V1::Plans", type: :request do
       end
 
       it "does not log an event when the folder is unchanged" do
-        folder = create(:folder, name: "Infra")
-        plan.update!(folder: folder)
+        folder = create(:folder, name: "Infra", created_by_user: alice)
+        CoPlan::Plans::Place.call(plan: plan, folder: folder, actor: alice)
         expect {
           patch api_v1_plan_path(plan), params: { folder_id: folder.id }, headers: headers, as: :json
         }.not_to change(CoPlan::PlanEvent, :count)
@@ -232,8 +246,8 @@ RSpec.describe "Api::V1::Plans", type: :request do
           headers: headers, as: :json
 
         expect(response).to have_http_status(:unprocessable_content)
-        expect(plan.reload.folder).to be_nil
-        # The invalid status aborted the whole update — no orphaned shared
+        expect(alice_placement).to be_nil
+        # The invalid status aborted the whole update — no orphaned
         # folders left behind for a move that never happened.
         expect(CoPlan::Folder.count).to eq(0)
       end

@@ -1,21 +1,31 @@
 <div class="references-section" id="plan-references">
-  <div class="references-section__header">
-    <details class="references-add">
-      <summary class="btn btn--secondary btn--sm">+ Add Reference</summary>
-      <%= form_with url: plan_references_path(plan), method: :post, class: "references-add__form" do |f| %>
+  <%# The visible "+" lives in the footnote-section header (outside this
+      container); the modal stays inside #plan-references on purpose: the
+      create action replaces this container via turbo_stream, which closes
+      the lightbox the moment the reference lands. %>
+  <% if current_user %>
+    <%= render layout: "coplan/shared/add_modal", locals: { id: "add-reference-modal", title: "Add a reference" } do %>
+      <%= form_with url: plan_references_path(plan), method: :post, class: "add-modal__form" do |f| %>
         <div class="form-group">
-          <%= f.text_field :url, placeholder: "https://...", required: true, name: "reference[url]" %>
+          <%= f.label :url, "URL", for: "reference_url" %>
+          <%# autofocus is honored by showPopover() — keyboard users land in
+              the form instead of staying on the trigger button. %>
+          <%= f.text_field :url, id: "reference_url", placeholder: "https://...", required: true, autofocus: true, name: "reference[url]" %>
         </div>
         <div class="form-group">
-          <%= f.text_field :title, placeholder: "Title (optional)", name: "reference[title]" %>
+          <%= f.label :title, "Title", for: "reference_title" %>
+          <%= f.text_field :title, id: "reference_title", placeholder: "Optional", name: "reference[title]" %>
         </div>
         <div class="form-group">
-          <%= f.text_field :key, placeholder: "Key (optional, e.g. auth-repo)", name: "reference[key]" %>
+          <%= f.label :key, "Key", for: "reference_key" %>
+          <%= f.text_field :key, id: "reference_key", placeholder: "Optional — e.g. auth-repo", name: "reference[key]" %>
         </div>
-        <%= f.submit "Add", class: "btn btn--primary btn--sm" %>
+        <div class="add-modal__actions">
+          <%= f.submit "Add reference", class: "btn btn--primary btn--sm" %>
+        </div>
       <% end %>
-    </details>
-  </div>
+    <% end %>
+  <% end %>
 
   <% if references.any? %>
     <ul class="references-list">
@@ -37,7 +47,7 @@
                 <% end %>
               </span>
             </div>
-            <% if ref.source == "explicit" %>
+            <% if ref.source == "explicit" && current_user && CoPlan::PlanPolicy.new(current_user, plan).update? %>
               <%= button_to "✕", plan_reference_path(plan, ref), method: :delete, class: "references-list__remove", title: "Remove reference", data: { turbo_confirm: "Remove this reference?", turbo_stream: true } %>
             <% end %>
           </li>

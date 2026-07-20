@@ -40,7 +40,9 @@ module CoPlan
           canonical_url: canonical.to_s,
           title: plan.title,
           description: truncate(description),
-          context: [ plan.status.capitalize, plan.plan_type&.name, "by #{plan.created_by_user.name}" ].compact.join(" · "),
+          # Published is the unmarked normal state; only Private/Archived get
+          # a flag (and never the word "Draft" — matches the in-app language).
+          context: [ plan_state_flag(plan), plan.plan_type&.name, "by #{plan.created_by_user.name}" ].compact.join(" · "),
           image_url: https_url(plan.metadata&.dig("image_url")),
           cache_key: [
             "plan", plan.id, plan.updated_at.to_f, plan.summary_generated_at&.to_f,
@@ -50,6 +52,12 @@ module CoPlan
       end
 
       private
+
+      def plan_state_flag(plan)
+        return "Archived" if plan.archived?
+        return "Private" if plan.draft?
+        nil
+      end
 
       def parse_url(value, enforce_https:)
         uri = URI.parse(value.to_s)

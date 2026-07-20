@@ -1,0 +1,52 @@
+<%# Folder-jump discovery strip: every library shelf this plan sits on,
+    rendered Drive-style — a quiet folder chip with just the folder name.
+    Whose library it is lives in the tooltip (and the link target). Lives
+    outside the broadcast #plan-header region — it's viewer-relative
+    (needs current_user). %>
+<% my_placement = placements.find { |p| p.library.writable_by?(current_user) } %>
+
+<% if current_user || placements.any? %>
+  <div class="plan-shelves">
+    <% placements.each do |placement| %>
+      <% mine = placement.library.writable_by?(current_user) %>
+      <% owner = placement.library.owner %>
+      <% owner_name = owner.respond_to?(:name) ? owner.name : placement.library.name %>
+      <% title = mine ? "In your library — #{placement.folder.path}" : "In #{owner_name}’s library — #{placement.folder.path}" %>
+      <%# Your own shelf opens the folder in your workspace; someone else's
+          opens their profile at that shelf (the library's public face). %>
+      <% href = if mine
+           plans_path(folder: placement.folder_id)
+         elsif owner.is_a?(CoPlan::User)
+           profile_path(owner.username.presence || owner.id, anchor: "folder-#{placement.folder_id}")
+         else
+           library_path(placement.library, anchor: "folder-#{placement.folder_id}")
+         end %>
+      <%= link_to href, class: "plan-shelves__chip#{' plan-shelves__chip--theirs' unless mine}", title: title do %>
+        <svg class="plan-shelves__chip-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        <span class="plan-shelves__chip-name"><%= placement.folder.name %></span>
+        <% unless mine %>
+          <span class="plan-shelves__chip-owner"><%= owner_name.split.first %></span>
+        <% end %>
+      <% end %>
+    <% end %>
+
+    <% if current_user %>
+      <%# The bookmark: click to save this plan into your own library via
+          the folder navigator; click again to quietly unsave it (your own
+          plans just return to My Plans, unfiled). Filled once shelved —
+          exactly a bookmark star. %>
+      <button type="button"
+              class="plan-shelves__bookmark<%= " plan-shelves__bookmark--saved" if my_placement %>"
+              data-action="coplan--folder-picker#open"
+              data-move-url="<%= move_to_folder_plan_path(plan) %>"
+              data-current-folder-id="<%= my_placement&.folder_id %>"
+              data-saved="<%= my_placement.present? %>"
+              data-plan-title="<%= plan.title %>"
+              title="<%= my_placement ? "Saved in #{my_placement.folder.path} — click to remove" : "Save to a folder in your library" %>"
+              aria-label="<%= my_placement ? "Remove from your library" : "Save to your library" %>">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="<%= my_placement ? "currentColor" : "none" %>" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+        <% unless my_placement %><span class="plan-shelves__bookmark-label">Save</span><% end %>
+      </button>
+    <% end %>
+  </div>
+<% end %>

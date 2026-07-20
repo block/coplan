@@ -48,7 +48,9 @@ module CoPlan
       # IDs are random UUIDs, not insertion-ordered, so we can't compare them
       # with `id < ?`. after_create_commit guarantees the row is persisted, so
       # a total count of 1 reliably means this comment opened the thread.
-      comment_thread.comments.count == 1
+      # Memoized: both the notify and analytics callbacks ask.
+      return @first_comment_in_thread if defined?(@first_comment_in_thread)
+      @first_comment_in_thread = comment_thread.comments.count == 1
     end
 
     def notify_plan_author

@@ -16,7 +16,7 @@ RSpec.describe "Attachments (web)", type: :request do
       }.to change { plan.attachments_attachments.count }.by(2)
         .and change { plan.plan_events.where(event_type: "attachment_added").count }.by(2)
 
-      expect(response).to redirect_to(plan_path(plan, tab: "attachments"))
+      expect(response).to redirect_to(plan_path(plan, anchor: "footnote-attachments"))
       follow_redirect!
       expect(flash[:notice]).to include("2 files uploaded")
 
@@ -32,20 +32,33 @@ RSpec.describe "Attachments (web)", type: :request do
         files: [ fixture_file_upload("sample.html", "text/html") ]
       }
 
-      expect(response).to redirect_to(plan_path(plan, tab: "attachments"))
+      expect(response).to redirect_to(plan_path(plan, anchor: "footnote-attachments"))
       expect(flash[:alert]).to include("sample.html")
       expect(flash[:alert]).to include("not allowed")
       expect(plan.attachments.count).to eq(0)
     end
 
-    it "rejects uploads from non-authors" do
+    it "accepts uploads from any signed-in user, crediting them as actor" do
       sign_in_as(viewer)
 
+      expect {
+        post plan_attachments_path(plan), params: {
+          files: [ fixture_file_upload("sample.png", "image/png") ]
+        }
+      }.to change { plan.attachments_attachments.count }.by(1)
+
+      expect(response).to redirect_to(plan_path(plan, anchor: "footnote-attachments"))
+      event = plan.plan_events.find_by(event_type: "attachment_added")
+      expect(event.actor_id).to eq(viewer.id)
+    end
+
+    it "rejects uploads from signed-out visitors" do
       post plan_attachments_path(plan), params: {
         files: [ fixture_file_upload("sample.png", "image/png") ]
       }
 
-      expect(response).to have_http_status(:not_found)
+      expect(response).to have_http_status(:redirect)
+      expect(response.location).to include("sign_in")
       expect(plan.attachments.count).to eq(0)
     end
   end
@@ -67,7 +80,7 @@ RSpec.describe "Attachments (web)", type: :request do
         delete plan_attachment_path(plan, attachment)
       }.to change { plan.attachments_attachments.count }.by(-1)
 
-      expect(response).to redirect_to(plan_path(plan, tab: "attachments"))
+      expect(response).to redirect_to(plan_path(plan, anchor: "footnote-attachments"))
       event = plan.plan_events.find_by(event_type: "attachment_removed")
       expect(event.before_value).to eq("sample.png")
     end
@@ -91,21 +104,22 @@ RSpec.describe "Attachments (web)", type: :request do
       )
 
       sign_in_as(viewer)
-      get plan_path(plan, tab: "attachments")
+      get plan_path(plan, anchor: "footnote-attachments")
 
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("diagram.png")
       expect(response.body).to include("disposition=attachment")
-      # Viewers can't upload or delete.
-      expect(response.body).not_to include("attachments-dropzone")
+      # Anyone signed in can add attachments; only the author can delete.
+      expect(response.body).to include("attachments-upload")
+      expect(response.body).not_to include("attachments-list__remove")
     end
 
     it "shows the upload form to the plan author" do
       sign_in_as(author)
-      get plan_path(plan, tab: "attachments")
+      get plan_path(plan, anchor: "footnote-attachments")
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("attachments-dropzone")
+      expect(response.body).to include("attachments-upload")
     end
   end
 end

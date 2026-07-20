@@ -2,14 +2,18 @@ require "rails_helper"
 
 RSpec.describe CoPlan::LinkPreviews do
   let(:base_url) { "https://coplan.example.test/app" }
-  let(:plan) { create(:plan, status: "brainstorm", summary: nil) }
+  let(:plan) { create(:plan, :draft, summary: nil) }
 
-  it "resolves canonical, history, and version URLs across every status without visibility policy" do
+  it "resolves canonical, history, and version URLs across every state without visibility policy" do
     expect(CoPlan::Plan).not_to receive(:visible_to)
     expect(CoPlan::PlanPolicy).not_to receive(:new)
 
-    CoPlan::Plan::STATUSES.each do |status|
-      plan.update!(status: status)
+    [
+      { visibility: "draft", archived_at: nil },
+      { visibility: "published", archived_at: nil },
+      { visibility: "published", archived_at: Time.current }
+    ].each do |state|
+      plan.update!(state)
       version_id = plan.current_plan_version.id
       [
         "#{base_url}/plans/#{plan.id}?x=1#section",
@@ -32,6 +36,18 @@ RSpec.describe CoPlan::LinkPreviews do
     ]
     urls.each { |url| expect(described_class.resolve(url: url, base_url: base_url)).to be_nil }
     expect(described_class.resolve(url: "#{base_url}/plans/#{SecureRandom.uuid}", base_url: base_url)).to be_nil
+  end
+
+  it "flags Private and Archived in the context; published plans stay unmarked" do
+    expect(described_class.for_plan(plan, base_url: base_url).context).to start_with("Private · ")
+
+    plan.update!(visibility: "published")
+    published_context = described_class.for_plan(plan.reload, base_url: base_url).context
+    expect(published_context).not_to include("Private")
+    expect(published_context).to include("by #{plan.created_by_user.name}")
+
+    plan.update!(archived_at: Time.current)
+    expect(described_class.for_plan(plan.reload, base_url: base_url).context).to start_with("Archived · ")
   end
 
   it "prefers summary, otherwise strips and truncates markdown, and keys on content SHA" do

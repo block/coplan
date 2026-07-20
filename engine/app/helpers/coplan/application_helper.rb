@@ -39,8 +39,22 @@ module CoPlan
     end
 
     def plan_og_description(plan)
+      # One preview builder for OG tags, Slack unfurls, and anything else —
+      # its context carries the Private/Archived flag (published unmarked).
       preview = LinkPreviews.for_plan(plan, base_url: request.base_url + coplan.root_path)
       truncate([ preview.context, preview.description ].compact.join(" — "), length: 250, omission: "…")
+    end
+
+    # Canonical URL for a user's profile — username when they have one
+    # (readable, stable), id otherwise.
+    def profile_path_for(user)
+      profile_path(user.username.presence || user.id)
+    end
+
+    # Author names everywhere in the app link to profiles.
+    def profile_link(user, css_class: "profile-link")
+      return "" unless user
+      link_to user.name, profile_path_for(user), class: css_class
     end
 
     def user_avatar(user, size: "sm")

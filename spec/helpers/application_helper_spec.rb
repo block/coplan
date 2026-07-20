@@ -2,12 +2,19 @@ require "rails_helper"
 
 RSpec.describe CoPlan::ApplicationHelper, type: :helper do
   describe "#plan_og_description" do
-    let(:plan) { create(:plan, title: "My Plan", status: "considering") }
+    let(:plan) { create(:plan, :published, title: "My Plan") }
 
-    it "includes status and author" do
+    it "includes the plan state and author" do
       result = helper.plan_og_description(plan)
-      expect(result).to include("Considering")
+      expect(result).to include("Plan")
       expect(result).to include(plan.created_by_user.name)
+    end
+
+    it "labels private and archived plans" do
+      draft = create(:plan, :draft)
+      archived = create(:plan, archived_at: 1.day.ago)
+      expect(helper.plan_og_description(draft)).to start_with("Private")
+      expect(helper.plan_og_description(archived)).to start_with("Archived")
     end
 
     it "includes a content excerpt when content is present" do
@@ -20,7 +27,9 @@ RSpec.describe CoPlan::ApplicationHelper, type: :helper do
       plan.update_columns(current_plan_version_id: nil)
       plan.reload
       result = helper.plan_og_description(plan)
-      expect(result).to eq("Considering · by #{plan.created_by_user.name}")
+      # Published is the unmarked state, so with no type and no content the
+      # context is just the author.
+      expect(result).to eq("by #{plan.created_by_user.name}")
     end
 
     it "truncates long content" do

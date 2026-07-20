@@ -29,7 +29,7 @@ export default class extends Controller {
 
     this.element.addEventListener("input", this._inputHandler)
     // keydown listens with capture so the picker handles Enter/Arrows
-    // before the legacy submitOnEnter action fires.
+    // before anything else on the page sees them.
     this.element.addEventListener("keydown", this._keydownHandler, true)
     document.addEventListener("click", this._docClickHandler)
 
@@ -50,16 +50,13 @@ export default class extends Controller {
     }
     this.closePicker()
     if (this._debounce) clearTimeout(this._debounce)
+    this._fetchAbort?.abort()
   }
 
   handleSubmitEnd(event) {
     if (!event.detail?.success) return
     document.dispatchEvent(new CustomEvent("coplan:web-push-banner:nudge"))
   }
-
-  // Legacy keep-alive entry point (still wired in views via data-action).
-  // Real Enter handling now happens in handleKeydown.
-  submitOnEnter(_event) {}
 
   handleKeydown(event) {
     if (this.pickerOpen()) {
@@ -150,10 +147,15 @@ export default class extends Controller {
   }
 
   async fetchResults(query) {
+    // Abort any in-flight search — a slow earlier response must not
+    // overwrite the results of a faster later one.
+    this._fetchAbort?.abort()
+    this._fetchAbort = new AbortController()
     try {
       const response = await fetch(`${this.searchUrlValue}?q=${encodeURIComponent(query)}`, {
         headers: { Accept: "application/json" },
         credentials: "same-origin",
+        signal: this._fetchAbort.signal,
       })
       if (!response.ok) {
         this.closePicker()
@@ -164,6 +166,7 @@ export default class extends Controller {
       this._highlightIndex = this._results.length > 0 ? 0 : -1
       this.renderPicker()
     } catch (err) {
+      if (err.name === "AbortError") return
       console.error("[mention-picker] fetch failed", err)
       this.closePicker()
     }

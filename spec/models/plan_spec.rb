@@ -12,15 +12,15 @@ RSpec.describe CoPlan::Plan, type: :model do
     expect(plan.errors[:title]).to include("can't be blank")
   end
 
-  it "validates status inclusion" do
+  it "validates visibility inclusion" do
     plan = create(:plan)
-    plan.status = "invalid"
+    plan.visibility = "invalid"
     expect(plan).not_to be_valid
   end
 
-  it "defaults status to brainstorm" do
+  it "is born published" do
     plan = CoPlan::Plan.new
-    expect(plan.status).to eq("brainstorm")
+    expect(plan.visibility).to eq("published")
   end
 
   it "returns current content from version" do
@@ -28,9 +28,36 @@ RSpec.describe CoPlan::Plan, type: :model do
     expect(plan.current_content).to include("Plan Content")
   end
 
-  it "returns id for to_param" do
-    plan = create(:plan)
-    expect(plan.to_param).to eq(plan.id)
+  # THE discovery predicate (mirrored by PlanPolicy#listed?). Everything a
+  # user can be shown in a list routes through one of these two scopes.
+  describe ".visible_to" do
+    let(:author) { create(:coplan_user) }
+    let(:viewer) { create(:coplan_user) }
+
+    it "is published plans plus the user's own drafts — nobody else's" do
+      published = create(:plan, :published, created_by_user: author)
+      own_draft = create(:plan, :draft, created_by_user: viewer)
+      others_draft = create(:plan, :draft, created_by_user: author)
+
+      visible = CoPlan::Plan.visible_to(viewer)
+      expect(visible).to include(published, own_draft)
+      expect(visible).not_to include(others_draft)
+    end
+  end
+
+  describe ".publicly_listed" do
+    let(:author) { create(:coplan_user) }
+
+    it "is published-and-active only: drafts and archived plans stay hidden" do
+      published = create(:plan, :published, created_by_user: author)
+      draft = create(:plan, :draft, created_by_user: author)
+      archived = create(:plan, :archived, created_by_user: author)
+
+      listed = CoPlan::Plan.publicly_listed
+      expect(listed).to include(published)
+      expect(listed).not_to include(draft)
+      expect(listed).not_to include(archived)
+    end
   end
 
   describe "search_text denormalization (COPLAN-21)" do

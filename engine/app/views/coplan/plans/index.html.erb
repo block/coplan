@@ -1,20 +1,86 @@
-<div class="workspace" data-controller="coplan--plan-groups coplan--folder-dnd">
+<%# Turbo must not serve a cached snapshot of the workspace on back/forward:
+    the "since you last looked" strip and unread badges depend on what you
+    just read, so a restoration visit re-fetches. %>
+<% content_for(:head) do %>
+  <meta name="turbo-cache-control" content="no-cache">
+<% end %>
+
+<div class="workspace" data-controller="coplan--folder-dnd coplan--workspace-keys coplan--folder-picker">
   <%= render "coplan/plans/sidebar" %>
+  <%= render partial: "coplan/shared/folder_picker", locals: { folders: @folders } %>
 
   <div class="workspace__main">
+    <%# Drive-style breadcrumb: where you are in your library. Segments are
+        drop targets — drag a plan or folder onto one to move it up. %>
+    <nav class="workspace-crumbs" aria-label="Folder location">
+      <%= link_to workspace_path(folder: nil),
+            class: "workspace-crumbs__crumb #{'workspace-crumbs__crumb--current' if @breadcrumbs.empty?}",
+            data: {
+              folder_id: "",
+              action: "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",
+            } do %>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        My Plans
+      <% end %>
+      <% @breadcrumbs.each_with_index do |crumb, i| %>
+        <svg class="workspace-crumbs__sep" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+        <% current = i == @breadcrumbs.size - 1 %>
+        <%= link_to crumb.name, workspace_path(folder: crumb.id),
+              class: "workspace-crumbs__crumb #{'workspace-crumbs__crumb--current' if current}",
+              aria: current ? { current: "location" } : {},
+              data: {
+                folder_id: crumb.id,
+                action: "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",
+              } %>
+      <% end %>
+      <span class="workspace-crumbs__spacer"></span>
+      <button type="button" class="btn btn--secondary btn--sm" popovertarget="new-folder-modal">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        New folder
+      </button>
+    </nav>
+
+    <%# Creates inside the folder you're looking at (changeable). %>
+    <%= render layout: "coplan/shared/add_modal", locals: { id: "new-folder-modal", title: "New folder" } do %>
+      <%# model: a fresh record — a bare scope: :folder would silently bind
+          the @folder being viewed and prefill its name. %>
+      <%= form_with model: CoPlan::Folder.new, url: folders_path, scope: :folder, method: :post, class: "add-modal__form" do |f| %>
+        <div class="form-group">
+          <%= f.label :name, "Name", for: "new_folder_name" %>
+          <%= f.text_field :name, id: "new_folder_name", required: true, maxlength: 100, autofocus: true,
+                placeholder: "e.g. Payments" %>
+        </div>
+        <div class="form-group">
+          <%= f.label :parent_id, "Inside", for: "new_folder_parent" %>
+          <%= f.select :parent_id,
+                options_for_select([["My Plans (top level)", ""]] + folder_select_options.map { |path, id, _| [path, id] }, @folder&.id),
+                {}, id: "new_folder_parent" %>
+        </div>
+        <div class="add-modal__actions">
+          <%= f.submit "Create folder", class: "btn btn--primary btn--sm" %>
+        </div>
+      <% end %>
+    <% end %>
+
     <% active_filters = [] %>
-    <% if @folder %>
-      <% active_filters << ["Folder: #{folder_path_for(@folder)}", plans_path(params.permit(:scope, :status, :plan_type, :tag))] %>
+    <% if @scope == "all" %>
+      <%# Reachable from Home's tag links etc. — the sidebar no longer
+          offers it, so show it as a clearable state, not a mode. %>
+      <% active_filters << ["Everyone’s plans", workspace_path(scope: nil)] %>
     <% end %>
     <% if params[:tag].present? %>
-      <% active_filters << ["Tag: #{params[:tag]}", plans_path(params.permit(:scope, :status, :plan_type, :folder))] %>
+      <% active_filters << ["Tag: #{params[:tag]}", workspace_path(tag: nil)] %>
     <% end %>
     <% if params[:plan_type].present? %>
       <% type_name = @plan_types&.find { |pt| pt.id == params[:plan_type] }&.name || "Type" %>
-      <% active_filters << ["Type: #{type_name}", plans_path(params.permit(:scope, :status, :tag, :folder))] %>
+      <% active_filters << ["Type: #{type_name}", workspace_path(plan_type: nil)] %>
     <% end %>
-    <% if params[:status].present? %>
-      <% active_filters << ["Status: #{params[:status].titleize}", plans_path(params.permit(:scope, :plan_type, :tag, :folder))] %>
+    <% if @updated_window %>
+      <% active_filters << ["Updated: last #{@updated_window.delete_suffix('d')} days", workspace_path(updated: nil)] %>
+    <% end %>
+    <% if @filter.present? %>
+      <% filter_label = { "draft" => "Private", "published" => "Published", "archived" => "Archived" }.fetch(@filter) %>
+      <% active_filters << [filter_label, workspace_path(filter: nil)] %>
     <% end %>
 
     <% if active_filters.any? %>
@@ -25,7 +91,8 @@
             <%= link_to "✕", clear_path, class: "workspace__filter-clear", aria: { label: "Clear #{label} filter" } %>
           </span>
         <% end %>
-        <%= link_to "Clear all", plans_path(@scope == "mine" ? {} : { scope: @scope }), class: "active-filter__clear" %>
+        <%= link_to "Clear all", workspace_path(filter: nil, tag: nil, plan_type: nil, updated: nil, scope: @scope == "mine" ? nil : @scope),
+              class: "active-filter__clear" %>
       </div>
     <% end %>
 
@@ -53,20 +120,48 @@
       </section>
     <% end %>
 
-    <% if @groups %>
-      <% if @groups.any? %>
+    <% if @subfolders %>
+      <% if @recent_updates.present? %>
+        <section class="recent-updates" aria-label="Changed since you last looked">
+          <h2 class="recent-updates__heading">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+            Since you last looked
+          </h2>
+          <ul class="recent-updates__list">
+            <% @recent_updates.each do |entry| %>
+              <% plan = entry[:plan] %>
+              <li class="recent-updates__item">
+                <%= link_to plan.title, plan_path(plan), class: "recent-updates__link" %>
+                <span class="recent-updates__badge recent-updates__badge--<%= entry[:badge].parameterize %>"><%= entry[:badge] %></span>
+                <span class="recent-updates__meta text-muted">
+                  <%= plan.created_by_user.name %> · <%= time_ago_in_words(plan.updated_at) %> ago
+                </span>
+              </li>
+            <% end %>
+          </ul>
+        </section>
+      <% end %>
+
+      <%# Level view: this folder's subfolders (even empty — that's where
+          you drop things), then the plans filed right here. %>
+      <% if @subfolders.any? || @level_plans.any? %>
         <div class="plans-list">
-          <% @groups.each do |group| %>
-            <%= render "coplan/plans/plan_group", group: group %>
+          <% @subfolders.each do |folder| %>
+            <%= render "coplan/plans/folder_row", folder: folder %>
           <% end %>
+          <%= render "coplan/plans/plan_page", plans: @level_plans,
+                plan_unread_counts: @plan_unread_counts,
+                page: 1,
+                has_next_page: @level_has_next_page,
+                group_key: "level",
+                frame_filter: nil,
+                frame_folder: @folder&.id %>
         </div>
       <% else %>
         <div class="empty-state card">
           <% if @folder %>
-            <p>No plans <%= "you can see " if @scope == "all" %>in <strong><%= folder_path_for(@folder) %></strong> yet.</p>
-            <p class="text-muted text-sm">Drag a plan row onto this folder in the sidebar, or use a plan's row menu to move it here.</p>
-          <% elsif params[:tag].present? || params[:plan_type].present? %>
-            <p>No plans match the current filters.</p>
+            <p>Nothing in <strong><%= @folder.name %></strong> yet.</p>
+            <p class="text-muted text-sm">Drag a plan here from another folder, or use a row's bookmark to file it.</p>
           <% elsif @scope == "mine" %>
             <p>You haven't created any plans yet. Plans are created via the API.</p>
           <% else %>
@@ -75,7 +170,8 @@
         </div>
       <% end %>
     <% else %>
-      <%# Flat mode: filtered to a single status via ?status= %>
+      <%# Flat results: narrowed by filter/tag/type/date, scoped to the
+          current folder's subtree. %>
       <% if @plans.any? %>
         <div class="plans-list">
           <%= render "coplan/plans/plan_page", plans: @plans,
@@ -83,11 +179,17 @@
                 page: @page,
                 has_next_page: @has_next_page,
                 group_key: "results",
-                frame_status: params[:status].presence %>
+                frame_filter: @filter,
+                frame_folder: @folder&.id %>
         </div>
       <% else %>
         <div class="empty-state card">
-          <p>No <%= params[:status] %> plans match the current filters.</p>
+          <% if @filter == "archived" %>
+            <p>Nothing in the archive<%= " matches the current filters" if params[:tag].present? || params[:plan_type].present? || @folder %>.</p>
+            <p class="text-muted text-sm">Archiving a plan hides it from lists and search without deleting it — it will show up here.</p>
+          <% else %>
+            <p>No plans match the current filters<%= " in #{@folder.name}" if @folder %>.</p>
+          <% end %>
         </div>
       <% end %>
     <% end %>

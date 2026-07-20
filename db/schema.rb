@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_16_154924) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_19_165429) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -139,11 +139,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_154924) do
   create_table "coplan_folders", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "created_by_user_id", limit: 36
+    t.string "library_id", limit: 36, null: false
     t.string "name", null: false
     t.string "parent_id", limit: 36
     t.datetime "updated_at", null: false
     t.index ["created_by_user_id"], name: "index_coplan_folders_on_created_by_user_id"
-    t.index ["parent_id", "name"], name: "index_coplan_folders_on_parent_id_and_name", unique: true
+    t.index ["library_id", "parent_id", "name"], name: "index_coplan_folders_on_library_id_and_parent_id_and_name", unique: true
+    t.index ["library_id"], name: "index_coplan_folders_on_library_id"
+    t.index ["parent_id"], name: "index_coplan_folders_on_parent_id"
+  end
+
+  create_table "coplan_libraries", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "name", default: "Library", null: false
+    t.string "owner_id", limit: 36, null: false
+    t.string "owner_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["owner_type", "owner_id"], name: "index_coplan_libraries_on_owner_type_and_owner_id", unique: true
   end
 
   create_table "coplan_notifications", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -191,6 +203,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_154924) do
     t.index ["plan_id"], name: "index_coplan_plan_events_on_plan_id"
   end
 
+  create_table "coplan_plan_placements", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "folder_id", limit: 36, null: false
+    t.string "library_id", limit: 36, null: false
+    t.string "placed_by_user_id", limit: 36
+    t.string "plan_id", limit: 36, null: false
+    t.datetime "updated_at", null: false
+    t.index ["folder_id"], name: "index_coplan_plan_placements_on_folder_id"
+    t.index ["library_id", "folder_id", "plan_id"], name: "index_coplan_placements_covering_folder_counts"
+    t.index ["library_id"], name: "index_coplan_plan_placements_on_library_id"
+    t.index ["placed_by_user_id"], name: "fk_rails_ef17324b42"
+    t.index ["plan_id", "library_id"], name: "index_coplan_plan_placements_on_plan_id_and_library_id", unique: true
+  end
+
   create_table "coplan_plan_tags", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "plan_id", limit: 36, null: false
@@ -204,6 +230,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_154924) do
     t.datetime "created_at", null: false
     t.json "default_tags"
     t.text "description"
+    t.string "icon", limit: 50
     t.json "metadata"
     t.string "name", null: false
     t.text "template_content"
@@ -244,27 +271,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_154924) do
   end
 
   create_table "coplan_plans", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "archived_at"
     t.datetime "created_at", null: false
     t.string "created_by_user_id", limit: 36, null: false
     t.string "current_plan_version_id", limit: 36
     t.integer "current_revision", default: 0, null: false
-    t.string "folder_id", limit: 36
     t.json "metadata"
     t.string "plan_type_id", limit: 36
     t.text "search_text", size: :medium
-    t.string "status", default: "brainstorm", null: false
     t.text "summary"
     t.string "summary_content_sha256", limit: 64
     t.datetime "summary_generated_at"
     t.string "title", null: false
     t.datetime "updated_at", null: false
+    t.string "visibility", default: "published", null: false
+    t.index ["archived_at"], name: "index_coplan_plans_on_archived_at"
+    t.index ["created_by_user_id", "updated_at"], name: "index_coplan_plans_on_author_and_updated_at"
     t.index ["created_by_user_id"], name: "index_coplan_plans_on_created_by_user_id"
     t.index ["current_plan_version_id"], name: "fk_rails_c401577583"
-    t.index ["folder_id"], name: "index_coplan_plans_on_folder_id"
     t.index ["plan_type_id"], name: "index_coplan_plans_on_plan_type_id"
     t.index ["search_text"], name: "index_coplan_plans_on_search_text", type: :fulltext
-    t.index ["status"], name: "index_coplan_plans_on_status"
     t.index ["updated_at"], name: "index_coplan_plans_on_updated_at"
+    t.index ["visibility", "updated_at"], name: "index_coplan_plans_on_visibility_and_updated_at"
+    t.index ["visibility"], name: "index_coplan_plans_on_visibility"
   end
 
   create_table "coplan_references", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -346,6 +375,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_154924) do
   add_foreign_key "coplan_edit_sessions", "coplan_plan_versions", column: "plan_version_id"
   add_foreign_key "coplan_edit_sessions", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_folders", "coplan_folders", column: "parent_id"
+  add_foreign_key "coplan_folders", "coplan_libraries", column: "library_id"
   add_foreign_key "coplan_folders", "coplan_users", column: "created_by_user_id"
   add_foreign_key "coplan_notifications", "coplan_comment_threads", column: "comment_thread_id"
   add_foreign_key "coplan_notifications", "coplan_comments", column: "comment_id"
@@ -354,12 +384,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_16_154924) do
   add_foreign_key "coplan_plan_collaborators", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "added_by_user_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "user_id"
+  add_foreign_key "coplan_plan_placements", "coplan_folders", column: "folder_id"
+  add_foreign_key "coplan_plan_placements", "coplan_libraries", column: "library_id"
+  add_foreign_key "coplan_plan_placements", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_plan_placements", "coplan_users", column: "placed_by_user_id"
   add_foreign_key "coplan_plan_tags", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_tags", "coplan_tags", column: "tag_id"
   add_foreign_key "coplan_plan_versions", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_viewers", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_viewers", "coplan_users", column: "user_id"
-  add_foreign_key "coplan_plans", "coplan_folders", column: "folder_id"
   add_foreign_key "coplan_plans", "coplan_plan_types", column: "plan_type_id"
   add_foreign_key "coplan_plans", "coplan_plan_versions", column: "current_plan_version_id"
   add_foreign_key "coplan_plans", "coplan_users", column: "created_by_user_id"

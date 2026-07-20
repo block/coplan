@@ -25,6 +25,21 @@ CoPlan.configure do |config|
   #   PeopleApi.search(query).map { |p| { id: p.id, name: p.name, email: p.email } }
   # }
 
+  # Optional: enrich profile pages from the same directory. Values present
+  # override local coplan_users columns; :profile_url adds a "view in
+  # directory" link out to the canonical people page. Exceptions degrade to
+  # the minimal local profile, so a slow/flaky directory can't break pages
+  # (cache inside the lambda if lookups are expensive).
+  # config.directory_profile = ->(user) {
+  #   person = PeopleApi.lookup(email: user.email)
+  #   {
+  #     avatar_url: person.photo_url,
+  #     title: person.job_title,
+  #     team: person.org_name,
+  #     profile_url: person.canonical_url
+  #   }
+  # }
+
   config.notification_handler = ->(event, payload) {
     case event
     when :comment_created

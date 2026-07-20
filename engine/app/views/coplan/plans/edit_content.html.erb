@@ -46,9 +46,36 @@
     </div>
   <% end %>
 
+  <%# One editor for the whole plan: title and tags live here too — there
+      is no separate "title & tags" page. %>
+  <div class="editor__meta">
+    <div class="form-group editor__meta-title">
+      <%= label_tag "plan_title", "Title" %>
+      <%= text_field_tag "plan[title]", @plan.title, id: "plan_title", required: true, maxlength: 255 %>
+    </div>
+    <div class="form-group editor__meta-tags">
+      <%= label_tag "plan_tag_field", "Tags" %>
+      <div class="tag-input" data-controller="coplan--tag-input" data-action="click->coplan--tag-input#focusInput">
+        <div class="tag-input__chips" data-coplan--tag-input-target="chips">
+          <input id="plan_tag_field" class="tag-input__field" list="tag-suggestions" autocomplete="off"
+                 placeholder="Add tag…"
+                 data-coplan--tag-input-target="input"
+                 data-action="keydown->coplan--tag-input#keydown blur->coplan--tag-input#commit change->coplan--tag-input#commit">
+        </div>
+        <%= hidden_field_tag "plan[tag_names]", @plan.tag_names.join(", "),
+              id: "plan_tag_names", data: { "coplan--tag-input-target": "hidden" } %>
+      </div>
+      <datalist id="tag-suggestions">
+        <% (@tag_suggestions || []).each do |name| %>
+          <option value="<%= name %>"></option>
+        <% end %>
+      </datalist>
+    </div>
+  </div>
+
   <div class="editor__tabs">
-    <button type="button" class="editor__tab editor__tab--active" data-coplan--editor-target="writeTab" data-action="coplan--editor#showWrite">✏️ Write</button>
-    <button type="button" class="editor__tab" data-coplan--editor-target="previewTab" data-action="coplan--editor#showPreview">👁 Preview</button>
+    <button type="button" class="editor__tab editor__tab--active" data-coplan--editor-target="writeTab" data-action="coplan--editor#showWrite">Write</button>
+    <button type="button" class="editor__tab" data-coplan--editor-target="previewTab" data-action="coplan--editor#showPreview">Preview</button>
   </div>
 
   <%= hidden_field_tag :base_revision, @base_revision %>

@@ -24,21 +24,62 @@ RSpec.describe "Plan metadata event logging", type: :request do
     end
   end
 
-  describe "PATCH /plans/:id/status (web)" do
-    it "records a status_changed event when the status moves" do
+  describe "PATCH /plans/:id/archive and /unarchive (web)" do
+    it "records archived and unarchived events" do
       expect {
-        patch update_status_plan_path(plan), params: { status: "developing" }
-      }.to change { plan.plan_events.where(event_type: "status_changed").count }.by(1)
+        patch archive_plan_path(plan)
+      }.to change { plan.plan_events.where(event_type: "archived").count }.by(1)
 
-      event = plan.plan_events.where(event_type: "status_changed").last
-      expect(event.before_value).to eq("considering")
-      expect(event.after_value).to eq("developing")
+      expect {
+        patch unarchive_plan_path(plan)
+      }.to change { plan.plan_events.where(event_type: "unarchived").count }.by(1)
+    end
+  end
+
+  describe "PATCH /plans/:id/publish (web)" do
+    it "records a published event when a draft goes live" do
+      draft = create(:plan, :draft, created_by_user: user)
+
+      expect {
+        patch publish_plan_path(draft)
+      }.to change { draft.plan_events.where(event_type: "published").count }.by(1)
+
+      event = draft.plan_events.where(event_type: "published").last
+      expect(event.before_value).to eq("draft")
+      expect(event.after_value).to eq("published")
+    end
+  end
+
+  describe "PATCH /plans/:id/hide (web)" do
+    it "records a hidden event when a shared plan goes back to Private" do
+      shared = create(:plan, :published, created_by_user: user)
+
+      expect {
+        patch hide_plan_path(shared)
+      }.to change { shared.plan_events.where(event_type: "hidden").count }.by(1)
+
+      expect(shared.reload.visibility).to eq("draft")
+      event = shared.plan_events.where(event_type: "hidden").last
+      expect(event.before_value).to eq("published")
+      expect(event.after_value).to eq("draft")
     end
 
-    it "does not record an event when the status doesn't actually change" do
-      expect {
-        patch update_status_plan_path(plan), params: { status: "considering" }
-      }.not_to change { plan.plan_events.count }
+    it "refuses non-authors" do
+      other = create(:coplan_user)
+      shared = create(:plan, :published, created_by_user: other)
+
+      patch hide_plan_path(shared)
+      expect(response).to have_http_status(:not_found)
+      expect(shared.reload.visibility).to eq("published")
+    end
+
+    it "answers JSON for the header eye" do
+      shared = create(:plan, :published, created_by_user: user)
+      patch hide_plan_path(shared), headers: { "Accept" => "application/json" }
+      expect(response.parsed_body["visibility"]).to eq("draft")
+
+      patch publish_plan_path(shared), headers: { "Accept" => "application/json" }
+      expect(response.parsed_body["visibility"]).to eq("published")
     end
   end
 
@@ -74,19 +115,19 @@ RSpec.describe "Plan metadata event logging", type: :request do
     let!(:token) { create(:api_token, user: user, raw_token: raw_token) }
     let(:auth_headers) { { "Authorization" => "Bearer #{raw_token}" } }
 
-    it "records events for title, status, and tag diffs in a single request" do
+    it "records events for title, archival, and tag diffs in a single request" do
       plan.tag_names = ["existing"]
 
       expect {
         patch "/api/v1/plans/#{plan.id}", params: {
           title: "API-renamed",
-          status: "developing",
+          archived: true,
           tags: ["existing", "added"]
         }, headers: auth_headers, as: :json
       }.to change { plan.plan_events.count }.by(3)
 
       expect(plan.plan_events.pluck(:event_type)).to contain_exactly(
-        "title_changed", "status_changed", "tag_added"
+        "title_changed", "archived", "tag_added"
       )
     end
 

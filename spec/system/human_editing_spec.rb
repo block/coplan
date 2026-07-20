@@ -4,7 +4,7 @@ RSpec.describe "Human plan editing", type: :system do
   let(:author) { create(:coplan_user, email: "author@example.com") }
 
   let(:plan) do
-    p = CoPlan::Plan.create!(title: "Editable Plan", status: "considering", created_by_user: author)
+    p = CoPlan::Plan.create!(title: "Editable Plan", visibility: "published", created_by_user: author)
     version = CoPlan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: "# Editable Plan\n\nFirst draft body.\n",
@@ -25,7 +25,7 @@ RSpec.describe "Human plan editing", type: :system do
 
   it "edits plan content through the web editor" do
     visit plan_path(plan)
-    click_link "Edit content"
+    find("a[aria-label='Edit plan']").click
 
     expect(page).to have_field("content", with: /First draft body/)
 
@@ -33,7 +33,7 @@ RSpec.describe "Human plan editing", type: :system do
     fill_in "change_summary", with: "Browser edit"
     click_button "Save new version"
 
-    expect(page).to have_content("Plan content updated.")
+    expect(page).to have_content("Plan updated.")
     expect(page).to have_content("Revised body from the browser.")
 
     plan.reload
@@ -42,26 +42,75 @@ RSpec.describe "Human plan editing", type: :system do
     expect(plan.current_plan_version.change_summary).to eq("Browser edit")
   end
 
+  it "edits title and tags through the unified editor" do
+    plan.tag_names = ["security"]
+    plan.save!
+
+    visit edit_content_plan_path(plan)
+    fill_in "Title", with: "Renamed In Editor"
+    # Tag chips: type a tag and press Enter to commit it as a chip. Wait for
+    # the existing tag's chip first — it only renders once the Stimulus
+    # controller connects, and before that Enter isn't intercepted and would
+    # natively submit the form mid-keystroke.
+    expect(page).to have_css(".tag-input__chip", text: "security")
+    find("#plan_tag_field").send_keys("api-design", :enter)
+    click_button "Save new version"
+
+    expect(page).to have_content("Plan updated.")
+    plan.reload
+    expect(plan.title).to eq("Renamed In Editor")
+    expect(plan.tag_names).to contain_exactly("security", "api-design")
+  end
+
   it "previews markdown before saving" do
     visit edit_content_plan_path(plan)
 
     fill_in "content", with: "# Preview me\n\n**bold text**\n"
-    click_button "👁 Preview"
+    click_button "Preview"
 
     expect(page).to have_css("strong", text: "bold text")
 
-    click_button "✏️ Write"
+    click_button "Write"
     expect(page).to have_field("content", with: /Preview me/)
   end
 
-  it "changes status by clicking the status badge" do
+  it "toggles visibility with the header eye — two clicks each way, no reload" do
+    plan.update!(visibility: "draft")
     visit plan_path(plan)
 
-    find("#plan-header .badge--status[role='button']").click
-    within(".dropdown__menu") { click_button "developing" }
+    eye = find(".visibility-toggle")
+    eye.click # arm: previews the flip
+    eye.click # confirm: commits via fetch
+    expect(page).to have_css(".visibility-toggle[title^='Shared']", wait: 5)
+    expect(plan.reload.visibility).to eq("published")
 
-    expect(page).to have_content("Status updated to developing.")
-    expect(plan.reload.status).to eq("developing")
+    # And back — hiding a shared plan is allowed now, same two clicks.
+    eye.click
+    eye.click
+    expect(page).to have_css(".visibility-toggle--hidden[title^='Private']", wait: 5)
+    expect(plan.reload.visibility).to eq("draft")
+  end
+
+  it "reverts an unconfirmed visibility flip instead of committing it" do
+    plan.update!(visibility: "draft")
+    visit plan_path(plan)
+
+    find(".visibility-toggle").click # armed…
+    # …but never confirmed: the preview reverts on its own.
+    expect(page).to have_css(".visibility-toggle--hidden[title^='Private']", wait: 6)
+    expect(plan.reload.visibility).to eq("draft")
+  end
+
+  it "archives and restores the plan" do
+    visit plan_path(plan)
+
+    click_button "Archive"
+    expect(page).to have_content("Plan archived.")
+    expect(plan.reload.archived?).to be(true)
+
+    click_button "Restore"
+    expect(page).to have_content("Plan restored.")
+    expect(plan.reload.archived?).to be(false)
   end
 
   it "hides owner controls from non-authors" do
@@ -71,9 +120,8 @@ RSpec.describe "Human plan editing", type: :system do
 
     visit plan_path(plan)
     expect(page).to have_content("Editable Plan")
-    expect(page).not_to have_link("Edit content")
-    # The status badge stays a plain label — no menu, no button affordance.
-    expect(page).not_to have_css(".dropdown__menu")
-    expect(page).not_to have_css(".badge--menu")
+    expect(page).not_to have_css("a[aria-label='Edit plan']")
+    expect(page).not_to have_button("Archive")
+    expect(page).not_to have_css(".visibility-toggle")
   end
 end

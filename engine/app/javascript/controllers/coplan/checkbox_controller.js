@@ -1,8 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static values = { planId: String, revision: Number, toggleUrl: String }
-  static targets = ["checkbox"]
+  static values = { revision: Number, toggleUrl: String }
 
   toggle(event) {
     const checkbox = event.target

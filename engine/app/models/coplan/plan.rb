@@ -1,6 +1,11 @@
 module CoPlan
   class Plan < ApplicationRecord
-    STATUSES = %w[brainstorm considering developing live abandoned].freeze
+    VISIBILITIES = %w[draft published].freeze
+
+    # Legacy API compatibility: the pre-2026-07 five-state `status` field.
+    # Accepted on writes and emitted on reads for a deprecation window; the
+    # canonical model is `visibility` + `archived_at`.
+    LEGACY_STATUSES = %w[brainstorm considering developing live abandoned].freeze
 
     # Server-side limits for file attachments. Content types are an allowlist:
     # anything renderable-but-scriptable (html, svg, js) is deliberately
@@ -16,8 +21,14 @@ module CoPlan
 
     belongs_to :created_by_user, class_name: "CoPlan::User"
     belongs_to :current_plan_version, class_name: "PlanVersion", optional: true
+    # Lean handle on the current version for list pages: the preview cache
+    # key needs content_sha256, nothing else — preloading the full row drags
+    # MEDIUMTEXT content, diffs, and operation logs out of MySQL per row.
+    belongs_to :current_version_stub, -> { select(:id, :content_sha256) },
+      class_name: "PlanVersion", foreign_key: :current_plan_version_id, optional: true
     belongs_to :plan_type, optional: true
-    belongs_to :folder, optional: true, inverse_of: :plans
+    has_many :placements, class_name: "CoPlan::PlanPlacement", inverse_of: :plan, dependent: :destroy
+    has_many :libraries, through: :placements
     has_many :plan_versions, -> { order(revision: :asc) }, dependent: :destroy
     has_many :plan_events, dependent: :destroy
     has_many :plan_collaborators, dependent: :destroy
@@ -36,18 +47,32 @@ module CoPlan
     after_initialize { self.metadata ||= {} }
 
     validates :title, presence: true
-    validates :status, presence: true, inclusion: { in: STATUSES }
+    validates :visibility, presence: true, inclusion: { in: VISIBILITIES }
     validate :attachments_within_limits
 
     scope :with_tag, ->(name) { joins(:tags).where(coplan_tags: { name: name }) }
 
-    # Plans `user` is allowed to see: everything published (non-brainstorm)
-    # plus the user's own brainstorms. Brainstorm plans are private drafts —
-    # any list, count, or folder content shown to a user must go through
-    # this scope so private brainstorm existence never leaks.
+    # Plans `user` discovers on their own: everything published plus the
+    # user's own drafts. Drafts are unlisted, not locked — direct URLs work
+    # for anyone (PlanPolicy#show?), but every list, count, feed, search
+    # result, or shelf shown to a user must go through this scope (or
+    # PlanPolicy#listed?, which mirrors it) so drafts never surface
+    # uninvited. This is THE discovery predicate: never test `visibility`
+    # inline elsewhere.
     scope :visible_to, ->(user) {
-      where.not(status: "brainstorm").or(where(created_by_user_id: user.id))
+      where(visibility: "published").or(where(created_by_user_id: user.id))
     }
+
+    # Archived plans are hidden from every default surface; callers opt in
+    # with `.archived` or by dropping the `.active` scope explicitly.
+    scope :active, -> { where(archived_at: nil) }
+    scope :archived, -> { where.not(archived_at: nil) }
+
+    # The viewer-independent subset of visible_to: what *everyone* may
+    # discover. Used by them-facing surfaces (profiles, the Home feed)
+    # where even your own drafts and archived plans stay hidden — a
+    # profile is a public shelf, not a workspace.
+    scope :publicly_listed, -> { active.where(visibility: "published") }
 
     after_save_commit :refresh_search_text!, if: :search_text_needs_refresh?
 
@@ -56,14 +81,17 @@ module CoPlan
     # support prefix matches (`foo*`) and don't trip MySQL's 50%-of-rows
     # natural-language threshold on small datasets.
     #
-    # Visibility: brainstorm plans are hidden from everyone except their
+    # Visibility: draft plans are hidden from everyone except their
     # author — matches the `index` action's filter. `user` is required;
     # the controller enforces sign-in so we don't have to handle nil here.
     scope :search, ->(query, user:) {
       term = sanitize_fulltext_term(query)
       return none if term.blank?
 
-      visible_to(user)
+      # Archived plans stay out of search — they remain reachable by direct
+      # URL and via explicit archived filters, but never resurface on their
+      # own.
+      visible_to(user).active
         .where("MATCH(search_text) AGAINST (? IN BOOLEAN MODE)", term)
         .order(Arel.sql("MATCH(search_text) AGAINST (#{connection.quote(term)} IN BOOLEAN MODE) DESC"))
     }
@@ -109,15 +137,45 @@ module CoPlan
     end
 
     def self.ransackable_attributes(auth_object = nil)
-      %w[id title status plan_type_id folder_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
+      %w[id title visibility archived_at plan_type_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
     end
 
     def self.ransackable_associations(auth_object = nil)
       %w[plan_type created_by_user]
     end
 
-    def to_param
-      id
+    def draft?
+      visibility == "draft"
+    end
+
+    def published?
+      visibility == "published"
+    end
+
+    def archived?
+      archived_at.present?
+    end
+
+    # Legacy API compatibility (see LEGACY_STATUSES). Emits the closest
+    # five-state equivalent of the current visibility/archival state.
+    def legacy_status
+      return "brainstorm" if draft?
+      return "abandoned" if archived?
+      "considering"
+    end
+
+    # Maps a legacy five-state status write onto the canonical fields.
+    # Returns the attributes to assign; raises nothing — validation of the
+    # mapped values happens on save.
+    def self.attributes_for_legacy_status(status)
+      case status.to_s
+      when "brainstorm" then { visibility: "draft", archived_at: nil }
+      # Archiving must never implicitly publish: a draft archived via the
+      # legacy API stays a (archived) draft rather than leaking.
+      when "abandoned" then { archived_at: Time.current }
+      when *LEGACY_STATUSES then { visibility: "published", archived_at: nil }
+      else {}
+      end
     end
 
     def current_content

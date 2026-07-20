@@ -29,9 +29,21 @@ module CoPlan
     def sync_user_attrs(user, attrs)
       safe_attrs = attrs.slice(:name, :username, :admin, :avatar_url, :title, :team).compact
       user.assign_attributes(safe_attrs)
+      resolve_username_collision(user)
       if attrs.key?(:metadata) && attrs[:metadata].is_a?(Hash)
         user.metadata = (user.metadata || {}).merge(attrs[:metadata])
       end
+    end
+
+    # A username is a nicety (profiles fall back to id), so a host-supplied
+    # username that another account already holds must not fail every
+    # request for this user — keep whatever username they had instead
+    # (nil for a brand-new account).
+    def resolve_username_collision(user)
+      return if user.username.blank? || !user.username_changed?
+      return unless CoPlan::User.where(username: user.username).where.not(id: user.id).exists?
+
+      user.username = user.username_was
     end
   end
 end

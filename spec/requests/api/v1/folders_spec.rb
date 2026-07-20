@@ -26,7 +26,8 @@ RSpec.describe "Api::V1::Folders", type: :request do
     it "returns folders with paths and visible plan counts" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       sub = create(:folder, name: "Q3", parent: root, created_by_user: alice)
-      create(:plan, :considering, created_by_user: bob).update!(folder: sub)
+      plan = create(:plan, :considering, created_by_user: bob)
+      CoPlan::Plans::Place.call(plan: plan, folder: sub, actor: alice)
 
       get api_v1_folders_path, headers: headers
       expect(response).to have_http_status(:success)
@@ -38,20 +39,20 @@ RSpec.describe "Api::V1::Folders", type: :request do
       expect(folders.find { |f| f["id"] == root.id }["plans_count"]).to eq(0)
     end
 
-    it "does not count other users' brainstorm plans" do
+    it "does not count unlisted drafts for other viewers" do
       folder = create(:folder, created_by_user: alice)
-      create(:plan, :brainstorm, created_by_user: bob).update!(folder: folder)
-      create(:plan, :brainstorm, created_by_user: alice).update!(folder: folder)
-      create(:plan, :considering, created_by_user: bob).update!(folder: folder)
+      CoPlan::Plans::Place.call(plan: create(:plan, :draft, created_by_user: alice), folder: folder, actor: alice)
+      CoPlan::Plans::Place.call(plan: create(:plan, :published, created_by_user: bob), folder: folder, actor: alice)
 
       get api_v1_folders_path, headers: headers
       counts = JSON.parse(response.body).find { |f| f["id"] == folder.id }
-      # Alice sees Bob's published plan and her own brainstorm — not Bob's brainstorm.
+      # Alice sees both: her own draft and Bob's published plan.
       expect(counts["plans_count"]).to eq(2)
 
-      get api_v1_folders_path, headers: bob_headers
+      # Bob browses Alice's library: her unlisted draft doesn't count.
+      get api_v1_folders_path({ library_id: alice.library.id }), headers: bob_headers
       counts = JSON.parse(response.body).find { |f| f["id"] == folder.id }
-      expect(counts["plans_count"]).to eq(2)
+      expect(counts["plans_count"]).to eq(1)
     end
   end
 
@@ -67,7 +68,7 @@ RSpec.describe "Api::V1::Folders", type: :request do
     end
 
     it "creates a nested folder" do
-      root = create(:folder, name: "Infra", created_by_user: bob)
+      root = create(:folder, name: "Infra", created_by_user: alice)
       post api_v1_folders_path, params: { name: "Q3", parent_id: root.id }.to_json,
         headers: headers.merge("Content-Type" => "application/json")
       expect(response).to have_http_status(:created)
@@ -88,7 +89,7 @@ RSpec.describe "Api::V1::Folders", type: :request do
     end
 
     it "rejects duplicate sibling names" do
-      create(:folder, name: "Infra")
+      create(:folder, name: "Infra", created_by_user: alice)
       post api_v1_folders_path, params: { name: "Infra" }.to_json,
         headers: headers.merge("Content-Type" => "application/json")
       expect(response).to have_http_status(:unprocessable_content)
@@ -120,7 +121,7 @@ RSpec.describe "Api::V1::Folders", type: :request do
     end
 
     it "can re-parent a folder" do
-      new_parent = create(:folder, name: "Parent")
+      new_parent = create(:folder, name: "Parent", created_by_user: alice)
       patch api_v1_folder_path(folder), params: { parent_id: new_parent.id }.to_json,
         headers: headers.merge("Content-Type" => "application/json")
       expect(response).to have_http_status(:success)
@@ -157,7 +158,7 @@ RSpec.describe "Api::V1::Folders", type: :request do
     end
 
     it "refuses to delete a folder containing plans" do
-      create(:plan, :considering, created_by_user: alice).update!(folder: folder)
+      CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: folder, actor: alice)
       delete api_v1_folder_path(folder), headers: headers
       expect(response).to have_http_status(:unprocessable_content)
       expect(JSON.parse(response.body)["error"]).to include("contains plans")
@@ -165,7 +166,7 @@ RSpec.describe "Api::V1::Folders", type: :request do
     end
 
     it "refuses to delete a folder with subfolders" do
-      create(:folder, parent: folder)
+      create(:folder, parent: folder, created_by_user: alice)
       delete api_v1_folder_path(folder), headers: headers
       expect(response).to have_http_status(:unprocessable_content)
       expect(CoPlan::Folder.exists?(folder.id)).to be true

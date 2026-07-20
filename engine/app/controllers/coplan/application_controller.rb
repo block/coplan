@@ -8,6 +8,7 @@ module CoPlan
     end
 
     helper CoPlan::ApplicationHelper
+    helper CoPlan::PlansHelper
     helper CoPlan::MarkdownHelper
     helper CoPlan::CommentsHelper
     helper CoPlan::ReferencesHelper

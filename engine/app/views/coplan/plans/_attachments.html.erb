@@ -1,28 +1,27 @@
-<% can_edit = current_user && CoPlan::PlanPolicy.new(current_user, plan).update? %>
+<% policy = CoPlan::PlanPolicy.new(current_user, plan) %>
+<% can_add = current_user && policy.contribute? %>
+<% can_remove = current_user && policy.update? %>
 <div class="attachments-section" id="plan-attachments">
-  <% if can_edit %>
-    <div class="attachments-section__header">
-      <%= form_with url: plan_attachments_path(plan), method: :post, multipart: true,
-            class: "attachments-dropzone",
-            data: {
-              controller: "coplan--dropzone",
-              action: "dragover->coplan--dropzone#dragOver dragleave->coplan--dropzone#dragLeave drop->coplan--dropzone#drop"
-            } do |f| %>
-        <label class="attachments-dropzone__inner">
-          <span class="attachments-dropzone__icon" aria-hidden="true">🖇️</span>
-          <span class="attachments-dropzone__text" data-coplan--dropzone-target="text">
-            <strong>Drag &amp; drop files here</strong> or <span class="attachments-dropzone__browse">browse</span>
-          </span>
-          <span class="attachments-dropzone__hint">
-            Up to <%= CoPlan::Plan::ATTACHMENT_MAX_BYTES / 1.megabyte %> MB per file ·
-            images, PDF, text/markdown/CSV/JSON, and ZIP
-          </span>
-          <%= f.file_field :files, multiple: true, name: "files[]", class: "attachments-dropzone__input",
+  <%# The visible "+" lives in the footnote-section header; only the modal
+      is rendered here. %>
+  <% if can_add %>
+    <%= render layout: "coplan/shared/add_modal", locals: { id: "add-attachment-modal", title: "Add files" } do %>
+        <%# One designed dropzone instead of the native file input: click to
+            browse or drag files on; choosing files uploads immediately (the
+            upload redirect reloads the page, which closes the lightbox). %>
+        <%= form_with url: plan_attachments_path(plan), method: :post, multipart: true,
+              class: "attachments-upload", data: { controller: "coplan--dropzone" } do |f| %>
+          <button type="button" class="dropzone" data-coplan--dropzone-target="zone"
+                  data-action="click->coplan--dropzone#open dragover->coplan--dropzone#dragOver dragleave->coplan--dropzone#dragLeave drop->coplan--dropzone#drop">
+            <svg class="dropzone__icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+            <span class="dropzone__title" data-coplan--dropzone-target="label">Drop files here, or click to browse</span>
+            <span class="dropzone__hint">Images, PDF, text, markdown, CSV, JSON, ZIP · up to <%= CoPlan::Plan::ATTACHMENT_MAX_BYTES / 1.megabyte %> MB each</span>
+          </button>
+          <%= f.file_field :files, multiple: true, name: "files[]", class: "dropzone__input",
                 accept: CoPlan::Plan::ATTACHMENT_CONTENT_TYPES.join(","),
                 data: { "coplan--dropzone-target": "input", action: "change->coplan--dropzone#changed" } %>
-        </label>
-      <% end %>
-    </div>
+        <% end %>
+    <% end %>
   <% end %>
 
   <% if attachments.any? %>
@@ -59,10 +58,10 @@
                 data-coplan--clipboard-text-value="<%= attachment_markdown_snippet(blob, blob_path) %>">
             <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--clipboard#copy"
                     data-coplan--clipboard-target="button" title="Copy markdown to embed this file in the plan">
-              📋 Markdown
+              Copy markdown
             </button>
           </span>
-          <% if can_edit %>
+          <% if can_remove %>
             <%= button_to "✕", plan_attachment_path(plan, attachment), method: :delete, class: "attachments-list__remove", title: "Delete attachment", data: { turbo_confirm: "Delete #{blob.filename}?" } %>
           <% end %>
         </li>
@@ -70,7 +69,7 @@
     </ul>
   <% else %>
     <div class="empty-state">
-      <p>No attachments yet.<% if can_edit %> Upload files to share diagrams, screenshots, or documents alongside the plan.<% end %></p>
+      <p>No attachments yet.<% if can_add %> Upload files to share diagrams, screenshots, or documents alongside the plan.<% end %></p>
     </div>
   <% end %>
 </div>

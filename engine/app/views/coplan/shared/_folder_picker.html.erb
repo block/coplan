@@ -1,0 +1,28 @@
+<%# The shared "save to library" navigator popover. Expects `folders`: the
+    viewer's folders as a flat list; the tree is rebuilt here so any page
+    (plan header, workspace rows) can render the picker from what it already
+    loaded. Open it via coplan--folder-picker#open on a trigger carrying
+    data-move-url / data-current-folder-id / data-saved / data-plan-title —
+    saved triggers unbookmark on click instead of opening this popover. %>
+<% children_by_parent = folders.group_by(&:parent_id) %>
+<div id="folder-picker-modal" popover="auto" class="add-modal folder-picker"
+     data-coplan--folder-picker-target="modal" aria-labelledby="folder-picker-title">
+  <div class="add-modal__header">
+    <h3 class="add-modal__title" id="folder-picker-title">Save to library</h3>
+    <button type="button" class="add-modal__close" popovertarget="folder-picker-modal" popovertargetaction="hide" aria-label="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+  </div>
+  <div class="add-modal__body">
+    <p class="folder-picker__plan text-sm text-muted" data-coplan--folder-picker-target="title"></p>
+    <% if folders.any? %>
+      <ul class="folder-picker__tree" role="listbox" aria-label="Your folders">
+        <% (children_by_parent[nil] || []).sort_by { |f| f.name.downcase }.each do |folder| %>
+          <%= render "coplan/shared/folder_picker_node", folder: folder, children_by_parent: children_by_parent %>
+        <% end %>
+      </ul>
+    <% else %>
+      <p class="text-sm text-muted">No folders yet — create one from your workspace to start organizing.</p>
+    <% end %>
+  </div>
+</div>

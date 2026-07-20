@@ -1,0 +1,60 @@
+<% content_for(:title, "Feed — CoPlan") %>
+
+<div class="home">
+  <header class="home__header">
+    <h1 class="home__title">Feed</h1>
+  </header>
+
+  <% if @items.empty? %>
+    <div class="home__empty">
+      <p>No published activity in the last two weeks.</p>
+      <p class="text-muted text-sm">When someone publishes, edits, or discusses a plan, it shows up here.</p>
+    </div>
+  <% else %>
+    <% @items_by_date.each do |date, items| %>
+      <section class="home__day">
+        <h2 class="home__day-heading">
+          <% if date == Date.current %>Today
+          <% elsif date == Date.current - 1 %>Yesterday
+          <% else %><%= date.strftime("%A, %B %-d") %><% end %>
+        </h2>
+        <ul class="home__feed">
+          <% items.each do |item| %>
+            <% plan = item.plan %>
+            <li class="home__item">
+              <span class="home__item-avatar">
+                <%= link_to user_avatar(plan.created_by_user, size: "md"), profile_path_for(plan.created_by_user), title: plan.created_by_user.name %>
+              </span>
+              <div class="home__item-body">
+                <div class="home__item-line">
+                  <%= plan_type_icon(plan, size: :sm) %>
+                  <%= link_to plan.title, plan_path(plan), class: "home__item-title" %>
+                  <% if item.summary_parts.any? %>
+                    <span class="home__item-activity">
+                      <% if item.published %>
+                        <%# Only the word "new" gets the accent — the rest of
+                            the rollup stays quiet. %>
+                        <span class="home__item-activity--new">new</span><%= " · #{item.summary_parts.drop(1).join(" · ")}" if item.summary_parts.size > 1 %>
+                      <% else %>
+                        <%= item.summary_parts.join(" · ") %>
+                      <% end %>
+                    </span>
+                  <% end %>
+                </div>
+                <div class="home__item-meta text-muted">
+                  by <%= profile_link(plan.created_by_user) %>
+                  <% plan.tags.first(3).each do |tag| %>
+                    <%= link_to "##{tag.name}", plans_path(scope: "all", tag: tag.name), class: "home__item-tag" %>
+                  <% end %>
+                </div>
+              </div>
+              <span class="home__item-time text-muted" title="<%= item.last_activity_at %>">
+                <%= time_ago_in_words(item.last_activity_at) %> ago
+              </span>
+            </li>
+          <% end %>
+        </ul>
+      </section>
+    <% end %>
+  <% end %>
+</div>

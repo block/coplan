@@ -20,48 +20,49 @@ RSpec.describe "Plan references", type: :system do
     expect(page).to have_current_path(root_path)
   end
 
-  describe "Stimulus tab switching" do
-    it "toggles panel visibility and updates URL via replaceState" do
+  # References live under the document as a footnote section — same page as
+  # the content, no tabs.
+  def open_add_reference_modal
+    within("#footnote-references .plan-footnote__header") { find(".section-add").click }
+  end
+
+  describe "footnote section" do
+    it "shows content and references on one page" do
       visit plan_path(plan)
 
-      # Content visible, references hidden (display:none)
       expect(page).to have_content("Some content here")
-      expect(page).not_to have_content("No references yet")
-
-      click_link "References"
-
-      # JS toggles the hidden class — no page reload
       expect(page).to have_content("No references yet")
-      expect(page).not_to have_content("Some content here")
-
-      # Stimulus controller pushes ?tab=references via replaceState
-      uri = URI.parse(current_url)
-      expect(Rack::Utils.parse_query(uri.query)).to include("tab" => "references")
-
-      click_link "Content"
-
-      # Tab param removed for default tab
-      uri = URI.parse(current_url)
-      expect(uri.query.to_s).not_to include("tab=")
-
-      # Content restored
-      expect(page).to have_content("Some content here")
-      expect(page).not_to have_content("No references yet")
+      expect(page).to have_css("#footnote-references .plan-footnote__title", text: /references/i)
     end
   end
 
   describe "adding references via Turbo Stream" do
-    it "appends reference to the DOM without navigating away from the tab" do
-      visit plan_path(plan, tab: "references")
+    it "closes the add-modal via the X button and via Escape" do
+      visit plan_path(plan)
 
-      # Open the <details> form
-      find("summary", text: "+ Add Reference").click
-      expect(page).to have_css("details[open]")
+      open_add_reference_modal
+      expect(page).to have_css(".add-modal:popover-open")
+      within(".add-modal:popover-open") { find(".add-modal__close").click }
+      expect(page).not_to have_css(".add-modal:popover-open")
 
-      fill_in "reference[url]", with: "https://github.com/org/repo"
-      fill_in "reference[title]", with: "My Repo"
-      fill_in "reference[key]", with: "my-repo"
-      click_button "Add"
+      open_add_reference_modal
+      expect(page).to have_css(".add-modal:popover-open")
+      find("body").send_keys(:escape)
+      expect(page).not_to have_css(".add-modal:popover-open")
+    end
+
+    it "appends the reference to the DOM without a navigation" do
+      visit plan_path(plan)
+
+      open_add_reference_modal
+      expect(page).to have_css(".add-modal:popover-open")
+
+      within(".add-modal:popover-open") do
+        fill_in "reference[url]", with: "https://github.com/org/repo"
+        fill_in "reference[title]", with: "My Repo"
+        fill_in "reference[key]", with: "my-repo"
+        click_button "Add reference"
+      end
 
       # Turbo Stream replaces the list — reference appears without navigation
       expect(page).to have_link("My Repo", href: "https://github.com/org/repo")
@@ -70,28 +71,30 @@ RSpec.describe "Plan references", type: :system do
       # Count span updated in-place via Turbo Stream (separate stream target)
       expect(page).to have_css("#references-count", text: "1")
 
-      # Still on references tab — Turbo Stream didn't cause a Turbo visit
-      # (content tab remains hidden, references tab content is visible)
-      expect(page).not_to have_content("Some content here")
-      expect(page).to have_content("My Repo")
+      # The document is still right there — same page, no tabs.
+      expect(page).to have_content("Some content here")
     end
 
     it "supports sequential adds with form re-expansion" do
-      visit plan_path(plan, tab: "references")
+      visit plan_path(plan)
 
-      find("summary", text: "+ Add Reference").click
-      fill_in "reference[url]", with: "https://github.com/org/repo"
-      fill_in "reference[title]", with: "Repo One"
-      click_button "Add"
+      open_add_reference_modal
+      within(".add-modal:popover-open") do
+        fill_in "reference[url]", with: "https://github.com/org/repo"
+        fill_in "reference[title]", with: "Repo One"
+        click_button "Add reference"
+      end
       expect(page).to have_content("Repo One")
       expect(page).to have_css("#references-count", text: "1")
 
-      # After Turbo Stream replaces the partial, <details> is collapsed;
-      # user must be able to re-expand and add another
-      find("summary", text: "+ Add Reference").click
-      fill_in "reference[url]", with: "https://github.com/org/other"
-      fill_in "reference[title]", with: "Repo Two"
-      click_button "Add"
+      # The Turbo Stream replace swaps out the whole section — including the
+      # lightbox, which closes it; user must be able to reopen and add another
+      open_add_reference_modal
+      within(".add-modal:popover-open") do
+        fill_in "reference[url]", with: "https://github.com/org/other"
+        fill_in "reference[title]", with: "Repo Two"
+        click_button "Add reference"
+      end
 
       expect(page).to have_content("Repo One")
       expect(page).to have_content("Repo Two")
@@ -103,13 +106,14 @@ RSpec.describe "Plan references", type: :system do
     it "removes reference from DOM with confirm dialog" do
       create(:reference, plan: plan, url: "https://example.com", title: "Doomed", source: "explicit")
 
-      visit plan_path(plan, tab: "references")
+      visit plan_path(plan)
       expect(page).to have_content("Doomed")
       expect(page).to have_css("#references-count", text: "1")
 
-      # data-turbo-confirm triggers a browser confirm dialog
+      # data-turbo-confirm triggers a browser confirm dialog. Scoped: the
+      # TOC's hide button is also a "✕" now that everything shares a page.
       accept_confirm("Remove this reference?") do
-        click_button "✕"
+        within("#plan-references") { click_button "✕" }
       end
 
       # Turbo Stream removes the reference and updates count
@@ -119,26 +123,17 @@ RSpec.describe "Plan references", type: :system do
     end
   end
 
-  describe "tab count updates across tab switches" do
-    it "updates the references count badge visible in the tab nav" do
+  describe "section keyboard jumps" do
+    it "jumps to the references footnote with ] and back up with [" do
       visit plan_path(plan)
 
-      # Count starts at 0
-      expect(page).to have_css("#references-count", text: "0")
-
-      # Switch to references, add one
-      click_link "References"
-      find("summary", text: "+ Add Reference").click
-      fill_in "reference[url]", with: "https://github.com/org/repo"
-      fill_in "reference[title]", with: "My Repo"
-      click_button "Add"
-
-      # Count updated via Turbo Stream — visible even in the tab nav
-      expect(page).to have_css("#references-count", text: "1")
-
-      # Switch back to content — count persists (it's outside the panels)
-      click_link "Content"
-      expect(page).to have_css("#references-count", text: "1")
+      find("body").send_keys("]")
+      expect(page).to have_css("#footnote-references", visible: :visible)
+      # The references section scrolled into view.
+      in_view = page.evaluate_script(
+        "document.querySelector('#footnote-references').getBoundingClientRect().top < window.innerHeight"
+      )
+      expect(in_view).to be(true)
     end
   end
 end

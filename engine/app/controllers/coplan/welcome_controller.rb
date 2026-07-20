@@ -2,8 +2,8 @@ module CoPlan
   # Renders the public landing page (mounted at "/welcome" and at "/").
   #
   # Behavior at "/" (root):
-  # * Signed-in users who already have at least one plan are redirected to the
-  #   plans index — they know what CoPlan is and don't need the intro.
+  # * Signed-in users who already have at least one plan are redirected to
+  #   their Workspace — that's home base; the Feed is a nav click away.
   # * Everyone else (signed-in users with no plans yet, or anyone hitting the
   #   page anonymously) sees the landing partial configured via
   #   `CoPlan.configuration.landing_page_partial`.

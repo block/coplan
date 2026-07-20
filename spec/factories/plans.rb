@@ -2,7 +2,7 @@ FactoryBot.define do
   factory :plan, class: "CoPlan::Plan" do
     created_by_user { association(:coplan_user) }
     sequence(:title) { |n| "Plan #{n}" }
-    status { "brainstorm" }
+    visibility { "draft" }
     tags { [] }
     metadata { {} }
 
@@ -13,24 +13,41 @@ FactoryBot.define do
       end
     end
 
-    trait :considering do
-      status { "considering" }
+    trait :draft do
+      visibility { "draft" }
     end
 
+    trait :published do
+      visibility { "published" }
+    end
+
+    trait :archived do
+      visibility { "published" }
+      archived_at { Time.current }
+    end
+
+    # Legacy status traits, mapped onto visibility/archived so the many
+    # existing specs that build lifecycle-era plans keep working. New specs
+    # should use :draft / :published / :archived directly.
     trait :brainstorm do
-      status { "brainstorm" }
+      visibility { "draft" }
+    end
+
+    trait :considering do
+      visibility { "published" }
     end
 
     trait :developing do
-      status { "developing" }
+      visibility { "published" }
     end
 
     trait :live do
-      status { "live" }
+      visibility { "published" }
     end
 
     trait :abandoned do
-      status { "abandoned" }
+      visibility { "published" }
+      archived_at { Time.current }
     end
   end
 end

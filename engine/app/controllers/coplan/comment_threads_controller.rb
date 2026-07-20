@@ -12,24 +12,32 @@ module CoPlan
       # non-author comments start as "pending" (awaiting author triage).
       initial_status = current_user.id == @plan.created_by_user_id ? "todo" : "pending"
 
+      thread_params = params.expect(
+        comment_thread: [ :anchor_text, :anchor_context, :anchor_occurrence,
+                          :start_line, :end_line, :body_markdown ]
+      )
       thread = @plan.comment_threads.new(
         plan_version: @plan.current_plan_version,
-        anchor_text: params[:comment_thread][:anchor_text].presence,
-        anchor_context: params[:comment_thread][:anchor_context].presence,
-        anchor_occurrence: params[:comment_thread][:anchor_occurrence].presence&.to_i,
-        start_line: params[:comment_thread][:start_line].presence,
-        end_line: params[:comment_thread][:end_line].presence,
+        anchor_text: thread_params[:anchor_text].presence,
+        anchor_context: thread_params[:anchor_context].presence,
+        anchor_occurrence: thread_params[:anchor_occurrence].presence&.to_i,
+        start_line: thread_params[:start_line].presence,
+        end_line: thread_params[:end_line].presence,
         created_by_user: current_user,
         status: initial_status
       )
 
-      thread.save!
-
-      comment = thread.comments.create!(
-        author_type: "human",
-        author_id: current_user.id,
-        body_markdown: params[:comment_thread][:body_markdown]
-      )
+      # Atomic: a thread without its first comment is an empty orphan whose
+      # anchor still highlights.
+      comment = nil
+      ActiveRecord::Base.transaction do
+        thread.save!
+        comment = thread.comments.create!(
+          author_type: "human",
+          author_id: current_user.id,
+          body_markdown: thread_params[:body_markdown]
+        )
+      end
 
       CreateNotificationsJob.perform_later(
         comment_thread_id: thread.id,

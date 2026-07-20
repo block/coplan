@@ -1,87 +1,128 @@
-<aside class="workspace__sidebar" aria-label="Plan filters">
-  <div class="sidebar__section">
-    <h3 class="sidebar__heading">Folders</h3>
-    <ul class="folder-tree">
-      <li class="folder-tree__node">
-        <%= link_to plans_path(params.permit(:scope, :status, :plan_type, :tag)),
-              class: "folder-tree__link #{'folder-tree__link--active' unless @folder}",
-              data: {
-                "coplan--folder-dnd-target": "folder",
-                folder_id: "",
-                action: "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",
-              } do %>
-          <span class="folder-tree__name">All plans</span>
-        <% end %>
-      </li>
-      <% @root_folders.each do |folder| %>
-        <%= render "coplan/plans/folder_node", folder: folder %>
-      <% end %>
-    </ul>
+<aside class="workspace__sidebar" aria-label="Plan filters"
+       data-controller="coplan--sidebar-toggle">
+  <%# Mobile: the sidebar collapses into this bar; ≥768px the button hides
+      and the sections are always shown. %>
+  <button type="button" class="workspace__sidebar-toggle"
+          data-coplan--sidebar-toggle-target="button"
+          data-action="coplan--sidebar-toggle#toggle" aria-expanded="false"
+          aria-controls="workspace-sidebar-sections">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+    Filters &amp; folders
+    <svg class="workspace__sidebar-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+  </button>
 
-    <% if @folders.empty? %>
-      <p class="sidebar__hint text-muted text-sm">
-        Folders keep related plans together — like a team folder with project subfolders.
-      </p>
+  <div class="workspace__sidebar-sections" id="workspace-sidebar-sections"
+       data-coplan--sidebar-toggle-target="sections">
+    <% visible_types = (@plan_types || []).select { |pt| @type_counts[pt.id].to_i.positive? || params[:plan_type] == pt.id } %>
+    <% if visible_types.any? %>
+      <div class="sidebar__section">
+        <h3 class="sidebar__heading">Types</h3>
+        <ul class="sidebar__list">
+          <% visible_types.each do |pt| %>
+            <li>
+              <%= link_to workspace_path(plan_type: params[:plan_type] == pt.id ? nil : pt.id),
+                    class: "sidebar__item #{'sidebar__item--active' if params[:plan_type] == pt.id}" do %>
+                <span class="sidebar__item-label"><%= pt.name %></span>
+                <span class="sidebar__count"><%= @type_counts[pt.id].to_i %></span>
+              <% end %>
+            </li>
+          <% end %>
+        </ul>
+      </div>
     <% end %>
 
-    <details class="sidebar__new-folder">
-      <summary class="sidebar__new-folder-toggle">+ New folder</summary>
-      <%= form_with url: folders_path, scope: :folder, method: :post, class: "sidebar__new-folder-form" do |f| %>
-        <%= f.text_field :name, placeholder: "Folder name", required: true, maxlength: 100, class: "sidebar__new-folder-input" %>
-        <% parent_options = folder_select_options.reject { |_path, _id, depth| depth >= CoPlan::Folder::MAX_DEPTH } %>
-        <% if parent_options.any? %>
-          <%= f.select :parent_id,
-                options_for_select([["Top level", ""]] + parent_options.map { |path, id, _| [path, id] }),
-                {}, class: "sidebar__new-folder-select", aria: { label: "Parent folder" } %>
-        <% end %>
-        <%= f.submit "Create", class: "btn btn--sm" %>
+    <div class="sidebar__section">
+      <%# The folder tree IS your library; its public face lives on your
+          profile, so there's no separate page to link to. %>
+      <h3 class="sidebar__heading">Folders</h3>
+      <%# "My Plans" is the root of your library; every folder is its child,
+          the way a drive hangs everything off one root. (One day a "+" up
+          on the heading will add more libraries next to it.) %>
+      <ul class="folder-tree folder-tree--rooted">
+        <li class="folder-tree__node folder-tree__node--root">
+          <%= link_to workspace_path(folder: nil),
+                class: "folder-tree__link folder-tree__link--root #{'folder-tree__link--active' unless @folder}",
+                data: {
+                  folder_id: "",
+                  action: "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",
+                } do %>
+            <span class="folder-tree__name">My Plans</span>
+          <% end %>
+          <% if @root_folders.any? %>
+            <ul class="folder-tree folder-tree--nested">
+              <% @root_folders.each do |folder| %>
+                <%= render "coplan/plans/folder_node", folder: folder %>
+              <% end %>
+            </ul>
+          <% end %>
+        </li>
+      </ul>
+
+      <% if @folders.empty? %>
+        <p class="sidebar__hint text-muted text-sm">
+          Folders keep related plans together — like a team folder with project subfolders. Create one with “New folder” above your plans.
+        </p>
       <% end %>
-    </details>
-  </div>
+    </div>
 
-  <% if @top_tags.present? %>
+    <% if @top_tags.present? %>
+      <div class="sidebar__section">
+        <h3 class="sidebar__heading">Tags</h3>
+        <ul class="sidebar__list">
+          <% @top_tags.each do |name, count| %>
+            <li>
+              <%= link_to workspace_path(tag: params[:tag] == name ? nil : name),
+                    class: "sidebar__item #{'sidebar__item--active' if params[:tag] == name}" do %>
+                <span class="sidebar__item-label">#<%= name %></span>
+                <span class="sidebar__count"><%= count %></span>
+              <% end %>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <%# Same rule as tags/types: count = what clicking shows given the other
+        active filters; zero-count windows drop out (unless active, so the
+        filter can still be cleared). %>
+    <% visible_windows = [["7d", "Last 7 days"], ["30d", "Last 30 days"]]
+         .select { |w, _| @updated_counts[w].to_i.positive? || @updated_window == w } %>
+    <% if visible_windows.any? %>
+      <div class="sidebar__section">
+        <h3 class="sidebar__heading">Updated</h3>
+        <ul class="sidebar__list">
+          <% visible_windows.each do |window, label| %>
+            <li>
+              <%= link_to workspace_path(updated: @updated_window == window ? nil : window),
+                    class: "sidebar__item #{'sidebar__item--active' if @updated_window == window}" do %>
+                <span class="sidebar__item-label"><%= label %></span>
+                <span class="sidebar__count"><%= @updated_counts[window].to_i %></span>
+              <% end %>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
     <div class="sidebar__section">
-      <h3 class="sidebar__heading">Tags</h3>
+      <%# No org-wide browsing here — the workspace is *your* stuff. Everyone
+          else's work is discovered via Home, search, and people's profiles
+          (?scope=all still works as a link target, e.g. from Home's tags). %>
+      <h3 class="sidebar__heading">Hidden</h3>
       <ul class="sidebar__list">
-        <% @top_tags.each do |name, count| %>
-          <li>
-            <%= link_to plans_path(params.permit(:scope, :status, :plan_type, :folder).merge(tag: params[:tag] == name ? nil : name)),
-                  class: "sidebar__item #{'sidebar__item--active' if params[:tag] == name}" do %>
-              <span class="sidebar__item-label">#<%= name %></span>
-              <span class="sidebar__count"><%= count %></span>
-            <% end %>
-          </li>
-        <% end %>
+        <li>
+          <%# "Private" is visibility, not workflow: not shared with the org,
+              still readable by link. Stored as visibility=draft. %>
+          <%= link_to "Private", workspace_path(filter: @filter == "draft" ? nil : "private"),
+                class: "sidebar__item #{'sidebar__item--active' if @filter == 'draft'}" %>
+        </li>
+        <li>
+          <%# Archived plans are hidden everywhere else — this is the explicit
+              opt-in view. %>
+          <%= link_to "Archived", workspace_path(filter: @filter == "archived" ? nil : "archived"),
+                class: "sidebar__item sidebar__item--archived #{'sidebar__item--active' if @filter == 'archived'}" %>
+        </li>
       </ul>
     </div>
-  <% end %>
-
-  <div class="sidebar__section">
-    <h3 class="sidebar__heading">Filters</h3>
-    <ul class="sidebar__list">
-      <li>
-        <%= link_to "My plans", plans_path(params.permit(:status, :plan_type, :tag, :folder)),
-              class: "sidebar__item #{'sidebar__item--active' if @scope == 'mine'}" %>
-      </li>
-      <li>
-        <%= link_to "All plans", plans_path(params.permit(:status, :plan_type, :tag, :folder).merge(scope: "all")),
-              class: "sidebar__item #{'sidebar__item--active' if @scope == 'all'}" %>
-      </li>
-    </ul>
   </div>
-
-  <% if @plan_types.present? %>
-    <div class="sidebar__section">
-      <h3 class="sidebar__heading">Types</h3>
-      <ul class="sidebar__list">
-        <% @plan_types.each do |pt| %>
-          <li>
-            <%= link_to pt.name,
-                  plans_path(params.permit(:scope, :status, :tag, :folder).merge(plan_type: params[:plan_type] == pt.id ? nil : pt.id)),
-                  class: "sidebar__item #{'sidebar__item--active' if params[:plan_type] == pt.id}" %>
-          </li>
-        <% end %>
-      </ul>
-    </div>
-  <% end %>
 </aside>

@@ -15,7 +15,13 @@ module CoPlan
     # be rendered uniformly.
     ACTOR_TYPES = %w[human local_agent cloud_persona system].freeze
 
+    # status_changed is retired (no new writes) but stays valid so
+    # pre-visibility historical rows keep rendering.
     EVENT_TYPES = %w[
+      published
+      hidden
+      archived
+      unarchived
       status_changed
       title_changed
       plan_type_changed
@@ -71,7 +77,7 @@ module CoPlan
       Broadcaster.replace_to(
         plan,
         target: "history-count",
-        html: ApplicationController.helpers.content_tag(:span, count, class: "plan-tabs__count", id: "history-count")
+        html: ApplicationController.helpers.content_tag(:span, count, class: "section-count", id: "history-count")
       )
     end
   end

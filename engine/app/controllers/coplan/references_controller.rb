@@ -3,9 +3,12 @@ module CoPlan
     before_action :set_plan
 
     def create
-      authorize!(@plan, :update?)
+      # Anyone signed in can contribute a reference (like a comment);
+      # removal stays with the author.
+      authorize!(@plan, :contribute?)
 
-      url = params[:reference][:url]
+      reference_params = params.expect(reference: [ :url, :key, :title ])
+      url = reference_params[:url]
       ref_type = Reference.classify_url(url)
       target_plan_id = nil
       if ref_type == "plan"
@@ -16,8 +19,8 @@ module CoPlan
       ref = @plan.references.find_or_initialize_by(url: url)
       was_new = ref.new_record?
       ref.assign_attributes(
-        key: params[:reference][:key].presence || ref.key,
-        title: params[:reference][:title].presence || ref.title,
+        key: reference_params[:key].presence || ref.key,
+        title: reference_params[:title].presence || ref.title,
         reference_type: ref_type,
         source: "explicit",
         target_plan_id: target_plan_id
@@ -36,12 +39,12 @@ module CoPlan
 
       respond_to do |format|
         format.turbo_stream { render_references_stream }
-        format.html { redirect_to plan_path(@plan, tab: "references"), notice: "Reference added." }
+        format.html { redirect_to plan_path(@plan, anchor: "footnote-references"), notice: "Reference added." }
       end
     rescue ActiveRecord::RecordInvalid => e
       respond_to do |format|
         format.turbo_stream { render_references_stream }
-        format.html { redirect_to plan_path(@plan, tab: "references"), alert: e.message }
+        format.html { redirect_to plan_path(@plan, anchor: "footnote-references"), alert: e.message }
       end
     end
 
@@ -64,7 +67,7 @@ module CoPlan
 
       respond_to do |format|
         format.turbo_stream { render_references_stream }
-        format.html { redirect_to plan_path(@plan, tab: "references"), notice: "Reference removed." }
+        format.html { redirect_to plan_path(@plan, anchor: "footnote-references"), notice: "Reference removed." }
       end
     end
 
@@ -84,7 +87,7 @@ module CoPlan
         ),
         turbo_stream.replace(
           "references-count",
-          html: helpers.content_tag(:span, references.size, class: "plan-tabs__count", id: "references-count")
+          html: helpers.content_tag(:span, references.size, class: "section-count", id: "references-count")
         )
       ]
     end

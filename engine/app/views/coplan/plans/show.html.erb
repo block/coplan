@@ -11,118 +11,165 @@
 
 <%= turbo_stream_from @plan %>
 
-<div data-controller="coplan--status-menu">
-  <div data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>">
-    <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
-  </div>
+<%# plan-keys: Backspace goes back to wherever you came from; [ / ] jump
+    between the document and its footnote sections. %>
+<div data-controller="coplan--plan-keys coplan--folder-picker"
+     data-coplan--plan-keys-fallback-url-value="<%= plans_path %>">
 
-  <%# Owner affordances live outside the broadcast-replaced #plan-header so
-      they can be policy-gated server-side (broadcast renders have no
-      current_user). The status menu opens from the header's status badge —
-      see status_menu_controller.js. %>
-  <% if allowed_to?(@plan, :update_status?) %>
-    <div class="dropdown__menu" data-coplan--status-menu-target="menu" style="display: none;">
-      <% CoPlan::Plan::STATUSES.each do |status| %>
-        <% next if status == @plan.status %>
-        <%= button_to update_status_plan_path(@plan, status: status),
-              method: :patch,
-              class: "dropdown__item",
-              form: (status_publishes?(@plan, status) ? { data: { turbo_confirm: "Moving to “#{status}” publishes this plan to everyone in the org. Continue?" } } : {}) do %>
-          <span class="badge badge--<%= status %>"><%= status %></span>
-          <span class="plan-actions__hint"><%= plan_status_hint(status) %></span>
-        <% end %>
-      <% end %>
-    </div>
-  <% end %>
-  <% if allowed_to?(@plan, :edit_content?) %>
-    <div class="plan-actions">
-      <%= link_to edit_content_plan_path(@plan), class: "btn btn--secondary btn--sm" do %>✏️ Edit content<% end %>
-      <%= link_to edit_plan_path(@plan), class: "btn btn--secondary btn--sm" do %>Title &amp; tags<% end %>
-    </div>
-  <% end %>
+<div data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
+  <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
 </div>
 
-<% active_tab = %w[references attachments history].include?(params[:tab]) ? params[:tab] : "content" %>
-<div class="plan-tabs" data-controller="coplan--tabs">
-  <div class="plan-tabs__nav">
-    <a href="#tab-content" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'content' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="content">📄 Content</a>
-    <a href="#tab-references" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'references' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="references">📎 References <span class="plan-tabs__count" id="references-count"><%= @references.size %></span></a>
-    <a href="#tab-attachments" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'attachments' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="attachments">🖇️ Attachments <span class="plan-tabs__count" id="attachments-count"><%= @attachments.size %></span></a>
-    <a href="#tab-history" class="plan-tabs__tab<%= ' plan-tabs__tab--active' if active_tab == 'history' %>" data-coplan--tabs-target="tab" data-action="coplan--tabs#switch" data-tab-name="history">📜 History <span class="plan-tabs__count" id="history-count"><%= @plan.plan_versions.count + @plan.plan_events.count %></span></a>
-  </div>
-
-  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'content' %>" id="tab-content" data-coplan--tabs-target="panel">
-    <% if @plan.current_content.present? %>
-      <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox" data-coplan--text-selection-plan-id-value="<%= @plan.id %>" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss" data-coplan--checkbox-plan-id-value="<%= @plan.id %>" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>">
-        <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
-          <div class="content-nav__header">
-            <span class="content-nav__title">Contents</span>
-            <button type="button" class="content-nav__toggle" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="toggleBtn" aria-label="Hide table of contents" title="Toggle (])">✕</button>
-          </div>
-          <ul class="content-nav__list" data-coplan--content-nav-target="list"></ul>
-        </nav>
-        <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (])">☰ <kbd>]</kbd></button>
-
-        <div class="plan-layout__content" data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-action="coplan:mermaid-settled->coplan--text-selection#handleMermaidSettled">
-          <div id="plan-content-body"
-               data-controller="coplan--live-update"
-               data-coplan--live-update-revision-value="<%= @plan.current_revision %>">
-            <%= render partial: "coplan/plans/content_body", locals: { plan: @plan } %>
-          </div>
-
-          <div class="comment-popover" data-coplan--text-selection-target="popover" style="display: none;">
-            <button type="button" class="btn btn--primary btn--sm" data-action="coplan--text-selection#openCommentForm">
-              💬 Comment
-            </button>
-          </div>
-
-          <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
-        </div>
-
-        <div id="plan-threads" data-coplan--text-selection-target="threads"
-             data-controller="coplan--viewer-role"
-             data-coplan--viewer-role-viewer-id-value="<%= current_user&.id %>">
-          <% @threads.select(&:anchored?).each do |thread| %>
-            <%= render partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: @plan } %>
-          <% end %>
-        </div>
-      </div>
-    <% else %>
-      <div class="empty-state">
-        <p>This plan has no content yet.</p>
-      </div>
+<%# Owner affordances live outside the broadcast-replaced #plan-header so
+    they can be policy-gated server-side (broadcast renders have no
+    current_user). %>
+<% if @plan.archived? %>
+  <div class="plan-banner plan-banner--archived">
+    <span class="plan-banner__text">This plan is archived — it stays readable at this URL but is hidden from lists and search results.</span>
+    <% if allowed_to?(@plan, :unarchive?) %>
+      <%= button_to "Restore", unarchive_plan_path(@plan), method: :patch, class: "btn btn--secondary btn--sm" %>
     <% end %>
   </div>
-
-  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'references' %>" id="tab-references" data-coplan--tabs-target="panel">
-    <%= render partial: "coplan/plans/references", locals: { references: @references, plan: @plan } %>
-  </div>
-
-  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'attachments' %>" id="tab-attachments" data-coplan--tabs-target="panel">
-    <%= render partial: "coplan/plans/attachments", locals: { attachments: @attachments, plan: @plan } %>
-  </div>
-
-  <div class="plan-tabs__panel card<%= ' plan-tabs__panel--hidden' unless active_tab == 'history' %>" id="tab-history" data-coplan--tabs-target="panel">
-    <turbo-frame id="plan-history-frame" src="<%= history_plan_path(@plan) %>" loading="lazy">
-      <div class="history-split__placeholder">
-        <p class="text-muted">Loading…</p>
-      </div>
-    </turbo-frame>
+<% end %>
+<%# One compact row: where the plan is filed (left) and what you can do to
+    it (right). Lives outside the broadcast-replaced #plan-header — both
+    sides are viewer-relative / policy-gated (broadcast renders have no
+    current_user). %>
+<div class="plan-meta-row">
+  <%= render partial: "coplan/plans/shelves", locals: { plan: @plan, placements: @shelf_placements, my_folders: @my_folders } %>
+  <div class="plan-actions">
+    <% if allowed_to?(@plan, :publish?) || allowed_to?(@plan, :hide?) %>
+      <%# The visibility eye: open eye = shared with everyone, slashed = Private.
+          First click previews the flip; the second click commits it — no
+          dialog, no reload (the broadcast header picks up the state flag). %>
+      <button type="button"
+              class="btn btn--ghost btn--sm btn--icon visibility-toggle<%= " visibility-toggle--hidden" if @plan.draft? %>"
+              data-controller="coplan--visibility-toggle"
+              data-coplan--visibility-toggle-target="button"
+              data-action="coplan--visibility-toggle#click"
+              data-coplan--visibility-toggle-hidden-value="<%= @plan.draft? %>"
+              data-coplan--visibility-toggle-publish-url-value="<%= publish_plan_path(@plan) %>"
+              data-coplan--visibility-toggle-hide-url-value="<%= hide_plan_path(@plan) %>"
+              title="<%= @plan.draft? ? "Private — click to share with everyone" : "Shared with everyone — click to make it private" %>"
+              aria-label="Toggle plan visibility">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/><line class="visibility-toggle__slash" x1="3" y1="3" x2="21" y2="21"/></svg>
+      </button>
+    <% end %>
+    <%# One pen: the editor handles content, title, and tags together. %>
+    <% if allowed_to?(@plan, :edit_content?) %>
+      <%= link_to edit_content_plan_path(@plan), class: "btn btn--secondary btn--sm btn--icon",
+            title: "Edit this plan — content, title, and tags", aria: { label: "Edit plan" } do %>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>
+      <% end %>
+    <% end %>
+    <% if allowed_to?(@plan, :archive?) %>
+      <%= button_to archive_plan_path(@plan), method: :patch,
+            class: "btn btn--ghost btn--sm btn--icon", title: "Archive this plan",
+            aria: { label: "Archive plan" }, form_class: "plan-actions__archive" do %>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+      <% end %>
+    <% end %>
+    <%# History is its own page — the time machine, one Backspace away. %>
+    <%= link_to history_plan_path(@plan), class: "btn btn--ghost btn--sm btn--icon",
+          title: "History — every version and change", aria: { label: "Plan history" } do %>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+    <% end %>
   </div>
 </div>
 
-<% open_count = @threads.count(&:open?) %>
-<% if @threads.any? %>
-  <div class="comment-toolbar" data-controller="coplan--comment-nav" data-coplan--comment-nav-plan-id-value="<%= @plan.id %>" data-action="coplan:anchors-updated@document->coplan--comment-nav#handleAnchorsUpdated">
-    <span class="comment-toolbar__count">💬 <%= open_count %> open</span>
-    <div class="comment-toolbar__nav">
-      <button class="btn btn--secondary btn--sm" data-action="coplan--comment-nav#prev" title="Previous comment">↑</button>
-      <span class="comment-toolbar__position" data-coplan--comment-nav-target="position"></span>
-      <button class="btn btn--secondary btn--sm" data-action="coplan--comment-nav#next" title="Next comment">↓</button>
+<div class="plan-document card">
+  <% if @plan.current_content.present? %>
+    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_section_keys.to_json %>">
+      <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
+        <div class="content-nav__header">
+          <span class="content-nav__title">Contents</span>
+          <button type="button" class="content-nav__toggle" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="toggleBtn" aria-label="Hide table of contents" title="Toggle (t)">✕</button>
+        </div>
+        <ul class="content-nav__list" data-coplan--content-nav-target="list"></ul>
+        <%# The document's back matter, one hop below the outline — slightly
+            set apart so it reads as "after the document", not part of it. %>
+        <ul class="content-nav__list content-nav__list--footnotes">
+          <li><a href="#footnote-references" class="content-nav__footnote-link">References <span class="section-count"><%= @references.size %></span></a></li>
+          <li><a href="#footnote-attachments" class="content-nav__footnote-link">Attachments <span class="section-count"><%= @attachments.size %></span></a></li>
+        </ul>
+      </nav>
+      <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>
+
+      <%# Mermaid swaps its source block for rendered SVG asynchronously —
+          re-run anchor highlighting once each diagram settles so comments
+          anchored to diagram labels get their marks (and pending ?thread=
+          deep links can resolve). %>
+      <div class="plan-layout__content" data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-action="coplan:mermaid-settled->coplan--text-selection#handleMermaidSettled">
+        <div id="plan-content-body"
+             data-controller="coplan--live-update"
+             data-coplan--live-update-revision-value="<%= @plan.current_revision %>">
+          <%= render partial: "coplan/plans/content_body", locals: { plan: @plan } %>
+        </div>
+
+        <div class="comment-popover" data-coplan--text-selection-target="popover" style="display: none;">
+          <button type="button" class="btn btn--primary btn--sm" data-action="coplan--text-selection#openCommentForm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+            Comment
+          </button>
+        </div>
+
+        <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
+      </div>
+
+      <div id="plan-threads" data-coplan--text-selection-target="threads"
+           data-controller="coplan--viewer-role"
+           data-coplan--viewer-role-viewer-id-value="<%= current_user&.id %>">
+        <% @threads.select(&:anchored?).each do |thread| %>
+          <%= render partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: @plan } %>
+        <% end %>
+      </div>
     </div>
-    <label class="comment-toolbar__toggle">
-      <input type="checkbox" data-action="coplan--comment-nav#toggleResolved" data-coplan--comment-nav-target="resolvedToggle">
-      Show resolved (<%= @threads.count { |t| !t.open? } %>)
-    </label>
-  </div>
+  <% else %>
+    <div class="empty-state">
+      <p>This plan has no content yet.</p>
+    </div>
+  <% end %>
+</div>
+
+<%# Back matter: references and attachments live under the document like
+    footnotes — same page, quieter surface, each with a one-click "+". %>
+<div class="plan-footnotes">
+  <section class="plan-footnote" id="footnote-references" data-plan-section="references" aria-labelledby="footnote-references-title">
+    <div class="plan-footnote__header">
+      <% if current_user && allowed_to?(@plan, :contribute?) %>
+        <button type="button" class="section-add" popovertarget="add-reference-modal" title="Add a reference" aria-label="Add a reference">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        </button>
+      <% end %>
+      <h2 class="plan-footnote__title" id="footnote-references-title">References</h2>
+      <span class="section-count" id="references-count"><%= @references.size %></span>
+    </div>
+    <%= render partial: "coplan/plans/references", locals: { references: @references, plan: @plan } %>
+  </section>
+
+  <section class="plan-footnote" id="footnote-attachments" data-plan-section="attachments" aria-labelledby="footnote-attachments-title">
+    <div class="plan-footnote__header">
+      <% if current_user && allowed_to?(@plan, :contribute?) %>
+        <button type="button" class="section-add" popovertarget="add-attachment-modal" title="Add files" aria-label="Add files">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        </button>
+      <% end %>
+      <h2 class="plan-footnote__title" id="footnote-attachments-title">Attachments</h2>
+      <span class="section-count" id="attachments-count"><%= @attachments.size %></span>
+    </div>
+    <%= render partial: "coplan/plans/attachments", locals: { attachments: @attachments, plan: @plan } %>
+  </section>
+</div>
+
+<%= render partial: "coplan/shared/folder_picker", locals: { folders: @my_folders } %>
+
+<%# Headless comment navigation — no floating toolbar, just the keyboard:
+    j/k step through comments, r focuses reply, a/d accept/discard,
+    s toggles resolved-thread visibility. %>
+<% if @threads.any? %>
+  <div data-controller="coplan--comment-nav"
+       data-action="coplan:anchors-updated@document->coplan--comment-nav#handleAnchorsUpdated"
+       hidden></div>
 <% end %>
+
+</div>

@@ -15,7 +15,13 @@
     <%= coplan_favicon_tag %>
     <link rel="apple-touch-icon" href="/icon.png">
 
-    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <%# Same tracked stylesheet as the engine layout — if they differ, Turbo
+        force-reloads on every sign-in/out crossing (and that async reload
+        races the next navigation). The engine sheet styles these pages. %>
+    <%= stylesheet_link_tag "coplan/application", "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
 

@@ -40,7 +40,7 @@ module CoPlan
       private
 
       def subscription_params
-        params.require(:subscription).permit(:endpoint, keys: [:p256dh, :auth])
+        params.expect(subscription: [ :endpoint, keys: [ :p256dh, :auth ] ])
       end
 
       def require_web_push_configured

@@ -92,7 +92,9 @@ export default class extends Controller {
 
     diagram.addEventListener("click", event => {
       // Let clicks on interactive nodes inside the diagram behave normally.
-      if (event.target.closest("a")) return
+      // Comment marks open their thread popover — expanding here would
+      // force-hide it (showModal closes every open popover).
+      if (event.target.closest("a, mark.anchor-highlight")) return
       this.openLightbox(diagram)
     })
   }

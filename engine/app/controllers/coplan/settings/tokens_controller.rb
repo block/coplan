@@ -6,7 +6,7 @@ module CoPlan
       end
 
       def create
-        @api_token, @raw_token = ApiToken.create_with_raw_token(user: current_user, name: params[:api_token][:name])
+        @api_token, @raw_token = ApiToken.create_with_raw_token(user: current_user, name: params.expect(api_token: [ :name ])[:name])
         @api_tokens = current_user.api_tokens.order(created_at: :desc)
 
         respond_to do |format|

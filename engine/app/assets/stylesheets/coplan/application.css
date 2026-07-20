@@ -39,8 +39,6 @@
   --color-focus-ring: rgba(37, 99, 235, 0.12);
 
   /* Status colors */
-  --color-status-brainstorm: #8b5cf6;
-  --color-status-brainstorm-bg: #ede9fe;
   --color-status-considering: #f59e0b;
   --color-status-considering-bg: #fef3c7;
   --color-status-developing: #3b82f6;
@@ -91,11 +89,26 @@
   /* Layout */
   --max-width: 72rem;
   --nav-height: 3.5rem;
-  --radius: 0.375rem;
+  --radius: 0.625rem;
+  --radius-lg: 0.875rem;
   --shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
   --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
   --shadow-top: 0 -2px 8px rgba(15, 23, 42, 0.05);
   --shadow-pop: 0 2px 6px rgba(15, 23, 42, 0.1);
+
+  /* Liquid glass: a soft gradient mesh behind everything, translucent
+     blurred panels on top. Panels use --glass-*; the mesh spots are
+     --mesh-*. Rows and other high-count elements get the cheaper
+     --surface-translucent (no backdrop blur). */
+  --mesh-1: rgba(59, 130, 246, 0.14);
+  --mesh-2: rgba(168, 85, 247, 0.11);
+  --mesh-3: rgba(20, 184, 166, 0.11);
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.72);
+  --glass-edge: rgba(255, 255, 255, 0.75);
+  --glass-blur: blur(16px) saturate(1.6);
+  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 30px rgba(15, 23, 42, 0.08);
+  --surface-translucent: rgba(255, 255, 255, 0.6);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -133,7 +146,6 @@
     --color-code-bg: #0f172a;
     --color-overlay: rgba(2, 6, 23, 0.4);
     --color-focus-ring: rgba(96, 165, 250, 0.24);
-    --color-status-brainstorm-bg: rgba(139, 92, 246, 0.18);
     --color-status-considering-bg: rgba(245, 158, 11, 0.16);
     --color-status-developing-bg: rgba(59, 130, 246, 0.18);
     --color-status-live-bg: rgba(16, 185, 129, 0.16);
@@ -163,6 +175,15 @@
     --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.45);
     --shadow-top: 0 -2px 10px rgba(0, 0, 0, 0.3);
     --shadow-pop: 0 6px 16px rgba(0, 0, 0, 0.35);
+    --mesh-1: rgba(59, 130, 246, 0.2);
+    --mesh-2: rgba(139, 92, 246, 0.16);
+    --mesh-3: rgba(6, 182, 212, 0.13);
+    --glass-bg: rgba(15, 23, 42, 0.45);
+    --glass-bg-strong: rgba(17, 26, 43, 0.66);
+    --glass-edge: rgba(148, 163, 184, 0.18);
+    --glass-blur: blur(16px) saturate(1.4);
+    --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
+    --surface-translucent: rgba(21, 32, 51, 0.55);
   }
 }
 
@@ -201,7 +222,6 @@
   --color-code-bg: #0f172a;
   --color-overlay: rgba(2, 6, 23, 0.4);
   --color-focus-ring: rgba(96, 165, 250, 0.24);
-  --color-status-brainstorm-bg: rgba(139, 92, 246, 0.18);
   --color-status-considering-bg: rgba(245, 158, 11, 0.16);
   --color-status-developing-bg: rgba(59, 130, 246, 0.18);
   --color-status-live-bg: rgba(16, 185, 129, 0.16);
@@ -231,6 +251,15 @@
   --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.45);
   --shadow-top: 0 -2px 10px rgba(0, 0, 0, 0.3);
   --shadow-pop: 0 6px 16px rgba(0, 0, 0, 0.35);
+  --mesh-1: rgba(59, 130, 246, 0.2);
+  --mesh-2: rgba(139, 92, 246, 0.16);
+  --mesh-3: rgba(6, 182, 212, 0.13);
+  --glass-bg: rgba(15, 23, 42, 0.45);
+  --glass-bg-strong: rgba(17, 26, 43, 0.66);
+  --glass-edge: rgba(148, 163, 184, 0.18);
+  --glass-blur: blur(16px) saturate(1.4);
+  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
+  --surface-translucent: rgba(21, 32, 51, 0.55);
 }
 
 /* Forced light theme — overrides system dark preference */
@@ -259,6 +288,13 @@ body {
   display: flex;
   flex-direction: column;
   background-color: var(--color-bg);
+  /* The liquid-glass backdrop: three soft color spots that panels blur
+     over. Fixed so scrolling glides content across the light. */
+  background-image:
+    radial-gradient(42rem 30rem at 12% -8%, var(--mesh-1), transparent 60%),
+    radial-gradient(38rem 28rem at 88% 10%, var(--mesh-2), transparent 60%),
+    radial-gradient(50rem 38rem at 45% 115%, var(--mesh-3), transparent 65%);
+  background-attachment: fixed;
   color: var(--color-text);
 }
 
@@ -278,8 +314,10 @@ img, svg {
 
 /* Navigation */
 .site-nav {
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-edge);
   height: var(--nav-height);
   position: sticky;
   top: 0;
@@ -333,6 +371,7 @@ img, svg {
   align-items: center;
   gap: var(--space-lg);
   list-style: none;
+  margin-left: var(--space-lg);
 }
 
 .site-nav__links a {
@@ -347,6 +386,20 @@ img, svg {
   text-decoration: none;
 }
 
+.site-nav__links a.site-nav__link--active {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.site-nav__profile-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.site-nav__profile-link:hover {
+  color: var(--color-text);
+}
+
 .site-nav__right {
   display: flex;
   align-items: center;
@@ -359,6 +412,7 @@ img, svg {
   gap: var(--space-sm);
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+  white-space: nowrap;
 }
 
 /* Main content */
@@ -381,6 +435,51 @@ img, svg {
 .page-header h1 {
   font-size: var(--text-2xl);
   font-weight: 700;
+}
+
+/* Plan page header: file icon + title, byline underneath — compact, the
+   document itself is the point. */
+.page-header--plan {
+  margin-bottom: var(--space-sm);
+  align-items: flex-start;
+}
+
+.page-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.page-header__title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.page-header__byline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  margin-top: var(--space-xs);
+}
+
+/* Shelf chips (left) + owner actions (right) share one compact row. */
+.plan-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-md);
+}
+
+.plan-meta-row .plan-shelves,
+.plan-meta-row .plan-actions {
+  margin-bottom: 0;
+}
+
+.plan-meta-row .plan-actions {
+  margin-left: auto;
 }
 
 /* Plan viewers / presence */
@@ -506,13 +605,15 @@ img, svg {
 }
 
 .btn--primary {
-  background: var(--color-primary);
+  background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: var(--color-text-inverse);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 1px 2px rgba(15, 23, 42, 0.2);
 }
 
 .btn--primary:hover {
-  background: var(--color-primary-hover);
+  filter: brightness(1.07);
   color: var(--color-text-inverse);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 6px rgba(15, 23, 42, 0.25);
 }
 
 .btn--secondary {
@@ -523,6 +624,18 @@ img, svg {
 
 .btn--secondary:hover {
   background: var(--color-bg);
+}
+
+/* Quiet text-style button for low-emphasis actions (e.g. Archive). */
+.btn--ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  border-color: transparent;
+}
+
+.btn--ghost:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 
 .btn--danger {
@@ -537,11 +650,13 @@ img, svg {
 
 /* Cards */
 .card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
   padding: var(--space-lg);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-glass);
 }
 
 /* Status badges */
@@ -555,15 +670,27 @@ img, svg {
   letter-spacing: 0.025em;
 }
 
-/* Status badge that opens the status menu (decorated by status_menu_controller). */
-.badge--menu { cursor: pointer; }
-.badge--menu::after { content: " ▾"; opacity: 0.7; }
+/* Plan state badges. Published-and-active plans get no badge — these mark
+   the exceptional states only. (The --color-status-* tokens are shared
+   with comment-thread badges below.) */
+.badge--archived { background: var(--color-status-abandoned-bg); color: var(--color-status-abandoned); }
 
-.badge--brainstorm  { background: var(--color-status-brainstorm-bg); color: var(--color-status-brainstorm); }
-.badge--considering { background: var(--color-status-considering-bg); color: var(--color-status-considering); }
-.badge--developing  { background: var(--color-status-developing-bg); color: var(--color-status-developing); }
-.badge--live        { background: var(--color-status-live-bg); color: var(--color-status-live); }
-.badge--abandoned   { background: var(--color-status-abandoned-bg); color: var(--color-status-abandoned); }
+/* Hidden-state flag: a quiet crossed-out eye + word, no background. The
+   normal (published) state is deliberately unmarked. */
+.state-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.state-flag__eye {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
 .badge--pending     { background: var(--color-status-considering-bg); color: var(--color-status-considering); }
 .badge--todo        { background: var(--color-status-developing-bg); color: var(--color-status-developing); }
 .badge--discarded   { background: var(--color-status-abandoned-bg); color: var(--color-status-abandoned); }
@@ -578,6 +705,35 @@ img, svg {
 .badge--tag-active  { background: var(--color-tag-active-bg); color: var(--color-text-inverse); }
 .badge--tag-active:hover { background: var(--color-tag-active-hover-bg); color: var(--color-text-inverse); }
 
+/* Document-type file icon: a colored rounded square with the type's
+   glyph, like a Drive/Finder file icon. It represents the file — it
+   leads the title and never reads as a tag; the type's name lives in the
+   tooltip. Tint classes are picked per type name (PLAN_TYPE_COLOR_COUNT
+   in PlansHelper must match the number of tints here). */
+.plan-type-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--color-type-bg);
+  color: var(--color-type-text);
+}
+
+.plan-type-icon--sm { width: 22px; height: 22px; border-radius: 5px; }
+.plan-type-icon--sm svg { width: 12px; height: 12px; }
+.plan-type-icon--md { width: 26px; height: 26px; }
+.plan-type-icon--lg { width: 36px; height: 36px; border-radius: 9px; }
+.plan-type-icon--lg svg { width: 19px; height: 19px; }
+
+/* Saturated mid-tones read on both themes (like language dots). */
+.plan-type-icon--0 { background: color-mix(in srgb, #5b8def 16%, transparent); color: #5b8def; }
+.plan-type-icon--1 { background: color-mix(in srgb, #3fa876 16%, transparent); color: #3fa876; }
+.plan-type-icon--2 { background: color-mix(in srgb, #d99a2b 16%, transparent); color: #d99a2b; }
+.plan-type-icon--3 { background: color-mix(in srgb, #9c6fe0 16%, transparent); color: #9c6fe0; }
+.plan-type-icon--4 { background: color-mix(in srgb, #e0637a 16%, transparent); color: #e0637a; }
+.plan-type-icon--5 { background: color-mix(in srgb, #2fa8a0 16%, transparent); color: #2fa8a0; }
+
 /* Avatars */
 .avatar {
   display: inline-flex;
@@ -590,6 +746,8 @@ img, svg {
 
 .avatar--sm { width: 1.5rem; height: 1.5rem; font-size: 0.6rem; }
 .avatar--md { width: 2rem; height: 2rem; font-size: 0.7rem; }
+.avatar--lg { width: 3rem; height: 3rem; font-size: 1rem; }
+.avatar--xl { width: 4rem; height: 4rem; font-size: 1.3rem; }
 
 .avatar--initials {
   background: var(--color-primary);
@@ -776,6 +934,76 @@ img.avatar {
   margin-top: var(--space-md);
 }
 
+/* Chip-style tag editor: an input-shaped shell holding tag pills plus a
+   borderless inline text field. */
+.tag-input {
+  padding: 6px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-input-bg);
+  cursor: text;
+}
+
+.tag-input:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.tag-input__chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-input__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 10px;
+  border-radius: 9999px;
+  background: var(--color-tag-bg);
+  color: var(--color-tag-text);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.tag-input__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tag-input__remove:hover {
+  background: var(--color-tag-hover-bg);
+  color: var(--color-danger);
+}
+
+.tag-input__field {
+  flex: 1;
+  min-width: 140px;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--text-sm);
+}
+
+.tag-input__field:focus {
+  outline: none;
+}
+
 /* Plan content */
 .plan-content pre {
   font-family: var(--font-mono);
@@ -949,13 +1177,22 @@ img.avatar {
 .mt-md      { margin-top: var(--space-md); }
 .mb-md      { margin-bottom: var(--space-md); }
 
-/* Plan view toggle */
-.plan-view-toggle {
+/* "Changed since you last looked" — one-time, per-viewer section
+   highlights (changed_sections_controller). Quiet left accent + faint
+   tint; gone on the next visit. */
+.section-changed {
+  box-shadow: inset 3px 0 0 var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding-left: var(--space-sm);
+  margin-left: calc(-1 * var(--space-sm));
+}
+
+.changed-sections-note {
   display: flex;
+  align-items: center;
   gap: var(--space-xs);
   margin-bottom: var(--space-md);
-  padding-bottom: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
 }
 
 /* Rendered markdown */
@@ -1389,6 +1626,24 @@ img.avatar {
   box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
 
+/* On phones the composer is a fixed, full-width bottom sheet — an
+   absolutely-positioned box runs off the viewport, and the software
+   keyboard fights it (text_selection_controller adds this class). */
+.comment-form--sheet {
+  position: fixed;
+  top: auto !important;
+  left: 0 !important;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-height: 55vh;
+  overflow-y: auto;
+  margin: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: none;
+  z-index: 300;
+}
+
 /* Comment thread */
 .comment-thread {
   padding: var(--space-md);
@@ -1548,43 +1803,6 @@ img.avatar {
   min-width: 200px;
 }
 
-/* Dropdown */
-.dropdown {
-  position: relative;
-  display: inline-block;
-}
-
-.dropdown__menu {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: var(--space-xs);
-  padding: var(--space-xs) 0;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-  min-width: 220px;
-  z-index: 100;
-}
-
-.dropdown__item {
-  display: block;
-  width: 100%;
-  padding: 0.625rem var(--space-md);
-  line-height: 1.45;
-  text-align: left;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: var(--text-sm);
-  color: var(--color-text);
-}
-
-.dropdown__item:hover {
-  background: var(--color-bg-muted);
-}
-
 .settings-section-subtitle {
   margin-bottom: var(--space-md);
   color: var(--color-text-muted);
@@ -1733,12 +1951,6 @@ img.avatar {
   font-weight: 600;
 }
 
-/* Page header */
-.page-header__subtitle {
-  color: var(--color-text-muted);
-  margin-top: var(--space-xs);
-}
-
 /* Thread popover data containers (hidden, provide data for JS) */
 .thread-popover-data {
   display: contents;
@@ -1761,6 +1973,20 @@ img.avatar {
 
 .thread-popover::backdrop {
   background: transparent;
+}
+
+/* Thread popovers become a bottom sheet on phones (same treatment as the
+   composer — set by the positioning code, not a media query, because the
+   inline top/left must also be cleared). */
+.thread-popover--sheet {
+  top: auto !important;
+  left: 0 !important;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-height: 60vh;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: none;
 }
 
 .thread-popover__header {
@@ -1841,60 +2067,6 @@ img.avatar {
 .viewer-is-plan-author .comment-actions--owner,
 .viewer-is-thread-author .comment-actions--owner {
   display: flex;
-}
-
-/* Ensure content doesn't get hidden behind fixed toolbar */
-body:has(.comment-toolbar) .main-content {
-  padding-bottom: 3.5rem;
-}
-
-/* Comment toolbar (bottom-pinned) */
-.comment-toolbar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
-  padding: var(--space-sm) var(--space-lg);
-  display: flex;
-  align-items: center;
-  gap: var(--space-lg);
-  z-index: 50;
-  justify-content: center;
-  box-shadow: var(--shadow-top);
-}
-
-.comment-toolbar__count {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.comment-toolbar__nav {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.comment-toolbar__position {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  min-width: 4rem;
-  text-align: center;
-}
-
-.comment-toolbar__toggle {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.comment-toolbar__toggle input[type="checkbox"] {
-  cursor: pointer;
 }
 
 /* Content navigation sidebar */
@@ -2157,9 +2329,11 @@ body:has(.comment-toolbar) .main-content {
   right: 0;
   width: 420px;
   max-height: 480px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   z-index: 200;
   overflow: hidden;
@@ -2345,49 +2519,205 @@ body:has(.comment-toolbar) .main-content {
   margin-top: var(--space-sm);
 }
 
-/* Plan tabs */
-.plan-tabs__nav {
+/* Plan document + footnotes: one page, no tabs. The document is the main
+   glass card; references and attachments follow like back matter — same
+   page, quieter surface. */
+.plan-footnotes {
+  margin-top: var(--space-xl);
   display: flex;
-  gap: var(--space-xs);
-  margin-bottom: calc(-1px);
-  position: relative;
-  z-index: 1;
+  flex-direction: column;
+  gap: var(--space-lg);
 }
 
-.plan-tabs__tab {
-  padding: var(--space-sm) var(--space-lg);
+.plan-footnote {
+  /* Set apart from the document proper: flatter, edge-lit, no heavy card. */
+  background: var(--surface-translucent);
+  border: 1px solid var(--glass-edge);
+  border-left: 3px solid var(--color-border);
+  border-radius: var(--radius);
+  scroll-margin-top: var(--space-lg);
+}
+
+.plan-footnote__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg) 0;
+}
+
+.plan-footnote__title {
+  margin: 0;
   font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--color-text-muted);
-  text-decoration: none;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: var(--radius) var(--radius) 0 0;
-  transition: color 0.15s, background 0.15s;
-  cursor: pointer;
-}
-
-.plan-tabs__tab:hover {
-  color: var(--color-text);
-  background: var(--color-bg);
-  text-decoration: none;
-}
-
-.plan-tabs__tab--active {
-  color: var(--color-text);
-  background: var(--color-surface);
-  border-color: var(--color-border);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
 }
 
-.plan-tabs__count {
+.section-count {
   font-size: 0.75rem;
   color: var(--color-text-muted);
   font-weight: 400;
 }
 
-.plan-tabs__panel--hidden {
+/* The round "+" leading a footnote section — one click, opens the add
+   modal. Icon only; the section title is right beside it. */
+.section-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.section-add:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-bg);
+}
+
+/* Back-matter links at the bottom of the document outline. */
+.content-nav__list--footnotes {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.content-nav__footnote-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: 2px var(--space-sm);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  border-radius: var(--radius);
+}
+
+.content-nav__footnote-link:hover {
+  color: var(--color-text);
+  background: var(--color-bg-muted);
+  text-decoration: none;
+}
+
+/* The visibility eye: slash appears when Private (matching the state
+   flag's crossed eye); armed = mid-flip, waiting for the confirming
+   second click. */
+.visibility-toggle .visibility-toggle__slash {
   display: none;
+}
+
+.visibility-toggle--hidden .visibility-toggle__slash {
+  display: initial;
+}
+
+.visibility-toggle--armed {
+  color: var(--color-primary);
+  animation: visibility-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes visibility-pulse {
+  50% { opacity: 0.45; }
+}
+
+/* Folder-picker navigator (the bookmark's popover) */
+.folder-picker__plan {
+  margin: 0 0 var(--space-sm);
+}
+
+.folder-picker__tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
+.folder-picker__tree--nested {
+  padding-left: var(--space-md);
+  max-height: none;
+  overflow: visible;
+}
+
+.folder-picker__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: 5px var(--space-sm);
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.folder-picker__option:hover {
+  background: var(--color-bg-muted);
+  color: var(--color-primary);
+}
+
+.folder-picker__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.folder-picker__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-picker__check {
+  visibility: hidden;
+  color: var(--color-primary);
+}
+
+.folder-picker__option--current .folder-picker__check {
+  visibility: visible;
+}
+
+.folder-picker__option--current {
+  font-weight: 600;
+}
+
+/* History page (the plan's time machine) */
+.history-page {
+  padding: var(--space-lg);
+}
+
+.history-back {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+}
+
+.history-back:hover {
+  color: var(--color-primary);
+  background: var(--color-bg-muted);
+}
+
+.history-title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.history-title-link:hover {
+  color: var(--color-primary);
 }
 
 /* References section */
@@ -2483,30 +2813,91 @@ body:has(.comment-toolbar) .main-content {
   margin-bottom: var(--space-md);
 }
 
-.references-add summary {
-  cursor: pointer;
-  list-style: none;
+/* Reusable "add" lightbox (references, attachments). Same glass treatment
+   as the search modal; the Popover API supplies backdrop and dismissal. */
+.add-modal {
+  position: fixed;
+  top: 14vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(440px, 92vw);
+  max-height: 72vh;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--color-text);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
 }
 
-.references-add summary::-webkit-details-marker {
+.add-modal:not(:popover-open) {
   display: none;
 }
 
-.references-add__form {
-  margin-top: var(--space-sm);
+.add-modal:popover-open {
   display: flex;
-  align-items: flex-end;
-  gap: var(--space-xs);
-  flex-wrap: wrap;
+  flex-direction: column;
 }
 
-.references-add__form .form-group {
-  margin-bottom: 0;
-  flex: 1;
-  min-width: 140px;
+.add-modal::backdrop {
+  background: rgba(0, 0, 0, 0.35);
 }
 
-.references-add__form input[type="text"] {
+.add-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.add-modal__title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.add-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.add-modal__close:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.add-modal__body {
+  padding: var(--space-lg);
+  overflow-y: auto;
+}
+
+.add-modal__form .form-group {
+  margin-bottom: var(--space-md);
+}
+
+.add-modal__form label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.add-modal__form input[type="text"] {
   width: 100%;
   padding: 6px var(--space-sm);
   font-size: var(--text-sm);
@@ -2518,18 +2909,20 @@ body:has(.comment-toolbar) .main-content {
   transition: border-color 0.15s;
 }
 
-.references-add__form input[type="text"]:focus {
+.add-modal__form input[type="text"]:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
 
-.references-add__form input[type="text"]::placeholder {
+.add-modal__form input[type="text"]::placeholder {
   color: var(--color-text-muted);
 }
 
-.references-add__form .btn {
-  flex-shrink: 0;
+.add-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-lg);
 }
 
 /* Attachments section */
@@ -2541,57 +2934,61 @@ body:has(.comment-toolbar) .main-content {
   margin-bottom: var(--space-md);
 }
 
-/* Drag-and-drop upload zone (see dropzone_controller.js). The whole inner
-   area is a <label>, so clicking anywhere opens the file picker; the real
-   input is visually hidden (not display:none, so it stays focusable). */
-.attachments-dropzone__inner {
+.attachments-upload {
+  display: block;
+}
+
+/* The designed replacement for the native file input: a full-width,
+   softly dashed target that reacts to hover and drag. */
+.dropzone {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xl) var(--space-lg);
-  border: 2px dashed var(--color-border-strong);
-  border-radius: var(--radius);
+  gap: 4px;
+  width: 100%;
+  padding: var(--space-lg) var(--space-md);
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: calc(var(--radius) * 2);
   background: var(--color-surface-muted);
-  text-align: center;
+  color: var(--color-text-muted);
+  font-family: inherit;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
-.attachments-dropzone__inner:hover,
-.attachments-dropzone--active .attachments-dropzone__inner {
+.dropzone:hover,
+.dropzone--active {
   border-color: var(--color-primary);
   background: var(--color-primary-light);
+  color: var(--color-primary);
 }
 
-.attachments-dropzone__inner:focus-within {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.attachments-dropzone--uploading .attachments-dropzone__inner {
-  opacity: 0.6;
+.dropzone--busy {
   pointer-events: none;
+  opacity: 0.7;
 }
 
-.attachments-dropzone__icon {
-  font-size: 1.75rem;
-  line-height: 1;
+.dropzone__icon {
+  margin-bottom: 2px;
 }
 
-.attachments-dropzone__text {
+.dropzone__title {
   font-size: var(--text-sm);
+  font-weight: 500;
   color: var(--color-text);
 }
 
-.attachments-dropzone__browse {
+.dropzone:hover .dropzone__title,
+.dropzone--active .dropzone__title {
   color: var(--color-primary);
-  text-decoration: underline;
 }
 
-.attachments-dropzone__hint {
+.dropzone__hint {
   font-size: 0.75rem;
-  color: var(--color-text-muted);
+}
+
+.dropzone__input {
+  display: none;
 }
 
 .attachments-dropzone__input {
@@ -2769,13 +3166,11 @@ body:has(.comment-toolbar) .main-content {
 }
 
 /* Web Push encouragement banner — bottom-right toast that appears after a
-   user posts a comment, inviting them to enable browser notifications.
-   Stays above the comment toolbar (z-index 50) and any thread popovers. */
+   user posts a comment, inviting them to enable browser notifications. */
 .web-push-banner {
   position: fixed;
   right: var(--space-lg);
-  /* Sit above the comment toolbar (when present) without overlapping. */
-  bottom: calc(var(--space-lg) + 3.5rem);
+  bottom: var(--space-lg);
   z-index: 60;
   display: flex;
   align-items: flex-start;
@@ -2787,10 +3182,6 @@ body:has(.comment-toolbar) .main-content {
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
   animation: web-push-banner-in 220ms ease-out;
-}
-
-body:not(:has(.comment-toolbar)) .web-push-banner {
-  bottom: var(--space-lg);
 }
 
 @keyframes web-push-banner-in {
@@ -3093,9 +3484,9 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   font-weight: 600;
 }
 
-.landing-mock__badge--status {
-  background: var(--color-status-considering-bg);
-  color: var(--color-status-considering);
+.landing-mock__badge--type {
+  background: var(--color-type-bg);
+  color: var(--color-type-text);
 }
 
 .landing-mock__badge--version {
@@ -3373,9 +3764,11 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   max-height: 70vh;
   padding: 0;
   margin: 0;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   color: var(--color-text);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
   overflow: hidden;
@@ -3460,6 +3853,20 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   text-decoration: none;
 }
 
+.search-modal__result--person,
+.search-modal__result--plan {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.search-modal__result-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .search-modal__result-title {
   font-weight: 500;
   font-size: var(--text-md);
@@ -3472,13 +3879,6 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   align-items: center;
   gap: 4px;
   flex-wrap: wrap;
-}
-
-.search-modal__status {
-  text-transform: capitalize;
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 4px;
 }
 
 .search-modal__empty {
@@ -3509,22 +3909,503 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   background: var(--color-surface);
 }
 
-/* Plan owner actions row (show page) */
+/* Plan owner actions (show page): quiet icon buttons tucked at the top
+   right of the document, out of the content's way. */
 .plan-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-sm);
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
 }
 
-.plan-actions__hint {
+/* Square icon-only button. */
+.btn--icon {
+  padding: var(--space-xs) var(--space-sm);
+  line-height: 1;
+}
+
+.btn--icon svg {
   display: block;
-  font-size: var(--text-xs);
+}
+
+/* Archive sits slightly apart from the constructive actions — same
+   corner, small gap (a full-width split reads as a stray icon). */
+.plan-actions__archive {
+  margin-left: var(--space-sm);
+}
+
+/* Full-width state banner on the plan page (e.g. archived notice). */
+.plan-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-status-abandoned-bg);
   color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Archived rows stay legible but visually recede. */
+.plan-row--archived {
+  opacity: 0.65;
+}
+
+/* Folder-jump strip on the plan page: which library shelves hold this
+   plan, plus the "add to your library" quick control. */
+.plan-shelves {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+  margin-bottom: var(--space-md);
+  font-size: var(--text-sm);
+}
+
+/* Drive-style folder chip: small folder glyph + the folder's name. */
+.plan-shelves__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px 3px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.plan-shelves__chip:hover {
+  background: var(--color-bg-muted);
+  border-color: var(--color-border-strong);
+}
+
+.plan-shelves__chip-icon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.plan-shelves__chip--theirs .plan-shelves__chip-icon {
+  color: var(--color-agent);
+}
+
+.plan-shelves__chip-owner {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+/* The header bookmark: save/move/remove via the folder navigator. */
+.plan-shelves__bookmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  font-family: inherit;
+  padding: 3px 8px;
+  border: 1px dashed var(--color-border);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.plan-shelves__bookmark:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.plan-shelves__bookmark--saved {
+  color: var(--color-primary);
+  border-style: solid;
+}
+
+/* Saved = a second click removes; hint at that on hover. */
+.plan-shelves__bookmark--saved:hover {
+  color: var(--color-danger, #e0637a);
+  border-color: var(--color-danger, #e0637a);
+}
+
+/* Library browsing page (read-only shelves) */
+.library {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+.library__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.library__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.library__title {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.library__subtitle {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+}
+
+.library__empty {
+  padding: var(--space-xl) 0;
+  text-align: center;
+}
+
+.library-shelf {
+  margin-bottom: var(--space-sm);
+}
+
+/* On the library page, each top-level shelf is its own glass panel
+   (profile pages embed shelves inside an existing panel). */
+.library__shelves > .library-shelf {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glass);
+}
+
+.library-shelf .library-shelf {
+  margin-left: var(--space-lg);
+  margin-bottom: 0;
   margin-top: var(--space-xs);
 }
 
+.library-shelf__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.library-shelf__summary::-webkit-details-marker {
+  display: none;
+}
+
+.library-shelf__summary:hover {
+  background: var(--color-surface-hover);
+}
+
+.library-shelf__count {
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+.library-shelf__plans {
+  list-style: none;
+  margin: 0 0 var(--space-xs);
+  padding: 0 0 0 calc(var(--space-lg) + 2px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.library-shelf__plan {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  padding: 2px 0;
+}
+
+.library-shelf__plan-title {
+  text-decoration: none;
+  color: var(--color-text);
+}
+
+.library-shelf__plan-title:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.library-shelf__plan-meta {
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-shelf__empty {
+  margin: 0 0 var(--space-xs);
+  padding-left: calc(var(--space-lg) + 2px);
+}
+
+/* Author names linking to profiles — quiet by default, obvious on hover */
+.profile-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.profile-link:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+/* Profile pages */
+.profile {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.profile__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.profile__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.profile__name {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.profile__meta {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+}
+
+.profile__username {
+  margin-left: var(--space-xs);
+  color: var(--color-text-muted);
+}
+
+.profile__stats {
+  margin: 4px 0 0;
+}
+
+.profile__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .profile__columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.profile__section-title {
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-md);
+}
+
+/* The embedded shelf column is narrow — let plan meta wrap under the
+   title instead of ellipsizing into "by Hampton Lintorn-Catli…". */
+.profile__library .library-shelf__plan {
+  flex-wrap: wrap;
+}
+
+.profile__library .library-shelf__plan-meta {
+  white-space: normal;
+}
+
+.profile__plan-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.profile__plan {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.profile__plan:last-child {
+  border-bottom: none;
+}
+
+.profile__plan-title {
+  text-decoration: none;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.profile__plan-title:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.profile__plan-meta {
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* Home — the org-facing activity feed */
+.home {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.home__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.home__title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.home__empty {
+  padding: var(--space-xl) 0;
+  text-align: center;
+}
+
+.home__day {
+  margin-bottom: var(--space-xl);
+}
+
+.home__day-heading {
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-sm);
+}
+
+/* Each day's rollup floats as one glass panel over the mesh. */
+.home__feed {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-xs) var(--space-lg);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glass);
+}
+
+.home__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.home__item:last-child {
+  border-bottom: none;
+}
+
+.home__item-avatar {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.home__item-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.home__item-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.home__item-title {
+  font-weight: 500;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.home__item-title:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.home__item-activity {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* A plan's first appearance gets a whisper of accent — not a badge. */
+.home__item-activity--new {
+  color: var(--color-primary);
+}
+
+.home__item-meta {
+  font-size: var(--text-xs);
+  margin-top: 2px;
+}
+
+.home__item-tag {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  margin-left: var(--space-xs);
+}
+
+.home__item-tag:hover {
+  color: var(--color-primary);
+}
+
+.home__item-time {
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  padding-top: 3px;
+}
+
 /* Markdown editor (edit_content page) */
+/* Title + tags row at the top of the unified editor. */
+.editor__meta {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+@media (max-width: 720px) {
+  .editor__meta {
+    grid-template-columns: 1fr;
+  }
+}
+
 .editor__tabs {
   display: flex;
   gap: var(--space-xs);
@@ -3618,11 +4499,41 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
 .workspace__sidebar {
   position: sticky;
   top: calc(var(--nav-height) + var(--space-md));
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+
+.workspace__sidebar-sections {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+}
+
+/* Mobile-only disclosure bar (see the 56rem media block); at desktop the
+   button vanishes and the sections always show. */
+.workspace__sidebar-toggle {
+  display: none;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--surface-translucent);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  font-family: inherit;
   font-size: var(--text-sm);
-  min-width: 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workspace__sidebar-toggle .workspace__sidebar-chevron {
+  margin-left: auto;
+  transition: transform 0.15s;
+}
+
+.workspace__sidebar-toggle[aria-expanded="true"] .workspace__sidebar-chevron {
+  transform: rotate(180deg);
 }
 
 .workspace__main {
@@ -3712,44 +4623,6 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   line-height: 1.4;
 }
 
-.sidebar__new-folder {
-  margin-top: var(--space-sm);
-}
-
-.sidebar__new-folder-toggle {
-  cursor: pointer;
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
-  list-style: none;
-}
-
-.sidebar__new-folder-toggle::-webkit-details-marker {
-  display: none;
-}
-
-.sidebar__new-folder-toggle:hover {
-  color: var(--color-primary);
-}
-
-.sidebar__new-folder-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  margin-top: var(--space-xs);
-}
-
-.sidebar__new-folder-input,
-.sidebar__new-folder-select {
-  width: 100%;
-  padding: 4px var(--space-sm);
-  font-size: var(--text-sm);
-  font-family: inherit;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-input-bg);
-  color: var(--color-text);
-}
-
 /* Folder tree */
 .folder-tree {
   list-style: none;
@@ -3762,6 +4635,17 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
 
 .folder-tree--nested {
   padding-left: var(--space-md);
+}
+
+/* The rooted tree: "My Plans" is the drive root; folders hang off it with
+   a slightly tighter indent than regular nesting. */
+.folder-tree__node--root > .folder-tree--nested {
+  padding-left: var(--space-sm);
+  margin-top: 1px;
+}
+
+.folder-tree__link--root {
+  font-weight: 600;
 }
 
 .folder-tree__branch > .folder-tree__summary {
@@ -3823,10 +4707,16 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   font-weight: 500;
 }
 
-.folder-tree__link--drop {
+/* Live drop target under the cursor — folder links and group headings. */
+.dnd-drop {
   outline: 2px dashed var(--color-primary);
   outline-offset: -2px;
   background: var(--color-primary-light);
+  border-radius: var(--radius);
+}
+
+.folder-tree__link--dragging {
+  opacity: 0.5;
 }
 
 .folder-tree__name {
@@ -3835,8 +4725,11 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   white-space: nowrap;
 }
 
-/* While dragging a row, make every folder read as a target. */
-.workspace--dragging .folder-tree__link {
+/* While dragging a row, make every folder read as a target — sidebar
+   tree, main-pane folder rows, and breadcrumb segments alike. */
+.workspace--dragging .folder-tree__link,
+.workspace--dragging .folder-row,
+.workspace--dragging .workspace-crumbs__crumb {
   outline: 1px dashed var(--color-border-strong);
   outline-offset: -1px;
 }
@@ -3889,67 +4782,187 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   white-space: nowrap;
 }
 
-/* Status groups */
-.plan-group + .plan-group {
-  margin-top: var(--space-md);
+/* "Since you last looked" strip — recency against your own reading
+   history, quieter than the warning-toned attention strip. */
+.recent-updates {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius);
+  background: var(--surface-translucent);
 }
 
-.plan-group__heading {
-  margin: 0 0 var(--space-xs);
-}
-
-.plan-group__toggle {
+.recent-updates__heading {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  width: 100%;
-  padding: 2px 0;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-}
-
-.plan-group__chevron {
-  color: var(--color-text-muted);
-  transition: transform 0.15s;
-  transform: rotate(90deg);
-}
-
-.plan-group--collapsed .plan-group__chevron {
-  transform: rotate(0deg);
-}
-
-.plan-group__label {
-  font-size: 0.75rem;
+  margin: 0 0 var(--space-xs);
+  font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.plan-group__label--brainstorm  { color: var(--color-status-brainstorm); }
-.plan-group__label--considering { color: var(--color-status-considering); }
-.plan-group__label--developing  { color: var(--color-status-developing); }
-.plan-group__label--live        { color: var(--color-status-live); }
-.plan-group__label--abandoned   { color: var(--color-status-abandoned); }
-
-.plan-group__count {
-  font-size: 0.75rem;
+  letter-spacing: 0.03em;
   color: var(--color-text-muted);
 }
 
-.plan-group--collapsed .plan-group__body {
-  display: none;
+.recent-updates__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recent-updates__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+
+.recent-updates__link {
+  font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-updates__badge {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0 6px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.recent-updates__badge--new-to-you {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.recent-updates__meta {
+  margin-left: auto;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* Breadcrumbs — where you are in your library (Drive-style). */
+.workspace-crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+  font-size: var(--text-sm);
+  flex-wrap: wrap;
+}
+
+.workspace-crumbs__crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px var(--space-sm);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.workspace-crumbs__crumb:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+  text-decoration: none;
+}
+
+.workspace-crumbs__crumb--current {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.workspace-crumbs__sep {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.workspace-crumbs__spacer {
+  flex: 1;
+}
+
+/* A folder in the main pane's level view — same surface language as plan
+   rows, but unmistakably a folder. */
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--surface-translucent);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius);
+  margin-bottom: var(--space-xs);
+  color: var(--color-text);
+  text-decoration: none;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.folder-row:hover {
+  background: var(--color-bg);
+  text-decoration: none;
+}
+
+.folder-row__icon {
+  display: inline-flex;
+  color: var(--color-text-muted);
+}
+
+.folder-row__name {
+  font-weight: 600;
+}
+
+.folder-row__count {
+  margin-left: auto;
+  font-size: var(--text-xs);
+}
+
+/* Keyboard cursor (j/k) over folder and plan rows. */
+.workspace-key-selected {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
 
 /* Compact plan rows */
 .plan-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  /* Translucent without backdrop blur — rows are numerous and per-row
+     blur is a GPU tax; the mesh still glows through faintly. */
+  background: var(--surface-translucent);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
   margin-bottom: var(--space-xs);
+  transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+/* The file icon spans both text rows — a Drive/Finder file entry. */
+.plan-row__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.plan-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-row:hover {
+  background: var(--glass-bg-strong);
+  box-shadow: var(--shadow-pop);
+  transform: translateY(-1px);
 }
 
 .plan-row--dragging {
@@ -4017,66 +5030,38 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
   overflow: hidden;
 }
 
-/* Row menu (move-to-folder fallback) */
-.plan-row__menu {
-  position: relative;
-}
-
-.plan-row__menu-toggle {
+/* Row bookmark — the keyboard/no-drag door into the folder navigator. */
+.plan-row__save {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
   cursor: pointer;
-  list-style: none;
-  padding: 0 var(--space-xs);
-  border-radius: var(--radius);
-  color: var(--color-text-muted);
-  font-weight: 700;
-  line-height: 1.2;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
 }
 
-.plan-row__menu-toggle::-webkit-details-marker {
-  display: none;
+.plan-row:hover .plan-row__save,
+.plan-row__save:focus-visible,
+.plan-row__save--saved {
+  opacity: 1;
 }
 
-.plan-row__menu-toggle:hover {
+.plan-row__save:hover {
+  color: var(--color-primary);
   background: var(--color-bg-muted);
-  color: var(--color-text);
 }
 
-.plan-row__menu-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  z-index: 30;
-  min-width: 14rem;
-  padding: var(--space-sm);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-pop);
+.plan-row__save--saved {
+  color: var(--color-primary);
 }
 
-.plan-row__move-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.plan-row__move-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-}
-
-.plan-row__move-select {
-  width: 100%;
-  padding: 4px var(--space-sm);
-  font-size: var(--text-sm);
-  font-family: inherit;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-input-bg);
-  color: var(--color-text);
+/* Saved = a second click removes; hint at that on hover. */
+.plan-row__save--saved:hover {
+  color: var(--color-danger, #e0637a);
 }
 
 /* Toasts (drag & drop feedback) */
@@ -4102,12 +5087,135 @@ body:not(:has(.comment-toolbar)) .web-push-banner {
     gap: var(--space-md);
   }
 
+  /* The sidebar collapses into a "Filters & folders" bar at the top —
+     tap to expand, out of the way otherwise. */
   .workspace__sidebar {
     position: static;
+  }
+
+  .workspace__sidebar-toggle {
+    display: flex;
+  }
+
+  .workspace__sidebar-sections {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
     gap: var(--space-md);
-    padding-bottom: var(--space-sm);
-    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-md) var(--space-sm) var(--space-sm);
+  }
+
+  .workspace__sidebar-sections--closed {
+    display: none;
+  }
+}
+
+/* ---- Phone-sized screens ----
+   Reviewing your agents' work from a phone is a first-class flow —
+   reading, commenting, and finding the right doc all have to work at
+   ~390px. Chrome collapses to icons; content goes single-column. */
+@media (max-width: 640px) {
+  .site-nav__inner {
+    padding: 0 var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  /* Icons over labels: brand text, env badge, search placeholder, the
+     "/" hint, the settings gear, and the sign-out link all yield to the
+     things a phone visit is actually for. */
+  .site-nav__brand-text,
+  .env-badge,
+  .site-nav__search-label,
+  .site-nav__search-kbd,
+  .site-nav__icon-link,
+  .site-nav__user a[data-turbo-method="delete"] {
+    display: none;
+  }
+
+  .site-nav__links {
+    margin-left: var(--space-xs);
+    gap: var(--space-md);
+  }
+
+  .site-nav__search {
+    flex: 0 0 auto;
+    gap: 0;
+    padding: 8px;
+    margin: 0;
+    margin-left: auto;
+    border-radius: 9999px;
+  }
+
+  .site-nav__right {
+    gap: var(--space-md);
+  }
+
+  /* Nothing in the chrome gets crushed to make room for the user's full
+     name — the name is what truncates. */
+  .site-nav__brand,
+  .site-nav__logo,
+  .site-nav__bell,
+  .inbox-dropdown {
+    flex-shrink: 0;
+  }
+
+  .site-nav__user {
+    min-width: 0;
+  }
+
+  .site-nav__profile-link {
+    display: inline-block;
+    max-width: 6.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+
+  .main-content {
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .page-header {
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .page-header h1 {
+    font-size: var(--text-xl);
+    overflow-wrap: anywhere;
+  }
+
+  .plan-document,
+  .references-section,
+  .attachments-section {
+    padding: var(--space-md);
+  }
+
+  .plan-actions {
+    flex-wrap: wrap;
+  }
+
+  /* Comment surfaces clamp to the viewport instead of overflowing it. */
+  .comment-form {
+    width: min(360px, calc(100vw - 2 * var(--space-md)));
+  }
+
+  .thread-popover {
+    width: min(380px, calc(100vw - 2 * var(--space-md)));
+  }
+
+  /* Strip rows stack their meta under the title instead of squeezing it. */
+  .recent-updates__item,
+  .attention__item {
+    flex-wrap: wrap;
+  }
+
+  .recent-updates__meta {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+
+  .home__item-time {
+    font-size: 0.75rem;
   }
 }

@@ -1,0 +1,25 @@
+<%# A folder in the Drive-style level view. Click to enter; a drop target
+    for plans (file here) and folders (nest here); draggable itself to
+    re-parent. Empty folders still render — an empty folder is a place to
+    put things, not nothing. Uses @folder_counts (subtree rollup) from
+    PlansController#load_workspace_sidebar. %>
+<% count = @folder_counts[folder.id].to_i %>
+<%= link_to workspace_path(folder: folder.id),
+      class: "folder-row",
+      draggable: true,
+      data: {
+        folder_id: folder.id,
+        parent_id: folder.parent_id,
+        reparent_url: folder_path(folder),
+        "coplan--workspace-keys-target": "item",
+        action: "dragstart->coplan--folder-dnd#folderDragStart dragend->coplan--folder-dnd#folderDragEnd " \
+                "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",
+      } do %>
+  <span class="folder-row__icon" aria-hidden="true">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+  </span>
+  <span class="folder-row__name"><%= folder.name %></span>
+  <span class="folder-row__count text-muted">
+    <%= count.zero? ? "empty" : pluralize(count, "item") %>
+  </span>
+<% end %>

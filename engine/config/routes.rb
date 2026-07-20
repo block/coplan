@@ -1,6 +1,9 @@
 CoPlan::Engine.routes.draw do
   resources :plans, only: [:index, :show, :edit, :update] do
-    patch :update_status, on: :member
+    patch :publish, on: :member
+    patch :hide, on: :member
+    patch :archive, on: :member
+    patch :unarchive, on: :member
     patch :toggle_checkbox, on: :member
     patch :move_to_folder, on: :member
     get :history, on: :member
@@ -29,9 +32,20 @@ CoPlan::Engine.routes.draw do
     patch "theme", to: "settings#update_theme"
   end
 
-  # Web folder creation (sidebar "New folder" form). Rename/delete go
-  # through the API or admin for now.
-  resources :folders, only: [:create]
+  # Web folder creation (sidebar "New folder" input) and reparenting (drag
+  # a folder onto a folder). Rename/delete go through the API or admin for
+  # now.
+  resources :folders, only: [:create, :update]
+
+  # Read-only library browsing (folder-jump discovery). "library" without
+  # an id is the signed-in user's own — handy for nav links.
+  resources :libraries, only: [:show]
+  get "library", to: "libraries#mine", as: :my_library
+
+  # Profile pages — the front door to a person's library. :id is a
+  # username or user id; usernames may contain dots, so the constraint
+  # keeps Rails from peeling ".l" off "hampton.l" as a format.
+  get "people/:id", to: "profiles#show", as: :profile, constraints: { id: %r{[^/]+} }
 
   namespace :api do
     namespace :v1 do
@@ -94,6 +108,8 @@ CoPlan::Engine.routes.draw do
     # the list reflects the new browser without a full page refresh.
     get "devices", to: "subscriptions#devices", as: :devices
   end
+
+  get "home", to: "home#show", as: :home
 
   get "welcome", to: "welcome#show", as: :welcome
 

@@ -1,13 +1,14 @@
-<div class="page-header" id="plan-header">
-  <div>
-    <h1><%= plan.title %></h1>
-    <div class="text-sm text-muted mt-md">
-      <%= user_avatar(plan.created_by_user) %> <%= plan.created_by_user.name %> · v<%= plan.current_revision %> · <span class="badge badge--<%= plan.status %> badge--status"
-            data-coplan--status-menu-target="badge"
-            data-action="click->coplan--status-menu#toggle keydown.enter->coplan--status-menu#toggle"><%= plan.status %></span>
-      <% if plan.plan_type %>
-        · <span class="badge badge--type"><%= plan.plan_type.name %></span>
-      <% end %>
+<%# The five-state status (and #146's badge menu) is gone — visibility is
+    the only state, toggled by the header eye; the type reads as the file
+    icon next to the title. %>
+<div class="page-header page-header--plan" id="plan-header">
+  <div class="page-header__main">
+    <div class="page-header__title-row">
+      <%= plan_type_icon(plan, size: :lg) %>
+      <h1 class="page-header__title"><%= plan.title %></h1>
+    </div>
+    <div class="page-header__byline text-sm text-muted">
+      <%= user_avatar(plan.created_by_user) %> <%= profile_link(plan.created_by_user) %> · v<%= plan.current_revision %><%= plan_state_badge(plan) %>
       <% plan.tags.each do |tag| %>
         <%= link_to tag.name, plans_path(tag: tag.name), class: "badge badge--tag" %>
       <% end %>

@@ -1,10 +1,15 @@
 module CoPlan
   class NotificationsController < ApplicationController
+    # A long-lived account accumulates notifications forever; the inbox
+    # only ever shows the most recent page of them.
+    INDEX_LIMIT = 100
+
     def index
       @filter = params[:filter] == "all" ? "all" : "unread"
       @notifications = current_user.notifications
         .includes(:plan, :comment, comment_thread: [:created_by_user])
         .newest_first
+        .limit(INDEX_LIMIT)
 
       @notifications = @notifications.unread if @filter == "unread"
       @unread_count = current_user.notifications.unread.count

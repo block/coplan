@@ -7,6 +7,12 @@ module CoPlan
     # adds and reference removals.
     def render_event_summary(event)
       case event.event_type
+      when "published"
+        "Published — listed for everyone"
+      when "archived"
+        "Archived"
+      when "unarchived"
+        "Restored from archive"
       when "status_changed"
         safe_join([
           "Status: ",

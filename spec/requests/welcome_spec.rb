@@ -61,7 +61,7 @@ RSpec.describe "Welcome", type: :request do
         create(:plan, :considering, created_by_user: alice)
       end
 
-      it "redirects to the plans index" do
+      it "redirects to the workspace" do
         get root_path
         expect(response).to redirect_to(plans_path)
       end
@@ -81,7 +81,7 @@ RSpec.describe "Welcome", type: :request do
         create(:plan, :considering, created_by_user: alice)
       end
 
-      it "redirects to the plans index just like /" do
+      it "redirects to the workspace just like /" do
         get welcome_path
         expect(response).to redirect_to(plans_path)
       end

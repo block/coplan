@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote", "threads"]
-  static values = { planId: String, focusThread: String }
+  static values = { focusThread: String }
 
   connect() {
     this.selectedText = null
@@ -17,6 +17,12 @@ export default class extends Controller {
     this._boundHandleMouseUp = this.handleMouseUp.bind(this)
     this._boundHandleDocumentMouseDown = this.handleDocumentMouseDown.bind(this)
     this._handleScroll = this._handleScroll.bind(this)
+    // Close the comment form before Turbo snapshots the page: a cached
+    // copy would otherwise restore with popover="manual" + display:block
+    // but outside the top layer — a mispositioned form with stale anchor
+    // inputs.
+    this._boundBeforeCache = () => { if (this.hasFormTarget) this.hideAndResetForm() }
+    document.addEventListener("turbo:before-cache", this._boundBeforeCache)
     this._boundPopoverEnter = this._cancelHoverClose.bind(this)
     this._boundPopoverLeave = this._handlePopoverLeave.bind(this)
     this._boundPopoverToggle = this._handlePopoverToggle.bind(this)
@@ -42,9 +48,11 @@ export default class extends Controller {
   disconnect() {
     this.contentTarget.removeEventListener("mouseup", this._boundHandleMouseUp)
     document.removeEventListener("mousedown", this._boundHandleDocumentMouseDown)
+    document.removeEventListener("turbo:before-cache", this._boundBeforeCache)
     window.removeEventListener("scroll", this._handleScroll)
     this._cancelHoverOpen()
     this._cancelHoverClose()
+    clearTimeout(this._linkedThreadRetry)
     if (this._threadsObserver) {
       this._threadsObserver.disconnect()
       this._threadsObserver = null
@@ -140,10 +148,28 @@ export default class extends Controller {
       : this.selectedText
     this.anchorPreviewTarget.style.display = "block"
 
-    // Position form where the popover was, then show it
-    this.formTarget.style.top = this.popoverTarget.style.top
-    this.formTarget.style.left = this.popoverTarget.style.left
+    // Position the form: next to the selection on desktop, or as a fixed
+    // full-width bottom sheet on small screens — an absolutely-positioned
+    // box runs off a phone viewport, and the keyboard makes it worse.
+    if (this._isMobile()) {
+      this.formTarget.classList.add("comment-form--sheet")
+      this.formTarget.style.top = ""
+      this.formTarget.style.left = ""
+    } else {
+      this.formTarget.classList.remove("comment-form--sheet")
+      this.formTarget.style.top = this.popoverTarget.style.top
+      this.formTarget.style.left = this.popoverTarget.style.left
+    }
     this.formTarget.style.display = "block"
+    if (this._isMobile()) {
+      // position:fixed alone won't pin the sheet to the viewport: the
+      // glass panel's backdrop-filter makes it the containing block, so
+      // "fixed" resolves against the panel. The popover top layer escapes
+      // that; "manual" keeps our own show/hide in charge (no light-dismiss
+      // mid-typing).
+      this.formTarget.setAttribute("popover", "manual")
+      try { this.formTarget.showPopover() } catch {}
+    }
     this.popoverTarget.style.display = "none"
 
     // Clear browser selection
@@ -179,6 +205,10 @@ export default class extends Controller {
   }
 
   hideAndResetForm() {
+    if (this.formTarget.hasAttribute("popover")) {
+      try { this.formTarget.hidePopover() } catch {}
+      this.formTarget.removeAttribute("popover")
+    }
     this.formTarget.style.display = "none"
     this.anchorInputTarget.value = ""
     this.contextInputTarget.value = ""
@@ -444,7 +474,21 @@ export default class extends Controller {
     this._positionPopoverAtMark(this._activePopover, this._activeMark)
   }
 
+  _isMobile() {
+    return window.matchMedia("(max-width: 640px)").matches
+  }
+
   _positionPopoverAtMark(popover, mark) {
+    // Small screens: thread popovers become a fixed bottom sheet instead
+    // of floating beside the mark (where they'd overflow the viewport).
+    if (this._isMobile()) {
+      popover.classList.add("thread-popover--sheet")
+      popover.style.top = ""
+      popover.style.left = ""
+      return
+    }
+    popover.classList.remove("thread-popover--sheet")
+
     const markRect = mark.getBoundingClientRect()
     const popoverRect = popover.getBoundingClientRect()
     const viewportWidth = window.innerWidth
@@ -712,9 +756,10 @@ export default class extends Controller {
     }
 
     // Marks may not exist yet (Turbo Drive render timing).
-    // Retry a few times with increasing delay.
+    // Retry a few times; the timer is cleared in disconnect() so a quick
+    // navigation away can't fire it against a dead controller.
     if (attempt < 10) {
-      setTimeout(() => this._openLinkedThread(attempt + 1), 100)
+      this._linkedThreadRetry = setTimeout(() => this._openLinkedThread(attempt + 1), 100)
     }
   }
 

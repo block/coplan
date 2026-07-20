@@ -183,7 +183,9 @@ export default class extends Controller {
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target.isContentEditable) return
     if (event.metaKey || event.ctrlKey || event.altKey) return
 
-    if (event.key === "]") {
+    // "t" as in table of contents — [ and ] belong to section jumps
+    // (coplan--plan-keys).
+    if (event.key === "t") {
       event.preventDefault()
       this.toggle()
     }

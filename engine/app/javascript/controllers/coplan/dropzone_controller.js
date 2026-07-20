@@ -1,38 +1,42 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Drag-and-drop upload zone wrapping a visually-hidden file input. Files
-// upload immediately on selection or drop — there is no separate submit
-// button — so the controller sits on the <form> and posts via
-// requestSubmit(), letting Turbo handle the redirect.
+// Styled replacement for a native file input, attached to the upload form:
+// click the zone (or drag files onto it) and the form submits as soon as
+// files are chosen — no separate Upload button.
 export default class extends Controller {
-  static targets = ["input", "text"]
+  static targets = ["input", "zone", "label"]
+
+  open() {
+    this.inputTarget.click()
+  }
 
   dragOver(event) {
     event.preventDefault()
-    this.element.classList.add("attachments-dropzone--active")
+    this.zoneTarget.classList.add("dropzone--active")
   }
 
-  dragLeave(event) {
-    event.preventDefault()
-    this.element.classList.remove("attachments-dropzone--active")
+  dragLeave() {
+    this.zoneTarget.classList.remove("dropzone--active")
   }
 
   drop(event) {
     event.preventDefault()
-    this.element.classList.remove("attachments-dropzone--active")
+    this.zoneTarget.classList.remove("dropzone--active")
     if (!event.dataTransfer?.files?.length) return
     this.inputTarget.files = event.dataTransfer.files
-    this.changed()
+    this.submit()
   }
 
   changed() {
-    const files = this.inputTarget.files
-    if (!files.length) return
-    if (this.hasTextTarget) {
-      this.textTarget.textContent =
-        files.length === 1 ? `Uploading ${files[0].name}…` : `Uploading ${files.length} files…`
+    if (this.inputTarget.files.length) this.submit()
+  }
+
+  submit() {
+    const count = this.inputTarget.files.length
+    if (this.hasLabelTarget) {
+      this.labelTarget.textContent = `Uploading ${count} ${count === 1 ? "file" : "files"}…`
     }
-    this.element.classList.add("attachments-dropzone--uploading")
+    this.zoneTarget.classList.add("dropzone--busy")
     this.element.requestSubmit()
   }
 }

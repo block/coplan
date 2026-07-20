@@ -6,7 +6,7 @@ RSpec.describe "Api::V1::Content", type: :request do
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }
   let(:initial_content) { "# Plan\n\nSection one.\n\nSection two.\n" }
   let!(:plan) do
-    p = CoPlan::Plan.create!(title: "Test", created_by_user: alice, status: "considering")
+    p = CoPlan::Plan.create!(title: "Test", created_by_user: alice)
     v = CoPlan::PlanVersion.create!(
       plan: p, revision: 1,
       content_markdown: initial_content,

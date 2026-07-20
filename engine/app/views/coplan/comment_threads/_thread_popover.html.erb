@@ -11,7 +11,7 @@
     <div class="thread-popover__header">
       <span class="badge badge--<%= thread.status %>"><%= thread.status %></span>
       <% if thread.out_of_date? %>
-        <span class="badge badge--abandoned">out of date</span>
+        <span class="badge badge--archived">out of date</span>
       <% end %>
       <%= link_to plan_path(plan, thread: thread.id),
                   class: "thread-popover__permalink btn btn--secondary btn--sm",
@@ -41,7 +41,7 @@
         <%= form_with url: plan_comment_thread_comments_path(plan, thread), method: :post, data: { action: "turbo:submit-end->coplan--text-selection#resetReplyForm" } do |f| %>
           <div class="form-group">
             <textarea name="comment[body_markdown]" rows="2" placeholder="Press r to reply" required
-              data-controller="coplan--comment-form" data-action="keydown->coplan--comment-form#submitOnEnter"></textarea>
+              data-controller="coplan--comment-form"></textarea>
           </div>
           <button type="submit" class="btn btn--secondary btn--sm">Reply</button>
         <% end %>
