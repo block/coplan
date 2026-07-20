@@ -2991,22 +2991,41 @@ img.avatar {
   display: none;
 }
 
+.attachments-dropzone__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .attachments-list {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
 }
 
 .attachments-list__item {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.attachments-list__item:last-child {
-  border-bottom: none;
+.attachments-list__item:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow);
 }
 
 .attachments-list__icon {
@@ -3349,6 +3368,296 @@ img.avatar {
   color: var(--color-text-muted);
 }
 
+.landing__footer-oss {
+  margin: var(--space-sm) 0 0;
+}
+
+.landing__kicker {
+  display: inline-block;
+  margin: 0 0 var(--space-md);
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  letter-spacing: 0.01em;
+}
+
+.landing__features {
+  margin-bottom: var(--space-2xl);
+}
+
+.landing__feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-lg);
+}
+
+.landing__feature {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-lg);
+}
+
+.landing__feature h3 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0 0 var(--space-sm);
+  color: var(--color-text);
+}
+
+.landing__feature p {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+/* Copy-to-clipboard URL chip — shared partial coplan/shared/_copy_url */
+.copy-url {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.copy-url__value {
+  flex: 1 1 16rem;
+  display: flex;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.landing__agents .copy-url {
+  margin-top: var(--space-md);
+}
+
+/* Landing mock — an illustrative, CSS-only rendering of the review loop
+   (anchored comment → agent edit → new version). Uses the same design tokens
+   as the real plan UI so it stays truthful in both light and dark themes. */
+.landing-mock {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-lg);
+  align-items: start;
+  margin-bottom: var(--space-2xl);
+}
+
+.landing-mock__doc {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.landing-mock__doc-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
+}
+
+.landing-mock__doc-title {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  margin-right: auto;
+}
+
+.landing-mock__badge {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.landing-mock__badge--type {
+  background: var(--color-type-bg);
+  color: var(--color-type-text);
+}
+
+.landing-mock__badge--version {
+  background: var(--color-tag-bg);
+  color: var(--color-tag-text);
+}
+
+.landing-mock__doc-body {
+  padding: var(--space-lg);
+}
+
+.landing-mock__heading {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.landing-mock__line {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  color: var(--color-text);
+}
+
+.landing-mock__line--dim {
+  color: var(--color-text-muted);
+}
+
+.landing-mock__highlight {
+  background: var(--color-highlight-pending-bg);
+  border-bottom: 2px solid var(--color-highlight-pending-border);
+  color: inherit;
+  padding: 0 0.1em;
+  border-radius: 2px;
+}
+
+.landing-mock__thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.landing-mock__comment {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--space-md);
+}
+
+.landing-mock__comment p {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+.landing-mock__comment--agent {
+  border-color: var(--color-agent-bg);
+  background: var(--color-surface-muted);
+  margin-left: var(--space-lg);
+}
+
+.landing-mock__author {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-xs);
+}
+
+.landing-mock__agent-chip {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--color-agent-bg);
+  color: var(--color-agent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.landing-mock__provenance {
+  margin-top: var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* Copy-to-clipboard button feedback (see clipboard_controller.js) */
+.copy-button--copied {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+/* Agent instructions — human-friendly HTML rendering at /agent-instructions.
+   Agents and curl still get raw markdown from the same URL; this page is what
+   browsers see. */
+.agent-instructions {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: var(--space-2xl) var(--space-lg);
+}
+
+.agent-instructions__header {
+  margin-bottom: var(--space-2xl);
+}
+
+.agent-instructions__title {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 var(--space-md);
+  color: var(--color-text);
+}
+
+.agent-instructions__lede {
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-xl);
+}
+
+.agent-instructions__url-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.agent-instructions__url-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-sm);
+}
+
+.agent-instructions__fetch-hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin: 0 0 var(--space-sm);
+}
+
+.agent-instructions__curl {
+  margin: 0 0 var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  overflow-x: auto;
+}
+
+.agent-instructions__raw-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.agent-instructions__doc {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-xl);
+}
+
 @media (max-width: 640px) {
   .landing {
     padding: var(--space-xl) var(--space-md);
@@ -3356,6 +3665,18 @@ img.avatar {
 
   .landing__title {
     font-size: 1.75rem;
+  }
+
+  .landing-mock {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-mock__comment--agent {
+    margin-left: var(--space-md);
+  }
+
+  .agent-instructions {
+    padding: var(--space-xl) var(--space-md);
   }
 }
 

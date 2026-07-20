@@ -1,21 +1,60 @@
 <div class="landing">
   <header class="landing__hero">
+    <p class="landing__kicker">Humans comment. AI agents edit.</p>
     <h1 class="landing__title">Design docs, built for AI-assisted planning.</h1>
     <p class="landing__lede">
-      CoPlan is where engineers and AI agents collaborate on plans together.
-      Humans leave inline feedback. AI agents respond to that feedback and apply edits automatically.
-      Every change is versioned with full provenance.
+      CoPlan gives your plans a home where teammates and AI agents make them better together.
+      Domain experts leave inline feedback, Google-Docs-style. Agents respond to that feedback
+      and apply the edits. Every change becomes an immutable version with full provenance —
+      who changed what, why, and which comment triggered it.
     </p>
 
     <div class="landing__cta-row">
       <% if signed_in? %>
         <%= link_to "Browse plans", plans_path, class: "btn btn--primary" %>
-      <% elsif main_app.respond_to?(:sign_in_path) %>
-        <%= link_to "Sign in", main_app.sign_in_path, class: "btn btn--primary" %>
+      <% elsif CoPlan.configuration.sign_in_path %>
+        <%= link_to "Sign in to get started", CoPlan.configuration.sign_in_path, class: "btn btn--primary" %>
       <% end %>
-      <%= link_to "Read the agent API", agent_instructions_path, class: "btn btn--secondary" %>
+      <%= link_to "Connect your agent", agent_instructions_path, class: "btn btn--secondary" %>
     </div>
   </header>
+
+  <%# Illustrative mock of the review loop: a reviewer anchors a comment to a
+      sentence, and an agent applies the edit — producing a new version. Pure
+      HTML/CSS, no screenshots, so it inherits light/dark theming for free. %>
+  <div class="landing-mock" aria-hidden="true">
+    <div class="landing-mock__doc">
+      <div class="landing-mock__doc-header">
+        <span class="landing-mock__doc-title">Payment retry pipeline</span>
+        <span class="landing-mock__badge landing-mock__badge--type">design doc</span>
+        <span class="landing-mock__badge landing-mock__badge--version">v4</span>
+      </div>
+      <div class="landing-mock__doc-body">
+        <p class="landing-mock__heading">Failure handling</p>
+        <p class="landing-mock__line">
+          Failed charges are retried immediately, up to
+          <mark class="landing-mock__highlight">ten times in a tight loop</mark>,
+          before the invoice is marked delinquent.
+        </p>
+        <p class="landing-mock__line landing-mock__line--dim">
+          Webhooks notify the billing service after the final attempt, and the
+          plan owner is paged if the failure rate crosses the alert threshold.
+        </p>
+      </div>
+    </div>
+
+    <div class="landing-mock__thread">
+      <div class="landing-mock__comment">
+        <div class="landing-mock__author">Priya — reviewer</div>
+        <p>Tight-loop retries will hammer the processor. Exponential backoff with a cap?</p>
+      </div>
+      <div class="landing-mock__comment landing-mock__comment--agent">
+        <div class="landing-mock__author">Claude <span class="landing-mock__agent-chip">agent</span></div>
+        <p>Done — capped at 5 attempts with exponential backoff and jitter.</p>
+        <div class="landing-mock__provenance">applied edit &rarr; version 4</div>
+      </div>
+    </div>
+  </div>
 
   <section class="landing__how">
     <h2 class="landing__section-title">How it works</h2>
@@ -25,9 +64,9 @@
         <div class="landing__step-number">1</div>
         <h3>Write a plan</h3>
         <p>
-          A plan is a Markdown design doc. Author it yourself, or have an AI agent draft one
-          for you using the API. Plans are listed for the whole org from the start — or mark
-          one a draft to keep it unlisted (link-only) until it's ready.
+          A plan is a Markdown design doc. Draft it yourself or have an agent write it
+          through the API. Plans are listed for the whole org from the start — or keep one
+          Private (unlisted, link-only) until it's ready to share.
         </p>
       </div>
 
@@ -35,9 +74,9 @@
         <div class="landing__step-number">2</div>
         <h3>Get inline feedback</h3>
         <p>
-          Domain experts highlight any sentence and leave a comment. Threads stay anchored to the
-          exact text they reference, so context never gets lost. Mention people with
-          <code>@username</code> to pull them in.
+          Reviewers highlight any sentence and leave a threaded comment anchored to that exact
+          text, so context never gets lost. Mention people with <code>@username</code> to pull
+          them in. New comments appear for every viewer in realtime.
         </p>
       </div>
 
@@ -45,9 +84,65 @@
         <div class="landing__step-number">3</div>
         <h3>Agents apply the edits</h3>
         <p>
-          AI agents read the comments, apply targeted edits to the plan, and resolve the threads.
-          Every edit creates a new immutable version with full attribution — you can see exactly
-          who (or what) changed what, and why.
+          You triage the feedback; agents do the typing. An agent reads the accepted comments,
+          applies targeted edits, and resolves the threads. Each edit creates a new immutable
+          version with full attribution — the actor, the model, and the comments that prompted it.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="landing__features">
+    <h2 class="landing__section-title">What you get</h2>
+
+    <div class="landing__feature-grid">
+      <div class="landing__feature">
+        <h3>Inline, anchored comments</h3>
+        <p>
+          Select text in the rendered plan to start a thread, Google-Docs-style. Comments stay
+          pinned to the words they reference through triage: accept, resolve, or discard.
+        </p>
+      </div>
+
+      <div class="landing__feature">
+        <h3>Immutable versions with provenance</h3>
+        <p>
+          Every edit produces a new version recording who (or what) made it, the AI model and
+          prompt used, and which comments triggered the change. History is always browsable
+          and never rewritten.
+        </p>
+      </div>
+
+      <div class="landing__feature">
+        <h3>Realtime collaboration</h3>
+        <p>
+          Comments, edits, status changes, and new versions broadcast instantly to everyone
+          viewing the plan — no refresh needed.
+        </p>
+      </div>
+
+      <div class="landing__feature">
+        <h3>A semantic agent API</h3>
+        <p>
+          Agents edit through operations like <code>replace_exact</code> and
+          <code>insert_under_heading</code> — not brittle line numbers. An edit lease keeps
+          one agent writing at a time, and stale revisions are rejected cleanly.
+        </p>
+      </div>
+
+      <div class="landing__feature">
+        <h3>Humans comment, agents edit</h3>
+        <p>
+          The editing model is intentionally asymmetric: people review and decide, agents type.
+          That keeps the version history clean, auditable, and tied to a reason for every change.
+        </p>
+      </div>
+
+      <div class="landing__feature">
+        <h3>Works with any agent</h3>
+        <p>
+          Connecting an agent takes a bearer token and one URL — the API describes itself at
+          <code>/agent-instructions</code>, and every API response points back to it.
         </p>
       </div>
     </div>
@@ -61,12 +156,16 @@
       page. See `CoPlan.configuration.landing_agents_partial`. %>
   <%= render CoPlan.configuration.landing_agents_partial %>
 
-  <% if signed_in? %>
-    <footer class="landing__footer">
+  <footer class="landing__footer">
+    <% if signed_in? %>
       <p>
         Signed in as <strong><%= current_user.name %></strong>.
         <%= link_to "Browse all plans →", plans_path(scope: "all"), class: "landing__inline-link" %>
       </p>
-    </footer>
-  <% end %>
+    <% end %>
+    <p class="landing__footer-oss">
+      CoPlan is <%= link_to "open source", "https://github.com/block/coplan", class: "landing__inline-link" %>,
+      released under the Apache 2.0 license.
+    </p>
+  </footer>
 </div>

@@ -34,6 +34,10 @@ gem "coplan-engine", require: "coplan"
 
 See the [Host App Integration Guide](./docs/HOST_APP_GUIDE.md) for full setup instructions.
 
+### Optional integrations
+
+- [`coplan-slack`](./integrations/slack/README.md) adds signed Slack Events API handling and rich link unfurls without coupling Slack to the core engine.
+
 ## Development Setup
 
 ```bash

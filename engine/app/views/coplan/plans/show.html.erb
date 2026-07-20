@@ -95,7 +95,11 @@
       </nav>
       <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>
 
-      <div class="plan-layout__content" data-coplan--text-selection-target="content" data-coplan--content-nav-target="content">
+      <%# Mermaid swaps its source block for rendered SVG asynchronously —
+          re-run anchor highlighting once each diagram settles so comments
+          anchored to diagram labels get their marks (and pending ?thread=
+          deep links can resolve). %>
+      <div class="plan-layout__content" data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-action="coplan:mermaid-settled->coplan--text-selection#handleMermaidSettled">
         <div id="plan-content-body"
              data-controller="coplan--live-update"
              data-coplan--live-update-revision-value="<%= @plan.current_revision %>">
@@ -163,7 +167,9 @@
     j/k step through comments, r focuses reply, a/d accept/discard,
     s toggles resolved-thread visibility. %>
 <% if @threads.any? %>
-  <div data-controller="coplan--comment-nav" hidden></div>
+  <div data-controller="coplan--comment-nav"
+       data-action="coplan:anchors-updated@document->coplan--comment-nav#handleAnchorsUpdated"
+       hidden></div>
 <% end %>
 
 </div>

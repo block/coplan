@@ -27,7 +27,9 @@ RSpec.describe CoPlan::ApplicationHelper, type: :helper do
       plan.update_columns(current_plan_version_id: nil)
       plan.reload
       result = helper.plan_og_description(plan)
-      expect(result).to eq("Plan · by #{plan.created_by_user.name}")
+      # Published is the unmarked state, so with no type and no content the
+      # context is just the author.
+      expect(result).to eq("by #{plan.created_by_user.name}")
     end
 
     it "truncates long content" do

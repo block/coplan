@@ -39,21 +39,10 @@ module CoPlan
     end
 
     def plan_og_description(plan)
-      state = if plan.archived?
-        "Archived"
-      elsif plan.draft?
-        "Private"
-      else
-        "Plan"
-      end
-      author = plan.created_by_user.name
-      prefix = "#{state} · by #{author}"
-      content = plan.current_content
-      return prefix if content.blank?
-
-      plain = markdown_to_plain_text(content)
-      truncated = truncate(plain, length: 200, omission: "…")
-      "#{prefix} — #{truncated}"
+      # One preview builder for OG tags, Slack unfurls, and anything else —
+      # its context carries the Private/Archived flag (published unmarked).
+      preview = LinkPreviews.for_plan(plan, base_url: request.base_url + coplan.root_path)
+      truncate([ preview.context, preview.description ].compact.join(" — "), length: 250, omission: "…")
     end
 
     # Canonical URL for a user's profile — username when they have one

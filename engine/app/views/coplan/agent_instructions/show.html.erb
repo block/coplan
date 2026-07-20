@@ -1,0 +1,33 @@
+<% content_for :title, "Agent Instructions — CoPlan" %>
+
+<div class="agent-instructions">
+  <header class="agent-instructions__header">
+    <h1 class="agent-instructions__title">Connect your AI agent</h1>
+    <p class="agent-instructions__lede">
+      CoPlan's API is self-describing. Give your agent — Claude Code, Amp, Cursor, or your own —
+      the URL below plus an API token, and it can create plans, apply edits, and respond to
+      review comments on your behalf.
+    </p>
+
+    <div class="agent-instructions__url-card">
+      <div class="agent-instructions__url-label">Instructions URL — paste this into your agent</div>
+      <%= render "coplan/shared/copy_url", url: @instructions_url, button_class: "btn btn--primary" %>
+    </div>
+
+    <div class="agent-instructions__fetch">
+      <p class="agent-instructions__fetch-hint">
+        Agents fetch this same URL and receive the instructions as raw Markdown:
+      </p>
+      <pre class="agent-instructions__curl"><code>curl -s <%= @instructions_url %></code></pre>
+      <p class="agent-instructions__fetch-hint">
+        API tokens are created under <strong>Settings → API Tokens</strong>. You can also
+        <%= link_to "view the raw markdown", agent_instructions_path(format: :md), class: "agent-instructions__raw-link" %>
+        that agents see.
+      </p>
+    </div>
+  </header>
+
+  <article class="agent-instructions__doc">
+    <%= render_markdown(@instructions_markdown, interactive: false) %>
+  </article>
+</div>
