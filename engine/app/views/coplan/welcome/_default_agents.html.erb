@@ -1,9 +1,10 @@
 <section class="landing__agents">
   <h2 class="landing__section-title">Built for any AI agent</h2>
   <p>
-    CoPlan exposes a self-describing REST API at
-    <%= link_to "/agent-instructions", agent_instructions_path, class: "landing__inline-link" %>.
-    Point any AI agent — Amp, Claude Code, Cursor, your own — at it and it can create plans,
-    apply edits, and leave review comments on your behalf.
+    CoPlan exposes a self-describing REST API. Point any AI agent — Amp, Claude Code, Cursor,
+    your own — at <%= link_to "/agent-instructions", agent_instructions_path, class: "landing__inline-link" %>
+    and it can create plans, apply edits, and leave review comments on your behalf.
+    Agents authenticate with a bearer token from <strong>Settings &rarr; API&nbsp;Tokens</strong>.
   </p>
+  <%= render "coplan/shared/copy_url", url: agent_instructions_url %>
 </section>
