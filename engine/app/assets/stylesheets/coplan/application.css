@@ -2693,32 +2693,6 @@ img.avatar {
   font-weight: 600;
 }
 
-.folder-picker__remove {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-xs);
-  width: 100%;
-  margin-top: var(--space-sm);
-  padding: 6px var(--space-sm);
-  background: none;
-  border: none;
-  border-top: 1px solid var(--color-border);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.folder-picker__remove:hover {
-  color: var(--color-danger, #e0637a);
-}
-
-.folder-picker__remove-hint {
-  font-size: var(--text-xs);
-  opacity: 0.7;
-}
-
 /* History page (the plan's time machine) */
 .history-page {
   padding: var(--space-lg);
@@ -3730,6 +3704,12 @@ img.avatar {
 .plan-shelves__bookmark--saved {
   color: var(--color-primary);
   border-style: solid;
+}
+
+/* Saved = a second click removes; hint at that on hover. */
+.plan-shelves__bookmark--saved:hover {
+  color: var(--color-danger, #e0637a);
+  border-color: var(--color-danger, #e0637a);
 }
 
 /* Library browsing page (read-only shelves) */
@@ -4756,6 +4736,11 @@ img.avatar {
 
 .plan-row__save--saved {
   color: var(--color-primary);
+}
+
+/* Saved = a second click removes; hint at that on hover. */
+.plan-row__save--saved:hover {
+  color: var(--color-danger, #e0637a);
 }
 
 /* Toasts (drag & drop feedback) */

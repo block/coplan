@@ -2,7 +2,8 @@
     viewer's folders as a flat list; the tree is rebuilt here so any page
     (plan header, workspace rows) can render the picker from what it already
     loaded. Open it via coplan--folder-picker#open on a trigger carrying
-    data-move-url / data-current-folder-id / data-plan-title. %>
+    data-move-url / data-current-folder-id / data-saved / data-plan-title —
+    saved triggers unbookmark on click instead of opening this popover. %>
 <% children_by_parent = folders.group_by(&:parent_id) %>
 <div id="folder-picker-modal" popover="auto" class="add-modal folder-picker"
      data-coplan--folder-picker-target="modal" aria-labelledby="folder-picker-title">
@@ -23,11 +24,5 @@
     <% else %>
       <p class="text-sm text-muted">No folders yet — create one from your workspace to start organizing.</p>
     <% end %>
-    <button type="button" class="folder-picker__remove" data-coplan--folder-picker-target="remove"
-            data-folder-id="" data-action="coplan--folder-picker#choose" hidden>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-      Remove from my library
-      <span class="folder-picker__remove-hint">your own plans stay in My Plans, unfiled</span>
-    </button>
   </div>
 </div>

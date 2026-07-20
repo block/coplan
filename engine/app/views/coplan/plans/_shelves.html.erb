@@ -31,17 +31,19 @@
     <% end %>
 
     <% if current_user %>
-      <%# The bookmark: save this plan into (or move it within, or remove it
-          from) your own library via the folder navigator. Filled once it's
-          shelved — like a saved bookmark. %>
+      <%# The bookmark: click to save this plan into your own library via
+          the folder navigator; click again to quietly unsave it (your own
+          plans just return to My Plans, unfiled). Filled once shelved —
+          exactly a bookmark star. %>
       <button type="button"
               class="plan-shelves__bookmark<%= " plan-shelves__bookmark--saved" if my_placement %>"
               data-action="coplan--folder-picker#open"
               data-move-url="<%= move_to_folder_plan_path(plan) %>"
               data-current-folder-id="<%= my_placement&.folder_id %>"
+              data-saved="<%= my_placement.present? %>"
               data-plan-title="<%= plan.title %>"
-              title="<%= my_placement ? "Saved in #{my_placement.folder.path} — click to move or remove" : "Save to a folder in your library" %>"
-              aria-label="Save to your library">
+              title="<%= my_placement ? "Saved in #{my_placement.folder.path} — click to remove" : "Save to a folder in your library" %>"
+              aria-label="<%= my_placement ? "Remove from your library" : "Save to your library" %>">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="<%= my_placement ? "currentColor" : "none" %>" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
         <% unless my_placement %><span class="plan-shelves__bookmark-label">Save</span><% end %>
       </button>

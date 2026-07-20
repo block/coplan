@@ -198,18 +198,18 @@ RSpec.describe "Folders workspace", type: :system do
       expect(author.library.placements.find_by(plan_id: developing_plan.id).folder).to eq(q3)
     end
 
-    it "removes a filed plan from the library via the navigator" do
+    it "unsaves a filed plan with a second bookmark click — no dialog, no toast" do
       CoPlan::Plans::Place.call(plan: developing_plan, folder: q3, actor: author)
       visit plans_path(folder: q3.id)
 
       row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
-      row.find(".plan-row__save", visible: :all).click
+      row.find(".plan-row__save--saved", visible: :all).click
 
-      within("#folder-picker-modal") do
-        click_button "Remove from my library"
-      end
-
-      expect(page).to have_css(".flash--notice", text: "Removed", wait: 5)
+      # The bookmark just lets go: no navigator, no confirmation, no toast —
+      # the page re-renders and the plan is out of the folder.
+      expect(page).not_to have_css("#folder-picker-modal:popover-open")
+      expect(page).not_to have_css(".plan-row[data-plan-id='#{developing_plan.id}']", wait: 5)
+      expect(page).not_to have_css(".flash--notice")
       expect(author.library.placements.where(plan_id: developing_plan.id)).to be_empty
     end
 

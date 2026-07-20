@@ -1,12 +1,13 @@
 import { Controller } from "@hotwired/stimulus"
 
-// The "save to library" navigator: a bookmark/move trigger opens a popover
-// with the viewer's folder tree (a little filesystem), picking a folder
-// files the plan there, "Remove from library" unfiles it. One shared popover
-// per page — triggers carry the plan's move URL and current folder so rows
-// and the plan header can all reuse it.
+// The "save to library" bookmark. Behaves like a browser bookmark star:
+// unsaved, a click opens the folder navigator popover (the viewer's folder
+// tree, a little filesystem) to pick where it goes; saved, a click just
+// removes it — no dialog, no toast — and you can re-add if you want. One
+// shared popover per page — triggers carry the plan's move URL, current
+// folder, and saved state so rows and the plan header can all reuse it.
 export default class extends Controller {
-  static targets = ["modal", "title", "remove"]
+  static targets = ["modal", "title"]
 
   open(event) {
     event.preventDefault()
@@ -14,12 +15,14 @@ export default class extends Controller {
     this._moveUrl = trigger.dataset.moveUrl
     this._currentFolderId = trigger.dataset.currentFolderId || ""
 
+    // Already saved: the second click unbookmarks, quietly.
+    if (trigger.dataset.saved === "true") {
+      this._patch("", { quiet: true })
+      return
+    }
+
     if (this.hasTitleTarget && trigger.dataset.planTitle) {
       this.titleTarget.textContent = trigger.dataset.planTitle
-    }
-    // "Remove" only makes sense when the plan is actually shelved.
-    if (this.hasRemoveTarget) {
-      this.removeTarget.hidden = this._currentFolderId === ""
     }
     // Mark where the plan currently sits so the tree reads as state, not
     // just a menu.
@@ -42,7 +45,7 @@ export default class extends Controller {
     this._patch(folderId)
   }
 
-  _patch(folderId) {
+  _patch(folderId, { quiet = false } = {}) {
     const token = document.querySelector('meta[name="csrf-token"]')?.content
     fetch(this._moveUrl, {
       method: "PATCH",
@@ -57,14 +60,17 @@ export default class extends Controller {
         const data = await response.json().catch(() => ({}))
         if (!response.ok) throw new Error(data.error || "Move failed")
         try { this.modalTarget.hidePopover() } catch {}
-        const message = data.message || "Saved."
-        // Re-render so shelves, breadcrumbs, and counts stay accurate,
-        // then toast on the fresh page.
-        if (window.Turbo) {
+        // Re-render so shelves, breadcrumbs, and counts stay accurate —
+        // with a toast on the fresh page when the action deserves one
+        // (unbookmarking is quiet, like any bookmark star).
+        if (!quiet && window.Turbo) {
+          const message = data.message || "Saved."
           document.addEventListener("turbo:load", () => this._toast(message, "notice"), { once: true })
+        }
+        if (window.Turbo) {
           window.Turbo.visit(window.location.href, { action: "replace" })
-        } else {
-          this._toast(message, "notice")
+        } else if (!quiet) {
+          this._toast(data.message || "Saved.", "notice")
         }
       })
       .catch(error => this._toast(error.message, "alert"))
