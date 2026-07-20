@@ -48,7 +48,11 @@ RSpec.describe "Human plan editing", type: :system do
 
     visit edit_content_plan_path(plan)
     fill_in "Title", with: "Renamed In Editor"
-    # Tag chips: type a tag and press Enter to commit it as a chip.
+    # Tag chips: type a tag and press Enter to commit it as a chip. Wait for
+    # the existing tag's chip first — it only renders once the Stimulus
+    # controller connects, and before that Enter isn't intercepted and would
+    # natively submit the form mid-keystroke.
+    expect(page).to have_css(".tag-input__chip", text: "security")
     find("#plan_tag_field").send_keys("api-design", :enter)
     click_button "Save new version"
 
