@@ -11,13 +11,35 @@
 
 <%= turbo_stream_from @plan %>
 
-<%# plan-keys: Backspace goes back to wherever you came from; [ / ] jump
-    between the document and its footnote sections. %>
-<div data-controller="coplan--plan-keys coplan--folder-picker"
-     data-coplan--plan-keys-fallback-url-value="<%= plans_path %>">
+<% my_placement = current_user && @shelf_placements.find { |p| p.library.writable_by?(current_user) } %>
 
-<div data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
+<%# plan-keys: Backspace goes back to wherever you came from; [ / ] jump
+    between the document and its footnote sections. Cold opens (direct link,
+    new tab) have no history — fall back to where the plan lives in the
+    viewer's library, not the workspace root. %>
+<div data-controller="coplan--plan-keys coplan--folder-picker"
+     data-coplan--plan-keys-fallback-url-value="<%= my_placement&.folder_id ? plans_path(folder: my_placement.folder_id) : plans_path %>">
+
+<div data-controller="coplan--presence coplan--plan-bookmark" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
   <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
+  <% if current_user %>
+    <%# The bookmark that mounts beside the title (see #plan-bookmark-slot
+        in the header partial). Rendered here because it's viewer-relative —
+        broadcast re-renders of the header can't know who's looking. %>
+    <template data-coplan--plan-bookmark-target="template">
+      <button type="button"
+              class="plan-bookmark<%= " plan-bookmark--saved" if my_placement %>"
+              data-action="coplan--folder-picker#open"
+              data-move-url="<%= move_to_folder_plan_path(@plan) %>"
+              data-current-folder-id="<%= my_placement&.folder_id %>"
+              data-saved="<%= my_placement.present? %>"
+              data-plan-title="<%= @plan.title %>"
+              title="<%= my_placement ? "Saved in #{my_placement.folder.path} — click to remove" : "Save to a folder in your library" %>"
+              aria-label="<%= my_placement ? "Remove from your library" : "Save to your library" %>">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="<%= my_placement ? "currentColor" : "none" %>" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+      </button>
+    </template>
+  <% end %>
 </div>
 
 <%# Owner affordances live outside the broadcast-replaced #plan-header so
@@ -36,7 +58,7 @@
     sides are viewer-relative / policy-gated (broadcast renders have no
     current_user). %>
 <div class="plan-meta-row">
-  <%= render partial: "coplan/plans/shelves", locals: { plan: @plan, placements: @shelf_placements, my_folders: @my_folders } %>
+  <%= render partial: "coplan/plans/shelves", locals: { placements: @shelf_placements } %>
   <div class="plan-actions">
     <% if allowed_to?(@plan, :publish?) || allowed_to?(@plan, :hide?) %>
       <%# The visibility eye: open eye = shared with everyone, slashed = Private.

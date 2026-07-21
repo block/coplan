@@ -24,7 +24,12 @@
   <span class="plan-row__icon"><%= plan_type_icon(plan, size: :lg) %></span>
   <div class="plan-row__main">
     <div class="plan-row__line">
-      <%= link_to plan.title, plan_path(plan), class: "plan-row__title", draggable: false, data: { turbo_frame: "_top" } %><%= plan_state_badge(plan) %>
+      <%# Stretched link: the title's ::after covers the whole card, so a
+          click anywhere navigates and a hover anywhere prefetches the plan
+          (Turbo 8 hover prefetch) — native link semantics (middle/cmd
+          click) included. Other links/buttons in the row sit above it. %>
+      <%= link_to plan.title, plan_path(plan), class: "plan-row__title", draggable: false,
+            data: { turbo_frame: "_top", turbo_prefetch: true } %><%= plan_state_badge(plan) %>
       <% if my_folder_id && my_folder_id != local_assigns[:suppress_folder_id] %>
         <%= link_to workspace_path(folder: my_folder_id),
               class: "plan-row__folder", draggable: false, data: { turbo_frame: "_top" } do %>

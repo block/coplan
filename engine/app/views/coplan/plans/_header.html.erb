@@ -6,11 +6,20 @@
     <div class="page-header__title-row">
       <%= plan_type_icon(plan, size: :lg) %>
       <h1 class="page-header__title"><%= plan.title %></h1>
+      <%# The save bookmark mounts here from outside this partial: it's
+          viewer-relative (needs current_user), and this header re-renders
+          from broadcasts where there is none — plan_bookmark_controller
+          re-stamps it after every replace. %>
+      <span id="plan-bookmark-slot" class="plan-bookmark-slot"></span>
     </div>
     <div class="page-header__byline text-sm text-muted">
       <%= user_avatar(plan.created_by_user) %> <%= profile_link(plan.created_by_user) %> · v<%= plan.current_revision %><%= plan_state_badge(plan) %>
+      <%# A tag on someone's plan reads as "find more like this", not "filter
+          my workspace" (which is what the row chips in YOUR workspace do) —
+          so it's a search, org-wide. search_text indexes tag names. %>
       <% plan.tags.each do |tag| %>
-        <%= link_to tag.name, plans_path(tag: tag.name), class: "badge badge--tag" %>
+        <%= link_to tag.name, search_path(q: tag.name), class: "badge badge--tag",
+              title: "Search plans tagged “#{tag.name}”" %>
       <% end %>
     </div>
   </div>

@@ -281,6 +281,11 @@ html {
   color: var(--color-text);
   background-color: var(--color-bg);
   -webkit-font-smoothing: antialiased;
+  /* Native-feel hard requirement: page width must NOT change between
+     navigations. Without a stable gutter, the scrollbar appearing or
+     disappearing between a long page and a short one re-centers the whole
+     layout — a "jiggle" on every workspace → plan hop. */
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -494,6 +499,20 @@ img, svg {
   flex-direction: row-reverse;
 }
 
+/* Each avatar is wrapped in a profile link — the link owns the stacking
+   overlap and the tooltip (::after can't render on an <img>). */
+.plan-viewers__avatar-link {
+  display: flex;
+  margin-left: -0.5rem;
+  border-radius: 50%;
+  position: relative;
+}
+
+.plan-viewers__avatar-link:hover {
+  z-index: 1;
+  transform: translateY(-1px);
+}
+
 .plan-viewers__avatar {
   display: flex;
   align-items: center;
@@ -506,9 +525,6 @@ img, svg {
   font-size: 0.7rem;
   font-weight: 600;
   border: 2px solid var(--color-surface);
-  margin-left: -0.5rem;
-  cursor: default;
-  position: relative;
   object-fit: cover;
 }
 
@@ -516,7 +532,7 @@ img, svg {
   background: var(--color-success);
 }
 
-.plan-viewers__avatar::after {
+.plan-viewers__avatar-link::after {
   content: attr(data-tooltip);
   position: absolute;
   bottom: calc(100% + 6px);
@@ -535,7 +551,7 @@ img, svg {
   z-index: 10;
 }
 
-.plan-viewers__avatar:hover::after {
+.plan-viewers__avatar-link:hover::after {
   opacity: 1;
 }
 
@@ -2965,7 +2981,26 @@ img.avatar {
 
 .dropzone--busy {
   pointer-events: none;
-  opacity: 0.7;
+  opacity: 0.85;
+}
+
+/* Live upload progress — fills as bytes actually leave the machine. */
+.dropzone__progress {
+  width: min(18rem, 100%);
+  height: 5px;
+  margin-top: var(--space-xs);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  overflow: hidden;
+}
+
+.dropzone__progress-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--color-primary);
+  transition: width 0.15s ease;
 }
 
 .dropzone__icon {
@@ -4001,36 +4036,39 @@ img.avatar {
   font-size: var(--text-xs);
 }
 
-/* The header bookmark: save/move/remove via the folder navigator. */
-.plan-shelves__bookmark {
+/* The save bookmark sits beside the plan title (mounted into
+   #plan-bookmark-slot by plan_bookmark_controller) — a quiet icon that
+   fills once the plan is on your shelf, like a bookmark star. */
+.plan-bookmark-slot {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: var(--text-xs);
-  font-family: inherit;
-  padding: 3px 8px;
-  border: 1px dashed var(--color-border);
-  border-radius: 9999px;
+}
+
+.plan-bookmark {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border: none;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: color 0.12s ease, border-color 0.12s ease;
+  transition: color 0.12s ease, background 0.12s ease;
 }
 
-.plan-shelves__bookmark:hover {
+.plan-bookmark:hover {
   color: var(--color-primary);
-  border-color: var(--color-primary);
+  background: var(--color-primary-light);
 }
 
-.plan-shelves__bookmark--saved {
+.plan-bookmark--saved {
   color: var(--color-primary);
-  border-style: solid;
 }
 
 /* Saved = a second click removes; hint at that on hover. */
-.plan-shelves__bookmark--saved:hover {
+.plan-bookmark--saved:hover {
   color: var(--color-danger, #e0637a);
-  border-color: var(--color-danger, #e0637a);
+  background: color-mix(in srgb, var(--color-danger, #e0637a) 10%, transparent);
 }
 
 /* Library browsing page (read-only shelves) */
@@ -4689,6 +4727,8 @@ img.avatar {
   color: var(--color-text);
   text-decoration: none;
   min-width: 0;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Leaf nodes (no <details>) keep the same left padding so labels align. */
@@ -4707,12 +4747,86 @@ img.avatar {
   font-weight: 500;
 }
 
-/* Live drop target under the cursor — folder links and group headings. */
+/* Live drop target under the cursor — folder links and group headings.
+   Loud on purpose: a solid ring, a glow, and primary-tinted contents, so
+   there's no squinting about where the drop will land. */
 .dnd-drop {
-  outline: 2px dashed var(--color-primary);
+  outline: 2px solid var(--color-primary);
   outline-offset: -2px;
   background: var(--color-primary-light);
   border-radius: var(--radius);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 22%, transparent);
+  color: var(--color-primary);
+}
+
+.dnd-drop .folder-row__icon,
+.dnd-drop .folder-row__name,
+.dnd-drop .folder-row__count,
+.dnd-drop .folder-tree__name,
+.dnd-drop .sidebar__count {
+  color: var(--color-primary);
+}
+
+/* Drop accepted, PATCH + refresh in flight — the target pulses until the
+   page re-renders so the move never feels like it silently stalled. */
+.dnd-drop--busy {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  background: var(--color-primary-light);
+  border-radius: var(--radius);
+  animation: dnd-busy-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes dnd-busy-pulse {
+  50% { opacity: 0.45; }
+}
+
+.workspace--moving,
+.workspace--moving * {
+  cursor: progress;
+}
+
+/* The row that was just dropped stays ghosted (dragend strips the
+   --dragging class before the server round-trip finishes). */
+.dnd-source--moving {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Spring-loading, Finder-style: keep the drag hovering on a folder and it
+   pulses twice, then springs open. */
+.dnd-spring {
+  animation: dnd-spring-pulse 0.3s ease-in-out 2;
+}
+
+@keyframes dnd-spring-pulse {
+  50% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-primary) 38%, transparent);
+    transform: scale(1.012);
+  }
+}
+
+/* Tunneled pane: springing a main-pane folder swaps the pane to that
+   folder's real level view mid-drag. A quick slide-in sells the "you just
+   went somewhere" feel each level down. */
+.workspace__main--tunneled {
+  animation: dnd-tunnel-in 0.18s ease-out;
+}
+
+@keyframes dnd-tunnel-in {
+  from {
+    opacity: 0.4;
+    transform: translateY(4px);
+  }
+}
+
+/* The pane itself is the fallback drop target ("file into the folder
+   you're looking at"). Ring it quietly and don't tint its text — the loud
+   treatment belongs to specific rows/crumbs. */
+.workspace__main.dnd-drop {
+  color: inherit;
+  box-shadow: none;
+  outline-style: dashed;
 }
 
 .folder-tree__link--dragging {
@@ -4906,6 +5020,8 @@ img.avatar {
   color: var(--color-text);
   text-decoration: none;
   transition: background 0.12s ease, box-shadow 0.12s ease;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .folder-row:hover {
@@ -4946,6 +5062,11 @@ img.avatar {
   border-radius: var(--radius);
   margin-bottom: var(--space-xs);
   transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+  /* Selectable text hijacks press-and-drag: the browser starts a text
+     selection instead of the row drag, and the mouseup then *navigates*
+     the title link. Rows are chrome, not prose — don't select. */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* The file icon spans both text rows — a Drive/Finder file entry. */
@@ -4963,6 +5084,26 @@ img.avatar {
   background: var(--glass-bg-strong);
   box-shadow: var(--shadow-pop);
   transform: translateY(-1px);
+  cursor: pointer;
+}
+
+/* Whole-card click target: the title link stretches over the card, so
+   clicking (and hover-prefetching) works anywhere on the row. Every other
+   interactive element in the row rises above the stretch. */
+.plan-row {
+  position: relative;
+}
+
+.plan-row__title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.plan-row a:not(.plan-row__title),
+.plan-row button {
+  position: relative;
+  z-index: 1;
 }
 
 .plan-row--dragging {

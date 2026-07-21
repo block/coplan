@@ -94,10 +94,11 @@ module CoPlan
       by_id = folders.index_by(&:id)
       folders.index_with do |folder|
         names = [ folder.name ]
+        seen = Set.new([ folder.id ])
         node = folder
         while node.parent_id && (node = by_id[node.parent_id])
+          break unless seen.add?(node.id) # cycle guard on bad data
           names.unshift(node.name)
-          break if names.length > MAX_DEPTH # cycle guard on bad data
         end
         names.join("/")
       end.transform_keys(&:id)

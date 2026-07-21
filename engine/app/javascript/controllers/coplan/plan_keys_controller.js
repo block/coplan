@@ -9,6 +9,16 @@ import { Controller } from "@hotwired/stimulus"
 //                (references, attachments)
 //
 // Sections register via data-plan-section attributes, in document order.
+
+// Turbo Drive navigates with pushState + fetch, so document.referrer never
+// updates after the first real page load — it can't answer "did we get here
+// from inside the app?". Track that ourselves: any Turbo visit in this tab
+// means there's in-app history worth going back to. (Module scope survives
+// Turbo navigations; a full reload resets it, but a full reload also sets a
+// real referrer, so the two checks cover each other.)
+let visitedInApp = false
+document.addEventListener("turbo:visit", () => { visitedInApp = true })
+
 export default class extends Controller {
   static values = { fallbackUrl: String }
 
@@ -47,10 +57,12 @@ export default class extends Controller {
   }
 
   _goBack() {
-    // Same-app referrer: real back, preserving scroll and history. A cold
+    // Came from inside the app (Turbo visit or full-load referrer): real
+    // back, preserving the folder you were in, scroll, and history. A cold
     // open (direct link, new tab) has nowhere to go back to — visit the
     // fallback instead.
-    if (document.referrer.startsWith(window.location.origin) && window.history.length > 1) {
+    const cameFromApp = visitedInApp || document.referrer.startsWith(window.location.origin)
+    if (cameFromApp && window.history.length > 1) {
       window.history.back()
     } else if (this.hasFallbackUrlValue && window.Turbo) {
       window.Turbo.visit(this.fallbackUrlValue)
