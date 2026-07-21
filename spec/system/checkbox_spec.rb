@@ -130,6 +130,11 @@ RSpec.describe "Interactive checkboxes", type: :system do
     first_cb = all('input[type="checkbox"]')[0]
     first_cb.click
     wait_for_version(plan, 2)
+    # The version bump broadcasts a whole-body re-render (Broadcaster
+    # .replace_plan_content) that the DB poll above can't see. Grab the
+    # second checkbox only after the swap lands, or the handle can detach
+    # between find and click.
+    wait_for_content_refresh(2)
 
     second_cb = all('input[type="checkbox"]')[1]
     second_cb.click
@@ -186,6 +191,15 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   private
+
+  # The live-update broadcast replaces the children of #plan-content-body and
+  # stamps the new revision on it — waiting for the stamp is the only
+  # race-free way to know the swap has already happened.
+  def wait_for_content_refresh(revision)
+    expect(page).to have_css(
+      "#plan-content-body[data-coplan--live-update-revision-value='#{revision}']"
+    )
+  end
 
   def wait_for_version(plan, expected_revision, timeout: 5)
     Timeout.timeout(timeout) do
