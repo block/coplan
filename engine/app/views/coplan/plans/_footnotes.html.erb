@@ -1,0 +1,32 @@
+<%# Back matter: references and attachments close out the document inside
+    the content column — separated from the prose by a rule, not banished
+    below the sidebar where long outlines made them collide. Each section
+    is one quiet header line (+, title, count); empty sections stay one
+    line tall. %>
+<div class="plan-footnotes">
+  <section class="plan-footnote" id="footnote-references" data-plan-section="references" aria-labelledby="footnote-references-title">
+    <div class="plan-footnote__header">
+      <% if current_user && allowed_to?(plan, :contribute?) %>
+        <button type="button" class="section-add" popovertarget="add-reference-modal" title="Add a reference" aria-label="Add a reference">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        </button>
+      <% end %>
+      <h2 class="plan-footnote__title" id="footnote-references-title">References</h2>
+      <span class="section-count" id="references-count"><%= references.size %></span>
+    </div>
+    <%= render partial: "coplan/plans/references", locals: { references: references, plan: plan } %>
+  </section>
+
+  <section class="plan-footnote" id="footnote-attachments" data-plan-section="attachments" aria-labelledby="footnote-attachments-title">
+    <div class="plan-footnote__header">
+      <% if current_user && allowed_to?(plan, :contribute?) %>
+        <button type="button" class="section-add" popovertarget="add-attachment-modal" title="Add files" aria-label="Add files">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        </button>
+      <% end %>
+      <h2 class="plan-footnote__title" id="footnote-attachments-title">Attachments</h2>
+      <span class="section-count" id="attachments-count"><%= attachments.size %></span>
+    </div>
+    <%= render partial: "coplan/plans/attachments", locals: { attachments: attachments, plan: plan } %>
+  </section>
+</div>

@@ -207,29 +207,17 @@ RSpec.describe "Folders workspace", type: :system do
       expect(infra.reload.parent).to eq(team)
     end
 
-    it "files a plan via the row bookmark's folder navigator" do
-      visit plans_path
-
-      row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
-      row.find(".plan-row__save", visible: :all).click
-
-      within("#folder-picker-modal") do
-        # The tree is hierarchical: Q3 nests under Team EBT.
-        expect(page).to have_css(".folder-picker__tree--nested .folder-picker__name", text: "Q3")
-        find(".folder-picker__option", text: "Q3").click
-      end
-
-      expect(page).to have_css(".flash--notice", text: "Team EBT/Q3", wait: 5)
-      expect(author.library.placements.find_by(plan_id: developing_plan.id).folder).to eq(q3)
-    end
-
     it "saves from the plan page via the bookmark beside the title" do
       visit plan_path(developing_plan)
 
       # The bookmark mounts into the title row (it's stamped client-side —
       # the broadcast-replaced header can't render viewer state itself).
+      # It's also the only click path into the folder navigator: workspace
+      # rows file via drag & drop and carry no bookmark of their own.
       find(".page-header__title-row .plan-bookmark").click
       within("#folder-picker-modal") do
+        # The tree is hierarchical: Q3 nests under Team EBT.
+        expect(page).to have_css(".folder-picker__tree--nested .folder-picker__name", text: "Q3")
         find(".folder-picker__option", text: "Infra").click
       end
 
@@ -241,26 +229,29 @@ RSpec.describe "Folders workspace", type: :system do
 
     it "unsaves a filed plan with a second bookmark click — no dialog, no toast" do
       CoPlan::Plans::Place.call(plan: developing_plan, folder: q3, actor: author)
-      visit plans_path(folder: q3.id)
+      visit plan_path(developing_plan)
 
-      row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
-      row.find(".plan-row__save--saved", visible: :all).click
+      find(".page-header__title-row .plan-bookmark--saved").click
 
       # The bookmark just lets go: no navigator, no confirmation, no toast —
-      # the page re-renders and the plan is out of the folder.
+      # the page re-renders with the bookmark back in its unsaved state.
       expect(page).not_to have_css("#folder-picker-modal:popover-open")
-      expect(page).not_to have_css(".plan-row[data-plan-id='#{developing_plan.id}']", wait: 5)
+      expect(page).to have_css(".page-header__title-row .plan-bookmark:not(.plan-bookmark--saved)", wait: 5)
       expect(page).not_to have_css(".flash--notice")
       expect(author.library.placements.where(plan_id: developing_plan.id)).to be_empty
     end
 
-    it "offers save controls on other users' plans too (shelving)" do
+    it "offers shelving on other users' plans too" do
       other_plan = create(:plan, :considering, created_by_user: other, title: "Someone Elses Plan")
       visit plans_path(scope: "all")
 
+      # The row drags into your library like any of your own…
       row = find(".plan-row[data-plan-id='#{other_plan.id}']")
       expect(row["draggable"]).to eq("true")
-      expect(row).to have_css(".plan-row__save", visible: :all)
+
+      # …and the plan page offers the bookmark.
+      visit plan_path(other_plan)
+      expect(page).to have_css(".page-header__title-row .plan-bookmark")
     end
   end
 
