@@ -4870,6 +4870,16 @@ img.avatar {
   outline-offset: -1px;
 }
 
+/* While a drag is live, the pane grows a runway below the level's
+   contents: an empty (or short) folder — especially one just tunneled
+   into — otherwise offers almost nothing to drop on. Padding, not
+   margin: padding is inside the element, so the runway IS the pane's
+   drop target. */
+.workspace--dragging .workspace__main {
+  padding-bottom: 10rem;
+  min-height: 60vh;
+}
+
 /* Needs attention strip */
 .attention {
   margin-bottom: var(--space-lg);

@@ -111,8 +111,10 @@
         <%# The document's back matter, one hop below the outline — slightly
             set apart so it reads as "after the document", not part of it. %>
         <ul class="content-nav__list content-nav__list--footnotes">
-          <li><a href="#footnote-references" class="content-nav__footnote-link">References <span class="section-count"><%= @references.size %></span></a></li>
-          <li><a href="#footnote-attachments" class="content-nav__footnote-link">Attachments <span class="section-count"><%= @attachments.size %></span></a></li>
+          <%# ids: the reference/attachment Turbo Streams keep these counts
+              live alongside the footnote headers' own counters. %>
+          <li><a href="#footnote-references" class="content-nav__footnote-link">References <span class="section-count" id="nav-references-count"><%= @references.size %></span></a></li>
+          <li><a href="#footnote-attachments" class="content-nav__footnote-link">Attachments <span class="section-count" id="nav-attachments-count"><%= @attachments.size %></span></a></li>
         </ul>
       </nav>
       <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>

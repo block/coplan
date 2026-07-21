@@ -10,6 +10,15 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   static targets = ["input", "zone", "label", "progress", "fill"]
 
+  disconnect() {
+    // Turbo navigation mid-upload: every plan page has the same
+    // #plan-attachments target, so a late response from plan A would
+    // happily replace plan B's section. Abort — the upload belongs to a
+    // page that no longer exists.
+    this.xhr?.abort()
+    this.xhr = null
+  }
+
   open() {
     this.inputTarget.click()
   }
@@ -61,6 +70,7 @@ export default class extends Controller {
     })
 
     xhr.addEventListener("load", () => {
+      this.xhr = null
       const type = xhr.getResponseHeader("Content-Type") || ""
       if (xhr.status < 300 && type.includes("turbo-stream") && window.Turbo) {
         // Replaces #plan-attachments (this form included) and toasts —
@@ -75,8 +85,12 @@ export default class extends Controller {
       }
     })
 
-    xhr.addEventListener("error", () => this.#fail("Upload failed — check your connection and try again."))
+    xhr.addEventListener("error", () => {
+      this.xhr = null
+      this.#fail("Upload failed — check your connection and try again.")
+    })
 
+    this.xhr = xhr
     xhr.send(new FormData(this.element))
   }
 

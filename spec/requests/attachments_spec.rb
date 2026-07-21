@@ -38,6 +38,9 @@ RSpec.describe "Attachments (web)", type: :request do
       expect(response.media_type).to eq("text/vnd.turbo-stream.html")
       expect(response.body).to include('target="plan-attachments"')
       expect(response.body).to include('target="coplan-toasts"')
+      # Both visible counts update too: the footnote header and the outline.
+      expect(response.body).to include('target="attachments-count"')
+      expect(response.body).to include('target="nav-attachments-count"')
       expect(response.body).to include("1 file uploaded")
       expect(response.body).to include("sample.png")
     end
@@ -112,6 +115,8 @@ RSpec.describe "Attachments (web)", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.media_type).to eq("text/vnd.turbo-stream.html")
       expect(response.body).to include('target="plan-attachments"')
+      expect(response.body).to include('target="attachments-count"')
+      expect(response.body).to include('target="nav-attachments-count"')
       expect(response.body).to include("Attachment removed.")
     end
 

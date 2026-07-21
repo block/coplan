@@ -76,11 +76,20 @@ module CoPlan
       streams = [
         turbo_stream.replace("plan-attachments",
           partial: "coplan/plans/attachments",
-          locals: { plan: @plan, attachments: attachments })
+          locals: { plan: @plan, attachments: attachments }),
+        # The count shows in the footnote header AND the document outline —
+        # both were rendered by the redirect this stream response replaced.
+        count_stream("attachments-count", attachments.size),
+        count_stream("nav-attachments-count", attachments.size)
       ]
       streams << toast_stream(notice, "notice") if notice
       streams << toast_stream(alert, "alert") if alert
       render turbo_stream: streams
+    end
+
+    def count_stream(id, count)
+      turbo_stream.replace(id,
+        html: helpers.content_tag(:span, count, class: "section-count", id: id))
     end
 
     def toast_stream(message, kind)
