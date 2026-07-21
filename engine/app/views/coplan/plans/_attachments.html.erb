@@ -72,8 +72,7 @@
       <% end %>
     </ul>
   <% else %>
-    <div class="empty-state">
-      <p>No attachments yet.<% if can_add %> Upload files to share diagrams, screenshots, or documents alongside the plan.<% end %></p>
-    </div>
+    <%# One quiet line, not a padded card — empty is the common case. %>
+    <p class="plan-footnote__empty">None yet<% if can_add %> — use the + to add screenshots, diagrams, or files<% end %>.</p>
   <% end %>
 </div>
