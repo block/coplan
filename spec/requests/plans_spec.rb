@@ -733,11 +733,24 @@ RSpec.describe "Plans", type: :request do
   describe "needs attention strip" do
     it "lists plans with unread comments for the current user" do
       thread = create(:comment_thread, plan: plan, created_by_user: bob)
-      create(:notification, user: alice, plan: plan, comment_thread: thread)
+      notification = create(:notification, user: alice, plan: plan, comment_thread: thread)
 
       get plans_path
       expect(response.body).to include("Needs attention (1)")
       expect(response.body).to include("1 unread comment")
+      attention_link = Nokogiri::HTML(response.body).at_css(".attention__link")
+      expect(attention_link["href"]).to eq(notification_path(notification))
+      expect(attention_link["data-turbo"]).to eq("false")
+    end
+
+    it "links resolved unread comments through their notification deep link" do
+      thread = create(:comment_thread, :resolved, plan: plan, created_by_user: bob)
+      notification = create(:notification, user: alice, plan: plan, comment_thread: thread)
+
+      get plans_path
+
+      expect(response.body).to include(notification_path(notification))
+      expect(response.body).not_to include(%(href="#{plan_path(plan)}" class="attention__link"))
     end
 
     it "is omitted when nothing is unread" do

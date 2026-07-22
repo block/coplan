@@ -112,7 +112,7 @@
         <ul class="attention__list">
           <% @attention_plans.each do |plan| %>
             <li class="attention__item">
-              <%= link_to plan.title, plan_path(plan), class: "attention__link" %>
+              <%= link_to plan.title, notification_path(@attention_notification_ids.fetch(plan.id)), class: "attention__link", data: { turbo: false } %>
               <span class="attention__unread"><%= pluralize(@attention_unread_counts[plan.id].to_i, "unread comment") %></span>
             </li>
           <% end %>
