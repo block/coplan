@@ -31,7 +31,9 @@ RSpec.describe "Plan references", type: :system do
       visit plan_path(plan)
 
       expect(page).to have_content("Some content here")
-      expect(page).to have_content("No references yet")
+      # Empty state is one quiet line, scoped to the section (attachments
+      # has its own "None yet").
+      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "None yet")
       expect(page).to have_css("#footnote-references .plan-footnote__title", text: /references/i)
     end
   end
@@ -66,10 +68,12 @@ RSpec.describe "Plan references", type: :system do
 
       # Turbo Stream replaces the list — reference appears without navigation
       expect(page).to have_link("My Repo", href: "https://github.com/org/repo")
-      expect(page).not_to have_content("No references yet")
+      expect(page).not_to have_css("#footnote-references .plan-footnote__empty")
 
-      # Count span updated in-place via Turbo Stream (separate stream target)
+      # Count spans updated in-place via Turbo Stream (separate stream
+      # targets) — the footnote header and the document outline.
       expect(page).to have_css("#references-count", text: "1")
+      expect(page).to have_css("#nav-references-count", text: "1")
 
       # The document is still right there — same page, no tabs.
       expect(page).to have_content("Some content here")
@@ -119,7 +123,7 @@ RSpec.describe "Plan references", type: :system do
       # Turbo Stream removes the reference and updates count
       expect(page).not_to have_content("Doomed")
       expect(page).to have_css("#references-count", text: "0")
-      expect(page).to have_content("No references yet")
+      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "None yet")
     end
   end
 

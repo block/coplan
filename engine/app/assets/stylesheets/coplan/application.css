@@ -4,7 +4,9 @@
   color-scheme: light;
 
   /* Colors */
-  --color-bg: #fafafa;
+  /* Slightly cool and dark for a page background: white cards need
+     something to stand out against, or light mode reads as fog. */
+  --color-bg: #eef0f5;
   --color-bg-muted: #f3f4f6;
   --color-surface: #ffffff;
   --color-surface-muted: #f9fafb;
@@ -108,7 +110,11 @@
   --glass-edge: rgba(255, 255, 255, 0.75);
   --glass-blur: blur(16px) saturate(1.6);
   --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 30px rgba(15, 23, 42, 0.08);
-  --surface-translucent: rgba(255, 255, 255, 0.6);
+  --surface-translucent: rgba(255, 255, 255, 0.75);
+  /* Card outline. The white --glass-edge reads as a specular highlight on
+     dark backdrops but disappears white-on-white — cards and rows use this
+     faintly dark line instead so light mode has real definition. */
+  --card-edge: rgba(24, 33, 54, 0.10);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -184,6 +190,7 @@
     --glass-blur: blur(16px) saturate(1.4);
     --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
     --surface-translucent: rgba(21, 32, 51, 0.55);
+    --card-edge: rgba(148, 163, 184, 0.16);
   }
 }
 
@@ -260,6 +267,7 @@
   --glass-blur: blur(16px) saturate(1.4);
   --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
   --surface-translucent: rgba(21, 32, 51, 0.55);
+  --card-edge: rgba(148, 163, 184, 0.16);
 }
 
 /* Forced light theme — overrides system dark preference */
@@ -281,6 +289,11 @@ html {
   color: var(--color-text);
   background-color: var(--color-bg);
   -webkit-font-smoothing: antialiased;
+  /* Native-feel hard requirement: page width must NOT change between
+     navigations. Without a stable gutter, the scrollbar appearing or
+     disappearing between a long page and a short one re-centers the whole
+     layout — a "jiggle" on every workspace → plan hop. */
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -494,6 +507,20 @@ img, svg {
   flex-direction: row-reverse;
 }
 
+/* Each avatar is wrapped in a profile link — the link owns the stacking
+   overlap and the tooltip (::after can't render on an <img>). */
+.plan-viewers__avatar-link {
+  display: flex;
+  margin-left: -0.5rem;
+  border-radius: 50%;
+  position: relative;
+}
+
+.plan-viewers__avatar-link:hover {
+  z-index: 1;
+  transform: translateY(-1px);
+}
+
 .plan-viewers__avatar {
   display: flex;
   align-items: center;
@@ -506,9 +533,6 @@ img, svg {
   font-size: 0.7rem;
   font-weight: 600;
   border: 2px solid var(--color-surface);
-  margin-left: -0.5rem;
-  cursor: default;
-  position: relative;
   object-fit: cover;
 }
 
@@ -516,7 +540,7 @@ img, svg {
   background: var(--color-success);
 }
 
-.plan-viewers__avatar::after {
+.plan-viewers__avatar-link::after {
   content: attr(data-tooltip);
   position: absolute;
   bottom: calc(100% + 6px);
@@ -535,7 +559,7 @@ img, svg {
   z-index: 10;
 }
 
-.plan-viewers__avatar:hover::after {
+.plan-viewers__avatar-link:hover::after {
   opacity: 1;
 }
 
@@ -653,7 +677,7 @@ img, svg {
   background: var(--glass-bg-strong);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-edge);
+  border: 1px solid var(--card-edge);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
   box-shadow: var(--shadow-glass);
@@ -2077,6 +2101,12 @@ img.avatar {
   width: 220px;
   flex-shrink: 0;
   max-height: calc(100vh - var(--nav-height) - var(--space-xl) * 2);
+  /* The nav is the scroll container — a long outline must not push the
+     back-matter links (References/Attachments) below the sticky bound
+     where no amount of page scrolling reaches them. */
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
   transition: width 0.2s ease, opacity 0.2s ease;
   margin-right: var(--space-lg);
 }
@@ -2125,10 +2155,8 @@ img.avatar {
   list-style: none;
   padding: 0;
   margin: 0;
-  overflow-y: auto;
-  max-height: calc(100vh - var(--nav-height) - 8rem);
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+  /* No inner scroll region: the whole nav scrolls (see .content-nav), so
+     the outline and the back-matter links share one scroll. */
 }
 
 .content-nav__item {
@@ -2522,27 +2550,26 @@ img.avatar {
 /* Plan document + footnotes: one page, no tabs. The document is the main
    glass card; references and attachments follow like back matter — same
    page, quieter surface. */
+/* Back matter lives inside the content column, closing out the document
+   after a rule — no card-within-card, no space below the sidebar. Empty
+   sections are a single quiet line. */
 .plan-footnotes {
-  margin-top: var(--space-xl);
+  margin-top: var(--space-2xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
 }
 
 .plan-footnote {
-  /* Set apart from the document proper: flatter, edge-lit, no heavy card. */
-  background: var(--surface-translucent);
-  border: 1px solid var(--glass-edge);
-  border-left: 3px solid var(--color-border);
-  border-radius: var(--radius);
-  scroll-margin-top: var(--space-lg);
+  scroll-margin-top: calc(var(--nav-height) + var(--space-lg));
 }
 
 .plan-footnote__header {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-md) var(--space-lg) 0;
 }
 
 .plan-footnote__title {
@@ -2721,8 +2748,17 @@ img.avatar {
 }
 
 /* References section */
-.references-section {
-  padding: var(--space-lg);
+/* Section bodies hang under the header, indented past the round "+" so
+   content lines up with the section title. */
+.references-section,
+.attachments-section {
+  padding: 0 0 0 calc(24px + var(--space-sm));
+}
+
+.plan-footnote__empty {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
 .references-list {
@@ -2926,10 +2962,6 @@ img.avatar {
 }
 
 /* Attachments section */
-.attachments-section {
-  padding: var(--space-lg);
-}
-
 .attachments-section__header {
   margin-bottom: var(--space-md);
 }
@@ -2965,7 +2997,26 @@ img.avatar {
 
 .dropzone--busy {
   pointer-events: none;
-  opacity: 0.7;
+  opacity: 0.85;
+}
+
+/* Live upload progress — fills as bytes actually leave the machine. */
+.dropzone__progress {
+  width: min(18rem, 100%);
+  height: 5px;
+  margin-top: var(--space-xs);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  overflow: hidden;
+}
+
+.dropzone__progress-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--color-primary);
+  transition: width 0.15s ease;
 }
 
 .dropzone__icon {
@@ -4001,36 +4052,39 @@ img.avatar {
   font-size: var(--text-xs);
 }
 
-/* The header bookmark: save/move/remove via the folder navigator. */
-.plan-shelves__bookmark {
+/* The save bookmark sits beside the plan title (mounted into
+   #plan-bookmark-slot by plan_bookmark_controller) — a quiet icon that
+   fills once the plan is on your shelf, like a bookmark star. */
+.plan-bookmark-slot {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: var(--text-xs);
-  font-family: inherit;
-  padding: 3px 8px;
-  border: 1px dashed var(--color-border);
-  border-radius: 9999px;
+}
+
+.plan-bookmark {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border: none;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: color 0.12s ease, border-color 0.12s ease;
+  transition: color 0.12s ease, background 0.12s ease;
 }
 
-.plan-shelves__bookmark:hover {
+.plan-bookmark:hover {
   color: var(--color-primary);
-  border-color: var(--color-primary);
+  background: var(--color-primary-light);
 }
 
-.plan-shelves__bookmark--saved {
+.plan-bookmark--saved {
   color: var(--color-primary);
-  border-style: solid;
 }
 
 /* Saved = a second click removes; hint at that on hover. */
-.plan-shelves__bookmark--saved:hover {
+.plan-bookmark--saved:hover {
   color: var(--color-danger, #e0637a);
-  border-color: var(--color-danger, #e0637a);
+  background: color-mix(in srgb, var(--color-danger, #e0637a) 10%, transparent);
 }
 
 /* Library browsing page (read-only shelves) */
@@ -4501,6 +4555,12 @@ img.avatar {
   top: calc(var(--nav-height) + var(--space-md));
   font-size: var(--text-sm);
   min-width: 0;
+  /* A sticky sidebar taller than the viewport pins its overflow below the
+     fold forever — page scroll can't reach it. Scroll the sidebar itself. */
+  max-height: calc(100vh - var(--nav-height) - var(--space-md) * 2);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
 }
 
 .workspace__sidebar-sections {
@@ -4689,6 +4749,8 @@ img.avatar {
   color: var(--color-text);
   text-decoration: none;
   min-width: 0;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Leaf nodes (no <details>) keep the same left padding so labels align. */
@@ -4707,12 +4769,86 @@ img.avatar {
   font-weight: 500;
 }
 
-/* Live drop target under the cursor — folder links and group headings. */
+/* Live drop target under the cursor — folder links and group headings.
+   Loud on purpose: a solid ring, a glow, and primary-tinted contents, so
+   there's no squinting about where the drop will land. */
 .dnd-drop {
-  outline: 2px dashed var(--color-primary);
+  outline: 2px solid var(--color-primary);
   outline-offset: -2px;
   background: var(--color-primary-light);
   border-radius: var(--radius);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 22%, transparent);
+  color: var(--color-primary);
+}
+
+.dnd-drop .folder-row__icon,
+.dnd-drop .folder-row__name,
+.dnd-drop .folder-row__count,
+.dnd-drop .folder-tree__name,
+.dnd-drop .sidebar__count {
+  color: var(--color-primary);
+}
+
+/* Drop accepted, PATCH + refresh in flight — the target pulses until the
+   page re-renders so the move never feels like it silently stalled. */
+.dnd-drop--busy {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  background: var(--color-primary-light);
+  border-radius: var(--radius);
+  animation: dnd-busy-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes dnd-busy-pulse {
+  50% { opacity: 0.45; }
+}
+
+.workspace--moving,
+.workspace--moving * {
+  cursor: progress;
+}
+
+/* The row that was just dropped stays ghosted (dragend strips the
+   --dragging class before the server round-trip finishes). */
+.dnd-source--moving {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Spring-loading, Finder-style: keep the drag hovering on a folder and it
+   pulses twice, then springs open. */
+.dnd-spring {
+  animation: dnd-spring-pulse 0.3s ease-in-out 2;
+}
+
+@keyframes dnd-spring-pulse {
+  50% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-primary) 38%, transparent);
+    transform: scale(1.012);
+  }
+}
+
+/* Tunneled pane: springing a main-pane folder swaps the pane to that
+   folder's real level view mid-drag. A quick slide-in sells the "you just
+   went somewhere" feel each level down. */
+.workspace__main--tunneled {
+  animation: dnd-tunnel-in 0.18s ease-out;
+}
+
+@keyframes dnd-tunnel-in {
+  from {
+    opacity: 0.4;
+    transform: translateY(4px);
+  }
+}
+
+/* The pane itself is the fallback drop target ("file into the folder
+   you're looking at"). Ring it quietly and don't tint its text — the loud
+   treatment belongs to specific rows/crumbs. */
+.workspace__main.dnd-drop {
+  color: inherit;
+  box-shadow: none;
+  outline-style: dashed;
 }
 
 .folder-tree__link--dragging {
@@ -4732,6 +4868,16 @@ img.avatar {
 .workspace--dragging .workspace-crumbs__crumb {
   outline: 1px dashed var(--color-border-strong);
   outline-offset: -1px;
+}
+
+/* While a drag is live, the pane grows a runway below the level's
+   contents: an empty (or short) folder — especially one just tunneled
+   into — otherwise offers almost nothing to drop on. Padding, not
+   margin: padding is inside the element, so the runway IS the pane's
+   drop target. */
+.workspace--dragging .workspace__main {
+  padding-bottom: 10rem;
+  min-height: 60vh;
 }
 
 /* Needs attention strip */
@@ -4786,17 +4932,18 @@ img.avatar {
    history, quieter than the warning-toned attention strip. */
 .recent-updates {
   margin-bottom: var(--space-lg);
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--glass-edge);
+  padding: var(--space-md);
+  border: 1px solid var(--card-edge);
   border-radius: var(--radius);
   background: var(--surface-translucent);
+  box-shadow: var(--shadow);
 }
 
 .recent-updates__heading {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  margin: 0 0 var(--space-xs);
+  margin: 0 0 var(--space-sm);
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -4810,7 +4957,8 @@ img.avatar {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  /* Roomy enough to scan — this read as one bunched block at 2px. */
+  gap: var(--space-sm);
 }
 
 .recent-updates__item {
@@ -4900,12 +5048,15 @@ img.avatar {
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
   background: var(--surface-translucent);
-  border: 1px solid var(--glass-edge);
+  border: 1px solid var(--card-edge);
   border-radius: var(--radius);
   margin-bottom: var(--space-xs);
+  box-shadow: var(--shadow);
   color: var(--color-text);
   text-decoration: none;
   transition: background 0.12s ease, box-shadow 0.12s ease;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .folder-row:hover {
@@ -4942,10 +5093,16 @@ img.avatar {
   /* Translucent without backdrop blur — rows are numerous and per-row
      blur is a GPU tax; the mesh still glows through faintly. */
   background: var(--surface-translucent);
-  border: 1px solid var(--glass-edge);
+  border: 1px solid var(--card-edge);
   border-radius: var(--radius);
   margin-bottom: var(--space-xs);
+  box-shadow: var(--shadow);
   transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+  /* Selectable text hijacks press-and-drag: the browser starts a text
+     selection instead of the row drag, and the mouseup then *navigates*
+     the title link. Rows are chrome, not prose — don't select. */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* The file icon spans both text rows — a Drive/Finder file entry. */
@@ -4963,6 +5120,26 @@ img.avatar {
   background: var(--glass-bg-strong);
   box-shadow: var(--shadow-pop);
   transform: translateY(-1px);
+  cursor: pointer;
+}
+
+/* Whole-card click target: the title link stretches over the card, so
+   clicking (and hover-prefetching) works anywhere on the row. Every other
+   interactive element in the row rises above the stretch. */
+.plan-row {
+  position: relative;
+}
+
+.plan-row__title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.plan-row a:not(.plan-row__title),
+.plan-row button {
+  position: relative;
+  z-index: 1;
 }
 
 .plan-row--dragging {
@@ -5007,8 +5184,15 @@ img.avatar {
   text-decoration: none;
 }
 
-.plan-row__spacer {
-  flex: 1;
+/* Byline pinned to the card's top-right corner: it must not ride along
+   with wrapping titles or drift to a second line mid-card. */
+.plan-row__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+  align-self: flex-start;
+  flex-shrink: 0;
 }
 
 .plan-row__time {
@@ -5028,40 +5212,6 @@ img.avatar {
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-/* Row bookmark — the keyboard/no-drag door into the folder navigator. */
-.plan-row__save {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px;
-  background: none;
-  border: none;
-  border-radius: var(--radius);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s ease, color 0.12s ease;
-}
-
-.plan-row:hover .plan-row__save,
-.plan-row__save:focus-visible,
-.plan-row__save--saved {
-  opacity: 1;
-}
-
-.plan-row__save:hover {
-  color: var(--color-primary);
-  background: var(--color-bg-muted);
-}
-
-.plan-row__save--saved {
-  color: var(--color-primary);
-}
-
-/* Saved = a second click removes; hint at that on hover. */
-.plan-row__save--saved:hover {
-  color: var(--color-danger, #e0637a);
 }
 
 /* Toasts (drag & drop feedback) */
@@ -5091,6 +5241,8 @@ img.avatar {
      tap to expand, out of the way otherwise. */
   .workspace__sidebar {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
 
   .workspace__sidebar-toggle {
@@ -5185,10 +5337,13 @@ img.avatar {
     overflow-wrap: anywhere;
   }
 
-  .plan-document,
+  .plan-document {
+    padding: var(--space-md);
+  }
+
   .references-section,
   .attachments-section {
-    padding: var(--space-md);
+    padding-left: 0;
   }
 
   .plan-actions {

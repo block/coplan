@@ -7,8 +7,9 @@
   <% if can_add %>
     <%= render layout: "coplan/shared/add_modal", locals: { id: "add-attachment-modal", title: "Add files" } do %>
         <%# One designed dropzone instead of the native file input: click to
-            browse or drag files on; choosing files uploads immediately (the
-            upload redirect reloads the page, which closes the lightbox). %>
+            browse or drag files on; choosing files uploads immediately with
+            a live progress bar, then the server's Turbo Stream re-renders
+            this whole section in place — no reload, no scroll jump. %>
         <%= form_with url: plan_attachments_path(plan), method: :post, multipart: true,
               class: "attachments-upload", data: { controller: "coplan--dropzone" } do |f| %>
           <button type="button" class="dropzone" data-coplan--dropzone-target="zone"
@@ -16,6 +17,9 @@
             <svg class="dropzone__icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
             <span class="dropzone__title" data-coplan--dropzone-target="label">Drop files here, or click to browse</span>
             <span class="dropzone__hint">Images, PDF, text, markdown, CSV, JSON, ZIP · up to <%= CoPlan::Plan::ATTACHMENT_MAX_BYTES / 1.megabyte %> MB each</span>
+            <span class="dropzone__progress" data-coplan--dropzone-target="progress" hidden>
+              <span class="dropzone__progress-fill" data-coplan--dropzone-target="fill"></span>
+            </span>
           </button>
           <%= f.file_field :files, multiple: true, name: "files[]", class: "dropzone__input",
                 accept: CoPlan::Plan::ATTACHMENT_CONTENT_TYPES.join(","),
@@ -68,8 +72,7 @@
       <% end %>
     </ul>
   <% else %>
-    <div class="empty-state">
-      <p>No attachments yet.<% if can_add %> Upload files to share diagrams, screenshots, or documents alongside the plan.<% end %></p>
-    </div>
+    <%# One quiet line, not a padded card — empty is the common case. %>
+    <p class="plan-footnote__empty">None yet<% if can_add %> — use the + to add screenshots, diagrams, or files<% end %>.</p>
   <% end %>
 </div>

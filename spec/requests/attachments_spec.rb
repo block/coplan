@@ -25,6 +25,26 @@ RSpec.describe "Attachments (web)", type: :request do
       expect(event.actor_id).to eq(author.id)
     end
 
+    it "swaps the attachments section in place (no redirect) for Turbo requests" do
+      sign_in_as(author)
+
+      post plan_attachments_path(plan),
+        params: { files: [ fixture_file_upload("sample.png", "image/png") ] },
+        headers: { "Accept" => "text/vnd.turbo-stream.html, text/html" }
+
+      # In-place UX: replace #plan-attachments where it stands + a toast —
+      # never a full-page redirect that scrolls the reader to the top.
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("text/vnd.turbo-stream.html")
+      expect(response.body).to include('target="plan-attachments"')
+      expect(response.body).to include('target="coplan-toasts"')
+      # Both visible counts update too: the footnote header and the outline.
+      expect(response.body).to include('target="attachments-count"')
+      expect(response.body).to include('target="nav-attachments-count"')
+      expect(response.body).to include("1 file uploaded")
+      expect(response.body).to include("sample.png")
+    end
+
     it "surfaces per-file validation errors" do
       sign_in_as(author)
 
@@ -83,6 +103,21 @@ RSpec.describe "Attachments (web)", type: :request do
       expect(response).to redirect_to(plan_path(plan, anchor: "footnote-attachments"))
       event = plan.plan_events.find_by(event_type: "attachment_removed")
       expect(event.before_value).to eq("sample.png")
+    end
+
+    it "removes in place (no redirect) for Turbo requests" do
+      sign_in_as(author)
+      attachment = plan.attachments_attachments.first
+
+      delete plan_attachment_path(plan, attachment),
+        headers: { "Accept" => "text/vnd.turbo-stream.html, text/html" }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("text/vnd.turbo-stream.html")
+      expect(response.body).to include('target="plan-attachments"')
+      expect(response.body).to include('target="attachments-count"')
+      expect(response.body).to include('target="nav-attachments-count"')
+      expect(response.body).to include("Attachment removed.")
     end
 
     it "rejects deletes from non-authors" do

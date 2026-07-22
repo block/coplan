@@ -24,7 +24,12 @@
   <span class="plan-row__icon"><%= plan_type_icon(plan, size: :lg) %></span>
   <div class="plan-row__main">
     <div class="plan-row__line">
-      <%= link_to plan.title, plan_path(plan), class: "plan-row__title", draggable: false, data: { turbo_frame: "_top" } %><%= plan_state_badge(plan) %>
+      <%# Stretched link: the title's ::after covers the whole card, so a
+          click anywhere navigates and a hover anywhere prefetches the plan
+          (Turbo 8 hover prefetch) — native link semantics (middle/cmd
+          click) included. Other links/buttons in the row sit above it. %>
+      <%= link_to plan.title, plan_path(plan), class: "plan-row__title", draggable: false,
+            data: { turbo_frame: "_top", turbo_prefetch: true } %><%= plan_state_badge(plan) %>
       <% if my_folder_id && my_folder_id != local_assigns[:suppress_folder_id] %>
         <%= link_to workspace_path(folder: my_folder_id),
               class: "plan-row__folder", draggable: false, data: { turbo_frame: "_top" } do %>
@@ -32,35 +37,18 @@
           <%= folder_paths_by_id[my_folder_id] %>
         <% end %>
       <% end %>
-      <% plan.tags.each do |tag| %>
-        <%= link_to tag.name,
-              workspace_path(tag: tag.name),
-              class: "badge badge--tag #{'badge--tag-active' if params[:tag] == tag.name}",
-              draggable: false,
-              data: { turbo_frame: "_top" } %>
-      <% end %>
-      <span class="plan-row__spacer"></span>
       <% if unread > 0 %>
         <span class="inbox-badge" title="<%= pluralize(unread, "unread comment") %>"><%= unread %></span>
       <% end %>
-      <span class="plan-row__time text-muted" title="<%= plan.updated_at %>"><%= time_ago_in_words(plan.updated_at) %> ago</span>
-      <span class="plan-row__avatar"><%= link_to user_avatar(plan.created_by_user), profile_path_for(plan.created_by_user), title: plan.created_by_user.name, draggable: false, data: { turbo_frame: "_top" } %></span>
-      <%# Bookmark = the keyboard/no-drag path into the folder navigator.
-          Saved rows unsave on the second click, quietly. %>
-      <button type="button"
-              class="plan-row__save<%= " plan-row__save--saved" if my_folder_id %>"
-              data-action="coplan--folder-picker#open"
-              data-move-url="<%= move_to_folder_plan_path(plan) %>"
-              data-current-folder-id="<%= my_folder_id %>"
-              data-saved="<%= my_folder_id.present? %>"
-              data-plan-title="<%= plan.title %>"
-              title="<%= my_folder_id ? "Saved — click to remove from your library" : "Save to a folder in your library" %>"
-              aria-label="<%= my_folder_id ? "Remove “#{plan.title}” from your library" : "Save “#{plan.title}” to your library" %>">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="<%= my_folder_id ? "currentColor" : "none" %>" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
-      </button>
     </div>
     <% if summary.present? %>
       <p class="plan-row__summary text-muted"><%= summary %></p>
     <% end %>
+  </div>
+  <%# Byline, anchored to the card's top-right corner regardless of how the
+      title wraps — a floating "author · when" would read as misalignment. %>
+  <div class="plan-row__meta">
+    <span class="plan-row__time text-muted" title="<%= plan.updated_at %>"><%= time_ago_in_words(plan.updated_at) %> ago</span>
+    <span class="plan-row__avatar"><%= link_to user_avatar(plan.created_by_user), profile_path_for(plan.created_by_user), title: plan.created_by_user.name, draggable: false, data: { turbo_frame: "_top" } %></span>
   </div>
 </article>

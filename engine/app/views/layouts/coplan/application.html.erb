@@ -93,6 +93,10 @@
       <% end %>
       <%= yield %>
     </main>
+    <%# Toast rail: client JS and server Turbo Streams both land feedback
+        here (bottom-right), so in-place actions never scroll the page to a
+        top-of-page flash. %>
+    <div id="coplan-toasts" class="toasts"></div>
     <%= render "coplan/shared/web_push_banner" %>
     <% if signed_in? %>
       <%= render "coplan/search/modal" %>

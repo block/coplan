@@ -4,12 +4,18 @@
       <% viewers.first(8).each do |viewer| %>
         <% is_you = defined?(current_user) && current_user&.id == viewer.id %>
         <% tooltip = is_you ? "#{viewer.name} (you)" : viewer.name %>
-        <% if viewer.avatar_url.present? %>
-          <img src="<%= viewer.avatar_url %>" alt="<%= viewer.name %>" class="plan-viewers__avatar<%= ' plan-viewers__avatar--you' if is_you %>" data-tooltip="<%= tooltip %>" loading="lazy">
-        <% else %>
-          <span class="plan-viewers__avatar<%= ' plan-viewers__avatar--you' if is_you %>" data-tooltip="<%= tooltip %>">
-            <%= viewer.name.split.map { |w| w[0] }.first(2).join.upcase %>
-          </span>
+        <%# Each viewer is a person — their avatar links to their profile
+            (and library). The tooltip lives on the link: ::after can't
+            render on a replaced element like <img>. %>
+        <%= link_to profile_path_for(viewer), class: "plan-viewers__avatar-link",
+              data: { tooltip: tooltip }, aria: { label: "#{viewer.name}’s profile" } do %>
+          <% if viewer.avatar_url.present? %>
+            <img src="<%= viewer.avatar_url %>" alt="<%= viewer.name %>" class="plan-viewers__avatar<%= ' plan-viewers__avatar--you' if is_you %>" loading="lazy">
+          <% else %>
+            <span class="plan-viewers__avatar<%= ' plan-viewers__avatar--you' if is_you %>">
+              <%= viewer.name.split.map { |w| w[0] }.first(2).join.upcase %>
+            </span>
+          <% end %>
         <% end %>
       <% end %>
       <% if viewers.size > 8 %>

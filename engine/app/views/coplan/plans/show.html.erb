@@ -11,13 +11,35 @@
 
 <%= turbo_stream_from @plan %>
 
-<%# plan-keys: Backspace goes back to wherever you came from; [ / ] jump
-    between the document and its footnote sections. %>
-<div data-controller="coplan--plan-keys coplan--folder-picker"
-     data-coplan--plan-keys-fallback-url-value="<%= plans_path %>">
+<% my_placement = current_user && @shelf_placements.find { |p| p.library.writable_by?(current_user) } %>
 
-<div data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
+<%# plan-keys: Backspace goes back to wherever you came from; [ / ] jump
+    between the document and its footnote sections. Cold opens (direct link,
+    new tab) have no history — fall back to where the plan lives in the
+    viewer's library, not the workspace root. %>
+<div data-controller="coplan--plan-keys coplan--folder-picker"
+     data-coplan--plan-keys-fallback-url-value="<%= my_placement&.folder_id ? plans_path(folder: my_placement.folder_id) : plans_path %>">
+
+<div data-controller="coplan--presence coplan--plan-bookmark" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
   <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
+  <% if current_user %>
+    <%# The bookmark that mounts beside the title (see #plan-bookmark-slot
+        in the header partial). Rendered here because it's viewer-relative —
+        broadcast re-renders of the header can't know who's looking. %>
+    <template data-coplan--plan-bookmark-target="template">
+      <button type="button"
+              class="plan-bookmark<%= " plan-bookmark--saved" if my_placement %>"
+              data-action="coplan--folder-picker#open"
+              data-move-url="<%= move_to_folder_plan_path(@plan) %>"
+              data-current-folder-id="<%= my_placement&.folder_id %>"
+              data-saved="<%= my_placement.present? %>"
+              data-plan-title="<%= @plan.title %>"
+              title="<%= my_placement ? "Saved in #{my_placement.folder.path} — click to remove" : "Save to a folder in your library" %>"
+              aria-label="<%= my_placement ? "Remove from your library" : "Save to your library" %>">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="<%= my_placement ? "currentColor" : "none" %>" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+      </button>
+    </template>
+  <% end %>
 </div>
 
 <%# Owner affordances live outside the broadcast-replaced #plan-header so
@@ -36,7 +58,7 @@
     sides are viewer-relative / policy-gated (broadcast renders have no
     current_user). %>
 <div class="plan-meta-row">
-  <%= render partial: "coplan/plans/shelves", locals: { plan: @plan, placements: @shelf_placements, my_folders: @my_folders } %>
+  <%= render partial: "coplan/plans/shelves", locals: { placements: @shelf_placements } %>
   <div class="plan-actions">
     <% if allowed_to?(@plan, :publish?) || allowed_to?(@plan, :hide?) %>
       <%# The visibility eye: open eye = shared with everyone, slashed = Private.
@@ -89,8 +111,10 @@
         <%# The document's back matter, one hop below the outline — slightly
             set apart so it reads as "after the document", not part of it. %>
         <ul class="content-nav__list content-nav__list--footnotes">
-          <li><a href="#footnote-references" class="content-nav__footnote-link">References <span class="section-count"><%= @references.size %></span></a></li>
-          <li><a href="#footnote-attachments" class="content-nav__footnote-link">Attachments <span class="section-count"><%= @attachments.size %></span></a></li>
+          <%# ids: the reference/attachment Turbo Streams keep these counts
+              live alongside the footnote headers' own counters. %>
+          <li><a href="#footnote-references" class="content-nav__footnote-link">References <span class="section-count" id="nav-references-count"><%= @references.size %></span></a></li>
+          <li><a href="#footnote-attachments" class="content-nav__footnote-link">Attachments <span class="section-count" id="nav-attachments-count"><%= @attachments.size %></span></a></li>
         </ul>
       </nav>
       <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>
@@ -99,21 +123,29 @@
           re-run anchor highlighting once each diagram settles so comments
           anchored to diagram labels get their marks (and pending ?thread=
           deep links can resolve). %>
-      <div class="plan-layout__content" data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-action="coplan:mermaid-settled->coplan--text-selection#handleMermaidSettled">
-        <div id="plan-content-body"
-             data-controller="coplan--live-update"
-             data-coplan--live-update-revision-value="<%= @plan.current_revision %>">
-          <%= render partial: "coplan/plans/content_body", locals: { plan: @plan } %>
+      <div class="plan-layout__content">
+        <%# Selection-to-comment is scoped to this inner wrapper: the back
+            matter below shares the column but must not offer comment
+            anchors — they'd never resolve against the document body. %>
+        <div data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-action="coplan:mermaid-settled->coplan--text-selection#handleMermaidSettled">
+          <div id="plan-content-body"
+               data-controller="coplan--live-update"
+               data-coplan--live-update-revision-value="<%= @plan.current_revision %>">
+            <%= render partial: "coplan/plans/content_body", locals: { plan: @plan } %>
+          </div>
+
+          <div class="comment-popover" data-coplan--text-selection-target="popover" style="display: none;">
+            <button type="button" class="btn btn--primary btn--sm" data-action="coplan--text-selection#openCommentForm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+              Comment
+            </button>
+          </div>
+
+          <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
         </div>
 
-        <div class="comment-popover" data-coplan--text-selection-target="popover" style="display: none;">
-          <button type="button" class="btn btn--primary btn--sm" data-action="coplan--text-selection#openCommentForm">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
-            Comment
-          </button>
-        </div>
-
-        <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
+        <%= render partial: "coplan/plans/footnotes",
+              locals: { plan: @plan, references: @references, attachments: @attachments } %>
       </div>
 
       <div id="plan-threads" data-coplan--text-selection-target="threads"
@@ -128,37 +160,10 @@
     <div class="empty-state">
       <p>This plan has no content yet.</p>
     </div>
+    <%# No content, no layout columns — back matter still belongs on the page. %>
+    <%= render partial: "coplan/plans/footnotes",
+          locals: { plan: @plan, references: @references, attachments: @attachments } %>
   <% end %>
-</div>
-
-<%# Back matter: references and attachments live under the document like
-    footnotes — same page, quieter surface, each with a one-click "+". %>
-<div class="plan-footnotes">
-  <section class="plan-footnote" id="footnote-references" data-plan-section="references" aria-labelledby="footnote-references-title">
-    <div class="plan-footnote__header">
-      <% if current_user && allowed_to?(@plan, :contribute?) %>
-        <button type="button" class="section-add" popovertarget="add-reference-modal" title="Add a reference" aria-label="Add a reference">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-        </button>
-      <% end %>
-      <h2 class="plan-footnote__title" id="footnote-references-title">References</h2>
-      <span class="section-count" id="references-count"><%= @references.size %></span>
-    </div>
-    <%= render partial: "coplan/plans/references", locals: { references: @references, plan: @plan } %>
-  </section>
-
-  <section class="plan-footnote" id="footnote-attachments" data-plan-section="attachments" aria-labelledby="footnote-attachments-title">
-    <div class="plan-footnote__header">
-      <% if current_user && allowed_to?(@plan, :contribute?) %>
-        <button type="button" class="section-add" popovertarget="add-attachment-modal" title="Add files" aria-label="Add files">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-        </button>
-      <% end %>
-      <h2 class="plan-footnote__title" id="footnote-attachments-title">Attachments</h2>
-      <span class="section-count" id="attachments-count"><%= @attachments.size %></span>
-    </div>
-    <%= render partial: "coplan/plans/attachments", locals: { attachments: @attachments, plan: @plan } %>
-  </section>
 </div>
 
 <%= render partial: "coplan/shared/folder_picker", locals: { folders: @my_folders } %>

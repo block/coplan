@@ -55,8 +55,7 @@
       <% end %>
     </ul>
   <% else %>
-    <div class="empty-state">
-      <p>No references yet. Links in the plan content are auto-extracted, or add one manually.</p>
-    </div>
+    <%# One quiet line, not a padded card — empty is the common case. %>
+    <p class="plan-footnote__empty">None yet — links in the document are picked up automatically.</p>
   <% end %>
 </div>

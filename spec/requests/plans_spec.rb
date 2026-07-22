@@ -41,12 +41,14 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).not_to include("Other Plan")
   end
 
-  it "index shows tag badges on plan cards" do
+  it "index lists tags in the sidebar, not as chips on the rows" do
     plan.tag_names = [ "infra", "api" ]
     get plans_path
-    expect(response.body).to include("badge--tag")
-    expect(response.body).to include("infra")
-    expect(response.body).to include("api")
+    expect(response.body).to include("#infra")
+    expect(response.body).to include("#api")
+    # Row tag chips were dropped: they crowded the byline off its corner
+    # and the sidebar already filters by tag.
+    expect(response.body).not_to include("badge--tag")
   end
 
   it "index shows active tag filter bar" do
@@ -850,7 +852,7 @@ RSpec.describe "Plans", type: :request do
       }.not_to change(CoPlan::PlanEvent, :count)
     end
 
-    it "renders drag handles and save bookmarks on every row" do
+    it "renders every row draggable into the viewer's library" do
       plan # alice's plan
       bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Plan")
       get plans_path(scope: "all")
@@ -860,9 +862,11 @@ RSpec.describe "Plans", type: :request do
       # Anyone can shelve any visible plan into their own library.
       expect(alice_row).to include('draggable="true"')
       expect(bob_row).to include('draggable="true"')
-      expect(response.body.scan("plan-row__save").size).to be >= 2
-      # One shared navigator popover per page, with the folder tree inside.
-      expect(response.body.scan('id="folder-picker-modal"').size).to eq(1)
+      # No per-row bookmark (and so no navigator popover) on the workspace:
+      # rows file via drag & drop; the plan page's title bookmark is the
+      # click path.
+      expect(response.body).not_to include("plan-row__save")
+      expect(response.body).not_to include('id="folder-picker-modal"')
     end
   end
 

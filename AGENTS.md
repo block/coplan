@@ -62,6 +62,31 @@ Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), 
 - No npm packages — everything through importmaps or inline
 - Views use Turbo Frames for partial page updates, Turbo Streams for realtime broadcasts
 - Keep it simple: no React, no Vue, no component libraries
+
+### HARD REQUIREMENT: native feel, secretly HTML
+
+The entire goal of this stack is an app that is plain HTML over the wire but
+**feels indistinguishable from a native app**. Server-rendered HTML is the
+implementation, never the excuse. Concretely, every interaction must meet
+this bar:
+
+- **No layout jiggle between navigations.** Page width and shared chrome must
+  not shift when moving between pages (`scrollbar-gutter: stable` guards the
+  scrollbar case; keep shared containers dimensionally consistent).
+- **No scroll jumps or full-page reloads for in-page actions.** Submitting a
+  form, uploading a file, toggling state — the result appears in place
+  (Turbo Streams / fetch + partial swap), with progress feedback during the
+  wait. `redirect_to` + full reload for something the user did mid-page is a
+  bug, not a fallback.
+- **Immediate feedback for every action** — optimistic UI, busy/progress
+  states, pulses. Nothing may silently wait on a server round-trip.
+- **Instant-feeling navigation.** Real navigations use Turbo Drive with hover
+  prefetch; anything that can be preloaded on intent (hover, spring pulses)
+  should be.
+
+If an interaction scrolls, flashes, reflows, or stalls in a way a native app
+wouldn't, treat it as a bug — regardless of how idiomatic the Rails behind
+it is.
 - **Prefer server-rendered HTML with standard Stimulus bindings** (`data-controller`, `data-action`, `data-*-target`) — direct `addEventListener` is a last resort, only when elements are created dynamically in JS and Stimulus can't bind to them (e.g., inline text highlights wrapping arbitrary DOM ranges). Even these cases should be revisited for server-side alternatives when practical.
 
 ## Testing

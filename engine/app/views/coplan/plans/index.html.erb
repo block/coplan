@@ -5,11 +5,18 @@
   <meta name="turbo-cache-control" content="no-cache">
 <% end %>
 
-<div class="workspace" data-controller="coplan--folder-dnd coplan--workspace-keys coplan--folder-picker">
+<%# No folder picker here: rows file via drag & drop, and the plan page's
+    title bookmark covers the click path. %>
+<div class="workspace" data-controller="coplan--folder-dnd coplan--workspace-keys">
   <%= render "coplan/plans/sidebar" %>
-  <%= render partial: "coplan/shared/folder_picker", locals: { folders: @folders } %>
 
-  <div class="workspace__main">
+  <%# The whole pane is a drop target for the folder you're looking at —
+      Finder semantics: drop on empty space to file right here. Specific
+      targets inside (folder rows, crumbs) win via stopPropagation. It also
+      carries the pane's own URL so drag-tunneling can restore/advance. %>
+  <div class="workspace__main"
+       data-folder-id="<%= @folder&.id %>"
+       data-action="dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop">
     <%# Drive-style breadcrumb: where you are in your library. Segments are
         drop targets — drag a plan or folder onto one to move it up. %>
     <nav class="workspace-crumbs" aria-label="Folder location">

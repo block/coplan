@@ -204,5 +204,28 @@ RSpec.describe CoPlan::Folder, type: :model do
         other.id => "Infra"
       )
     end
+
+    it "renders the full path for hierarchies deeper than MAX_DEPTH" do
+      # Creation is capped at MAX_DEPTH, but data deeper than the cap (seeds,
+      # imports, a future cap raise) must still render its whole path — the
+      # guard in the walk is for cycles, not depth.
+      parent = nil
+      chain = ("A".."F").map do |name|
+        folder = described_class.new(name: name, parent: parent, library: library, created_by_user: user)
+        folder.save!(validate: false)
+        parent = folder
+      end
+
+      expect(described_class.paths_by_id[chain.last.id]).to eq("A/B/C/D/E/F")
+    end
+
+    it "does not loop forever on cyclic bad data" do
+      a = create(:folder, name: "A", created_by_user: user)
+      b = create(:folder, name: "B", parent: a, created_by_user: user)
+      a.update_columns(parent_id: b.id)
+
+      paths = described_class.paths_by_id
+      expect(paths[b.id]).to eq("A/B")
+    end
   end
 end
