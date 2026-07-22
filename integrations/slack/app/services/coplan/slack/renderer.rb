@@ -45,11 +45,20 @@ module CoPlan
 
       def self.decorated_context(preview)
         context = escape(preview.context)
-        context = context.sub("by #{escape(preview.author_name)}", "by *#{escape(preview.author_name)}*") if preview.author_name.present?
-        return "📦 *Archived*#{context.delete_prefix("Archived")}" if preview.context.to_s.start_with?("Archived")
-        return "🔒 *Private*#{context.delete_prefix("Private")}" if preview.context.to_s.start_with?("Private")
+        return "📄 #{context}" if preview.author_name.blank?
 
-        "📄 #{context}"
+        author = escape(preview.author_name)
+        details = context.delete_suffix(" · by #{author}")
+        if preview.context.to_s.start_with?("Archived")
+          details = details.delete_prefix("Archived").delete_prefix(" · ")
+          return [ "*#{author}*", details.presence, "📦 Archived" ].compact.join(" · ")
+        end
+        if preview.context.to_s.start_with?("Private")
+          details = details.delete_prefix("Private").delete_prefix(" · ")
+          return [ "*#{author}*", details.presence, "🔒 Private" ].compact.join(" · ")
+        end
+
+        [ "*#{author}*", details.presence ].compact.join(" · ")
       end
 
       def self.context_elements(preview)
