@@ -1,6 +1,10 @@
 module CoPlan
   module Slack
     class Renderer
+      BRAND_COLOR = "#136FF5"
+      PRIVATE_COLOR = "#8C4AF6"
+      ARCHIVED_COLOR = "#64748B"
+
       def self.call(preview, url: preview.canonical_url)
         section = {
           type: "section",
@@ -8,10 +12,11 @@ module CoPlan
         }
         section[:accessory] = { type: "image", image_url: preview.image_url, alt_text: preview.title.to_s.first(2000) } if preview.image_url.present?
         {
+          color: accent_color(preview),
           fallback: [ preview.title, preview.description, preview.context ].compact.join(" — ").first(3000),
           blocks: [
             section,
-            { type: "context", elements: [ { type: "mrkdwn", text: escape(preview.context) } ] }
+            { type: "context", elements: context_elements(preview) }
           ],
           preview: {
             title: { type: "plain_text", text: preview.title.to_s.first(150) }
@@ -30,7 +35,31 @@ module CoPlan
       def self.description(preview)
         preview.description.present? ? "\n#{escape(preview.description)}" : ""
       end
-      private_class_method :escape_url, :description
+
+      def self.accent_color(preview)
+        return ARCHIVED_COLOR if preview.context.to_s.start_with?("Archived")
+        return PRIVATE_COLOR if preview.context.to_s.start_with?("Private")
+
+        BRAND_COLOR
+      end
+
+      def self.decorated_context(preview)
+        context = escape(preview.context)
+        context = context.sub("by #{escape(preview.author_name)}", "by *#{escape(preview.author_name)}*") if preview.author_name.present?
+        return "📦 *Archived*#{context.delete_prefix("Archived")}" if preview.context.to_s.start_with?("Archived")
+        return "🔒 *Private*#{context.delete_prefix("Private")}" if preview.context.to_s.start_with?("Private")
+
+        "📄 #{context}"
+      end
+
+      def self.context_elements(preview)
+        elements = []
+        if preview.author_avatar_url.present?
+          elements << { type: "image", image_url: preview.author_avatar_url, alt_text: preview.author_name.to_s.first(2000) }
+        end
+        elements << { type: "mrkdwn", text: decorated_context(preview) }
+      end
+      private_class_method :escape_url, :description, :accent_color, :decorated_context, :context_elements
     end
   end
 end

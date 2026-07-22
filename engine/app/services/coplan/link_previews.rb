@@ -44,8 +44,11 @@ module CoPlan
           # a flag (and never the word "Draft" — matches the in-app language).
           context: [ plan_state_flag(plan), plan.plan_type&.name, "by #{plan.created_by_user.name}" ].compact.join(" · "),
           image_url: https_url(plan.metadata&.dig("image_url")),
+          author_name: plan.created_by_user.name,
+          author_avatar_url: https_url(plan.created_by_user.avatar_url),
           cache_key: [
             "plan", plan.id, plan.updated_at.to_f, plan.summary_generated_at&.to_f,
+            plan.created_by_user.updated_at.to_f,
             plan.current_plan_version&.content_sha256 || plan.current_revision
           ].compact.join(":")
         )

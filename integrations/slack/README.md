@@ -25,6 +25,22 @@ end
 
 Point Slack's Events API request URL at `/integrations/slack/events`. Configure the `links:read` and `links:write` bot scopes, subscribe to `link_shared`, and register the CoPlan domain under **App unfurl domains**. The endpoint must be reachable from Slack over HTTPS.
 
+## Brand the Slack app
+
+Slack takes the name and icon shown above an unfurl from the app profile, not
+from the `chat.unfurl` payload. In the app's **Basic Information → Display
+Information** settings, use:
+
+- **App name:** `CoPlan`
+- **Short description:** `Collaborative engineering plans, reviewed by humans and refined by AI.`
+- **App icon:** [`assets/coplan-slack-icon.png`](assets/coplan-slack-icon.png)
+- **Background color:** `#010D27`
+
+The icon is intentionally simpler than the in-product logo so the document and
+conversation mark stays legible in Slack's small app avatar. The dark profile
+color matches CoPlan's navigation chrome; unfurls use CoPlan blue, violet for
+private plans, and slate for archived plans.
+
 Any proxy must preserve the raw request body plus `X-Slack-Signature` and `X-Slack-Request-Timestamp`. The adapter verifies Slack's signature and timestamp before parsing the event. An edge rule that merely checks for the signature header is not a replacement for this verification.
 
 This initial adapter supports one deployment-scoped Slack installation. Multi-workspace OAuth installation and token storage are outside its scope.

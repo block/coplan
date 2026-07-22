@@ -77,4 +77,16 @@ RSpec.describe CoPlan::LinkPreviews do
     plan.update!(metadata: { "image_url" => "https://example.test/image.png" })
     expect(described_class.for_plan(plan, base_url: base_url).image_url).to eq("https://example.test/image.png")
   end
+
+  it "includes the author's identity with a safe avatar URL" do
+    plan.created_by_user.update!(name: "Ada Lovelace", avatar_url: "https://example.test/ada.png")
+
+    preview = described_class.for_plan(plan.reload, base_url: base_url)
+
+    expect(preview.author_name).to eq("Ada Lovelace")
+    expect(preview.author_avatar_url).to eq("https://example.test/ada.png")
+
+    plan.created_by_user.update!(avatar_url: "http://example.test/ada.png")
+    expect(described_class.for_plan(plan.reload, base_url: base_url).author_avatar_url).to be_nil
+  end
 end
