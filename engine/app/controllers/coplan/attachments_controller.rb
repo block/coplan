@@ -91,13 +91,5 @@ module CoPlan
       turbo_stream.replace(id,
         html: helpers.content_tag(:span, count, class: "section-count", id: id))
     end
-
-    def toast_stream(message, kind)
-      turbo_stream.append("coplan-toasts",
-        helpers.content_tag(:div, message,
-          class: "flash flash--#{kind} toasts__toast",
-          role: "status",
-          data: { controller: "coplan--toast" }))
-    end
   end
 end

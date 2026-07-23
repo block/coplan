@@ -25,9 +25,10 @@
     <nav class="site-nav">
       <div class="site-nav__inner">
         <%= link_to coplan.root_path, class: "site-nav__brand" do %>
-          <%= image_tag "coplan/coplan-logo-sm.png", alt: "CoPlan", class: "site-nav__logo" %>
+          <%= image_tag "coplan/coplan-logo-sm.png", alt: "CoPlan",
+                class: "site-nav__logo#{coplan_environment_logo_modifier}",
+                title: coplan_environment_logo_title %>
           <span class="site-nav__brand-text">CoPlan</span>
-          <%= coplan_environment_badge %>
         <% end %>
         <% if signed_in? %>
           <div class="site-nav__links">

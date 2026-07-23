@@ -1,14 +1,16 @@
 <%# The shared "save to library" navigator popover. Expects `folders`: the
     viewer's folders as a flat list; the tree is rebuilt here so any page
-    (plan header, workspace rows) can render the picker from what it already
-    loaded. Open it via coplan--folder-picker#open on a trigger carrying
-    data-move-url / data-current-folder-id / data-saved / data-plan-title —
-    saved triggers unbookmark on click instead of opening this popover. %>
+    (plan toolbar, workspace rows) can render the picker from what it
+    already loaded. Open it via coplan--folder-picker#open on a trigger
+    carrying data-move-url / data-current-folder-id / data-saved /
+    data-plan-title (and optionally data-picker-heading). Saved triggers
+    get a "Remove from library" row so letting go is a deliberate choice
+    inside the navigator, never an accidental toggle. %>
 <% children_by_parent = folders.group_by(&:parent_id) %>
 <div id="folder-picker-modal" popover="auto" class="add-modal folder-picker"
      data-coplan--folder-picker-target="modal" aria-labelledby="folder-picker-title">
   <div class="add-modal__header">
-    <h3 class="add-modal__title" id="folder-picker-title">Save to library</h3>
+    <h3 class="add-modal__title" id="folder-picker-title" data-coplan--folder-picker-target="heading">Save to library</h3>
     <button type="button" class="add-modal__close" popovertarget="folder-picker-modal" popovertargetaction="hide" aria-label="Close">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
     </button>
@@ -24,5 +26,13 @@
     <% else %>
       <p class="text-sm text-muted">No folders yet — create one from your workspace to start organizing.</p>
     <% end %>
+    <%# Shown only when the trigger is already saved (see #open) — removal
+        lives here, as a labeled choice, instead of on the trigger itself. %>
+    <button type="button" class="folder-picker__remove" hidden
+            data-coplan--folder-picker-target="remove"
+            data-action="coplan--folder-picker#remove">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      <span data-coplan--folder-picker-target="removeLabel">Remove from library</span>
+    </button>
   </div>
 </div>

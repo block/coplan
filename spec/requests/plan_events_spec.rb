@@ -81,6 +81,22 @@ RSpec.describe "Plan metadata event logging", type: :request do
       patch publish_plan_path(shared), headers: { "Accept" => "application/json" }
       expect(response.parsed_body["visibility"]).to eq("published")
     end
+
+    it "answers Turbo Streams for the visibility toggle: fresh header plus a toast" do
+      shared = create(:plan, :published, created_by_user: user)
+
+      patch hide_plan_path(shared), headers: { "Accept" => "text/vnd.turbo-stream.html" }
+      expect(response.media_type).to eq("text/vnd.turbo-stream.html")
+      expect(response.body).to include('target="plan-header"')
+      expect(response.body).to include("Private")
+      expect(response.body).to include('target="coplan-toasts"')
+
+      patch publish_plan_path(shared), headers: { "Accept" => "text/vnd.turbo-stream.html" }
+      expect(response.media_type).to eq("text/vnd.turbo-stream.html")
+      expect(response.body).to include('target="plan-header"')
+      expect(response.body).not_to include("state-flag")
+      expect(response.body).to include("Shared with everyone")
+    end
   end
 
   describe "POST /plans/:id/references (web)" do

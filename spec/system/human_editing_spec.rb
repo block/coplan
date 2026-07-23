@@ -25,7 +25,7 @@ RSpec.describe "Human plan editing", type: :system do
 
   it "edits plan content through the web editor" do
     visit plan_path(plan)
-    find("a[aria-label='Edit plan']").click
+    within("#plan-toolbar") { click_link "Edit" }
 
     expect(page).to have_field("content", with: /First draft body/)
 
@@ -74,42 +74,54 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_field("content", with: /Preview me/)
   end
 
-  it "toggles visibility with the header eye — two clicks each way, no reload" do
+  def open_plan_menu
+    find("#plan-toolbar button[aria-label='More actions']").click
+    expect(page).to have_css("#plan-menu:popover-open")
+  end
+
+  it "changes visibility from the overflow menu in place, no reload" do
     plan.update!(visibility: "draft")
     visit plan_path(plan)
 
-    eye = find(".visibility-toggle")
-    eye.click # arm: previews the flip
-    eye.click # confirm: commits via fetch
-    expect(page).to have_css(".visibility-toggle[title^='Shared']", wait: 5)
+    # Private is the rare state — the byline flags it.
+    expect(page).to have_css("#plan-header .state-flag", text: "Private")
+
+    open_plan_menu
+    within("#plan-menu") { click_button "Share with everyone" }
+
+    # The Turbo Stream re-renders the header in place: the Private flag
+    # drops without a navigation, and a toast confirms.
+    expect(page).to have_content("Shared with everyone in the org.")
+    expect(page).not_to have_css("#plan-header .state-flag", text: "Private")
     expect(plan.reload.visibility).to eq("published")
 
-    # And back — hiding a shared plan is allowed now, same two clicks.
-    eye.click
-    eye.click
-    expect(page).to have_css(".visibility-toggle--hidden[title^='Private']", wait: 5)
+    # The menu tracks state: it now offers the opposite direction.
+    open_plan_menu
+    within("#plan-menu") { click_button "Make private" }
+    expect(page).to have_content("Private again — hidden from lists and search.")
+    expect(page).to have_css("#plan-header .state-flag", text: "Private")
     expect(plan.reload.visibility).to eq("draft")
   end
 
-  it "reverts an unconfirmed visibility flip instead of committing it" do
-    plan.update!(visibility: "draft")
+  it "archives and restores the plan in place" do
     visit plan_path(plan)
 
-    find(".visibility-toggle").click # armed…
-    # …but never confirmed: the preview reverts on its own.
-    expect(page).to have_css(".visibility-toggle--hidden[title^='Private']", wait: 6)
-    expect(plan.reload.visibility).to eq("draft")
-  end
+    open_plan_menu
+    within("#plan-menu") { click_button "Archive plan" }
 
-  it "archives and restores the plan" do
-    visit plan_path(plan)
-
-    click_button "Archive"
-    expect(page).to have_content("Plan archived.")
+    # The consequence is visible right where it happened: a banner with the
+    # undo, no navigation away from the document.
+    expect(page).to have_css(".plan-banner--archived", text: "hidden from lists")
+    expect(page).to have_content("Editable Plan")
     expect(plan.reload.archived?).to be(true)
 
-    click_button "Restore"
-    expect(page).to have_content("Plan restored.")
+    # Archive leaves the menu while archived.
+    open_plan_menu
+    expect(page).not_to have_button("Archive plan")
+    find("#plan-toolbar button[aria-label='More actions']").click # close menu
+
+    within(".plan-banner--archived") { click_button "Restore" }
+    expect(page).not_to have_css(".plan-banner--archived")
     expect(plan.reload.archived?).to be(false)
   end
 
@@ -120,8 +132,18 @@ RSpec.describe "Human plan editing", type: :system do
 
     visit plan_path(plan)
     expect(page).to have_content("Editable Plan")
-    expect(page).not_to have_css("a[aria-label='Edit plan']")
-    expect(page).not_to have_button("Archive")
-    expect(page).not_to have_css(".visibility-toggle")
+    within("#plan-toolbar") do
+      expect(page).not_to have_link("Edit")
+      expect(page).to have_button("Save")
+    end
+    # The reader's overflow menu is History only — no state-changing actions.
+    open_plan_menu
+    within("#plan-menu") do
+      expect(page).to have_link("History")
+      expect(page).not_to have_button("Archive plan")
+      expect(page).not_to have_button("Make private")
+      expect(page).not_to have_button("Share with everyone")
+      expect(page).not_to have_button("Move to folder…")
+    end
   end
 end

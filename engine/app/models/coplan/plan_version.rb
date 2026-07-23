@@ -45,7 +45,7 @@ module CoPlan
       Broadcaster.replace_to(
         plan,
         target: "history-count",
-        html: ApplicationController.helpers.content_tag(:span, count, class: "section-count", id: "history-count")
+        html: ApplicationController.helpers.content_tag(:span, ApplicationController.helpers.pluralize(count, "entry"), class: "section-count", id: "history-count")
       )
     end
 

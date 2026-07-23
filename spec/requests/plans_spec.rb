@@ -59,13 +59,13 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include("Clear")
   end
 
-  it "show plan renders tag badges in header" do
+  it "show plan keeps tags off the reading surface" do
+    # Tags are workspace-side organization (sidebar filters, the editor) —
+    # the plan page masthead stays two clean rows: title, then byline.
     plan.tag_names = [ "infra", "security" ]
     get plan_path(plan)
     expect(response).to have_http_status(:success)
-    expect(response.body).to include("badge--tag")
-    expect(response.body).to include("infra")
-    expect(response.body).to include("security")
+    expect(response.body).not_to include("badge--tag")
   end
 
   it "show plan renders successfully" do

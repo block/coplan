@@ -32,13 +32,14 @@ RSpec.describe "Plan history page", type: :system do
   end
 
   describe "navigation" do
-    it "reaches history via the header clock icon and returns via the back link" do
+    it "reaches history via the toolbar's overflow menu and returns via the back link" do
       visit plan_path(plan)
 
       expect(page).to have_content("First task")
       expect(page).not_to have_content("Initial draft")
 
-      find("a[aria-label='Plan history']").click
+      find("#plan-toolbar button[aria-label='More actions']").click
+      within("#plan-menu") { click_link "History" }
 
       # A full page: version entry, plan title, no document body.
       expect(page).to have_content("Initial draft")
@@ -59,7 +60,8 @@ RSpec.describe "Plan history page", type: :system do
 
     it "goes back to the document with Backspace" do
       visit plan_path(plan)
-      find("a[aria-label='Plan history']").click
+      find("#plan-toolbar button[aria-label='More actions']").click
+      within("#plan-menu") { click_link "History" }
       expect(page).to have_content("Initial draft")
 
       find("body").send_keys(:backspace)
