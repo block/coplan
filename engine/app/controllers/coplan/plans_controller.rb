@@ -644,6 +644,13 @@ module CoPlan
       @attention_unread_counts = unread_by_plan
       top_ids = unread_by_plan.sort_by { |_id, count| -count }
         .first(ATTENTION_LIMIT).map(&:first)
+      # The plan view hides resolved threads by default. Route each inbox row
+      # through an unread notification so the destination marks it read and
+      # deep-links to the exact thread, even when that thread is resolved.
+      # This is deliberately bounded to ATTENTION_LIMIT indexed lookups.
+      @attention_notification_ids = top_ids.index_with do |plan_id|
+        current_user.notifications.unread.where(plan_id: plan_id).newest_first.pick(:id)
+      end
       # Even an inbox routes through the discovery predicate — a stale
       # notification must not resurface an archived plan or another user's
       # unlisted draft.
