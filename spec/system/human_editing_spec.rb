@@ -74,30 +74,21 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_field("content", with: /Preview me/)
   end
 
-  it "toggles visibility with the header eye — two clicks each way, no reload" do
+  it "toggles visibility with one labeled click each way, no reload" do
     plan.update!(visibility: "draft")
     visit plan_path(plan)
 
-    eye = find(".visibility-toggle")
-    eye.click # arm: previews the flip
-    eye.click # confirm: commits via fetch
-    expect(page).to have_css(".visibility-toggle[title^='Shared']", wait: 5)
+    expect(page).to have_css(".visibility-toggle", text: "Private")
+    find(".visibility-toggle").click
+    expect(page).to have_css(".visibility-toggle", text: "Shared", wait: 5)
+    expect(page).to have_content("Shared with everyone in the org.")
     expect(plan.reload.visibility).to eq("published")
 
-    # And back — hiding a shared plan is allowed now, same two clicks.
-    eye.click
-    eye.click
-    expect(page).to have_css(".visibility-toggle--hidden[title^='Private']", wait: 5)
-    expect(plan.reload.visibility).to eq("draft")
-  end
-
-  it "reverts an unconfirmed visibility flip instead of committing it" do
-    plan.update!(visibility: "draft")
-    visit plan_path(plan)
-
-    find(".visibility-toggle").click # armed…
-    # …but never confirmed: the preview reverts on its own.
-    expect(page).to have_css(".visibility-toggle--hidden[title^='Private']", wait: 6)
+    # And back — hiding a shared plan is allowed, same single click. The
+    # server Turbo Stream replaces the header, so re-find the button.
+    find(".visibility-toggle").click
+    expect(page).to have_css(".visibility-toggle--hidden", text: "Private", wait: 5)
+    expect(page).to have_content("Private again — hidden from lists and search.")
     expect(plan.reload.visibility).to eq("draft")
   end
 
