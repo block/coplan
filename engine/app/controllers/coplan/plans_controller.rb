@@ -257,9 +257,9 @@ module CoPlan
       render html: html, layout: false
     end
 
-    # Publishing is the one-way door out of draft: explicit, confirmed in
-    # the UI, and irreversible by design (archive is the tool for "done
-    # with this", not unpublish).
+    # One direction of the header visibility toggle: share a private plan
+    # with the whole org. The other direction is #hide — visibility is a
+    # two-way switch (archive is the tool for "done with this").
     def publish
       authorize!(@plan, :publish?)
       @plan.update!(visibility: "published")
@@ -279,6 +279,10 @@ module CoPlan
         via: "web"
       )
       respond_to do |format|
+        # The toggle fetches this: the header re-render carries the new
+        # state flag, so the page repaints even when the ActionCable
+        # broadcast can't reach this browser.
+        format.turbo_stream { render turbo_stream: visibility_streams("Shared with everyone in the org.") }
         format.json { render json: { visibility: @plan.visibility } }
         format.html { redirect_to plan_path(@plan), notice: "Plan published — everyone can see it now." }
       end
@@ -306,6 +310,7 @@ module CoPlan
         via: "web"
       )
       respond_to do |format|
+        format.turbo_stream { render turbo_stream: visibility_streams("Private again — hidden from lists and search.") }
         format.json { render json: { visibility: @plan.visibility } }
         format.html { redirect_to plan_path(@plan), notice: "Plan is private again — hidden from lists and search." }
       end
@@ -662,6 +667,15 @@ module CoPlan
 
     def broadcast_plan_update(plan)
       Broadcaster.replace_to(plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: plan })
+    end
+
+    # Turbo Streams for a visibility change: re-render the header (state
+    # flag + toggle) in the acting browser and confirm with a toast.
+    def visibility_streams(message)
+      [
+        turbo_stream.replace("plan-header", partial: "coplan/plans/header", locals: { plan: @plan }),
+        toast_stream(message, "notice")
+      ]
     end
   end
 end

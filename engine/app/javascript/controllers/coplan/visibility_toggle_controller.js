@@ -1,65 +1,51 @@
 import { Controller } from "@hotwired/stimulus"
 
-// The header visibility eye (author only). Open eye = shared with everyone,
-// slashed eye = Private. Two clicks, no dialog, no reload:
+// The plan visibility toggle (author only). Open eye = shared with everyone
+// in the org, slashed eye = Private. One click commits — visibility is a
+// two-way switch (see PlanPolicy#publish?/#hide?), so there is nothing to
+// guard with a dialog: flipping it back is one more click.
 //
-//   click 1  previews the flip (the slash toggles, the button pulses) —
-//            it reverts by itself if you wander off
-//   click 2  commits via fetch; the broadcast header refresh carries the
-//            Private flag, so nothing else needs repainting
+// The button repaints optimistically, then the server confirms with Turbo
+// Streams (a #plan-header re-render carrying the state flag, plus a toast).
+// If the request fails, the button reverts to the real state.
 export default class extends Controller {
   static values = { hidden: Boolean, publishUrl: String, hideUrl: String }
+  static targets = ["label"]
 
-  disconnect() {
-    clearTimeout(this._revertTimer)
-  }
+  async toggle() {
+    if (this._busy) return
+    this._busy = true
 
-  click() {
-    if (this._armed) {
-      this._commit()
-    } else {
-      this._arm()
-    }
-  }
+    const wasHidden = this.hiddenValue
+    this.hiddenValue = !wasHidden
+    this._paint()
 
-  _arm() {
-    this._armed = true
-    this.element.classList.add("visibility-toggle--armed")
-    this.element.classList.toggle("visibility-toggle--hidden", !this.hiddenValue)
-    this.element.title = this.hiddenValue ?
-      "Click again to share with everyone in the org" :
-      "Click again to make this private — hidden from lists and search (the link keeps working)"
-    // Unconfirmed after a pause: put the eye back the way it was.
-    this._revertTimer = setTimeout(() => this._reset(), 4000)
-  }
-
-  async _commit() {
-    clearTimeout(this._revertTimer)
-    const url = this.hiddenValue ? this.publishUrlValue : this.hideUrlValue
     try {
-      const response = await fetch(url, {
+      const response = await fetch(wasHidden ? this.publishUrlValue : this.hideUrlValue, {
         method: "PATCH",
         headers: {
           "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content,
-          "Accept": "application/json"
+          "Accept": "text/vnd.turbo-stream.html"
         }
       })
       if (!response.ok) throw new Error("Could not change visibility")
-      const data = await response.json()
-      this.hiddenValue = data.visibility === "draft"
+      window.Turbo?.renderStreamMessage(await response.text())
     } catch {
-      // Leave the real state untouched; the reset below repaints it.
+      // Put the button back the way the server still has it.
+      this.hiddenValue = wasHidden
+      this._paint()
+    } finally {
+      this._busy = false
     }
-    this._reset()
   }
 
-  _reset() {
-    this._armed = false
-    clearTimeout(this._revertTimer)
-    this.element.classList.remove("visibility-toggle--armed")
+  _paint() {
     this.element.classList.toggle("visibility-toggle--hidden", this.hiddenValue)
+    if (this.hasLabelTarget) {
+      this.labelTarget.textContent = this.hiddenValue ? "Private" : "Shared"
+    }
     this.element.title = this.hiddenValue ?
-      "Private — click to share with everyone" :
-      "Shared with everyone — click to make it private"
+      "Private — click to share with everyone in the org" :
+      "Shared with everyone — click to make it private (the link keeps working)"
   }
 }

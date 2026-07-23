@@ -2635,24 +2635,15 @@ img.avatar {
   text-decoration: none;
 }
 
-/* The visibility eye: slash appears when Private (matching the state
-   flag's crossed eye); armed = mid-flip, waiting for the confirming
-   second click. */
+/* The visibility toggle: a labeled eye that reads as the plan's current
+   state. The slash appears when Private (matching the state flag's
+   crossed eye). One click commits — the label repaints optimistically. */
 .visibility-toggle .visibility-toggle__slash {
   display: none;
 }
 
 .visibility-toggle--hidden .visibility-toggle__slash {
   display: initial;
-}
-
-.visibility-toggle--armed {
-  color: var(--color-primary);
-  animation: visibility-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes visibility-pulse {
-  50% { opacity: 0.45; }
 }
 
 /* Folder-picker navigator (the bookmark's popover) */

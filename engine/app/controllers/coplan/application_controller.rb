@@ -84,6 +84,17 @@ module CoPlan
     end
     helper_method :allowed_to?
 
+    # A bottom-corner toast as a Turbo Stream — append it to any
+    # turbo_stream response so in-place actions get feedback without a
+    # top-of-page flash (which would mean scrolling the reader away).
+    def toast_stream(message, kind)
+      turbo_stream.append("coplan-toasts",
+        helpers.content_tag(:div, message,
+          class: "flash flash--#{kind} toasts__toast",
+          role: "status",
+          data: { controller: "coplan--toast" }))
+    end
+
     # Fires once per successful, signed-in HTML GET. Skips Turbo Frame
     # requests (those are partial reloads within an already-counted page),
     # non-2xx responses, agent/API traffic, and anything that isn't HTML.
