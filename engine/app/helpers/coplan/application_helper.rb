@@ -66,12 +66,20 @@ module CoPlan
       end
     end
 
-    def coplan_environment_badge
+    # Non-production environments mark the nav logo instead of adding a
+    # badge next to the brand — a badge changes the nav's layout, so dev
+    # and staging would never reproduce production's spacing. The logo
+    # gets a colored ring (same palette as the favicon) and a tooltip.
+    def coplan_environment_logo_modifier
+      return "" if Rails.env.production?
+
+      " site-nav__logo--#{Rails.env}"
+    end
+
+    def coplan_environment_logo_title
       return if Rails.env.production?
 
-      label = Rails.env.capitalize
-      colors = FAVICON_COLORS.fetch(Rails.env, FAVICON_COLORS["development"])
-      tag.span(label, class: "env-badge", style: "background: #{colors[:start]};")
+      "#{Rails.env.capitalize} environment"
     end
   end
 end

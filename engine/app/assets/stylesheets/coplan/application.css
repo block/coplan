@@ -363,15 +363,15 @@ img, svg {
   border-radius: 6px;
 }
 
-.env-badge {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--color-text-inverse);
-  padding: 1px 6px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  line-height: 1.4;
+/* Non-production environment marker: a colored ring on the logo (favicon
+   palette) — layout-neutral, so dev and staging reproduce production's
+   nav spacing exactly. */
+.site-nav__logo--development {
+  box-shadow: 0 0 0 2px #10b981;
+}
+
+.site-nav__logo--staging {
+  box-shadow: 0 0 0 2px #f59e0b;
 }
 
 .site-nav__brand:hover {
@@ -5271,11 +5271,10 @@ img.avatar {
     gap: var(--space-sm);
   }
 
-  /* Icons over labels: brand text, env badge, search placeholder, the
-     "/" hint, the settings gear, and the sign-out link all yield to the
-     things a phone visit is actually for. */
+  /* Icons over labels: brand text, search placeholder, the "/" hint,
+     the settings gear, and the sign-out link all yield to the things a
+     phone visit is actually for. */
   .site-nav__brand-text,
-  .env-badge,
   .site-nav__search-label,
   .site-nav__search-kbd,
   .site-nav__icon-link,
