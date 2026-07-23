@@ -207,15 +207,16 @@ RSpec.describe "Folders workspace", type: :system do
       expect(infra.reload.parent).to eq(team)
     end
 
-    it "saves from the plan page via the bookmark beside the title" do
+    it "files their own plan via Move to folder… in the plan menu" do
       visit plan_path(developing_plan)
 
-      # The bookmark mounts into the title row (it's stamped client-side —
-      # the broadcast-replaced header can't render viewer state itself).
-      # It's also the only click path into the folder navigator: workspace
-      # rows file via drag & drop and carry no bookmark of their own.
-      find(".page-header__title-row .plan-bookmark").click
+      # Owners organize, they don't "save" — no Save button on your own plan.
+      expect(page).not_to have_button("Save")
+
+      find("#plan-toolbar button[aria-label='More actions']").click
+      within("#plan-menu") { click_button "Move to folder…" }
       within("#folder-picker-modal") do
+        expect(page).to have_css("#folder-picker-title", text: "Move to folder")
         # The tree is hierarchical: Q3 nests under Team EBT.
         expect(page).to have_css(".folder-picker__tree--nested .folder-picker__name", text: "Q3")
         find(".folder-picker__option", text: "Infra").click
@@ -223,25 +224,25 @@ RSpec.describe "Folders workspace", type: :system do
 
       expect(page).to have_css(".flash--notice", text: "Infra", wait: 5)
       expect(author.library.placements.find_by(plan_id: developing_plan.id).folder).to eq(infra)
-      # After the reload the bookmark reads as saved.
-      expect(page).to have_css(".plan-bookmark--saved")
     end
 
-    it "unsaves a filed plan with a second bookmark click — no dialog, no toast" do
+    it "unfiles their own plan with the picker's explicit Remove from folder" do
       CoPlan::Plans::Place.call(plan: developing_plan, folder: q3, actor: author)
       visit plan_path(developing_plan)
 
-      find(".page-header__title-row .plan-bookmark--saved").click
+      find("#plan-toolbar button[aria-label='More actions']").click
+      within("#plan-menu") { click_button "Move to folder…" }
+      within("#folder-picker-modal") do
+        # The navigator reads as state: the current folder is marked.
+        expect(page).to have_css(".folder-picker__option--current", text: "Q3")
+        click_button "Remove from folder"
+      end
 
-      # The bookmark just lets go: no navigator, no confirmation, no toast —
-      # the page re-renders with the bookmark back in its unsaved state.
-      expect(page).not_to have_css("#folder-picker-modal:popover-open")
-      expect(page).to have_css(".page-header__title-row .plan-bookmark:not(.plan-bookmark--saved)", wait: 5)
-      expect(page).not_to have_css(".flash--notice")
+      expect(page).to have_css(".flash--notice", wait: 5)
       expect(author.library.placements.where(plan_id: developing_plan.id)).to be_empty
     end
 
-    it "offers shelving on other users' plans too" do
+    it "saves and lets go of someone else's plan through the navigator, never a surprise toggle" do
       other_plan = create(:plan, :considering, created_by_user: other, title: "Someone Elses Plan")
       visit plans_path(scope: "all")
 
@@ -249,9 +250,28 @@ RSpec.describe "Folders workspace", type: :system do
       row = find(".plan-row[data-plan-id='#{other_plan.id}']")
       expect(row["draggable"]).to eq("true")
 
-      # …and the plan page offers the bookmark.
+      # …and the plan page offers a labeled Save that opens the navigator.
       visit plan_path(other_plan)
-      expect(page).to have_css(".page-header__title-row .plan-bookmark")
+      click_button "Save"
+      within("#folder-picker-modal") do
+        expect(page).to have_css("#folder-picker-title", text: "Save to library")
+        find(".folder-picker__option", text: "Infra").click
+      end
+
+      expect(page).to have_css(".flash--notice", text: "Infra", wait: 5)
+      expect(page).to have_button("Saved")
+      expect(author.library.placements.find_by(plan_id: other_plan.id).folder).to eq(infra)
+
+      # Clicking Saved re-opens the navigator — removal is a deliberate
+      # labeled choice inside it, not an instant unsave on the button.
+      click_button "Saved"
+      within("#folder-picker-modal") do
+        expect(page).to have_css(".folder-picker__option--current", text: "Infra")
+        click_button "Remove from library"
+      end
+
+      expect(page).to have_button("Save", wait: 5)
+      expect(author.library.placements.where(plan_id: other_plan.id)).to be_empty
     end
   end
 

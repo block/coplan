@@ -142,9 +142,8 @@ module CoPlan
       # Old ?tab=history links: history is its own page now (the other
       # former tabs are same-page sections).
       return redirect_to history_plan_path(@plan) if params[:tab] == "history"
-      # Folder-jump discovery: every shelf this plan sits on. The plan
-      # itself is already authorized above, and placements inherit the
-      # plan's visibility — a shelf never reveals more than the plan does.
+      # The viewer's own placement (if any) drives the toolbar's
+      # Save/Saved state and the folder navigator's current-folder mark.
       @shelf_placements = @plan.placements
         .includes(:library, folder: { parent: :parent })
         .order(:created_at)
@@ -316,12 +315,19 @@ module CoPlan
       end
     end
 
+    # Archiving happens in place: the banner appears (with Restore — the
+    # undo), the toolbar's menu loses its Archive entry, and a toast
+    # confirms. No navigation, so the consequence is visible right where
+    # the action happened.
     def archive
       authorize!(@plan, :archive?)
       @plan.update!(archived_at: Time.current)
       broadcast_plan_update(@plan)
       Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "archived")
-      redirect_to plan_path(@plan), notice: "Plan archived. It's hidden from lists unless someone filters for archived plans."
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: archive_streams("Archived — hidden from lists, still readable at this URL.") }
+        format.html { redirect_to plan_path(@plan), notice: "Plan archived. It's hidden from lists unless someone filters for archived plans." }
+      end
     end
 
     def unarchive
@@ -329,7 +335,10 @@ module CoPlan
       @plan.update!(archived_at: nil)
       broadcast_plan_update(@plan)
       Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "unarchived")
-      redirect_to plan_path(@plan), notice: "Plan restored."
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: archive_streams("Plan restored.") }
+        format.html { redirect_to plan_path(@plan), notice: "Plan restored." }
+      end
     end
 
     def toggle_checkbox
@@ -669,11 +678,27 @@ module CoPlan
       Broadcaster.replace_to(plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: plan })
     end
 
-    # Turbo Streams for a visibility change: re-render the header (state
-    # flag + toggle) in the acting browser and confirm with a toast.
+    # Turbo Streams for a visibility change: re-render the header (the
+    # byline's Private flag) and the toolbar (whose menu offers the
+    # opposite direction now) in the acting browser, and confirm with a
+    # toast.
     def visibility_streams(message)
       [
         turbo_stream.replace("plan-header", partial: "coplan/plans/header", locals: { plan: @plan }),
+        turbo_stream.replace("plan-toolbar", partial: "coplan/plans/toolbar", locals: { plan: @plan }),
+        toast_stream(message, "notice")
+      ]
+    end
+
+    # Turbo Streams for archive/restore: the banner slot is the loud,
+    # visible consequence (it appears with a Restore button — the undo),
+    # the header's byline picks up/drops the Archived flag, and the
+    # toolbar re-renders so its menu tracks the new state.
+    def archive_streams(message)
+      [
+        turbo_stream.replace("plan-header", partial: "coplan/plans/header", locals: { plan: @plan }),
+        turbo_stream.replace("plan-banner-slot", partial: "coplan/plans/banner", locals: { plan: @plan }),
+        turbo_stream.replace("plan-toolbar", partial: "coplan/plans/toolbar", locals: { plan: @plan }),
         toast_stream(message, "notice")
       ]
     end

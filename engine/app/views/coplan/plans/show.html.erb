@@ -20,85 +20,20 @@
 <div data-controller="coplan--plan-keys coplan--folder-picker"
      data-coplan--plan-keys-fallback-url-value="<%= my_placement&.folder_id ? plans_path(folder: my_placement.folder_id) : plans_path %>">
 
-<div data-controller="coplan--presence coplan--plan-bookmark" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
+<%# The masthead: the plan's identity (broadcast-replaced #plan-header)
+    on the left, and the viewer-relative side column (presence + toolbar)
+    bottom-aligned on the right. Two DOM subtrees, one visual block —
+    broadcasts own the left, this request (and the visibility/archive
+    stream responses) own the right, so neither can clobber the other. %>
+<div class="plan-masthead" data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
   <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
-  <% if current_user %>
-    <%# The bookmark that mounts beside the title (see #plan-bookmark-slot
-        in the header partial). Rendered here because it's viewer-relative —
-        broadcast re-renders of the header can't know who's looking. %>
-    <template data-coplan--plan-bookmark-target="template">
-      <button type="button"
-              class="plan-bookmark<%= " plan-bookmark--saved" if my_placement %>"
-              data-action="coplan--folder-picker#open"
-              data-move-url="<%= move_to_folder_plan_path(@plan) %>"
-              data-current-folder-id="<%= my_placement&.folder_id %>"
-              data-saved="<%= my_placement.present? %>"
-              data-plan-title="<%= @plan.title %>"
-              title="<%= my_placement ? "Saved in #{my_placement.folder.path} — click to remove" : "Save to a folder in your library" %>"
-              aria-label="<%= my_placement ? "Remove from your library" : "Save to your library" %>">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="<%= my_placement ? "currentColor" : "none" %>" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
-      </button>
-    </template>
-  <% end %>
+  <div class="plan-masthead__side">
+    <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(@plan), current_user: current_user } %>
+    <%= render partial: "coplan/plans/toolbar", locals: { plan: @plan, my_placement: my_placement } %>
+  </div>
 </div>
 
-<%# Owner affordances live outside the broadcast-replaced #plan-header so
-    they can be policy-gated server-side (broadcast renders have no
-    current_user). %>
-<% if @plan.archived? %>
-  <div class="plan-banner plan-banner--archived">
-    <span class="plan-banner__text">This plan is archived — it stays readable at this URL but is hidden from lists and search results.</span>
-    <% if allowed_to?(@plan, :unarchive?) %>
-      <%= button_to "Restore", unarchive_plan_path(@plan), method: :patch, class: "btn btn--secondary btn--sm" %>
-    <% end %>
-  </div>
-<% end %>
-<%# One compact row: where the plan is filed (left) and what you can do to
-    it (right). Lives outside the broadcast-replaced #plan-header — both
-    sides are viewer-relative / policy-gated (broadcast renders have no
-    current_user). %>
-<div class="plan-meta-row">
-  <%= render partial: "coplan/plans/shelves", locals: { placements: @shelf_placements } %>
-  <div class="plan-actions" role="toolbar" aria-label="Plan actions">
-    <% if allowed_to?(@plan, :publish?) || allowed_to?(@plan, :hide?) %>
-      <%# The visibility toggle: open eye = shared with everyone, slashed =
-          Private. One click commits (it's a two-way switch); the server
-          answers with Turbo Streams that refresh the header state flag and
-          confirm with a toast. Labeled, not icon-only — this is the one
-          control whose state people need to be able to read at a glance. %>
-      <button type="button"
-              class="btn btn--ghost btn--sm visibility-toggle<%= " visibility-toggle--hidden" if @plan.draft? %>"
-              data-controller="coplan--visibility-toggle"
-              data-action="coplan--visibility-toggle#toggle"
-              data-coplan--visibility-toggle-hidden-value="<%= @plan.draft? %>"
-              data-coplan--visibility-toggle-publish-url-value="<%= publish_plan_path(@plan) %>"
-              data-coplan--visibility-toggle-hide-url-value="<%= hide_plan_path(@plan) %>"
-              title="<%= @plan.draft? ? "Private — click to share with everyone in the org" : "Shared with everyone — click to make it private (the link keeps working)" %>">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/><line class="visibility-toggle__slash" x1="3" y1="3" x2="21" y2="21"/></svg>
-        <span data-coplan--visibility-toggle-target="label"><%= @plan.draft? ? "Private" : "Shared" %></span>
-      </button>
-    <% end %>
-    <%# One pen: the editor handles content, title, and tags together. %>
-    <% if allowed_to?(@plan, :edit_content?) %>
-      <%= link_to edit_content_plan_path(@plan), class: "btn btn--secondary btn--sm btn--icon",
-            title: "Edit this plan — content, title, and tags", aria: { label: "Edit plan" } do %>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>
-      <% end %>
-    <% end %>
-    <% if allowed_to?(@plan, :archive?) %>
-      <%= button_to archive_plan_path(@plan), method: :patch,
-            class: "btn btn--ghost btn--sm btn--icon", title: "Archive this plan",
-            aria: { label: "Archive plan" }, form_class: "plan-actions__archive" do %>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
-      <% end %>
-    <% end %>
-    <%# History is its own page — the time machine, one Backspace away. %>
-    <%= link_to history_plan_path(@plan), class: "btn btn--ghost btn--sm btn--icon",
-          title: "History — every version and change", aria: { label: "Plan history" } do %>
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
-    <% end %>
-  </div>
-</div>
+<%= render partial: "coplan/plans/banner", locals: { plan: @plan } %>
 
 <div class="plan-document card">
   <% if @plan.current_content.present? %>

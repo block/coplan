@@ -1,13 +1,13 @@
 import { Controller } from "@hotwired/stimulus"
 
-// The "save to library" bookmark. Behaves like a browser bookmark star:
-// unsaved, a click opens the folder navigator popover (the viewer's folder
-// tree, a little filesystem) to pick where it goes; saved, a click just
-// removes it — no dialog, no toast — and you can re-add if you want. One
-// shared popover per page — triggers carry the plan's move URL, current
-// folder, and saved state so rows and the plan header can all reuse it.
+// The folder navigator popover: the viewer's folder tree, a little
+// filesystem. Every trigger opens it — Save on someone's plan, "Move to
+// folder…" in the plan menu, workspace row fallbacks. Triggers carry the
+// plan's move URL, current folder, and saved state; already-saved triggers
+// get a "Remove from library" row inside the navigator, so removal is a
+// deliberate labeled choice instead of a surprise toggle on the trigger.
 export default class extends Controller {
-  static targets = ["modal", "title"]
+  static targets = ["modal", "title", "heading", "remove", "removeLabel"]
 
   open(event) {
     event.preventDefault()
@@ -15,12 +15,17 @@ export default class extends Controller {
     this._moveUrl = trigger.dataset.moveUrl
     this._currentFolderId = trigger.dataset.currentFolderId || ""
 
-    // Already saved: the second click unbookmarks, quietly.
-    if (trigger.dataset.saved === "true") {
-      this._patch("", { quiet: true })
-      return
+    if (this.hasHeadingTarget) {
+      this.headingTarget.textContent = trigger.dataset.pickerHeading || "Save to library"
     }
-
+    if (this.hasRemoveTarget) {
+      this.removeTarget.hidden = trigger.dataset.saved !== "true"
+      if (this.hasRemoveLabelTarget) {
+        // "Remove" means different things per trigger: a reader letting a
+        // saved plan go entirely vs. an owner unfiling their own plan.
+        this.removeLabelTarget.textContent = trigger.dataset.removeLabel || "Remove from library"
+      }
+    }
     if (this.hasTitleTarget && trigger.dataset.planTitle) {
       this.titleTarget.textContent = trigger.dataset.planTitle
     }
@@ -43,6 +48,13 @@ export default class extends Controller {
       return
     }
     this._patch(folderId)
+  }
+
+  // The "Remove from library" row inside the navigator (only shown when
+  // the trigger was already saved).
+  remove() {
+    if (!this._moveUrl) return
+    this._patch("")
   }
 
   _patch(folderId, { quiet = false } = {}) {

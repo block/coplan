@@ -1,0 +1,13 @@
+<%# The plan's full-width state banner (archived, for now). Always renders
+    the slot div so Turbo Streams can replace it in both directions —
+    archiving inserts the banner, restoring empties it. %>
+<div id="plan-banner-slot">
+  <% if plan.archived? %>
+    <div class="plan-banner plan-banner--archived">
+      <span class="plan-banner__text">This plan is archived — it stays readable at this URL but is hidden from lists and search results.</span>
+      <% if allowed_to?(plan, :unarchive?) %>
+        <%= button_to "Restore", unarchive_plan_path(plan), method: :patch, class: "btn btn--secondary btn--sm" %>
+      <% end %>
+    </div>
+  <% end %>
+</div>

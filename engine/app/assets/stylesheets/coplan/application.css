@@ -475,12 +475,41 @@ img, svg {
   font-weight: 700;
 }
 
+/* The plan masthead: two visual rows. Row one is the title (wrapping
+   naturally, as wide as it needs). Row two is the byline on the left and
+   the viewer-relative side column (presence + toolbar) on the right —
+   bottom-aligning the side column against the header makes the toolbar
+   sit level with the byline, so the whole block reads as two bands even
+   though it's two DOM subtrees (broadcasts own the left, the request
+   owns the right). */
+.plan-masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-lg);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-md);
+}
+
+.plan-masthead__side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-left: auto;
+  flex-shrink: 0;
+  /* Level the toolbar pill's baseline band with the byline text. */
+  margin-bottom: -2px;
+}
+
 /* Plan page header: file icon + title, then one metadata band — compact,
    the document itself is the point. Everything here is broadcast-safe;
-   viewer-relative chrome (bookmark, owner actions) mounts from outside. */
+   viewer-relative chrome (Save, owner toolbar) lives in the masthead's
+   side column, outside this subtree. */
 .page-header--plan {
   display: block;
-  margin-bottom: var(--space-sm);
+  margin-bottom: 0;
+  flex: 1;
+  min-width: min(24rem, 100%);
 }
 
 /* The icon tops out with the title's first line, not the middle of a
@@ -517,30 +546,6 @@ img, svg {
   gap: var(--space-xs);
   flex-wrap: wrap;
   min-width: 0;
-}
-
-.page-header__meta .plan-viewers {
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-/* Shelf chips (left) + owner actions (right) share one compact row. */
-.plan-meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-md);
-}
-
-.plan-meta-row .plan-shelves,
-.plan-meta-row .plan-actions {
-  margin-bottom: 0;
-}
-
-.plan-meta-row .plan-actions {
-  margin-left: auto;
 }
 
 /* Plan viewers / presence */
@@ -2677,18 +2682,7 @@ img.avatar {
   text-decoration: none;
 }
 
-/* The visibility toggle: a labeled eye that reads as the plan's current
-   state. The slash appears when Private (matching the state flag's
-   crossed eye). One click commits — the label repaints optimistically. */
-.visibility-toggle .visibility-toggle__slash {
-  display: none;
-}
-
-.visibility-toggle--hidden .visibility-toggle__slash {
-  display: initial;
-}
-
-/* Folder-picker navigator (the bookmark's popover) */
+/* Folder-picker navigator (the Save / Move-to-folder popover) */
 .folder-picker__plan {
   margin: 0 0 var(--space-sm);
 }
@@ -2751,6 +2745,33 @@ img.avatar {
 
 .folder-picker__option--current {
   font-weight: 600;
+}
+
+/* "Remove from library" — shown in the navigator only when the trigger
+   was already saved. Letting go is a labeled, deliberate choice down
+   here, never a surprise toggle on the Save button itself. */
+.folder-picker__remove {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  margin-top: var(--space-sm);
+  padding: 5px var(--space-sm);
+  border: none;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding-top: calc(5px + var(--space-xs));
+}
+
+.folder-picker__remove:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
 }
 
 /* History page (the plan's time machine) */
@@ -4027,10 +4048,74 @@ img.avatar {
   display: block;
 }
 
-/* Archive sits slightly apart from the constructive actions — same
-   corner, small gap (a full-width split reads as a stray icon). */
-.plan-actions__archive {
-  margin-left: var(--space-sm);
+/* The Save control (readers only): a labeled bookmark. Saved = filled
+   icon + accent, and clicking it opens the navigator to move or remove —
+   it never unsaves on the spot. */
+.plan-save--saved {
+  color: var(--color-primary);
+}
+
+/* Dropdown menu on the native Popover API — the toolbar's ⋯ overflow.
+   Same glass as the pill it hangs from. Position is set inline by
+   menu_controller (popovers open centered by default). */
+.menu {
+  min-width: 13.5rem;
+  padding: var(--space-xs);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+  color: var(--color-text);
+}
+
+/* button_to wraps its button in a form — flatten it out of the layout. */
+.menu__form {
+  display: contents;
+}
+
+.menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 6px var(--space-sm);
+  border: none;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.menu__item:hover {
+  background: var(--color-bg-muted);
+  text-decoration: none;
+}
+
+.menu__item svg {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+/* Destructive actions read as such before you commit to them. */
+.menu__item--danger,
+.menu__item--danger svg {
+  color: var(--color-danger);
+}
+
+.menu__item--danger:hover {
+  background: var(--color-danger-soft);
+}
+
+.menu__separator {
+  height: 1px;
+  margin: var(--space-xs) calc(-1 * var(--space-xs));
+  background: var(--color-border);
 }
 
 /* Full-width state banner on the plan page (e.g. archived notice). */
@@ -4051,91 +4136,6 @@ img.avatar {
 /* Archived rows stay legible but visually recede. */
 .plan-row--archived {
   opacity: 0.65;
-}
-
-/* Folder-jump strip on the plan page: which library shelves hold this
-   plan, plus the "add to your library" quick control. */
-.plan-shelves {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-sm);
-  margin-bottom: var(--space-md);
-  font-size: var(--text-sm);
-}
-
-/* Drive-style folder chip: small folder glyph + the folder's name. */
-.plan-shelves__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 12px 3px 9px;
-  border: 1px solid var(--color-border);
-  border-radius: 9999px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  text-decoration: none;
-  font-size: var(--text-sm);
-  line-height: 1.4;
-  transition: background 0.12s ease, border-color 0.12s ease;
-}
-
-.plan-shelves__chip:hover {
-  background: var(--color-bg-muted);
-  border-color: var(--color-border-strong);
-}
-
-.plan-shelves__chip-icon {
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
-
-.plan-shelves__chip--theirs .plan-shelves__chip-icon {
-  color: var(--color-agent);
-}
-
-.plan-shelves__chip-owner {
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-}
-
-/* The save bookmark trails the plan title's last word (mounted into
-   #plan-bookmark-slot by plan_bookmark_controller) — a quiet icon that
-   fills once the plan is on your shelf, like a bookmark star. The slot
-   lives inside the h1 so it flows with the text and lands beside the
-   final word on every wrap, never orphaned at the far edge. */
-.plan-bookmark-slot {
-  display: inline-flex;
-  align-items: center;
-  vertical-align: middle;
-}
-
-.plan-bookmark {
-  display: inline-flex;
-  align-items: center;
-  margin-left: var(--space-sm);
-  padding: 4px;
-  border: none;
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: color 0.12s ease, background 0.12s ease;
-}
-
-.plan-bookmark:hover {
-  color: var(--color-primary);
-  background: var(--color-primary-light);
-}
-
-.plan-bookmark--saved {
-  color: var(--color-primary);
-}
-
-/* Saved = a second click removes; hint at that on hover. */
-.plan-bookmark--saved:hover {
-  color: var(--color-danger, #e0637a);
-  background: color-mix(in srgb, var(--color-danger, #e0637a) 10%, transparent);
 }
 
 /* Library browsing page (read-only shelves) */
@@ -5381,9 +5381,7 @@ img.avatar {
     overflow-wrap: anywhere;
   }
 
-  /* At phone widths the text-column indent costs more than it aligns —
-     metadata takes the full line, and presence wraps under it if the
-     byline is long. */
+  /* At phone widths the text-column indent costs more than it aligns. */
   .page-header__meta {
     padding-left: 0;
     flex-wrap: wrap;

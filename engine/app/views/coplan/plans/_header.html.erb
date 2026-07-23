@@ -1,36 +1,16 @@
-<%# The five-state status (and #146's badge menu) is gone — visibility is
-    the only state, toggled by the visibility button; the type reads as the
-    file icon next to the title.
-
-    Two deliberate bands, both broadcast-safe (derive from the plan alone):
-      1. Title row — icon + title, with the save bookmark flowing inline
-         after the title's last word so it lands sensibly on every wrap.
-      2. Meta row — byline on the left, live presence on the right,
-         indented to the title's text column so it reads as one block. %>
-<%# data-plan-visibility is the authoritative state flag: the visibility
-    toggle (outside this partial — it's policy-gated) watches header
-    replacements and mirrors this value, so API publishes and other tabs
-    keep the button honest. %>
-<div class="page-header page-header--plan" id="plan-header" data-plan-visibility="<%= plan.visibility %>">
+<%# The plan's identity: type icon + title, then the byline. Everything
+    here derives from the plan alone — this partial is broadcast-replaced
+    (content commits, visibility changes, API edits) with no current_user,
+    so viewer-relative chrome (presence, the owner toolbar, Save) lives in
+    the masthead's side column next to this, never inside it. %>
+<div class="page-header page-header--plan" id="plan-header">
   <div class="page-header__title-row">
     <%= plan_type_icon(plan, size: :lg) %>
-    <h1 class="page-header__title"><%= plan.title %><%# The save bookmark mounts here from outside this partial: it's
-          viewer-relative (needs current_user), and this header re-renders
-          from broadcasts where there is none — plan_bookmark_controller
-          re-stamps it after every replace. Inside the h1 so it trails the
-          last word of the title, wherever wrapping puts it. %><span id="plan-bookmark-slot" class="plan-bookmark-slot"></span></h1>
+    <h1 class="page-header__title"><%= plan.title %></h1>
   </div>
   <div class="page-header__meta">
     <div class="page-header__byline text-sm text-muted">
       <%= user_avatar(plan.created_by_user) %> <%= profile_link(plan.created_by_user) %> · v<%= plan.current_revision %><%= plan_state_badge(plan) %>
-      <%# A tag on someone's plan reads as "find more like this", not "filter
-          my workspace" (which is what the row chips in YOUR workspace do) —
-          so it's a search, org-wide. search_text indexes tag names. %>
-      <% plan.tags.each do |tag| %>
-        <%= link_to tag.name, search_path(q: tag.name), class: "badge badge--tag",
-              title: "Search plans tagged “#{tag.name}”" %>
-      <% end %>
     </div>
-    <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(plan), current_user: current_user } %>
   </div>
 </div>

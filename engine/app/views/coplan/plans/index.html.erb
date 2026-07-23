@@ -6,7 +6,7 @@
 <% end %>
 
 <%# No folder picker here: rows file via drag & drop, and the plan page's
-    title bookmark covers the click path. %>
+    toolbar (Save / Move to folder…) covers the click path. %>
 <div class="workspace" data-controller="coplan--folder-dnd coplan--workspace-keys">
   <%= render "coplan/plans/sidebar" %>
 
@@ -168,7 +168,7 @@
         <div class="empty-state card">
           <% if @folder %>
             <p>Nothing in <strong><%= @folder.name %></strong> yet.</p>
-            <p class="text-muted text-sm">Drag a plan here from another folder, or use a row's bookmark to file it.</p>
+            <p class="text-muted text-sm">Drag a plan here from another folder, or file one from its plan page.</p>
           <% elsif @scope == "mine" %>
             <p>You haven't created any plans yet. Plans are created via the API.</p>
           <% else %>
