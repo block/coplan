@@ -4400,7 +4400,7 @@ img.avatar {
 }
 
 .home__day {
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-lg);
 }
 
 .home__day-heading {
@@ -4428,7 +4428,7 @@ img.avatar {
   display: flex;
   align-items: flex-start;
   gap: var(--space-md);
-  padding: var(--space-md) 0;
+  padding: var(--space-sm) 0;
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -4446,11 +4446,17 @@ img.avatar {
   flex: 1;
 }
 
+/* The item's first line flows as text — icon, title, and the activity
+   rollup sit inline, so a long title wraps like a sentence instead of
+   shattering the row (icon orphaned above, "new" stranded below). */
 .home__item-line {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.home__item-line .plan-type-icon {
+  display: inline-flex;
+  vertical-align: text-bottom;
+  margin-right: var(--space-xs);
 }
 
 .home__item-title {
@@ -4468,6 +4474,7 @@ img.avatar {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
   white-space: nowrap;
+  margin-left: var(--space-xs);
 }
 
 /* A plan's first appearance gets a whisper of accent — not a badge. */
@@ -5420,7 +5427,18 @@ img.avatar {
     flex-basis: 100%;
   }
 
+  /* Narrow screens: the timestamp stops being a side column (it was
+     squeezing titles to a word per line) and tucks under the byline,
+     indented to the body's left edge (2rem avatar + md gap). */
+  .home__item {
+    flex-wrap: wrap;
+  }
+
   .home__item-time {
+    order: 3;
+    flex-basis: 100%;
+    padding-top: 0;
+    margin-left: calc(2rem + var(--space-md));
     font-size: 0.75rem;
   }
 }
