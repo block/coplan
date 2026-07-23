@@ -7,7 +7,11 @@
          after the title's last word so it lands sensibly on every wrap.
       2. Meta row — byline on the left, live presence on the right,
          indented to the title's text column so it reads as one block. %>
-<div class="page-header page-header--plan" id="plan-header">
+<%# data-plan-visibility is the authoritative state flag: the visibility
+    toggle (outside this partial — it's policy-gated) watches header
+    replacements and mirrors this value, so API publishes and other tabs
+    keep the button honest. %>
+<div class="page-header page-header--plan" id="plan-header" data-plan-visibility="<%= plan.visibility %>">
   <div class="page-header__title-row">
     <%= plan_type_icon(plan, size: :lg) %>
     <h1 class="page-header__title"><%= plan.title %><%# The save bookmark mounts here from outside this partial: it's

@@ -92,6 +92,25 @@ RSpec.describe "Human plan editing", type: :system do
     expect(plan.reload.visibility).to eq("draft")
   end
 
+  it "keeps the visibility button in sync when the header is replaced externally" do
+    plan.update!(visibility: "draft")
+    visit plan_path(plan)
+    expect(page).to have_css(".visibility-toggle--hidden", text: "Private")
+
+    # An API publish or another tab's toggle reaches this page as a
+    # broadcast replacing #plan-header with a re-render that carries the new
+    # state flag. Simulate that replacement and check the button follows.
+    page.execute_script(<<~JS)
+      const header = document.getElementById("plan-header")
+      const fresh = header.cloneNode(true)
+      fresh.dataset.planVisibility = "published"
+      header.replaceWith(fresh)
+    JS
+
+    expect(page).to have_css(".visibility-toggle", text: "Shared", wait: 5)
+    expect(page).not_to have_css(".visibility-toggle--hidden")
+  end
+
   it "archives and restores the plan" do
     visit plan_path(plan)
 

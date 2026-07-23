@@ -59,7 +59,7 @@
     current_user). %>
 <div class="plan-meta-row">
   <%= render partial: "coplan/plans/shelves", locals: { placements: @shelf_placements } %>
-  <div class="plan-actions">
+  <div class="plan-actions" role="toolbar" aria-label="Plan actions">
     <% if allowed_to?(@plan, :publish?) || allowed_to?(@plan, :hide?) %>
       <%# The visibility toggle: open eye = shared with everyone, slashed =
           Private. One click commits (it's a two-way switch); the server
