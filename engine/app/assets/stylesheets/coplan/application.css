@@ -2417,16 +2417,17 @@ img.avatar {
   padding: 0 4px;
 }
 
-/* Floating inbox panel */
+/* Floating inbox panel. Solid, not glass: it lives inside the nav,
+   whose own backdrop-filter blocks a descendant's backdrop-filter from
+   sampling the page — translucency here would just let the page bleed
+   through unblurred. */
 .inbox-panel {
   position: absolute;
   top: calc(100% + var(--space-sm));
   right: 0;
   width: 420px;
   max-height: 480px;
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+  background: var(--color-surface);
   border: 1px solid var(--glass-edge);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
