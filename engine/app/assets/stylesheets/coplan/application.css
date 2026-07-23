@@ -337,6 +337,10 @@ img, svg {
   z-index: 100;
 }
 
+/* Three zones: brand + primary links cluster on the left (they're one
+   thought — "where am I?"), search floats in the middle, controls hold
+   the right edge. The auto margins on links/right split the free space,
+   so nothing drifts into detached islands at wide widths. */
 .site-nav__inner {
   max-width: var(--max-width);
   margin: 0 auto;
@@ -344,7 +348,7 @@ img, svg {
   height: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-md);
 }
 
 .site-nav__brand {
@@ -355,6 +359,7 @@ img, svg {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  flex-shrink: 0;
 }
 
 .site-nav__logo {
@@ -384,7 +389,9 @@ img, svg {
   align-items: center;
   gap: var(--space-lg);
   list-style: none;
-  margin-left: var(--space-lg);
+  margin-left: var(--space-sm);
+  margin-right: auto;
+  flex-shrink: 0;
 }
 
 .site-nav__links a {
@@ -413,10 +420,21 @@ img, svg {
   color: var(--color-text);
 }
 
+/* The controls may compress as a group (the user's name truncates), but
+   the icons themselves never shrink — a gear crushed to a sliver, or a
+   bell whose badge outlives it, reads as breakage. */
 .site-nav__right {
   display: flex;
   align-items: center;
   gap: var(--space-lg);
+  margin-left: auto;
+  min-width: 0;
+}
+
+.site-nav__icon-link,
+.site-nav__bell,
+.inbox-dropdown {
+  flex-shrink: 0;
 }
 
 .site-nav__user {
@@ -425,6 +443,13 @@ img, svg {
   gap: var(--space-sm);
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.site-nav__profile-link {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -5252,6 +5277,34 @@ img.avatar {
   }
 }
 
+/* ---- Medium screens ----
+   The first thing the nav gives up is the search field's prose: the
+   placeholder and "/" hint fold into a round icon button before anything
+   else is allowed to compress. The name gets a truncation budget so the
+   controls never fight it for room. */
+@media (max-width: 900px) {
+  .site-nav__search-label,
+  .site-nav__search-kbd {
+    display: none;
+  }
+
+  .site-nav__search {
+    flex: 0 0 auto;
+    gap: 0;
+    padding: 8px;
+    margin: 0;
+    border-radius: 9999px;
+  }
+
+  .site-nav__right {
+    gap: var(--space-md);
+  }
+
+  .site-nav__profile-link {
+    max-width: 9rem;
+  }
+}
+
 /* ---- Phone-sized screens ----
    Reviewing your agents' work from a phone is a first-class flow —
    reading, commenting, and finding the right doc all have to work at
@@ -5262,12 +5315,9 @@ img.avatar {
     gap: var(--space-sm);
   }
 
-  /* Icons over labels: brand text, search placeholder, the "/" hint,
-     the settings gear, and the sign-out link all yield to the things a
-     phone visit is actually for. */
+  /* Icons over labels: brand text, the settings gear, and the sign-out
+     link all yield to the things a phone visit is actually for. */
   .site-nav__brand-text,
-  .site-nav__search-label,
-  .site-nav__search-kbd,
   .site-nav__icon-link,
   .site-nav__user a[data-turbo-method="delete"] {
     display: none;
@@ -5278,39 +5328,8 @@ img.avatar {
     gap: var(--space-md);
   }
 
-  .site-nav__search {
-    flex: 0 0 auto;
-    gap: 0;
-    padding: 8px;
-    margin: 0;
-    margin-left: auto;
-    border-radius: 9999px;
-  }
-
-  .site-nav__right {
-    gap: var(--space-md);
-  }
-
-  /* Nothing in the chrome gets crushed to make room for the user's full
-     name — the name is what truncates. */
-  .site-nav__brand,
-  .site-nav__logo,
-  .site-nav__bell,
-  .inbox-dropdown {
-    flex-shrink: 0;
-  }
-
-  .site-nav__user {
-    min-width: 0;
-  }
-
   .site-nav__profile-link {
-    display: inline-block;
     max-width: 6.5rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    vertical-align: bottom;
   }
 
   .main-content {
