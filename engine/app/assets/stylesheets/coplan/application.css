@@ -475,17 +475,25 @@ img, svg {
   font-weight: 700;
 }
 
-/* Plan page header: file icon + title, byline underneath — compact, the
-   document itself is the point. */
+/* Plan page header: file icon + title, then one metadata band — compact,
+   the document itself is the point. Everything here is broadcast-safe;
+   viewer-relative chrome (bookmark, owner actions) mounts from outside. */
 .page-header--plan {
+  display: block;
   margin-bottom: var(--space-sm);
-  align-items: flex-start;
 }
 
+/* The icon tops out with the title's first line, not the middle of a
+   wrapped block — it's a file icon, not a bullet. */
 .page-header__title-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-sm);
+}
+
+.page-header__title-row .plan-type-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .page-header__title {
@@ -493,12 +501,27 @@ img, svg {
   overflow-wrap: anywhere;
 }
 
+/* Byline left, presence right, one line. Indented to the title's text
+   column (icon width + gap) so title and metadata read as one block. */
+.page-header__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-xs);
+  padding-left: calc(36px + var(--space-sm));
+}
+
 .page-header__byline {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
   flex-wrap: wrap;
-  margin-top: var(--space-xs);
+  min-width: 0;
+}
+
+.page-header__meta .plan-viewers {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* Shelf chips (left) + owner actions (right) share one compact row. */
@@ -1060,12 +1083,6 @@ img.avatar {
   line-height: 1.7;
   white-space: pre-wrap;
   word-wrap: break-word;
-}
-
-/* Page header actions */
-.page-header__actions {
-  display: flex;
-  gap: var(--space-sm);
 }
 
 /* Version list */
@@ -4068,17 +4085,21 @@ img.avatar {
   font-size: var(--text-xs);
 }
 
-/* The save bookmark sits beside the plan title (mounted into
+/* The save bookmark trails the plan title's last word (mounted into
    #plan-bookmark-slot by plan_bookmark_controller) — a quiet icon that
-   fills once the plan is on your shelf, like a bookmark star. */
+   fills once the plan is on your shelf, like a bookmark star. The slot
+   lives inside the h1 so it flows with the text and lands beside the
+   final word on every wrap, never orphaned at the far edge. */
 .plan-bookmark-slot {
   display: inline-flex;
   align-items: center;
+  vertical-align: middle;
 }
 
 .plan-bookmark {
   display: inline-flex;
   align-items: center;
+  margin-left: var(--space-sm);
   padding: 4px;
   border: none;
   border-radius: var(--radius);
@@ -5344,6 +5365,14 @@ img.avatar {
   .page-header h1 {
     font-size: var(--text-xl);
     overflow-wrap: anywhere;
+  }
+
+  /* At phone widths the text-column indent costs more than it aligns —
+     metadata takes the full line, and presence wraps under it if the
+     byline is long. */
+  .page-header__meta {
+    padding-left: 0;
+    flex-wrap: wrap;
   }
 
   .plan-document {

@@ -1,17 +1,22 @@
 <%# The five-state status (and #146's badge menu) is gone — visibility is
-    the only state, toggled by the header eye; the type reads as the file
-    icon next to the title. %>
+    the only state, toggled by the visibility button; the type reads as the
+    file icon next to the title.
+
+    Two deliberate bands, both broadcast-safe (derive from the plan alone):
+      1. Title row — icon + title, with the save bookmark flowing inline
+         after the title's last word so it lands sensibly on every wrap.
+      2. Meta row — byline on the left, live presence on the right,
+         indented to the title's text column so it reads as one block. %>
 <div class="page-header page-header--plan" id="plan-header">
-  <div class="page-header__main">
-    <div class="page-header__title-row">
-      <%= plan_type_icon(plan, size: :lg) %>
-      <h1 class="page-header__title"><%= plan.title %></h1>
-      <%# The save bookmark mounts here from outside this partial: it's
+  <div class="page-header__title-row">
+    <%= plan_type_icon(plan, size: :lg) %>
+    <h1 class="page-header__title"><%= plan.title %><%# The save bookmark mounts here from outside this partial: it's
           viewer-relative (needs current_user), and this header re-renders
           from broadcasts where there is none — plan_bookmark_controller
-          re-stamps it after every replace. %>
-      <span id="plan-bookmark-slot" class="plan-bookmark-slot"></span>
-    </div>
+          re-stamps it after every replace. Inside the h1 so it trails the
+          last word of the title, wherever wrapping puts it. %><span id="plan-bookmark-slot" class="plan-bookmark-slot"></span></h1>
+  </div>
+  <div class="page-header__meta">
     <div class="page-header__byline text-sm text-muted">
       <%= user_avatar(plan.created_by_user) %> <%= profile_link(plan.created_by_user) %> · v<%= plan.current_revision %><%= plan_state_badge(plan) %>
       <%# A tag on someone's plan reads as "find more like this", not "filter
@@ -22,8 +27,6 @@
               title: "Search plans tagged “#{tag.name}”" %>
       <% end %>
     </div>
-  </div>
-  <div class="page-header__actions">
     <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(plan), current_user: current_user } %>
   </div>
 </div>
