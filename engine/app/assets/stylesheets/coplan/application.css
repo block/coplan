@@ -3993,14 +3993,28 @@ img.avatar {
   background: var(--color-surface);
 }
 
-/* Plan owner actions (show page): quiet icon buttons tucked at the top
-   right of the document, out of the content's way. */
+/* Plan owner actions (show page): one glass pill at the top right of the
+   document, so the controls read as a single toolbar rather than icons
+   scattered along the edge. Falls back to a translucent solid where
+   backdrop-filter is unsupported (the tokens carry alpha regardless). */
 .plan-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-sm);
+  gap: var(--space-xs);
+  padding: 3px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 9999px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+}
+
+/* Inside the pill, buttons go fully round so the container's curve and
+   the controls' curves agree. */
+.plan-actions .btn {
+  border-radius: 9999px;
 }
 
 /* Square icon-only button. */
