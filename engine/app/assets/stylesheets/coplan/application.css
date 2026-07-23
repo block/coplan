@@ -501,43 +501,43 @@ img, svg {
   margin-bottom: -2px;
 }
 
-/* Plan page header: file icon + title, then one metadata band — compact,
-   the document itself is the point. Everything here is broadcast-safe;
-   viewer-relative chrome (Save, owner toolbar) lives in the masthead's
-   side column, outside this subtree. */
+/* Plan page header: one lockup — the file icon beside a text stack
+   (title over byline) that shares a single left edge. The icon anchors
+   to the title's first line (36px icon inside a ~38px line box), so it
+   reads as the document's mark whether or not the title wraps, and the
+   byline hangs in the title's text column instead of being fake-indented.
+   Everything here is broadcast-safe; viewer-relative chrome (Save, owner
+   toolbar) lives in the masthead's side column, outside this subtree. */
 .page-header--plan {
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-sm);
   margin-bottom: 0;
   flex: 1;
   min-width: min(24rem, 100%);
 }
 
-/* The icon tops out with the title's first line, not the middle of a
-   wrapped block — it's a file icon, not a bullet. */
-.page-header__title-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-}
-
-.page-header__title-row .plan-type-icon {
+.page-header--plan .plan-type-icon {
   flex-shrink: 0;
   margin-top: 1px;
+}
+
+/* Center the back arrow (24px hit area) against the title's first line. */
+.page-header--plan .history-back {
+  margin-top: 7px;
+}
+
+.page-header__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .page-header__title {
   min-width: 0;
   overflow-wrap: anywhere;
-}
-
-/* Byline left, presence right, one line. Indented to the title's text
-   column (icon width + gap) so title and metadata read as one block. */
-.page-header__meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  margin-top: var(--space-xs);
-  padding-left: calc(36px + var(--space-sm));
 }
 
 .page-header__byline {
@@ -1196,6 +1196,26 @@ img.avatar {
   align-items: center;
   justify-content: center;
   height: 200px;
+}
+
+/* On narrow screens the side-by-side split would crush the diff to a
+   word per line — stack instead: a short scrollable version list on
+   top, the detail below it at full width. */
+@media (max-width: 720px) {
+  .history-split {
+    grid-template-columns: 1fr;
+  }
+
+  .history-split__list {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    max-height: 260px;
+  }
+
+  .history-split__detail {
+    padding: var(--space-md);
+    max-height: none;
+  }
 }
 
 /* Version diff preview */
@@ -5388,9 +5408,8 @@ img.avatar {
     overflow-wrap: anywhere;
   }
 
-  /* At phone widths the text-column indent costs more than it aligns. */
-  .page-header__meta {
-    padding-left: 0;
+  /* At phone widths the byline can wrap under itself freely. */
+  .page-header__byline {
     flex-wrap: wrap;
   }
 

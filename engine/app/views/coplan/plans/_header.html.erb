@@ -4,11 +4,9 @@
     so viewer-relative chrome (presence, the owner toolbar, Save) lives in
     the masthead's side column next to this, never inside it. %>
 <div class="page-header page-header--plan" id="plan-header">
-  <div class="page-header__title-row">
-    <%= plan_type_icon(plan, size: :lg) %>
+  <%= plan_type_icon(plan, size: :lg) %>
+  <div class="page-header__text">
     <h1 class="page-header__title"><%= plan.title %></h1>
-  </div>
-  <div class="page-header__meta">
     <div class="page-header__byline text-sm text-muted">
       <%= user_avatar(plan.created_by_user) %> <%= profile_link(plan.created_by_user) %> · v<%= plan.current_revision %><%= plan_state_badge(plan) %>
     </div>
