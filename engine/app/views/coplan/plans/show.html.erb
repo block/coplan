@@ -13,7 +13,7 @@
     icon + title mirror the masthead's #plan-header; coplan--nav-title fades
     it in once that header scrolls behind the bar. %>
 <% content_for :nav_title do %>
-  <a href="#plan-header" class="site-nav__doc-title" data-controller="coplan--nav-title" aria-hidden="true" tabindex="-1">
+  <a href="#plan-header" class="site-nav__doc-title" data-controller="coplan--nav-title" data-action="click->coplan--nav-title#scrollToTop" aria-hidden="true" tabindex="-1">
     <%= plan_type_icon(@plan, size: :sm) %>
     <span class="site-nav__doc-title-text"><%= @plan.title %></span>
   </a>

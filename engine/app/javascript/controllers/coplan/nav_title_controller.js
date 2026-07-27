@@ -28,6 +28,15 @@ export default class extends Controller {
     this._setVisible(false)
   }
 
+  // Return to the top of the plan. A bare #plan-header jump lands the header
+  // under the sticky bar (and reads as "nothing moved"); scroll all the way
+  // up instead, so the full masthead is back in view — at which point the
+  // observer hides this title on its own.
+  scrollToTop(event) {
+    event.preventDefault()
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
   _setVisible(visible) {
     this.element.classList.toggle("site-nav__doc-title--visible", visible)
   }
