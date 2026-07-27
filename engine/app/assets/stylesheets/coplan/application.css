@@ -2231,13 +2231,12 @@ img.avatar {
   margin-right: 0;
 }
 
-/* No label anymore — just the collapse control, nudged to the right edge
-   above the outline. No border/separator: there's nothing to separate. */
+/* No label anymore — the lone collapse control floats into the top-right
+   corner so the outline starts at the very top (no empty header band where
+   "Contents" used to sit) and the first item's text flows beside it. */
 .content-nav__header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-bottom: var(--space-xs);
+  float: right;
+  margin-left: var(--space-xs);
 }
 
 .content-nav__toggle {
