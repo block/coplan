@@ -16,6 +16,10 @@ export default class extends Controller {
 
   updateVisibility() {
     const count = parseInt(this.element.textContent.trim(), 10)
-    this.element.classList.toggle("inbox-badge--hidden", !count || count === 0)
+    const hasUnread = !!count && count > 0
+    this.element.classList.toggle("inbox-badge--hidden", !hasUnread)
+    // Flag the nav so the menu button can show an unread dot on phone
+    // widths, where the bell itself folds into the menu.
+    this.element.closest(".site-nav")?.classList.toggle("site-nav--has-unread", hasUnread)
   }
 }

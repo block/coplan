@@ -384,73 +384,119 @@ img, svg {
   color: var(--color-primary);
 }
 
-.site-nav__links {
-  display: flex;
-  align-items: center;
-  gap: var(--space-lg);
-  list-style: none;
-  margin-left: var(--space-sm);
-  margin-right: auto;
-  flex-shrink: 0;
-}
-
-.site-nav__links a {
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transition: color 0.15s;
-}
-
-.site-nav__links a:hover {
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.site-nav__links a.site-nav__link--active {
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-.site-nav__profile-link {
-  color: inherit;
-  text-decoration: none;
-}
-
-.site-nav__profile-link:hover {
-  color: var(--color-text);
-}
-
-/* The controls may compress as a group (the user's name truncates), but
-   the icons themselves never shrink — a gear crushed to a sliver, or a
-   bell whose badge outlives it, reads as breakage. */
+/* The right cluster — search, notifications, menu — pinned to the right so
+   the bar reads left-to-right as identity → context → tools. Nothing here
+   shrinks: a search crushed to a sliver or a ☰ that drifts reads as breakage
+   (search folds to an icon at ≤900px, the bell into the menu at ≤640px). */
 .site-nav__right {
   display: flex;
   align-items: center;
-  gap: var(--space-lg);
+  gap: var(--space-md);
   margin-left: auto;
   min-width: 0;
 }
 
-.site-nav__icon-link,
-.site-nav__bell,
+.site-nav__menu,
 .inbox-dropdown {
   flex-shrink: 0;
 }
 
-.site-nav__user {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-  min-width: 0;
+.site-nav__menu {
+  position: relative;
 }
 
-.site-nav__profile-link {
+.site-nav__menu-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: none;
+  background: none;
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.site-nav__menu-btn:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* When the bell has folded into the menu (phone widths), the ☰ carries a
+   small unread dot so a waiting notification is still visible at a glance.
+   coplan--inbox-badge toggles .site-nav--has-unread from the live count;
+   the dot itself only shows once the bell is gone (see the phone block). */
+.site-nav__menu-btn::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-danger);
+  display: none;
+}
+
+/* Scroll-aware document title in the top nav. Collapsed to zero width when
+   inactive so it steals no space and causes no reflow at the top of a plan;
+   coplan--nav-title flips --visible once the header scrolls behind the bar.
+   It lives in the left "where am I?" cluster (see .site-nav__inner). */
+.site-nav__doc-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  /* Barely shrinkable itself; the search box (below) yields first and far
+     faster, down to a usable floor. So a short title shows in full, and a
+     long one only ellipsizes once the search has already given up its
+     slack — never the other way round. */
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  pointer-events: none;
+  /* Grow a touch slower than the fade, so it reads as sliding in from the
+     links rather than shoving the search box aside. */
+  transition: max-width 0.28s ease, opacity 0.18s ease;
+}
+
+.site-nav__doc-title--visible {
+  max-width: 22rem;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.site-nav__doc-title:hover {
+  color: var(--color-text);
+}
+
+.site-nav__doc-title-text {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.site-nav__doc-title .plan-type-icon {
+  flex-shrink: 0;
+}
+
+/* The title sits in the left cluster right after the brand; .site-nav__right
+   is pushed away by its own margin-left:auto, so the title simply grows into
+   the free space between them — no margin juggling needed now that the bar
+   holds nothing else on the left. On a phone it's the ONLY plan context (the
+   Contents sidebar is hidden < 1024px), so let it take more of the row. */
+@media (max-width: 640px) {
+  .site-nav__doc-title--visible {
+    max-width: 58vw;
+  }
 }
 
 /* Main content */
@@ -2185,21 +2231,13 @@ img.avatar {
   margin-right: 0;
 }
 
+/* No label anymore — just the collapse control, nudged to the right edge
+   above the outline. No border/separator: there's nothing to separate. */
 .content-nav__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-bottom: var(--space-sm);
-  margin-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.content-nav__title {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  justify-content: flex-end;
+  margin-bottom: var(--space-xs);
 }
 
 .content-nav__toggle {
@@ -2369,23 +2407,6 @@ img.avatar {
 .inbox-dropdown {
   position: relative;
   display: inline-flex;
-}
-
-.site-nav__icon-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-muted);
-  padding: var(--space-xs);
-  border-radius: var(--radius);
-  line-height: normal;
-  transition: color 0.15s, background 0.15s;
-}
-
-.site-nav__icon-link:hover {
-  color: var(--color-text);
-  background: var(--color-bg);
-  text-decoration: none;
 }
 
 .site-nav__bell {
@@ -3842,7 +3863,7 @@ img.avatar {
   align-items: center;
   gap: var(--space-sm);
   padding: 6px 10px;
-  margin: 0 var(--space-md);
+  margin: 0;
   flex: 0 1 320px;
   min-width: 0;
   background: var(--color-bg);
@@ -4137,6 +4158,30 @@ img.avatar {
   height: 1px;
   margin: var(--space-xs) calc(-1 * var(--space-xs));
   background: var(--color-border);
+}
+
+/* Unread count pill on a menu row (Notifications), pushed to the trailing
+   edge so the label stays left-aligned with its siblings. */
+.menu__badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-text-inverse);
+  background: var(--color-danger);
+  border-radius: 9999px;
+  line-height: 1;
+}
+
+/* Notifications is a bar control (the bell) whenever there's room; this menu
+   copy is the phone fallback, revealed only once the bell folds away. */
+.menu__item--notifications {
+  display: none;
 }
 
 /* Full-width state banner on the plan page (e.g. archived notice). */
@@ -5358,13 +5403,28 @@ img.avatar {
     margin: 0;
     border-radius: 9999px;
   }
+}
 
-  .site-nav__right {
+/* ---- Touch devices (any width) ----
+   A finger needs a bigger target than a cursor. On coarse pointers the bar's
+   icon controls and the menu rows grow to ~44px regardless of screen width,
+   so a touch tablet with the bell still on the bar is just as tappable. */
+@media (pointer: coarse) {
+  .site-nav__menu-btn,
+  .site-nav__bell {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .menu__item {
+    min-height: 44px;
+    padding: 10px var(--space-sm);
     gap: var(--space-md);
   }
 
-  .site-nav__profile-link {
-    max-width: 9rem;
+  .menu__item svg {
+    width: 18px;
+    height: 18px;
   }
 }
 
@@ -5378,21 +5438,55 @@ img.avatar {
     gap: var(--space-sm);
   }
 
-  /* Icons over labels: brand text, the settings gear, and the sign-out
-     link all yield to the things a phone visit is actually for. */
-  .site-nav__brand-text,
-  .site-nav__icon-link,
-  .site-nav__user a[data-turbo-method="delete"] {
+  /* Icons over labels: the brand wordmark yields to the logo alone, since
+     search and the ☰ menu are what a phone visit reaches for. */
+  .site-nav__brand-text {
     display: none;
   }
 
-  .site-nav__links {
-    margin-left: var(--space-xs);
+  /* No room for the bell + its peek panel — the whole control folds into the
+     menu (its row is revealed there, linking to the full page), and the
+     unread signal moves to a dot on the ☰. */
+  .inbox-dropdown {
+    display: none;
+  }
+
+  .menu__item--notifications {
+    display: flex;
+  }
+
+  .site-nav--has-unread .site-nav__menu-btn::after {
+    display: block;
+  }
+
+  /* Finger-sized tap targets: the ☰ and the folded search icon each fill a
+     44px hit area, and menu rows get real height + spacing so they're not a
+     pixel-hunt to tap. */
+  .site-nav__menu-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .site-nav__search {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 12px;
+  }
+
+  .menu {
+    min-width: 15rem;
+    padding: var(--space-sm);
+  }
+
+  .menu__item {
+    min-height: 44px;
+    padding: 10px var(--space-sm);
     gap: var(--space-md);
   }
 
-  .site-nav__profile-link {
-    max-width: 6.5rem;
+  .menu__item svg {
+    width: 18px;
+    height: 18px;
   }
 
   .main-content {
