@@ -24,39 +24,46 @@
   <body>
     <nav class="site-nav">
       <div class="site-nav__inner">
-        <%= link_to coplan.root_path, class: "site-nav__brand" do %>
+        <%# The logo is the Workspace home — that's where signed-in work
+            lives, so there's no separate "Workspace" link. Signed-out
+            visitors land on the public root instead. %>
+        <%= link_to(signed_in? ? coplan.plans_path : coplan.root_path, class: "site-nav__brand") do %>
           <%= image_tag "coplan/coplan-logo-sm.png", alt: "CoPlan",
                 class: "site-nav__logo#{coplan_environment_logo_modifier}",
                 title: coplan_environment_logo_title %>
           <span class="site-nav__brand-text">CoPlan</span>
         <% end %>
         <% if signed_in? %>
-          <div class="site-nav__links">
-            <%# Two surfaces: Workspace is where you work (and where you
-                land), Feed is what's happening across the org. Libraries
-                are browsed on profiles, not a place. %>
-            <%= link_to "Workspace", coplan.plans_path,
-                  class: "site-nav__link #{'site-nav__link--active' if request.path == coplan.plans_path}" %>
-            <%= link_to "Feed", coplan.home_path,
-                  class: "site-nav__link #{'site-nav__link--active' if request.path == coplan.home_path}" %>
-          </div>
-          <button type="button"
-                  class="site-nav__search"
-                  aria-label="Search plans and people"
-                  popovertarget="search-modal">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <span class="site-nav__search-label">Search plans and people…</span>
-            <kbd class="site-nav__search-kbd">/</kbd>
-          </button>
+          <%# Context slot: a plan show page fills this (see plans/show.html.erb)
+              with the document title, which fades in once the plan's own header
+              scrolls behind the bar. Empty — and inert — everywhere else, so the
+              bar reads the same on every surface. %>
+          <%= yield :nav_title %>
           <div class="site-nav__right">
-            <%= link_to coplan.settings_root_path, class: "site-nav__icon-link", aria: { label: "Settings" } do %>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            <% end %>
+            <%# Two persistent controls plus notifications: Search (jump to a
+                doc/person), the notifications bell, and the menu. Everything
+                that isn't reading, searching, or a live alert lives in the
+                menu, so the bar stays calm while you read. %>
+            <button type="button"
+                    class="site-nav__search"
+                    aria-label="Search plans and people"
+                    popovertarget="search-modal">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <span class="site-nav__search-label">Search plans and people…</span>
+              <kbd class="site-nav__search-kbd">/</kbd>
+            </button>
+            <%= turbo_stream_from "coplan_notifications:#{current_user.id}" %>
+            <% unread = current_user.notifications.unread.count %>
+            <%# Notifications is a first-class bar control whenever there's room:
+                the bell opens an inline peek panel (lazy turbo-frame). Below the
+                phone breakpoint the whole control folds into the menu — where
+                Notifications links to the full page instead — and the unread
+                count reappears as a dot on ☰. The live #inbox-badge rides the
+                bell; coplan--inbox-badge also flags the nav so the collapsed ☰
+                dot tracks the same count. %>
             <div class="inbox-dropdown" data-controller="coplan--inbox">
-              <%= turbo_stream_from "coplan_notifications:#{current_user.id}" %>
               <button type="button" class="site-nav__bell" data-action="coplan--inbox#toggle" data-coplan--inbox-target="button" aria-label="Notifications" aria-expanded="false">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                <% unread = current_user.notifications.unread.count %>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 <span id="inbox-badge" class="inbox-badge<%= ' inbox-badge--hidden' if unread == 0 %>" data-controller="coplan--inbox-badge"><%= unread %></span>
               </button>
               <div class="inbox-panel" data-coplan--inbox-target="panel" hidden>
@@ -65,12 +72,45 @@
                 <% end %>
               </div>
             </div>
-            <div class="site-nav__user">
-              <%= link_to current_user.name, coplan.profile_path(current_user.username.presence || current_user.id), class: "site-nav__profile-link" %>
-              <% if main_app.respond_to?(:sign_out_path) %>
-                <%= link_to "Sign out", main_app.sign_out_path, data: { turbo_method: :delete } %>
-              <% end %>
-            </div>
+            <%# One menu for the low-priority surface (Feed) and account.
+                Reuses the app's popover menu (native light-dismiss + Esc). %>
+            <span class="site-nav__menu" data-controller="coplan--menu">
+              <button type="button" class="site-nav__menu-btn"
+                      popovertarget="nav-menu" data-coplan--menu-target="trigger"
+                      aria-label="Menu" title="Menu">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              </button>
+              <div id="nav-menu" popover="auto" class="menu" data-coplan--menu-target="menu"
+                   data-action="toggle->coplan--menu#reposition" role="menu" aria-label="Menu">
+                <%= link_to coplan.home_path, class: "menu__item", role: "menuitem" do %>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/></svg>
+                  <span>Feed</span>
+                <% end %>
+                <%# Notifications also lives here as the phone fallback — hidden
+                    while the bell is on the bar (see .menu__item--notifications). %>
+                <%= link_to coplan.notifications_path, class: "menu__item menu__item--notifications", role: "menuitem" do %>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                  <span>Notifications</span>
+                  <% if unread > 0 %><span class="menu__badge"><%= unread %></span><% end %>
+                <% end %>
+                <div class="menu__separator" role="separator"></div>
+                <%= link_to coplan.profile_path(current_user.username.presence || current_user.id), class: "menu__item", role: "menuitem" do %>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <span>Profile</span>
+                <% end %>
+                <%= link_to coplan.settings_root_path, class: "menu__item", role: "menuitem" do %>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  <span>Settings</span>
+                <% end %>
+                <% if main_app.respond_to?(:sign_out_path) %>
+                  <div class="menu__separator" role="separator"></div>
+                  <%= link_to main_app.sign_out_path, data: { turbo_method: :delete }, class: "menu__item", role: "menuitem" do %>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <span>Sign out</span>
+                  <% end %>
+                <% end %>
+              </div>
+            </span>
           </div>
         <% elsif main_app.respond_to?(:sign_in_path) %>
           <%# Signed-out visitors need a way in when the host exposes its own

@@ -11,7 +11,7 @@ RSpec.describe "Navigation chrome", type: :system do
     visit sign_in_path
     fill_in "Email address", with: u.email
     click_button "Sign In"
-    expect(page).to have_content("Sign out")
+    expect(page).to have_button("Menu")
   end
 
   before { sign_in(user) }

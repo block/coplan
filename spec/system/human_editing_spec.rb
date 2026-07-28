@@ -18,7 +18,7 @@ RSpec.describe "Human plan editing", type: :system do
     visit sign_in_path
     fill_in "Email address", with: user.email
     click_button "Sign In"
-    expect(page).to have_content("Sign out")
+    expect(page).to have_button("Menu")
   end
 
   before { sign_in(author) }
@@ -127,6 +127,7 @@ RSpec.describe "Human plan editing", type: :system do
 
   it "hides owner controls from non-authors" do
     other = create(:coplan_user, email: "viewer@example.com")
+    click_button "Menu"
     click_link "Sign out"
     sign_in(other)
 

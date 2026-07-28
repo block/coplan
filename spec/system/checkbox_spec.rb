@@ -29,7 +29,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
     fill_in "Email address", with: user.email
     click_button "Sign In"
     expect(page).to have_current_path(root_path)
-    expect(page).to have_content("Sign out")
+    expect(page).to have_button("Menu")
   end
 
   before { sign_in(author) }

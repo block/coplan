@@ -6,7 +6,7 @@ RSpec.describe "Token management", type: :system do
     fill_in "Email address", with: "testuser@example.com"
     click_button "Sign In"
     expect(page).to have_current_path(root_path)
-    expect(page).to have_content("Sign out")
+    expect(page).to have_button("Menu")
   end
 
   it "creates a token and displays the raw value via Turbo Stream" do
