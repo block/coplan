@@ -2372,13 +2372,16 @@ img.avatar {
   display: block;
 }
 
-/* Add scroll-margin to headings so they clear the sticky nav */
+/* Add scroll-margin to headings — and the plan's own masthead header — so
+   they clear the sticky nav. The nav-title control scrolls to the very top
+   in JS; this keeps a no-JS #plan-header jump landing below the bar too. */
 .markdown-rendered h1,
 .markdown-rendered h2,
 .markdown-rendered h3,
 .markdown-rendered h4,
 .markdown-rendered h5,
-.markdown-rendered h6 {
+.markdown-rendered h6,
+.page-header--plan {
   scroll-margin-top: calc(var(--nav-height) + var(--space-lg));
 }
 
@@ -4157,24 +4160,6 @@ img.avatar {
   height: 1px;
   margin: var(--space-xs) calc(-1 * var(--space-xs));
   background: var(--color-border);
-}
-
-/* Unread count pill on a menu row (Notifications), pushed to the trailing
-   edge so the label stays left-aligned with its siblings. */
-.menu__badge {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--color-text-inverse);
-  background: var(--color-danger);
-  border-radius: 9999px;
-  line-height: 1;
 }
 
 /* Notifications is a bar control (the bell) whenever there's room; this menu
