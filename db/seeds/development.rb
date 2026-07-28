@@ -30,272 +30,96 @@ module CoPlan
     DOCUMENTS = [
       {
         key: "one-line-decision", author: "alex", type: "ADR", title: "Use UUIDv7 identifiers",
-        tags: %w[architecture database], visibility: "published", folder: "Engineering/Architecture decisions",
-        content: <<~MARKDOWN
-          # Use UUIDv7 identifiers
-
-          We will use time-sortable UUIDv7 identifiers for new application records.
-        MARKDOWN
+        tags: %w[architecture database], visibility: "published", folder: "Engineering/Architecture decisions", sections: 0
       },
       {
         key: "api-gateway", author: "alex", type: "RFC", title: "RFC: Consolidating edge authentication in the API gateway",
-        tags: %w[api security infrastructure], visibility: "published", folder: "Engineering/Active projects",
-        content: <<~MARKDOWN
-          # Consolidating edge authentication in the API gateway
-
-          ## Context
-
-          Three public services currently validate credentials independently. Their behavior has drifted, and clients receive inconsistent errors.
-
-          ## Proposal
-
-          Move credential validation to the gateway while leaving resource authorization in each service.
-
-          ```mermaid
-          flowchart LR
-            Client --> Gateway
-            Gateway --> Identity[Identity service]
-            Gateway --> Catalog[Catalog API]
-            Gateway --> Billing[Billing API]
-            Catalog --> DB[(Catalog database)]
-            Billing --> Ledger[(Ledger)]
-          ```
-
-          ## Rollout
-
-          1. Mirror validation decisions without enforcement.
-          2. Compare decisions and resolve mismatches.
-          3. Enable enforcement for internal clients, then external clients.
-
-          ## Open questions
-
-          - Where should rate-limit identity be derived?
-          - How long should revoked credentials remain cached?
-        MARKDOWN
+        tags: %w[api security infrastructure], visibility: "published", folder: "Engineering/Active projects", fixture: :flowchart
       },
       {
         key: "mobile-checkout", author: "mateo", type: "Design Doc", title: "Mobile checkout: resilient state transitions when the network disappears",
-        tags: %w[mobile reliability payments], visibility: "published", folder: "Product/Mobile",
-        content: <<~MARKDOWN
-          # Mobile checkout under unreliable networks
-
-          ## Goals
-
-          Preserve the customer's intent, prevent duplicate charges, and make recovery understandable.
-
-          ## State model
-
-          ```mermaid
-          stateDiagram-v2
-            [*] --> Editing
-            Editing --> Submitting: Pay
-            Submitting --> Confirmed: accepted
-            Submitting --> Retryable: timeout
-            Retryable --> Submitting: retry
-            Retryable --> Cancelled: cancel
-            Confirmed --> [*]
-            Cancelled --> [*]
-          ```
-
-          ## Offline behavior
-
-          The client stores an idempotency key and a redacted checkout snapshot before sending the request. It never reports success without server confirmation.
-
-          ## Accessibility
-
-          Status changes are announced without stealing focus. Recovery actions use explicit labels rather than color alone.
-        MARKDOWN
+        tags: %w[mobile reliability payments], visibility: "published", folder: "Product/Mobile", fixture: :state_diagram
       },
       {
         key: "spanish-brief", author: "mateo", type: "Product Brief", title: "Mejoras para la experiencia de incorporación",
-        tags: %w[onboarding product localization], visibility: "published", folder: "Product/Discovery",
-        content: <<~MARKDOWN
-          # Mejoras para la experiencia de incorporación
-
-          ## Problema
-
-          Las personas nuevas no saben qué paso completar después de crear su cuenta.
-
-          ## Resultado esperado
-
-          Una lista breve y personalizada muestra el siguiente paso, explica su valor y permite omitir tareas no relevantes.
-
-          ## Métricas
-
-          - Tiempo hasta completar la primera tarea
-          - Porcentaje de cuentas activas después de siete días
-          - Tasa de abandono por paso
-        MARKDOWN
+        tags: %w[onboarding product localization], visibility: "published", folder: "Product/Discovery", fixture: :spanish
       },
       {
         key: "japanese-roadmap", author: "aiko", type: "Roadmap", title: "信頼性向上ロードマップ — 2027年前半",
-        tags: %w[reliability roadmap], visibility: "published", folder: "Operations/Reliability",
-        content: <<~MARKDOWN
-          # 信頼性向上ロードマップ
-
-          ## 目標
-
-          障害の影響を小さくし、復旧までの時間を短縮します。
-
-          ## 第1四半期
-
-          - 重要なユーザーフローのSLOを定義する
-          - アラートの重複を減らす
-          - 復旧手順を自動で検証する
-
-          ## 第2四半期
-
-          - 地域フェイルオーバー演習
-          - キャパシティ予測の導入
-          - インシデントレビューの改善
-        MARKDOWN
+        tags: %w[reliability roadmap], visibility: "published", folder: "Operations/Reliability", fixture: :japanese
       },
       {
         key: "arabic-research", author: "noura", type: "Research Note", title: "بحث: تقليل مخاطر سرقة الجلسات",
-        tags: %w[security research authentication], visibility: "published", folder: "Research/Security",
-        content: <<~MARKDOWN
-          # تقليل مخاطر سرقة الجلسات
-
-          ## الملخص
-
-          تقارن هذه المذكرة بين الجلسات قصيرة العمر، وتدوير الرموز، وربط الجلسة بالجهاز.
-
-          ## النتائج الأولية
-
-          - تقليل مدة الجلسة يحد من نافذة الهجوم.
-          - تدوير الرموز يحتاج إلى كشف موثوق لإعادة الاستخدام.
-          - ربط الجلسة بخصائص متغيرة قد يمنع مستخدمين شرعيين.
-
-          ## الخطوة التالية
-
-          تشغيل تجربة محكومة تقيس الأمان ومعدل طلبات تسجيل الدخول الجديدة.
-        MARKDOWN
+        tags: %w[security research authentication], visibility: "published", folder: "Research/Security", fixture: :arabic
       },
       {
         key: "incident-runbook", author: "aiko", type: "Runbook", title: "Payments API latency incident runbook",
-        tags: %w[operations payments on-call], visibility: "published", folder: "Operations/Runbooks",
-        content: <<~MARKDOWN
-          # Payments API latency incident runbook
-
-          ## Trigger
-
-          Use this runbook when p95 latency exceeds 800 ms for ten minutes.
-
-          ## Triage
-
-          1. Confirm whether errors and saturation increased with latency.
-          2. Compare regions and client versions.
-          3. Check the latest deploy and dependency health.
-
-          ## Mitigation
-
-          Roll back a correlated deploy or shed optional enrichment calls. Do not increase timeouts before identifying the constrained resource.
-
-          ## Escalation
-
-          Page the database owner when connection utilization exceeds 85%. Page the ledger owner when authorization latency is isolated downstream.
-        MARKDOWN
+        tags: %w[operations payments on-call], visibility: "published", folder: "Operations/Runbooks"
       },
       {
         key: "experiment-results", author: "sam", type: "Research Note", title: "Search ranking experiment #42",
-        tags: %w[search experimentation data], visibility: "published", folder: "Research/Experiments",
-        content: <<~MARKDOWN
-          # Search ranking experiment #42
-
-          ## Hypothesis
-
-          Boosting recently edited documents will improve successful search sessions without reducing result diversity.
-
-          ## Result
-
-          The treatment increased successful sessions by **2.8%** with a 95% confidence interval of **1.1–4.5%**.
-
-          | Metric | Control | Treatment |
-          | --- | ---: | ---: |
-          | Successful sessions | 61.2% | 62.9% |
-          | Reformulation rate | 18.4% | 17.7% |
-          | Unique results opened | 2.3 | 2.3 |
-
-          ## Decision
-
-          Ship the boost at 50%, monitor for two weeks, then expand.
-        MARKDOWN
+        tags: %w[search experimentation data], visibility: "published", folder: "Research/Experiments", fixture: :table
       },
       {
         key: "draft-notes", author: "priya", type: "General", title: "Untitled thoughts on activation",
-        tags: %w[product draft], visibility: "draft", folder: "Personal notes",
-        content: <<~MARKDOWN
-          # Activation notes
-
-          What if the first-run experience began with a real task instead of a product tour?
-
-          ## Questions
-
-          - Which task has the shortest time to value?
-          - Can we infer intent without another form?
-        MARKDOWN
+        tags: %w[product draft], visibility: "draft", folder: "Personal notes", sections: 1
       },
       {
         key: "archived-proposal", author: "alex", type: "RFC", title: "Retired proposal: weekly XML exports",
-        tags: %w[archive integrations], visibility: "published", archived: true, folder: "Engineering/Archive",
-        content: <<~MARKDOWN
-          # Weekly XML exports
-
-          This proposal was retired after customer interviews showed a preference for incremental webhooks and CSV downloads.
-        MARKDOWN
+        tags: %w[archive integrations], visibility: "published", archived: true, folder: "Engineering/Archive", sections: 1
       },
       {
         key: "emoji-title", author: "priya", type: "Product Brief", title: "Faster feedback loops ⚡",
-        tags: %w[collaboration product], visibility: "published", folder: "Product/Discovery",
-        content: <<~MARKDOWN
-          # Faster feedback loops ⚡
-
-          ## Idea
-
-          Let reviewers react to a specific proposal before composing detailed feedback.
-
-          ## Guardrail
-
-          Reactions supplement comments; they never replace a required approval or accessibility label.
-        MARKDOWN
+        tags: %w[collaboration product], visibility: "published", folder: "Product/Discovery"
       },
       {
         key: "long-title", author: "noura", type: "Design Doc",
         title: "Designing a privacy-preserving audit trail for delegated administrative actions across regional data boundaries",
-        tags: %w[security privacy compliance], visibility: "published", folder: "Engineering/Architecture decisions",
-        content: <<~MARKDOWN
-          # Privacy-preserving audit trail
-
-          ## Requirements
-
-          Every delegated action is attributable and tamper-evident while sensitive payload fields remain in their region of origin.
-
-          ## Design
-
-          Regional writers store the complete event and publish a signed, redacted envelope to the global index. Investigators request privileged fields through the existing approval workflow.
-
-          ```mermaid
-          sequenceDiagram
-            participant A as Administrator
-            participant R as Regional writer
-            participant G as Global index
-            A->>R: Delegated action
-            R->>R: Store complete event
-            R->>G: Signed redacted envelope
-            G-->>A: Receipt ID
-          ```
-
-          ## Retention
-
-          Envelopes remain globally searchable for one year. Region-specific policy controls complete event retention.
-        MARKDOWN
+        tags: %w[security privacy compliance], visibility: "published", folder: "Engineering/Architecture decisions", fixture: :sequence_diagram
       },
       {
         key: "long-mobile-toc", author: "priya", type: "Product Brief", title: "The complete guide to launching shared workspaces across web, iOS, and Android",
-        tags: %w[collaboration mobile launch], visibility: "published", folder: "Product/Launches/Shared workspace",
-        content: nil
+        tags: %w[collaboration mobile launch], visibility: "published", folder: "Product/Launches/Shared workspace", long: true
       }
     ].freeze
+
+    CONTENT_FIXTURES = {
+      flowchart: <<~MARKDOWN,
+        ```mermaid
+        flowchart LR
+          Client --> Gateway
+          Gateway --> API
+          API --> DB[(Database)]
+        ```
+      MARKDOWN
+      state_diagram: <<~MARKDOWN,
+        ```mermaid
+        stateDiagram-v2
+          [*] --> Editing
+          Editing --> Submitting
+          Submitting --> Confirmed
+          Confirmed --> [*]
+        ```
+      MARKDOWN
+      sequence_diagram: <<~MARKDOWN,
+        ```mermaid
+        sequenceDiagram
+          participant A as Administrator
+          participant S as Service
+          A->>S: Delegated action
+          S-->>A: Receipt ID
+        ```
+      MARKDOWN
+      table: <<~MARKDOWN,
+        | Metric | Control | Treatment |
+        | --- | ---: | ---: |
+        | Success | 61.2% | 62.9% |
+        | Errors | 18.4% | 17.7% |
+      MARKDOWN
+      spanish: "## Problema\n\nLas personas nuevas necesitan saber qué paso completar.\n\n## Resultado\n\nUna lista breve muestra el siguiente paso.",
+      japanese: "## 目標\n\n障害の影響を小さくし、復旧までの時間を短縮します。\n\n## 次のステップ\n\n復旧手順を自動で検証します。",
+      arabic: "## الملخص\n\nتقارن هذه المذكرة بين الجلسات قصيرة العمر وتدوير الرموز.\n\n## الخطوة التالية\n\nتشغيل تجربة محكومة لقياس الأمان."
+    }.freeze
 
     LONG_DOCUMENT_SECTIONS = [
       "Executive summary", "Customer problem", "Audience", "Principles", "Goals", "Non-goals",
@@ -354,10 +178,9 @@ module CoPlan
         plan = find_seed_document(definition.fetch(:key), author)
 
         unless plan
-          content = definition[:content] || long_document_content
           plan = Plans::Create.call(
             title: definition.fetch(:title),
-            content: content,
+            content: document_content(definition),
             user: author,
             plan_type_id: plan_types.fetch(definition.fetch(:type)).id,
             visibility: definition.fetch(:visibility)
@@ -391,6 +214,26 @@ module CoPlan
       place(plans.fetch("experiment-results"), "Research to discuss", users.fetch("alex"))
     end
 
+    def document_content(definition)
+      return long_document_content if definition[:long]
+
+      fixture = CONTENT_FIXTURES[definition[:fixture]]
+      parts = [ "# #{definition.fetch(:title)}" ]
+
+      if %i[spanish japanese arabic].include?(definition[:fixture])
+        parts << fixture
+        return parts.join("\n\n")
+      end
+
+      parts << Faker::Lorem.paragraph(sentence_count: 3)
+      definition.fetch(:sections, 3).times do
+        heading = Faker::Lorem.words(number: 3).join(" ").capitalize
+        parts << "## #{heading}\n\n#{Faker::Lorem.paragraph(sentence_count: 3)}"
+      end
+      parts << fixture if fixture
+      parts.join("\n\n")
+    end
+
     def long_document_content
       sections = LONG_DOCUMENT_SECTIONS.map do |heading|
         "## #{heading}\n\n#{Faker::Lorem.paragraph(sentence_count: 3)}"
@@ -399,7 +242,7 @@ module CoPlan
       <<~MARKDOWN
         # The complete guide to launching shared workspaces
 
-        This deliberately long seed document exercises the desktop and mobile table of contents, deep document scrolling, and headings with varied lengths.
+        #{Faker::Lorem.paragraph(sentence_count: 3)}
 
         #{sections}
       MARKDOWN
