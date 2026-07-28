@@ -1,3 +1,5 @@
+require "faker"
+
 module CoPlan
   # A deterministic, idempotent dataset for exercising CoPlan's development UI.
   # Existing seed documents keep local content edits; missing records are restored
@@ -6,12 +8,12 @@ module CoPlan
     module_function
 
     USERS = [
-      { key: "alex", name: "Alex Morgan", username: "alex", email: "alex@example.com", title: "Staff Engineer", team: "Platform", admin: true },
-      { key: "priya", name: "Priya Shah", username: "priya", email: "priya@example.com", title: "Product Manager", team: "Growth" },
-      { key: "mateo", name: "Mateo García", username: "mateo", email: "mateo@example.com", title: "Senior Designer", team: "Mobile" },
-      { key: "aiko", name: "佐藤 愛子", username: "aiko", email: "aiko@example.com", title: "Engineering Manager", team: "Reliability" },
-      { key: "noura", name: "نورا الخطيب", username: "noura", email: "noura@example.com", title: "Security Engineer", team: "Trust" },
-      { key: "sam", name: "Sam Okafor", username: "sam", email: "sam@example.com", title: "Data Scientist", team: "Insights" }
+      { key: "alex", locale: :en, admin: true },
+      { key: "priya", locale: :en },
+      { key: "mateo", locale: :es },
+      { key: "aiko", locale: :ja },
+      { key: "noura", locale: :ar },
+      { key: "sam", locale: :en }
     ].freeze
 
     PLAN_TYPES = [
@@ -296,48 +298,22 @@ module CoPlan
     ].freeze
 
     LONG_DOCUMENT_SECTIONS = [
-      [ "Executive summary", "Shared workspaces let a group collect plans, decisions, and operational knowledge without changing who owns the source documents." ],
-      [ "Customer problem", "Teams currently reproduce links in chat, bookmarks, and spreadsheets. The copies drift and new teammates cannot tell which collection is authoritative." ],
-      [ "Audience", "The first release serves teams of 5–50 people coordinating a product launch or an operational program." ],
-      [ "Principles", "Preserve document ownership, make access legible, and keep common organization tasks reversible." ],
-      [ "Goals", "Create a workspace, invite collaborators, organize documents, and understand recent activity from every supported client." ],
-      [ "Non-goals", "This release does not replace project management, synchronize external drives, or introduce custom permission roles." ],
-      [ "Jobs to be done", "A lead can assemble the current context; a reviewer can find decisions; a new teammate can orient themselves without asking for a link dump." ],
-      [ "Information architecture", "Workspace navigation separates stable collections from recency-driven activity. Search spans both without moving documents." ],
-      [ "Web navigation", "The web client uses a persistent sidebar, keyboard navigation, and direct URLs for every folder." ],
-      [ "iOS navigation", "The iOS client uses a compact root list and preserves the last open folder when switching tabs." ],
-      [ "Android navigation", "Android follows the same hierarchy while using platform-native back behavior and predictive back previews." ],
-      [ "Small-screen table of contents", "The document outline is independently scrollable so every section remains reachable without pushing the article off screen." ],
-      [ "Workspace creation", "Creation asks only for a name. Defaults are useful immediately and can be refined after the first document is added." ],
-      [ "Invitations", "Invitations identify the workspace, inviter, granted access, and expiration before the recipient accepts." ],
-      [ "Roles and permissions", "Owners manage access; editors organize content; viewers browse and comment. Source-document permissions remain authoritative." ],
-      [ "Document placement", "Adding a document creates a placement, not a copy. The same document may appear in several workspaces." ],
-      [ "Folder behavior", "Folders support three levels, clear breadcrumbs, spring-loaded drag targets, and an explicit move action." ],
-      [ "Search", "Results explain whether a match came from title, content, author, or tags and retain the active workspace scope." ],
-      [ "Activity", "The activity feed groups noisy operations and highlights decisions, comments, access changes, and newly added documents." ],
-      [ "Notifications", "Notifications are opt-in by workspace and bundled to avoid sending one message for every organizational change." ],
-      [ "Empty states", "Each empty state explains the value of the surface and offers one primary next action." ],
-      [ "Loading and offline states", "Clients preserve the visible hierarchy during refresh and distinguish cached content from confirmed server state." ],
-      [ "Accessibility", "All organization flows support keyboard and screen readers, visible focus, reduced motion, and 200% text scaling." ],
-      [ "Localization", "Layouts tolerate long labels and mixed writing directions. Dates, counts, and sorting follow the viewer's locale." ],
-      [ "Analytics", "Measure workspace activation, successful document discovery, invitation acceptance, and seven-day returning collaboration." ],
-      [ "Privacy", "Private drafts never surface through workspace discovery. Audit events record access changes without copying document contents." ],
-      [ "Performance budgets", "Cached navigation responds within 100 ms; server-backed folder changes acknowledge within one second at p95." ],
-      [ "Migration", "Existing personal folders remain personal. Users choose which collections to promote into shared workspaces." ],
-      [ "Rollout", "Begin with internal teams, then a small customer cohort, then regional availability after reliability gates pass." ],
-      [ "Support readiness", "Support receives troubleshooting guides, permission diagrams, and a safe impersonation-free diagnostic view." ],
-      [ "Risks", "Permission confusion, notification fatigue, and deep hierarchies are the primary adoption risks." ],
-      [ "Open questions", "Should viewers be able to suggest folder moves? Which events deserve email? How should inactive workspaces be presented?" ],
-      [ "Decision log", "Record changes to permissions, hierarchy limits, rollout gates, and client parity expectations here." ],
-      [ "Appendix: terminology", "A workspace is a shared collection; a placement points to a document; a folder organizes placements." ]
+      "Executive summary", "Customer problem", "Audience", "Principles", "Goals", "Non-goals",
+      "Jobs to be done", "Information architecture", "Web navigation", "iOS navigation", "Android navigation",
+      "Small-screen table of contents", "Workspace creation", "Invitations", "Roles and permissions",
+      "Document placement", "Folder behavior", "Search", "Activity", "Notifications", "Empty states",
+      "Loading and offline states", "Accessibility", "Localization", "Analytics", "Privacy", "Performance budgets",
+      "Migration", "Rollout", "Support readiness", "Risks", "Open questions", "Decision log", "Appendix: terminology"
     ].freeze
 
     def call
       puts "Seeding reusable development data..."
-      users = seed_users
-      plan_types = seed_plan_types
-      plans = seed_documents(users, plan_types)
-      seed_shared_library_examples(users, plans)
+      with_reproducible_faker do
+        users = seed_users
+        plan_types = seed_plan_types
+        plans = seed_documents(users, plan_types)
+        seed_shared_library_examples(users, plans)
+      end
 
       puts "Done! #{User.count} users, #{Plan.count} documents, #{Folder.count} folders, #{Tag.count} tags, and #{PlanType.count} document types."
     end
@@ -345,7 +321,18 @@ module CoPlan
     def seed_users
       USERS.index_with do |attributes|
         user = User.find_or_initialize_by(external_id: "seed:#{attributes.fetch(:key)}")
-        user.assign_attributes(attributes.except(:key).merge(metadata: user.metadata.to_h.merge("development_seed" => true)))
+        Faker::Config.locale = attributes.fetch(:locale)
+        name = Faker::Name.name
+        Faker::Config.locale = :en
+        user.assign_attributes(
+          name: name,
+          username: attributes.fetch(:key),
+          email: Faker::Internet.unique.email(name: name),
+          title: Faker::Job.title,
+          team: Faker::Company.industry,
+          admin: attributes.fetch(:admin, false),
+          metadata: user.metadata.to_h.merge("development_seed" => true)
+        )
         user.save!
         user.library
         user
@@ -405,8 +392,8 @@ module CoPlan
     end
 
     def long_document_content
-      sections = LONG_DOCUMENT_SECTIONS.map do |heading, body|
-        "## #{heading}\n\n#{body}"
+      sections = LONG_DOCUMENT_SECTIONS.map do |heading|
+        "## #{heading}\n\n#{Faker::Lorem.paragraph(sentence_count: 3)}"
       end.join("\n\n")
 
       <<~MARKDOWN
@@ -416,6 +403,19 @@ module CoPlan
 
         #{sections}
       MARKDOWN
+    end
+
+    def with_reproducible_faker
+      previous_random = Faker::Config.random
+      previous_locale = Faker::Config.locale
+      Faker::Config.random = Random.new(12_345)
+      Faker::Config.locale = :en
+      Faker::UniqueGenerator.clear
+      yield
+    ensure
+      Faker::Config.random = previous_random
+      Faker::Config.locale = previous_locale
+      Faker::UniqueGenerator.clear
     end
   end
 end

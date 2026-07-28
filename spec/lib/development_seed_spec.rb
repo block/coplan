@@ -14,6 +14,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
         CoPlan::PlanType.count,
         CoPlan::PlanPlacement.count
       ]
+      generated_users = CoPlan::User.order(:external_id).pluck(:name, :email, :title, :team)
 
       described_class.call
 
@@ -25,6 +26,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
         CoPlan::PlanType.count,
         CoPlan::PlanPlacement.count
       ]).to eq(counts)
+      expect(CoPlan::User.order(:external_id).pluck(:name, :email, :title, :team)).to eq(generated_users)
 
       seeded_plans = CoPlan::Plan.select { |plan| plan.metadata.to_h.key?("development_seed_key") }
       expect(seeded_plans.size).to be >= 12
@@ -42,7 +44,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
 
     it "preserves edits to existing seed document content and titles" do
       described_class.call
-      plan = CoPlan::Plan.detect { |candidate| candidate.metadata.to_h["development_seed_key"] == "api-gateway" }
+      plan = CoPlan::Plan.find { |candidate| candidate.metadata.to_h["development_seed_key"] == "api-gateway" }
       plan.update!(title: "Locally edited title")
       plan.current_plan_version.update!(content_markdown: "# Locally edited content", content_sha256: nil)
 
