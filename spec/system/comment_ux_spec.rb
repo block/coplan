@@ -39,7 +39,7 @@ RSpec.describe "Comment UX", type: :system do
     # node from the sign-in page mid-navigation, causing "Node with given id
     # does not belong to the document".
     expect(page).to have_current_path(root_path)
-    expect(page).to have_content("Sign out")
+    expect(page).to have_button("Menu")
   end
 
   def create_anchored_thread(plan:, anchor_text:, body:, user:)
