@@ -1,5 +1,13 @@
 import { Controller } from "@hotwired/stimulus"
 
+// Elements whose text is never rendered but still appears in textContent —
+// e.g. the <style> sheet Mermaid embeds inside its SVG. Their text must stay
+// out of the anchor text model (capture, occurrence counting, highlighting):
+// wrapping a <mark> inside a <style> re-parents part of the CSS out of the
+// sheet (a <style> only parses its direct child text), which strips the
+// diagram's styling and renders it as unstyled black shapes.
+const NON_RENDERED_TEXT_SELECTOR = "style, script, noscript"
+
 export default class extends Controller {
   static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote", "threads"]
   static values = { focusThread: String }
@@ -109,13 +117,18 @@ export default class extends Controller {
       if (clampTarget) range.setEndAfter(clampTarget)
     }
 
-    // Extract text using the range's cloneContents().textContent so it
-    // matches this.contentTarget.textContent (used for occurrence lookup
-    // and highlighting). selection.toString() can differ — e.g. tables
-    // produce tab-separated text via toString() but not via textContent.
+    // Extract text from the range's cloneContents() so it matches the
+    // rendered text model (used for occurrence lookup and highlighting).
+    // selection.toString() can differ — e.g. tables produce tab-separated
+    // text via toString() but not via textContent. Drop non-rendered text
+    // first: a selection swept across a Mermaid diagram invisibly picks up
+    // its SVG <style> sheet, and an anchor carrying that CSS re-corrupts
+    // the diagram on every future visit.
     // Normalize whitespace (collapse runs of spaces/tabs/newlines) so the
     // stored anchor_text matches the server-side canonical form.
-    const text = this._normalizeWhitespace(range.cloneContents().textContent).trim()
+    const fragment = range.cloneContents()
+    fragment.querySelectorAll(NON_RENDERED_TEXT_SELECTOR).forEach(el => el.remove())
+    const text = this._normalizeWhitespace(fragment.textContent).trim()
 
     if (text.length < 1) {
       this.popoverTarget.style.display = "none"
@@ -233,7 +246,7 @@ export default class extends Controller {
     })
 
     // Build full text for position lookups
-    this.fullText = this.contentTarget.textContent
+    this.fullText = this._renderedText()
 
     const highlighted = this.findAndHighlight(anchor, occurrence, "anchor-highlight--active")
     if (highlighted) {
@@ -512,7 +525,7 @@ export default class extends Controller {
 
   extractContext(range, selectedText) {
     // Grab surrounding text for disambiguation
-    const fullText = this.contentTarget.textContent
+    const fullText = this._renderedText()
     const selIndex = fullText.indexOf(selectedText)
     if (selIndex === -1) return ""
 
@@ -540,7 +553,7 @@ export default class extends Controller {
   // Uses whitespace-normalized matching for consistency with findAndHighlight.
   computeOccurrence(range, text) {
     const offset = this.getSelectionOffset(range)
-    const fullText = this.contentTarget.textContent
+    const fullText = this._renderedText()
     const { normText, origIndices } = this._buildNormalizedMap(fullText)
     const normSearch = this._normalizeWhitespace(text)
 
@@ -560,19 +573,35 @@ export default class extends Controller {
   getSelectionOffset(range) {
     if (!range || !this.contentTarget) return 0
 
-    const walker = document.createTreeWalker(this.contentTarget, NodeFilter.SHOW_TEXT, null)
     let offset = 0
-    let node
-
-    while ((node = walker.nextNode())) {
-      if (range.startContainer === node) {
-        offset += range.startOffset
-        break
-      }
+    for (const node of this._renderedTextNodes()) {
+      if (range.startContainer === node) return offset + range.startOffset
       offset += node.textContent.length
     }
 
     return offset
+  }
+
+  // The rendered text model: every text node under the content target except
+  // those inside non-rendered elements (see NON_RENDERED_TEXT_SELECTOR).
+  // Anchor capture, occurrence counting, and highlighting must all walk this
+  // same sequence — mixing it with raw textContent shifts every offset.
+  _renderedTextNodes() {
+    const walker = document.createTreeWalker(this.contentTarget, NodeFilter.SHOW_TEXT, null)
+    const nodes = []
+    let node
+
+    while ((node = walker.nextNode())) {
+      if (!node.parentElement?.closest(NON_RENDERED_TEXT_SELECTOR)) nodes.push(node)
+    }
+
+    return nodes
+  }
+
+  _renderedText() {
+    let text = ""
+    for (const node of this._renderedTextNodes()) text += node.textContent
+    return text
   }
 
   highlightAnchors() {
@@ -588,7 +617,7 @@ export default class extends Controller {
     this.contentTarget.normalize()
 
     // Build full text once for position lookups
-    this.fullText = this.contentTarget.textContent
+    this.fullText = this._renderedText()
 
     const threads = this.element.querySelectorAll("[data-anchor-text]")
     threads.forEach(thread => {
@@ -771,19 +800,11 @@ export default class extends Controller {
   highlightAtIndexAll(startIndex, length, className) {
     if (startIndex < 0 || length <= 0) return []
 
-    const walker = document.createTreeWalker(
-      this.contentTarget,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    )
-
     const textNodes = []
-    let fullText = ""
-    let node
-    while (node = walker.nextNode()) {
-      textNodes.push({ node, start: fullText.length })
-      fullText += node.textContent
+    let offset = 0
+    for (const node of this._renderedTextNodes()) {
+      textNodes.push({ node, start: offset })
+      offset += node.textContent.length
     }
 
     const matchEnd = startIndex + length
