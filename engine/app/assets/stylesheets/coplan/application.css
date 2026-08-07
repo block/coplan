@@ -861,6 +861,29 @@ del.agent-flash {
   del.agent-flash { animation: none; display: none; }
 }
 
+/* Voice push-to-talk — mic button + transient transcript/status text. */
+.voice-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.voice-btn--listening {
+  color: var(--color-danger);
+  animation: agent-pill-pulse 1.2s ease-in-out infinite;
+}
+
+.voice-status {
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-status--error {
+  color: var(--color-danger);
+}
+
 /* Flash messages */
 .flash {
   padding: var(--space-md) var(--space-lg);

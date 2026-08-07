@@ -147,6 +147,15 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(thread.reload.status).to eq("discarded")
     end
 
+    it "does not leave an orphan thread when the first comment fails validation" do
+      expect {
+        # local_agent comments require agent_name — omitting it fails the
+        # comment, which must roll the thread back too.
+        post api_v1_plan_comments_path(plan), params: { body_markdown: "no agent name" }, headers: agent_headers, as: :json
+      }.not_to change(CoPlan::CommentThread, :count)
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
     it "gives the plan author's own API threads the todo initial status" do
       post api_v1_plan_comments_path(plan), params: { body_markdown: "note to self", agent_name: "Claude" }, headers: agent_headers, as: :json
       expect(response).to have_http_status(:created)

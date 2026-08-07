@@ -34,6 +34,8 @@ require "net/http"
 require "uri"
 require "optparse"
 
+$stdout.sync = true
+
 DEFAULT_ADAPTERS = {
   # Every entry is "resume a named session with this message" in that
   # harness's dialect. {session} and {prompt} are substituted.
@@ -103,7 +105,6 @@ class DemoAgent
     payload = event["payload"] || {}
     return unless event["type"].start_with?("comment.")
 
-    request_method = method(:request)
     Bridge.patch_state(plan_id, "active", "rewording that section")
     sleep 1 # visible thinking beat
 

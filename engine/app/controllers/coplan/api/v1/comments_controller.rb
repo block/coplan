@@ -34,14 +34,19 @@ module CoPlan
             status: initial_status
           )
 
-          thread.save!
-
-          comment = thread.comments.create!(
-            author_type: api_author_type,
-            author_id: current_user&.id,
-            body_markdown: params[:body_markdown],
-            agent_name: params[:agent_name]
-          )
+          # Atomic, matching the web flow: a thread whose first comment
+          # fails validation (e.g. missing agent_name) must not survive as
+          # an empty orphan with a live anchor highlight.
+          comment = nil
+          ActiveRecord::Base.transaction do
+            thread.save!
+            comment = thread.comments.create!(
+              author_type: api_author_type,
+              author_id: current_user&.id,
+              body_markdown: params[:body_markdown],
+              agent_name: params[:agent_name]
+            )
+          end
 
           reason = comment.agent? ? "agent_response" : "new_comment"
           CreateNotificationsJob.perform_later(
