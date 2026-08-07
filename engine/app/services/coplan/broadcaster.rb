@@ -48,14 +48,20 @@ module CoPlan
       # push the freshly rendered plan body to every open tab, letting the
       # client decide whether to apply it (clean) or show a stale-revision
       # banner (dirty draft in progress).
-      def replace_plan_content(plan)
+      #
+      # changed_sections (section keys from Plans::ChangedSections) rides
+      # along so viewing tabs can flash exactly the sections this revision
+      # touched instead of hard-swapping the whole body silently.
+      def replace_plan_content(plan, changed_sections: nil)
         html = render(partial: "coplan/plans/content_body", locals: { plan: plan })
+        attrs = { "data-revision" => plan.current_revision }
+        attrs["data-changed-sections"] = changed_sections.to_json if changed_sections.present?
         custom_action_to(
           plan,
           action: "coplan-replace-if-clean",
           target: "plan-content-body",
           html: html,
-          attrs: { "data-revision" => plan.current_revision }
+          attrs: attrs
         )
       end
 

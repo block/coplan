@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_19_165429) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_07_215107) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -53,7 +53,35 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_165429) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
+  create_table "coplan_agent_events", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "acked_at"
+    t.string "api_token_id", limit: 36, null: false
+    t.string "comment_id", limit: 36
+    t.string "comment_thread_id", limit: 36
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.json "payload"
+    t.string "plan_id", limit: 36, null: false
+    t.index ["api_token_id", "acked_at"], name: "index_coplan_agent_events_on_api_token_id_and_acked_at"
+    t.index ["api_token_id", "id"], name: "index_coplan_agent_events_on_api_token_id_and_id"
+    t.index ["plan_id"], name: "index_coplan_agent_events_on_plan_id"
+  end
+
+  create_table "coplan_agent_sessions", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "agent_name", null: false
+    t.string "api_token_id", limit: 36, null: false
+    t.datetime "created_at", null: false
+    t.datetime "last_activity_at"
+    t.string "plan_id", limit: 36, null: false
+    t.string "state", default: "pending", null: false
+    t.string "state_detail"
+    t.datetime "updated_at", null: false
+    t.index ["api_token_id"], name: "index_coplan_agent_sessions_on_api_token_id"
+    t.index ["plan_id", "api_token_id"], name: "index_coplan_agent_sessions_on_plan_id_and_api_token_id", unique: true
+  end
+
   create_table "coplan_api_tokens", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "agent_name"
     t.datetime "created_at", null: false
     t.timestamp "expires_at"
     t.timestamp "last_used_at"
@@ -363,6 +391,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_165429) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "coplan_agent_events", "coplan_api_tokens", column: "api_token_id"
+  add_foreign_key "coplan_agent_events", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_agent_sessions", "coplan_api_tokens", column: "api_token_id"
+  add_foreign_key "coplan_agent_sessions", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_api_tokens", "coplan_users", column: "user_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "addressed_in_plan_version_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "out_of_date_since_version_id"

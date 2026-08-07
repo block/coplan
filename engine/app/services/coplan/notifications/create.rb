@@ -13,6 +13,8 @@ module CoPlan
       end
 
       def call
+        publish_agent_events
+
         subscriber_ids = compute_subscribers
         subscriber_ids.delete(@actor_id)
         return if subscriber_ids.empty?
@@ -31,6 +33,30 @@ module CoPlan
       end
 
       private
+
+      # Every comment/thread write path already funnels through this
+      # service, so it doubles as the choke point for the agent event
+      # inbox. Human notification fan-out below is unchanged; agents get
+      # their own recipients (sessions on the plan), and @actor_id — the
+      # api token id for token-authenticated callers — suppresses an
+      # agent being woken by its own activity.
+      def publish_agent_events
+        event_type =
+          case @reason
+          when "new_comment" then "comment.created"
+          when "reply", "agent_response" then "comment.replied"
+          when "status_change" then "thread.status_changed"
+          end
+        return unless event_type
+
+        AgentEvents::Publish.call(
+          plan: @comment_thread.plan,
+          event_type: event_type,
+          actor_id: @actor_id,
+          comment_thread: @comment_thread,
+          comment: @comment
+        )
+      end
 
       def compute_subscribers
         case @reason

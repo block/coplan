@@ -61,11 +61,18 @@ CoPlan::Engine.routes.draw do
         resources :sessions, only: [:create, :show], controller: "sessions" do
           post :commit, on: :member
         end
-        resources :comments, only: [:create], controller: "comments" do
+        resources :comments, only: [:create, :show], controller: "comments" do
           post :reply, on: :member
           patch :resolve, on: :member
           patch :discard, on: :member
+          # Alias: the agent instructions long documented this action as
+          # "dismiss" while the route said "discard" — accept both so
+          # agents following either name succeed.
+          patch :dismiss, on: :member, action: :discard
         end
+        # Presence/state for an agent working this plan (drives the
+        # "Claude is editing…" pill and subscribes the token to events).
+        resource :agent_session, only: [:create, :update, :destroy], controller: "agent_sessions"
         # Deletes an individual comment (by comment ID, not thread ID).
         # Distinct from the routes above, which key off thread ID.
         delete "comments/:id/delete", to: "comments#destroy", as: :destroy_comment
@@ -74,6 +81,13 @@ CoPlan::Engine.routes.draw do
       end
       resources :references, only: [] do
         get :search, on: :collection
+      end
+
+      # Agent event inbox — pull-based (long-poll or SSE) so agents on
+      # laptops behind NAT can hear about comments the moment they land.
+      scope :agent do
+        get "events", to: "agent_events#index", as: :agent_events
+        post "events/ack", to: "agent_events#ack", as: :agent_events_ack
       end
     end
   end

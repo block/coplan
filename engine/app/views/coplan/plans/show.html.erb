@@ -38,6 +38,7 @@
 <div class="plan-masthead" data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
   <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
   <div class="plan-masthead__side">
+    <%= render partial: "coplan/plans/agent_sessions", locals: { agent_sessions: CoPlan::AgentSession.visible.where(plan_id: @plan.id).order(:created_at) } %>
     <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(@plan), current_user: current_user } %>
     <%= render partial: "coplan/plans/toolbar", locals: { plan: @plan, my_placement: my_placement } %>
   </div>

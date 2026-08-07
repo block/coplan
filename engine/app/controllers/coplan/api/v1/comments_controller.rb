@@ -5,14 +5,33 @@ module CoPlan
         before_action :set_plan
         before_action :authorize_plan_access!
 
+        # GET /api/v1/plans/:plan_id/comments/:id — a single thread with its
+        # comments, so an agent reacting to one inbox event doesn't have to
+        # refetch every thread on the plan.
+        def show
+          thread = @plan.comment_threads.includes(:comments, :created_by_user).find_by(id: params[:id])
+          unless thread
+            render json: { error: "Comment thread not found" }, status: :not_found
+            return
+          end
+
+          render json: thread_json(thread)
+        end
+
         def create
+          # Same initial-status rule as the web flow: the plan author's own
+          # comments start as "todo" (self-assigned), everyone else's as
+          # "pending" (awaiting author triage).
+          initial_status = current_user&.id == @plan.created_by_user_id ? "todo" : "pending"
+
           thread = @plan.comment_threads.new(
             plan_version: @plan.current_plan_version,
             anchor_text: params[:anchor_text].presence,
             anchor_occurrence: params[:anchor_occurrence]&.to_i,
             start_line: params[:start_line].presence,
             end_line: params[:end_line].presence,
-            created_by_user: current_user
+            created_by_user: current_user,
+            status: initial_status
           )
 
           thread.save!
@@ -155,6 +174,33 @@ module CoPlan
         end
 
         private
+
+        # Mirrors PlansController#thread_json so GET .../comments/:id returns
+        # the same shape as the list/snapshot endpoints.
+        def thread_json(thread)
+          {
+            id: thread.id,
+            status: thread.status,
+            anchor_text: thread.anchor_text,
+            anchor_context: thread.anchor_context_with_highlight,
+            anchor_valid: thread.anchor_valid?,
+            start_line: thread.start_line,
+            end_line: thread.end_line,
+            out_of_date: thread.out_of_date,
+            created_by: thread.created_by_user&.name,
+            created_at: thread.created_at,
+            comments: thread.comments.sort_by(&:created_at).map { |c|
+              {
+                id: c.id,
+                author_type: c.author_type,
+                author_id: c.author_id,
+                agent_name: c.agent_name,
+                body_markdown: c.body_markdown,
+                created_at: c.created_at
+              }
+            }
+          }
+        end
 
         def broadcast_new_thread(thread)
           Broadcaster.append_to(

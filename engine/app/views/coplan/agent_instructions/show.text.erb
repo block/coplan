@@ -499,11 +499,89 @@ Mark a comment thread as resolved (addressed by the plan author or thread creato
 
 ### Dismiss Thread
 
-Dismiss a comment thread (plan author only — for comments that are out of scope or not applicable).
+Dismiss a comment thread (plan author only — for comments that are out of scope or not applicable). `discard` is accepted as an alias for `dismiss`.
 
 ```bash
 <%= @curl %> -X PATCH \
   "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/dismiss" | jq .
+```
+
+### Get a Single Thread
+
+Fetch one thread with its comments — handy when reacting to a single event without refetching the whole snapshot.
+
+```bash
+<%= @curl %> "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID" | jq .
+```
+
+## Live Collaboration (Realtime)
+
+If you authored a plan (or are babysitting one), you can hear about new comments and edits the moment they happen instead of re-polling snapshots, and show humans that you're on it.
+
+### 1. Claim an Agent Session
+
+Claiming a session subscribes your token to the plan's events and shows a live presence pill ("Claude is working…") to everyone viewing the plan.
+
+```bash
+<%= @curl %> -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"agent_name": "Claude"}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
+```
+
+Keep the pill honest by updating your state as you work (`state`: `pending`, `active`, `awaiting_input`, `complete`; optional `detail` shows what you're doing):
+
+```bash
+<%= @curl %> -X PATCH \
+  -H "Content-Type: application/json" \
+  -d '{"state": "active", "detail": "tightening the Rollout section"}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
+```
+
+Etiquette (this is what makes you feel like a collaborator, not a batch job):
+
+- Flip to `active` within a few seconds of waking — the fast ack humans see. Work as slowly as you need after that; if you stay silent in `pending` the pill goes stale.
+- Post a short reply narrating what you're about to change *before* you PUT the edit.
+- Use `awaiting_input` when a question blocks you; land on `complete` when your turn is done.
+- `DELETE` the session when you stop watching the plan.
+
+### 2. Wait for Events
+
+Long-poll (returns immediately when an event lands, or empty after `wait` seconds):
+
+```bash
+<%= @curl %> "<%= @base %>/api/v1/agent/events?wait=25&cursor=$LAST_EVENT_ID" | jq .
+```
+
+Event types: `comment.created`, `comment.replied`, `thread.status_changed`, `plan.content_changed`. Each event carries `plan_id`, `comment_thread_id`, and a payload with the comment body/anchor so you usually don't need another fetch to decide what to do. Your own comments and edits are never echoed back to you.
+
+Cursoring: event ids are time-ordered — pass the last id you processed as `cursor` to resume. Without a cursor you get all unacked events. Delivery is at-least-once; ack after processing:
+
+```bash
+<%= @curl %> -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"cursor": "$LAST_EVENT_ID"}' \
+  "<%= @base %>/api/v1/agent/events/ack" | jq .
+```
+
+Prefer a held-open stream? The same endpoint speaks Server-Sent Events with `-H "Accept: text/event-stream"` (heartbeats every 15s, reconnect with your cursor).
+
+### 3. The Loop
+
+```bash
+CURSOR=""
+while true; do
+  RESP=$(<%= @curl %> "<%= @base %>/api/v1/agent/events?wait=25&cursor=$CURSOR")
+  echo "$RESP" | jq -c '.events[]' | while read -r event; do
+    # 1. PATCH agent_session state=active   (fast ack — do this first)
+    # 2. Read the event payload / thread, decide, reply, edit
+    # 3. PATCH agent_session state=complete
+    :
+  done
+  NEXT=$(echo "$RESP" | jq -r '.cursor // empty')
+  [ -n "$NEXT" ] && CURSOR="$NEXT" && <%= @curl %> -X POST -H "Content-Type: application/json" \
+    -d "{\"cursor\": \"$CURSOR\"}" "<%= @base %>/api/v1/agent/events/ack" > /dev/null
+done
 ```
 
 ## Reviewing a Plan

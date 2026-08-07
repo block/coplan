@@ -121,7 +121,22 @@ module CoPlan
             partial: "coplan/plans/header",
             locals: { plan: @plan }
           )
-          Broadcaster.replace_plan_content(@plan)
+          changed_sections = Plans::ChangedSections.call(
+            old_content: current_content,
+            new_content: @new_content
+          )
+          Broadcaster.replace_plan_content(@plan, changed_sections: changed_sections)
+
+          AgentEvents::Publish.call(
+            plan: @plan,
+            event_type: "plan.content_changed",
+            actor_id: @actor_id,
+            payload: {
+              "revision" => new_revision,
+              "change_summary" => @change_summary,
+              "changed_sections" => changed_sections
+            }
+          )
 
           { version: version, plan: @plan, applied: result[:applied].length, no_op: false }
         end
