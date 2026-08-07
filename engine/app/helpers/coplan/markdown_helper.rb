@@ -34,7 +34,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 1
+    RENDER_CACHE_VERSION = 2
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -56,7 +56,7 @@ module CoPlan
       sanitized = sanitize(with_chips, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       result = interactive ? make_checkboxes_interactive(sanitized, content) : sanitized
       result = scope_footnote_ids(result, footnote_prefix) if footnote_prefix
-      tag.div(result.html_safe, class: "markdown-rendered", data: { controller: "coplan--mermaid" })
+      tag.div(result.html_safe, class: "markdown-rendered", data: { controller: "coplan--mermaid coplan--syntax-highlight" })
     end
 
     # Replaces `<a href="mention:username">@username</a>` produced by
