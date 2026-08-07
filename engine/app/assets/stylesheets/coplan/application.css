@@ -1,5 +1,33 @@
 /* CoPlan — Design Tokens + Base Styles */
 
+/* Hack — code font (regular, bold, italic; bold-italic is synthesized).
+   Self-declared instead of the upstream hack.css so we get
+   font-display: swap — code must render immediately in a fallback mono
+   font rather than blocking on the download. */
+@font-face {
+  font-family: "Hack";
+  src: url("https://cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/fonts/hack-regular-subset.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Hack";
+  src: url("https://cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/fonts/hack-bold-subset.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Hack";
+  src: url("https://cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/fonts/hack-italic-subset.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
 
@@ -37,6 +65,22 @@
   --color-tag-active-bg: #374151;
   --color-tag-active-hover-bg: #1f2937;
   --color-code-bg: #f6f8fa;
+  /* Code blocks (fenced): block background + the terminal-style language
+     header. Inline code keeps --color-code-bg. */
+  --code-block-bg: #f6f8fa;
+  --code-header-bg: #e9edf3;
+  --code-header-text: #57606a;
+  /* Syntax highlighting tokens (highlight.js classes) — GitHub Light */
+  --code-comment: #6a737d;
+  --code-keyword: #d73a49;
+  --code-entity: #6f42c1;
+  --code-constant: #005cc5;
+  --code-string: #032f62;
+  --code-tag: #22863a;
+  --code-addition-fg: #22863a;
+  --code-addition-bg: #f0fff4;
+  --code-deletion-fg: #b31d28;
+  --code-deletion-bg: #ffeef0;
   --color-overlay: rgba(0, 0, 0, 0.2);
   --color-focus-ring: rgba(37, 99, 235, 0.12);
 
@@ -81,7 +125,7 @@
 
   /* Typography */
   --font-sans: 'Lexend', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: "SF Mono", SFMono-Regular, ui-monospace, Menlo, monospace;
+  --font-mono: "Hack", "SF Mono", SFMono-Regular, ui-monospace, Menlo, monospace;
   --text-sm: 0.875rem;
   --text-base: 1rem;
   --text-lg: 1.125rem;
@@ -150,6 +194,22 @@
     --color-tag-active-bg: #475569;
     --color-tag-active-hover-bg: #64748b;
     --color-code-bg: #0f172a;
+    --code-block-bg: #0d0d0f;
+    --code-header-bg: #17171a;
+    --code-header-text: #8b8f98;
+    /* Syntax highlighting tokens — One Dark-inspired. Warmer than GitHub
+       Dark (which paints constants and strings in two shades of blue —
+       too much on our already-blue slate background). */
+    --code-comment: #7f848e;
+    --code-keyword: #c678dd;
+    --code-entity: #61afef;
+    --code-constant: #d19a66;
+    --code-string: #98c379;
+    --code-tag: #e06c75;
+    --code-addition-fg: #98c379;
+    --code-addition-bg: rgba(152, 195, 121, 0.14);
+    --code-deletion-fg: #e06c75;
+    --code-deletion-bg: rgba(224, 108, 117, 0.14);
     --color-overlay: rgba(2, 6, 23, 0.4);
     --color-focus-ring: rgba(96, 165, 250, 0.24);
     --color-status-considering-bg: rgba(245, 158, 11, 0.16);
@@ -227,6 +287,21 @@
   --color-tag-active-bg: #475569;
   --color-tag-active-hover-bg: #64748b;
   --color-code-bg: #0f172a;
+  --code-block-bg: #0d0d0f;
+  --code-header-bg: #17171a;
+  --code-header-text: #8b8f98;
+  /* Syntax highlighting tokens — One Dark-inspired (see the media-query
+     dark block above). */
+  --code-comment: #7f848e;
+  --code-keyword: #c678dd;
+  --code-entity: #61afef;
+  --code-constant: #d19a66;
+  --code-string: #98c379;
+  --code-tag: #e06c75;
+  --code-addition-fg: #98c379;
+  --code-addition-bg: rgba(152, 195, 121, 0.14);
+  --code-deletion-fg: #e06c75;
+  --code-deletion-bg: rgba(224, 108, 117, 0.14);
   --color-overlay: rgba(2, 6, 23, 0.4);
   --color-focus-ring: rgba(96, 165, 250, 0.24);
   --color-status-considering-bg: rgba(245, 158, 11, 0.16);
@@ -1389,7 +1464,7 @@ img.avatar {
 }
 
 .markdown-rendered pre {
-  background: var(--color-code-bg);
+  background: var(--code-block-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: var(--space-md);
@@ -1398,6 +1473,32 @@ img.avatar {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   line-height: 1.5;
+}
+
+/* Terminal-style header on fenced code blocks that declare a language:
+   traffic-light dots + the language name from the lang attribute. Pure CSS
+   (attr() in a pseudo-element) so it adds no DOM text — comment-anchor
+   matching against textContent never sees it. Mermaid blocks are excluded;
+   they get replaced by rendered diagrams. */
+.markdown-rendered pre[lang]:not([lang="mermaid"])::before {
+  content: attr(lang);
+  display: block;
+  position: sticky; /* stay pinned when the code scrolls horizontally */
+  left: 0;
+  margin: calc(-1 * var(--space-md)) calc(-1 * var(--space-md)) var(--space-md);
+  padding: 0.5em var(--space-md) 0.5em 4.6em;
+  background-color: var(--code-header-bg);
+  background-image:
+    radial-gradient(circle at 1.1em 50%, #ff5f57 0.3em, transparent 0.36em),
+    radial-gradient(circle at 2.2em 50%, #febc2e 0.3em, transparent 0.36em),
+    radial-gradient(circle at 3.3em 50%, #28c840 0.3em, transparent 0.36em);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
+  color: var(--code-header-text);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  user-select: none;
 }
 
 .markdown-rendered code {
@@ -1409,6 +1510,77 @@ img.avatar {
   background: var(--color-code-bg);
   padding: 0.15em 0.35em;
   border-radius: 3px;
+}
+
+/* Syntax highlighting — highlight.js token classes mapped onto the
+   --code-* theme variables (GitHub Light/Dark palettes above). Applied by
+   syntax_highlight_controller, which loads grammars on demand. */
+.markdown-rendered .hljs-comment,
+.markdown-rendered .hljs-quote {
+  color: var(--code-comment);
+}
+
+.markdown-rendered .hljs-keyword,
+.markdown-rendered .hljs-doctag,
+.markdown-rendered .hljs-template-tag,
+.markdown-rendered .hljs-type {
+  color: var(--code-keyword);
+}
+
+.markdown-rendered .hljs-title,
+.markdown-rendered .hljs-title.class_,
+.markdown-rendered .hljs-title.function_,
+.markdown-rendered .hljs-section {
+  color: var(--code-entity);
+}
+
+.markdown-rendered .hljs-number,
+.markdown-rendered .hljs-literal,
+.markdown-rendered .hljs-symbol,
+.markdown-rendered .hljs-variable,
+.markdown-rendered .hljs-template-variable,
+.markdown-rendered .hljs-attr,
+.markdown-rendered .hljs-attribute,
+.markdown-rendered .hljs-built_in,
+.markdown-rendered .hljs-operator,
+.markdown-rendered .hljs-meta,
+.markdown-rendered .hljs-selector-attr,
+.markdown-rendered .hljs-selector-pseudo,
+.markdown-rendered .hljs-link {
+  color: var(--code-constant);
+}
+
+.markdown-rendered .hljs-string,
+.markdown-rendered .hljs-regexp,
+.markdown-rendered .hljs-char.escape_ {
+  color: var(--code-string);
+}
+
+.markdown-rendered .hljs-name,
+.markdown-rendered .hljs-tag,
+.markdown-rendered .hljs-selector-tag,
+.markdown-rendered .hljs-selector-id,
+.markdown-rendered .hljs-selector-class,
+.markdown-rendered .hljs-bullet {
+  color: var(--code-tag);
+}
+
+.markdown-rendered .hljs-addition {
+  color: var(--code-addition-fg);
+  background: var(--code-addition-bg);
+}
+
+.markdown-rendered .hljs-deletion {
+  color: var(--code-deletion-fg);
+  background: var(--code-deletion-bg);
+}
+
+.markdown-rendered .hljs-emphasis {
+  font-style: italic;
+}
+
+.markdown-rendered .hljs-strong {
+  font-weight: 600;
 }
 
 .markdown-rendered .mermaid-diagram {

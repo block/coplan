@@ -74,7 +74,7 @@
         <%# Selection-to-comment is scoped to this inner wrapper: the back
             matter below shares the column but must not offer comment
             anchors — they'd never resolve against the document body. %>
-        <div data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-action="coplan:mermaid-settled->coplan--text-selection#handleMermaidSettled">
+        <div data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-action="coplan:mermaid-settled->coplan--text-selection#handleContentSettled coplan:highlight-settled->coplan--text-selection#handleContentSettled">
           <div id="plan-content-body"
                data-controller="coplan--live-update"
                data-coplan--live-update-revision-value="<%= @plan.current_revision %>">

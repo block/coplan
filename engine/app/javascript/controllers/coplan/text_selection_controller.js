@@ -245,7 +245,10 @@ export default class extends Controller {
     this._showThreadPopoverFor(event.currentTarget, "pinned")
   }
 
-  handleMermaidSettled() {
+  // Fired after an async client-side content transform (Mermaid render,
+  // syntax highlighting) has rewritten part of the plan body — re-anchor
+  // comment highlights against the new DOM.
+  handleContentSettled() {
     this.highlightAnchors()
     if (this._pendingThreadId) this._openLinkedThread()
   }

@@ -73,6 +73,20 @@ flowchart LR
 
 The web UI renders these blocks as diagrams. Keep the Mermaid source in the plan so humans and agents can review and edit it alongside the surrounding Markdown.
 
+#### Code blocks
+
+Always tag fenced code blocks with a language so the web UI can syntax-highlight them:
+
+````markdown
+```ruby
+def total(order) = order.line_items.sum(&:amount)
+```
+````
+
+Use highlight.js **canonical** language names — any language in the highlight.js distribution works, with its grammar loaded on demand. Common aliases (`js`, `ts`, `rb`, `py`, `golang`, `yml`, `sh`, `html`, `c++`, `c#`) also resolve, but prefer canonical names: `ruby`, `python`, `javascript`, `typescript`, `go`, `java`, `kotlin`, `swift`, `rust`, `c`, `cpp`, `csharp`, `sql`, `json`, `yaml`, `xml` (covers HTML), `css`, `graphql`, `protobuf`, `bash` (for scripts), `shell` (for terminal sessions with `$` prompts), `diff`, `http`, `plaintext`.
+
+Unrecognized tags render as plain text, so never invent one — use `plaintext` for logs and other unhighlightable content, and `mermaid` only for diagrams (see above).
+
 #### Rich formatting
 
 Beyond standard Markdown (tables, task lists, strikethrough), plans support:
