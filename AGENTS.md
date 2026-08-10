@@ -33,7 +33,7 @@ Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), 
 - **Hotwire** — Turbo Drive, Turbo Frames, Turbo Streams, Stimulus
 - **Plain CSS** — no Tailwind, no preprocessors
 - **Plain JavaScript** — via importmaps and Stimulus controllers only
-- **MySQL 8** — but schema must stay portable (no PG-only or MySQL-only features); **no `default:` on JSON columns** (use `after_initialize` in the model instead)
+- **MySQL 8** — but schema must stay portable: hosts may run PostgreSQL, so no adapter-specific column options or SQL outside an adapter check (search is the worked example — see `Plan.adapter_search` and the AddSearchToCoplanPlans migration); **no `default:` on JSON columns** (use `after_initialize` in the model instead)
 - **SolidQueue** for background jobs, **SolidCable** for ActionCable
 - **ActiveAdmin 4 beta** + `activeadmin_assets` for admin UI — no node/tailwind needed
 - **No Devise, no OmniAuth** — auth is hand-rolled (stub OIDC in dev, real OIDC later)

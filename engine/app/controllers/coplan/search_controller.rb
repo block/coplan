@@ -30,8 +30,11 @@ module CoPlan
       # someone's library. Local-table match; the directory adapter enriches
       # the profile itself, not the search.
       @people = if @query.present?
-        sanitized = User.sanitize_sql_like(@query)
-        User.where("name LIKE :q OR username LIKE :q OR email LIKE :q", q: "%#{sanitized}%")
+        # LOWER on both sides: bare LIKE is case-insensitive only under
+        # MySQL's default collations, and people search must not be
+        # case-sensitive on PostgreSQL hosts.
+        sanitized = User.sanitize_sql_like(@query.downcase)
+        User.where("LOWER(name) LIKE :q OR LOWER(username) LIKE :q OR LOWER(email) LIKE :q", q: "%#{sanitized}%")
           .order(:name)
           .limit(MAX_PEOPLE)
           .to_a

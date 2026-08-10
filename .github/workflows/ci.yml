@@ -15,19 +15,59 @@ jobs:
       DATABASE_URL: mysql2://root:root@127.0.0.1:3306/planning_department_test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Start MySQL
         run: sudo systemctl start mysql
 
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
           ruby-version: .ruby-version
           bundler-cache: true
 
       - name: Create database
         run: bin/rails db:create db:schema:load
+
+      - name: Run tests
+        run: bundle exec rspec
+
+  # Hosts may run the engine on PostgreSQL, so the suite must stay green
+  # there too. Deliberately initializes via db:migrate (not schema:load,
+  # which the MySQL job covers): replaying every migration on PG is exactly
+  # the fresh-host installation path, and schema.rb is MySQL-flavored.
+  test-postgres:
+    runs-on: ubuntu-latest
+
+    env:
+      RAILS_ENV: test
+      # encoding=unicode overrides database.yml's MySQL-only utf8mb4;
+      # SCHEMA keeps the post-migrate dump away from the checked-in schema.rb.
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/planning_department_test?encoding=unicode
+      SCHEMA: tmp/pg_schema.rb
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Start PostgreSQL
+        run: |
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      - name: Create database
+        run: bin/rails db:create db:migrate
+
+      # Two invocations: the second proves the seed is idempotent (rake
+      # would dedupe a repeated task within one invocation, so it needs to
+      # be two commands).
+      - name: Install required reference data (idempotency smoke test)
+        run: bin/rails coplan:seed && bin/rails coplan:seed
 
       - name: Run tests
         run: bundle exec rspec
