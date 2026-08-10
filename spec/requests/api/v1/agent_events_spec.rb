@@ -131,6 +131,39 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(events.first["type"]).to eq("comment.replied")
     end
 
+    # An attached agent holds a Rack thread for the life of its
+    # connection. Over budget we answer immediately instead of letting
+    # agents queue ahead of ordinary page requests.
+    it "degrades long-poll to a non-blocking read when at the connection budget" do
+      allow(CoPlan::AgentEventBus).to receive(:with_slot).and_yield(false)
+
+      started = Time.current
+      get api_v1_agent_events_path, params: { wait: 30 }, headers: agent_headers
+
+      expect(Time.current - started).to be < 5
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)["throttled"]).to be(true)
+    end
+
+    it "refuses a new stream over budget with Retry-After instead of blocking" do
+      allow(CoPlan::AgentEventBus).to receive(:with_slot).and_yield(false)
+
+      get api_v1_agent_events_path, headers: agent_headers.merge("Accept" => "text/event-stream")
+
+      expect(response).to have_http_status(:service_unavailable)
+      expect(response.headers["Retry-After"]).to eq("5")
+      expect(JSON.parse(response.body)["fallback"]).to include("long-poll")
+    end
+
+    it "signals waiters when an event is published" do
+      allow(CoPlan::AgentEventBus).to receive(:signal)
+
+      comment = create(:comment, comment_thread: thread, author_type: "human", author_id: hampton.id, body_markdown: "wake up")
+      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "reply")
+
+      expect(CoPlan::AgentEventBus).to have_received(:signal).with(agent_token.id)
+    end
+
     it "acks up to a cursor" do
       get api_v1_agent_events_path, params: { wait: 0 }, headers: agent_headers
       cursor = JSON.parse(response.body)["cursor"]

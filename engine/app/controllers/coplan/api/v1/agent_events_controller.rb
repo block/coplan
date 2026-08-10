@@ -14,6 +14,12 @@ module CoPlan
       #     Holds the response open and streams events as they land, with
       #     heartbeat comments so intermediaries don't kill the socket.
       #
+      # Both forms block on AgentEventBus rather than polling, and both
+      # respect its held-connection budget: an attached agent must never
+      # be able to starve ordinary page requests of Rack threads. Over
+      # budget, long-poll answers immediately with `throttled: true` and
+      # SSE is refused with 503 + Retry-After.
+      #
       # Cursoring: event ids are UUIDv7 (time-ordered), so `cursor` is
       # simply the last event id the client has seen. Without a cursor you
       # get unacked events, so a crashed client picks up where it left off.
@@ -23,7 +29,7 @@ module CoPlan
 
         MAX_WAIT = 55
         SSE_LIFETIME = 5.minutes
-        POLL_INTERVAL = 0.5
+        HEARTBEAT_INTERVAL = 15
 
         def index
           unless @api_token
@@ -61,24 +67,47 @@ module CoPlan
 
         private
 
+        # Holding a thread for `wait` seconds is only acceptable while the
+        # server has threads to spare; over budget we answer immediately
+        # and let the client come back, which is strictly better than
+        # making everyone's page loads queue behind attached agents.
         def long_poll_events
-          wait = params[:wait].to_i.clamp(0, MAX_WAIT)
-          deadline = Time.current + wait
+          AgentEventBus.with_slot do |granted|
+            wait = granted ? params[:wait].to_i.clamp(0, MAX_WAIT) : 0
+            deadline = Time.current + wait
 
-          loop do
-            events = fetch_events
-            if events.any? || Time.current >= deadline
-              render json: {
-                events: events.map(&:as_api_json),
-                cursor: events.last&.id || params[:cursor]
-              }
-              return
+            loop do
+              events = fetch_events
+              if events.any? || Time.current >= deadline
+                render json: {
+                  events: events.map(&:as_api_json),
+                  cursor: events.last&.id || params[:cursor],
+                  **(granted ? {} : { throttled: true })
+                }
+                return
+              end
+              AgentEventBus.wait(@api_token.id, timeout: deadline - Time.current)
             end
-            sleep POLL_INTERVAL
           end
         end
 
         def stream_events
+          AgentEventBus.with_slot do |granted|
+            unless granted
+              response.headers["Retry-After"] = "5"
+              render json: {
+                error: "Too many attached agents on this server",
+                capacity: AgentEventBus.capacity,
+                fallback: "Retry, or use the long-poll form of this endpoint (omit the text/event-stream Accept header)."
+              }, status: :service_unavailable
+              return
+            end
+
+            write_event_stream
+          end
+        end
+
+        def write_event_stream
           response.headers["Content-Type"] = "text/event-stream"
           response.headers["Cache-Control"] = "no-cache"
           response.headers["X-Accel-Buffering"] = "no"
@@ -94,11 +123,12 @@ module CoPlan
               cursor = event.id
             end
 
-            if Time.current - last_heartbeat > 15
+            if Time.current - last_heartbeat > HEARTBEAT_INTERVAL
               response.stream.write(": heartbeat\n\n")
               last_heartbeat = Time.current
             end
-            sleep POLL_INTERVAL
+
+            AgentEventBus.wait(@api_token.id, timeout: [HEARTBEAT_INTERVAL, deadline - Time.current].min)
           end
         rescue IOError, ActionController::Live::ClientDisconnected
           # Client went away — normal for a streaming endpoint.

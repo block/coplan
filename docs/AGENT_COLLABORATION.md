@@ -25,6 +25,33 @@ so CoPlan never assumes it can push. Same endpoint serves long-poll
 Cursor = last event id (UUIDv7, time-ordered); delivery is
 at-least-once with explicit ack.
 
+## Capacity: attached agents vs. everyone else
+
+Every attached agent holds a Rack thread for the life of its connection,
+and `RAILS_MAX_THREADS` is small (3 by default). Measured on this
+codebase: with three agents attached and no budget, the app **stopped
+serving pages** — a plain page load timed out after 10s.
+
+So `AgentEventBus` caps concurrent held connections at
+`RAILS_MAX_THREADS - 2` (override with `COPLAN_MAX_AGENT_STREAMS`),
+always leaving threads for ordinary traffic. Over budget:
+
+- **long-poll** answers immediately with `"throttled": true` — the
+  client falls back to its own polling cadence, nothing breaks
+- **SSE** is refused with `503` + `Retry-After`, pointing at long-poll
+
+With the budget on, the same three-agent load serves a page in ~25ms.
+
+Waiting is signal-driven, not polled: `AgentEvents::Publish` signals the
+bus, so a parked long-poll returns in **~180ms** end-to-end from comment
+to delivery. Waiters still wake every few seconds to catch writes from
+another Puma worker, so cross-process delivery degrades to that interval
+rather than failing.
+
+The honest ceiling: this is thread-per-agent. It's fine for a team, not
+for hundreds of concurrent attached agents — that would want a real
+pub/sub transport rather than held Rack threads.
+
 Full API reference: `GET /agent-instructions` → "Live Collaboration".
 
 ## Attaching (the normal case)

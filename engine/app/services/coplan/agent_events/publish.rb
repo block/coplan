@@ -32,6 +32,9 @@ module CoPlan
             payload: base_payload.merge(@payload)
           )
           session.wake!
+          # Hand the event straight to any connection already waiting on
+          # this token's inbox, so delivery doesn't wait for a poll tick.
+          AgentEventBus.signal(session.api_token_id)
         end
       end
 
