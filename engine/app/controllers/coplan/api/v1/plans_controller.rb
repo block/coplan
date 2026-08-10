@@ -34,7 +34,7 @@ module CoPlan
 
         def create
           if params[:plan_type].present?
-            plan_type = PlanType.find_by(name: params[:plan_type])
+            plan_type = PlanType.find_by_name(params[:plan_type])
             unless plan_type
               available = PlanType.order(:name).pluck(:name)
               message = "Unknown plan_type \"#{params[:plan_type]}\"."

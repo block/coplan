@@ -8,12 +8,8 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
   self.use_transactional_tests = false
 
   after do
-    ActiveRecord::Base.connection.execute("SET FOREIGN_KEY_CHECKS = 0")
-    %w[coplan_plan_tags coplan_tags coplan_plan_versions coplan_plans
-       coplan_search_queries coplan_users].each do |t|
-      ActiveRecord::Base.connection.execute("TRUNCATE TABLE #{t}")
-    end
-    ActiveRecord::Base.connection.execute("SET FOREIGN_KEY_CHECKS = 1")
+    truncate_tables(*%w[coplan_plan_tags coplan_tags coplan_plan_versions coplan_plans
+                        coplan_search_queries coplan_users])
   end
 
   let!(:alice) { create(:coplan_user, name: "Alice Searcher") }
