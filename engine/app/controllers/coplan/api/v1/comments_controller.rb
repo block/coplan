@@ -44,7 +44,7 @@ module CoPlan
               author_type: api_author_type,
               author_id: current_user&.id,
               body_markdown: params[:body_markdown],
-              agent_name: params[:agent_name]
+              agent_name: resolved_agent_name
             )
           end
 
@@ -59,6 +59,7 @@ module CoPlan
           broadcast_new_thread(thread)
 
           render json: {
+            id: thread.id,
             thread_id: thread.id,
             comment_id: comment.id,
             status: thread.status,
@@ -155,7 +156,7 @@ module CoPlan
             author_type: api_author_type,
             author_id: current_user&.id,
             body_markdown: params[:body_markdown],
-            agent_name: params[:agent_name]
+            agent_name: resolved_agent_name
           )
 
           reason = comment.agent? ? "agent_response" : "reply"
@@ -168,7 +169,10 @@ module CoPlan
 
           broadcast_new_comment(thread, comment)
 
+          # `id` is the created resource, matching every other create in
+          # this API; comment_id/thread_id stay for existing callers.
           render json: {
+            id: comment.id,
             comment_id: comment.id,
             thread_id: thread.id,
             created_at: comment.created_at
@@ -179,6 +183,27 @@ module CoPlan
         end
 
         private
+
+        # Token-authored comments are agent comments, and agents shouldn't
+        # have to repeat their name on every write: they already declared
+        # it when claiming the agent session, or on the token itself. An
+        # explicit param still wins, so one agent can post under a
+        # different persona.
+        #
+        # Truncated rather than rejected — a name a few characters over
+        # the display limit is not a reason to lose someone's comment.
+        def resolved_agent_name
+          name = params[:agent_name].presence || default_agent_name
+          name&.truncate(Comment::AGENT_NAME_LIMIT, omission: "…")
+        end
+
+        def default_agent_name
+          return nil unless @api_token
+
+          AgentSession.find_by(plan_id: @plan.id, api_token_id: @api_token.id)&.agent_name.presence ||
+            @api_token.agent_name.presence ||
+            @api_token.name
+        end
 
         # Mirrors PlansController#thread_json so GET .../comments/:id returns
         # the same shape as the list/snapshot endpoints.

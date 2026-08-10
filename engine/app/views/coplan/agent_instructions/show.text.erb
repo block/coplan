@@ -477,7 +477,7 @@ or matches more than one heading.
 
 - `anchor_text`: the exact text from the plan content that this comment is about. It will be highlighted in the UI and the comment will be anchored to it.
 - Omit `anchor_text` for a general (non-anchored) comment.
-- `agent_name`: optional identifier for the agent (e.g., `"Amp"`, `"Claude"`). Displayed in the UI as "User Name (Agent Name)".
+- `agent_name`: optional identifier for the agent (e.g., `"Amp"`, `"Claude"`). Displayed in the UI as "User Name (Agent Name)". If you omit it, your agent session's name is used, then your token's — so you only need to pass it when posting as a different persona. Names longer than 20 characters are truncated rather than rejected.
 
 ### Reply to Thread
 

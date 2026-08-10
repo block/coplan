@@ -176,6 +176,55 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     end
   end
 
+  describe "agent attribution ergonomics" do
+    # An agent declares its name once (session or token); making it repeat
+    # that on every write is friction that only shows up as a failed
+    # comment mid-conversation.
+    it "falls back to the agent session's name when the param is omitted" do
+      post api_v1_plan_agent_session_path(plan), params: { agent_name: "Ada" }, headers: agent_headers, as: :json
+
+      post api_v1_plan_comments_path(plan), params: { body_markdown: "no name given" }, headers: agent_headers, as: :json
+
+      expect(response).to have_http_status(:created)
+      expect(CoPlan::Comment.last.agent_name).to eq("Ada")
+    end
+
+    it "falls back to the token's agent name when there is no session" do
+      post api_v1_plan_comments_path(plan), params: { body_markdown: "no session either" }, headers: agent_headers, as: :json
+
+      expect(response).to have_http_status(:created)
+      expect(CoPlan::Comment.last.agent_name).to eq("Claude")
+    end
+
+    it "truncates an over-long name instead of losing the comment" do
+      post api_v1_plan_comments_path(plan),
+        params: { body_markdown: "hi", agent_name: "Claude (this session, attached)" },
+        headers: agent_headers, as: :json
+
+      expect(response).to have_http_status(:created)
+      expect(CoPlan::Comment.last.agent_name.length).to eq(CoPlan::Comment::AGENT_NAME_LIMIT)
+    end
+
+    it "returns id alongside comment_id so creates match the rest of the API" do
+      post api_v1_plan_comments_path(plan), params: { body_markdown: "first" }, headers: agent_headers, as: :json
+      thread_id = JSON.parse(response.body)["thread_id"]
+
+      post reply_api_v1_plan_comment_path(plan, thread_id), params: { body_markdown: "second" }, headers: agent_headers, as: :json
+
+      body = JSON.parse(response.body)
+      expect(body["id"]).to eq(body["comment_id"])
+      expect(body["id"]).to be_present
+    end
+
+    it "lets a comment be destroyed without tripping the notification foreign key" do
+      thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: hampton)
+      comment = create(:comment, comment_thread: thread, author_type: "human", author_id: hampton.id, body_markdown: "doomed")
+      CoPlan::Notification.create!(user_id: hampton.id, plan_id: plan.id, comment_thread_id: thread.id, comment_id: comment.id, reason: "new_comment")
+
+      expect { comment.destroy! }.to change(CoPlan::Notification, :count).by(-1)
+    end
+  end
+
   describe "comment API ergonomics" do
     let(:thread) { create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: hampton) }
 
@@ -197,9 +246,9 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
 
     it "does not leave an orphan thread when the first comment fails validation" do
       expect {
-        # local_agent comments require agent_name — omitting it fails the
-        # comment, which must roll the thread back too.
-        post api_v1_plan_comments_path(plan), params: { body_markdown: "no agent name" }, headers: agent_headers, as: :json
+        # An empty body fails the comment, which must roll the thread back
+        # too — otherwise the plan keeps an empty thread with a live anchor.
+        post api_v1_plan_comments_path(plan), params: { body_markdown: "" }, headers: agent_headers, as: :json
       }.not_to change(CoPlan::CommentThread, :count)
       expect(response).to have_http_status(:unprocessable_content)
     end

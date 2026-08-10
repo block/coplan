@@ -118,24 +118,27 @@ RSpec.describe "Api::V1::Comments", type: :request do
     end
   end
 
-  it "rejects comment without agent_name" do
+  # Token-authored comments are agent comments and must carry attribution,
+  # but the caller shouldn't have to restate a name it already registered:
+  # the token's agent name (falling back to the token's own name) is used.
+  it "attributes a comment without agent_name to the token" do
     post api_v1_plan_comments_path(plan),
       params: { body_markdown: "Missing agent name" },
       headers: headers,
       as: :json
-    expect(response).to have_http_status(:unprocessable_content)
-    body = JSON.parse(response.body)
-    expect(body["error"]).to include("Agent name")
+
+    expect(response).to have_http_status(:created)
+    expect(CoPlan::Comment.last.agent_name).to eq(alice_token.name)
   end
 
-  it "rejects reply without agent_name" do
+  it "attributes a reply without agent_name to the token" do
     post reply_api_v1_plan_comment_path(plan, thread_record),
       params: { body_markdown: "Missing agent name" },
       headers: headers,
       as: :json
-    expect(response).to have_http_status(:unprocessable_content)
-    body = JSON.parse(response.body)
-    expect(body["error"]).to include("Agent name")
+
+    expect(response).to have_http_status(:created)
+    expect(CoPlan::Comment.last.agent_name).to eq(alice_token.name)
   end
 
   describe "DELETE destroy" do
