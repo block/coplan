@@ -5,6 +5,12 @@ require "rails_helper"
 # the SeedGeneralPlanType data migration, so this seed is the supported way
 # to guarantee the built-in General plan type exists.
 RSpec.describe "CoPlan::Engine.load_seed" do
+  # A migration-built database (the PG CI job) already contains General via
+  # the SeedGeneralPlanType data migration; these examples are about the
+  # schema-loaded case where it's absent, so start from a clean table.
+  # Transactional fixtures roll the delete back after each example.
+  before { CoPlan::PlanType.delete_all }
+
   it "creates the General plan type when missing" do
     expect(CoPlan::PlanType.find_by_name("General")).to be_nil
 
