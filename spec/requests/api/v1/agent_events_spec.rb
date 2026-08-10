@@ -64,6 +64,21 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(CoPlan::AgentEvent.for_token(agent_token).count).to eq(0)
     end
 
+    it "types the first comment on a thread as created even when an agent opened it" do
+      agent_comment = create(:comment, comment_thread: thread, author_type: "local_agent", author_id: other_token.id, agent_name: "Sara", body_markdown: "opening a thread")
+      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: other_token.id, comment: agent_comment, reason: "agent_response")
+
+      expect(CoPlan::AgentEvent.for_token(agent_token).first.event_type).to eq("comment.created")
+    end
+
+    it "types a later comment as replied regardless of author" do
+      create(:comment, comment_thread: thread, author_type: "human", author_id: hampton.id, body_markdown: "first")
+      second = create(:comment, comment_thread: thread, author_type: "human", author_id: hampton.id, body_markdown: "second")
+      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: second, reason: "new_comment")
+
+      expect(CoPlan::AgentEvent.for_token(agent_token).first.event_type).to eq("comment.replied")
+    end
+
     it "publishes content changes with changed section keys" do
       CoPlan::Plans::ReplaceContent.call(
         plan: plan,

@@ -27,12 +27,42 @@ at-least-once with explicit ack.
 
 Full API reference: `GET /agent-instructions` → "Live Collaboration".
 
-## The bridge
+## Attaching (the normal case)
 
-`script/coplan-bridge --config bridge.json` claims sessions on the plans
-you list, drains the inbox, and injects each event into your harness via
-a "resume session with message" command. It flips the pill to `active`
-before the harness even boots, so the human sees life immediately.
+An agent that is **alive and watching** doesn't need waking — it needs
+interrupting. `script/coplan-attach` holds one server-driven SSE
+connection and prints the moment something happens: no interval to tune,
+no daemon, no config file, no harness integration.
+
+```bash
+export COPLAN_BASE=http://localhost:3222 COPLAN_TOKEN=<token>
+
+# Turn-based agents: blocks until the first event, prints a brief, acks, exits.
+script/coplan-attach --plan <plan-id> --name Claude --once
+
+# Or stay attached and stream everything:
+script/coplan-attach --plan <plan-id> --name Claude
+```
+
+`--once` is the shape a harness wants: run it as a tool call, get woken
+by its output, act on the brief, run it again. While attached you hold
+the presence pill; Ctrl-C detaches cleanly. `--timeout N` exits 64 if
+nothing arrives, so a supervising loop can decide when to stop watching.
+
+It's a thin convenience over the API — an agent that can curl can do the
+same thing straight from `/agent-instructions`, and doesn't need this
+script at all.
+
+## The bridge (only for agents that have exited)
+
+If nothing is running, something has to start it. `script/coplan-bridge
+--config bridge.json` claims sessions on the plans you list, drains the
+inbox, and injects each event into your harness via a "resume session
+with message" command. It flips the pill to `active` before the harness
+even boots, so the human sees life immediately.
+
+This is strictly the cold-start path. If you keep a session attached
+while you work, skip the bridge entirely.
 
 ```json
 {

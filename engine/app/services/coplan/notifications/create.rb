@@ -43,9 +43,12 @@ module CoPlan
       def publish_agent_events
         event_type =
           case @reason
-          when "new_comment" then "comment.created"
-          when "reply", "agent_response" then "comment.replied"
           when "status_change" then "thread.status_changed"
+          when "new_comment", "reply", "agent_response"
+            # Notification reasons distinguish *who* spoke (a human opening
+            # a thread vs an agent answering); agents care about *where* it
+            # landed. Opening a thread is `created` no matter who did it.
+            opens_thread? ? "comment.created" : "comment.replied"
           end
         return unless event_type
 
@@ -56,6 +59,11 @@ module CoPlan
           comment_thread: @comment_thread,
           comment: @comment
         )
+      end
+
+      def opens_thread?
+        return false unless @comment
+        @comment_thread.comments.order(:id).first&.id == @comment.id
       end
 
       def compute_subscribers

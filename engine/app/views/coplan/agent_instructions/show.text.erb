@@ -547,7 +547,16 @@ Etiquette (this is what makes you feel like a collaborator, not a batch job):
 
 ### 2. Wait for Events
 
-Long-poll (returns immediately when an event lands, or empty after `wait` seconds):
+While you're attached, you don't poll on an interval — you hold a connection open and the server hands you events the instant they happen. Two equivalent ways to do that; both are ordinary HTTP.
+
+Held-open stream (Server-Sent Events — one socket, heartbeats every 15s, reconnect with your cursor):
+
+```bash
+<%= @curl %> -N -H "Accept: text/event-stream" \
+  "<%= @base %>/api/v1/agent/events?cursor=$LAST_EVENT_ID"
+```
+
+Long-poll (returns immediately when an event lands, or empty after `wait` seconds — easier to consume from a shell loop):
 
 ```bash
 <%= @curl %> "<%= @base %>/api/v1/agent/events?wait=25&cursor=$LAST_EVENT_ID" | jq .
@@ -564,7 +573,7 @@ Cursoring: event ids are time-ordered — pass the last id you processed as `cur
   "<%= @base %>/api/v1/agent/events/ack" | jq .
 ```
 
-Prefer a held-open stream? The same endpoint speaks Server-Sent Events with `-H "Accept: text/event-stream"` (heartbeats every 15s, reconnect with your cursor).
+Nothing here requires a daemon or a special harness integration: an attached agent runs the loop below itself. (`script/coplan-attach` in the CoPlan repo is a 6-line-equivalent convenience wrapper — `--once` blocks until one event arrives, prints a brief, acks, and exits, which is the shape a turn-based agent wants.)
 
 ### 3. The Loop
 
