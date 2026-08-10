@@ -111,7 +111,12 @@ end
 
 PLANS = Array(options[:plans])
 claim(PLANS, options[:agent_name]) if options[:claim]
-at_exit { detach(PLANS) if options[:claim] }
+
+# In --once mode the process exits *because* the agent is about to start
+# working, so detaching here would clear the pill at the exact moment the
+# human should see "on it". handing_off is set on the way out in that case.
+handing_off = false
+at_exit { detach(PLANS) if options[:claim] && !handing_off }
 trap("INT") { exit 0 }
 
 cursor = nil
@@ -155,7 +160,17 @@ loop do
               cursor = id || event["id"]
               api(:post, "/api/v1/agent/events/ack", body: { cursor: cursor }) if cursor
               saw_event = true
-              exit 0 if options[:once]
+              if options[:once]
+                # Hand the pill to the agent that's about to act on this,
+                # so the human sees life during its (slow) first turn
+                # rather than an empty masthead.
+                if options[:claim]
+                  handing_off = true
+                  api(:patch, "/api/v1/plans/#{event["plan_id"]}/agent_session",
+                      body: { state: "active", detail: "reading your comment" })
+                end
+                exit 0
+              end
               started = Time.now
             elsif line.empty?
               buffer = []

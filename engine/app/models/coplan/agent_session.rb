@@ -20,13 +20,41 @@ module CoPlan
     # promising the humans that the agent is coming.
     STALE_AFTER = 30.seconds
 
+    # An agent may legitimately work for a long time, but a process that
+    # died mid-turn must not hold the pill forever.
+    ACTIVE_STALE_AFTER = 5.minutes
+
+    # `awaiting_input` is the human's turn, so it's allowed to sit — but
+    # not past the point where the agent has certainly gone away.
+    AWAITING_INPUT_STALE_AFTER = 1.hour
+
+    STALE_WINDOWS = {
+      "pending" => STALE_AFTER,
+      "active" => ACTIVE_STALE_AFTER,
+      "awaiting_input" => AWAITING_INPUT_STALE_AFTER
+    }.freeze
+
     belongs_to :plan, class_name: "CoPlan::Plan"
     belongs_to :api_token, class_name: "CoPlan::ApiToken"
 
     validates :agent_name, presence: true
     validates :state, inclusion: { in: STATES }
 
-    scope :visible, -> { where(state: VISIBLE_STATES) }
+    # Visibility is computed at read time rather than trusting
+    # MarkStaleAgentSessionJob to have run: if the job worker is down (or
+    # the agent's process was killed), a `pending` row would otherwise
+    # promise a ghost agent forever. The job still runs to *broadcast* the
+    # removal promptly; correctness doesn't depend on it.
+    scope :visible, -> {
+      clauses = STALE_WINDOWS.map { "(state = ? AND COALESCE(last_activity_at, updated_at) > ?)" }.join(" OR ")
+      where(clauses, *STALE_WINDOWS.flat_map { |state, window| [state, window.ago] })
+    }
+
+    def stale?
+      window = STALE_WINDOWS[state]
+      return false unless window
+      (last_activity_at || updated_at) <= window.ago
+    end
 
     def transition!(new_state, detail: nil)
       update!(state: new_state, state_detail: detail, last_activity_at: Time.current)
