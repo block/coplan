@@ -797,6 +797,24 @@ img, svg {
   animation: agent-pill-pulse 1.4s ease-in-out infinite;
 }
 
+/* Attached but idle: present, quiet, and visibly not working — no pulse,
+   muted chrome, so only real activity draws the eye. */
+.agent-pill--watching {
+  background: color-mix(in srgb, var(--color-text-muted) 6%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-text-muted) 20%, transparent);
+  opacity: 0.85;
+}
+
+.agent-pill--watching .agent-pill__icon {
+  color: var(--color-text-muted);
+}
+
+.agent-pill--watching .agent-pill__dot {
+  background: var(--color-text-muted);
+  animation: none;
+  opacity: 0.6;
+}
+
 .agent-pill--awaiting_input {
   background: color-mix(in srgb, var(--color-warning, #b45309) 10%, var(--color-surface));
   border-color: color-mix(in srgb, var(--color-warning, #b45309) 30%, transparent);

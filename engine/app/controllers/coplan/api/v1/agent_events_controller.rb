@@ -126,6 +126,10 @@ module CoPlan
             if Time.current - last_heartbeat > HEARTBEAT_INTERVAL
               response.stream.write(": heartbeat\n\n")
               last_heartbeat = Time.current
+              # Liveness comes from the connection itself, so a watching
+              # agent's pill survives as long as it's really attached and
+              # expires on its own once the socket dies.
+              touch_watching_sessions
             end
 
             AgentEventBus.wait(@api_token.id, timeout: [HEARTBEAT_INTERVAL, deadline - Time.current].min)
@@ -134,6 +138,11 @@ module CoPlan
           # Client went away — normal for a streaming endpoint.
         ensure
           response.stream.close
+        end
+
+        def touch_watching_sessions
+          AgentSession.where(api_token_id: @api_token.id, state: "watching")
+            .update_all(last_activity_at: Time.current)
         end
 
         def fetch_events(cursor: params[:cursor].presence)

@@ -4,6 +4,10 @@ module CoPlan
   # pill on the plan page, so humans can see the agent is engaged the
   # moment it wakes, and whose turn it is when it asks a question.
   #
+  #   watching       attached and idle — present, but not doing anything.
+  #                  This is the resting state of an attached agent and
+  #                  must read differently from working, or the pill lies
+  #                  about activity that isn't happening.
   #   pending        an event was published; the agent hasn't reacted yet
   #   active         the agent acked / is working (state_detail says what)
   #   awaiting_input the agent asked a question; it's the human's turn
@@ -11,10 +15,10 @@ module CoPlan
   #   stale          the agent never reacted to a wake — don't show a
   #                  zombie "typing…" pill
   class AgentSession < ApplicationRecord
-    STATES = %w[pending active awaiting_input complete stale].freeze
+    STATES = %w[watching pending active awaiting_input complete stale].freeze
 
     # States rendered as a live pill on the plan page.
-    VISIBLE_STATES = %w[pending active awaiting_input].freeze
+    VISIBLE_STATES = %w[watching pending active awaiting_input].freeze
 
     # How long a session may sit in `pending` after a wake before we stop
     # promising the humans that the agent is coming.
@@ -28,7 +32,13 @@ module CoPlan
     # not past the point where the agent has certainly gone away.
     AWAITING_INPUT_STALE_AFTER = 1.hour
 
+    # A watching agent holds an open stream, and the server touches the
+    # session on every heartbeat (15s), so this only expires once the
+    # connection is genuinely gone.
+    WATCHING_STALE_AFTER = 2.minutes
+
     STALE_WINDOWS = {
+      "watching" => WATCHING_STALE_AFTER,
       "pending" => STALE_AFTER,
       "active" => ACTIVE_STALE_AFTER,
       "awaiting_input" => AWAITING_INPUT_STALE_AFTER
@@ -66,6 +76,7 @@ module CoPlan
     # stale countdown.
     def wake!
       transition!("pending") unless state == "active"
+      # (watching → pending is correct: the agent now owes a response.)
       MarkStaleAgentSessionJob.set(wait: STALE_AFTER).perform_later(
         agent_session_id: id, woken_at: last_activity_at&.iso8601 || Time.current.iso8601
       )
@@ -73,6 +84,8 @@ module CoPlan
 
     def display_status
       case state
+      # No ellipsis and no verb of effort: watching is presence, not work.
+      when "watching" then "#{agent_name} is watching"
       when "pending" then "#{agent_name} is on it…"
       when "active" then state_detail.presence ? "#{agent_name} is #{state_detail}" : "#{agent_name} is working…"
       when "awaiting_input" then "#{agent_name} asked a question"

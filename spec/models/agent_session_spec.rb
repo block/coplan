@@ -40,6 +40,18 @@ RSpec.describe CoPlan::AgentSession, type: :model do
       expect(described_class.visible).to be_empty
     end
 
+    it "keeps a watching session visible while its stream is alive" do
+      session(state: "watching", last_activity_at: 30.seconds.ago)
+
+      expect(described_class.visible.count).to eq(1)
+    end
+
+    it "hides a watching session once the stream stops heartbeating" do
+      session(state: "watching", last_activity_at: 5.minutes.ago)
+
+      expect(described_class.visible).to be_empty
+    end
+
     it "hides completed sessions regardless of recency" do
       session(state: "complete", last_activity_at: 1.second.ago)
 

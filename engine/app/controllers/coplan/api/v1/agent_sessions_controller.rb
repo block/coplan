@@ -19,9 +19,15 @@ module CoPlan
         before_action :require_token!
 
         def create
+          # Claiming a session means "I'm here", not "I'm working" — an
+          # attached, idle agent defaults to `watching`. Pass `state` to
+          # say otherwise (the bridge claims straight into `active`).
+          state = params[:state].presence_in(AgentSession::STATES - ["stale"]) || "watching"
+
           session = AgentSession.find_or_initialize_by(plan_id: @plan.id, api_token_id: @api_token.id)
           session.agent_name = params[:agent_name].presence || @api_token.agent_name.presence || @api_token.name
-          session.state = "active"
+          session.state = state
+          session.state_detail = params[:detail].presence
           session.last_activity_at = Time.current
           session.save!
           session.broadcast_pill

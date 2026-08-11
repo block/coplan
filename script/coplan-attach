@@ -82,7 +82,8 @@ rescue JSON::ParserError
 end
 
 def claim(plans, agent_name)
-  plans.each { |id| api(:post, "/api/v1/plans/#{id}/agent_session", body: { agent_name: agent_name, state: "active", detail: "watching this plan" }) }
+  # `watching` = attached and idle. Claiming must not claim to be working.
+  plans.each { |id| api(:post, "/api/v1/plans/#{id}/agent_session", body: { agent_name: agent_name, state: "watching" }) }
 end
 
 def detach(plans)

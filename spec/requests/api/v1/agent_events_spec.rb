@@ -18,7 +18,9 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       post api_v1_plan_agent_session_path(plan), params: { agent_name: "Claude" }, headers: agent_headers, as: :json
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
-      expect(body["state"]).to eq("active")
+      # Claiming means "attached", not "working" — the pill must not
+      # advertise activity that isn't happening.
+      expect(body["state"]).to eq("watching")
       expect(body["agent_name"]).to eq("Claude")
 
       patch api_v1_plan_agent_session_path(plan), params: { state: "awaiting_input", detail: "asked about rollout" }, headers: agent_headers, as: :json
@@ -32,6 +34,30 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     it "falls back to the token's agent_name when none is passed" do
       post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json
       expect(JSON.parse(response.body)["agent_name"]).to eq("Claude")
+    end
+
+    it "can claim straight into a working state when the caller means it" do
+      post api_v1_plan_agent_session_path(plan), params: { state: "active", detail: "reading your comment" }, headers: agent_headers, as: :json
+
+      body = JSON.parse(response.body)
+      expect(body["state"]).to eq("active")
+      expect(body["state_detail"]).to eq("reading your comment")
+    end
+
+    it "reads as presence rather than activity while watching" do
+      post api_v1_plan_agent_session_path(plan), params: { agent_name: "Claude" }, headers: agent_headers, as: :json
+
+      session = CoPlan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
+      expect(session.display_status).to eq("Claude is watching")
+    end
+
+    it "moves a watching session to pending when an event arrives" do
+      post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json
+      session = CoPlan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
+
+      session.wake!
+
+      expect(session.reload.state).to eq("pending")
     end
 
     it "is idempotent per (plan, token)" do
