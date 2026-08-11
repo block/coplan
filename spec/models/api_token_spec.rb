@@ -62,4 +62,52 @@ RSpec.describe CoPlan::ApiToken, type: :model do
     raw = CoPlan::ApiToken.generate_token
     expect(raw).to match(/\A[0-9a-f]{64}\z/)
   end
+
+  describe "session tokens" do
+    let(:parent) { create(:api_token, user: user, name: "hampton-laptop", agent_name: "Claude") }
+
+    it "mints a child that inherits the principal and expires on its own" do
+      child, raw = parent.mint_session_token!(agent_name: "Claude (refactor)")
+
+      expect(child.user_id).to eq(user.id)
+      expect(child.parent_id).to eq(parent.id)
+      expect(child.agent_name).to eq("Claude (refactor)")
+      expect(child.expires_at).to be_within(1.minute).of(12.hours.from_now)
+      expect(CoPlan::ApiToken.authenticate(raw)).to eq(child)
+    end
+
+    it "inherits the parent's agent_name when none is given" do
+      child, = parent.mint_session_token!
+      expect(child.agent_name).to eq("Claude")
+    end
+
+    it "clamps the ttl to the maximum" do
+      child, = parent.mint_session_token!(ttl: 30.days)
+      expect(child.expires_at).to be_within(1.minute).of(described_class::MAX_SESSION_TTL.from_now)
+    end
+
+    it "does not let a session token mint further tokens" do
+      child, = parent.mint_session_token!
+      expect(child).not_to be_can_mint
+      expect { child.mint_session_token! }
+        .to raise_error(CoPlan::ApiToken::Minting::NotPermitted)
+    end
+
+    it "revokes its children when the parent is revoked" do
+      child, raw = parent.mint_session_token!
+
+      parent.revoke!
+
+      expect(child.reload).to be_revoked
+      expect(CoPlan::ApiToken.authenticate(raw)).to be_nil
+    end
+
+    it "refuses a child whose parent expired without being revoked" do
+      child, raw = parent.mint_session_token!
+      parent.update!(expires_at: 1.minute.ago)
+
+      expect(CoPlan::ApiToken.authenticate(raw)).to be_nil
+      expect(child.reload).not_to be_revoked
+    end
+  end
 end

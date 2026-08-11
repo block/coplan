@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_07_215107) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_11_221311) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -86,11 +86,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_07_215107) do
     t.timestamp "expires_at"
     t.timestamp "last_used_at"
     t.string "name", null: false
+    t.string "parent_id", limit: 36
     t.timestamp "revoked_at"
     t.string "token_digest", null: false
     t.string "token_prefix", limit: 8
     t.datetime "updated_at", null: false
     t.string "user_id", limit: 36, null: false
+    t.index ["parent_id", "revoked_at"], name: "index_coplan_api_tokens_on_parent_id_and_revoked_at"
     t.index ["token_digest"], name: "index_coplan_api_tokens_on_token_digest", unique: true
     t.index ["user_id"], name: "index_coplan_api_tokens_on_user_id"
   end
@@ -395,6 +397,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_07_215107) do
   add_foreign_key "coplan_agent_events", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_agent_sessions", "coplan_api_tokens", column: "api_token_id"
   add_foreign_key "coplan_agent_sessions", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_api_tokens", "coplan_api_tokens", column: "parent_id"
   add_foreign_key "coplan_api_tokens", "coplan_users", column: "user_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "addressed_in_plan_version_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "out_of_date_since_version_id"

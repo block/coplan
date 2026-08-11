@@ -89,6 +89,11 @@ CoPlan::Engine.routes.draw do
         get "events", to: "agent_events#index", as: :agent_events
         post "events/ack", to: "agent_events#ack", as: :agent_events_ack
       end
+
+      # Mint a short-lived session token from a long-lived one; DELETE
+      # revokes whichever token authenticated the request.
+      resources :tokens, only: [:create]
+      delete "tokens/current", to: "tokens#destroy", as: :revoke_current_token
     end
   end
 

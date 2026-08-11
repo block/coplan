@@ -19,7 +19,7 @@ module CoPlan
       end
 
       def call
-        sessions = AgentSession.where(plan_id: @plan.id)
+        sessions = AgentSession.where(plan_id: @plan.id).includes(:api_token)
         sessions.each do |session|
           next if @actor_id.present? && session.api_token_id == @actor_id
 
@@ -29,7 +29,7 @@ module CoPlan
             comment_thread_id: @comment_thread&.id,
             comment_id: @comment&.id,
             event_type: @event_type,
-            payload: base_payload.merge(@payload)
+            payload: base_payload.merge(authority_payload(session)).merge(@payload)
           )
           # The event is queued for every session — inboxes are durable, so
           # a detached agent gets its backlog when it comes back. But only
@@ -61,6 +61,32 @@ module CoPlan
           payload["comment_author_type"] = @comment.author_type
         end
         payload
+      end
+
+      # How much weight the agent should give this comment. Two separate
+      # questions, because they come apart: the person who wrote the plan
+      # isn't necessarily the person whose agent this is, and a comment from
+      # a stranger on your own plan shouldn't authorize edits the way your
+      # own comment does.
+      #
+      #   from_principal  the commenter is the human this token belongs to
+      #   from_plan_author  the commenter wrote the plan
+      #   authority       "principal" → act directly
+      #                   "collaborator" → acknowledge and propose in-thread
+      def authority_payload(session)
+        return {} unless @comment
+
+        principal_id = session.api_token&.user_id
+        # author_id holds a user id for both human and local_agent comments,
+        # so an agent posting on someone's behalf carries their authority.
+        author_id = @comment.author_id if @comment.author_type.in?(%w[human local_agent])
+        from_principal = author_id.present? && author_id == principal_id
+
+        {
+          "from_principal" => from_principal,
+          "from_plan_author" => author_id.present? && author_id == @plan.created_by_user_id,
+          "authority" => from_principal ? "principal" : "collaborator"
+        }
       end
     end
   end

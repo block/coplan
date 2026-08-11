@@ -136,6 +136,53 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(CoPlan::AgentEvent.for_token(agent_token).first.event_type).to eq("comment.replied")
     end
 
+    describe "authority" do
+      it "marks a comment from the token's own human as principal" do
+        CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+
+        payload = CoPlan::AgentEvent.for_token(agent_token).first.payload
+        expect(payload["authority"]).to eq("principal")
+        expect(payload["from_principal"]).to be(true)
+        expect(payload["from_plan_author"]).to be(true)
+      end
+
+      it "marks a comment from anyone else as a collaborator" do
+        sara = create(:coplan_user)
+        sara_comment = create(:comment, comment_thread: thread, author_type: "human", author_id: sara.id, body_markdown: "drive-by thought")
+        CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: sara.id, comment: sara_comment, reason: "new_comment")
+
+        payload = CoPlan::AgentEvent.for_token(agent_token).first.payload
+        expect(payload["authority"]).to eq("collaborator")
+        expect(payload["from_principal"]).to be(false)
+        expect(payload["from_plan_author"]).to be(false)
+      end
+
+      # The two questions come apart: an agent can be attached to a plan
+      # somebody else wrote, and its own principal still outranks the author.
+      it "separates 'my human' from 'the plan's author'" do
+        sara = create(:coplan_user)
+        sara_plan = create(:plan, :considering, created_by_user: sara)
+        create_agent_collab_session(agent_token, plan: sara_plan)
+        sara_thread = create(:comment_thread, plan: sara_plan, plan_version: sara_plan.current_plan_version, created_by_user: sara)
+        hampton_comment = create(:comment, comment_thread: sara_thread, author_type: "human", author_id: hampton.id, body_markdown: "mine")
+        CoPlan::Notifications::Create.call(comment_thread: sara_thread, actor_id: hampton.id, comment: hampton_comment, reason: "new_comment")
+
+        payload = CoPlan::AgentEvent.for_token(agent_token).where(plan_id: sara_plan.id).first.payload
+        expect(payload["from_principal"]).to be(true)
+        expect(payload["from_plan_author"]).to be(false)
+      end
+
+      # An agent posting under a token carries that token's human, so a
+      # second agent working for Hampton speaks with Hampton's authority.
+      it "treats an agent comment as coming from the human behind its token" do
+        agent_comment = create(:comment, comment_thread: thread, author_type: "local_agent", author_id: hampton.id, agent_name: "Amp", body_markdown: "from another agent")
+        CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: other_token.id, comment: agent_comment, reason: "agent_response")
+
+        payload = CoPlan::AgentEvent.for_token(agent_token).first.payload
+        expect(payload["from_principal"]).to be(true)
+      end
+    end
+
     it "publishes content changes with changed section keys" do
       CoPlan::Plans::ReplaceContent.call(
         plan: plan,
@@ -319,7 +366,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
 
   # An agent that has claimed a session and is attached, which is the
   # state fan-out actually cares about.
-  def create_agent_collab_session(token)
+  def create_agent_collab_session(token, plan: self.plan)
     CoPlan::AgentSession.create!(
       plan_id: plan.id,
       api_token_id: token.id,
