@@ -48,7 +48,18 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       post api_v1_plan_agent_session_path(plan), params: { agent_name: "Claude" }, headers: agent_headers, as: :json
 
       session = CoPlan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
-      expect(session.display_status).to eq("Claude is watching")
+      expect(session.display_status).to eq("Claude")
+    end
+
+    it "does not erase awaiting_input when the agent reattaches" do
+      post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json
+      patch api_v1_plan_agent_session_path(plan), params: { state: "awaiting_input", detail: "asked about rollout" }, headers: agent_headers, as: :json
+
+      post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json
+
+      body = JSON.parse(response.body)
+      expect(body["state"]).to eq("awaiting_input")
+      expect(body["state_detail"]).to eq("asked about rollout")
     end
 
     it "moves a watching session to pending when an event arrives" do
@@ -82,6 +93,26 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(event.payload["plan_title"]).to eq(plan.title)
 
       expect(session.reload.state).to eq("pending")
+    end
+
+    it "queues events for a detached session without giving it a pill" do
+      session.update!(state: "complete", last_activity_at: 1.minute.ago)
+
+      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+
+      # The inbox is durable — it gets the backlog when it reattaches...
+      expect(CoPlan::AgentEvent.for_token(agent_token).count).to eq(1)
+      # ...but an abandoned session must not be resurrected into a pill.
+      expect(session.reload.state).to eq("complete")
+      expect(CoPlan::AgentSession.visible).to be_empty
+    end
+
+    it "does not resurrect a session whose agent stopped responding" do
+      session.update!(state: "pending", last_activity_at: 10.minutes.ago)
+
+      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+
+      expect(CoPlan::AgentSession.visible).to be_empty
     end
 
     it "does not wake the agent for its own comments" do
@@ -286,12 +317,15 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     end
   end
 
+  # An agent that has claimed a session and is attached, which is the
+  # state fan-out actually cares about.
   def create_agent_collab_session(token)
     CoPlan::AgentSession.create!(
       plan_id: plan.id,
       api_token_id: token.id,
       agent_name: token.agent_name,
-      state: "complete"
+      state: "watching",
+      last_activity_at: Time.current
     )
   end
 end

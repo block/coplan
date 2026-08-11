@@ -26,8 +26,14 @@ module CoPlan
 
           session = AgentSession.find_or_initialize_by(plan_id: @plan.id, api_token_id: @api_token.id)
           session.agent_name = params[:agent_name].presence || @api_token.agent_name.presence || @api_token.name
-          session.state = state
-          session.state_detail = params[:detail].presence
+
+          # Reattaching must not erase a question the agent is still
+          # waiting on: a default claim leaves `awaiting_input` alone, so
+          # the human keeps seeing whose turn it is. An explicit state wins.
+          unless params[:state].blank? && session.state == "awaiting_input"
+            session.state = state
+            session.state_detail = params[:detail].presence
+          end
           session.last_activity_at = Time.current
           session.save!
           session.broadcast_pill

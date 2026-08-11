@@ -31,7 +31,13 @@ module CoPlan
             event_type: @event_type,
             payload: base_payload.merge(@payload)
           )
-          session.wake!
+          # The event is queued for every session — inboxes are durable, so
+          # a detached agent gets its backlog when it comes back. But only
+          # a session with something actually attached gets woken into a
+          # pill: otherwise an abandoned session is resurrected by every
+          # new comment and haunts the plan forever.
+          session.wake! if session.live?
+
           # Hand the event straight to any connection already waiting on
           # this token's inbox, so delivery doesn't wait for a poll tick.
           AgentEventBus.signal(session.api_token_id)

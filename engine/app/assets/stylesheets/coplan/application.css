@@ -797,12 +797,12 @@ img, svg {
   animation: agent-pill-pulse 1.4s ease-in-out infinite;
 }
 
-/* Attached but idle: present, quiet, and visibly not working — no pulse,
-   muted chrome, so only real activity draws the eye. */
+/* Listening: just the agent's name and a green pulse — a mic-live
+   indicator, not a status message. Chrome stays muted so working states
+   still out-rank it visually. */
 .agent-pill--watching {
   background: color-mix(in srgb, var(--color-text-muted) 6%, var(--color-surface));
   border-color: color-mix(in srgb, var(--color-text-muted) 20%, transparent);
-  opacity: 0.85;
 }
 
 .agent-pill--watching .agent-pill__icon {
@@ -810,9 +810,20 @@ img, svg {
 }
 
 .agent-pill--watching .agent-pill__dot {
-  background: var(--color-text-muted);
-  animation: none;
-  opacity: 0.6;
+  background: var(--color-success);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 60%, transparent);
+  animation: agent-pill-listen 2s ease-in-out infinite;
+}
+
+@keyframes agent-pill-listen {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 55%, transparent);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-success) 0%, transparent);
+  }
 }
 
 .agent-pill--awaiting_input {

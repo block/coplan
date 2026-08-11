@@ -60,6 +60,13 @@ module CoPlan
       where(clauses, *STALE_WINDOWS.flat_map { |state, window| [state, window.ago] })
     }
 
+    # Is anything actually attached behind this row? Events are still
+    # queued for sessions that aren't (their inbox is durable), but a
+    # session with no live process must never be given a pill.
+    def live?
+      VISIBLE_STATES.include?(state) && !stale?
+    end
+
     def stale?
       window = STALE_WINDOWS[state]
       return false unless window
@@ -84,8 +91,9 @@ module CoPlan
 
     def display_status
       case state
-      # No ellipsis and no verb of effort: watching is presence, not work.
-      when "watching" then "#{agent_name} is watching"
+      # Listening is presence, not work: just the name. The pill's green
+      # pulse carries "I'm here", so the label doesn't need a verb.
+      when "watching" then agent_name
       when "pending" then "#{agent_name} is on it…"
       when "active" then state_detail.presence ? "#{agent_name} is #{state_detail}" : "#{agent_name} is working…"
       when "awaiting_input" then "#{agent_name} asked a question"
