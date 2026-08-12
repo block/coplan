@@ -10,8 +10,12 @@
 # already exited.
 #
 #   export COPLAN_BASE=http://localhost:3223
-#   export COPLAN_TOKEN=<api token>
+#   export COPLAN_TOKEN=<long-lived api token>
 #   script/coplan-attach --plan <plan-id> --once
+#
+# COPLAN_TOKEN is the machine's long-lived token; this mints a short-lived
+# child from it, sticky to this agent run, and uses that. The secret never
+# passes through the agent — see script/coplan_session.rb.
 #
 # The connection is server-driven (SSE): the process sits idle on a
 # socket and prints the moment an event lands — no repeated requests,
@@ -35,6 +39,7 @@ require "json"
 require "net/http"
 require "uri"
 require "optparse"
+require_relative "coplan_session"
 
 $stdout.sync = true
 
@@ -57,44 +62,31 @@ OptionParser.new do |opts|
   opts.on("--timeout SECONDS", Integer, "Give up waiting after N seconds (exit 64)") { |v| options[:timeout] = v }
   opts.on("--no-claim", "Don't claim an agent session / show a pill") { options[:claim] = false }
   opts.on("--json", "Emit raw event JSON instead of a prose brief") { options[:json] = true }
-  opts.on("--mint", "Mint a short-lived session token from $COPLAN_TOKEN and use that") { options[:mint] = true }
-  opts.on("--mint-only", "Mint a session token, print it, and exit (no --plan needed)") { options[:mint_only] = true }
-  opts.on("--mint-ttl SECONDS", Integer, "TTL for the minted token (default 12h)") { |v| options[:mint_ttl] = v }
+  opts.on("--session KEY", "Session key for the sticky token (default: harness session id)") { |v| options[:session_key] = v }
+  opts.on("--no-session", "Use $COPLAN_TOKEN directly instead of a sticky session token") { options[:session] = false }
 end.parse!
 
-abort "coplan-attach: --plan is required" if Array(options[:plans]).empty? && !options[:mint_only]
+abort "coplan-attach: --plan is required" if Array(options[:plans]).empty?
 abort "coplan-attach: no token (set COPLAN_TOKEN or pass --token)" if options[:token].to_s.empty?
 
 BASE = URI(options[:base])
 
 # A token is the unit of event subscription, so two agents sharing one
-# token share an inbox and race for each other's wakes. --mint trades the
-# machine-wide token for a per-run child: same principal, own inbox, own
-# pill, and it expires on its own if this process dies badly.
-def mint_session_token(base, parent_token, agent_name, ttl)
-  uri = URI.join(base.to_s, "/api/v1/tokens")
-  req = Net::HTTP::Post.new(uri)
-  req["Authorization"] = "Bearer #{parent_token}"
-  req["Content-Type"] = "application/json"
-  req.body = { agent_name: agent_name, name: "#{agent_name} (attach)", ttl_seconds: ttl }.compact.to_json
-  res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") { |http| http.request(req) }
-  abort "coplan-attach: could not mint session token (#{res.code}): #{res.body}" unless res.code.start_with?("2")
-  JSON.parse(res.body).fetch("token")
-end
-
-# Turn-based agents run --once in a loop, so minting per invocation would
-# churn a new identity (and a new pill) every turn. Mint once up front,
-# export it, and every attach in the session shares one inbox.
-if options[:mint_only]
-  puts mint_session_token(BASE, options[:token], options[:agent_name], options[:mint_ttl])
-  exit 0
-end
-
+# share an inbox and race for each other's wakes. Each run gets its own
+# short-lived child token — but "its own" has to survive the agent's own
+# turns, so it's keyed to the harness session and stored on disk rather
+# than minted fresh on every --once invocation (which would churn a new
+# identity, and a new presence pill, every turn).
 TOKEN =
-  if options[:mint]
-    mint_session_token(BASE, options[:token], options[:agent_name], options[:mint_ttl])
-  else
+  if options[:session] == false
     options[:token]
+  else
+    CoPlanSession.ensure_token(
+      base: BASE,
+      parent: options[:token],
+      agent_name: options[:agent_name],
+      key: options[:session_key]
+    )
   end
 
 def api(method, path, body: nil)
@@ -164,12 +156,10 @@ claim(PLANS, options[:agent_name]) if options[:claim]
 # working, so detaching here would clear the pill at the exact moment the
 # human should see "on it". handing_off is set on the way out in that case.
 handing_off = false
-at_exit do
-  next if handing_off
-  detach(PLANS) if options[:claim]
-  # A token minted for this process shouldn't outlive it.
-  api(:delete, "/api/v1/tokens/current") if options[:mint]
-end
+# The session token deliberately outlives this process — the next --once
+# invocation in the same agent run reuses it, so the agent keeps one inbox
+# and one pill across its turns. `script/coplan session --revoke` ends it.
+at_exit { detach(PLANS) if options[:claim] && !handing_off }
 trap("INT") { exit 0 }
 
 cursor = nil
