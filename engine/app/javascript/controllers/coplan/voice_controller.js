@@ -23,7 +23,7 @@ import { Controller } from "@hotwired/stimulus"
  */
 export default class extends Controller {
   static targets = ["button", "status"]
-  static values = { url: String, anchorUrl: String }
+  static values = { url: String, dictationUrl: String }
 
   connect() {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -43,11 +43,85 @@ export default class extends Controller {
     this.listening = false
     this.finalTranscript = ""
     this._watchAgentPill()
+    this._enablePushToTalk()
   }
 
   disconnect() {
     this.recognition?.abort()
     this.pillObserver?.disconnect()
+    this._disablePushToTalk()
+  }
+
+  // Hold Shift to talk, release to send.
+  //
+  // Shift is also held while typing capitals and extending a selection,
+  // so a bare press isn't enough of a signal. Three guards keep it from
+  // firing by accident: it must be Shift alone with no other key down, it
+  // must be held past a short delay (capitals are a tap), and any other
+  // keystroke or a text selection cancels without posting.
+  _enablePushToTalk() {
+    this.HOLD_DELAY = 350
+
+    this._onKeyDown = (event) => {
+      if (event.key !== "Shift") {
+        // Shift+something is a shortcut or a capital letter, not talking.
+        if (this.pushToTalk) this._cancelPushToTalk()
+        return
+      }
+      if (event.repeat || this.pushToTalk || this.listening) return
+      if (this._isTyping() || event.metaKey || event.ctrlKey || event.altKey) return
+
+      this.holdTimer = setTimeout(() => {
+        // Extending a selection with Shift+arrow or Shift+click also
+        // holds Shift; if text got selected, that's what was happening.
+        if (!window.getSelection()?.isCollapsed) return
+        this.pushToTalk = true
+        this._start()
+      }, this.HOLD_DELAY)
+    }
+
+    this._onKeyUp = (event) => {
+      if (event.key !== "Shift") return
+      clearTimeout(this.holdTimer)
+      if (!this.pushToTalk) return
+
+      this.pushToTalk = false
+      // stop() finalises the transcript and fires onend, which posts.
+      this.recognition?.stop()
+    }
+
+    // Losing the window means we never see the keyup — don't leave the
+    // mic open, and don't post something half-said.
+    this._onInterrupt = () => this._cancelPushToTalk()
+
+    document.addEventListener("keydown", this._onKeyDown)
+    document.addEventListener("keyup", this._onKeyUp)
+    window.addEventListener("blur", this._onInterrupt)
+  }
+
+  _cancelPushToTalk() {
+    clearTimeout(this.holdTimer)
+    if (!this.pushToTalk) return
+
+    this.pushToTalk = false
+    // abort() discards the transcript; stop() would post it.
+    this.recognition?.abort()
+    this.listening = false
+    this.buttonTarget.classList.remove("voice-btn--listening")
+    this._setStatus("")
+  }
+
+  _isTyping() {
+    const el = document.activeElement
+    if (!el) return false
+    return el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)
+  }
+
+  _disablePushToTalk() {
+    clearTimeout(this.holdTimer)
+    document.removeEventListener("keydown", this._onKeyDown)
+    document.removeEventListener("keyup", this._onKeyUp)
+    window.removeEventListener("blur", this._onInterrupt)
   }
 
   toggle() {
@@ -82,15 +156,18 @@ export default class extends Controller {
   }
 
   async _post(text) {
-    this._setStatus("Sending…")
+    this._setStatus("Tidying up…")
+
+    // One round trip does both jobs: cleans up what you said, and works
+    // out which passage you said it about. Either half can come back
+    // empty; the raw transcript and the section heading are the floor.
+    const interpreted = await this._interpret(text)
+    const commentBody = interpreted?.body || this._stripFillers(text)
+    const anchor = interpreted?.anchor || this._viewportAnchor()
+
     const token = document.querySelector('meta[name="csrf-token"]')?.content
     const body = new FormData()
-    body.append("comment_thread[body_markdown]", `🎙️ ${text}`)
-
-    // Pin the note to what you were talking about. The section on screen
-    // is the floor; if the AI can pick out the actual sentence from what
-    // was visible, the highlight lands there instead.
-    const anchor = (await this._precisePin(text)) || this._viewportAnchor()
+    body.append("comment_thread[body_markdown]", `🎙️ ${commentBody}`)
     if (anchor) {
       body.append("comment_thread[anchor_text]", anchor.text)
       body.append("comment_thread[anchor_occurrence]", anchor.occurrence)
@@ -118,21 +195,19 @@ export default class extends Controller {
     }, 12000)
   }
 
-  // Ask the server which words the remark was about, given only what was
-  // on screen. Strictly an upgrade over the heading anchor: it is time-
-  // boxed, and any failure — no AI configured, slow model, a paraphrase
-  // that doesn't appear in the text — just leaves the fallback in place.
-  async _precisePin(transcript) {
+  // Clean up the transcript and locate the passage, in one time-boxed
+  // request. Any failure — no AI configured, slow model, a paraphrase
+  // that doesn't appear in the text — leaves the fallbacks in place.
+  async _interpret(transcript) {
     const visible = this._visibleText()
     if (!visible) return null
 
-    this._setStatus("Finding the spot…")
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 4000)
+    const timer = setTimeout(() => controller.abort(), 6000)
 
     try {
       const token = document.querySelector('meta[name="csrf-token"]')?.content
-      const response = await fetch(this.anchorUrlValue, {
+      const response = await fetch(this.dictationUrlValue, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-CSRF-Token": token, Accept: "application/json" },
         body: JSON.stringify({ transcript, excerpt: visible }),
@@ -140,21 +215,42 @@ export default class extends Controller {
       })
       if (!response.ok) return null
 
-      const { anchor_text: anchorText } = await response.json()
-      if (!anchorText) return null
-
-      // The span has to exist in the rendered document to be highlighted,
-      // and we need to know which copy of it we mean.
-      const content = document.getElementById("plan-content-body")
-      const rendered = content?.textContent || ""
-      if (!rendered.includes(anchorText)) return null
-
-      return { text: anchorText, occurrence: this._occurrenceOfNearViewport(content, anchorText) }
+      const { body, anchor_text: anchorText } = await response.json()
+      return { body: body || null, anchor: this._resolveAnchor(anchorText) }
     } catch {
       return null
     } finally {
       clearTimeout(timer)
     }
+  }
+
+  // The span has to exist in the rendered document to be highlighted,
+  // and we need to know which copy of it we mean.
+  _resolveAnchor(anchorText) {
+    if (!anchorText) return null
+
+    const content = document.getElementById("plan-content-body")
+    if (!content?.textContent?.includes(anchorText)) return null
+
+    return { text: anchorText, occurrence: this._occurrenceOfNearViewport(content, anchorText) }
+  }
+
+  // Fallback tidy-up for when the AI isn't available: drop the tics that
+  // stand alone as words and collapse stutters. Conservative on purpose
+  // — "like" is a real word ("looks like the API"), so it only goes when
+  // it's clearly filler, and nothing here reorders or rewrites.
+  _stripFillers(text) {
+    const cleaned = text
+      .replace(/\b(?:um+|uh+|er+|hmm+)\b[,]?\s*/gi, "")
+      .replace(/\b(?:you know|i mean|sort of|kind of|basically)\b[,]?\s*/gi, "")
+      .replace(/\blike\b[,]?\s+(?=like\b)/gi, "")
+      .replace(/\b(\w+)(\s+\1\b)+/gi, "$1")
+      .replace(/\s{2,}/g, " ")
+      .replace(/\s+([,.!?])/g, "$1")
+      .trim()
+
+    if (cleaned.length === 0) return text
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
   }
 
   // The text currently on screen, which is both what the remark was about

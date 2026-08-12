@@ -1,0 +1,149 @@
+module CoPlan
+  module Comments
+    # Turns what somebody said into a comment worth reading: the words
+    # tidied up, and the passage they were talking about.
+    #
+    # Both halves need the same two inputs — the transcript and what was
+    # on screen — so they're one call. Speech is full of false starts
+    # ("put the medium weight latency I put the like the speed"), and a
+    # remark like "this bit is too cautious" only means something next to
+    # the text it's pointing at.
+    #
+    # Neither half is trusted:
+    #   - a span that isn't in the excerpt character-for-character is a
+    #     paraphrase, and a paraphrase can't be highlighted
+    #   - a rewrite that changes length dramatically has stopped being a
+    #     cleanup and started being a summary
+    # Anything that fails a check falls back to what the person said.
+    class InterpretDictation
+      Result = Struct.new(:body, :anchor_text, keyword_init: true)
+
+      # Long enough to be unambiguous, short enough that the highlight
+      # reads as a pointer rather than a block quote.
+      MAX_ANCHOR_LENGTH = 300
+
+      # A tidy-up keeps roughly the same words. Outside this band it's
+      # either dropping content or padding it.
+      MIN_LENGTH_RATIO = 0.4
+      MAX_LENGTH_RATIO = 1.6
+
+      SYSTEM_PROMPT = <<~PROMPT.freeze
+        You process a spoken remark somebody made about a document.
+
+        You are given an excerpt of what was on their screen and a raw
+        speech-to-text transcript. Return JSON with exactly two keys:
+
+        {"text": "...", "span": "..."}
+
+        "text": the remark cleaned up into a readable comment.
+        - Remove filler words and verbal tics: um, uh, like, you know,
+          I mean, sort of, kind of, basically, actually.
+        - Repair false starts and repetitions into what they meant to say.
+        - Fix obvious mis-transcriptions using the excerpt as context
+          (technical terms in the excerpt are almost certainly what they
+          said).
+        - Keep their meaning, their voice, and their brevity. Do not make
+          it formal, do not expand it, do not add points they did not
+          make, do not answer or act on it.
+
+        "span": the exact text from the excerpt the remark is about.
+        - Copied character-for-character from the excerpt.
+        - The smallest span that identifies the target: a phrase or
+          sentence, not a whole section.
+        - Use null if the remark is about the document as a whole, or you
+          cannot identify a specific passage.
+
+        Reply with the JSON object and nothing else.
+      PROMPT
+
+      def self.call(...) = new(...).call
+
+      def initialize(excerpt:, transcript:)
+        @excerpt = excerpt.to_s
+        @transcript = transcript.to_s.strip
+      end
+
+      def call
+        return Result.new(body: @transcript, anchor_text: nil) if @transcript.empty?
+
+        parsed = parse(Ai.call(system_prompt: SYSTEM_PROMPT, user_content: user_content))
+        Result.new(
+          body: cleaned_text(parsed["text"]),
+          anchor_text: verbatim_span(parsed["span"])
+        )
+      rescue Ai::Error => e
+        # Both halves are enhancements; a local tidy-up of what they said
+        # is still better than nothing.
+        Rails.logger.info("[coplan] dictation interpretation unavailable: #{e.message}")
+        Result.new(body: fallback_text, anchor_text: nil)
+      end
+
+      private
+
+      def user_content
+        <<~CONTENT
+          Excerpt:
+          ---
+          #{@excerpt}
+          ---
+
+          Transcript: #{@transcript}
+        CONTENT
+      end
+
+      def parse(response)
+        # Models wrap JSON in code fences regardless of instructions.
+        json = response.to_s.strip.gsub(/\A```(?:json)?\s*|\s*```\z/, "")
+        parsed = JSON.parse(json)
+        parsed.is_a?(Hash) ? parsed : {}
+      rescue JSON::ParserError
+        {}
+      end
+
+      def cleaned_text(text)
+        text = text.to_s.strip
+        return fallback_text if text.empty?
+
+        ratio = text.length.to_f / @transcript.length
+        return fallback_text unless ratio.between?(MIN_LENGTH_RATIO, MAX_LENGTH_RATIO)
+
+        text
+      end
+
+      # The floor when the model can't be reached or its rewrite is
+      # rejected: drop the tics that stand alone as words and collapse
+      # stutters. Conservative on purpose — "like" is a real word ("looks
+      # like the API"), so it only goes when it is clearly filler, and
+      # nothing here reorders or rewrites.
+      def fallback_text
+        cleaned = @transcript
+          .gsub(/\b(?:um+|uh+|er+|hmm+)\b,?\s*/i, "")
+          .gsub(/\b(?:you know|i mean|sort of|kind of|basically)\b,?\s*/i, "")
+          .gsub(/\blike\b,?\s+(?=like\b)/i, "")
+          # A comma before "like" marks it as filler — "it looks like the
+          # API" has no comma, "this is, like, vague" does.
+          .gsub(/,\s*like\b,?\s*/i, " ")
+          .gsub(/\b(\w+)(\s+\1\b)+/i, '\1')
+          .gsub(/\s{2,}/, " ")
+          .gsub(/\s+([,.!?])/, '\1')
+          .strip
+
+        return @transcript if cleaned.empty?
+
+        cleaned.sub(/\A./) { |c| c.upcase }
+      end
+
+      def verbatim_span(span)
+        span = span.to_s.strip
+        return nil if span.empty? || span.casecmp("null").zero?
+        return nil if span.length > MAX_ANCHOR_LENGTH
+        return span if @excerpt.include?(span)
+
+        # Models wrap spans in quotes even when told not to; that much we
+        # forgive. Anything else isn't in the document.
+        trimmed = span.gsub(/\A[\s"'“”‘’]+|[\s"'“”‘’]+\z/, "")
+        trimmed.presence && @excerpt.include?(trimmed) ? trimmed : nil
+      end
+    end
+  end
+end

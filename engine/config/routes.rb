@@ -15,9 +15,9 @@ CoPlan::Engine.routes.draw do
     end
     resources :references, controller: "references", only: [:create, :destroy]
     resources :attachments, controller: "attachments", only: [:create, :destroy]
-    # Asks the AI which words a spoken remark was about; see
-    # AnchorSuggestionsController.
-    resources :anchor_suggestions, only: [:create]
+    # Cleans up a spoken remark and works out which passage it was about;
+    # see DictationsController.
+    resources :dictations, only: [:create]
     resources :comment_threads, only: [:create] do
       member do
         patch :resolve

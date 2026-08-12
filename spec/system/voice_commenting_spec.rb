@@ -41,24 +41,36 @@ RSpec.describe "Voice commenting", type: :system do
 
   # Installed before any page script runs, so the Stimulus controller sees
   # a browser that can transcribe and renders the mic button.
-  def stub_speech_recognition(transcript)
+  #
+  # Two real behaviours to model, and which one is in play matters:
+  #   - tap the button: continuous = false, so the browser decides speech
+  #     has ended and fires the result on its own.
+  #   - hold to talk: the result arrives because stop() was called on
+  #     release, and abort() throws away whatever was captured.
+  # A fake that always emits on start() would make "cancel" look like it
+  # posted, because the post would have happened before the cancel.
+  def stub_speech_recognition(transcript, emit_on_stop: false)
     page.driver.browser.execute_cdp(
       "Page.addScriptToEvaluateOnNewDocument",
       source: <<~JS
         window.SpeechRecognition = class {
-          start() {
-            setTimeout(() => {
-              // Shaped like a real SpeechRecognitionResultList: an
-              // iterable of results, each indexable by alternative, and
-              // isFinal is what tells the controller it's done.
-              const result = [{ transcript: #{transcript.to_json} }]
-              result.isFinal = true
-              this.onresult({ results: [result] })
-              this.onend()
-            }, 10)
+          _emit() {
+            if (this._done) return
+            this._done = true
+            // Shaped like a real SpeechRecognitionResultList: an iterable
+            // of results, each indexable by alternative, and isFinal is
+            // what tells the controller the transcript is settled.
+            const result = [{ transcript: #{transcript.to_json} }]
+            result.isFinal = true
+            this.onresult({ results: [result] })
+            this.onend()
           }
-          stop() {}
-          abort() {}
+          start() {
+            this._done = false
+            if (!#{emit_on_stop}) setTimeout(() => this._emit(), 10)
+          }
+          stop() { this._emit() }
+          abort() { this._done = true }
         }
       JS
     )
@@ -66,11 +78,13 @@ RSpec.describe "Voice commenting", type: :system do
 
   before { sign_in(author) }
 
-  it "pins a dictated comment to the passage the AI identifies" do
-    allow(CoPlan::Ai).to receive(:call)
-      .and_return("The higher-fidelity sidecar stays behind a flag until it is proven.")
+  it "cleans up the remark and pins it to the passage the AI identifies" do
+    allow(CoPlan::Ai).to receive(:call).and_return({
+      "text" => "This bit is too cautious.",
+      "span" => "The higher-fidelity sidecar stays behind a flag until it is proven."
+    }.to_json)
 
-    stub_speech_recognition("this bit is way too cautious")
+    stub_speech_recognition("this bit is like way too like cautious")
     visit plan_path(plan)
 
     find(".voice-btn").click
@@ -79,7 +93,7 @@ RSpec.describe "Voice commenting", type: :system do
 
     thread = CoPlan::CommentThread.where(plan_id: plan.id).last
     expect(thread.anchor_text).to eq("The higher-fidelity sidecar stays behind a flag until it is proven.")
-    expect(thread.comments.first.body_markdown).to eq("🎙️ this bit is way too cautious")
+    expect(thread.comments.first.body_markdown).to eq("🎙️ This bit is too cautious.")
     # The anchor has to resolve against the document, or there's no pin.
     # anchor_start is what actually produces the highlight — a thread with
     # anchor_text that never resolved is a pin pointing at nothing.
@@ -90,11 +104,12 @@ RSpec.describe "Voice commenting", type: :system do
   end
 
   # The AI is an enhancement. When it can't answer, the comment still has
-  # to land somewhere visible rather than becoming an invisible thread.
-  it "falls back to the section heading when the AI can't identify a span" do
+  # to land somewhere visible rather than becoming an invisible thread,
+  # and the client's own tidy-up still takes the worst tics out.
+  it "falls back to the heading and a local cleanup when the AI is down" do
     allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "not configured")
 
-    stub_speech_recognition("something about this section")
+    stub_speech_recognition("um this section is, you know, like like too vague")
     visit plan_path(plan)
 
     find(".voice-btn").click
@@ -105,12 +120,85 @@ RSpec.describe "Voice commenting", type: :system do
     expect(thread.anchor_text).to be_present
     expect(thread).to be_anchored
     expect(thread.anchor_start).to be_present
+
+    body = thread.comments.first.body_markdown
+    expect(body).not_to match(/\bum\b/i)
+    expect(body).not_to match(/you know/i)
+    expect(body).not_to match(/like like/i)
+    expect(body).to include("too vague")
+  end
+
+  describe "hold Shift to talk" do
+    HOLD = 0.7 # comfortably past the controller's 350ms hold delay
+
+    before do
+      allow(CoPlan::Ai).to receive(:call)
+        .and_return({ "text" => "Held to talk.", "span" => nil }.to_json)
+    end
+
+    # Shift left held would make the next test type its email in capitals
+    # and land back on the sign-in page, so releasing is unconditional —
+    # both here and in the ensure below.
+    after { page.driver.browser.action.release_actions }
+
+    # The wait has to happen between two separate `perform` calls. A
+    # `pause` inside one chain blocks the renderer's task queue for its
+    # duration, so the controller's hold timer doesn't fire until after
+    # the release — the hold looks like a tap and nothing is ever
+    # recorded. Only the test harness behaves that way; a real keyboard
+    # doesn't stop the clock.
+    def hold_shift(duration = HOLD)
+      page.driver.browser.action.key_down(:shift).perform
+      sleep duration
+      yield if block_given?
+    ensure
+      page.driver.browser.action.key_up(:shift).perform
+    end
+
+    it "records while Shift is held and posts on release" do
+      stub_speech_recognition("held to talk", emit_on_stop: true)
+      visit plan_path(plan)
+
+      hold_shift
+      expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+
+      thread = CoPlan::CommentThread.where(plan_id: plan.id).sole
+      expect(thread.comments.first.body_markdown).to eq("🎙️ Held to talk.")
+    end
+
+    # Shift is held constantly while typing capitals; a tap must not open
+    # the mic, or the feature is unusable on any page with a text field.
+    it "ignores a quick tap of Shift" do
+      stub_speech_recognition("should never be sent", emit_on_stop: true)
+      visit plan_path(plan)
+
+      page.driver.browser.action.key_down(:shift).key_up(:shift).perform
+
+      expect(page).to have_no_css(".voice-btn--listening", wait: 2)
+      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+    end
+
+    # Shift+key is a shortcut or a capital letter, not speech — and
+    # whatever was captured must be discarded rather than posted.
+    it "cancels without posting when another key is pressed" do
+      stub_speech_recognition("should never be sent", emit_on_stop: true)
+      visit plan_path(plan)
+
+      hold_shift do
+        expect(page).to have_css(".voice-btn--listening")
+        page.driver.browser.action.send_keys("a").perform
+      end
+
+      expect(page).to have_no_css(".voice-btn--listening", wait: 5)
+      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+    end
   end
 
   # Nothing in the flow may claim an agent is coming: with none attached,
   # a dictated comment is just a comment.
   it "never promises an agent" do
-    allow(CoPlan::Ai).to receive(:call).and_return("NONE")
+    allow(CoPlan::Ai).to receive(:call)
+      .and_return({ "text" => "No agent is attached here.", "span" => nil }.to_json)
 
     stub_speech_recognition("no agent is attached here")
     visit plan_path(plan)
