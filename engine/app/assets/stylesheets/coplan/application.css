@@ -891,10 +891,33 @@ del.agent-flash {
 }
 
 /* Voice push-to-talk — mic button + transient transcript/status text. */
+/* The mic follows the scroll. A dictated comment is pinned to whatever
+   passage is on screen when you speak, so a control that lives in the
+   masthead would make you scroll away from the thing you're talking
+   about in order to say anything about it. */
 .voice-control {
+  position: fixed;
+  right: var(--space-lg);
+  bottom: var(--space-lg);
+  z-index: 40;
   display: inline-flex;
   align-items: center;
+  flex-direction: row-reverse;
   gap: var(--space-sm);
+}
+
+.voice-control .voice-btn {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 12%);
+  backdrop-filter: blur(8px);
+}
+
+.voice-control .voice-btn:hover {
+  background: var(--color-surface-raised, var(--color-surface));
 }
 
 .voice-btn--listening {
@@ -902,11 +925,32 @@ del.agent-flash {
   animation: agent-pill-pulse 1.2s ease-in-out infinite;
 }
 
+/* Status sits to the left of the button, and only takes up room when it
+   has something to say. */
 .voice-status {
   max-width: 16rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.voice-status:not(:empty) {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 12%);
+}
+
+@media (max-width: 640px) {
+  .voice-control {
+    right: var(--space-md);
+    bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .voice-status {
+    max-width: 10rem;
+  }
 }
 
 .voice-status--error {

@@ -116,6 +116,10 @@
 
 <%= render partial: "coplan/shared/folder_picker", locals: { folders: @my_folders } %>
 
+<% if current_user && @plan.current_content.present? %>
+  <%= render partial: "coplan/plans/voice_control", locals: { plan: @plan } %>
+<% end %>
+
 <%# Headless comment navigation — no floating toolbar, just the keyboard:
     j/k step through comments, r focuses reply, a/d accept/discard,
     s toggles resolved-thread visibility. %>
