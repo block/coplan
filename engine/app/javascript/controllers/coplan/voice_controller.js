@@ -54,6 +54,7 @@ export default class extends Controller {
   }
 
   disconnect() {
+    this._closeEar()
     this._releaseMic()
     this.recognition?.abort()
     this.pillObserver?.disconnect()
@@ -100,15 +101,30 @@ export default class extends Controller {
       if (event.key !== "Shift") {
         // Shift+something is a shortcut or a capital letter, not talking.
         if (this.pushToTalk) this._cancel()
+        else if (this.ear) {
+          clearTimeout(this.holdTimer)
+          this._closeEar()
+        }
         return
       }
       if (event.repeat || this.pushToTalk || this.listening) return
       if (this._isTyping() || event.metaKey || event.ctrlKey || event.altKey) return
 
+      // Capture from the instant of the press. Deciding whether the press
+      // means "talk" takes 350ms and opening the microphone takes a couple
+      // hundred more — people start talking at the press, and "oh, I meant
+      // both of them" is over before a capture that waits for both. If
+      // this turns out to be a tap or a selection, the take is discarded
+      // unheard.
+      if (this.mode === "record") this._openEar()
+
       this.holdTimer = setTimeout(() => {
         // Extending a selection with Shift+arrow or Shift+click also
         // holds Shift; if text got selected, that's what was happening.
-        if (!window.getSelection()?.isCollapsed) return
+        if (!window.getSelection()?.isCollapsed) {
+          this._closeEar()
+          return
+        }
         this.pushToTalk = true
         this._start()
       }, this.HOLD_DELAY)
@@ -117,7 +133,10 @@ export default class extends Controller {
     this._onKeyUp = (event) => {
       if (event.key !== "Shift") return
       clearTimeout(this.holdTimer)
-      if (!this.pushToTalk) return
+      if (!this.pushToTalk) {
+        this._closeEar() // a tap: whatever the ear caught is dropped
+        return
+      }
 
       this.pushToTalk = false
       this._stop()
@@ -159,6 +178,7 @@ export default class extends Controller {
     this.recorder = null
     this.peakLevel = 0
     this.meterLive = false
+    this.stopRequested = false
     this.listening = true
     this.buttonTarget.classList.add("voice-btn--listening")
     this._startTicking()
@@ -175,13 +195,11 @@ export default class extends Controller {
       return
     }
 
-    // Released before getUserMedia resolved — which is the norm the first
-    // time, when the permission prompt is up while they are already
-    // talking. There is no recorder to stop and nothing was captured.
+    // Released while the microphone is still opening (the permission
+    // prompt, usually). The take isn't lost — as soon as the recorder
+    // exists it is stopped and whatever was captured goes out.
     if (!this.recorder) {
-      this._releaseMic()
-      this._stopListening()
-      this._reportMiss("Hmm — the mic wasn't ready. Say that again?")
+      this.stopRequested = true
       return
     }
 
@@ -192,6 +210,7 @@ export default class extends Controller {
   _cancel() {
     clearTimeout(this.holdTimer)
     this.pushToTalk = false
+    this._closeEar()
     if (!this.listening) return
 
     this.discarded = true
@@ -225,30 +244,98 @@ export default class extends Controller {
     }, 1000)
   }
 
+  // A capture begun before the decision to keep it: stream + recorder,
+  // buffering silently, no UI. Adopted by _startRecording when the hold
+  // is confirmed; discarded unheard by _closeEar when it turns out to be
+  // a tap, a selection, or a shortcut. The cost of a false start is a
+  // blink of the browser's recording indicator.
+  _openEar() {
+    if (this.ear) return
+
+    const ear = { chunks: [], closed: false }
+    ear.ready = (async () => {
+      try {
+        ear.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      } catch {
+        ear.error = true
+        return
+      }
+      if (ear.closed) {
+        ear.stream.getTracks().forEach((track) => track.stop())
+        ear.stream = null
+        return
+      }
+      ear.recorder = new MediaRecorder(ear.stream, this._recorderOptions())
+      ear.recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) ear.chunks.push(event.data)
+      }
+      ear.recorder.start()
+    })()
+    this.ear = ear
+  }
+
+  _closeEar() {
+    const ear = this.ear
+    this.ear = null
+    if (!ear) return
+
+    ear.closed = true
+    if (ear.recorder && ear.recorder.state !== "inactive") ear.recorder.stop()
+    ear.stream?.getTracks().forEach((track) => track.stop())
+  }
+
   async _startRecording() {
-    try {
-      // A fresh stream per recording: holding one open leaves the
-      // browser's recording indicator lit while nobody is talking.
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    } catch {
+    const ear = this.ear
+    this.ear = null
+    let chunks = []
+
+    if (ear) {
+      // Push-to-talk: the ear has been capturing since the keydown.
+      await ear.ready
+    } else {
+      // The button path has no press-to-decide gap, so it captures from
+      // the click itself. A fresh stream per recording either way:
+      // holding one open leaves the recording indicator lit while
+      // nobody is talking.
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      } catch {
+        this._stopListening()
+        this._reportMiss("Mic blocked")
+        return
+      }
+    }
+
+    if (ear?.error) {
       this._stopListening()
-      this._setStatus("Mic blocked", true)
+      this._reportMiss("Mic blocked")
       return
     }
 
-    // Cancelled or released while the permission prompt was up.
+    // Cancelled while the permission prompt was up.
     if (!this.listening) {
+      if (ear) {
+        ear.closed = true
+        ear.recorder?.stop()
+        ear.stream?.getTracks().forEach((track) => track.stop())
+      }
       this._releaseMic()
       return
     }
 
+    if (ear) {
+      this.stream = ear.stream
+      this.recorder = ear.recorder
+      chunks = ear.chunks
+    } else {
+      this.recorder = new MediaRecorder(this.stream, this._recorderOptions())
+      this.recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunks.push(event.data)
+      }
+    }
+
     this._meterLevels()
 
-    const chunks = []
-    this.recorder = new MediaRecorder(this.stream, this._recorderOptions())
-    this.recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) chunks.push(event.data)
-    }
     this.recorder.onstop = () => {
       // The silence verdict is only trustworthy if the meter actually
       // ran. A dead meter reads 0 for a recording full of speech — when
@@ -268,7 +355,15 @@ export default class extends Controller {
       }
       this._submit({ audio: blob })
     }
-    this.recorder.start()
+
+    if (this.recorder.state !== "recording") this.recorder.start()
+
+    // Released while the microphone was still opening: finish the take
+    // now that there is one, posting whatever the ear caught.
+    if (this.stopRequested) {
+      this.stopRequested = false
+      this.recorder.stop()
+    }
   }
 
   // Tracks the loudest thing in the recording, and drives the button's

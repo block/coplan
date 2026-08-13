@@ -239,11 +239,15 @@ RSpec.describe "Voice commenting", type: :system do
         }
         window.MediaRecorder = class {
           static isTypeSupported() { return true }
-          constructor(stream, options) { this.mimeType = (options || {}).mimeType || "audio/webm" }
-          start() {}
+          constructor(stream, options) {
+            this.mimeType = (options || {}).mimeType || "audio/webm"
+            this.state = "inactive"
+          }
+          start() { this.state = "recording" }
           stop() {
+            this.state = "inactive"
             this.ondataavailable({ data: new Blob(["fake audio"], { type: this.mimeType }) })
-            this.onstop()
+            if (this.onstop) this.onstop()
           }
         }
       JS
@@ -288,6 +292,31 @@ RSpec.describe "Voice commenting", type: :system do
       find(".voice-btn").click
 
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+    end
+
+    # The gesture that kept "not hearing" people: hold-to-talk used to
+    # open the microphone only after the 350ms hold was confirmed, so the
+    # first word or two of every short remark predated the recording. The
+    # ear now opens at the keydown itself, and confirming the hold adopts
+    # a capture already in progress.
+    it "captures from the press when talking with Shift held" do
+      allow(CoPlan::Ai).to receive(:transcribe).and_return("oh I meant both of them")
+      allow(CoPlan::Ai).to receive(:call)
+        .and_return({ "text" => "Oh — I meant both of them.", "span" => nil }.to_json)
+
+      stub_recorder
+      visit plan_path(plan)
+
+      page.driver.browser.action.key_down(:shift).perform
+      sleep 0.7
+      expect(page).to have_css(".voice-btn--listening")
+      page.driver.browser.action.key_up(:shift).perform
+
+      expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+      thread = CoPlan::CommentThread.where(plan_id: plan.id).sole
+      expect(thread.comments.first.body_markdown).to eq("🎙️ Oh — I meant both of them.")
+    ensure
+      page.driver.browser.action.release_actions
     end
 
     # The failure that shipped: a recording with nothing in it still went

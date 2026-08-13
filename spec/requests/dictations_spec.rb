@@ -59,6 +59,32 @@ RSpec.describe "Dictations", type: :request do
     expect(JSON.parse(response.body)["body"]).to eq("Tighten this.")
   end
 
+  # "Oh, I meant both of them" is a follow-up; without the comment it
+  # follows there is no "them". The model gets the conversation so far.
+  it "gives the model the recent comments as conversational context" do
+    thread = CoPlan::CommentThread.create!(
+      plan: plan, plan_version: plan.current_plan_version, created_by_user: alice,
+      anchor_text: "world domination"
+    )
+    CoPlan::Comment.create!(
+      comment_thread: thread, author_type: "human", author_id: alice.id,
+      body_markdown: "🎙️ It should be main."
+    )
+
+    expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
+      expect(user_content).to include("Recent comments")
+      expect(user_content).to include("It should be main.")
+      expect(user_content).to include(%(on "world domination"))
+      { "text" => "I meant both of them.", "span" => nil }.to_json
+    end
+
+    post plan_dictations_path(plan),
+      params: { transcript: "oh I meant both of them", excerpt: "Our goal is world domination by Q3." },
+      as: :json
+
+    expect(response).to have_http_status(:ok)
+  end
+
   it "falls back to the plan content when the client sends no excerpt" do
     expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
       expect(user_content).to include(plan.current_content.truncate(50, omission: ""))

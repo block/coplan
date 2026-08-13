@@ -907,29 +907,41 @@ del.agent-flash {
 }
 
 .voice-control .voice-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 2.75rem;
   height: 2.75rem;
   border-radius: 50%;
+  color: var(--color-text-muted, currentColor);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   box-shadow: 0 2px 12px rgb(0 0 0 / 12%);
   backdrop-filter: blur(8px);
+  transition: transform 120ms ease, color 120ms ease, background 120ms ease;
 }
 
 .voice-control .voice-btn:hover {
   background: var(--color-surface-raised, var(--color-surface));
+  color: var(--color-text, currentColor);
+  transform: scale(1.06);
 }
 
-/* A ring that grows with how loud you are. The timed pulse says "the
-   mic is open"; only the ring says "it can hear you", which is the
-   question you actually have while talking to a button. */
-.voice-btn--listening {
-  color: var(--color-danger);
+/* Recording reads as recording: the button fills red, and a ring grows
+   with how loud you are. The fill says "the mic is open"; only the ring
+   says "it can hear you", which is the question you actually have while
+   talking to a button. */
+.voice-control .voice-btn--listening,
+.voice-control .voice-btn--listening:hover {
+  color: #fff;
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  transform: scale(1.06);
   animation: agent-pill-pulse 1.2s ease-in-out infinite;
   box-shadow:
-    0 2px 12px rgb(0 0 0 / 12%),
-    0 0 0 calc(var(--voice-level, 0) * 0.5rem) rgb(from var(--color-danger) r g b / 22%);
-  transition: box-shadow 90ms ease-out;
+    0 2px 12px rgb(0 0 0 / 18%),
+    0 0 0 calc(var(--voice-level, 0) * 0.55rem) rgb(from var(--color-danger) r g b / 25%);
+  transition: box-shadow 90ms ease-out, transform 120ms ease;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -34,7 +34,11 @@ module CoPlan
         # The span has to resolve against the markdown, not against the
         # rendered text the model was shown.
         document: @plan.current_content,
-        transcript: transcript
+        transcript: transcript,
+        # Dictation is conversational in a way typing isn't: the next
+        # remark after "it should be main" is "oh, I meant both of them",
+        # and without the earlier comment there is no "it" to resolve.
+        recent_comments: recent_comments
       )
 
       # Which copy of the span it is stays the client's job — it can see
@@ -101,9 +105,23 @@ module CoPlan
     # "didn't hear anything" and repeating yourself is a far better
     # outcome than a comment putting words in your mouth.
     def reject_prompt_echo(transcript)
-      raise Transcription::Inaudible if normalize(excerpt).include?(normalize(transcript))
+      if normalize(excerpt).include?(normalize(transcript))
+        # Logged because this guard has eaten real speech before (a
+        # too-late capture posts only the tail of a sentence): the next
+        # false rejection should be diagnosable from the log line alone.
+        Rails.logger.info("[coplan] dictation rejected as prompt echo: #{transcript.truncate(120).inspect}")
+        raise Transcription::Inaudible
+      end
 
       transcript
+    end
+
+    def recent_comments
+      Comment.joins(:comment_thread)
+        .where(comment_thread: { plan_id: @plan.id })
+        .order(created_at: :desc).limit(3)
+        .includes(:comment_thread)
+        .map { |c| { body: c.body_markdown, anchor: c.comment_thread.anchor_text } }
     end
 
     def normalize(text)

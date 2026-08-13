@@ -53,17 +53,26 @@ module CoPlan
         - Use null if the remark is about the document as a whole, or you
           cannot identify a specific passage.
 
+        Speech is conversational: the remark may be a follow-up to one of
+        the recent comments, if any are given ("oh, I meant both of
+        them"). Use them to resolve what "it", "them" or "that one"
+        refers to, and fold the reference into "text" so the comment
+        stands alone. The span must still come from the excerpt.
+
         Reply with the JSON object and nothing else.
       PROMPT
 
       def self.call(...) = new(...).call
 
-      def initialize(excerpt:, transcript:, document: nil)
+      def initialize(excerpt:, transcript:, document: nil, recent_comments: [])
         @excerpt = excerpt.to_s
         # What the anchor ultimately has to resolve against. Defaults to
         # the excerpt so callers that only have the one string still work.
         @document = document.to_s.presence || @excerpt
         @transcript = transcript.to_s.strip
+        # [{ body:, anchor: }, ...], newest first — the conversation the
+        # remark may be continuing.
+        @recent_comments = recent_comments
       end
 
       def call
@@ -89,9 +98,27 @@ module CoPlan
           ---
           #{@excerpt}
           ---
-
+          #{comments_section}
           Transcript: #{@transcript}
         CONTENT
+      end
+
+      def comments_section
+        return "" if @recent_comments.blank?
+
+        lines = @recent_comments.map.with_index(1) do |comment, i|
+          anchor = comment[:anchor].presence
+          body = comment[:body].to_s.truncate(200)
+          anchor ? %(#{i}. (on "#{anchor.truncate(60)}") #{body}) : "#{i}. #{body}"
+        end
+
+        <<~SECTION
+
+          Recent comments on this document, newest first:
+          ---
+          #{lines.join("\n")}
+          ---
+        SECTION
       end
 
       def parse(response)
