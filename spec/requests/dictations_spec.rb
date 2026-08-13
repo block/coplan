@@ -28,6 +28,22 @@ RSpec.describe "Dictations", type: :request do
     body = JSON.parse(response.body)
     expect(body["body"]).to eq("This is too grand.")
     expect(body["anchor_text"]).to eq("world domination")
+    expect(body["comments"]).to eq([ { "body" => "This is too grand.", "anchor_text" => "world domination" } ])
+  end
+
+  it "returns every comment when the remark was about several places" do
+    allow(CoPlan::Ai).to receive(:call).and_return({ "comments" => [
+      { "text" => "Too grand.", "span" => "world domination" },
+      { "text" => "Q3 is optimistic.", "span" => "by Q3" }
+    ] }.to_json)
+
+    post plan_dictations_path(plan),
+      params: { transcript: "too grand and honestly Q3 is optimistic", excerpt: "Our goal is world domination by Q3." },
+      as: :json
+
+    expect(response).to have_http_status(:ok)
+    comments = JSON.parse(response.body)["comments"]
+    expect(comments.map { |c| c["anchor_text"] }).to eq([ "world domination", "by Q3" ])
   end
 
   it "returns a locally tidied transcript rather than an error when the AI can't help" do

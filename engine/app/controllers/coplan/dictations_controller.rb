@@ -44,10 +44,14 @@ module CoPlan
       # Which copy of the span it is stays the client's job — it can see
       # the rendered document and where in it the person was looking,
       # which is how selection-anchored comments already work.
+      # body/anchor_text are the first comment, kept for anything reading
+      # the old singular shape; comments is the real answer ("rename both
+      # of these" is two placements).
       render json: {
         transcript: transcript,
         body: result.body,
-        anchor_text: result.anchor_text
+        anchor_text: result.anchor_text,
+        comments: result.comments.map { |c| { body: c.body, anchor_text: c.anchor_text } }
       }
     rescue Transcription::Inaudible
       render json: { error: "Didn't hear anything" }, status: :unprocessable_content

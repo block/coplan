@@ -461,51 +461,66 @@ export default class extends Controller {
     // clean up the words, and work out which passage they were about.
     const interpreted = await this._interpret({ transcript, audio })
 
-    if (!interpreted?.body && !transcript) {
-      // Audio with nothing to show for it — there is no comment to post.
-      // The server distinguishes "heard nothing" from "couldn't reach the
-      // transcriber", and which one it was changes what you'd do next.
-      this._reportMiss(interpreted?.error || "Couldn't make that out")
-      return
+    // One remark is usually one comment, but "rename both of these" is
+    // two placements, each with its own pin.
+    let comments = interpreted?.comments || []
+    if (comments.length === 0) {
+      if (!transcript) {
+        // Audio with nothing to show for it — there is no comment to post.
+        // The server distinguishes "heard nothing" from "couldn't reach
+        // the transcriber", and which one it was changes what you'd do next.
+        this._reportMiss(interpreted?.error || "Couldn't make that out")
+        return
+      }
+      comments = [{ body: this._stripFillers(transcript), anchor: null }]
     }
 
-    const commentBody = interpreted?.body || this._stripFillers(transcript)
-    let anchor = interpreted?.anchor || this._viewportAnchor()
+    const posted = []
+    for (const [index, comment] of comments.entries()) {
+      // The heading fallback is for the remark as a whole; only the first
+      // comment takes it. A second unanchorable comment posts unpinned
+      // rather than piling onto the same heading.
+      let anchor = comment.anchor || (index === 0 ? this._viewportAnchor() : null)
 
-    let response = await this._postComment(commentBody, anchor)
+      let response = await this._postComment(comment.body, anchor)
 
-    // 422 means the server refused the pin: the anchor renders on screen
-    // but doesn't resolve in the plan source, so the comment would have
-    // been invisible. The words are still good — pin them to the nearest
-    // heading instead, which always resolves.
-    if (response?.status === 422 && anchor) {
-      const fallback = this._viewportAnchor()
-      anchor = fallback && fallback.text !== anchor.text ? fallback : null
-      response = await this._postComment(commentBody, anchor)
+      // 422 means the server refused the pin: the anchor renders on
+      // screen but doesn't resolve in the plan source, so the comment
+      // would have been invisible. The words are still good — pin them to
+      // the nearest heading instead, which always resolves.
+      if (response?.status === 422 && anchor) {
+        const fallback = this._viewportAnchor()
+        anchor = fallback && fallback.text !== anchor.text ? fallback : null
+        response = await this._postComment(comment.body, anchor)
+      }
+      if (!response?.ok) continue
+
+      const streams = await response.text()
+      window.Turbo?.renderStreamMessage(streams)
+      posted.push({ anchor, threadId: streams.match(/comment_thread_([0-9a-f-]{36})/)?.[1] })
     }
 
-    if (!response?.ok) {
+    if (posted.length === 0) {
       this._setStatus("Couldn't send", true)
       return
     }
 
     // Show where it landed. The speaker never picked a spot on the page —
     // the model did — so "comment posted" alone leaves them hunting for
-    // it (or, pinned below the fold, believing it never posted). Render
-    // the response's streams now rather than waiting on the cable echo,
-    // then scroll to the thread and open it.
-    const streams = await response.text()
-    window.Turbo?.renderStreamMessage(streams)
-    const threadId = streams.match(/comment_thread_([0-9a-f-]{36})/)?.[1]
-    if (threadId) {
-      this.dispatch("open-thread", { prefix: "coplan", detail: { threadId } })
+    // it (or, pinned below the fold, believing it never posted). With
+    // several, the first opens and the count says to look for the rest.
+    const first = posted.find((p) => p.threadId)
+    if (first) {
+      this.dispatch("open-thread", { prefix: "coplan", detail: { threadId: first.threadId } })
     }
 
     // State what happened, and nothing more. Whether an agent picks this
     // up isn't ours to promise — if one does, its pill says so, and the
     // observer below speaks the acknowledgment.
     this.awaitingAck = true
-    this._setStatus(anchor ? `Comment added to “${this._truncate(anchor.text)}”` : "Comment added")
+    this._setStatus(posted.length > 1
+      ? `${posted.length} comments added`
+      : (posted[0].anchor ? `Comment added to “${this._truncate(posted[0].anchor.text)}”` : "Comment added"))
     setTimeout(() => {
       this.awaitingAck = false
       this._setStatus("")
@@ -557,11 +572,15 @@ export default class extends Controller {
       })
       if (!response.ok) {
         const { error } = await response.json().catch(() => ({}))
-        return { body: null, anchor: null, error }
+        return { comments: [], error }
       }
 
-      const { body, anchor_text: anchorText } = await response.json()
-      return { body: body || null, anchor: this._resolveAnchor(anchorText) }
+      const data = await response.json()
+      const seen = new Map()
+      const comments = (data.comments || [])
+        .filter((c) => c.body)
+        .map((c) => ({ body: c.body, anchor: this._resolveAnchor(c.anchor_text, seen) }))
+      return { comments }
     } catch {
       return null
     } finally {
@@ -579,14 +598,18 @@ export default class extends Controller {
   }
 
   // The span has to exist in the rendered document to be highlighted,
-  // and we need to know which copy of it we mean.
-  _resolveAnchor(anchorText) {
+  // and we need to know which copy of it we mean. When one dictation
+  // pins the same span twice ("rename both of these"), each repeat takes
+  // the next copy — that's what repeating a span means.
+  _resolveAnchor(anchorText, seen = new Map()) {
     if (!anchorText) return null
 
     const content = document.getElementById("plan-content-body")
     if (!content?.textContent?.includes(anchorText)) return null
 
-    return { text: anchorText, occurrence: this._occurrenceOfNearViewport(content, anchorText) }
+    const priorUses = seen.get(anchorText) || 0
+    seen.set(anchorText, priorUses + 1)
+    return { text: anchorText, occurrence: this._occurrenceOfNearViewport(content, anchorText) + priorUses }
   }
 
   // Fallback tidy-up for when the interpret call fails: drop the tics

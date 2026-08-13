@@ -300,6 +300,39 @@ RSpec.describe "Voice commenting", type: :system do
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
     end
 
+    # "Rename both of them" is one remark, two comments, two pins — and
+    # when the model repeats the same span, each repeat takes the next
+    # copy of that text, so the two threads land on different positions.
+    it "turns a remark about two places into two pinned comments" do
+      dual_plan = CoPlan::Plan.create!(title: "Naming", created_by_user: author)
+      version = CoPlan::PlanVersion.create!(
+        plan: dual_plan, revision: 1,
+        content_markdown: "# Naming\n\nThe first module is called main.\n\nThe second module is also called main.\n",
+        actor_type: "human", actor_id: author.id
+      )
+      dual_plan.update!(current_plan_version: version, current_revision: 1)
+
+      allow(CoPlan::Ai).to receive(:transcribe).and_return("rename both of them to master")
+      allow(CoPlan::Ai).to receive(:call).and_return({ "comments" => [
+        { "text" => "Rename this to master.", "span" => "called main" },
+        { "text" => "Rename this to master.", "span" => "called main" }
+      ] }.to_json)
+
+      stub_recorder
+      visit plan_path(dual_plan)
+
+      find(".voice-btn").click
+      find(".voice-btn").click
+
+      expect(page).to have_css(".voice-status", text: /2 comments added/, wait: 10)
+
+      threads = CoPlan::CommentThread.where(plan_id: dual_plan.id).order(:created_at).to_a
+      expect(threads.length).to eq(2)
+      expect(threads.map(&:anchor_text).uniq).to eq([ "called main" ])
+      # Different copies of the phrase, not two pins on the same one.
+      expect(threads.map(&:anchor_start).uniq.length).to eq(2)
+    end
+
     # The excerpt is everything that was readably on screen during the
     # take, not a snapshot of where it began: people start talking about
     # one paragraph and scroll to another mid-sentence, and the pin has to

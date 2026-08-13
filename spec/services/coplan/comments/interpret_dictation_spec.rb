@@ -191,4 +191,75 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
 
     expect(described_class.call(excerpt: excerpt, transcript: "  ").body).to eq("")
   end
+
+  # "Rename both of these" is one remark but two placements. The model
+  # returns a comments array; each entry gets its own span vetting.
+  describe "a remark about more than one passage" do
+    def stub_ai_comments(comments)
+      allow(CoPlan::Ai).to receive(:call).and_return({ "comments" => comments }.to_json)
+    end
+
+    it "returns one comment per passage, each with its own span" do
+      stub_ai_comments([
+        { "text" => "Quote the latency in seconds.", "span" => "Median latency was 340 milliseconds across the pilot cohort." },
+        { "text" => "Unflag this before launch.", "span" => "The higher-fidelity sidecar stays behind a flag until it is proven." }
+      ])
+
+      result = described_class.call(excerpt: excerpt, transcript: "fix the latency units and unflag the sidecar before launch")
+
+      expect(result.comments.map(&:body)).to eq([ "Quote the latency in seconds.", "Unflag this before launch." ])
+      expect(result.comments.map(&:anchor_text)).to eq([
+        "Median latency was 340 milliseconds across the pilot cohort.",
+        "The higher-fidelity sidecar stays behind a flag until it is proven."
+      ])
+      # The singular readers see the first comment.
+      expect(result.body).to eq("Quote the latency in seconds.")
+    end
+
+    it "keeps a repeated span repeated — that is how two copies are addressed" do
+      stub_ai_comments([
+        { "text" => "Rename this to master.", "span" => "pilot cohort" },
+        { "text" => "Rename this to master.", "span" => "pilot cohort" }
+      ])
+
+      result = described_class.call(excerpt: excerpt, transcript: "rename both of them to master")
+
+      expect(result.comments.map(&:anchor_text)).to eq([ "pilot cohort", "pilot cohort" ])
+    end
+
+    it "vets each span on its own — a bad one falls, the rest stand" do
+      stub_ai_comments([
+        { "text" => "Too cautious.", "span" => "a paraphrase that is not in the excerpt" },
+        { "text" => "Too slow.", "span" => "Median latency was 340 milliseconds across the pilot cohort." }
+      ])
+
+      result = described_class.call(excerpt: excerpt, transcript: "this is too cautious and honestly too slow as well")
+
+      expect(result.comments.first.anchor_text).to be_nil
+      expect(result.comments.last.anchor_text).to eq("Median latency was 340 milliseconds across the pilot cohort.")
+    end
+
+    it "folds anything past the cap away rather than posting a flood" do
+      stub_ai_comments((1..6).map { |i| { "text" => "Point number #{i}.", "span" => nil } })
+
+      result = described_class.call(
+        excerpt: excerpt,
+        transcript: "one two three four five six distinct points about this document somehow"
+      )
+
+      expect(result.comments.length).to eq(described_class::MAX_COMMENTS)
+    end
+
+    it "keeps their words when the split balloons past what was said" do
+      stub_ai_comments([
+        { "text" => "I believe this passage requires a substantially more rigorous treatment of the underlying assumptions.", "span" => nil },
+        { "text" => "Furthermore the rollout timeline deserves a full risk assessment with owners and dates attached.", "span" => nil }
+      ])
+
+      result = described_class.call(excerpt: excerpt, transcript: "tighten this up")
+
+      expect(result.comments.length).to eq(1)
+      expect(result.comments.first.body).to eq("Tighten this up")
+    end
+  end
 end

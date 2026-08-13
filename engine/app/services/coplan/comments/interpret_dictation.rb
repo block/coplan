@@ -16,7 +16,24 @@ module CoPlan
     #     cleanup and started being a summary
     # Anything that fails a check falls back to what the person said.
     class InterpretDictation
-      Result = Struct.new(:body, :anchor_text, keyword_init: true)
+      Comment = Struct.new(:body, :anchor_text, keyword_init: true)
+
+      # One remark is usually one comment, but "rename both of these" is
+      # two placements. The first comment doubles as the whole result for
+      # callers that predate the plural.
+      Result = Struct.new(:comments, keyword_init: true) do
+        def body = comments.first&.body
+        def anchor_text = comments.first&.anchor_text
+      end
+
+      # A spoken remark that genuinely makes more points than this has
+      # stopped being a remark; past the cap the rest is folded away.
+      MAX_COMMENTS = 4
+
+      # Standing alone costs words: "rename both of them" becomes two full
+      # sentences. The cost is roughly a short sentence per split — a
+      # constant, not a multiple of however long the remark was.
+      PER_COMMENT_HEADROOM = 40
 
       # Long enough to be unambiguous, short enough that the highlight
       # reads as a pointer rather than a block quote.
@@ -35,9 +52,16 @@ module CoPlan
         You process a spoken remark somebody made about a document.
 
         You are given an excerpt of what was on their screen and a raw
-        speech-to-text transcript. Return JSON with exactly two keys:
+        speech-to-text transcript. Return JSON of this shape:
 
-        {"text": "...", "span": "..."}
+        {"comments": [{"text": "...", "span": "..."}]}
+
+        Almost always one comment. Split into several ONLY when the remark
+        clearly makes the same point about more than one passage ("rename
+        both of these", "each of these headings") or makes clearly
+        separate points about separate passages. Never more than four. To
+        point at two copies of the same text, repeat the span in two
+        comments.
 
         "text": the remark cleaned up into a readable comment.
         - Remove filler words and verbal tics: um, uh, like, you know,
@@ -60,8 +84,8 @@ module CoPlan
         Speech is conversational: the remark may be a follow-up to one of
         the recent comments, if any are given ("oh, I meant both of
         them"). Use them to resolve what "it", "them" or "that one"
-        refers to, and fold the reference into "text" so the comment
-        stands alone. The span must still come from the excerpt.
+        refers to, and fold the reference into "text" so each comment
+        stands alone. Spans must still come from the excerpt.
 
         Reply with the JSON object and nothing else.
       PROMPT
@@ -80,18 +104,15 @@ module CoPlan
       end
 
       def call
-        return Result.new(body: @transcript, anchor_text: nil) if @transcript.empty?
+        return Result.new(comments: [ Comment.new(body: @transcript, anchor_text: nil) ]) if @transcript.empty?
 
         parsed = parse(Ai.call(system_prompt: SYSTEM_PROMPT, user_content: user_content))
-        Result.new(
-          body: cleaned_text(parsed["text"]),
-          anchor_text: verbatim_span(parsed["span"])
-        )
+        Result.new(comments: comments_from(parsed))
       rescue Ai::Error => e
         # Both halves are enhancements; a local tidy-up of what they said
         # is still better than nothing.
         Rails.logger.info("[coplan] dictation interpretation unavailable: #{e.message}")
-        Result.new(body: fallback_text, anchor_text: nil)
+        Result.new(comments: [ Comment.new(body: fallback_text, anchor_text: nil) ])
       end
 
       private
@@ -134,14 +155,29 @@ module CoPlan
         {}
       end
 
-      def cleaned_text(text)
-        text = text.to_s.strip
-        return fallback_text if text.empty?
+      def comments_from(parsed)
+        # Accept the plural shape, or the old single {"text","span"} a
+        # model may still produce.
+        items = parsed["comments"].is_a?(Array) ? parsed["comments"] : [ parsed ]
+        items = items.first(MAX_COMMENTS).select { |item| item.is_a?(Hash) && item["text"].present? }
+        return [ Comment.new(body: fallback_text, anchor_text: nil) ] if items.empty?
 
-        ratio = text.length.to_f / @transcript.length
-        return fallback_text unless ratio.between?(MIN_LENGTH_RATIO, MAX_LENGTH_RATIO)
+        # The length band is the same trust check as ever, applied to the
+        # rewrite as a whole: however it was split, the comments together
+        # should say roughly what the person said — much shorter is a
+        # summary, much longer is invention. Each extra comment earns
+        # PER_COMMENT_HEADROOM on the high side for its standing-alone
+        # overhead.
+        combined = items.sum { |item| item["text"].to_s.strip.length }
+        min_length = @transcript.length * MIN_LENGTH_RATIO
+        max_length = @transcript.length * MAX_LENGTH_RATIO + (items.length - 1) * PER_COMMENT_HEADROOM
+        unless combined.between?(min_length, max_length)
+          return [ Comment.new(body: fallback_text, anchor_text: nil) ]
+        end
 
-        text
+        items.map do |item|
+          Comment.new(body: item["text"].to_s.strip, anchor_text: verbatim_span(item["span"]))
+        end
       end
 
       # The floor when the model can't be reached or its rewrite is
