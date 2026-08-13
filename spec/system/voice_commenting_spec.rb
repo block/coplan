@@ -76,7 +76,13 @@ RSpec.describe "Voice commenting", type: :system do
     )
   end
 
-  before { sign_in(author) }
+  # Recording + server transcription is the better path and the default
+  # wherever a provider is configured, so the browser's own recognition
+  # has to be asked for explicitly. Its own tests are further down.
+  before do
+    allow(CoPlan::Ai).to receive(:available?).and_return(false)
+    sign_in(author)
+  end
 
   it "cleans up the remark and pins it to the passage the AI identifies" do
     allow(CoPlan::Ai).to receive(:call).and_return({
@@ -190,6 +196,90 @@ RSpec.describe "Voice commenting", type: :system do
       end
 
       expect(page).to have_no_css(".voice-btn--listening", wait: 5)
+      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+    end
+  end
+
+  # The path that works in Safari and Firefox, and the better one in
+  # Chrome too: capture audio, let the server transcribe it. Nothing here
+  # touches SpeechRecognition, which those browsers don't usefully have.
+  describe "recording for the server to transcribe" do
+    before { allow(CoPlan::Ai).to receive(:available?).and_return(true) }
+
+    def stub_recorder
+      page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~JS)
+        delete window.SpeechRecognition
+        delete window.webkitSpeechRecognition
+        Object.defineProperty(navigator, "mediaDevices", {
+          configurable: true,
+          value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) }
+        })
+        window.MediaRecorder = class {
+          static isTypeSupported() { return true }
+          constructor(stream, options) { this.mimeType = (options || {}).mimeType || "audio/webm" }
+          start() {}
+          stop() {
+            this.ondataavailable({ data: new Blob(["fake audio"], { type: this.mimeType }) })
+            this.onstop()
+          }
+        }
+      JS
+    end
+
+    it "sends the recording and posts what comes back" do
+      allow(CoPlan::Ai).to receive(:transcribe).and_return("this bit is like way too like cautious")
+      allow(CoPlan::Ai).to receive(:call).and_return({
+        "text" => "This bit is too cautious.",
+        "span" => "The higher-fidelity sidecar stays behind a flag until it is proven."
+      }.to_json)
+
+      stub_recorder
+      visit plan_path(plan)
+
+      find(".voice-btn").click
+      expect(page).to have_css(".voice-btn--listening")
+      find(".voice-btn").click
+
+      expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+
+      thread = CoPlan::CommentThread.where(plan_id: plan.id).sole
+      expect(thread.comments.first.body_markdown).to eq("🎙️ This bit is too cautious.")
+      expect(thread).to be_anchored
+    end
+
+    # What was on screen is passed as a transcription hint, which is what
+    # makes domain words come back as words rather than phonetic guesses.
+    it "gives the transcriber the text that was on screen" do
+      expect(CoPlan::Ai).to receive(:transcribe) do |file:, context:|
+        expect(File.read(file.path)).to eq("fake audio")
+        expect(context).to include("higher-fidelity sidecar")
+        "too cautious"
+      end
+      allow(CoPlan::Ai).to receive(:call)
+        .and_return({ "text" => "Too cautious.", "span" => nil }.to_json)
+
+      stub_recorder
+      visit plan_path(plan)
+
+      find(".voice-btn").click
+      find(".voice-btn").click
+
+      expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+    end
+
+    # Audio has no fallback: unlike a browser transcript there are no
+    # words to post if transcription fails, so say so rather than posting
+    # an empty comment.
+    it "says so when the recording can't be made out" do
+      allow(CoPlan::Ai).to receive(:transcribe).and_raise(CoPlan::Ai::Error, "unavailable")
+
+      stub_recorder
+      visit plan_path(plan)
+
+      find(".voice-btn").click
+      find(".voice-btn").click
+
+      expect(page).to have_css(".voice-status--error", text: /Couldn't make that out/, wait: 10)
       expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
     end
   end

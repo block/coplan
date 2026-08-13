@@ -58,8 +58,11 @@ module CoPlan
 
       def self.call(...) = new(...).call
 
-      def initialize(excerpt:, transcript:)
+      def initialize(excerpt:, transcript:, document: nil)
         @excerpt = excerpt.to_s
+        # What the anchor ultimately has to resolve against. Defaults to
+        # the excerpt so callers that only have the one string still work.
+        @document = document.to_s.presence || @excerpt
         @transcript = transcript.to_s.strip
       end
 
@@ -137,12 +140,31 @@ module CoPlan
         span = span.to_s.strip
         return nil if span.empty? || span.casecmp("null").zero?
         return nil if span.length > MAX_ANCHOR_LENGTH
-        return span if @excerpt.include?(span)
 
+        candidate = span if @excerpt.include?(span)
         # Models wrap spans in quotes even when told not to; that much we
         # forgive. Anything else isn't in the document.
-        trimmed = span.gsub(/\A[\s"'“”‘’]+|[\s"'“”‘’]+\z/, "")
-        trimmed.presence && @excerpt.include?(trimmed) ? trimmed : nil
+        candidate ||= begin
+          trimmed = span.gsub(/\A[\s"'“”‘’]+|[\s"'“”‘’]+\z/, "").presence
+          trimmed if trimmed && @excerpt.include?(trimmed)
+        end
+
+        candidate && anchorable(candidate)
+      end
+
+      # The excerpt is the rendered text of what was on screen, one block
+      # per line; the anchor has to resolve against the markdown source.
+      # Those agree for a paragraph and part ways at a table — "Voice (mic
+      # button)\n24%" is two cells the model saw as adjacent lines, and it
+      # appears nowhere in "| Voice (mic button) | 24% |". An anchor that
+      # doesn't resolve isn't a bad pin, it's an invisible comment, so take
+      # the longest single line that does appear and pin to that.
+      def anchorable(span)
+        return span if @document.include?(span)
+
+        span.split("\n").map(&:strip).reject(&:empty?)
+          .select { |line| @document.include?(line) }
+          .max_by(&:length)
       end
     end
   end

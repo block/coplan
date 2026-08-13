@@ -105,6 +105,56 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
     expect(result.body).to eq("It looks like the sidecar is gated")
   end
 
+  # The excerpt is what was on screen, one block of rendered text per
+  # line. The anchor has to resolve against the markdown source, and the
+  # two are not the same document.
+  describe "spans that exist on screen but not in the source" do
+    let(:document) do
+      <<~MARKDOWN
+        ### Where the comments came from
+
+        | Surface | Share |
+        |---|---|
+        | Typed in the browser | 68% |
+        | Voice (mic button) | 24% |
+      MARKDOWN
+    end
+
+    let(:rendered) { "Where the comments came from\nSurface\nShare\nTyped in the browser\n68%\nVoice (mic button)\n24%" }
+
+    # Adjacent table cells read as adjacent lines, so the model quite
+    # reasonably quotes across them — and "Voice (mic button)\n24%"
+    # appears nowhere in "| Voice (mic button) | 24% |". Left alone this
+    # produced a thread with anchor text and no position: a comment that
+    # is simply invisible on the page.
+    it "narrows a span that crosses a table cell to one that resolves" do
+      stub_ai(text: "This share looks low.", span: "Voice (mic button)\n24%")
+
+      result = described_class.call(
+        excerpt: rendered, document: document, transcript: "this share looks low"
+      )
+
+      expect(result.anchor_text).to eq("Voice (mic button)")
+      expect(document).to include(result.anchor_text)
+    end
+
+    it "keeps a span that appears in the source untouched" do
+      stub_ai(text: "Low.", span: "Typed in the browser")
+
+      expect(described_class.call(excerpt: rendered, document: document, transcript: "low").anchor_text)
+        .to eq("Typed in the browser")
+    end
+
+    # Better no pin than a pin pointing nowhere: the caller falls back to
+    # the section heading, which is always in the source.
+    it "gives up when no part of the span is in the source" do
+      stub_ai(text: "Low.", span: "Surface\nShare")
+
+      expect(described_class.call(excerpt: rendered, document: "# Something else", transcript: "low").anchor_text)
+        .to be_nil
+    end
+  end
+
   it "does not call the AI without a transcript" do
     expect(CoPlan::Ai).not_to receive(:call)
 

@@ -8,10 +8,45 @@ presence pill and diff flashes doing the "I heard you" work.
 
 ## Tier 1 — zero-install (already on)
 
-The mic button on the plan page uses browser-native speech recognition
-(on-device in Chrome 139+) and `speechSynthesis` for the "Got it." /
-"Done — take a look." cues. No setup; weakest voices; Chrome recommended
-(Safari's Web Speech is unreliable).
+The mic button on the plan page captures one of two ways, decided by
+whether an AI provider is configured (`CoPlan::Ai.available?`, passed to
+the Stimulus controller as `transcription-value`):
+
+- **Record and transcribe** (default when a provider is configured).
+  `MediaRecorder` captures Opus in WebM, or MP4/AAC in Safari, and posts
+  it to `POST /plans/:id/dictations`, which runs it through
+  `gpt-4o-transcribe` (override with `COPLAN_TRANSCRIBE_MODEL`). Works in
+  every browser with a microphone. The text that was on screen is passed
+  as the transcription prompt, which is what makes product names, jargon
+  and figures come back as themselves instead of phonetic guesses.
+  Costs a round trip, and there are no live captions while you talk.
+- **Browser recognition** (fallback). Web Speech API, on-device in
+  Chrome 139+. Instant, free, interim text as you speak — and clearly
+  worse on anything domain-specific. Chrome only in practice; Safari's
+  implementation is unreliable.
+
+`speechSynthesis` handles the "Got it." / "Done — take a look." cues in
+both cases.
+
+### Making tier 1 better
+
+Roughly in order of value per unit of work:
+
+1. **Both at once.** Run recognition for live captions *and* record for
+   the transcript that actually gets posted. Restores the "it's hearing
+   me" feedback the recording path gives up, at the cost of two mic
+   consumers in one page.
+2. **A real hint, not just the viewport.** The prompt currently gets the
+   visible text. The plan title, section headings, and recent comment
+   text are all cheap to add and all full of the words being spoken.
+3. **Streaming transcription.** `gpt-4o-transcribe` over a WebSocket, or
+   the tier 2 sidecar below, turns a 2–4s wait into a running transcript.
+4. **Show the transcript before posting.** A two-second window to see
+   what it heard, with the comment posting itself if you say nothing —
+   catches the "that isn't what I said" case without adding a step.
+5. **Silence trimming and a level meter.** Cheaper uploads, and a mic
+   that visibly responds to your voice is the clearest possible signal
+   that it is working.
 
 ## Tier 2 — local OSS pipeline (this directory)
 

@@ -3,53 +3,82 @@ import { Controller } from "@hotwired/stimulus"
 /*
  * coplan--voice
  *
- * Push-to-talk commenting. Hold the mic button (or tap to toggle), say
- * "this section is way too formal", and the transcript is posted as a
- * comment pinned to the section you were looking at.
+ * Push-to-talk commenting. Hold Shift (or tap the mic), say "this section
+ * is way too formal", and what you said is posted as a comment pinned to
+ * the passage you were looking at.
+ *
+ * Two ways to capture, and which one is in play matters:
+ *
+ *   record    MediaRecorder captures audio and the server transcribes it.
+ *             Works in every browser with a microphone, and the
+ *             transcription is far better — it gets a hint of what was on
+ *             screen, so jargon, product names and figures come through
+ *             instead of being guessed at phonetically. Costs a round
+ *             trip and gives no live captions.
+ *   recognize The browser's own SpeechRecognition. Instant and free, with
+ *             interim text as you speak, but Chrome-only in practice and
+ *             noticeably worse at anything domain-specific.
+ *
+ * Recording wins when the server can transcribe, because accuracy is the
+ * whole ballgame: a comment that says something you didn't is worse than
+ * no comment. Recognition is the fallback, and with neither the control
+ * hides itself.
  *
  * It promises nothing about agents. If one happens to be attached the
  * comment wakes it through the normal event inbox, its pill flips to
  * active, and this controller speaks a short acknowledgment ("Got it.")
- * at that moment — so the loop is ear-and-eyes: you hear the ack, you
- * watch the diff flashes land. With nobody attached it's simply a
- * dictated comment, which stays in the durable inbox for whichever agent
- * attaches next.
- *
- * This is the zero-install voice tier: browser-native SpeechRecognition
- * (on-device in Chrome 139+) and speechSynthesis. The higher-fidelity
- * OSS sidecar (Pipecat + local Whisper + Kokoro over WebRTC) plugs into
- * the same comment-driven loop — see voice/README.md — so this controller
- * is also its fallback.
+ * at that moment. With nobody attached it's simply a dictated comment,
+ * which stays in the durable inbox for whichever agent attaches next.
  */
 export default class extends Controller {
   static targets = ["button", "status"]
-  static values = { url: String, dictationUrl: String }
+  static values = { url: String, dictationUrl: String, transcription: Boolean }
 
   connect() {
-    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!Recognition) {
+    this.mode = this._chooseMode()
+    if (!this.mode) {
       this.element.style.display = "none"
       return
     }
 
-    this.recognition = new Recognition()
-    this.recognition.continuous = false
-    this.recognition.interimResults = true
-    this.recognition.lang = document.documentElement.lang || "en-US"
-    this.recognition.onresult = (e) => this._onResult(e)
-    this.recognition.onend = () => this._onEnd()
-    this.recognition.onerror = (e) => this._setStatus(e.error === "no-speech" ? "Didn't catch that" : "Mic error", true)
+    if (this.mode === "recognize") this._setUpRecognition()
 
     this.listening = false
-    this.finalTranscript = ""
     this._watchAgentPill()
     this._enablePushToTalk()
   }
 
   disconnect() {
+    this._releaseMic()
     this.recognition?.abort()
     this.pillObserver?.disconnect()
     this._disablePushToTalk()
+    clearInterval(this.tickTimer)
+  }
+
+  _chooseMode() {
+    const canRecord = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder)
+    if (this.transcriptionValue && canRecord) return "record"
+    if (window.SpeechRecognition || window.webkitSpeechRecognition) return "recognize"
+    return null
+  }
+
+  _setUpRecognition() {
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    this.recognition = new Recognition()
+    this.recognition.continuous = false
+    this.recognition.interimResults = true
+    this.recognition.lang = document.documentElement.lang || "en-US"
+    this.recognition.onresult = (e) => this._onResult(e)
+    this.recognition.onend = () => this._onRecognitionEnd()
+    this.recognition.onerror = (e) =>
+      this._setStatus(e.error === "no-speech" ? "Didn't catch that" : "Mic error", true)
+  }
+
+  // ── The gesture ────────────────────────────────────────────────────
+
+  toggle() {
+    this.listening ? this._stop() : this._start()
   }
 
   // Hold Shift to talk, release to send.
@@ -65,7 +94,7 @@ export default class extends Controller {
     this._onKeyDown = (event) => {
       if (event.key !== "Shift") {
         // Shift+something is a shortcut or a capital letter, not talking.
-        if (this.pushToTalk) this._cancelPushToTalk()
+        if (this.pushToTalk) this._cancel()
         return
       }
       if (event.repeat || this.pushToTalk || this.listening) return
@@ -86,35 +115,18 @@ export default class extends Controller {
       if (!this.pushToTalk) return
 
       this.pushToTalk = false
-      // stop() finalises the transcript and fires onend, which posts.
-      this.recognition?.stop()
+      this._stop()
     }
 
     // Losing the window means we never see the keyup — don't leave the
     // mic open, and don't post something half-said.
-    this._onInterrupt = () => this._cancelPushToTalk()
+    this._onInterrupt = () => {
+      if (this.pushToTalk) this._cancel()
+    }
 
     document.addEventListener("keydown", this._onKeyDown)
     document.addEventListener("keyup", this._onKeyUp)
     window.addEventListener("blur", this._onInterrupt)
-  }
-
-  _cancelPushToTalk() {
-    clearTimeout(this.holdTimer)
-    if (!this.pushToTalk) return
-
-    this.pushToTalk = false
-    // abort() discards the transcript; stop() would post it.
-    this.recognition?.abort()
-    this.listening = false
-    this.buttonTarget.classList.remove("voice-btn--listening")
-    this._setStatus("")
-  }
-
-  _isTyping() {
-    const el = document.activeElement
-    if (!el) return false
-    return el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)
   }
 
   _disablePushToTalk() {
@@ -124,17 +136,121 @@ export default class extends Controller {
     window.removeEventListener("blur", this._onInterrupt)
   }
 
-  toggle() {
-    this.listening ? this.recognition.stop() : this._start()
+  _isTyping() {
+    const el = document.activeElement
+    if (!el) return false
+    return el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)
   }
 
+  // ── Capture ────────────────────────────────────────────────────────
+
   _start() {
+    // What they were looking at when they started talking, not wherever
+    // the page has drifted to by the time they stop.
+    this.excerpt = this._visibleText()
     this.finalTranscript = ""
     this.awaitingAck = false
+    this.discarded = false
     this.listening = true
     this.buttonTarget.classList.add("voice-btn--listening")
+    this._startTicking()
+
+    if (this.mode === "record") this._startRecording()
+    else this.recognition.start()
+  }
+
+  _stop() {
+    if (!this.listening) return
+
+    if (this.mode === "record") this.recorder?.stop() // → onstop posts
+    else this.recognition?.stop() // → onend posts
+  }
+
+  // Discards whatever was captured rather than posting it.
+  _cancel() {
+    clearTimeout(this.holdTimer)
+    this.pushToTalk = false
+    if (!this.listening) return
+
+    this.discarded = true
+    if (this.mode === "record") this.recorder?.stop()
+    else this.recognition?.abort()
+
+    this._stopListening()
+    this._setStatus("")
+  }
+
+  _stopListening() {
+    this.listening = false
+    this.buttonTarget.classList.remove("voice-btn--listening")
+    clearInterval(this.tickTimer)
+  }
+
+  // No live captions in record mode, so the elapsed count is the whole of
+  // the "yes, it can hear you" signal.
+  _startTicking() {
+    if (this.mode !== "record") {
+      this._setStatus("Listening…")
+      return
+    }
+
+    let seconds = 0
     this._setStatus("Listening…")
-    this.recognition.start()
+    clearInterval(this.tickTimer)
+    this.tickTimer = setInterval(() => {
+      seconds += 1
+      this._setStatus(`Listening… ${seconds}s`)
+    }, 1000)
+  }
+
+  async _startRecording() {
+    try {
+      // A fresh stream per recording: holding one open leaves the
+      // browser's recording indicator lit while nobody is talking.
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch {
+      this._stopListening()
+      this._setStatus("Mic blocked", true)
+      return
+    }
+
+    // Cancelled or released while the permission prompt was up.
+    if (!this.listening) {
+      this._releaseMic()
+      return
+    }
+
+    const chunks = []
+    this.recorder = new MediaRecorder(this.stream, this._recorderOptions())
+    this.recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunks.push(event.data)
+    }
+    this.recorder.onstop = () => {
+      this._releaseMic()
+      this._stopListening()
+      if (this.discarded) return
+
+      const blob = new Blob(chunks, { type: this.recorder.mimeType })
+      if (blob.size === 0) {
+        this._setStatus("Didn't catch that", true)
+        return
+      }
+      this._submit({ audio: blob })
+    }
+    this.recorder.start()
+  }
+
+  // Opus in WebM where it exists (small and well handled), MP4/AAC in
+  // Safari, and whatever the browser prefers if it likes neither.
+  _recorderOptions() {
+    const preferred = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]
+    const supported = preferred.find((type) => MediaRecorder.isTypeSupported?.(type))
+    return supported ? { mimeType: supported } : {}
+  }
+
+  _releaseMic() {
+    this.stream?.getTracks().forEach((track) => track.stop())
+    this.stream = null
   }
 
   _onResult(event) {
@@ -146,23 +262,32 @@ export default class extends Controller {
     this._setStatus(`“${(this.finalTranscript + interim).trim().slice(-80)}”`)
   }
 
-  _onEnd() {
-    this.listening = false
-    this.buttonTarget.classList.remove("voice-btn--listening")
+  _onRecognitionEnd() {
+    this._stopListening()
+    if (this.discarded) return
+
     const text = this.finalTranscript.trim()
     if (text.length === 0) return
 
-    this._post(text)
+    this._submit({ transcript: text })
   }
 
-  async _post(text) {
-    this._setStatus("Tidying up…")
+  // ── Posting ────────────────────────────────────────────────────────
 
-    // One round trip does both jobs: cleans up what you said, and works
-    // out which passage you said it about. Either half can come back
-    // empty; the raw transcript and the section heading are the floor.
-    const interpreted = await this._interpret(text)
-    const commentBody = interpreted?.body || this._stripFillers(text)
+  async _submit({ transcript, audio }) {
+    this._setStatus(audio ? "Transcribing…" : "Tidying up…")
+
+    // One round trip does every slow job: transcribe if it was audio,
+    // clean up the words, and work out which passage they were about.
+    const interpreted = await this._interpret({ transcript, audio })
+
+    if (!interpreted?.body && !transcript) {
+      // Audio with nothing to show for it — there is no comment to post.
+      this._setStatus("Couldn't make that out", true)
+      return
+    }
+
+    const commentBody = interpreted?.body || this._stripFillers(transcript)
     const anchor = interpreted?.anchor || this._viewportAnchor()
 
     const token = document.querySelector('meta[name="csrf-token"]')?.content
@@ -195,22 +320,27 @@ export default class extends Controller {
     }, 12000)
   }
 
-  // Clean up the transcript and locate the passage, in one time-boxed
-  // request. Any failure — no AI configured, slow model, a paraphrase
-  // that doesn't appear in the text — leaves the fallbacks in place.
-  async _interpret(transcript) {
-    const visible = this._visibleText()
-    if (!visible) return null
-
+  // Transcribe, clean up and locate the passage, in one time-boxed
+  // request. A failure with a transcript in hand leaves the fallbacks in
+  // place; a failure with only audio has nothing to fall back to.
+  async _interpret({ transcript, audio }) {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 6000)
+    // Uploading and transcribing audio is a different order of work from
+    // rewriting a sentence, and giving up early on it means giving up on
+    // the comment entirely.
+    const timer = setTimeout(() => controller.abort(), audio ? 25000 : 8000)
 
     try {
       const token = document.querySelector('meta[name="csrf-token"]')?.content
+      const form = new FormData()
+      if (transcript) form.append("transcript", transcript)
+      if (audio) form.append("audio", audio, `dictation.${this._extensionFor(audio)}`)
+      if (this.excerpt) form.append("excerpt", this.excerpt)
+
       const response = await fetch(this.dictationUrlValue, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": token, Accept: "application/json" },
-        body: JSON.stringify({ transcript, excerpt: visible }),
+        headers: { "X-CSRF-Token": token, Accept: "application/json" },
+        body: form,
         signal: controller.signal
       })
       if (!response.ok) return null
@@ -224,6 +354,15 @@ export default class extends Controller {
     }
   }
 
+  _extensionFor(blob) {
+    const type = (blob.type || "").split(";")[0]
+    if (type.includes("mp4")) return "mp4"
+    if (type.includes("ogg")) return "ogg"
+    if (type.includes("wav")) return "wav"
+    if (type.includes("mpeg")) return "mp3"
+    return "webm"
+  }
+
   // The span has to exist in the rendered document to be highlighted,
   // and we need to know which copy of it we mean.
   _resolveAnchor(anchorText) {
@@ -235,12 +374,12 @@ export default class extends Controller {
     return { text: anchorText, occurrence: this._occurrenceOfNearViewport(content, anchorText) }
   }
 
-  // Fallback tidy-up for when the AI isn't available: drop the tics that
-  // stand alone as words and collapse stutters. Conservative on purpose
-  // — "like" is a real word ("looks like the API"), so it only goes when
-  // it's clearly filler, and nothing here reorders or rewrites.
+  // Fallback tidy-up for when the interpret call fails: drop the tics
+  // that stand alone as words and collapse stutters. Conservative on
+  // purpose — "like" is a real word ("looks like the API"), so it only
+  // goes when it's clearly filler, and nothing here reorders or rewrites.
   _stripFillers(text) {
-    const cleaned = text
+    const cleaned = (text || "")
       .replace(/\b(?:um+|uh+|er+|hmm+)\b[,]?\s*/gi, "")
       .replace(/\b(?:you know|i mean|sort of|kind of|basically)\b[,]?\s*/gi, "")
       .replace(/\blike\b[,]?\s+(?=like\b)/gi, "")
@@ -253,8 +392,9 @@ export default class extends Controller {
     return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
   }
 
-  // The text currently on screen, which is both what the remark was about
-  // and the only part of the document we send anywhere.
+  // The text currently on screen: what the remark is about, the hint that
+  // makes transcription get the jargon right, and the only part of the
+  // document we send anywhere.
   _visibleText() {
     const content = document.getElementById("plan-content-body")
     if (!content) return null
