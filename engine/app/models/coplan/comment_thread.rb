@@ -17,7 +17,14 @@ module CoPlan
 
     validates :status, presence: true, inclusion: { in: STATUSES }
 
-    before_create :resolve_anchor_position
+    # Resolution runs before validation so validation can see its result:
+    # a thread whose anchor never resolved renders nowhere — no highlight,
+    # no popover, no way to reach it from the page — so it is refused at
+    # the door rather than created invisible. Create-only on both: a
+    # resolved thread whose content later drifts is the out_of_date flow,
+    # not a validity problem.
+    before_validation :resolve_anchor_position, on: :create
+    validate :anchor_must_resolve, on: :create
 
     scope :open_threads, -> { where(status: OPEN_STATUSES) }
     scope :current, -> { where(out_of_date: false) }
@@ -67,7 +74,7 @@ module CoPlan
 
         begin
           new_range = Plans::TransformRange.transform_through_versions(
-            [thread.anchor_start, thread.anchor_end],
+            [ thread.anchor_start, thread.anchor_end ],
             intervening
           )
           thread.update_columns(
@@ -166,8 +173,8 @@ module CoPlan
       content = plan.current_content
       return nil unless content.present?
 
-      context_start = [anchor_start - chars, 0].max
-      context_end = [anchor_end + chars, content.length].min
+      context_start = [ anchor_start - chars, 0 ].max
+      context_end = [ anchor_end + chars, content.length ].min
 
       before = content[context_start...anchor_start]
       anchor = content[anchor_start...anchor_end]
@@ -181,6 +188,12 @@ module CoPlan
     end
 
     private
+
+    def anchor_must_resolve
+      return if anchor_text.blank? || anchor_start.present?
+
+      errors.add(:anchor_text, "doesn't match the plan content — the comment would have nowhere to appear")
+    end
 
     def resolve_anchor_position
       return unless anchor_text.present?
@@ -205,11 +218,20 @@ module CoPlan
         normalized_anchor = anchor_text.gsub("\t", " ")
         stripped_ranges = find_all_occurrences(stripped, normalized_anchor)
 
+        # Mermaid labels line-break on literal <br/> tags, and the browser
+        # reads the label back without them — "first<br/>fetching" renders
+        # (and gets selected) as "firstfetching". Drop the tags from the
+        # search text; the position map keeps pointing at the source.
+        if stripped_ranges.empty?
+          stripped, pos_map = remove_break_tags(stripped, pos_map)
+          stripped_ranges = find_all_occurrences(stripped, normalized_anchor)
+        end
+
         ranges = stripped_ranges.map do |s, e|
           raw_start = first_real_pos(pos_map, s, :forward)
           raw_end = first_real_pos(pos_map, e - 1, :backward)
           next nil unless raw_start && raw_end
-          [raw_start, raw_end + 1]
+          [ raw_start, raw_end + 1 ]
         end.compact
       end
 
@@ -219,6 +241,23 @@ module CoPlan
         self.anchor_end = range[1]
         self.anchor_revision = plan.current_revision
       end
+    end
+
+    # Removes <br>/<br/> tags from stripped text, carrying the position
+    # map along so matches still resolve to raw source positions.
+    def remove_break_tags(text, pos_map)
+      kept = +""
+      map = []
+      last = 0
+      text.scan(/<br\s*\/?>/i) do
+        m = Regexp.last_match
+        kept << text[last...m.begin(0)]
+        map.concat(pos_map[last...m.begin(0)])
+        last = m.end(0)
+      end
+      kept << text[last..]
+      map.concat(pos_map[last..])
+      [ kept, map ]
     end
 
     # Finds the nearest non-sentinel (-1) position in the pos_map,
@@ -236,7 +275,7 @@ module CoPlan
       ranges = []
       start_pos = 0
       while (idx = text.index(search, start_pos))
-        ranges << [idx, idx + search.length]
+        ranges << [ idx, idx + search.length ]
         start_pos = idx + search.length
       end
       ranges

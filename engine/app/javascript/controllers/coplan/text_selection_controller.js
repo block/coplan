@@ -229,6 +229,9 @@ export default class extends Controller {
     this.anchorPreviewTarget.style.display = "none"
     const textarea = this.formTarget.querySelector("textarea")
     if (textarea) textarea.value = ""
+    // A create error from the previous attempt shouldn't greet the next one.
+    const error = this.formTarget.querySelector("#new-comment-form-error")
+    if (error) error.textContent = ""
     this.selectedText = null
     this.selectedContext = null
     this.selectedOccurrence = null

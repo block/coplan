@@ -1860,6 +1860,16 @@ img.avatar {
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 
+/* Server-side create errors (e.g. an anchor that doesn't resolve).
+   Empty until a failed submit fills it, so it takes no space at rest. */
+.comment-form__error {
+  color: var(--color-danger);
+}
+
+.comment-form__error:not(:empty) {
+  margin-bottom: var(--space-sm);
+}
+
 .comment-form__actions {
   display: flex;
   gap: var(--space-sm);

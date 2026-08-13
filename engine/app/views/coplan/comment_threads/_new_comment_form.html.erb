@@ -12,6 +12,9 @@
         data-controller="coplan--comment-form"
         data-coplan--comment-form-search-url-value="<%= search_users_path %>"></textarea>
     </div>
+    <%# Server-side create errors land here (turbo_stream.update) — e.g. a
+        selection whose anchor doesn't resolve against the plan source. %>
+    <div class="comment-form__error text-sm" id="new-comment-form-error"></div>
     <div class="comment-form__actions">
       <button type="submit" class="btn btn--primary btn--sm">Comment</button>
       <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--text-selection#cancelComment">Cancel</button>

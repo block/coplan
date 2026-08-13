@@ -57,8 +57,11 @@ RSpec.describe "Comment anchors and Mermaid diagrams", type: :system do
       # An anchor that carries stylesheet text — the shape of anchors captured
       # by sweeping a selection across a diagram before capture excluded
       # non-rendered text. This string appears verbatim in the <style> of
-      # every Mermaid SVG and nowhere in the rendered text.
-      poisoned = create(:comment_thread, plan: plan, anchor_text: 'font-family:"trebuchet ms"')
+      # every Mermaid SVG and nowhere in the rendered text. Creation now
+      # refuses anchors that don't resolve, so this legacy row is written
+      # past validation, the way it actually exists in old data.
+      poisoned = create(:comment_thread, plan: plan)
+      poisoned.update_columns(anchor_text: 'font-family:"trebuchet ms"')
       create(:comment, comment_thread: poisoned, author_id: user.id)
 
       # A legitimate anchor on a diagram node label — marks inside rendered
