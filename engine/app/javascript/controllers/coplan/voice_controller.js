@@ -158,6 +158,7 @@ export default class extends Controller {
     this.discarded = false
     this.recorder = null
     this.peakLevel = 0
+    this.meterLive = false
     this.listening = true
     this.buttonTarget.classList.add("voice-btn--listening")
     this._startTicking()
@@ -180,7 +181,7 @@ export default class extends Controller {
     if (!this.recorder) {
       this._releaseMic()
       this._stopListening()
-      this._setStatus("Mic wasn't ready — try again", true)
+      this._reportMiss("Hmm — the mic wasn't ready. Say that again?")
       return
     }
 
@@ -249,7 +250,10 @@ export default class extends Controller {
       if (event.data.size > 0) chunks.push(event.data)
     }
     this.recorder.onstop = () => {
-      const heardSomething = this.peakLevel >= this.constructor.SILENCE_PEAK
+      // The silence verdict is only trustworthy if the meter actually
+      // ran. A dead meter reads 0 for a recording full of speech — when
+      // in doubt, send it; the server's echo check is the backstop.
+      const heardSomething = !this.meterLive || this.peakLevel >= this.constructor.SILENCE_PEAK
       this._releaseMic()
       this._stopListening()
       if (this.discarded) return
@@ -259,7 +263,7 @@ export default class extends Controller {
       // answers it by repeating the context we gave it, which arrives
       // looking like a real remark. Catch it here, before the round trip.
       if (blob.size === 0 || !heardSomething) {
-        this._setStatus("Didn't hear anything", true)
+        this._reportMiss("Hmm — didn't hear anything")
         return
       }
       this._submit({ audio: blob })
@@ -270,11 +274,21 @@ export default class extends Controller {
   // Tracks the loudest thing in the recording, and drives the button's
   // pulse so there is some sign it can hear you — the recording path has
   // no interim captions to show.
+  //
+  // The meter's verdict only counts while `meterLive` is true. An
+  // AudioContext starts suspended unless the browser saw a qualifying
+  // user gesture, and Chrome does not count a bare Shift keydown as one —
+  // so on the push-to-talk path the context routinely comes up dead, and
+  // a suspended analyser reads as perfect silence. Trusting that reading
+  // meant refusing recordings people were audibly speaking into.
   _meterLevels() {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    this.meterLive = false
 
     try {
       this.audioContext = new AudioContextClass()
+      if (this.audioContext.state !== "running") this.audioContext.resume()?.catch?.(() => {})
+
       const analyser = this.audioContext.createAnalyser()
       analyser.fftSize = 512
       this.audioContext.createMediaStreamSource(this.stream).connect(analyser)
@@ -282,6 +296,10 @@ export default class extends Controller {
       const samples = new Uint8Array(analyser.fftSize)
       const sample = () => {
         if (!this.listening) return
+
+        // Only a running context produces real samples; a suspended one
+        // is indistinguishable from a silent room.
+        if (this.audioContext.state === "running") this.meterLive = true
 
         analyser.getByteTimeDomainData(samples)
         let peak = 0
@@ -296,7 +314,7 @@ export default class extends Controller {
       // Metering is a check on the recording, not part of making it. If
       // it can't run, assume there was speech — refusing to post what
       // somebody said is a worse failure than sending silence.
-      this.peakLevel = Infinity
+      this.meterLive = false
     }
   }
 
@@ -348,7 +366,7 @@ export default class extends Controller {
       // Audio with nothing to show for it — there is no comment to post.
       // The server distinguishes "heard nothing" from "couldn't reach the
       // transcriber", and which one it was changes what you'd do next.
-      this._setStatus(interpreted?.error || "Couldn't make that out", true)
+      this._reportMiss(interpreted?.error || "Couldn't make that out")
       return
     }
 
@@ -573,6 +591,14 @@ export default class extends Controller {
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.rate = 1.1
     window.speechSynthesis.speak(utterance)
+  }
+
+  // A miss in a voice flow is reported by voice: you were talking, not
+  // watching a status chip in the corner. Same words on screen and out
+  // loud, so neither channel contradicts the other.
+  _reportMiss(text) {
+    this._setStatus(text, true)
+    this._speak(text.replace("—", ","))
   }
 
   _setStatus(text, isError = false) {

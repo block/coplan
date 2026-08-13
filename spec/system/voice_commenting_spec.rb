@@ -209,7 +209,12 @@ RSpec.describe "Voice commenting", type: :system do
     # `peak` is how far the loudest sample sits from silence, on the
     # 0–128 scale the controller meters. 30 is ordinary speech; 0 is a
     # microphone that captured nothing.
-    def stub_recorder(peak: 30)
+    #
+    # `context_state` models the AudioContext lifecycle. "suspended" is
+    # what push-to-talk actually gets — Chrome doesn't treat a bare Shift
+    # keydown as a user gesture, so the meter never produces a sample and
+    # its all-zero reading must not be mistaken for a silent room.
+    def stub_recorder(peak: 30, context_state: "running")
       page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~JS)
         delete window.SpeechRecognition
         delete window.webkitSpeechRecognition
@@ -218,10 +223,15 @@ RSpec.describe "Voice commenting", type: :system do
           value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) }
         })
         window.AudioContext = class {
+          constructor() { this.state = #{context_state.to_json} }
+          resume() { return Promise.resolve() } // stays suspended, as without a gesture
           createAnalyser() {
+            const state = () => this.state
             return {
               fftSize: 512,
-              getByteTimeDomainData(samples) { samples.fill(128 + #{peak}) }
+              getByteTimeDomainData(samples) {
+                samples.fill(state() === "running" ? 128 + #{peak} : 128)
+              }
             }
           }
           createMediaStreamSource() { return { connect() {} } }
@@ -294,8 +304,29 @@ RSpec.describe "Voice commenting", type: :system do
       find(".voice-btn").click
       find(".voice-btn").click
 
-      expect(page).to have_css(".voice-status--error", text: /Didn't hear anything/, wait: 5)
+      expect(page).to have_css(".voice-status--error", text: /didn't hear anything/i, wait: 5)
       expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+    end
+
+    # The first regression this guard caused: a suspended AudioContext
+    # meters exactly like a silent room, and the silence check threw away
+    # recordings people were audibly speaking into. A meter that never
+    # ran gets no vote — the take is sent, and the server's echo check
+    # remains the defence against actual silence.
+    it "sends the recording when the meter never ran, rather than calling speech silence" do
+      allow(CoPlan::Ai).to receive(:transcribe).and_return("it should be main and master")
+      allow(CoPlan::Ai).to receive(:call)
+        .and_return({ "text" => "It should be main and master.", "span" => nil }.to_json)
+
+      stub_recorder(peak: 0, context_state: "suspended")
+      visit plan_path(plan)
+
+      find(".voice-btn").click
+      find(".voice-btn").click
+
+      expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+      thread = CoPlan::CommentThread.where(plan_id: plan.id).sole
+      expect(thread.comments.first.body_markdown).to eq("🎙️ It should be main and master.")
     end
 
     # Audio has no fallback: unlike a browser transcript there are no
