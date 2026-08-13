@@ -103,6 +103,28 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
         expect(OpenAI::Client).to have_received(:new)
           .with(hash_including(uri_base: described_class::DEFAULT_BASE_URL))
       end
+
+      # Our default (and the documented custom URLs) end in /v1, and the
+      # gem appends its own api_version segment — but only when the base
+      # doesn't already carry one (ruby-openai 8.3.0, http.rb#uri). This
+      # exercises the real client's URI construction, no stubs, so a gem
+      # upgrade that changes that rule fails here instead of 404ing in
+      # production on api.openai.com/v1/v1/chat/completions.
+      it "does not let the client double up /v1 on the default base URL" do
+        client = OpenAI::Client.new(access_token: "test", uri_base: described_class::DEFAULT_BASE_URL)
+
+        uri = client.send(:uri, path: "/chat/completions")
+
+        expect(uri).to eq("https://api.openai.com/v1/chat/completions")
+      end
+
+      it "still gains a /v1 when a custom base leaves it off" do
+        client = OpenAI::Client.new(access_token: "test", uri_base: "https://gateway.example.com/openai")
+
+        uri = client.send(:uri, path: "/chat/completions")
+
+        expect(uri).to eq("https://gateway.example.com/openai/v1/chat/completions")
+      end
     end
 
     it "raises an error when response has no content" do
