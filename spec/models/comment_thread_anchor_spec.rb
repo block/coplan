@@ -13,6 +13,48 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
     plan
   end
 
+  describe "anchor_must_resolve on create" do
+    # A thread whose anchor never resolved renders nowhere: no highlight,
+    # no popover, no path to it from the page. Refused at the door rather
+    # than created invisible.
+    it "refuses a thread whose anchor resolves nowhere" do
+      expect {
+        plan.comment_threads.create!(
+          plan_version: plan.current_plan_version,
+          created_by_user: user, anchor_text: "text the plan never says"
+        )
+      }.to raise_error(ActiveRecord::RecordInvalid, /nowhere to appear/)
+    end
+
+    it "refuses an occurrence beyond the ones that exist" do
+      expect {
+        plan.comment_threads.create!(
+          plan_version: plan.current_plan_version,
+          created_by_user: user, anchor_text: "unit tests", anchor_occurrence: 3
+        )
+      }.to raise_error(ActiveRecord::RecordInvalid)
+    end
+
+    it "allows a thread with no anchor at all" do
+      thread = plan.comment_threads.create!(
+        plan_version: plan.current_plan_version, created_by_user: user
+      )
+      expect(thread).to be_persisted
+    end
+
+    # Content drift after creation is the out_of_date flow, not a validity
+    # problem — an old thread must stay updatable.
+    it "does not re-litigate the anchor on update" do
+      thread = plan.comment_threads.create!(
+        plan_version: plan.current_plan_version,
+        created_by_user: user, anchor_text: "unit tests"
+      )
+      thread.update_columns(anchor_text: "text no longer in the plan", anchor_start: nil, anchor_end: nil)
+
+      expect(thread.reload.update(status: "todo")).to be true
+    end
+  end
+
   describe "resolve_anchor_position on create" do
     it "resolves anchor_text to character positions" do
       thread = plan.comment_threads.create!(
@@ -153,6 +195,13 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
         assert_anchor_resolves(md, "run", "run")
       end
 
+      it "mermaid label text broken by <br/> tags" do
+        md = "```mermaid\nflowchart LR\n  Queue[\"assignment — first<br/>fetching device wins\"] --> Printer\n```"
+        # The browser reads the rendered label back without the tag —
+        # "first<br/>fetching" is selected as "firstfetching".
+        assert_anchor_resolves(md, "firstfetching device wins", "first<br/>fetching device wins")
+      end
+
       it "heading text (strips # markers)" do
         assert_anchor_resolves(
           "# My Heading\n\nContent here.",
@@ -238,7 +287,7 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       version2 = CoPlan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: new_content, actor_type: "human", actor_id: user.id,
-        operations_json: [{ "op" => "replace_exact", "resolved_range" => [anchor_pos, anchor_pos + 7], "new_range" => [anchor_pos, anchor_pos + 7], "delta" => 0 }]
+        operations_json: [ { "op" => "replace_exact", "resolved_range" => [ anchor_pos, anchor_pos + 7 ], "new_range" => [ anchor_pos, anchor_pos + 7 ], "delta" => 0 } ]
       )
       plan.update!(current_plan_version: version2, current_revision: 2)
 
@@ -259,7 +308,7 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       version2 = CoPlan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: new_content, actor_type: "human", actor_id: user.id,
-        operations_json: [{ "op" => "replace_exact", "resolved_range" => [unit_test_pos, unit_test_pos + 10], "new_range" => [unit_test_pos, unit_test_pos + 17], "delta" => 7 }]
+        operations_json: [ { "op" => "replace_exact", "resolved_range" => [ unit_test_pos, unit_test_pos + 10 ], "new_range" => [ unit_test_pos, unit_test_pos + 17 ], "delta" => 7 } ]
       )
       plan.update!(current_plan_version: version2, current_revision: 2)
 
@@ -283,7 +332,7 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       version2 = CoPlan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: new_content, actor_type: "human", actor_id: user.id,
-        operations_json: [{ "op" => "replace_exact", "resolved_range" => [first_pos, first_pos + first_len], "new_range" => [first_pos, first_pos + new_len], "delta" => new_len - first_len }]
+        operations_json: [ { "op" => "replace_exact", "resolved_range" => [ first_pos, first_pos + first_len ], "new_range" => [ first_pos, first_pos + new_len ], "delta" => new_len - first_len } ]
       )
       plan.update!(current_plan_version: version2, current_revision: 2)
 
@@ -305,7 +354,7 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       version2 = CoPlan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: new_content, actor_type: "human", actor_id: user.id,
-        operations_json: [{ "op" => "replace_exact", "resolved_range" => [anchor_pos, anchor_pos + 7], "new_range" => [anchor_pos, anchor_pos + 7], "delta" => 0 }]
+        operations_json: [ { "op" => "replace_exact", "resolved_range" => [ anchor_pos, anchor_pos + 7 ], "new_range" => [ anchor_pos, anchor_pos + 7 ], "delta" => 0 } ]
       )
       plan.update!(current_plan_version: version2, current_revision: 2)
 
@@ -317,12 +366,12 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
 
   describe "#anchor_valid?" do
     it "returns true for non-outdated thread" do
-      thread = create(:comment_thread, plan: plan, anchor_text: "some text")
+      thread = create(:comment_thread, plan: plan, anchor_text: "First section")
       expect(thread.anchor_valid?).to be true
     end
 
     it "returns false for outdated thread" do
-      thread = create(:comment_thread, plan: plan, anchor_text: "some text", out_of_date: true)
+      thread = create(:comment_thread, plan: plan, anchor_text: "First section", out_of_date: true)
       expect(thread.anchor_valid?).to be false
     end
 
