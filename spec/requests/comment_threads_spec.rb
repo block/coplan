@@ -3,7 +3,16 @@ require "rails_helper"
 RSpec.describe "CommentThreads", type: :request do
   let(:alice) { create(:coplan_user, :admin) }
   let(:bob) { create(:coplan_user) }
-  let(:plan) { create(:plan, :considering, created_by_user: alice) }
+
+  # Threads refuse anchors that don't resolve, so the plan has to actually
+  # say the thing these specs anchor to.
+  let(:plan) do
+    create(:plan, :considering, created_by_user: alice).tap do |p|
+      version = create(:plan_version, plan: p, revision: 2, actor_id: alice.id,
+        content_markdown: "## Ambition\n\nOur goal is world domination by Q3.\n")
+      p.update_columns(current_plan_version_id: version.id, current_revision: 2)
+    end
+  end
 
   before { sign_in_as(alice) }
 
@@ -19,8 +28,35 @@ RSpec.describe "CommentThreads", type: :request do
     expect(response).to redirect_to(plan_path(plan))
     thread = CoPlan::CommentThread.last
     expect(thread.anchor_text).to eq("world domination")
+    expect(thread.anchor_start).to be_present # resolved at the door
     expect(thread.status).to eq("todo") # author's own comments start as todo
     expect(thread.plan_version_id).to eq(plan.current_plan_version_id)
+  end
+
+  # A thread whose anchor never resolved renders nowhere — no highlight, no
+  # popover, no way to reach it. "Comment posted" followed by nothing
+  # visible is worse than a refusal.
+  describe "when the anchor doesn't resolve against the plan" do
+    it "refuses to create the thread" do
+      expect {
+        post plan_comment_threads_path(plan), params: {
+          comment_thread: { anchor_text: "text the plan never says", body_markdown: "Lost forever." }
+        }
+      }.not_to change { [ CoPlan::CommentThread.count, CoPlan::Comment.count ] }
+
+      expect(response).to redirect_to(plan_path(plan))
+      expect(flash[:alert]).to include("nowhere to appear")
+    end
+
+    it "tells a turbo-stream client with a 422 so it can fall back" do
+      post plan_comment_threads_path(plan),
+        params: { comment_thread: { anchor_text: "text the plan never says", body_markdown: "Lost." } },
+        headers: { "Accept" => "text/vnd.turbo-stream.html, text/html" }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.body).to include("new-comment-form-error")
+      expect(response.body).to include("nowhere to appear")
+    end
   end
 
   it "broadcasts the popover via requestless partial render, never request-scoped HTML" do

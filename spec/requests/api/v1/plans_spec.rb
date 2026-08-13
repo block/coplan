@@ -263,13 +263,13 @@ RSpec.describe "Api::V1::Plans", type: :request do
 
   it "comments returns thread list with anchor_text" do
     thread = create(:comment_thread, :with_anchor, plan: plan,
-      plan_version: plan.current_plan_version, created_by_user: alice, anchor_text: "original roadmap text")
+      plan_version: plan.current_plan_version, created_by_user: alice)
     get comments_api_v1_plan_path(plan), headers: headers
     expect(response).to have_http_status(:success)
     threads = JSON.parse(response.body)
     expect(threads).to be_a(Array)
     matching = threads.find { |t| t["id"] == thread.id }
-    expect(matching["anchor_text"]).to eq("original roadmap text")
+    expect(matching["anchor_text"]).to eq("Some content here")
   end
 
   describe "GET /api/v1/plans/:id/snapshot" do

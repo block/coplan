@@ -466,23 +466,21 @@ export default class extends Controller {
     }
 
     const commentBody = interpreted?.body || this._stripFillers(transcript)
-    const anchor = interpreted?.anchor || this._viewportAnchor()
+    let anchor = interpreted?.anchor || this._viewportAnchor()
 
-    const token = document.querySelector('meta[name="csrf-token"]')?.content
-    const body = new FormData()
-    body.append("comment_thread[body_markdown]", `🎙️ ${commentBody}`)
-    if (anchor) {
-      body.append("comment_thread[anchor_text]", anchor.text)
-      body.append("comment_thread[anchor_occurrence]", anchor.occurrence)
+    let response = await this._postComment(commentBody, anchor)
+
+    // 422 means the server refused the pin: the anchor renders on screen
+    // but doesn't resolve in the plan source, so the comment would have
+    // been invisible. The words are still good — pin them to the nearest
+    // heading instead, which always resolves.
+    if (response?.status === 422 && anchor) {
+      const fallback = this._viewportAnchor()
+      anchor = fallback && fallback.text !== anchor.text ? fallback : null
+      response = await this._postComment(commentBody, anchor)
     }
 
-    const response = await fetch(this.urlValue, {
-      method: "POST",
-      headers: { "X-CSRF-Token": token, "Accept": "text/vnd.turbo-stream.html, text/html" },
-      body
-    })
-
-    if (!response.ok) {
+    if (!response?.ok) {
       this._setStatus("Couldn't send", true)
       return
     }
@@ -496,6 +494,26 @@ export default class extends Controller {
       this.awaitingAck = false
       this._setStatus("")
     }, 12000)
+  }
+
+  async _postComment(commentBody, anchor) {
+    const token = document.querySelector('meta[name="csrf-token"]')?.content
+    const body = new FormData()
+    body.append("comment_thread[body_markdown]", `🎙️ ${commentBody}`)
+    if (anchor) {
+      body.append("comment_thread[anchor_text]", anchor.text)
+      body.append("comment_thread[anchor_occurrence]", anchor.occurrence)
+    }
+
+    try {
+      return await fetch(this.urlValue, {
+        method: "POST",
+        headers: { "X-CSRF-Token": token, "Accept": "text/vnd.turbo-stream.html, text/html" },
+        body
+      })
+    } catch {
+      return null
+    }
   }
 
   // Transcribe, clean up and locate the passage, in one time-boxed

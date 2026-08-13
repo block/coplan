@@ -138,11 +138,13 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
       expect(document).to include(result.anchor_text)
     end
 
-    # Inline markup breaks single-line spans the same way: the model reads
-    # "main is always releasable" off the screen, and the markdown says
-    # "`main` is always releasable". This one shipped as a comment pinned
-    # to the page heading instead of the word it asked about.
-    it "narrows a span broken by inline markup to the words that resolve" do
+    # Inline markup is different: the model reads "main is always
+    # releasable" off the screen, the markdown says "`main` is always
+    # releasable" — but CommentThread resolves exactly this via stripped
+    # markdown, so the whole span survives. (An earlier version narrowed
+    # it to "is always releasable": stricter than the resolver, and the
+    # highlight missed the very word the remark was about.)
+    it "keeps a span broken only by inline markup — the resolver handles it" do
       stub_ai(text: "What does releasable mean?", span: "main is always releasable")
 
       result = described_class.call(
@@ -151,7 +153,7 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
         transcript: "what does releasable mean"
       )
 
-      expect(result.anchor_text).to eq("is always releasable")
+      expect(result.anchor_text).to eq("main is always releasable")
     end
 
     it "does not salvage a fragment too short to point at anything" do

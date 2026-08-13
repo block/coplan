@@ -183,26 +183,39 @@ module CoPlan
         candidate && anchorable(candidate)
       end
 
-      # The excerpt is the rendered text of what was on screen; the anchor
-      # has to resolve against the markdown source, and the two differ
-      # anywhere the source carries markup. A table renders its cells as
-      # adjacent lines ("Voice (mic button)\n24%" appears nowhere in
-      # "| Voice (mic button) | 24% |"), and inline markup breaks even a
-      # single line — "main is always releasable" is not a substring of
-      # "`main` is always releasable". An anchor that doesn't resolve
-      # isn't a bad pin, it's an invisible comment, so degrade in steps:
-      # whole span, then whole lines, then the longest run of words that
-      # still appears in the source.
+      # An anchor has to live in two representations at once: findable in
+      # the rendered page (that's what the highlighter searches) and
+      # resolvable to positions in the markdown source (CommentThread
+      # handles that, including a stripped-markdown fallback for inline
+      # markup like "`main` is always releasable"). The model quotes from
+      # the rendered excerpt, so the second half is the one to check —
+      # with the resolver's own translation, not a cruder one.
+      #
+      # The one thing the highlighter cannot do is cross block boundaries:
+      # a span covering two table cells ("Voice (mic button)\n24%") has no
+      # contiguous home in the DOM. So a multi-line span degrades to its
+      # longest resolvable line, and an unresolvable line to its longest
+      # resolvable run of words. An anchor that fails everything is
+      # dropped — the caller falls back to the section heading, which is
+      # a worse pin but a visible one.
       def anchorable(span)
-        return span if @document.include?(span)
-
         lines = span.split("\n").map(&:strip).reject(&:empty?)
-        whole_lines = lines.select { |line| @document.include?(line) }
+        return span if lines.length == 1 && resolvable?(span)
+
+        whole_lines = lines.select { |line| resolvable?(line) }
         return whole_lines.max_by(&:length) if whole_lines.any?
 
         lines.flat_map { |line| word_runs(line) }
-          .select { |run| run.length >= MIN_ANCHOR_LENGTH && @document.include?(run) }
+          .select { |run| run.length >= MIN_ANCHOR_LENGTH && resolvable?(run) }
           .max_by(&:length)
+      end
+
+      def resolvable?(text)
+        @document.include?(text) || stripped_document.include?(text)
+      end
+
+      def stripped_document
+        @stripped_document ||= CommentThread.strip_markdown(@document).first
       end
 
       # Every contiguous run of words in the line. ~n²/2 candidates for n
