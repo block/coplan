@@ -18,6 +18,7 @@ RSpec.describe "Human plan editing", type: :system do
     visit sign_in_path
     fill_in "Email address", with: user.email
     click_button "Sign In"
+    expect(page).to have_current_path(root_path)
     expect(page).to have_button("Menu")
   end
 
@@ -27,12 +28,14 @@ RSpec.describe "Human plan editing", type: :system do
     visit plan_path(plan)
     within("#plan-toolbar") { click_link "Edit" }
 
+    expect(page).to have_current_path(edit_content_plan_path(plan))
     expect(page).to have_field("content", with: /First draft body/)
 
     fill_in "content", with: "# Editable Plan\n\nRevised body from the browser.\n"
     fill_in "change_summary", with: "Browser edit"
     click_button "Save new version"
 
+    expect(page).to have_current_path(plan_path(plan))
     expect(page).to have_content("Plan updated.")
     expect(page).to have_content("Revised body from the browser.")
 
@@ -56,6 +59,7 @@ RSpec.describe "Human plan editing", type: :system do
     find("#plan_tag_field").send_keys("api-design", :enter)
     click_button "Save new version"
 
+    expect(page).to have_current_path(plan_path(plan))
     expect(page).to have_content("Plan updated.")
     plan.reload
     expect(plan.title).to eq("Renamed In Editor")
