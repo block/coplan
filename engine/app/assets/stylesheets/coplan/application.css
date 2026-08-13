@@ -920,9 +920,22 @@ del.agent-flash {
   background: var(--color-surface-raised, var(--color-surface));
 }
 
+/* A ring that grows with how loud you are. The timed pulse says "the
+   mic is open"; only the ring says "it can hear you", which is the
+   question you actually have while talking to a button. */
 .voice-btn--listening {
   color: var(--color-danger);
   animation: agent-pill-pulse 1.2s ease-in-out infinite;
+  box-shadow:
+    0 2px 12px rgb(0 0 0 / 12%),
+    0 0 0 calc(var(--voice-level, 0) * 0.5rem) rgb(from var(--color-danger) r g b / 22%);
+  transition: box-shadow 90ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-btn--listening {
+    animation: none;
+  }
 }
 
 /* Status sits to the left of the button, and only takes up room when it

@@ -34,6 +34,11 @@ export default class extends Controller {
   static targets = ["button", "status"]
   static values = { url: String, dictationUrl: String, transcription: Boolean }
 
+  // Peak deviation from silence, on the 0–128 scale of the time-domain
+  // samples. Room tone sits in the low single digits; speech is well
+  // past 20. Anything under this never made it to the microphone.
+  static SILENCE_PEAK = 6
+
   connect() {
     this.mode = this._chooseMode()
     if (!this.mode) {
@@ -151,6 +156,8 @@ export default class extends Controller {
     this.finalTranscript = ""
     this.awaitingAck = false
     this.discarded = false
+    this.recorder = null
+    this.peakLevel = 0
     this.listening = true
     this.buttonTarget.classList.add("voice-btn--listening")
     this._startTicking()
@@ -162,8 +169,22 @@ export default class extends Controller {
   _stop() {
     if (!this.listening) return
 
-    if (this.mode === "record") this.recorder?.stop() // → onstop posts
-    else this.recognition?.stop() // → onend posts
+    if (this.mode !== "record") {
+      this.recognition?.stop() // → onend posts
+      return
+    }
+
+    // Released before getUserMedia resolved — which is the norm the first
+    // time, when the permission prompt is up while they are already
+    // talking. There is no recorder to stop and nothing was captured.
+    if (!this.recorder) {
+      this._releaseMic()
+      this._stopListening()
+      this._setStatus("Mic wasn't ready — try again", true)
+      return
+    }
+
+    this.recorder.stop() // → onstop posts
   }
 
   // Discards whatever was captured rather than posting it.
@@ -220,24 +241,63 @@ export default class extends Controller {
       return
     }
 
+    this._meterLevels()
+
     const chunks = []
     this.recorder = new MediaRecorder(this.stream, this._recorderOptions())
     this.recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunks.push(event.data)
     }
     this.recorder.onstop = () => {
+      const heardSomething = this.peakLevel >= this.constructor.SILENCE_PEAK
       this._releaseMic()
       this._stopListening()
       if (this.discarded) return
 
       const blob = new Blob(chunks, { type: this.recorder.mimeType })
-      if (blob.size === 0) {
-        this._setStatus("Didn't catch that", true)
+      // Sending silence is worse than sending nothing: the transcriber
+      // answers it by repeating the context we gave it, which arrives
+      // looking like a real remark. Catch it here, before the round trip.
+      if (blob.size === 0 || !heardSomething) {
+        this._setStatus("Didn't hear anything", true)
         return
       }
       this._submit({ audio: blob })
     }
     this.recorder.start()
+  }
+
+  // Tracks the loudest thing in the recording, and drives the button's
+  // pulse so there is some sign it can hear you — the recording path has
+  // no interim captions to show.
+  _meterLevels() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+
+    try {
+      this.audioContext = new AudioContextClass()
+      const analyser = this.audioContext.createAnalyser()
+      analyser.fftSize = 512
+      this.audioContext.createMediaStreamSource(this.stream).connect(analyser)
+
+      const samples = new Uint8Array(analyser.fftSize)
+      const sample = () => {
+        if (!this.listening) return
+
+        analyser.getByteTimeDomainData(samples)
+        let peak = 0
+        for (const value of samples) peak = Math.max(peak, Math.abs(value - 128))
+
+        this.peakLevel = Math.max(this.peakLevel, peak)
+        this.buttonTarget.style.setProperty("--voice-level", Math.min(peak / 40, 1).toFixed(2))
+        requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+    } catch {
+      // Metering is a check on the recording, not part of making it. If
+      // it can't run, assume there was speech — refusing to post what
+      // somebody said is a worse failure than sending silence.
+      this.peakLevel = Infinity
+    }
   }
 
   // Opus in WebM where it exists (small and well handled), MP4/AAC in
@@ -251,6 +311,9 @@ export default class extends Controller {
   _releaseMic() {
     this.stream?.getTracks().forEach((track) => track.stop())
     this.stream = null
+    this.audioContext?.close()
+    this.audioContext = null
+    this.buttonTarget.style.removeProperty("--voice-level")
   }
 
   _onResult(event) {
@@ -283,7 +346,9 @@ export default class extends Controller {
 
     if (!interpreted?.body && !transcript) {
       // Audio with nothing to show for it — there is no comment to post.
-      this._setStatus("Couldn't make that out", true)
+      // The server distinguishes "heard nothing" from "couldn't reach the
+      // transcriber", and which one it was changes what you'd do next.
+      this._setStatus(interpreted?.error || "Couldn't make that out", true)
       return
     }
 
@@ -343,7 +408,10 @@ export default class extends Controller {
         body: form,
         signal: controller.signal
       })
-      if (!response.ok) return null
+      if (!response.ok) {
+        const { error } = await response.json().catch(() => ({}))
+        return { body: null, anchor: null, error }
+      }
 
       const { body, anchor_text: anchorText } = await response.json()
       return { body: body || null, anchor: this._resolveAnchor(anchorText) }

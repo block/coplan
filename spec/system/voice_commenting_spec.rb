@@ -206,7 +206,10 @@ RSpec.describe "Voice commenting", type: :system do
   describe "recording for the server to transcribe" do
     before { allow(CoPlan::Ai).to receive(:available?).and_return(true) }
 
-    def stub_recorder
+    # `peak` is how far the loudest sample sits from silence, on the
+    # 0–128 scale the controller meters. 30 is ordinary speech; 0 is a
+    # microphone that captured nothing.
+    def stub_recorder(peak: 30)
       page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~JS)
         delete window.SpeechRecognition
         delete window.webkitSpeechRecognition
@@ -214,6 +217,16 @@ RSpec.describe "Voice commenting", type: :system do
           configurable: true,
           value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) }
         })
+        window.AudioContext = class {
+          createAnalyser() {
+            return {
+              fftSize: 512,
+              getByteTimeDomainData(samples) { samples.fill(128 + #{peak}) }
+            }
+          }
+          createMediaStreamSource() { return { connect() {} } }
+          close() {}
+        }
         window.MediaRecorder = class {
           static isTypeSupported() { return true }
           constructor(stream, options) { this.mimeType = (options || {}).mimeType || "audio/webm" }
@@ -267,6 +280,24 @@ RSpec.describe "Voice commenting", type: :system do
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
     end
 
+    # The failure that shipped: a recording with nothing in it still went
+    # to the transcriber, which answered silence by repeating the context
+    # we sent — so a heading off the page arrived as a comment, pinned to
+    # itself, that nobody had said. The microphone knows it heard nothing
+    # long before the server can, so it never gets sent.
+    it "doesn't send a recording it heard nothing in" do
+      expect(CoPlan::Ai).not_to receive(:transcribe)
+
+      stub_recorder(peak: 0)
+      visit plan_path(plan)
+
+      find(".voice-btn").click
+      find(".voice-btn").click
+
+      expect(page).to have_css(".voice-status--error", text: /Didn't hear anything/, wait: 5)
+      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+    end
+
     # Audio has no fallback: unlike a browser transcript there are no
     # words to post if transcription fails, so say so rather than posting
     # an empty comment.
@@ -279,7 +310,9 @@ RSpec.describe "Voice commenting", type: :system do
       find(".voice-btn").click
       find(".voice-btn").click
 
-      expect(page).to have_css(".voice-status--error", text: /Couldn't make that out/, wait: 10)
+      # The server's own wording, not a generic one: "couldn't reach the
+      # transcriber" and "heard nothing" call for different next moves.
+      expect(page).to have_css(".voice-status--error", text: /Couldn't make out the recording/, wait: 10)
       expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
     end
   end

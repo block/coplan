@@ -45,12 +45,19 @@ module CoPlan
         body: result.body,
         anchor_text: result.anchor_text
       }
+    rescue Transcription::Inaudible
+      render json: { error: "Didn't hear anything" }, status: :unprocessable_content
     rescue Ai::Error => e
       # Only reachable when there was audio and nothing else: interpreting
       # has its own fallbacks, but an untranscribed recording is not a
       # comment, and saying so beats posting silence.
       Rails.logger.warn("[coplan] transcription failed: #{e.message}")
       render json: { error: "Couldn't make out the recording" }, status: :bad_gateway
+    end
+
+    module Transcription
+      # Silence in, prompt out — see #reject_prompt_echo.
+      class Inaudible < StandardError; end
     end
 
     private
@@ -79,8 +86,28 @@ module CoPlan
         file.rewind
         # What was on screen doubles as a pronunciation hint: it is where
         # the jargon, product names and figures being spoken about live.
-        Ai.transcribe(file: file, context: excerpt)
+        reject_prompt_echo(Ai.transcribe(file: file, context: excerpt))
       end
+    end
+
+    # Whisper-family models answer silence by repeating their own prompt.
+    # Given two seconds of digital silence and a page about trunk-based
+    # development, the "transcript" comes back as the page's first
+    # heading — which then reads as a comment nobody wrote, pinned to the
+    # very text it was copied from.
+    #
+    # Anything wholly contained in what we sent is treated as an echo.
+    # Reading a sentence off the page aloud trips this too; being told
+    # "didn't hear anything" and repeating yourself is a far better
+    # outcome than a comment putting words in your mouth.
+    def reject_prompt_echo(transcript)
+      raise Transcription::Inaudible if normalize(excerpt).include?(normalize(transcript))
+
+      transcript
+    end
+
+    def normalize(text)
+      text.to_s.downcase.gsub(/\s+/, " ").strip
     end
 
     def extension_for(upload)

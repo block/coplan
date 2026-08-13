@@ -135,6 +135,53 @@ RSpec.describe "Dictations", type: :request do
       expect(response).to have_http_status(:bad_gateway)
     end
 
+    # Whisper-family models answer silence by repeating their prompt, and
+    # we prompt with the text that was on screen. Left alone this posts a
+    # sentence lifted off the page as though the person had said it —
+    # pinned, plausible, and entirely invented.
+    describe "when the transcriber echoes the prompt back" do
+      it "reports hearing nothing rather than posting the page back" do
+        allow(CoPlan::Ai).to receive(:transcribe).and_return("Our goal is world domination")
+        expect(CoPlan::Ai).not_to receive(:call)
+
+        post plan_dictations_path(plan),
+          params: { audio: audio_upload, excerpt: "Our goal is world domination by Q3." }
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(JSON.parse(response.body)["error"]).to eq("Didn't hear anything")
+      end
+
+      it "ignores case and line breaks, which the echo doesn't preserve" do
+        allow(CoPlan::Ai).to receive(:transcribe).and_return("our goal is\nWORLD DOMINATION")
+
+        post plan_dictations_path(plan),
+          params: { audio: audio_upload, excerpt: "Our goal is world domination by Q3." }
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      it "treats an empty transcript the same way" do
+        allow(CoPlan::Ai).to receive(:transcribe).and_return("")
+
+        post plan_dictations_path(plan), params: { audio: audio_upload, excerpt: "Anything." }
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      # A remark that merely mentions words from the page is the normal
+      # case — it's what commenting on a document sounds like.
+      it "lets through a remark that quotes only part of the page" do
+        allow(CoPlan::Ai).to receive(:transcribe).and_return("is world domination really the goal here")
+        allow(CoPlan::Ai).to receive(:call)
+          .and_return({ "text" => "Is world domination really the goal?", "span" => nil }.to_json)
+
+        post plan_dictations_path(plan),
+          params: { audio: audio_upload, excerpt: "Our goal is world domination by Q3." }
+
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
     # A browser that transcribed for itself has already done the work.
     it "prefers a transcript the browser supplies" do
       expect(CoPlan::Ai).not_to receive(:transcribe)
