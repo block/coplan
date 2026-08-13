@@ -195,7 +195,10 @@ CoPlan.configure do |config|
   # Required
   config.authenticate = ->(request) { ... }
 
-  # AI provider (optional)
+  # AI provider (optional) — powers plan summaries.
+  # Any endpoint speaking the OpenAI wire protocol works: Azure OpenAI,
+  # LiteLLM, vLLM, Ollama, an internal gateway. With no API key set, the
+  # features that need one are skipped rather than erroring.
   config.ai_base_url = "https://api.openai.com/v1"  # default
   config.ai_api_key = nil
   config.ai_model = "gpt-4o"                         # default
