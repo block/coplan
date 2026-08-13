@@ -300,6 +300,41 @@ RSpec.describe "Voice commenting", type: :system do
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
     end
 
+    # The excerpt is everything that was readably on screen during the
+    # take, not a snapshot of where it began: people start talking about
+    # one paragraph and scroll to another mid-sentence, and the pin has to
+    # be able to land on either. It is also not the whole document — what
+    # was never on screen stays off the wire.
+    it "accumulates the excerpt across a mid-recording scroll" do
+      tall_plan = CoPlan::Plan.create!(title: "Tall Plan", created_by_user: author)
+      filler = (1..100).map { |i| "Filler paragraph number #{i} to push the ending far below the fold." }.join("\n\n")
+      version = CoPlan::PlanVersion.create!(
+        plan: tall_plan, revision: 1,
+        content_markdown: "# Tall Plan\n\nThe alpha waypoint opens the document.\n\n#{filler}\n\nThe omega waypoint closes the document.\n",
+        actor_type: "human", actor_id: author.id
+      )
+      tall_plan.update!(current_plan_version: version, current_revision: 1)
+
+      expect(CoPlan::Ai).to receive(:transcribe) do |context:, **|
+        expect(context).to include("alpha waypoint")
+        expect(context).to include("omega waypoint")
+        expect(context).not_to include("Filler paragraph number 50 ")
+        "rename both of these"
+      end
+      allow(CoPlan::Ai).to receive(:call)
+        .and_return({ "text" => "Rename both of these.", "span" => nil }.to_json)
+
+      stub_recorder
+      visit plan_path(tall_plan)
+
+      find(".voice-btn").click
+      expect(page).to have_css(".voice-btn--listening")
+      page.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+      find(".voice-btn").click
+
+      expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+    end
+
     # The gesture that kept "not hearing" people: hold-to-talk used to
     # open the microphone only after the 350ms hold was confirmed, so the
     # first word or two of every short remark predated the recording. The

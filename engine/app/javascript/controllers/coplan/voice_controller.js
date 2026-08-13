@@ -169,9 +169,11 @@ export default class extends Controller {
   // ── Capture ────────────────────────────────────────────────────────
 
   _start() {
-    // What they were looking at when they started talking, not wherever
-    // the page has drifted to by the time they stop.
-    this.excerpt = this._visibleText()
+    // The remark is about what was on screen while it was being said —
+    // all of it. People start talking about one paragraph and scroll to
+    // another mid-sentence, so the excerpt accumulates: sampled here, on
+    // every tick while listening, and once more when the take ends.
+    this.seenBlocks = new Set(this._visibleBlocks())
     this.finalTranscript = ""
     this.awaitingAck = false
     this.discarded = false
@@ -241,6 +243,7 @@ export default class extends Controller {
     this.tickTimer = setInterval(() => {
       seconds += 1
       this._setStatus(`Listening… ${seconds}s`)
+      this._visibleBlocks().forEach((block) => this.seenBlocks.add(block))
     }, 1000)
   }
 
@@ -452,6 +455,7 @@ export default class extends Controller {
 
   async _submit({ transcript, audio }) {
     this._setStatus(audio ? "Transcribing…" : "Tidying up…")
+    this.excerpt = this._excerpt()
 
     // One round trip does every slow job: transcribe if it was audio,
     // clean up the words, and work out which passage they were about.
@@ -494,7 +498,7 @@ export default class extends Controller {
     window.Turbo?.renderStreamMessage(streams)
     const threadId = streams.match(/comment_thread_([0-9a-f-]{36})/)?.[1]
     if (threadId) {
-      document.dispatchEvent(new CustomEvent("coplan:open-thread", { detail: { threadId } }))
+      this.dispatch("open-thread", { prefix: "coplan", detail: { threadId } })
     }
 
     // State what happened, and nothing more. Whether an agent picks this
@@ -603,21 +607,33 @@ export default class extends Controller {
     return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
   }
 
-  // The text currently on screen: what the remark is about, the hint that
-  // makes transcription get the jargon right, and the only part of the
-  // document we send anywhere.
-  _visibleText() {
-    const content = document.getElementById("plan-content-body")
-    if (!content) return null
+  // Every text block that was readably on screen at some point during the
+  // take, in document order: what the remark is about, the hint that makes
+  // transcription get the jargon right, and the only part of the document
+  // we send anywhere. Filtering the fresh block list against the seen set
+  // (rather than serializing the set) keeps document order and drops any
+  // element a live update has since replaced.
+  _excerpt() {
+    this._visibleBlocks().forEach((block) => this.seenBlocks?.add(block))
 
-    const blocks = Array.from(content.querySelectorAll("h1, h2, h3, h4, h5, h6, p, li, blockquote, pre, td"))
-    const visible = blocks.filter((el) => this._readablyVisible(el))
-    const text = (visible.length > 0 ? visible : blocks.slice(0, 20))
+    const blocks = this._allBlocks()
+    const seen = blocks.filter((block) => this.seenBlocks?.has(block))
+    const text = (seen.length > 0 ? seen : blocks.slice(0, 20))
       .map((el) => el.textContent.trim())
       .filter(Boolean)
       .join("\n")
 
     return text.length > 0 ? text : null
+  }
+
+  _allBlocks() {
+    const content = document.getElementById("plan-content-body")
+    if (!content) return []
+    return Array.from(content.querySelectorAll("h1, h2, h3, h4, h5, h6, p, li, blockquote, pre, td"))
+  }
+
+  _visibleBlocks() {
+    return this._allBlocks().filter((el) => this._readablyVisible(el))
   }
 
   // On screen enough to be read, not merely intersecting the viewport. A
