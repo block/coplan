@@ -485,6 +485,18 @@ export default class extends Controller {
       return
     }
 
+    // Show where it landed. The speaker never picked a spot on the page —
+    // the model did — so "comment posted" alone leaves them hunting for
+    // it (or, pinned below the fold, believing it never posted). Render
+    // the response's streams now rather than waiting on the cable echo,
+    // then scroll to the thread and open it.
+    const streams = await response.text()
+    window.Turbo?.renderStreamMessage(streams)
+    const threadId = streams.match(/comment_thread_([0-9a-f-]{36})/)?.[1]
+    if (threadId) {
+      document.dispatchEvent(new CustomEvent("coplan:open-thread", { detail: { threadId } }))
+    }
+
     // State what happened, and nothing more. Whether an agent picks this
     // up isn't ours to promise — if one does, its pill says so, and the
     // observer below speaks the acknowledgment.
@@ -599,16 +611,26 @@ export default class extends Controller {
     if (!content) return null
 
     const blocks = Array.from(content.querySelectorAll("h1, h2, h3, h4, h5, h6, p, li, blockquote, pre, td"))
-    const visible = blocks.filter((el) => {
-      const rect = el.getBoundingClientRect()
-      return rect.bottom > 0 && rect.top < window.innerHeight
-    })
+    const visible = blocks.filter((el) => this._readablyVisible(el))
     const text = (visible.length > 0 ? visible : blocks.slice(0, 20))
       .map((el) => el.textContent.trim())
       .filter(Boolean)
       .join("\n")
 
     return text.length > 0 ? text : null
+  }
+
+  // On screen enough to be read, not merely intersecting the viewport. A
+  // paragraph with one line poking over the fold used to count, the model
+  // would quote it, and the comment pinned somewhere the person had never
+  // seen. A block qualifies when what's in view is most of the block or a
+  // real slice of the screen — a full-viewport paragraph passes, a
+  // two-pixel sliver doesn't.
+  _readablyVisible(el) {
+    const rect = el.getBoundingClientRect()
+    const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0)
+    if (visibleHeight <= 0) return false
+    return visibleHeight >= Math.min(rect.height * 0.5, window.innerHeight * 0.2)
   }
 
   // Which copy of the span to highlight: the first one at or after the

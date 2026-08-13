@@ -107,6 +107,12 @@ RSpec.describe "Voice commenting", type: :system do
     expect(thread.anchor_start).to be_present
     expect(plan.current_content[thread.anchor_start...thread.anchor_end])
       .to eq("The higher-fidelity sidecar stays behind a flag until it is proven.")
+
+    # The speaker never chose a spot on the page — the model did — so the
+    # thread opens itself to show where it landed. Without this, a pin
+    # below the fold reads as "it said posted but nothing happened".
+    expect(page).to have_css("#comment_thread_#{thread.id}_popover", visible: true, wait: 10)
+    expect(page).to have_content("This bit is too cautious.")
   end
 
   # The AI is an enhancement. When it can't answer, the comment still has

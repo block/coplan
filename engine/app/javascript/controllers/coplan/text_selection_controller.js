@@ -34,6 +34,14 @@ export default class extends Controller {
     this._boundPopoverEnter = this._cancelHoverClose.bind(this)
     this._boundPopoverLeave = this._handlePopoverLeave.bind(this)
     this._boundPopoverToggle = this._handlePopoverToggle.bind(this)
+    // Another controller created a thread on the person's behalf (voice
+    // dictation) and wants them shown where it landed — same scroll-and-
+    // open treatment as arriving via ?thread=ID.
+    this._boundOpenThread = (event) => {
+      this._pendingThreadId = event.detail.threadId
+      this._openLinkedThread()
+    }
+    document.addEventListener("coplan:open-thread", this._boundOpenThread)
     this.contentTarget.addEventListener("mouseup", this._boundHandleMouseUp)
     document.addEventListener("mousedown", this._boundHandleDocumentMouseDown)
     window.addEventListener("scroll", this._handleScroll, { passive: true })
@@ -57,6 +65,7 @@ export default class extends Controller {
     this.contentTarget.removeEventListener("mouseup", this._boundHandleMouseUp)
     document.removeEventListener("mousedown", this._boundHandleDocumentMouseDown)
     document.removeEventListener("turbo:before-cache", this._boundBeforeCache)
+    document.removeEventListener("coplan:open-thread", this._boundOpenThread)
     window.removeEventListener("scroll", this._handleScroll)
     this._cancelHoverOpen()
     this._cancelHoverClose()
