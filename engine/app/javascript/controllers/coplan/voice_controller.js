@@ -273,6 +273,7 @@ export default class extends Controller {
         if (event.data.size > 0) ear.chunks.push(event.data)
       }
       ear.recorder.start()
+      ear.startedAt = performance.now()
     })()
     this.ear = ear
   }
@@ -329,6 +330,7 @@ export default class extends Controller {
     if (ear) {
       this.stream = ear.stream
       this.recorder = ear.recorder
+      this.recordingStartedAt = ear.startedAt ?? performance.now()
       chunks = ear.chunks
     } else {
       this.recorder = new MediaRecorder(this.stream, this._recorderOptions())
@@ -344,6 +346,9 @@ export default class extends Controller {
       // ran. A dead meter reads 0 for a recording full of speech — when
       // in doubt, send it; the server's echo check is the backstop.
       const heardSomething = !this.meterLive || this.peakLevel >= this.constructor.SILENCE_PEAK
+      // How long the take was bounds how many words can be in it — the
+      // server uses this to spot a "transcript" the model made up.
+      const durationMs = Math.round(performance.now() - this.recordingStartedAt)
       this._releaseMic()
       this._stopListening()
       if (this.discarded) return
@@ -356,10 +361,13 @@ export default class extends Controller {
         this._reportMiss("Hmm — didn't hear anything")
         return
       }
-      this._submit({ audio: blob })
+      this._submit({ audio: blob, durationMs })
     }
 
-    if (this.recorder.state !== "recording") this.recorder.start()
+    if (this.recorder.state !== "recording") {
+      this.recorder.start()
+      this.recordingStartedAt = performance.now()
+    }
 
     // Released while the microphone was still opening: finish the take
     // now that there is one, posting whatever the ear caught.
@@ -453,13 +461,13 @@ export default class extends Controller {
 
   // ── Posting ────────────────────────────────────────────────────────
 
-  async _submit({ transcript, audio }) {
+  async _submit({ transcript, audio, durationMs }) {
     this._setStatus(audio ? "Transcribing…" : "Tidying up…")
     this.excerpt = this._excerpt()
 
     // One round trip does every slow job: transcribe if it was audio,
     // clean up the words, and work out which passage they were about.
-    const interpreted = await this._interpret({ transcript, audio })
+    const interpreted = await this._interpret({ transcript, audio, durationMs })
 
     // One remark is usually one comment, but "rename both of these" is
     // two placements, each with its own pin.
@@ -550,7 +558,7 @@ export default class extends Controller {
   // Transcribe, clean up and locate the passage, in one time-boxed
   // request. A failure with a transcript in hand leaves the fallbacks in
   // place; a failure with only audio has nothing to fall back to.
-  async _interpret({ transcript, audio }) {
+  async _interpret({ transcript, audio, durationMs }) {
     const controller = new AbortController()
     // Uploading and transcribing audio is a different order of work from
     // rewriting a sentence, and giving up early on it means giving up on
@@ -562,6 +570,7 @@ export default class extends Controller {
       const form = new FormData()
       if (transcript) form.append("transcript", transcript)
       if (audio) form.append("audio", audio, `dictation.${this._extensionFor(audio)}`)
+      if (audio && durationMs > 0) form.append("duration_ms", durationMs)
       if (this.excerpt) form.append("excerpt", this.excerpt)
 
       const response = await fetch(this.dictationUrlValue, {

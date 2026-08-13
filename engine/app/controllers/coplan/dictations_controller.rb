@@ -13,6 +13,14 @@ module CoPlan
     # recorder can't post a file the size of a video.
     MAX_AUDIO_BYTES = 20.megabytes
 
+    # Nobody speaks faster than this. Conversational English runs about
+    # 14 characters a second; auctioneers manage roughly double. A
+    # transcript past the ceiling contains words there was no time to
+    # say — it was generated, not heard. The slack absorbs very short
+    # clips, where rate estimates are mostly rounding.
+    MAX_TRANSCRIPT_CHARS_PER_SECOND = 30
+    TRANSCRIPT_SLACK_CHARS = 80
+
     # OpenAI infers the audio format from the filename, so an uploaded
     # blob needs an extension it recognises. Chrome records WebM/Opus,
     # Safari records MP4/AAC.
@@ -55,6 +63,8 @@ module CoPlan
       }
     rescue Transcription::Inaudible
       render json: { error: "Didn't hear anything" }, status: :unprocessable_content
+    rescue Transcription::Fabricated
+      render json: { error: "Didn't catch that — try saying it again" }, status: :unprocessable_content
     rescue Ai::Error => e
       # Only reachable when there was audio and nothing else: interpreting
       # has its own fallbacks, but an untranscribed recording is not a
@@ -66,6 +76,8 @@ module CoPlan
     module Transcription
       # Silence in, prompt out — see #reject_prompt_echo.
       class Inaudible < StandardError; end
+      # More words out than went in — see #reject_fabrication.
+      class Fabricated < StandardError; end
     end
 
     private
@@ -94,8 +106,39 @@ module CoPlan
         file.rewind
         # What was on screen doubles as a pronunciation hint: it is where
         # the jargon, product names and figures being spoken about live.
-        reject_prompt_echo(Ai.transcribe(file: file, context: excerpt))
+        transcript = reject_prompt_echo(Ai.transcribe(file: file, context: excerpt))
+        return transcript unless fabricated?(transcript)
+
+        # The transcriber is a chat model with ears, and given an
+        # instruction-shaped remark plus a prompt full of context it will
+        # sometimes answer instead of transcribing — "add some content
+        # about how editing works" once came back as a whole essay,
+        # complete with figures lifted from the prompt. The prompt is
+        # what it builds the answer from, so the retry goes without one:
+        # worse at jargon, but it can only write down what it heard.
+        Rails.logger.info(
+          "[coplan] dictation rejected as fabricated (#{transcript.length} chars " \
+          "in #{duration_ms}ms), retrying without the prompt"
+        )
+        file.rewind
+        transcript = reject_prompt_echo(Ai.transcribe(file: file))
+        raise Transcription::Fabricated if fabricated?(transcript)
+
+        transcript
       end
+    end
+
+    # More characters than the recording had seconds to hold. Only
+    # checkable when the client said how long the take was; without a
+    # duration the transcript is taken at its word, as before.
+    def fabricated?(transcript)
+      return false unless duration_ms.positive?
+
+      transcript.length > (duration_ms / 1000.0) * MAX_TRANSCRIPT_CHARS_PER_SECOND + TRANSCRIPT_SLACK_CHARS
+    end
+
+    def duration_ms
+      params[:duration_ms].to_i
     end
 
     # Whisper-family models answer silence by repeating their own prompt.

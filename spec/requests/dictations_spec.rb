@@ -224,6 +224,71 @@ RSpec.describe "Dictations", type: :request do
       end
     end
 
+    # gpt-4o-transcribe is a chat model with ears. Given an
+    # instruction-shaped remark ("add some content about how editing
+    # works") and a prompt full of context, it sometimes answers instead
+    # of transcribing — a whole essay, with figures lifted from the
+    # prompt, arriving as though the person had said it. Nobody can say
+    # 1,200 characters in four seconds: a transcript that outruns the
+    # clock was generated, not heard.
+    describe "when the transcriber answers the remark instead of writing it down" do
+      let(:essay) do
+        "Sure, here is some additional information about how agent editing works. " * 20
+      end
+
+      it "retries without the prompt, which leaves it nothing to answer from" do
+        contexts = []
+        allow(CoPlan::Ai).to receive(:transcribe) do |file:, context: nil|
+          contexts << context
+          context ? essay : "add some content about how editing works"
+        end
+        allow(CoPlan::Ai).to receive(:call)
+          .and_return({ "text" => "Add some content about how editing works.", "span" => nil }.to_json)
+
+        post plan_dictations_path(plan),
+          params: { audio: audio_upload, excerpt: "Our goal is world domination by Q3.", duration_ms: 4000 }
+
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)["transcript"]).to eq("add some content about how editing works")
+        expect(contexts).to eq([ "Our goal is world domination by Q3.", nil ])
+      end
+
+      it "refuses when even the promptless retry outruns the clock" do
+        allow(CoPlan::Ai).to receive(:transcribe).and_return(essay)
+        expect(CoPlan::Ai).not_to receive(:call)
+
+        post plan_dictations_path(plan),
+          params: { audio: audio_upload, excerpt: "Our goal is world domination by Q3.", duration_ms: 4000 }
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(JSON.parse(response.body)["error"]).to eq("Didn't catch that — try saying it again")
+      end
+
+      it "does not second-guess a transcript the recording had time for" do
+        expect(CoPlan::Ai).to receive(:transcribe).once.and_return("too grand")
+        allow(CoPlan::Ai).to receive(:call)
+          .and_return({ "text" => "Too grand.", "span" => nil }.to_json)
+
+        post plan_dictations_path(plan),
+          params: { audio: audio_upload, excerpt: "Our goal is world domination by Q3.", duration_ms: 2000 }
+
+        expect(response).to have_http_status(:ok)
+      end
+
+      # A client that doesn't say how long the take was gets the old
+      # behavior — there is no clock to check against.
+      it "takes the transcript at its word without a duration" do
+        expect(CoPlan::Ai).to receive(:transcribe).once.and_return(essay)
+        allow(CoPlan::Ai).to receive(:call)
+          .and_return({ "text" => "An essay.", "span" => nil }.to_json)
+
+        post plan_dictations_path(plan),
+          params: { audio: audio_upload, excerpt: "Our goal is world domination by Q3." }
+
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
     # A browser that transcribed for itself has already done the work.
     it "prefers a transcript the browser supplies" do
       expect(CoPlan::Ai).not_to receive(:transcribe)
