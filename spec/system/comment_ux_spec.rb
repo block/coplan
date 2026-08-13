@@ -782,6 +782,66 @@ RSpec.describe "Comment UX", type: :system do
   describe "creating a new comment" do
     before { sign_in(author) }
 
+    it "keeps an overlapping heading comment visible and clickable after reload" do
+      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+        # Performance
+
+        ## 1.3 Hard carts — and why native degrades fast
+
+        Cart shapes come from what actually co-occurs in fleet traffic.
+      MARKDOWN
+      resolved = create_anchored_thread(
+        plan: plan,
+        anchor_text: "1.3 Hard carts — and why native degrades fast",
+        body: "Previously addressed feedback.",
+        user: author
+      )
+      resolved.update!(status: "resolved", resolved_by_user: author)
+      visit plan_path(plan)
+
+      page.execute_script <<~JS
+        const content = document.querySelector('[data-coplan--text-selection-target="content"]');
+        const heading = content.querySelector('h2');
+        const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode()) && !node.textContent.includes('Hard')) {}
+        if (!node) throw new Error('Hard text node not found');
+        const start = node.textContent.indexOf('Hard');
+        const range = document.createRange();
+        range.setStart(node, start);
+        range.setEnd(node, start + 'Hard'.length);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        heading.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      JS
+
+      expect(page).to have_css(".comment-popover", visible: true, wait: 3)
+      find(".comment-popover button").click
+
+      within("#new-comment-form") do
+        textarea = find("textarea")
+        textarea.fill_in with: "This case needs more detail."
+        textarea.send_keys(:enter)
+      end
+
+      expect(page).not_to have_css("#new-comment-form", visible: true, wait: 5)
+      thread = plan.comment_threads.reload.last
+      expect(thread.anchor_text).to eq("Hard")
+      expect(page).to have_css("mark.anchor-highlight", text: "Hard", wait: 5)
+      expect(page).to have_css("##{ActionView::RecordIdentifier.dom_id(thread)}")
+      expect(page).to have_css("mark[data-thread-id='#{ActionView::RecordIdentifier.dom_id(thread)}']")
+
+      refresh
+
+      expect(page).to have_css("mark.anchor-highlight", text: "Hard", wait: 5)
+      mark = find("mark[data-thread-id='#{ActionView::RecordIdentifier.dom_id(thread)}']")
+      expect(mark[:class]).to include("anchor-highlight--todo")
+      mark.click
+      expect(page).to have_css("##{ActionView::RecordIdentifier.dom_id(thread)}_popover", visible: true)
+      expect(page).to have_content("This case needs more detail.")
+    end
+
     it "creates a thread via the text selection form" do
       visit plan_path(plan)
 

@@ -1800,6 +1800,7 @@ img.avatar {
   background: var(--color-highlight-open-bg);
   border-bottom: 2px solid var(--color-highlight-open-border);
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .anchor-highlight--open:hover {
