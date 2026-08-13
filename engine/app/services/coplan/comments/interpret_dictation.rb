@@ -27,6 +27,10 @@ module CoPlan
       MIN_LENGTH_RATIO = 0.4
       MAX_LENGTH_RATIO = 1.6
 
+      # The floor for a salvaged fragment of a span. Below this it's a
+      # stray "is" or "the" — a pin on one of those points at noise.
+      MIN_ANCHOR_LENGTH = 8
+
       SYSTEM_PROMPT = <<~PROMPT.freeze
         You process a spoken remark somebody made about a document.
 
@@ -179,19 +183,35 @@ module CoPlan
         candidate && anchorable(candidate)
       end
 
-      # The excerpt is the rendered text of what was on screen, one block
-      # per line; the anchor has to resolve against the markdown source.
-      # Those agree for a paragraph and part ways at a table — "Voice (mic
-      # button)\n24%" is two cells the model saw as adjacent lines, and it
-      # appears nowhere in "| Voice (mic button) | 24% |". An anchor that
-      # doesn't resolve isn't a bad pin, it's an invisible comment, so take
-      # the longest single line that does appear and pin to that.
+      # The excerpt is the rendered text of what was on screen; the anchor
+      # has to resolve against the markdown source, and the two differ
+      # anywhere the source carries markup. A table renders its cells as
+      # adjacent lines ("Voice (mic button)\n24%" appears nowhere in
+      # "| Voice (mic button) | 24% |"), and inline markup breaks even a
+      # single line — "main is always releasable" is not a substring of
+      # "`main` is always releasable". An anchor that doesn't resolve
+      # isn't a bad pin, it's an invisible comment, so degrade in steps:
+      # whole span, then whole lines, then the longest run of words that
+      # still appears in the source.
       def anchorable(span)
         return span if @document.include?(span)
 
-        span.split("\n").map(&:strip).reject(&:empty?)
-          .select { |line| @document.include?(line) }
+        lines = span.split("\n").map(&:strip).reject(&:empty?)
+        whole_lines = lines.select { |line| @document.include?(line) }
+        return whole_lines.max_by(&:length) if whole_lines.any?
+
+        lines.flat_map { |line| word_runs(line) }
+          .select { |run| run.length >= MIN_ANCHOR_LENGTH && @document.include?(run) }
           .max_by(&:length)
+      end
+
+      # Every contiguous run of words in the line. ~n²/2 candidates for n
+      # words, and MAX_ANCHOR_LENGTH caps n well under coffee-break size.
+      def word_runs(line)
+        words = line.split(/\s+/)
+        (0...words.length).flat_map do |from|
+          (from...words.length).map { |to| words[from..to].join(" ") }
+        end
       end
     end
   end
