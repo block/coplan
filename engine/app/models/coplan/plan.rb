@@ -77,34 +77,68 @@ module CoPlan
     after_save_commit :refresh_search_text!, if: :search_text_needs_refresh?
 
     # Sitewide search over a denormalized `search_text` column maintained by
-    # `refresh_search_text!`. Uses MySQL FULLTEXT in BOOLEAN mode so we can
-    # support prefix matches (`foo*`) and don't trip MySQL's 50%-of-rows
-    # natural-language threshold on small datasets.
+    # `refresh_search_text!`. The matching strategy is adapter-specific but
+    # the contract is not: tokens are AND-ed, each token matches as a prefix
+    # (`repor` finds "Reporting" — important for search-as-you-type), and
+    # matching is case-insensitive. See `adapter_search` for the per-adapter
+    # implementations.
     #
     # Visibility: draft plans are hidden from everyone except their
     # author — matches the `index` action's filter. `user` is required;
     # the controller enforces sign-in so we don't have to handle nil here.
     scope :search, ->(query, user:) {
-      term = sanitize_fulltext_term(query)
-      return none if term.blank?
+      tokens = search_tokens(query)
+      return none if tokens.empty?
 
       # Archived plans stay out of search — they remain reachable by direct
       # URL and via explicit archived filters, but never resurface on their
       # own.
-      visible_to(user).active
-        .where("MATCH(search_text) AGAINST (? IN BOOLEAN MODE)", term)
-        .order(Arel.sql("MATCH(search_text) AGAINST (#{connection.quote(term)} IN BOOLEAN MODE) DESC"))
+      adapter_search(visible_to(user).active, tokens)
     }
 
-    def self.sanitize_fulltext_term(query)
-      # FULLTEXT BOOLEAN-mode operators we strip so user input can't break the
-      # query: + - > < ( ) ~ * " @ and stray backslashes. After stripping we
-      # split on whitespace, drop empty tokens, and append `*` to each so
-      # typing "foo bar" matches "foobar baz" mid-stream — important for the
-      # search-as-you-type UX.
-      cleaned = query.to_s.gsub(/[+\-><()~*"@\\]/, " ")
-      tokens = cleaned.split(/\s+/).reject(&:blank?)
-      tokens.map { |t| "#{t}*" }.join(" ")
+    def self.search_tokens(query)
+      # Strips every character that is an operator in some adapter's query
+      # syntax (FULLTEXT BOOLEAN mode: + - > < ( ) ~ * " @ \ ; tsquery:
+      # & | ! : ') so user input can never break out of the query, then
+      # splits into whitespace-separated tokens.
+      query.to_s.gsub(/[+\-><()~*"@\\&|!:']/, " ").split(/\s+/).reject(&:blank?)
+    end
+
+    # Adapter-specific matching behind the portable `search` contract:
+    #
+    #   MySQL      — FULLTEXT in BOOLEAN mode (prefix via `token*`); BOOLEAN
+    #                mode also avoids MySQL's 50%-of-rows natural-language
+    #                threshold on small datasets. Relevance-ordered.
+    #   PostgreSQL — tsquery over `to_tsvector('simple', …)` (prefix via
+    #                `'token':*`), backed by the GIN expression index from
+    #                the AddSearchToCoplanPlans migration; the tsvector
+    #                expression here must match that index's expression
+    #                exactly. Ordered by ts_rank.
+    #   otherwise  — parameterized LIKE per token (unindexed but functional,
+    #                e.g. SQLite in a host's test env). Ordered by recency
+    #                since there is no rank.
+    def self.adapter_search(scoped, tokens)
+      case connection.adapter_name
+      when /mysql|trilogy/i
+        term = tokens.map { |t| "#{t}*" }.join(" ")
+        scoped
+          .where("MATCH(search_text) AGAINST (? IN BOOLEAN MODE)", term)
+          .order(Arel.sql("MATCH(search_text) AGAINST (#{connection.quote(term)} IN BOOLEAN MODE) DESC"))
+      when /postg/i
+        # Tokens are quoted lexemes (search_tokens strips ' and \), so
+        # punctuation inside a token can't read as tsquery syntax. The
+        # 'simple' config lowercases without stemming — same matching
+        # semantics as MySQL FULLTEXT's default collation.
+        term = tokens.map { |t| "'#{t}':*" }.join(" & ")
+        vector = "to_tsvector('simple', coalesce(search_text, ''))"
+        scoped
+          .where("#{vector} @@ to_tsquery('simple', ?)", term)
+          .order(Arel.sql("ts_rank(#{vector}, to_tsquery('simple', #{connection.quote(term)})) DESC"))
+      else
+        tokens
+          .reduce(scoped) { |rel, t| rel.where("LOWER(search_text) LIKE ?", "%#{sanitize_sql_like(t.downcase)}%") }
+          .order(updated_at: :desc)
+      end
     end
 
     # Recomputes the denormalized `search_text` column from the plan's title,

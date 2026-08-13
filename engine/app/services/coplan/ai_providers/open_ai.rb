@@ -1,6 +1,11 @@
 module CoPlan
   module AiProviders
     class OpenAi
+      # Used when the host configures neither, so a host that sets only an
+      # API key still works.
+      DEFAULT_MODEL = "gpt-4o".freeze
+      DEFAULT_BASE_URL = "https://api.openai.com/v1".freeze
+
       # Speech-to-text. Worth a round trip: markedly better than any
       # browser's built-in recognition, and in Safari and Firefox it is
       # the only option there is.
@@ -11,7 +16,7 @@ module CoPlan
       # models cap how much of this they will read.
       MAX_PROMPT_LENGTH = 600
 
-      def self.call(system_prompt:, user_content:, model: "gpt-4o")
+      def self.call(system_prompt:, user_content:, model: nil)
         new(system_prompt:, user_content:, model:).call
       end
 
@@ -44,7 +49,14 @@ module CoPlan
       end
 
       def self.client
-        OpenAI::Client.new(access_token: api_key)
+        OpenAI::Client.new(access_token: api_key, uri_base: base_url)
+      end
+
+      # Anything speaking the OpenAI wire protocol: Azure OpenAI, LiteLLM,
+      # vLLM, Ollama, an internal gateway. The gem appends its own "/v1"
+      # only when the base URL doesn't already carry one.
+      def self.base_url
+        CoPlan.configuration.ai_base_url.presence || DEFAULT_BASE_URL
       end
 
       def self.api_key
@@ -56,10 +68,12 @@ module CoPlan
         key
       end
 
-      def initialize(system_prompt:, user_content:, model:)
+      def initialize(system_prompt:, user_content:, model: nil)
         @system_prompt = system_prompt
         @user_content = user_content
-        @model = model
+        # An explicit argument wins, then the host's configuration. Callers
+        # pass a model only when the prompt needs a particular one.
+        @model = model.presence || CoPlan.configuration.ai_model.presence || DEFAULT_MODEL
       end
 
       def call

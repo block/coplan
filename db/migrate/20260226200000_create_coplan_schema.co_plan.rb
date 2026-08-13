@@ -1,4 +1,11 @@
 class CreateCoplanSchema < ActiveRecord::Migration[8.1]
+  # `size:` is a MySQL-only column option (other adapters raise
+  # "Unknown key: :size"). MySQL text defaults to 64KB, so drafts need an
+  # explicit LONGTEXT there; PostgreSQL/SQLite text is already unbounded.
+  def draft_content_options
+    connection.adapter_name.match?(/mysql/i) ? { size: :long } : {}
+  end
+
   def change
     create_table :coplan_users, id: { type: :string, limit: 36 } do |t|
       t.string :external_id, null: false
@@ -130,7 +137,7 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
       t.string :actor_type, null: false
       t.string :status, default: "open", null: false
       t.integer :base_revision, null: false
-      t.text :draft_content, size: :long
+      t.text :draft_content, **draft_content_options
       t.text :change_summary
       t.json :operations_json, null: false
       t.timestamp :expires_at, null: false

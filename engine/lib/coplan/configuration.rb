@@ -1,6 +1,10 @@
 module CoPlan
   class Configuration
     attr_accessor :authenticate, :api_authenticate, :sign_in_path
+    # AI provider, used for plan summaries. Any endpoint speaking the
+    # OpenAI wire protocol works — Azure OpenAI, LiteLLM, vLLM, Ollama, an
+    # internal gateway — by pointing `ai_base_url` at it. With no API key
+    # configured the features that need one degrade rather than raise.
     attr_accessor :ai_base_url, :ai_api_key, :ai_model
     attr_accessor :error_reporter
     attr_accessor :notification_handler

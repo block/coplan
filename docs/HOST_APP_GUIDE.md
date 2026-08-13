@@ -40,7 +40,24 @@ This creates the engine's tables (`coplan_users`, `coplan_plans`, etc.) in your 
 
 > **Note:** The engine auto-appends its migration paths at boot, so you can skip `coplan:install:migrations` if you prefer — `db:migrate` will pick them up automatically. Use `install:migrations` if you want local copies you can inspect or modify.
 
-### 4. Configure authentication
+### 4. Install required reference data
+
+```bash
+bin/rails coplan:seed
+```
+
+CoPlan needs a built-in **General** plan type to exist. Replaying every
+migration creates it, but databases initialized from a checked-in schema
+(`db:schema:load`, `db:prepare`, `db:setup`) skip data migrations — the
+tables exist and the migrations are marked applied, but the row is missing
+and API plan creation with `plan_type` returns 422.
+
+`coplan:seed` is idempotent and never overwrites plan types you've
+customized, so run it after any of the setup paths above. Alternatively,
+call `CoPlan::Engine.load_seed` from your own `db/seeds.rb` so `db:setup`
+and `db:seed` cover it automatically.
+
+### 5. Configure authentication
 
 Provide an `authenticate` callback that receives a Rack request and returns user identity attributes (or `nil` if unauthenticated):
 
@@ -178,7 +195,10 @@ CoPlan.configure do |config|
   # Required
   config.authenticate = ->(request) { ... }
 
-  # AI provider (optional)
+  # AI provider (optional) — powers plan summaries.
+  # Any endpoint speaking the OpenAI wire protocol works: Azure OpenAI,
+  # LiteLLM, vLLM, Ollama, an internal gateway. With no API key set, the
+  # features that need one are skipped rather than erroring.
   config.ai_base_url = "https://api.openai.com/v1"  # default
   config.ai_api_key = nil
   config.ai_model = "gpt-4o"                         # default

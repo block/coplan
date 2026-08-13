@@ -74,6 +74,19 @@ RSpec.describe "Api::V1::Plans", type: :request do
     expect(body["plan_type_name"]).to eq("design-doc")
   end
 
+  # The documented /agent-instructions payload sends "general" while the
+  # built-in type is stored as "General" — resolution must not depend on the
+  # database's collation being case-insensitive (MySQL's usually is,
+  # PostgreSQL's isn't).
+  it "create resolves plan_type case-insensitively" do
+    plan_type = create(:plan_type, name: "General")
+    post api_v1_plans_path, params: { title: "My Plan", content: "# My Plan\n\nContent here.", plan_type: "general" }, headers: headers, as: :json
+    expect(response).to have_http_status(:created)
+    body = JSON.parse(response.body)
+    expect(body["plan_type_id"]).to eq(plan_type.id)
+    expect(body["plan_type_name"]).to eq("General")
+  end
+
   it "create with unknown plan_type returns 422 with available types" do
     create(:plan_type, name: "design-doc")
     create(:plan_type, name: "rfc")

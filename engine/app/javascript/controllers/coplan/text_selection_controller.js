@@ -258,6 +258,7 @@ export default class extends Controller {
   }
 
   openThreadPopover(event) {
+    event.stopPropagation()
     this._showThreadPopoverFor(event.currentTarget, "pinned")
   }
 
@@ -836,14 +837,6 @@ export default class extends Controller {
 
       // Skip zero-length ranges (e.g. from text node splits by prior highlights)
       if (localEnd <= localStart) continue
-
-      // If the text is already inside a highlight mark (from another thread
-      // anchored to the same text), reuse that mark instead of nesting.
-      const existingMark = tn.node.parentElement?.closest("mark.anchor-highlight")
-      if (existingMark) {
-        if (!marks.includes(existingMark)) marks.push(existingMark)
-        continue
-      }
 
       const range = document.createRange()
       range.setStart(tn.node, localStart)
