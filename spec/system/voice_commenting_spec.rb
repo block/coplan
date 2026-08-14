@@ -280,6 +280,36 @@ RSpec.describe "Voice commenting", type: :system do
       expect(thread).to be_anchored
     end
 
+    # The very first comment on a plan arrives without a page load, and
+    # the keyboard has to work on it. Comment navigation used to render
+    # only when the page loaded with threads already present — so on a
+    # fresh plan the dictated comment appeared, its popover opened, and
+    # d/j/k did nothing at all.
+    it "lets the keyboard discard the first comment without a reload" do
+      allow(CoPlan::Ai).to receive(:transcribe).and_return("too cautious")
+      allow(CoPlan::Ai).to receive(:call).and_return({
+        "text" => "Too cautious.",
+        "span" => "The higher-fidelity sidecar stays behind a flag until it is proven."
+      }.to_json)
+
+      stub_recorder
+      visit plan_path(plan)
+
+      find(".voice-btn").click
+      find(".voice-btn").click
+
+      thread = nil
+      expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+      expect { thread = CoPlan::CommentThread.where(plan_id: plan.id).sole }.not_to raise_error
+      # The auto-opened popover is the discard target.
+      expect(page).to have_css("#comment_thread_#{thread.id}_popover", visible: true, wait: 10)
+
+      find("body").send_keys("d")
+
+      Timeout.timeout(10) { sleep 0.1 until thread.reload.status == "discarded" }
+      expect(page).to have_no_css("mark.anchor-highlight--open", wait: 10)
+    end
+
     # What was on screen is passed as a transcription hint, which is what
     # makes domain words come back as words rather than phonetic guesses.
     it "gives the transcriber the text that was on screen" do
