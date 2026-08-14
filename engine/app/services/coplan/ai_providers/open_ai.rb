@@ -6,8 +6,66 @@ module CoPlan
       DEFAULT_MODEL = "gpt-4o".freeze
       DEFAULT_BASE_URL = "https://api.openai.com/v1".freeze
 
+      # Speech-to-text. Worth a round trip: markedly better than any
+      # browser's built-in recognition, and in Safari and Firefox it is
+      # the only option there is.
+      TRANSCRIBE_MODEL = ENV.fetch("COPLAN_TRANSCRIBE_MODEL", "gpt-4o-transcribe")
+
+      # The prompt biases the decoder toward words it can see in context —
+      # jargon, product names, figures from a table. Short on purpose:
+      # models cap how much of this they will read.
+      MAX_PROMPT_LENGTH = 600
+
       def self.call(system_prompt:, user_content:, model: nil)
         new(system_prompt:, user_content:, model:).call
+      end
+
+      # `file` must respond to #path with a usable extension — the audio
+      # format is inferred from the filename, not sniffed from the bytes.
+      def self.transcribe(file:, context: nil)
+        response = client.audio.transcribe(
+          parameters: {
+            model: TRANSCRIBE_MODEL,
+            file: file,
+            prompt: context.presence&.truncate(MAX_PROMPT_LENGTH, omission: "")
+          }.compact
+        )
+
+        text = response.is_a?(Hash) ? response["text"] : response.to_s
+        raise Error, "No transcript returned from OpenAI" if text.blank?
+
+        text.strip
+      rescue Faraday::Error => e
+        raise Error, "Transcription failed: #{e.message}"
+      end
+
+      # Whether server-side calls are possible at all. The voice control
+      # asks before choosing how to capture: recording audio with nowhere
+      # to send it is worse than not offering to record.
+      def self.configured?
+        api_key.present?
+      rescue Error
+        false
+      end
+
+      def self.client
+        OpenAI::Client.new(access_token: api_key, uri_base: base_url)
+      end
+
+      # Anything speaking the OpenAI wire protocol: Azure OpenAI, LiteLLM,
+      # vLLM, Ollama, an internal gateway. The gem appends its own "/v1"
+      # only when the base URL doesn't already carry one.
+      def self.base_url
+        CoPlan.configuration.ai_base_url.presence || DEFAULT_BASE_URL
+      end
+
+      def self.api_key
+        key = CoPlan.configuration.ai_api_key ||
+          Rails.application.credentials.dig(:openai, :api_key) ||
+          ENV["OPENAI_API_KEY"]
+        raise Error, "OpenAI API key not configured" if key.blank?
+
+        key
       end
 
       def initialize(system_prompt:, user_content:, model: nil)
@@ -19,9 +77,7 @@ module CoPlan
       end
 
       def call
-        client = OpenAI::Client.new(access_token: api_key, uri_base: base_url)
-
-        response = client.chat(
+        response = self.class.client.chat(
           parameters: {
             model: @model,
             messages: [
@@ -35,21 +91,6 @@ module CoPlan
         raise Error, "No response content from OpenAI" if content.blank?
 
         content
-      end
-
-      private
-
-      # Anything speaking the OpenAI wire protocol: Azure OpenAI, LiteLLM,
-      # vLLM, Ollama, an internal gateway. The gem appends its own "/v1"
-      # only when the base URL doesn't already carry one.
-      def base_url
-        CoPlan.configuration.ai_base_url.presence || DEFAULT_BASE_URL
-      end
-
-      def api_key
-        key = CoPlan.configuration.ai_api_key || Rails.application.credentials.dig(:openai, :api_key) || ENV["OPENAI_API_KEY"]
-        raise Error, "OpenAI API key not configured" if key.blank?
-        key
       end
 
       class Error < StandardError; end

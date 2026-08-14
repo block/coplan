@@ -43,7 +43,8 @@ module CoPlan
         # Most likely an anchor that doesn't resolve — a thread that would
         # render nowhere. Refused here rather than created invisible. The
         # selection form stays open (its reset checks for success) and
-        # shows the message; the 422 lets programmatic clients fall back.
+        # shows the message; the voice client retries on this status with
+        # its viewport fallback.
         return render_comment_error(e.record.errors.full_messages.to_sentence)
       end
 

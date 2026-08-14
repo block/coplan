@@ -47,7 +47,7 @@
 
 <div class="plan-document card">
   <% if @plan.current_content.present? %>
-    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_section_keys.to_json %>">
+    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss coplan:open-thread@document->coplan--text-selection#openThread" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_section_keys.to_json %>">
       <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
         <%# No "Contents" label — the outline speaks for itself, and the plan
             title now lives in the sticky nav. Just the collapse control. %>
@@ -115,13 +115,18 @@
 
 <%= render partial: "coplan/shared/folder_picker", locals: { folders: @my_folders } %>
 
+<% if current_user && @plan.current_content.present? %>
+  <%= render partial: "coplan/plans/voice_control", locals: { plan: @plan } %>
+<% end %>
+
 <%# Headless comment navigation — no floating toolbar, just the keyboard:
     j/k step through comments, r focuses reply, a/d accept/discard,
-    s toggles resolved-thread visibility. %>
-<% if @threads.any? %>
-  <div data-controller="coplan--comment-nav"
-       data-action="coplan:anchors-updated@document->coplan--comment-nav#handleAnchorsUpdated"
-       hidden></div>
-<% end %>
+    s toggles resolved-thread visibility. Rendered even when the page
+    loads without a single thread: comments arrive live (voice, selection,
+    other viewers' broadcasts), and gating this on @threads.any? left the
+    first comment on a fresh plan with no keyboard at all. %>
+<div data-controller="coplan--comment-nav"
+     data-action="coplan:anchors-updated@document->coplan--comment-nav#handleAnchorsUpdated"
+     hidden></div>
 
 </div>
