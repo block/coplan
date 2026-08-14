@@ -13,15 +13,25 @@ module CoPlan
         def success? = error.nil?
       end
 
-      def self.call(plan:, folder:, actor:, library: nil)
-        new(plan:, folder:, actor:, library:).call
+      # `actor_type` distinguishes humans from agents in the audit trail —
+      # API callers authenticating via bearer token pass "local_agent";
+      # the web UI omits it (defaults to "human" via the log services).
+      # `run_id` / `event_metadata` flow into the library-side audit event
+      # so bulk organize runs stay grouped and attributable (token label).
+      def self.call(plan:, folder:, actor:, library: nil, actor_type: nil,
+        run_id: nil, event_metadata: {})
+        new(plan:, folder:, actor:, library:, actor_type:, run_id:, event_metadata:).call
       end
 
-      def initialize(plan:, folder:, actor:, library: nil)
+      def initialize(plan:, folder:, actor:, library: nil, actor_type: nil,
+        run_id: nil, event_metadata: {})
         @plan = plan
         @folder = folder
         @actor = actor
         @library = library || folder&.library || actor.library
+        @actor_type = actor_type
+        @run_id = run_id
+        @event_metadata = event_metadata || {}
       end
 
       def call
@@ -75,20 +85,43 @@ module CoPlan
 
       private
 
-      # The audit trail lives on the plan, but only for the author's own
-      # library — someone else curating their shelf isn't an event in the
-      # plan's history.
+      # Two audit trails, one write path. The plan-side event only fires for
+      # the author's own library — someone else curating their shelf isn't
+      # an event in the plan's history. The library-side event always fires:
+      # every rearrangement of a shelf is part of that library's audit log.
       def log_move(old_path, new_path)
-        return unless @plan.created_by_user_id == @actor.id
         return if old_path == new_path
+
+        Libraries::LogEvent.call(
+          library: @library,
+          actor: @actor,
+          actor_type: @actor_type,
+          event_type: library_event_type(old_path, new_path),
+          plan: @plan,
+          folder: @folder,
+          before: old_path,
+          after: new_path,
+          run_id: @run_id,
+          metadata: @event_metadata
+        )
+
+        return unless @plan.created_by_user_id == @actor.id
 
         LogEvent.call(
           plan: @plan,
           actor: @actor,
+          actor_type: @actor_type,
           event_type: "moved_to_folder",
           before: old_path,
           after: new_path
         )
+      end
+
+      def library_event_type(old_path, new_path)
+        if old_path.nil? then "plan_filed"
+        elsif new_path.nil? then "plan_removed"
+        else "plan_moved"
+        end
       end
     end
   end

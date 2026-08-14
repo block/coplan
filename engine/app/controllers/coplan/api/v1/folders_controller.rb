@@ -42,9 +42,14 @@ module CoPlan
 
           folder = Folder.create!(
             name: params[:name],
+            description: params[:description],
             parent: parent,
             library: library,
             created_by_user: current_user
+          )
+          Libraries::LogEvent.call(
+            library: library, actor: current_user, actor_type: api_author_type,
+            event_type: "folder_created", folder: folder, after: folder.path
           )
           render json: folder_json(folder), status: :created
         rescue ActiveRecord::RecordInvalid => e
@@ -59,6 +64,7 @@ module CoPlan
 
           attrs = {}
           attrs[:name] = params[:name] if params.key?(:name)
+          attrs[:description] = params[:description] if params.key?(:description)
           if params.key?(:parent_id)
             if params[:parent_id].present?
               parent = @folder.library.folders.find_by(id: params[:parent_id])
@@ -69,7 +75,10 @@ module CoPlan
             end
           end
 
+          old_path = @folder.path
+          old_description = @folder.description
           @folder.update!(attrs)
+          log_folder_update(old_path, old_description)
           render json: folder_json(@folder)
         rescue ActiveRecord::RecordInvalid => e
           render json: { error: e.record.errors.full_messages.join(", ") }, status: :unprocessable_content
@@ -81,7 +90,13 @@ module CoPlan
             return render json: { error: "Not authorized" }, status: :forbidden
           end
 
+          path = @folder.path
           if @folder.destroy
+            Libraries::LogEvent.call(
+              library: @folder.library, actor: current_user, actor_type: api_author_type,
+              event_type: "folder_deleted", before: path,
+              metadata: { folder_name: @folder.name }
+            )
             head :no_content
           else
             render json: { error: @folder.errors.full_messages.join(", ") }, status: :unprocessable_content
@@ -95,6 +110,33 @@ module CoPlan
           render json: { error: "Folder not found" }, status: :not_found unless @folder
         end
 
+        # One update call can rename, move, and re-describe at once — log
+        # each change as its own audit event so the library log stays
+        # readable ("renamed A → B", not "something about this folder").
+        def log_folder_update(old_path, old_description)
+          new_path = @folder.path
+          if @folder.saved_change_to_name?
+            Libraries::LogEvent.call(
+              library: @folder.library, actor: current_user, actor_type: api_author_type,
+              event_type: "folder_renamed", folder: @folder, before: old_path, after: new_path
+            )
+          end
+          if @folder.saved_change_to_parent_id?
+            Libraries::LogEvent.call(
+              library: @folder.library, actor: current_user, actor_type: api_author_type,
+              event_type: "folder_moved", folder: @folder, before: old_path, after: new_path
+            )
+          end
+          if @folder.saved_change_to_description?
+            Libraries::LogEvent.call(
+              library: @folder.library, actor: current_user, actor_type: api_author_type,
+              event_type: "folder_described", folder: @folder,
+              before: old_description, after: @folder.description,
+              metadata: { path: new_path }
+            )
+          end
+        end
+
         # `paths` and `counts` let index serialize the whole tree without
         # per-folder queries. `plans_count` is the folder's own visible
         # placements (not including subfolders).
@@ -102,6 +144,7 @@ module CoPlan
           {
             id: folder.id,
             name: folder.name,
+            description: folder.description,
             library_id: folder.library_id,
             parent_id: folder.parent_id,
             path: paths ? paths[folder.id] : folder.path,

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_19_165429) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_13_180709) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -53,16 +53,46 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_165429) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
+  create_table "coplan_agent_events", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "acked_at"
+    t.string "api_token_id", limit: 36, null: false
+    t.string "comment_id", limit: 36
+    t.string "comment_thread_id", limit: 36
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.json "payload"
+    t.string "plan_id", limit: 36, null: false
+    t.index ["api_token_id", "acked_at"], name: "index_coplan_agent_events_on_api_token_id_and_acked_at"
+    t.index ["api_token_id", "id"], name: "index_coplan_agent_events_on_api_token_id_and_id"
+    t.index ["plan_id"], name: "index_coplan_agent_events_on_plan_id"
+  end
+
+  create_table "coplan_agent_sessions", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "agent_name", null: false
+    t.string "api_token_id", limit: 36, null: false
+    t.datetime "created_at", null: false
+    t.datetime "last_activity_at"
+    t.string "plan_id", limit: 36, null: false
+    t.string "state", default: "pending", null: false
+    t.string "state_detail"
+    t.datetime "updated_at", null: false
+    t.index ["api_token_id"], name: "index_coplan_agent_sessions_on_api_token_id"
+    t.index ["plan_id", "api_token_id"], name: "index_coplan_agent_sessions_on_plan_id_and_api_token_id", unique: true
+  end
+
   create_table "coplan_api_tokens", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "agent_name"
     t.datetime "created_at", null: false
     t.timestamp "expires_at"
     t.timestamp "last_used_at"
     t.string "name", null: false
+    t.string "parent_id", limit: 36
     t.timestamp "revoked_at"
     t.string "token_digest", null: false
     t.string "token_prefix", limit: 8
     t.datetime "updated_at", null: false
     t.string "user_id", limit: 36, null: false
+    t.index ["parent_id", "revoked_at"], name: "index_coplan_api_tokens_on_parent_id_and_revoked_at"
     t.index ["token_digest"], name: "index_coplan_api_tokens_on_token_digest", unique: true
     t.index ["user_id"], name: "index_coplan_api_tokens_on_user_id"
   end
@@ -139,6 +169,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_165429) do
   create_table "coplan_folders", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "created_by_user_id", limit: 36
+    t.string "description"
     t.string "library_id", limit: 36, null: false
     t.string "name", null: false
     t.string "parent_id", limit: 36
@@ -156,6 +187,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_165429) do
     t.string "owner_type", null: false
     t.datetime "updated_at", null: false
     t.index ["owner_type", "owner_id"], name: "index_coplan_libraries_on_owner_type_and_owner_id", unique: true
+  end
+
+  create_table "coplan_library_events", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "actor_id", limit: 36
+    t.string "actor_type", null: false
+    t.text "after_value"
+    t.text "before_value"
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.string "folder_id", limit: 36
+    t.string "library_id", limit: 36, null: false
+    t.json "metadata"
+    t.string "plan_id", limit: 36
+    t.string "run_id", limit: 36
+    t.index ["event_type"], name: "index_coplan_library_events_on_event_type"
+    t.index ["library_id", "created_at"], name: "index_coplan_library_events_on_library_id_and_created_at"
+    t.index ["plan_id"], name: "index_coplan_library_events_on_plan_id"
+    t.index ["run_id"], name: "index_coplan_library_events_on_run_id"
   end
 
   create_table "coplan_notifications", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -363,6 +412,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_165429) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "coplan_agent_events", "coplan_api_tokens", column: "api_token_id"
+  add_foreign_key "coplan_agent_events", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_agent_sessions", "coplan_api_tokens", column: "api_token_id"
+  add_foreign_key "coplan_agent_sessions", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_api_tokens", "coplan_api_tokens", column: "parent_id"
   add_foreign_key "coplan_api_tokens", "coplan_users", column: "user_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "addressed_in_plan_version_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "out_of_date_since_version_id"
@@ -377,6 +431,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_165429) do
   add_foreign_key "coplan_folders", "coplan_folders", column: "parent_id"
   add_foreign_key "coplan_folders", "coplan_libraries", column: "library_id"
   add_foreign_key "coplan_folders", "coplan_users", column: "created_by_user_id"
+  add_foreign_key "coplan_library_events", "coplan_libraries", column: "library_id"
   add_foreign_key "coplan_notifications", "coplan_comment_threads", column: "comment_thread_id"
   add_foreign_key "coplan_notifications", "coplan_comments", column: "comment_id"
   add_foreign_key "coplan_notifications", "coplan_plans", column: "plan_id"
