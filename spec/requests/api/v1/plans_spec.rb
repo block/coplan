@@ -339,4 +339,34 @@ RSpec.describe "Api::V1::Plans", type: :request do
       expect(response).to have_http_status(:not_found)
     end
   end
+
+  describe "GET /api/v1/plans/:id/locations" do
+    it "returns every library the plan is shelved in" do
+      published = create(:plan, :considering, created_by_user: alice)
+      alice_folder = create(:folder, name: "Mine", description: "Alice's shelf", created_by_user: alice)
+      carol_folder = create(:folder, name: "Reading List", created_by_user: carol)
+      CoPlan::Plans::Place.call(plan: published, folder: alice_folder, actor: alice)
+      CoPlan::Plans::Place.call(plan: published, folder: carol_folder, actor: carol)
+
+      get locations_api_v1_plan_path(published), headers: headers
+      expect(response).to have_http_status(:success)
+      locations = JSON.parse(response.body)
+      expect(locations.size).to eq(2)
+
+      mine = locations.find { |l| l["library_id"] == alice.library.id }
+      theirs = locations.find { |l| l["library_id"] == carol.library.id }
+      expect(mine["folder_path"]).to eq("Mine")
+      expect(mine["folder_description"]).to eq("Alice's shelf")
+      expect(mine["writable"]).to be(true)
+      expect(mine["owner"]["name"]).to eq(alice.name)
+      expect(theirs["folder_path"]).to eq("Reading List")
+      expect(theirs["writable"]).to be(false)
+      expect(theirs["placed_by"]).to eq(carol.name)
+    end
+
+    it "requires auth" do
+      get locations_api_v1_plan_path(plan)
+      expect(response).to have_http_status(:unauthorized)
+    end
+  end
 end

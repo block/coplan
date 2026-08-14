@@ -19,8 +19,16 @@ module CoPlan
         return render json: { error: "Unknown destination folder" }, status: :unprocessable_content unless parent
       end
 
+      old_path = folder.path
       folder.parent = parent
       if folder.save
+        if folder.saved_change_to_parent_id?
+          Libraries::LogEvent.call(
+            library: library, actor: current_user,
+            event_type: "folder_moved", folder: folder,
+            before: old_path, after: folder.path
+          )
+        end
         render json: {
           parent_id: folder.parent_id,
           path: folder.path,
@@ -57,6 +65,10 @@ module CoPlan
       )
 
       if folder.save
+        Libraries::LogEvent.call(
+          library: library, actor: current_user,
+          event_type: "folder_created", folder: folder, after: folder.path
+        )
         redirect_to plans_path(folder: folder.id), notice: "Folder “#{folder.name}” created."
       else
         redirect_back fallback_location: plans_path,

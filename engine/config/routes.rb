@@ -51,8 +51,25 @@ CoPlan::Engine.routes.draw do
     namespace :v1 do
       resources :tags, only: [:index]
       resources :folders, only: [:index, :create, :update, :destroy]
+
+      # The agent organization API: overview (show), bulk read (contents),
+      # bulk write (organize), audit log (events). The bare /library routes
+      # are the caller's own library, no id needed.
+      resources :libraries, only: [:index, :show] do
+        member do
+          get :contents
+          get :events
+          post :organize
+        end
+      end
+      get "library", to: "libraries#show", as: :own_library
+      get "library/contents", to: "libraries#contents", as: :own_library_contents
+      get "library/events", to: "libraries#events", as: :own_library_events
+      post "library/organize", to: "libraries#organize", as: :own_library_organize
+
       resources :plans, only: [:index, :show, :create, :update] do
         get :versions, on: :member
+        get :locations, on: :member
         get :comments, on: :member
         get :snapshot, on: :member
         resource :content, only: [:update], controller: "content"
@@ -93,6 +110,9 @@ CoPlan::Engine.routes.draw do
 
   get "llms.txt", to: "llms#show", as: :llms_txt
   get "agent-instructions", to: "agent_instructions#show", as: :agent_instructions
+  # Sub-instructions: the library-organizing guide, fetched on demand so the
+  # main instructions stay small (agents only spend context when organizing).
+  get "agent-instructions/organizing", to: "agent_instructions#organizing", as: :agent_instructions_organizing
 
   # Service worker — served from a route (not the asset pipeline) so it has a
   # stable URL the browser can update in place. Scope is whatever the engine

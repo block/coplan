@@ -2,8 +2,8 @@ module CoPlan
   module Api
     module V1
       class PlansController < BaseController
-        before_action :set_plan, only: [ :show, :update, :versions, :comments, :snapshot ]
-        before_action :authorize_plan_access!, only: [ :show, :update, :versions, :comments, :snapshot ]
+        before_action :set_plan, only: [ :show, :update, :versions, :comments, :snapshot, :locations ]
+        before_action :authorize_plan_access!, only: [ :show, :update, :versions, :comments, :snapshot, :locations ]
 
         def index
           plans = Plan
@@ -106,7 +106,7 @@ module CoPlan
             if params.key?(:folder_id) || params.key?(:folder_path)
               folder = resolve_folder_params
               return if performed? # resolve_folder_params rendered an error
-              result = Plans::Place.call(plan: @plan, folder: folder, actor: current_user)
+              result = Plans::Place.call(plan: @plan, folder: folder, actor: current_user, actor_type: api_author_type)
               unless result.success?
                 render json: { error: result.error }, status: :unprocessable_content
                 raise ActiveRecord::Rollback
@@ -202,6 +202,31 @@ module CoPlan
           render json: versions.map { |v| version_json(v) }
         end
 
+        # Everywhere this plan is shelved — the reverse lookup of "what
+        # folder is this document actually in?", across every library
+        # (yours, other people's, and future team libraries).
+        def locations
+          placements = @plan.placements.includes(:placed_by_user, library: :owner, folder: { parent: :parent })
+          render json: placements.map { |placement|
+            library = placement.library
+            {
+              library_id: library.id,
+              library_name: library.name,
+              owner: {
+                type: library.owner_type.demodulize.underscore,
+                id: library.owner_id,
+                name: library.owner.respond_to?(:name) ? library.owner.name : nil
+              },
+              writable: library.writable_by?(current_user),
+              folder_id: placement.folder_id,
+              folder_path: placement.folder.path,
+              folder_description: placement.folder.description,
+              placed_by: placement.placed_by_user&.name,
+              placed_at: placement.updated_at
+            }
+          }
+        end
+
         def comments
           threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)
           render json: threads.map { |t| thread_json(t) }
@@ -288,11 +313,20 @@ module CoPlan
             render json: { error: "Unknown folder_id" }, status: :unprocessable_content unless folder
             folder
           elsif params[:folder_path].present?
-            Folder.find_or_create_by_path!(
+            created = []
+            folder = Folder.find_or_create_by_path!(
               params[:folder_path],
               library: current_user.library,
-              created_by_user: current_user
+              created_by_user: current_user,
+              created: created
             )
+            created.each do |f|
+              Libraries::LogEvent.call(
+                library: current_user.library, actor: current_user, actor_type: api_author_type,
+                event_type: "folder_created", folder: f, after: f.path
+              )
+            end
+            folder
           else
             nil # blank folder_id / folder_path unfiles the plan
           end
