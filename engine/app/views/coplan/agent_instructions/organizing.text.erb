@@ -1,0 +1,118 @@
+# CoPlan Library Organization Guide
+
+Sub-instructions for organizing libraries. Read the main instructions at `<%= @base %>/agent-instructions` first — this guide assumes you already know how to authenticate and shelve a single plan.
+
+<%= @auth_instructions %>
+
+## The model in three sentences
+
+A **library** is a folder tree owned by a user (team libraries use the same model). Filing a plan is a **placement** — the library owner's organization of the plan, never a property of the plan itself, so the same plan can sit in many libraries at once and moving it in one library changes nothing anywhere else. Folders go at most 3 levels deep, carry a one-line `description` of what belongs in them, and every rearrangement is recorded in the library's audit log with whether a human or an agent did it.
+
+Use **folders** for "where does this live?" and **tags** for "what is it about?" — move-by-tag (below) is the bridge between the two.
+
+## Step 1 — Learn the layout (one call)
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/library" | jq .
+```
+
+Your own library's map: every folder with `id`, `name`, **`description`** (its meaning — trust it over guessing from the name), `path` (`"Team EBT/Q3"`), `plans_count` (directly inside), `total_plans_count` (including subfolders), plus `unfiled_count` (your plans not yet shelved), `top_tags`, and `recent_activity`.
+
+Any library by id: `GET <%= @base %>/api/v1/libraries/$LIBRARY_ID` (read-only unless it's yours; `GET /api/v1/libraries` lists all libraries with a `writable` flag).
+
+## Step 2 — Bulk-read the contents
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/library/contents" | jq .
+```
+
+One compact row per shelved plan: `plan_id`, `title`, **`summary`** (auto-generated abstract — enough to classify a plan without fetching its content), `tags`, `visibility`, `archived`, `author`, `folder_path`, `placed_by`, and dates. Sorted by folder path, so the whole shelf reads top-to-bottom.
+
+Filters (combine freely):
+
+- `?folder_path=Team%20EBT&recursive=true` — one subtree
+- `?tag=pricing` — everything shelved here with a tag
+- `?unfiled=true` — your plans not yet shelved (file these!)
+- `?archived=true` — archived plans (excluded by default)
+- `?limit=&offset=` — pagination (default 500 rows)
+
+Do **not** fetch each plan's full content to classify it — `summary` + `tags` + `title` are there precisely so organizing costs one request, not N.
+
+## Step 3 — Organize in bulk
+
+`POST /api/v1/library/organize` (or `/api/v1/libraries/$LIBRARY_ID/organize`) takes up to 100 operations. Each op is atomic — a bad one reports its error and the rest still apply.
+
+```bash
+<%= @curl %> -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dry_run": true,
+    "operations": [
+      {"op": "create_folder", "path": "Archive/2025", "description": "Shipped or superseded work from 2025"},
+      {"op": "describe_folder", "folder_path": "Infra", "description": "Platform and infrastructure plans"},
+      {"op": "rename_folder", "folder_path": "Misc", "name": "Inbox"},
+      {"op": "move_folder", "folder_path": "Q3", "new_parent_path": "Team EBT"},
+      {"op": "move", "plan_id": "'$PLAN_ID'", "folder_path": "Team EBT/Q3"},
+      {"op": "move_by_tag", "tag": "pricing", "folder_path": "Pricing"},
+      {"op": "delete_folder", "folder_path": "Old Empty Folder"}
+    ]
+  }' \
+  "<%= @base %>/api/v1/library/organize" | jq .
+```
+
+The operation vocabulary:
+
+| op | fields | notes |
+|---|---|---|
+| `create_folder` | `path`, `description` | creates the whole hierarchy; sets description on the leaf |
+| `describe_folder` | `folder_path`\|`folder_id`, `description` | give folders meaning — future agents read these |
+| `rename_folder` | `folder_path`\|`folder_id`, `name` | |
+| `move_folder` | `folder_path`\|`folder_id`, `new_parent_path`\|`new_parent_id` | blank parent → top level |
+| `delete_folder` | `folder_path`\|`folder_id` | only empty folders |
+| `move` | `plan_id`, `folder_path`\|`folder_id`, `from_library_id` | blank destination → unfile; `folder_path` creates as needed |
+| `move_many` | `plan_ids` (≤500), `folder_path`\|`folder_id`, `from_library_id` | the grouped form of `move` — **prefer this for mass classification**: one op per destination folder, not one per plan. Per-plan tolerant: failures land in `failed`, the rest move |
+| `move_by_tag` | `tag`, `folder_path`\|`folder_id`, `scope` | `scope: "library"` (default) moves plans already on this shelf; `scope: "visible"` pulls every visible plan with the tag onto it |
+
+The response echoes per-op `results` (`status: "ok"` with details, or `status: "error"` with the reason), `ok_count` / `error_count`, and a **`run_id`** grouping every audit event the call wrote — quote it to the user and filter the log with `?run_id=` to review exactly what one run did.
+
+**Cross-library moves**: `{"op": "move", "plan_id": ..., "folder_path": "Somewhere", "from_library_id": "$OTHER_LIBRARY_ID"}` shelves the plan in the target library and removes it from the source in one atomic op. You need write access to both sides (today: they're yours; team libraries will use membership).
+
+### Propose first: dry_run
+
+`"dry_run": true` executes the whole batch, reports exactly what would happen — including which ops would fail and why — then rolls everything back. **This is the intended workflow for "reorganize my whole library":**
+
+1. Read the overview + contents.
+2. Design a structure; build the operations array.
+3. POST it with `dry_run: true`; show the user the proposed outline and per-op results.
+4. On approval, POST the same body with `dry_run: false`.
+
+## Where is this plan? (reverse lookup)
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/locations" | jq .
+```
+
+Every library the plan is shelved in: `library_name`, `owner`, `folder_path`, `folder_description`, `placed_by`, `writable` (whether *you* can move it there).
+
+## The audit log
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/library/events" | jq .
+```
+
+Who moved what where, when — and whether an agent did it: each event has `event_type` (`plan_filed`, `plan_moved`, `plan_removed`, `folder_created`, `folder_renamed`, `folder_moved`, `folder_described`, `folder_deleted`), `actor` (name), `actor_type` / `agent` (`"local_agent"` means an agent acting on the owner's behalf — that's you), `actor_label` (the API token's name — which agent session), `run_id` (which bulk organize call), `plan_title`, and `before` → `after` paths. Filters: `?event_type=`, `?plan_id=`, `?run_id=`, `?before=<ISO8601>` (pagination), `?limit=` (default 50). Owner-only.
+
+Use it to answer "who moved my plan?", to review what a previous agent session did, or to summarize recent reorganization for the user.
+
+## Organizing principles
+
+- **Reuse before invent.** Read the overview first; extend the existing structure rather than imposing a new one. Respect folder descriptions — they are the owner's stated intent.
+- **Describe what you create.** Every `create_folder` should carry a `description`. You are writing signage for the next agent (possibly yourself, without this context).
+- **Propose, then apply.** For anything beyond a few moves, dry-run and show the user the outline before applying. Never mass-reorganize someone's library unprompted.
+- **Shallow beats deep.** 5–9 top-level folders beat one 3-level rabbit hole. The depth cap is 3 for a reason.
+- **Unfiled is a to-do list.** `unfiled_count` > 0 means plans nobody shelved; filing them is the highest-value low-risk organizing move.
+- **Tags stay orthogonal.** Don't mirror the folder tree in tags or vice versa. If a folder and a tag mean the same thing, `move_by_tag` once and drop the redundancy.

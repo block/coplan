@@ -39,6 +39,10 @@ export default class extends Controller {
   // past 20. Anything under this never made it to the microphone.
   static SILENCE_PEAK = 6
 
+  // How long Shift must be held before the press means "talk" — a tap
+  // that short is someone typing a capital letter.
+  static HOLD_DELAY = 350
+
   connect() {
     this.mode = this._chooseMode()
     if (!this.mode) {
@@ -50,15 +54,22 @@ export default class extends Controller {
 
     this.listening = false
     this._watchAgentPill()
-    this._enablePushToTalk()
   }
 
   disconnect() {
+    // A capture can be mid-flight — _startRecording awaiting the
+    // microphone, the hold timer still deciding. Mark the take dead
+    // first, so a promise that resumes after this teardown bails out
+    // through its own cleanup instead of starting a recorder nobody
+    // can see or stop.
+    this.listening = false
+    this.discarded = true
+    clearTimeout(this.holdTimer)
+    this.pushToTalk = false
     this._closeEar()
     this._releaseMic()
     this.recognition?.abort()
     this.pillObserver?.disconnect()
-    this._disablePushToTalk()
     clearInterval(this.tickTimer)
   }
 
@@ -87,77 +98,73 @@ export default class extends Controller {
     this.listening ? this._stop() : this._start()
   }
 
-  // Hold Shift to talk, release to send.
+  // Hold Shift to talk, release to send. Bound declaratively on the
+  // control's element (keydown@document / keyup@document / blur@window)
+  // — document and window are stable targets, so Stimulus owns the
+  // listener lifecycle.
   //
   // Shift is also held while typing capitals and extending a selection,
   // so a bare press isn't enough of a signal. Three guards keep it from
   // firing by accident: it must be Shift alone with no other key down, it
   // must be held past a short delay (capitals are a tap), and any other
   // keystroke or a text selection cancels without posting.
-  _enablePushToTalk() {
-    this.HOLD_DELAY = 350
+  keyDown(event) {
+    if (!this.mode) return
 
-    this._onKeyDown = (event) => {
-      if (event.key !== "Shift") {
-        // Shift+something is a shortcut or a capital letter, not talking.
-        if (this.pushToTalk) this._cancel()
-        else if (this.ear) {
-          clearTimeout(this.holdTimer)
-          this._closeEar()
-        }
-        return
-      }
-      if (event.repeat || this.pushToTalk || this.listening) return
-      if (this._isTyping() || event.metaKey || event.ctrlKey || event.altKey) return
-
-      // Capture from the instant of the press. Deciding whether the press
-      // means "talk" takes 350ms and opening the microphone takes a couple
-      // hundred more — people start talking at the press, and "oh, I meant
-      // both of them" is over before a capture that waits for both. If
-      // this turns out to be a tap or a selection, the take is discarded
-      // unheard.
-      if (this.mode === "record") this._openEar()
-
-      this.holdTimer = setTimeout(() => {
-        // Extending a selection with Shift+arrow or Shift+click also
-        // holds Shift; if text got selected, that's what was happening.
-        if (!window.getSelection()?.isCollapsed) {
-          this._closeEar()
-          return
-        }
-        this.pushToTalk = true
-        this._start()
-      }, this.HOLD_DELAY)
-    }
-
-    this._onKeyUp = (event) => {
-      if (event.key !== "Shift") return
-      clearTimeout(this.holdTimer)
-      if (!this.pushToTalk) {
-        this._closeEar() // a tap: whatever the ear caught is dropped
-        return
-      }
-
-      this.pushToTalk = false
-      this._stop()
-    }
-
-    // Losing the window means we never see the keyup — don't leave the
-    // mic open, and don't post something half-said.
-    this._onInterrupt = () => {
+    if (event.key !== "Shift") {
+      // Shift+something is a shortcut or a capital letter, not talking.
       if (this.pushToTalk) this._cancel()
+      else if (this.ear) {
+        clearTimeout(this.holdTimer)
+        this._closeEar()
+      }
+      return
     }
+    if (event.repeat || this.pushToTalk || this.listening) return
+    if (this._isTyping() || event.metaKey || event.ctrlKey || event.altKey) return
 
-    document.addEventListener("keydown", this._onKeyDown)
-    document.addEventListener("keyup", this._onKeyUp)
-    window.addEventListener("blur", this._onInterrupt)
+    // Capture from the instant of the press. Deciding whether the press
+    // means "talk" takes 350ms and opening the microphone takes a couple
+    // hundred more — people start talking at the press, and "oh, I meant
+    // both of them" is over before a capture that waits for both. If
+    // this turns out to be a tap or a selection, the take is discarded
+    // unheard.
+    if (this.mode === "record") this._openEar()
+
+    this.holdTimer = setTimeout(() => {
+      // Extending a selection with Shift+arrow or Shift+click also
+      // holds Shift; if text got selected, that's what was happening.
+      if (!window.getSelection()?.isCollapsed) {
+        this._closeEar()
+        return
+      }
+      this.pushToTalk = true
+      this._start()
+    }, this.constructor.HOLD_DELAY)
   }
 
-  _disablePushToTalk() {
+  keyUp(event) {
+    if (!this.mode || event.key !== "Shift") return
+
     clearTimeout(this.holdTimer)
-    document.removeEventListener("keydown", this._onKeyDown)
-    document.removeEventListener("keyup", this._onKeyUp)
-    window.removeEventListener("blur", this._onInterrupt)
+    if (!this.pushToTalk) {
+      this._closeEar() // a tap: whatever the ear caught is dropped
+      return
+    }
+
+    this.pushToTalk = false
+    this._stop()
+  }
+
+  // Losing the window means we never see the keyup — don't leave the
+  // mic open, and don't post something half-said. That includes losing
+  // it during the hold delay, before push-to-talk is confirmed: the
+  // pending timer would otherwise start a take whose keyup can never
+  // arrive, recording indefinitely.
+  interrupt() {
+    clearTimeout(this.holdTimer)
+    if (this.pushToTalk) this._cancel()
+    else this._closeEar()
   }
 
   _isTyping() {

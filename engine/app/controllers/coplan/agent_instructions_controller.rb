@@ -49,6 +49,17 @@ module CoPlan
       end
     end
 
+    # Sub-instructions: the library-organizing guide, linked from the main
+    # doc and from library API responses. Markdown-only — it's fetched by
+    # agents mid-task, not browsed by humans (the main doc has the pretty
+    # HTML front door).
+    def organizing
+      @auth_instructions = CoPlan.configuration.agent_auth_instructions
+      @curl = CoPlan.configuration.agent_curl_prefix
+      @base = "#{request.base_url}#{root_path.chomp("/")}"
+      render layout: false, content_type: "text/markdown", formats: [:text]
+    end
+
     private
 
     def prefers_html?

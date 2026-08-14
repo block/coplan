@@ -937,11 +937,16 @@ del.agent-flash {
   background: var(--color-danger);
   border-color: var(--color-danger);
   transform: scale(1.06);
-  animation: agent-pill-pulse 1.2s ease-in-out infinite;
+  animation: voice-btn-pulse 1.2s ease-in-out infinite;
   box-shadow:
     0 2px 12px rgb(0 0 0 / 18%),
     0 0 0 calc(var(--voice-level, 0) * 0.55rem) rgb(from var(--color-danger) r g b / 25%);
   transition: box-shadow 90ms ease-out, transform 120ms ease;
+}
+
+@keyframes voice-btn-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
 }
 
 @media (prefers-reduced-motion: reduce) {

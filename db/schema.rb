@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_11_221311) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_13_180709) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -169,6 +169,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_11_221311) do
   create_table "coplan_folders", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "created_by_user_id", limit: 36
+    t.string "description"
     t.string "library_id", limit: 36, null: false
     t.string "name", null: false
     t.string "parent_id", limit: 36
@@ -186,6 +187,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_11_221311) do
     t.string "owner_type", null: false
     t.datetime "updated_at", null: false
     t.index ["owner_type", "owner_id"], name: "index_coplan_libraries_on_owner_type_and_owner_id", unique: true
+  end
+
+  create_table "coplan_library_events", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "actor_id", limit: 36
+    t.string "actor_type", null: false
+    t.text "after_value"
+    t.text "before_value"
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.string "folder_id", limit: 36
+    t.string "library_id", limit: 36, null: false
+    t.json "metadata"
+    t.string "plan_id", limit: 36
+    t.string "run_id", limit: 36
+    t.index ["event_type"], name: "index_coplan_library_events_on_event_type"
+    t.index ["library_id", "created_at"], name: "index_coplan_library_events_on_library_id_and_created_at"
+    t.index ["plan_id"], name: "index_coplan_library_events_on_plan_id"
+    t.index ["run_id"], name: "index_coplan_library_events_on_run_id"
   end
 
   create_table "coplan_notifications", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -412,6 +431,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_11_221311) do
   add_foreign_key "coplan_folders", "coplan_folders", column: "parent_id"
   add_foreign_key "coplan_folders", "coplan_libraries", column: "library_id"
   add_foreign_key "coplan_folders", "coplan_users", column: "created_by_user_id"
+  add_foreign_key "coplan_library_events", "coplan_libraries", column: "library_id"
   add_foreign_key "coplan_notifications", "coplan_comment_threads", column: "comment_thread_id"
   add_foreign_key "coplan_notifications", "coplan_comments", column: "comment_id"
   add_foreign_key "coplan_notifications", "coplan_plans", column: "plan_id"

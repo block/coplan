@@ -169,9 +169,16 @@ Each folder includes `id`, `name`, `library_id`, `parent_id`, `path` (e.g. `"Tea
 - `folder_id`/`folder_path` in plan responses are **yours**: where *you* shelved that plan, `null` if you haven't.
 
 **Guidelines:**
-- Check `GET /api/v1/folders` before creating new folders — reuse the existing structure.
-- Folder names read like places (`Team EBT`, `Infra`, `Q3 Launch`), not labels.
-- You can offer to organize a user's library: list their plans, propose a folder structure, and shelve plans with `folder_path` once they agree.
+- Check `GET <%= @base %>/api/v1/library` (your library's map — folder tree with descriptions and counts) before creating new folders — reuse the existing structure.
+- Folder names read like places (`Team EBT`, `Infra`, `Q3 Launch`), not labels. Folders carry a one-line `description` saying what belongs in them — read it before filing, write it when you create folders.
+
+**Organizing at scale — fetch only when needed.** When you're asked to organize, reorganize, or audit a library (yours or between libraries), there is a dedicated organization API: a one-call library overview, bulk contents with summaries and tags, batch move/rename/describe operations with `dry_run` for proposing changes, move-by-tag, cross-library moves, and a full audit log. Its guide lives at:
+
+```
+GET <%= @base %>/agent-instructions/organizing
+```
+
+Don't fetch it for a single filing (`folder_path` above covers that) — fetch it once when a real organizing task starts.
 
 ### Visibility & Archiving
 

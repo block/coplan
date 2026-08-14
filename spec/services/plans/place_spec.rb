@@ -76,4 +76,53 @@ RSpec.describe CoPlan::Plans::Place do
     expect(author.library.placements.where(plan: plan).count).to eq(1)
     expect(result.placement.folder).to eq(second_folder)
   end
+
+  describe "library audit trail" do
+    it "logs filed → moved → removed with paths and plan title" do
+      plan = create(:plan, :considering, created_by_user: author, title: "Audited")
+      second_folder = create(:folder, name: "Elsewhere", created_by_user: author)
+
+      place(plan: plan, folder: folder, actor: author)
+      place(plan: plan, folder: second_folder, actor: author)
+      place(plan: plan, folder: nil, actor: author)
+
+      events = author.library.library_events.order(:created_at)
+      expect(events.map(&:event_type)).to eq(%w[plan_filed plan_moved plan_removed])
+
+      moved = events.second
+      expect(moved.before_value).to eq(folder.path)
+      expect(moved.after_value).to eq("Elsewhere")
+      expect(moved.plan_id).to eq(plan.id)
+      expect(moved.metadata["plan_title"]).to eq("Audited")
+      expect(moved.actor_id).to eq(author.id)
+      expect(moved.actor_type).to eq("human")
+    end
+
+    it "attributes agent moves as local_agent" do
+      plan = create(:plan, :considering, created_by_user: author)
+      described_class.call(plan: plan, folder: folder, actor: author,
+        library: author.library, actor_type: "local_agent")
+
+      event = author.library.library_events.sole
+      expect(event.actor_type).to eq("local_agent")
+      expect(author.library.placements.sole.plan_id).to eq(plan.id)
+      # The plan-side history event carries the same attribution.
+      expect(plan.plan_events.sole.actor_type).to eq("local_agent")
+    end
+
+    it "logs shelving someone else's plan in the library trail but not the plan's history" do
+      plan = create(:plan, :published, created_by_user: other)
+      place(plan: plan, folder: folder, actor: author)
+
+      expect(author.library.library_events.sole.event_type).to eq("plan_filed")
+      expect(plan.plan_events).to be_empty
+    end
+
+    it "logs nothing when a re-file is a no-op" do
+      plan = create(:plan, :considering, created_by_user: author)
+      place(plan: plan, folder: folder, actor: author)
+      expect { place(plan: plan, folder: folder, actor: author) }
+        .not_to change { author.library.library_events.count }
+    end
+  end
 end

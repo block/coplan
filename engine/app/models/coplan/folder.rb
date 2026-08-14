@@ -31,6 +31,9 @@ module CoPlan
       uniqueness: { scope: [ :library_id, :parent_id ], case_sensitive: false },
       format: { with: NAME_FORMAT, message: "cannot contain \"/\"" },
       length: { maximum: 100 }
+    # What belongs in this folder, in one line — read by agents (via the
+    # library overview API) to organize by meaning, not just name.
+    validates :description, length: { maximum: 255 }
     validate :parent_cannot_create_cycle
     validate :parent_must_share_library
     validate :depth_within_limit
@@ -73,7 +76,10 @@ module CoPlan
     # invalid. Returns nil for a blank path. Lookup is case-insensitive
     # (matching the uniqueness validation); creation preserves the given
     # casing.
-    def self.find_or_create_by_path!(path, library:, created_by_user: nil)
+    #
+    # Pass an array as `created:` to collect the folders this call had to
+    # create (root-first) — callers use it to audit implicit creations.
+    def self.find_or_create_by_path!(path, library:, created_by_user: nil, created: nil)
       segments = path.to_s.split("/").map(&:strip).reject(&:blank?)
       return nil if segments.empty?
 
@@ -82,8 +88,24 @@ module CoPlan
       transaction do
         segments.reduce(nil) do |parent, name|
           library.folders.where(parent_id: parent&.id).where("LOWER(name) = ?", name.downcase).first ||
-            create!(name: name, parent: parent, library: library, created_by_user: created_by_user)
+            create!(name: name, parent: parent, library: library, created_by_user: created_by_user).tap do |folder|
+              created << folder if created
+            end
         end
+      end
+    end
+
+    # Case-insensitive lookup of a "/"-separated path within one library.
+    # Returns nil when any segment is missing — the read-only sibling of
+    # find_or_create_by_path!.
+    def self.find_by_path(path, library:)
+      segments = path.to_s.split("/").map(&:strip).reject(&:blank?)
+      return nil if segments.empty?
+
+      segments.reduce(nil) do |parent, name|
+        folder = library.folders.where(parent_id: parent&.id).where("LOWER(name) = ?", name.downcase).first
+        return nil unless folder
+        folder
       end
     end
 
@@ -105,7 +127,7 @@ module CoPlan
     end
 
     def self.ransackable_attributes(_auth_object = nil)
-      %w[id name library_id parent_id created_by_user_id created_at updated_at]
+      %w[id name description library_id parent_id created_by_user_id created_at updated_at]
     end
 
     def self.ransackable_associations(_auth_object = nil)

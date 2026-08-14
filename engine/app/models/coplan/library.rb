@@ -14,6 +14,9 @@ module CoPlan
     belongs_to :owner, polymorphic: true
     has_many :folders, class_name: "CoPlan::Folder", dependent: :destroy
     has_many :placements, class_name: "CoPlan::PlanPlacement", dependent: :destroy
+    # Append-only audit rows; delete_all (not destroy) — no callbacks to run,
+    # and the FK would otherwise block destroying the library.
+    has_many :library_events, class_name: "CoPlan::LibraryEvent", dependent: :delete_all
 
     validates :name, presence: true, length: { maximum: 100 }
     validates :owner_id, uniqueness: { scope: :owner_type }
