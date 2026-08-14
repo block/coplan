@@ -56,7 +56,7 @@ module CoPlan
           }
           if writable?
             json[:unfiled_count] = unfiled_plans.count
-            json[:recent_activity] = @library.library_events.recent_first.limit(10).map { |e| event_json(e) }
+            json[:recent_activity] = @library.library_events.recent_first.includes(:actor_user).limit(10).map { |e| event_json(e) }
           end
           render json: json
         end
