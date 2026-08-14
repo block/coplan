@@ -14,6 +14,7 @@
     position: fixed child and pin the button to the toolbar instead of the
     viewport. %>
 <span data-controller="coplan--voice"
+      data-action="keydown@document->coplan--voice#keyDown keyup@document->coplan--voice#keyUp blur@window->coplan--voice#interrupt"
       data-coplan--voice-url-value="<%= plan_comment_threads_path(plan) %>"
       data-coplan--voice-dictation-url-value="<%= plan_dictations_path(plan) %>"
       data-coplan--voice-transcription-value="<%= CoPlan::Ai.available? %>"

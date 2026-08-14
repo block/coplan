@@ -101,6 +101,30 @@ RSpec.describe "Dictations", type: :request do
     expect(response).to have_http_status(:ok)
   end
 
+  # A deleted comment's text was removed on purpose. The context goes to
+  # an external provider — the author's retracted words must not ride
+  # along.
+  it "leaves deleted comments out of the context" do
+    thread = CoPlan::CommentThread.create!(
+      plan: plan, plan_version: plan.current_plan_version, created_by_user: alice
+    )
+    CoPlan::Comment.create!(
+      comment_thread: thread, author_type: "human", author_id: alice.id,
+      body_markdown: "I regret saying this.", deleted_at: Time.current
+    )
+
+    expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
+      expect(user_content).not_to include("I regret saying this.")
+      { "text" => "Too grand.", "span" => nil }.to_json
+    end
+
+    post plan_dictations_path(plan),
+      params: { transcript: "too grand", excerpt: "Our goal is world domination by Q3." },
+      as: :json
+
+    expect(response).to have_http_status(:ok)
+  end
+
   it "falls back to the plan content when the client sends no excerpt" do
     expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
       expect(user_content).to include(plan.current_content.truncate(50, omission: ""))
