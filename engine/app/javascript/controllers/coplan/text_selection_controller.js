@@ -270,6 +270,14 @@ export default class extends Controller {
     if (this._pendingThreadId) this._openLinkedThread()
   }
 
+  // Another controller created a thread on the person's behalf (voice
+  // dictation) and wants them shown where it landed — same scroll-and-
+  // open treatment as arriving via ?thread=ID.
+  openThread(event) {
+    this._pendingThreadId = event.detail.threadId
+    this._openLinkedThread()
+  }
+
   async copyThreadLink(event) {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
 

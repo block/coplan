@@ -1,0 +1,27 @@
+<%# Push-to-talk commenting — records what you say and posts it as a
+    comment pinned to the passage that was on screen. Hidden by the
+    controller when the browser has no way to capture audio at all.
+
+    Whether the server can transcribe decides how the browser captures:
+    with a provider configured it records audio and sends it (works
+    everywhere, much more accurate), without one it falls back to the
+    browser's own speech recognition (Chrome only, and worse).
+
+    Rendered at page level rather than in the masthead toolbar for two
+    reasons: it follows the scroll (you comment on what you're reading, so
+    the control has to be reachable from there), and `.plan-actions` sets
+    backdrop-filter, which would make it the containing block for a
+    position: fixed child and pin the button to the toolbar instead of the
+    viewport. %>
+<span data-controller="coplan--voice"
+      data-coplan--voice-url-value="<%= plan_comment_threads_path(plan) %>"
+      data-coplan--voice-dictation-url-value="<%= plan_dictations_path(plan) %>"
+      data-coplan--voice-transcription-value="<%= CoPlan::Ai.available? %>"
+      class="voice-control">
+  <button type="button" class="btn btn--ghost btn--sm btn--icon voice-btn"
+          data-coplan--voice-target="button" data-action="coplan--voice#toggle"
+          aria-label="Comment by voice" title="Comment by voice — or hold Shift to talk">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+  </button>
+  <span class="voice-status text-sm text-muted" data-coplan--voice-target="status" aria-live="polite"></span>
+</span>
