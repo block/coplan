@@ -196,6 +196,13 @@ module CoPlan
       archived_at.present?
     end
 
+    # A plan's containing location is the folder chosen by its author in
+    # their own library. Other people may save the same plan elsewhere, but
+    # those placements are personal organization rather than its home.
+    def author_placement
+      placements.find_by(library_id: created_by_user.library.id)
+    end
+
     # Legacy API compatibility (see LEGACY_STATUSES). Emits the closest
     # five-state equivalent of the current visibility/archival state.
     def legacy_status

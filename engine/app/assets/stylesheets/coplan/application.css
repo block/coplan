@@ -515,11 +515,11 @@ img, svg {
   display: none;
 }
 
-/* Scroll-aware document title in the top nav. Collapsed to zero width when
-   inactive so it steals no space and causes no reflow at the top of a plan;
-   coplan--nav-title flips --visible once the header scrolls behind the bar.
-   It lives in the left "where am I?" cluster (see .site-nav__inner). */
-.site-nav__doc-title {
+/* Scroll-aware plan context in the top nav: containing folder + document title.
+   Collapsed to zero width while the masthead is visible, so it steals no
+   space and causes no reflow at the top of a plan. coplan--nav-title reveals
+   the whole context once #plan-header scrolls behind the bar. */
+.site-nav__plan-context {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
@@ -529,6 +529,7 @@ img, svg {
      slack — never the other way round. */
   flex: 0 1 auto;
   min-width: 0;
+  width: 0;
   max-width: 0;
   overflow: hidden;
   opacity: 0;
@@ -541,17 +542,28 @@ img, svg {
   pointer-events: none;
   /* Grow a touch slower than the fade, so it reads as sliding in from the
      links rather than shoving the search box aside. */
-  transition: max-width 0.28s ease, opacity 0.18s ease;
+  transition: width 0.28s ease, max-width 0.28s ease, opacity 0.18s ease;
 }
 
-.site-nav__doc-title--visible {
-  max-width: 22rem;
+.site-nav__plan-context--visible {
+  width: 25rem;
+  max-width: 25rem;
   opacity: 1;
   pointer-events: auto;
 }
 
+.site-nav__doc-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
 .site-nav__doc-title:hover {
   color: var(--color-text);
+  text-decoration: none;
 }
 
 .site-nav__doc-title-text {
@@ -569,7 +581,7 @@ img, svg {
    holds nothing else on the left. On a phone it's the ONLY plan context (the
    Contents sidebar is hidden < 1024px), so let it take more of the row. */
 @media (max-width: 640px) {
-  .site-nav__doc-title--visible {
+  .site-nav__plan-context--visible {
     max-width: 58vw;
   }
 }
@@ -620,6 +632,47 @@ img, svg {
   flex-shrink: 0;
   /* Level the toolbar pill's baseline band with the byline text. */
   margin-bottom: -2px;
+}
+
+/* Compact "up to containing folder" control. In the masthead it lives in
+   the byline, where it takes no width away from the title; its accessible
+   name and tooltip carry the full folder path. */
+.plan-location-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.plan-location-link:hover,
+.plan-location-link:focus-visible {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  text-decoration: none;
+}
+
+.plan-location-link--masthead {
+  width: 24px;
+  height: 24px;
+  margin: -2px 0 -2px 2px;
+}
+
+.plan-location-link--nav {
+  width: 26px;
+  height: 26px;
+  color: var(--color-text);
+  background: var(--color-surface-muted);
+}
+
+.plan-location-link--nav svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Plan page header: one lockup — the file icon beside a text stack
@@ -5918,14 +5971,29 @@ img.avatar {
 }
 
 /* ---- Touch devices (any width) ----
-   A finger needs a bigger target than a cursor. On coarse pointers the bar's
-   icon controls and the menu rows grow to ~44px regardless of screen width,
-   so a touch tablet with the bell still on the bar is just as tappable. */
+   A finger needs a bigger target than a cursor. On coarse pointers the icon
+   controls and menu rows grow to ~44px regardless of screen width, so a touch
+   tablet with the bell still on the bar is just as tappable. */
 @media (pointer: coarse) {
   .site-nav__menu-btn,
   .site-nav__bell {
     min-width: 44px;
     min-height: 44px;
+  }
+
+  /* Preserve a 44px touch target without giving the compact control 44px
+     of layout footprint in the byline or sticky plan context. */
+  .plan-location-link {
+    width: 44px;
+    height: 44px;
+  }
+
+  .plan-location-link--masthead {
+    margin: -12px -10px -12px -8px;
+  }
+
+  .plan-location-link--nav {
+    margin: -9px;
   }
 
   .menu__item {

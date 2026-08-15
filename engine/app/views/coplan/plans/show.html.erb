@@ -9,20 +9,23 @@
   <meta name="twitter:description" content="<%= plan_og_description(@plan) %>">
 <% end %>
 
+<% my_placement = current_user && @shelf_placements.find { |p| p.library.writable_by?(current_user) } %>
+<% reference_count = plan_reference_count(@plan, @references) %>
+
 <%# Fills the sticky nav's title slot (see layouts/coplan/application). The
-    icon + title mirror the masthead's #plan-header; coplan--nav-title fades
-    it in once that header scrolls behind the bar. %>
+    containing-folder control, icon, and title mirror the masthead;
+    coplan--nav-title fades them in once #plan-header scrolls behind the bar. %>
 <% content_for :nav_title do %>
-  <a href="#plan-header" class="site-nav__doc-title" data-controller="coplan--nav-title" data-action="click->coplan--nav-title#scrollToTop" aria-hidden="true" tabindex="-1">
-    <%= plan_type_icon(@plan, size: :sm) %>
-    <span class="site-nav__doc-title-text"><%= @plan.title %></span>
-  </a>
+  <span class="site-nav__plan-context" data-controller="coplan--nav-title" aria-hidden="true">
+    <%= render "coplan/plans/location_link", plan: @plan, placement: @author_placement, location: :nav %>
+    <a href="#plan-header" class="site-nav__doc-title" data-action="click->coplan--nav-title#scrollToTop" tabindex="-1">
+      <%= plan_type_icon(@plan, size: :sm) %>
+      <span class="site-nav__doc-title-text"><%= @plan.title %></span>
+    </a>
+  </span>
 <% end %>
 
 <%= turbo_stream_from @plan %>
-
-<% my_placement = current_user && @shelf_placements.find { |p| p.library.writable_by?(current_user) } %>
-<% reference_count = plan_reference_count(@plan, @references) %>
 
 <%# plan-keys: Backspace goes back to wherever you came from; [ / ] jump
     between the document and its footnote sections. Cold opens (direct link,
@@ -37,7 +40,7 @@
     broadcasts own the left, this request (and the visibility/archive
     stream responses) own the right, so neither can clobber the other. %>
 <div class="plan-masthead" data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
-  <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
+  <%= render partial: "coplan/plans/header", locals: { plan: @plan, author_placement: @author_placement } %>
   <div class="plan-masthead__side">
     <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(@plan), current_user: current_user } %>
     <%= render partial: "coplan/plans/toolbar", locals: { plan: @plan, my_placement: my_placement } %>

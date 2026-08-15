@@ -142,11 +142,12 @@ module CoPlan
       # Old ?tab=history links: history is its own page now (the other
       # former tabs are same-page sections).
       return redirect_to history_plan_path(@plan) if params[:tab] == "history"
-      # The viewer's own placement (if any) drives the toolbar's
-      # Save/Saved state and the folder navigator's current-folder mark.
+      # Placements drive both the viewer-relative Save/Saved state and the
+      # compact jump up to the containing folder in the author's library.
       @shelf_placements = @plan.placements
         .includes(:library, folder: { parent: :parent })
         .order(:created_at)
+      @author_placement = @shelf_placements.find { |placement| placement.library_id == @plan.created_by_user.library.id }
       @my_folders = current_user.library.folders.order(:name).to_a
       @threads = @plan.comment_threads.with_kept_comments.includes(:comments, :created_by_user).order(:created_at)
       # The reader view joins auto-extracted resources to their Markdown

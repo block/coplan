@@ -73,6 +73,49 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page).to have_current_path(plans_path(folder: q3.id))
     end
 
+    it "goes up to the plan's containing folder from the masthead and sticky nav" do
+      foldered_plan.current_plan_version.update!(
+        content_markdown: (1..30).map { |n| "## Section #{n}\n\nEnough content to scroll past the masthead." }.join("\n\n")
+      )
+      location_path = library_path(author.library, folder: q3.id)
+      workspace_destination = plans_path(folder: q3.id)
+
+      visit plan_path(foldered_plan)
+      masthead_location = find(".plan-location-link--masthead")
+      expect(masthead_location[:href]).to end_with(location_path)
+      expect(masthead_location["aria-label"]).to eq("Up to containing folder — Team EBT/Q3")
+      expect(masthead_location["data-turbo-prefetch"]).to eq("true")
+      masthead_location.click
+      expect(page).to have_current_path(workspace_destination)
+
+      visit plan_path(foldered_plan)
+      page.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+      expect(page).to have_css(".site-nav__plan-context--visible")
+      sticky_location = find(".plan-location-link--nav")
+      expect(sticky_location[:href]).to end_with(location_path)
+      expect(sticky_location["aria-label"]).to eq("Up to containing folder — Team EBT/Q3")
+      expect(sticky_location["data-turbo-prefetch"]).to eq("true")
+      sticky_location.click
+      expect(page).to have_current_path(workspace_destination)
+    end
+
+    it "opens the author's navigable folder when viewing someone else's plan" do
+      saved = create(:folder, name: "Saved by me", created_by_user: other)
+      CoPlan::Plans::Place.call(plan: foldered_plan, folder: saved, actor: other)
+      sign_in(other)
+      destination = library_path(author.library, folder: q3.id)
+
+      visit plan_path(foldered_plan)
+      location = find(".plan-location-link--masthead")
+      expect(location[:href]).to end_with(destination)
+      expect(location["aria-label"]).to eq("Up to containing folder — Team EBT/Q3")
+      location.click
+
+      expect(page).to have_current_path(destination)
+      expect(page).to have_css(".workspace-crumbs__crumb--current", text: "Q3")
+      expect(page).to have_link("Q3 Launch Plan")
+    end
+
     it "quietly flags private plans in the level view" do
       visit plans_path
       row = find(".plan-row[data-plan-id='#{brainstorm_plan.id}']")
