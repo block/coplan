@@ -153,6 +153,7 @@ export default class extends Controller {
     let node = heading.nextElementSibling
 
     while (node) {
+      if (node.matches("[data-footnotes]")) break
       if (/^H[1-6]$/.test(node.tagName) && Number(node.tagName.slice(1)) <= level) break
 
       const text = node.textContent.replace(/\s+/g, " ").trim()

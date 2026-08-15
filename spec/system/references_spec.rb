@@ -83,6 +83,7 @@ RSpec.describe "Plan references", type: :system do
       expect(section_link["aria-expanded"]).to eq("true")
       expect(page).to have_css(".reference-preview__title", text: "2.1 Rollout", visible: :visible)
       expect(page).to have_css(".reference-preview__body", text: "five-percent cohort", visible: :visible)
+      expect(page).to have_no_css(".reference-preview__body", text: "production sample covered 30 days", visible: :visible)
       expect(page).to have_link("Go to section", href: "#section-2-1")
     end
   end
