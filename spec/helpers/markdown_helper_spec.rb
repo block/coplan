@@ -44,12 +44,15 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include('href="#fn-1"')
       expect(html).to include('data-footnote-ref')
       expect(html).to include('class="reference-anchor reference-anchor--footnote"')
-      expect(html).to include("click-&gt;coplan--reference-preview#pin")
+      expect(html).to include("mouseenter-&gt;coplan--reference-preview#enter")
+      expect(html).to include("click-&gt;coplan--reference-preview#follow")
+      expect(html).not_to include("click-&gt;coplan--reference-preview#pin")
     end
 
     it "renders the footnote section with a backreference" do
       html = helper.render_markdown(markdown)
       expect(html).to match(/<section class="footnotes" data-footnotes(="")?>/)
+      expect(html).to include('<h2 class="footnotes-title">References</h2>')
       expect(html).to include("The supporting detail.")
       expect(html).to include('data-footnote-backref')
       expect(html).to include('href="#fnref-1"')
@@ -114,7 +117,9 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(anchor["class"]).to include("reference-anchor--section")
       expect(anchor["aria-haspopup"]).to eq("dialog")
       expect(anchor["aria-expanded"]).to eq("false")
-      expect(anchor["data-action"]).to include("coplan--reference-preview#pin")
+      expect(anchor["data-action"]).to include("coplan--reference-preview#enter")
+      expect(anchor["data-action"]).to include("click->coplan--reference-preview#follow")
+      expect(anchor["data-action"]).not_to include("click->coplan--reference-preview#pin")
     end
 
     it "leaves bare section signs as text because they can cite external documents" do

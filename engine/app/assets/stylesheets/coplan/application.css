@@ -1884,6 +1884,12 @@ img.avatar {
   color: var(--color-text-muted);
 }
 
+.markdown-rendered section[data-footnotes] .footnotes-title {
+  margin: 0 0 var(--space-md);
+  color: var(--color-text);
+  font-size: var(--text-lg);
+}
+
 .markdown-rendered section[data-footnotes] p {
   margin-bottom: var(--space-xs);
 }
@@ -1892,9 +1898,10 @@ img.avatar {
   text-decoration: none;
 }
 
-/* Citation and internal-section previews. A single manual popover is filled
-   from the rendered target already on the page, so it opens without a fetch
-   and can coexist with comment popovers. */
+/* Citation and internal-section previews. A single hover card is filled from
+   the rendered target already on the page, so it opens without a fetch. It
+   deliberately stays out of the browser's top layer so native anchor clicks
+   pass through instead of first dismissing a popover. */
 .reference-preview {
   display: none;
   position: fixed;
@@ -1912,12 +1919,6 @@ img.avatar {
   z-index: 210;
 }
 
-.reference-preview:popover-open {
-  display: block;
-}
-
-/* Fallback for browsers without the Popover API. Kept as its own selector so
-   an older parser rejecting :popover-open does not discard this rule too. */
 .reference-preview--open {
   display: block;
 }
@@ -1979,19 +1980,6 @@ img.avatar {
 .reference-preview__body a {
   color: var(--color-primary);
   overflow-wrap: anywhere;
-}
-
-.reference-preview__jump {
-  display: inline-block;
-  margin-top: var(--space-sm);
-  color: var(--color-primary);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.reference-preview__jump:hover {
-  text-decoration: underline;
 }
 
 .reference-preview--sheet {

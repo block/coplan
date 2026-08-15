@@ -4,7 +4,7 @@
       create action replaces this container via turbo_stream, which closes
       the lightbox the moment the reference lands. %>
   <% if current_user %>
-    <%= render layout: "coplan/shared/add_modal", locals: { id: "add-reference-modal", title: "Add a reference" } do %>
+    <%= render layout: "coplan/shared/add_modal", locals: { id: "add-reference-modal", title: "Add a related resource" } do %>
       <%= form_with url: plan_references_path(plan), method: :post, class: "add-modal__form" do |f| %>
         <div class="form-group">
           <%= f.label :url, "URL", for: "reference_url" %>
@@ -21,7 +21,7 @@
           <%= f.text_field :key, id: "reference_key", placeholder: "Optional — e.g. auth-repo", name: "reference[key]" %>
         </div>
         <div class="add-modal__actions">
-          <%= f.submit "Add reference", class: "btn btn--primary btn--sm" %>
+          <%= f.submit "Add resource", class: "btn btn--primary btn--sm" %>
         </div>
       <% end %>
     <% end %>
@@ -42,9 +42,6 @@
                   <code class="badge badge--ref-key"><%= ref.key %></code>
                 <% end %>
                 <span class="badge badge--ref-type"><%= type.humanize %></span>
-                <% if ref.source == "extracted" %>
-                  <span class="references-list__source">auto-extracted</span>
-                <% end %>
               </span>
             </div>
             <% if ref.source == "explicit" && current_user && CoPlan::PlanPolicy.new(current_user, plan).update? %>
@@ -56,6 +53,6 @@
     </ul>
   <% else %>
     <%# One quiet line, not a padded card — empty is the common case. %>
-    <p class="plan-footnote__empty">None yet — links in the document are picked up automatically.</p>
+    <p class="plan-footnote__empty">None added.</p>
   <% end %>
 </div>

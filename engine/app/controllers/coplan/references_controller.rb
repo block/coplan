@@ -78,7 +78,7 @@ module CoPlan
     end
 
     def render_references_stream
-      references = @plan.references.reload.order(reference_type: :asc, created_at: :desc)
+      references = @plan.references.reload.explicit.order(reference_type: :asc, created_at: :desc)
       render turbo_stream: [
         turbo_stream.replace(
           "plan-references",

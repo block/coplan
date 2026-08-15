@@ -48,7 +48,7 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).to include("Citations and internal cross-references")
       expect(response.body).to include("[§3.1](#section-3-1)")
       expect(response.body).to include("structured, document-level inventory")
-      expect(response.body).to include("hover or click")
+      expect(response.body).to include("click jumps to it")
     end
 
     it "builds example URLs from the request base (root mount)" do

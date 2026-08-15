@@ -33,8 +33,8 @@ RSpec.describe "Plan references", type: :system do
       expect(page).to have_content("Some content here")
       # Empty state is one quiet line, scoped to the section (attachments
       # has its own "None yet").
-      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "None yet")
-      expect(page).to have_css("#footnote-references .plan-footnote__title", text: /references/i)
+      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "None added")
+      expect(page).to have_css("#footnote-references .plan-footnote__title", text: /related resources/i)
     end
   end
 
@@ -62,29 +62,33 @@ RSpec.describe "Plan references", type: :system do
       p
     end
 
-    it "previews citation content on hover and section content on click" do
+    it "previews references on hover and follows their links on click" do
       visit plan_path(referenced_plan)
 
       citation = find("a.reference-anchor--footnote")
       citation.hover
       expect(page).to have_css(".reference-preview", text: "production sample covered 30 days", visible: :visible)
       expect(page).to have_link("Open the source", href: "https://example.com/evidence")
-
-      find(".reference-preview__close").click
-      expect(page).not_to have_css(".reference-preview", visible: :visible)
+      expect(page).to have_css("#references-count", text: "0")
+      within("#plan-references") do
+        expect(page).to have_no_link("Open the source", href: "https://example.com/evidence")
+        expect(page).to have_text("None added.")
+      end
 
       citation.click
-      expect(citation["aria-expanded"]).to eq("true")
-      expect(page).to have_css(".reference-preview", text: "production sample covered 30 days", visible: :visible)
-      find(".reference-preview__close").click
+      expect(page.evaluate_script("window.location.hash")).to eq("#fn-launch-data")
 
+      visit plan_path(referenced_plan)
       section_link = find('a.reference-anchor--section[href="#section-2-1"]')
-      section_link.click
+      section_link.hover
       expect(section_link["aria-expanded"]).to eq("true")
       expect(page).to have_css(".reference-preview__title", text: "2.1 Rollout", visible: :visible)
       expect(page).to have_css(".reference-preview__body", text: "five-percent cohort", visible: :visible)
       expect(page).to have_no_css(".reference-preview__body", text: "production sample covered 30 days", visible: :visible)
-      expect(page).to have_link("Go to section", href: "#section-2-1")
+
+      section_link.click
+      expect(page.evaluate_script("window.location.hash")).to eq("#section-2-1")
+      expect(page).to have_no_css(".reference-preview__jump")
     end
   end
 
@@ -113,7 +117,7 @@ RSpec.describe "Plan references", type: :system do
         fill_in "reference[url]", with: "https://github.com/org/repo"
         fill_in "reference[title]", with: "My Repo"
         fill_in "reference[key]", with: "my-repo"
-        click_button "Add reference"
+        click_button "Add resource"
       end
 
       # Turbo Stream replaces the list — reference appears without navigation
@@ -136,7 +140,7 @@ RSpec.describe "Plan references", type: :system do
       within(".add-modal:popover-open") do
         fill_in "reference[url]", with: "https://github.com/org/repo"
         fill_in "reference[title]", with: "Repo One"
-        click_button "Add reference"
+        click_button "Add resource"
       end
       expect(page).to have_content("Repo One")
       expect(page).to have_css("#references-count", text: "1")
@@ -147,7 +151,7 @@ RSpec.describe "Plan references", type: :system do
       within(".add-modal:popover-open") do
         fill_in "reference[url]", with: "https://github.com/org/other"
         fill_in "reference[title]", with: "Repo Two"
-        click_button "Add reference"
+        click_button "Add resource"
       end
 
       expect(page).to have_content("Repo One")
@@ -173,7 +177,7 @@ RSpec.describe "Plan references", type: :system do
       # Turbo Stream removes the reference and updates count
       expect(page).not_to have_content("Doomed")
       expect(page).to have_css("#references-count", text: "0")
-      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "None yet")
+      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "None added")
     end
   end
 

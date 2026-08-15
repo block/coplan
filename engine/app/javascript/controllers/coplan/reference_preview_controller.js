@@ -8,7 +8,7 @@ const SECTION_PREVIEW_LENGTH = 520
 // The target content is already present and sanitized in the plan DOM, so
 // opening a preview is instant and never depends on another request.
 export default class extends Controller {
-  static targets = ["popover", "label", "title", "body", "jump"]
+  static targets = ["popover", "label", "title", "body"]
 
   connect() {
     this.mode = null
@@ -23,7 +23,6 @@ export default class extends Controller {
   enter(event) {
     const anchor = event.currentTarget
     if (!this.targetFor(anchor)) return
-    if (this.mode === "pinned") return
 
     this.cancelOpen()
     this.cancelClose()
@@ -33,17 +32,6 @@ export default class extends Controller {
   leave() {
     this.cancelOpen()
     if (this.mode === "hover") this.scheduleClose()
-  }
-
-  pin(event) {
-    const anchor = event.currentTarget
-    if (!this.targetFor(anchor)) return
-
-    event.preventDefault()
-    this.cancelOpen()
-    this.cancelClose()
-    this.show(anchor, "pinned")
-    if (event.detail === 0) this.jumpTarget.focus({ preventScroll: true })
   }
 
   popoverEnter() {
@@ -71,8 +59,20 @@ export default class extends Controller {
     if (returnFocus && anchor?.isConnected) anchor.focus({ preventScroll: true })
   }
 
-  follow() {
+  // Preserve ordinary hash-link behavior even while dismissing the preview.
+  // Turbo does not consistently navigate same-document fragments after the
+  // hover card changes state during the click, so perform the jump directly.
+  follow(event) {
+    const href = event.currentTarget.getAttribute("href")
+    const target = this.targetFor(event.currentTarget)
+    this.cancelOpen()
+    this.cancelClose()
     this.hide()
+    if (!target || !href?.startsWith("#")) return
+
+    event.preventDefault()
+    window.location.hash = href
+    target.scrollIntoView()
   }
 
   reposition() {
@@ -91,22 +91,13 @@ export default class extends Controller {
 
     const popover = this.popoverTarget
     popover.style.visibility = "hidden"
-    if (!this.isOpen()) {
-      if (typeof popover.showPopover === "function") {
-        try { popover.showPopover() } catch {}
-      } else {
-        popover.classList.add("reference-preview--open")
-      }
-    }
+    popover.classList.add("reference-preview--open")
     this.positionAt(anchor)
     popover.style.visibility = "visible"
   }
 
   hide() {
     if (this.hasPopoverTarget) {
-      if (typeof this.popoverTarget.hidePopover === "function") {
-        try { this.popoverTarget.hidePopover() } catch {}
-      }
       this.popoverTarget.classList.remove("reference-preview--open", "reference-preview--sheet")
       this.popoverTarget.style.visibility = ""
     }
@@ -120,8 +111,6 @@ export default class extends Controller {
     const footnote = anchor.classList.contains("reference-anchor--footnote")
     this.labelTarget.textContent = footnote ? "Citation" : "Internal reference"
     this.titleTarget.textContent = footnote ? `Reference ${anchor.textContent.trim()}` : target.textContent.trim()
-    this.jumpTarget.href = anchor.getAttribute("href")
-    this.jumpTarget.textContent = footnote ? "Go to citation" : "Go to section"
 
     if (footnote) {
       this.renderFootnote(target)
@@ -234,13 +223,6 @@ export default class extends Controller {
   }
 
   isOpen() {
-    if (!this.hasPopoverTarget) return false
-    if (this.popoverTarget.classList.contains("reference-preview--open")) return true
-
-    try {
-      return this.popoverTarget.matches(":popover-open")
-    } catch {
-      return false
-    }
+    return this.hasPopoverTarget && this.popoverTarget.classList.contains("reference-preview--open")
   }
 }

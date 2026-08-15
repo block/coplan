@@ -117,6 +117,13 @@ module CoPlan
         enhance_reference_anchor(anchor, type: "section") if section_ids.include?(target_id)
       end
 
+      doc.css("section[data-footnotes]").each do |section|
+        heading = Nokogiri::XML::Node.new("h2", doc)
+        heading["class"] = "footnotes-title"
+        heading.content = "References"
+        section.prepend_child(heading)
+      end
+
       doc.to_html
     end
 
@@ -132,7 +139,7 @@ module CoPlan
       "mouseleave->coplan--reference-preview#leave",
       "focus->coplan--reference-preview#enter",
       "blur->coplan--reference-preview#leave",
-      "click->coplan--reference-preview#pin"
+      "click->coplan--reference-preview#follow"
     ].join(" ").freeze
 
     def unique_dom_id(base, used_ids)

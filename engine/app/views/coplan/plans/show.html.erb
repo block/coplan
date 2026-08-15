@@ -60,7 +60,7 @@
         <ul class="content-nav__list content-nav__list--footnotes">
           <%# ids: the reference/attachment Turbo Streams keep these counts
               live alongside the footnote headers' own counters. %>
-          <li><a href="#footnote-references" class="content-nav__footnote-link">References <span class="section-count" id="nav-references-count"><%= @references.size %></span></a></li>
+          <li><a href="#footnote-references" class="content-nav__footnote-link">Resources <span class="section-count" id="nav-references-count"><%= @references.size %></span></a></li>
           <li><a href="#footnote-attachments" class="content-nav__footnote-link">Attachments <span class="section-count" id="nav-attachments-count"><%= @attachments.size %></span></a></li>
         </ul>
       </nav>
@@ -96,11 +96,10 @@
 
         <%# Footnote citations and explicit same-document section links share
             one native popover. Its body is filled instantly from the rendered
-            target already on the page; the footer preserves normal jump-to-
-            target navigation for readers who want the full context. %>
+            target already on the page. Hover/focus previews it; clicking the
+            original anchor keeps the link's native jump behavior. %>
         <aside id="reference-preview"
                class="reference-preview"
-               popover="manual"
                role="dialog"
                aria-labelledby="reference-preview-title"
                data-coplan--reference-preview-target="popover"
@@ -111,7 +110,6 @@
           </div>
           <strong id="reference-preview-title" class="reference-preview__title" data-coplan--reference-preview-target="title"></strong>
           <div class="reference-preview__body" data-coplan--reference-preview-target="body"></div>
-          <a class="reference-preview__jump" data-coplan--reference-preview-target="jump" data-action="coplan--reference-preview#follow"></a>
         </aside>
       </div>
 

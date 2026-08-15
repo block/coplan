@@ -91,7 +91,7 @@ Unrecognized tags render as plain text, so never invent one — use `plaintext` 
 
 Beyond standard Markdown (tables, task lists, strikethrough), plans support:
 
-- **Footnotes** — `Some claim.[^queue-depth]` with `[^queue-depth]: Supporting detail and a [durable source](https://example.com/source).` anywhere in the document. Rendered as numbered citation anchors with a footnote section at the bottom. Readers can hover or click the anchor to preview the full note without losing their place.
+- **Footnotes** — `Some claim.[^queue-depth]` with `[^queue-depth]: Supporting detail and a [durable source](https://example.com/source).` anywhere in the document. Rendered as numbered citation anchors with a footnote section at the bottom. Readers can hover or focus the anchor to preview the full note, then click to jump to it.
 - **Collapsible sections** — `<details><summary>Title shown when collapsed</summary>` … `</details>`. Use for long appendices, raw logs, or optional deep-dives so the document stays scannable. Add `open` to the `<details>` tag to render expanded by default. Leave a blank line after `<summary>…</summary>` so Markdown inside the section still renders.
 - **Hover definitions** — `<abbr title="Definition shown on hover">TERM</abbr>`. Use for acronyms and project-specific jargon so readers outside the team can follow along.
 
@@ -101,8 +101,8 @@ Other raw HTML is stripped on render (the Markdown source is preserved), so stic
 
 CoPlan has three related tools with different jobs:
 
-1. **Cite an external source for a claim with a footnote.** Put the source link and enough supporting context in the definition. The inline citation previews on hover/click, and its URL is also auto-extracted into the plan's structured References inventory.
-2. **Reference another section in the same plan with an explicit Markdown link.** Number the target heading, then link its stable fragment: a heading `### 3.1 Rollout` is referenced as `see [§3.1](#section-3-1)`. The link previews that section on hover/click. Never leave a bare `§3.1` when you mean an internal link—section signs are also used for external statutes, so CoPlan deliberately does not guess.
+1. **Cite an external source for a claim with a footnote.** Put the source link and enough supporting context in the definition. The inline citation previews on hover/focus and jumps to the note when clicked; its URL is also auto-extracted into the plan's structured References inventory.
+2. **Reference another section in the same plan with an explicit Markdown link.** Number the target heading, then link its stable fragment: a heading `### 3.1 Rollout` is referenced as `see [§3.1](#section-3-1)`. Hover/focus previews that section and click jumps to it. Never leave a bare `§3.1` when you mean an internal link—section signs are also used for external statutes, so CoPlan deliberately does not guess.
 3. **Mention an external resource directly with a normal descriptive link**, such as `[implementation PR](https://github.com/org/repo/pull/42)`. Prefer a footnote instead when the link supports a specific factual claim.
 
 Use descriptive link text and durable URLs. Avoid bare URLs in prose. Footnote names are author-facing identifiers, so prefer stable semantic names (`[^queue-depth]`) over renumbering a long document by hand.
@@ -227,9 +227,9 @@ No plan types are currently configured.
 
 ### References
 
-References are the structured, document-level inventory of resources connected to a plan (repos, PRs, docs, links, and other plans). They power discovery and the References back matter; they are not a substitute for placing a citation or link at the claim it supports. **Always add references** when your plan mentions GitHub repos, PRs, design docs, or other plans — they make plans discoverable and show the connective tissue between work.
+References are the structured, document-level inventory of resources connected to a plan (repos, PRs, docs, links, and other plans). They power discovery; they are not a substitute for placing a citation or link at the claim it supports. Auto-extracted links stay behind the scenes rather than repeating the document's citations. Explicit references that are not linked in the prose appear to readers as **Related resources**.
 
-Links anywhere in plan content—including links inside footnote definitions—are **auto-extracted** as references. You can also add explicit references via the API for relevant resources that are not linked in the prose.
+Links anywhere in plan content—including links inside footnote definitions—are **auto-extracted** as references. Do not add them again. Add explicit references via the API only for relevant resources that are not linked in the prose.
 
 **Add references on create or update:**
 
