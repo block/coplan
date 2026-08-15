@@ -42,6 +42,15 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).to include('"plan_type"')
     end
 
+    it "distinguishes citations, internal section links, and structured references" do
+      get agent_instructions_path
+
+      expect(response.body).to include("Citations and internal cross-references")
+      expect(response.body).to include("[§3.1](#section-3-1)")
+      expect(response.body).to include("structured, document-level inventory")
+      expect(response.body).to include("hover or click")
+    end
+
     it "builds example URLs from the request base (root mount)" do
       get agent_instructions_path
       expect(response.body).to include("http://www.example.com/api/v1/plans")

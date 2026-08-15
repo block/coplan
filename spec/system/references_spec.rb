@@ -38,6 +38,55 @@ RSpec.describe "Plan references", type: :system do
     end
   end
 
+  describe "inline reference previews" do
+    let(:referenced_plan) do
+      p = CoPlan::Plan.create!(title: "Referenced Plan", created_by_user: user)
+      version = CoPlan::PlanVersion.create!(
+        plan: p,
+        revision: 1,
+        content_markdown: <<~MARKDOWN,
+          # Referenced Plan
+
+          This claim has evidence.[^launch-data] See [§2.1](#section-2-1) for the rollout.
+
+          ## 2.1 Rollout
+
+          Start with a five-percent cohort and monitor errors for one week.
+
+          [^launch-data]: The production sample covered 30 days. [Open the source](https://example.com/evidence).
+        MARKDOWN
+        actor_type: "human",
+        actor_id: user.id
+      )
+      p.update!(current_plan_version: version, current_revision: 1)
+      p
+    end
+
+    it "previews citation content on hover and section content on click" do
+      visit plan_path(referenced_plan)
+
+      citation = find("a.reference-anchor--footnote")
+      citation.hover
+      expect(page).to have_css(".reference-preview", text: "production sample covered 30 days", visible: :visible)
+      expect(page).to have_link("Open the source", href: "https://example.com/evidence")
+
+      find(".reference-preview__close").click
+      expect(page).not_to have_css(".reference-preview", visible: :visible)
+
+      citation.click
+      expect(citation["aria-expanded"]).to eq("true")
+      expect(page).to have_css(".reference-preview", text: "production sample covered 30 days", visible: :visible)
+      find(".reference-preview__close").click
+
+      section_link = find('a.reference-anchor--section[href="#section-2-1"]')
+      section_link.click
+      expect(section_link["aria-expanded"]).to eq("true")
+      expect(page).to have_css(".reference-preview__title", text: "2.1 Rollout", visible: :visible)
+      expect(page).to have_css(".reference-preview__body", text: "five-percent cohort", visible: :visible)
+      expect(page).to have_link("Go to section", href: "#section-2-1")
+    end
+  end
+
   describe "adding references via Turbo Stream" do
     it "closes the add-modal via the X button and via Escape" do
       visit plan_path(plan)

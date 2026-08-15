@@ -47,7 +47,7 @@
 
 <div class="plan-document card">
   <% if @plan.current_content.present? %>
-    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss coplan:open-thread@document->coplan--text-selection#openThread" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_section_keys.to_json %>">
+    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_section_keys.to_json %>">
       <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
         <%# No "Contents" label — the outline speaks for itself, and the plan
             title now lives in the sticky nav. Just the collapse control. %>
@@ -93,6 +93,26 @@
 
         <%= render partial: "coplan/plans/footnotes",
               locals: { plan: @plan, references: @references, attachments: @attachments } %>
+
+        <%# Footnote citations and explicit same-document section links share
+            one native popover. Its body is filled instantly from the rendered
+            target already on the page; the footer preserves normal jump-to-
+            target navigation for readers who want the full context. %>
+        <aside id="reference-preview"
+               class="reference-preview"
+               popover="manual"
+               role="dialog"
+               aria-labelledby="reference-preview-title"
+               data-coplan--reference-preview-target="popover"
+               data-action="mouseenter->coplan--reference-preview#popoverEnter mouseleave->coplan--reference-preview#popoverLeave">
+          <div class="reference-preview__header">
+            <span class="reference-preview__label" data-coplan--reference-preview-target="label"></span>
+            <button type="button" class="reference-preview__close" aria-label="Close reference preview" data-action="coplan--reference-preview#dismiss">×</button>
+          </div>
+          <strong id="reference-preview-title" class="reference-preview__title" data-coplan--reference-preview-target="title"></strong>
+          <div class="reference-preview__body" data-coplan--reference-preview-target="body"></div>
+          <a class="reference-preview__jump" data-coplan--reference-preview-target="jump" data-action="coplan--reference-preview#follow"></a>
+        </aside>
       </div>
 
       <div id="plan-threads" data-coplan--text-selection-target="threads"

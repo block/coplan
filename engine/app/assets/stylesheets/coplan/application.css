@@ -1855,7 +1855,25 @@ img.avatar {
 .markdown-rendered .footnote-ref a,
 .markdown-rendered sup a[data-footnote-ref] {
   text-decoration: none;
-  padding: 0 2px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  font-weight: 600;
+}
+
+.markdown-rendered .reference-anchor--section {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.markdown-rendered .reference-anchor:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.markdown-rendered [id^="section-"] {
+  scroll-margin-top: calc(var(--nav-height) + var(--space-lg));
 }
 
 .markdown-rendered section[data-footnotes] {
@@ -1872,6 +1890,119 @@ img.avatar {
 
 .markdown-rendered a[data-footnote-backref] {
   text-decoration: none;
+}
+
+/* Citation and internal-section previews. A single manual popover is filled
+   from the rendered target already on the page, so it opens without a fetch
+   and can coexist with comment popovers. */
+.reference-preview {
+  display: none;
+  position: fixed;
+  inset: auto;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(55vh, 460px);
+  margin: 0;
+  padding: var(--space-md);
+  overflow-y: auto;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 210;
+}
+
+.reference-preview:popover-open {
+  display: block;
+}
+
+/* Fallback for browsers without the Popover API. Kept as its own selector so
+   an older parser rejecting :popover-open does not discard this rule too. */
+.reference-preview--open {
+  display: block;
+}
+
+.reference-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.reference-preview__label {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.reference-preview__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  font: inherit;
+  font-size: var(--text-lg);
+  cursor: pointer;
+}
+
+.reference-preview__close:hover {
+  color: var(--color-text);
+  background: var(--color-bg-muted);
+}
+
+.reference-preview__title {
+  display: block;
+  margin-bottom: var(--space-sm);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.reference-preview__body {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.reference-preview__body p {
+  margin: 0;
+}
+
+.reference-preview__body a {
+  color: var(--color-primary);
+  overflow-wrap: anywhere;
+}
+
+.reference-preview__jump {
+  display: inline-block;
+  margin-top: var(--space-sm);
+  color: var(--color-primary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.reference-preview__jump:hover {
+  text-decoration: underline;
+}
+
+.reference-preview--sheet {
+  top: auto !important;
+  left: 0 !important;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-height: 55vh;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: none;
 }
 
 /* Comment popover (appears on text selection) */
