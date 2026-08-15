@@ -241,6 +241,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
     t.string "actor_id", limit: 36
     t.string "actor_type", null: false
     t.text "after_value"
+    t.string "agent_name"
     t.text "before_value"
     t.datetime "created_at", null: false
     t.string "event_type", null: false
@@ -290,6 +291,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
   create_table "coplan_plan_versions", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.string "actor_id", limit: 36
     t.string "actor_type", null: false
+    t.string "agent_name"
     t.string "ai_model"
     t.string "ai_provider"
     t.integer "base_revision"

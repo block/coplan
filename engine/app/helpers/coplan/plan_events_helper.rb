@@ -1,5 +1,14 @@
 module CoPlan
   module PlanEventsHelper
+    # Who did this, for a history row — same convention as comment authors:
+    # "Claude (via Hampton)" when an agent acted for a user, the plain name
+    # for the user themselves, the actor_type as a last resort for rows
+    # with no resolvable user (system jobs, cloud personas).
+    def history_actor_name(item)
+      name = item.actor_user&.name || item.actor_type
+      item.agent_name.present? ? "#{item.agent_name} (via #{name})" : name
+    end
+
     # Render a one-line, human-readable summary of a PlanEvent for the
     # history feed. Each event type gets a tailored "X → Y" or "added X" /
     # "removed X" phrasing instead of a generic field/before/after dump,
@@ -35,33 +44,33 @@ module CoPlan
           content_tag(:strong, event.after_value || "—")
         ])
       when "tag_added"
-        safe_join(["Added tag ", content_tag(:code, event.after_value.to_s)])
+        safe_join([ "Added tag ", content_tag(:code, event.after_value.to_s) ])
       when "tag_removed"
-        safe_join(["Removed tag ", content_tag(:code, event.before_value.to_s)])
+        safe_join([ "Removed tag ", content_tag(:code, event.before_value.to_s) ])
       when "reference_added"
         title = event.metadata.is_a?(Hash) ? event.metadata["title"].presence : nil
         url = event.after_value.to_s
         label = title || url
-        safe_join(["Added reference ", link_to(label, url, class: "history-split__event-link", target: "_blank", rel: "noopener")])
+        safe_join([ "Added reference ", link_to(label, url, class: "history-split__event-link", target: "_blank", rel: "noopener") ])
       when "reference_removed"
         title = event.metadata.is_a?(Hash) ? event.metadata["title"].presence : nil
         url = event.before_value.to_s
         label = title || url
-        safe_join(["Removed reference ", content_tag(:span, label, class: "history-split__event-link")])
+        safe_join([ "Removed reference ", content_tag(:span, label, class: "history-split__event-link") ])
       when "attachment_added"
-        safe_join(["Added attachment ", content_tag(:code, event.after_value.to_s)])
+        safe_join([ "Added attachment ", content_tag(:code, event.after_value.to_s) ])
       when "attachment_removed"
-        safe_join(["Removed attachment ", content_tag(:code, event.before_value.to_s)])
+        safe_join([ "Removed attachment ", content_tag(:code, event.before_value.to_s) ])
       when "moved_to_folder"
         if event.after_value.present?
-          safe_join(["Moved to folder ", content_tag(:strong, event.after_value)])
+          safe_join([ "Moved to folder ", content_tag(:strong, event.after_value) ])
         else
-          safe_join(["Removed from folder ", content_tag(:strong, event.before_value.to_s)])
+          safe_join([ "Removed from folder ", content_tag(:strong, event.before_value.to_s) ])
         end
       when "comment_deleted"
         preview = event.metadata.is_a?(Hash) ? event.metadata["body_preview"].to_s.presence : nil
         if preview
-          safe_join(["Deleted comment: ", content_tag(:em, preview)])
+          safe_join([ "Deleted comment: ", content_tag(:em, preview) ])
         else
           "Deleted comment"
         end

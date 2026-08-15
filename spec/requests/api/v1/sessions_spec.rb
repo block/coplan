@@ -75,6 +75,14 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       expect(body["revision"]).to eq(plan.current_revision + 1)
       expect(body["version_id"]).to be_present
       expect(body["content_sha256"]).to be_present
+
+      # The session is keyed by the token (ownership), but the version is
+      # attributed to the human behind it, with the agent named — so the
+      # history tab can say "Claude (via Alice)" instead of a bare badge.
+      version = CoPlan::PlanVersion.find(body["version_id"])
+      expect(version.actor_type).to eq("local_agent")
+      expect(version.actor_id).to eq(alice.id)
+      expect(version.agent_name).to eq(alice_token.name)
     end
 
     it "commits with 0 operations — no version created" do

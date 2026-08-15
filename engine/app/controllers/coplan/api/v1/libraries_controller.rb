@@ -135,6 +135,7 @@ module CoPlan
             operations: params[:operations],
             actor_type: api_author_type,
             actor_label: @api_token&.name,
+            agent_name: api_agent_name,
             dry_run: params[:dry_run].to_s == "true"
           )
           unless result.success?

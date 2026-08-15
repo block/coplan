@@ -30,19 +30,20 @@ module CoPlan
       # Surfaces as a 500 (rather than silently persisting wrong content).
       class RoundtripFailureError < StandardError; end
 
-      def self.call(plan:, new_content:, base_revision:, actor_type:, actor_id:, change_summary: nil, reason: nil)
+      def self.call(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, change_summary: nil, reason: nil)
         new(
           plan: plan,
           new_content: new_content,
           base_revision: base_revision,
           actor_type: actor_type,
           actor_id: actor_id,
+          agent_name: agent_name,
           change_summary: change_summary,
           reason: reason
         ).call
       end
 
-      def initialize(plan:, new_content:, base_revision:, actor_type:, actor_id:, change_summary: nil, reason: nil)
+      def initialize(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, change_summary: nil, reason: nil)
         @plan = plan
         # Normalize line endings to LF before diffing. Browser textareas, agents
         # running on Windows, and copy-paste from various sources commonly emit
@@ -55,6 +56,7 @@ module CoPlan
         @base_revision = base_revision
         @actor_type = actor_type
         @actor_id = actor_id
+        @agent_name = agent_name
         @change_summary = change_summary
         @reason = reason
       end
@@ -101,6 +103,7 @@ module CoPlan
             content_markdown: @new_content,
             actor_type: @actor_type,
             actor_id: @actor_id,
+            agent_name: @agent_name,
             change_summary: @change_summary,
             diff_unified: diff.presence,
             operations_json: result[:applied],

@@ -10,9 +10,15 @@ module CoPlan
       return unless session.open?
 
       if session.has_operations?
+        # The session's actor_id is the API token that owned it; the version
+        # should name the human behind it and the agent that acted, same as
+        # a live commit through the controller.
+        token = ApiToken.find_by(id: session.actor_id)
         Plans::CommitSession.call(
           session: session,
-          change_summary: session.change_summary || "Auto-committed expired session"
+          change_summary: session.change_summary || "Auto-committed expired session",
+          actor_id: token&.user_id || session.actor_id,
+          agent_name: token && ApiToken.normalized_agent_name(token.agent_name.presence || token.name)
         )
       else
         session.update!(status: "expired", committed_at: Time.current)

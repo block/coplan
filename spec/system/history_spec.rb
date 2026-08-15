@@ -100,4 +100,27 @@ RSpec.describe "Plan history page", type: :system do
       expect(current_path).to eq(history_plan_path(plan))
     end
   end
+
+  describe "who did it" do
+    # The regression that prompted this: agent edits arrived in history
+    # wearing the human's name alone, indistinguishable from their own
+    # typing.
+    it "names the agent that edited on the user's behalf" do
+      CoPlan::Plans::ReplaceContent.call(
+        plan: plan,
+        new_content: plan_content + "\nAgent addition.\n",
+        base_revision: plan.current_revision,
+        actor_type: "local_agent",
+        actor_id: user.id,
+        agent_name: "Claude",
+        change_summary: "Agent follow-up"
+      )
+
+      visit history_plan_path(plan)
+
+      expect(page).to have_content("Claude (via #{user.name})")
+      # The human's own edit stays a plain name.
+      expect(page).to have_content(user.name)
+    end
+  end
 end

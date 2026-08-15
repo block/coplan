@@ -6,9 +6,9 @@
   <div class="history-split__event-chip"><%= event.field || event.event_type %></div>
   <div class="history-split__meta">
     <% if event.actor_user %>
-      <%= user_avatar(event.actor_user) %> <span><%= event.actor_user.name %></span>
+      <%= user_avatar(event.actor_user) %> <span><%= history_actor_name(event) %></span>
     <% else %>
-      <span class="badge badge--type"><%= event.actor_type %></span>
+      <span class="badge badge--type"><%= event.agent_name.presence || event.actor_type %></span>
     <% end %>
   </div>
   <div class="history-split__summary">

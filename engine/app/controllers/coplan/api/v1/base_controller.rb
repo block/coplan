@@ -10,12 +10,32 @@ module CoPlan
         wrap_parameters false
 
         before_action :authenticate_api!
+        before_action :require_api_token!
         after_action :set_agent_instructions_header
 
         private
 
         def set_agent_instructions_header
           response.headers["X-Agent-Instructions"] = CoPlan::Engine.routes.url_helpers.agent_instructions_path
+        end
+
+        # Every API call must carry its own Bearer token. The host's
+        # request auth (api_authenticate) only proves which human is
+        # behind the wire — it says nothing about which agent is acting,
+        # and an agent edit that arrives on human credentials gets
+        # recorded as a human edit. So hook auth is good for exactly one
+        # thing: minting the token (TokensController skips this check for
+        # create).
+        def require_api_token!
+          return if performed?
+          return if @api_token
+
+          render json: {
+            error: "API calls require a Bearer token. Mint one first: " \
+                   "POST #{CoPlan::Engine.routes.url_helpers.api_v1_tokens_path} " \
+                   "with {\"agent_name\": \"<your name>\"}, then send " \
+                   "Authorization: Bearer <token> on every call."
+          }, status: :forbidden
         end
 
         def authenticate_api!
@@ -55,8 +75,11 @@ module CoPlan
           @current_api_user || @api_token&.user
         end
 
-        # Unique identifier for the API caller — used as actor_id, holder_id, author_id.
-        # With token auth this is the token's ID; with hook auth it's the user's ID.
+        # Unique identifier for the API caller — the session key for
+        # transient ownership (edit sessions, leases, notifications).
+        # With token auth this is the token's ID; with hook auth it's the
+        # user's ID. NOT for persisted attribution rows — those store the
+        # human (api_user_id) so history can name them; see api_agent_name.
         def api_actor_id
           @api_token&.id || @current_api_user&.id
         end
@@ -65,6 +88,27 @@ module CoPlan
         # Token auth → "local_agent"; hook auth → "human".
         def api_author_type
           @api_token ? ApiToken::HOLDER_TYPE : "human"
+        end
+
+        # Persisted attribution rows (versions, events, comments) store
+        # the human behind the token — a token id in actor_id names nobody
+        # in a history tab — with agent_name recording which agent acted
+        # for them, the same split comments already use.
+        def api_user_id
+          current_user&.id
+        end
+
+        # Which agent to attribute a write to: the caller can say
+        # per-request, otherwise the token knows who it was minted for,
+        # otherwise the token's own name. Nil under hook auth — a human,
+        # not an agent (only reachable where require_api_token! is
+        # skipped).
+        def api_agent_name
+          return nil unless @api_token
+
+          ApiToken.normalized_agent_name(
+            params[:agent_name].presence || @api_token.agent_name.presence || @api_token.name
+          )
         end
 
         def set_plan

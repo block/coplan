@@ -40,7 +40,8 @@ module CoPlan
             new_content: params[:content].to_s,
             base_revision: base_revision,
             actor_type: api_author_type,
-            actor_id: api_actor_id,
+            actor_id: api_user_id,
+            agent_name: api_agent_name,
             change_summary: params[:change_summary],
             reason: params[:reason]
           )

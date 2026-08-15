@@ -20,12 +20,13 @@ module CoPlan
         new(**kwargs).call
       end
 
-      def initialize(plan:, file:, user:, actor_type: nil, actor_id: nil)
+      def initialize(plan:, file:, user:, actor_type: nil, actor_id: nil, agent_name: nil)
         @plan = plan
         @file = file
         @user = user
         @actor_type = actor_type
         @actor_id = actor_id
+        @agent_name = agent_name
       end
 
       def call
@@ -64,7 +65,8 @@ module CoPlan
           after: blob.filename.to_s,
           metadata: { content_type: blob.content_type, byte_size: blob.byte_size },
           actor_type: @actor_type,
-          actor_id: @actor_id
+          actor_id: @actor_id,
+          agent_name: @agent_name
         )
 
         Result.new(attachment: attachment)

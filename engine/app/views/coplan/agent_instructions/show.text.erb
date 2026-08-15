@@ -4,6 +4,25 @@ Interact with the CoPlan app to create, read, edit, and comment on plan document
 
 <%= @auth_instructions %>
 
+## Your Identity: Session Tokens
+
+Every API call except the mint below requires `Authorization: Bearer <token>`. The token is how your work is attributed — plan history shows "Claude (via User Name)" instead of passing your edits off as the user's own — so each agent run should hold its own short-lived token rather than share a long-lived secret.
+
+Mint one as your first call (this is the only endpoint that works on request auth alone; it also accepts a long-lived root token from the settings UI):
+
+```bash
+<%= @curl %> -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"agent_name": "Claude", "name": "claude run", "ttl_seconds": 43200}' \
+  "<%= @base %>/api/v1/tokens" | jq .
+```
+
+- `agent_name`: who you are ("Claude", "Amp") — stamped on every version, event, and comment you write. Truncated past 20 characters.
+- `ttl_seconds`: optional, default 12 hours, max 7 days.
+- The response's `token` is shown once. Send it as `Authorization: Bearer <token>` on every subsequent call.
+- Mint once at the start of your run and reuse it — minting per call would give you a new identity every time.
+- When you finish, `DELETE <%= @base %>/api/v1/tokens/current` (authenticated with the token itself) so the credential dies with the run instead of waiting out its TTL.
+
 ## Quick Start: The Editing Loop
 
 Keeping a local Markdown file and syncing whole documents is the intended workflow — you do not need to express edits as granular operations. The canonical loop:
@@ -494,7 +513,7 @@ or matches more than one heading.
 
 - `anchor_text`: the exact text from the plan content that this comment is about. It will be highlighted in the UI and the comment will be anchored to it.
 - Omit `anchor_text` for a general (non-anchored) comment.
-- `agent_name`: optional identifier for the agent (e.g., `"Amp"`, `"Claude"`). Displayed in the UI as "User Name (Agent Name)".
+- `agent_name`: optional per-request override of who is writing, displayed as "Agent Name (via User Name)". You normally don't need it — it defaults to your token's `agent_name`, then the token's name — so pass it only when posting as a different persona than the one you minted with.
 
 ### Reply to Thread
 

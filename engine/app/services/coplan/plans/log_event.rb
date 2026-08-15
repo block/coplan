@@ -26,7 +26,7 @@ module CoPlan
         new(**kwargs).call
       end
 
-      def initialize(plan:, actor:, event_type:, field: nil, before: nil, after: nil, metadata: {}, actor_type: nil, actor_id: nil)
+      def initialize(plan:, actor:, event_type:, field: nil, before: nil, after: nil, metadata: {}, actor_type: nil, actor_id: nil, agent_name: nil)
         @plan = plan
         @actor = actor
         @event_type = event_type.to_s
@@ -36,6 +36,7 @@ module CoPlan
         @metadata = metadata || {}
         @actor_type_override = actor_type&.to_s
         @actor_id_override = actor_id
+        @agent_name = agent_name
       end
 
       def call
@@ -48,6 +49,7 @@ module CoPlan
           plan: @plan,
           actor_id: actor_id,
           actor_type: actor_type,
+          agent_name: @agent_name,
           event_type: @event_type,
           field: @field || default_field_for(@event_type),
           before_value: @before,

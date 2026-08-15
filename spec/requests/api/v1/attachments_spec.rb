@@ -51,7 +51,9 @@ RSpec.describe "Api::V1::Attachments", type: :request do
       event = plan.plan_events.find_by(event_type: "attachment_added")
       expect(event.after_value).to eq("sample.png")
       expect(event.actor_type).to eq("local_agent")
-      expect(event.actor_id).to eq(token.id)
+      # The human behind the token, not the token — history names people.
+      expect(event.actor_id).to eq(user.id)
+      expect(event.agent_name).to eq(token.name)
       expect(event.metadata["content_type"]).to eq("image/png")
     end
 

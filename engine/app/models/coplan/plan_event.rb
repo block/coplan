@@ -42,6 +42,9 @@ module CoPlan
 
     validates :actor_type, presence: true, inclusion: { in: ACTOR_TYPES }
     validates :event_type, presence: true, inclusion: { in: EVENT_TYPES }
+    # Same cap as Comment#agent_name — the two render through the same
+    # "Agent (via User)" convention.
+    validates :agent_name, length: { maximum: 20 }, allow_nil: true
 
     scope :for_history, -> { order(created_at: :desc) }
 
