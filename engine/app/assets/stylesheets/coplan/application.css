@@ -1898,10 +1898,9 @@ img.avatar {
   text-decoration: none;
 }
 
-/* Citation and internal-section previews. A single hover card is filled from
-   the rendered target already on the page, so it opens without a fetch. It
-   deliberately stays out of the browser's top layer so native anchor clicks
-   pass through instead of first dismissing a popover. */
+/* Citation and internal-section previews. A single manual popover is filled
+   from the rendered target already on the page, so it opens without a fetch
+   and can coexist with comment popovers. */
 .reference-preview {
   display: none;
   position: fixed;
@@ -1919,6 +1918,12 @@ img.avatar {
   z-index: 210;
 }
 
+.reference-preview:popover-open {
+  display: block;
+}
+
+/* Fallback for browsers without the Popover API. Kept as its own selector so
+   an older parser rejecting :popover-open does not discard this rule too. */
 .reference-preview--open {
   display: block;
 }

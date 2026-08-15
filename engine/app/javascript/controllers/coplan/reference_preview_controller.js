@@ -91,13 +91,22 @@ export default class extends Controller {
 
     const popover = this.popoverTarget
     popover.style.visibility = "hidden"
-    popover.classList.add("reference-preview--open")
+    if (!this.isOpen()) {
+      if (typeof popover.showPopover === "function") {
+        try { popover.showPopover() } catch {}
+      } else {
+        popover.classList.add("reference-preview--open")
+      }
+    }
     this.positionAt(anchor)
     popover.style.visibility = "visible"
   }
 
   hide() {
     if (this.hasPopoverTarget) {
+      if (typeof this.popoverTarget.hidePopover === "function") {
+        try { this.popoverTarget.hidePopover() } catch {}
+      }
       this.popoverTarget.classList.remove("reference-preview--open", "reference-preview--sheet")
       this.popoverTarget.style.visibility = ""
     }
@@ -223,6 +232,13 @@ export default class extends Controller {
   }
 
   isOpen() {
-    return this.hasPopoverTarget && this.popoverTarget.classList.contains("reference-preview--open")
+    if (!this.hasPopoverTarget) return false
+    if (this.popoverTarget.classList.contains("reference-preview--open")) return true
+
+    try {
+      return this.popoverTarget.matches(":popover-open")
+    } catch {
+      return false
+    }
   }
 }

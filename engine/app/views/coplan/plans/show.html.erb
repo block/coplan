@@ -97,9 +97,10 @@
         <%# Footnote citations and explicit same-document section links share
             one native popover. Its body is filled instantly from the rendered
             target already on the page. Hover/focus previews it; clicking the
-            original anchor keeps the link's native jump behavior. %>
+            original anchor jumps directly to the referenced target. %>
         <aside id="reference-preview"
                class="reference-preview"
+               popover="manual"
                role="dialog"
                aria-labelledby="reference-preview-title"
                data-coplan--reference-preview-target="popover"
