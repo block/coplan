@@ -470,6 +470,9 @@ export default class extends Controller {
 
   async _submit({ transcript, audio, durationMs }) {
     this._setStatus(audio ? "Transcribing…" : "Tidying up…")
+    // Sampled before the round trip: the viewport at the moment of
+    // release is the best evidence of what the remark was about.
+    this.focus = this._focus()
     this.excerpt = this._excerpt()
 
     // One round trip does every slow job: transcribe if it was audio,
@@ -579,6 +582,7 @@ export default class extends Controller {
       if (audio) form.append("audio", audio, `dictation.${this._extensionFor(audio)}`)
       if (audio && durationMs > 0) form.append("duration_ms", durationMs)
       if (this.excerpt) form.append("excerpt", this.excerpt)
+      if (this.focus) form.append("focus", this.focus)
 
       const response = await fetch(this.dictationUrlValue, {
         method: "POST",
@@ -658,6 +662,28 @@ export default class extends Controller {
     const blocks = this._allBlocks()
     const seen = blocks.filter((block) => this.seenBlocks?.has(block))
     const text = (seen.length > 0 ? seen : blocks.slice(0, 20))
+      .map((el) => el.textContent.trim())
+      .filter(Boolean)
+      .join("\n")
+
+    return text.length > 0 ? text : null
+  }
+
+  // What the person was most likely reading when they stopped talking:
+  // the readably-visible blocks that cross the middle band of the
+  // viewport. People read the middle of the screen — they scroll text
+  // *into* the middle to read it — so the top and bottom edges are
+  // usually periphery, and text that scrolled above the fold mid-take
+  // is what they were reading a sentence ago, not now. The interpreter
+  // gets this alongside the full excerpt as "the span is usually here".
+  _focus() {
+    const bandTop = window.innerHeight * 0.25
+    const bandBottom = window.innerHeight * 0.75
+    const text = this._visibleBlocks()
+      .filter((el) => {
+        const rect = el.getBoundingClientRect()
+        return rect.bottom > bandTop && rect.top < bandBottom
+      })
       .map((el) => el.textContent.trim())
       .filter(Boolean)
       .join("\n")

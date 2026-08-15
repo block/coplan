@@ -43,6 +43,10 @@ module CoPlan
         # rendered text the model was shown.
         document: @plan.current_content,
         transcript: transcript,
+        # What was mid-screen when they stopped talking — the likeliest
+        # home of the span, since the excerpt accumulates everything
+        # that scrolled past during the take.
+        focus: params[:focus].to_s.truncate(4_000, omission: ""),
         # Dictation is conversational in a way typing isn't: the next
         # remark after "it should be main" is "oh, I meant both of them",
         # and without the earlier comment there is no "it" to resolve.

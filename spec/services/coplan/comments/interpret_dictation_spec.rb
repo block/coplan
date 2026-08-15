@@ -192,6 +192,35 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
     expect(described_class.call(excerpt: excerpt, transcript: "  ").body).to eq("")
   end
 
+  # The excerpt accumulates everything that scrolled past during the
+  # take; the focus is what was mid-screen at the end. Without it the
+  # model kept anchoring on text just above the fold — what the person
+  # was reading a sentence ago.
+  describe "the focus — what was mid-screen when they finished" do
+    it "tells the model where the span most likely lives" do
+      expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
+        expect(user_content).to include("They were reading this part")
+        expect(user_content).to match(/reading this part.*sidecar stays behind a flag/m)
+        { "text" => "Sounds too cautious.", "span" => nil }.to_json
+      end
+
+      described_class.call(
+        excerpt: excerpt,
+        transcript: "sounds too cautious",
+        focus: "The higher-fidelity sidecar stays behind a flag until it is proven."
+      )
+    end
+
+    it "omits the section when the focus is the whole excerpt anyway" do
+      expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
+        expect(user_content).not_to include("They were reading this part")
+        { "text" => "Sounds too cautious.", "span" => nil }.to_json
+      end
+
+      described_class.call(excerpt: excerpt, transcript: "sounds too cautious", focus: excerpt)
+    end
+  end
+
   # "Rename both of these" is one remark but two placements. The model
   # returns a comments array; each entry gets its own span vetting.
   describe "a remark about more than one passage" do
