@@ -111,6 +111,13 @@ module CoPlan
           )
         end
 
+        # The provenance join: attribution rows keep the display string in
+        # agent_name and point here for everything else the token knows
+        # about its run (harness, versions, model — see ApiToken#metadata).
+        def api_token_id
+          @api_token&.id
+        end
+
         def set_plan
           @plan = CoPlan::Plan.find_by(id: params[:plan_id] || params[:id])
           unless @plan

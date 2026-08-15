@@ -16,15 +16,16 @@ module CoPlan
       # The committing controller passes the resolved user and agent so the
       # version is attributed the way comments are; direct Ruby callers
       # (cloud personas) fall back to the session's own actor fields.
-      def self.call(session:, change_summary: nil, actor_id: nil, agent_name: nil)
-        new(session:, change_summary:, actor_id:, agent_name:).call
+      def self.call(session:, change_summary: nil, actor_id: nil, agent_name: nil, api_token_id: nil)
+        new(session:, change_summary:, actor_id:, agent_name:, api_token_id:).call
       end
 
-      def initialize(session:, change_summary: nil, actor_id: nil, agent_name: nil)
+      def initialize(session:, change_summary: nil, actor_id: nil, agent_name: nil, api_token_id: nil)
         @session = session
         @change_summary = change_summary || session.change_summary
         @actor_id = actor_id || session.actor_id
         @agent_name = agent_name
+        @api_token_id = api_token_id
       end
 
       def call
@@ -125,6 +126,7 @@ module CoPlan
             actor_type: @session.actor_type,
             actor_id: @actor_id,
             agent_name: @agent_name,
+            api_token_id: @api_token_id,
             change_summary: @change_summary,
             diff_unified: diff.presence,
             operations_json: final_ops,

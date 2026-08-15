@@ -41,7 +41,8 @@ module CoPlan
             session: @session,
             change_summary: params[:change_summary],
             actor_id: api_user_id,
-            agent_name: api_agent_name
+            agent_name: api_agent_name,
+            api_token_id: api_token_id
           )
 
           response = {

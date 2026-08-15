@@ -45,6 +45,41 @@ RSpec.describe "Api::V1::Tokens", type: :request do
       expect(minted.expires_at).to be_present
     end
 
+    it "records identity metadata at mint and echoes it back" do
+      post api_v1_tokens_path,
+        params: {
+          agent_name: "Claude",
+          metadata: { harness: "claude-code", harness_version: "2.1.3", model: "claude-fable-5" }
+        },
+        headers: root_headers, as: :json
+
+      expect(response).to have_http_status(:created)
+      body = JSON.parse(response.body)
+      expect(body["metadata"]).to eq(
+        "harness" => "claude-code", "harness_version" => "2.1.3", "model" => "claude-fable-5"
+      )
+      minted = CoPlan::ApiToken.authenticate(body["token"])
+      expect(minted.metadata["harness"]).to eq("claude-code")
+    end
+
+    it "coerces non-hash metadata to an empty hash rather than failing the mint" do
+      post api_v1_tokens_path,
+        params: { agent_name: "Claude", metadata: "claude-code/2.1.3" },
+        headers: root_headers, as: :json
+
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body)["metadata"]).to eq({})
+    end
+
+    it "rejects metadata over the byte budget" do
+      post api_v1_tokens_path,
+        params: { agent_name: "Claude", metadata: { blob: "x" * 5000 } },
+        headers: root_headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(JSON.parse(response.body)["error"]).to include("Metadata")
+    end
+
     it "refuses a session token as the minting credential" do
       child, raw = root_token.mint_session_token!
 

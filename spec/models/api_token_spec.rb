@@ -116,6 +116,39 @@ RSpec.describe CoPlan::ApiToken, type: :model do
     end
   end
 
+  describe "metadata" do
+    let(:parent) { create(:api_token, user: user, name: "hampton-laptop") }
+
+    it "stores identity facts given at mint time" do
+      child, = parent.mint_session_token!(metadata: { "harness" => "claude-code", "model" => "claude-fable-5" })
+      expect(child.reload.metadata).to eq("harness" => "claude-code", "model" => "claude-fable-5")
+    end
+
+    it "defaults to an empty hash" do
+      child, = parent.mint_session_token!
+      expect(child.metadata).to eq({})
+    end
+
+    it "rejects metadata over the byte budget" do
+      token = build(:api_token, user: user, metadata: { "blob" => "x" * (described_class::MAX_METADATA_BYTES + 1) })
+      expect(token).not_to be_valid
+      expect(token.errors[:metadata]).to be_present
+    end
+
+    describe ".normalized_metadata" do
+      it "passes hashes through and coerces hash-shaped input" do
+        expect(described_class.normalized_metadata({ "a" => 1 })).to eq("a" => 1)
+        expect(described_class.normalized_metadata([ [ "a", 1 ] ])).to eq("a" => 1)
+      end
+
+      it "drops anything that is not hash-shaped" do
+        expect(described_class.normalized_metadata(nil)).to eq({})
+        expect(described_class.normalized_metadata("claude-code/2.1.3")).to eq({})
+        expect(described_class.normalized_metadata([ "not", "pairs" ])).to eq({})
+      end
+    end
+  end
+
   describe "bootstrap minting (no parent token)" do
     it "mints a parentless session identity for a hook-authenticated user" do
       token, raw = CoPlan::ApiToken.mint_session_token_for!(user: user, agent_name: "Claude")

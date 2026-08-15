@@ -33,6 +33,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
     expect(comment.author_id).to eq(alice.id)
     expect(comment.author_id).not_to eq(alice_token.id)
     expect(comment.author).to eq(alice)
+    expect(comment.api_token_id).to eq(alice_token.id)
   end
 
   it "create general comment thread" do
@@ -59,6 +60,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
     comment = CoPlan::Comment.find(body["comment_id"])
     expect(comment.author_id).to eq(alice.id)
     expect(comment.author_id).not_to eq(alice_token.id)
+    expect(comment.api_token_id).to eq(alice_token.id)
   end
 
   it "reply to nonexistent thread" do

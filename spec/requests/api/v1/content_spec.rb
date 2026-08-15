@@ -59,6 +59,7 @@ RSpec.describe "Api::V1::Content", type: :request do
       expect(version.actor_type).to eq("local_agent")
       expect(version.actor_id).to eq(alice.id)
       expect(version.agent_name).to eq("Claude")
+      expect(version.api_token_id).to eq(alice_token.id)
     end
 
     it "falls back to the token's name when agent_name is omitted" do

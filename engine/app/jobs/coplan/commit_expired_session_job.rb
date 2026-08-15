@@ -18,7 +18,8 @@ module CoPlan
           session: session,
           change_summary: session.change_summary || "Auto-committed expired session",
           actor_id: token&.user_id || session.actor_id,
-          agent_name: token && ApiToken.normalized_agent_name(token.agent_name.presence || token.name)
+          agent_name: token && ApiToken.normalized_agent_name(token.agent_name.presence || token.name),
+          api_token_id: token&.id
         )
       else
         session.update!(status: "expired", committed_at: Time.current)

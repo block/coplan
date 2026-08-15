@@ -27,14 +27,16 @@ module CoPlan
             token, raw = @api_token.mint_session_token!(
               name: params[:name],
               agent_name: params[:agent_name],
-              ttl: ttl_param
+              ttl: ttl_param,
+              metadata: metadata_param
             )
           else
             token, raw = ApiToken.mint_session_token_for!(
               user: current_user,
               name: params[:name],
               agent_name: params[:agent_name],
-              ttl: ttl_param
+              ttl: ttl_param,
+              metadata: metadata_param
             )
           end
 
@@ -43,9 +45,12 @@ module CoPlan
             token: raw,
             name: token.name,
             agent_name: token.agent_name,
+            metadata: token.metadata,
             expires_at: token.expires_at&.iso8601,
             parent_id: token.parent_id
           }, status: :created
+        rescue ActiveRecord::RecordInvalid => e
+          render json: { error: e.record.errors.full_messages.join(", ") }, status: :unprocessable_content
         end
 
         # Self-revocation, so an agent can clean up its own token when it
@@ -59,6 +64,13 @@ module CoPlan
 
         def ttl_param
           (params[:ttl_seconds].presence || ApiToken::DEFAULT_SESSION_TTL.to_i).to_i
+        end
+
+        # Identity facts, schemaless by design — the model drops anything
+        # that isn't hash-shaped, so no permit list to keep in sync.
+        def metadata_param
+          raw = params[:metadata]
+          raw.is_a?(ActionController::Parameters) ? raw.to_unsafe_h : raw
         end
       end
     end

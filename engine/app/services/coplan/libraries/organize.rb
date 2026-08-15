@@ -42,17 +42,18 @@ module CoPlan
       # `actor_label` names the credential behind the actor (e.g. the API
       # token's name) so the audit log can distinguish which agent session
       # did the work, not just that "a local_agent" did.
-      def self.call(library:, actor:, operations:, actor_type: nil, actor_label: nil, agent_name: nil, dry_run: false)
-        new(library:, actor:, operations:, actor_type:, actor_label:, agent_name:, dry_run:).call
+      def self.call(library:, actor:, operations:, actor_type: nil, actor_label: nil, agent_name: nil, api_token_id: nil, dry_run: false)
+        new(library:, actor:, operations:, actor_type:, actor_label:, agent_name:, api_token_id:, dry_run:).call
       end
 
-      def initialize(library:, actor:, operations:, actor_type: nil, actor_label: nil, agent_name: nil, dry_run: false)
+      def initialize(library:, actor:, operations:, actor_type: nil, actor_label: nil, agent_name: nil, api_token_id: nil, dry_run: false)
         @library = library
         @actor = actor
         @operations = operations
         @actor_type = actor_type
         @actor_label = actor_label
         @agent_name = agent_name
+        @api_token_id = api_token_id
         @dry_run = !!dry_run
         # One id groups every audit event this call writes — a 2,000-move
         # run reads as one entry in the log, filterable via ?run_id=.
@@ -232,7 +233,7 @@ module CoPlan
         plans_for_tag(op).find_each do |plan|
           result = Plans::Place.call(
             plan: plan, folder: folder, actor: @actor, library: @library,
-            actor_type: @actor_type, agent_name: @agent_name, run_id: @run_id, event_metadata: event_metadata
+            actor_type: @actor_type, agent_name: @agent_name, api_token_id: @api_token_id, run_id: @run_id, event_metadata: event_metadata
           )
           if result.success?
             moved << { plan_id: plan.id, plan_title: plan.title }
@@ -277,7 +278,7 @@ module CoPlan
 
         removal = Plans::Place.call(
           plan: plan, folder: nil, actor: @actor, library: source,
-          actor_type: @actor_type, agent_name: @agent_name, run_id: @run_id, event_metadata: event_metadata
+          actor_type: @actor_type, agent_name: @agent_name, api_token_id: @api_token_id, run_id: @run_id, event_metadata: event_metadata
         )
         unless removal.success?
           raise OpError, "Could not remove from source library: #{removal.error}"
@@ -287,7 +288,7 @@ module CoPlan
       def place!(plan, folder)
         result = Plans::Place.call(
           plan: plan, folder: folder, actor: @actor, library: @library,
-          actor_type: @actor_type, agent_name: @agent_name, run_id: @run_id, event_metadata: event_metadata
+          actor_type: @actor_type, agent_name: @agent_name, api_token_id: @api_token_id, run_id: @run_id, event_metadata: event_metadata
         )
         raise OpError, result.error unless result.success?
         result
