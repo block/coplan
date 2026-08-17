@@ -394,11 +394,12 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include('title="Mystery Type"')
     end
 
-    it "renders a neutral, untinted document icon for untyped plans" do
+    it "renders the General type icon for plans created without an explicit type" do
       create(:plan, :published, created_by_user: alice, plan_type: nil)
       get plans_path
-      expect(response.body).to include('aria-label="Document"')
-      expect(response.body).not_to match(/plan-type-icon--\d/)
+      expect(response.body).to include('aria-label="General document"')
+      tint = Zlib.crc32("General") % CoPlan::PlansHelper::PLAN_TYPE_COLOR_COUNT
+      expect(response.body).to include("plan-type-icon--#{tint}")
     end
   end
 

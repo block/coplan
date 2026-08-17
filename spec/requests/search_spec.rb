@@ -9,7 +9,7 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
 
   after do
     truncate_tables(*%w[coplan_plan_tags coplan_tags coplan_plan_versions coplan_plans
-                        coplan_search_queries coplan_users])
+                        coplan_plan_types coplan_search_queries coplan_users])
   end
 
   let!(:alice) { create(:coplan_user, name: "Alice Searcher") }

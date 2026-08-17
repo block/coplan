@@ -38,7 +38,7 @@ RSpec.describe CoPlan::Plans::Create do
     expect(plan.plan_type).to eq(plan_type)
   end
 
-  it "creates plan without plan_type" do
+  it "creates plan without plan_type, falling back to the General catch-all" do
     user = create(:coplan_user)
     plan = CoPlan::Plans::Create.call(
       title: "Untyped Plan",
@@ -47,7 +47,7 @@ RSpec.describe CoPlan::Plans::Create do
     )
 
     expect(plan).to be_persisted
-    expect(plan.plan_type_id).to be_nil
+    expect(plan.plan_type.name).to eq("General")
   end
 
   it "tracks a plan_created analytics event" do

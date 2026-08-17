@@ -56,10 +56,33 @@ RSpec.describe CoPlan::PlanType, type: :model do
     expect(plan_type.plans).to include(plan)
   end
 
-  it "nullifies plans when destroyed" do
+  it "cannot be destroyed while plans use it — nullify would mint untyped plans" do
     plan_type = create(:plan_type)
     plan = create(:plan, plan_type: plan_type)
-    plan_type.destroy!
-    expect(plan.reload.plan_type_id).to be_nil
+
+    expect(plan_type.destroy).to be(false)
+    expect(plan_type.errors[:base]).to be_present
+    expect(plan.reload.plan_type_id).to eq(plan_type.id)
+  end
+
+  it "can be destroyed once no plans use it" do
+    plan_type = create(:plan_type)
+    expect { plan_type.destroy! }.to change(CoPlan::PlanType, :count).by(-1)
+  end
+
+  describe ".general" do
+    it "returns the existing General type, matched case-insensitively" do
+      existing = create(:plan_type, name: "general")
+      expect(CoPlan::PlanType.general).to eq(existing)
+    end
+
+    it "recreates the General type when missing" do
+      # A migrated database always has General (RequirePlanTypeOnCoplanPlans
+      # seeds it) — remove it to exercise the self-healing branch.
+      CoPlan::PlanType.find_by_name("General")&.destroy!
+      general = CoPlan::PlanType.general
+      expect(general.name).to eq("General")
+      expect(general).to be_persisted
+    end
   end
 end
