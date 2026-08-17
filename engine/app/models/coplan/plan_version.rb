@@ -4,6 +4,7 @@ module CoPlan
 
     belongs_to :plan
     belongs_to :actor_user, class_name: "CoPlan::User", foreign_key: "actor_id", optional: true
+    belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
     has_many :comment_threads, dependent: :nullify
 
     # has_attribute? guard: list pages load lean stubs (id + sha only) via

@@ -196,6 +196,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
     t.string "actor_id", limit: 36
     t.string "actor_type", null: false
     t.text "after_value"
+    t.string "agent_name"
+    t.string "api_token_id", limit: 36
     t.text "before_value"
     t.datetime "created_at", null: false
     t.string "event_type", null: false
@@ -204,6 +206,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
     t.json "metadata"
     t.string "plan_id", limit: 36
     t.string "run_id", limit: 36
+    t.index ["api_token_id"], name: "index_coplan_library_events_on_api_token_id"
     t.index ["event_type"], name: "index_coplan_library_events_on_event_type"
     t.index ["library_id", "created_at"], name: "index_coplan_library_events_on_library_id_and_created_at"
     t.index ["plan_id"], name: "index_coplan_library_events_on_plan_id"
@@ -441,6 +444,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
   add_foreign_key "coplan_folders", "coplan_folders", column: "parent_id"
   add_foreign_key "coplan_folders", "coplan_libraries", column: "library_id"
   add_foreign_key "coplan_folders", "coplan_users", column: "created_by_user_id"
+  add_foreign_key "coplan_library_events", "coplan_api_tokens", column: "api_token_id"
   add_foreign_key "coplan_library_events", "coplan_libraries", column: "library_id"
   add_foreign_key "coplan_notifications", "coplan_comment_threads", column: "comment_thread_id"
   add_foreign_key "coplan_notifications", "coplan_comments", column: "comment_id"

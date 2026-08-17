@@ -327,6 +327,7 @@ module CoPlan
             created.each do |f|
               Libraries::LogEvent.call(
                 library: current_user.library, actor: current_user, actor_type: api_author_type,
+                agent_name: api_agent_name, api_token_id: api_token_id,
                 event_type: "folder_created", folder: f, after: f.path
               )
             end

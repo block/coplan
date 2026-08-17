@@ -15,7 +15,8 @@ module CoPlan
       end
 
       def initialize(library:, actor:, event_type:, plan: nil, folder: nil,
-        before: nil, after: nil, metadata: {}, actor_type: nil, run_id: nil)
+        before: nil, after: nil, metadata: {}, actor_type: nil, agent_name: nil,
+        api_token_id: nil, run_id: nil)
         @library = library
         @actor = actor
         @event_type = event_type.to_s
@@ -25,6 +26,8 @@ module CoPlan
         @after = after&.to_s
         @metadata = metadata || {}
         @actor_type_override = actor_type&.to_s
+        @agent_name = agent_name
+        @api_token_id = api_token_id
         @run_id = run_id
       end
 
@@ -33,6 +36,8 @@ module CoPlan
           library: @library,
           actor_id: @actor&.id,
           actor_type: actor_type,
+          agent_name: @agent_name,
+          api_token_id: @api_token_id,
           event_type: @event_type,
           plan_id: @plan&.id,
           folder_id: @folder&.id,

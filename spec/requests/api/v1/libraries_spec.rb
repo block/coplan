@@ -178,6 +178,8 @@ RSpec.describe "Api::V1::Libraries", type: :request do
       expect(events.map(&:event_type)).to include("folder_created", "folder_described", "plan_filed")
       # Token auth means the agent gets attributed, not a human.
       expect(events.map(&:actor_type).uniq).to eq([ "local_agent" ])
+      expect(events.map(&:agent_name).uniq).to eq([ alice_token.name ])
+      expect(events.map(&:api_token_id).uniq).to eq([ alice_token.id ])
       filed = events.find_by(event_type: "plan_filed")
       expect(filed.after_value).to eq("Archive/2025")
       expect(filed.metadata["plan_title"]).to eq("Pricing plan")
