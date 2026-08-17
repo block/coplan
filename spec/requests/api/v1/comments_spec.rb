@@ -155,6 +155,14 @@ RSpec.describe "Api::V1::Comments", type: :request do
       delete api_v1_plan_destroy_comment_path(plan, id: comment.id), headers: headers, as: :json
       expect(response).to have_http_status(:ok)
       expect(comment.reload.deleted_at).to be_present
+
+      event = plan.plan_events.find_by!(event_type: "comment_deleted")
+      expect(event).to have_attributes(
+        actor_type: "local_agent",
+        actor_id: alice.id,
+        agent_name: alice_token.name,
+        api_token_id: alice_token.id
+      )
     end
 
     it "forbids agent (token auth) callers from deleting their own agent comment" do

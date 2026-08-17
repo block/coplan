@@ -98,6 +98,8 @@ module CoPlan
           library: @library,
           actor: @actor,
           actor_type: @actor_type,
+          agent_name: @agent_name,
+          api_token_id: @api_token_id,
           event_type: library_event_type(old_path, new_path),
           plan: @plan,
           folder: @folder,

@@ -302,6 +302,7 @@ module CoPlan
         metadata = kwargs.delete(:metadata) || {}
         Libraries::LogEvent.call(
           library: @library, actor: @actor, actor_type: @actor_type,
+          agent_name: @agent_name, api_token_id: @api_token_id,
           run_id: @run_id, metadata: event_metadata.merge(metadata), **kwargs
         )
       end
