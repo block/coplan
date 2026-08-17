@@ -68,7 +68,11 @@ RSpec.describe "Plan references", type: :system do
       citation = find("a.reference-anchor--footnote")
       citation.hover
       expect(page).to have_css(".reference-preview", text: "production sample covered 30 days", visible: :visible)
-      expect(page).to have_link("Open the source", href: "https://example.com/evidence")
+      within(".reference-preview") do
+        source_link = find_link("Open the source", href: "https://example.com/evidence")
+        expect(source_link["target"]).to eq("_blank")
+        expect(source_link["rel"]).to eq("noopener noreferrer")
+      end
       expect(page).to have_css("#references-count", text: "0")
       within("#plan-references") do
         expect(page).to have_no_link("Open the source", href: "https://example.com/evidence")

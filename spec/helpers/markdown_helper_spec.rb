@@ -33,6 +33,18 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include('<pre lang="mermaid"><code>')
       expect(html).to include("graph LR")
     end
+
+    it "opens external links in a new tab while keeping fragment links local" do
+      markdown = "[Source](https://example.com/evidence) and [§1](#section-1).\n\n## 1 Decision"
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))
+      external = doc.at_css('a[href="https://example.com/evidence"]')
+      internal = doc.at_css('a[href="#section-1"]')
+
+      expect(external["target"]).to eq("_blank")
+      expect(external["rel"]).to eq("noopener noreferrer")
+      expect(internal["target"]).to be_nil
+      expect(internal["rel"]).to be_nil
+    end
   end
 
   describe "footnotes" do
