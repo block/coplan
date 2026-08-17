@@ -31,6 +31,7 @@ module CoPlan
 
     def extract_references
       CoPlan::References::ExtractFromContent.call(plan: plan, content: content_markdown)
+      Broadcaster.replace_plan_references(plan)
     end
 
     def broadcast_history_update

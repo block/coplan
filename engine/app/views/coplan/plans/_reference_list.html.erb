@@ -2,15 +2,11 @@
   <ul class="references-list">
     <% references.each do |ref| %>
       <li class="references-list__item">
-        <span class="references-list__icon" aria-hidden="true"><%= reference_icon(ref.reference_type) %></span>
         <div class="references-list__content">
           <a href="<%= ref.url %>" target="_blank" rel="noopener noreferrer" class="references-list__link">
             <%= ref.title.presence || truncate(ref.url, length: 80) %>
           </a>
           <span class="references-list__meta">
-            <% if ref.key.present? %>
-              <code class="badge badge--ref-key"><%= ref.key %></code>
-            <% end %>
             <span><%= reference_type_label(ref.reference_type, ref.url) %></span>
             <% if reference_domain(ref.url).present? %>
               <span aria-hidden="true">·</span>

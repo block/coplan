@@ -101,7 +101,7 @@ Other raw HTML is stripped on render (the Markdown source is preserved), so stic
 
 CoPlan has three related tools with different jobs:
 
-1. **Cite an external source for a claim with a footnote.** Put the source link and enough supporting context in the definition. The inline citation previews on hover/focus; clicking it jumps to the note. Its URL is auto-extracted into the structured References inventory, which supplies the source type, domain, and icon shown with the citation.
+1. **Cite an external source for a claim with a footnote.** Put the source link and enough supporting context in the definition. The inline citation previews on hover/focus; clicking it jumps to the note. Its URL is auto-extracted into the structured References inventory, which supplies the source title, type, and domain shown with the citation.
 2. **Reference another section in the same plan with an explicit Markdown link.** Number the target heading, then link its stable fragment: a heading `### 3.1 Rollout` is referenced as `see [§3.1](#section-3-1)`. Hover/focus previews that section and click jumps to it. Never leave a bare `§3.1` when you mean an internal link—section signs are also used for external statutes, so CoPlan deliberately does not guess.
 3. **Mention an external resource directly with a normal descriptive link**, such as `[implementation PR](https://github.com/org/repo/pull/42)`. Prefer a footnote instead when the link supports a specific factual claim.
 
@@ -227,7 +227,7 @@ No plan types are currently configured.
 
 ### References
 
-References are the structured, document-level inventory of resources connected to a plan (repos, PRs, docs, links, and other plans). They power discovery and enrich reader-facing citations with the resource's title, type, domain, and icon; they are not a substitute for placing a citation or link at the claim it supports. Readers see citation context and all remaining linked or explicitly curated resources together in one **References** section.
+References are the structured, document-level inventory of resources connected to a plan (repos, PRs, docs, links, and other plans). They power discovery and enrich reader-facing citations with the resource's title, type, and domain; they are not a substitute for placing a citation or link at the claim it supports. Readers see citation context and all remaining linked or explicitly curated resources together in one **References** section.
 
 Links anywhere in plan content—including links inside footnote definitions—are **auto-extracted** as references. Do not add them again. Add explicit references via the API only for relevant resources that are not linked in the prose.
 

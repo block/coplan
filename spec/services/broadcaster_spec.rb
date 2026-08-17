@@ -19,7 +19,7 @@ RSpec.describe CoPlan::Broadcaster do
     # the captured payloads.
     before { plan }
 
-    it "broadcasts the document body and its unified citation back matter" do
+    it "broadcasts the document body" do
       payloads = []
       allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to) do |_streamable, content:|
         payloads << content.to_s
@@ -27,21 +27,13 @@ RSpec.describe CoPlan::Broadcaster do
 
       described_class.replace_plan_content(plan)
 
-      expect(payloads.size).to eq(5)
+      expect(payloads.size).to eq(1)
       expect(payloads.first).to include('action="coplan-replace-if-clean"')
       expect(payloads.first).to include('target="plan-content-body"')
       expect(payloads.first).to include('data-revision="1"')
       # The fresh markdown render is wrapped in a <template>
       expect(payloads.first).to include("<template>")
       expect(payloads.first).to include("Hello world")
-      expect(payloads.second).to include('action="coplan-replace-if-clean"')
-      expect(payloads.second).to include('target="plan-citations"')
-      expect(payloads.second).to include('data-revision="1"')
-      expect(payloads.third).to include('target="plan-extracted-references"')
-      expect(payloads.third).to include("Source")
-      expect(payloads.fourth).to include('target="references-count"')
-      expect(payloads.fifth).to include('target="nav-references-count"')
-      expect(payloads.join).not_to include("authenticity_token")
     end
 
     it "reflects the latest revision so stale-tab clients can ignore self-broadcasts" do
@@ -61,6 +53,29 @@ RSpec.describe CoPlan::Broadcaster do
 
       expect(payloads.first).to include('data-revision="2"')
       expect(payloads.first).to include("Updated")
+    end
+  end
+
+  describe ".replace_plan_references" do
+    before { plan }
+
+    it "broadcasts unified back matter after extracted references exist" do
+      payloads = []
+      allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to) do |_streamable, content:|
+        payloads << content.to_s
+      end
+
+      described_class.replace_plan_references(plan)
+
+      expect(payloads.size).to eq(4)
+      expect(payloads.first).to include('action="coplan-replace-if-clean"')
+      expect(payloads.first).to include('target="plan-citations"')
+      expect(payloads.first).to include('data-revision="1"')
+      expect(payloads.second).to include('target="plan-extracted-references"')
+      expect(payloads.second).to include("Source")
+      expect(payloads.third).to include('target="references-count"')
+      expect(payloads.fourth).to include('target="nav-references-count"')
+      expect(payloads.join).not_to include("authenticity_token")
     end
   end
 end

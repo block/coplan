@@ -16,4 +16,19 @@ RSpec.describe "PlanVersion reference extraction", type: :model do
     expect(plan.references.count).to eq(1)
     expect(plan.references.first.url).to eq("https://rubyonrails.org")
   end
+
+  it "broadcasts references after extraction" do
+    plan
+    expect(CoPlan::Broadcaster).to receive(:replace_plan_references) do |updated_plan|
+      expect(updated_plan.references.exists?(url: "https://rubyonrails.org")).to be(true)
+    end
+
+    CoPlan::PlanVersion.create!(
+      plan: plan,
+      revision: plan.current_revision + 1,
+      content_markdown: "See [Rails](https://rubyonrails.org) for details.",
+      actor_type: "human",
+      actor_id: user.id
+    )
+  end
 end

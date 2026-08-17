@@ -2,16 +2,6 @@ module CoPlan
   module ReferencesHelper
     include MarkdownHelper
 
-    def reference_icon(reference_type)
-      case reference_type
-      when "plan" then "📋"
-      when "repository" then "📦"
-      when "pull_request" then "🔀"
-      when "document" then "📄"
-      else "🔗"
-      end
-    end
-
     def reference_domain(url)
       URI.parse(url).host&.delete_prefix("www.")
     rescue URI::InvalidURIError
@@ -51,30 +41,25 @@ module CoPlan
         references.map { |reference| "#{reference.id}:#{reference.updated_at&.to_f}" }.join("|")
       )
       signature = [ plan.current_revision, reference_digest ]
-      @plan_citation_back_matter ||= {}
-      @plan_citation_back_matter[[ plan.id, signature ]] ||= begin
-        cached = Rails.cache.fetch([
-          "coplan/plan-citation-back-matter",
-          MarkdownHelper::RENDER_CACHE_VERSION,
-          plan.id,
-          *signature
-        ]) do
-          result = build_plan_citation_back_matter(plan, references)
-          [ result[:html].to_s, result[:cited_urls].to_a, result[:count] ]
-        end
-
-        {
-          html: cached[0].html_safe,
-          cited_urls: cached[1].to_set.freeze,
-          count: cached[2]
-        }
+      cached = Rails.cache.fetch([
+        "coplan/plan-citation-back-matter",
+        MarkdownHelper::RENDER_CACHE_VERSION,
+        plan.id,
+        *signature
+      ]) do
+        result = build_plan_citation_back_matter(plan, references)
+        [ result[:html].to_s, result[:cited_urls].to_a, result[:count] ]
       end
+
+      {
+        html: cached[0].html_safe,
+        cited_urls: cached[1].to_set.freeze,
+        count: cached[2]
+      }
     end
 
     def listed_plan_references(references, cited_urls)
-      references.reject do |reference|
-        reference.source == "extracted" && cited_urls.include?(reference.url)
-      end
+      references.reject { |reference| cited_urls.include?(reference.url) }
     end
 
     def plan_reference_count(plan, references)
@@ -118,12 +103,14 @@ module CoPlan
 
       anchor.add_class("citation-source")
       anchor["aria-label"] = "Open source: #{title} in a new tab (#{metadata})"
-      anchor.children.remove
+      unless terminal_citation_source?(anchor)
+        anchor.add_class("citation-source--inline")
+        anchor["title"] = metadata
+        return
+      end
 
-      icon = Nokogiri::XML::Node.new("span", anchor.document)
-      icon["class"] = "citation-source__icon"
-      icon["aria-hidden"] = "true"
-      icon.content = reference_icon(type)
+      anchor.add_class("citation-source--block")
+      anchor.children.remove
 
       content = Nokogiri::XML::Node.new("span", anchor.document)
       content["class"] = "citation-source__content"
@@ -138,12 +125,21 @@ module CoPlan
 
       content.add_child(title_node)
       content.add_child(metadata_node)
-      anchor.add_child(icon)
       anchor.add_child(content)
 
       punctuation = anchor.next_sibling
       if punctuation&.text? && punctuation.text.match?(/\A\s*[.,;:]\s*\z/)
         punctuation.remove
+      end
+    end
+
+    def terminal_citation_source?(anchor)
+      anchor.xpath("following-sibling::node()").all? do |sibling|
+        if sibling.text?
+          sibling.text.match?(/\A\s*[.,;:]*\s*\z/)
+        else
+          sibling.attribute("data-footnote-backref").present?
+        end
       end
     end
   end

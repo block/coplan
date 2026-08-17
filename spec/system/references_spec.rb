@@ -54,7 +54,6 @@ RSpec.describe "Plan references", type: :system do
         expect(link["target"]).to eq("_blank")
         expect(link["rel"]).to eq("noopener noreferrer")
         expect(page).to have_css(".references-list__meta", text: /GitHub repository\s+·\s+github\.com ↗/)
-        expect(page).to have_css(".references-list__icon", text: "📦")
       end
       expect(page).to have_css("#references-count", text: "1")
     end
@@ -104,7 +103,7 @@ RSpec.describe "Plan references", type: :system do
       within("#plan-citations") do
         source_link = find_link("Open the source", href: "https://docs.google.com/document/d/evidence")
         expect(source_link["target"]).to eq("_blank")
-        expect(source_link).to have_css(".citation-source__icon", text: "📄")
+        expect(source_link[:class]).to include("citation-source--block")
         expect(source_link).to have_css(".citation-source__meta", text: "Google Doc · docs.google.com ↗")
       end
       within("#plan-references") do
@@ -114,6 +113,10 @@ RSpec.describe "Plan references", type: :system do
 
       citation.click
       expect(page.evaluate_script("window.location.hash")).to eq("#fn-launch-data")
+      expect(page.evaluate_script(<<~JS)).to be(true)
+        document.querySelector("#fn-launch-data").getBoundingClientRect().top >=
+          document.querySelector(".site-nav").getBoundingClientRect().bottom
+      JS
 
       visit plan_path(referenced_plan)
       section_link = find('a.reference-anchor--section[href="#section-2-1"]')
@@ -161,6 +164,7 @@ RSpec.describe "Plan references", type: :system do
       # Turbo Stream replaces the list — reference appears without navigation
       expect(page).to have_link("My Repo", href: "https://github.com/org/repo")
       expect(page).not_to have_css("#footnote-references .plan-footnote__empty")
+      expect(page).to have_no_text("my-repo")
 
       # Count spans updated in-place via Turbo Stream (separate stream
       # targets) — the footnote header and the document outline.
@@ -206,8 +210,11 @@ RSpec.describe "Plan references", type: :system do
       expect(page).to have_content("Doomed")
       expect(page).to have_css("#references-count", text: "1")
 
-      # data-turbo-confirm triggers a browser confirm dialog. Scoped: the
-      # TOC's hide button is also a "✕" now that everything shares a page.
+      # The quiet remove control appears when the reference row is active.
+      within("#plan-references") { find(".references-list__item").hover }
+
+      # data-turbo-confirm triggers a browser confirm dialog. Scoped because
+      # the TOC also has a "✕" control.
       accept_confirm("Remove this reference?") do
         within("#plan-references") { click_button "✕" }
       end

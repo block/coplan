@@ -35,15 +35,34 @@ RSpec.describe CoPlan::ReferencesHelper, type: :helper do
       expect(doc.text).to include("A 30-day production sample supported it.")
       expect(source["target"]).to eq("_blank")
       expect(source["rel"]).to eq("noopener noreferrer")
-      expect(source.at_css(".citation-source__icon").text).to eq("📄")
+      expect(source["class"]).to include("citation-source--block")
       expect(source.at_css(".citation-source__title").text).to eq("Rollout experiment results")
       expect(source.at_css(".citation-source__meta").text).to eq("Google Sheet · docs.google.com ↗")
     end
 
-    it "lists uncited and explicit resources without repeating extracted citation links" do
+    it "keeps a source link inline when prose follows it" do
+      version = CoPlan::PlanVersion.create!(
+        plan: plan,
+        revision: 2,
+        content_markdown: "Claim.[^inline]\n\n[^inline]: The [study](https://example.com/study) informed this decision.",
+        actor_type: "human",
+        actor_id: user.id
+      )
+      plan.update!(current_plan_version: version, current_revision: 2)
+
+      result = helper.plan_citation_back_matter(plan, plan.references.reload)
+      source = Nokogiri::HTML::DocumentFragment.parse(result[:html]).at_css("a.citation-source")
+
+      expect(source["class"]).to include("citation-source--inline")
+      expect(source.text).to eq("study")
+      expect(source["title"]).to eq("Website · example.com")
+    end
+
+    it "lists uncited resources without repeating cited resources" do
       cited = plan.references.first
       uncited = create(:reference, plan: plan, url: "https://github.com/block/coplan", source: "extracted")
       explicit = create(:reference, plan: plan, url: cited.url.sub("sample", "curated"), source: "explicit")
+      cited.update!(source: "explicit")
 
       listed = helper.listed_plan_references(plan.references.reload, Set[cited.url])
 
