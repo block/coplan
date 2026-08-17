@@ -3,12 +3,14 @@
     (content commits, visibility changes, API edits) with no current_user,
     so viewer-relative chrome (presence, the owner toolbar, Save) lives in
     the masthead's side column next to this, never inside it. %>
+<% author_placement = local_assigns.fetch(:author_placement) { plan.author_placement } %>
 <div class="page-header page-header--plan" id="plan-header">
   <%= plan_type_icon(plan, size: :lg) %>
   <div class="page-header__text">
     <h1 class="page-header__title"><%= plan.title %></h1>
     <div class="page-header__byline text-sm text-muted">
       <%= user_avatar(plan.created_by_user) %> <%= profile_link(plan.created_by_user) %> · v<%= plan.current_revision %><%= plan_state_badge(plan) %>
+      <%= render "coplan/plans/location_link", plan: plan, placement: author_placement, location: :masthead %>
     </div>
   </div>
 </div>
