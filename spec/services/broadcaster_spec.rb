@@ -6,7 +6,7 @@ RSpec.describe CoPlan::Broadcaster do
     p = CoPlan::Plan.create!(title: "Test Plan", created_by_user: author)
     version = CoPlan::PlanVersion.create!(
       plan: p, revision: 1,
-      content_markdown: "# Hello world\n\nSome content here.",
+      content_markdown: "# Hello world\n\nSome content here. [Source](https://example.com/evidence)",
       actor_type: "human", actor_id: author.id
     )
     p.update!(current_plan_version: version, current_revision: 1)
@@ -19,7 +19,7 @@ RSpec.describe CoPlan::Broadcaster do
     # the captured payloads.
     before { plan }
 
-    it "broadcasts a custom turbo-stream action targeting #plan-content-body" do
+    it "broadcasts the document body and its unified citation back matter" do
       payloads = []
       allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to) do |_streamable, content:|
         payloads << content.to_s
@@ -27,13 +27,21 @@ RSpec.describe CoPlan::Broadcaster do
 
       described_class.replace_plan_content(plan)
 
-      expect(payloads.size).to eq(1)
+      expect(payloads.size).to eq(5)
       expect(payloads.first).to include('action="coplan-replace-if-clean"')
       expect(payloads.first).to include('target="plan-content-body"')
       expect(payloads.first).to include('data-revision="1"')
       # The fresh markdown render is wrapped in a <template>
       expect(payloads.first).to include("<template>")
       expect(payloads.first).to include("Hello world")
+      expect(payloads.second).to include('action="coplan-replace-if-clean"')
+      expect(payloads.second).to include('target="plan-citations"')
+      expect(payloads.second).to include('data-revision="1"')
+      expect(payloads.third).to include('target="plan-extracted-references"')
+      expect(payloads.third).to include("Source")
+      expect(payloads.fourth).to include('target="references-count"')
+      expect(payloads.fifth).to include('target="nav-references-count"')
+      expect(payloads.join).not_to include("authenticity_token")
     end
 
     it "reflects the latest revision so stale-tab clients can ignore self-broadcasts" do

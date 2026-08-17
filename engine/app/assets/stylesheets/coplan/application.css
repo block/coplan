@@ -2007,6 +2007,26 @@ img.avatar {
   font-size: var(--text-xs);
 }
 
+.reference-preview__body .citation-source__icon {
+  display: none;
+}
+
+.reference-preview__body .citation-source__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reference-preview__body .citation-source__title {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.reference-preview__body .citation-source__meta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
 .reference-preview--sheet {
   top: auto !important;
   left: 0 !important;
@@ -3283,10 +3303,86 @@ img.avatar {
   color: var(--color-text-muted);
 }
 
+#plan-citations:empty {
+  display: none;
+}
+
+.reference-citations {
+  margin-top: var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.reference-citations > ol {
+  margin: 0;
+  padding-left: calc(24px + var(--space-lg));
+}
+
+.reference-citations > ol > li {
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.reference-citations > ol > li::marker {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.reference-citations p {
+  margin: 0;
+}
+
+.reference-citations a[data-footnote-backref] {
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.citation-source {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  max-width: 100%;
+  margin: 2px 1px;
+  padding: 4px var(--space-sm);
+  vertical-align: middle;
+  color: inherit;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+}
+
+.citation-source:hover {
+  border-color: var(--color-primary);
+}
+
+.citation-source__icon {
+  flex-shrink: 0;
+  font-size: var(--text-base);
+}
+
+.citation-source__content {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.citation-source__title {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.citation-source__meta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
 .references-list {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: var(--space-xs) 0 0;
 }
 
 .references-list__item {
@@ -3320,9 +3416,12 @@ img.avatar {
 
 .references-list__meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
   margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
 }
 
 .references-list__source {

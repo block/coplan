@@ -149,10 +149,10 @@ module CoPlan
         .order(:created_at)
       @my_folders = current_user.library.folders.order(:name).to_a
       @threads = @plan.comment_threads.with_kept_comments.includes(:comments, :created_by_user).order(:created_at)
-      # Links already visible in the document remain auto-extracted for API
-      # discovery, but repeating them in back matter duplicates citations.
-      # Only separately curated resources belong in the reader UI.
-      @references = @plan.references.explicit.order(reference_type: :asc, created_at: :desc)
+      # The reader view joins auto-extracted resources to their Markdown
+      # citations by URL, then lists the remaining resources in the same
+      # References section.
+      @references = @plan.references.order(reference_type: :asc, created_at: :desc)
       @attachments = @plan.attachments_attachments.includes(:blob).order(created_at: :desc)
       # Order matters: compute the one-time "changed since you last looked"
       # highlights against the old last_seen_at, then advance it — so the

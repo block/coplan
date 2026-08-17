@@ -48,7 +48,8 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).to include("Citations and internal cross-references")
       expect(response.body).to include("[§3.1](#section-3-1)")
       expect(response.body).to include("structured, document-level inventory")
-      expect(response.body).to include("Additional resources")
+      expect(response.body).to include("one **References** section")
+      expect(response.body).to include("source type, domain, and icon")
       expect(response.body).to include("click jumps to it")
     end
 

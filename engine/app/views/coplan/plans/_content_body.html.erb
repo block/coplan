@@ -8,5 +8,5 @@
     on write paths; the explicit RENDER_CACHE_VERSION key handles renderer
     changes instead. -%>
 <% cache ["coplan/plan-content-body", CoPlan::MarkdownHelper::RENDER_CACHE_VERSION, plan.id, plan.current_plan_version&.content_sha256 || plan.current_revision], skip_digest: true do %>
-  <%= render_markdown(plan.current_content) %>
+  <%= render_markdown(plan.current_content, footnotes: :exclude) %>
 <% end %>

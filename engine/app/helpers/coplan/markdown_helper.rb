@@ -34,7 +34,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 5
+    RENDER_CACHE_VERSION = 6
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -46,7 +46,7 @@ module CoPlan
     # one markdown fragment (e.g. each comment) — commonmarker numbers
     # footnote ids from #fn-1 per document, so unprefixed fragments collide
     # and reference/backref links jump to the wrong footnote.
-    def render_markdown(content, interactive: true, footnote_prefix: nil)
+    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline)
       render_options = { unsafe: true }
       # Sourcepos is only needed to wire checkboxes to their source lines;
       # make_checkboxes_interactive strips it from the final output.
@@ -57,6 +57,9 @@ module CoPlan
       sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       result = interactive ? make_checkboxes_interactive(sanitized, content) : sanitized
       result = scope_footnote_ids(result, footnote_prefix) if footnote_prefix
+      result = select_footnotes(result, footnotes)
+      return result.html_safe if footnotes == :only
+
       tag.div(result.html_safe, class: "markdown-rendered", data: { controller: "coplan--mermaid coplan--syntax-highlight" })
     end
 
@@ -164,6 +167,21 @@ module CoPlan
       anchor["aria-haspopup"] = "dialog"
       anchor["aria-expanded"] = "false"
       anchor["data-action"] = [ anchor["data-action"], REFERENCE_PREVIEW_ACTIONS ].compact.join(" ")
+    end
+
+    def select_footnotes(html, mode)
+      return html if mode == :inline
+
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      sections = doc.css("section[data-footnotes]")
+      if mode == :only
+        sections.map(&:to_html).join
+      elsif mode == :exclude
+        sections.remove
+        doc.to_html
+      else
+        raise ArgumentError, "unknown footnote mode: #{mode.inspect}"
+      end
     end
 
     # Wires rendered task checkboxes to their source lines via Commonmarker's

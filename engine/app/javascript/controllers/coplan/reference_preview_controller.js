@@ -146,6 +146,11 @@ export default class extends Controller {
 
     const externalLinks = Array.from(wrapper.querySelectorAll('a[target="_blank"]'))
     externalLinks.forEach(node => {
+      if (node.classList.contains("citation-source")) {
+        node.classList.add("reference-preview__source")
+        return
+      }
+
       const originalText = node.textContent.trim()
       const url = new URL(node.href)
       const domain = url.hostname.replace(/^www\./, "")

@@ -71,6 +71,17 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include('href="#fnref-1"')
     end
 
+    it "can split footnotes from the document body for unified back matter" do
+      body = helper.render_markdown(markdown, footnotes: :exclude)
+      footnotes = helper.render_markdown(markdown, footnotes: :only)
+
+      expect(body).to include("A bold claim.")
+      expect(body).not_to include('data-footnotes')
+      expect(footnotes).to include('data-footnotes')
+      expect(footnotes).to include("The supporting detail.")
+      expect(footnotes).not_to include("A bold claim.")
+    end
+
     it "works in non-interactive mode" do
       html = helper.render_markdown(markdown, interactive: false)
       expect(html).to include('data-footnotes')

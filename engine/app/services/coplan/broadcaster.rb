@@ -50,6 +50,15 @@ module CoPlan
       # banner (dirty draft in progress).
       def replace_plan_content(plan)
         html = render(partial: "coplan/plans/content_body", locals: { plan: plan })
+        references = plan.references.order(reference_type: :asc, created_at: :desc)
+        back_matter = CoPlan::ApplicationController.helpers.plan_citation_back_matter(plan, references)
+        listed_references = CoPlan::ApplicationController.helpers.listed_plan_references(references, back_matter[:cited_urls])
+        extracted_references = listed_references.select { |reference| reference.source == "extracted" }
+        reference_count = back_matter[:count] + listed_references.size
+        extracted_html = render(
+          partial: "coplan/plans/reference_list",
+          locals: { references: extracted_references, plan: plan, allow_removal: false }
+        )
         custom_action_to(
           plan,
           action: "coplan-replace-if-clean",
@@ -57,6 +66,29 @@ module CoPlan
           html: html,
           attrs: { "data-revision" => plan.current_revision }
         )
+        custom_action_to(
+          plan,
+          action: "coplan-replace-if-clean",
+          target: "plan-citations",
+          html: back_matter[:html],
+          attrs: { "data-revision" => plan.current_revision }
+        )
+        custom_action_to(
+          plan,
+          action: "coplan-replace-if-clean",
+          target: "plan-extracted-references",
+          html: extracted_html,
+          attrs: { "data-revision" => plan.current_revision }
+        )
+        [ "references-count", "nav-references-count" ].each do |target|
+          custom_action_to(
+            plan,
+            action: "coplan-replace-if-clean",
+            target: target,
+            html: reference_count,
+            attrs: { "data-revision" => plan.current_revision }
+          )
+        end
       end
 
       private

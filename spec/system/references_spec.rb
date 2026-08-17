@@ -33,8 +33,30 @@ RSpec.describe "Plan references", type: :system do
       expect(page).to have_content("Some content here")
       # Empty state is one quiet line, scoped to the section (attachments
       # has its own "None yet").
-      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "No additional resources")
-      expect(page).to have_css("#footnote-references .plan-footnote__title", text: /additional resources/i)
+      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "No references yet")
+      expect(page).to have_css("#footnote-references .plan-footnote__title", text: /references/i)
+    end
+
+    it "includes auto-extracted links as rich resources when they are not citations" do
+      version = CoPlan::PlanVersion.create!(
+        plan: plan,
+        revision: 2,
+        content_markdown: "Read the [CoPlan repository](https://github.com/block/coplan) for implementation details.",
+        actor_type: "human",
+        actor_id: user.id
+      )
+      plan.update!(current_plan_version: version, current_revision: 2)
+
+      visit plan_path(plan)
+
+      within("#plan-extracted-references") do
+        link = find_link("CoPlan repository", href: "https://github.com/block/coplan")
+        expect(link["target"]).to eq("_blank")
+        expect(link["rel"]).to eq("noopener noreferrer")
+        expect(page).to have_css(".references-list__meta", text: /GitHub repository\s+·\s+github\.com ↗/)
+        expect(page).to have_css(".references-list__icon", text: "📦")
+      end
+      expect(page).to have_css("#references-count", text: "1")
     end
   end
 
@@ -74,13 +96,20 @@ RSpec.describe "Plan references", type: :system do
         source_link = find_link("Open the source", href: "https://docs.google.com/document/d/evidence")
         expect(source_link["target"]).to eq("_blank")
         expect(source_link["rel"]).to eq("noopener noreferrer")
-        expect(source_link["aria-label"]).to eq("Open source: Open the source in a new tab (Google Doc, docs.google.com)")
-        expect(source_link).to have_css(".reference-preview__source-meta", text: "Google Doc · docs.google.com ↗")
+        expect(source_link["aria-label"]).to eq("Open source: Open the source in a new tab (Google Doc · docs.google.com)")
+        expect(source_link).to have_css(".citation-source__meta", text: "Google Doc · docs.google.com ↗")
       end
-      expect(page).to have_css("#references-count", text: "0")
+      expect(page).to have_css("#references-count", text: "1")
+      expect(page).to have_no_css("#plan-content-body section[data-footnotes]")
+      within("#plan-citations") do
+        source_link = find_link("Open the source", href: "https://docs.google.com/document/d/evidence")
+        expect(source_link["target"]).to eq("_blank")
+        expect(source_link).to have_css(".citation-source__icon", text: "📄")
+        expect(source_link).to have_css(".citation-source__meta", text: "Google Doc · docs.google.com ↗")
+      end
       within("#plan-references") do
         expect(page).to have_no_link("Open the source", href: "https://docs.google.com/document/d/evidence")
-        expect(page).to have_text("No additional resources.")
+        expect(page).to have_no_text("No references yet.")
       end
 
       citation.click
@@ -126,7 +155,7 @@ RSpec.describe "Plan references", type: :system do
         fill_in "reference[url]", with: "https://github.com/org/repo"
         fill_in "reference[title]", with: "My Repo"
         fill_in "reference[key]", with: "my-repo"
-        click_button "Add resource"
+        click_button "Add reference"
       end
 
       # Turbo Stream replaces the list — reference appears without navigation
@@ -149,7 +178,7 @@ RSpec.describe "Plan references", type: :system do
       within(".add-modal:popover-open") do
         fill_in "reference[url]", with: "https://github.com/org/repo"
         fill_in "reference[title]", with: "Repo One"
-        click_button "Add resource"
+        click_button "Add reference"
       end
       expect(page).to have_content("Repo One")
       expect(page).to have_css("#references-count", text: "1")
@@ -160,7 +189,7 @@ RSpec.describe "Plan references", type: :system do
       within(".add-modal:popover-open") do
         fill_in "reference[url]", with: "https://github.com/org/other"
         fill_in "reference[title]", with: "Repo Two"
-        click_button "Add resource"
+        click_button "Add reference"
       end
 
       expect(page).to have_content("Repo One")
@@ -186,7 +215,7 @@ RSpec.describe "Plan references", type: :system do
       # Turbo Stream removes the reference and updates count
       expect(page).not_to have_content("Doomed")
       expect(page).to have_css("#references-count", text: "0")
-      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "No additional resources")
+      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "No references yet")
     end
   end
 

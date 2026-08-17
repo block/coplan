@@ -78,22 +78,34 @@ module CoPlan
     end
 
     def render_references_stream
-      references = @plan.references.reload.explicit.order(reference_type: :asc, created_at: :desc)
+      references = @plan.references.reload.order(reference_type: :asc, created_at: :desc)
+      back_matter = helpers.plan_citation_back_matter(@plan, references)
+      listed_references = helpers.listed_plan_references(references, back_matter[:cited_urls])
+      reference_count = back_matter[:count] + listed_references.size
       render turbo_stream: [
+        turbo_stream.replace(
+          "plan-citations",
+          partial: "coplan/plans/citations",
+          locals: { plan: @plan, back_matter: back_matter }
+        ),
         turbo_stream.replace(
           "plan-references",
           partial: "coplan/plans/references",
-          locals: { references: references, plan: @plan }
+          locals: {
+            references: listed_references,
+            plan: @plan,
+            has_citations: back_matter[:count].positive?
+          }
         ),
         turbo_stream.replace(
           "references-count",
-          html: helpers.content_tag(:span, references.size, class: "section-count", id: "references-count")
+          html: helpers.content_tag(:span, reference_count, class: "section-count", id: "references-count")
         ),
         # The document outline shows the same count; without this it goes
         # stale the moment a reference is added or removed.
         turbo_stream.replace(
           "nav-references-count",
-          html: helpers.content_tag(:span, references.size, class: "section-count", id: "nav-references-count")
+          html: helpers.content_tag(:span, reference_count, class: "section-count", id: "nav-references-count")
         )
       ]
     end
