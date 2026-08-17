@@ -149,6 +149,9 @@ module CoPlan
         .order(:created_at)
       @my_folders = current_user.library.folders.order(:name).to_a
       @threads = @plan.comment_threads.with_kept_comments.includes(:comments, :created_by_user).order(:created_at)
+      # The reader view joins auto-extracted resources to their Markdown
+      # citations by URL, then lists the remaining resources in the same
+      # References section.
       @references = @plan.references.order(reference_type: :asc, created_at: :desc)
       @attachments = @plan.attachments_attachments.includes(:blob).order(created_at: :desc)
       # Order matters: compute the one-time "changed since you last looked"

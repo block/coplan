@@ -1,0 +1,23 @@
+<% if references.any? %>
+  <ul class="references-list">
+    <% references.each do |ref| %>
+      <li class="references-list__item">
+        <div class="references-list__content">
+          <a href="<%= ref.url %>" target="_blank" rel="noopener noreferrer" class="references-list__link">
+            <%= ref.title.presence || truncate(ref.url, length: 80) %>
+          </a>
+          <span class="references-list__meta">
+            <span><%= reference_type_label(ref.reference_type, ref.url) %></span>
+            <% if reference_domain(ref.url).present? %>
+              <span aria-hidden="true">·</span>
+              <span><%= reference_domain(ref.url) %> ↗</span>
+            <% end %>
+          </span>
+        </div>
+        <% if allow_removal && current_user && CoPlan::PlanPolicy.new(current_user, plan).update? %>
+          <%= button_to "✕", plan_reference_path(plan, ref), method: :delete, class: "references-list__remove", title: "Remove reference", data: { turbo_confirm: "Remove this reference?", turbo_stream: true } %>
+        <% end %>
+      </li>
+    <% end %>
+  </ul>
+<% end %>

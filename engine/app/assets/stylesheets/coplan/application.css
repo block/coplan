@@ -1855,7 +1855,25 @@ img.avatar {
 .markdown-rendered .footnote-ref a,
 .markdown-rendered sup a[data-footnote-ref] {
   text-decoration: none;
-  padding: 0 2px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  font-weight: 600;
+}
+
+.markdown-rendered .reference-anchor--section {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.markdown-rendered .reference-anchor:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.markdown-rendered [id^="section-"] {
+  scroll-margin-top: calc(var(--nav-height) + var(--space-lg));
 }
 
 .markdown-rendered section[data-footnotes] {
@@ -1866,12 +1884,154 @@ img.avatar {
   color: var(--color-text-muted);
 }
 
+.markdown-rendered section[data-footnotes] .footnotes-title {
+  margin: 0 0 var(--space-md);
+  color: var(--color-text);
+  font-size: var(--text-lg);
+}
+
 .markdown-rendered section[data-footnotes] p {
   margin-bottom: var(--space-xs);
 }
 
 .markdown-rendered a[data-footnote-backref] {
   text-decoration: none;
+}
+
+/* Citation and internal-section previews. A single manual popover is filled
+   from the rendered target already on the page, so it opens without a fetch
+   and can coexist with comment popovers. */
+.reference-preview {
+  display: none;
+  position: fixed;
+  inset: auto;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(55vh, 460px);
+  margin: 0;
+  padding: var(--space-md);
+  overflow-y: auto;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 210;
+}
+
+.reference-preview:popover-open {
+  display: block;
+}
+
+/* Fallback for browsers without the Popover API. Kept as its own selector so
+   an older parser rejecting :popover-open does not discard this rule too. */
+.reference-preview--open {
+  display: block;
+}
+
+.reference-preview__close {
+  display: inline-flex;
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  font: inherit;
+  font-size: var(--text-lg);
+  cursor: pointer;
+}
+
+.reference-preview__close:hover {
+  color: var(--color-text);
+  background: var(--color-bg-muted);
+}
+
+.reference-preview__title {
+  display: block;
+  padding-right: calc(24px + var(--space-sm));
+  margin-bottom: var(--space-sm);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.reference-preview__title[hidden] {
+  display: none;
+}
+
+.reference-preview__body {
+  padding-right: calc(24px + var(--space-sm));
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.reference-preview__body p {
+  margin: 0;
+}
+
+.reference-preview__body a {
+  color: var(--color-primary);
+  overflow-wrap: anywhere;
+}
+
+.reference-preview__body .reference-preview__source {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  color: inherit;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+}
+
+.reference-preview__body .reference-preview__source:hover {
+  border-color: var(--color-primary);
+}
+
+.reference-preview__source-title {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.reference-preview__source-meta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.reference-preview__body .citation-source__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reference-preview__body .citation-source__title {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.reference-preview__body .citation-source__meta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.reference-preview--sheet {
+  top: auto !important;
+  left: 0 !important;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-height: 55vh;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: none;
 }
 
 /* Comment popover (appears on text selection) */
@@ -3126,9 +3286,7 @@ img.avatar {
 }
 
 /* References section */
-/* Section bodies hang under the header, indented past the round "+" so
-   content lines up with the section title. */
-.references-section,
+/* Empty attachment copy hangs under the header, indented past the round "+". */
 .attachments-section {
   padding: 0 0 0 calc(24px + var(--space-sm));
 }
@@ -3139,28 +3297,118 @@ img.avatar {
   color: var(--color-text-muted);
 }
 
+#plan-citations:empty {
+  display: none;
+}
+
+.reference-citations {
+  margin-top: var(--space-md);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+#footnote-references {
+  counter-reset: plan-reference;
+}
+
+.reference-citations > ol {
+  display: grid;
+  gap: var(--space-lg);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reference-citations > ol > li {
+  position: relative;
+  padding: 0 0 0 calc(24px + var(--space-md));
+  line-height: 1.55;
+  counter-increment: plan-reference;
+  scroll-margin-top: calc(var(--nav-height) + var(--space-lg));
+}
+
+.reference-citations > ol > li::before,
+.references-list__item::before {
+  content: counter(plan-reference) ".";
+  position: absolute;
+  left: 0;
+  width: 24px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-align: right;
+}
+
+.reference-citations p {
+  margin: 0;
+}
+
+.reference-citations a[data-footnote-backref] {
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.reference-citations > ol > li:hover a[data-footnote-backref],
+.reference-citations a[data-footnote-backref]:focus-visible {
+  color: var(--color-primary);
+  opacity: 1;
+}
+
+.citation-source--inline {
+  color: var(--color-primary);
+}
+
+.citation-source--block {
+  display: inline;
+  color: inherit;
+  text-decoration: none;
+}
+
+.citation-source--block:hover .citation-source__title {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.citation-source__content {
+  display: inline;
+}
+
+.citation-source__title {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.citation-source__meta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.reference-citations .citation-source__meta::before {
+  content: " · ";
+}
+
 .references-list {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: var(--space-sm) 0 0;
 }
 
 .references-list__item {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-sm);
-  padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--color-border);
+  position: relative;
+  padding: var(--space-xs) 0 var(--space-xs) calc(24px + var(--space-md));
+  counter-increment: plan-reference;
 }
 
-.references-list__item:last-child {
-  border-bottom: none;
-}
-
-.references-list__icon {
-  flex-shrink: 0;
-  font-size: var(--text-lg);
-  line-height: 1.4;
+.references-list__item::before {
+  top: var(--space-xs);
+  font-size: var(--text-sm);
 }
 
 .references-list__content {
@@ -3169,41 +3417,29 @@ img.avatar {
 }
 
 .references-list__link {
-  display: block;
-  word-break: break-all;
+  display: inline;
+  color: var(--color-primary);
   font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.references-list__link:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .references-list__meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin-top: 2px;
-}
-
-.references-list__source {
-  font-size: 0.75rem;
+  display: inline;
   color: var(--color-text-muted);
-  font-style: italic;
+  font-size: var(--text-xs);
 }
 
-.badge--ref-type {
-  font-size: 0.7rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--color-bg);
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
-}
-
-.badge--ref-key {
-  font-size: 0.7rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--color-surface);
-  color: var(--color-primary);
-  border: 1px solid var(--color-primary);
-  font-family: var(--font-mono, monospace);
+.references-list__meta::before {
+  content: " · ";
 }
 
 .references-list__remove {
@@ -3215,12 +3451,24 @@ img.avatar {
   padding: 2px 6px;
   font-size: var(--text-sm);
   border-radius: var(--radius);
-  transition: color 0.15s, background 0.15s;
+  opacity: 0;
+  transition: color 0.15s, background 0.15s, opacity 0.15s;
+}
+
+.references-list__item:hover .references-list__remove,
+.references-list__remove:focus-visible {
+  opacity: 1;
 }
 
 .references-list__remove:hover {
   color: var(--color-danger);
   background: var(--color-bg);
+}
+
+@media (hover: none) {
+  .references-list__remove {
+    opacity: 1;
+  }
 }
 
 .references-section__header {
