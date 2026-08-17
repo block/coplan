@@ -23,6 +23,29 @@ RSpec.describe CoPlan::Plan, type: :model do
     expect(plan.visibility).to eq("published")
   end
 
+  # Untyped plans are unrepresentable: belongs_to presence + NOT NULL in
+  # the schema. Creation stays type-optional — the General catch-all fills
+  # in — so no caller is forced to pick a type.
+  describe "plan type requirement" do
+    it "defaults to the General type when created without one" do
+      plan = create(:plan)
+      expect(plan.plan_type.name).to eq("General")
+    end
+
+    it "keeps an explicitly chosen type" do
+      rfc = create(:plan_type, name: "RFC")
+      plan = create(:plan, plan_type: rfc)
+      expect(plan.plan_type).to eq(rfc)
+    end
+
+    it "cannot have its type cleared after creation" do
+      plan = create(:plan)
+      plan.plan_type = nil
+      expect(plan).not_to be_valid
+      expect(plan.errors[:plan_type]).to be_present
+    end
+  end
+
   it "returns current content from version" do
     plan = create(:plan)
     expect(plan.current_content).to include("Plan Content")
@@ -134,7 +157,7 @@ RSpec.describe CoPlan::Plan, type: :model do
 
     after do
       truncate_tables(*%w[coplan_plan_tags coplan_tags coplan_plan_versions coplan_plans
-                          coplan_search_queries coplan_users])
+                          coplan_plan_types coplan_search_queries coplan_users])
     end
 
     let!(:author) { create(:coplan_user, name: "Tessa Engineer") }

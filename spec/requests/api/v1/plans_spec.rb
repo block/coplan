@@ -65,6 +65,13 @@ RSpec.describe "Api::V1::Plans", type: :request do
     expect(body["current_revision"]).to eq(1)
   end
 
+  it "create without plan_type files the plan under the General catch-all" do
+    post api_v1_plans_path, params: { title: "Untyped Plan", content: "# Untyped" }, headers: headers, as: :json
+    expect(response).to have_http_status(:created)
+    body = JSON.parse(response.body)
+    expect(body["plan_type_name"]).to eq("General")
+  end
+
   it "create with plan_type by name" do
     plan_type = create(:plan_type, name: "design-doc")
     post api_v1_plans_path, params: { title: "Typed Plan", content: "# Typed", plan_type: "design-doc" }, headers: headers, as: :json

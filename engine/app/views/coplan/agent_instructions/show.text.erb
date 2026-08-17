@@ -57,7 +57,7 @@ Returns: plan metadata, `current_content`, `current_revision`, `comment_threads`
   "<%= @base %>/api/v1/plans" | jq .
 ```
 
-Optional fields: `plan_type` (string) — the name of a plan type to use (see [Plan Types](#plan-types) below); `visibility` (string) — plans are **shared with the whole org by default**; `"draft"` (shown as "private" in the UI) exists as a rare escape hatch, not a normal step (see [Visibility &amp; Archiving](#visibility--archiving)).
+Optional fields: `plan_type` (string) — the name of a plan type to use; every plan has a type, so omitting this files the plan under the **General** catch-all (see [Plan Types](#plan-types) below); `visibility` (string) — plans are **shared with the whole org by default**; `"draft"` (shown as "private" in the UI) exists as a rare escape hatch, not a normal step (see [Visibility &amp; Archiving](#visibility--archiving)).
 
 #### Diagrams
 
@@ -200,7 +200,7 @@ The API also accepts the legacy `status` field (`brainstorm`/`considering`/`deve
 
 ### Plan Types
 
-Plan types categorize plans and provide default tags. When creating a plan, pass `plan_type` to associate it with a type.
+Plan types categorize plans and provide default tags. Every plan has exactly one type. When creating a plan, pass `plan_type` to pick one — plans created without an explicit type get **General**.
 <% if @plan_types.any? %>
 
 **Available plan types:**
