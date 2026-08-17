@@ -33,8 +33,8 @@ RSpec.describe "Plan references", type: :system do
       expect(page).to have_content("Some content here")
       # Empty state is one quiet line, scoped to the section (attachments
       # has its own "None yet").
-      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "None added")
-      expect(page).to have_css("#footnote-references .plan-footnote__title", text: /related resources/i)
+      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "No additional resources")
+      expect(page).to have_css("#footnote-references .plan-footnote__title", text: /additional resources/i)
     end
   end
 
@@ -53,7 +53,7 @@ RSpec.describe "Plan references", type: :system do
 
           Start with a five-percent cohort and monitor errors for one week.
 
-          [^launch-data]: The production sample covered 30 days. [Open the source](https://example.com/evidence).
+          [^launch-data]: The production sample covered 30 days. [Open the source](https://docs.google.com/document/d/evidence).
         MARKDOWN
         actor_type: "human",
         actor_id: user.id
@@ -71,15 +71,16 @@ RSpec.describe "Plan references", type: :system do
       within(".reference-preview") do
         expect(page).to have_no_text("CITATION")
         expect(page).to have_no_text("Reference 1")
-        source_link = find_link("Open external link ↗", href: "https://example.com/evidence")
+        source_link = find_link("Open the source", href: "https://docs.google.com/document/d/evidence")
         expect(source_link["target"]).to eq("_blank")
         expect(source_link["rel"]).to eq("noopener noreferrer")
-        expect(source_link["aria-label"]).to eq("Open external link: Open the source")
+        expect(source_link["aria-label"]).to eq("Open source: Open the source in a new tab (Google Doc, docs.google.com)")
+        expect(source_link).to have_css(".reference-preview__source-meta", text: "Google Doc · docs.google.com ↗")
       end
       expect(page).to have_css("#references-count", text: "0")
       within("#plan-references") do
-        expect(page).to have_no_link("Open the source", href: "https://example.com/evidence")
-        expect(page).to have_text("None added.")
+        expect(page).to have_no_link("Open the source", href: "https://docs.google.com/document/d/evidence")
+        expect(page).to have_text("No additional resources.")
       end
 
       citation.click
@@ -185,7 +186,7 @@ RSpec.describe "Plan references", type: :system do
       # Turbo Stream removes the reference and updates count
       expect(page).not_to have_content("Doomed")
       expect(page).to have_css("#references-count", text: "0")
-      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "None added")
+      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "No additional resources")
     end
   end
 

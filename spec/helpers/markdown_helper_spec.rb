@@ -42,6 +42,7 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
 
       expect(external["target"]).to eq("_blank")
       expect(external["rel"]).to eq("noopener noreferrer")
+      expect(external["data-reference-type"]).to eq("link")
       expect(internal["target"]).to be_nil
       expect(internal["rel"]).to be_nil
     end

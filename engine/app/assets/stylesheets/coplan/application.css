@@ -1980,6 +1980,33 @@ img.avatar {
   overflow-wrap: anywhere;
 }
 
+.reference-preview__body .reference-preview__source {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  color: inherit;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+}
+
+.reference-preview__body .reference-preview__source:hover {
+  border-color: var(--color-primary);
+}
+
+.reference-preview__source-title {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.reference-preview__source-meta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
 .reference-preview--sheet {
   top: auto !important;
   left: 0 !important;

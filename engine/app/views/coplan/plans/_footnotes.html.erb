@@ -7,11 +7,11 @@
   <section class="plan-footnote" id="footnote-references" data-plan-section="references" aria-labelledby="footnote-references-title">
     <div class="plan-footnote__header">
       <% if current_user && allowed_to?(plan, :contribute?) %>
-        <button type="button" class="section-add" popovertarget="add-reference-modal" title="Add a related resource" aria-label="Add a related resource">
+        <button type="button" class="section-add" popovertarget="add-reference-modal" title="Add an additional resource" aria-label="Add an additional resource">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
         </button>
       <% end %>
-      <h2 class="plan-footnote__title" id="footnote-references-title">Related resources</h2>
+      <h2 class="plan-footnote__title" id="footnote-references-title">Additional resources</h2>
       <span class="section-count" id="references-count"><%= references.size %></span>
     </div>
     <%= render partial: "coplan/plans/references", locals: { references: references, plan: plan } %>

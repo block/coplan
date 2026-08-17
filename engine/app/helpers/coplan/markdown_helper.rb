@@ -16,7 +16,7 @@ module CoPlan
       section
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title target rel type checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
+    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title target rel type checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-reference-type data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
 
     # Commonmarker extensions beyond the gem defaults (tables, tasklist,
     # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
@@ -34,7 +34,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 4
+    RENDER_CACHE_VERSION = 5
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -100,6 +100,7 @@ module CoPlan
 
         anchor["target"] = "_blank"
         anchor["rel"] = "noopener noreferrer"
+        anchor["data-reference-type"] = Reference.classify_url(anchor["href"])
       end
 
       if numbered_sections

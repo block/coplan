@@ -145,13 +145,49 @@ export default class extends Controller {
     wrapper.querySelectorAll('input[type="checkbox"]').forEach(node => node.setAttribute("disabled", ""))
 
     const externalLinks = Array.from(wrapper.querySelectorAll('a[target="_blank"]'))
-    externalLinks.forEach((node, index) => {
+    externalLinks.forEach(node => {
       const originalText = node.textContent.trim()
-      node.setAttribute("aria-label", `Open external link: ${originalText}`)
-      node.textContent = externalLinks.length > 1 ? `Open external link ${index + 1} ↗` : "Open external link ↗"
+      const url = new URL(node.href)
+      const domain = url.hostname.replace(/^www\./, "")
+      const type = this.referenceTypeLabel(node.dataset.referenceType, url)
+
+      const title = document.createElement("span")
+      title.className = "reference-preview__source-title"
+      title.textContent = originalText || domain
+
+      const metadata = document.createElement("span")
+      metadata.className = "reference-preview__source-meta"
+      metadata.textContent = `${type} · ${domain} ↗`
+
+      node.classList.add("reference-preview__source")
+      node.setAttribute("aria-label", `Open source: ${originalText || domain} in a new tab (${type}, ${domain})`)
+      node.replaceChildren(title, metadata)
+
+      const punctuation = node.nextSibling
+      if (punctuation?.nodeType === Node.TEXT_NODE && /^\s*[.,;:]\s*$/.test(punctuation.textContent)) punctuation.remove()
     })
 
     this.bodyTarget.replaceChildren(...Array.from(wrapper.childNodes))
+  }
+
+  referenceTypeLabel(referenceType, url) {
+    if (referenceType === "plan") return "CoPlan plan"
+    if (referenceType === "repository") return "GitHub repository"
+    if (referenceType === "pull_request") return "GitHub pull request"
+
+    if (referenceType === "document") {
+      if (url.hostname === "docs.google.com") {
+        if (url.pathname.startsWith("/spreadsheets/")) return "Google Sheet"
+        if (url.pathname.startsWith("/presentation/")) return "Google Slides"
+        return "Google Doc"
+      }
+      if (url.hostname === "drive.google.com") return "Google Drive"
+      if (url.hostname.endsWith("notion.so") || url.hostname.endsWith("notion.site")) return "Notion"
+      if (url.hostname.includes("confluence")) return "Confluence"
+      return "Document"
+    }
+
+    return /(^|\.)gov(\.|$)/.test(url.hostname) ? "Government website" : "Website"
   }
 
   renderSection(heading) {

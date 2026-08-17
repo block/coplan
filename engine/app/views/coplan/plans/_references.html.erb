@@ -4,7 +4,7 @@
       create action replaces this container via turbo_stream, which closes
       the lightbox the moment the reference lands. %>
   <% if current_user %>
-    <%= render layout: "coplan/shared/add_modal", locals: { id: "add-reference-modal", title: "Add a related resource" } do %>
+    <%= render layout: "coplan/shared/add_modal", locals: { id: "add-reference-modal", title: "Add an additional resource" } do %>
       <%= form_with url: plan_references_path(plan), method: :post, class: "add-modal__form" do |f| %>
         <div class="form-group">
           <%= f.label :url, "URL", for: "reference_url" %>
@@ -53,6 +53,6 @@
     </ul>
   <% else %>
     <%# One quiet line, not a padded card — empty is the common case. %>
-    <p class="plan-footnote__empty">None added.</p>
+    <p class="plan-footnote__empty">No additional resources.</p>
   <% end %>
 </div>
