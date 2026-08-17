@@ -1928,24 +1928,11 @@ img.avatar {
   display: block;
 }
 
-.reference-preview__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
-}
-
-.reference-preview__label {
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
 .reference-preview__close {
   display: inline-flex;
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
   align-items: center;
   justify-content: center;
   width: 24px;
@@ -1967,12 +1954,18 @@ img.avatar {
 
 .reference-preview__title {
   display: block;
+  padding-right: calc(24px + var(--space-sm));
   margin-bottom: var(--space-sm);
   font-size: var(--text-sm);
   line-height: 1.4;
 }
 
+.reference-preview__title[hidden] {
+  display: none;
+}
+
 .reference-preview__body {
+  padding-right: calc(24px + var(--space-sm));
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   line-height: 1.55;

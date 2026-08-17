@@ -69,9 +69,12 @@ RSpec.describe "Plan references", type: :system do
       citation.hover
       expect(page).to have_css(".reference-preview", text: "production sample covered 30 days", visible: :visible)
       within(".reference-preview") do
-        source_link = find_link("Open the source", href: "https://example.com/evidence")
+        expect(page).to have_no_text("CITATION")
+        expect(page).to have_no_text("Reference 1")
+        source_link = find_link("Open external link ↗", href: "https://example.com/evidence")
         expect(source_link["target"]).to eq("_blank")
         expect(source_link["rel"]).to eq("noopener noreferrer")
+        expect(source_link["aria-label"]).to eq("Open external link: Open the source")
       end
       expect(page).to have_css("#references-count", text: "0")
       within("#plan-references") do
@@ -86,6 +89,7 @@ RSpec.describe "Plan references", type: :system do
       section_link = find('a.reference-anchor--section[href="#section-2-1"]')
       section_link.hover
       expect(section_link["aria-expanded"]).to eq("true")
+      expect(page).to have_no_css(".reference-preview", text: "INTERNAL REFERENCE", visible: :visible)
       expect(page).to have_css(".reference-preview__title", text: "2.1 Rollout", visible: :visible)
       expect(page).to have_css(".reference-preview__body", text: "five-percent cohort", visible: :visible)
       expect(page).to have_no_css(".reference-preview__body", text: "production sample covered 30 days", visible: :visible)

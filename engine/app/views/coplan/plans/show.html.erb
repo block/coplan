@@ -102,13 +102,9 @@
                class="reference-preview"
                popover="manual"
                role="dialog"
-               aria-labelledby="reference-preview-title"
                data-coplan--reference-preview-target="popover"
                data-action="mouseenter->coplan--reference-preview#popoverEnter mouseleave->coplan--reference-preview#popoverLeave">
-          <div class="reference-preview__header">
-            <span class="reference-preview__label" data-coplan--reference-preview-target="label"></span>
-            <button type="button" class="reference-preview__close" aria-label="Close reference preview" data-action="coplan--reference-preview#dismiss">×</button>
-          </div>
+          <button type="button" class="reference-preview__close" aria-label="Close reference preview" data-action="coplan--reference-preview#dismiss">×</button>
           <strong id="reference-preview-title" class="reference-preview__title" data-coplan--reference-preview-target="title"></strong>
           <div class="reference-preview__body" data-coplan--reference-preview-target="body"></div>
         </aside>

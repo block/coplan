@@ -8,7 +8,7 @@ const SECTION_PREVIEW_LENGTH = 520
 // The target content is already present and sanitized in the plan DOM, so
 // opening a preview is instant and never depends on another request.
 export default class extends Controller {
-  static targets = ["popover", "label", "title", "body"]
+  static targets = ["popover", "title", "body"]
 
   connect() {
     this.mode = null
@@ -118,8 +118,10 @@ export default class extends Controller {
 
   renderPreview(anchor, target) {
     const footnote = anchor.classList.contains("reference-anchor--footnote")
-    this.labelTarget.textContent = footnote ? "Citation" : "Internal reference"
-    this.titleTarget.textContent = footnote ? `Reference ${anchor.textContent.trim()}` : target.textContent.trim()
+    const title = target.textContent.trim()
+    this.titleTarget.hidden = footnote
+    this.titleTarget.textContent = footnote ? "" : title
+    this.popoverTarget.setAttribute("aria-label", footnote ? "Citation preview" : `Section preview: ${title}`)
 
     if (footnote) {
       this.renderFootnote(target)
@@ -141,6 +143,13 @@ export default class extends Controller {
     })
     wrapper.querySelectorAll("a[data-footnote-backref]").forEach(node => node.remove())
     wrapper.querySelectorAll('input[type="checkbox"]').forEach(node => node.setAttribute("disabled", ""))
+
+    const externalLinks = Array.from(wrapper.querySelectorAll('a[target="_blank"]'))
+    externalLinks.forEach((node, index) => {
+      const originalText = node.textContent.trim()
+      node.setAttribute("aria-label", `Open external link: ${originalText}`)
+      node.textContent = externalLinks.length > 1 ? `Open external link ${index + 1} ↗` : "Open external link ↗"
+    })
 
     this.bodyTarget.replaceChildren(...Array.from(wrapper.childNodes))
   }
