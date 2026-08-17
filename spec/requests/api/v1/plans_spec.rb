@@ -57,12 +57,20 @@ RSpec.describe "Api::V1::Plans", type: :request do
 
   it "create creates new plan" do
     expect {
-      post api_v1_plans_path, params: { title: "API Plan", content: "# API Plan\n\nCreated via API." }, headers: headers, as: :json
+      post api_v1_plans_path, params: { title: "API Plan", content: "# API Plan\n\nCreated via API.", agent_name: "Claude" }, headers: headers, as: :json
     }.to change(CoPlan::Plan, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["title"]).to eq("API Plan")
     expect(body["current_revision"]).to eq(1)
+
+    version = CoPlan::Plan.find(body.fetch("id")).current_plan_version
+    expect(version).to have_attributes(
+      actor_type: "local_agent",
+      actor_id: alice.id,
+      agent_name: "Claude",
+      api_token_id: alice_token.id
+    )
   end
 
   it "create without plan_type files the plan under the General catch-all" do

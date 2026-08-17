@@ -3,16 +3,26 @@ module CoPlan
     class Create
       # Plans are shared by default: they're created published unless the
       # caller explicitly asks for an unlisted draft.
-      def self.call(title:, content:, user:, plan_type_id: nil, visibility: "published")
-        new(title:, content:, user:, plan_type_id:, visibility:).call
+      def self.call(
+        title:, content:, user:, plan_type_id: nil, visibility: "published",
+        actor_type: "human", actor_id: nil, agent_name: nil, api_token_id: nil
+      )
+        new(title:, content:, user:, plan_type_id:, visibility:, actor_type:, actor_id:, agent_name:, api_token_id:).call
       end
 
-      def initialize(title:, content:, user:, plan_type_id: nil, visibility: "published")
+      def initialize(
+        title:, content:, user:, plan_type_id: nil, visibility: "published",
+        actor_type: "human", actor_id: nil, agent_name: nil, api_token_id: nil
+      )
         @title = title
         @content = content
         @user = user
         @plan_type_id = plan_type_id
         @visibility = visibility
+        @actor_type = actor_type
+        @actor_id = actor_id || user.id
+        @agent_name = agent_name
+        @api_token_id = api_token_id
       end
 
       def call
@@ -25,8 +35,10 @@ module CoPlan
             # same) — otherwise a CRLF-created document diffs against its
             # LF-edited successor on every line.
             content_markdown: @content.to_s.delete("\r"),
-            actor_type: "human",
-            actor_id: @user.id
+            actor_type: @actor_type,
+            actor_id: @actor_id,
+            agent_name: @agent_name,
+            api_token_id: @api_token_id
           )
           plan.update!(current_plan_version: version, current_revision: 1)
           plan

@@ -57,7 +57,11 @@ module CoPlan
               content: params[:content] || "",
               user: current_user,
               plan_type_id: plan_type&.id,
-              visibility: visibility
+              visibility: visibility,
+              actor_type: api_author_type,
+              actor_id: api_user_id,
+              agent_name: api_agent_name,
+              api_token_id: api_token_id
             )
 
             if params[:references].is_a?(Array)
