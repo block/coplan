@@ -14,6 +14,9 @@ module CoPlan
     validates :content_markdown, presence: true
     validates :content_sha256, presence: true
     validates :actor_type, presence: true, inclusion: { in: ACTOR_TYPES }
+    # Same cap as Comment#agent_name — the two render through the same
+    # "Agent (via User)" convention.
+    validates :agent_name, length: { maximum: 20 }, allow_nil: true
 
     before_validation :compute_sha256, if: -> { content_markdown.present? && content_sha256.blank? }
 

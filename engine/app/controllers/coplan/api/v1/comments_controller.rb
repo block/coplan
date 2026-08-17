@@ -21,7 +21,8 @@ module CoPlan
             author_type: api_author_type,
             author_id: current_user&.id,
             body_markdown: params[:body_markdown],
-            agent_name: params[:agent_name]
+            agent_name: api_agent_name,
+            api_token_id: api_token_id
           )
 
           reason = comment.agent? ? "agent_response" : "new_comment"
@@ -131,7 +132,8 @@ module CoPlan
             author_type: api_author_type,
             author_id: current_user&.id,
             body_markdown: params[:body_markdown],
-            agent_name: params[:agent_name]
+            agent_name: api_agent_name,
+            api_token_id: api_token_id
           )
 
           reason = comment.agent? ? "agent_response" : "reply"

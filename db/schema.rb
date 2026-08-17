@@ -85,6 +85,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
     t.datetime "created_at", null: false
     t.timestamp "expires_at"
     t.timestamp "last_used_at"
+    t.json "metadata"
     t.string "name", null: false
     t.string "parent_id", limit: 36
     t.timestamp "revoked_at"
@@ -126,6 +127,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
 
   create_table "coplan_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.string "agent_name"
+    t.string "api_token_id", limit: 36
     t.string "author_id", limit: 36
     t.string "author_type", null: false
     t.text "body_markdown", null: false
@@ -133,6 +135,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
     t.datetime "created_at", null: false
     t.datetime "deleted_at"
     t.datetime "updated_at", null: false
+    t.index ["api_token_id"], name: "index_coplan_comments_on_api_token_id"
     t.index ["comment_thread_id", "created_at"], name: "index_coplan_comments_on_comment_thread_id_and_created_at"
   end
 
@@ -241,12 +244,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
     t.string "actor_id", limit: 36
     t.string "actor_type", null: false
     t.text "after_value"
+    t.string "agent_name"
+    t.string "api_token_id", limit: 36
     t.text "before_value"
     t.datetime "created_at", null: false
     t.string "event_type", null: false
     t.string "field"
     t.json "metadata"
     t.string "plan_id", limit: 36, null: false
+    t.index ["api_token_id"], name: "index_coplan_plan_events_on_api_token_id"
     t.index ["event_type"], name: "index_coplan_plan_events_on_event_type"
     t.index ["plan_id", "created_at"], name: "index_coplan_plan_events_on_plan_id_and_created_at"
     t.index ["plan_id"], name: "index_coplan_plan_events_on_plan_id"
@@ -290,8 +296,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
   create_table "coplan_plan_versions", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.string "actor_id", limit: 36
     t.string "actor_type", null: false
+    t.string "agent_name"
     t.string "ai_model"
     t.string "ai_provider"
+    t.string "api_token_id", limit: 36
     t.integer "base_revision"
     t.text "change_summary"
     t.text "content_markdown", size: :medium, null: false
@@ -303,6 +311,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
     t.text "prompt_excerpt"
     t.text "reason"
     t.integer "revision", null: false
+    t.index ["api_token_id"], name: "index_coplan_plan_versions_on_api_token_id"
     t.index ["plan_id", "created_at"], name: "index_coplan_plan_versions_on_plan_id_and_created_at"
     t.index ["plan_id", "revision"], name: "index_coplan_plan_versions_on_plan_id_and_revision", unique: true
     t.index ["plan_id"], name: "index_coplan_plan_versions_on_plan_id"
@@ -424,6 +433,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
   add_foreign_key "coplan_comment_threads", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_comment_threads", "coplan_users", column: "created_by_user_id"
   add_foreign_key "coplan_comment_threads", "coplan_users", column: "resolved_by_user_id"
+  add_foreign_key "coplan_comments", "coplan_api_tokens", column: "api_token_id"
   add_foreign_key "coplan_comments", "coplan_comment_threads", column: "comment_thread_id"
   add_foreign_key "coplan_edit_leases", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_edit_sessions", "coplan_plan_versions", column: "plan_version_id"
@@ -439,12 +449,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
   add_foreign_key "coplan_plan_collaborators", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "added_by_user_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "user_id"
+  add_foreign_key "coplan_plan_events", "coplan_api_tokens", column: "api_token_id"
   add_foreign_key "coplan_plan_placements", "coplan_folders", column: "folder_id"
   add_foreign_key "coplan_plan_placements", "coplan_libraries", column: "library_id"
   add_foreign_key "coplan_plan_placements", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_placements", "coplan_users", column: "placed_by_user_id"
   add_foreign_key "coplan_plan_tags", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_tags", "coplan_tags", column: "tag_id"
+  add_foreign_key "coplan_plan_versions", "coplan_api_tokens", column: "api_token_id"
   add_foreign_key "coplan_plan_versions", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_viewers", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_viewers", "coplan_users", column: "user_id"

@@ -95,6 +95,13 @@ CoPlan::Engine.routes.draw do
       resources :references, only: [] do
         get :search, on: :collection
       end
+
+      # Mint a short-lived session token — the one API call that accepts
+      # the host's request auth alone, since it is how an agent gets the
+      # Bearer token every other call requires. DELETE revokes whichever
+      # token authenticated the request.
+      resources :tokens, only: [:create]
+      delete "tokens/current", to: "tokens#destroy", as: :revoke_current_token
     end
   end
 

@@ -11,13 +11,21 @@ module CoPlan
       class SessionConflictError < StandardError; end
       class SessionNotOpenError < StandardError; end
 
-      def self.call(session:, change_summary: nil)
-        new(session:, change_summary:).call
+      # actor_id/agent_name: the session row keys ownership by the caller's
+      # transient id (an API token), which names nobody in the history tab.
+      # The committing controller passes the resolved user and agent so the
+      # version is attributed the way comments are; direct Ruby callers
+      # (cloud personas) fall back to the session's own actor fields.
+      def self.call(session:, change_summary: nil, actor_id: nil, agent_name: nil, api_token_id: nil)
+        new(session:, change_summary:, actor_id:, agent_name:, api_token_id:).call
       end
 
-      def initialize(session:, change_summary: nil)
+      def initialize(session:, change_summary: nil, actor_id: nil, agent_name: nil, api_token_id: nil)
         @session = session
         @change_summary = change_summary || session.change_summary
+        @actor_id = actor_id || session.actor_id
+        @agent_name = agent_name
+        @api_token_id = api_token_id
       end
 
       def call
@@ -78,7 +86,7 @@ module CoPlan
                 end
 
                 verify_text_at_range!(verification_content, transformed_range, op_data)
-                semantic_op["_pre_resolved_ranges"] = [transformed_range]
+                semantic_op["_pre_resolved_ranges"] = [ transformed_range ]
               elsif op_data.key?("replacements")
                 transformed_ranges = op_data["replacements"].map do |rep|
                   begin
@@ -98,7 +106,7 @@ module CoPlan
 
               # Advance verification content so subsequent ops verify against
               # the incrementally updated snapshot (not the original current_content).
-              step = Plans::ApplyOperations.call(content: verification_content, operations: [semantic_op])
+              step = Plans::ApplyOperations.call(content: verification_content, operations: [ semantic_op ])
               verification_content = step[:content]
             end
 
@@ -116,7 +124,9 @@ module CoPlan
             revision: new_revision,
             content_markdown: new_content,
             actor_type: @session.actor_type,
-            actor_id: @session.actor_id,
+            actor_id: @actor_id,
+            agent_name: @agent_name,
+            api_token_id: @api_token_id,
             change_summary: @change_summary,
             diff_unified: diff.presence,
             operations_json: final_ops,
@@ -159,8 +169,8 @@ module CoPlan
           actual_text = content[range[0]...range[1]]
           return if actual_text == op_data["old_text"]
 
-          context_start = [range[0] - 200, 0].max
-          context_end = [range[1] + 200, content.length].min
+          context_start = [ range[0] - 200, 0 ].max
+          context_end = [ range[1] + 200, content.length ].min
           raise SessionConflictError,
             "Content changed at conflict region. Expected '#{op_data["old_text"]}' " \
             "but found '#{actual_text}'. Context: ...#{content[context_start...context_end]}..."
@@ -187,7 +197,7 @@ module CoPlan
 
           if include_heading
             first_line_end = content.index("\n", range[0]) || range[1]
-            first_line = content[range[0]...[first_line_end, range[1]].min]
+            first_line = content[range[0]...[ first_line_end, range[1] ].min]
             return if first_line&.rstrip == op_data["heading"]&.rstrip
 
             raise SessionConflictError,

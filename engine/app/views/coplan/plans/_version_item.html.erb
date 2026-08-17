@@ -4,9 +4,9 @@
   <div class="history-split__version">v<%= version.revision %></div>
   <div class="history-split__meta">
     <% if version.actor_user %>
-      <%= user_avatar(version.actor_user) %> <span><%= version.actor_user.name %></span>
+      <%= user_avatar(version.actor_user) %> <span><%= history_actor_name(version) %></span>
     <% else %>
-      <span class="badge badge--type"><%= version.actor_type %></span>
+      <span class="badge badge--type"><%= version.agent_name.presence || version.actor_type %></span>
     <% end %>
   </div>
   <% if version.change_summary.present? %>

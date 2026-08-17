@@ -19,17 +19,19 @@ module CoPlan
       # `run_id` / `event_metadata` flow into the library-side audit event
       # so bulk organize runs stay grouped and attributable (token label).
       def self.call(plan:, folder:, actor:, library: nil, actor_type: nil,
-        run_id: nil, event_metadata: {})
-        new(plan:, folder:, actor:, library:, actor_type:, run_id:, event_metadata:).call
+        agent_name: nil, api_token_id: nil, run_id: nil, event_metadata: {})
+        new(plan:, folder:, actor:, library:, actor_type:, agent_name:, api_token_id:, run_id:, event_metadata:).call
       end
 
       def initialize(plan:, folder:, actor:, library: nil, actor_type: nil,
-        run_id: nil, event_metadata: {})
+        agent_name: nil, api_token_id: nil, run_id: nil, event_metadata: {})
         @plan = plan
         @folder = folder
         @actor = actor
         @library = library || folder&.library || actor.library
         @actor_type = actor_type
+        @agent_name = agent_name
+        @api_token_id = api_token_id
         @run_id = run_id
         @event_metadata = event_metadata || {}
       end
@@ -111,6 +113,8 @@ module CoPlan
           plan: @plan,
           actor: @actor,
           actor_type: @actor_type,
+          agent_name: @agent_name,
+          api_token_id: @api_token_id,
           event_type: "moved_to_folder",
           before: old_path,
           after: new_path
