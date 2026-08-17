@@ -1,0 +1,8 @@
+<% author_placement = local_assigns.fetch(:author_placement) { plan.author_placement } %>
+<span id="plan-nav-context" class="site-nav__plan-context" data-controller="coplan--nav-title" aria-hidden="true">
+  <%= render "coplan/plans/location_link", plan: plan, placement: author_placement, location: :nav %>
+  <a href="#plan-header" class="site-nav__doc-title" data-action="click->coplan--nav-title#scrollToTop" tabindex="-1">
+    <%= plan_type_icon(plan, size: :sm) %>
+    <span class="site-nav__doc-title-text"><%= plan.title %></span>
+  </a>
+</span>

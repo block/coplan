@@ -687,6 +687,7 @@ module CoPlan
 
     def broadcast_plan_update(plan)
       Broadcaster.replace_to(plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: plan })
+      Broadcaster.replace_to(plan, target: "plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: plan })
     end
 
     # Turbo Streams for a visibility change: re-render the header (the
@@ -708,6 +709,7 @@ module CoPlan
     def archive_streams(message)
       [
         turbo_stream.replace("plan-header", partial: "coplan/plans/header", locals: { plan: @plan }),
+        turbo_stream.replace("plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: @plan }),
         turbo_stream.replace("plan-banner-slot", partial: "coplan/plans/banner", locals: { plan: @plan }),
         turbo_stream.replace("plan-toolbar", partial: "coplan/plans/toolbar", locals: { plan: @plan }),
         toast_stream(message, "notice")

@@ -109,6 +109,7 @@ RSpec.describe "Human plan editing", type: :system do
 
   it "archives and restores the plan in place" do
     visit plan_path(plan)
+    expect(page).to have_css(".plan-location-link--nav", visible: :all)
 
     open_plan_menu
     within("#plan-menu") { click_button "Archive plan" }
@@ -117,6 +118,7 @@ RSpec.describe "Human plan editing", type: :system do
     # undo, no navigation away from the document.
     expect(page).to have_css(".plan-banner--archived", text: "hidden from lists")
     expect(page).to have_content("Editable Plan")
+    expect(page).not_to have_css(".plan-location-link", visible: :all)
     expect(plan.reload.archived?).to be(true)
 
     # Archive leaves the menu while archived.
@@ -126,6 +128,7 @@ RSpec.describe "Human plan editing", type: :system do
 
     within(".plan-banner--archived") { click_button "Restore" }
     expect(page).not_to have_css(".plan-banner--archived")
+    expect(page).to have_css(".plan-location-link--nav", visible: :all)
     expect(plan.reload.archived?).to be(false)
   end
 

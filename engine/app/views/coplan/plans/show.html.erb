@@ -16,13 +16,7 @@
     containing-folder control, icon, and title mirror the masthead;
     coplan--nav-title fades them in once #plan-header scrolls behind the bar. %>
 <% content_for :nav_title do %>
-  <span class="site-nav__plan-context" data-controller="coplan--nav-title" aria-hidden="true">
-    <%= render "coplan/plans/location_link", plan: @plan, placement: @author_placement, location: :nav %>
-    <a href="#plan-header" class="site-nav__doc-title" data-action="click->coplan--nav-title#scrollToTop" tabindex="-1">
-      <%= plan_type_icon(@plan, size: :sm) %>
-      <span class="site-nav__doc-title-text"><%= @plan.title %></span>
-    </a>
-  </span>
+  <%= render "coplan/plans/nav_context", plan: @plan, author_placement: @author_placement %>
 <% end %>
 
 <%= turbo_stream_from @plan %>
