@@ -104,7 +104,14 @@ module CoPlan
             return
           end
 
-          Comments::SoftDelete.call(comment: comment, actor: current_user)
+          Comments::SoftDelete.call(
+            comment: comment,
+            actor: current_user,
+            actor_type: api_author_type,
+            actor_id: api_user_id,
+            agent_name: api_agent_name,
+            api_token_id: api_token_id
+          )
 
           thread = comment.comment_thread
           if thread.reload.empty?

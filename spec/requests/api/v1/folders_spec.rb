@@ -65,6 +65,14 @@ RSpec.describe "Api::V1::Folders", type: :request do
       expect(json["name"]).to eq("Infra")
       expect(json["parent_id"]).to be_nil
       expect(CoPlan::Folder.find(json["id"]).created_by_user).to eq(alice)
+
+      event = alice.library.library_events.find_by!(event_type: "folder_created")
+      expect(event).to have_attributes(
+        actor_type: "local_agent",
+        actor_id: alice.id,
+        agent_name: alice_token.name,
+        api_token_id: alice_token.id
+      )
     end
 
     it "creates a nested folder" do
