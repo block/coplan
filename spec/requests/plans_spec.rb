@@ -79,6 +79,15 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include("plan-layout__content")
   end
 
+  it "does not link archived plans to a library that omits them" do
+    archived_plan = create(:plan, :archived, created_by_user: alice)
+
+    get plan_path(archived_plan)
+
+    expect(response).to have_http_status(:success)
+    expect(response.body).not_to include("plan-location-link")
+  end
+
   it "scopes comment footnote ids so they can't collide with the plan body's" do
     thread = create(:comment_thread, :with_anchor, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
     comment = create(:comment, comment_thread: thread, author_type: "human", author_id: alice.id,
