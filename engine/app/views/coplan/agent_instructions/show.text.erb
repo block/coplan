@@ -78,11 +78,10 @@ Creating a plan is a deliberate act of publishing into a shared, organized libra
 
 Then create everything in one call:
 
-<% example_type = @plan_types.reject { |t| t.name.casecmp?("General") }.first %>
 ```bash
 <%= @curl %> -X POST \
   -H "Content-Type: application/json" \
-  -d '{"title": "My Plan", "content": "# My Plan\n\nContent following the type template.", "plan_type": "<%= example_type&.name || "general" %>", "folder_path": "Team EBT/Q3"}' \
+  -d '<%= raw @create_example_json %>' \
   "<%= @base %>/api/v1/plans" | jq .
 ```
 

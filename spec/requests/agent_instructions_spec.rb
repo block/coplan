@@ -62,6 +62,18 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).to include('"plan_type": "Design Doc"')
     end
 
+    # Type names are admin-controlled free text; the example must survive a
+    # name that would break JSON quoting or the surrounding shell quoting.
+    it "keeps the create example valid for hostile plan type names" do
+      create(:plan_type, name: %q(Bob's "Special" Doc))
+
+      get agent_instructions_path
+
+      # JSON-escaped double quotes, shell-escaped single quote.
+      expect(response.body).to include('\"Special\"')
+      expect(response.body).to include(%q(Bob'\''s))
+    end
+
     it "marks which plan types carry a template" do
       create(:plan_type, name: "RFC", template_content: "# RFC")
       create(:plan_type, name: "Bare", template_content: nil)

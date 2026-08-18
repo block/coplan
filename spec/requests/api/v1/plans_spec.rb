@@ -154,6 +154,22 @@ RSpec.describe "Api::V1::Plans", type: :request do
       expect(response).to have_http_status(:unprocessable_content)
       expect(JSON.parse(response.body)["error"]).to include("Unknown folder_id")
     end
+
+    it "does not emit a plan_created analytics event for a rolled-back create" do
+      events = capture_analytics_events do
+        post api_v1_plans_path, params: { title: "Doomed Plan", content: "# Doomed", folder_id: "nope" }, headers: headers, as: :json
+      end
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(events.select { |name, _| name == "plan_created" }).to be_empty
+    end
+
+    it "emits plan_created exactly once for a successful filed create" do
+      events = capture_analytics_events do
+        post api_v1_plans_path, params: { title: "Filed Plan", content: "# Filed", folder_path: "Infra" }, headers: headers, as: :json
+      end
+      expect(response).to have_http_status(:created)
+      expect(events.select { |name, _| name == "plan_created" }.length).to eq(1)
+    end
   end
 
   describe "tags on create" do
