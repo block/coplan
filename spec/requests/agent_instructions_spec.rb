@@ -42,6 +42,36 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).to include('"plan_type"')
     end
 
+    it "walks agents through folder, type, and template before creating" do
+      get agent_instructions_path
+
+      expect(response.body).to include("**Pick the folder.**")
+      expect(response.body).to include("**Pick the type.**")
+      expect(response.body).to include("template_content")
+      expect(response.body).to include("/api/v1/plan_types")
+      expect(response.body).to include('"folder_path"')
+      expect(response.body).to include("fallback of last resort")
+    end
+
+    it "uses a real configured type (not General) in the create example" do
+      create(:plan_type, name: "General", description: "Catch-all")
+      create(:plan_type, name: "Design Doc", description: "For design documents")
+
+      get agent_instructions_path
+
+      expect(response.body).to include('"plan_type": "Design Doc"')
+    end
+
+    it "marks which plan types carry a template" do
+      create(:plan_type, name: "RFC", template_content: "# RFC")
+      create(:plan_type, name: "Bare", template_content: nil)
+
+      get agent_instructions_path
+
+      expect(response.body).to match(/`RFC`.*yes — fetch and follow it/)
+      expect(response.body).to match(/`Bare`.*\| —/)
+    end
+
     it "distinguishes citations, internal section links, and structured references" do
       get agent_instructions_path
 

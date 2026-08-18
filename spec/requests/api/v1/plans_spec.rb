@@ -118,6 +118,66 @@ RSpec.describe "Api::V1::Plans", type: :request do
     expect(response).to have_http_status(:unprocessable_content)
   end
 
+  describe "filing on create" do
+    it "files the plan via folder_path, creating the hierarchy in the caller's library" do
+      post api_v1_plans_path, params: { title: "Filed Plan", content: "# Filed", folder_path: "Team EBT/Q3" }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      body = JSON.parse(response.body)
+      expect(body["folder_path"]).to eq("Team EBT/Q3")
+
+      placement = alice.library.placements.find_by(plan_id: body.fetch("id"))
+      expect(placement.folder.path).to eq("Team EBT/Q3")
+      expect(alice.library.folders.count).to eq(2)
+    end
+
+    it "files the plan via folder_id" do
+      folder = create(:folder, name: "Infra", created_by_user: alice)
+      post api_v1_plans_path, params: { title: "Filed Plan", content: "# Filed", folder_id: folder.id }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body)["folder_id"]).to eq(folder.id)
+    end
+
+    it "records the filing in the library audit log with agent attribution" do
+      post api_v1_plans_path, params: { title: "Filed Plan", content: "# Filed", folder_path: "Infra", agent_name: "Claude" }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+
+      event = alice.library.library_events.find_by(event_type: "plan_filed")
+      expect(event).to be_present
+      expect(event.actor_type).to eq("local_agent")
+      expect(event.agent_name).to eq("Claude")
+    end
+
+    it "rolls back the whole create when the folder_id is unknown" do
+      expect {
+        post api_v1_plans_path, params: { title: "Doomed Plan", content: "# Doomed", folder_id: "nope" }, headers: headers, as: :json
+      }.not_to change(CoPlan::Plan, :count)
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(JSON.parse(response.body)["error"]).to include("Unknown folder_id")
+    end
+  end
+
+  describe "tags on create" do
+    it "applies the plan type's default_tags" do
+      create(:plan_type, name: "design-doc", default_tags: ["design", "architecture"])
+      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", plan_type: "design-doc" }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body)["tags"]).to match_array(["design", "architecture"])
+    end
+
+    it "merges explicit tags with the type's default_tags" do
+      create(:plan_type, name: "design-doc", default_tags: ["design"])
+      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", plan_type: "design-doc", tags: ["pricing", "design"] }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body)["tags"]).to match_array(["design", "pricing"])
+    end
+
+    it "accepts explicit tags without a plan_type" do
+      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", tags: ["pricing"] }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body)["tags"]).to eq(["pricing"])
+    end
+  end
+
   describe "PATCH /api/v1/plans/:id" do
     it "updates plan title" do
       patch api_v1_plan_path(plan), params: { title: "New Title" }, headers: headers, as: :json
