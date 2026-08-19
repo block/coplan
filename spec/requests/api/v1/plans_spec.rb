@@ -172,6 +172,64 @@ RSpec.describe "Api::V1::Plans", type: :request do
     end
   end
 
+  describe "retyping via update" do
+    let!(:scratchpad) { create(:plan_type, name: "Scratchpad", default_tags: []) }
+    let!(:design) { create(:plan_type, name: "Engineering Design", default_tags: ["design"]) }
+
+    it "changes the plan's type, adopts default_tags, and logs events" do
+      typed_plan = create(:plan, :considering, created_by_user: alice, plan_type: scratchpad)
+
+      patch api_v1_plan_path(typed_plan), params: { plan_type: "engineering design" }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:success)
+      body = JSON.parse(response.body)
+      expect(body["plan_type_name"]).to eq("Engineering Design")
+      expect(body["tags"]).to include("design")
+
+      type_event = typed_plan.plan_events.find_by(event_type: "plan_type_changed")
+      expect(type_event.before_value).to eq("Scratchpad")
+      expect(type_event.after_value).to eq("Engineering Design")
+      expect(typed_plan.plan_events.where(event_type: "tag_added", after_value: "design")).to exist
+    end
+
+    it "keeps existing tags on retype" do
+      typed_plan = create(:plan, :considering, created_by_user: alice, plan_type: scratchpad)
+      typed_plan.tag_names = ["pricing"]
+
+      patch api_v1_plan_path(typed_plan), params: { plan_type: "Engineering Design" }, headers: headers, as: :json
+
+      expect(JSON.parse(response.body)["tags"]).to match_array(["pricing", "design"])
+    end
+
+    it "is a no-op event-wise when the type is unchanged" do
+      typed_plan = create(:plan, :considering, created_by_user: alice, plan_type: design)
+
+      patch api_v1_plan_path(typed_plan), params: { plan_type: "Engineering Design" }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(typed_plan.plan_events.where(event_type: "plan_type_changed")).not_to exist
+    end
+
+    it "rejects an unknown plan_type with the valid names" do
+      typed_plan = create(:plan, :considering, created_by_user: alice, plan_type: scratchpad)
+
+      patch api_v1_plan_path(typed_plan), params: { plan_type: "nope" }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(JSON.parse(response.body)["error"]).to include("Scratchpad")
+      expect(typed_plan.reload.plan_type).to eq(scratchpad)
+    end
+
+    it "rejects a blank plan_type — every plan has a type" do
+      typed_plan = create(:plan, :considering, created_by_user: alice, plan_type: scratchpad)
+
+      patch api_v1_plan_path(typed_plan), params: { plan_type: "" }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(JSON.parse(response.body)["error"]).to include("cannot be blank")
+    end
+  end
+
   describe "tags on create" do
     it "applies the plan type's default_tags" do
       create(:plan_type, name: "design-doc", default_tags: ["design", "architecture"])

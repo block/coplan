@@ -34,13 +34,8 @@ module CoPlan
 
         def create
           if params[:plan_type].present?
-            plan_type = PlanType.find_by_name(params[:plan_type])
-            unless plan_type
-              available = PlanType.order(:name).pluck(:name)
-              message = "Unknown plan_type \"#{params[:plan_type]}\"."
-              message += " Available types: #{available.map { |n| "\"#{n}\"" }.join(", ")}." if available.any?
-              return render json: { error: message }, status: :unprocessable_content
-            end
+            plan_type = resolve_plan_type_param
+            return if performed? # resolve_plan_type_param rendered an error
           end
 
           # Plans are born published; `"visibility": "draft"` is the opt-in
@@ -117,11 +112,19 @@ module CoPlan
           return if performed? # visibility_params_for_update rendered an error
           permitted.merge!(visibility_updates)
 
+          if params.key?(:plan_type)
+            new_plan_type = resolve_plan_type_param
+            return if performed? # resolve_plan_type_param rendered an error
+            permitted[:plan_type] = new_plan_type
+          end
+
           # Snapshot before-state so LogEvent can record meaningful diffs.
           old_title = @plan.title
           old_visibility = @plan.visibility
           old_archived = @plan.archived?
           old_tag_names = @plan.tag_names
+          old_plan_type = @plan.plan_type
+          tags_changed_by_retype = false
 
           # Folder resolution (which may create folders via folder_path in
           # the caller's library), the placement move, and the plan update
@@ -141,8 +144,27 @@ module CoPlan
 
             @plan.tag_names = params[:tags] if params.key?(:tags)
             @plan.update!(permitted)
+
+            # A retype adopts the new type's default_tags (union — existing
+            # tags are never removed), mirroring what create does. After
+            # update! so an invalid update never writes tags.
+            if new_plan_type && new_plan_type != old_plan_type
+              merged_tags = @plan.tag_names | new_plan_type.default_tags.to_a
+              if merged_tags != @plan.tag_names
+                @plan.tag_names = merged_tags
+                tags_changed_by_retype = true
+              end
+            end
           end
           return if performed? # placement error rendered inside the transaction
+
+          if new_plan_type && @plan.saved_change_to_plan_type_id?
+            Plans::LogEvent.call(
+              plan: @plan, actor: current_user, event_type: "plan_type_changed",
+              before: old_plan_type&.name, after: new_plan_type.name,
+              actor_type: api_author_type, actor_id: api_user_id, agent_name: api_agent_name, api_token_id: api_token_id
+            )
+          end
 
           if @plan.saved_changes?
             Broadcaster.replace_to(@plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: @plan })
@@ -179,7 +201,7 @@ module CoPlan
             )
           end
 
-          if params.key?(:tags)
+          if params.key?(:tags) || tags_changed_by_retype
             new_tag_names = @plan.tag_names
             (new_tag_names - old_tag_names).each do |added|
               Plans::LogEvent.call(
@@ -326,6 +348,25 @@ module CoPlan
           end
           updates.delete(:visibility) if updates[:visibility] == @plan.visibility
           updates
+        end
+
+        # Resolves the `plan_type` param (a type name, case-insensitive) to a
+        # PlanType. Every plan has a type, so a blank or unknown name is a
+        # 422 listing the valid names — the error is the agent's discovery
+        # path when it guesses. Renders and returns nil on bad input.
+        def resolve_plan_type_param
+          plan_type = PlanType.find_by_name(params[:plan_type]) if params[:plan_type].present?
+          return plan_type if plan_type
+
+          available = PlanType.order(:name).pluck(:name)
+          message = if params[:plan_type].present?
+            "Unknown plan_type \"#{params[:plan_type]}\"."
+          else
+            "plan_type cannot be blank — every plan has a type."
+          end
+          message += " Available types: #{available.map { |n| "\"#{n}\"" }.join(", ")}." if available.any?
+          render json: { error: message }, status: :unprocessable_content
+          nil
         end
 
         # Resolves `folder_id` / `folder_path` update params to a Folder (or
