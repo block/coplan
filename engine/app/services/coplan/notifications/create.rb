@@ -1,6 +1,13 @@
 module CoPlan
   module Notifications
     class Create
+      # Reasons that stay silent once a thread is closed. An agent working
+      # a thread it then resolves used to leave a pile of unread rows
+      # pointing at a hidden highlight — the reader clicked through to an
+      # apparently empty plan. Human replies and mentions still notify:
+      # somebody deliberately reopening a settled conversation is news.
+      SILENT_ON_CLOSED_THREAD = %w[agent_response status_change].freeze
+
       def self.call(comment_thread:, actor_id:, comment: nil, reason:)
         new(comment_thread:, actor_id:, comment:, reason:).call
       end
@@ -13,9 +20,26 @@ module CoPlan
       end
 
       def call
+        # Reading the status and inserting have to be one step. An agent
+        # that replies and then resolves races its own reply job: check
+        # open, resolve commits and sweeps, insert — and the row is unread
+        # forever on a closed thread, with a push already on its way
+        # (WebPushDeliveryJob doesn't re-check read state). The lock
+        # reloads the thread, so either we see the close and stay silent,
+        # or the close waits for us and its sweep catches these rows.
+        notified_ids = @comment_thread.with_lock do
+          silenced? ? [] : insert_notifications
+        end
+
+        BroadcastBadges.call(user_ids: notified_ids)
+      end
+
+      private
+
+      def insert_notifications
         subscriber_ids = compute_subscribers
         subscriber_ids.delete(@actor_id)
-        return if subscriber_ids.empty?
+        return [] if subscriber_ids.empty?
 
         subscriber_ids.each do |user_id|
           Notification.create!(
@@ -27,10 +51,14 @@ module CoPlan
           )
         end
 
-        broadcast_badge_updates(subscriber_ids)
+        subscriber_ids
       end
 
-      private
+      # with_lock has reloaded the thread, so this reads committed state
+      # rather than whatever the job loaded moments ago.
+      def silenced?
+        SILENT_ON_CLOSED_THREAD.include?(@reason) && @comment_thread.closed?
+      end
 
       def compute_subscribers
         case @reason
@@ -72,17 +100,6 @@ module CoPlan
             .compact
         )
         ids
-      end
-
-      def broadcast_badge_updates(subscriber_ids)
-        counts = Notification.where(user_id: subscriber_ids).unread.group(:user_id).count
-        subscriber_ids.each do |user_id|
-          Broadcaster.update_to(
-            "coplan_notifications:#{user_id}",
-            target: "inbox-badge",
-            html: (counts[user_id] || 0).to_s
-          )
-        end
       end
     end
   end

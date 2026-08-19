@@ -14,6 +14,12 @@ module CoPlan
       end
 
       PlanViewer.track(plan: @plan, user: current_user)
+      # Subscribing means the page is really open in front of somebody —
+      # unlike the GET that fetched it, which Turbo also fires on hover and
+      # may skip entirely when it serves the click from its prefetch cache.
+      # So this is where the plan's unread notifications get cleared. The
+      # bell updates over the notifications stream the layout subscribes to.
+      Notifications::MarkPlanRead.call(user: current_user, plan_id: @plan.id)
       broadcast_viewers
     end
 

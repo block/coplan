@@ -5617,6 +5617,50 @@ img.avatar {
   white-space: nowrap;
 }
 
+/* Dismissal sits at the far right of the row, quiet until hovered — the
+   strip is a nudge, and getting rid of a nudge shouldn't be loud. */
+.attention__clear-form {
+  margin: 0;
+  margin-left: auto;
+}
+
+/* A quiet ✕, matching the filter chips: the row already says what it is,
+   so the dismiss doesn't need a word. Padding buys a real hit area
+   without taking visual weight. */
+.attention__clear {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.attention__clear:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* Clear is instant, not a task with a progress state: Turbo marks the
+   form aria-busy the moment it's pressed, and the row hides on that —
+   gone before the request finishes, with the response replacing the
+   strip a moment later. Turbo clears aria-busy on failure, so a rejected
+   request puts the row back without any JS of ours. */
+.attention__item:has(.attention__clear-form[aria-busy="true"]) {
+  display: none;
+}
+
+/* Clearing the last row empties the strip, so take the whole thing with
+   it rather than flash an empty bordered box with a stale count. */
+.attention:has(.attention__item:only-child .attention__clear-form[aria-busy="true"]) {
+  display: none;
+}
+
 /* "Since you last looked" strip — recency against your own reading
    history, quieter than the warning-toned attention strip. */
 .recent-updates {

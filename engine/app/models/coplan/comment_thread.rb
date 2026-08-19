@@ -26,6 +26,11 @@ module CoPlan
     before_validation :resolve_anchor_position, on: :create
     validate :anchor_must_resolve, on: :create
 
+    # Closing a thread settles its inbox rows. Every path that resolves or
+    # discards goes through an ordinary status write, so the sweep lives
+    # here rather than in the two controllers that trigger it.
+    after_commit :mark_notifications_read_if_closed, on: :update
+
     scope :open_threads, -> { where(status: OPEN_STATUSES) }
     scope :current, -> { where(out_of_date: false) }
     scope :active, -> { where(status: OPEN_STATUSES, out_of_date: false) }
@@ -135,6 +140,10 @@ module CoPlan
       OPEN_STATUSES.include?(status)
     end
 
+    def closed?
+      CLOSED_STATUSES.include?(status)
+    end
+
     def anchor_valid?
       return true unless anchored?
       !out_of_date
@@ -188,6 +197,12 @@ module CoPlan
     end
 
     private
+
+    def mark_notifications_read_if_closed
+      return unless saved_change_to_status? && closed?
+
+      Notifications::MarkThreadRead.call(comment_thread: self)
+    end
 
     def anchor_must_resolve
       return if anchor_text.blank? || anchor_start.present?

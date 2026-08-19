@@ -787,6 +787,99 @@ RSpec.describe "Plans", type: :request do
       get plans_path
       expect(response.body).not_to include("Bobs Secret Draft")
     end
+
+    # A pagination frame renders rows and returns before the strip, so it
+    # should pay for the grouped badge count and nothing more.
+    it "is not built for a pagination frame" do
+      thread = create(:comment_thread, plan: plan, created_by_user: bob)
+      create(:notification, user: alice, plan: plan, comment_thread: thread)
+
+      expect(CoPlan::Notifications::NeedsAttention).not_to receive(:call)
+
+      get plans_path(group: "level", page: 1), headers: { "Turbo-Frame" => "plans-level-page-1" }
+
+      expect(response).to have_http_status(:success)
+      expect(response.body).to include("1")
+    end
+
+    it "offers a per-plan clear so the strip can be emptied without reading" do
+      thread = create(:comment_thread, plan: plan, created_by_user: bob)
+      create(:notification, user: alice, plan: plan, comment_thread: thread)
+
+      get plans_path
+
+      clear_form = Nokogiri::HTML(response.body).at_css(".attention__clear-form")
+      expect(clear_form["action"]).to eq(mark_plan_read_notifications_path(plan_id: plan.id))
+    end
+  end
+
+  # The main way the strip empties: you go look at the plan.
+  describe "opening a plan clears its notifications" do
+    let(:thread) { create(:comment_thread, plan: plan, created_by_user: bob) }
+
+    it "marks the viewer's unread rows for that plan read" do
+      first = create(:notification, user: alice, plan: plan, comment_thread: thread)
+      second = create(:notification, user: alice, plan: plan, comment_thread: thread, reason: "agent_response")
+
+      get plan_path(plan)
+
+      expect(response).to have_http_status(:success)
+      expect(first.reload.read_at).to be_present
+      expect(second.reload.read_at).to be_present
+    end
+
+    it "renders the bell already cleared, not a stale count" do
+      create(:notification, user: alice, plan: plan, comment_thread: thread)
+
+      get plan_path(plan)
+
+      badge = Nokogiri::HTML(response.body).at_css("#inbox-badge")
+      expect(badge.text).to eq("0")
+      expect(badge["class"]).to include("inbox-badge--hidden")
+    end
+
+    it "leaves rows for other plans alone" do
+      other_plan = create(:plan, :considering, created_by_user: alice)
+      other_thread = create(:comment_thread, plan: other_plan, created_by_user: bob)
+      other = create(:notification, user: alice, plan: other_plan, comment_thread: other_thread)
+
+      get plan_path(plan)
+
+      expect(other.reload.read_at).to be_nil
+    end
+
+    it "leaves other people's rows for the same plan alone" do
+      bobs = create(:notification, user: bob, plan: plan, comment_thread: thread)
+
+      get plan_path(plan)
+
+      expect(bobs.reload.read_at).to be_nil
+    end
+
+    it "does not clear anything on the history page" do
+      notification = create(:notification, user: alice, plan: plan, comment_thread: thread)
+
+      get history_plan_path(plan)
+
+      expect(notification.reload.read_at).to be_nil
+    end
+
+    # Workspace rows prefetch on hover, so this GET fires for a cursor
+    # passing over a row. Nobody has looked at anything yet.
+    it "ignores a Turbo hover prefetch" do
+      notification = create(:notification, user: alice, plan: plan, comment_thread: thread)
+
+      get plan_path(plan), headers: { "X-Sec-Purpose" => "prefetch" }
+
+      expect(response).to have_http_status(:success)
+      expect(notification.reload.read_at).to be_nil
+    end
+
+    it "does not advance the last-seen mark on a prefetch either" do
+      get plan_path(plan), headers: { "X-Sec-Purpose" => "prefetch" }
+
+      expect(CoPlan::PlanViewer.where(plan: plan, user: alice)).not_to exist
+    end
   end
 
   describe "PATCH /plans/:id/move_to_folder" do

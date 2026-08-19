@@ -102,6 +102,24 @@ RSpec.describe "CommentThreads", type: :request do
     expect(thread.status).to eq("resolved")
   end
 
+  it "resolving a thread clears its unread notifications" do
+    thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: bob)
+    notification = create(:notification, user: bob, plan: plan, comment_thread: thread, reason: "agent_response")
+
+    patch resolve_plan_comment_thread_path(plan, thread)
+
+    expect(notification.reload.read_at).to be_present
+  end
+
+  it "discarding a thread clears its unread notifications" do
+    thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: bob)
+    notification = create(:notification, user: bob, plan: plan, comment_thread: thread)
+
+    patch discard_plan_comment_thread_path(plan, thread)
+
+    expect(notification.reload.read_at).to be_present
+  end
+
   it "accept thread as plan author" do
     thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
     patch accept_plan_comment_thread_path(plan, thread)

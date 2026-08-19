@@ -159,7 +159,7 @@ module CoPlan
       # highlights against the old last_seen_at, then advance it — so the
       # next visit renders clean.
       @changed_section_keys = changed_sections_since_last_visit
-      PlanViewer.track(plan: @plan, user: current_user)
+      record_visit unless prefetch_request?
     end
 
     # A full page (reached from the header's clock icon), not a tab —
@@ -528,9 +528,19 @@ module CoPlan
     end
 
     # One grouped query per request, shared between the per-row unread
-    # badges and the "needs attention" strip.
+    # badges and the "needs attention" strip. Kept separate from
+    # needs_attention because pagination frames want only this count —
+    # they return before the strip renders, and building its full result
+    # there would buy per-plan lookups nothing.
     def unread_by_plan
       @unread_by_plan ||= current_user.notifications.unread.group(:plan_id).count
+    end
+
+    def needs_attention
+      @needs_attention ||= Notifications::NeedsAttention.call(
+        user: current_user,
+        unread_counts: unread_by_plan
+      )
     end
 
     def unread_counts_for(plans)
@@ -638,28 +648,11 @@ module CoPlan
       end
     end
 
-    ATTENTION_LIMIT = 5
-
-    # "Needs attention" strip: plans with unread comment notifications for
-    # the current user, most-unread first. Independent of the active
-    # sidebar filters — it's an inbox, not a search result. Bounded: only
-    # the top ATTENTION_LIMIT plans are loaded.
+    # "Needs attention" strip — see Notifications::NeedsAttention. Loading
+    # it here also warms the grouped unread count behind the per-row
+    # badges, so the whole page costs one extra query.
     def load_needs_attention
-      @attention_unread_counts = unread_by_plan
-      top_ids = unread_by_plan.sort_by { |_id, count| -count }
-        .first(ATTENTION_LIMIT).map(&:first)
-      # The plan view hides resolved threads by default. Route each inbox row
-      # through an unread notification so the destination marks it read and
-      # deep-links to the exact thread, even when that thread is resolved.
-      # This is deliberately bounded to ATTENTION_LIMIT indexed lookups.
-      @attention_notification_ids = top_ids.index_with do |plan_id|
-        current_user.notifications.unread.where(plan_id: plan_id).newest_first.pick(:id)
-      end
-      # Even an inbox routes through the discovery predicate — a stale
-      # notification must not resurface an archived plan or another user's
-      # unlisted draft.
-      @attention_plans = Plan.visible_to(current_user).active.where(id: top_ids)
-        .sort_by { |plan| -unread_by_plan.fetch(plan.id, 0) }
+      needs_attention
     end
 
     # Section keys (see Plans::ChangedSections) for content that changed
@@ -679,6 +672,25 @@ module CoPlan
         old_content: base.content_markdown,
         new_content: current.content_markdown
       )
+    end
+
+    # Looking at a plan advances your last-seen mark (so the "changed since
+    # you last looked" highlights are once-only) and clears the plan's
+    # unread notifications — you looked, the nudge is done.
+    def record_visit
+      PlanViewer.track(plan: @plan, user: current_user)
+      Notifications::MarkPlanRead.call(user: current_user, plan_id: @plan.id)
+    end
+
+    # Workspace rows prefetch on hover (Turbo 8), so this GET can happen
+    # with nobody looking at anything — a cursor resting on a row would
+    # burn its highlights and clear its notifications. The page still
+    # renders normally; the writes wait for a real visit, which
+    # PlanPresenceChannel reports when the page opens. That subscribe is
+    # also the only signal for a click Turbo serves from its prefetch
+    # cache, where the server never sees the navigation at all.
+    def prefetch_request?
+      request.headers["X-Sec-Purpose"] == "prefetch"
     end
 
     def set_plan

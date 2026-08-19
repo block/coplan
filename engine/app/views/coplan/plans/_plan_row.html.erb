@@ -38,7 +38,10 @@
         <% end %>
       <% end %>
       <% if unread > 0 %>
-        <span class="inbox-badge" title="<%= pluralize(unread, "unread comment") %>"><%= unread %></span>
+        <%# Ided so clearing a plan's notifications can drop the badge in
+            place — a row still claiming "3" after the strip cleared reads
+            as a stale page. %>
+        <span id="<%= plan_unread_badge_id(plan) %>" class="inbox-badge" title="<%= pluralize(unread, "unread comment") %>"><%= unread %></span>
       <% end %>
     </div>
     <% if summary.present? %>
