@@ -9,8 +9,9 @@ module CoPlan
     # values for fields that are currently blank (the common upgrade case —
     # a type created before templates existed gets the default template,
     # but a hand-written description survives). With `force`, the shipped
-    # defaults win on every field. Types unknown to the defaults are never
-    # touched either way.
+    # defaults win on every field — blank shipped values included, so a
+    # custom template on a type that ships without one (Scratchpad, General)
+    # is cleared. Types unknown to the defaults are never touched either way.
     class InstallDefaults
       DEFAULTS_DIR = CoPlan::Engine.root.join("db", "default_plan_types")
       FRONT_MATTER = /\A---\n(?<yaml>.*?)\n---\n?(?<body>.*)\z/m
@@ -66,10 +67,11 @@ module CoPlan
       end
 
       # Assigns default values onto an existing type; returns whether
-      # anything changed. Only blank fields are filled unless forcing.
+      # anything changed. Only blank fields are filled unless forcing;
+      # forcing restores the shipped value even when it's blank.
       def apply(type, attrs)
         attrs.except(:name).each do |field, value|
-          next if value.blank?
+          next if value.blank? && !@force
           next unless @force || type[field].blank?
 
           type[field] = value

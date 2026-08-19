@@ -1,6 +1,12 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::PlanTypes::InstallDefaults do
+  # The database may already contain plan types when the suite runs — the PG
+  # CI job seeds before rspec, and a data migration installs General. These
+  # examples are about what the installer does from a known starting state,
+  # so start from a clean table. Transactional fixtures roll the delete back.
+  before { CoPlan::PlanType.delete_all }
+
   describe "the shipped defaults" do
     it "creates the full default set on a fresh install" do
       result = described_class.call
@@ -62,6 +68,18 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
       research = CoPlan::PlanType.find_by_name("Research")
       expect(research.description).not_to eq("Hand-written description")
       expect(research.template_content).to include("## Findings")
+    end
+
+    it "restores blank shipped values with force" do
+      # Scratchpad deliberately ships without a template; force means "back
+      # to the shipped defaults", so a custom template must be cleared too.
+      create(:plan_type, name: "Scratchpad", template_content: "custom template", default_tags: ["wip"])
+
+      described_class.call(force: true)
+
+      scratchpad = CoPlan::PlanType.find_by_name("Scratchpad")
+      expect(scratchpad.template_content).to be_nil
+      expect(scratchpad.default_tags).to eq([])
     end
 
     it "never touches types the defaults don't know about" do
