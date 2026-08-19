@@ -44,6 +44,26 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(body["state_detail"]).to eq("reading your comment")
     end
 
+    # A fresh claim into `awaiting_input` would park an "asked a question"
+    # pill for up to an hour on a session that never did anything — turn
+    # states have to be earned from inside the loop, via PATCH.
+    it "refuses to claim a turn state on arrival" do
+      post api_v1_plan_agent_session_path(plan), params: { state: "awaiting_input" }, headers: agent_headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(CoPlan::AgentSession.where(plan_id: plan.id)).to be_empty
+    end
+
+    # The server concludes `pending` (wake delivered) and `stale` (wake
+    # ignored) about the agent; an agent asserting either about itself
+    # would make the pill lie.
+    it "rejects server-owned states via PATCH" do
+      post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json
+
+      patch api_v1_plan_agent_session_path(plan), params: { state: "pending" }, headers: agent_headers, as: :json
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
     it "reads as presence rather than activity while watching" do
       post api_v1_plan_agent_session_path(plan), params: { agent_name: "Claude" }, headers: agent_headers, as: :json
 

@@ -80,6 +80,50 @@ It's a thin convenience over the API — an agent that can curl can do the
 same thing straight from `/agent-instructions`, and doesn't need this
 script at all.
 
+## What the harness must provide
+
+CoPlan can deliver an event in ~180ms; it cannot start the model's next
+turn. That last inch of wiring belongs to the harness, and it is the
+whole game: an event printed by a background process nobody wakes up for
+is transport without collaboration.
+
+Field report (Amp, local thread, 2026-08-19): it held the SSE stream
+fine, received every event with full context, and sat there — the model
+never woke, and the human had to nudge it by hand before it could act on
+comments that had been buffered for minutes.
+
+The shapes that close the loop, most portable first:
+
+1. **Blocking tool call.** Run `coplan-attach --once` (or the long-poll
+   curl) as a foreground tool call; the event returns as tool output.
+   Works in every harness; occupies the turn while waiting.
+2. **Background process + exit re-invocation.** `coplan-attach --once`
+   in the background; the process exiting is the wake. Requires the
+   harness to re-invoke the model when a background task completes —
+   Claude Code does, most others don't.
+3. **Sidecar resume.** `script/coplan-bridge` drains the inbox from
+   outside the harness and injects each event via a resume-with-message
+   command (adapter table below).
+
+A harness with none of these can still be a correct — just not live —
+collaborator: the inbox is durable, so drain it with `wait=0` at the
+start of each turn.
+
+Presence stays honest whichever way delivery goes. An event flips the
+session to `pending`, whose pill says "Waking Claude…" — a claim about
+what the *server* did, not the agent — and holds for at most 30 seconds
+before going stale. Only the agent itself can claim to be working, by
+PATCHing `active`. And the API refuses to *claim* a session into a turn
+state like `awaiting_input`, so an agent can't park an unearned "asked a
+question" pill on arrival.
+
+One open design question (Amp's ask): an outbound **webhook wake** — the
+session registers a wake URL and CoPlan POSTs a signed "you have inbox
+items" ping, with the agent still pulling and acking through the cursor
+API. That would serve hosted agents (Amp orbs and the like) that can
+receive HTTP but can't hold connections or be exec-resumed. Not built;
+pull remains the default.
+
 ## The bridge (only for agents that have exited)
 
 If nothing is running, something has to start it. `script/coplan-bridge

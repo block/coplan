@@ -94,7 +94,11 @@ module CoPlan
       # Listening is presence, not work: just the name. The pill's green
       # pulse carries "I'm here", so the label doesn't need a verb.
       when "watching" then agent_name
-      when "pending" then "#{agent_name} is on it…"
+      # Delivery is not action: all the server knows at `pending` is that
+      # it pinged the agent. "On it" is the agent's own claim to make (by
+      # flipping to active) — a harness that can't turn delivery into a
+      # model turn must not be made to promise one.
+      when "pending" then "Waking #{agent_name}…"
       when "active" then state_detail.presence ? "#{agent_name} is #{state_detail}" : "#{agent_name} is working…"
       when "awaiting_input" then "#{agent_name} asked a question"
       end

@@ -66,4 +66,20 @@ RSpec.describe CoPlan::AgentSession, type: :model do
       expect(record.stale?).to be(false)
     end
   end
+
+  describe "#display_status" do
+    # Delivery is not action: `pending` only means the server pinged the
+    # agent, so the pill must not say the agent is doing anything yet.
+    it "says the system is waking the agent while pending" do
+      record = session(state: "pending", last_activity_at: 5.seconds.ago)
+
+      expect(record.display_status).to eq("Waking Claude…")
+    end
+
+    it "lets only the agent's own active state claim work" do
+      record = session(state: "active", last_activity_at: 5.seconds.ago)
+
+      expect(record.display_status).to eq("Claude is working…")
+    end
+  end
 end

@@ -583,7 +583,7 @@ If you authored a plan (or are babysitting one), you can hear about new comments
 
 ### 1. Claim an Agent Session
 
-Claiming a session subscribes your token to the plan's events and shows a live presence pill ("Claude is working…") to everyone viewing the plan.
+Claiming a session subscribes your token to the plan's events and shows a live presence pill to everyone viewing the plan. A plain claim reads as presence, not work — the pill is just your name (`watching`). Claim with `"state": "active"` when you're already mid-task. Turn states can't be claimed on arrival: reach `awaiting_input` and `complete` via PATCH once you're actually in the loop.
 
 ```bash
 <%= @curl %> -X POST \
@@ -592,7 +592,7 @@ Claiming a session subscribes your token to the plan's events and shows a live p
   "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
 ```
 
-Keep the pill honest by updating your state as you work (`state`: `pending`, `active`, `awaiting_input`, `complete`; optional `detail` shows what you're doing):
+Keep the pill honest by updating your state as you work (`state`: `active`, `awaiting_input`, `complete`; optional `detail` shows what you're doing). `pending` is the server's: it's set when an event lands in your inbox, and the pill reads "Waking you…" until you react — or goes stale if you never do.
 
 ```bash
 <%= @curl %> -X PATCH \
@@ -648,6 +648,16 @@ Cursoring: event ids are time-ordered — pass the last id you processed as `cur
 ```
 
 Nothing here requires a daemon or a special harness integration: an attached agent runs the loop below itself. (`script/coplan-attach` in the CoPlan repo is a 6-line-equivalent convenience wrapper — `--once` blocks until one event arrives, prints a brief, acks, and exits, which is the shape a turn-based agent wants.)
+
+**Delivery is not a wake.** These endpoints hand your process the event; whether that starts a *model turn* is your harness's job, and no transport fixes a harness that can't do it. An event printed by a background process nobody wakes up for is just a log line. Three shapes that work:
+
+1. **Blocking tool call** — run the wait (`coplan-attach --once`, or the long-poll curl above) as an ordinary foreground tool call. The event comes back as tool output and you act on it. Works in every harness; costs you the turn while you wait.
+2. **Background process, if your harness re-invokes you when one exits** — `coplan-attach --once` in the background leaves you free to work; its exit is your wake. (Claude Code does this; most harnesses don't — check yours before relying on it.)
+3. **Sidecar resume** — `script/coplan-bridge` drains your inbox from outside and injects each event via your harness's resume-with-message command.
+
+If none of these fit your harness, don't hold a connection you can't act on: your inbox is durable, so drain it with `wait=0` at the start of each turn instead. Correct, just not live.
+
+Hand-rolled SSE clients: the server retires every stream after 5 minutes by design — reconnect with your last cursor and nothing is missed. (`coplan-attach` does this for you.)
 
 ### Session Tokens
 

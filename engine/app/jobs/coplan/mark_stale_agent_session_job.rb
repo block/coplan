@@ -1,7 +1,7 @@
 module CoPlan
   # Scheduled at wake time (AgentSession#wake!). If the session hasn't
   # emitted any activity since that wake, the pill would be a lie — flip
-  # it to stale so the UI stops showing "on it…" for an agent that never
+  # it to stale so the UI stops showing "Waking…" for an agent that never
   # showed up.
   class MarkStaleAgentSessionJob < ApplicationJob
     def perform(agent_session_id:, woken_at:)
