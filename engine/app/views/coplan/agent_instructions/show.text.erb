@@ -37,6 +37,28 @@ The server diffs your content against the current revision, records granular ope
 
 See [Editing Plans](#editing-plans-recommended-full-content-replacement) for the full request/response reference, and the lease + operations path only when you need a surgical single-operation edit.
 
+## Writing Style
+
+These rules apply to every plan you write or edit. One exception mechanism: **a plan type's description or template may override any of them — the type wins.** (A persuasive pitch type can welcome persuasive language; these defaults assume a working document.)
+
+**The platform already records it.** Never write document metadata into the body:
+
+- No date or "last updated" lines — every version is timestamped in the plan history.
+- No author, attribution, or "prepared by" lines — every version and comment is attributed, including your agent name.
+- No status lines, status fields, or status tables — visibility, archival, and tags carry state (see [Visibility &amp; Archiving](#visibility--archiving)). There is no document status; do not invent one.
+- No version numbers or changelogs — the plan history is the changelog.
+
+The exception is dates that anchor **facts**, which belong in content: "confirmed against production 2026-08-19", "verified at commit abc123".
+
+**Write plainly.** Follow Simplified-Technical-English-style rules:
+
+- Short sentences. One idea per sentence. Active voice, present tense.
+- Plain verbs: "use", not "leverage"; "check", not "perform validation of".
+- No metaphors, no marketing adjectives, no drama. Words that signal padding — "robust", "seamless", "comprehensive", "cutting-edge", "elegant", "crucially", "delve" — are banned unless you are quoting someone.
+- State facts without selling them. The reader is a colleague deciding what to do, not an audience to impress. Write like a runbook, not a keynote.
+- Prefer a table or list over a paragraph when the content is enumerable.
+- Length is a cost. Write the shortest document that serves its reader, then stop.
+
 ## API Reference
 
 ### List Plans
