@@ -181,8 +181,15 @@ loop do
   req["Authorization"] = "Bearer #{TOKEN}"
   req["Accept"] = "text/event-stream"
 
+  # A --timeout must be able to fire while blocked on the stream, not just
+  # between reconnects — the server holds a socket open for minutes and
+  # heartbeats it, so without a read deadline "give up after N seconds"
+  # would actually mean "after the server retires the stream".
+  read_deadline =
+    options[:timeout] ? [options[:timeout] - (Time.now - started), 1].max : nil
+
   begin
-    Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https", read_timeout: nil) do |http|
+    Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https", read_timeout: read_deadline) do |http|
       http.request(req) do |res|
         abort "coplan-attach: server said #{res.code}" unless res.code.start_with?("2")
         id = nil
@@ -224,6 +231,10 @@ loop do
     end
   rescue Interrupt
     exit 0
+  rescue Net::ReadTimeout
+    # Not an error: the wait budget ran out mid-stream. Loop back so the
+    # timeout check at the top decides (exit 64) — or reattach if events
+    # were seen and the clock was reset.
   rescue => e
     warn "coplan-attach: #{e.class}: #{e.message} — reattaching"
     sleep 2
