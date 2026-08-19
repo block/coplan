@@ -5617,6 +5617,28 @@ img.avatar {
   white-space: nowrap;
 }
 
+/* Dismissal sits at the far right of the row, quiet until hovered — the
+   strip is a nudge, and getting rid of a nudge shouldn't be loud. */
+.attention__clear-form {
+  margin: 0;
+  margin-left: auto;
+}
+
+.attention__clear {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.attention__clear:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
 /* "Since you last looked" strip — recency against your own reading
    history, quieter than the warning-toned attention strip. */
 .recent-updates {

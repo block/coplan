@@ -787,6 +787,16 @@ RSpec.describe "Plans", type: :request do
       get plans_path
       expect(response.body).not_to include("Bobs Secret Draft")
     end
+
+    it "offers a per-plan clear so the strip can be emptied without reading" do
+      thread = create(:comment_thread, plan: plan, created_by_user: bob)
+      create(:notification, user: alice, plan: plan, comment_thread: thread)
+
+      get plans_path
+
+      clear_form = Nokogiri::HTML(response.body).at_css(".attention__clear-form")
+      expect(clear_form["action"]).to eq(mark_plan_read_notifications_path(plan_id: plan.id))
+    end
   end
 
   describe "PATCH /plans/:id/move_to_folder" do

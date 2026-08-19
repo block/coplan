@@ -18,6 +18,14 @@ module CoPlan
       )
     end
 
+    # DOM id of a plan row's unread-comment badge. Shared by the row that
+    # renders it and the Turbo Stream that removes it when that plan's
+    # notifications are cleared (NotificationsController#mark_plan_read) —
+    # takes a plan or a plan id.
+    def plan_unread_badge_id(plan)
+      "plan-unread-#{plan.respond_to?(:id) ? plan.id : plan}"
+    end
+
     # Published is the unmarked normal state. The hidden states (draft,
     # archived) get a quiet crossed-out eye — "this one isn't listed" —
     # rather than a loud colored badge. Safe in broadcast partials

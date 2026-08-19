@@ -530,7 +530,11 @@ module CoPlan
     # One grouped query per request, shared between the per-row unread
     # badges and the "needs attention" strip.
     def unread_by_plan
-      @unread_by_plan ||= current_user.notifications.unread.group(:plan_id).count
+      needs_attention.unread_counts
+    end
+
+    def needs_attention
+      @needs_attention ||= Notifications::NeedsAttention.call(user: current_user)
     end
 
     def unread_counts_for(plans)
@@ -638,28 +642,11 @@ module CoPlan
       end
     end
 
-    ATTENTION_LIMIT = 5
-
-    # "Needs attention" strip: plans with unread comment notifications for
-    # the current user, most-unread first. Independent of the active
-    # sidebar filters — it's an inbox, not a search result. Bounded: only
-    # the top ATTENTION_LIMIT plans are loaded.
+    # "Needs attention" strip — see Notifications::NeedsAttention. Loading
+    # it here also warms the grouped unread count behind the per-row
+    # badges, so the whole page costs one extra query.
     def load_needs_attention
-      @attention_unread_counts = unread_by_plan
-      top_ids = unread_by_plan.sort_by { |_id, count| -count }
-        .first(ATTENTION_LIMIT).map(&:first)
-      # The plan view hides resolved threads by default. Route each inbox row
-      # through an unread notification so the destination marks it read and
-      # deep-links to the exact thread, even when that thread is resolved.
-      # This is deliberately bounded to ATTENTION_LIMIT indexed lookups.
-      @attention_notification_ids = top_ids.index_with do |plan_id|
-        current_user.notifications.unread.where(plan_id: plan_id).newest_first.pick(:id)
-      end
-      # Even an inbox routes through the discovery predicate — a stale
-      # notification must not resurface an archived plan or another user's
-      # unlisted draft.
-      @attention_plans = Plan.visible_to(current_user).active.where(id: top_ids)
-        .sort_by { |plan| -unread_by_plan.fetch(plan.id, 0) }
+      needs_attention
     end
 
     # Section keys (see Plans::ChangedSections) for content that changed

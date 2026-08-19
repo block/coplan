@@ -1,0 +1,36 @@
+<%# The strip replaces itself when a row is cleared, so the wrapper is
+    always rendered — an empty container still gives the Turbo Stream
+    something to target. %>
+<div id="needs-attention">
+  <% if attention.any? %>
+    <section class="attention" aria-label="Plans that need your attention">
+      <h2 class="attention__heading">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Needs attention (<%= attention.unread_counts.size %>)
+      </h2>
+      <ul class="attention__list">
+        <% attention.plans.each do |plan| %>
+          <li class="attention__item">
+            <%= link_to plan.title, notification_path(attention.notification_id_for(plan)), class: "attention__link", data: { turbo: false } %>
+            <span class="attention__unread"><%= pluralize(attention.unread_count_for(plan), "unread comment") %></span>
+            <%# Dismissal without reading: marks this plan's rows read and
+                re-renders the strip in place, which may promote the next
+                plan into view. %>
+            <%= button_to "Clear",
+                  mark_plan_read_notifications_path(plan_id: plan.id),
+                  method: :post,
+                  class: "attention__clear",
+                  form: { data: { turbo_stream: true }, class: "attention__clear-form" },
+                  aria: { label: "Clear unread comments for #{plan.title}" } %>
+          </li>
+        <% end %>
+      </ul>
+      <% if attention.remaining > 0 %>
+        <p class="attention__more text-muted text-sm">
+          + <%= pluralize(attention.remaining, "more plan") %> with unread comments —
+          <%= link_to "see notifications", notifications_path, class: "attention__link" %>
+        </p>
+      <% end %>
+    </section>
+  <% end %>
+</div>

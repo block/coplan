@@ -135,6 +135,19 @@ The comment system is central to the collaboration workflow. Domain experts leav
 - Author marks completed work: **Resolve** (`todo → resolved`)
 - Resolved/discarded threads can be **Reopened** back to `pending`
 
+### Notifications follow the thread
+A closed thread (`resolved`/`discarded`) carries no unread inbox rows — its
+highlight is hidden in the doc view, so a row pointing at it would send the
+reader to an apparently empty page.
+- Closing a thread sweeps its unread notifications read (`CommentThread`
+  `after_commit` → `Notifications::MarkThreadRead`)
+- `agent_response` and `status_change` don't notify at all on an
+  already-closed thread (`Notifications::Create::SILENT_ON_CLOSED_THREAD`);
+  human replies and mentions still do
+- The workspace "Needs attention" strip is `Notifications::NeedsAttention`,
+  and each row can be dismissed without reading via
+  `NotificationsController#mark_plan_read`
+
 ### Inline review UI
 - **Highlights**: anchored text is wrapped in `<mark>` elements — amber for `pending`, blue for `todo`, unstyled for `resolved`
 - **Margin dots**: colored indicators in the left margin aligned to each highlight's vertical position

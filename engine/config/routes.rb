@@ -115,6 +115,7 @@ CoPlan::Engine.routes.draw do
     end
     collection do
       post :mark_all_read
+      post :mark_plan_read
     end
   end
 

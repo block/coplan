@@ -66,15 +66,36 @@ module CoPlan
       end
     end
 
+    # "Clear" on a workspace attention row: one plan's unread rows marked
+    # read without reading them. The strip re-renders rather than dropping
+    # the row, because clearing one plan can promote the next one into view.
+    def mark_plan_read
+      plan_id = params[:plan_id].to_s
+      if plan_id.present?
+        current_user.notifications.unread.where(plan_id: plan_id).update_all(read_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
+      end
+
+      broadcast_badge_update
+
+      respond_to do |format|
+        format.turbo_stream do
+          attention = Notifications::NeedsAttention.call(user: current_user)
+          render turbo_stream: [
+            turbo_stream.update("inbox-badge", current_user.notifications.unread.count.to_s),
+            turbo_stream.replace("needs-attention", partial: "coplan/plans/needs_attention", locals: { attention: attention }),
+            # The plan's own row badge, if that row is on screen — a row
+            # still reading "3" after the strip cleared looks stale.
+            turbo_stream.remove(helpers.plan_unread_badge_id(plan_id))
+          ]
+        end
+        format.html { redirect_back fallback_location: plans_path, notice: "Notifications cleared." }
+      end
+    end
+
     private
 
     def broadcast_badge_update
-      count = current_user.notifications.unread.count
-      Broadcaster.update_to(
-        "coplan_notifications:#{current_user.id}",
-        target: "inbox-badge",
-        html: count.to_s
-      )
+      Notifications::BroadcastBadges.call(user_ids: [ current_user.id ])
     end
   end
 end

@@ -81,11 +81,61 @@ RSpec.describe CoPlan::CommentThread, type: :model do
     expect(thread_record.resolved_by_user).to eq(user)
   end
 
+  describe "clearing notifications when a thread closes" do
+    let(:recipient) { create(:coplan_user) }
+
+    before { allow(CoPlan::Broadcaster).to receive(:update_to) }
+
+    it "marks the thread's unread rows read on resolve" do
+      notification = create(:notification, user: recipient, plan: plan, comment_thread: thread_record)
+
+      thread_record.resolve!(user)
+
+      expect(notification.reload.read_at).to be_present
+    end
+
+    it "marks the thread's unread rows read on discard" do
+      notification = create(:notification, user: recipient, plan: plan, comment_thread: thread_record)
+
+      thread_record.discard!(user)
+
+      expect(notification.reload.read_at).to be_present
+    end
+
+    it "leaves rows alone when the thread stays open" do
+      notification = create(:notification, user: recipient, plan: plan, comment_thread: thread_record)
+
+      thread_record.accept!(user)
+
+      expect(notification.reload.read_at).to be_nil
+    end
+
+    it "does not clear rows on an unrelated update to a closed thread" do
+      thread_record.resolve!(user)
+      notification = create(:notification, user: recipient, plan: plan, comment_thread: thread_record, reason: "reply")
+
+      thread_record.update!(anchor_context: "later edit")
+
+      expect(notification.reload.read_at).to be_nil
+    end
+  end
+
   it "open? returns true for pending and todo" do
     thread_record.status = "pending"
     expect(thread_record).to be_open
     thread_record.status = "todo"
     expect(thread_record).to be_open
+  end
+
+  it "closed? returns true for resolved and discarded only" do
+    thread_record.status = "resolved"
+    expect(thread_record).to be_closed
+    thread_record.status = "discarded"
+    expect(thread_record).to be_closed
+    thread_record.status = "pending"
+    expect(thread_record).not_to be_closed
+    thread_record.status = "todo"
+    expect(thread_record).not_to be_closed
   end
 
   it "open? returns false for resolved and discarded" do

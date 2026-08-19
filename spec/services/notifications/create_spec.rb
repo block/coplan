@@ -117,6 +117,46 @@ RSpec.describe CoPlan::Notifications::Create do
     end
   end
 
+  describe "closed threads" do
+    let(:resolved_thread) do
+      thread.tap { |t| t.update!(status: "resolved", resolved_by_user: plan_author) }
+    end
+
+    it "does not notify about an agent response on a resolved thread" do
+      expect {
+        described_class.call(comment_thread: resolved_thread, actor_id: create(:coplan_user).id, reason: "agent_response")
+      }.not_to change(CoPlan::Notification, :count)
+    end
+
+    it "does not notify about a status change into a closed status" do
+      expect {
+        described_class.call(comment_thread: resolved_thread, actor_id: plan_author.id, reason: "status_change")
+      }.not_to change(CoPlan::Notification, :count)
+    end
+
+    it "does not notify about an agent response on a discarded thread" do
+      thread.update!(status: "discarded", resolved_by_user: plan_author)
+
+      expect {
+        described_class.call(comment_thread: thread, actor_id: create(:coplan_user).id, reason: "agent_response")
+      }.not_to change(CoPlan::Notification, :count)
+    end
+
+    it "still notifies about a human reply — somebody reopening the conversation is news" do
+      expect {
+        described_class.call(comment_thread: resolved_thread, actor_id: create(:coplan_user).id, reason: "reply")
+      }.to change(CoPlan::Notification, :count).by(2)
+    end
+
+    it "still notifies about a status change when the thread was reopened" do
+      resolved_thread.update!(status: "pending", resolved_by_user: nil)
+
+      expect {
+        described_class.call(comment_thread: resolved_thread, actor_id: plan_author.id, reason: "status_change")
+      }.to change(CoPlan::Notification, :count).by(1)
+    end
+  end
+
   describe "broadcasting" do
     it "broadcasts badge updates to each notified user" do
       expect(CoPlan::Broadcaster).to receive(:update_to).with(

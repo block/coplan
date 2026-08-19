@@ -1,6 +1,13 @@
 module CoPlan
   module Notifications
     class Create
+      # Reasons that stay silent once a thread is closed. An agent working
+      # a thread it then resolves used to leave a pile of unread rows
+      # pointing at a hidden highlight — the reader clicked through to an
+      # apparently empty plan. Human replies and mentions still notify:
+      # somebody deliberately reopening a settled conversation is news.
+      SILENT_ON_CLOSED_THREAD = %w[agent_response status_change].freeze
+
       def self.call(comment_thread:, actor_id:, comment: nil, reason:)
         new(comment_thread:, actor_id:, comment:, reason:).call
       end
@@ -13,6 +20,8 @@ module CoPlan
       end
 
       def call
+        return if silenced?
+
         subscriber_ids = compute_subscribers
         subscriber_ids.delete(@actor_id)
         return if subscriber_ids.empty?
@@ -27,10 +36,14 @@ module CoPlan
           )
         end
 
-        broadcast_badge_updates(subscriber_ids)
+        BroadcastBadges.call(user_ids: subscriber_ids)
       end
 
       private
+
+      def silenced?
+        SILENT_ON_CLOSED_THREAD.include?(@reason) && @comment_thread.closed?
+      end
 
       def compute_subscribers
         case @reason
@@ -72,17 +85,6 @@ module CoPlan
             .compact
         )
         ids
-      end
-
-      def broadcast_badge_updates(subscriber_ids)
-        counts = Notification.where(user_id: subscriber_ids).unread.group(:user_id).count
-        subscriber_ids.each do |user_id|
-          Broadcaster.update_to(
-            "coplan_notifications:#{user_id}",
-            target: "inbox-badge",
-            html: (counts[user_id] || 0).to_s
-          )
-        end
       end
     end
   end
