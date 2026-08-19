@@ -148,6 +148,20 @@ RSpec.describe CoPlan::Notifications::Create do
       }.to change(CoPlan::Notification, :count).by(2)
     end
 
+    # The reply-then-resolve race: the job is holding a thread it loaded
+    # while it was open, and the resolve has already committed (and swept)
+    # by the time it gets here. A row created now would never be swept —
+    # and would push. The lock reloads, so nothing is created.
+    it "sees a close that committed after the job loaded the thread" do
+      stale = CoPlan::CommentThread.find(thread.id)
+      CoPlan::CommentThread.find(thread.id).resolve!(plan_author)
+      expect(stale.status).to eq("pending") # in-memory copy is behind
+
+      expect {
+        described_class.call(comment_thread: stale, actor_id: create(:coplan_user).id, reason: "agent_response")
+      }.not_to change(CoPlan::Notification, :count)
+    end
+
     it "still notifies about a status change when the thread was reopened" do
       resolved_thread.update!(status: "pending", resolved_by_user: nil)
 

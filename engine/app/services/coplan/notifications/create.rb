@@ -20,11 +20,26 @@ module CoPlan
       end
 
       def call
-        return if silenced?
+        # Reading the status and inserting have to be one step. An agent
+        # that replies and then resolves races its own reply job: check
+        # open, resolve commits and sweeps, insert — and the row is unread
+        # forever on a closed thread, with a push already on its way
+        # (WebPushDeliveryJob doesn't re-check read state). The lock
+        # reloads the thread, so either we see the close and stay silent,
+        # or the close waits for us and its sweep catches these rows.
+        notified_ids = @comment_thread.with_lock do
+          silenced? ? [] : insert_notifications
+        end
 
+        BroadcastBadges.call(user_ids: notified_ids)
+      end
+
+      private
+
+      def insert_notifications
         subscriber_ids = compute_subscribers
         subscriber_ids.delete(@actor_id)
-        return if subscriber_ids.empty?
+        return [] if subscriber_ids.empty?
 
         subscriber_ids.each do |user_id|
           Notification.create!(
@@ -36,11 +51,11 @@ module CoPlan
           )
         end
 
-        BroadcastBadges.call(user_ids: subscriber_ids)
+        subscriber_ids
       end
 
-      private
-
+      # with_lock has reloaded the thread, so this reads committed state
+      # rather than whatever the job loaded moments ago.
       def silenced?
         SILENT_ON_CLOSED_THREAD.include?(@reason) && @comment_thread.closed?
       end
