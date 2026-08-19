@@ -15,17 +15,14 @@
             <span class="attention__unread"><%= pluralize(attention.unread_count_for(plan), "unread comment") %></span>
             <%# Dismissal without reading: marks this plan's rows read and
                 re-renders the strip in place, which may promote the next
-                plan into view. %>
-            <%# turbo_submits_with swaps the label and Turbo marks the form
-                aria-busy the moment it's clicked (restoring both on
-                failure), so the row pulses instead of sitting there
-                looking unclicked while the request is in flight. %>
+                plan into view. Clicking it hides the row instantly (see
+                the aria-busy rules in the stylesheet) — dismissing a
+                nudge shouldn't have a progress state. %>
             <%= button_to "Clear",
                   mark_plan_read_notifications_path(plan_id: plan.id),
                   method: :post,
                   class: "attention__clear",
                   form: { data: { turbo_stream: true }, class: "attention__clear-form" },
-                  data: { turbo_submits_with: "Clearing…" },
                   aria: { label: "Clear unread comments for #{plan.title}" } %>
           </li>
         <% end %>

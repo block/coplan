@@ -5639,19 +5639,19 @@ img.avatar {
   text-decoration: underline;
 }
 
-/* Clear in flight — the row pulses until the strip re-renders so the
-   click never feels like it did nothing. Turbo sets aria-busy on submit
-   and clears it on completion or failure. */
+/* Clear is instant, not a task with a progress state: Turbo marks the
+   form aria-busy the moment it's pressed, and the row hides on that —
+   gone before the request finishes, with the response replacing the
+   strip a moment later. Turbo clears aria-busy on failure, so a rejected
+   request puts the row back without any JS of ours. */
 .attention__item:has(.attention__clear-form[aria-busy="true"]) {
-  animation: attention-clear-pulse 0.8s ease-in-out infinite;
+  display: none;
 }
 
-@keyframes attention-clear-pulse {
-  50% { opacity: 0.45; }
-}
-
-.attention__clear-form[aria-busy="true"] .attention__clear {
-  cursor: progress;
+/* Clearing the last row empties the strip, so take the whole thing with
+   it rather than flash an empty bordered box with a stale count. */
+.attention:has(.attention__item:only-child .attention__clear-form[aria-busy="true"]) {
+  display: none;
 }
 
 /* "Since you last looked" strip — recency against your own reading
