@@ -49,6 +49,25 @@ RSpec.describe "Api::V1::Content", type: :request do
       expect(body["revision"]).to eq(1)
     end
 
+    # The production bug this guards against: an agent's edit was stored
+    # with the human's actor_type, so the history tab presented it as an
+    # edit the human made themselves.
+    it "attributes the version to the agent acting for the user" do
+      put_content(initial_content + "\nagent addendum.\n", params: { agent_name: "Claude" })
+
+      version = plan.reload.current_plan_version
+      expect(version.actor_type).to eq("local_agent")
+      expect(version.actor_id).to eq(alice.id)
+      expect(version.agent_name).to eq("Claude")
+      expect(version.api_token_id).to eq(alice_token.id)
+    end
+
+    it "falls back to the token's name when agent_name is omitted" do
+      put_content(initial_content + "\nagent addendum.\n")
+
+      expect(plan.reload.current_plan_version.agent_name).to eq(alice_token.name)
+    end
+
     it "accepts change_summary and persists it on the version" do
       new_body = initial_content + "\nappended.\n"
       put_content(new_body, params: { change_summary: "added appendix" })

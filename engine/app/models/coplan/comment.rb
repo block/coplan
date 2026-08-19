@@ -10,6 +10,7 @@ module CoPlan
     # a foreign key. They're delivery records for a comment that no longer
     # exists — they go with it.
     has_many :notifications, class_name: "CoPlan::Notification", dependent: :delete_all
+    belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
 
     validates :body_markdown, presence: true
     validates :author_type, presence: true, inclusion: { in: AUTHOR_TYPES }

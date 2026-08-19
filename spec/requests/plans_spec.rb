@@ -79,6 +79,15 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include("plan-layout__content")
   end
 
+  it "does not link archived plans to a library that omits them" do
+    archived_plan = create(:plan, :archived, created_by_user: alice)
+
+    get plan_path(archived_plan)
+
+    expect(response).to have_http_status(:success)
+    expect(response.body).not_to include("plan-location-link")
+  end
+
   it "scopes comment footnote ids so they can't collide with the plan body's" do
     thread = create(:comment_thread, :with_anchor, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
     comment = create(:comment, comment_thread: thread, author_type: "human", author_id: alice.id,
@@ -101,7 +110,8 @@ RSpec.describe "Plans", type: :request do
   it "show plan wires up both text-selection and content-nav controllers" do
     get plan_path(plan)
     expect(response).to have_http_status(:success)
-    expect(response.body).to include('data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections"')
+    expect(response.body).to include('data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview"')
+    expect(response.body).to include('data-coplan--reference-preview-target="popover"')
   end
 
   it "show plan shares content target between controllers" do
@@ -393,11 +403,12 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include('title="Mystery Type"')
     end
 
-    it "renders a neutral, untinted document icon for untyped plans" do
+    it "renders the General type icon for plans created without an explicit type" do
       create(:plan, :published, created_by_user: alice, plan_type: nil)
       get plans_path
-      expect(response.body).to include('aria-label="Document"')
-      expect(response.body).not_to match(/plan-type-icon--\d/)
+      expect(response.body).to include('aria-label="General document"')
+      tint = Zlib.crc32("General") % CoPlan::PlansHelper::PLAN_TYPE_COLOR_COUNT
+      expect(response.body).to include("plan-type-icon--#{tint}")
     end
   end
 

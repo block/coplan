@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Fades the plan title into the sticky top nav once the document's own
-// header has scrolled up behind the bar. Persistent wayfinding —
+// Fades the plan context (containing-folder control + title) into the sticky top nav
+// once the document's own header has scrolled up behind the bar. Persistent wayfinding —
 // especially on mobile and on comment deep links, where you land centered
 // on an anchor with the masthead already off-screen — that costs zero
 // space while the header is still visible.
@@ -70,12 +70,14 @@ export default class extends Controller {
   }
 
   _setVisible(visible) {
-    this.element.classList.toggle("site-nav__doc-title--visible", visible)
+    this.element.classList.toggle("site-nav__plan-context--visible", visible)
     // Collapsed, it's decorative and must stay out of the tab order; once
-    // shown it's a real return-to-top control, so expose it to keyboard and
-    // screen-reader users too.
+    // shown, both the containing-folder and return-to-top links are real controls,
+    // so expose them to keyboard and screen-reader users too.
     this.element.setAttribute("aria-hidden", String(!visible))
-    this.element.tabIndex = visible ? 0 : -1
+    this.element.querySelectorAll("a").forEach(link => {
+      link.tabIndex = visible ? 0 : -1
+    })
   }
 
   // --nav-height is authored in rem; resolve it to px for rootMargin.

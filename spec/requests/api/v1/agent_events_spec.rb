@@ -115,8 +115,13 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(CoPlan::AgentSession.visible).to be_empty
     end
 
+    # Suppression keys on the comment's api_token_id (who *wrote* it), not
+    # the notification actor_id — that holds the human, per the attribution
+    # convention, and user ids must never be compared against token ids.
     it "does not wake the agent for its own comments" do
-      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: agent_token.id, comment: comment, reason: "agent_response")
+      own_comment = create(:comment, comment_thread: thread, author_type: "local_agent",
+        author_id: hampton.id, agent_name: "Claude", api_token_id: agent_token.id, body_markdown: "my own reply")
+      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: own_comment, reason: "agent_response")
 
       expect(CoPlan::AgentEvent.for_token(agent_token).count).to eq(0)
     end
@@ -281,16 +286,18 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
   end
 
   describe "agent attribution ergonomics" do
-    # An agent declares its name once (session or token); making it repeat
-    # that on every write is friction that only shows up as a failed
-    # comment mid-conversation.
-    it "falls back to the agent session's name when the param is omitted" do
+    # The token is the identity; the session is just presence on one plan.
+    # Every write path (comments, versions, events) resolves the name the
+    # same way — explicit param, then the token's agent_name, then its
+    # name — so one agent can't sign comments "Ada" while its versions
+    # say "Claude".
+    it "attributes writes to the token's name even when the session was claimed under another label" do
       post api_v1_plan_agent_session_path(plan), params: { agent_name: "Ada" }, headers: agent_headers, as: :json
 
       post api_v1_plan_comments_path(plan), params: { body_markdown: "no name given" }, headers: agent_headers, as: :json
 
       expect(response).to have_http_status(:created)
-      expect(CoPlan::Comment.last.agent_name).to eq("Ada")
+      expect(CoPlan::Comment.last.agent_name).to eq("Claude")
     end
 
     it "falls back to the token's agent name when there is no session" do

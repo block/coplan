@@ -2,17 +2,18 @@ module CoPlan
   module AgentEvents
     # Fans an event out to the inbox of every agent session on the plan,
     # except the actor's own (an agent should not be woken by its own
-    # comment or edit). Suppression matches on the api token id, which is
-    # what api_actor_id returns for token-authenticated callers.
+    # comment or edit). Suppression matches on the api token id — never a
+    # user id, since attribution rows store the human while the token is
+    # the unit of subscription.
     class Publish
-      def self.call(plan:, event_type:, actor_id: nil, comment_thread: nil, comment: nil, payload: {})
-        new(plan:, event_type:, actor_id:, comment_thread:, comment:, payload:).call
+      def self.call(plan:, event_type:, actor_token_id: nil, comment_thread: nil, comment: nil, payload: {})
+        new(plan:, event_type:, actor_token_id:, comment_thread:, comment:, payload:).call
       end
 
-      def initialize(plan:, event_type:, actor_id:, comment_thread:, comment:, payload:)
+      def initialize(plan:, event_type:, actor_token_id:, comment_thread:, comment:, payload:)
         @plan = plan
         @event_type = event_type
-        @actor_id = actor_id
+        @actor_token_id = actor_token_id
         @comment_thread = comment_thread
         @comment = comment
         @payload = payload
@@ -21,7 +22,7 @@ module CoPlan
       def call
         sessions = AgentSession.where(plan_id: @plan.id).includes(:api_token)
         sessions.each do |session|
-          next if @actor_id.present? && session.api_token_id == @actor_id
+          next if @actor_token_id.present? && session.api_token_id == @actor_token_id
 
           AgentEvent.create!(
             api_token_id: session.api_token_id,

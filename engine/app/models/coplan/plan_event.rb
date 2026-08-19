@@ -37,20 +37,24 @@ module CoPlan
 
     belongs_to :plan
     belongs_to :actor_user, class_name: "CoPlan::User", foreign_key: "actor_id", optional: true
+    belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
 
     after_initialize { self.metadata ||= {} }
 
     validates :actor_type, presence: true, inclusion: { in: ACTOR_TYPES }
     validates :event_type, presence: true, inclusion: { in: EVENT_TYPES }
+    # Same cap as Comment#agent_name — the two render through the same
+    # "Agent (via User)" convention.
+    validates :agent_name, length: { maximum: 20 }, allow_nil: true
 
     scope :for_history, -> { order(created_at: :desc) }
 
     def self.ransackable_attributes(_auth_object = nil)
-      %w[id plan_id actor_id actor_type event_type field before_value after_value created_at]
+      %w[id plan_id actor_id actor_type agent_name api_token_id event_type field before_value after_value created_at]
     end
 
     def self.ransackable_associations(_auth_object = nil)
-      %w[plan actor_user]
+      %w[plan actor_user api_token]
     end
 
     # Marker so history rendering can branch on the kind of item without

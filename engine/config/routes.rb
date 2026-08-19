@@ -53,6 +53,9 @@ CoPlan::Engine.routes.draw do
   namespace :api do
     namespace :v1 do
       resources :tags, only: [:index]
+      # Plan-type catalog (with templates) — agents read this before
+      # creating a plan; see the Create Plan section of /agent-instructions.
+      resources :plan_types, only: [:index]
       resources :folders, only: [:index, :create, :update, :destroy]
 
       # The agent organization API: overview (show), bulk read (contents),
@@ -110,8 +113,10 @@ CoPlan::Engine.routes.draw do
         post "events/ack", to: "agent_events#ack", as: :agent_events_ack
       end
 
-      # Mint a short-lived session token from a long-lived one; DELETE
-      # revokes whichever token authenticated the request.
+      # Mint a short-lived session token — the one API call that accepts
+      # the host's request auth alone, since it is how an agent gets the
+      # Bearer token every other call requires. DELETE revokes whichever
+      # token authenticated the request.
       resources :tokens, only: [:create]
       delete "tokens/current", to: "tokens#destroy", as: :revoke_current_token
     end

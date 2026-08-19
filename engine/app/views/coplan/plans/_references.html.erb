@@ -27,35 +27,25 @@
     <% end %>
   <% end %>
 
-  <% if references.any? %>
-    <ul class="references-list">
-      <% references.group_by(&:reference_type).each do |type, refs| %>
-        <% refs.each do |ref| %>
-          <li class="references-list__item">
-            <span class="references-list__icon"><%= reference_icon(type) %></span>
-            <div class="references-list__content">
-              <a href="<%= ref.url %>" target="_blank" rel="noopener" class="references-list__link">
-                <%= ref.title.presence || truncate(ref.url, length: 80) %>
-              </a>
-              <span class="references-list__meta">
-                <% if ref.key.present? %>
-                  <code class="badge badge--ref-key"><%= ref.key %></code>
-                <% end %>
-                <span class="badge badge--ref-type"><%= type.humanize %></span>
-                <% if ref.source == "extracted" %>
-                  <span class="references-list__source">auto-extracted</span>
-                <% end %>
-              </span>
-            </div>
-            <% if ref.source == "explicit" && current_user && CoPlan::PlanPolicy.new(current_user, plan).update? %>
-              <%= button_to "✕", plan_reference_path(plan, ref), method: :delete, class: "references-list__remove", title: "Remove reference", data: { turbo_confirm: "Remove this reference?", turbo_stream: true } %>
-            <% end %>
-          </li>
-        <% end %>
-      <% end %>
-    </ul>
-  <% else %>
+  <% extracted_references, explicit_references = references.partition { |reference| reference.source == "extracted" } %>
+  <div id="plan-extracted-references"
+       data-coplan--live-update-revision-value="<%= plan.current_revision %>">
+    <%= render partial: "coplan/plans/reference_list", locals: {
+          references: extracted_references,
+          plan: plan,
+          allow_removal: false
+        } %>
+  </div>
+  <div id="plan-explicit-references">
+    <%= render partial: "coplan/plans/reference_list", locals: {
+          references: explicit_references,
+          plan: plan,
+          allow_removal: true
+        } %>
+  </div>
+
+  <% if references.empty? && !has_citations %>
     <%# One quiet line, not a padded card — empty is the common case. %>
-    <p class="plan-footnote__empty">None yet — links in the document are picked up automatically.</p>
+    <p class="plan-footnote__empty">No references yet.</p>
   <% end %>
 </div>

@@ -33,6 +33,19 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include('<pre lang="mermaid"><code>')
       expect(html).to include("graph LR")
     end
+
+    it "opens external links in a new tab while keeping fragment links local" do
+      markdown = "[Source](https://example.com/evidence) and [§1](#section-1).\n\n## 1 Decision"
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))
+      external = doc.at_css('a[href="https://example.com/evidence"]')
+      internal = doc.at_css('a[href="#section-1"]')
+
+      expect(external["target"]).to eq("_blank")
+      expect(external["rel"]).to eq("noopener noreferrer")
+      expect(external["data-reference-type"]).to eq("link")
+      expect(internal["target"]).to be_nil
+      expect(internal["rel"]).to be_nil
+    end
   end
 
   describe "footnotes" do
@@ -43,14 +56,30 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include('<sup class="footnote-ref">')
       expect(html).to include('href="#fn-1"')
       expect(html).to include('data-footnote-ref')
+      expect(html).to include('class="reference-anchor reference-anchor--footnote"')
+      expect(html).to include("mouseenter-&gt;coplan--reference-preview#enter")
+      expect(html).to include("click-&gt;coplan--reference-preview#follow")
+      expect(html).not_to include("click-&gt;coplan--reference-preview#pin")
     end
 
     it "renders the footnote section with a backreference" do
       html = helper.render_markdown(markdown)
       expect(html).to match(/<section class="footnotes" data-footnotes(="")?>/)
+      expect(html).to include('<h2 class="footnotes-title">References</h2>')
       expect(html).to include("The supporting detail.")
       expect(html).to include('data-footnote-backref')
       expect(html).to include('href="#fnref-1"')
+    end
+
+    it "can split footnotes from the document body for unified back matter" do
+      body = helper.render_markdown(markdown, footnotes: :exclude)
+      footnotes = helper.render_markdown(markdown, footnotes: :only)
+
+      expect(body).to include("A bold claim.")
+      expect(body).not_to include('data-footnotes')
+      expect(footnotes).to include('data-footnotes')
+      expect(footnotes).to include("The supporting detail.")
+      expect(footnotes).not_to include("A bold claim.")
     end
 
     it "works in non-interactive mode" do
@@ -83,6 +112,59 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       html = helper.render_markdown("# Heading\n\n[jump](#fnord) <span id=\"fnord\">x</span>\n\n" + markdown, footnote_prefix: "p")
       expect(html).to include('href="#fnord"')
       expect(html).to include('id="fnord"')
+    end
+  end
+
+  describe "internal section references" do
+    let(:markdown) do
+      <<~MARKDOWN
+        # Plan
+
+        See [§3.1](#section-3-1), but do not reinterpret the external statute RKSV §2.
+
+        ### 3.1 Rollout
+
+        Start with a five-percent cohort.
+      MARKDOWN
+    end
+
+    it "gives numbered headings stable section ids" do
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))
+
+      expect(doc.at_css("h3")["id"]).to eq("section-3-1")
+    end
+
+    it "enhances explicit links to numbered sections for previews" do
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))
+      anchor = doc.at_css('a[href="#section-3-1"]')
+
+      expect(anchor["class"]).to include("reference-anchor--section")
+      expect(anchor["aria-haspopup"]).to eq("dialog")
+      expect(anchor["aria-expanded"]).to eq("false")
+      expect(anchor["data-action"]).to include("coplan--reference-preview#enter")
+      expect(anchor["data-action"]).to include("click->coplan--reference-preview#follow")
+      expect(anchor["data-action"]).not_to include("click->coplan--reference-preview#pin")
+    end
+
+    it "leaves bare section signs as text because they can cite external documents" do
+      html = helper.render_markdown(markdown)
+
+      expect(html).to include("RKSV §2")
+      expect(html).not_to include('href="#section-2"')
+    end
+
+    it "does not enhance a fragment link when its numbered section is missing" do
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown("See [§9](#section-9)."))
+      anchor = doc.at_css('a[href="#section-9"]')
+
+      expect(anchor["class"]).to be_nil
+      expect(anchor["data-action"]).to be_nil
+    end
+
+    it "does not create duplicate section ids in prefixed comment fragments" do
+      html = helper.render_markdown("## 3.1 A heading inside a comment", footnote_prefix: "comment-abc")
+
+      expect(html).not_to include('id="section-3-1"')
     end
   end
 

@@ -135,6 +135,8 @@ module CoPlan
             operations: params[:operations],
             actor_type: api_author_type,
             actor_label: @api_token&.name,
+            agent_name: api_agent_name,
+            api_token_id: api_token_id,
             dry_run: params[:dry_run].to_s == "true"
           )
           unless result.success?
@@ -241,6 +243,8 @@ module CoPlan
             actor_type: event.actor_type,
             agent: event.actor_type != "human",
             actor: event.actor_user && { id: event.actor_user.id, name: event.actor_user.name },
+            agent_name: event.agent_name,
+            api_token_id: event.api_token_id,
             actor_label: event.metadata["actor_label"],
             run_id: event.run_id,
             plan_id: event.plan_id,

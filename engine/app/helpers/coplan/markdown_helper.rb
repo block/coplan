@@ -16,7 +16,7 @@ module CoPlan
       section
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title type checked disabled open aria-label data-line data-line-text data-action data-mention-username data-sourcepos data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
+    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title target rel type checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-reference-type data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
 
     # Commonmarker extensions beyond the gem defaults (tables, tasklist,
     # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
@@ -34,7 +34,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 2
+    RENDER_CACHE_VERSION = 8
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -46,16 +46,20 @@ module CoPlan
     # one markdown fragment (e.g. each comment) — commonmarker numbers
     # footnote ids from #fn-1 per document, so unprefixed fragments collide
     # and reference/backref links jump to the wrong footnote.
-    def render_markdown(content, interactive: true, footnote_prefix: nil)
+    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline)
       render_options = { unsafe: true }
       # Sourcepos is only needed to wire checkboxes to their source lines;
       # make_checkboxes_interactive strips it from the final output.
       render_options[:sourcepos] = true if interactive
       html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
-      sanitized = sanitize(with_chips, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
+      with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
+      sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       result = interactive ? make_checkboxes_interactive(sanitized, content) : sanitized
       result = scope_footnote_ids(result, footnote_prefix) if footnote_prefix
+      result = select_footnotes(result, footnotes)
+      return result.html_safe if footnotes == :only
+
       tag.div(result.html_safe, class: "markdown-rendered", data: { controller: "coplan--mermaid coplan--syntax-highlight" })
     end
 
@@ -80,12 +84,105 @@ module CoPlan
       doc.to_html
     end
 
+    # Numbered headings get stable fragments so agents can write explicit,
+    # unambiguous same-document references such as
+    # `[§3.1](#section-3-1)`. Plain `§3.1` text is deliberately not linked:
+    # research plans also cite external laws as `RKSV §3.1`, where guessing
+    # that the target is a CoPlan heading would create incorrect links.
+    #
+    # Footnote citations and valid numbered-section links opt into the shared
+    # reference-preview controller. It reads their already-rendered targets,
+    # so previews require no duplicate citation data or network request.
+    def transform_reference_anchors(html, numbered_sections: true)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      used_ids = doc.css("[id]").filter_map { |node| node["id"].presence }.to_set
+      section_ids = Set.new
+
+      doc.css("a[href]").each do |anchor|
+        next unless anchor["href"].match?(%r{\Ahttps?://}i)
+
+        anchor["target"] = "_blank"
+        anchor["rel"] = "noopener noreferrer"
+        anchor["data-reference-type"] = Reference.classify_url(anchor["href"])
+      end
+
+      if numbered_sections
+        doc.css("h1, h2, h3, h4, h5, h6").each do |heading|
+          section_number = heading.text.squish[/\A(\d+(?:\.\d+)*)\b/, 1]
+          next unless section_number
+
+          heading["id"] ||= unique_dom_id("section-#{section_number.tr('.', '-')}", used_ids)
+          used_ids << heading["id"]
+          section_ids << heading["id"]
+        end
+      end
+
+      doc.css("a[data-footnote-ref]").each do |anchor|
+        enhance_reference_anchor(anchor, type: "footnote")
+      end
+
+      doc.css('a[href^="#"]').each do |anchor|
+        next if anchor["data-footnote-ref"] || anchor["data-footnote-backref"]
+
+        target_id = anchor["href"].delete_prefix("#")
+        enhance_reference_anchor(anchor, type: "section") if section_ids.include?(target_id)
+      end
+
+      doc.css("section[data-footnotes]").each do |section|
+        heading = Nokogiri::XML::Node.new("h2", doc)
+        heading["class"] = "footnotes-title"
+        heading.content = "References"
+        section.prepend_child(heading)
+      end
+
+      doc.to_html
+    end
+
     def markdown_to_plain_text(content)
       html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
       Nokogiri::HTML::DocumentFragment.parse(html).text.squish
     end
 
     private
+
+    REFERENCE_PREVIEW_ACTIONS = [
+      "mouseenter->coplan--reference-preview#enter",
+      "mouseleave->coplan--reference-preview#leave",
+      "focus->coplan--reference-preview#enter",
+      "blur->coplan--reference-preview#leave",
+      "click->coplan--reference-preview#follow"
+    ].join(" ").freeze
+
+    def unique_dom_id(base, used_ids)
+      return base unless used_ids.include?(base)
+
+      suffix = 2
+      suffix += 1 while used_ids.include?("#{base}-#{suffix}")
+      "#{base}-#{suffix}"
+    end
+
+    def enhance_reference_anchor(anchor, type:)
+      anchor.add_class("reference-anchor")
+      anchor.add_class("reference-anchor--#{type}")
+      anchor["aria-haspopup"] = "dialog"
+      anchor["aria-expanded"] = "false"
+      anchor["data-action"] = [ anchor["data-action"], REFERENCE_PREVIEW_ACTIONS ].compact.join(" ")
+    end
+
+    def select_footnotes(html, mode)
+      return html if mode == :inline
+
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      sections = doc.css("section[data-footnotes]")
+      if mode == :only
+        sections.map(&:to_html).join
+      elsif mode == :exclude
+        sections.remove
+        doc.to_html
+      else
+        raise ArgumentError, "unknown footnote mode: #{mode.inspect}"
+      end
+    end
 
     # Wires rendered task checkboxes to their source lines via Commonmarker's
     # sourcepos metadata, so the parser that decides what renders as a

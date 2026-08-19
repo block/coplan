@@ -1,5 +1,4 @@
 <% owner_name = @owner.respond_to?(:name) ? @owner.name : @library.name %>
-<% mine = @library.writable_by?(current_user) %>
 
 <div class="library">
   <header class="library__header">
@@ -8,33 +7,64 @@
         <%= user_avatar(@owner, size: "lg") %>
       <% end %>
       <div>
-        <h1 class="library__title"><%= mine ? "Your library" : "#{owner_name}’s library" %></h1>
+        <h1 class="library__title"><%= owner_name %>’s library</h1>
         <p class="library__subtitle text-muted">
           <%= pluralize(@plan_count, "plan") %> across <%= pluralize(@folders.size, "folder") %>
-          <% if mine %> · the read-only view others see from your profile<% end %>
-          <% if !mine && @owner.is_a?(CoPlan::User) %> · curated by <%= profile_link(@owner) %><% end %>
+          <% if @owner.is_a?(CoPlan::User) %> · curated by <%= profile_link(@owner) %><% end %>
         </p>
       </div>
     </div>
-    <% if mine %>
-      <%= link_to "Organize in workspace", plans_path, class: "btn btn--secondary btn--sm" %>
-    <% end %>
   </header>
 
-  <% if @folders.empty? %>
+  <nav class="workspace-crumbs" aria-label="Folder location">
+    <%= link_to library_path(@library),
+          class: "workspace-crumbs__crumb #{'workspace-crumbs__crumb--current' if @breadcrumbs.empty?}",
+          aria: @breadcrumbs.empty? ? { current: "location" } : {},
+          data: { turbo_prefetch: true } do %>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <%= owner_name %>’s library
+    <% end %>
+    <% @breadcrumbs.each_with_index do |crumb, index| %>
+      <svg class="workspace-crumbs__sep" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      <% current = index == @breadcrumbs.size - 1 %>
+      <%= link_to crumb.name, library_path(@library, folder: crumb.id),
+            class: "workspace-crumbs__crumb #{'workspace-crumbs__crumb--current' if current}",
+            aria: current ? { current: "location" } : {},
+            data: { turbo_prefetch: true } %>
+    <% end %>
+  </nav>
+
+  <% @subfolders.each do |folder| %>
+    <%= link_to library_path(@library, folder: folder.id), class: "folder-row", data: { turbo_prefetch: true } do %>
+      <span class="folder-row__icon" aria-hidden="true">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+      </span>
+      <span class="folder-row__name"><%= folder.name %></span>
+      <% count = @folder_counts[folder.id] %>
+      <span class="folder-row__count text-muted"><%= count.zero? ? "empty" : pluralize(count, "item") %></span>
+    <% end %>
+  <% end %>
+
+  <% @plans.each do |plan| %>
+    <% summary = plan.try(:summary).presence || plan_content_preview(plan) %>
+    <article class="plan-row">
+      <span class="plan-row__icon"><%= plan_type_icon(plan, size: :lg) %></span>
+      <div class="plan-row__main">
+        <div class="plan-row__line">
+          <%= link_to plan.title, plan_path(plan), class: "plan-row__title", data: { turbo_prefetch: true } %><%= plan_state_badge(plan) %>
+        </div>
+        <% if summary.present? %><p class="plan-row__summary text-muted"><%= summary %></p><% end %>
+      </div>
+      <div class="plan-row__meta">
+        <span class="plan-row__time text-muted"><%= time_ago_in_words(plan.updated_at) %> ago</span>
+        <span class="plan-row__avatar"><%= link_to user_avatar(plan.created_by_user), profile_path_for(plan.created_by_user), title: plan.created_by_user.name %></span>
+      </div>
+    </article>
+  <% end %>
+
+  <% if @subfolders.empty? && @plans.empty? %>
     <div class="library__empty">
-      <p>Nothing on these shelves yet.</p>
-      <% if mine %>
-        <p class="text-muted text-sm">Create folders in your <%= link_to "workspace", plans_path %> sidebar and drag plans onto them — yours or anyone’s published work.</p>
-      <% else %>
-        <p class="text-muted text-sm"><%= owner_name %> hasn’t organized any plans into folders yet.</p>
-      <% end %>
-    </div>
-  <% else %>
-    <div class="library__shelves">
-      <% @root_folders.sort_by { |f| f.name.downcase }.each do |folder| %>
-        <%= render "coplan/libraries/shelf", folder: folder, depth: 1 %>
-      <% end %>
+      <p>Nothing in this folder yet.</p>
     </div>
   <% end %>
 </div>

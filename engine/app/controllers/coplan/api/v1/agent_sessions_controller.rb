@@ -16,7 +16,6 @@ module CoPlan
       class AgentSessionsController < BaseController
         before_action :set_plan
         before_action :authorize_plan_access!
-        before_action :require_token!
 
         def create
           # Claiming a session means "I'm here", not "I'm working" — an
@@ -25,7 +24,7 @@ module CoPlan
           state = params[:state].presence_in(AgentSession::STATES - ["stale"]) || "watching"
 
           session = AgentSession.find_or_initialize_by(plan_id: @plan.id, api_token_id: @api_token.id)
-          session.agent_name = params[:agent_name].presence || @api_token.agent_name.presence || @api_token.name
+          session.agent_name = api_agent_name
 
           # Reattaching must not erase a question the agent is still
           # waiting on: a default claim leaves `awaiting_input` alone, so
@@ -68,12 +67,6 @@ module CoPlan
         end
 
         private
-
-        def require_token!
-          return if @api_token
-
-          render json: { error: "Agent sessions require token authentication" }, status: :forbidden
-        end
 
         def session_json(session)
           {

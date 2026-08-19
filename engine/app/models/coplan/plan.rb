@@ -26,7 +26,7 @@ module CoPlan
     # MEDIUMTEXT content, diffs, and operation logs out of MySQL per row.
     belongs_to :current_version_stub, -> { select(:id, :content_sha256) },
       class_name: "PlanVersion", foreign_key: :current_plan_version_id, optional: true
-    belongs_to :plan_type, optional: true
+    belongs_to :plan_type
     has_many :placements, class_name: "CoPlan::PlanPlacement", inverse_of: :plan, dependent: :destroy
     has_many :libraries, through: :placements
     has_many :plan_versions, -> { order(revision: :asc) }, dependent: :destroy
@@ -45,6 +45,12 @@ module CoPlan
     has_many_attached :attachments
 
     after_initialize { self.metadata ||= {} }
+
+    # Every plan has a type (belongs_to above + NOT NULL in the schema).
+    # Callers that don't pick one get the General catch-all, so creation
+    # paths — API, services, direct creates — stay type-optional while
+    # untyped rows stay unrepresentable.
+    before_validation :assign_default_plan_type, on: :create
 
     validates :title, presence: true
     validates :visibility, presence: true, inclusion: { in: VISIBILITIES }
@@ -190,6 +196,13 @@ module CoPlan
       archived_at.present?
     end
 
+    # A plan's containing location is the folder chosen by its author in
+    # their own library. Other people may save the same plan elsewhere, but
+    # those placements are personal organization rather than its home.
+    def author_placement
+      placements.find_by(library_id: created_by_user.library.id)
+    end
+
     # Legacy API compatibility (see LEGACY_STATUSES). Emits the closest
     # five-state equivalent of the current visibility/archival state.
     def legacy_status
@@ -249,6 +262,10 @@ module CoPlan
     end
 
     private
+
+    def assign_default_plan_type
+      self.plan_type ||= PlanType.general
+    end
 
     # Backstop validation for attachment size/type. The primary check lives in
     # Plans::AddAttachment (which can reject before a blob is even created),

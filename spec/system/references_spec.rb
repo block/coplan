@@ -33,8 +33,103 @@ RSpec.describe "Plan references", type: :system do
       expect(page).to have_content("Some content here")
       # Empty state is one quiet line, scoped to the section (attachments
       # has its own "None yet").
-      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "None yet")
+      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "No references yet")
       expect(page).to have_css("#footnote-references .plan-footnote__title", text: /references/i)
+    end
+
+    it "includes auto-extracted links as rich resources when they are not citations" do
+      version = CoPlan::PlanVersion.create!(
+        plan: plan,
+        revision: 2,
+        content_markdown: "Read the [CoPlan repository](https://github.com/block/coplan) for implementation details.",
+        actor_type: "human",
+        actor_id: user.id
+      )
+      plan.update!(current_plan_version: version, current_revision: 2)
+
+      visit plan_path(plan)
+
+      within("#plan-extracted-references") do
+        link = find_link("CoPlan repository", href: "https://github.com/block/coplan")
+        expect(link["target"]).to eq("_blank")
+        expect(link["rel"]).to eq("noopener noreferrer")
+        expect(page).to have_css(".references-list__meta", text: /GitHub repository\s+·\s+github\.com ↗/)
+      end
+      expect(page).to have_css("#references-count", text: "1")
+    end
+  end
+
+  describe "inline reference previews" do
+    let(:referenced_plan) do
+      p = CoPlan::Plan.create!(title: "Referenced Plan", created_by_user: user)
+      version = CoPlan::PlanVersion.create!(
+        plan: p,
+        revision: 1,
+        content_markdown: <<~MARKDOWN,
+          # Referenced Plan
+
+          This claim has evidence.[^launch-data] See [§2.1](#section-2-1) for the rollout.
+
+          ## 2.1 Rollout
+
+          Start with a five-percent cohort and monitor errors for one week.
+
+          [^launch-data]: The production sample covered 30 days. [Open the source](https://docs.google.com/document/d/evidence).
+        MARKDOWN
+        actor_type: "human",
+        actor_id: user.id
+      )
+      p.update!(current_plan_version: version, current_revision: 1)
+      p
+    end
+
+    it "previews references on hover and follows their links on click" do
+      visit plan_path(referenced_plan)
+
+      citation = find("a.reference-anchor--footnote")
+      citation.hover
+      expect(page).to have_css(".reference-preview", text: "production sample covered 30 days", visible: :visible)
+      within(".reference-preview") do
+        expect(page).to have_no_text("CITATION")
+        expect(page).to have_no_text("Reference 1")
+        source_link = find_link("Open the source", href: "https://docs.google.com/document/d/evidence")
+        expect(source_link["target"]).to eq("_blank")
+        expect(source_link["rel"]).to eq("noopener noreferrer")
+        expect(source_link["aria-label"]).to eq("Open source: Open the source in a new tab (Google Doc · docs.google.com)")
+        expect(source_link).to have_css(".citation-source__meta", text: "Google Doc · docs.google.com ↗")
+      end
+      expect(page).to have_css("#references-count", text: "1")
+      expect(page).to have_no_css("#plan-content-body section[data-footnotes]")
+      within("#plan-citations") do
+        source_link = find_link("Open the source", href: "https://docs.google.com/document/d/evidence")
+        expect(source_link["target"]).to eq("_blank")
+        expect(source_link[:class]).to include("citation-source--block")
+        expect(source_link).to have_css(".citation-source__meta", text: "Google Doc · docs.google.com ↗")
+      end
+      within("#plan-references") do
+        expect(page).to have_no_link("Open the source", href: "https://docs.google.com/document/d/evidence")
+        expect(page).to have_no_text("No references yet.")
+      end
+
+      citation.click
+      expect(page.evaluate_script("window.location.hash")).to eq("#fn-launch-data")
+      expect(page.evaluate_script(<<~JS)).to be(true)
+        document.querySelector("#fn-launch-data").getBoundingClientRect().top >=
+          document.querySelector(".site-nav").getBoundingClientRect().bottom
+      JS
+
+      visit plan_path(referenced_plan)
+      section_link = find('a.reference-anchor--section[href="#section-2-1"]')
+      section_link.hover
+      expect(section_link["aria-expanded"]).to eq("true")
+      expect(page).to have_no_css(".reference-preview", text: "INTERNAL REFERENCE", visible: :visible)
+      expect(page).to have_css(".reference-preview__title", text: "2.1 Rollout", visible: :visible)
+      expect(page).to have_css(".reference-preview__body", text: "five-percent cohort", visible: :visible)
+      expect(page).to have_no_css(".reference-preview__body", text: "production sample covered 30 days", visible: :visible)
+
+      section_link.click
+      expect(page.evaluate_script("window.location.hash")).to eq("#section-2-1")
+      expect(page).to have_no_css(".reference-preview__jump")
     end
   end
 
@@ -69,6 +164,7 @@ RSpec.describe "Plan references", type: :system do
       # Turbo Stream replaces the list — reference appears without navigation
       expect(page).to have_link("My Repo", href: "https://github.com/org/repo")
       expect(page).not_to have_css("#footnote-references .plan-footnote__empty")
+      expect(page).to have_no_text("my-repo")
 
       # Count spans updated in-place via Turbo Stream (separate stream
       # targets) — the footnote header and the document outline.
@@ -114,8 +210,11 @@ RSpec.describe "Plan references", type: :system do
       expect(page).to have_content("Doomed")
       expect(page).to have_css("#references-count", text: "1")
 
-      # data-turbo-confirm triggers a browser confirm dialog. Scoped: the
-      # TOC's hide button is also a "✕" now that everything shares a page.
+      # The quiet remove control appears when the reference row is active.
+      within("#plan-references") { find(".references-list__item").hover }
+
+      # data-turbo-confirm triggers a browser confirm dialog. Scoped because
+      # the TOC also has a "✕" control.
       accept_confirm("Remove this reference?") do
         within("#plan-references") { click_button "✕" }
       end
@@ -123,7 +222,7 @@ RSpec.describe "Plan references", type: :system do
       # Turbo Stream removes the reference and updates count
       expect(page).not_to have_content("Doomed")
       expect(page).to have_css("#references-count", text: "0")
-      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "None yet")
+      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "No references yet")
     end
   end
 

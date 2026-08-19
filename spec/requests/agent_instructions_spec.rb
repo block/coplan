@@ -42,6 +42,59 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).to include('"plan_type"')
     end
 
+    it "walks agents through folder, type, and template before creating" do
+      get agent_instructions_path
+
+      expect(response.body).to include("**Pick the folder.**")
+      expect(response.body).to include("**Pick the type.**")
+      expect(response.body).to include("template_content")
+      expect(response.body).to include("/api/v1/plan_types")
+      expect(response.body).to include('"folder_path"')
+      expect(response.body).to include("fallback of last resort")
+    end
+
+    it "uses a real configured type (not General) in the create example" do
+      create(:plan_type, name: "General", description: "Catch-all")
+      create(:plan_type, name: "Design Doc", description: "For design documents")
+
+      get agent_instructions_path
+
+      expect(response.body).to include('"plan_type": "Design Doc"')
+    end
+
+    # Type names are admin-controlled free text; the example must survive a
+    # name that would break JSON quoting or the surrounding shell quoting.
+    it "keeps the create example valid for hostile plan type names" do
+      create(:plan_type, name: %q(Bob's "Special" Doc))
+
+      get agent_instructions_path
+
+      # JSON-escaped double quotes, shell-escaped single quote.
+      expect(response.body).to include('\"Special\"')
+      expect(response.body).to include(%q(Bob'\''s))
+    end
+
+    it "marks which plan types carry a template" do
+      create(:plan_type, name: "RFC", template_content: "# RFC")
+      create(:plan_type, name: "Bare", template_content: nil)
+
+      get agent_instructions_path
+
+      expect(response.body).to match(/`RFC`.*yes — fetch and follow it/)
+      expect(response.body).to match(/`Bare`.*\| —/)
+    end
+
+    it "distinguishes citations, internal section links, and structured references" do
+      get agent_instructions_path
+
+      expect(response.body).to include("Citations and internal cross-references")
+      expect(response.body).to include("[§3.1](#section-3-1)")
+      expect(response.body).to include("structured, document-level inventory")
+      expect(response.body).to include("one **References** section")
+      expect(response.body).to include("source title, type, and domain")
+      expect(response.body).to include("click jumps to it")
+    end
+
     it "builds example URLs from the request base (root mount)" do
       get agent_instructions_path
       expect(response.body).to include("http://www.example.com/api/v1/plans")

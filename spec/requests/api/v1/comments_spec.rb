@@ -33,6 +33,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
     expect(comment.author_id).to eq(alice.id)
     expect(comment.author_id).not_to eq(alice_token.id)
     expect(comment.author).to eq(alice)
+    expect(comment.api_token_id).to eq(alice_token.id)
   end
 
   it "create general comment thread" do
@@ -59,6 +60,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
     comment = CoPlan::Comment.find(body["comment_id"])
     expect(comment.author_id).to eq(alice.id)
     expect(comment.author_id).not_to eq(alice_token.id)
+    expect(comment.api_token_id).to eq(alice_token.id)
   end
 
   it "reply to nonexistent thread" do
@@ -118,27 +120,30 @@ RSpec.describe "Api::V1::Comments", type: :request do
     end
   end
 
-  # Token-authored comments are agent comments and must carry attribution,
-  # but the caller shouldn't have to restate a name it already registered:
-  # the token's agent name (falling back to the token's own name) is used.
-  it "attributes a comment without agent_name to the token" do
+  # The token always knows who it speaks for, so omitting agent_name is
+  # no longer an error — it falls back to the token's agent_name, then
+  # its name. (It used to 422, which punished exactly the callers who
+  # had already identified themselves at mint time.)
+  it "falls back to the token's name when a comment omits agent_name" do
     post api_v1_plan_comments_path(plan),
-      params: { body_markdown: "Missing agent name" },
+      params: { body_markdown: "No explicit agent name" },
       headers: headers,
       as: :json
-
     expect(response).to have_http_status(:created)
-    expect(CoPlan::Comment.last.agent_name).to eq(alice_token.name)
+    comment = CoPlan::Comment.find(JSON.parse(response.body)["comment_id"])
+    expect(comment.agent_name).to eq(alice_token.name)
   end
 
-  it "attributes a reply without agent_name to the token" do
+  it "falls back to the token's name when a reply omits agent_name" do
+    create(:comment, comment_thread: thread_record, author_type: "human", author_id: alice.id, body_markdown: "start")
+
     post reply_api_v1_plan_comment_path(plan, thread_record),
-      params: { body_markdown: "Missing agent name" },
+      params: { body_markdown: "No explicit agent name" },
       headers: headers,
       as: :json
-
     expect(response).to have_http_status(:created)
-    expect(CoPlan::Comment.last.agent_name).to eq(alice_token.name)
+    comment = CoPlan::Comment.find(JSON.parse(response.body)["comment_id"])
+    expect(comment.agent_name).to eq(alice_token.name)
   end
 
   describe "DELETE destroy" do
@@ -146,12 +151,18 @@ RSpec.describe "Api::V1::Comments", type: :request do
       create(:comment, comment_thread: thread_record, author_type: "human", author_id: alice.id, body_markdown: "to be deleted")
     end
 
-    it "soft-deletes the human author's own comment via hook auth" do
-      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_req) { { external_id: alice.external_id } })
-
-      delete api_v1_plan_destroy_comment_path(plan, id: comment.id), as: :json
+    it "soft-deletes the human author's own comment via their token" do
+      delete api_v1_plan_destroy_comment_path(plan, id: comment.id), headers: headers, as: :json
       expect(response).to have_http_status(:ok)
       expect(comment.reload.deleted_at).to be_present
+
+      event = plan.plan_events.find_by!(event_type: "comment_deleted")
+      expect(event).to have_attributes(
+        actor_type: "local_agent",
+        actor_id: alice.id,
+        agent_name: alice_token.name,
+        api_token_id: alice_token.id
+      )
     end
 
     it "forbids agent (token auth) callers from deleting their own agent comment" do
@@ -171,17 +182,16 @@ RSpec.describe "Api::V1::Comments", type: :request do
 
     it "forbids a different human from deleting" do
       bob = create(:coplan_user)
-      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_req) { { external_id: bob.external_id } })
+      create(:api_token, user: bob, raw_token: "test-token-bob")
 
-      delete api_v1_plan_destroy_comment_path(plan, id: comment.id), as: :json
+      delete api_v1_plan_destroy_comment_path(plan, id: comment.id),
+        headers: { "Authorization" => "Bearer test-token-bob" }, as: :json
       expect(response).to have_http_status(:forbidden)
       expect(comment.reload.deleted_at).to be_nil
     end
 
     it "returns 404 for a missing comment" do
-      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_req) { { external_id: alice.external_id } })
-
-      delete api_v1_plan_destroy_comment_path(plan, id: "nonexistent-id"), as: :json
+      delete api_v1_plan_destroy_comment_path(plan, id: "nonexistent-id"), headers: headers, as: :json
       expect(response).to have_http_status(:not_found)
     end
   end

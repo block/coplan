@@ -28,20 +28,22 @@ module CoPlan
 
     belongs_to :library, class_name: "CoPlan::Library", inverse_of: :library_events
     belongs_to :actor_user, class_name: "CoPlan::User", foreign_key: "actor_id", optional: true
+    belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
 
     after_initialize { self.metadata ||= {} }
 
     validates :actor_type, presence: true, inclusion: { in: ACTOR_TYPES }
     validates :event_type, presence: true, inclusion: { in: EVENT_TYPES }
+    validates :agent_name, length: { maximum: ApiToken::AGENT_NAME_LIMIT }, allow_nil: true
 
     scope :recent_first, -> { order(created_at: :desc, id: :desc) }
 
     def self.ransackable_attributes(_auth_object = nil)
-      %w[id library_id actor_id actor_type event_type plan_id folder_id run_id before_value after_value created_at]
+      %w[id library_id actor_id actor_type agent_name api_token_id event_type plan_id folder_id run_id before_value after_value created_at]
     end
 
     def self.ransackable_associations(_auth_object = nil)
-      %w[library actor_user]
+      %w[library actor_user api_token]
     end
   end
 end

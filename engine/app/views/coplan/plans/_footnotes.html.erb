@@ -5,6 +5,8 @@
     line tall. %>
 <div class="plan-footnotes">
   <section class="plan-footnote" id="footnote-references" data-plan-section="references" aria-labelledby="footnote-references-title">
+    <% back_matter = plan_citation_back_matter(plan, references) %>
+    <% listed_references = listed_plan_references(references, back_matter[:cited_urls]) %>
     <div class="plan-footnote__header">
       <% if current_user && allowed_to?(plan, :contribute?) %>
         <button type="button" class="section-add" popovertarget="add-reference-modal" title="Add a reference" aria-label="Add a reference">
@@ -12,9 +14,14 @@
         </button>
       <% end %>
       <h2 class="plan-footnote__title" id="footnote-references-title">References</h2>
-      <span class="section-count" id="references-count"><%= references.size %></span>
+      <span class="section-count" id="references-count"><%= back_matter[:count] + listed_references.size %></span>
     </div>
-    <%= render partial: "coplan/plans/references", locals: { references: references, plan: plan } %>
+    <%= render partial: "coplan/plans/citations", locals: { plan: plan, back_matter: back_matter } %>
+    <%= render partial: "coplan/plans/references", locals: {
+          references: listed_references,
+          plan: plan,
+          has_citations: back_matter[:count].positive?
+        } %>
   </section>
 
   <section class="plan-footnote" id="footnote-attachments" data-plan-section="attachments" aria-labelledby="footnote-attachments-title">

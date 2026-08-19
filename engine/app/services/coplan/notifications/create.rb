@@ -37,9 +37,10 @@ module CoPlan
       # Every comment/thread write path already funnels through this
       # service, so it doubles as the choke point for the agent event
       # inbox. Human notification fan-out below is unchanged; agents get
-      # their own recipients (sessions on the plan), and @actor_id — the
-      # api token id for token-authenticated callers — suppresses an
-      # agent being woken by its own activity.
+      # their own recipients (sessions on the plan). Self-wake suppression
+      # keys on the comment's api_token_id — the token that wrote it —
+      # because @actor_id holds the *human* behind the write (attribution
+      # convention), and a user id must never be compared to token ids.
       def publish_agent_events
         event_type =
           case @reason
@@ -55,7 +56,7 @@ module CoPlan
         AgentEvents::Publish.call(
           plan: @comment_thread.plan,
           event_type: event_type,
-          actor_id: @actor_id,
+          actor_token_id: @comment&.api_token_id,
           comment_thread: @comment_thread,
           comment: @comment
         )

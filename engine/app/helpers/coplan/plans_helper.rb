@@ -62,23 +62,21 @@ module CoPlan
     # The document's file icon — a colored rounded square with the type's
     # glyph, like a Drive/Finder file icon. Leads the title in rows, the
     # plan header, feed items, and search results; the type's name lives in
-    # the tooltip so it never reads as a tag. Untyped plans get the neutral
-    # document glyph. Safe in broadcast partials (derives from the plan
-    # alone, no current_user).
+    # the tooltip so it never reads as a tag. Every plan has a type (the
+    # untyped fallback defaults to General at create). Safe in broadcast
+    # partials (derives from the plan alone, no current_user).
     def plan_type_icon(plan, size: :md)
       plan_type = plan.plan_type
-      paths = PLAN_TYPE_ICONS[plan_type&.icon] || PLAN_TYPE_ICONS["file-text"]
+      paths = PLAN_TYPE_ICONS[plan_type.icon] || PLAN_TYPE_ICONS["file-text"]
       # Stable per-name tint (Zlib.crc32, not #hash — that differs across
       # processes) so a type keeps its color everywhere, every request.
-      tint = plan_type ? Zlib.crc32(plan_type.name) % PLAN_TYPE_COLOR_COUNT : nil
+      tint = Zlib.crc32(plan_type.name) % PLAN_TYPE_COLOR_COUNT
       glyph = %(<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">#{paths}</svg>).html_safe
 
-      classes = [ "plan-type-icon", "plan-type-icon--#{size}" ]
-      classes << "plan-type-icon--#{tint}" if tint
       content_tag(:span, glyph,
-        class: classes.join(" "),
-        title: plan_type&.name,
-        aria: { label: plan_type ? "#{plan_type.name} document" : "Document" })
+        class: "plan-type-icon plan-type-icon--#{size} plan-type-icon--#{tint}",
+        title: plan_type.name,
+        aria: { label: "#{plan_type.name} document" })
     end
 
     def plan_content_preview(plan, limit: 200)

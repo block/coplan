@@ -35,8 +35,8 @@ module CoPlan
           )
 
           # Atomic, matching the web flow: a thread whose first comment
-          # fails validation (e.g. missing agent_name) must not survive as
-          # an empty orphan with a live anchor highlight.
+          # fails validation must not survive as an empty orphan with a
+          # live anchor highlight.
           comment = nil
           ActiveRecord::Base.transaction do
             thread.save!
@@ -44,7 +44,8 @@ module CoPlan
               author_type: api_author_type,
               author_id: current_user&.id,
               body_markdown: params[:body_markdown],
-              agent_name: resolved_agent_name
+              agent_name: api_agent_name,
+              api_token_id: api_token_id
             )
           end
 
@@ -128,7 +129,14 @@ module CoPlan
             return
           end
 
-          Comments::SoftDelete.call(comment: comment, actor: current_user)
+          Comments::SoftDelete.call(
+            comment: comment,
+            actor: current_user,
+            actor_type: api_author_type,
+            actor_id: api_user_id,
+            agent_name: api_agent_name,
+            api_token_id: api_token_id
+          )
 
           thread = comment.comment_thread
           if thread.reload.empty?
@@ -156,7 +164,8 @@ module CoPlan
             author_type: api_author_type,
             author_id: current_user&.id,
             body_markdown: params[:body_markdown],
-            agent_name: resolved_agent_name
+            agent_name: api_agent_name,
+            api_token_id: api_token_id
           )
 
           reason = comment.agent? ? "agent_response" : "reply"
@@ -183,27 +192,6 @@ module CoPlan
         end
 
         private
-
-        # Token-authored comments are agent comments, and agents shouldn't
-        # have to repeat their name on every write: they already declared
-        # it when claiming the agent session, or on the token itself. An
-        # explicit param still wins, so one agent can post under a
-        # different persona.
-        #
-        # Truncated rather than rejected — a name a few characters over
-        # the display limit is not a reason to lose someone's comment.
-        def resolved_agent_name
-          name = params[:agent_name].presence || default_agent_name
-          name&.truncate(Comment::AGENT_NAME_LIMIT, omission: "…")
-        end
-
-        def default_agent_name
-          return nil unless @api_token
-
-          AgentSession.find_by(plan_id: @plan.id, api_token_id: @api_token.id)&.agent_name.presence ||
-            @api_token.agent_name.presence ||
-            @api_token.name
-        end
 
         # Mirrors PlansController#thread_json so GET .../comments/:id returns
         # the same shape as the list/snapshot endpoints.

@@ -57,12 +57,27 @@ RSpec.describe "Api::V1::Plans", type: :request do
 
   it "create creates new plan" do
     expect {
-      post api_v1_plans_path, params: { title: "API Plan", content: "# API Plan\n\nCreated via API." }, headers: headers, as: :json
+      post api_v1_plans_path, params: { title: "API Plan", content: "# API Plan\n\nCreated via API.", agent_name: "Claude" }, headers: headers, as: :json
     }.to change(CoPlan::Plan, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
     expect(body["title"]).to eq("API Plan")
     expect(body["current_revision"]).to eq(1)
+
+    version = CoPlan::Plan.find(body.fetch("id")).current_plan_version
+    expect(version).to have_attributes(
+      actor_type: "local_agent",
+      actor_id: alice.id,
+      agent_name: "Claude",
+      api_token_id: alice_token.id
+    )
+  end
+
+  it "create without plan_type files the plan under the General catch-all" do
+    post api_v1_plans_path, params: { title: "Untyped Plan", content: "# Untyped" }, headers: headers, as: :json
+    expect(response).to have_http_status(:created)
+    body = JSON.parse(response.body)
+    expect(body["plan_type_name"]).to eq("General")
   end
 
   it "create with plan_type by name" do
@@ -101,6 +116,82 @@ RSpec.describe "Api::V1::Plans", type: :request do
   it "create without title fails" do
     post api_v1_plans_path, params: { content: "no title" }, headers: headers, as: :json
     expect(response).to have_http_status(:unprocessable_content)
+  end
+
+  describe "filing on create" do
+    it "files the plan via folder_path, creating the hierarchy in the caller's library" do
+      post api_v1_plans_path, params: { title: "Filed Plan", content: "# Filed", folder_path: "Team EBT/Q3" }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      body = JSON.parse(response.body)
+      expect(body["folder_path"]).to eq("Team EBT/Q3")
+
+      placement = alice.library.placements.find_by(plan_id: body.fetch("id"))
+      expect(placement.folder.path).to eq("Team EBT/Q3")
+      expect(alice.library.folders.count).to eq(2)
+    end
+
+    it "files the plan via folder_id" do
+      folder = create(:folder, name: "Infra", created_by_user: alice)
+      post api_v1_plans_path, params: { title: "Filed Plan", content: "# Filed", folder_id: folder.id }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body)["folder_id"]).to eq(folder.id)
+    end
+
+    it "records the filing in the library audit log with agent attribution" do
+      post api_v1_plans_path, params: { title: "Filed Plan", content: "# Filed", folder_path: "Infra", agent_name: "Claude" }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+
+      event = alice.library.library_events.find_by(event_type: "plan_filed")
+      expect(event).to be_present
+      expect(event.actor_type).to eq("local_agent")
+      expect(event.agent_name).to eq("Claude")
+    end
+
+    it "rolls back the whole create when the folder_id is unknown" do
+      expect {
+        post api_v1_plans_path, params: { title: "Doomed Plan", content: "# Doomed", folder_id: "nope" }, headers: headers, as: :json
+      }.not_to change(CoPlan::Plan, :count)
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(JSON.parse(response.body)["error"]).to include("Unknown folder_id")
+    end
+
+    it "does not emit a plan_created analytics event for a rolled-back create" do
+      events = capture_analytics_events do
+        post api_v1_plans_path, params: { title: "Doomed Plan", content: "# Doomed", folder_id: "nope" }, headers: headers, as: :json
+      end
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(events.select { |name, _| name == "plan_created" }).to be_empty
+    end
+
+    it "emits plan_created exactly once for a successful filed create" do
+      events = capture_analytics_events do
+        post api_v1_plans_path, params: { title: "Filed Plan", content: "# Filed", folder_path: "Infra" }, headers: headers, as: :json
+      end
+      expect(response).to have_http_status(:created)
+      expect(events.select { |name, _| name == "plan_created" }.length).to eq(1)
+    end
+  end
+
+  describe "tags on create" do
+    it "applies the plan type's default_tags" do
+      create(:plan_type, name: "design-doc", default_tags: ["design", "architecture"])
+      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", plan_type: "design-doc" }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body)["tags"]).to match_array(["design", "architecture"])
+    end
+
+    it "merges explicit tags with the type's default_tags" do
+      create(:plan_type, name: "design-doc", default_tags: ["design"])
+      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", plan_type: "design-doc", tags: ["pricing", "design"] }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body)["tags"]).to match_array(["design", "pricing"])
+    end
+
+    it "accepts explicit tags without a plan_type" do
+      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", tags: ["pricing"] }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body)["tags"]).to eq(["pricing"])
+    end
   end
 
   describe "PATCH /api/v1/plans/:id" do

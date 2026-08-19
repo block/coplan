@@ -9,19 +9,17 @@
   <meta name="twitter:description" content="<%= plan_og_description(@plan) %>">
 <% end %>
 
+<% my_placement = current_user && @shelf_placements.find { |p| p.library.writable_by?(current_user) } %>
+<% reference_count = plan_reference_count(@plan, @references) %>
+
 <%# Fills the sticky nav's title slot (see layouts/coplan/application). The
-    icon + title mirror the masthead's #plan-header; coplan--nav-title fades
-    it in once that header scrolls behind the bar. %>
+    containing-folder control, icon, and title mirror the masthead;
+    coplan--nav-title fades them in once #plan-header scrolls behind the bar. %>
 <% content_for :nav_title do %>
-  <a href="#plan-header" class="site-nav__doc-title" data-controller="coplan--nav-title" data-action="click->coplan--nav-title#scrollToTop" aria-hidden="true" tabindex="-1">
-    <%= plan_type_icon(@plan, size: :sm) %>
-    <span class="site-nav__doc-title-text"><%= @plan.title %></span>
-  </a>
+  <%= render "coplan/plans/nav_context", plan: @plan, author_placement: @author_placement %>
 <% end %>
 
 <%= turbo_stream_from @plan %>
-
-<% my_placement = current_user && @shelf_placements.find { |p| p.library.writable_by?(current_user) } %>
 
 <%# plan-keys: Backspace goes back to wherever you came from; [ / ] jump
     between the document and its footnote sections. Cold opens (direct link,
@@ -36,7 +34,7 @@
     broadcasts own the left, this request (and the visibility/archive
     stream responses) own the right, so neither can clobber the other. %>
 <div class="plan-masthead" data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
-  <%= render partial: "coplan/plans/header", locals: { plan: @plan } %>
+  <%= render partial: "coplan/plans/header", locals: { plan: @plan, author_placement: @author_placement } %>
   <div class="plan-masthead__side">
     <%= render partial: "coplan/plans/agent_sessions", locals: { agent_sessions: CoPlan::AgentSession.visible.where(plan_id: @plan.id).order(:created_at) } %>
     <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(@plan), current_user: current_user } %>
@@ -48,7 +46,7 @@
 
 <div class="plan-document card">
   <% if @plan.current_content.present? %>
-    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss coplan:open-thread@document->coplan--text-selection#openThread" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_section_keys.to_json %>">
+    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_section_keys.to_json %>">
       <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
         <%# No "Contents" label — the outline speaks for itself, and the plan
             title now lives in the sticky nav. Just the collapse control. %>
@@ -61,7 +59,7 @@
         <ul class="content-nav__list content-nav__list--footnotes">
           <%# ids: the reference/attachment Turbo Streams keep these counts
               live alongside the footnote headers' own counters. %>
-          <li><a href="#footnote-references" class="content-nav__footnote-link">References <span class="section-count" id="nav-references-count"><%= @references.size %></span></a></li>
+          <li><a href="#footnote-references" class="content-nav__footnote-link">References <span class="section-count" id="nav-references-count"><%= reference_count %></span></a></li>
           <li><a href="#footnote-attachments" class="content-nav__footnote-link">Attachments <span class="section-count" id="nav-attachments-count"><%= @attachments.size %></span></a></li>
         </ul>
       </nav>
@@ -94,6 +92,21 @@
 
         <%= render partial: "coplan/plans/footnotes",
               locals: { plan: @plan, references: @references, attachments: @attachments } %>
+
+        <%# Footnote citations and explicit same-document section links share
+            one native popover. Its body is filled instantly from the rendered
+            target already on the page. Hover/focus previews it; clicking the
+            original anchor jumps directly to the referenced target. %>
+        <aside id="reference-preview"
+               class="reference-preview"
+               popover="manual"
+               role="dialog"
+               data-coplan--reference-preview-target="popover"
+               data-action="mouseenter->coplan--reference-preview#popoverEnter mouseleave->coplan--reference-preview#popoverLeave">
+          <button type="button" class="reference-preview__close" aria-label="Close reference preview" data-action="coplan--reference-preview#dismiss">×</button>
+          <strong id="reference-preview-title" class="reference-preview__title" data-coplan--reference-preview-target="title"></strong>
+          <div class="reference-preview__body" data-coplan--reference-preview-target="body"></div>
+        </aside>
       </div>
 
       <div id="plan-threads" data-coplan--text-selection-target="threads"

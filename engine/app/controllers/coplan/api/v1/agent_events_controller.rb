@@ -32,11 +32,6 @@ module CoPlan
         HEARTBEAT_INTERVAL = 15
 
         def index
-          unless @api_token
-            render json: { error: "Agent events require token authentication" }, status: :forbidden
-            return
-          end
-
           if request.headers["Accept"].to_s.include?("text/event-stream")
             stream_events
           else
@@ -47,11 +42,6 @@ module CoPlan
         # POST /api/v1/agent/events/ack {"cursor": "<event id>"}
         # Marks everything up to and including the cursor as processed.
         def ack
-          unless @api_token
-            render json: { error: "Agent events require token authentication" }, status: :forbidden
-            return
-          end
-
           cursor = params[:cursor].to_s
           if cursor.blank?
             render json: { error: "cursor is required" }, status: :unprocessable_content

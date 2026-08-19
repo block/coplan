@@ -24,6 +24,28 @@ RSpec.describe CoPlan::Plans::Create do
     expect(version.content_sha256).to be_present
   end
 
+  it "attributes the initial version to the supplied actor" do
+    user = create(:coplan_user)
+    token = create(:api_token, user: user)
+
+    plan = CoPlan::Plans::Create.call(
+      title: "Agent Plan",
+      content: "# Agent Plan",
+      user: user,
+      actor_type: "local_agent",
+      actor_id: user.id,
+      agent_name: "Claude",
+      api_token_id: token.id
+    )
+
+    expect(plan.current_plan_version).to have_attributes(
+      actor_type: "local_agent",
+      actor_id: user.id,
+      agent_name: "Claude",
+      api_token_id: token.id
+    )
+  end
+
   it "creates plan with plan_type" do
     user = create(:coplan_user)
     plan_type = create(:plan_type)
@@ -38,7 +60,7 @@ RSpec.describe CoPlan::Plans::Create do
     expect(plan.plan_type).to eq(plan_type)
   end
 
-  it "creates plan without plan_type" do
+  it "creates plan without plan_type, falling back to the General catch-all" do
     user = create(:coplan_user)
     plan = CoPlan::Plans::Create.call(
       title: "Untyped Plan",
@@ -47,7 +69,7 @@ RSpec.describe CoPlan::Plans::Create do
     )
 
     expect(plan).to be_persisted
-    expect(plan.plan_type_id).to be_nil
+    expect(plan.plan_type.name).to eq("General")
   end
 
   it "tracks a plan_created analytics event" do

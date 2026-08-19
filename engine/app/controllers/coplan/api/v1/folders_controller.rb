@@ -48,7 +48,7 @@ module CoPlan
             created_by_user: current_user
           )
           Libraries::LogEvent.call(
-            library: library, actor: current_user, actor_type: api_author_type,
+            library: library, actor: current_user, **library_event_identity,
             event_type: "folder_created", folder: folder, after: folder.path
           )
           render json: folder_json(folder), status: :created
@@ -93,7 +93,7 @@ module CoPlan
           path = @folder.path
           if @folder.destroy
             Libraries::LogEvent.call(
-              library: @folder.library, actor: current_user, actor_type: api_author_type,
+              library: @folder.library, actor: current_user, **library_event_identity,
               event_type: "folder_deleted", before: path,
               metadata: { folder_name: @folder.name }
             )
@@ -117,24 +117,32 @@ module CoPlan
           new_path = @folder.path
           if @folder.saved_change_to_name?
             Libraries::LogEvent.call(
-              library: @folder.library, actor: current_user, actor_type: api_author_type,
+              library: @folder.library, actor: current_user, **library_event_identity,
               event_type: "folder_renamed", folder: @folder, before: old_path, after: new_path
             )
           end
           if @folder.saved_change_to_parent_id?
             Libraries::LogEvent.call(
-              library: @folder.library, actor: current_user, actor_type: api_author_type,
+              library: @folder.library, actor: current_user, **library_event_identity,
               event_type: "folder_moved", folder: @folder, before: old_path, after: new_path
             )
           end
           if @folder.saved_change_to_description?
             Libraries::LogEvent.call(
-              library: @folder.library, actor: current_user, actor_type: api_author_type,
+              library: @folder.library, actor: current_user, **library_event_identity,
               event_type: "folder_described", folder: @folder,
               before: old_description, after: @folder.description,
               metadata: { path: new_path }
             )
           end
+        end
+
+        def library_event_identity
+          {
+            actor_type: api_author_type,
+            agent_name: api_agent_name,
+            api_token_id: api_token_id
+          }
         end
 
         # `paths` and `counts` let index serialize the whole tree without

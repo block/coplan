@@ -67,11 +67,11 @@ RSpec.describe CoPlan::ApiToken, type: :model do
     let(:parent) { create(:api_token, user: user, name: "hampton-laptop", agent_name: "Claude") }
 
     it "mints a child that inherits the principal and expires on its own" do
-      child, raw = parent.mint_session_token!(agent_name: "Claude (refactor)")
+      child, raw = parent.mint_session_token!(agent_name: "Claude refactor")
 
       expect(child.user_id).to eq(user.id)
       expect(child.parent_id).to eq(parent.id)
-      expect(child.agent_name).to eq("Claude (refactor)")
+      expect(child.agent_name).to eq("Claude refactor")
       expect(child.expires_at).to be_within(1.minute).of(12.hours.from_now)
       expect(CoPlan::ApiToken.authenticate(raw)).to eq(child)
     end
@@ -84,6 +84,11 @@ RSpec.describe CoPlan::ApiToken, type: :model do
     it "clamps the ttl to the maximum" do
       child, = parent.mint_session_token!(ttl: 30.days)
       expect(child.expires_at).to be_within(1.minute).of(described_class::MAX_SESSION_TTL.from_now)
+    end
+
+    it "truncates an agent_name past the cap instead of failing" do
+      child, = parent.mint_session_token!(agent_name: "An Agent With A Very Long Name Indeed")
+      expect(child.agent_name.length).to be <= described_class::AGENT_NAME_LIMIT
     end
 
     it "does not let a session token mint further tokens" do
@@ -108,6 +113,58 @@ RSpec.describe CoPlan::ApiToken, type: :model do
 
       expect(CoPlan::ApiToken.authenticate(raw)).to be_nil
       expect(child.reload).not_to be_revoked
+    end
+  end
+
+  describe "metadata" do
+    let(:parent) { create(:api_token, user: user, name: "hampton-laptop") }
+
+    it "stores identity facts given at mint time" do
+      child, = parent.mint_session_token!(metadata: { "harness" => "claude-code", "model" => "claude-fable-5" })
+      expect(child.reload.metadata).to eq("harness" => "claude-code", "model" => "claude-fable-5")
+    end
+
+    it "defaults to an empty hash" do
+      child, = parent.mint_session_token!
+      expect(child.metadata).to eq({})
+    end
+
+    it "rejects metadata over the byte budget" do
+      token = build(:api_token, user: user, metadata: { "blob" => "x" * (described_class::MAX_METADATA_BYTES + 1) })
+      expect(token).not_to be_valid
+      expect(token.errors[:metadata]).to be_present
+    end
+
+    describe ".normalized_metadata" do
+      it "passes hashes through and coerces hash-shaped input" do
+        expect(described_class.normalized_metadata({ "a" => 1 })).to eq("a" => 1)
+        expect(described_class.normalized_metadata([ [ "a", 1 ] ])).to eq("a" => 1)
+      end
+
+      it "drops anything that is not hash-shaped" do
+        expect(described_class.normalized_metadata(nil)).to eq({})
+        expect(described_class.normalized_metadata("claude-code/2.1.3")).to eq({})
+        expect(described_class.normalized_metadata([ "not", "pairs" ])).to eq({})
+      end
+    end
+  end
+
+  describe "bootstrap minting (no parent token)" do
+    it "mints a parentless session identity for a hook-authenticated user" do
+      token, raw = CoPlan::ApiToken.mint_session_token_for!(user: user, agent_name: "Claude")
+
+      expect(token.user_id).to eq(user.id)
+      expect(token.parent_id).to be_nil
+      expect(token.agent_name).to eq("Claude")
+      expect(token.expires_at).to be_within(1.minute).of(12.hours.from_now)
+      expect(CoPlan::ApiToken.authenticate(raw)).to eq(token)
+    end
+
+    it "cannot mint further tokens despite having no parent — expiry marks it a session" do
+      token, = CoPlan::ApiToken.mint_session_token_for!(user: user)
+      expect(token).not_to be_can_mint
+      expect { token.mint_session_token! }
+        .to raise_error(CoPlan::ApiToken::Minting::NotPermitted)
     end
   end
 end

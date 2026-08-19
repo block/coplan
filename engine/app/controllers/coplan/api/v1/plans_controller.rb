@@ -57,8 +57,33 @@ module CoPlan
               content: params[:content] || "",
               user: current_user,
               plan_type_id: plan_type&.id,
-              visibility: visibility
+              visibility: visibility,
+              actor_type: api_author_type,
+              actor_id: api_user_id,
+              agent_name: api_agent_name,
+              api_token_id: api_token_id
             )
+
+            # Filing happens in the same transaction as creation so a bad
+            # folder param never leaves behind an unfiled plan (or, via
+            # folder_path, orphaned folders) for a create that failed.
+            if params.key?(:folder_id) || params.key?(:folder_path)
+              folder = resolve_folder_params
+              raise ActiveRecord::Rollback if performed? # resolve rendered an error
+              if folder
+                result = Plans::Place.call(plan: plan, folder: folder, actor: current_user, actor_type: api_author_type, agent_name: api_agent_name, api_token_id: api_token_id)
+                unless result.success?
+                  render json: { error: result.error }, status: :unprocessable_content
+                  raise ActiveRecord::Rollback
+                end
+              end
+            end
+
+            # The plan's type contributes its default_tags; explicit tags in
+            # the request are added on top. plan.plan_type (not the resolved
+            # param) so the General fallback's defaults apply too.
+            tags = plan.plan_type&.default_tags.to_a | Array(params[:tags]).map(&:to_s)
+            plan.tag_names = tags if tags.any?
 
             if params[:references].is_a?(Array)
               params[:references].each do |ref_params|
@@ -70,6 +95,7 @@ module CoPlan
               end
             end
           end
+          return if performed? # folder error rendered inside the transaction
 
           render json: plan_json(plan).merge(
             current_content: plan.current_content,
@@ -106,7 +132,7 @@ module CoPlan
             if params.key?(:folder_id) || params.key?(:folder_path)
               folder = resolve_folder_params
               return if performed? # resolve_folder_params rendered an error
-              result = Plans::Place.call(plan: @plan, folder: folder, actor: current_user, actor_type: api_author_type)
+              result = Plans::Place.call(plan: @plan, folder: folder, actor: current_user, actor_type: api_author_type, agent_name: api_agent_name, api_token_id: api_token_id)
               unless result.success?
                 render json: { error: result.error }, status: :unprocessable_content
                 raise ActiveRecord::Rollback
@@ -126,7 +152,7 @@ module CoPlan
             Plans::LogEvent.call(
               plan: @plan, actor: current_user, event_type: "title_changed",
               before: old_title, after: @plan.title,
-              actor_type: api_author_type, actor_id: api_actor_id
+              actor_type: api_author_type, actor_id: api_user_id, agent_name: api_agent_name, api_token_id: api_token_id
             )
           end
 
@@ -134,7 +160,7 @@ module CoPlan
             Plans::LogEvent.call(
               plan: @plan, actor: current_user, event_type: "published",
               before: "draft", after: "published",
-              actor_type: api_author_type, actor_id: api_actor_id
+              actor_type: api_author_type, actor_id: api_user_id, agent_name: api_agent_name, api_token_id: api_token_id
             )
             CoPlan::Analytics.track(
               "plan_published",
@@ -149,7 +175,7 @@ module CoPlan
             Plans::LogEvent.call(
               plan: @plan, actor: current_user,
               event_type: @plan.archived? ? "archived" : "unarchived",
-              actor_type: api_author_type, actor_id: api_actor_id
+              actor_type: api_author_type, actor_id: api_user_id, agent_name: api_agent_name, api_token_id: api_token_id
             )
           end
 
@@ -158,13 +184,13 @@ module CoPlan
             (new_tag_names - old_tag_names).each do |added|
               Plans::LogEvent.call(
                 plan: @plan, actor: current_user, event_type: "tag_added", after: added,
-                actor_type: api_author_type, actor_id: api_actor_id
+                actor_type: api_author_type, actor_id: api_user_id, agent_name: api_agent_name, api_token_id: api_token_id
               )
             end
             (old_tag_names - new_tag_names).each do |removed|
               Plans::LogEvent.call(
                 plan: @plan, actor: current_user, event_type: "tag_removed", before: removed,
-                actor_type: api_author_type, actor_id: api_actor_id
+                actor_type: api_author_type, actor_id: api_user_id, agent_name: api_agent_name, api_token_id: api_token_id
               )
             end
           end
@@ -183,7 +209,7 @@ module CoPlan
                 Plans::LogEvent.call(
                   plan: @plan, actor: current_user, event_type: "reference_added",
                   after: ref.url, metadata: { title: ref.title, reference_type: ref.reference_type },
-                  actor_type: api_author_type, actor_id: api_actor_id
+                  actor_type: api_author_type, actor_id: api_user_id, agent_name: api_agent_name, api_token_id: api_token_id
                 )
               end
             end
@@ -323,6 +349,7 @@ module CoPlan
             created.each do |f|
               Libraries::LogEvent.call(
                 library: current_user.library, actor: current_user, actor_type: api_author_type,
+                agent_name: api_agent_name, api_token_id: api_token_id,
                 event_type: "folder_created", folder: f, after: f.path
               )
             end

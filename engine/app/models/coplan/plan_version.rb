@@ -4,6 +4,7 @@ module CoPlan
 
     belongs_to :plan
     belongs_to :actor_user, class_name: "CoPlan::User", foreign_key: "actor_id", optional: true
+    belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
     has_many :comment_threads, dependent: :nullify
 
     # has_attribute? guard: list pages load lean stubs (id + sha only) via
@@ -14,6 +15,9 @@ module CoPlan
     validates :content_markdown, presence: true
     validates :content_sha256, presence: true
     validates :actor_type, presence: true, inclusion: { in: ACTOR_TYPES }
+    # Same cap as Comment#agent_name — the two render through the same
+    # "Agent (via User)" convention.
+    validates :agent_name, length: { maximum: 20 }, allow_nil: true
 
     before_validation :compute_sha256, if: -> { content_markdown.present? && content_sha256.blank? }
 
@@ -31,7 +35,7 @@ module CoPlan
 
     def extract_references
       CoPlan::References::ExtractFromContent.call(plan: plan, content: content_markdown)
-      broadcast_references_update
+      Broadcaster.replace_plan_references(plan)
     end
 
     def broadcast_history_update
@@ -46,21 +50,6 @@ module CoPlan
         plan,
         target: "history-count",
         html: ApplicationController.helpers.content_tag(:span, ApplicationController.helpers.pluralize(count, "entry"), class: "section-count", id: "history-count")
-      )
-    end
-
-    def broadcast_references_update
-      references = plan.references.reload.order(reference_type: :asc, created_at: :desc)
-      Broadcaster.replace_to(
-        plan,
-        target: "plan-references",
-        partial: "coplan/plans/references",
-        locals: { references: references, plan: plan }
-      )
-      Broadcaster.replace_to(
-        plan,
-        target: "references-count",
-        html: ApplicationController.helpers.content_tag(:span, references.size, class: "section-count", id: "references-count")
       )
     end
 
