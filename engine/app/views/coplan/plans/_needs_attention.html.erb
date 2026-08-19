@@ -13,15 +13,17 @@
           <li class="attention__item">
             <%= link_to plan.title, notification_path(attention.notification_id_for(plan)), class: "attention__link", data: { turbo: false } %>
             <span class="attention__unread"><%= pluralize(attention.unread_count_for(plan), "unread comment") %></span>
-            <%# Dismissal without reading: marks this plan's rows read and
-                re-renders the strip in place, which may promote the next
-                plan into view. Clicking it hides the row instantly (see
-                the aria-busy rules in the stylesheet) — dismissing a
-                nudge shouldn't have a progress state. %>
-            <%= button_to "Clear",
+            <%# Dismissal without reading (opening the plan clears it too):
+                marks this plan's rows read and re-renders the strip in
+                place, which may promote the next plan into view. Clicking
+                it hides the row instantly (see the aria-busy rules in the
+                stylesheet) — dismissing a nudge shouldn't have a progress
+                state. %>
+            <%= button_to "✕",
                   mark_plan_read_notifications_path(plan_id: plan.id),
                   method: :post,
                   class: "attention__clear",
+                  title: "Clear",
                   form: { data: { turbo_stream: true }, class: "attention__clear-form" },
                   aria: { label: "Clear unread comments for #{plan.title}" } %>
           </li>

@@ -66,16 +66,13 @@ module CoPlan
       end
     end
 
-    # "Clear" on a workspace attention row: one plan's unread rows marked
-    # read without reading them. The strip re-renders rather than dropping
-    # the row, because clearing one plan can promote the next one into view.
+    # The dismiss "✕" on a workspace attention row: one plan's unread rows
+    # marked read without opening it (opening it does the same thing). The
+    # strip re-renders rather than dropping the row, because clearing one
+    # plan can promote the next one into view.
     def mark_plan_read
       plan_id = params[:plan_id].to_s
-      if plan_id.present?
-        current_user.notifications.unread.where(plan_id: plan_id).update_all(read_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
-      end
-
-      broadcast_badge_update
+      Notifications::MarkPlanRead.call(user: current_user, plan_id: plan_id)
 
       respond_to do |format|
         format.turbo_stream do

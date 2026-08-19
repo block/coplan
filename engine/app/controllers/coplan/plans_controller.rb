@@ -159,7 +159,7 @@ module CoPlan
       # highlights against the old last_seen_at, then advance it — so the
       # next visit renders clean.
       @changed_section_keys = changed_sections_since_last_visit
-      PlanViewer.track(plan: @plan, user: current_user)
+      record_visit unless prefetch_request?
     end
 
     # A full page (reached from the header's clock icon), not a tab —
@@ -672,6 +672,25 @@ module CoPlan
         old_content: base.content_markdown,
         new_content: current.content_markdown
       )
+    end
+
+    # Looking at a plan advances your last-seen mark (so the "changed since
+    # you last looked" highlights are once-only) and clears the plan's
+    # unread notifications — you looked, the nudge is done.
+    def record_visit
+      PlanViewer.track(plan: @plan, user: current_user)
+      Notifications::MarkPlanRead.call(user: current_user, plan_id: @plan.id)
+    end
+
+    # Workspace rows prefetch on hover (Turbo 8), so this GET can happen
+    # with nobody looking at anything — a cursor resting on a row would
+    # burn its highlights and clear its notifications. The page still
+    # renders normally; the writes wait for a real visit, which
+    # PlanPresenceChannel reports when the page opens. That subscribe is
+    # also the only signal for a click Turbo serves from its prefetch
+    # cache, where the server never sees the navigation at all.
+    def prefetch_request?
+      request.headers["X-Sec-Purpose"] == "prefetch"
     end
 
     def set_plan

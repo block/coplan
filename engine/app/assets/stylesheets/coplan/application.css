@@ -5624,19 +5624,26 @@ img.avatar {
   margin-left: auto;
 }
 
+/* A quiet ✕, matching the filter chips: the row already says what it is,
+   so the dismiss doesn't need a word. Padding buys a real hit area
+   without taking visual weight. */
 .attention__clear {
-  padding: 0;
+  flex-shrink: 0;
+  padding: 2px 6px;
   border: 0;
+  border-radius: var(--radius);
   background: none;
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
+  line-height: 1;
   font-family: inherit;
   cursor: pointer;
+  transition: color 0.15s, background 0.15s;
 }
 
 .attention__clear:hover {
   color: var(--color-text);
-  text-decoration: underline;
+  background: var(--color-bg);
 }
 
 /* Clear is instant, not a task with a progress state: Turbo marks the
