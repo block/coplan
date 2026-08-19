@@ -122,7 +122,7 @@ module CoPlan
               touch_watching_sessions
             end
 
-            AgentEventBus.wait(@api_token.id, timeout: [HEARTBEAT_INTERVAL, deadline - Time.current].min)
+            AgentEventBus.wait(@api_token.id, timeout: [ HEARTBEAT_INTERVAL, deadline - Time.current ].min)
           end
         rescue IOError, ActionController::Live::ClientDisconnected
           # Client went away — normal for a streaming endpoint.

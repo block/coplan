@@ -21,7 +21,7 @@ module CoPlan
           # Claiming a session means "I'm here", not "I'm working" — an
           # attached, idle agent defaults to `watching`. Pass `state` to
           # say otherwise (the bridge claims straight into `active`).
-          state = params[:state].presence_in(AgentSession::STATES - ["stale"]) || "watching"
+          state = params[:state].presence_in(AgentSession::STATES - [ "stale" ]) || "watching"
 
           session = AgentSession.find_or_initialize_by(plan_id: @plan.id, api_token_id: @api_token.id)
           session.agent_name = api_agent_name
@@ -51,7 +51,7 @@ module CoPlan
 
           state = params[:state].to_s
           unless AgentSession::STATES.include?(state) && state != "stale"
-            render json: { error: "state must be one of #{(AgentSession::STATES - ['stale']).join(', ')}" }, status: :unprocessable_content
+            render json: { error: "state must be one of #{(AgentSession::STATES - [ 'stale' ]).join(', ')}" }, status: :unprocessable_content
             return
           end
 

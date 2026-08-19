@@ -56,7 +56,7 @@ module CoPlan
       return configured.to_i.clamp(0, 10_000) if configured.present?
 
       threads = ENV.fetch("RAILS_MAX_THREADS", 3).to_i
-      [threads - RESERVED_THREADS, 1].max
+      [ threads - RESERVED_THREADS, 1 ].max
     end
 
     attr_reader :capacity
@@ -91,7 +91,7 @@ module CoPlan
     def wait(key, timeout:)
       return if timeout <= 0
 
-      slice = [timeout, CROSS_PROCESS_INTERVAL].min
+      slice = [ timeout, CROSS_PROCESS_INTERVAL ].min
       @mutex.synchronize do
         condition = (@conditions[key] ||= ConditionVariable.new)
         @waiter_counts[key] += 1

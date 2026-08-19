@@ -57,7 +57,7 @@ module CoPlan
     # removal promptly; correctness doesn't depend on it.
     scope :visible, -> {
       clauses = STALE_WINDOWS.map { "(state = ? AND COALESCE(last_activity_at, updated_at) > ?)" }.join(" OR ")
-      where(clauses, *STALE_WINDOWS.flat_map { |state, window| [state, window.ago] })
+      where(clauses, *STALE_WINDOWS.flat_map { |state, window| [ state, window.ago ] })
     }
 
     # Is anything actually attached behind this row? Events are still
