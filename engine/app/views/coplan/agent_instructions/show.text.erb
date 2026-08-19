@@ -70,14 +70,28 @@ Returns: plan metadata, `current_content`, `current_revision`, `comment_threads`
 
 ### Create Plan
 
+Creating a plan is a deliberate act of publishing into a shared, organized library — not dumping a file. **Before the POST, do three cheap checks** (skip any step whose answer you already have from this session):
+
+1. **Pick the folder.** `GET <%= @base %>/api/v1/library` shows your folder tree with each folder's `description`. Choose the folder whose description matches this document; pass it as `folder_path` on create. A plan created without one lands unfiled — someone has to clean up after you.
+2. **Pick the type.** `GET <%= @base %>/api/v1/plan_types` (or the [Plan Types](#plan-types) table below) lists every type with its description. Choose the **most specific** type that fits. **General is the fallback of last resort** — reaching for it without reading the list is almost always wrong.
+3. **Follow the type's template.** The `plan_types` response includes each type's `template_content` — the document structure readers of that type expect. Structure your content against it: keep its sections (drop one only when it's genuinely inapplicable), fill them with real content rather than placeholder text.
+
+Then create everything in one call:
+
 ```bash
 <%= @curl %> -X POST \
   -H "Content-Type: application/json" \
-  -d '{"title": "My Plan", "content": "# My Plan\n\nContent here.", "plan_type": "general"}' \
+  -d '<%= raw @create_example_json %>' \
   "<%= @base %>/api/v1/plans" | jq .
 ```
 
-Optional fields: `plan_type` (string) — the name of a plan type to use; every plan has a type, so omitting this files the plan under the **General** catch-all (see [Plan Types](#plan-types) below); `visibility` (string) — plans are **shared with the whole org by default**; `"draft"` (shown as "private" in the UI) exists as a rare escape hatch, not a normal step (see [Visibility &amp; Archiving](#visibility--archiving)).
+Optional fields:
+
+- `plan_type` (string) — the name of a plan type (step 2 above). Omitting it files the plan under **General**, which should be a considered choice, not a default. The plan type's `default_tags` are applied to the plan automatically.
+- `folder_path` (string) or `folder_id` (string) — where to file the plan in your library (step 1 above). `folder_path` finds or creates the hierarchy (e.g. `"Team EBT/Q3"`). See [Libraries &amp; Folders](#libraries--folders).
+- `tags` (array of strings) — added on top of the type's `default_tags`. See [Tags](#tags).
+- `visibility` (string) — plans are **shared with the whole org by default**; `"draft"` (shown as "private" in the UI) exists as a rare escape hatch, not a normal step (see [Visibility &amp; Archiving](#visibility--archiving)).
+- `references` (array) — see [References](#references).
 
 #### Diagrams
 
@@ -184,7 +198,7 @@ Each folder includes `id`, `name`, `library_id`, `parent_id`, `path` (e.g. `"Tea
 
 `parent_id` is optional — omit it for a top-level folder. Rename with `PATCH /api/v1/folders/:id` (`{"name": "..."}`); delete with `DELETE /api/v1/folders/:id` (only empty folders, only in your own library).
 
-**Shelve a plan in a folder:**
+**File a plan at creation** (preferred — pass `folder_path` on `POST /api/v1/plans`, see [Create Plan](#create-plan)) so plans never sit unfiled. To move or file an existing plan:
 
 ```bash
 <%= @curl %> -X PATCH \
@@ -230,15 +244,27 @@ The API also accepts the legacy `status` field (`brainstorm`/`considering`/`deve
 
 ### Plan Types
 
-Plan types categorize plans and provide default tags. Every plan has exactly one type. When creating a plan, pass `plan_type` to pick one — plans created without an explicit type get **General**.
+Plan types categorize plans, apply default tags, and carry a **content template** — the document structure readers of that type expect. Every plan has exactly one type.
+
+```bash
+<%= @curl %> \
+  "<%= @base %>/api/v1/plan_types" | jq .
+```
+
+Returns every type with `name`, `description`, `default_tags`, and `template_content`.
+
+**Guidelines:**
+- Pick the **most specific** type that fits before creating a plan. Plans created without an explicit type get **General** — acceptable only when you've reviewed the list and nothing fits.
+- **Read the type's `template_content` and structure your document against it** — keep its sections, fill them with substance, drop a section only when it's genuinely inapplicable. The template is the type's contract with its readers.
+- The type's `default_tags` are applied automatically on create; add your own on top with `tags`.
 <% if @plan_types.any? %>
 
 **Available plan types:**
 
-| Name | Description |
-|------|-------------|
+| Name | Description | Template |
+|------|-------------|----------|
 <% @plan_types.each do |pt| %>
-| `<%= pt.name %>` | <%= pt.description.present? ? pt.description : "—" %> |
+| `<%= pt.name %>` | <%= pt.description.present? ? pt.description : "—" %> | <%= pt.template_content.present? ? "yes — fetch and follow it" : "—" %> |
 <% end %>
 <% else %>
 
@@ -568,6 +594,12 @@ Review each open comment thread and categorize it:
 For approved changes, the recommended path is: read the snapshot → edit the markdown locally → `PUT /api/v1/plans/:id/content` → resolve the addressed threads. Use the lease + operations path only for surgical, single-operation edits.
 
 ## Typical Workflow
+
+### Creating a plan
+
+1. **Pick the folder**: `GET /api/v1/library` — match the new document to a folder's description
+2. **Pick the type and read its template**: `GET /api/v1/plan_types` — most specific type wins; structure your draft against its `template_content`
+3. **Create filed and typed**: `POST /api/v1/plans` with `{title, content, plan_type, folder_path}`
 
 ### Recommended (full content replacement)
 

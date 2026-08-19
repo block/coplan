@@ -44,14 +44,20 @@ module CoPlan
           plan
         end
 
-        CoPlan::Analytics.track(
-          "plan_created",
-          user: @user,
-          plan_id: plan.id,
-          plan_type_id: plan.plan_type_id,
-          visibility: plan.visibility,
-          content_length: @content.to_s.length
-        )
+        # Deferred: callers may wrap creation in a larger transaction (the
+        # API's create-and-file does), and a rollback there must not leave
+        # behind an analytics event for a plan that never existed. Outside
+        # any transaction this runs immediately.
+        ActiveRecord.after_all_transactions_commit do
+          CoPlan::Analytics.track(
+            "plan_created",
+            user: @user,
+            plan_id: plan.id,
+            plan_type_id: plan.plan_type_id,
+            visibility: plan.visibility,
+            content_length: @content.to_s.length
+          )
+        end
 
         plan
       end

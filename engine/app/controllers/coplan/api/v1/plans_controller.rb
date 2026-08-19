@@ -64,6 +64,27 @@ module CoPlan
               api_token_id: api_token_id
             )
 
+            # Filing happens in the same transaction as creation so a bad
+            # folder param never leaves behind an unfiled plan (or, via
+            # folder_path, orphaned folders) for a create that failed.
+            if params.key?(:folder_id) || params.key?(:folder_path)
+              folder = resolve_folder_params
+              raise ActiveRecord::Rollback if performed? # resolve rendered an error
+              if folder
+                result = Plans::Place.call(plan: plan, folder: folder, actor: current_user, actor_type: api_author_type, agent_name: api_agent_name, api_token_id: api_token_id)
+                unless result.success?
+                  render json: { error: result.error }, status: :unprocessable_content
+                  raise ActiveRecord::Rollback
+                end
+              end
+            end
+
+            # The plan's type contributes its default_tags; explicit tags in
+            # the request are added on top. plan.plan_type (not the resolved
+            # param) so the General fallback's defaults apply too.
+            tags = plan.plan_type&.default_tags.to_a | Array(params[:tags]).map(&:to_s)
+            plan.tag_names = tags if tags.any?
+
             if params[:references].is_a?(Array)
               params[:references].each do |ref_params|
                 next unless ref_params[:url].present?
@@ -74,6 +95,7 @@ module CoPlan
               end
             end
           end
+          return if performed? # folder error rendered inside the transaction
 
           render json: plan_json(plan).merge(
             current_content: plan.current_content,

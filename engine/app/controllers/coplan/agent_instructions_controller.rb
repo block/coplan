@@ -33,6 +33,7 @@ module CoPlan
       # carries the request's SCRIPT_NAME.
       @base = "#{request.base_url}#{root_path.chomp("/")}"
       @plan_types = PlanType.order(:name)
+      @create_example_json = create_example_json
 
       if prefers_html?
         # The page is public, but signed-in visitors should still see their
@@ -61,6 +62,23 @@ module CoPlan
     end
 
     private
+
+    # The Create Plan curl example, with a real configured plan type so
+    # agents copy an instance-accurate command. Names are admin-controlled
+    # free text, so the payload is JSON-serialized (never hand-interpolated)
+    # and single quotes are escaped for the surrounding shell quoting.
+    def create_example_json
+      example_type = @plan_types.reject { |t| t.name.casecmp?(PlanType::GENERAL_NAME) }.first
+      JSON.generate(
+        {
+          title: "My Plan",
+          content: "# My Plan\n\nContent following the type template.",
+          plan_type: example_type&.name || "general",
+          folder_path: "Team EBT/Q3"
+        },
+        space: " "
+      ).gsub("'", "'\\\\''")
+    end
 
     def prefers_html?
       return true if params[:format] == "html"
