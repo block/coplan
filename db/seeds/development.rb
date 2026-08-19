@@ -84,8 +84,18 @@ module CoPlan
       {
         key: "code-walkthrough", author: "sam", type: "Design Doc", title: "Order discount engine: implementation walkthrough",
         tags: %w[pricing api design], visibility: "published", folder: "Engineering/Active projects", fixture: :code_walkthrough
+      },
+      {
+        key: "collab-showcase", author: "priya", type: "Design Doc", title: "Search latency: cutting p95 with a two-tier cache",
+        tags: %w[search performance caching], visibility: "published", folder: "Engineering/Active projects", fixture: :collab_showcase
       }
     ].freeze
+
+    # Identity the collaboration fixtures attribute agent activity to —
+    # renders as "Claude (via <user>)" in history, comments, and audit events.
+    AGENT_NAME = "Claude"
+    AGENT_TOKEN_NAME = "Claude Code (development seed)"
+    AGENT_ORGANIZE_RUN_ID = "development-seed-organize-run"
 
     CONTENT_FIXTURES = {
       flowchart: <<~MARKDOWN,
@@ -241,6 +251,50 @@ module CoPlan
         - The ledger write is synchronous — acceptable at pilot volume, but see
           the latency budget before cohort 3.
       MARKDOWN
+      # Exercises the reference system end-to-end: footnote citations with
+      # source links (auto-extracted into References), explicit numbered
+      # section links (hover previews), and prose worth commenting on —
+      # the comment/attribution fixtures below anchor to sentences here.
+      collab_showcase: <<~'MARKDOWN',
+        Search p95 sits at 840 ms while p50 is fine — the tail is repeat fan-out, not slow ranking.[^p95-baseline] This design layers a request-local memo over a shared Redis tier to pull p95 under 300 ms without serving stale facets, and writes down the invalidation rules reviewers keep asking about (see [§3](#section-3)).
+
+        ## 1. Problem
+
+        Every keystroke fans out to the ranking service, and most of that work repeats: two people typing "refund policy" build the same candidate set twice. The ranking call dominates the tail — [§4](#section-4) covers how the rollout measures it.
+
+        ## 2. Two tiers, one interface
+
+        A request-local memo catches repeats within one search session; the shared Redis tier catches repeats across users. Eviction on the shared tier follows an allkeys-lru policy.[^redis-eviction]
+
+        ```ruby
+        class CacheStack
+          def initialize(local:, shared:)
+            @tiers = [ local, shared ]
+          end
+
+          def fetch(key, &compute)
+            @tiers.each_with_index do |tier, index|
+              value = tier.read(key)
+              next unless value
+              promote(key, value, upto: index)
+              return value
+            end
+            compute.call.tap { |value| write_through(key, value) }
+          end
+        end
+        ```
+
+        ## 3. Invalidation
+
+        Facet counts may lag content by at most one minute. Writes publish a version stamp; a cached entry older than the stamp for any document in its candidate set is treated as a miss. There is no per-key TTL tuning — the stamp is the whole strategy.
+
+        ## 4. Rollout
+
+        Dark-read first: serve uncached results while comparing them with cached results in the background, then ramp by query class once the comparison disagrees on fewer than 1 in 10,000 queries — the bar the invalidation rules in [§3](#section-3) were written to clear.
+
+        [^p95-baseline]: [Q2 search latency review](https://observability.example.com/d/search-latency) — trailing 30 days: p95 840 ms, p50 118 ms, with fan-out retries accounting for 62% of tail samples.
+        [^redis-eviction]: [Redis key eviction](https://redis.io/docs/latest/develop/reference/eviction/) — `allkeys-lru` approximates LRU across the whole keyspace, which fits a cache-only tier.
+      MARKDOWN
       spanish: "## Problema\n\nLas personas nuevas necesitan saber qué paso completar.\n\n## Resultado\n\nUna lista breve muestra el siguiente paso.",
       japanese: "## 目標\n\n障害の影響を小さくし、復旧までの時間を短縮します。\n\n## 次のステップ\n\n復旧手順を自動で検証します。",
       arabic: "## الملخص\n\nتقارن هذه المذكرة بين الجلسات قصيرة العمر وتدوير الرموز.\n\n## الخطوة التالية\n\nتشغيل تجربة محكومة لقياس الأمان."
@@ -262,9 +316,14 @@ module CoPlan
         plan_types = seed_plan_types
         plans = seed_documents(users, plan_types)
         seed_shared_library_examples(users, plans)
+        seed_folder_descriptions(users)
+        seed_collaboration_showcase(users, plans)
+        seed_agent_organization_run(users, plans)
       end
 
-      puts "Done! #{User.count} users, #{Plan.count} documents, #{Folder.count} folders, #{Tag.count} tags, and #{PlanType.count} document types."
+      puts "Done! #{User.count} users, #{Plan.count} documents, #{Folder.count} folders, #{Tag.count} tags, " \
+        "#{PlanType.count} document types, #{CommentThread.count} comment threads, " \
+        "#{Reference.count} references, and #{LibraryEvent.count} library events."
     end
 
     def seed_users
@@ -339,6 +398,205 @@ module CoPlan
       place(plans.fetch("experiment-results"), "Research to discuss", users.fetch("alex"))
     end
 
+    # Folder descriptions give agents (and readers) semantics a bare name
+    # can't carry — surfaced by the library map API and the workspace UI.
+    FOLDER_DESCRIPTIONS = [
+      { user: "priya", path: "Engineering/Active projects", description: "Designs in flight this quarter — one document per project, review comments welcome." },
+      { user: "sam", path: "Engineering/Active projects", description: "Implementation walkthroughs for systems Sam owns." },
+      { user: "alex", path: "Engineering/Architecture decisions", description: "Durable ADRs — append-only; supersede rather than edit." },
+      { user: "alex", path: "Reading list/Agent picks", description: "Cross-library picks filed by an agent organize run — worth a read this week." }
+    ].freeze
+
+    def seed_folder_descriptions(users)
+      FOLDER_DESCRIPTIONS.each do |entry|
+        user = users.fetch(entry.fetch(:user))
+        folder = Folder.find_or_create_by_path!(entry.fetch(:path), library: user.library, created_by_user: user)
+        folder.update!(description: entry.fetch(:description))
+      end
+    end
+
+    # Everything an agent leaves behind, on one document: an attributed
+    # version ("Claude (via …)" in history with token provenance), an agent
+    # review comment, citation back matter, and comment threads in every
+    # state a reviewer will meet — open, accepted, resolved, overlapping
+    # anchors, and a general thread with no anchor at all.
+    def seed_collaboration_showcase(users, plans)
+      plan = plans.fetch("collab-showcase")
+      author = users.fetch("priya")
+      token = seed_agent_token(author)
+
+      seed_agent_edit(plan, author, token, related_plan: plans.fetch("code-walkthrough"))
+      seed_explicit_reference(plan)
+      seed_comment_threads(users, plans, token)
+    end
+
+    def seed_agent_token(user)
+      existing = ApiToken.find_by(user_id: user.id, name: AGENT_TOKEN_NAME)
+      return existing if existing
+
+      token, _raw = ApiToken.create_with_raw_token(
+        user_id: user.id,
+        name: AGENT_TOKEN_NAME,
+        agent_name: AGENT_NAME,
+        metadata: { "harness" => "claude-code", "development_seed" => true }
+      )
+      token
+    end
+
+    def seed_agent_edit(plan, author, token, related_plan:)
+      # One agent-attributed version is the fixture; local edits after it
+      # are the user's business.
+      return if plan.plan_versions.exists?(actor_type: "local_agent")
+
+      content = plan.current_content
+      updated = content.sub(
+        "Facet counts may lag content by at most one minute.",
+        "Facet counts may lag content by at most one minute — measured, not aspirational: the dark-read comparison in [§4](#section-4) enforces it."
+      )
+      updated = "#{updated.rstrip}\n\n## 5. Related reading\n\n- [#{related_plan.title}](http://localhost:3000/plans/#{related_plan.id}) — the walkthrough whose ledger spot-check pattern [§4](#section-4) reuses.\n"
+      return if updated == content
+
+      Plans::ReplaceContent.call(
+        plan: plan,
+        new_content: updated,
+        base_revision: plan.current_revision,
+        actor_type: "local_agent",
+        actor_id: author.id,
+        agent_name: token.agent_name,
+        api_token_id: token.id,
+        change_summary: "Tie the freshness bound to the dark-read check and add related reading"
+      )
+    end
+
+    # Links in prose are auto-extracted; an explicit reference is for a
+    # resource that matters but is never linked — here, the Redis repo.
+    def seed_explicit_reference(plan)
+      reference = plan.references.find_or_initialize_by(url: "https://github.com/redis/redis")
+      return if reference.persisted?
+
+      reference.assign_attributes(key: "redis", title: "redis/redis", reference_type: "repository", source: "explicit")
+      reference.save!
+    end
+
+    def seed_comment_threads(users, plans, token)
+      showcase = plans.fetch("collab-showcase")
+      priya = users.fetch("priya")
+
+      # Open, anchored to prose.
+      seed_thread(
+        plan: showcase, user: users.fetch("sam"),
+        anchor: "request-local memo",
+        body: "Does the memo live on the request object or in a middleware-scoped store? If it's middleware, watch out for streamed responses holding it alive."
+      )
+
+      # An agent's review remark — renders as "Claude (via Priya)".
+      seed_thread(
+        plan: showcase, user: priya,
+        anchor: "at most one minute",
+        author_type: "local_agent", agent_name: token.agent_name, api_token: token,
+        body: "[§3](#section-3) states the freshness bound but nothing cites where one minute comes from — the merchandising SLA pins it at 45 s. Worth reconciling before ramp."
+      )
+
+      # Raised, answered, resolved.
+      seed_thread(
+        plan: showcase, user: users.fetch("alex"),
+        anchor: "allkeys-lru",
+        resolved_by: priya,
+        body: "volatile-lru bit us on the sessions cluster — allkeys is the right call here since nothing sets TTLs."
+      )
+
+      # Overlapping anchors: an open thread nested inside a resolved one.
+      seed_thread(
+        plan: showcase, user: users.fetch("aiko"),
+        anchor: "comparing them with cached results in the background",
+        resolved_by: priya,
+        body: "Is the comparison sampled or total? Total doubles ranking load for the whole dark-read window."
+      )
+      seed_thread(
+        plan: showcase, user: users.fetch("noura"),
+        anchor: "cached results in the background",
+        body: "The comparison writes through to the shared tier, right? Otherwise the dark-read never warms it and the ramp threshold lies."
+      )
+
+      # Accepted into the author's to-do list.
+      seed_thread(
+        plan: showcase, user: users.fetch("mateo"),
+        anchor: "no per-key TTL tuning",
+        accepted_by: priya,
+        body: "Add one sentence on what happens when the version-stamp publish itself fails — that's the first question ops will ask."
+      )
+
+      # A general remark with no anchor at all.
+      seed_thread(
+        plan: showcase, user: users.fetch("mateo"),
+        body: "Strong direction. The dark-read bar (1 in 10,000) matches what mobile checkout used for its state-machine cutover — reusing that tooling should make the rollout cheap."
+      )
+
+      # Commenting works on documents dense with code, too.
+      seed_thread(
+        plan: plans.fetch("code-walkthrough"), user: users.fetch("aiko"),
+        anchor: "Should MAX_STACK be a merchant setting instead of a constant?",
+        body: "Coffee chains stack loyalty + happy hour + volume today — three is the observed max, so promoting this to a setting can wait for a real merchant ask."
+      )
+    end
+
+    def seed_thread(plan:, user:, body:, anchor: nil, author_type: "human",
+      agent_name: nil, api_token: nil, resolved_by: nil, accepted_by: nil)
+      return if seeded_thread?(plan, body)
+
+      thread = plan.comment_threads.new(
+        plan_version: plan.current_plan_version,
+        created_by_user: user,
+        anchor_text: anchor,
+        status: "pending"
+      )
+      # Anchors resolve against current content; if a local edit removed the
+      # anchored sentence, skip the fixture rather than fail the whole seed.
+      unless thread.save
+        warn "  Skipping seed comment (anchor no longer matches): #{anchor.inspect}"
+        return
+      end
+
+      thread.comments.create!(
+        body_markdown: body,
+        author_type: author_type,
+        author_id: user.id,
+        agent_name: agent_name,
+        api_token_id: api_token&.id
+      )
+      thread.accept!(accepted_by) if accepted_by
+      thread.resolve!(resolved_by) if resolved_by
+      thread
+    end
+
+    def seeded_thread?(plan, body)
+      Comment.where(comment_thread_id: plan.comment_threads.select(:id))
+        .exists?(body_markdown: body)
+    end
+
+    # A bulk organize run attributed to an agent: cross-library placements
+    # onto Alex's shelf, every audit event carrying the agent name, token
+    # provenance, and a shared run_id (visible via ?run_id= on the API).
+    def seed_agent_organization_run(users, plans)
+      curator = users.fetch("alex")
+      token = seed_agent_token(curator)
+      folder = Folder.find_or_create_by_path!("Reading list/Agent picks", library: curator.library, created_by_user: curator)
+
+      %w[collab-showcase mobile-checkout japanese-roadmap].each do |key|
+        result = Plans::Place.call(
+          plan: plans.fetch(key),
+          folder: folder,
+          actor: curator,
+          actor_type: "local_agent",
+          agent_name: token.agent_name,
+          api_token_id: token.id,
+          run_id: AGENT_ORGANIZE_RUN_ID,
+          event_metadata: { "source" => "development_seed" }
+        )
+        raise result.error unless result.success?
+      end
+    end
+
     def document_content(definition)
       return long_document_content if definition[:long]
 
@@ -346,7 +604,7 @@ module CoPlan
       parts = [ "# #{definition.fetch(:title)}" ]
 
       # Fixtures that are complete document bodies — no lorem filler around them.
-      if %i[spanish japanese arabic code_walkthrough].include?(definition[:fixture])
+      if %i[spanish japanese arabic code_walkthrough collab_showcase].include?(definition[:fixture])
         parts << fixture
         return parts.join("\n\n")
       end
