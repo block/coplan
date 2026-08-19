@@ -152,7 +152,7 @@ Update plan metadata (title, visibility, tags). Only fields included in the requ
   "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
 ```
 
-Allowed fields: `title` (string), `visibility` (`"published"` — see [Visibility &amp; Archiving](#visibility--archiving)), `archived` (boolean), `tags` (array of strings), `references` (array — see [References](#references) below).
+Allowed fields: `title` (string), `visibility` (`"published"` — see [Visibility &amp; Archiving](#visibility--archiving)), `archived` (boolean), `plan_type` (string — retype the plan; unknown names get a 422 listing the valid ones, and the new type's `default_tags` are added), `tags` (array of strings), `references` (array — see [References](#references) below).
 
 ### List Tags
 
@@ -257,6 +257,7 @@ Returns every type with `name`, `description`, `default_tags`, and `template_con
 - Pick the **most specific** type that fits before creating a plan. Plans created without an explicit type get **General** — acceptable only when you've reviewed the list and nothing fits.
 - **Read the type's `template_content` and structure your document against it** — keep its sections, fill them with substance, drop a section only when it's genuinely inapplicable. The template is the type's contract with its readers.
 - The type's `default_tags` are applied automatically on create; add your own on top with `tags`.
+- **Retype a plan when it outgrows its type** — a brainstorm that firmed up into a real design, say — with `PATCH /api/v1/plans/:id` and `{"plan_type": "..."}`. Restructure the content against the new type's template in the same session.
 <% if @plan_types.any? %>
 
 **Available plan types:**
