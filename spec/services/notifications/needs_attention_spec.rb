@@ -37,6 +37,19 @@ RSpec.describe CoPlan::Notifications::NeedsAttention do
     expect(result.unread_counts).to be_empty
   end
 
+  # The workspace already grouped these counts for its per-row badges;
+  # passing them in saves the duplicate query. Counts that disagree with
+  # the database prove the hash was used rather than re-derived.
+  it "reuses counts the caller already grouped instead of re-querying" do
+    plan = create(:plan, :considering, created_by_user: user)
+    notify(plan, count: 2)
+
+    result = described_class.call(user: user, unread_counts: { plan.id => 99 })
+
+    expect(result.plans.map(&:id)).to eq([ plan.id ])
+    expect(result.unread_count_for(plan)).to eq(99)
+  end
+
   it "points each row at an unread notification for that plan" do
     plan = create(:plan, :considering, created_by_user: user)
     notify(plan)

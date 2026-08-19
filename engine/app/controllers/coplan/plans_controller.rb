@@ -528,13 +528,19 @@ module CoPlan
     end
 
     # One grouped query per request, shared between the per-row unread
-    # badges and the "needs attention" strip.
+    # badges and the "needs attention" strip. Kept separate from
+    # needs_attention because pagination frames want only this count —
+    # they return before the strip renders, and building its full result
+    # there would buy per-plan lookups nothing.
     def unread_by_plan
-      needs_attention.unread_counts
+      @unread_by_plan ||= current_user.notifications.unread.group(:plan_id).count
     end
 
     def needs_attention
-      @needs_attention ||= Notifications::NeedsAttention.call(user: current_user)
+      @needs_attention ||= Notifications::NeedsAttention.call(
+        user: current_user,
+        unread_counts: unread_by_plan
+      )
     end
 
     def unread_counts_for(plans)

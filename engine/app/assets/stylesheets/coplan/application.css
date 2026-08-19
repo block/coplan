@@ -5639,6 +5639,21 @@ img.avatar {
   text-decoration: underline;
 }
 
+/* Clear in flight — the row pulses until the strip re-renders so the
+   click never feels like it did nothing. Turbo sets aria-busy on submit
+   and clears it on completion or failure. */
+.attention__item:has(.attention__clear-form[aria-busy="true"]) {
+  animation: attention-clear-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes attention-clear-pulse {
+  50% { opacity: 0.45; }
+}
+
+.attention__clear-form[aria-busy="true"] .attention__clear {
+  cursor: progress;
+}
+
 /* "Since you last looked" strip — recency against your own reading
    history, quieter than the warning-toned attention strip. */
 .recent-updates {

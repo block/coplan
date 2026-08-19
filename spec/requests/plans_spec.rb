@@ -788,6 +788,20 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).not_to include("Bobs Secret Draft")
     end
 
+    # A pagination frame renders rows and returns before the strip, so it
+    # should pay for the grouped badge count and nothing more.
+    it "is not built for a pagination frame" do
+      thread = create(:comment_thread, plan: plan, created_by_user: bob)
+      create(:notification, user: alice, plan: plan, comment_thread: thread)
+
+      expect(CoPlan::Notifications::NeedsAttention).not_to receive(:call)
+
+      get plans_path(group: "level", page: 1), headers: { "Turbo-Frame" => "plans-level-page-1" }
+
+      expect(response).to have_http_status(:success)
+      expect(response.body).to include("1")
+    end
+
     it "offers a per-plan clear so the strip can be emptied without reading" do
       thread = create(:comment_thread, plan: plan, created_by_user: bob)
       create(:notification, user: alice, plan: plan, comment_thread: thread)
