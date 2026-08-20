@@ -1,0 +1,37 @@
+<%# Which key holds the microphone open. Push-to-talk was Shift and only
+    Shift, which is a poor fit for anyone who types capitals near the mic
+    and impossible for anyone whose browser or OS already spends the key.
+
+    Presets rather than a free capture: each one behaves differently on
+    purpose (a bare modifier has to be held past a delay to tell talking
+    from typing; a chord starts recording on the press), and the mic's
+    tooltip has to be able to name whichever one is in force. %>
+<div class="card mb-md" data-controller="coplan--voice-hotkey"
+     data-coplan--voice-hotkey-url-value="<%= coplan.settings_voice_hotkey_path %>">
+  <div class="settings-row">
+    <div class="settings-row__main">
+      <span class="settings-row__label">Hold to talk</span>
+      <p class="settings-row__hint">
+        Hold this key on a plan to dictate a comment, and release to post it.
+        The mic button works whichever you pick.
+        <%# Shown only while Ctrl+Space is the choice, and toggled live by the
+            controller so picking it here explains itself immediately. %>
+        <span data-coplan--voice-hotkey-target="macNote"
+              <%= "hidden" unless current_user.voice_hotkey == "ctrl_space" %>>
+          macOS uses Ctrl+Space to switch input sources — if nothing happens when
+          you hold it, turn that off in System Settings or choose another key here.
+        </span>
+      </p>
+    </div>
+    <div class="segmented">
+      <% CoPlan::User::VOICE_HOTKEYS.each do |hotkey| %>
+        <label class="segmented__option" title="<%= CoPlan::User::VOICE_HOTKEY_LABELS[hotkey] %>">
+          <input type="radio" name="voice_hotkey" value="<%= hotkey %>"
+                 <%= "checked" if current_user.voice_hotkey == hotkey %>
+                 data-action="coplan--voice-hotkey#select">
+          <span class="segmented__btn"><%= CoPlan::User::VOICE_HOTKEY_LABELS[hotkey] %></span>
+        </label>
+      <% end %>
+    </div>
+  </div>
+</div>
