@@ -65,6 +65,21 @@ RSpec.describe CoPlan::Plan, type: :model do
 
   # THE discovery predicate (mirrored by PlanPolicy#listed?). Everything a
   # user can be shown in a list routes through one of these two scopes.
+  describe "#slideshow?" do
+    it "reflects the plan type's behavior" do
+      deck_type = create(:plan_type, name: "Slideshow", behavior: "slideshow")
+      expect(create(:plan, plan_type: deck_type).slideshow?).to be(true)
+      expect(create(:plan).slideshow?).to be(false)
+    end
+
+    it "changes when the plan is retyped" do
+      deck_type = create(:plan_type, name: "Slideshow", behavior: "slideshow")
+      plan = create(:plan)
+      plan.update!(plan_type: deck_type)
+      expect(plan.slideshow?).to be(true)
+    end
+  end
+
   describe ".visible_to" do
     let(:author) { create(:coplan_user) }
     let(:viewer) { create(:coplan_user) }

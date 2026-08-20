@@ -70,6 +70,23 @@ RSpec.describe CoPlan::PlanType, type: :model do
     expect { plan_type.destroy! }.to change(CoPlan::PlanType, :count).by(-1)
   end
 
+  describe "behavior" do
+    it "defaults to document" do
+      expect(create(:plan_type).behavior).to eq("document")
+    end
+
+    it "rejects behaviors outside the known set" do
+      plan_type = build(:plan_type, behavior: "spreadsheet")
+      expect(plan_type).not_to be_valid
+      expect(plan_type.errors[:behavior]).to be_present
+    end
+
+    it "answers slideshow? from the behavior column" do
+      expect(build(:plan_type, behavior: "slideshow").slideshow?).to be(true)
+      expect(build(:plan_type, behavior: "document").slideshow?).to be(false)
+    end
+  end
+
   describe ".general" do
     it "returns the existing General type, matched case-insensitively" do
       existing = create(:plan_type, name: "general")
