@@ -99,6 +99,20 @@ RSpec.describe CoPlan::Slideshows::Split do
 
       expect(result.slides.size).to eq(1)
     end
+
+    it "does not split on a thematic break nested inside a list item" do
+      content = "- item\n\n  ---\n\n  continuation"
+      result = split(content)
+
+      expect(result.slides.size).to eq(1)
+      expect(result.slides.first.source).to eq(content)
+    end
+
+    it "does not split on a thematic break nested inside an ordered list item" do
+      result = split("1. item\n\n   ---\n\n   continuation")
+
+      expect(result.slides.size).to eq(1)
+    end
   end
 
   describe "speaker notes" do

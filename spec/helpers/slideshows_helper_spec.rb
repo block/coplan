@@ -167,6 +167,163 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
       expect(anchors).to eq([ [ "boo", nil ], [ "1", "fnref-a" ] ])
     end
 
+    it "suffixes repeated heading anchors the way document mode does" do
+      content = "# Intro\n\none\n\n---\n\n# Intro\n\ntwo"
+      doc = deck(content)
+
+      anchors = doc.css("a.anchor").map { |a| [ a["id"], a["href"] ] }
+      expect(anchors).to eq([ [ "intro", "#intro" ], [ "intro-1", "#intro-1" ] ])
+    end
+
+    it "suffixes repeated heading anchors across a slide holding its own repeat" do
+      content = "# Intro\n\n# Intro\n\n---\n\n# Intro"
+      doc = deck(content)
+
+      expect(doc.css("a.anchor").map { |a| a["id"] }).to eq(%w[intro intro-1 intro-2])
+    end
+
+    it "gives repeated numbered headings their document-mode section ids" do
+      content = "# 1. Goals\n\ngoals\n\n---\n\n# 1. Goals\n\nrevisited, see [above](#section-1)"
+      doc = deck(content)
+
+      expect(doc.css("h1").map { |h| h["id"] }).to eq(%w[section-1 section-1-2])
+    end
+
+    it "keeps slide heading ids stable when a footnote definition holds a heading" do
+      # The definition's heading renders only in the References back matter,
+      # so it must not shift the ids of headings the slides actually show.
+      content = "Ref[^a]\n\n[^a]: note\n\n    # Intro\n\n---\n\n# Intro\n\nslide two"
+      doc = deck(content)
+
+      expect(doc.css("a.anchor").map { |a| a["id"] }).to eq(%w[intro])
+    end
+
+    it "enhances section links whose target heading lives on another slide" do
+      content = "See [goals](#section-2)\n\n---\n\n# 2. Goals\n\nthe goals"
+      doc = deck(content)
+
+      link = doc.at_css('a[href="#section-2"]')
+      expect(link["class"]).to include("reference-anchor--section")
+      expect(doc.at_css("#section-2")).to be_present
+    end
+
+    it "skips id alignment instead of swapping ids when raw HTML reorders content between renders" do
+      # An unclosed <table> spanning the break foster-parents its heading
+      # differently in document mode than in the isolated slide renders;
+      # misassigning another heading's id would be worse than keeping
+      # per-slide ids.
+      content = "<table><tr><td>\n\n# 1. Alpha\n\n</td></tr>\n\n---\n\n# 2. Xray\n\n</table>\n\n# 3. Beta"
+      doc = deck(content)
+
+      expect(doc.at_css("#section-1").text).to include("Alpha")
+      expect(doc.at_css("#section-2").text).to include("Xray")
+    end
+
+    it "keeps deck ids unique when an author footnote-section fake spans a slide break" do
+      content = "## Intro\n\n<section data-footnotes>\n\n---\n\n## Intro\n\n</section>"
+      doc = deck(content)
+
+      ids = doc.css("[id]").map { |el| el["id"] }
+      expect(ids).to eq(ids.uniq)
+    end
+
+    it "keeps real refs on their backref ids when an author anchor impersonates a footnote ref" do
+      # comrak never emits class="anchor" together with data-footnote-ref;
+      # the contradiction marks author HTML, which must neither shift real
+      # references off their back-matter backrefs nor get renumbered itself.
+      content = "First[^a] and <a class=\"anchor\" data-footnote-ref href=\"#fn-a\" id=\"fnref-a\">fake</a>\n\n---\n\nSecond[^a]\n\n[^a]: the definition"
+      doc = deck(content)
+
+      real = doc.css("a[data-footnote-ref]").reject { |a| a.text == "fake" }
+      expect(real.map { |a| a["id"] }).to eq(%w[fnref-a fnref-a-2])
+      expect(doc.css("a[data-footnote-ref]").map(&:text)).to include("fake")
+      ids = doc.css("[id]").map { |el| el["id"] }
+      expect(ids).to eq(ids.uniq)
+    end
+
+    it "strips a per-slide section enhancement document mode does not give" do
+      # Slide 2's isolated render thinks its heading owns #section-1, but in
+      # the document an author element claimed it first — the link is plain
+      # in document mode.
+      content = "<div id=\"section-1\">decoy</div>\n\n---\n\n# 1. Real\n\n[jump](#section-1)"
+      doc = deck(content)
+
+      link = doc.css('a[href="#section-1"]').find { |a| a.text == "jump" }
+      expect(link["class"]).to be_nil
+      expect(link["data-action"]).to be_nil
+      expect(link["aria-haspopup"]).to be_nil
+    end
+
+    it "strips the stale enhancement when a per-slide section id lost to an earlier claimant" do
+      # "Section 1" slugs its comrak anchor to section-1, so the numbered
+      # heading is section-1-2 document-wide and #section-1 is not a section
+      # target there.
+      content = "## Section 1\n\nx\n\n---\n\n## 1. Numbered\n\n[num](#section-1)"
+      doc = deck(content)
+
+      link = doc.css('a[href="#section-1"]').find { |a| a.text == "num" }
+      expect(link["class"]).to be_nil
+      expect(doc.at_css("#section-1-2")).to be_present
+    end
+
+    it "enhances an author-classed cross-slide section link the way document mode does" do
+      content = "# 1. Intro\n\nHello\n\n---\n\nGo <a href=\"#section-1\" class=\"reference-anchor--section\">jump</a> now"
+      doc = deck(content)
+
+      link = doc.css('a[href="#section-1"]').find { |a| a.text == "jump" }
+      expect(link["aria-haspopup"]).to eq("dialog")
+      expect(link["data-action"]).to include("reference-preview")
+    end
+
+    it "drops a surviving per-slide id whose document-mode owner shows different content" do
+      # An author footnote-section fake spanning the break forces the
+      # alignment skip; slide 2's isolated numbering then mints section-1-2
+      # for Gamma while document mode's section-1-2 is Beta. A link written
+      # against the document must never land on different content.
+      content = "# 1. Alpha\n\n<section data-footnotes>\n\n---\n\n# 1. Beta\n\n# 1. Gamma\n\n</section>"
+      doc = deck(content)
+
+      expect(doc.at_css("#section-1").text).to include("Alpha")
+      expect(doc.at_css("#section-1-2")).to be_nil
+    end
+
+    it "validates heading anchors by the heading they mark" do
+      # Anchors are empty elements, so a stale per-slide anchor id can only
+      # be caught by comparing its parent heading against the document-mode
+      # owner's.
+      content = "# Foo Bar\n\n<section data-footnotes>\n\n---\n\n# Foo-Bar\n\n# Foo Bar\n\n</section>"
+      doc = deck(content)
+
+      # Document mode's #foo-bar-1 marks "Foo-Bar"; the deck's surviving
+      # anchors must not offer that id on a "Foo Bar" heading.
+      expect(doc.at_css("#foo-bar-1")).to be_nil
+      expect(doc.at_css("#foo-bar").parent.text.squish).to eq("Foo Bar")
+    end
+
+    it "does not swap ids between same-text headings whose link destinations differ" do
+      # data-footnote-ref on an author link must not hide its href from the
+      # alignment gate — genuine refs keep identical #fn-… hrefs in both
+      # renders, so only impostors can differ here.
+      content = "<table><tr><td>\n\n# 1. <a data-footnote-ref href=\"https://one.example\">go</a>\n\n</td></tr>\n\n---\n\n# 1. <a data-footnote-ref href=\"https://two.example\">go</a>\n\n</table>\n\n# 2. Beta"
+      doc = deck(content)
+
+      expect(doc.at_css("#section-1").at_css("a[data-footnote-ref]")["href"]).to eq("https://one.example")
+    end
+
+    it "does not swap ids between same-text headings whose images differ" do
+      content = "<table><tr><td>\n\n# 1. ![chart A](https://img.example/a.png)\n\n</td></tr>\n\n---\n\n# 1. ![chart B](https://img.example/b.png)\n\n</table>\n\n# 2. Beta"
+      doc = deck(content)
+
+      expect(doc.at_css("#section-1").at_css("img")["src"]).to eq("https://img.example/a.png")
+    end
+
+    it "matches document mode when an author id claims a heading's number under an alignment skip" do
+      content = "# 1. Real\n\n<table><tr><td>\n\n# 2. Alpha\n\n</td></tr>\n\n---\n\n# 3. Xray\n\n</table>\n\n<div id=\"section-1\">decoy</div>"
+      doc = deck(content)
+
+      expect(doc.at_css("#section-1").text).to eq("decoy")
+    end
+
     it "keeps checkbox lines document-absolute when definitions are prepended" do
       content = "Intro[^a]\n\n[^a]: note\n\n---\n\n- [ ] task on line seven"
       doc = deck(content)
