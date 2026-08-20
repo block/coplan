@@ -102,27 +102,40 @@ The shapes that close the loop, most portable first:
    harness to re-invoke the model when a background task completes —
    Claude Code does, most others don't.
 3. **Sidecar resume.** `script/coplan-bridge` drains the inbox from
-   outside the harness and injects each event via a resume-with-message
-   command (adapter table below).
+   outside the harness and injects each event — over ACP into one live
+   agent session (`"adapter": "acp"`, works with anything in the ACP
+   registry), or via a per-harness resume-with-message command (adapter
+   table below).
+4. **Webhook wake.** For hosted agents that can receive HTTP but can't
+   hold connections or be exec-resumed (Amp orbs, scheduled runners):
+   claim the session with a `wake_url` and CoPlan POSTs a signed "you
+   have inbox items" ping there on every event (`X-CoPlan-Signature`:
+   HMAC-SHA256 of the body with the `wake_secret` returned once at
+   registration; `event_id` for dedupe; retried with backoff). The ping
+   carries no payload — the agent pulls and acks through the cursor API
+   like every other transport, so at-least-once semantics and the
+   authority model don't fork.
 
 A harness with none of these can still be a correct — just not live —
 collaborator: the inbox is durable, so drain it with `wait=0` at the
 start of each turn.
 
-Presence stays honest whichever way delivery goes. An event flips the
-session to `pending`, whose pill says "Waking Claude…" — a claim about
-what the *server* did, not the agent — and holds for at most 30 seconds
-before going stale. Only the agent itself can claim to be working, by
-PATCHing `active`. And the API refuses to *claim* a session into a turn
-state like `awaiting_input`, so an agent can't park an unearned "asked a
-question" pill on arrival.
+Presence stays honest whichever way delivery goes, on two principles:
 
-One open design question (Amp's ask): an outbound **webhook wake** — the
-session registers a wake URL and CoPlan POSTs a signed "you have inbox
-items" ping, with the agent still pulling and acking through the cursor
-API. That would serve hosted agents (Amp orbs and the like) that can
-receive HTTP but can't hold connections or be exec-resumed. Not built;
-pull remains the default.
+- **A wake is only attempted where a path for it exists.** SSE
+  heartbeats and long-poll parks stamp the session's transport clock;
+  an event only flips a session to `pending` if a connection touched
+  transport recently or a wake URL is registered. No path → the event
+  just queues, and the pill doesn't move.
+- **Wakeability is demonstrated, never declared.** A session that has
+  never answered a wake gets no promise: its first `pending` keeps the
+  plain-name pill while the wake quietly tests it. Once it has moved
+  itself out of `pending` (the one observable proof that delivery became
+  a model turn), later wakes earn "Waking Claude…". Either way `pending`
+  holds for at most 30 seconds before going stale, only the agent itself
+  can claim to be working (`active`), and the API refuses to *claim* a
+  session into a turn state like `awaiting_input` — no unearned "asked a
+  question" pill on arrival.
 
 ## The bridge (only for agents that have exited)
 
@@ -148,13 +161,18 @@ while you work, skip the bridge entirely.
 
 ### Per-harness adapters
 
-| `adapter` | Command shape (exec-resume, works everywhere) | Better, push-into-live-session surface |
+`acp` is the preferred adapter: one protocol, one live agent session that
+events are pushed into as prompt turns, no per-harness dialect. The
+exec-resume rows survive for harnesses without an ACP server.
+
+| `adapter` | Command shape | Notes |
 |---|---|---|
-| `claude` | `claude -p --resume <session> <prompt>` | Channels MCP server (research preview) or Agent SDK streaming input |
-| `codex` | `codex exec resume <session> <prompt>` | `codex app-server` → `turn/start` / `turn/steer` |
-| `goose` | `goose run --name <session> --resume -t <prompt>` | `goose serve` (ACP) → `session/prompt` |
-| `openhands` | `openhands --headless --resume <session> -t <prompt>` | agent-server `POST /conversations/:id/events` |
-| `amp` | `amp threads continue <session> -x <prompt>` | `amp -x --stream-json-input` with `"steer": true` |
+| `acp` | `"acp_command"`: `["goose", "acp"]`, `["npx", "@google/gemini-cli", "--acp"]`, `["npx", "@agentclientprotocol/claude-agent-acp"]`, `["npx", "@agentclientprotocol/codex-acp"]`, `["npx", "-y", "amp-acp"]`, … | JSON-RPC over stdio (`initialize` → `session/new` → `session/prompt` per event). Agent stays alive between events. `"acp_permission": "approve"` to auto-grant permission asks (default reject). |
+| `claude` | `claude -p --resume <session> <prompt>` | exec-resume |
+| `codex` | `codex exec resume <session> <prompt>` | exec-resume; or ACP via `codex-acp` above |
+| `goose` | `goose run --name <session> --resume -t <prompt>` | exec-resume; or ACP via `goose acp` above |
+| `openhands` | `openhands --headless --resume <session> -t <prompt>` | exec-resume; also ships `openhands acp` |
+| `amp` | `amp threads continue <session> -x <prompt>` | exec-resume into a local thread; Amp declined native ACP — community `amp-acp` wraps it. For Amp **orbs**, skip the bridge: register the orb's `amp.createWebhook` URL as the session's `wake_url`. |
 | `demo` | in-process deterministic agent (ack → reply → small edit) — no harness or tokens needed | — |
 
 Unattended runs need each harness's permission-relaxation flag

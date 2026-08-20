@@ -45,11 +45,30 @@ module CoPlan
             session.state = state
             session.state_detail = params[:detail].presence
           end
+
+          # A wake URL makes this session wakeable without holding a
+          # connection: CoPlan POSTs a signed "you have inbox items" ping
+          # there on every event. The signing secret is minted here, once,
+          # and returned only in this response — re-claiming keeps it, so
+          # the receiver's verification doesn't churn; passing an empty
+          # wake_url unregisters and burns it.
+          if params.key?(:wake_url)
+            session.wake_url = params[:wake_url].presence
+            session.wake_secret = nil if session.wake_url.blank?
+          end
+          minted_wake_secret = nil
+          if session.wake_url.present? && session.wake_secret.blank?
+            minted_wake_secret = SecureRandom.hex(32)
+            session.wake_secret = minted_wake_secret
+          end
+
           session.last_activity_at = Time.current
           session.save!
           session.broadcast_pill
 
-          render json: session_json(session), status: :created
+          body = session_json(session)
+          body[:wake_secret] = minted_wake_secret if minted_wake_secret
+          render json: body, status: :created
         rescue ActiveRecord::RecordInvalid => e
           render json: { error: e.message }, status: :unprocessable_content
         end
@@ -90,7 +109,8 @@ module CoPlan
             agent_name: session.agent_name,
             state: session.state,
             state_detail: session.state_detail,
-            last_activity_at: session.last_activity_at
+            last_activity_at: session.last_activity_at,
+            wake_url: session.wake_url
           }
         end
       end

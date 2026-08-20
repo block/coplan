@@ -95,6 +95,41 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       2.times { post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json }
       expect(CoPlan::AgentSession.where(plan_id: plan.id, api_token_id: agent_token.id).count).to eq(1)
     end
+
+    describe "wake URL registration" do
+      it "mints the signing secret once and never re-sends it" do
+        post api_v1_plan_agent_session_path(plan), params: { wake_url: "https://agents.example.com/wake" }, headers: agent_headers, as: :json
+
+        first = JSON.parse(response.body)
+        expect(first["wake_url"]).to eq("https://agents.example.com/wake")
+        expect(first["wake_secret"]).to be_present
+
+        # Re-claiming must not churn the secret — the receiver verified
+        # signatures against the one it was given at registration.
+        post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json
+        again = JSON.parse(response.body)
+        expect(again["wake_url"]).to eq("https://agents.example.com/wake")
+        expect(again).not_to have_key("wake_secret")
+
+        session = CoPlan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
+        expect(session.wake_secret).to eq(first["wake_secret"])
+      end
+
+      it "unregisters (and burns the secret) when the URL is cleared" do
+        post api_v1_plan_agent_session_path(plan), params: { wake_url: "https://agents.example.com/wake" }, headers: agent_headers, as: :json
+        post api_v1_plan_agent_session_path(plan), params: { wake_url: "" }, headers: agent_headers, as: :json
+
+        session = CoPlan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
+        expect(session.wake_url).to be_nil
+        expect(session.wake_secret).to be_nil
+      end
+
+      it "rejects a wake URL that is not http(s)" do
+        post api_v1_plan_agent_session_path(plan), params: { wake_url: "file:///etc/passwd" }, headers: agent_headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+    end
   end
 
   describe "event fan-out" do
@@ -133,6 +168,45 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
 
       expect(CoPlan::AgentSession.visible).to be_empty
+    end
+
+    # A session whose connection is gone (and that registered no wake
+    # URL) has no path by which delivery could become action: flipping it
+    # to pending would start a 30-second countdown nothing can answer.
+    it "queues without a wake countdown when no connection is parked" do
+      session.update!(last_transport_at: 5.minutes.ago)
+
+      CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+
+      expect(CoPlan::AgentEvent.for_token(agent_token).count).to eq(1)
+      expect(session.reload.state).to eq("watching")
+    end
+
+    describe "webhook wakes" do
+      before { allow(CoPlan::WakeWebhookJob).to receive(:perform_later) }
+
+      it "pings the wake URL for each event" do
+        session.update!(wake_url: "https://agents.example.com/wake", wake_secret: "s3cret")
+
+        CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+
+        event = CoPlan::AgentEvent.for_token(agent_token).first
+        expect(CoPlan::WakeWebhookJob).to have_received(:perform_later)
+          .with(agent_session_id: session.id, agent_event_id: event.id)
+      end
+
+      # A hosted agent holds no transport between turns — its session can
+      # look finished. Waking it back up is the point of registering.
+      it "pings even when the session looks complete" do
+        session.update!(state: "complete", last_activity_at: 1.hour.ago,
+          last_transport_at: nil, wake_url: "https://agents.example.com/wake", wake_secret: "s3cret")
+
+        CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, comment: comment, reason: "new_comment")
+
+        expect(CoPlan::WakeWebhookJob).to have_received(:perform_later)
+        # The pill, though, is earned by reacting — not by being pinged.
+        expect(session.reload.state).to eq("complete")
+      end
     end
 
     # Suppression keys on the comment's api_token_id (who *wrote* it), not
@@ -293,6 +367,25 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(CoPlan::AgentEventBus).to have_received(:signal).with(agent_token.id)
     end
 
+    # A parked long-poll is a held connection just like SSE: it must
+    # register as transport, or a faithfully-polling agent reads as
+    # absent and never gets a wake countdown.
+    it "counts a parked long-poll as transport" do
+      session.update!(last_transport_at: nil)
+
+      get api_v1_agent_events_path, params: { wait: 1 }, headers: agent_headers
+
+      expect(session.reload.last_transport_at).to be_present
+    end
+
+    it "does not count a drive-by wait=0 read as transport" do
+      session.update!(last_transport_at: nil)
+
+      get api_v1_agent_events_path, params: { wait: 0 }, headers: agent_headers
+
+      expect(session.reload.last_transport_at).to be_nil
+    end
+
     it "acks up to a cursor" do
       get api_v1_agent_events_path, params: { wait: 0 }, headers: agent_headers
       cursor = JSON.parse(response.body)["cursor"]
@@ -391,15 +484,17 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     end
   end
 
-  # An agent that has claimed a session and is attached, which is the
-  # state fan-out actually cares about.
+  # An agent that has claimed a session and is genuinely attached — a
+  # connection has touched transport recently — which is the state
+  # fan-out actually cares about.
   def create_agent_collab_session(token, plan: self.plan)
     CoPlan::AgentSession.create!(
       plan_id: plan.id,
       api_token_id: token.id,
       agent_name: token.agent_name,
       state: "watching",
-      last_activity_at: Time.current
+      last_activity_at: Time.current,
+      last_transport_at: Time.current
     )
   end
 end

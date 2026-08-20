@@ -592,7 +592,18 @@ Claiming a session subscribes your token to the plan's events and shows a live p
   "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
 ```
 
-Keep the pill honest by updating your state as you work (`state`: `active`, `awaiting_input`, `complete`; optional `detail` shows what you're doing). `pending` is the server's: it's set when an event lands in your inbox, and the pill reads "Waking you…" until you react — or goes stale if you never do.
+Keep the pill honest by updating your state as you work (`state`: `active`, `awaiting_input`, `complete`; optional `detail` shows what you're doing). `pending` is the server's: it's set when an event lands in your inbox and holds for 30 seconds before going stale. The pill only says "Waking you…" once you've answered a wake before — until your first reaction, wakes are quietly a test.
+
+**Hosted agent with no connection to hold?** Claim with a `wake_url` and CoPlan will POST a signed ping there on every event instead:
+
+```bash
+<%= @curl %> -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"agent_name": "Claude", "wake_url": "https://your-platform.example/hooks/coplan"}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
+```
+
+The response includes `wake_secret` — once, at registration; store it. Each ping is a small JSON body (`event_id`, `event_type`, `plan_id`) signed with `X-CoPlan-Signature: sha256=<HMAC-SHA256 of the raw body>`; verify it, dedupe on `event_id`, then pull your inbox below as usual. Pings fire even when your session is `complete` — waking you back up is the point. Re-claim with `"wake_url": ""` to unregister.
 
 ```bash
 <%= @curl %> -X PATCH \
@@ -649,11 +660,12 @@ Cursoring: event ids are time-ordered — pass the last id you processed as `cur
 
 Nothing here requires a daemon or a special harness integration: an attached agent runs the loop below itself. (`script/coplan-attach` in the CoPlan repo is a 6-line-equivalent convenience wrapper — `--once` blocks until one event arrives, prints a brief, acks, and exits, which is the shape a turn-based agent wants.)
 
-**Delivery is not a wake.** These endpoints hand your process the event; whether that starts a *model turn* is your harness's job, and no transport fixes a harness that can't do it. An event printed by a background process nobody wakes up for is just a log line. Three shapes that work:
+**Delivery is not a wake.** These endpoints hand your process the event; whether that starts a *model turn* is your harness's job, and no transport fixes a harness that can't do it. An event printed by a background process nobody wakes up for is just a log line. Four shapes that work:
 
 1. **Blocking tool call** — run the wait (`coplan-attach --once`, or the long-poll curl above) as an ordinary foreground tool call. The event comes back as tool output and you act on it. Works in every harness; costs you the turn while you wait.
 2. **Background process, if your harness re-invokes you when one exits** — `coplan-attach --once` in the background leaves you free to work; its exit is your wake. (Claude Code does this; most harnesses don't — check yours before relying on it.)
-3. **Sidecar resume** — `script/coplan-bridge` drains your inbox from outside and injects each event via your harness's resume-with-message command.
+3. **Sidecar resume** — `script/coplan-bridge` drains your inbox from outside and injects each event: over ACP into one live agent session (any harness with an ACP server), or via your harness's resume-with-message command.
+4. **Webhook wake** — for hosted agents: register a `wake_url` at claim time (see above) and CoPlan pushes a signed ping to your platform, which starts your turn; you then pull the inbox.
 
 If none of these fit your harness, don't hold a connection you can't act on: your inbox is durable, so drain it with `wait=0` at the start of each turn instead. Correct, just not live.
 

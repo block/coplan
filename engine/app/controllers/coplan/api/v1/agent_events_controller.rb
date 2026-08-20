@@ -64,6 +64,10 @@ module CoPlan
         def long_poll_events
           AgentEventBus.with_slot do |granted|
             wait = granted ? params[:wait].to_i.clamp(0, MAX_WAIT) : 0
+            # A parked long-poll is a held connection just like SSE — it
+            # must count as transport, or an agent faithfully polling
+            # every 25s reads as absent and never gets woken.
+            touch_transport if wait.positive?
             deadline = Time.current + wait
 
             loop do
@@ -105,6 +109,7 @@ module CoPlan
           cursor = params[:cursor].presence
           deadline = Time.current + SSE_LIFETIME
           last_heartbeat = Time.current
+          touch_transport
 
           while Time.current < deadline
             events = fetch_events(cursor: cursor)
@@ -119,7 +124,7 @@ module CoPlan
               # Liveness comes from the connection itself, so a watching
               # agent's pill survives as long as it's really attached and
               # expires on its own once the socket dies.
-              touch_watching_sessions
+              touch_transport
             end
 
             AgentEventBus.wait(@api_token.id, timeout: [ HEARTBEAT_INTERVAL, deadline - Time.current ].min)
@@ -130,9 +135,16 @@ module CoPlan
           response.stream.close
         end
 
-        def touch_watching_sessions
-          AgentSession.where(api_token_id: @api_token.id, state: "watching")
-            .update_all(last_activity_at: Time.current)
+        # Two clocks, deliberately separate. `last_transport_at` records
+        # that a connection is parked — it feeds the wake gate on every
+        # session regardless of state. `last_activity_at` drives the state
+        # staleness windows, so transport only refreshes it for `watching`
+        # (presence lives on the socket): a held socket must never keep a
+        # `pending` promise, or an `active` claim, alive on its own.
+        def touch_transport
+          now = Time.current
+          AgentSession.where(api_token_id: @api_token.id).update_all(last_transport_at: now)
+          AgentSession.where(api_token_id: @api_token.id, state: "watching").update_all(last_activity_at: now)
         end
 
         def fetch_events(cursor: params[:cursor].presence)

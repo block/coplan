@@ -44,11 +44,17 @@ module CoPlan
       "awaiting_input" => AWAITING_INPUT_STALE_AFTER
     }.freeze
 
+    # How recent a transport touch (SSE heartbeat every 15s, long-poll
+    # park up to ~55s apart) must be to count as "a connection is parked
+    # on this token right now".
+    TRANSPORT_WINDOW = 90.seconds
+
     belongs_to :plan, class_name: "CoPlan::Plan"
     belongs_to :api_token, class_name: "CoPlan::ApiToken"
 
     validates :agent_name, presence: true
     validates :state, inclusion: { in: STATES }
+    validate :wake_url_is_http
 
     # Visibility is computed at read time rather than trusting
     # MarkStaleAgentSessionJob to have run: if the job worker is down (or
@@ -73,7 +79,34 @@ module CoPlan
       (last_activity_at || updated_at) <= window.ago
     end
 
+    # Is a connection actually parked on this session's token right now?
+    # The socket belongs to *some process* — it says delivery will land,
+    # not that a model will act (a background curl holds a socket as well
+    # as a real agent does). So this gates whether a wake is *attempted*,
+    # never what the pill promises.
+    def transport_connected?
+      last_transport_at.present? && last_transport_at > TRANSPORT_WINDOW.ago
+    end
+
+    # Is there any path by which an event can reach something that might
+    # act — a parked connection, or a registered wake URL?
+    def wakeable?
+      transport_connected? || wake_url.present?
+    end
+
+    # Has this session ever demonstrably turned a wake into action? Only
+    # then may the pill promise one.
+    def wake_proven?
+      wakes_answered_count.to_i.positive?
+    end
+
+    AGENT_STATES = %w[watching active awaiting_input complete].freeze
+
     def transition!(new_state, detail: nil)
+      # An agent-driven move out of `pending` is the one observable proof
+      # that delivery became a model turn — the fact the wake promise is
+      # calibrated against.
+      self.wakes_answered_count += 1 if state == "pending" && AGENT_STATES.include?(new_state)
       update!(state: new_state, state_detail: detail, last_activity_at: Time.current)
       broadcast_pill
     end
@@ -94,11 +127,12 @@ module CoPlan
       # Listening is presence, not work: just the name. The pill's green
       # pulse carries "I'm here", so the label doesn't need a verb.
       when "watching" then agent_name
-      # Delivery is not action: all the server knows at `pending` is that
-      # it pinged the agent. "On it" is the agent's own claim to make (by
-      # flipping to active) — a harness that can't turn delivery into a
-      # model turn must not be made to promise one.
-      when "pending" then "Waking #{agent_name}…"
+      # Delivery is not action, and wakeability can only be demonstrated,
+      # never declared: a session that has answered a wake before earns
+      # "Waking…"; an unproven one keeps plain presence while the wake
+      # quietly tests it. "On it" is the agent's own claim to make (by
+      # flipping to active).
+      when "pending" then wake_proven? ? "Waking #{agent_name}…" : agent_name
       when "active" then state_detail.presence ? "#{agent_name} is #{state_detail}" : "#{agent_name} is working…"
       when "awaiting_input" then "#{agent_name} asked a question"
       end
@@ -111,6 +145,20 @@ module CoPlan
         partial: "coplan/plans/agent_sessions",
         locals: { agent_sessions: AgentSession.visible.where(plan_id: plan_id).order(:created_at) }
       )
+    end
+
+    private
+
+    # The server will POST to this URL, so it must at least be a URL. IP
+    # allow/deny policy is the host app's concern (dev legitimately wakes
+    # agents on localhost); scheme is ours.
+    def wake_url_is_http
+      return if wake_url.blank?
+
+      uri = URI.parse(wake_url)
+      errors.add(:wake_url, "must be an http(s) URL") unless uri.is_a?(URI::HTTP) && uri.host.present?
+    rescue URI::InvalidURIError
+      errors.add(:wake_url, "must be an http(s) URL")
     end
   end
 end

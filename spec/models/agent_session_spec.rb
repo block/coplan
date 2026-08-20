@@ -5,10 +5,10 @@ RSpec.describe CoPlan::AgentSession, type: :model do
   let(:plan) { create(:plan, created_by_user: user) }
   let(:api_token) { CoPlan::ApiToken.create_with_raw_token(user: user, name: "agent", agent_name: "Claude").first }
 
-  def session(state:, last_activity_at:)
+  def session(state:, last_activity_at:, **extra)
     described_class.create!(
       plan: plan, api_token: api_token, agent_name: "Claude",
-      state: state, last_activity_at: last_activity_at
+      state: state, last_activity_at: last_activity_at, **extra
     )
   end
 
@@ -68,10 +68,17 @@ RSpec.describe CoPlan::AgentSession, type: :model do
   end
 
   describe "#display_status" do
-    # Delivery is not action: `pending` only means the server pinged the
-    # agent, so the pill must not say the agent is doing anything yet.
-    it "says the system is waking the agent while pending" do
+    # Wakeability is demonstrated, never declared: until this session has
+    # answered a wake, a delivery is quietly a test and the pill keeps
+    # plain presence.
+    it "keeps plain presence through an unproven wake" do
       record = session(state: "pending", last_activity_at: 5.seconds.ago)
+
+      expect(record.display_status).to eq("Claude")
+    end
+
+    it "promises the wake once one has been answered before" do
+      record = session(state: "pending", last_activity_at: 5.seconds.ago, wakes_answered_count: 1)
 
       expect(record.display_status).to eq("Waking Claude…")
     end
@@ -80,6 +87,51 @@ RSpec.describe CoPlan::AgentSession, type: :model do
       record = session(state: "active", last_activity_at: 5.seconds.ago)
 
       expect(record.display_status).to eq("Claude is working…")
+    end
+  end
+
+  describe "wake proof" do
+    # The one observable proof that delivery became a model turn is the
+    # agent moving itself out of `pending`.
+    it "counts an agent-driven exit from pending as an answered wake" do
+      record = session(state: "pending", last_activity_at: 5.seconds.ago)
+
+      record.transition!("active", detail: "reading your comment")
+
+      expect(record.wakes_answered_count).to eq(1)
+      expect(record).to be_wake_proven
+    end
+
+    it "does not count the server declaring the wake dead" do
+      record = session(state: "pending", last_activity_at: 5.seconds.ago)
+
+      record.transition!("stale")
+
+      expect(record.wakes_answered_count).to eq(0)
+    end
+
+    it "does not count transitions that never left pending behind" do
+      record = session(state: "watching", last_activity_at: 5.seconds.ago)
+
+      record.transition!("active")
+
+      expect(record.wakes_answered_count).to eq(0)
+    end
+  end
+
+  describe "#transport_connected?" do
+    it "is true within the transport window" do
+      record = session(state: "watching", last_activity_at: Time.current, last_transport_at: 30.seconds.ago)
+
+      expect(record.transport_connected?).to be(true)
+    end
+
+    it "is false once the window lapses" do
+      expect(session(state: "watching", last_activity_at: Time.current, last_transport_at: 2.minutes.ago).transport_connected?).to be(false)
+    end
+
+    it "is false without any touch at all" do
+      expect(session(state: "watching", last_activity_at: Time.current).transport_connected?).to be(false)
     end
   end
 end

@@ -24,7 +24,7 @@ module CoPlan
         sessions.each do |session|
           next if @actor_token_id.present? && session.api_token_id == @actor_token_id
 
-          AgentEvent.create!(
+          agent_event = AgentEvent.create!(
             api_token_id: session.api_token_id,
             plan_id: @plan.id,
             comment_thread_id: @comment_thread&.id,
@@ -36,8 +36,17 @@ module CoPlan
           # a detached agent gets its backlog when it comes back. But only
           # a session with something actually attached gets woken into a
           # pill: otherwise an abandoned session is resurrected by every
-          # new comment and haunts the plan forever.
-          session.wake! if session.live?
+          # new comment and haunts the plan forever. `wakeable?` narrows
+          # that further to sessions with a real path for the wake — a
+          # parked connection or a wake URL. Without one, flipping to
+          # pending would start a 30-second countdown nothing can answer.
+          session.wake! if session.live? && session.wakeable?
+
+          # A wake URL is a standing subscription: it fires even when the
+          # session looks finished (`complete`), because a hosted agent
+          # holds no transport between turns — waking it back up is the
+          # entire point of registering one.
+          WakeWebhookJob.perform_later(agent_session_id: session.id, agent_event_id: agent_event.id) if session.wake_url.present?
 
           # Hand the event straight to any connection already waiting on
           # this token's inbox, so delivery doesn't wait for a poll tick.

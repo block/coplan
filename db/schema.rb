@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_20_193542) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -72,10 +72,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_17_135827) do
     t.string "api_token_id", limit: 36, null: false
     t.datetime "created_at", null: false
     t.datetime "last_activity_at"
+    t.datetime "last_transport_at"
     t.string "plan_id", limit: 36, null: false
     t.string "state", default: "pending", null: false
     t.string "state_detail"
     t.datetime "updated_at", null: false
+    t.string "wake_secret"
+    t.string "wake_url"
+    t.integer "wakes_answered_count", default: 0, null: false
     t.index ["api_token_id"], name: "index_coplan_agent_sessions_on_api_token_id"
     t.index ["plan_id", "api_token_id"], name: "index_coplan_agent_sessions_on_plan_id_and_api_token_id", unique: true
   end

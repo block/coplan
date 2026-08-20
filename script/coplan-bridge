@@ -16,7 +16,8 @@
 #     "plans": ["<plan id>", ...],          // sessions are claimed on start
 #     "adapter": "claude",                  // which command template to use
 #     "harness_session": "<session/thread id for resume>",
-#     "adapters": { ... }                   // optional overrides, see DEFAULT_ADAPTERS
+#     "adapters": { ... },                  // optional overrides, see DEFAULT_ADAPTERS
+#     "acp_command": ["goose", "acp"]       // for adapter "acp": see AcpAgent
 #   }
 #
 # The adapter command receives the rendered wake prompt as its final
@@ -33,6 +34,7 @@ require "json"
 require "net/http"
 require "uri"
 require "optparse"
+require "open3"
 
 $stdout.sync = true
 
@@ -44,6 +46,7 @@ DEFAULT_ADAPTERS = {
   "goose"     => ["goose", "run", "--name", "{session}", "--resume", "-t", "{prompt}"],
   "openhands" => ["openhands", "--headless", "--resume", "{session}", "-t", "{prompt}"],
   "amp"       => ["amp", "threads", "continue", "{session}", "-x", "{prompt}"],
+  "acp"       => [], # one live agent subprocess over ACP, see AcpAgent
   "demo"      => [] # handled in-process, see DemoAgent
 }.freeze
 
@@ -95,6 +98,124 @@ def wake_prompt(event)
     2. Reply on the thread first (narrate what you'll change), then apply any edit with PUT .../content.
     3. Finish with {"state":"complete"} (or "awaiting_input" if you asked a question).
   PROMPT
+end
+
+# One protocol instead of five dialects. The Agent Client Protocol
+# (agentclientprotocol.com) is JSON-RPC 2.0 over a subprocess's stdio,
+# newline-delimited — and unlike the exec-resume adapters, the agent
+# stays *alive* between events: we spawn it once, open one session, and
+# push each CoPlan event in as a `session/prompt` turn. Anything that
+# ships an ACP server works here unmodified: `goose acp`, Gemini CLI
+# `--acp`, Claude Code and Codex via their `@agentclientprotocol/*`
+# adapters, Amp via the community `amp-acp` wrapper, and the rest of the
+# ACP registry.
+#
+# Config keys:
+#   "acp_command":    ["goose", "acp"]        (required)
+#   "acp_cwd":        working dir for the session (default: bridge's cwd)
+#   "acp_permission": "reject" | "approve"    what to answer when the
+#                     agent asks permission (default reject — the bridge
+#                     never escalates beyond what the config says)
+class AcpAgent
+  PROTOCOL_VERSION = 1
+
+  def self.instance
+    @instance ||= new(
+      CONFIG.fetch("acp_command") { abort "coplan-bridge: adapter \"acp\" needs \"acp_command\", e.g. [\"goose\", \"acp\"]" },
+      cwd: CONFIG.fetch("acp_cwd", Dir.pwd),
+      permission: CONFIG.fetch("acp_permission", "reject")
+    )
+  end
+
+  def initialize(command, cwd:, permission:)
+    @command = Array(command)
+    @cwd = File.expand_path(cwd)
+    @permission = permission
+    @next_id = 0
+    boot
+  end
+
+  def prompt(text)
+    rpc("session/prompt", { sessionId: @session_id, prompt: [ { type: "text", text: text } ] })
+  rescue AgentGone
+    warn "coplan-bridge: ACP agent died — respawning"
+    boot
+    rpc("session/prompt", { sessionId: @session_id, prompt: [ { type: "text", text: text } ] })
+  end
+
+  private
+
+  class AgentGone < StandardError; end
+
+  def boot
+    # stderr passes through so the agent's own logging stays visible.
+    @stdin, @stdout, @wait_thread = Open3.popen2(*@command)
+    rpc("initialize", {
+      protocolVersion: PROTOCOL_VERSION,
+      # No fs or terminal capabilities: the agent works through its own
+      # tools, not through us.
+      clientCapabilities: {},
+      clientInfo: { name: "coplan-bridge", version: "1.0" }
+    })
+    @session_id = rpc("session/new", { cwd: @cwd, mcpServers: [] }).fetch("sessionId")
+    puts "coplan-bridge: ACP session #{@session_id} (#{@command.join(" ")})"
+  end
+
+  def rpc(method, params)
+    id = (@next_id += 1)
+    send_message(jsonrpc: "2.0", id: id, method: method, params: params)
+    pump_until(id)
+  end
+
+  def send_message(message)
+    @stdin.puts(JSON.generate(message))
+    @stdin.flush
+  rescue Errno::EPIPE, IOError
+    raise AgentGone
+  end
+
+  # Synchronous message pump: read until the response to `id` arrives,
+  # servicing whatever the agent sends in the meantime (progress
+  # notifications, permission requests).
+  def pump_until(id)
+    loop do
+      line = @stdout.gets or raise AgentGone
+      message = JSON.parse(line) rescue next
+
+      if message["method"].nil? && message.key?("id")
+        next unless message["id"] == id
+        raise "coplan-bridge: ACP error from agent: #{message["error"].to_json}" if message["error"]
+        return message["result"] || {}
+      elsif message.key?("id")
+        answer_request(message)
+      else
+        show_progress(message)
+      end
+    end
+  end
+
+  def answer_request(message)
+    if message["method"] == "session/request_permission"
+      options = Array(message.dig("params", "options"))
+      wanted = @permission == "approve" ? "allow" : "reject"
+      chosen = options.find { |o| o["kind"].to_s.start_with?(wanted) } || (@permission == "approve" ? options.first : nil)
+      outcome = chosen ? { outcome: "selected", optionId: chosen["optionId"] } : { outcome: "cancelled" }
+      send_message(jsonrpc: "2.0", id: message["id"], result: { outcome: outcome })
+    else
+      # We advertised no capabilities, so anything else is the agent's
+      # mistake — refuse it rather than hang its turn.
+      send_message(jsonrpc: "2.0", id: message["id"],
+        error: { code: -32601, message: "coplan-bridge does not provide #{message["method"]}" })
+    end
+  end
+
+  def show_progress(message)
+    return unless message["method"] == "session/update"
+
+    update = message.dig("params", "update") || {}
+    text = update.dig("content", "text")
+    print text if update["sessionUpdate"] == "agent_message_chunk" && text
+  end
 end
 
 # A deterministic stand-in agent so the whole loop can be demoed without
@@ -160,6 +281,15 @@ def dispatch(event)
   adapter = CONFIG.fetch("adapter", "demo")
   if adapter == "demo"
     DemoAgent.handle(event)
+    return
+  end
+
+  if adapter == "acp"
+    # Honest pill before the turn starts; the prompt tells the agent to
+    # land on complete itself.
+    Bridge.patch_state(event["plan_id"], "active", "reading your comment")
+    puts "coplan-bridge: dispatching #{event["type"]} -> acp"
+    AcpAgent.instance.prompt(wake_prompt(event))
     return
   end
 
