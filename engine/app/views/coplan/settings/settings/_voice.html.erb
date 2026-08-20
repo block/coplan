@@ -22,6 +22,10 @@
           you hold it, turn that off in System Settings or choose another key here.
         </span>
       </p>
+      <%# Only ever filled in when a save didn't land — the successful case
+          is the segment lighting up, which already happened. %>
+      <p class="settings-row__hint settings-row__hint--error" role="status"
+         data-coplan--voice-hotkey-target="error" hidden></p>
     </div>
     <div class="segmented">
       <% CoPlan::User::VOICE_HOTKEYS.each do |hotkey| %>
