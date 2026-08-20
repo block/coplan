@@ -1,6 +1,8 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::WakeWebhookJob, type: :job do
+  include ActiveJob::TestHelper
+
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
   let(:token) { create(:api_token, user: user, raw_token: "wake-test-token", agent_name: "Orb") }
@@ -44,6 +46,73 @@ RSpec.describe CoPlan::WakeWebhookJob, type: :job do
 
   it "raises a retryable error when the receiver is unhappy" do
     expect { deliver(code: "503") }.to raise_error(described_class::DeliveryFailed)
+  end
+
+  # The URL can carry a capability token in its path, and DeliveryFailed
+  # messages land in logs and solid_queue_failed_executions.
+  it "keeps the wake URL out of error messages" do
+    expect { deliver(code: "503") }.to raise_error(described_class::DeliveryFailed) do |error|
+      expect(error.message).not_to include("agents.example.com")
+      expect(error.message).not_to include("/hooks/wake")
+    end
+  end
+
+  it "wraps a connection torn down mid-response, not just clean refusals" do
+    allow(Net::HTTP).to receive(:start).and_raise(EOFError)
+
+    expect {
+      described_class.new.perform(agent_session_id: session.id, agent_event_id: event.id)
+    }.to raise_error(described_class::DeliveryFailed) do |error|
+      expect(error.message).not_to include("agents.example.com")
+    end
+  end
+
+  it "skips (without retrying) a URL the egress policy refuses" do
+    session; event # materialize before the stub — registration passed, policy tightened since
+    allow(CoPlan::WakeUrlPolicy).to receive(:allowed?).and_return(false)
+
+    expect(Net::HTTP).not_to receive(:start)
+    expect {
+      described_class.new.perform(agent_session_id: session.id, agent_event_id: event.id)
+    }.not_to raise_error
+  end
+
+  it "resets the failure count on a successful delivery" do
+    session.update!(wake_failures_count: 2)
+
+    deliver
+
+    expect(session.reload.wake_failures_count).to eq(0)
+  end
+
+  describe "the dead-URL circuit breaker" do
+    def exhaust_retries
+      http = instance_double(Net::HTTP)
+      response = instance_double(Net::HTTPResponse, code: "503")
+      allow(Net::HTTP).to receive(:start) { |*_args, **_opts, &blk| blk.call(http) }
+      allow(http).to receive(:request).and_return(response)
+
+      perform_enqueued_jobs do
+        described_class.perform_later(agent_session_id: session.id, agent_event_id: event.id)
+      end
+    end
+
+    it "counts an exhausted retry run without unregistering yet" do
+      exhaust_retries
+
+      expect(session.reload.wake_failures_count).to eq(1)
+      expect(session.wake_url).to be_present
+    end
+
+    it "unregisters a URL that keeps eating whole retry ladders" do
+      session.update!(wake_failures_count: described_class::MAX_EXHAUSTIONS - 1)
+
+      exhaust_retries
+
+      session.reload
+      expect(session.wake_url).to be_nil
+      expect(session.wake_secret).to be_nil
+    end
   end
 
   it "skips events already processed via another transport" do

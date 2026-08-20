@@ -117,6 +117,59 @@ RSpec.describe CoPlan::AgentSession, type: :model do
 
       expect(record.wakes_answered_count).to eq(0)
     end
+
+    # Detach paths file `complete` mechanically (coplan-attach's at_exit),
+    # and supervising loops re-claim `watching` on restart — neither says a
+    # model turned the wake into work, so neither may prove wakeability.
+    it "does not count a mechanical detach out of pending" do
+      record = session(state: "pending", last_activity_at: 5.seconds.ago)
+
+      record.transition!("complete")
+
+      expect(record.wakes_answered_count).to eq(0)
+    end
+
+    it "does not count a watcher re-claim out of pending" do
+      record = session(state: "pending", last_activity_at: 5.seconds.ago)
+
+      record.transition!("watching")
+
+      expect(record.wakes_answered_count).to eq(0)
+    end
+  end
+
+  describe "wake_url validation" do
+    around do |example|
+      # The test env installs a permissive policy; these examples exercise
+      # how the model consults whatever policy is configured.
+      original = CoPlan.configuration.wake_url_policy
+      example.run
+    ensure
+      CoPlan.configuration.wake_url_policy = original
+    end
+
+    it "refuses a URL the egress policy rejects" do
+      CoPlan.configuration.wake_url_policy = ->(uri) { false }
+
+      record = described_class.new(
+        plan: plan, api_token: api_token, agent_name: "Claude",
+        state: "complete", wake_url: "https://agents.example.com/wake"
+      )
+
+      expect(record).not_to be_valid
+      expect(record.errors[:wake_url]).to be_present
+    end
+
+    it "does not re-resolve an unchanged URL on state transitions" do
+      record = session(state: "pending", last_activity_at: 5.seconds.ago,
+        wake_url: "https://agents.example.com/wake")
+      # Policy tightens after registration: existing sessions must still be
+      # able to move through their state machine (the webhook job is the
+      # enforcement point at delivery time).
+      CoPlan.configuration.wake_url_policy = ->(uri) { raise "resolved during transition" }
+
+      expect { record.transition!("active") }.not_to raise_error
+    end
   end
 
   describe "#transport_connected?" do

@@ -116,21 +116,27 @@ end
 #   "acp_permission": "reject" | "approve"    what to answer when the
 #                     agent asks permission (default reject — the bridge
 #                     never escalates beyond what the config says)
+#   "acp_turn_timeout": seconds one turn may run before the agent is
+#                     presumed wedged (default 600 — generous, because a
+#                     real turn legitimately thinks for minutes)
 class AcpAgent
   PROTOCOL_VERSION = 1
+  DEFAULT_TURN_TIMEOUT = 600
 
   def self.instance
     @instance ||= new(
       CONFIG.fetch("acp_command") { abort "coplan-bridge: adapter \"acp\" needs \"acp_command\", e.g. [\"goose\", \"acp\"]" },
       cwd: CONFIG.fetch("acp_cwd", Dir.pwd),
-      permission: CONFIG.fetch("acp_permission", "reject")
+      permission: CONFIG.fetch("acp_permission", "reject"),
+      turn_timeout: CONFIG.fetch("acp_turn_timeout", DEFAULT_TURN_TIMEOUT)
     )
   end
 
-  def initialize(command, cwd:, permission:)
+  def initialize(command, cwd:, permission:, turn_timeout:)
     @command = Array(command)
     @cwd = File.expand_path(cwd)
     @permission = permission
+    @turn_timeout = turn_timeout
     @next_id = 0
     boot
   end
@@ -140,7 +146,14 @@ class AcpAgent
   rescue AgentGone
     warn "coplan-bridge: ACP agent died — respawning"
     boot
-    rpc("session/prompt", { sessionId: @session_id, prompt: [ { type: "text", text: text } ] })
+    # The first attempt may have gotten partway through (a reply posted,
+    # an edit half-applied) before the process died. A fresh session has
+    # no memory of that, so blindly replaying the same prompt risks
+    # duplicate replies — tell the agent to look before acting.
+    recovery = "NOTE: a previous attempt at this event may have partially completed " \
+               "before the agent restarted. Check the plan's thread and content first, " \
+               "and do not duplicate replies or edits already made.\n\n#{text}"
+    rpc("session/prompt", { sessionId: @session_id, prompt: [ { type: "text", text: recovery } ] })
   end
 
   private
@@ -176,9 +189,19 @@ class AcpAgent
 
   # Synchronous message pump: read until the response to `id` arrives,
   # servicing whatever the agent sends in the meantime (progress
-  # notifications, permission requests).
+  # notifications, permission requests). The whole turn shares one
+  # deadline — an agent that stops answering would otherwise wedge the
+  # bridge forever on a blocking read, silently detaching it from every
+  # plan it watches.
   def pump_until(id)
+    deadline = Time.now + @turn_timeout
     loop do
+      remaining = deadline - Time.now
+      unless remaining.positive? && IO.select([ @stdout ], nil, nil, remaining)
+        warn "coplan-bridge: ACP agent silent for #{@turn_timeout}s — killing it"
+        Process.kill("KILL", @wait_thread.pid) rescue nil
+        raise AgentGone
+      end
       line = @stdout.gets or raise AgentGone
       message = JSON.parse(line) rescue next
 

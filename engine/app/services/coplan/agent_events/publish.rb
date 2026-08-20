@@ -45,8 +45,15 @@ module CoPlan
           # A wake URL is a standing subscription: it fires even when the
           # session looks finished (`complete`), because a hosted agent
           # holds no transport between turns — waking it back up is the
-          # entire point of registering one.
-          WakeWebhookJob.perform_later(agent_session_id: session.id, agent_event_id: agent_event.id) if session.wake_url.present?
+          # entire point of registering one. Enqueued after commit: the
+          # queue lives in a separate database, so a worker can otherwise
+          # pick the job up before the AgentEvent row is visible and
+          # no-op the wake.
+          if session.wake_url.present?
+            ActiveRecord.after_all_transactions_commit do
+              WakeWebhookJob.perform_later(agent_session_id: session.id, agent_event_id: agent_event.id)
+            end
+          end
 
           # Hand the event straight to any connection already waiting on
           # this token's inbox, so delivery doesn't wait for a poll tick.

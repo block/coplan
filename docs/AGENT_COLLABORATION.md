@@ -114,7 +114,12 @@ The shapes that close the loop, most portable first:
    registration; `event_id` for dedupe; retried with backoff). The ping
    carries no payload — the agent pulls and acks through the cursor API
    like every other transport, so at-least-once semantics and the
-   authority model don't fork.
+   authority model don't fork. Two guardrails on the URL itself: hosts
+   must resolve to public address space (checked at registration and
+   again before every POST; deployments override via
+   `config.wake_url_policy`), and a URL that eats several entire retry
+   runs is presumed dead and unregistered — mirroring how expired web
+   push subscriptions are destroyed rather than hammered forever.
 
 A harness with none of these can still be a correct — just not live —
 collaborator: the inbox is durable, so drain it with `wait=0` at the

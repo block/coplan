@@ -211,14 +211,15 @@ loop do
               api(:post, "/api/v1/agent/events/ack", body: { cursor: cursor }) if cursor
               saw_event = true
               if options[:once]
-                # Hand the pill to the agent that's about to act on this,
-                # so the human sees life during its (slow) first turn
-                # rather than an empty masthead.
-                if options[:claim]
-                  handing_off = true
-                  api(:patch, "/api/v1/plans/#{event["plan_id"]}/agent_session",
-                      body: { state: "active", detail: "reading your comment" })
-                end
+                # Exit without detaching: the pill stays `pending` and the
+                # woken agent's own fast-ack (PATCH active, per etiquette)
+                # takes it over. This script must NOT claim active itself —
+                # it cannot know whether its exit wakes anything, and a
+                # mechanical ack here would mark dead-harness sessions
+                # wake-proven and show "reading your comment" to a human
+                # nobody is going to answer. If no ack comes, pending goes
+                # stale in 30s and the pill retracts: the honest outcome.
+                handing_off = true if options[:claim]
                 exit 0
               end
               started = Time.now

@@ -594,6 +594,8 @@ Claiming a session subscribes your token to the plan's events and shows a live p
 
 Keep the pill honest by updating your state as you work (`state`: `active`, `awaiting_input`, `complete`; optional `detail` shows what you're doing). `pending` is the server's: it's set when an event lands in your inbox and holds for 30 seconds before going stale. The pill only says "Waking you…" once you've answered a wake before — until your first reaction, wakes are quietly a test.
 
+**When answering a wake, PATCH — don't re-claim.** Your session already exists; PATCH `{"state": "active"}` is the ack that counts as answering. A fresh POST claim resets the session instead of answering it, so the wake goes down as unanswered and the pill stops trusting you.
+
 **Hosted agent with no connection to hold?** Claim with a `wake_url` and CoPlan will POST a signed ping there on every event instead:
 
 ```bash
@@ -603,7 +605,7 @@ Keep the pill honest by updating your state as you work (`state`: `active`, `awa
   "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
 ```
 
-The response includes `wake_secret` — once, at registration; store it. Each ping is a small JSON body (`event_id`, `event_type`, `plan_id`) signed with `X-CoPlan-Signature: sha256=<HMAC-SHA256 of the raw body>`; verify it, dedupe on `event_id`, then pull your inbox below as usual. Pings fire even when your session is `complete` — waking you back up is the point. Re-claim with `"wake_url": ""` to unregister.
+The response includes `wake_secret` — once, at registration; store it. Each ping is a small JSON body (`event_id`, `event_type`, `plan_id`) signed with `X-CoPlan-Signature: sha256=<HMAC-SHA256 of the raw body>`; verify it, dedupe on `event_id`, then pull your inbox below as usual. Pings fire even when your session is `complete` — waking you back up is the point. Re-claim with `"wake_url": ""` to unregister. Keep the endpoint answering: a URL that keeps failing entire retry runs is presumed dead and unregistered automatically (you'd re-register on your next claim). The URL must also be reachable from the server — hosts that resolve to private or loopback addresses are refused.
 
 ```bash
 <%= @curl %> -X PATCH \

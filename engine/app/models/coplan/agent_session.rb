@@ -100,13 +100,21 @@ module CoPlan
       wakes_answered_count.to_i.positive?
     end
 
-    AGENT_STATES = %w[watching active awaiting_input complete].freeze
+    # Moves out of `pending` that count as the agent answering the wake.
+    # `complete` and `watching` are excluded deliberately: detach paths
+    # and supervising loops file those mechanically (coplan-attach's
+    # at_exit lands on complete; a restarted watcher re-claims watching),
+    # so counting them would mark dead-harness sessions wake-proven —
+    # exactly what the proof exists to detect. `active`/`awaiting_input`
+    # are the etiquette's own acks; only tooling that is genuinely
+    # starting a turn sends them.
+    PROOF_STATES = %w[active awaiting_input].freeze
 
     def transition!(new_state, detail: nil)
       # An agent-driven move out of `pending` is the one observable proof
       # that delivery became a model turn — the fact the wake promise is
       # calibrated against.
-      self.wakes_answered_count += 1 if state == "pending" && AGENT_STATES.include?(new_state)
+      self.wakes_answered_count += 1 if state == "pending" && PROOF_STATES.include?(new_state)
       update!(state: new_state, state_detail: detail, last_activity_at: Time.current)
       broadcast_pill
     end
@@ -117,8 +125,13 @@ module CoPlan
     def wake!
       transition!("pending") unless state == "active"
       # (watching → pending is correct: the agent now owes a response.)
+      #
+      # woken_at must carry full precision: the column is datetime(6), and
+      # a second-truncated timestamp makes the wake's own transition read
+      # as "activity after the wake" — the job would never fire and the
+      # 30-second promise would be a dead letter.
       MarkStaleAgentSessionJob.set(wait: STALE_AFTER).perform_later(
-        agent_session_id: id, woken_at: last_activity_at&.iso8601 || Time.current.iso8601
+        agent_session_id: id, woken_at: (last_activity_at || Time.current).iso8601(6)
       )
     end
 
@@ -149,14 +162,22 @@ module CoPlan
 
     private
 
-    # The server will POST to this URL, so it must at least be a URL. IP
-    # allow/deny policy is the host app's concern (dev legitimately wakes
-    # agents on localhost); scheme is ours.
+    # The server will POST to this URL, which is request forgery unless
+    # the destination is vetted — so it must be http(s), and it must pass
+    # the egress policy (public address space by default; hosts override
+    # via config.wake_url_policy — dev legitimately wakes localhost).
+    # Only checked when the URL changes: resolving DNS on every state
+    # transition would put a network call inside `transition!`.
     def wake_url_is_http
-      return if wake_url.blank?
+      return if wake_url.blank? || !wake_url_changed?
 
       uri = URI.parse(wake_url)
-      errors.add(:wake_url, "must be an http(s) URL") unless uri.is_a?(URI::HTTP) && uri.host.present?
+      unless uri.is_a?(URI::HTTP) && uri.host.present?
+        return errors.add(:wake_url, "must be an http(s) URL")
+      end
+      unless WakeUrlPolicy.allowed?(uri)
+        errors.add(:wake_url, "is not a reachable public address (private, loopback, and link-local hosts are refused)")
+      end
     rescue URI::InvalidURIError
       errors.add(:wake_url, "must be an http(s) URL")
     end

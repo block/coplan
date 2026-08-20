@@ -14,11 +14,34 @@ module CoPlan
     OPEN_TIMEOUT = 5
     READ_TIMEOUT = 5
 
+    # Exhausted retry runs (not individual failed POSTs) before the URL is
+    # presumed dead and unregistered. Mirrors WebPushDeliveryJob, which
+    # destroys a subscription on terminal failure: a URL that has eaten
+    # three full retry ladders isn't waking anyone, and every event on the
+    # plan would otherwise keep hammering it forever.
+    MAX_EXHAUSTIONS = 3
+
+    # Messages must not carry the wake URL: they surface in logs and in
+    # solid_queue_failed_executions, and the URL can embed a capability
+    # token in its path.
     class DeliveryFailed < StandardError; end
 
     # A hosted platform being briefly down shouldn't cost the agent its
     # wake; a platform that's gone shouldn't be hammered forever.
-    retry_on DeliveryFailed, wait: :polynomially_longer, attempts: 5
+    retry_on DeliveryFailed, wait: :polynomially_longer, attempts: 5 do |job, _error|
+      session = AgentSession.find_by(id: job.arguments.first[:agent_session_id])
+      next if session.nil? || session.wake_url.blank?
+
+      session.wake_failures_count += 1
+      if session.wake_failures_count >= MAX_EXHAUSTIONS
+        session.assign_attributes(wake_url: nil, wake_secret: nil)
+        Rails.logger.warn(
+          "CoPlan::WakeWebhookJob: unregistered dead wake URL for agent session #{session.id} " \
+          "after #{MAX_EXHAUSTIONS} exhausted delivery runs"
+        )
+      end
+      session.save!
+    end
 
     def perform(agent_session_id:, agent_event_id:)
       session = AgentSession.find_by(id: agent_session_id)
@@ -27,6 +50,16 @@ module CoPlan
       event = AgentEvent.find_by(id: agent_event_id)
       return if event.nil? || event.acked_at.present? # already processed via another transport
 
+      uri = URI.parse(session.wake_url)
+      # Re-checked here, not just at registration: DNS may answer
+      # differently now (rebinding), and the policy itself may have
+      # changed. A refused URL is skipped, not retried — retrying can't
+      # make it allowed.
+      unless WakeUrlPolicy.allowed?(uri)
+        Rails.logger.warn("CoPlan::WakeWebhookJob: egress policy refused wake URL for agent session #{session.id}")
+        return
+      end
+
       body = {
         event_id: event.id,
         event_type: event.event_type,
@@ -34,7 +67,6 @@ module CoPlan
         inbox: "/api/v1/agent/events"
       }.to_json
 
-      uri = URI.parse(session.wake_url)
       request = Net::HTTP::Post.new(uri)
       request["Content-Type"] = "application/json"
       request["X-CoPlan-Event-Id"] = event.id
@@ -46,9 +78,18 @@ module CoPlan
         http.request(request)
       end
 
-      raise DeliveryFailed, "#{session.wake_url} answered #{response.code}" unless response.code.start_with?("2")
-    rescue Timeout::Error, SystemCallError, SocketError, OpenSSL::SSL::SSLError => e
-      raise DeliveryFailed, "#{session.wake_url}: #{e.class}"
+      unless response.code.start_with?("2")
+        raise DeliveryFailed, "agent session #{session.id} wake answered #{response.code}"
+      end
+
+      # The URL just proved live again; a past outage shouldn't leave it
+      # one exhaustion from unregistration forever.
+      session.update!(wake_failures_count: 0) if session.wake_failures_count.to_i.positive?
+    rescue Timeout::Error, IOError, SystemCallError, SocketError,
+           OpenSSL::SSL::SSLError, Net::ProtocolError, Net::HTTPBadResponse => e
+      # IOError covers EOFError (server closed mid-response);
+      # Net::HTTPBadResponse is a bare StandardError, not a ProtocolError.
+      raise DeliveryFailed, "agent session #{session.id} wake failed: #{e.class}"
     end
   end
 end
