@@ -16,6 +16,7 @@ module CoPlan
     helper CoPlan::PlanEventsHelper
     helper CoPlan::AttachmentsHelper
     helper CoPlan::FoldersHelper
+    helper CoPlan::BrowseHelper
 
     # Skip host auth — CoPlan handles authentication internally via config.authenticate
     skip_before_action :authenticate_user!, raise: false

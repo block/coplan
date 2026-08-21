@@ -17,7 +17,7 @@
   </header>
 
   <nav class="workspace-crumbs" aria-label="Folder location">
-    <%= link_to library_path(@library),
+    <%= link_to library_browse_path(@library),
           class: "workspace-crumbs__crumb #{'workspace-crumbs__crumb--current' if @breadcrumbs.empty?}",
           aria: @breadcrumbs.empty? ? { current: "location" } : {},
           data: { turbo_prefetch: true } do %>
@@ -27,7 +27,7 @@
     <% @breadcrumbs.each_with_index do |crumb, index| %>
       <svg class="workspace-crumbs__sep" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
       <% current = index == @breadcrumbs.size - 1 %>
-      <%= link_to crumb.name, library_path(@library, folder: crumb.id),
+      <%= link_to crumb.name, folder_browse_path(crumb),
             class: "workspace-crumbs__crumb #{'workspace-crumbs__crumb--current' if current}",
             aria: current ? { current: "location" } : {},
             data: { turbo_prefetch: true } %>
@@ -35,7 +35,7 @@
   </nav>
 
   <% @subfolders.each do |folder| %>
-    <%= link_to library_path(@library, folder: folder.id), class: "folder-row", data: { turbo_prefetch: true } do %>
+    <%= link_to folder_browse_path(folder), class: "folder-row", data: { turbo_prefetch: true } do %>
       <span class="folder-row__icon" aria-hidden="true">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
       </span>
@@ -51,7 +51,7 @@
       <span class="plan-row__icon"><%= plan_type_icon(plan, size: :lg) %></span>
       <div class="plan-row__main">
         <div class="plan-row__line">
-          <%= link_to plan.title, plan_path(plan), class: "plan-row__title", data: { turbo_prefetch: true } %><%= plan_state_badge(plan) %>
+          <%= link_to plan.title, plan_browse_path(plan), class: "plan-row__title", data: { turbo_prefetch: true } %><%= plan_state_badge(plan) %>
         </div>
         <% if summary.present? %><p class="plan-row__summary text-muted"><%= summary %></p><% end %>
       </div>

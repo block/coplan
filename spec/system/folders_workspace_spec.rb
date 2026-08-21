@@ -77,8 +77,10 @@ RSpec.describe "Folders workspace", type: :system do
       foldered_plan.current_plan_version.update!(
         content_markdown: (1..30).map { |n| "## Section #{n}\n\nEnough content to scroll past the masthead." }.join("\n\n")
       )
-      location_path = library_path(author.library, folder: q3.id)
-      workspace_destination = plans_path(folder: q3.id)
+      # The masthead links straight at the canonical browsable path, so
+      # clicking it lands there with no redirect hop.
+      location_path = browse_path(handle: author.library.handle, slug_path: q3.slug_path)
+      workspace_destination = location_path
 
       visit plan_path(foldered_plan)
       masthead_location = find(".plan-location-link--masthead")
@@ -103,7 +105,9 @@ RSpec.describe "Folders workspace", type: :system do
       saved = create(:folder, name: "Saved by me", created_by_user: other)
       CoPlan::Plans::Place.call(plan: foldered_plan, folder: saved, actor: other)
       sign_in(other)
-      destination = library_path(author.library, folder: q3.id)
+      # The author's canonical path — a plan's location is where its author
+      # filed it, not where this viewer shelved it.
+      destination = browse_path(handle: author.library.handle, slug_path: q3.slug_path)
 
       visit plan_path(foldered_plan)
       location = find(".plan-location-link--masthead")

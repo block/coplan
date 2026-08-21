@@ -52,6 +52,12 @@ module CoPlan
     # untyped rows stay unrepresentable.
     before_validation :assign_default_plan_type, on: :create
 
+    # The URL segment follows the title, so a shared link reads like the
+    # document it points at, and the old URL keeps resolving via UrlAlias.
+    # Drafts are exempt from the alias: they get retitled freely while
+    # being written and have no links in the wild worth preserving.
+    before_save :assign_url_slug, if: :url_slug_stale?
+
     validates :title, presence: true
     validates :visibility, presence: true, inclusion: { in: VISIBILITIES }
     validate :attachments_within_limits
@@ -177,11 +183,50 @@ module CoPlan
     end
 
     def self.ransackable_attributes(auth_object = nil)
-      %w[id title visibility archived_at plan_type_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
+      %w[id title slug slug_suffix visibility archived_at plan_type_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
     end
 
     def self.ransackable_associations(auth_object = nil)
       %w[plan_type created_by_user]
+    end
+
+    # --- Browsable URL -------------------------------------------------
+    #
+    # A plan can be shelved in several libraries, but only one of those
+    # paths is canonical: the author's. Everyone else's placement is a
+    # bookmark — a legitimate way to *reach* the plan, never its identity.
+
+    def canonical_library
+      created_by_user&.library
+    end
+
+    def library_handle
+      canonical_library&.handle
+    end
+
+    def canonical_placement
+      library = canonical_library
+      return nil unless library
+
+      placements.detect { |placement| placement.library_id == library.id }
+    end
+
+    def canonical_folder
+      canonical_placement&.folder
+    end
+
+    # "orders/liveorder/cart-roadmap" — handle first, no leading slash,
+    # exactly what Urls::Resolve walks and what UrlAlias stores.
+    def url_path
+      return nil if slug.blank? || library_handle.blank?
+
+      [ library_handle, canonical_folder&.slug_path, leaf_segment ].compact_blank.join("/")
+    end
+
+    # The disambiguating suffix rides on the leaf and nowhere else, so
+    # every ancestor prefix of a plan's URL stays clean and browsable.
+    def leaf_segment
+      slug_suffix.present? ? "#{slug}~#{slug_suffix}" : slug
     end
 
     def draft?
@@ -272,6 +317,16 @@ module CoPlan
 
     def assign_default_plan_type
       self.plan_type ||= PlanType.general
+    end
+
+    def url_slug_stale?
+      slug.blank? || will_save_change_to_title?
+    end
+
+    # Drafts don't leave an alias behind: they're retitled repeatedly
+    # while being written, and nobody holds those links yet.
+    def assign_url_slug
+      Plans::AssignSlug.call(plan: self, record_alias: published?)
     end
 
     # Backstop validation for attachment size/type. The primary check lives in

@@ -45,6 +45,11 @@ module CoPlan
         end
         placement = @library.placements.find_by(plan_id: @plan.id)
         old_path = placement&.folder&.path
+        # The plan's URL only moves when its *canonical* shelf moves —
+        # filing someone else's plan onto your own shelf is a bookmark and
+        # leaves their link alone. Captured before the write, because after
+        # it the old path is gone.
+        old_url_path = canonical_shelf? ? @plan.url_path : nil
 
         # Removal is always allowed — you can take anything off your own
         # shelf, even if the plan has since stopped being listable to you.
@@ -52,6 +57,7 @@ module CoPlan
           return Result.new(placement: nil) if placement.nil?
 
           placement.destroy!
+          reslug(old_url_path, nil)
           log_move(old_path, nil)
           return Result.new(placement: nil)
         end
@@ -72,6 +78,7 @@ module CoPlan
             plan: @plan, folder: @folder, placed_by_user: @actor
           )
         end
+        reslug(old_url_path, @folder)
         log_move(old_path, @folder.path)
         Result.new(placement:)
       rescue ActiveRecord::RecordInvalid => e
@@ -86,6 +93,23 @@ module CoPlan
       end
 
       private
+
+      def canonical_shelf?
+        @library.id == @plan.canonical_library&.id
+      end
+
+      # A plan's slug depends on where it sits — "LiveOrder Cart Roadmap"
+      # is `cart-roadmap` inside "LiveOrder" and `liveorder-cart-roadmap`
+      # anywhere else — so a move re-derives it and leaves an alias at the
+      # old URL.
+      def reslug(old_url_path, folder)
+        return unless canonical_shelf?
+
+        @plan.placements.reset
+        AssignSlug.call(plan: @plan, folder: folder, previous_path: old_url_path,
+          record_alias: @plan.published?)
+        @plan.save! if @plan.changed?
+      end
 
       # Two audit trails, one write path. The plan-side event only fires for
       # the author's own library — someone else curating their shelf isn't
