@@ -6,16 +6,17 @@
 # No harness adapters, no session resume, no daemon: you are already
 # running, so you just hold one connection open and get interrupted when
 # something happens. This is the "attached" model — the counterpart to
-# script/coplan-bridge, which exists only to wake an agent that has
-# already exited.
+# coplan-bridge (served next to this file at /agent-tools/coplan-bridge),
+# which exists only to wake an agent that has already exited.
 #
 #   export COPLAN_BASE=http://localhost:3223
 #   export COPLAN_TOKEN=<long-lived api token>
-#   script/coplan-attach --plan <plan-id> --once
+#   coplan-attach --plan <plan-id> --once
 #
 # COPLAN_TOKEN is the machine's long-lived token; this mints a short-lived
 # child from it, sticky to this agent run, and uses that. The secret never
-# passes through the agent — see script/coplan_session.rb.
+# passes through the agent — see coplan_session.rb, which must sit in the
+# same directory as this script.
 #
 # The connection is server-driven (SSE): the process sits idle on a
 # socket and prints the moment an event lands — no repeated requests,
@@ -90,7 +91,10 @@ TOKEN =
   end
 
 def api(method, path, body: nil)
-  uri = URI.join(BASE.to_s, path)
+  # Concatenation, not URI.join: an absolute path in URI.join discards
+  # the base's mount prefix (host/coplan + /api/v1/x -> host/api/v1/x),
+  # and CoPlan engines may be mounted under a prefix.
+  uri = URI("#{BASE.to_s.chomp("/")}#{path}")
   klass = { get: Net::HTTP::Get, post: Net::HTTP::Post, patch: Net::HTTP::Patch,
             delete: Net::HTTP::Delete }.fetch(method)
   req = klass.new(uri)
@@ -158,7 +162,10 @@ claim(PLANS, options[:agent_name]) if options[:claim]
 handing_off = false
 # The session token deliberately outlives this process — the next --once
 # invocation in the same agent run reuses it, so the agent keeps one inbox
-# and one pill across its turns. `script/coplan session --revoke` ends it.
+# and one pill across its turns. End it with
+# `DELETE /api/v1/tokens/current` using the token stored in
+# ~/.coplan/sessions/<key>.json (or `script/coplan session --revoke`
+# from a CoPlan checkout).
 at_exit { detach(PLANS) if options[:claim] && !handing_off }
 trap("INT") { exit 0 }
 
@@ -175,7 +182,7 @@ loop do
     exit 64
   end
 
-  uri = URI.join(BASE.to_s, "/api/v1/agent/events")
+  uri = URI("#{BASE.to_s.chomp("/")}/api/v1/agent/events")
   uri.query = URI.encode_www_form({ cursor: cursor }.compact)
   req = Net::HTTP::Get.new(uri)
   req["Authorization"] = "Bearer #{TOKEN}"

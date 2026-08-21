@@ -111,7 +111,9 @@ module CoPlanSession
   end
 
   def mint(base:, parent:, agent_name: nil, ttl: nil)
-    uri = URI.join(base.to_s, "/api/v1/tokens")
+    # Concatenation, not URI.join: an absolute path in URI.join discards
+    # the base's mount prefix, and CoPlan engines may be mounted under one.
+    uri = URI("#{base.to_s.chomp("/")}/api/v1/tokens")
     req = Net::HTTP::Post.new(uri)
     req["Authorization"] = "Bearer #{parent}"
     req["Content-Type"] = "application/json"
@@ -140,7 +142,7 @@ module CoPlanSession
     record = read(key)
     return false unless record
 
-    uri = URI.join(base.to_s, "/api/v1/tokens/current")
+    uri = URI("#{base.to_s.chomp("/")}/api/v1/tokens/current")
     req = Net::HTTP::Delete.new(uri)
     req["Authorization"] = "Bearer #{record["token"]}"
     Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") { |http| http.request(req) }

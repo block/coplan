@@ -51,22 +51,23 @@ Start it as a background task. When it exits, its output is the event brief — 
 
 **B. You can hold a blocking tool call.** The same command in the foreground: it blocks until the first event, prints the brief, acks it, and exits. Add `--timeout 300` so a quiet plan gives you your turn back (exit 64 means nothing happened).
 
-**C. An always-on machine runs your agent over ACP.** Use the bridge — it stays attached and pushes each event into your agent as a prompt turn:
+**C. An always-on machine runs your agent over ACP.** Use the bridge — it stays attached and pushes each event into your agent as a prompt turn. Run it from the directory you want the agent to work in (its session is rooted where the bridge starts; `--cwd <dir>` overrides):
 
 ```bash
-cd ~/.coplan/bin && curl -sO <%= @base %>/agent-tools/coplan-bridge && chmod +x coplan-bridge
+curl -so ~/.coplan/bin/coplan-bridge <%= @base %>/agent-tools/coplan-bridge
+chmod +x ~/.coplan/bin/coplan-bridge
 export COPLAN_BASE=<%= @base %>
 export COPLAN_TOKEN=<your token>
-./coplan-bridge --acp "goose acp" --plan $PLAN_ID --name Goose
+~/.coplan/bin/coplan-bridge --acp "goose acp" --plan $PLAN_ID --name Goose
 ```
 
 Anything that ships an ACP server works unmodified (`goose acp`, `gemini --acp`, the Claude Code and Codex ACP adapters). No ACP? `--adapter claude|codex|goose|openhands|amp --session <your session id>` resumes a named harness session per event instead.
 
-**D. You are hosted, with no local process between turns.** Skip the scripts: claim your agent session with a `wake_url` and the server POSTs a signed ping there on every event. See the `wake_url` registration under **Agent Sessions** below.
+**D. You are hosted, with no local process between turns.** Skip the scripts: claim your agent session with a `wake_url` and the server POSTs a signed ping there on every event. See the `wake_url` registration under **Claim an Agent Session** (in Live Collaboration, below).
 
-**E. None of the above.** You can still collaborate correctly — you'll answer late instead of never. At the start of each turn, drain your inbox: `GET <%= @base %>/api/v1/agent/events?wait=0` (see **Agent Events** below).
+**E. None of the above.** You can still collaborate correctly — you'll answer late instead of never. At the start of each turn, drain your inbox: `GET <%= @base %>/api/v1/agent/events?wait=0` (see **Wait for Events** in Live Collaboration, below).
 
-Branches A–C claim your presence on the plan automatically. On D and E, claim it yourself (see **Agent Sessions**).
+Branches A–C claim your presence on the plan automatically. On D and E, claim it yourself (see **Claim an Agent Session**).
 
 ## Quick Start: The Editing Loop
 
@@ -704,13 +705,13 @@ Cursoring: event ids are time-ordered — pass the last id you processed as `cur
   "<%= @base %>/api/v1/agent/events/ack" | jq .
 ```
 
-Nothing here requires a daemon or a special harness integration: an attached agent runs the loop below itself. (`script/coplan-attach` in the CoPlan repo is a 6-line-equivalent convenience wrapper — `--once` blocks until one event arrives, prints a brief, acks, and exits, which is the shape a turn-based agent wants.)
+Nothing here requires a daemon or a special harness integration: an attached agent runs the loop below itself. (`coplan-attach`, served at `<%= @base %>/agent-tools/coplan-attach` and covered in the Setup section above, is a 6-line-equivalent convenience wrapper — `--once` blocks until one event arrives, prints a brief, acks, and exits, which is the shape a turn-based agent wants.)
 
 **Delivery is not a wake.** These endpoints hand your process the event; whether that starts a *model turn* is your harness's job, and no transport fixes a harness that can't do it. An event printed by a background process nobody wakes up for is just a log line. Four shapes that work:
 
 1. **Blocking tool call** — run the wait (`coplan-attach --once`, or the long-poll curl above) as an ordinary foreground tool call. The event comes back as tool output and you act on it. Works in every harness; costs you the turn while you wait.
 2. **Background process, if your harness re-invokes you when one exits** — `coplan-attach --once` in the background leaves you free to work; its exit is your wake. (Claude Code does this; most harnesses don't — check yours before relying on it.)
-3. **Sidecar resume** — `script/coplan-bridge` drains your inbox from outside and injects each event: over ACP into one live agent session (any harness with an ACP server), or via your harness's resume-with-message command.
+3. **Sidecar resume** — `coplan-bridge` (served at `<%= @base %>/agent-tools/coplan-bridge`, see Setup above) drains your inbox from outside and injects each event: over ACP into one live agent session (any harness with an ACP server), or via your harness's resume-with-message command.
 4. **Webhook wake** — for hosted agents: register a `wake_url` at claim time (see above) and CoPlan pushes a signed ping to your platform, which starts your turn; you then pull the inbox.
 
 If none of these fit your harness, don't hold a connection you can't act on: your inbox is durable, so drain it with `wait=0` at the start of each turn instead. Correct, just not live.

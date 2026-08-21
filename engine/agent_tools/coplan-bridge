@@ -11,9 +11,10 @@
 #   export COPLAN_BASE=https://coplan.example COPLAN_TOKEN=<token>
 #   coplan-bridge --acp "goose acp" --plan <plan-id> --name Goose
 #
-# The config file carries the same keys for setups worth writing down
-# (flags win over the file; base URL and token fall back to $COPLAN_BASE
-# and $COPLAN_TOKEN):
+# The config file carries the same keys for setups worth writing down.
+# Precedence is flags > $COPLAN_BASE/$COPLAN_TOKEN > file, --plan
+# replaces the file's plan list, and the bridge announces which config
+# file it loaded:
 #
 #   coplan-bridge --config bridge.json
 #
@@ -63,43 +64,79 @@ DEFAULT_ADAPTERS = {
 options = { plans: [], overrides: {} }
 OptionParser.new do |opts|
   opts.banner = "Usage: coplan-bridge [--acp COMMAND] [--plan PLAN_ID]... [--config PATH]"
-  opts.on("--plan PLAN_ID", "Plan to watch (repeatable)") { |v| options[:plans] << v }
+  opts.on("--plan PLAN_ID", "Plan to watch (repeatable; replaces the config file's plans)") { |v| options[:plans] << v }
   opts.on("--acp COMMAND", 'ACP agent command, e.g. "goose acp"') do |v|
+    command = begin
+      Shellwords.split(v)
+    rescue ArgumentError => e
+      abort "coplan-bridge: bad --acp command (#{e.message})"
+    end
+    # An empty command sails past every later guard (the config key
+    # exists) and then fails per event, after the pill said "active" —
+    # the classic cause is --acp "$SOME_VAR" with the variable unset.
+    abort "coplan-bridge: --acp needs a command, e.g. --acp \"goose acp\"" if command.empty?
     options[:overrides]["adapter"] = "acp"
-    options[:overrides]["acp_command"] = Shellwords.split(v)
+    options[:overrides]["acp_command"] = command
   end
   opts.on("--adapter NAME", "Adapter to use (#{DEFAULT_ADAPTERS.keys.join(", ")})") { |v| options[:overrides]["adapter"] = v }
   opts.on("--session ID", "Harness session/thread id for exec-resume adapters") { |v| options[:overrides]["harness_session"] = v }
   opts.on("--name NAME", "Agent name shown on the pill") { |v| options[:overrides]["agent_name"] = v }
+  opts.on("--cwd DIR", "Working directory for the ACP agent's session (default: where the bridge runs)") { |v| options[:overrides]["acp_cwd"] = v }
   opts.on("--base URL", "CoPlan base URL (default $COPLAN_BASE)") { |v| options[:overrides]["base_url"] = v }
   opts.on("--token TOKEN", "API token (default $COPLAN_TOKEN)") { |v| options[:overrides]["token"] = v }
   opts.on("--approve", "Grant the ACP agent's permission requests (default: reject)") { options[:overrides]["acp_permission"] = "approve" }
   opts.on("--config PATH", "Path to bridge config JSON (default ~/.config/coplan/bridge.json)") { |v| options[:config] = v }
 end.parse!
 
-# Precedence: flags beat the config file; the file is optional when flags
-# say enough (an explicit --config that doesn't exist is still an error —
-# silently ignoring a named file would be worse than failing).
+# The default-path file still loads when it exists — that is what a
+# default config is for — but never silently: a leftover bridge.json
+# quietly steering a flags-only run at an old host would be worse than
+# having no default at all. (An explicit --config that doesn't exist is
+# an error; silently ignoring a named file would be worse than failing.)
 config_path = options[:config] || File.expand_path("~/.config/coplan/bridge.json")
 file_config =
   if options[:config] || File.exist?(config_path)
-    JSON.parse(File.read(config_path))
+    begin
+      JSON.parse(File.read(config_path)).tap { puts "coplan-bridge: using config #{config_path}" }
+    rescue JSON::ParserError => e
+      abort "coplan-bridge: could not parse #{config_path}: #{e.message}"
+    end
   else
     {}
   end
 CONFIG = file_config.merge(options[:overrides])
-CONFIG["plans"] = (Array(file_config["plans"]) + options[:plans]).uniq if options[:plans].any?
+# --plan REPLACES the file's plans — "flags win over the file" with no
+# exceptions. A union would quietly re-attach the bridge to every plan a
+# leftover file names, and claim sessions the user never asked for.
+CONFIG["plans"] = options[:plans] if options[:plans].any?
 
-BASE = URI(CONFIG.fetch("base_url") { ENV.fetch("COPLAN_BASE") { abort "coplan-bridge: no base URL (set COPLAN_BASE, or pass --base)" } })
-TOKEN = CONFIG.fetch("token") { ENV.fetch("COPLAN_TOKEN") { abort "coplan-bridge: no token (set COPLAN_TOKEN, or pass --token)" } }
+# Base URL and token resolve flags > environment > config file. An env
+# var the user just exported must never lose to a file they didn't name.
+resolve = lambda do |key, env|
+  [ options[:overrides][key], ENV[env], file_config[key] ].find { |v| !v.to_s.empty? }
+end
+BASE = URI(resolve.call("base_url", "COPLAN_BASE") || abort("coplan-bridge: no base URL (set COPLAN_BASE, or pass --base)"))
+TOKEN = resolve.call("token", "COPLAN_TOKEN") || abort("coplan-bridge: no token (set COPLAN_TOKEN, or pass --token)")
+
 abort "coplan-bridge: nothing to watch (pass --plan, or put \"plans\" in the config)" if Array(CONFIG["plans"]).empty?
 # The adapter must be chosen, not defaulted: the old default was "demo",
 # which replies to threads and edits the plan — a rude surprise for
 # someone who downloaded this script and ran it with only a --plan.
 abort "coplan-bridge: no adapter (pass --acp \"<command>\" or --adapter NAME; --adapter demo runs the built-in demo agent)" if CONFIG["adapter"].to_s.empty?
+# And it must be a real one, checked now — a typo'd --adapter that only
+# fails at the first wake leaves a claimed session and an unanswered
+# human, hours after anyone was watching the terminal.
+KNOWN_ADAPTERS = DEFAULT_ADAPTERS.keys | (CONFIG["adapters"] || {}).keys
+abort "coplan-bridge: unknown adapter #{CONFIG["adapter"]} (know: #{KNOWN_ADAPTERS.join(", ")})" unless KNOWN_ADAPTERS.include?(CONFIG["adapter"])
+if CONFIG["adapter"] == "acp" && Array(CONFIG["acp_command"]).empty?
+  abort "coplan-bridge: adapter \"acp\" needs a command (pass --acp \"goose acp\" or set \"acp_command\")"
+end
 
 def request(method, path, body: nil, params: nil, read_timeout: 90)
-  uri = URI.join(BASE.to_s, path)
+  # Concatenation, not URI.join: an absolute path in URI.join discards
+  # the base's mount prefix (host/coplan + /api/v1/x -> host/api/v1/x),
+  # and CoPlan engines may be mounted under a prefix.
+  uri = URI("#{BASE.to_s.chomp("/")}#{path}")
   uri.query = URI.encode_www_form(params) if params
   klass = { get: Net::HTTP::Get, post: Net::HTTP::Post, patch: Net::HTTP::Patch, put: Net::HTTP::Put }.fetch(method)
   req = klass.new(uri)

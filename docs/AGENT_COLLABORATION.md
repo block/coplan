@@ -170,8 +170,12 @@ script/coplan-bridge --acp "goose acp" --plan <plan-id> --name Goose
 (`--adapter <name> --session <id>` for the exec-resume rows; `--approve`
 to auto-grant ACP permission asks; an adapter must always be named —
 there is no default, so nobody gets the plan-editing demo agent by
-surprise.) Setups worth writing down go in a config file, with the same
-keys; flags win over the file:
+surprise — and it's validated at startup, not at the first wake.) Setups
+worth writing down go in a config file, with the same keys. Precedence
+is flags > `$COPLAN_BASE`/`$COPLAN_TOKEN` > file, `--plan` replaces the
+file's plan list outright, and the bridge prints which config file it
+loaded — a leftover `~/.config/coplan/bridge.json` never silently
+steers a flags-only run:
 
 ```json
 {

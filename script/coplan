@@ -44,7 +44,9 @@ def token(force: false)
 end
 
 def request(method, path, body = nil, retried: false)
-  uri = URI.join(BASE.to_s, path)
+  # Concatenation, not URI.join: an absolute path in URI.join discards
+  # the base's mount prefix, and CoPlan engines may be mounted under one.
+  uri = URI("#{BASE.to_s.chomp("/")}#{path}")
   klass = {
     "get" => Net::HTTP::Get, "post" => Net::HTTP::Post,
     "patch" => Net::HTTP::Patch, "put" => Net::HTTP::Put, "delete" => Net::HTTP::Delete
