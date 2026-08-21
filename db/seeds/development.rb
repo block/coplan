@@ -93,6 +93,10 @@ module CoPlan
       {
         key: "launch-deck", author: "priya", type: "Presentation", title: "Shared workspaces launch — readout deck",
         tags: %w[collaboration launch], visibility: "published", folder: "Product/Launches/Shared workspace", fixture: :slideshow_deck
+      },
+      {
+        key: "pattern-showcase", author: "sam", type: "Presentation", title: "Slide layout patterns — a tour of the deck design system",
+        tags: %w[design slides], visibility: "published", folder: "Engineering/Active projects", fixture: :pattern_showcase
       }
     ].freeze
 
@@ -351,6 +355,98 @@ module CoPlan
 
         [dash]: https://observability.example.com/d/workspace-adoption
         [^presence]: Presence reuses the comment-notification channel, so it ships with no new infrastructure.
+      MARKDOWN
+      # One slide per layout pattern in docs/SLIDE_SPEC.md, in catalog
+      # order — the visual regression corpus for the deck design system.
+      # Layout is inferred from content shape; nothing here is a directive.
+      pattern_showcase: <<~'MARKDOWN',
+        Every slide in this deck earns its layout from its shape alone.
+
+        ---
+
+        ## What the classifier sees
+
+        - A lone heading becomes a title slide
+        - Two lists sit side by side
+        - One image or diagram takes the whole stage
+        - Code gets the stage, not a text box
+
+        ---
+
+        ## Writing a deck / designing a deck
+
+        - pick the words
+        - split with `---`
+        - share the plan link
+
+        * no theme CSS
+        * no layout directives
+        * no ugly slides
+
+        ---
+
+        ## The decision list
+
+        ```ruby
+        return :title if lead && body.empty?
+        return :stage if media_block?(featured)
+        return :split if media_at_edge?(body)
+        ```
+
+        ---
+
+        ## How a slide finds its shape
+
+        ```mermaid
+        flowchart LR
+          MD[markdown] --> Split --> Classify
+          Classify --> T[title]
+          Classify --> C[columns]
+          Classify --> S[stage]
+        ```
+
+        ---
+
+        ## Reviewed like a document
+
+        - Comment on any bullet, on any slide
+        - Every edit is a version with provenance
+        - Present from the same link
+
+        ![CoPlan](/coplan-logo.png)
+
+        <!-- notes: This split slide is why decks live in CoPlan at all. -->
+
+        ---
+
+        > The default output has to be genuinely beautiful with zero effort.
+
+        — the design plan
+
+        ---
+
+        ## Type steps, not shrink-to-fit
+
+        | Units | Step | Feels like |
+        |---|---|---|
+        | ≤ 5 | 1 | a poster |
+        | 6–9 | 2 | a slide |
+        | 10–14 | 3 | a dense slide |
+        | 15+ | 4 | time to split it |
+
+        ---
+
+        ## A dense slide steps down
+
+        - the type scale drops one discrete step at a time
+        - so sparse slides look intentional, not zoomed in
+        - and dense slides fit without shrink-to-fit soup
+        - seven or more lines lands on step two
+        - past fourteen you get step four, the floor
+        - past the floor, content scrolls instead of clipping
+        - and the fit report will tell the agent to split the slide
+        - which is the honest fix anyway
+        - one idea per slide beats one slide per idea
       MARKDOWN
       spanish: "## Problema\n\nLas personas nuevas necesitan saber qué paso completar.\n\n## Resultado\n\nUna lista breve muestra el siguiente paso.",
       japanese: "## 目標\n\n障害の影響を小さくし、復旧までの時間を短縮します。\n\n## 次のステップ\n\n復旧手順を自動で検証します。",
@@ -661,7 +757,7 @@ module CoPlan
       parts = [ "# #{definition.fetch(:title)}" ]
 
       # Fixtures that are complete document bodies — no lorem filler around them.
-      if %i[spanish japanese arabic code_walkthrough collab_showcase slideshow_deck].include?(definition[:fixture])
+      if %i[spanish japanese arabic code_walkthrough collab_showcase slideshow_deck pattern_showcase].include?(definition[:fixture])
         parts << fixture
         return parts.join("\n\n")
       end

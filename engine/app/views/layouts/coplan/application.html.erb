@@ -19,8 +19,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <%# Serves the Hack code font, highlight.js grammars, and Mermaid %>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <%= stylesheet_link_tag "coplan/application", "coplan/deck", "data-turbo-track": "reload" %>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <%= stylesheet_link_tag "coplan/application", "coplan/deck",
+          "coplan/deck-theme-coplan", "coplan/deck-theme-graphite", "coplan/deck-theme-poster",
+          "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
   <body>
