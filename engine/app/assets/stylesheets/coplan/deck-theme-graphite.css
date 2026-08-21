@@ -1,0 +1,19 @@
+/* Deck theme: graphite — near-black canvas, cool ink, sky accent.
+   The dark deck for rooms with the lights down. Token contract:
+   docs/SLIDE_SPEC.md "Themes". */
+
+.deck[data-deck-theme="graphite"] {
+  --deck-bg: #17191f;
+  --deck-ink: #e8eaf0;
+  --deck-muted: #99a2b3;
+  --deck-accent: #6ea8fe;
+  --deck-accent-ink: #0d0f14;
+  --deck-rule: #2b2f3a;
+  --deck-title-bg: #101218;
+  --deck-title-ink: #f2f4f9;
+  --deck-title-accent: #6ea8fe;
+  --deck-font-display: "Lexend", system-ui, sans-serif;
+  --deck-font-text: "Lexend", system-ui, sans-serif;
+  --deck-font-mono: "Hack", ui-monospace, "SF Mono", Menlo, monospace;
+  --deck-display-weight: 600;
+}

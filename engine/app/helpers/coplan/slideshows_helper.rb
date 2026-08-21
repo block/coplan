@@ -18,14 +18,25 @@ module CoPlan
     # to every fragment so references still resolve); footnotes render once,
     # document-wide, in the plan's References back matter, exactly as they
     # do for documents.
-    def render_slideshow(content, interactive: true)
+    def render_slideshow(content, interactive: true, theme: "coplan")
       result = Slideshows::Split.call(content)
 
+      lead_by_slide = {}
       sections = result.slides.map do |slide|
         preamble = deck_preamble(result.definition_blocks, slide)
+        # Classify the exact string being rendered — with the preamble,
+        # reference-style images resolve to image nodes here the same way
+        # they resolve on screen (the sentinel comment classifies as
+        # nothing, per SLIDE_SPEC.md's content-sequence rules).
+        classification = Slideshows::Classify.call(preamble + slide.source)
+        lead_by_slide[slide.index.to_s] = classification.lead
         inner = render_markdown(preamble + slide.source, interactive:, footnotes: :exclude,
                                 line_offset: slide.start_line - 1 - preamble.count("\n"))
-        tag.section(inner, class: "deck-slide", data: { slide: slide.index })
+        tag.section(inner,
+                    class: [ "deck-slide", "deck-slide--#{classification.pattern}",
+                             "deck-step-#{classification.step}" ],
+                    data: { slide: slide.index, pattern: classification.pattern,
+                            media: classification.media }.compact)
       end
 
       # Slides render in isolation, so anything numbered per document —
@@ -39,11 +50,72 @@ module CoPlan
       mirror_section_link_enhancement(deck, document)
       drop_misleading_ids(deck, document)
       strip_duplicate_ids(deck)
+      decorate_slide_content(deck, lead_by_slide)
 
-      tag.div(deck.to_html.html_safe, class: "deck")
+      tag.div(deck.to_html.html_safe, class: "deck", data: { deck_theme: theme })
     end
 
     private
+
+    # SLIDE_SPEC.md's markup contract on the rendered DOM: the slide's
+    # block container gets the spec's neutral .deck-content name (the
+    # design system must not know CoPlan's .markdown-rendered), and split
+    # slides get their two pane wrappers. Wrappers add structure only —
+    # no text, no reordering — so comment anchors and the parity passes
+    # above are unaffected.
+    def decorate_slide_content(deck, lead_by_slide)
+      deck.css("section.deck-slide > div.markdown-rendered").each { |div| div.add_class("deck-content") }
+      wrap_split_slides(deck, lead_by_slide)
+    end
+
+    # The classifier promised one media block at the body's edge; find it
+    # in the DOM and wrap it and the rest into the split panes. Rendered
+    # DOM can disagree with the classified shape (sanitize can delete raw
+    # HTML blocks wholesale, or reduce one to a bare text node), so the
+    # shape is verified before wrapping — on any mismatch the slide keeps
+    # flat markup and the stylesheet degrades to the content layout, per
+    # the spec.
+    def wrap_split_slides(deck, lead_by_slide)
+      deck.css("section.deck-slide--split").each do |section|
+        content = section.element_children.find { |el| el.classes.include?("deck-content") }
+        next unless content
+        # Loose visible text (a raw-HTML block sanitize stripped down to its
+        # text) can't be attributed to a pane; wrapping the elements around
+        # it would reorder what readers see (spec invariant 2).
+        next if content.children.any? { |node| node.text? && !node.text.strip.empty? }
+
+        children = content.element_children.to_a
+        # The lead heading is the classifier's lead, not whatever renders
+        # first: a raw-HTML heading in the body belongs inside .deck-body,
+        # not spanning the panes.
+        lead = lead_by_slide[section["data-slide"]]
+        next if lead && !children.first&.name&.match?(/\Ah[1-6]\z/)
+
+        pool = lead ? children.drop(1) : children
+        next if pool.size < 2
+
+        media = section["data-media"] == "leading" ? pool.first : pool.last
+        next unless media_element?(media)
+
+        rest = pool - [ media ]
+        media_wrap = content.document.create_element("div", class: "deck-media")
+        body_wrap = content.document.create_element("div", class: "deck-body")
+        media.add_previous_sibling(media_wrap)
+        media_wrap.add_child(media)
+        rest.first.add_previous_sibling(body_wrap)
+        rest.each { |el| body_wrap.add_child(el) }
+      end
+    end
+
+    # The DOM shape a classified media block renders to: a paragraph whose
+    # only content is an image (alt text is an attribute, so text is
+    # blank), or a mermaid fence (comrak carries the info string as lang).
+    def media_element?(el)
+      return false if el.nil?
+
+      (el.name == "p" && el.at_css("img") && el.text.strip.empty?) ||
+        (el.name == "pre" && el["lang"] == "mermaid")
+    end
 
     # Definitions are prepended, not appended: a slide ending in an unclosed
     # code fence would swallow an appended block into visible text, and

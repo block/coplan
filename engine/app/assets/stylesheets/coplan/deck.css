@@ -1,60 +1,393 @@
-/* Deck rendering for presentation-behavior plans.
+/* The deck design system — layout for docs/SLIDE_SPEC.md's markup contract.
 
-   Provisional review-view styling only: the real slide design system —
-   layout classifier, type scale steps, themes — arrives with SLIDE_SPEC.md
-   and replaces most of this file. Two rules are load-bearing already:
-   everything deck-scoped lives under .deck / .deck-* (so the design system
-   can be extracted as a standalone stylesheet later), and slide chrome is
-   structure around the content, never text inside it (comment anchors
-   count visible-text occurrences). */
+   Two rules are load-bearing:
+   - Everything lives under .deck / .deck-* and colors come only from the
+     --deck-* theme tokens (deck-theme-*.css), so spec + stylesheets can be
+     extracted as a standalone package post-v1. The only host tokens used
+     are for the card chrome AROUND the canvas (border), which stays with
+     the host view on extraction.
+   - Slide chrome is structure around the content, never text inside it:
+     slide numbers, kickers, quote marks are CSS-generated (pseudo-element
+     text is invisible to innerText, so comment anchors that count
+     visible-text occurrences never see it).
+
+   Geometry: .deck is a size container; everything inside a slide is sized
+   in cqi (1% of deck width) and em, so a slide is the same design at any
+   width — the deck view today, the presenter's scaled canvas later. */
 
 .deck {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 2rem;
 }
 
 .deck-slide {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   aspect-ratio: 16 / 9;
-  padding: 40px 56px;
-  background: var(--color-surface);
+  padding: 4.5cqi 6cqi;
+  background: var(--deck-bg);
+  color: var(--deck-ink);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
-  /* Content that doesn't fit scrolls rather than clips — the visible cue
-     the fit report will later formalize. */
+  font-family: var(--deck-font-text);
+  font-size: calc(2.5cqi * var(--deck-scale, 1));
+  /* Content past the smallest type step scrolls rather than clips — the
+     visible cue the fit report will formalize. */
   overflow-y: auto;
 }
 
+/* The type scale: content volume picks a discrete step (SLIDE_SPEC.md).
+   Steps, not shrink-to-fit — sparse slides look intentional, dense slides
+   fit. */
+.deck-step-1 { --deck-scale: 1; }
+.deck-step-2 { --deck-scale: 0.86; }
+.deck-step-3 { --deck-scale: 0.74; }
+.deck-step-4 { --deck-scale: 0.63; }
+
+/* Slide number, bottom right. attr() content — chrome, not text. */
 .deck-slide::after {
   content: attr(data-slide);
   position: absolute;
-  right: 16px;
-  bottom: 10px;
-  font-size: 12px;
-  color: var(--color-text-muted);
+  right: 1.6cqi;
+  bottom: 1.1cqi;
+  font-size: 1.5cqi;
+  color: var(--deck-muted);
 }
 
-/* A slide reads from across the room, not at document scale. Flat bumps
-   until the classifier assigns real type-scale steps per layout. */
-.deck-slide .markdown-rendered h1 {
-  font-size: 2.2em;
+.deck-content {
+  width: 100%;
+  /* Vertical centering that stays safe under overflow: auto margins
+     collapse to zero once content exceeds the card, so a too-tall slide
+     scrolls from its top (justify-content: center would push the start of
+     the content above the card, unreachable by any scroll). */
+  margin-block: auto;
+}
+
+/* ---- Base typography: slide scale, not document scale ----------------
+   Overrides the app's .markdown-rendered reading styles (px sizes, 1.9
+   line-height) with em sizes hanging off the slide's cqi base. */
+
+.deck-slide .deck-content h1,
+.deck-slide .deck-content h2,
+.deck-slide .deck-content h3,
+.deck-slide .deck-content h4,
+.deck-slide .deck-content h5,
+.deck-slide .deck-content h6 {
+  font-family: var(--deck-font-display);
+  font-weight: var(--deck-display-weight);
   line-height: 1.15;
-  border: none;
+  letter-spacing: -0.015em;
+  margin: 0.9em 0 0.5em;
 }
 
-.deck-slide .markdown-rendered h2 {
-  font-size: 1.6em;
-  line-height: 1.2;
-  border: none;
-}
+.deck-slide .deck-content h1 { font-size: 2.2em; }
+.deck-slide .deck-content h2 { font-size: 1.75em; }
+.deck-slide .deck-content h3 { font-size: 1.3em; }
+.deck-slide .deck-content h4,
+.deck-slide .deck-content h5,
+.deck-slide .deck-content h6 { font-size: 1.05em; }
 
-.deck-slide .markdown-rendered p,
-.deck-slide .markdown-rendered li {
-  font-size: 1.12em;
+.deck-slide .deck-content > :first-child { margin-top: 0; }
+.deck-slide .deck-content > :last-child { margin-bottom: 0; }
+
+.deck-slide .deck-content p {
+  margin: 0 0 0.7em;
   line-height: 1.5;
+}
+
+.deck-slide .deck-content ul,
+.deck-slide .deck-content ol {
+  margin: 0 0 0.7em;
+  padding-left: 1.15em;
+}
+
+.deck-slide .deck-content li {
+  margin-bottom: 0.4em;
+  line-height: 1.45;
+}
+
+.deck-slide .deck-content li::marker {
+  color: var(--deck-accent);
+}
+
+.deck-slide .deck-content a {
+  color: var(--deck-accent);
+}
+
+.deck-slide .deck-content hr {
+  border: none;
+  border-top: 1px solid var(--deck-rule);
+  margin: 1.2em 0;
+}
+
+.deck-slide .deck-content img {
+  max-width: 100%;
+  max-height: 26cqi;
+  border-radius: 0.4em;
+}
+
+.deck-slide .deck-content pre {
+  font-size: 0.8em;
+  line-height: 1.55;
+  margin: 0.8em 0;
+}
+
+.deck-slide .deck-content :not(pre) > code {
+  background: color-mix(in srgb, var(--deck-ink) 9%, transparent);
+  font-family: var(--deck-font-mono);
+}
+
+.deck-slide .deck-content blockquote {
+  border-left: 3px solid var(--deck-accent);
+  padding-left: 0.8em;
+  color: var(--deck-muted);
+  margin: 0 0 0.7em;
+}
+
+.deck-slide .deck-content table {
+  font-size: 0.82em;
+  margin: 0 0 0.7em;
+}
+
+.deck-slide .deck-content th {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--deck-accent);
+  padding: 0.45em 0.7em;
+}
+
+.deck-slide .deck-content td {
+  border: none;
+  border-bottom: 1px solid var(--deck-rule);
+  padding: 0.45em 0.7em;
+}
+
+.deck-slide .deck-content input[type="checkbox"] {
+  width: 0.85em;
+  height: 0.85em;
+}
+
+.deck-slide .deck-content .mermaid-diagram {
+  display: flex;
+  justify-content: center;
+}
+
+.deck-slide .deck-content .mermaid-diagram svg {
+  max-width: 100%;
+  max-height: 34cqi;
+}
+
+/* ---- title — a heading is the slide ---------------------------------- */
+
+.deck-slide--title {
+  padding-inline: 8cqi;
+  background: var(--deck-title-bg);
+  color: var(--deck-title-ink);
+}
+
+.deck-slide--title::after {
+  color: var(--deck-title-ink);
+  opacity: 0.55;
+}
+
+.deck-slide--title .deck-content h1,
+.deck-slide--title .deck-content h2,
+.deck-slide--title .deck-content h3 {
+  font-size: 2.8em;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+/* The accent bar: the one piece of pure art direction every deck opens
+   with. */
+.deck-slide--title .deck-content > h1::before,
+.deck-slide--title .deck-content > h2::before,
+.deck-slide--title .deck-content > h3::before {
+  content: "";
+  display: block;
+  width: 1.6em;
+  height: 0.16em;
+  border-radius: 0.08em;
+  background: var(--deck-title-accent, var(--deck-accent));
+  margin-bottom: 0.55em;
+}
+
+.deck-slide--title .deck-content p {
+  font-size: 1.2em;
+  margin: 1em 0 0;
+  color: var(--deck-title-ink);
+  opacity: 0.75;
+}
+
+.deck-slide--title .deck-content a {
+  color: inherit;
+}
+
+/* ---- stage — one visual gets the whole canvas ------------------------ */
+
+.deck-slide--stage .deck-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.9em;
+}
+
+.deck-slide--stage .deck-content > h1,
+.deck-slide--stage .deck-content > h2,
+.deck-slide--stage .deck-content > h3,
+.deck-slide--stage .deck-content > h4 {
+  font-size: 0.95em;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--deck-muted);
+  margin: 0;
+}
+
+.deck-slide--stage .deck-content > p {
+  margin: 0;
+}
+
+.deck-slide--stage .deck-content img {
+  max-height: 36cqi;
+}
+
+.deck-slide--stage .deck-content > p:not(:has(img)) {
+  font-size: 0.9em;
+  color: var(--deck-muted);
+}
+
+/* ---- code — code gets the stage, not a text box ----------------------- */
+
+.deck-slide--code {
+  padding-inline: 5cqi;
+}
+
+.deck-slide--code .deck-content > h1,
+.deck-slide--code .deck-content > h2,
+.deck-slide--code .deck-content > h3,
+.deck-slide--code .deck-content > h4 {
+  font-size: 0.95em;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--deck-muted);
+  margin: 0 0 1em;
+}
+
+.deck-slide--code .deck-content > p {
+  font-size: 0.9em;
+  color: var(--deck-muted);
+}
+
+/* ---- quote — a pull quote, oversized ---------------------------------- */
+
+.deck-slide--quote {
+  padding-inline: 8cqi;
+}
+
+.deck-slide--quote .deck-content blockquote {
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: var(--deck-ink);
+  font-family: var(--deck-font-display);
+  font-size: 1.55em;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.deck-slide--quote .deck-content blockquote::before {
+  content: "\201C";
+  display: block;
+  font-size: 2.4em;
+  line-height: 0.55;
+  color: var(--deck-accent);
+  margin-bottom: 0.25em;
+}
+
+.deck-slide--quote .deck-content blockquote p {
+  margin: 0 0 0.4em;
+  line-height: inherit;
+}
+
+.deck-slide--quote .deck-content > p {
+  font-size: 0.95em;
+  color: var(--deck-muted);
+  margin: 1.2em 0 0;
+}
+
+/* ---- table — scaled tabular typography -------------------------------- */
+
+.deck-slide--table .deck-content table {
+  width: 100%;
+  font-size: 0.78em;
+}
+
+.deck-slide--table .deck-content th {
+  font-weight: 650;
+  letter-spacing: 0.03em;
+}
+
+.deck-slide--table .deck-content > p {
+  font-size: 0.9em;
+  color: var(--deck-muted);
+}
+
+/* ---- columns — two lists sit side by side ----------------------------- */
+
+.deck-slide--columns .deck-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 2.6em;
+  align-items: start;
+}
+
+.deck-slide--columns .deck-content > h1,
+.deck-slide--columns .deck-content > h2,
+.deck-slide--columns .deck-content > h3,
+.deck-slide--columns .deck-content > h4 {
+  grid-column: 1 / -1;
+}
+
+.deck-slide--columns .deck-content > ul,
+.deck-slide--columns .deck-content > ol {
+  margin: 0;
+}
+
+/* ---- split — media pane beside content --------------------------------
+   DOM order is source order (media leading → left pane, trailing → right),
+   so grid auto-placement does the layout with zero reordering. Guarded on
+   the wrappers: when the renderer skipped them (sanitized-away shape
+   mismatch), the slide keeps the content layout. */
+
+.deck-slide--split .deck-content:has(> .deck-media) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 2.6em;
+  align-items: center;
+}
+
+.deck-slide--split .deck-content > h1,
+.deck-slide--split .deck-content > h2,
+.deck-slide--split .deck-content > h3,
+.deck-slide--split .deck-content > h4 {
+  grid-column: 1 / -1;
+}
+
+.deck-slide--split .deck-media > p {
+  margin: 0;
+}
+
+.deck-slide--split .deck-media img {
+  width: 100%;
+  max-height: 40cqi;
+  object-fit: contain;
 }
