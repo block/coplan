@@ -116,7 +116,7 @@
             <% @recent_updates.each do |entry| %>
               <% plan = entry[:plan] %>
               <li class="recent-updates__item">
-                <%= link_to plan.title, plan_path(plan), class: "recent-updates__link" %>
+                <%= link_to plan.title, plan_browse_path(plan), class: "recent-updates__link" %>
                 <span class="recent-updates__badge recent-updates__badge--<%= entry[:badge].parameterize %>"><%= entry[:badge] %></span>
                 <span class="recent-updates__meta text-muted">
                   <%= plan.created_by_user.name %> · <%= time_ago_in_words(plan.updated_at) %> ago

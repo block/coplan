@@ -17,7 +17,7 @@ module CoPlan
     def index
       @libraries = Library.includes(:owner).order(:handle).to_a
       @plan_counts = Plan.visible_to(current_user).active
-        .joins(:placements)
+        .joins(:placement)
         .group("coplan_plan_placements.library_id").count
     end
 

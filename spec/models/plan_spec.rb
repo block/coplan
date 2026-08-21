@@ -51,16 +51,28 @@ RSpec.describe CoPlan::Plan, type: :model do
     expect(plan.current_content).to include("Plan Content")
   end
 
-  it "uses the author's own library placement as its containing location" do
-    author = create(:coplan_user)
-    viewer = create(:coplan_user)
-    plan = create(:plan, :published, created_by_user: author)
-    author_folder = create(:folder, created_by_user: author)
-    viewer_folder = create(:folder, created_by_user: viewer)
-    create(:plan_placement, plan: plan, folder: viewer_folder)
-    author_placement = create(:plan_placement, plan: plan, folder: author_folder)
+  describe "where it lives" do
+    let(:author) { create(:coplan_user) }
 
-    expect(plan.author_placement).to eq(author_placement)
+    it "is the folder it's filed in" do
+      plan = create(:plan, :published, created_by_user: author)
+      folder = create(:folder, created_by_user: author)
+      placement = create(:plan_placement, plan: plan, folder: folder)
+
+      expect(plan.placement).to eq(placement)
+      expect(plan.folder).to eq(folder)
+      expect(plan.library).to eq(author.library)
+    end
+
+    # Unfiled isn't homeless: the plan sits at the root of the library it
+    # was written in, which is what /l/<handle>/<slug> addresses.
+    it "falls back to the author's library when filed nowhere" do
+      plan = create(:plan, :published, created_by_user: author)
+
+      expect(plan.placement).to be_nil
+      expect(plan.folder).to be_nil
+      expect(plan.library).to eq(author.library)
+    end
   end
 
   # THE discovery predicate (mirrored by PlanPolicy#listed?). Everything a

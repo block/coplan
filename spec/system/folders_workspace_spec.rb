@@ -63,14 +63,15 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "falls back to the plan's folder on Backspace after a cold open" do
-      # Direct visit = no in-app history. Backspace should land where the
-      # plan lives in the viewer's library, not the workspace root.
+      # Direct visit = no in-app history. Backspace should land on the
+      # folder the plan lives in — at its readable address, not the
+      # workspace root and not a folder-id query string.
       visit plan_path(foldered_plan)
       expect(page).to have_css("h1", text: "Q3 Launch Plan")
 
       find("body").send_keys(:backspace)
       expect(page).to have_css(".workspace-crumbs__crumb--current", text: "Q3")
-      expect(page).to have_current_path(plans_path(folder: q3.id))
+      expect(page).to have_current_path(browse_path(handle: author.library.handle, slug_path: q3.slug_path))
     end
 
     it "goes up to the plan's containing folder from the masthead and sticky nav" do
@@ -289,36 +290,21 @@ RSpec.describe "Folders workspace", type: :system do
       expect(author.library.placements.where(plan_id: developing_plan.id)).to be_empty
     end
 
-    it "saves and lets go of someone else's plan through the navigator, never a surprise toggle" do
+    # Reading someone else's plan offers no filing control at all: it lives
+    # in their library, and a plan has only the one home.
+    it "offers no way to file someone else's plan into your library" do
       other_plan = create(:plan, :considering, created_by_user: other, title: "Someone Elses Plan")
-      visit plans_path(scope: "all")
 
-      # The row drags into your library like any of your own…
-      row = find(".plan-row[data-plan-id='#{other_plan.id}']")
-      expect(row["draggable"]).to eq("true")
-
-      # …and the plan page offers a labeled Save that opens the navigator.
       visit plan_path(other_plan)
-      click_button "Save"
-      within("#folder-picker-modal") do
-        expect(page).to have_css("#folder-picker-title", text: "Save to library")
-        find(".folder-picker__option", text: "Infra").click
+      expect(page).to have_css("h1", text: "Someone Elses Plan")
+      within("#plan-toolbar") do
+        expect(page).not_to have_button("Save")
+        expect(page).not_to have_button("Saved")
       end
 
-      expect(page).to have_css(".flash--notice", text: "Infra", wait: 5)
-      expect(page).to have_button("Saved")
-      expect(author.library.placements.find_by(plan_id: other_plan.id).folder).to eq(infra)
-
-      # Clicking Saved re-opens the navigator — removal is a deliberate
-      # labeled choice inside it, not an instant unsave on the button.
-      click_button "Saved"
-      within("#folder-picker-modal") do
-        expect(page).to have_css(".folder-picker__option--current", text: "Infra")
-        click_button "Remove from library"
-      end
-
-      expect(page).to have_button("Save", wait: 5)
-      expect(author.library.placements.where(plan_id: other_plan.id)).to be_empty
+      find("#plan-toolbar button[aria-label='More actions']").click
+      within("#plan-menu") { expect(page).not_to have_button("Move to folder…") }
+      expect(CoPlan::PlanPlacement.where(plan_id: other_plan.id)).to be_empty
     end
   end
 

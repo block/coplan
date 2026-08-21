@@ -309,11 +309,11 @@ RSpec.describe "Comment UX", type: :system do
     it "opens a linked comment and exposes its permalink" do
       thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
 
-      visit plan_path(plan, thread: thread.id)
+      visit plan_page_path(plan, thread: thread.id)
 
       expect(page).to have_css(".thread-popover", visible: true)
       within(".thread-popover") do
-        expect(page).to have_link("Copy link", href: plan_path(plan, thread: thread.id))
+        expect(page).to have_link("Copy link", href: plan_page_path(plan, thread: thread.id))
         expect(page).to have_content("Why not monolith?")
         click_link "Copy link"
         expect(page).to have_link("Copied!")
@@ -334,7 +334,7 @@ RSpec.describe "Comment UX", type: :system do
         user: reviewer
       )
 
-      visit plan_path(plan, thread: thread.id)
+      visit plan_page_path(plan, thread: thread.id)
 
       expect(page).to have_css(".mermaid-diagram svg", wait: 10)
       expect(page).to have_css("#comment_thread_#{thread.id}_popover", visible: true)

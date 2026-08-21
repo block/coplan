@@ -59,7 +59,7 @@ class AddUrlSegmentsToLibrariesAndFolders < ActiveRecord::Migration[8.1]
         row["owner_name"].presence ||
         row["name"].presence ||
         "library"
-      handle = unique_slug(slugify(source), taken, fallback: "library")
+      handle = unique_slug(ascii_slugify(source), taken, fallback: "library")
       taken << handle
       execute "UPDATE coplan_libraries SET handle = #{quote(handle)} WHERE id = #{quote(row['id'])}"
     end
@@ -85,9 +85,20 @@ class AddUrlSegmentsToLibrariesAndFolders < ActiveRecord::Migration[8.1]
     end
   end
 
+  # Mirrors CoPlan::Slug.call / .handle, inlined so this backfill keeps
+  # producing the same slugs if the app's rules move on. Folders keep
+  # Unicode letters — a folder named 設計 gets a segment that says so —
+  # while handles stay ASCII because they're typed and read aloud.
   def slugify(text)
-    text.to_s.downcase.gsub(/[^a-z0-9]+/, "-").gsub(/-{2,}/, "-")
-      .delete_prefix("-").delete_suffix("-")[0, 60].to_s
+    trim(text.to_s.unicode_normalize(:nfc).downcase.gsub(/[^[[:alnum:]]]+/, "-"))
+  end
+
+  def ascii_slugify(text)
+    trim(text.to_s.unicode_normalize(:nfkd).downcase.gsub(/[^a-z0-9]+/, "-"))
+  end
+
+  def trim(hyphenated)
+    hyphenated.gsub(/-{2,}/, "-").delete_prefix("-").delete_suffix("-")[0, 60].to_s
       .delete_suffix("-")
   end
 

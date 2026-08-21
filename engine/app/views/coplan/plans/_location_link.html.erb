@@ -1,9 +1,9 @@
-<%# Go up from the document to its containing folder in the author's
-    library. An unfiled document goes to that library's root. %>
+<%# Go up from the document to the folder it lives in. An unfiled
+    document goes to its library's root. %>
 <% unless plan.archived? %>
-  <% library = plan.created_by_user.library %>
+  <% library = plan.library %>
   <% folder = placement&.folder %>
-  <% label = folder ? "Up to containing folder — #{folder.path}" : "Up to #{plan.created_by_user.name}’s library" %>
+  <% label = folder ? "Up to containing folder — #{folder.path}" : "Up to #{library.name}" %>
   <%= link_to(folder ? folder_browse_path(folder) : library_browse_path(library),
         class: "plan-location-link plan-location-link--#{location}",
         title: label,

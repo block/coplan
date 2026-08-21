@@ -142,6 +142,53 @@ RSpec.describe "Browsable library URLs", type: :request do
       expect(response).to have_http_status(:moved_permanently)
       expect(response.headers["Location"]).to end_with("/l/hampton/team-ebt")
     end
+
+    # /plans/<uuid> is the old name for the page, not a redirect-of-the-day:
+    # 301 so the address bar — and everything copied out of it — converges
+    # on the readable form.
+    describe "/plans/<uuid>" do
+      let!(:plan) { create(:plan, :published, created_by_user: author, title: "Cart Roadmap") }
+
+      it "301s onto the document's readable address" do
+        get "/plans/#{plan.id}"
+
+        expect(response).to have_http_status(:moved_permanently)
+        expect(response.headers["Location"]).to end_with("/l/hampton/cart-roadmap")
+      end
+
+      it "carries the query string over" do
+        get "/plans/#{plan.id}?thread=abc123"
+
+        expect(response.headers["Location"]).to end_with("/l/hampton/cart-roadmap?thread=abc123")
+      end
+
+      it "still names the readable URL as canonical when it does render" do
+        get "/l/hampton/cart-roadmap"
+
+        expect(response.body).to include(
+          %(<link rel="canonical" href="http://www.example.com/l/hampton/cart-roadmap">)
+        )
+      end
+
+      # A Turbo Frame fetch and a non-HTML caller asked for this exact URL
+      # and want a response, not a hop.
+      it "does not bounce a Turbo Frame fetch" do
+        get "/plans/#{plan.id}", headers: { "Turbo-Frame" => "plan-content" }
+
+        expect(response).to have_http_status(:ok)
+      end
+
+      # Nothing to converge on yet: both forms have to work while slugs
+      # backfill, so an unslugged plan renders at its id.
+      it "renders in place for a plan with no slug yet" do
+        plan.update_columns(slug: nil)
+
+        get "/plans/#{plan.id}"
+
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("Cart Roadmap")
+      end
+    end
   end
 
   describe "drafts" do

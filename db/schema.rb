@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_21_200043) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_21_205749) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -276,7 +276,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_21_200043) do
     t.index ["library_id", "folder_id", "plan_id"], name: "index_coplan_placements_covering_folder_counts"
     t.index ["library_id"], name: "index_coplan_plan_placements_on_library_id"
     t.index ["placed_by_user_id"], name: "fk_rails_ef17324b42"
-    t.index ["plan_id", "library_id"], name: "index_coplan_plan_placements_on_plan_id_and_library_id", unique: true
+    t.index ["plan_id"], name: "index_coplan_plan_placements_on_plan_id", unique: true
   end
 
   create_table "coplan_plan_tags", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|

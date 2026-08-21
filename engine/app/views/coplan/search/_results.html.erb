@@ -65,7 +65,7 @@
     <ul class="search-modal__list" role="listbox">
       <% results.each do |plan| %>
         <li>
-          <a href="<%= coplan.plan_path(plan) %>"
+          <a href="<%= plan_browse_path(plan) %>"
              class="search-modal__result search-modal__result--plan"
              data-search-result
              role="option"

@@ -1,13 +1,12 @@
 module CoPlan
   module Plans
-    # Shelves a plan in (or removes it from) one folder of a library —
-    # the single write path for placements, shared by the web workspace
-    # and the API so upsert semantics and the audit trail never diverge.
+    # Files a plan in (or removes it from) a folder — the single write
+    # path for placements, shared by the web workspace and the API so
+    # upsert semantics and the audit trail never diverge.
     #
-    # A plan sits in at most one folder per library: placing it again
-    # moves the placement; a nil folder unfiles it. Placing someone
-    # else's plan is first-class — the plan itself is untouched, only
-    # the actor's shelf changes.
+    # A plan sits in exactly one folder of one library, so this is always
+    # a move: filing it again relocates it, in or across libraries, and a
+    # nil folder drops it back to its author's library root.
     class Place
       Result = Struct.new(:placement, :error, keyword_init: true) do
         def success? = error.nil?
@@ -28,7 +27,10 @@ module CoPlan
         @plan = plan
         @folder = folder
         @actor = actor
-        @library = library || folder&.library || actor.library
+        # Filing means the destination; unfiling means wherever it is now.
+        # `plan.library` falls back to the author's library for a plan that
+        # isn't filed anywhere, so this is never nil.
+        @library = library || folder&.library || plan.library
         @actor_type = actor_type
         @agent_name = agent_name
         @api_token_id = api_token_id
@@ -38,64 +40,76 @@ module CoPlan
 
       def call
         unless @library.writable_by?(@actor)
-          return Result.new(error: "You can only organize your own library")
+          return Result.new(error: "You can only organize a library you own")
+        end
+        unless may_move?
+          return Result.new(error: "You can only move plans you wrote")
         end
         if @folder && @folder.library_id != @library.id
           return Result.new(error: "Folder belongs to a different library")
         end
-        placement = @library.placements.find_by(plan_id: @plan.id)
+        placement = @plan.placement
         old_path = placement&.folder&.path
-        # The plan's URL only moves when its *canonical* shelf moves —
-        # filing someone else's plan onto your own shelf is a bookmark and
-        # leaves their link alone. Captured before the write, because after
-        # it the old path is gone.
-        old_url_path = canonical_shelf? ? @plan.url_path : nil
+        # Captured before the write: afterwards the plan resolves through
+        # its new placement and the old path is gone.
+        old_url_path = @plan.url_path
 
-        # Removal is always allowed — you can take anything off your own
-        # shelf, even if the plan has since stopped being listable to you.
         if @folder.nil?
           return Result.new(placement: nil) if placement.nil?
 
           placement.destroy!
+          @plan.reload_placement
           reslug(old_url_path, nil)
           log_move(old_path, nil)
           return Result.new(placement: nil)
         end
 
-        # Shelving requires the plan to be listable for you — an unlisted
-        # draft someone linked you can be read, but filing it onto a
-        # browsable shelf would surface what its author hasn't published.
+        # Filing requires the plan to be listable for you — an unlisted
+        # draft someone linked you can be read, but filing it into a
+        # browsable library would surface what its author hasn't published.
         unless PlanPolicy.new(@actor, @plan).listed?
-          return Result.new(error: "Only published plans (or your own drafts) can be shelved")
+          return Result.new(error: "Only published plans (or your own drafts) can be filed")
         end
 
         if placement
           return Result.new(placement:) if placement.folder_id == @folder.id
 
-          placement.update!(folder: @folder, placed_by_user: @actor)
+          placement.update!(folder: @folder, library: @folder.library, placed_by_user: @actor)
         else
           placement = @library.placements.create!(
             plan: @plan, folder: @folder, placed_by_user: @actor
           )
         end
+        @plan.reload_placement
         reslug(old_url_path, @folder)
         log_move(old_path, @folder.path)
         Result.new(placement:)
       rescue ActiveRecord::RecordInvalid => e
         Result.new(error: e.record.errors.full_messages.join(", "))
       rescue ActiveRecord::RecordNotUnique
-        # Two concurrent shelves of the same plan raced past find_by; the
-        # unique [plan_id, library_id] index caught it. Retry once — the
-        # placement now exists, so this becomes a plain re-file.
+        # Two concurrent files of the same plan raced past the read; the
+        # unique plan_id index caught it. Retry once — the placement now
+        # exists, so this becomes a plain move.
         raise if @retried_unique
         @retried_unique = true
+        @plan.reload_placement
         retry
       end
 
       private
 
-      def canonical_shelf?
-        @library.id == @plan.canonical_library&.id
+      # Filing is a move of the document, not curation of a personal
+      # shelf, so it takes authority on both sides: write access to the
+      # destination library (checked above) and a claim on the plan where
+      # it sits now. Authors always qualify; otherwise you must control
+      # the library it's currently in — which is what will let a team
+      # reorganize its own library without letting anyone walk off with
+      # someone else's document.
+      def may_move?
+        return true if @plan.created_by_user_id == @actor.id
+
+        current = @plan.placement&.library
+        current.present? && current.writable_by?(@actor)
       end
 
       # A plan's slug depends on where it sits — "LiveOrder Cart Roadmap"
@@ -103,18 +117,20 @@ module CoPlan
       # anywhere else — so a move re-derives it and leaves an alias at the
       # old URL.
       def reslug(old_url_path, folder)
-        return unless canonical_shelf?
-
-        @plan.placements.reset
         AssignSlug.call(plan: @plan, folder: folder, previous_path: old_url_path,
           record_alias: @plan.published?)
         @plan.save! if @plan.changed?
       end
 
-      # Two audit trails, one write path. The plan-side event only fires for
-      # the author's own library — someone else curating their shelf isn't
-      # an event in the plan's history. The library-side event always fires:
-      # every rearrangement of a shelf is part of that library's audit log.
+      # Two audit trails, one write path. The plan-side event only fires
+      # for the author — someone else reorganizing a shared library isn't
+      # an event in the plan's own history. The library-side event always
+      # fires: every rearrangement is part of that library's audit log.
+      #
+      # A move that crosses libraries logs only the destination. Not
+      # reachable today (one library per owner, so there's nowhere else to
+      # move to); when team libraries land, the source library wants its
+      # own "plan_removed" event here.
       def log_move(old_path, new_path)
         return if old_path == new_path
 

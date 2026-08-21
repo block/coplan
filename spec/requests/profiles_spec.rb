@@ -90,7 +90,7 @@ RSpec.describe "Profiles", type: :request do
     it "links the plan header author name to their profile" do
       plan = create(:plan, :considering, created_by_user: author, title: "Linked Plan")
 
-      get plan_path(plan)
+      get plan_page_path(plan)
       expect(response.body).to include(profile_path("ada.a"))
     end
   end

@@ -67,7 +67,7 @@ module CoPlan
       # First unclaimed handle at or after `base`, so handle assignment
       # never fails on a collision.
       def unclaimed_handle(base)
-        candidate = CoPlan::Slug.call(base).presence || "library"
+        candidate = CoPlan::Slug.handle(base).presence || "library"
         return candidate unless handle_claimed?(candidate)
 
         suffix = 2
@@ -89,9 +89,12 @@ module CoPlan
     end
 
     # What this library shows at its root: the owner's own work that isn't
-    # filed into any folder here. "Unfiled" means no placement row at all,
-    # which is why these plans are addressed directly under the handle —
-    # /l/orders/some-plan — with no folder segment in between.
+    # filed in a folder. These plans are addressed directly under the
+    # handle — /l/orders/some-plan — with no folder segment between.
+    #
+    # "Filed nowhere" rather than "not filed here": a plan sits in exactly
+    # one library, so one the owner moved into a *different* library
+    # belongs at that library's root, not this one's.
     #
     # Callers add their own visibility filter; this answers location, not
     # who may see it.
@@ -99,7 +102,7 @@ module CoPlan
       return Plan.none unless owner_type == "CoPlan::User"
 
       Plan.where(created_by_user_id: owner_id)
-        .where.not(id: placements.select(:plan_id))
+        .where.not(id: PlanPlacement.select(:plan_id))
     end
 
     # Only the owner writes to a personal library. A future team library

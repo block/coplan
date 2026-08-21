@@ -15,12 +15,19 @@ module CoPlan
     # Falls back to the id form for a plan whose slug hasn't been
     # backfilled yet — the migration leaves them NULL and lets the app
     # fill them in on the next save, so both forms have to work meanwhile.
-    def plan_browse_path(plan)
-      path = plan.url_path
-      return plan_path(plan) if path.blank?
+    #
+    # Extra options (`thread:`, `anchor:`) ride along either way, so
+    # deep links don't have to know which form they got.
+    def plan_browse_path(plan, **options)
+      Urls::Canonical.plan_path(plan, **options)
+    end
 
-      handle, _, rest = path.partition("/")
-      browse_path(handle: handle, slug_path: rest)
+    # Absolute form, for rel=canonical. Returns nil rather than falling
+    # back: a canonical tag pointing at the id form would be claiming the
+    # ugly URL is the real one.
+    def plan_browse_url(plan)
+      handle, slug_path = Urls::Canonical.split(plan.url_path)
+      slug_path && browse_url(handle: handle, slug_path: slug_path)
     end
 
     # Level-view link for either kind of row, so folder and plan lists

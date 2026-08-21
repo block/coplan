@@ -27,8 +27,8 @@ module CoPlan
     belongs_to :current_version_stub, -> { select(:id, :content_sha256) },
       class_name: "PlanVersion", foreign_key: :current_plan_version_id, optional: true
     belongs_to :plan_type
-    has_many :placements, class_name: "CoPlan::PlanPlacement", inverse_of: :plan, dependent: :destroy
-    has_many :libraries, through: :placements
+    # At most one: a plan is filed in a single folder of a single library.
+    has_one :placement, class_name: "CoPlan::PlanPlacement", inverse_of: :plan, dependent: :destroy
     has_many :plan_versions, -> { order(revision: :asc) }, dependent: :destroy
     has_many :plan_events, dependent: :destroy
     has_many :plan_collaborators, dependent: :destroy
@@ -190,29 +190,24 @@ module CoPlan
       %w[plan_type created_by_user]
     end
 
-    # --- Browsable URL -------------------------------------------------
+    # --- Where the plan lives ------------------------------------------
     #
-    # A plan can be shelved in several libraries, but only one of those
-    # paths is canonical: the author's. Everyone else's placement is a
-    # bookmark — a legitimate way to *reach* the plan, never its identity.
+    # One library, one folder, one address. A filed plan lives wherever
+    # its placement puts it; an unfiled one sits at the root of the
+    # library it was born into, which is its author's. Nothing here is
+    # viewer-relative — every reader of a plan sees the same location,
+    # because there is only one.
 
-    def canonical_library
-      created_by_user&.library
+    def library
+      placement&.library || created_by_user&.library
+    end
+
+    def folder
+      placement&.folder
     end
 
     def library_handle
-      canonical_library&.handle
-    end
-
-    def canonical_placement
-      library = canonical_library
-      return nil unless library
-
-      placements.detect { |placement| placement.library_id == library.id }
-    end
-
-    def canonical_folder
-      canonical_placement&.folder
+      library&.handle
     end
 
     # "orders/liveorder/cart-roadmap" — handle first, no leading slash,
@@ -220,7 +215,7 @@ module CoPlan
     def url_path
       return nil if slug.blank? || library_handle.blank?
 
-      [ library_handle, canonical_folder&.slug_path, leaf_segment ].compact_blank.join("/")
+      [ library_handle, folder&.slug_path, leaf_segment ].compact_blank.join("/")
     end
 
     # The disambiguating suffix rides on the leaf and nowhere else, so
@@ -239,13 +234,6 @@ module CoPlan
 
     def archived?
       archived_at.present?
-    end
-
-    # A plan's containing location is the folder chosen by its author in
-    # their own library. Other people may save the same plan elsewhere, but
-    # those placements are personal organization rather than its home.
-    def author_placement
-      placements.find_by(library_id: created_by_user.library.id)
     end
 
     # Legacy API compatibility (see LEGACY_STATUSES). Emits the closest

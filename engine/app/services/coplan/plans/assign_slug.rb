@@ -30,7 +30,7 @@ module CoPlan
         @plan = plan
         # Callers mid-move pass the destination folder explicitly, since
         # the placement row may not be written yet.
-        @folder = folder == :unset ? plan.canonical_folder : folder
+        @folder = folder == :unset ? plan.folder : folder
         # A move has already changed the placement by the time we run, so
         # the old URL can't be derived from the plan any more — the caller
         # captures it beforehand and hands it over.
@@ -117,7 +117,7 @@ module CoPlan
       # At a library root, a plan's siblings are the other plans its
       # library shows there — the ones with no placement of their own.
       def unfiled_sibling_ids
-        @plan.canonical_library&.unfiled_plans&.select(:id) || []
+        @plan.library&.unfiled_plans&.select(:id) || []
       end
 
       # Keeps trying until the pair is free. Random rather than sequential

@@ -11,9 +11,15 @@ module CoPlan
     #   { op: "describe_folder", folder_path:|folder_id:, description: }
     #   { op: "move_folder",     folder_path:|folder_id:, new_parent_path:|new_parent_id: }  (blank → root)
     #   { op: "delete_folder",   folder_path:|folder_id: }                                   (must be empty)
-    #   { op: "move",            plan_id:, folder_path:|folder_id:, from_library_id: }       (blank dest → unfile)
-    #   { op: "move_many",       plan_ids: [...], folder_path:|folder_id:, from_library_id: }
+    #   { op: "move",            plan_id:, folder_path:|folder_id: }                         (blank dest → unfile)
+    #   { op: "move_many",       plan_ids: [...], folder_path:|folder_id: }
     #   { op: "move_by_tag",     tag:, folder_path:|folder_id:, scope: "library"|"visible" }
+    #
+    # `from_library_id` on the move ops is accepted and ignored — old
+    # callers still send it. A plan is filed in exactly one place, so
+    # filing it somewhere new already takes it out of where it was; there
+    # is no source side to name. Plans::Place checks the authority that
+    # used to need naming (see its `may_move?`).
     #
     # Each operation is atomic (a savepoint): a failed op rolls itself back
     # and reports an error while the rest of the batch proceeds. With
@@ -190,7 +196,6 @@ module CoPlan
         plan = find_visible_plan!(op[:plan_id])
         folder = resolve_destination(op)
         place!(plan, folder)
-        remove_from_source!(plan, op)
         ok(plan_id: plan.id, plan_title: plan.title, path: folder&.path)
       end
 
@@ -213,7 +218,6 @@ module CoPlan
           ActiveRecord::Base.transaction(requires_new: true) do
             plan = find_visible_plan!(plan_id)
             place!(plan, folder)
-            remove_from_source!(plan, op)
             moved << { plan_id: plan.id, plan_title: plan.title }
           end
         rescue OpError => e
@@ -252,7 +256,7 @@ module CoPlan
         if op[:scope].to_s == "visible"
           scoped.active
         else
-          scoped.joins(:placements).where(coplan_plan_placements: { library_id: @library.id })
+          scoped.joins(:placement).where(coplan_plan_placements: { library_id: @library.id })
         end
       end
 
@@ -264,25 +268,6 @@ module CoPlan
           raise OpError, "Plan not found"
         end
         plan
-      end
-
-      # Cross-library move: after shelving here, remove the placement from
-      # the source library. Both sides are gated by Library#writable_by?,
-      # and a failure raises out of the surrounding savepoint — never half
-      # a move.
-      def remove_from_source!(plan, op)
-        return if op[:from_library_id].blank? || op[:from_library_id] == @library.id
-
-        source = Library.find_by(id: op[:from_library_id])
-        raise OpError, "Source library not found" unless source
-
-        removal = Plans::Place.call(
-          plan: plan, folder: nil, actor: @actor, library: source,
-          actor_type: @actor_type, agent_name: @agent_name, api_token_id: @api_token_id, run_id: @run_id, event_metadata: event_metadata
-        )
-        unless removal.success?
-          raise OpError, "Could not remove from source library: #{removal.error}"
-        end
       end
 
       def place!(plan, folder)

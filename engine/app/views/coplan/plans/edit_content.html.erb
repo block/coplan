@@ -34,7 +34,7 @@
         so their change isn't lost by accident.
       </p>
       <p>
-        <%= link_to "Review the latest version", plan_path(@plan), target: "_blank", rel: "noopener" %>,
+        <%= link_to "Review the latest version", plan_browse_path(@plan), target: "_blank", rel: "noopener" %>,
         fold anything you want to keep into your draft below, then:
       </p>
       <%= button_tag "Save anyway — replace v#{@conflict_revision} with my draft",
@@ -92,7 +92,7 @@
 
   <div class="plan-form__actions">
     <%= submit_tag "Save new version", class: "btn btn--primary" %>
-    <%= link_to "Cancel", plan_path(@plan), class: "btn btn--secondary" %>
+    <%= link_to "Cancel", plan_browse_path(@plan), class: "btn btn--secondary" %>
     <span class="text-sm text-muted editor__hint"><kbd>⌘</kbd>+<kbd>Enter</kbd> to save</span>
   </div>
 <% end %>
