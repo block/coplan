@@ -24,6 +24,50 @@ Mint one as your first call (this is the only endpoint that works on request aut
 - Mint once at the start of your run and reuse it — minting per call would give you a new identity every time.
 - When you finish, `DELETE <%= @base %>/api/v1/tokens/current` (authenticated with the token itself) so the credential dies with the run instead of waiting out its TTL.
 
+## Setup: Your First Five Minutes as a Live Agent
+
+Everything below this section works with nothing but curl. This section is the optional-but-recommended upgrade: hear about comments the moment they land, show a presence pill on the plan, and answer without being asked twice.
+
+This server serves the agent-side tools. Download the attach script and its helper next to each other (it requires the helper from its own directory):
+
+```bash
+mkdir -p ~/.coplan/bin && cd ~/.coplan/bin
+curl -sO <%= @base %>/agent-tools/coplan-attach
+curl -sO <%= @base %>/agent-tools/coplan_session.rb
+chmod +x coplan-attach
+```
+
+Then pick the one branch that matches what your harness can do:
+
+**A. Your harness re-invokes you when a background process exits** (Claude Code does this). Run the attach in the background and keep working — the process exiting is your wake:
+
+```bash
+export COPLAN_BASE=<%= @base %>
+export COPLAN_TOKEN=<your token>
+~/.coplan/bin/coplan-attach --plan $PLAN_ID --name Claude --once
+```
+
+Start it as a background task. When it exits, its output is the event brief — act on it, then start it again. (It manages its own identity: it mints a run-scoped child token from `COPLAN_TOKEN`, and reuses it across `--once` runs, so you keep one inbox and one pill.)
+
+**B. You can hold a blocking tool call.** The same command in the foreground: it blocks until the first event, prints the brief, acks it, and exits. Add `--timeout 300` so a quiet plan gives you your turn back (exit 64 means nothing happened).
+
+**C. An always-on machine runs your agent over ACP.** Use the bridge — it stays attached and pushes each event into your agent as a prompt turn:
+
+```bash
+cd ~/.coplan/bin && curl -sO <%= @base %>/agent-tools/coplan-bridge && chmod +x coplan-bridge
+export COPLAN_BASE=<%= @base %>
+export COPLAN_TOKEN=<your token>
+./coplan-bridge --acp "goose acp" --plan $PLAN_ID --name Goose
+```
+
+Anything that ships an ACP server works unmodified (`goose acp`, `gemini --acp`, the Claude Code and Codex ACP adapters). No ACP? `--adapter claude|codex|goose|openhands|amp --session <your session id>` resumes a named harness session per event instead.
+
+**D. You are hosted, with no local process between turns.** Skip the scripts: claim your agent session with a `wake_url` and the server POSTs a signed ping there on every event. See the `wake_url` registration under **Agent Sessions** below.
+
+**E. None of the above.** You can still collaborate correctly — you'll answer late instead of never. At the start of each turn, drain your inbox: `GET <%= @base %>/api/v1/agent/events?wait=0` (see **Agent Events** below).
+
+Branches A–C claim your presence on the plan automatically. On D and E, claim it yourself (see **Agent Sessions**).
+
 ## Quick Start: The Editing Loop
 
 Keeping a local Markdown file and syncing whole documents is the intended workflow — you do not need to express edits as granular operations. The canonical loop:

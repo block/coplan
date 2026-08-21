@@ -136,6 +136,12 @@ CoPlan::Engine.routes.draw do
   end
 
   get "llms.txt", to: "llms#show", as: :llms_txt
+  # The agent-side scripts, downloadable with curl — the setup section of
+  # /agent-instructions points agents here. format: false so the ".rb" of
+  # coplan_session.rb reaches the controller instead of being peeled off
+  # as a format.
+  get "agent-tools/:tool", to: "agent_tools#show", as: :agent_tool,
+    format: false, constraints: { tool: /[A-Za-z0-9_.-]+/ }
   get "agent-instructions", to: "agent_instructions#show", as: :agent_instructions
   # Sub-instructions: the library-organizing guide, fetched on demand so the
   # main instructions stay small (agents only spend context when organizing).

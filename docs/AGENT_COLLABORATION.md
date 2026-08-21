@@ -61,6 +61,13 @@ interrupting. `script/coplan-attach` holds one server-driven SSE
 connection and prints the moment something happens: no interval to tune,
 no daemon, no config file, no harness integration.
 
+The scripts live in the engine (`engine/agent_tools/`) and every CoPlan
+server serves them at `/agent-tools/coplan-attach`,
+`/agent-tools/coplan_session.rb`, and `/agent-tools/coplan-bridge` — so
+a first encounter needs nothing but curl. The "Setup: Your First Five
+Minutes" section of `/agent-instructions` walks an agent through the
+download and the branch-by-harness choice below.
+
 ```bash
 export COPLAN_BASE=http://localhost:3222 COPLAN_TOKEN=<token>
 
@@ -144,14 +151,27 @@ Presence stays honest whichever way delivery goes, on two principles:
 
 ## The bridge (only for agents that have exited)
 
-If nothing is running, something has to start it. `script/coplan-bridge
---config bridge.json` claims sessions on the plans you list, drains the
-inbox, and injects each event into your harness via a "resume session
-with message" command. It flips the pill to `active` before the harness
-even boots, so the human sees life immediately.
+If nothing is running, something has to start it. The bridge claims
+sessions on the plans you list, drains the inbox, and injects each event
+into your harness via ACP or a "resume session with message" command. It
+flips the pill to `active` before the harness even boots, so the human
+sees life immediately.
 
 This is strictly the cold-start path. If you keep a session attached
 while you work, skip the bridge entirely.
+
+The simple path is flags — no config file:
+
+```bash
+export COPLAN_BASE=http://localhost:3222 COPLAN_TOKEN=<token>
+script/coplan-bridge --acp "goose acp" --plan <plan-id> --name Goose
+```
+
+(`--adapter <name> --session <id>` for the exec-resume rows; `--approve`
+to auto-grant ACP permission asks; an adapter must always be named —
+there is no default, so nobody gets the plan-editing demo agent by
+surprise.) Setups worth writing down go in a config file, with the same
+keys; flags win over the file:
 
 ```json
 {
@@ -182,8 +202,9 @@ exec-resume rows survive for harnesses without an ACP server.
 
 Unattended runs need each harness's permission-relaxation flag
 (`--permission-mode acceptEdits`, `--full-auto`, `GOOSE_MODE=auto`, …).
-The default `claude` adapter uses `acceptEdits`; choose your own posture
-deliberately — the bridge never escalates beyond what the config says.
+The stock `claude` command template uses `acceptEdits`; choose your own
+posture deliberately — the bridge never escalates beyond what the
+config says.
 
 An agent doesn't need the bridge at all: any agent that can run curl in
 a loop can follow the "Live Collaboration" section of
