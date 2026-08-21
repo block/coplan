@@ -18,10 +18,15 @@
       data-coplan--voice-url-value="<%= plan_comment_threads_path(plan) %>"
       data-coplan--voice-dictation-url-value="<%= plan_dictations_path(plan) %>"
       data-coplan--voice-transcription-value="<%= CoPlan::Ai.available? %>"
+      data-coplan--voice-hotkey-value="<%= current_user.voice_hotkey %>"
       class="voice-control">
+  <%# The tooltip and label name the push-to-talk key, which is a per-user
+      setting: rendered here for the server's part of it, then rewritten by
+      the controller, which knows whether this is a Mac. %>
   <button type="button" class="btn btn--ghost btn--sm btn--icon voice-btn"
           data-coplan--voice-target="button" data-action="coplan--voice#toggle"
-          aria-label="Comment by voice" title="Comment by voice — or hold Shift to talk">
+          aria-label="<%= voice_button_description(current_user.voice_hotkey) %>"
+          data-tooltip="<%= voice_button_description(current_user.voice_hotkey) %>">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
   </button>
   <span class="voice-status text-sm text-muted" data-coplan--voice-target="status" aria-live="polite"></span>

@@ -57,7 +57,7 @@ RSpec.describe "Navigation chrome", type: :system do
   describe "theme switcher" do
     it "applies the chosen theme immediately and persists it across reload" do
       visit settings_root_path
-      find(".theme-switcher__option", text: "Dark").click
+      find(".segmented__option", text: "Dark").click
 
       expect(page.evaluate_script("document.documentElement.getAttribute('data-theme')")).to eq("dark")
       expect(user.reload.theme_preference).to eq("dark")

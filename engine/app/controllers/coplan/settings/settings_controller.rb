@@ -14,6 +14,15 @@ module CoPlan
         end
         head :ok
       end
+
+      def update_voice_hotkey
+        hotkey = params[:voice_hotkey]
+        if CoPlan::User::VOICE_HOTKEYS.include?(hotkey)
+          current_user.voice_hotkey = hotkey
+          current_user.save!
+        end
+        head :ok
+      end
     end
   end
 end

@@ -167,6 +167,7 @@ reader to an apparently empty page.
 - `a` — accept the current pending thread
 - `d` — discard the current pending thread
 - `Enter` — submit reply; `Shift+Enter` — newline
+- Push-to-talk (hold to dictate a comment) is a per-user setting — `Ctrl+Space` by default, or Shift / Option / off (`CoPlan::User::VOICE_HOTKEYS`, `voice_controller.js`). A bare modifier has to be held past a delay to tell talking from typing; a chord records from the press.
 
 ### How thread data flows
 - Thread data is **server-rendered** as hidden `[data-anchor-text]` elements in `#plan-threads` (via `_thread_popover.html.erb`)
