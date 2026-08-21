@@ -33,6 +33,7 @@ CoPlan::Engine.routes.draw do
     root "settings#index"
     resources :tokens, only: [:index, :create, :destroy]
     patch "theme", to: "settings#update_theme"
+    patch "voice_hotkey", to: "settings#update_voice_hotkey"
   end
 
   # Web folder creation (sidebar "New folder" input) and reparenting (drag

@@ -140,10 +140,108 @@ RSpec.describe "Voice commenting", type: :system do
     expect(body).to include("too vague")
   end
 
+  # The default key, and the reason it's the default: a chord is nobody's
+  # accident, so it needs none of the hold-delay hedging a bare modifier
+  # does — the press means talk.
+  describe "hold Ctrl+Space to talk" do
+    before do
+      allow(CoPlan::Ai).to receive(:call)
+        .and_return({ "text" => "Held to talk.", "span" => nil }.to_json)
+    end
+
+    after { page.driver.browser.action.release_actions }
+
+    def hold_ctrl_space
+      page.driver.browser.action.key_down(:control).key_down(:space).perform
+      yield if block_given?
+    ensure
+      page.driver.browser.action.key_up(:space).key_up(:control).perform
+    end
+
+    it "records while Ctrl+Space is held and posts on release" do
+      stub_speech_recognition("held to talk", emit_on_stop: true)
+      visit plan_path(plan)
+
+      hold_ctrl_space { expect(page).to have_css(".voice-btn--listening") }
+
+      expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+      thread = CoPlan::CommentThread.where(plan_id: plan.id).sole
+      expect(thread.comments.first.body_markdown).to eq("🎙️ Held to talk.")
+    end
+
+    # No hold delay on a chord: waiting 350ms to decide would clip the
+    # first word off every short remark for no gain, because there is
+    # nothing to decide.
+    it "starts on the press rather than waiting out a hold" do
+      stub_speech_recognition("held to talk", emit_on_stop: true)
+      visit plan_path(plan)
+
+      page.driver.browser.action.key_down(:control).key_down(:space).perform
+      expect(page).to have_css(".voice-btn--listening", wait: 0.3)
+    ensure
+      page.driver.browser.action.release_actions
+    end
+
+    # Space alone scrolls the page and Ctrl alone is half a shortcut;
+    # neither is somebody asking to talk.
+    it "ignores either half of the chord on its own" do
+      stub_speech_recognition("should never be sent", emit_on_stop: true)
+      visit plan_path(plan)
+
+      page.driver.browser.action.key_down(:control).key_up(:control).perform
+      page.driver.browser.action.send_keys(:space).perform
+
+      expect(page).to have_no_css(".voice-btn--listening", wait: 2)
+      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+    end
+  end
+
+  # The key is a per-user setting, so the mic is the only thing on the
+  # page that can say which one yours is. Hovering has to answer it, or
+  # push-to-talk is a feature you have to remember you configured.
+  describe "the mic naming its own key" do
+    it "shows the chosen shortcut on hover" do
+      stub_speech_recognition("never sent")
+      visit plan_path(plan)
+
+      expect(page).to have_css(".voice-btn[data-tooltip*='Ctrl+Space']")
+
+      author.update!(voice_hotkey: "shift")
+      visit plan_path(plan)
+      expect(page).to have_css(".voice-btn[data-tooltip*='Shift']")
+
+      # Nothing to hold, nothing to promise.
+      author.update!(voice_hotkey: "off")
+      visit plan_path(plan)
+      expect(page).to have_css(".voice-btn[data-tooltip='Comment by voice']")
+    end
+  end
+
+  # "Off" is a supported answer, not a broken state: the mic button is
+  # still there, and the keyboard belongs to the page again.
+  describe "with the hotkey turned off" do
+    before { author.update!(voice_hotkey: "off") }
+
+    it "leaves the keyboard alone but keeps the button" do
+      stub_speech_recognition("should never be sent", emit_on_stop: true)
+      visit plan_path(plan)
+
+      page.driver.browser.action.key_down(:control).key_down(:space).perform
+      expect(page).to have_no_css(".voice-btn--listening", wait: 2)
+      page.driver.browser.action.release_actions
+
+      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+      expect(page).to have_css(".voice-btn")
+    end
+  end
+
+  # What everyone who was here before the setting existed still has,
+  # because the backfill wrote it down for them.
   describe "hold Shift to talk" do
     HOLD = 0.7 # comfortably past the controller's 350ms hold delay
 
     before do
+      author.update!(voice_hotkey: "shift")
       allow(CoPlan::Ai).to receive(:call)
         .and_return({ "text" => "Held to talk.", "span" => nil }.to_json)
     end
@@ -404,6 +502,7 @@ RSpec.describe "Voice commenting", type: :system do
     # ear now opens at the keydown itself, and confirming the hold adopts
     # a capture already in progress.
     it "captures from the press when talking with Shift held" do
+      author.update!(voice_hotkey: "shift")
       allow(CoPlan::Ai).to receive(:transcribe).and_return("oh I meant both of them")
       allow(CoPlan::Ai).to receive(:call)
         .and_return({ "text" => "Oh — I meant both of them.", "span" => nil }.to_json)

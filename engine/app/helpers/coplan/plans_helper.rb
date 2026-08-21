@@ -88,6 +88,16 @@ module CoPlan
         aria: { label: "#{plan_type.name} document" })
     end
 
+    # What the mic button says about itself. The push-to-talk key is a
+    # setting, so the button is the only place on the page that can tell
+    # you which key yours ended up being — and "hold something to talk"
+    # is worse than saying nothing.
+    def voice_button_description(hotkey)
+      return "Comment by voice" if hotkey == "off"
+
+      "Comment by voice — or hold #{User::VOICE_HOTKEY_LABELS[hotkey]} to talk"
+    end
+
     def plan_content_preview(plan, limit: 200)
       stub = plan.current_version_stub
       return nil if stub.nil?
