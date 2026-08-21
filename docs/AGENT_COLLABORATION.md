@@ -63,10 +63,19 @@ no daemon, no config file, no harness integration.
 
 The scripts live in the engine (`engine/agent_tools/`) and every CoPlan
 server serves them at `/agent-tools/coplan-attach`,
-`/agent-tools/coplan_session.rb`, and `/agent-tools/coplan-bridge` — so
-a first encounter needs nothing but curl. The "Setup: Your First Five
-Minutes" section of `/agent-instructions` walks an agent through the
-download and the branch-by-harness choice below.
+`/agent-tools/coplan_session.rb`, and `/agent-tools/coplan-bridge` —
+but they are deliberately not the front door. Served scripts are
+executable code fetched from the network (and need Ruby), so the
+"Setup: Your First Five Minutes as a Live Agent" section of
+`/agent-instructions` leads with a raw-curl wait loop any agent can
+run, then tells the agent to save that wiring as a durable local
+skill, saved command, or standing ACP bridge config — and only then
+offers the scripts as an optional convenience, behind a
+read-before-you-run checklist scoped per script (attach and its
+helper: network calls to this server only, writes only under
+`~/.coplan`/`$COPLAN_HOME`, no subprocesses; the bridge: additionally
+reads its config file and execs exactly the one agent command you
+configured).
 
 ```bash
 export COPLAN_BASE=http://localhost:3222 COPLAN_TOKEN=<token>
