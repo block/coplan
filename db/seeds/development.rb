@@ -25,7 +25,7 @@ module CoPlan
       { name: "Runbook", icon: "wrench", description: "Operational diagnosis and recovery steps", default_tags: [ "operations" ] },
       { name: "Research Note", icon: "flask", description: "Findings, evidence, and open questions", default_tags: [ "research" ] },
       { name: "Roadmap", icon: "map", description: "Sequenced outcomes and milestones", default_tags: [ "roadmap" ] },
-      { name: "Slideshow", icon: "presentation", behavior: "slideshow", description: "A markdown slide deck — `---` starts a new slide", default_tags: [] }
+      { name: "Presentation", icon: "presentation", behavior: "presentation", description: "A markdown slide deck — `---` starts a new slide", default_tags: [] }
     ].freeze
 
     DOCUMENTS = [
@@ -91,7 +91,7 @@ module CoPlan
         tags: %w[search performance caching], visibility: "published", folder: "Engineering/Active projects", fixture: :collab_showcase
       },
       {
-        key: "launch-deck", author: "priya", type: "Slideshow", title: "Shared workspaces launch — readout deck",
+        key: "launch-deck", author: "priya", type: "Presentation", title: "Shared workspaces launch — readout deck",
         tags: %w[collaboration launch], visibility: "published", folder: "Product/Launches/Shared workspace", fixture: :slideshow_deck
       }
     ].freeze

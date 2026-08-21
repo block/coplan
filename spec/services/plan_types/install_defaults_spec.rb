@@ -14,7 +14,7 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
       expect(result.created).to include(
         "Engineering Design", "Exploration", "PRD", "Project 1-Pager",
         "Research", "Technical Documentation", "Implementation Plan",
-        "Test Plan", "Handoff", "Scratchpad", "General", "Slideshow"
+        "Test Plan", "Handoff", "Scratchpad", "General", "Presentation"
       )
       expect(CoPlan::PlanType.count).to eq(result.created.size)
 
@@ -31,9 +31,9 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
     it "installs behavior from front matter, defaulting to document" do
       described_class.call
 
-      slideshow = CoPlan::PlanType.find_by_name("Slideshow")
-      expect(slideshow.behavior).to eq("slideshow")
-      expect(slideshow.template_content).to include("---")
+      presentation = CoPlan::PlanType.find_by_name("Presentation")
+      expect(presentation.behavior).to eq("presentation")
+      expect(presentation.template_content).to include("---")
       expect(CoPlan::PlanType.find_by_name("Research").behavior).to eq("document")
     end
 

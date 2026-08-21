@@ -232,8 +232,8 @@ module CoPlan
     # Deck-ness is the plan type's behavior, not the plan's own state —
     # retyping a plan (already supported via the API) is what converts a
     # document into a deck and back.
-    def slideshow?
-      plan_type&.slideshow? || false
+    def presentation?
+      plan_type&.presentation? || false
     end
 
     # Memoized stripped-markdown + position map for the current content.

@@ -3,10 +3,10 @@ module CoPlan
     GENERAL_NAME = "General"
 
     # How plans of this type render and behave. "document" is the classic
-    # prose reading view; "slideshow" renders the same markdown as a slide
-    # deck (slides split on `---`). Behavior lives on the type row — not on
-    # the type's name — so hosts can rename types freely.
-    BEHAVIORS = %w[document slideshow].freeze
+    # prose reading view; "presentation" renders the same markdown as a
+    # slide deck (slides split on `---`). Behavior lives on the type row —
+    # not on the type's name — so hosts can rename types freely.
+    BEHAVIORS = %w[document presentation].freeze
 
     # Every plan must have a type, so a type with plans can't be deleted —
     # nullify would mint invalid (and, at the DB level, unstorable) plans.
@@ -22,8 +22,8 @@ module CoPlan
     validates :name, presence: true, uniqueness: { case_sensitive: false }
     validates :behavior, presence: true, inclusion: { in: BEHAVIORS }
 
-    def slideshow?
-      behavior == "slideshow"
+    def presentation?
+      behavior == "presentation"
     end
 
     # Case-insensitive, adapter-independent name lookup. MySQL's default

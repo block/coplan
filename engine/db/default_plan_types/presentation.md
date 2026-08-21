@@ -1,13 +1,13 @@
 ---
-name: Slideshow
+name: Presentation
 icon: presentation
-behavior: slideshow
+behavior: presentation
 description: >-
   A slide deck written as plain markdown — every `---` starts a new slide,
   layout is inferred from the content, and the deck is reviewed, versioned,
   and presented from the same plan. One idea per slide.
 ---
-<!-- Slideshow: a deck, not a document. Each slide is separated by `---` on
+<!-- Presentation: a deck, not a document. Each slide is separated by `---` on
 its own line. Keep one idea per slide - a headline sentence, not a topic
 label, plus at most a handful of bullets. Layout is chosen automatically
 from what the slide contains (a lone heading becomes a title slide, two

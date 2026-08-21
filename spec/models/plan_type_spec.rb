@@ -81,9 +81,9 @@ RSpec.describe CoPlan::PlanType, type: :model do
       expect(plan_type.errors[:behavior]).to be_present
     end
 
-    it "answers slideshow? from the behavior column" do
-      expect(build(:plan_type, behavior: "slideshow").slideshow?).to be(true)
-      expect(build(:plan_type, behavior: "document").slideshow?).to be(false)
+    it "answers presentation? from the behavior column" do
+      expect(build(:plan_type, behavior: "presentation").presentation?).to be(true)
+      expect(build(:plan_type, behavior: "document").presentation?).to be(false)
     end
   end
 

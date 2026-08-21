@@ -1,0 +1,60 @@
+/* Deck rendering for presentation-behavior plans.
+
+   Provisional review-view styling only: the real slide design system —
+   layout classifier, type scale steps, themes — arrives with SLIDE_SPEC.md
+   and replaces most of this file. Two rules are load-bearing already:
+   everything deck-scoped lives under .deck / .deck-* (so the design system
+   can be extracted as a standalone stylesheet later), and slide chrome is
+   structure around the content, never text inside it (comment anchors
+   count visible-text occurrences). */
+
+.deck {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.deck-slide {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  padding: 40px 56px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  /* Content that doesn't fit scrolls rather than clips — the visible cue
+     the fit report will later formalize. */
+  overflow-y: auto;
+}
+
+.deck-slide::after {
+  content: attr(data-slide);
+  position: absolute;
+  right: 16px;
+  bottom: 10px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* A slide reads from across the room, not at document scale. Flat bumps
+   until the classifier assigns real type-scale steps per layout. */
+.deck-slide .markdown-rendered h1 {
+  font-size: 2.2em;
+  line-height: 1.15;
+  border: none;
+}
+
+.deck-slide .markdown-rendered h2 {
+  font-size: 1.6em;
+  line-height: 1.2;
+  border: none;
+}
+
+.deck-slide .markdown-rendered p,
+.deck-slide .markdown-rendered li {
+  font-size: 1.12em;
+  line-height: 1.5;
+}
