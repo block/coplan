@@ -24,7 +24,8 @@ module CoPlan
       { name: "Product Brief", icon: "lightbulb", description: "Product context, goals, and measures of success", default_tags: [ "product" ] },
       { name: "Runbook", icon: "wrench", description: "Operational diagnosis and recovery steps", default_tags: [ "operations" ] },
       { name: "Research Note", icon: "flask", description: "Findings, evidence, and open questions", default_tags: [ "research" ] },
-      { name: "Roadmap", icon: "map", description: "Sequenced outcomes and milestones", default_tags: [ "roadmap" ] }
+      { name: "Roadmap", icon: "map", description: "Sequenced outcomes and milestones", default_tags: [ "roadmap" ] },
+      { name: "Presentation", icon: "presentation", behavior: "presentation", description: "A markdown slide deck — `---` starts a new slide", default_tags: [] }
     ].freeze
 
     DOCUMENTS = [
@@ -88,6 +89,10 @@ module CoPlan
       {
         key: "collab-showcase", author: "priya", type: "Design Doc", title: "Search latency: cutting p95 with a two-tier cache",
         tags: %w[search performance caching], visibility: "published", folder: "Engineering/Active projects", fixture: :collab_showcase
+      },
+      {
+        key: "launch-deck", author: "priya", type: "Presentation", title: "Shared workspaces launch — readout deck",
+        tags: %w[collaboration launch], visibility: "published", folder: "Product/Launches/Shared workspace", fixture: :slideshow_deck
       }
     ].freeze
 
@@ -294,6 +299,58 @@ module CoPlan
 
         [^p95-baseline]: [Q2 search latency review](https://observability.example.com/d/search-latency) — trailing 30 days: p95 840 ms, p50 118 ms, with fan-out retries accounting for 62% of tail samples.
         [^redis-eviction]: [Redis key eviction](https://redis.io/docs/latest/develop/reference/eviction/) — `allkeys-lru` approximates LRU across the whole keyspace, which fits a cache-only tier.
+      MARKDOWN
+      # Showcases the slideshow conventions end-to-end: `---` slide breaks,
+      # speaker-note comments, a visible `***` rule (not a break), checkboxes
+      # on a later slide (absolute line numbers), and footnote/link-reference
+      # definitions that live on a different slide than their references.
+      slideshow_deck: <<~'MARKDOWN',
+        Q3 launch readout, presented at the product review. A `---` on its own line starts a new slide.
+
+        <!-- notes: Open with the one-number summary — adoption doubled. -->
+
+        ---
+
+        ## What shipped
+
+        - Shared workspaces on web, iOS, and Android
+        - Folder-level permissions with inherited defaults
+        - Real-time presence in every document[^presence]
+
+        ***
+
+        Rules like the one above stay visible — only `---` starts a new slide.
+
+        ---
+
+        ## Rollout checklist
+
+        - [x] Beta cohort (12 teams)
+        - [x] Pricing page update
+        - [ ] Follow-up survey to beta admins
+
+        <!-- notes: The survey ships Friday; results feed the next readout. -->
+
+        ---
+
+        ## How it went
+
+        ```text
+        week 1  ████████ 41%
+        week 2  ██████████████ 72%
+        week 4  ████████████████ 89%
+        ```
+
+        Weekly active teams, per the [launch dashboard][dash].
+
+        ---
+
+        ## Ask
+
+        Approve headcount for the sync-conflicts workstream.
+
+        [dash]: https://observability.example.com/d/workspace-adoption
+        [^presence]: Presence reuses the comment-notification channel, so it ships with no new infrastructure.
       MARKDOWN
       spanish: "## Problema\n\nLas personas nuevas necesitan saber qué paso completar.\n\n## Resultado\n\nUna lista breve muestra el siguiente paso.",
       japanese: "## 目標\n\n障害の影響を小さくし、復旧までの時間を短縮します。\n\n## 次のステップ\n\n復旧手順を自動で検証します。",
@@ -604,7 +661,7 @@ module CoPlan
       parts = [ "# #{definition.fetch(:title)}" ]
 
       # Fixtures that are complete document bodies — no lorem filler around them.
-      if %i[spanish japanese arabic code_walkthrough collab_showcase].include?(definition[:fixture])
+      if %i[spanish japanese arabic code_walkthrough collab_showcase slideshow_deck].include?(definition[:fixture])
         parts << fixture
         return parts.join("\n\n")
       end

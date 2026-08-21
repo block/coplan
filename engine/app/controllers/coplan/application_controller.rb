@@ -10,6 +10,7 @@ module CoPlan
     helper CoPlan::ApplicationHelper
     helper CoPlan::PlansHelper
     helper CoPlan::MarkdownHelper
+    helper CoPlan::SlideshowsHelper
     helper CoPlan::CommentsHelper
     helper CoPlan::ReferencesHelper
     helper CoPlan::PlanEventsHelper

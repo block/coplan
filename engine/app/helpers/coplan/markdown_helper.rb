@@ -46,7 +46,12 @@ module CoPlan
     # one markdown fragment (e.g. each comment) — commonmarker numbers
     # footnote ids from #fn-1 per document, so unprefixed fragments collide
     # and reference/backref links jump to the wrong footnote.
-    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline)
+    #
+    # line_offset: pass the fragment's 0-based starting line in the full
+    # document when rendering a slice of a larger plan (slideshow slides).
+    # Checkbox toggles write to source lines by number, so their data-line
+    # must stay document-absolute even when the render sees only a fragment.
+    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0)
       render_options = { unsafe: true }
       # Sourcepos is only needed to wire checkboxes to their source lines;
       # make_checkboxes_interactive strips it from the final output.
@@ -55,7 +60,7 @@ module CoPlan
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
-      result = interactive ? make_checkboxes_interactive(sanitized, content) : sanitized
+      result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset) : sanitized
       result = scope_footnote_ids(result, footnote_prefix) if footnote_prefix
       result = select_footnotes(result, footnotes)
       return result.html_safe if footnotes == :only
@@ -188,8 +193,9 @@ module CoPlan
     # sourcepos metadata, so the parser that decides what renders as a
     # checkbox is also the authority on which line it came from. A checkbox
     # only becomes interactive when its own source line matches
-    # TASK_LINE_PATTERN.
-    def make_checkboxes_interactive(html, content)
+    # TASK_LINE_PATTERN. Sourcepos lines are fragment-relative; line_offset
+    # shifts the emitted data-line back to document coordinates.
+    def make_checkboxes_interactive(html, content, line_offset: 0)
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
       source_lines = content.to_s.each_line.map(&:rstrip)
 
@@ -204,7 +210,7 @@ module CoPlan
         cb.remove_attribute("disabled")
         cb["data-action"] = "coplan--checkbox#toggle"
         cb["data-line-text"] = line_text
-        cb["data-line"] = line_number.to_s
+        cb["data-line"] = (line_number + line_offset).to_s
 
         li.add_class("task-list-item")
 

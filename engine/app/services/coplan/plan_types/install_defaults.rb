@@ -61,6 +61,9 @@ module CoPlan
           name: name,
           description: meta["description"].to_s.strip.presence,
           icon: meta["icon"].to_s.strip.presence,
+          # Explicit "document" rather than nil: create! with an explicitly
+          # nil attribute bypasses the column default and violates NOT NULL.
+          behavior: meta["behavior"].to_s.strip.presence || "document",
           default_tags: Array(meta["default_tags"]).map(&:to_s),
           template_content: match[:body].strip.presence
         }

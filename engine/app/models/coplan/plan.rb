@@ -229,6 +229,13 @@ module CoPlan
       current_plan_version&.content_markdown
     end
 
+    # Deck-ness is the plan type's behavior, not the plan's own state —
+    # retyping a plan (already supported via the API) is what converts a
+    # document into a deck and back.
+    def presentation?
+      plan_type&.presentation? || false
+    end
+
     # Memoized stripped-markdown + position map for the current content.
     # Reused by multiple CommentThread#anchor_occurrence_index calls within
     # the same request to avoid re-parsing the full plan for each thread.

@@ -14,7 +14,7 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
       expect(result.created).to include(
         "Engineering Design", "Exploration", "PRD", "Project 1-Pager",
         "Research", "Technical Documentation", "Implementation Plan",
-        "Test Plan", "Handoff", "Scratchpad", "General"
+        "Test Plan", "Handoff", "Scratchpad", "General", "Presentation"
       )
       expect(CoPlan::PlanType.count).to eq(result.created.size)
 
@@ -26,6 +26,15 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
       # The catch-alls deliberately ship without templates.
       expect(CoPlan::PlanType.find_by_name("Scratchpad").template_content).to be_nil
       expect(CoPlan::PlanType.find_by_name("General").template_content).to be_nil
+    end
+
+    it "installs behavior from front matter, defaulting to document" do
+      described_class.call
+
+      presentation = CoPlan::PlanType.find_by_name("Presentation")
+      expect(presentation.behavior).to eq("presentation")
+      expect(presentation.template_content).to include("---")
+      expect(CoPlan::PlanType.find_by_name("Research").behavior).to eq("document")
     end
 
     it "is idempotent" do

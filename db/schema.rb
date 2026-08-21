@@ -285,6 +285,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_195225) do
   end
 
   create_table "coplan_plan_types", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "behavior", limit: 20, default: "document", null: false
     t.datetime "created_at", null: false
     t.json "default_tags"
     t.text "description"
