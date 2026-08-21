@@ -53,7 +53,7 @@ RSpec.describe CoPlan::Plans::PositionResolver do
         result.ranges.each do |range|
           expect(content[range[0]...range[1]]).to eq("foo")
         end
-        expect(result.ranges.map(&:first)).to eq([0, 8, 16])
+        expect(result.ranges.map(&:first)).to eq([ 0, 8, 16 ])
       end
     end
 
@@ -88,8 +88,8 @@ RSpec.describe CoPlan::Plans::PositionResolver do
       it "returns non-overlapping ranges" do
         result = resolve
         expect(result.ranges.length).to eq(2)
-        expect(result.ranges[0]).to eq([0, 2])
-        expect(result.ranges[1]).to eq([2, 4])
+        expect(result.ranges[0]).to eq([ 0, 2 ])
+        expect(result.ranges[1]).to eq([ 2, 4 ])
       end
     end
 
@@ -339,7 +339,7 @@ RSpec.describe CoPlan::Plans::PositionResolver do
       it "resolves to entire document" do
         result = resolve
         range = result.ranges.first
-        expect(range).to eq([0, content.length])
+        expect(range).to eq([ 0, content.length ])
         reconstructed = content[0...range[0]] + content[range[1]..]
         expect(reconstructed).to eq("")
       end

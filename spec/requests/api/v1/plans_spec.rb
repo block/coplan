@@ -174,7 +174,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
 
   describe "retyping via update" do
     let!(:scratchpad) { create(:plan_type, name: "Scratchpad", default_tags: []) }
-    let!(:design) { create(:plan_type, name: "Engineering Design", default_tags: ["design"]) }
+    let!(:design) { create(:plan_type, name: "Engineering Design", default_tags: [ "design" ]) }
 
     it "changes the plan's type, adopts default_tags, and logs events" do
       typed_plan = create(:plan, :considering, created_by_user: alice, plan_type: scratchpad)
@@ -194,11 +194,11 @@ RSpec.describe "Api::V1::Plans", type: :request do
 
     it "keeps existing tags on retype" do
       typed_plan = create(:plan, :considering, created_by_user: alice, plan_type: scratchpad)
-      typed_plan.tag_names = ["pricing"]
+      typed_plan.tag_names = [ "pricing" ]
 
       patch api_v1_plan_path(typed_plan), params: { plan_type: "Engineering Design" }, headers: headers, as: :json
 
-      expect(JSON.parse(response.body)["tags"]).to match_array(["pricing", "design"])
+      expect(JSON.parse(response.body)["tags"]).to match_array([ "pricing", "design" ])
     end
 
     it "is a no-op event-wise when the type is unchanged" do
@@ -232,23 +232,23 @@ RSpec.describe "Api::V1::Plans", type: :request do
 
   describe "tags on create" do
     it "applies the plan type's default_tags" do
-      create(:plan_type, name: "design-doc", default_tags: ["design", "architecture"])
+      create(:plan_type, name: "design-doc", default_tags: [ "design", "architecture" ])
       post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", plan_type: "design-doc" }, headers: headers, as: :json
       expect(response).to have_http_status(:created)
-      expect(JSON.parse(response.body)["tags"]).to match_array(["design", "architecture"])
+      expect(JSON.parse(response.body)["tags"]).to match_array([ "design", "architecture" ])
     end
 
     it "merges explicit tags with the type's default_tags" do
-      create(:plan_type, name: "design-doc", default_tags: ["design"])
-      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", plan_type: "design-doc", tags: ["pricing", "design"] }, headers: headers, as: :json
+      create(:plan_type, name: "design-doc", default_tags: [ "design" ])
+      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", plan_type: "design-doc", tags: [ "pricing", "design" ] }, headers: headers, as: :json
       expect(response).to have_http_status(:created)
-      expect(JSON.parse(response.body)["tags"]).to match_array(["design", "pricing"])
+      expect(JSON.parse(response.body)["tags"]).to match_array([ "design", "pricing" ])
     end
 
     it "accepts explicit tags without a plan_type" do
-      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", tags: ["pricing"] }, headers: headers, as: :json
+      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", tags: [ "pricing" ] }, headers: headers, as: :json
       expect(response).to have_http_status(:created)
-      expect(JSON.parse(response.body)["tags"]).to eq(["pricing"])
+      expect(JSON.parse(response.body)["tags"]).to eq([ "pricing" ])
     end
   end
 

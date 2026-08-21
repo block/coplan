@@ -1,6 +1,6 @@
 module CoPlan
   class PlansController < ApplicationController
-    before_action :set_plan, only: [:show, :edit, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :history, :edit_content, :update_content, :preview]
+    before_action :set_plan, only: [ :show, :edit, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :history, :edit_content, :update_content, :preview ]
 
     PER_PAGE = 20
 

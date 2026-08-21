@@ -12,8 +12,8 @@ class CreateCoplanReferences < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :coplan_references, [:plan_id, :key], unique: true
-    add_index :coplan_references, [:plan_id, :url], unique: true
+    add_index :coplan_references, [ :plan_id, :key ], unique: true
+    add_index :coplan_references, [ :plan_id, :url ], unique: true
     add_index :coplan_references, :target_plan_id
     add_index :coplan_references, :source
     add_foreign_key :coplan_references, :coplan_plans, column: :plan_id

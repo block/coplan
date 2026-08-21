@@ -9,7 +9,7 @@ class CreateCoplanFolders < ActiveRecord::Migration[8.1]
       # Unique per sibling group. MySQL treats NULLs as distinct in unique
       # indexes, so root-level (parent_id IS NULL) uniqueness is enforced by
       # the model validation instead — same approach either way for app code.
-      t.index [:parent_id, :name], unique: true
+      t.index [ :parent_id, :name ], unique: true
       t.index :created_by_user_id
     end
 

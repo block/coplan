@@ -82,7 +82,7 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
     it "restores blank shipped values with force" do
       # Scratchpad deliberately ships without a template; force means "back
       # to the shipped defaults", so a custom template must be cleared too.
-      create(:plan_type, name: "Scratchpad", template_content: "custom template", default_tags: ["wip"])
+      create(:plan_type, name: "Scratchpad", template_content: "custom template", default_tags: [ "wip" ])
 
       described_class.call(force: true)
 

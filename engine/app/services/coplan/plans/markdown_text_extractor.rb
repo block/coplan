@@ -29,7 +29,7 @@ module CoPlan
 
         extract_text_nodes(doc, line_byte_offsets, byte_to_char, stripped, pos_map)
 
-        [stripped, pos_map]
+        [ stripped, pos_map ]
       end
 
       private
@@ -50,7 +50,7 @@ module CoPlan
       # Builds an array mapping 1-based line numbers to byte offsets.
       # line_byte_offsets[line_number] = byte offset of the first byte on that line.
       def build_line_byte_offsets
-        offsets = [nil, 0] # index 0 unused; line 1 starts at byte 0
+        offsets = [ nil, 0 ] # index 0 unused; line 1 starts at byte 0
         byte_offset = 0
         @content.each_char do |char|
           byte_offset += char.bytesize

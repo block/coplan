@@ -54,8 +54,8 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
     end
 
     add_index :coplan_plan_versions, :plan_id
-    add_index :coplan_plan_versions, [:plan_id, :revision], unique: true
-    add_index :coplan_plan_versions, [:plan_id, :created_at]
+    add_index :coplan_plan_versions, [ :plan_id, :revision ], unique: true
+    add_index :coplan_plan_versions, [ :plan_id, :created_at ]
     add_foreign_key :coplan_plan_versions, :coplan_plans, column: :plan_id
 
     # Now that coplan_plan_versions exists, add the FK for current_plan_version_id
@@ -72,7 +72,7 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
     add_index :coplan_plan_collaborators, :plan_id
     add_index :coplan_plan_collaborators, :user_id
     add_index :coplan_plan_collaborators, :added_by_user_id
-    add_index :coplan_plan_collaborators, [:plan_id, :user_id], unique: true
+    add_index :coplan_plan_collaborators, [ :plan_id, :user_id ], unique: true
     add_foreign_key :coplan_plan_collaborators, :coplan_plans, column: :plan_id
     add_foreign_key :coplan_plan_collaborators, :coplan_users, column: :user_id
     add_foreign_key :coplan_plan_collaborators, :coplan_users, column: :added_by_user_id
@@ -96,8 +96,8 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :coplan_comment_threads, [:plan_id, :status]
-    add_index :coplan_comment_threads, [:plan_id, :out_of_date]
+    add_index :coplan_comment_threads, [ :plan_id, :status ]
+    add_index :coplan_comment_threads, [ :plan_id, :out_of_date ]
     add_foreign_key :coplan_comment_threads, :coplan_plans, column: :plan_id
     add_foreign_key :coplan_comment_threads, :coplan_plan_versions, column: :plan_version_id
     add_foreign_key :coplan_comment_threads, :coplan_plan_versions, column: :addressed_in_plan_version_id
@@ -114,7 +114,7 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :coplan_comments, [:comment_thread_id, :created_at]
+    add_index :coplan_comments, [ :comment_thread_id, :created_at ]
     add_foreign_key :coplan_comments, :coplan_comment_threads, column: :comment_thread_id
 
     create_table :coplan_edit_leases, id: { type: :string, limit: 36 } do |t|
@@ -145,7 +145,7 @@ class CreateCoplanSchema < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :coplan_edit_sessions, [:plan_id, :status]
+    add_index :coplan_edit_sessions, [ :plan_id, :status ]
     add_foreign_key :coplan_edit_sessions, :coplan_plans, column: :plan_id
     add_foreign_key :coplan_edit_sessions, :coplan_plan_versions, column: :plan_version_id
 

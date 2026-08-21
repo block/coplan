@@ -34,7 +34,7 @@ module CoPlan
       # broadcast echoes back.
       respond_to do |format|
         format.turbo_stream do
-          html = render_to_string(partial: "coplan/comments/comment", locals: locals, formats: [:html])
+          html = render_to_string(partial: "coplan/comments/comment", locals: locals, formats: [ :html ])
           render turbo_stream: turbo_stream.append(target, html)
         end
         format.html { redirect_to plan_path(@plan), notice: "Reply added." }
@@ -59,7 +59,7 @@ module CoPlan
         locals = { comment: comment }
         # Requestless render for the broadcast; request-scoped only inline.
         Broadcaster.replace_to(@plan, target: target, partial: "coplan/comments/comment", locals: locals)
-        html = render_to_string(partial: "coplan/comments/comment", locals: locals, formats: [:html])
+        html = render_to_string(partial: "coplan/comments/comment", locals: locals, formats: [ :html ])
         inline_stream = turbo_stream.replace(target, html)
       end
 

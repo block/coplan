@@ -67,7 +67,7 @@ module CoPlan
             "op" => "replace_exact",
             "old_text" => old_text,
             "new_text" => new_text,
-            "_pre_resolved_ranges" => [[adjusted_start, adjusted_end]]
+            "_pre_resolved_ranges" => [ [ adjusted_start, adjusted_end ] ]
           }
 
           cumulative_delta += new_text.length - old_text.length
@@ -78,7 +78,7 @@ module CoPlan
       private
 
       def build_line_offsets(lines)
-        offsets = [0]
+        offsets = [ 0 ]
         running = 0
         lines.each do |line|
           running += line.length
@@ -137,10 +137,10 @@ module CoPlan
       # pure insertion/deletion (empty line list), uses the anchor as a
       # zero-width range at offsets[anchor].
       def char_range(line_indexes, anchor, offsets)
-        return [offsets[anchor], offsets[anchor]] if line_indexes.empty?
+        return [ offsets[anchor], offsets[anchor] ] if line_indexes.empty?
         first = line_indexes.first
         last = line_indexes.last
-        [offsets[first], offsets[last + 1]]
+        [ offsets[first], offsets[last + 1] ]
       end
     end
   end

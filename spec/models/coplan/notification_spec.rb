@@ -36,7 +36,7 @@ RSpec.describe CoPlan::Notification do
         }.to have_enqueued_job(CoPlan::WebPushDeliveryJob).twice
 
         notification = described_class.last
-        [sub_a, sub_b].each do |sub|
+        [ sub_a, sub_b ].each do |sub|
           expect(CoPlan::WebPushDeliveryJob).to have_been_enqueued.with(
             notification_id: notification.id,
             subscription_id: sub.id

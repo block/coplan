@@ -35,29 +35,29 @@ RSpec.describe CoPlan::Tag, type: :model do
   describe "Plan#tag_names=" do
     it "creates Tag and PlanTag records" do
       plan = create(:plan)
-      plan.tag_names = ["infrastructure", "api-design"]
-      expect(plan.tag_names).to match_array(["infrastructure", "api-design"])
+      plan.tag_names = [ "infrastructure", "api-design" ]
+      expect(plan.tag_names).to match_array([ "infrastructure", "api-design" ])
       expect(CoPlan::Tag.where(name: "infrastructure")).to exist
     end
 
     it "reuses existing Tag records" do
       create(:tag, name: "security")
       plan = create(:plan)
-      expect { plan.tag_names = ["security"] }.not_to change(CoPlan::Tag, :count)
-      expect(plan.tag_names).to eq(["security"])
+      expect { plan.tag_names = [ "security" ] }.not_to change(CoPlan::Tag, :count)
+      expect(plan.tag_names).to eq([ "security" ])
     end
 
     it "removes old associations when tags change" do
       plan = create(:plan)
-      plan.tag_names = ["alpha", "beta"]
-      plan.tag_names = ["beta", "gamma"]
-      expect(plan.tag_names).to match_array(["beta", "gamma"])
+      plan.tag_names = [ "alpha", "beta" ]
+      plan.tag_names = [ "beta", "gamma" ]
+      expect(plan.tag_names).to match_array([ "beta", "gamma" ])
     end
 
     it "handles blank and duplicate names" do
       plan = create(:plan)
-      plan.tag_names = ["  infra  ", "infra", "", "api"]
-      expect(plan.tag_names).to match_array(["infra", "api"])
+      plan.tag_names = [ "  infra  ", "infra", "", "api" ]
+      expect(plan.tag_names).to match_array([ "infra", "api" ])
     end
   end
 end

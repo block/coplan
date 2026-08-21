@@ -55,23 +55,23 @@ module CoPlan
       return "Unknown browser" if ua.blank?
 
       browser = case ua
-                when /Edg\//                              then "Edge"
-                when /OPR\//                              then "Opera"
-                when /Firefox\//                          then "Firefox"
-                when /Chrome\//                           then "Chrome"
-                when /Safari\//                           then "Safari"
-                end
+      when /Edg\//                              then "Edge"
+      when /OPR\//                              then "Opera"
+      when /Firefox\//                          then "Firefox"
+      when /Chrome\//                           then "Chrome"
+      when /Safari\//                           then "Safari"
+      end
 
       os = case ua
-           when /iPhone OS|iOS/                           then "iOS"
-           when /iPad/                                    then "iPadOS"
-           when /Android/                                 then "Android"
-           when /Mac OS X|Macintosh/                      then "macOS"
-           when /Windows NT/                              then "Windows"
-           when /Linux/                                   then "Linux"
-           end
+      when /iPhone OS|iOS/                           then "iOS"
+      when /iPad/                                    then "iPadOS"
+      when /Android/                                 then "Android"
+      when /Mac OS X|Macintosh/                      then "macOS"
+      when /Windows NT/                              then "Windows"
+      when /Linux/                                   then "Linux"
+      end
 
-      return [browser, os].compact.join(" on ").presence || ua.truncate(80)
+      [ browser, os ].compact.join(" on ").presence || ua.truncate(80)
     end
 
     private

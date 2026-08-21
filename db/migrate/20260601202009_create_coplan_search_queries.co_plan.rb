@@ -10,7 +10,7 @@ class CreateCoplanSearchQueries < ActiveRecord::Migration[8.1]
       t.timestamp :created_at, null: false
     end
 
-    add_index :coplan_search_queries, [:user_id, :created_at]
+    add_index :coplan_search_queries, [ :user_id, :created_at ]
     add_foreign_key :coplan_search_queries, :coplan_users, column: :user_id
   end
 end

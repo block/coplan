@@ -58,7 +58,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       current_content = plan.current_content
       result = CoPlan::Plans::ApplyOperations.call(
         content: current_content,
-        operations: [{ "op" => "replace_exact", "old_text" => "Some content here.", "new_text" => "Updated content.", "count" => 1 }]
+        operations: [ { "op" => "replace_exact", "old_text" => "Some content here.", "new_text" => "Updated content.", "count" => 1 } ]
       )
       session.update!(
         operations_json: result[:applied],
@@ -103,7 +103,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       current_content = plan.current_content
       result = CoPlan::Plans::ApplyOperations.call(
         content: current_content,
-        operations: [{ "op" => "replace_exact", "old_text" => "Some content here.", "new_text" => "Changed.", "count" => 1 }]
+        operations: [ { "op" => "replace_exact", "old_text" => "Some content here.", "new_text" => "Changed.", "count" => 1 } ]
       )
       session.update!(
         operations_json: result[:applied],
@@ -237,14 +237,14 @@ RSpec.describe "Api::V1::Sessions", type: :request do
         content_markdown: intervening_content,
         actor_type: "human",
         actor_id: alice.id,
-        operations_json: [{
+        operations_json: [ {
           "op" => "replace_exact",
           "old_text" => "# Plan Content",
           "new_text" => "# Updated Plan Title",
-          "resolved_range" => [0, 14],
-          "new_range" => [0, 20],
+          "resolved_range" => [ 0, 14 ],
+          "new_range" => [ 0, 20 ],
           "delta" => 6
-        }]
+        } ]
       )
       plan.update!(current_plan_version: intervening_version, current_revision: new_rev)
 
@@ -280,15 +280,15 @@ RSpec.describe "Api::V1::Sessions", type: :request do
         content_markdown: intervening_content,
         actor_type: "human",
         actor_id: alice.id,
-        operations_json: [{
+        operations_json: [ {
           "op" => "replace_exact",
           "old_text" => "Some content here.",
           "new_text" => "Completely different text.",
-          "resolved_range" => [16, 34],
-          "new_range" => [16, 41],
+          "resolved_range" => [ 16, 34 ],
+          "new_range" => [ 16, 41 ],
           "delta" => 7,
           "count" => 1
-        }]
+        } ]
       )
       plan.update!(current_plan_version: intervening_version, current_revision: new_rev)
 
@@ -324,13 +324,13 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       v = CoPlan::PlanVersion.create!(
         plan: plan, revision: new_rev,
         content_markdown: new_content, actor_type: "human", actor_id: alice.id,
-        operations_json: [{
+        operations_json: [ {
           "op" => "replace_exact",
           "old_text" => old_text, "new_text" => new_text,
-          "resolved_range" => [pos, pos + old_text.length],
-          "new_range" => [pos, pos + new_text.length],
+          "resolved_range" => [ pos, pos + old_text.length ],
+          "new_range" => [ pos, pos + new_text.length ],
           "delta" => new_text.length - old_text.length
-        }]
+        } ]
       )
       plan.update!(current_plan_version: v, current_revision: new_rev)
     end
@@ -344,7 +344,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       post api_v1_plan_operations_path(rich_plan),
         params: {
           base_revision: stale_revision,
-          operations: [{ op: "insert_under_heading", heading: "## Goals", content: "New goal item." }]
+          operations: [ { op: "insert_under_heading", heading: "## Goals", content: "New goal item." } ]
         },
         headers: headers, as: :json
 
@@ -361,7 +361,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       post api_v1_plan_operations_path(rich_plan),
         params: {
           base_revision: stale_revision,
-          operations: [{ op: "insert_under_heading", heading: "## Goals", content: "\nNew goal item." }]
+          operations: [ { op: "insert_under_heading", heading: "## Goals", content: "\nNew goal item." } ]
         },
         headers: headers, as: :json
 
@@ -378,7 +378,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       post api_v1_plan_operations_path(rich_plan),
         params: {
           base_revision: stale_revision,
-          operations: [{ op: "delete_paragraph_containing", needle: "great things" }]
+          operations: [ { op: "delete_paragraph_containing", needle: "great things" } ]
         },
         headers: headers, as: :json
 
@@ -394,7 +394,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       post api_v1_plan_operations_path(rich_plan),
         params: {
           base_revision: stale_revision,
-          operations: [{ op: "delete_paragraph_containing", needle: "great things" }]
+          operations: [ { op: "delete_paragraph_containing", needle: "great things" } ]
         },
         headers: headers, as: :json
 
@@ -419,13 +419,13 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       v = CoPlan::PlanVersion.create!(
         plan: plan, revision: new_rev,
         content_markdown: new_content, actor_type: "human", actor_id: alice.id,
-        operations_json: [{
+        operations_json: [ {
           "op" => "replace_exact",
           "old_text" => old_text, "new_text" => new_text,
-          "resolved_range" => [pos, pos + old_text.length],
-          "new_range" => [pos, pos + new_text.length],
+          "resolved_range" => [ pos, pos + old_text.length ],
+          "new_range" => [ pos, pos + new_text.length ],
           "delta" => new_text.length - old_text.length
-        }]
+        } ]
       )
       plan.update!(current_plan_version: v, current_revision: new_rev)
     end
@@ -440,7 +440,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
         params: {
           session_id: session_id,
           base_revision: rich_plan.current_revision,
-          operations: [{ op: "insert_under_heading", heading: "## Goals", content: "\nNew goal." }]
+          operations: [ { op: "insert_under_heading", heading: "## Goals", content: "\nNew goal." } ]
         },
         headers: headers, as: :json
       expect(response).to have_http_status(:created)
@@ -465,7 +465,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
         params: {
           session_id: session_id,
           base_revision: rich_plan.current_revision,
-          operations: [{ op: "delete_paragraph_containing", needle: "great things" }]
+          operations: [ { op: "delete_paragraph_containing", needle: "great things" } ]
         },
         headers: headers, as: :json
       expect(response).to have_http_status(:created)

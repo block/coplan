@@ -1,8 +1,8 @@
 module CoPlan
   class PlanVersionsController < ApplicationController
     before_action :set_plan
-    before_action :set_version, only: [:show, :diff]
-    before_action :set_diff, only: [:show, :diff]
+    before_action :set_version, only: [ :show, :diff ]
+    before_action :set_diff, only: [ :show, :diff ]
 
     def show
       authorize!(@plan, :show?)

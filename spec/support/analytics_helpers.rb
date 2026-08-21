@@ -7,7 +7,7 @@ module AnalyticsHelpers
   def capture_analytics_events
     events = []
     previous = CoPlan.configuration.track_event
-    CoPlan.configuration.track_event = ->(event, payload) { events << [event, payload] }
+    CoPlan.configuration.track_event = ->(event, payload) { events << [ event, payload ] }
     yield
     events
   ensure

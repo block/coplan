@@ -46,7 +46,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "edits title and tags through the unified editor" do
-    plan.tag_names = ["security"]
+    plan.tag_names = [ "security" ]
     plan.save!
 
     visit edit_content_plan_path(plan)

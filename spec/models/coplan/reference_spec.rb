@@ -97,14 +97,14 @@ RSpec.describe CoPlan::Reference, type: :model do
       extracted = create(:reference, :extracted, plan: plan, url: "https://a.com")
       create(:reference, plan: plan, url: "https://b.com", source: "explicit")
 
-      expect(described_class.extracted).to eq([extracted])
+      expect(described_class.extracted).to eq([ extracted ])
     end
 
     it ".explicit returns only explicit references" do
       create(:reference, :extracted, plan: plan, url: "https://a.com")
       explicit = create(:reference, plan: plan, url: "https://b.com", source: "explicit")
 
-      expect(described_class.explicit).to eq([explicit])
+      expect(described_class.explicit).to eq([ explicit ])
     end
   end
 end

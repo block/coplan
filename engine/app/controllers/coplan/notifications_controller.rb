@@ -7,7 +7,7 @@ module CoPlan
     def index
       @filter = params[:filter] == "all" ? "all" : "unread"
       @notifications = current_user.notifications
-        .includes(:plan, :comment, comment_thread: [:created_by_user])
+        .includes(:plan, :comment, comment_thread: [ :created_by_user ])
         .newest_first
         .limit(INDEX_LIMIT)
 
@@ -53,7 +53,7 @@ module CoPlan
       respond_to do |format|
         format.turbo_stream {
           @notifications = current_user.notifications
-            .includes(:plan, :comment, comment_thread: [:created_by_user])
+            .includes(:plan, :comment, comment_thread: [ :created_by_user ])
             .newest_first
             .unread
           @unread_count = 0

@@ -24,13 +24,13 @@ RSpec.describe CoPlan::Notification, type: :model do
     it "unread returns notifications without read_at" do
       unread = create(:notification, user: user, plan: plan, comment_thread: thread, read_at: nil)
       create(:notification, user: user, plan: plan, comment_thread: thread, read_at: Time.current)
-      expect(CoPlan::Notification.unread).to eq([unread])
+      expect(CoPlan::Notification.unread).to eq([ unread ])
     end
 
     it "read returns notifications with read_at" do
       create(:notification, user: user, plan: plan, comment_thread: thread, read_at: nil)
       read_notif = create(:notification, user: user, plan: plan, comment_thread: thread, read_at: Time.current)
-      expect(CoPlan::Notification.read).to eq([read_notif])
+      expect(CoPlan::Notification.read).to eq([ read_notif ])
     end
   end
 
