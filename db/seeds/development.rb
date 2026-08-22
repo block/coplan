@@ -447,6 +447,63 @@ module CoPlan
         - and the fit report will tell the agent to split the slide
         - which is the honest fix anyway
         - one idea per slide beats one slide per idea
+
+        ---
+
+        ## When a slide is mostly words
+
+        Some slides are paragraphs, not bullets — the narrative beat in the middle of a readout, the decision memo an exec will actually read, the part you'd deliver word for word. The classifier doesn't blink: prose is billed line for line, the type scale steps down, and the slide stays a slide.
+
+        Nothing past the smallest step gets clipped. The card scrolls, and the fit report will tell the author — human or agent — exactly which slide burst its budget and by how much, so too much text becomes an editing decision instead of a rendering accident.
+
+        Steps are discrete on purpose. Sparse slides look intentional at full size instead of zoomed in, dense slides stay readable at the floor, and nothing wobbles between the two while you type.
+
+        ---
+
+        ## Every project in flight
+
+        - **Atlas** — payment routing rewrite
+        - **Beacon** — merchant onboarding funnel
+        - **Cairn** — ledger archival tier
+        - **Delta** — settlement diff tooling
+        - **Ember** — incident review workflow
+        - **Fathom** — search relevance overhaul
+        - **Garnet** — receipts rendering service
+        - **Harbor** — sandbox environment refresh
+        - **Ivory** — design token consolidation
+        - **Juniper** — notification digest engine
+        - **Keel** — schema migration guardrails
+        - **Lumen** — dashboard latency budget
+        - **Mesa** — reporting warehouse sync
+        - **Nimbus** — mobile offline cache
+        - **Onyx** — audit log retention
+        - **Prism** — experiment analysis pipeline
+        - **Quarry** — data extraction contracts
+        - **Rudder** — feature flag hygiene
+        - **Sable** — dark mode rollout
+        - **Tundra** — cold storage pricing
+        - **Umber** — brand refresh implementation
+        - **Vessel** — container base images
+        - **Wharf** — deploy queue fairness
+        - **Xenon** — load test harness
+        - **Yarrow** — accessibility audit fixes
+        - **Zephyr** — websocket connection pooling
+        - **Anvil** — build cache warming
+        - **Bramble** — dependency update automation
+        - **Cobalt** — API version sunset
+        - **Drift** — config drift detection
+        - **Ellipse** — chart rendering library
+        - **Fresco** — image pipeline thumbnails
+        - **Gully** — log ingestion sampling
+        - **Hollow** — orphaned record cleanup
+        - **Ingot** — billing proration engine
+        - **Jetty** — edge routing rules
+        - **Kite** — status page automation
+        - **Ledger** — double-entry backfill
+        - **Moss** — test flake quarantine
+        - **Nectar** — customer feedback tagging
+
+        <!-- notes: The deliberately-too-much slide. Forty entries land on the floor step and the card scrolls — the fit report will tell the author to split it, or to make it two lists and get columns. -->
       MARKDOWN
       spanish: "## Problema\n\nLas personas nuevas necesitan saber qué paso completar.\n\n## Resultado\n\nUna lista breve muestra el siguiente paso.",
       japanese: "## 目標\n\n障害の影響を小さくし、復旧までの時間を短縮します。\n\n## 次のステップ\n\n復旧手順を自動で検証します。",
