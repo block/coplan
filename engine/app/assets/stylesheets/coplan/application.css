@@ -1577,12 +1577,39 @@ img.avatar {
 /* "Changed since you last looked" — one-time, per-viewer section
    highlights (changed_sections_controller). Quiet left accent + faint
    tint; gone on the next visit. */
-.section-changed {
+/* A run of adjacent changed blocks is one band, not one box per block:
+   the gap between blocks in a run becomes padding inside the tint instead
+   of untinted margin showing through, so a changed section reads as a
+   single stretch rather than a stack of stripes. Scoped under
+   .markdown-rendered to outrank its per-element margins. */
+.markdown-rendered .section-changed {
   box-shadow: inset 3px 0 0 var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 5%, transparent);
-  border-radius: 0 var(--radius) var(--radius) 0;
+  border-radius: 0;
   padding-left: var(--space-sm);
   margin-left: calc(-1 * var(--space-sm));
+  margin-bottom: 0;
+  padding-bottom: var(--space-md);
+}
+
+/* Headings inside a run keep their breathing room, as padding within the
+   band rather than a gap through it. The run's own first heading is
+   .section-changed--start and keeps its margin — that space separates the
+   band from the unchanged content above it. */
+.markdown-rendered .section-changed:is(h1, h2, h3):not(.section-changed--start) {
+  margin-top: 0;
+  padding-top: var(--space-xl);
+}
+
+.markdown-rendered .section-changed--start {
+  border-top-right-radius: var(--radius);
+  padding-top: var(--space-sm);
+}
+
+.markdown-rendered .section-changed--end {
+  border-bottom-right-radius: var(--radius);
+  padding-bottom: var(--space-sm);
+  margin-bottom: var(--space-md);
 }
 
 .changed-sections-note {
@@ -1590,6 +1617,12 @@ img.avatar {
   align-items: center;
   gap: var(--space-xs);
   margin-bottom: var(--space-md);
+}
+
+.changed-sections-note a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* Rendered markdown */

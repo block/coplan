@@ -158,7 +158,7 @@ module CoPlan
       # Order matters: compute the one-time "changed since you last looked"
       # highlights against the old last_seen_at, then advance it — so the
       # next visit renders clean.
-      @changed_section_keys = changed_sections_since_last_visit
+      @changed_sections = changed_sections_since_last_visit
       record_visit unless prefetch_request?
     end
 
@@ -655,18 +655,18 @@ module CoPlan
       needs_attention
     end
 
-    # Section keys (see Plans::ChangedSections) for content that changed
-    # after the viewer's last visit. Empty on a first visit — highlighting
-    # the whole document would say nothing.
+    # What changed after the viewer's last visit (see Plans::ChangedSections):
+    # section keys to highlight, or a rewrite to mention. Nothing on a first
+    # visit — highlighting the whole document would say nothing.
     def changed_sections_since_last_visit
       seen_at = PlanViewer.where(plan: @plan, user: current_user).pick(:last_seen_at)
-      return [] if seen_at.nil?
+      return Plans::ChangedSections::NONE if seen_at.nil?
 
       current = @plan.current_plan_version
-      return [] if current.nil? || current.created_at <= seen_at
+      return Plans::ChangedSections::NONE if current.nil? || current.created_at <= seen_at
 
       base = @plan.plan_versions.where(created_at: ..seen_at).order(revision: :desc).first
-      return [] if base.nil?
+      return Plans::ChangedSections::NONE if base.nil?
 
       Plans::ChangedSections.call(
         old_content: base.content_markdown,
