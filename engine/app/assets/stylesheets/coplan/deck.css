@@ -252,12 +252,18 @@
 
 /* ---- stage — one visual gets the whole canvas ------------------------ */
 
+.deck-slide--stage {
+  /* The visual is the slide; the frame is a thin margin, not a stage
+     apron. */
+  padding: 2.5cqi 3.5cqi;
+}
+
 .deck-slide--stage .deck-content {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 0.9em;
+  gap: 0.7em;
 }
 
 .deck-slide--stage .deck-content > h1,
@@ -277,7 +283,21 @@
 }
 
 .deck-slide--stage .deck-content img {
-  max-height: 36cqi;
+  max-height: 44cqi;
+}
+
+/* Mermaid inlines a natural-size max-width on its SVGs, which pins a
+   small diagram at thumbnail size; the stage overrides it so the diagram
+   scales up to the canvas (preserveAspectRatio keeps it undistorted). */
+.deck-slide--stage .deck-content .mermaid-diagram {
+  width: 100%;
+}
+
+.deck-slide--stage .deck-content .mermaid-diagram svg {
+  width: 100%;
+  height: 44cqi;
+  max-width: none !important;
+  max-height: none;
 }
 
 .deck-slide--stage .deck-content > p:not(:has(img)) {
@@ -384,6 +404,23 @@
   margin: 0;
 }
 
+/* ---- directory — one long inventory flows into two columns ------------
+   The list is the slide's only body block, so CSS multi-column balances
+   it; an ordered list keeps continuous numbering down-then-across. */
+
+.deck-slide--directory .deck-content > ul,
+.deck-slide--directory .deck-content > ol {
+  columns: 2;
+  column-gap: 2.6em;
+  margin: 0;
+}
+
+.deck-slide--directory .deck-content li {
+  break-inside: avoid;
+  margin-bottom: 0.3em;
+  line-height: 1.4;
+}
+
 /* ---- split — media pane beside content --------------------------------
    DOM order is source order (media leading → left pane, trailing → right),
    so grid auto-placement does the layout with zero reordering. Guarded on
@@ -412,4 +449,61 @@
   width: 100%;
   max-height: 40cqi;
   object-fit: contain;
+}
+
+/* ---- presenting — the deck takes the screen ---------------------------
+   Present mode (coplan--deck-presenter) shows the deck as a top-layer
+   popover sized to the largest 16:9 canvas that fits the viewport — the
+   deck stays the size container, so every cqi measurement above scales to
+   the screen with no presentation-specific typography. Top layer matters:
+   fixed positioning alone resolves against any backdrop-filter ancestor
+   (the host's glass card), while top-layer elements always position
+   against the viewport. The spread shadow blacks out the letterbox bars
+   without extra DOM; ::backdrop does the same when the top layer is in
+   charge. The border/padding/overflow resets neutralize the UA's popover
+   styles. */
+
+.deck--presenting {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  /* For the no-popover-API fallback: above every piece of app chrome
+     (the host tops out around 300). Irrelevant in the top layer. */
+  z-index: 1000;
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+  gap: 0;
+  border: none;
+  padding: 0;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 100vmax #000;
+}
+
+.deck--presenting::backdrop {
+  background: #000;
+}
+
+/* Fullscreen is requested on the presenter wrapper (it survives
+   live-update swaps of the deck inside it); paint it black so nothing of
+   the page shows around the canvas. */
+.deck-presenter:fullscreen {
+  background: #000;
+}
+
+.deck--presenting .deck-slide {
+  display: none;
+}
+
+.deck--presenting .deck-slide--current {
+  display: flex;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  overscroll-behavior: contain;
+}
+
+.deck--presenting .deck-slide--current::after {
+  content: attr(data-slide) " / " attr(data-slide-total);
 }

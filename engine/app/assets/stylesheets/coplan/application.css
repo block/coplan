@@ -2956,6 +2956,43 @@ img.avatar {
   display: block;
 }
 
+/* The Present control above a slideshow's deck. The show itself is
+   deck.css territory (.deck--presenting); this is host chrome. */
+.deck-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-sm);
+}
+
+.deck-toolbar__present {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  transition: color 0.15s, box-shadow 0.15s;
+}
+
+.deck-toolbar__present:hover {
+  color: var(--color-text);
+  box-shadow: var(--shadow-pop);
+}
+
+.deck-toolbar__present kbd {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 0 4px;
+  color: var(--color-text-muted);
+}
+
 /* Add scroll-margin to headings — and the plan's own masthead header — so
    they clear the sticky nav. The nav-title control scrolls to the very top
    in JS; this keeps a no-JS #plan-header jump landing below the bar too. */

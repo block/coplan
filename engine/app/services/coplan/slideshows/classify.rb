@@ -36,6 +36,11 @@ module CoPlan
       # the floor — beyond it content is reported (fit report), not clipped.
       STEP_CEILINGS = [ 5, 9, 14 ].freeze
 
+      # A lone list this long is an inventory, not an argument — it flows
+      # into two columns (the directory pattern) instead of running one
+      # column off the canvas.
+      DIRECTORY_MIN_ENTRIES = 15
+
       def self.call(source)
         new(source).call
       end
@@ -47,7 +52,7 @@ module CoPlan
       def call
         blocks = content_sequence
         pattern, media = match_pattern(blocks)
-        Classification.new(pattern:, media:, step: step_for(blocks),
+        Classification.new(pattern:, media:, step: step_for(blocks, pattern),
                            lead: blocks.first&.type == :heading)
       end
 
@@ -90,6 +95,8 @@ module CoPlan
         end
 
         return [ :columns, nil ] if body.size == 2 && body.all? { |block| block.type == :list }
+
+        return [ :directory, nil ] if directory?(body)
 
         if body.size >= 2 && body.count { |block| media_block?(block) } == 1
           return [ :split, :leading ]  if media_block?(body.first)
@@ -140,6 +147,27 @@ module CoPlan
         images == 1
       end
 
+      # A directory is one long flat list of short entries — an inventory.
+      # Nested items, multi-paragraph items, images, or hard breaks mean
+      # the entries carry structure, and structure reads top-to-bottom.
+      def directory?(body)
+        return false unless body.size == 1 && body.first.type == :list
+
+        items = body.first.each.to_a
+        items.size >= DIRECTORY_MIN_ENTRIES && items.all? { |item| short_entry?(item) }
+      end
+
+      def short_entry?(item)
+        # Comments never influence layout — a speaker note tucked inside an
+        # entry must not flip the whole slide out of the directory.
+        children = item.each.reject { |node| node.type == :html_block && comment_only?(node) }
+        return false unless children.size == 1 && children.first.type == :paragraph
+
+        paragraph = children.first
+        image_count(paragraph).zero? && hard_break_count(paragraph).zero? &&
+          plain_text(paragraph).length <= CHARS_PER_UNIT
+      end
+
       # Hard breaks count as a full line's worth of characters: six
       # hard-broken agenda lines are not a subtitle however few glyphs
       # they hold.
@@ -166,8 +194,17 @@ module CoPlan
         node.each { |child| each_visible_inline(child, &block) }
       end
 
-      def step_for(blocks)
-        total = blocks.sum { |block| units(block) }
+      # Steps come from rendered lines, and some patterns render the same
+      # blocks in less vertical space than one column would — a directory
+      # flows its list across two columns, so its list bills at half.
+      def step_for(blocks, pattern)
+        total = blocks.sum do |block|
+          if pattern == :directory && block.type == :list
+            units(block).fdiv(2).ceil
+          else
+            units(block)
+          end
+        end
         index = STEP_CEILINGS.index { |ceiling| total <= ceiling }
         index ? index + 1 : STEP_CEILINGS.size + 1
       end
