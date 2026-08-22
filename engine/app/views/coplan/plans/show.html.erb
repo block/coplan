@@ -69,6 +69,22 @@
           anchored to diagram labels get their marks (and pending ?thread=
           deep links can resolve). %>
       <div class="plan-layout__content">
+        <%# Presentations present: `p` or the button starts a fullscreen
+            show (deck_presenter_controller). The wrapper sits outside the
+            live-update swap target so a collaborator's edit landing
+            mid-show doesn't disconnect the presenter — and the toolbar sits
+            outside the text-selection content target below, because its
+            label is visible text and comment anchors count visible-text
+            occurrences under that target. %>
+        <% if @plan.presentation? %>
+        <div class="deck-presenter" data-controller="coplan--deck-presenter">
+          <div class="deck-toolbar">
+            <button type="button" class="deck-toolbar__present" data-action="coplan--deck-presenter#start" title="Present (p)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.8a1 1 0 0 1 1.53-.85l11.1 7.2a1 1 0 0 1 0 1.7l-11.1 7.2A1 1 0 0 1 7 19.2z"/></svg>
+              Present <kbd>p</kbd>
+            </button>
+          </div>
+        <% end %>
         <%# Selection-to-comment is scoped to this inner wrapper: the back
             matter below shares the column but must not offer comment
             anchors — they'd never resolve against the document body. %>
@@ -88,6 +104,9 @@
 
           <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
         </div>
+        <% if @plan.presentation? %>
+        </div>
+        <% end %>
 
         <%= render partial: "coplan/plans/footnotes",
               locals: { plan: @plan, references: @references, attachments: @attachments } %>

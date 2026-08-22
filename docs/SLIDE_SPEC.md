@@ -78,7 +78,7 @@ blocks. Classify the same string the renderer renders — in CoPlan that
 includes the hoisted definition preamble, so reference-style images
 (`![chart][q3]`) resolve to image nodes here exactly as they do on screen.
 
-Four derived terms:
+Five derived terms:
 
 - **lead heading** — the first block of the content sequence, if it is a
   heading (any level). The **body** is the sequence minus the lead heading.
@@ -96,6 +96,12 @@ Four derived terms:
   whitespace and comments, or a code block whose info string's **first
   word** is `mermaid` (the rest of the info string is renderer options,
   which is also how the rendered `lang` attribute treats it).
+- **short entry** — a list item holding exactly one paragraph, with no
+  images and no hard line breaks, whose plain text is at most 60
+  characters: one rendered line, an inventory row. An item carrying more
+  structure than that — a nested list, a second paragraph, a long line —
+  is an argument, not an entry. Comment-only HTML blocks inside the item
+  don't count as structure (comments never influence layout).
 
 ## The pattern catalog
 
@@ -111,15 +117,16 @@ body (the sequence after the lead heading, which any pattern may carry).
 | 5 | one blockquote ± one adjacent short paragraph | `quote` |
 | 6 | one table ± one adjacent short paragraph | `table` |
 | 7 | exactly two lists | `columns` |
-| 8 | exactly one media block, first or last, plus anything else | `split` |
-| 9 | anything else (including an empty sequence) | `content` |
+| 8 | one list of at least 15 short entries | `directory` |
+| 9 | exactly one media block, first or last, plus anything else | `split` |
+| 10 | anything else (including an empty sequence) | `content` |
 
 "± one adjacent short paragraph" means the body is either the block alone,
 or the block plus one short paragraph immediately before or after it —
 a kicker line or a caption. Anything more is a `content` or `split` slide.
 
 Rule 3 sits above rule 4, so a `mermaid` fence is always media, never code.
-Rule 8 requires at least one non-media block, so a lone image lands on
+Rule 9 requires at least one non-media block, so a lone image lands on
 `stage`, and requires exactly one media block, so two images fall through to
 `content` rather than guessing which one gets the pane.
 
@@ -334,6 +341,122 @@ And a closing thought that keeps this a document section.
 pattern: content
 ```
 
+### `directory` — one long inventory flows into two columns
+
+One list of at least fifteen short entries and nothing else. That shape is
+an inventory — every project in flight, the full roster, an API surface —
+not an argument, and a single column of it runs off the canvas while half
+the slide sits empty. The list flows into two balanced columns; an ordered
+list keeps counting down the first column and into the second.
+
+Because the list renders in two columns it also bills at half for the
+type scale (see below) — the pattern doesn't just fit the inventory, it
+keeps the type readable while doing it:
+
+```conformance
+## Every project in flight
+
+- Atlas — payment routing
+- Beacon — status page
+- Cedar — ledger exports
+- Delta — dispute intake
+- Ember — fraud scoring
+- Flint — invoice search
+- Grove — seller onboarding
+- Harbor — webhook retries
+- Iris — receipt redesign
+- Juniper — tax engine
+- Keel — capacity planning
+- Lumen — audit trails
+- Maple — payout scheduling
+- Nectar — feedback tagging
+- Onyx — rate limiting
+- Pine — sandbox reset
+.
+pattern: directory
+step: 2
+```
+
+Fourteen entries is a long content slide, not a directory — below the
+threshold the list stays one column and bills in full:
+
+```conformance
+## Every project in flight
+
+- Atlas — payment routing
+- Beacon — status page
+- Cedar — ledger exports
+- Delta — dispute intake
+- Ember — fraud scoring
+- Flint — invoice search
+- Grove — seller onboarding
+- Harbor — webhook retries
+- Iris — receipt redesign
+- Juniper — tax engine
+- Keel — capacity planning
+- Lumen — audit trails
+- Maple — payout scheduling
+- Nectar — feedback tagging
+.
+pattern: content
+step: 4
+```
+
+A speaker note tucked inside an entry is still a comment — it neither
+breaks the entry's shape nor bills:
+
+```conformance
+## Every project in flight
+
+- Atlas — payment routing
+- Beacon — status page
+- Cedar — ledger exports
+- Delta — dispute intake
+
+  <!-- double-check the owner with Maya -->
+
+- Ember — fraud scoring
+- Flint — invoice search
+- Grove — seller onboarding
+- Harbor — webhook retries
+- Iris — receipt redesign
+- Juniper — tax engine
+- Keel — capacity planning
+- Lumen — audit trails
+- Maple — payout scheduling
+- Nectar — feedback tagging
+- Onyx — rate limiting
+.
+pattern: directory
+step: 2
+```
+
+Every item must be a short entry. One entry carrying real prose means the
+list is an argument, and arguments read top to bottom:
+
+```conformance
+## Every project in flight
+
+- Atlas — payment routing
+- Beacon — status page
+- Cedar — ledger exports
+- Delta — dispute intake
+- Ember — fraud scoring
+- Flint — invoice search
+- Grove — seller onboarding
+- Harbor — webhook retries
+- Iris — receipt redesign
+- Juniper — tax engine
+- Keel — capacity planning
+- Lumen — audit trails
+- Maple — payout scheduling
+- Nectar — feedback tagging
+- Meridian — the cross-region failover rehearsal program we keep deferring
+.
+pattern: content
+step: 4
+```
+
 ### `split` — media pane beside content
 
 Exactly one media block at the body's edge, with real content beside it.
@@ -419,7 +542,9 @@ code renders at 0.8 em with 1.55 line-height — about ⅚ of a body line per
 code line, not half of one. A mermaid fence renders as a fit-to-box
 diagram, so it bills like media, not like its source line count.
 
-The slide's units are the sum over its content sequence. The step:
+The slide's units are the sum over its content sequence, with one
+pattern-aware adjustment: a `directory` slide's list renders across two
+columns, so it bills at ⌈its units / 2⌉. The step:
 
 | Units | Step |
 |---|---|
