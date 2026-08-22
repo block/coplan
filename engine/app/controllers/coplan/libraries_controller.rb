@@ -15,6 +15,12 @@ module CoPlan
     # The top of the tree. `/l` is a real page because every prefix of a
     # browsable URL is one.
     def index
+      # Your own library first, so the list can't omit it. Libraries are
+      # materialized on first touch (User#library), and reading the table
+      # directly is exactly the path that skips that — a user who'd never
+      # loaded a page that links their library got a list without it.
+      current_user.library
+
       @libraries = Library.includes(:owner).order(:handle).to_a
       @plan_counts = Plan.visible_to(current_user).active
         .joins(:placement)

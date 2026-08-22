@@ -15,6 +15,17 @@ RSpec.describe "Libraries", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("/l/alice", "/l/bob")
     end
+
+    # Libraries are materialized on first touch, so a viewer who has never
+    # loaded a page that links theirs has no row yet. The list still has to
+    # include it — "libraries you can browse" without your own is nonsense.
+    it "includes your own library even when nothing has materialized it" do
+      expect(CoPlan::Library.where(owner_id: alice.id)).not_to exist
+
+      get browse_root_path
+
+      expect(response.body).to include("/l/alice")
+    end
   end
 
   describe "GET /library" do
