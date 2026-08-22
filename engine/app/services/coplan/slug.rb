@@ -8,7 +8,7 @@ module CoPlan
   # word to a reader, so it stays "liveorder" rather than "live-order".
   #
   # "Letters and digits" means Unicode ones. A title in Japanese or Arabic
-  # keeps its own script — /l/aiko/信頼性向上ロードマップ-2027年前半 — because
+  # keeps its own script — /aiko/信頼性向上ロードマップ-2027年前半 — because
   # the alternative is a URL reading "untitled", which defeats the whole
   # point of a readable link. Browsers percent-encode these on the wire
   # and display them decoded, and Rails hands them back as UTF-8. Accents

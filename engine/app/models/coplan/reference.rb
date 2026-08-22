@@ -15,19 +15,29 @@ module CoPlan
     scope :extracted, -> { where(source: "extracted") }
     scope :explicit, -> { where(source: "explicit") }
 
-    # A CoPlan document link in either form. `/l/<handle>/…` is what
-    # people copy out of the address bar now; `/plans/<uuid>` is the old
-    # form that still shows up in anything written before the switch.
+    # `/plans/<uuid>` is self-identifying: nothing else on the web has that
+    # shape, so a path alone is proof. A readable address isn't — now that
+    # handles sit at the root, `/sam/liveorder/cart-roadmap` is shaped like
+    # any other site's URL, and matching it on shape would type half the
+    # links people paste as CoPlan documents.
+    #
+    # So the two forms are recognized by different means. The id form by
+    # pattern, anywhere. The readable form only when we know the URL is ours
+    # — either because the caller supplied our own host, or because the path
+    # actually resolves to a document (see .extract_target_plan_id).
     PLAN_ID_PATH = %r{/plans/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})}
-    READABLE_PLAN_PATH = %r{/l/([^/?#]+)/([^?#]+)}
+    READABLE_PLAN_PATH = %r{\A/([a-z0-9][a-z0-9-]*)/([^?#]+)}
 
-    def self.classify_url(url)
+    # `own_host` is the host CoPlan is being served from, when the caller
+    # knows it. Views do (`request.host`); background work generally
+    # doesn't, and gets the id form only.
+    def self.classify_url(url, own_host: nil)
       case url
       when %r{\Ahttps?://github\.com/[^/]+/[^/]+/pull/\d+}
         "pull_request"
       when %r{\Ahttps?://github\.com/[^/]+/[^/]+/?(\z|#|\?|/tree/|/blob/|/commit/)}
         "repository"
-      when PLAN_ID_PATH, READABLE_PLAN_PATH
+      when PLAN_ID_PATH
         "plan"
       when %r{\Ahttps?://docs\.google\.com/}, %r{\Ahttps?://drive\.google\.com/}
         "document"
@@ -36,8 +46,41 @@ module CoPlan
       when %r{\Ahttps?://[^/]*confluence[^/]*/}
         "document"
       else
-        "link"
+        own_document?(url, own_host) ? "plan" : "link"
       end
+    end
+
+    # Whether a URL is a readable address on our own host, deep enough to
+    # name something inside a library rather than the library itself.
+    def self.own_document?(url, own_host)
+      return false if own_host.blank?
+
+      uri = URI.parse(url.to_s)
+      return false unless uri.host&.casecmp?(own_host)
+
+      READABLE_PLAN_PATH.match?(uri.path.to_s)
+    rescue URI::InvalidURIError
+      false
+    end
+
+    # Type and target in one answer, because for a readable address they're
+    # the same question: a path that resolves to one of our documents *is* a
+    # plan reference, and the id it resolved to is what makes it one. A URL
+    # that classified as a plain "link" therefore still gets a resolution
+    # attempt, and is promoted if it lands.
+    #
+    # `excluding` is the citing plan's own id — a document linking to itself
+    # is a link, not a reference to another document.
+    #
+    # Returns [ reference_type, target_plan_id ].
+    def self.resolve_link(url, own_host: nil, excluding: nil)
+      type = classify_url(url, own_host: own_host)
+      return [ type, nil ] unless %w[plan link].include?(type)
+
+      id = extract_target_plan_id(url)
+      return [ type, nil ] if id.blank? || id == excluding || !Plan.exists?(id)
+
+      [ "plan", id ]
     end
 
     # The id of the document a link points at, so the References section
@@ -47,6 +90,11 @@ module CoPlan
     # walk goes through the alias table too, so a link written before a
     # rename still finds the document it was always about — the same way
     # following the link would.
+    #
+    # Resolution doubles as the is-this-ours test, which is why this is
+    # worth attempting on a URL that classified as a plain "link": if a
+    # handle we know owns a path we can walk, the link is ours. Callers
+    # promote the reference type when it comes back with an id.
     def self.extract_target_plan_id(url)
       return nil if url.blank?
 
@@ -54,10 +102,23 @@ module CoPlan
         return match[1]
       end
 
-      match = url.match(READABLE_PLAN_PATH)
+      match = readable_match(url)
       return nil if match.nil?
 
       resolve_readable(match[1], match[2])
+    end
+
+    # Cheap gate before the segment walk: the first path segment has to be a
+    # handle we actually have. Without it, every external link in a document
+    # would cost a folder-tree query.
+    def self.readable_match(url)
+      uri = URI.parse(url.to_s)
+      match = READABLE_PLAN_PATH.match(uri.path.to_s)
+      return nil unless match && Library.find_by_handle(match[1])
+
+      match
+    rescue URI::InvalidURIError
+      nil
     end
 
     def self.resolve_readable(handle, slug_path)

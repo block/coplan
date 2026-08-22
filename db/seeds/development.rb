@@ -29,7 +29,7 @@ module CoPlan
     ].freeze
 
     # The browsable-URL showcase renames one folder and retitles one
-    # document, so a freshly seeded app has real aliases to follow at /l.
+    # document, so a freshly seeded app has real aliases to follow at the root.
     # Both steps are guarded on these values and no-op on re-seed.
     RENAMED_FOLDER_FROM = "Order platform".freeze
     RENAMED_FOLDER_TO = "LiveOrder".freeze
@@ -108,7 +108,7 @@ module CoPlan
       },
       # A folder whose documents all repeat its name — the shape that makes
       # a real library unreadable, and exactly what URL slugs strip. These
-      # land at /l/<handle>/liveorder/{cart-state-machine,…}, with
+      # land at /<handle>/liveorder/{cart-state-machine,…}, with
       # "LiveOrder" appearing once, in the folder segment where it belongs.
       {
         key: "liveorder-cart", author: "sam", type: "Design Doc", title: "LiveOrder cart state machine",
@@ -130,7 +130,7 @@ module CoPlan
       },
       # No `folder:` — these sit loose at the root of Alex's library until
       # the agent organize run files them (AGENT_ORGANIZED_KEYS). Root-level
-      # documents are also what /l/<handle> shows with no folder segment.
+      # documents are also what /<handle> shows with no folder segment.
       {
         key: "agent-pick-metrics", author: "alex", type: "Research Note", title: "Activation metrics worth arguing about",
         tags: %w[product data], visibility: "published", sections: 1
@@ -506,7 +506,7 @@ module CoPlan
 
     # Renaming is where readable URLs earn their keep: the old address
     # keeps resolving. One folder rename leaves a prefix alias covering
-    # every document under it, so /l/<handle>/order-platform/... still
+    # every document under it, so /<handle>/order-platform/... still
     # lands after the folder became "LiveOrder".
     def seed_renamed_folder(users)
       author = users.fetch("sam")
@@ -583,7 +583,13 @@ module CoPlan
         "Facet counts may lag content by at most one minute.",
         "Facet counts may lag content by at most one minute — measured, not aspirational: the dark-read comparison in [§4](#section-4) enforces it."
       )
-      updated = "#{updated.rstrip}\n\n## 5. Related reading\n\n- [#{related_plan.title}](http://localhost:3000/plans/#{related_plan.id}) — the walkthrough whose ledger spot-check pattern [§4](#section-4) reuses.\n"
+      # Linked by its readable address, not its uuid — which is how an agent
+      # would write it now, and which is what gets recognized as a document
+      # reference rather than an outside link. If the organization run later
+      # files this plan somewhere else, the link still lands: the move leaves
+      # an alias behind.
+      related_url = "http://localhost:3000/#{related_plan.url_path.presence || "plans/#{related_plan.id}"}"
+      updated = "#{updated.rstrip}\n\n## 5. Related reading\n\n- [#{related_plan.title}](#{related_url}) — the walkthrough whose ledger spot-check pattern [§4](#section-4) reuses.\n"
       return if updated == content
 
       Plans::ReplaceContent.call(

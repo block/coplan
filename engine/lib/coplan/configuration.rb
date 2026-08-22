@@ -99,7 +99,7 @@ module CoPlan
     attr_accessor :directory_profile
 
     # Library handles a host wants to keep out of user hands, on top of
-    # CoPlan::Library::RESERVED_HANDLES. Handles live under /l/<handle>,
+    # CoPlan::Library::RESERVED_HANDLES. Handles live under /<handle>,
     # so they can't collide with the host's own routes — this is for
     # names the host wants to claim for itself later, or keep off a
     # public namespace.

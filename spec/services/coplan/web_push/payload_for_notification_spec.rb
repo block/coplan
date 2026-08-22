@@ -41,7 +41,7 @@ RSpec.describe CoPlan::WebPush::PayloadForNotification do
       expect(payload[:url]).to eq(
         CoPlan::Urls::Canonical.plan_path(plan, thread: thread.id)
       )
-      expect(payload[:url]).to start_with("/l/").and include("thread=#{thread.id}")
+      expect(payload[:url]).to start_with("/#{plan.library.handle}/").and include("thread=#{thread.id}")
     end
 
     it "uses 'mentioned you' phrasing for mention notifications" do

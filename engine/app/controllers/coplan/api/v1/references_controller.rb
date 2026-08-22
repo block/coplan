@@ -13,12 +13,11 @@ module CoPlan
         end
 
         def create
-          ref_type = params[:reference_type].presence || Reference.classify_url(params[:url])
-          target_plan_id = nil
-          if ref_type == "plan"
-            candidate_id = Reference.extract_target_plan_id(params[:url])
-            target_plan_id = candidate_id if candidate_id && candidate_id != @plan.id && Plan.exists?(candidate_id)
-          end
+          # A caller-supplied type wins, but the target is worked out either
+          # way: knowing which document a link points at is useful even when
+          # the caller wanted it filed under some other type.
+          detected_type, target_plan_id = Reference.resolve_link(params[:url], own_host: request.host, excluding: @plan.id)
+          ref_type = params[:reference_type].presence || detected_type
 
           ref = @plan.references.find_or_initialize_by(url: params[:url])
           ref.assign_attributes(

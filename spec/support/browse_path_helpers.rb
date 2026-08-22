@@ -1,5 +1,5 @@
 module BrowsePathHelpers
-  # A plan's readable address — `/l/<handle>/<folders>/<slug>` — which is
+  # A plan's readable address — `/<handle>/<folders>/<slug>` — which is
   # the document's URL now. `plan_path` still works and 301s here, so a
   # spec that wants the page itself asks for this and skips the hop.
   #

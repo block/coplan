@@ -1,19 +1,18 @@
 module CoPlan
   # The id-based entry points into library browsing, kept so old links keep
-  # working, plus the index at the top of the tree.
+  # working, plus the index of every library you can see.
   #
-  # The canonical URLs are the browsable paths (/l/:handle/...) served by
+  # The canonical URLs are the browsable paths (/:handle/...) served by
   # BrowseController; #show sends id-based links there with a 301 so the
   # address bar — and anything copied out of it — says the readable form.
   class LibrariesController < ApplicationController
-    include ReadOnlyLibraryBrowsing
-
     def mine
       redirect_to browse_library_path(handle: current_user.library.handle)
     end
 
-    # The top of the tree. `/l` is a real page because every prefix of a
-    # browsable URL is one.
+    # Every library you can see, at /_/libraries. Not a place inside anyone's
+    # library — it's the list of them — so it lives under `_` rather than
+    # taking a top-level segment away from someone's handle.
     def index
       # Your own library first, so the list can't omit it. Libraries are
       # materialized on first touch (User#library), and reading the table

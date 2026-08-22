@@ -554,26 +554,47 @@ module CoPlan
       unread_by_plan.slice(*plans.map(&:id))
     end
 
-    # The base relation for the active workspace scope. Used by both the
-    # main-pane plan lists and the sidebar counts so folder/tag counts
-    # always match what clicking through shows.
+    # The base relation for this view. Used by both the main-pane plan
+    # lists and the sidebar counts, so folder/tag counts always match what
+    # clicking through shows.
     def scoped_plans_base
-      if @scope == "mine"
-        # Your workspace is your plans. It used to also include other
-        # people's plans you'd filed onto your shelf; a plan now lives in
-        # one place, so there's nothing to add.
-        Plan.visible_to(current_user).where(created_by_user_id: current_user.id)
-      else
-        # Draft plans are private — never show other users'.
-        Plan.visible_to(current_user)
-      end
+      # Everything you can see, wherever it lives — the one view that isn't
+      # a place. Reached by link (Home's tags), never from the sidebar.
+      return Plan.visible_to(current_user) if @scope == "all"
+
+      library_plans
     end
 
-    # One query for the viewer's whole library tree; everything else
-    # (children map, subtree ids, expanded state, aggregate counts) is
+    # Every document in the library being browsed, in either sense of "in":
+    # filed into one of its folders, or loose at its root — its owner's own
+    # work that isn't filed anywhere.
+    #
+    # Bounded by what the viewer may see, so someone else's private drafts
+    # never reach a list or a count. That's the only difference between
+    # browsing your library and browsing anyone else's: the same page, the
+    # same filters, fewer rows and fewer buttons.
+    def library_plans
+      visible = Plan.visible_to(current_user)
+      visible.where(id: @library.placements.select(:plan_id))
+        .or(visible.where(id: @library.unfiled_plans.select(:id)))
+    end
+
+    # One query for the browsed library's whole folder tree; everything
+    # else (children map, subtree ids, expanded state, aggregate counts) is
     # derived in memory.
+    #
+    # `@library` is whatever the route resolved to — BrowseController sets
+    # it before delegating here. Your own is the default, which is what
+    # /_/plans and the legacy /plans both mean.
     def load_folder_tree
-      @library = current_user.library
+      @library ||= current_user.library
+      @can_write = @library.writable_by?(current_user)
+      # A person and their library are one page now, so the header carries
+      # identity. Nil for a non-user owner (a future team library), and
+      # skipped for pagination frames, which never render the header —
+      # Directory.profile_for can reach out to the host's directory.
+      @owner = @library.owner
+      @profile = Directory.profile_for(@owner) if @owner.is_a?(User) && !turbo_frame_request?
       @folders = @library.folders.order(:name).to_a
       @folders_by_id = @folders.index_by(&:id)
       @folder_children = @folders.group_by(&:parent_id)

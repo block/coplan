@@ -1,5 +1,7 @@
 module CoPlan
   class Plan < ApplicationRecord
+    include BroadcastsLibraryChanges
+
     VISIBILITIES = %w[draft published].freeze
 
     # Legacy API compatibility: the pre-2026-07 five-state `status` field.
@@ -87,6 +89,13 @@ module CoPlan
     scope :publicly_listed, -> { active.where(visibility: "published") }
 
     after_save_commit :refresh_search_text!, if: :search_text_needs_refresh?
+
+    # What a library row says about a document, and whether it says anything
+    # at all. Content edits aren't here: they don't change the row, and a
+    # refresh on every autosave would be a storm for one stale timestamp.
+    LISTED_ATTRIBUTES = %w[title slug slug_suffix visibility archived_at plan_type_id].freeze
+
+    after_commit :broadcast_listing_change, on: [ :create, :update ]
 
     # Sitewide search over a denormalized `search_text` column maintained by
     # `refresh_search_text!`. The matching strategy is adapter-specific but
@@ -202,6 +211,7 @@ module CoPlan
       placement&.library || created_by_user&.library
     end
 
+
     def folder
       placement&.folder
     end
@@ -302,6 +312,12 @@ module CoPlan
     end
 
     private
+
+    def broadcast_listing_change
+      return unless previously_new_record? || (saved_changes.keys & LISTED_ATTRIBUTES).any?
+
+      broadcast_library_refresh(library)
+    end
 
     def assign_default_plan_type
       self.plan_type ||= PlanType.general

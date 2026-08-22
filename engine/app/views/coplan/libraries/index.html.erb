@@ -20,7 +20,7 @@
       </span>
       <span class="folder-row__name">
         <%= owner.respond_to?(:name) ? owner.name : library.name %>
-        <span class="text-muted">/l/<%= library.handle %></span>
+        <span class="text-muted">/<%= library.handle %></span>
       </span>
       <% count = @plan_counts[library.id].to_i %>
       <span class="folder-row__count text-muted"><%= count.zero? ? "empty" : pluralize(count, "plan") %></span>

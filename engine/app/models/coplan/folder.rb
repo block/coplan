@@ -9,6 +9,8 @@ module CoPlan
   # access is the library's call (Library#writable_by?), which is what
   # lets a future team library reuse all of this unchanged.
   class Folder < ApplicationRecord
+    include BroadcastsLibraryChanges
+
     MAX_DEPTH = 3
 
     # "/" is reserved as the path separator for folder_path lookups
@@ -40,6 +42,10 @@ module CoPlan
     # every plan and subfolder underneath — O(renames), not O(documents).
     before_save :stash_previous_url_path
     after_save :record_url_alias
+    # The folder tree and every count beside it are on screen for anyone
+    # browsing this library — a new shelf, a rename, a move or a deletion
+    # all change what they are looking at.
+    after_commit :broadcast_folder_change
 
     validates :name, presence: true,
       uniqueness: { scope: [ :library_id, :parent_id ], case_sensitive: false },
@@ -187,6 +193,10 @@ module CoPlan
     end
 
     private
+
+    def broadcast_folder_change
+      broadcast_library_refresh(library)
+    end
 
     # Follows the name. A rename is rare and its old URL keeps resolving
     # via UrlAlias, so the segment tracking the current name is worth more

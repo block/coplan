@@ -370,7 +370,7 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page).to have_css(".flash--notice", wait: 5)
       expect(author.library.placements.find_by(plan_id: developing_plan.id).folder).to eq(q3)
       # The drop leaves you where you dropped — inside Q3, for real.
-      expect(page).to have_current_path(plans_path(folder: q3.id), wait: 5)
+      expect(page).to have_current_path(browse_path(handle: author.library.handle, slug_path: q3.slug_path), wait: 5)
     end
 
     it "restores the original pane when a tunneled drag ends without a drop" do

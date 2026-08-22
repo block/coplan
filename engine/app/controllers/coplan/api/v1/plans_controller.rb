@@ -83,7 +83,7 @@ module CoPlan
             if params[:references].is_a?(Array)
               params[:references].each do |ref_params|
                 next unless ref_params[:url].present?
-                ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url])
+                ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url], own_host: request.host)
                 ref = plan.references.find_or_initialize_by(url: ref_params[:url])
                 ref.assign_attributes(key: ref_params[:key], title: ref_params[:title], reference_type: ref_type, source: "explicit")
                 ref.save!
@@ -220,7 +220,7 @@ module CoPlan
           if params[:references].is_a?(Array)
             params[:references].each do |ref_params|
               next unless ref_params[:url].present?
-              ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url])
+              ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url], own_host: request.host)
               ref = @plan.references.find_or_initialize_by(url: ref_params[:url])
               # Only emit a "reference_added" event for genuinely new references;
               # existing-reference updates fall through silently for now.

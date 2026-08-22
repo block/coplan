@@ -2,9 +2,9 @@ module CoPlan
   module Urls
     # Turns a browsable URL into the thing it points at.
     #
-    #   /l/orders                            → library
-    #   /l/orders/liveorder                  → folder
-    #   /l/orders/liveorder/cart-roadmap     → plan
+    #   /orders                            → library
+    #   /orders/liveorder                  → folder
+    #   /orders/liveorder/cart-roadmap     → plan
     #
     # Resolution walks one segment at a time — handle, then folder slug
     # within the previous folder, then a plan slug in whatever folder we

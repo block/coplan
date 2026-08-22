@@ -73,12 +73,12 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
         expect(response.body).to include("Nothing matches")
       end
 
-      it "finds people by name and links to their profile" do
+      it "finds people by name and links to their library" do
         create(:coplan_user, name: "Searchable Sam", username: "sam.s", title: "Designer")
 
         get search_path, params: { q: "searchable" }
         expect(response.body).to include("Searchable Sam")
-        expect(response.body).to include(profile_path("sam.s"))
+        expect(response.body).to include(%(href="/sam-s"))
         expect(response.body).to include("Designer")
       end
 

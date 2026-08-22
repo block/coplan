@@ -44,7 +44,7 @@
       <ul class="search-modal__list" role="listbox">
         <% people.each do |person| %>
           <li>
-            <a href="<%= coplan.profile_path(person.username.presence || person.id) %>"
+            <a href="<%= profile_path_for(person) %>"
                class="search-modal__result search-modal__result--person"
                data-search-result
                role="option"

@@ -37,9 +37,17 @@ module CoPlan
     after_initialize { self.metadata ||= {} }
     after_initialize { self.notification_preferences ||= {} }
 
-    # Every user always has a library — it's an invariant, materialized on
-    # first touch. Never read the association directly; this accessor is
-    # what guarantees "user without a library" isn't a state that exists.
+    # A library is a person's page now — it's what /<handle> addresses — so
+    # the row has to exist from the moment the person does. Materializing on
+    # first touch was enough while a library was only a filing cabinet; it
+    # isn't once someone can send you a link to a colleague who has never
+    # signed in.
+    after_create_commit :library
+
+    # Every user always has a library — it's an invariant. Never read the
+    # association directly; this accessor is what guarantees "user without a
+    # library" isn't a state that exists, including for the rows that
+    # predate the callback above.
     def library
       @library ||= Library.for(self)
     end

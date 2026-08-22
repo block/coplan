@@ -8,7 +8,7 @@ module CoPlan
     # Paths only. The absolute form needs a host, which only a request
     # knows, so `browse_url` stays in the helper.
     module Canonical
-      # `/l/<handle>/<folders>/<slug>`, or the id form for a plan whose
+      # `/<handle>/<folders>/<slug>`, or the id form for a plan whose
       # slug hasn't been backfilled yet. Both have to work while slugs
       # fill in, and `/plans/<uuid>` 301s here once one exists.
       def self.plan_path(plan, **options)

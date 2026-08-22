@@ -1,7 +1,7 @@
 # This migration comes from co_plan (originally 20260821000000)
 class AddUrlSegmentsToLibrariesAndFolders < ActiveRecord::Migration[8.1]
   # Gives libraries and folders the URL segments that make them browsable:
-  # /l/<handle>/<folder-slug>/<folder-slug>. Resolution walks these one
+  # /<handle>/<folder-slug>/<folder-slug>. Resolution walks these one
   # segment at a time, so nothing stores a joined path and renaming a
   # folder touches only its own row.
   #
@@ -43,6 +43,11 @@ class AddUrlSegmentsToLibrariesAndFolders < ActiveRecord::Migration[8.1]
   # A personal library's handle comes from the owner's username (their
   # ldap), falling back to the email local part and then the display
   # name. Anything else — a team library — uses the library's own name.
+  #
+  # `taken` starts out holding the app's root-level addresses, so a person
+  # whose ldap is "settings" gets "settings-2" rather than a handle the app
+  # would refuse to save. Spelled out here for the same reason the slug
+  # rules are: a migration has to keep producing the same backfill.
   def backfill_library_handles
     rows = connection.select_all(<<~SQL)
       SELECT l.id, l.name, l.owner_type, l.owner_id,
@@ -53,16 +58,54 @@ class AddUrlSegmentsToLibrariesAndFolders < ActiveRecord::Migration[8.1]
       ORDER BY l.created_at, l.id
     SQL
 
-    taken = []
+    taken = %w[
+      _ new edit all
+      plans people libraries library settings search notifications home welcome
+      api agent-instructions admin assets rails up sign_in sign_out integrations
+    ]
     rows.each do |row|
       source = row["owner_username"].presence ||
         row["owner_email"].to_s.split("@").first.presence ||
         row["owner_name"].presence ||
         row["name"].presence ||
         "library"
-      handle = unique_slug(slugify(source), taken, fallback: "library")
+      handle = unique_slug(ascii_slugify(source), taken, fallback: "library")
       taken << handle
       execute "UPDATE coplan_libraries SET handle = #{quote(handle)} WHERE id = #{quote(row['id'])}"
+    end
+
+    create_missing_user_libraries(taken)
+  end
+
+  # Libraries used to be materialized on first touch, so people who never
+  # loaded a page that needed one have no row. A library is a person's page
+  # now — /<handle> — so everyone needs theirs to exist, not just everyone
+  # who has filed something.
+  def create_missing_user_libraries(taken)
+    rows = connection.select_all(<<~SQL)
+      SELECT u.id, u.username, u.email, u.name
+      FROM coplan_users u
+      LEFT JOIN coplan_libraries l
+        ON l.owner_type = 'CoPlan::User' AND l.owner_id = u.id
+      WHERE l.id IS NULL
+      ORDER BY u.created_at, u.id
+    SQL
+
+    # Formatted rather than quoted: `quote` on a TimeWithZone writes a zone
+    # name into the literal, which strict MySQL refuses.
+    now = Time.current.utc.strftime("%Y-%m-%d %H:%M:%S")
+    rows.each do |row|
+      source = row["username"].presence ||
+        row["email"].to_s.split("@").first.presence ||
+        row["name"].presence ||
+        "library"
+      handle = unique_slug(ascii_slugify(source), taken, fallback: "library")
+      taken << handle
+      execute <<~SQL
+        INSERT INTO coplan_libraries (id, name, handle, owner_type, owner_id, created_at, updated_at)
+        VALUES (#{quote(SecureRandom.uuid_v7)}, 'Library', #{quote(handle)},
+                'CoPlan::User', #{quote(row['id'])}, #{quote(now)}, #{quote(now)})
+      SQL
     end
   end
 
@@ -86,9 +129,20 @@ class AddUrlSegmentsToLibrariesAndFolders < ActiveRecord::Migration[8.1]
     end
   end
 
+  # Mirrors CoPlan::Slug.call / .handle, inlined so this backfill keeps
+  # producing the same slugs if the app's rules move on. Folders keep
+  # Unicode letters — a folder named 設計 gets a segment that says so —
+  # while handles stay ASCII because they're typed and read aloud.
   def slugify(text)
-    text.to_s.downcase.gsub(/[^a-z0-9]+/, "-").gsub(/-{2,}/, "-")
-      .delete_prefix("-").delete_suffix("-")[0, 60].to_s
+    trim(text.to_s.unicode_normalize(:nfc).downcase.gsub(/[^[[:alnum:]]]+/, "-"))
+  end
+
+  def ascii_slugify(text)
+    trim(text.to_s.unicode_normalize(:nfkd).downcase.gsub(/[^a-z0-9]+/, "-"))
+  end
+
+  def trim(hyphenated)
+    hyphenated.gsub(/-{2,}/, "-").delete_prefix("-").delete_suffix("-")[0, 60].to_s
       .delete_suffix("-")
   end
 

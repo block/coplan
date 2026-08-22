@@ -1,0 +1,36 @@
+<%# Whose library this is. A person and their library are one page, so the
+    identity that used to live on /people/:id sits at the top of it. Same
+    markup either way — your own library says your own name, which is what
+    a shared link says too. %>
+<header class="library-header">
+  <div class="library-header__identity">
+    <% if @profile %>
+      <% if @profile.avatar_url.present? %>
+        <img src="<%= @profile.avatar_url %>" alt="" class="avatar avatar--lg" loading="lazy">
+      <% else %>
+        <span class="avatar avatar--lg avatar--initials"><%= @profile.name.split.map { |w| w[0] }.first(2).join.upcase %></span>
+      <% end %>
+    <% end %>
+    <div class="library-header__text">
+      <h1 class="library-header__name"><%= @profile&.name || @library.name %></h1>
+      <p class="library-header__meta text-muted">
+        <% details = [ @profile&.title, @profile&.team ].compact_blank %>
+        <% if details.any? %><%= details.join(" · ") %> · <% end %>
+        <span class="library-header__handle">/<%= @library.handle %></span>
+        <% if @profile&.profile_url.present? %>
+          · <%= link_to "Directory ↗", @profile.profile_url, target: "_blank", rel: "noopener",
+                class: "library-header__directory-link" %>
+        <% end %>
+      </p>
+    </div>
+  </div>
+
+  <%# The one visible difference between your library and anyone else's:
+      what you're allowed to do to it. Everything else on this page — the
+      filters, the folder counts, the level view — is identical. %>
+  <% unless @can_write %>
+    <span class="library-header__badge" title="You can browse this library, but only <%= @profile&.name || @library.name %> can file things into it">
+      Read only
+    </span>
+  <% end %>
+</header>

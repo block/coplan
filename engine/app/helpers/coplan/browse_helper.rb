@@ -4,12 +4,12 @@ module CoPlan
   # the address bar is already the readable form and no redirect is needed
   # to get there.
   module BrowseHelper
-    def library_browse_path(library)
-      browse_library_path(handle: library.handle)
+    def library_browse_path(library, **options)
+      browse_library_path(handle: library.handle, **options)
     end
 
-    def folder_browse_path(folder)
-      browse_path(handle: folder.library.handle, slug_path: folder.slug_path)
+    def folder_browse_path(folder, **options)
+      browse_path(handle: folder.library.handle, slug_path: folder.slug_path, **options)
     end
 
     # Falls back to the id form for a plan whose slug hasn't been

@@ -9,12 +9,7 @@ module CoPlan
 
       reference_params = params.expect(reference: [ :url, :key, :title ])
       url = reference_params[:url]
-      ref_type = Reference.classify_url(url)
-      target_plan_id = nil
-      if ref_type == "plan"
-        candidate_id = Reference.extract_target_plan_id(url)
-        target_plan_id = candidate_id if candidate_id && candidate_id != @plan.id && Plan.exists?(candidate_id)
-      end
+      ref_type, target_plan_id = Reference.resolve_link(url, own_host: request.host, excluding: @plan.id)
 
       ref = @plan.references.find_or_initialize_by(url: url)
       was_new = ref.new_record?

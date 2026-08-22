@@ -270,7 +270,10 @@ RSpec.describe "Plans", type: :request do
       get plans_path(folder: root.id)
 
       expect(response.body).to include('id="plans-level-page-2"')
-      expect(response.body).to include("folder=#{root.id}")
+      # The next-page frame still has to know which folder it's paging, and
+      # it names it the way the rest of the app does: in the path. A
+      # `?folder=<id>` here would be the last place that didn't.
+      expect(response.body).to include(browse_path(handle: alice.library.handle, slug_path: "team-ebt"))
     end
 
     it "serves level page fetches without leaking filed plans into the root" do
@@ -554,9 +557,9 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include("Paged Plan 00")
       expect(response.body).not_to include("Root Level Plan")
       # The lazy next-page frame must carry the folder, or page 2 would
-      # silently fall back to the whole workspace.
+      # silently fall back to the whole workspace. It carries it in the path.
       expect(response.body).to include("page=2")
-      expect(response.body).to include("folder=#{root.id}")
+      expect(response.body).to include(browse_path(handle: alice.library.handle, slug_path: "team-ebt"))
 
       get plans_path(folder: root.id, group: "level", page: 2),
         headers: { "Turbo-Frame" => "plans-level-page-2" }
@@ -637,7 +640,7 @@ RSpec.describe "Plans", type: :request do
     it "shows a New folder form" do
       get plans_path
       expect(response.body).to include("New folder")
-      expect(response.body).to include('action="/folders"')
+      expect(response.body).to include('action="/_/folders"')
     end
 
     it "scopes tag counts to the current folder" do

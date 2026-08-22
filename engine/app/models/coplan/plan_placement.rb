@@ -9,6 +9,8 @@ module CoPlan
   # from the plan: a placement is visible iff the underlying plan is
   # visible to the viewer (see .visible_to), whoever's library it sits in.
   class PlanPlacement < ApplicationRecord
+    include BroadcastsLibraryChanges
+
     belongs_to :plan, class_name: "CoPlan::Plan", inverse_of: :placement
     belongs_to :folder, class_name: "CoPlan::Folder", inverse_of: :placements
     belongs_to :library, class_name: "CoPlan::Library", inverse_of: :placements
@@ -25,7 +27,29 @@ module CoPlan
     # folder-jump, workspace) goes through this scope.
     scope :visible_to, ->(user) { where(plan: Plan.visible_to(user)) }
 
+    # Filing, moving and unfiling all change two listings at once: the
+    # document leaves one place and arrives in another. A cross-library
+    # move is the case that needs both libraries told, so this reads the
+    # previous library_id rather than assuming it didn't change.
+    after_commit :broadcast_placement_change
+
     private
+
+    def broadcast_placement_change
+      previous_id = library_id_previously_was
+      previous = previous_id.presence && previous_id != library_id ? Library.find_by(id: previous_id) : nil
+      broadcast_library_refresh(library, previous)
+
+      # The document's own page shows where it lives — the up-arrow beside
+      # the title — so a move has to land there too. Re-read the plan first:
+      # this row may be the one that just went away, and `plan.placement`
+      # would still hand it back.
+      fresh = Plan.find_by(id: plan_id)
+      return if fresh.nil?
+
+      Broadcaster.replace_to(fresh, target: "plan-nav-context",
+        partial: "coplan/plans/nav_context", locals: { plan: fresh })
+    end
 
     # library_id is denormalized from the folder so library-scoped reads
     # ("everything filed in this library") don't need the folder join;

@@ -63,7 +63,7 @@ module CoPlan
       end
 
       # Repeats until nothing more comes off, so "Orders LiveOrder Cart"
-      # under /l/orders/liveorder loses both leading words regardless of
+      # under /orders/liveorder loses both leading words regardless of
       # the order they appear in.
       def strip_redundancy(tokens)
         kept = tokens

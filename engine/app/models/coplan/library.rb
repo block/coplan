@@ -11,15 +11,29 @@ module CoPlan
   # assume owner == user. Write policy lives here (`writable_by?`), which
   # is exactly where "who may file things into this library" belongs.
   #
-  # `handle` is the library's URL segment — the root of everything
-  # browsable under /l/<handle>. It is the segment that carries the most
-  # weight in a shared link, so it stays short and typeable.
+  # `handle` is the library's URL segment, and it's a top-level one:
+  # everything in this library is browsable under /<handle>. It's the
+  # segment that carries the most weight in a shared link, so it stays
+  # short and typeable.
   class Library < ApplicationRecord
-    # Because libraries live under /l, a handle can never collide with an
-    # app route — the only names worth reserving are ones that would make
-    # a future /l/<verb> route ambiguous. Hosts add their own via
-    # `config.reserved_handles`.
-    RESERVED_HANDLES = %w[new edit all api admin].freeze
+    # A handle being a top-level segment makes this list the app's own
+    # root-level addresses. Two groups, and neither one grows:
+    #
+    #   - the legacy paths frozen in routes.rb, a closed set because
+    #     everything new goes under `_`
+    #   - `_` itself, plus the conventional host-app routes the engine sits
+    #     alongside when it's mounted at "/"
+    #
+    # Slug.handle can't produce `_`, but a handle can also be set by hand
+    # (admin, the API), so it's spelled out here as well.
+    #
+    # A host with its own root routes adds them via
+    # `config.reserved_handles` — the engine can't read the host's router.
+    RESERVED_HANDLES = %w[
+      _ new edit all
+      plans people libraries library settings search notifications home welcome
+      api agent-instructions admin assets rails up sign_in sign_out integrations
+    ].freeze
     HANDLE_FORMAT = /\A[a-z0-9][a-z0-9-]*\z/
     HANDLE_MAX_LENGTH = 60
 
@@ -57,7 +71,7 @@ module CoPlan
         RESERVED_HANDLES + Array(CoPlan.configuration.reserved_handles).map { |h| h.to_s.downcase }
       end
 
-      # Case-insensitive so a pasted /l/Orders link still lands.
+      # Case-insensitive so a pasted /Orders link still lands.
       def find_by_handle(handle)
         return nil if handle.blank?
 
@@ -90,7 +104,7 @@ module CoPlan
 
     # What this library shows at its root: the owner's own work that isn't
     # filed in a folder. These plans are addressed directly under the
-    # handle — /l/orders/some-plan — with no folder segment between.
+    # handle — /orders/some-plan — with no folder segment between.
     #
     # "Filed nowhere" rather than "not filed here": a plan sits in exactly
     # one library, so one the owner moved into a *different* library

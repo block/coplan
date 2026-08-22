@@ -65,7 +65,7 @@ RSpec.describe CoPlan::Plan, type: :model do
     end
 
     # Unfiled isn't homeless: the plan sits at the root of the library it
-    # was written in, which is what /l/<handle>/<slug> addresses.
+    # was written in, which is what /<handle>/<slug> addresses.
     it "falls back to the author's library when filed nowhere" do
       plan = create(:plan, :published, created_by_user: author)
 
