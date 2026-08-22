@@ -199,12 +199,11 @@ module CoPlan
           totals
         end
 
-        # The library owner's active plans not yet shelved in this library —
-        # only meaningful when the caller can write (i.e. it's their shelf).
+        # The library owner's active plans not filed in a folder anywhere —
+        # what the library shows at its root. Only meaningful when the
+        # caller can write (i.e. it's their library).
         def unfiled_plans
-          current_user.created_plans
-            .active
-            .where.not(id: @library.placements.select(:plan_id))
+          @library.unfiled_plans.active
         end
 
         def top_tags_json

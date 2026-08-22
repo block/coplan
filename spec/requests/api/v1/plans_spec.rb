@@ -490,27 +490,29 @@ RSpec.describe "Api::V1::Plans", type: :request do
   end
 
   describe "GET /api/v1/plans/:id/locations" do
-    it "returns every library the plan is shelved in" do
+    # Still an array — a plan has one location or none, and clients
+    # already iterate it.
+    it "returns the one library the plan is filed in" do
       published = create(:plan, :considering, created_by_user: alice)
       alice_folder = create(:folder, name: "Mine", description: "Alice's shelf", created_by_user: alice)
-      carol_folder = create(:folder, name: "Reading List", created_by_user: carol)
       CoPlan::Plans::Place.call(plan: published, folder: alice_folder, actor: alice)
-      CoPlan::Plans::Place.call(plan: published, folder: carol_folder, actor: carol)
 
       get locations_api_v1_plan_path(published), headers: headers
       expect(response).to have_http_status(:success)
-      locations = JSON.parse(response.body)
-      expect(locations.size).to eq(2)
+      location = JSON.parse(response.body).sole
 
-      mine = locations.find { |l| l["library_id"] == alice.library.id }
-      theirs = locations.find { |l| l["library_id"] == carol.library.id }
-      expect(mine["folder_path"]).to eq("Mine")
-      expect(mine["folder_description"]).to eq("Alice's shelf")
-      expect(mine["writable"]).to be(true)
-      expect(mine["owner"]["name"]).to eq(alice.name)
-      expect(theirs["folder_path"]).to eq("Reading List")
-      expect(theirs["writable"]).to be(false)
-      expect(theirs["placed_by"]).to eq(carol.name)
+      expect(location["library_id"]).to eq(alice.library.id)
+      expect(location["folder_path"]).to eq("Mine")
+      expect(location["folder_description"]).to eq("Alice's shelf")
+      expect(location["writable"]).to be(true)
+      expect(location["owner"]["name"]).to eq(alice.name)
+      expect(location["placed_by"]).to eq(alice.name)
+    end
+
+    it "returns nothing for an unfiled plan" do
+      get locations_api_v1_plan_path(create(:plan, :considering, created_by_user: alice)),
+        headers: headers
+      expect(JSON.parse(response.body)).to be_empty
     end
 
     it "requires auth" do

@@ -27,10 +27,32 @@ module CoPlan
     # find_or_create_by_path!.
     normalizes :name, with: ->(name) { name.strip }
 
+    # The folder's URL segment, derived from its name. Nothing downstream
+    # stores it — a plan knows only its own slug — so renaming a folder
+    # updates this one row and no plan row at all.
+    #
+    # On both callbacks deliberately: before_validation so the uniqueness
+    # check sees the slug, before_save so a `save(validate: false)` still
+    # produces a NOT NULL-satisfying row. The method is idempotent.
+    before_validation :assign_slug
+    before_save :assign_slug
+    # A rename or a move leaves behind one prefix alias, which covers
+    # every plan and subfolder underneath — O(renames), not O(documents).
+    before_save :stash_previous_url_path
+    after_save :record_url_alias
+
     validates :name, presence: true,
       uniqueness: { scope: [ :library_id, :parent_id ], case_sensitive: false },
       format: { with: NAME_FORMAT, message: "cannot contain \"/\"" },
       length: { maximum: 100 }
+    # Siblings can share neither a name nor a slug: "Team EBT" and
+    # "Team-EBT" are distinct names claiming the same URL segment.
+    # Folders never take a disambiguating suffix the way plans do — a
+    # folder's segment appears in every URL beneath it, so it stays clean
+    # and the second folder is asked for a different name instead.
+    validates :slug, presence: true,
+      uniqueness: { scope: [ :library_id, :parent_id ], case_sensitive: false,
+                    message: "is already taken by a folder here" }
     # What belongs in this folder, in one line — read by agents (via the
     # library overview API) to organize by meaning, not just name.
     validates :description, length: { maximum: 255 }
@@ -64,9 +86,24 @@ module CoPlan
       ancestors.length + 1
     end
 
-    # Human-readable location, e.g. "Team EBT/Q3".
+    # Human-readable location, e.g. "Team EBT/Q3". This is the shape the
+    # API's `folder_path` param speaks, and it stays display-cased — the
+    # URL form is #slug_path, which is a different string.
     def path
       (ancestors + [ self ]).map(&:name).join("/")
+    end
+
+    # Library-relative URL path, e.g. "team-ebt/q3". Deliberately excludes
+    # the library handle so renaming a handle rewrites one library row
+    # rather than every folder underneath it.
+    def slug_path
+      (ancestors + [ self ]).map(&:slug).join("/")
+    end
+
+    # Handle-first path, the form URLs and aliases both speak:
+    # "orders/team-ebt/q3".
+    def url_path
+      [ library.handle, slug_path ].compact_blank.join("/")
     end
 
     # Finds or creates the folder hierarchy for a "/"-separated path like
@@ -109,6 +146,21 @@ module CoPlan
       end
     end
 
+    # Walks a slug path — "team-ebt/q3" — one segment at a time, which is
+    # how every browsable URL resolves. Returns the deepest folder, or nil
+    # if any segment is missing. Stops at MAX_DEPTH so a long hostile path
+    # can't turn into an unbounded query loop.
+    def self.find_by_slug_path(slug_path, library:)
+      segments = slug_path.to_s.split("/").map(&:strip).reject(&:blank?)
+      return nil if segments.empty? || segments.length > MAX_DEPTH
+
+      segments.reduce(nil) do |parent, slug|
+        folder = library.folders.find_by(parent_id: parent&.id, slug: slug.downcase)
+        return nil unless folder
+        folder
+      end
+    end
+
     # Full "A/B/C" path for every given folder, keyed by id, computed from
     # the in-memory list (no per-folder queries). Shared by the folders API
     # and the folder-picker helper.
@@ -127,7 +179,7 @@ module CoPlan
     end
 
     def self.ransackable_attributes(_auth_object = nil)
-      %w[id name description library_id parent_id created_by_user_id created_at updated_at]
+      %w[id name slug description library_id parent_id created_by_user_id created_at updated_at]
     end
 
     def self.ransackable_associations(_auth_object = nil)
@@ -135,6 +187,37 @@ module CoPlan
     end
 
     private
+
+    # Follows the name. A rename is rare and its old URL keeps resolving
+    # via UrlAlias, so the segment tracking the current name is worth more
+    # than a frozen one.
+    def assign_slug
+      return if name.blank?
+      return unless slug.blank? || will_save_change_to_name?
+
+      self.slug = CoPlan::Slug.call(name).presence || "folder"
+    end
+
+    # Captured before the write, because afterwards `ancestors` walks the
+    # *new* parent chain and the old path is no longer reconstructible.
+    def stash_previous_url_path
+      @previous_url_path = nil
+      return if new_record?
+      return unless will_save_change_to_slug? || will_save_change_to_parent_id?
+
+      old_slug = slug_in_database
+      return if old_slug.blank?
+
+      old_parent = parent_id_in_database.present? ? Folder.find_by(id: parent_id_in_database) : nil
+      @previous_url_path = [ library.handle, old_parent&.slug_path, old_slug ].compact_blank.join("/")
+    end
+
+    def record_url_alias
+      return if @previous_url_path.blank?
+
+      UrlAlias.record!(from: @previous_url_path, to: url_path, kind: "prefix")
+      @previous_url_path = nil
+    end
 
     def parent_cannot_create_cycle
       return if parent_id.blank?

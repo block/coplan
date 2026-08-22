@@ -8,8 +8,7 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
   self.use_transactional_tests = false
 
   after do
-    truncate_tables(*%w[coplan_plan_tags coplan_tags coplan_plan_versions coplan_plans
-                        coplan_plan_types coplan_search_queries coplan_users])
+    truncate_plan_tables
   end
 
   let!(:alice) { create(:coplan_user, name: "Alice Searcher") }

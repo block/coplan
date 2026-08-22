@@ -41,8 +41,27 @@ CoPlan::Engine.routes.draw do
   # now.
   resources :folders, only: [ :create, :update ]
 
-  # Read-only library browsing (folder-jump discovery). "library" without
-  # an id is the signed-in user's own — handy for nav links.
+  # Browsable library URLs — the canonical address of everything in a
+  # library, and the reason every other route in this file could stay put:
+  #
+  #   /l                                 libraries you can see
+  #   /l/orders                          a library
+  #   /l/orders/liveorder                a folder
+  #   /l/orders/liveorder/cart-roadmap   a plan
+  #
+  # Every prefix is a real page, so trimming a segment walks up the tree.
+  # The /l prefix seals the namespace: a handle can never collide with an
+  # app route, which makes this a pure addition rather than a migration.
+  #
+  # `format: false` on the glob, or a plan slug like "pricing-v1.2" would
+  # have its tail parsed as a format.
+  get "l", to: "libraries#index", as: :browse_root
+  get "l/:handle", to: "browse#browse", as: :browse_library
+  get "l/:handle/*slug_path", to: "browse#browse", as: :browse, format: false
+
+  # Id-based library browsing, kept so old links resolve. Both forms 301
+  # to the browsable paths above. "library" without an id is the
+  # signed-in user's own — handy for nav links.
   resources :libraries, only: [ :show ]
   get "library", to: "libraries#mine", as: :my_library
 

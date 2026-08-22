@@ -19,21 +19,23 @@ module CoPlan
         # Remove extracted references for URLs no longer in content
         @plan.references.extracted.where.not(url: found_urls.keys).delete_all
 
-        # Batch-check plan existence for plan-type references
-        candidate_plan_ids = found_urls.keys
-          .select { |url| Reference.classify_url(url) == "plan" }
-          .filter_map { |url| Reference.extract_target_plan_id(url) }
-          .reject { |id| id == @plan.id }
-        existing_plan_ids = candidate_plan_ids.any? ? Plan.where(id: candidate_plan_ids).pluck(:id).to_set : Set.new
+        # Classify once and resolve once. A readable `/l/…` link costs a
+        # segment walk to turn into an id, so doing it per-URL rather than
+        # per-mention keeps a body full of cross-links cheap.
+        types = found_urls.keys.index_with { |url| Reference.classify_url(url) }
+        candidates = {}
+        types.each do |url, type|
+          next unless type == "plan"
+          id = Reference.extract_target_plan_id(url)
+          candidates[url] = id if id.present? && id != @plan.id
+        end
+        existing_plan_ids = candidates.any? ? Plan.where(id: candidates.values).pluck(:id).to_set : Set.new
 
         # Create or update references for found URLs
         found_urls.each do |url, meta|
-          ref_type = Reference.classify_url(url)
-          target_plan_id = nil
-          if ref_type == "plan"
-            candidate_id = Reference.extract_target_plan_id(url)
-            target_plan_id = candidate_id if candidate_id && existing_plan_ids.include?(candidate_id)
-          end
+          ref_type = types[url]
+          candidate_id = candidates[url]
+          target_plan_id = candidate_id if candidate_id && existing_plan_ids.include?(candidate_id)
 
           ref = @plan.references.find_or_initialize_by(url: url)
           # Don't overwrite explicit references

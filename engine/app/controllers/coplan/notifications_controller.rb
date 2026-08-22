@@ -24,7 +24,7 @@ module CoPlan
       notification.mark_read!
       broadcast_badge_update
 
-      redirect_to plan_path(notification.plan, thread: notification.comment_thread_id)
+      redirect_to helpers.plan_browse_path(notification.plan, thread: notification.comment_thread_id)
     end
 
     def mark_read

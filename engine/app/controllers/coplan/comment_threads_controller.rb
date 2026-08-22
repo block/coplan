@@ -110,7 +110,7 @@ module CoPlan
           render turbo_stream: turbo_stream.update("new-comment-form-error", message),
             status: :unprocessable_content
         end
-        format.html { redirect_to plan_path(@plan), alert: message }
+        format.html { redirect_to helpers.plan_browse_path(@plan), alert: message }
       end
     end
 
@@ -130,7 +130,7 @@ module CoPlan
     def respond_with_stream_or_redirect(message, streams: [])
       respond_to do |format|
         format.turbo_stream { render turbo_stream: streams }
-        format.html { redirect_to plan_path(@plan), notice: message }
+        format.html { redirect_to helpers.plan_browse_path(@plan), notice: message }
       end
     end
 

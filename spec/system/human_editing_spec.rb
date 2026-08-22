@@ -35,7 +35,7 @@ RSpec.describe "Human plan editing", type: :system do
     fill_in "change_summary", with: "Browser edit"
     click_button "Save new version"
 
-    expect(page).to have_current_path(plan_path(plan))
+    expect(page).to have_current_path(plan_page_path(plan))
     expect(page).to have_content("Plan updated.")
     expect(page).to have_content("Revised body from the browser.")
 
@@ -59,9 +59,9 @@ RSpec.describe "Human plan editing", type: :system do
     find("#plan_tag_field").send_keys("api-design", :enter)
     click_button "Save new version"
 
-    expect(page).to have_current_path(plan_path(plan))
     expect(page).to have_content("Plan updated.")
-    plan.reload
+    # Retitling reslugs the document, so its address moved with it.
+    expect(page).to have_current_path(plan_page_path(plan.reload))
     expect(plan.title).to eq("Renamed In Editor")
     expect(plan.tag_names).to contain_exactly("security", "api-design")
   end
@@ -140,9 +140,12 @@ RSpec.describe "Human plan editing", type: :system do
 
     visit plan_path(plan)
     expect(page).to have_content("Editable Plan")
+    # A reader gets the overflow menu and nothing else. There used to be a
+    # Save here that filed the plan onto their own shelf; a plan lives in
+    # one place now, so reading one is just reading it.
     within("#plan-toolbar") do
       expect(page).not_to have_link("Edit")
-      expect(page).to have_button("Save")
+      expect(page).not_to have_button("Save")
     end
     # The reader's overflow menu is History only — no state-changing actions.
     open_plan_menu

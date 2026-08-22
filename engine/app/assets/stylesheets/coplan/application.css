@@ -4764,13 +4764,6 @@ img.avatar {
   display: block;
 }
 
-/* The Save control (readers only): a labeled bookmark. Saved = filled
-   icon + accent, and clicking it opens the navigator to move or remove —
-   it never unsaves on the spot. */
-.plan-save--saved {
-  color: var(--color-primary);
-}
-
 /* Dropdown menu on the native Popover API — the toolbar's ⋯ overflow.
    Same glass as the pill it hangs from. Position is set inline by
    menu_controller (popovers open centered by default). */

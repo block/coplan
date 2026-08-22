@@ -1,23 +1,22 @@
-<%# Compact plan row for the workspace index. Shelving is viewer-relative:
-    any row can be dragged into (or re-filed within) the current user's own
-    library, whoever wrote the plan — the folder shown is where *you* filed
-    it (server-rendered per viewer — this page doesn't broadcast).
+<%# Compact plan row for the workspace index. The folder shown is where
+    the plan actually lives — one place, the same for everyone — and
+    dragging a row moves it there rather than copying it onto a shelf.
 
     draggable="false" on every inner link/image: links are natively
     draggable, so without it a drag that starts on the title picks up the
     *link* payload instead of the row's — the "only works if you grab the
     right spot" bug. %>
 <% summary = plan.try(:summary).presence || plan_content_preview(plan) %>
-<% my_folder_id = viewer_folder_id(plan) %>
+<% folder_id = plan_folder_id(plan) %>
 
 <article class="plan-row<%= " plan-row--archived" if plan.archived? %>"
          data-plan-id="<%= plan.id %>"
-         data-plan-url="<%= plan_path(plan) %>"
+         data-plan-url="<%= plan_browse_path(plan) %>"
          data-visibility="<%= plan.visibility %>"
          data-coplan--workspace-keys-target="item"
          draggable="true"
          data-move-url="<%= move_to_folder_plan_path(plan) %>"
-         data-current-folder-id="<%= my_folder_id %>"
+         data-current-folder-id="<%= folder_id %>"
          data-action="dragstart->coplan--folder-dnd#dragStart dragend->coplan--folder-dnd#dragEnd">
   <%# The file icon spans both text rows — a Drive-style file entry, not an
       inline glyph. %>
@@ -28,13 +27,13 @@
           click anywhere navigates and a hover anywhere prefetches the plan
           (Turbo 8 hover prefetch) — native link semantics (middle/cmd
           click) included. Other links/buttons in the row sit above it. %>
-      <%= link_to plan.title, plan_path(plan), class: "plan-row__title", draggable: false,
+      <%= link_to plan.title, plan_browse_path(plan), class: "plan-row__title", draggable: false,
             data: { turbo_frame: "_top", turbo_prefetch: true } %><%= plan_state_badge(plan) %>
-      <% if my_folder_id && my_folder_id != local_assigns[:suppress_folder_id] %>
-        <%= link_to workspace_path(folder: my_folder_id),
+      <% if folder_id && folder_id != local_assigns[:suppress_folder_id] %>
+        <%= link_to workspace_path(folder: folder_id),
               class: "plan-row__folder", draggable: false, data: { turbo_frame: "_top" } do %>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-          <%= folder_paths_by_id[my_folder_id] %>
+          <%= folder_paths_by_id[folder_id] %>
         <% end %>
       <% end %>
       <% if unread > 0 %>

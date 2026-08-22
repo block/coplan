@@ -13,7 +13,7 @@
       <% if thread.out_of_date? %>
         <span class="badge badge--archived">out of date</span>
       <% end %>
-      <%= link_to plan_path(plan, thread: thread.id),
+      <%= link_to plan_browse_path(plan, thread: thread.id),
                   class: "thread-popover__permalink btn btn--secondary btn--sm",
                   title: "Copy link to this comment",
                   data: { action: "coplan--text-selection#copyThreadLink" } do %>

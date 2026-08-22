@@ -27,8 +27,8 @@ module CoPlan
     belongs_to :current_version_stub, -> { select(:id, :content_sha256) },
       class_name: "PlanVersion", foreign_key: :current_plan_version_id, optional: true
     belongs_to :plan_type
-    has_many :placements, class_name: "CoPlan::PlanPlacement", inverse_of: :plan, dependent: :destroy
-    has_many :libraries, through: :placements
+    # At most one: a plan is filed in a single folder of a single library.
+    has_one :placement, class_name: "CoPlan::PlanPlacement", inverse_of: :plan, dependent: :destroy
     has_many :plan_versions, -> { order(revision: :asc) }, dependent: :destroy
     has_many :plan_events, dependent: :destroy
     has_many :plan_collaborators, dependent: :destroy
@@ -51,6 +51,12 @@ module CoPlan
     # paths — API, services, direct creates — stay type-optional while
     # untyped rows stay unrepresentable.
     before_validation :assign_default_plan_type, on: :create
+
+    # The URL segment follows the title, so a shared link reads like the
+    # document it points at, and the old URL keeps resolving via UrlAlias.
+    # Drafts are exempt from the alias: they get retitled freely while
+    # being written and have no links in the wild worth preserving.
+    before_save :assign_url_slug, if: :url_slug_stale?
 
     validates :title, presence: true
     validates :visibility, presence: true, inclusion: { in: VISIBILITIES }
@@ -177,11 +183,45 @@ module CoPlan
     end
 
     def self.ransackable_attributes(auth_object = nil)
-      %w[id title visibility archived_at plan_type_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
+      %w[id title slug slug_suffix visibility archived_at plan_type_id created_by_user_id current_plan_version_id current_revision created_at updated_at]
     end
 
     def self.ransackable_associations(auth_object = nil)
       %w[plan_type created_by_user]
+    end
+
+    # --- Where the plan lives ------------------------------------------
+    #
+    # One library, one folder, one address. A filed plan lives wherever
+    # its placement puts it; an unfiled one sits at the root of the
+    # library it was born into, which is its author's. Nothing here is
+    # viewer-relative — every reader of a plan sees the same location,
+    # because there is only one.
+
+    def library
+      placement&.library || created_by_user&.library
+    end
+
+    def folder
+      placement&.folder
+    end
+
+    def library_handle
+      library&.handle
+    end
+
+    # "orders/liveorder/cart-roadmap" — handle first, no leading slash,
+    # exactly what Urls::Resolve walks and what UrlAlias stores.
+    def url_path
+      return nil if slug.blank? || library_handle.blank?
+
+      [ library_handle, folder&.slug_path, leaf_segment ].compact_blank.join("/")
+    end
+
+    # The disambiguating suffix rides on the leaf and nowhere else, so
+    # every ancestor prefix of a plan's URL stays clean and browsable.
+    def leaf_segment
+      slug_suffix.present? ? "#{slug}~#{slug_suffix}" : slug
     end
 
     def draft?
@@ -194,13 +234,6 @@ module CoPlan
 
     def archived?
       archived_at.present?
-    end
-
-    # A plan's containing location is the folder chosen by its author in
-    # their own library. Other people may save the same plan elsewhere, but
-    # those placements are personal organization rather than its home.
-    def author_placement
-      placements.find_by(library_id: created_by_user.library.id)
     end
 
     # Legacy API compatibility (see LEGACY_STATUSES). Emits the closest
@@ -272,6 +305,16 @@ module CoPlan
 
     def assign_default_plan_type
       self.plan_type ||= PlanType.general
+    end
+
+    def url_slug_stale?
+      slug.blank? || will_save_change_to_title?
+    end
+
+    # Drafts don't leave an alias behind: they're retitled repeatedly
+    # while being written, and nobody holds those links yet.
+    def assign_url_slug
+      Plans::AssignSlug.call(plan: self, record_alias: published?)
     end
 
     # Backstop validation for attachment size/type. The primary check lives in

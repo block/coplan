@@ -13,7 +13,7 @@ RSpec.describe "Comments", type: :request do
         comment: { body_markdown: "I agree with this." }
       }
     }.to change(CoPlan::Comment, :count).by(1)
-    expect(response).to redirect_to(plan_path(plan))
+    expect(response).to redirect_to(plan_page_path(plan))
     comment = CoPlan::Comment.last
     expect(comment.author_type).to eq("human")
     expect(comment.author_id).to eq(alice.id)
@@ -70,7 +70,7 @@ RSpec.describe "Comments", type: :request do
       expect {
         delete plan_comment_thread_comment_path(plan, thread_record, comment)
       }.to change { comment.reload.deleted_at }.from(nil)
-      expect(response).to redirect_to(plan_path(plan))
+      expect(response).to redirect_to(plan_page_path(plan))
     end
 
     it "redirects with alert when the user is not the comment author" do

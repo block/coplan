@@ -15,7 +15,7 @@ RSpec.describe "Changed-section highlights", type: :request do
 
   it "sends no keys on a first-ever visit" do
     sign_in_as(viewer)
-    get plan_path(plan)
+    get plan_page_path(plan)
 
     expect(response).to have_http_status(:ok)
     expect(keys_attr(response.body)).to eq("[]")
@@ -30,18 +30,18 @@ RSpec.describe "Changed-section highlights", type: :request do
     plan.update_columns(current_plan_version_id: v2.id, current_revision: 2)
 
     sign_in_as(viewer)
-    get plan_path(plan)
+    get plan_page_path(plan)
     expect(keys_attr(response.body)).to include("plan-content")
 
     # That request advanced last_seen_at — the highlight is spent.
-    get plan_path(plan)
+    get plan_page_path(plan)
     expect(keys_attr(response.body)).to eq("[]")
   end
 
   it "sends no keys when nothing changed since the last visit" do
     sign_in_as(viewer)
-    get plan_path(plan)
-    get plan_path(plan)
+    get plan_page_path(plan)
+    get plan_page_path(plan)
 
     expect(keys_attr(response.body)).to eq("[]")
   end
