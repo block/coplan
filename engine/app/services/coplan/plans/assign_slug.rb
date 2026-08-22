@@ -96,12 +96,30 @@ module CoPlan
         tokens
       end
 
-      # Another plan already holds this slug in the same folder. Checked
+      # Something else at this level already holds the segment. Checked
       # against the folder's placements, which is the plan's real
       # uniqueness scope — see the note in AddPlanSlugsAndUrlAliases about
       # why this isn't a DB constraint yet.
+      #
+      # Sibling *folders* count too. Urls::Resolve hands the segment to a
+      # folder when both want it — mistaking a folder for a plan would
+      # break a whole subtree — so a plan sharing a folder's slug would
+      # have no reachable address at all. Folders never take a suffix;
+      # plans do, which makes the plan the one that moves.
       def contested?
+        return true if sibling_folders.where(slug: @plan.slug).exists?
+
         siblings.where(slug: @plan.slug, slug_suffix: nil).exists?
+      end
+
+      # The folders that sit at the same level of the URL as this plan: the
+      # children of the folder it's filed in, or the library's root folders
+      # when it's filed nowhere.
+      def sibling_folders
+        library = @folder&.library || @plan.library
+        return Folder.none if library.nil?
+
+        library.folders.where(parent_id: @folder&.id)
       end
 
       def siblings

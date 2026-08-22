@@ -122,6 +122,29 @@ RSpec.describe "Browsable library URLs", type: :request do
       expect(response.headers["Location"]).to end_with("/hampton-lc/cart-roadmap")
       expect(plan.reload.url_path).to eq("hampton-lc/cart-roadmap")
     end
+
+    # The renamed thing's own address, not just the ones beneath it. A
+    # prefix alias has to match the whole path as well as its ancestors, or
+    # a rename fixes every link into a folder except the link to the folder.
+    it "301s the renamed folder's own path" do
+      folder = create(:folder, name: "LiveOrder", created_by_user: author)
+
+      folder.update!(name: "Orders")
+
+      get "/hampton/liveorder"
+
+      expect(response).to have_http_status(:moved_permanently)
+      expect(response.headers["Location"]).to end_with("/hampton/orders")
+    end
+
+    it "301s the renamed library's own root" do
+      author.library.update!(handle: "hampton-lc")
+
+      get "/hampton"
+
+      expect(response).to have_http_status(:moved_permanently)
+      expect(response.headers["Location"]).to end_with("/hampton-lc")
+    end
   end
 
   describe "legacy URLs" do

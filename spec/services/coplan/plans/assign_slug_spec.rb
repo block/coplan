@@ -95,6 +95,59 @@ RSpec.describe CoPlan::Plans::AssignSlug do
       expect(first.slug_suffix).to be_nil
       expect(second.slug_suffix).to be_nil
     end
+
+    # A folder wins the segment when both want it, so a plan sharing one
+    # would have no address at all. The plan is the one that moves.
+    it "steps around a sibling folder that already holds the segment" do
+      create(:folder, name: "Roadmap", created_by_user: author)
+      plan = create(:plan, :published, created_by_user: author, title: "Roadmap")
+
+      expect(plan.slug).to eq("roadmap")
+      expect(plan.slug_suffix).to be_present
+      expect(plan.url_path).to match(%r{\Ahampton/roadmap~[a-z0-9]{4}\z})
+    end
+
+    it "only steps around folders at its own level" do
+      parent = create(:folder, name: "Projects", created_by_user: author)
+      create(:folder, name: "Roadmap", parent: parent, created_by_user: author)
+      plan = create(:plan, :published, created_by_user: author, title: "Roadmap")
+
+      expect(plan.slug_suffix).to be_nil
+      expect(plan.url_path).to eq("hampton/roadmap")
+    end
+
+    # The other order: the plan was there first and the folder arrives. The
+    # segment changes hands — anyone following the old link lands on the
+    # folder that now owns that name, since a live page beats an alias —
+    # but the document keeps an address of its own instead of losing one.
+    it "re-slugs a plan a new folder would have shadowed" do
+      plan = create(:plan, :published, created_by_user: author, title: "Roadmap")
+      expect(plan.url_path).to eq("hampton/roadmap")
+
+      folder = create(:folder, name: "Roadmap", created_by_user: author)
+
+      expect(plan.reload.slug_suffix).to be_present
+      expect(plan.url_path).not_to eq(folder.url_path)
+      expect(CoPlan::Urls::Resolve.call(handle: "hampton", slug_path: plan.leaf_segment).plan).to eq(plan)
+    end
+
+    it "re-slugs a plan a folder rename would have shadowed" do
+      plan = create(:plan, :published, created_by_user: author, title: "Roadmap")
+      folder = create(:folder, name: "Plans", created_by_user: author)
+
+      folder.update!(name: "Roadmap")
+
+      expect(plan.reload.slug_suffix).to be_present
+    end
+
+    it "leaves a plan alone when the new folder is a level below it" do
+      parent = create(:folder, name: "Projects", created_by_user: author)
+      plan = create(:plan, :published, created_by_user: author, title: "Roadmap")
+
+      create(:folder, name: "Roadmap", parent: parent, created_by_user: author)
+
+      expect(plan.reload.slug_suffix).to be_nil
+    end
   end
 
   describe "aliases" do

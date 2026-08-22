@@ -60,10 +60,14 @@ module CoPlan
 
     # Candidate prefixes are every ancestor path of the given path, so the
     # lookup is one IN query rather than a LIKE scan.
+    #
+    # The path itself counts as one of its own prefixes: renaming a folder
+    # has to fix the link to the folder, not only the links to what's
+    # inside it. Without it a renamed library handle was never matched at
+    # all — a one-segment path has no ancestors.
     def self.longest_prefix_match(path)
       segments = path.split("/")
-      candidates = (1...segments.length).map { |n| segments.first(n).join("/") }
-      return nil if candidates.empty?
+      candidates = (1..segments.length).map { |n| segments.first(n).join("/") }
 
       prefix.where(path: candidates).max_by { |row| row.path.length }
     end

@@ -21,9 +21,7 @@ module CoPlan
       current_user.library
 
       @libraries = Library.includes(:owner).order(:handle).to_a
-      @plan_counts = Plan.visible_to(current_user).active
-        .joins(:placement)
-        .group("coplan_plan_placements.library_id").count
+      @plan_counts = plan_counts_for(@libraries)
     end
 
     def show
@@ -40,6 +38,24 @@ module CoPlan
     end
 
     private
+
+    # What clicking the row will show you, which is both senses of "in this
+    # library": filed into one of its folders, and loose at its root. A
+    # plan at a library root has no placement row by design, so counting
+    # placements alone called a library of nothing but unfiled work
+    # "empty" — see Library#unfiled_plans.
+    def plan_counts_for(libraries)
+      visible = Plan.visible_to(current_user).active
+      counts = visible.joins(:placement).group("coplan_plan_placements.library_id").count
+      unfiled = visible.where.not(id: PlanPlacement.select(:plan_id)).group(:created_by_user_id).count
+
+      libraries.each_with_object(counts) do |library, totals|
+        next unless library.owner_type == "CoPlan::User"
+
+        loose = unfiled[library.owner_id].to_i
+        totals[library.id] = totals[library.id].to_i + loose if loose.positive?
+      end
+    end
 
     def browse_url_for(library, folder)
       return browse_library_path(handle: library.handle) if folder.nil?

@@ -26,6 +26,30 @@ RSpec.describe "Libraries", type: :request do
 
       expect(response.body).to include(%(href="/alice"))
     end
+
+    # The count has to say what clicking the row will show. A plan at a
+    # library root has no placement row by design, so counting placements
+    # alone called a library of nothing but loose work "empty".
+    it "counts the plans sitting loose at a library root" do
+      bob = create(:coplan_user, username: "bob")
+      create(:plan, :published, created_by_user: bob, title: "Loose plan")
+
+      get browse_root_path
+
+      expect(response.body).to include("1 plan")
+    end
+
+    it "counts filed and loose plans together" do
+      bob = create(:coplan_user, username: "bob")
+      folder = create(:folder, name: "Projects", created_by_user: bob)
+      filed = create(:plan, :published, created_by_user: bob, title: "Filed plan")
+      create(:plan_placement, plan: filed, folder: folder)
+      create(:plan, :published, created_by_user: bob, title: "Loose plan")
+
+      get browse_root_path
+
+      expect(response.body).to include("2 plans")
+    end
   end
 
   describe "GET /library" do

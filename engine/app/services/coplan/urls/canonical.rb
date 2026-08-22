@@ -1,12 +1,18 @@
 module CoPlan
   module Urls
-    # Builds the readable address of a document from anywhere — views,
-    # controllers, background jobs, push payloads. `CoPlan::BrowseHelper`
-    # delegates here; so does anything that has no view context to borrow
-    # route helpers from.
+    # Builds the readable address of a document with no request in hand —
+    # background jobs, push payloads, anything with no view context to
+    # borrow route helpers from. A caller that *has* a request should go
+    # through `CoPlan::BrowseHelper` instead, which is mount-aware.
     #
-    # Paths only. The absolute form needs a host, which only a request
-    # knows, so `browse_url` stays in the helper.
+    # Paths only, and mount-prefix-free: engine route helpers called outside
+    # a request can't know where the host mounted the engine. That's the
+    # same limitation every other non-request caller here lives with (see
+    # SlackNotificationJob, Api::V1::BaseController) and it costs nothing
+    # while the engine is mounted at "/".
+    #
+    # The absolute form needs a host, which only a request knows, so
+    # `browse_url` stays in the helper.
     module Canonical
       # `/<handle>/<folders>/<slug>`, or the id form for a plan whose
       # slug hasn't been backfilled yet. Both have to work while slugs

@@ -18,8 +18,16 @@ module CoPlan
     #
     # Extra options (`thread:`, `anchor:`) ride along either way, so
     # deep links don't have to know which form they got.
+    #
+    # Built from the view's own route helpers rather than delegating to
+    # Urls::Canonical: a host that mounts the engine somewhere other than
+    # "/" gets the mount prefix from the request, and route helpers called
+    # outside a request have no way to know about it.
     def plan_browse_path(plan, **options)
-      Urls::Canonical.plan_path(plan, **options)
+      handle, slug_path = Urls::Canonical.split(plan.url_path)
+      return plan_path(plan, **options) if slug_path.blank?
+
+      browse_path(handle: handle, slug_path: slug_path, **options)
     end
 
     # Absolute form, for rel=canonical. Returns nil rather than falling

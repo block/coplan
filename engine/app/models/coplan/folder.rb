@@ -42,6 +42,9 @@ module CoPlan
     # every plan and subfolder underneath — O(renames), not O(documents).
     before_save :stash_previous_url_path
     after_save :record_url_alias
+    # A folder arriving on a segment a plan was already using takes it —
+    # see #disambiguate_shadowed_plans.
+    after_save :disambiguate_shadowed_plans
     # The folder tree and every count beside it are on screen for anyone
     # browsing this library — a new shelf, a rename, a move or a deletion
     # all change what they are looking at.
@@ -227,6 +230,33 @@ module CoPlan
 
       UrlAlias.record!(from: @previous_url_path, to: url_path, kind: "prefix")
       @previous_url_path = nil
+    end
+
+    # Urls::Resolve gives a folder the segment when a plan at the same
+    # level wants it too, so a folder created or renamed onto a plan's
+    # address would quietly make that document unreachable. The plan gets
+    # the disambiguating suffix it would have been given had the folder
+    # come first, and its old address keeps working through the alias
+    # AssignSlug records on the way past.
+    def disambiguate_shadowed_plans
+      return unless saved_change_to_slug? || saved_change_to_parent_id?
+
+      shadowed_plans.each do |plan|
+        Plans::AssignSlug.call(plan: plan)
+        plan.save!
+      end
+    end
+
+    # Plans addressed at this folder's own level: those filed in its
+    # parent, or the library's loose plans when it's a root folder.
+    def shadowed_plans
+      scope = if parent_id.present?
+        Plan.where(id: PlanPlacement.where(folder_id: parent_id).select(:plan_id))
+      else
+        library.unfiled_plans
+      end
+
+      scope.where(slug: slug, slug_suffix: nil)
     end
 
     def parent_cannot_create_cycle
