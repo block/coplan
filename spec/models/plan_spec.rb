@@ -117,7 +117,7 @@ RSpec.describe CoPlan::Plan, type: :model do
         :considering,
         created_by_user: author,
         title: "Quarterly Strategy Document")
-      plan.tags = [CoPlan::Tag.find_or_create_by!(name: "strategy")]
+      plan.tags = [ CoPlan::Tag.find_or_create_by!(name: "strategy") ]
       plan.reload
 
       expect(plan.search_text).to include("Quarterly Strategy Document")
@@ -136,14 +136,14 @@ RSpec.describe CoPlan::Plan, type: :model do
     it "refreshes when a tag is added" do
       plan = create(:plan, :considering)
       expect(plan.search_text).not_to include("infrastructure")
-      plan.tags = [CoPlan::Tag.find_or_create_by!(name: "infrastructure")]
+      plan.tags = [ CoPlan::Tag.find_or_create_by!(name: "infrastructure") ]
       expect(plan.reload.search_text).to include("infrastructure")
     end
 
     it "refreshes every associated plan when a tag is renamed" do
       tag = CoPlan::Tag.find_or_create_by!(name: "old-name")
       plan = create(:plan, :considering)
-      plan.tags = [tag]
+      plan.tags = [ tag ]
       expect(plan.reload.search_text).to include("old-name")
 
       tag.update!(name: "new-name")
@@ -156,7 +156,7 @@ RSpec.describe CoPlan::Plan, type: :model do
       # Simulates the after_commit on PlanTag running when its parent Plan
       # row is already gone — this happens during dependent: :destroy cascade.
       plan = create(:plan, :considering)
-      plan.tags = [CoPlan::Tag.find_or_create_by!(name: "platform")]
+      plan.tags = [ CoPlan::Tag.find_or_create_by!(name: "platform") ]
       plan_tag = plan.plan_tags.first
       allow(plan_tag).to receive(:plan).and_return(plan)
       allow(plan).to receive(:destroyed?).and_return(true)

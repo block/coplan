@@ -7,6 +7,24 @@ on:
     branches: [main]
 
 jobs:
+  # Style only, so it needs no database and no RAILS_ENV. Runs alongside the
+  # test jobs rather than gating them: a bracket-spacing nit should not hide
+  # whether the suite passes.
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      - name: Run RuboCop
+        run: bin/rubocop
+
   test:
     runs-on: ubuntu-latest
 

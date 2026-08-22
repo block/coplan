@@ -43,10 +43,10 @@ module CoPlan
         CoPlan::Current.user = current_user
 
         @instructions_url = coplan.agent_instructions_url
-        @instructions_markdown = render_to_string(:show, formats: [:text], layout: false)
-        render :show, formats: [:html]
+        @instructions_markdown = render_to_string(:show, formats: [ :text ], layout: false)
+        render :show, formats: [ :html ]
       else
-        render layout: false, content_type: "text/markdown", formats: [:text]
+        render layout: false, content_type: "text/markdown", formats: [ :text ]
       end
     end
 
@@ -58,7 +58,7 @@ module CoPlan
       @auth_instructions = CoPlan.configuration.agent_auth_instructions
       @curl = CoPlan.configuration.agent_curl_prefix
       @base = "#{request.base_url}#{root_path.chomp("/")}"
-      render layout: false, content_type: "text/markdown", formats: [:text]
+      render layout: false, content_type: "text/markdown", formats: [ :text ]
     end
 
     private

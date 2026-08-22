@@ -39,9 +39,9 @@ module CoPlan
         if s == e
           # Insert point: shift if edit is strictly before
           if e2 <= s
-            return [s + delta, e + delta]
+            return [ s + delta, e + delta ]
           elsif s2 > s
-            return [s, e]
+            return [ s, e ]
           else
             raise Conflict, "Edit overlaps with insert point"
           end
@@ -49,12 +49,12 @@ module CoPlan
 
         # Case 1: Edit is entirely before our range (e2 <= s)
         if e2 <= s
-          return [s + delta, e + delta]
+          return [ s + delta, e + delta ]
         end
 
         # Case 2: Edit is entirely after our range (s2 >= e)
         if s2 >= e
-          return [s, e]
+          return [ s, e ]
         end
 
         # Case 3: Overlap — conflict

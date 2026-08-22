@@ -1,5 +1,5 @@
 CoPlan::Engine.routes.draw do
-  resources :plans, only: [:index, :show, :edit, :update] do
+  resources :plans, only: [ :index, :show, :edit, :update ] do
     patch :publish, on: :member
     patch :hide, on: :member
     patch :archive, on: :member
@@ -10,28 +10,28 @@ CoPlan::Engine.routes.draw do
     get :edit_content, on: :member
     patch :update_content, on: :member
     post :preview, on: :member
-    resources :versions, controller: "plan_versions", only: [:show] do
+    resources :versions, controller: "plan_versions", only: [ :show ] do
       get :diff, on: :member
     end
-    resources :references, controller: "references", only: [:create, :destroy]
-    resources :attachments, controller: "attachments", only: [:create, :destroy]
+    resources :references, controller: "references", only: [ :create, :destroy ]
+    resources :attachments, controller: "attachments", only: [ :create, :destroy ]
     # Cleans up a spoken remark and works out which passage it was about;
     # see DictationsController.
-    resources :dictations, only: [:create]
-    resources :comment_threads, only: [:create] do
+    resources :dictations, only: [ :create ]
+    resources :comment_threads, only: [ :create ] do
       member do
         patch :resolve
         patch :accept
         patch :discard
         patch :reopen
       end
-      resources :comments, only: [:create, :destroy]
+      resources :comments, only: [ :create, :destroy ]
     end
   end
 
   namespace :settings do
     root "settings#index"
-    resources :tokens, only: [:index, :create, :destroy]
+    resources :tokens, only: [ :index, :create, :destroy ]
     patch "theme", to: "settings#update_theme"
     patch "voice_hotkey", to: "settings#update_voice_hotkey"
   end
@@ -39,11 +39,11 @@ CoPlan::Engine.routes.draw do
   # Web folder creation (sidebar "New folder" input) and reparenting (drag
   # a folder onto a folder). Rename/delete go through the API or admin for
   # now.
-  resources :folders, only: [:create, :update]
+  resources :folders, only: [ :create, :update ]
 
   # Read-only library browsing (folder-jump discovery). "library" without
   # an id is the signed-in user's own — handy for nav links.
-  resources :libraries, only: [:show]
+  resources :libraries, only: [ :show ]
   get "library", to: "libraries#mine", as: :my_library
 
   # Profile pages — the front door to a person's library. :id is a
@@ -53,16 +53,16 @@ CoPlan::Engine.routes.draw do
 
   namespace :api do
     namespace :v1 do
-      resources :tags, only: [:index]
+      resources :tags, only: [ :index ]
       # Plan-type catalog (with templates) — agents read this before
       # creating a plan; see the Create Plan section of /agent-instructions.
-      resources :plan_types, only: [:index]
-      resources :folders, only: [:index, :create, :update, :destroy]
+      resources :plan_types, only: [ :index ]
+      resources :folders, only: [ :index, :create, :update, :destroy ]
 
       # The agent organization API: overview (show), bulk read (contents),
       # bulk write (organize), audit log (events). The bare /library routes
       # are the caller's own library, no id needed.
-      resources :libraries, only: [:index, :show] do
+      resources :libraries, only: [ :index, :show ] do
         member do
           get :contents
           get :events
@@ -74,18 +74,18 @@ CoPlan::Engine.routes.draw do
       get "library/events", to: "libraries#events", as: :own_library_events
       post "library/organize", to: "libraries#organize", as: :own_library_organize
 
-      resources :plans, only: [:index, :show, :create, :update] do
+      resources :plans, only: [ :index, :show, :create, :update ] do
         get :versions, on: :member
         get :locations, on: :member
         get :comments, on: :member
         get :snapshot, on: :member
-        resource :content, only: [:update], controller: "content"
-        resource :lease, only: [:create, :update, :destroy], controller: "leases"
-        resources :operations, only: [:create]
-        resources :sessions, only: [:create, :show], controller: "sessions" do
+        resource :content, only: [ :update ], controller: "content"
+        resource :lease, only: [ :create, :update, :destroy ], controller: "leases"
+        resources :operations, only: [ :create ]
+        resources :sessions, only: [ :create, :show ], controller: "sessions" do
           post :commit, on: :member
         end
-        resources :comments, only: [:create], controller: "comments" do
+        resources :comments, only: [ :create ], controller: "comments" do
           post :reply, on: :member
           patch :resolve, on: :member
           patch :discard, on: :member
@@ -93,8 +93,8 @@ CoPlan::Engine.routes.draw do
         # Deletes an individual comment (by comment ID, not thread ID).
         # Distinct from the routes above, which key off thread ID.
         delete "comments/:id/delete", to: "comments#destroy", as: :destroy_comment
-        resources :references, only: [:index, :create, :destroy]
-        resources :attachments, only: [:index, :create, :destroy]
+        resources :references, only: [ :index, :create, :destroy ]
+        resources :attachments, only: [ :index, :create, :destroy ]
       end
       resources :references, only: [] do
         get :search, on: :collection
@@ -104,7 +104,7 @@ CoPlan::Engine.routes.draw do
       # the host's request auth alone, since it is how an agent gets the
       # Bearer token every other call requires. DELETE revokes whichever
       # token authenticated the request.
-      resources :tokens, only: [:create]
+      resources :tokens, only: [ :create ]
       delete "tokens/current", to: "tokens#destroy", as: :revoke_current_token
     end
   end
@@ -113,7 +113,7 @@ CoPlan::Engine.routes.draw do
     get :search, on: :collection
   end
 
-  resources :notifications, only: [:index, :show] do
+  resources :notifications, only: [ :index, :show ] do
     member do
       patch :mark_read
     end
@@ -137,7 +137,7 @@ CoPlan::Engine.routes.draw do
   # Web Push subscription management. Endpoint URLs come from the browser's
   # PushManager and uniquely identify a (browser, device, app) tuple per user.
   scope :web_push, module: "web_push", as: :web_push do
-    resource :subscription, only: [:create, :destroy], controller: "subscriptions"
+    resource :subscription, only: [ :create, :destroy ], controller: "subscriptions"
     # Turbo-frame target for the per-device list on the Settings page.
     # Reloaded by the settings Stimulus controller after enable/disable so
     # the list reflects the new browser without a full page refresh.

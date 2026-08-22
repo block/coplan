@@ -1,6 +1,20 @@
 # Omakase Ruby styling for Rails
 inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 
+# `merge` appends to the inherited Exclude list instead of replacing it. Without
+# this, the entry below would drop rubocop-rails' own excludes (bin/*, log/**,
+# public/**, app/assets/**) and we would start linting all of them.
+inherit_mode:
+  merge:
+    - Exclude
+
+AllCops:
+  Exclude:
+    # Rails regenerates this from the migrations, so any styling we applied
+    # would be reverted by the next `db:migrate`. Stated explicitly for the
+    # next reader; rubocop-rails already excludes it via `db/*schema.rb`.
+    - db/schema.rb
+
 # Overwrite or add rules to create your own house style
 #
 # # Use `[a, [b, c]]` not `[ a, [ b, c ] ]`

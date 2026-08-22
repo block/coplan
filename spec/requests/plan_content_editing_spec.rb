@@ -159,7 +159,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
   # metadata path rides update_content, not the legacy #update action.
   describe "PATCH update_content with metadata" do
     it "applies title and tag changes alongside content and logs their events" do
-      plan.tag_names = ["security"]
+      plan.tag_names = [ "security" ]
       plan.save!
 
       patch update_content_plan_path(plan), params: {
@@ -240,7 +240,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
 
   describe "PATCH update with tags" do
     it "updates tags from a comma-separated list and logs events" do
-      plan.tag_names = ["security"]
+      plan.tag_names = [ "security" ]
       plan.save!
 
       patch plan_path(plan), params: { plan: { title: plan.title, tag_names: "security, api-design" } }
@@ -262,7 +262,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
     end
 
     it "leaves tags untouched when the field is absent" do
-      plan.tag_names = ["security"]
+      plan.tag_names = [ "security" ]
       plan.save!
 
       patch plan_path(plan), params: { plan: { title: "New title" } }

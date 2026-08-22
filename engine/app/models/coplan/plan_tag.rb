@@ -7,7 +7,7 @@ module CoPlan
 
     # Plan-level after_save_commit doesn't fire when tags change (the Plan row
     # itself isn't dirty), so re-denormalize the parent's `search_text` here.
-    after_commit :refresh_plan_search_text, on: [:create, :destroy]
+    after_commit :refresh_plan_search_text, on: [ :create, :destroy ]
 
     def self.ransackable_attributes(auth_object = nil)
       %w[id plan_id tag_id created_at updated_at]

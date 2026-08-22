@@ -632,7 +632,7 @@ RSpec.describe "Comment UX", type: :system do
       within(".thread-popover") do
         textarea = find("textarea[placeholder='Press r to reply']")
         textarea.fill_in with: "Line one"
-        textarea.send_keys([:shift, :enter])
+        textarea.send_keys([ :shift, :enter ])
         textarea.send_keys("Line two")
         value = textarea.value
         expect(value).to include("Line one")

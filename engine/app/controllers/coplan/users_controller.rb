@@ -33,9 +33,9 @@ module CoPlan
 
     def user_json(user)
       if user.respond_to?(:id)
-        ALLOWED_FIELDS.to_h { |f| [f, user.public_send(f)] }
+        ALLOWED_FIELDS.to_h { |f| [ f, user.public_send(f) ] }
       else
-        ALLOWED_FIELDS.to_h { |f| [f, user[f]] }
+        ALLOWED_FIELDS.to_h { |f| [ f, user[f] ] }
       end
     end
   end

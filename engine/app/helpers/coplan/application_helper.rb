@@ -4,7 +4,7 @@ module CoPlan
     FAVICON_COLORS = {
       "production"  => { start: "#3B82F6", stop: "#1E40AF" },
       "staging"     => { start: "#F59E0B", stop: "#D97706" },
-      "development" => { start: "#10B981", stop: "#047857" },
+      "development" => { start: "#10B981", stop: "#047857" }
     }.freeze
 
     def coplan_favicon_tag

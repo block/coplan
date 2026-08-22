@@ -118,7 +118,7 @@ RSpec.describe CoPlan::EditSession, type: :model do
       op = { "op" => "replace_exact", "old_text" => "old", "new_text" => "new" }
       session.add_operation(op)
       session.reload
-      expect(session.operations_json).to eq([op])
+      expect(session.operations_json).to eq([ op ])
     end
   end
 

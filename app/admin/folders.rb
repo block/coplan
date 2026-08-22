@@ -49,8 +49,8 @@ ActiveAdmin.register CoPlan::Folder, as: "Folder" do
       f.input :name
       f.input :library_id, as: :select,
         collection: CoPlan::Library.includes(:owner).map { |l| [ "#{l.owner.try(:name) || l.owner_id} — #{l.name}", l.id ] }
-      f.input :parent, collection: CoPlan::Folder.order(:name).map { |folder| [folder.path, folder.id] }
-      f.input :created_by_user, collection: CoPlan::User.order(:name).map { |u| [u.name, u.id] }
+      f.input :parent, collection: CoPlan::Folder.order(:name).map { |folder| [ folder.path, folder.id ] }
+      f.input :created_by_user, collection: CoPlan::User.order(:name).map { |u| [ u.name, u.id ] }
     end
     f.actions
   end

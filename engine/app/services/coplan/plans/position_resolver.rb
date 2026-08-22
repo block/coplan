@@ -59,7 +59,7 @@ module CoPlan
               raise OperationError, "replace_exact: occurrence #{occurrence} requested but only #{ranges.length} found"
             end
 
-            Resolution.new(op: "replace_exact", ranges: [ranges[occurrence - 1]])
+            Resolution.new(op: "replace_exact", ranges: [ ranges[occurrence - 1] ])
           end
         end
       end
@@ -73,7 +73,7 @@ module CoPlan
         matches = []
         @content.scan(pattern) do
           match_end = Regexp.last_match.end(0)
-          matches << [match_end, match_end]
+          matches << [ match_end, match_end ]
         end
 
         if matches.empty?
@@ -103,7 +103,7 @@ module CoPlan
         end
 
         para = matching.first
-        ranges = [deletion_range_for(para, paragraphs)]
+        ranges = [ deletion_range_for(para, paragraphs) ]
 
         Resolution.new(op: "delete_paragraph_containing", ranges: ranges)
       end
@@ -112,7 +112,7 @@ module CoPlan
         ranges = []
         start_pos = 0
         while (idx = @content.index(text, start_pos))
-          ranges << [idx, idx + text.length]
+          ranges << [ idx, idx + text.length ]
           start_pos = idx + text.length
         end
         ranges
@@ -195,7 +195,7 @@ module CoPlan
         end
 
         range = if include_heading
-          [section_start, section_end]
+          [ section_start, section_end ]
         else
           # Skip past the heading line itself
           heading_line_end = @content.index("\n", section_start)
@@ -208,14 +208,14 @@ module CoPlan
             # When trailing newlines are stripped, section_end can retreat
             # behind body_start. Use an empty range at body_start to avoid
             # an inverted range and keep the insertion point after the heading newline.
-            [body_start, [body_start, section_end].max]
+            [ body_start, [ body_start, section_end ].max ]
           else
             # Heading is the only line — body is empty
-            [section_end, section_end]
+            [ section_end, section_end ]
           end
         end
 
-        Resolution.new(op: "replace_section", ranges: [range])
+        Resolution.new(op: "replace_section", ranges: [ range ])
       end
 
       # Parse markdown headings, respecting code fences (``` blocks).
@@ -274,16 +274,16 @@ module CoPlan
 
         if all_paragraphs.length == 1
           # Only paragraph — delete everything
-          [0, @content.length]
+          [ 0, @content.length ]
         elsif is_first
           # First paragraph: delete from text_start through the separator after it,
           # so the next paragraph becomes the start.
-          [para[:text_start], para[:sep_end]]
+          [ para[:text_start], para[:sep_end] ]
         elsif is_last
           # Last paragraph: delete from the separator before it (end of previous
           # paragraph's text) to the end of this paragraph's text.
           prev = all_paragraphs[idx - 1]
-          [prev[:text_end], para[:text_end]]
+          [ prev[:text_end], para[:text_end] ]
         else
           # Middle paragraph: delete from end of previous paragraph's text
           # through the separator after this paragraph, but keep one separator
@@ -294,7 +294,7 @@ module CoPlan
           # sep_end. That removes the paragraph and its trailing separator, and
           # the separator before it (from previous text_end to this text_start)
           # becomes the separator between prev and next.
-          [para[:text_start], para[:sep_end]]
+          [ para[:text_start], para[:sep_end] ]
         end
       end
     end

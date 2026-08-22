@@ -160,7 +160,7 @@ module CoPlan
 
               # Advance the working base snapshot so the next op resolves
               # against the result of this one (sequential semantics).
-              apply_result = Plans::ApplyOperations.call(content: working_base, operations: [op])
+              apply_result = Plans::ApplyOperations.call(content: working_base, operations: [ op ])
               working_base = apply_result[:content]
 
               rebased_op = op.dup
@@ -169,7 +169,7 @@ module CoPlan
 
               # Advance verification content so the next op's conflict check
               # runs against the incrementally updated snapshot.
-              verify_step = Plans::ApplyOperations.call(content: verification_content, operations: [rebased_op])
+              verify_step = Plans::ApplyOperations.call(content: verification_content, operations: [ rebased_op ])
               verification_content = verify_step[:content]
             rescue Plans::TransformRange::Conflict => e
               render json: {
@@ -292,7 +292,7 @@ module CoPlan
               if include_heading
                 # Verify the heading is the first line of the section range
                 first_line_end = content.index("\n", tr[0]) || tr[1]
-                first_line = content[tr[0]...[first_line_end, tr[1]].min]
+                first_line = content[tr[0]...[ first_line_end, tr[1] ].min]
                 unless first_line&.rstrip == op["heading"]&.rstrip
                   render json: {
                     error: "Conflict: section at target position has changed",

@@ -24,7 +24,6 @@ module CoPlan
         FactoryBot.definition_file_paths << Engine.root.join("spec", "factories")
       end
     end
-
   end
 
   # Override table name prefix: isolate_namespace generates "co_plan_"

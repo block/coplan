@@ -11,8 +11,8 @@ class AddSessionMintingToCoplanApiTokens < ActiveRecord::Migration[8.1]
     unless column_exists?(:coplan_api_tokens, :parent_id)
       add_column :coplan_api_tokens, :parent_id, :string, limit: 36
     end
-    unless index_exists?(:coplan_api_tokens, [:parent_id, :revoked_at])
-      add_index :coplan_api_tokens, [:parent_id, :revoked_at]
+    unless index_exists?(:coplan_api_tokens, [ :parent_id, :revoked_at ])
+      add_index :coplan_api_tokens, [ :parent_id, :revoked_at ]
     end
     unless foreign_key_exists?(:coplan_api_tokens, column: :parent_id)
       add_foreign_key :coplan_api_tokens, :coplan_api_tokens, column: :parent_id

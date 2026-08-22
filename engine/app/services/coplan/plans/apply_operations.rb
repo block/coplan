@@ -78,7 +78,7 @@ module CoPlan
             delta = new_text.length - (range[1] - range[0])
             replacements << {
               "resolved_range" => range,
-              "new_range" => [range[0], range[0] + new_text.length],
+              "new_range" => [ range[0], range[0] + new_text.length ],
               "delta" => delta
             }
             cumulative_delta += delta
@@ -95,7 +95,7 @@ module CoPlan
           # `old_text` supplied by the caller.
           delta = new_text.length - (range[1] - range[0])
           applied_data["resolved_range"] = range
-          applied_data["new_range"] = [range[0], range[0] + new_text.length]
+          applied_data["new_range"] = [ range[0], range[0] + new_text.length ]
           applied_data["delta"] = delta
         end
 
@@ -119,7 +119,7 @@ module CoPlan
 
         applied_data = op.except("_pre_resolved_ranges")
         applied_data["resolved_range"] = insert_point
-        applied_data["new_range"] = [insert_point[0], insert_point[0] + content_to_insert.length]
+        applied_data["new_range"] = [ insert_point[0], insert_point[0] + content_to_insert.length ]
         applied_data["delta"] = content_to_insert.length
         applied_data
       end
@@ -160,7 +160,7 @@ module CoPlan
         delta = effective_content.length - (range[1] - range[0])
         applied_data = op.except("_pre_resolved_ranges")
         applied_data["resolved_range"] = range
-        applied_data["new_range"] = [range[0], range[0] + effective_content.length]
+        applied_data["new_range"] = [ range[0], range[0] + effective_content.length ]
         applied_data["delta"] = delta
         applied_data
       end
@@ -181,7 +181,7 @@ module CoPlan
 
         applied_data = op.except("_pre_resolved_ranges")
         applied_data["resolved_range"] = range
-        applied_data["new_range"] = [range[0], range[0]]
+        applied_data["new_range"] = [ range[0], range[0] ]
         applied_data["delta"] = -deleted_length
         applied_data
       end

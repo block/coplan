@@ -18,7 +18,7 @@ RSpec.describe CoPlan::CommitExpiredSessionJob do
       session = CoPlan::EditSession.create!(
         plan: plan, actor_type: "local_agent",
         base_revision: 1, expires_at: 1.minute.ago,
-        operations_json: [{"op" => "replace_exact", "old_text" => "Some content", "new_text" => "Updated content", "resolved_range" => [16, 28], "new_range" => [16, 32], "delta" => 4}],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "Some content", "new_text" => "Updated content", "resolved_range" => [ 16, 28 ], "new_range" => [ 16, 32 ], "delta" => 4 } ],
         draft_content: "# Test Plan\n\nUpdated content here."
       )
 
@@ -64,7 +64,7 @@ RSpec.describe CoPlan::CommitExpiredSessionJob do
       session = CoPlan::EditSession.create!(
         plan: plan, actor_type: "local_agent",
         base_revision: 1, expires_at: 1.minute.ago,
-        operations_json: [{"op" => "replace_exact", "old_text" => "Some content", "new_text" => "Changed", "resolved_range" => [16, 28], "new_range" => [16, 23], "delta" => -5}],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "Some content", "new_text" => "Changed", "resolved_range" => [ 16, 28 ], "new_range" => [ 16, 23 ], "delta" => -5 } ],
         draft_content: "# Test Plan\n\nChanged here."
       )
 
@@ -74,7 +74,7 @@ RSpec.describe CoPlan::CommitExpiredSessionJob do
         plan: plan, revision: 2,
         content_markdown: new_content, actor_type: "human",
         actor_id: user.id,
-        operations_json: [{"op" => "replace_exact", "resolved_range" => [16, 28], "new_range" => [16, 35], "delta" => 7}]
+        operations_json: [ { "op" => "replace_exact", "resolved_range" => [ 16, 28 ], "new_range" => [ 16, 35 ], "delta" => 7 } ]
       )
       plan.update!(current_plan_version: version2, current_revision: 2)
 

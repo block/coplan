@@ -73,6 +73,5 @@ module CoPlan
       self.metadata ||= {}
       self.metadata["voice_hotkey"] = value
     end
-
   end
 end
