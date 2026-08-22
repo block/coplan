@@ -593,9 +593,12 @@ Launch themes: **coplan** (light, Lexend, blue accent — the default),
 **graphite** (near-black canvas, cool ink, sky accent), **poster** (warm
 paper, heavy display type, red-orange accent; title slides go full-accent).
 
-Code block interiors keep the syntax highlighter's own palette in every
-theme — fighting inline highlight styles is a losing game, and code
-legibility beats theme purity.
+Code panels are part of the artifact: one fixed dark panel and one fixed
+highlight palette in every theme and every reader color scheme. A host
+whose highlighter palette follows its own light/dark mode must pin the
+palette inside slides — a deck renders the same on every screen. The same
+rule governs diagrams: a rendered diagram takes its colors from the deck
+theme, never from the reader's scheme.
 
 ## Out of scope here
 

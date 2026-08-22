@@ -130,10 +130,32 @@
   border-radius: 0.4em;
 }
 
+/* Code panels are part of the artifact: one fixed dark panel and one
+   fixed highlight palette (One Dark) in every deck theme and every app
+   scheme. The host flips its --code-* variables with the app's
+   light/dark mode — inside a deck that painted deck-ink text on a
+   near-black panel — so the panel pins every variable the host's code
+   chrome reads (panel, header, hairlines, highlight tokens). */
 .deck-slide .deck-content pre {
   font-size: 0.8em;
   line-height: 1.55;
   margin: 0.8em 0;
+  background: #0d1117;
+  color: #e6edf3;
+  border: 1px solid rgb(255 255 255 / 0.09);
+  --color-border: rgb(255 255 255 / 0.09);
+  --code-header-bg: #161b22;
+  --code-header-text: #8b8f98;
+  --code-comment: #7f848e;
+  --code-keyword: #c678dd;
+  --code-entity: #61afef;
+  --code-constant: #d19a66;
+  --code-string: #98c379;
+  --code-tag: #e06c75;
+  --code-addition-fg: #98c379;
+  --code-addition-bg: rgb(152 195 121 / 0.14);
+  --code-deletion-fg: #e06c75;
+  --code-deletion-bg: rgb(224 108 117 / 0.14);
 }
 
 .deck-slide .deck-content :not(pre) > code {
