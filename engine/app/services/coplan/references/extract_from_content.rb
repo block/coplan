@@ -19,21 +19,18 @@ module CoPlan
         # Remove extracted references for URLs no longer in content
         @plan.references.extracted.where.not(url: found_urls.keys).delete_all
 
-        # Batch-check plan existence for plan-type references
-        candidate_plan_ids = found_urls.keys
-          .select { |url| Reference.classify_url(url) == "plan" }
-          .filter_map { |url| Reference.extract_target_plan_id(url) }
-          .reject { |id| id == @plan.id }
-        existing_plan_ids = candidate_plan_ids.any? ? Plan.where(id: candidate_plan_ids).pluck(:id).to_set : Set.new
+        # Once per distinct URL, not once per mention: a readable address
+        # costs a segment walk to turn into an id, so a body full of
+        # cross-links to the same document pays for it once.
+        #
+        # No `own_host` — this runs from a model callback, with no request to
+        # ask. A readable address is recognized here by resolving, which is
+        # the stronger test anyway.
+        links = found_urls.keys.index_with { |url| Reference.resolve_link(url, excluding: @plan.id) }
 
         # Create or update references for found URLs
         found_urls.each do |url, meta|
-          ref_type = Reference.classify_url(url)
-          target_plan_id = nil
-          if ref_type == "plan"
-            candidate_id = Reference.extract_target_plan_id(url)
-            target_plan_id = candidate_id if candidate_id && existing_plan_ids.include?(candidate_id)
-          end
+          ref_type, target_plan_id = links[url]
 
           ref = @plan.references.find_or_initialize_by(url: url)
           # Don't overwrite explicit references

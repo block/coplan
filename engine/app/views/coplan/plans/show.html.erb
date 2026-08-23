@@ -1,5 +1,11 @@
 <% content_for(:title, "#{@plan.title} — CoPlan") %>
 <% content_for(:head) do %>
+  <%# One address per document. Anything that reaches this page by the
+      legacy /plans/<uuid> form (a link that predates slugs, an unslugged
+      plan) still says here which URL is the real one. %>
+  <% if (canonical = plan_browse_url(@plan)) %>
+    <link rel="canonical" href="<%= canonical %>">
+  <% end %>
   <meta property="og:title" content="<%= @plan.title %>">
   <meta property="og:description" content="<%= plan_og_description(@plan) %>">
   <meta property="og:type" content="article">
@@ -9,24 +15,23 @@
   <meta name="twitter:description" content="<%= plan_og_description(@plan) %>">
 <% end %>
 
-<% my_placement = current_user && @shelf_placements.find { |p| p.library.writable_by?(current_user) } %>
 <% reference_count = plan_reference_count(@plan, @references) %>
 
 <%# Fills the sticky nav's title slot (see layouts/coplan/application). The
     containing-folder control, icon, and title mirror the masthead;
     coplan--nav-title fades them in once #plan-header scrolls behind the bar. %>
 <% content_for :nav_title do %>
-  <%= render "coplan/plans/nav_context", plan: @plan, author_placement: @author_placement %>
+  <%= render "coplan/plans/nav_context", plan: @plan, placement: @placement %>
 <% end %>
 
 <%= turbo_stream_from @plan %>
 
 <%# plan-keys: Backspace goes back to wherever you came from; [ / ] jump
     between the document and its footnote sections. Cold opens (direct link,
-    new tab) have no history — fall back to where the plan lives in the
-    viewer's library, not the workspace root. %>
+    new tab) have no history — fall back to the folder the plan actually
+    lives in, not the workspace root. %>
 <div data-controller="coplan--plan-keys coplan--folder-picker"
-     data-coplan--plan-keys-fallback-url-value="<%= my_placement&.folder_id ? plans_path(folder: my_placement.folder_id) : plans_path %>">
+     data-coplan--plan-keys-fallback-url-value="<%= @placement ? folder_browse_path(@placement.folder) : library_browse_path(@plan.library) %>">
 
 <%# The masthead: the plan's identity (broadcast-replaced #plan-header)
     on the left, and the viewer-relative side column (presence + toolbar)
@@ -34,10 +39,10 @@
     broadcasts own the left, this request (and the visibility/archive
     stream responses) own the right, so neither can clobber the other. %>
 <div class="plan-masthead" data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
-  <%= render partial: "coplan/plans/header", locals: { plan: @plan, author_placement: @author_placement } %>
+  <%= render partial: "coplan/plans/header", locals: { plan: @plan, placement: @placement } %>
   <div class="plan-masthead__side">
     <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(@plan), current_user: current_user } %>
-    <%= render partial: "coplan/plans/toolbar", locals: { plan: @plan, my_placement: my_placement } %>
+    <%= render partial: "coplan/plans/toolbar", locals: { plan: @plan, placement: @placement } %>
   </div>
 </div>
 

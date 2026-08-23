@@ -60,6 +60,28 @@ RSpec.describe CoPlan::Reference, type: :model do
       expect(described_class.classify_url("https://coplan.example.com/plans/019d54a7-ea13-72d5-bc54-fc44cb9b939a")).to eq("plan")
     end
 
+    # The readable form is what anyone copies out of the address bar now, so
+    # it has to read as a plan link — but only once we know it's ours.
+    # /hampton/cart-roadmap is shaped like any other site's URL, so the host
+    # is the whole distinction, and callers who know it pass it in.
+    it "classifies readable CoPlan document URLs on our own host" do
+      host = "coplan.example.com"
+      expect(described_class.classify_url("https://coplan.example.com/hampton/cart-roadmap", own_host: host)).to eq("plan")
+      expect(described_class.classify_url("https://coplan.example.com/hampton/liveorder/q3/cart-roadmap", own_host: host)).to eq("plan")
+    end
+
+    # The reason the host check isn't optional: without it, every link with
+    # two path segments would file itself as one of our documents.
+    it "does not claim someone else's two-segment URL" do
+      expect(described_class.classify_url("https://wiki.example.com/team/onboarding", own_host: "coplan.example.com")).to eq("link")
+      expect(described_class.classify_url("https://coplan.example.com/hampton/cart-roadmap")).to eq("link")
+    end
+
+    # A bare library or a workspace path isn't a document.
+    it "does not classify a library root as a plan" do
+      expect(described_class.classify_url("https://coplan.example.com/hampton", own_host: "coplan.example.com")).to eq("link")
+    end
+
     it "classifies Google Docs URLs" do
       expect(described_class.classify_url("https://docs.google.com/document/d/abc123")).to eq("document")
       expect(described_class.classify_url("https://drive.google.com/file/d/abc123")).to eq("document")
@@ -87,6 +109,75 @@ RSpec.describe CoPlan::Reference, type: :model do
 
     it "returns nil for non-plan URLs" do
       expect(described_class.extract_target_plan_id("https://example.com")).to be_nil
+    end
+
+    context "readable document URLs" do
+      let(:author) { create(:coplan_user, username: "hampton") }
+      let(:folder) { create(:folder, name: "LiveOrder", created_by_user: author) }
+      let!(:plan) do
+        create(:plan, :published, created_by_user: author, title: "Cart Roadmap").tap do |p|
+          CoPlan::Plans::Place.call(plan: p, folder: folder, actor: author)
+        end
+      end
+
+      it "resolves the path to the document it names" do
+        expect(described_class.extract_target_plan_id("https://coplan.example.com/hampton/liveorder/cart-roadmap"))
+          .to eq(plan.id)
+      end
+
+      # An inline link written before a rename still points at the same
+      # document, so it should still name it — the alias walk is the same
+      # one that makes following the link work.
+      it "follows a rename through the alias table" do
+        plan.reload.update!(title: "Basket Roadmap")
+        expect(plan.reload.url_path).to eq("hampton/liveorder/basket-roadmap")
+
+        expect(described_class.extract_target_plan_id("https://coplan.example.com/hampton/liveorder/cart-roadmap"))
+          .to eq(plan.id)
+      end
+
+      it "returns nil for a path that names nothing" do
+        expect(described_class.extract_target_plan_id("https://coplan.example.com/hampton/nope/gone")).to be_nil
+      end
+
+      # No host needed here: resolving IS the is-this-ours test, and it's the
+      # stronger one. An external URL whose first segment isn't a handle we
+      # have never reaches the segment walk.
+      it "leaves an unrelated site's URL alone" do
+        expect(described_class.extract_target_plan_id("https://wiki.example.com/team/onboarding")).to be_nil
+      end
+    end
+  end
+
+  describe ".resolve_link" do
+    let(:author) { create(:coplan_user, username: "hampton") }
+    let!(:plan) { create(:plan, :published, created_by_user: author, title: "Cart Roadmap") }
+
+    # Type and target are one question for a readable address: a path that
+    # resolves to one of our documents is a plan reference, so a URL that
+    # classified as a plain "link" gets promoted when it lands.
+    it "promotes a resolvable readable link to a plan reference" do
+      expect(described_class.resolve_link("https://coplan.example.com/hampton/cart-roadmap"))
+        .to eq([ "plan", plan.id ])
+    end
+
+    it "leaves an unresolvable link a link" do
+      expect(described_class.resolve_link("https://wiki.example.com/team/onboarding"))
+        .to eq([ "link", nil ])
+    end
+
+    # A document linking to itself is a link, not a reference to another one.
+    it "drops the citing plan's own address" do
+      type, target = described_class.resolve_link(
+        "https://coplan.example.com/hampton/cart-roadmap", excluding: plan.id
+      )
+      expect(target).to be_nil
+      expect(type).to eq("link")
+    end
+
+    it "keeps a non-plan classification and skips resolution" do
+      expect(described_class.resolve_link("https://github.com/org/repo/pull/1"))
+        .to eq([ "pull_request", nil ])
     end
   end
 

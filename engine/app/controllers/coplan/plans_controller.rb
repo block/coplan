@@ -1,6 +1,11 @@
 module CoPlan
   class PlansController < ApplicationController
     before_action :set_plan, only: [ :show, :edit, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :history, :edit_content, :update_content, :preview ]
+    # /plans/<uuid> is the legacy address; the readable one is canonical.
+    # `only: [ :show ]` matters twice over — it's also why BrowseController,
+    # which calls `show` as a method from its own action, doesn't bounce
+    # the canonical URL straight back to itself.
+    before_action :redirect_to_canonical_url, only: [ :show ]
 
     PER_PAGE = 20
 
@@ -99,9 +104,9 @@ module CoPlan
     end
 
     # Web endpoint behind the sidebar drag-and-drop and the row-menu
-    # "Move to folder" fallback. Shelves the plan in the current user's own
-    # library — any visible plan can be shelved, not just your own
-    # (Plans::Place enforces both sides).
+    # "Move to folder" fallback. Moves the plan into a folder of the
+    # current user's library — it's a move, so it needs a claim on the
+    # plan as well as the destination (Plans::Place enforces both sides).
     def move_to_folder
       folder = nil
       if params[:folder_id].present?
@@ -142,12 +147,10 @@ module CoPlan
       # Old ?tab=history links: history is its own page now (the other
       # former tabs are same-page sections).
       return redirect_to history_plan_path(@plan) if params[:tab] == "history"
-      # Placements drive both the viewer-relative Save/Saved state and the
-      # compact jump up to the containing folder in the author's library.
-      @shelf_placements = @plan.placements
-        .includes(:library, folder: { parent: :parent })
-        .order(:created_at)
-      @author_placement = @shelf_placements.find { |placement| placement.library_id == @plan.created_by_user.library.id }
+      # Where the plan lives. One placement, the same for every reader —
+      # it drives the compact jump up to the containing folder.
+      @placement = PlanPlacement.includes(:library, folder: { parent: :parent })
+        .find_by(plan_id: @plan.id)
       @my_folders = current_user.library.folders.order(:name).to_a
       @threads = @plan.comment_threads.with_kept_comments.includes(:comments, :created_by_user).order(:created_at)
       # The reader view joins auto-extracted resources to their Markdown
@@ -185,7 +188,7 @@ module CoPlan
         tag_names: plan_params.key?(:tag_names) ? plan_params[:tag_names] : nil
       )
       broadcast_plan_update(@plan)
-      redirect_to plan_path(@plan), notice: "Plan updated."
+      redirect_to helpers.plan_browse_path(@plan), notice: "Plan updated."
     end
 
     def edit_content
@@ -237,9 +240,9 @@ module CoPlan
 
       if result[:no_op]
         notice = metadata_changed ? "Plan updated." : "No changes to save."
-        redirect_to plan_path(@plan), notice: notice
+        redirect_to helpers.plan_browse_path(@plan), notice: notice
       else
-        redirect_to plan_path(@plan), notice: "Plan updated."
+        redirect_to helpers.plan_browse_path(@plan), notice: "Plan updated."
       end
     rescue Plans::ReplaceContent::StaleRevisionError => e
       @draft_content = params[:content].to_s
@@ -287,7 +290,7 @@ module CoPlan
         # broadcast can't reach this browser.
         format.turbo_stream { render turbo_stream: visibility_streams("Shared with everyone in the org.") }
         format.json { render json: { visibility: @plan.visibility } }
-        format.html { redirect_to plan_path(@plan), notice: "Plan published — everyone can see it now." }
+        format.html { redirect_to helpers.plan_browse_path(@plan), notice: "Plan published — everyone can see it now." }
       end
     end
 
@@ -315,7 +318,7 @@ module CoPlan
       respond_to do |format|
         format.turbo_stream { render turbo_stream: visibility_streams("Private again — hidden from lists and search.") }
         format.json { render json: { visibility: @plan.visibility } }
-        format.html { redirect_to plan_path(@plan), notice: "Plan is private again — hidden from lists and search." }
+        format.html { redirect_to helpers.plan_browse_path(@plan), notice: "Plan is private again — hidden from lists and search." }
       end
     end
 
@@ -330,7 +333,7 @@ module CoPlan
       Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "archived")
       respond_to do |format|
         format.turbo_stream { render turbo_stream: archive_streams("Archived — hidden from lists, still readable at this URL.") }
-        format.html { redirect_to plan_path(@plan), notice: "Plan archived. It's hidden from lists unless someone filters for archived plans." }
+        format.html { redirect_to helpers.plan_browse_path(@plan), notice: "Plan archived. It's hidden from lists unless someone filters for archived plans." }
       end
     end
 
@@ -341,7 +344,7 @@ module CoPlan
       Plans::LogEvent.call(plan: @plan, actor: current_user, event_type: "unarchived")
       respond_to do |format|
         format.turbo_stream { render turbo_stream: archive_streams("Plan restored.") }
-        format.html { redirect_to plan_path(@plan), notice: "Plan restored." }
+        format.html { redirect_to helpers.plan_browse_path(@plan), notice: "Plan restored." }
       end
     end
 
@@ -451,7 +454,7 @@ module CoPlan
     # like files loose in Drive's root.
     def placed_directly_in(plans, folder)
       if folder
-        plans.joins(:placements)
+        plans.joins(:placement)
           .where(coplan_plan_placements: { library_id: @library.id, folder_id: folder.id })
       else
         plans.where.not(id: @library.placements.select(:plan_id))
@@ -465,7 +468,7 @@ module CoPlan
     def in_folder_subtree(plans, folder)
       return plans unless folder
 
-      plans.joins(:placements)
+      plans.joins(:placement)
         .where(coplan_plan_placements: { folder_id: folder_subtree_ids(folder) })
     end
 
@@ -490,6 +493,10 @@ module CoPlan
     # PlanViewer.last_seen_at — recency against your own reading history,
     # not workflow state. Bounded: only the newest RECENT_CANDIDATES are
     # considered, and at most RECENT_LIMIT surface.
+    # Follows the active scope, so "mine" stays your own work. That means
+    # the "new to you" badge only fires under scope=all: it needs plans
+    # someone else wrote, and those used to reach your workspace by being
+    # filed onto your shelf. With one place per plan, they don't.
     def load_recently_updated
       candidates = scoped_plans_base.active
         .includes(:created_by_user)
@@ -547,27 +554,47 @@ module CoPlan
       unread_by_plan.slice(*plans.map(&:id))
     end
 
-    # The base relation for the active workspace scope. Used by both the
-    # main-pane plan lists and the sidebar counts so folder/tag counts
-    # always match what clicking through shows.
+    # The base relation for this view. Used by both the main-pane plan
+    # lists and the sidebar counts, so folder/tag counts always match what
+    # clicking through shows.
     def scoped_plans_base
-      if @scope == "mine"
-        # The workspace is your plans *and* your placements — a plan you
-        # shelved from someone else belongs on your operating surface too.
-        base = Plan.visible_to(current_user)
-        base.where(created_by_user_id: current_user.id)
-          .or(base.where(id: current_user.library.placements.select(:plan_id)))
-      else
-        # Draft plans are private — never show other users'.
-        Plan.visible_to(current_user)
-      end
+      # Everything you can see, wherever it lives — the one view that isn't
+      # a place. Reached by link (Home's tags), never from the sidebar.
+      return Plan.visible_to(current_user) if @scope == "all"
+
+      library_plans
     end
 
-    # One query for the viewer's whole library tree; everything else
-    # (children map, subtree ids, expanded state, aggregate counts) is
+    # Every document in the library being browsed, in either sense of "in":
+    # filed into one of its folders, or loose at its root — its owner's own
+    # work that isn't filed anywhere.
+    #
+    # Bounded by what the viewer may see, so someone else's private drafts
+    # never reach a list or a count. That's the only difference between
+    # browsing your library and browsing anyone else's: the same page, the
+    # same filters, fewer rows and fewer buttons.
+    def library_plans
+      visible = Plan.visible_to(current_user)
+      visible.where(id: @library.placements.select(:plan_id))
+        .or(visible.where(id: @library.unfiled_plans.select(:id)))
+    end
+
+    # One query for the browsed library's whole folder tree; everything
+    # else (children map, subtree ids, expanded state, aggregate counts) is
     # derived in memory.
+    #
+    # `@library` is whatever the route resolved to — BrowseController sets
+    # it before delegating here. Your own is the default, which is what
+    # /_/plans and the legacy /plans both mean.
     def load_folder_tree
-      @library = current_user.library
+      @library ||= current_user.library
+      @can_write = @library.writable_by?(current_user)
+      # A person and their library are one page now, so the header carries
+      # identity. Nil for a non-user owner (a future team library), and
+      # skipped for pagination frames, which never render the header —
+      # Directory.profile_for can reach out to the host's directory.
+      @owner = @library.owner
+      @profile = Directory.profile_for(@owner) if @owner.is_a?(User) && !turbo_frame_request?
       @folders = @library.folders.order(:name).to_a
       @folders_by_id = @folders.index_by(&:id)
       @folder_children = @folders.group_by(&:parent_id)
@@ -601,7 +628,7 @@ module CoPlan
       count_base = filtered_plans(scoped_plans_base, @filter)
 
       direct_counts = apply_workspace_filters(count_base)
-        .joins(:placements)
+        .joins(:placement)
         .where(coplan_plan_placements: { library_id: @library.id })
         .group("coplan_plan_placements.folder_id")
         .count
@@ -695,6 +722,30 @@ module CoPlan
 
     def set_plan
       @plan = Plan.find(params[:id])
+    end
+
+    # 301s /plans/<uuid> onto the document's readable address, so the
+    # address bar — and everything anyone copies out of it — converges
+    # there. Permanent rather than temporary: the id form isn't a
+    # redirect-of-the-day, it's the old name for this page.
+    #
+    # HTML GETs only. A Turbo Frame fetch or a JSON caller asked for this
+    # exact URL and should get a response, not a hop. A plan whose slug
+    # hasn't been backfilled yet has no readable address to go to, so it
+    # renders here.
+    def redirect_to_canonical_url
+      return unless request.get? && request.format.html?
+      return if turbo_frame_request?
+
+      canonical = helpers.plan_browse_path(@plan)
+      return if canonical == plan_path(@plan)
+
+      # The query string comes along: `?thread=<id>` deep-links a comment
+      # and `?tab=history` is itself a legacy hop onward. Dropping either
+      # would turn a working link into a plain document page.
+      canonical += "?#{request.query_string}" if request.query_string.present?
+
+      redirect_to canonical, status: :moved_permanently
     end
 
     def broadcast_plan_update(plan)

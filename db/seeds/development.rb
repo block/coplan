@@ -28,6 +28,18 @@ module CoPlan
       { name: "Presentation", icon: "presentation", behavior: "presentation", description: "A markdown slide deck — `---` starts a new slide", default_tags: [] }
     ].freeze
 
+    # The browsable-URL showcase renames one folder and retitles one
+    # document, so a freshly seeded app has real aliases to follow at the root.
+    # Both steps are guarded on these values and no-op on re-seed.
+    RENAMED_FOLDER_FROM = "Order platform".freeze
+    RENAMED_FOLDER_TO = "LiveOrder".freeze
+    RETITLED_DOCUMENT_FROM = "LiveOrder pricing rules v1".freeze
+    RETITLED_DOCUMENT_TO = "LiveOrder pricing rules".freeze
+
+    # Left unfiled by DOCUMENTS so the agent organize run below has real
+    # work to do. See seed_agent_organization_run.
+    AGENT_ORGANIZED_KEYS = %w[agent-pick-metrics agent-pick-postmortem agent-pick-vendors].freeze
+
     DOCUMENTS = [
       {
         key: "one-line-decision", author: "alex", type: "ADR", title: "Use UUIDv7 identifiers",
@@ -93,6 +105,43 @@ module CoPlan
       {
         key: "launch-deck", author: "priya", type: "Presentation", title: "Shared workspaces launch — readout deck",
         tags: %w[collaboration launch], visibility: "published", folder: "Product/Launches/Shared workspace", fixture: :slideshow_deck
+      },
+      # A folder whose documents all repeat its name — the shape that makes
+      # a real library unreadable, and exactly what URL slugs strip. These
+      # land at /<handle>/liveorder/{cart-state-machine,…}, with
+      # "LiveOrder" appearing once, in the folder segment where it belongs.
+      {
+        key: "liveorder-cart", author: "sam", type: "Design Doc", title: "LiveOrder cart state machine",
+        tags: %w[orders design], visibility: "published", folder: RENAMED_FOLDER_TO
+      },
+      {
+        key: "liveorder-webhooks", author: "sam", type: "Design Doc", title: "LiveOrder fulfillment webhooks",
+        tags: %w[orders api], visibility: "published", folder: RENAMED_FOLDER_TO
+      },
+      # Collides with liveorder-pricing once that one is retitled: both
+      # strip to `pricing-rules`, so one picks up a ~suffix.
+      {
+        key: "pricing-rules", author: "sam", type: "General", title: "Pricing rules",
+        tags: %w[orders pricing], visibility: "published", folder: RENAMED_FOLDER_TO
+      },
+      {
+        key: "liveorder-pricing", author: "sam", type: "General", title: RETITLED_DOCUMENT_FROM,
+        tags: %w[orders pricing], visibility: "published", folder: RENAMED_FOLDER_TO
+      },
+      # No `folder:` — these sit loose at the root of Alex's library until
+      # the agent organize run files them (AGENT_ORGANIZED_KEYS). Root-level
+      # documents are also what /<handle> shows with no folder segment.
+      {
+        key: "agent-pick-metrics", author: "alex", type: "Research Note", title: "Activation metrics worth arguing about",
+        tags: %w[product data], visibility: "published", sections: 1
+      },
+      {
+        key: "agent-pick-postmortem", author: "alex", type: "Runbook", title: "Postmortem: the Tuesday cache stampede",
+        tags: %w[operations reliability], visibility: "published", sections: 1
+      },
+      {
+        key: "agent-pick-vendors", author: "alex", type: "General", title: "Vendor evaluation notes",
+        tags: %w[procurement], visibility: "published", sections: 1
       }
     ].freeze
 
@@ -371,8 +420,12 @@ module CoPlan
       with_reproducible_faker do
         users = seed_users
         plan_types = seed_plan_types
+        # Before the documents: this rename has to land on an empty folder,
+        # or seed_documents would create RENAMED_FOLDER_TO first and the
+        # rename would collide with it.
+        seed_renamed_folder(users)
         plans = seed_documents(users, plan_types)
-        seed_shared_library_examples(users, plans)
+        seed_retitled_document(plans)
         seed_folder_descriptions(users)
         seed_collaboration_showcase(users, plans)
         seed_agent_organization_run(users, plans)
@@ -433,7 +486,10 @@ module CoPlan
         end
 
         plan.tag_names = definition.fetch(:tags)
-        place(plan, definition.fetch(:folder), author)
+        # A definition with no folder stays at the library root — either
+        # because that's the point (root-level documents) or because
+        # something later files it (the agent organize run).
+        place(plan, definition[:folder], author) if definition[:folder]
         plan
       end.transform_keys { |definition| definition.fetch(:key) }
     end
@@ -448,11 +504,28 @@ module CoPlan
       raise result.error unless result.success?
     end
 
-    def seed_shared_library_examples(users, plans)
-      # Demonstrate that a published document can sit on someone else's shelf
-      # without changing the author's organization.
-      place(plans.fetch("api-gateway"), "Reading list/Security", users.fetch("noura"))
-      place(plans.fetch("experiment-results"), "Research to discuss", users.fetch("alex"))
+    # Renaming is where readable URLs earn their keep: the old address
+    # keeps resolving. One folder rename leaves a prefix alias covering
+    # every document under it, so /<handle>/order-platform/... still
+    # lands after the folder became "LiveOrder".
+    def seed_renamed_folder(users)
+      author = users.fetch("sam")
+      return if UrlAlias.exists?(path: "#{author.library.handle}/#{Slug.call(RENAMED_FOLDER_FROM)}")
+
+      folder = Folder.find_or_create_by_path!(RENAMED_FOLDER_FROM,
+        library: author.library, created_by_user: author)
+      folder.update!(name: RENAMED_FOLDER_TO)
+    end
+
+    # A retitle leaves an exact alias behind, so a document shared under
+    # its old name stays reachable — and this particular retitle makes the
+    # slug collide with a sibling, which is what puts a ~suffix on one of
+    # them. Skipped once the title has already moved.
+    def seed_retitled_document(plans)
+      document = plans.fetch("liveorder-pricing")
+      return unless document.title == RETITLED_DOCUMENT_FROM
+
+      document.update!(title: RETITLED_DOCUMENT_TO)
     end
 
     # Folder descriptions give agents (and readers) semantics a bare name
@@ -510,7 +583,13 @@ module CoPlan
         "Facet counts may lag content by at most one minute.",
         "Facet counts may lag content by at most one minute — measured, not aspirational: the dark-read comparison in [§4](#section-4) enforces it."
       )
-      updated = "#{updated.rstrip}\n\n## 5. Related reading\n\n- [#{related_plan.title}](http://localhost:3000/plans/#{related_plan.id}) — the walkthrough whose ledger spot-check pattern [§4](#section-4) reuses.\n"
+      # Linked by its readable address, not its uuid — which is how an agent
+      # would write it now, and which is what gets recognized as a document
+      # reference rather than an outside link. If the organization run later
+      # files this plan somewhere else, the link still lands: the move leaves
+      # an alias behind.
+      related_url = "http://localhost:3000/#{related_plan.url_path.presence || "plans/#{related_plan.id}"}"
+      updated = "#{updated.rstrip}\n\n## 5. Related reading\n\n- [#{related_plan.title}](#{related_url}) — the walkthrough whose ledger spot-check pattern [§4](#section-4) reuses.\n"
       return if updated == content
 
       Plans::ReplaceContent.call(
@@ -631,15 +710,18 @@ module CoPlan
         .exists?(body_markdown: body)
     end
 
-    # A bulk organize run attributed to an agent: cross-library placements
-    # onto Alex's shelf, every audit event carrying the agent name, token
-    # provenance, and a shared run_id (visible via ?run_id= on the API).
+    # A bulk organize run attributed to an agent: three of Alex's loose
+    # documents swept into a folder, every audit event carrying the agent
+    # name, token provenance, and a shared run_id (visible via ?run_id= on
+    # the API). The documents start unfiled — DOCUMENTS gives them no
+    # folder — so the run is what puts them somewhere, and a re-seed finds
+    # them already there and logs nothing new.
     def seed_agent_organization_run(users, plans)
       curator = users.fetch("alex")
       token = seed_agent_token(curator)
       folder = Folder.find_or_create_by_path!("Reading list/Agent picks", library: curator.library, created_by_user: curator)
 
-      %w[collab-showcase mobile-checkout japanese-roadmap].each do |key|
+      AGENT_ORGANIZED_KEYS.each do |key|
         result = Plans::Place.call(
           plan: plans.fetch(key),
           folder: folder,

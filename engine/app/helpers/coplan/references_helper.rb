@@ -96,7 +96,8 @@ module CoPlan
     end
 
     def decorate_citation_source(anchor, reference)
-      type = reference&.reference_type || anchor["data-reference-type"] || Reference.classify_url(anchor["href"])
+      type = reference&.reference_type || anchor["data-reference-type"] ||
+        Reference.classify_url(anchor["href"], own_host: request&.host)
       domain = reference_domain(anchor["href"])
       title = reference&.title.presence || anchor.text.squish.presence || domain || anchor["href"]
       metadata = [ reference_type_label(type, anchor["href"]), domain ].compact.join(" · ")

@@ -40,7 +40,7 @@ RSpec.describe "Notifications", type: :request do
       notification = create(:notification, user: user, plan: plan, comment_thread: thread)
 
       get notification_path(notification)
-      expect(response).to redirect_to(plan_path(plan, thread: thread.id))
+      expect(response).to redirect_to(plan_page_path(plan, thread: thread.id))
 
       notification.reload
       expect(notification.read_at).to be_present

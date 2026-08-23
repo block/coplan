@@ -35,7 +35,13 @@ RSpec.describe CoPlan::WebPush::PayloadForNotification do
         title: "Alice replied on My Plan",
         tag: "comment-thread-#{thread.id}"
       )
-      expect(payload[:url]).to include("/plans/#{plan.id}").and include("thread=#{thread.id}")
+      # The document's readable address, with the thread deep link on it —
+      # a push notification is a link somebody keeps, so it gets the real
+      # URL rather than the legacy id form.
+      expect(payload[:url]).to eq(
+        CoPlan::Urls::Canonical.plan_path(plan, thread: thread.id)
+      )
+      expect(payload[:url]).to start_with("/#{plan.library.handle}/").and include("thread=#{thread.id}")
     end
 
     it "uses 'mentioned you' phrasing for mention notifications" do

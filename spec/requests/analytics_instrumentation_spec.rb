@@ -9,17 +9,28 @@ RSpec.describe "Analytics instrumentation", type: :request do
     it "tracks a page_view event on successful HTML GETs" do
       plan = create(:plan, :considering, created_by_user: user)
 
-      events = capture_analytics_events { get plan_path(plan) }
+      events = capture_analytics_events { get plan_page_path(plan) }
 
       page_views = events.select { |name, _| name == "page_view" }
       expect(page_views.length).to eq(1)
       _, payload = page_views.first
       expect(payload[:user_id]).to eq(user.id)
+      # A document is served by the browse controller now — that's the
+      # controller/action a page_view on a plan reports.
       expect(payload[:properties]).to include(
-        path: plan_path(plan),
-        controller: "coplan/plans",
-        action: "show"
+        path: plan_page_path(plan),
+        controller: "coplan/browse",
+        action: "browse"
       )
+    end
+
+    it "does not track the 301 off the legacy /plans/<uuid> address" do
+      plan = create(:plan, :considering, created_by_user: user)
+
+      events = capture_analytics_events { get plan_path(plan) }
+
+      expect(response).to have_http_status(:moved_permanently)
+      expect(events.select { |name, _| name == "page_view" }).to be_empty
     end
 
     it "does not track for turbo-frame requests" do

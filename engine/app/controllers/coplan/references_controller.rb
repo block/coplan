@@ -9,12 +9,7 @@ module CoPlan
 
       reference_params = params.expect(reference: [ :url, :key, :title ])
       url = reference_params[:url]
-      ref_type = Reference.classify_url(url)
-      target_plan_id = nil
-      if ref_type == "plan"
-        candidate_id = Reference.extract_target_plan_id(url)
-        target_plan_id = candidate_id if candidate_id && candidate_id != @plan.id && Plan.exists?(candidate_id)
-      end
+      ref_type, target_plan_id = Reference.resolve_link(url, own_host: request.host, excluding: @plan.id)
 
       ref = @plan.references.find_or_initialize_by(url: url)
       was_new = ref.new_record?
@@ -39,12 +34,12 @@ module CoPlan
 
       respond_to do |format|
         format.turbo_stream { render_references_stream }
-        format.html { redirect_to plan_path(@plan, anchor: "footnote-references"), notice: "Reference added." }
+        format.html { redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-references"), notice: "Reference added." }
       end
     rescue ActiveRecord::RecordInvalid => e
       respond_to do |format|
         format.turbo_stream { render_references_stream }
-        format.html { redirect_to plan_path(@plan, anchor: "footnote-references"), alert: e.message }
+        format.html { redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-references"), alert: e.message }
       end
     end
 
@@ -67,7 +62,7 @@ module CoPlan
 
       respond_to do |format|
         format.turbo_stream { render_references_stream }
-        format.html { redirect_to plan_path(@plan, anchor: "footnote-references"), notice: "Reference removed." }
+        format.html { redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-references"), notice: "Reference removed." }
       end
     end
 

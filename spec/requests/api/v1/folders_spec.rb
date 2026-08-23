@@ -26,7 +26,7 @@ RSpec.describe "Api::V1::Folders", type: :request do
     it "returns folders with paths and visible plan counts" do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       sub = create(:folder, name: "Q3", parent: root, created_by_user: alice)
-      plan = create(:plan, :considering, created_by_user: bob)
+      plan = create(:plan, :considering, created_by_user: alice)
       CoPlan::Plans::Place.call(plan: plan, folder: sub, actor: alice)
 
       get api_v1_folders_path, headers: headers
@@ -42,11 +42,11 @@ RSpec.describe "Api::V1::Folders", type: :request do
     it "does not count unlisted drafts for other viewers" do
       folder = create(:folder, created_by_user: alice)
       CoPlan::Plans::Place.call(plan: create(:plan, :draft, created_by_user: alice), folder: folder, actor: alice)
-      CoPlan::Plans::Place.call(plan: create(:plan, :published, created_by_user: bob), folder: folder, actor: alice)
+      CoPlan::Plans::Place.call(plan: create(:plan, :published, created_by_user: alice), folder: folder, actor: alice)
 
       get api_v1_folders_path, headers: headers
       counts = JSON.parse(response.body).find { |f| f["id"] == folder.id }
-      # Alice sees both: her own draft and Bob's published plan.
+      # Alice sees both of her own: the draft and the published plan.
       expect(counts["plans_count"]).to eq(2)
 
       # Bob browses Alice's library: her unlisted draft doesn't count.

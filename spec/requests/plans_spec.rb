@@ -63,18 +63,18 @@ RSpec.describe "Plans", type: :request do
     # Tags are workspace-side organization (sidebar filters, the editor) —
     # the plan page masthead stays two clean rows: title, then byline.
     plan.tag_names = [ "infra", "security" ]
-    get plan_path(plan)
+    get plan_page_path(plan)
     expect(response).to have_http_status(:success)
     expect(response.body).not_to include("badge--tag")
   end
 
   it "show plan renders successfully" do
-    get plan_path(plan)
+    get plan_page_path(plan)
     expect(response).to have_http_status(:success)
   end
 
   it "show plan renders plan content" do
-    get plan_path(plan)
+    get plan_page_path(plan)
     expect(response).to have_http_status(:success)
     expect(response.body).to include("plan-layout__content")
   end
@@ -82,7 +82,7 @@ RSpec.describe "Plans", type: :request do
   it "does not link archived plans to a library that omits them" do
     archived_plan = create(:plan, :archived, created_by_user: alice)
 
-    get plan_path(archived_plan)
+    get plan_page_path(archived_plan)
 
     expect(response).to have_http_status(:success)
     expect(response.body).not_to include("plan-location-link")
@@ -93,13 +93,13 @@ RSpec.describe "Plans", type: :request do
     comment = create(:comment, comment_thread: thread, author_type: "human", author_id: alice.id,
                      body_markdown: "Noted.[^1]\n\n[^1]: A comment footnote.")
 
-    get plan_path(plan)
+    get plan_page_path(plan)
     expect(response.body).to include(%(id="comment-#{comment.id}-fn-1"))
     expect(response.body).to include(%(href="#comment-#{comment.id}-fn-1"))
   end
 
   it "show plan renders content navigation sidebar" do
-    get plan_path(plan)
+    get plan_page_path(plan)
     expect(response).to have_http_status(:success)
     expect(response.body).to include('class="content-nav"')
     expect(response.body).to include('data-coplan--content-nav-target="sidebar"')
@@ -108,14 +108,14 @@ RSpec.describe "Plans", type: :request do
   end
 
   it "show plan wires up both text-selection and content-nav controllers" do
-    get plan_path(plan)
+    get plan_page_path(plan)
     expect(response).to have_http_status(:success)
     expect(response.body).to include('data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview"')
     expect(response.body).to include('data-coplan--reference-preview-target="popover"')
   end
 
   it "show plan shares content target between controllers" do
-    get plan_path(plan)
+    get plan_page_path(plan)
     expect(response).to have_http_status(:success)
     expect(response.body).to include('data-coplan--content-nav-target="content"')
     expect(response.body).to include('data-coplan--text-selection-target="content"')
@@ -124,14 +124,14 @@ RSpec.describe "Plans", type: :request do
   it "show plan without content does not render content nav sidebar" do
     empty_plan = create(:plan, :considering, created_by_user: alice)
     empty_plan.current_plan_version.update_columns(content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
-    get plan_path(empty_plan)
+    get plan_page_path(empty_plan)
     expect(response).to have_http_status(:success)
     expect(response.body).to include("empty-state")
     expect(response.body).not_to include('class="content-nav"')
   end
 
   it "show plan includes Open Graph meta tags" do
-    get plan_path(plan)
+    get plan_page_path(plan)
     expect(response.body).to include('property="og:title"')
     expect(response.body).to include('property="og:description"')
     expect(response.body).to include('property="og:site_name"')
@@ -139,7 +139,7 @@ RSpec.describe "Plans", type: :request do
   end
 
   it "show plan includes turbo stream subscription" do
-    get plan_path(plan)
+    get plan_page_path(plan)
     expect(response).to have_http_status(:success)
     expect(response.body).to include("turbo-cable-stream-source")
   end
@@ -158,7 +158,7 @@ RSpec.describe "Plans", type: :request do
     }.not_to change(CoPlan::PlanVersion, :count)
     plan.reload
     expect(plan.title).to eq("Updated Title")
-    expect(response).to redirect_to(plan_path(plan))
+    expect(response).to redirect_to(plan_page_path(plan))
   end
 
   it "index hides other users brainstorm plans on the All scope" do
@@ -270,7 +270,10 @@ RSpec.describe "Plans", type: :request do
       get plans_path(folder: root.id)
 
       expect(response.body).to include('id="plans-level-page-2"')
-      expect(response.body).to include("folder=#{root.id}")
+      # The next-page frame still has to know which folder it's paging, and
+      # it names it the way the rest of the app does: in the path. A
+      # `?folder=<id>` here would be the last place that didn't.
+      expect(response.body).to include(browse_path(handle: alice.library.handle, slug_path: "team-ebt"))
     end
 
     it "serves level page fetches without leaking filed plans into the root" do
@@ -300,14 +303,12 @@ RSpec.describe "Plans", type: :request do
     end
   end
 
+  # The strip follows the active scope, so "mine" stays your own work.
   describe "since you last looked" do
     it "flags plans updated after the viewer's last visit" do
-      seen_plan = create(:plan, :published, created_by_user: bob, title: "Moved On")
+      seen_plan = create(:plan, :published, created_by_user: alice, title: "Moved On")
       create(:plan_viewer, plan: seen_plan, user: alice, last_seen_at: 2.days.ago)
       seen_plan.update!(updated_at: 1.hour.ago)
-      # Alice shelves it so it's part of her workspace scope.
-      root = create(:folder, name: "Reading", created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: seen_plan, folder: root, actor: alice)
 
       get plans_path
 
@@ -315,12 +316,13 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include("recent-updates__badge--updated")
     end
 
+    # Only under scope=all: "new to you" needs someone else's work, and
+    # the default workspace is yours alone now that a plan can't be filed
+    # onto two shelves.
     it "flags never-opened plans by other people as new to you" do
-      other = create(:plan, :published, created_by_user: bob, title: "Fresh From Bob")
-      root = create(:folder, name: "Reading", created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: other, folder: root, actor: alice)
+      create(:plan, :published, created_by_user: bob, title: "Fresh From Bob")
 
-      get plans_path
+      get plans_path(scope: "all")
 
       expect(response.body).to include("recent-updates__badge--new-to-you")
       expect(response.body).to include("Fresh From Bob")
@@ -430,7 +432,7 @@ RSpec.describe "Plans", type: :request do
 
   it "can view brainstorm plan as non-author" do
     sign_in_as(bob)
-    get plan_path(brainstorm_plan)
+    get plan_page_path(brainstorm_plan)
     expect(response).to have_http_status(:ok)
   end
 
@@ -514,14 +516,13 @@ RSpec.describe "Plans", type: :request do
     it "combines folder with tag and scope filters" do
       root_plan.tag_names = [ "infra" ]
       sub_plan.tag_names = [ "frontend" ]
-      bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Foldered Plan")
-      # Alice shelves Bob's plan in her own folder — it joins her workspace.
-      CoPlan::Plans::Place.call(plan: bobs_plan, folder: root, actor: alice)
-      bobs_plan.tag_names = [ "infra" ]
+      also_infra = create(:plan, :considering, created_by_user: alice, title: "Second Infra Plan")
+      CoPlan::Plans::Place.call(plan: also_infra, folder: root, actor: alice)
+      also_infra.tag_names = [ "infra" ]
 
       get plans_path(folder: root.id, tag: "infra", scope: "all")
       expect(response.body).to include("Root Level Plan")
-      expect(response.body).to include("Bobs Foldered Plan")
+      expect(response.body).to include("Second Infra Plan")
       expect(response.body).not_to include("Subfolder Plan")
     end
 
@@ -556,9 +557,9 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include("Paged Plan 00")
       expect(response.body).not_to include("Root Level Plan")
       # The lazy next-page frame must carry the folder, or page 2 would
-      # silently fall back to the whole workspace.
+      # silently fall back to the whole workspace. It carries it in the path.
       expect(response.body).to include("page=2")
-      expect(response.body).to include("folder=#{root.id}")
+      expect(response.body).to include(browse_path(handle: alice.library.handle, slug_path: "team-ebt"))
 
       get plans_path(folder: root.id, group: "level", page: 2),
         headers: { "Turbo-Frame" => "plans-level-page-2" }
@@ -598,12 +599,10 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to match(%r{Secret Stash</span>\s*<span class="sidebar__count">1</span>})
     end
 
-    it "counts shelved plans in the viewer's workspace, whoever wrote them" do
+    it "counts the plans filed in a folder in both scopes" do
       folder = create(:folder, name: "My Corner", created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: bob), folder: folder, actor: alice)
+      CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: folder, actor: alice)
 
-      # A placement makes the plan part of alice's workspace even in the
-      # default "mine" scope — the shelf is hers.
       get plans_path
       expect(response.body).to match(%r{My Corner</span>\s*<span class="sidebar__count">1</span>})
 
@@ -641,7 +640,7 @@ RSpec.describe "Plans", type: :request do
     it "shows a New folder form" do
       get plans_path
       expect(response.body).to include("New folder")
-      expect(response.body).to include('action="/folders"')
+      expect(response.body).to include('action="/_/folders"')
     end
 
     it "scopes tag counts to the current folder" do
@@ -821,7 +820,7 @@ RSpec.describe "Plans", type: :request do
       first = create(:notification, user: alice, plan: plan, comment_thread: thread)
       second = create(:notification, user: alice, plan: plan, comment_thread: thread, reason: "agent_response")
 
-      get plan_path(plan)
+      get plan_page_path(plan)
 
       expect(response).to have_http_status(:success)
       expect(first.reload.read_at).to be_present
@@ -831,7 +830,7 @@ RSpec.describe "Plans", type: :request do
     it "renders the bell already cleared, not a stale count" do
       create(:notification, user: alice, plan: plan, comment_thread: thread)
 
-      get plan_path(plan)
+      get plan_page_path(plan)
 
       badge = Nokogiri::HTML(response.body).at_css("#inbox-badge")
       expect(badge.text).to eq("0")
@@ -843,7 +842,7 @@ RSpec.describe "Plans", type: :request do
       other_thread = create(:comment_thread, plan: other_plan, created_by_user: bob)
       other = create(:notification, user: alice, plan: other_plan, comment_thread: other_thread)
 
-      get plan_path(plan)
+      get plan_page_path(plan)
 
       expect(other.reload.read_at).to be_nil
     end
@@ -851,7 +850,7 @@ RSpec.describe "Plans", type: :request do
     it "leaves other people's rows for the same plan alone" do
       bobs = create(:notification, user: bob, plan: plan, comment_thread: thread)
 
-      get plan_path(plan)
+      get plan_page_path(plan)
 
       expect(bobs.reload.read_at).to be_nil
     end
@@ -869,14 +868,14 @@ RSpec.describe "Plans", type: :request do
     it "ignores a Turbo hover prefetch" do
       notification = create(:notification, user: alice, plan: plan, comment_thread: thread)
 
-      get plan_path(plan), headers: { "X-Sec-Purpose" => "prefetch" }
+      get plan_page_path(plan), headers: { "X-Sec-Purpose" => "prefetch" }
 
       expect(response).to have_http_status(:success)
       expect(notification.reload.read_at).to be_nil
     end
 
     it "does not advance the last-seen mark on a prefetch either" do
-      get plan_path(plan), headers: { "X-Sec-Purpose" => "prefetch" }
+      get plan_page_path(plan), headers: { "X-Sec-Purpose" => "prefetch" }
 
       expect(CoPlan::PlanViewer.where(plan: plan, user: alice)).not_to exist
     end
@@ -919,21 +918,18 @@ RSpec.describe "Plans", type: :request do
       expect(alice_placement).to be_nil
     end
 
-    it "lets a non-author shelve a published plan in their own library" do
+    # A plan has one home, so filing someone else's published plan into
+    # your own library would be taking it, not bookmarking it.
+    it "refuses to move someone else's plan into your library" do
       bobs_folder = create(:folder, name: "Bobs Shelf", created_by_user: bob)
       sign_in_as(bob)
 
-      expect {
-        patch move_to_folder_plan_path(plan), params: { folder_id: bobs_folder.id }
-      }.not_to change(CoPlan::PlanEvent, :count) # curating someone else's shelf isn't a plan event
+      patch move_to_folder_plan_path(plan), params: { folder_id: bobs_folder.id }
 
-      placement = bob.library.placements.find_by(plan_id: plan.id)
-      expect(placement.folder).to eq(bobs_folder)
-      # Alice's own library is untouched.
-      expect(alice_placement).to be_nil
+      expect(CoPlan::PlanPlacement.where(plan_id: plan.id)).to be_empty
     end
 
-    it "refuses to shelve someone else's unlisted draft, even with the URL in hand" do
+    it "refuses to file someone else's unlisted draft, even with the URL in hand" do
       bobs_draft = create(:plan, :draft, created_by_user: bob)
 
       patch move_to_folder_plan_path(bobs_draft),

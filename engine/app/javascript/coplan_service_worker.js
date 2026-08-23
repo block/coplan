@@ -63,8 +63,8 @@ self.addEventListener("notificationclick", (event) => {
     })
 
     // Prefer focusing an existing CoPlan tab and navigating it. We compare
-    // origins so a CoPlan tab on /plans/foo handles a notification for
-    // /plans/bar without spawning a new window.
+    // origins so a CoPlan tab on /aiko/one handles a notification for
+    // /sam/liveorder/two without spawning a new window.
     const targetUrlObj = new URL(targetUrl, self.location.origin)
     for (const client of allClients) {
       const clientUrl = new URL(client.url)

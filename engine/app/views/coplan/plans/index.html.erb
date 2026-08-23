@@ -1,13 +1,32 @@
 <%# Turbo must not serve a cached snapshot of the workspace on back/forward:
     the "since you last looked" strip and unread badges depend on what you
-    just read, so a restoration visit re-fetches. %>
+    just read, so a restoration visit re-fetches.
+
+    Morph, not replace, for the refreshes broadcast below: a page you're
+    reading shouldn't blink, lose your scroll position, or close the popover
+    you just opened because someone else filed a document. %>
 <% content_for(:head) do %>
   <meta name="turbo-cache-control" content="no-cache">
+  <meta name="turbo-refresh-method" content="morph">
+  <meta name="turbo-refresh-scroll" content="preserve">
 <% end %>
 
+<%# Live library. Anything that changes what this page shows — a document
+    arriving, moving, being retitled or hidden, a folder created or renamed
+    — tells the library, and this re-fetches. Per library rather than per
+    folder: a rename high in the tree changes every listing beneath it, so
+    a folder-grained stream would have to fan out to all of them.
+
+    Subscribed for readers too, not just the owner: a filter you're looking
+    at is as stale as one you could edit. %>
+<%= turbo_stream_from @library %>
+
 <%# No folder picker here: rows file via drag & drop, and the plan page's
-    toolbar (Save / Move to folder…) covers the click path. %>
-<div class="workspace" data-controller="coplan--folder-dnd coplan--workspace-keys">
+    toolbar (Save / Move to folder…) covers the click path.
+
+    Drag-and-drop is only wired up where you can write — j/k navigation
+    works in anyone's library. %>
+<div class="workspace" data-controller="<%= "coplan--folder-dnd " if @can_write %>coplan--workspace-keys">
   <%= render "coplan/plans/sidebar" %>
 
   <%# The whole pane is a drop target for the folder you're looking at —
@@ -17,7 +36,9 @@
   <div class="workspace__main"
        data-folder-id="<%= @folder&.id %>"
        data-action="dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop">
-    <%# Drive-style breadcrumb: where you are in your library. Segments are
+    <%= render "coplan/plans/library_header" %>
+
+    <%# Drive-style breadcrumb: where you are in this library. Segments are
         drop targets — drag a plan or folder onto one to move it up. %>
     <nav class="workspace-crumbs" aria-label="Folder location">
       <%= link_to workspace_path(folder: nil),
@@ -27,7 +48,7 @@
               action: "dragover->coplan--folder-dnd#dragOver dragleave->coplan--folder-dnd#dragLeave drop->coplan--folder-dnd#drop",
             } do %>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-        My Plans
+        <%= workspace_root_label %>
       <% end %>
       <% @breadcrumbs.each_with_index do |crumb, i| %>
         <svg class="workspace-crumbs__sep" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
@@ -41,31 +62,35 @@
               } %>
       <% end %>
       <span class="workspace-crumbs__spacer"></span>
-      <button type="button" class="btn btn--secondary btn--sm" popovertarget="new-folder-modal">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-        New folder
-      </button>
+      <% if @can_write %>
+        <button type="button" class="btn btn--secondary btn--sm" popovertarget="new-folder-modal">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+          New folder
+        </button>
+      <% end %>
     </nav>
 
-    <%# Creates inside the folder you're looking at (changeable). %>
-    <%= render layout: "coplan/shared/add_modal", locals: { id: "new-folder-modal", title: "New folder" } do %>
-      <%# model: a fresh record — a bare scope: :folder would silently bind
-          the @folder being viewed and prefill its name. %>
-      <%= form_with model: CoPlan::Folder.new, url: folders_path, scope: :folder, method: :post, class: "add-modal__form" do |f| %>
-        <div class="form-group">
-          <%= f.label :name, "Name", for: "new_folder_name" %>
-          <%= f.text_field :name, id: "new_folder_name", required: true, maxlength: 100, autofocus: true,
-                placeholder: "e.g. Payments" %>
-        </div>
-        <div class="form-group">
-          <%= f.label :parent_id, "Inside", for: "new_folder_parent" %>
-          <%= f.select :parent_id,
-                options_for_select([["My Plans (top level)", ""]] + folder_select_options.map { |path, id, _| [path, id] }, @folder&.id),
-                {}, id: "new_folder_parent" %>
-        </div>
-        <div class="add-modal__actions">
-          <%= f.submit "Create folder", class: "btn btn--primary btn--sm" %>
-        </div>
+    <% if @can_write %>
+      <%# Creates inside the folder you're looking at (changeable). %>
+      <%= render layout: "coplan/shared/add_modal", locals: { id: "new-folder-modal", title: "New folder" } do %>
+        <%# model: a fresh record — a bare scope: :folder would silently bind
+            the @folder being viewed and prefill its name. %>
+        <%= form_with model: CoPlan::Folder.new, url: folders_path, scope: :folder, method: :post, class: "add-modal__form" do |f| %>
+          <div class="form-group">
+            <%= f.label :name, "Name", for: "new_folder_name" %>
+            <%= f.text_field :name, id: "new_folder_name", required: true, maxlength: 100, autofocus: true,
+                  placeholder: "e.g. Payments" %>
+          </div>
+          <div class="form-group">
+            <%= f.label :parent_id, "Inside", for: "new_folder_parent" %>
+            <%= f.select :parent_id,
+                  options_for_select([[ "#{workspace_root_label} (top level)", "" ]] + folder_select_options.map { |path, id, _| [ path, id ] }, @folder&.id),
+                  {}, id: "new_folder_parent" %>
+          </div>
+          <div class="add-modal__actions">
+            <%= f.submit "Create folder", class: "btn btn--primary btn--sm" %>
+          </div>
+        <% end %>
       <% end %>
     <% end %>
 
@@ -116,7 +141,7 @@
             <% @recent_updates.each do |entry| %>
               <% plan = entry[:plan] %>
               <li class="recent-updates__item">
-                <%= link_to plan.title, plan_path(plan), class: "recent-updates__link" %>
+                <%= link_to plan.title, plan_browse_path(plan), class: "recent-updates__link" %>
                 <span class="recent-updates__badge recent-updates__badge--<%= entry[:badge].parameterize %>"><%= entry[:badge] %></span>
                 <span class="recent-updates__meta text-muted">
                   <%= plan.created_by_user.name %> · <%= time_ago_in_words(plan.updated_at) %> ago
@@ -146,11 +171,13 @@
         <div class="empty-state card">
           <% if @folder %>
             <p>Nothing in <strong><%= @folder.name %></strong> yet.</p>
-            <p class="text-muted text-sm">Drag a plan here from another folder, or file one from its plan page.</p>
-          <% elsif @scope == "mine" %>
+            <% if @can_write %>
+              <p class="text-muted text-sm">Drag a plan here from another folder, or file one from its plan page.</p>
+            <% end %>
+          <% elsif @can_write %>
             <p>You haven't created any plans yet. Plans are created via the API.</p>
           <% else %>
-            <p>No plans yet. Plans are created via the API.</p>
+            <p>Nothing here yet.</p>
           <% end %>
         </div>
       <% end %>

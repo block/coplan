@@ -98,8 +98,19 @@ module CoPlan
     #   }
     attr_accessor :directory_profile
 
+    # Library handles a host wants to keep out of user hands, on top of
+    # CoPlan::Library::RESERVED_HANDLES. Handles live under /<handle>,
+    # so they can't collide with the host's own routes — this is for
+    # names the host wants to claim for itself later, or keep off a
+    # public namespace.
+    #
+    # Example:
+    #   config.reserved_handles = %w[square block official]
+    attr_accessor :reserved_handles
+
     def initialize
       @authenticate = nil
+      @reserved_handles = []
       @ai_base_url = "https://api.openai.com/v1"
       @ai_api_key = nil
       @ai_model = "gpt-4o"

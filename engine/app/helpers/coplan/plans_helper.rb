@@ -4,18 +4,50 @@ module CoPlan
   module PlansHelper
     include MarkdownHelper
 
-    # Everything a workspace (plans index) link may carry. Filter links
-    # build on the current params via workspace_path so no call site has
-    # to re-list this whitelist — or remember which param to omit.
-    WORKSPACE_LINK_PARAMS = %i[scope filter plan_type tag folder updated].freeze
+    # The narrowing a workspace link may carry. Filter links build on the
+    # current params via workspace_path so no call site has to re-list this
+    # whitelist — or remember which param to omit.
+    #
+    # `folder` isn't in it: a folder names a place, so it travels as path
+    # segments rather than a query param. See workspace_path.
+    WORKSPACE_LINK_PARAMS = %i[scope filter plan_type tag updated].freeze
 
-    # A plans-index URL carrying the current filters with `overrides`
-    # applied; pass nil to clear a filter (blank values are dropped).
+    # A workspace URL for the library being browsed, carrying the current
+    # filters with `overrides` applied; pass nil to clear one.
+    #
+    # `folder:` says which folder the link points at, as a folder id —
+    # matching the ids the sidebar and the drag-and-drop controller already
+    # work in — and comes out as path segments, because a folder is a place
+    # and places have addresses. That's what keeps clicking a folder inside
+    # someone's library on that library's URL instead of bouncing back to
+    # your own workspace.
     def workspace_path(**overrides)
-      plans_path(
-        params.permit(*WORKSPACE_LINK_PARAMS).to_h.symbolize_keys
-          .merge(overrides).compact_blank
-      )
+      query = params.permit(*WORKSPACE_LINK_PARAMS).to_h.symbolize_keys
+        .merge(overrides.except(:folder)).compact_blank
+
+      folder = workspace_link_folder(overrides)
+      return folder_browse_path(folder, **query) if folder
+
+      library_browse_path(@library, **query)
+    end
+
+    # The breadcrumb and folder-tree root. "My Plans" when it's yours — the
+    # label people already know — and the owner's name otherwise, because
+    # the same crumb in someone else's library shouldn't claim to be yours.
+    def workspace_root_label
+      return "My Plans" if @can_write
+
+      "#{@profile&.name || @library.owner.try(:name) || @library.name}’s plans"
+    end
+
+    # The folder a workspace link points at: the override when one is given
+    # (nil clears it, back to the library root), otherwise wherever we
+    # already are. Resolved against the loaded tree, so it costs no query.
+    def workspace_link_folder(overrides)
+      id = overrides.key?(:folder) ? overrides[:folder] : @folder&.id
+      return nil if id.blank?
+
+      @folders_by_id&.[](id.to_s)
     end
 
     # DOM id of a plan row's unread-comment badge. Shared by the row that

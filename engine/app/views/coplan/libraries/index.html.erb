@@ -1,0 +1,29 @@
+<% content_for :title, "Libraries" %>
+
+<div class="library">
+  <header class="library__header">
+    <div class="library__identity">
+      <div>
+        <h1 class="library__title">Libraries</h1>
+        <p class="library__subtitle text-muted">
+          <%= pluralize(@libraries.size, "library") %> you can browse
+        </p>
+      </div>
+    </div>
+  </header>
+
+  <% @libraries.each do |library| %>
+    <% owner = library.owner %>
+    <%= link_to library_browse_path(library), class: "folder-row", data: { turbo_prefetch: true } do %>
+      <span class="folder-row__icon" aria-hidden="true">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      </span>
+      <span class="folder-row__name">
+        <%= owner.respond_to?(:name) ? owner.name : library.name %>
+        <span class="text-muted">/<%= library.handle %></span>
+      </span>
+      <% count = @plan_counts[library.id].to_i %>
+      <span class="folder-row__count text-muted"><%= count.zero? ? "empty" : pluralize(count, "plan") %></span>
+    <% end %>
+  <% end %>
+</div>

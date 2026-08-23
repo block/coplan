@@ -67,7 +67,7 @@ module CoPlan
       def url
         # Relative path is fine — the SW resolves against self.location.origin
         # when opening / focusing the notification target tab.
-        CoPlan::Engine.routes.url_helpers.plan_path(@plan, thread: @thread.id)
+        CoPlan::Urls::Canonical.plan_path(@plan, thread: @thread.id)
       end
 
       def actor_name

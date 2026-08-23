@@ -82,7 +82,7 @@ RSpec.describe "Api::V1::Libraries", type: :request do
   describe "GET /api/v1/library/contents" do
     it "returns one row per placement with summary, tags, and location" do
       folder = create(:folder, name: "Infra", created_by_user: alice)
-      plan = create(:plan, :published, created_by_user: bob, title: "Zonal failover")
+      plan = create(:plan, :published, created_by_user: alice, title: "Zonal failover")
       plan.update_columns(summary: "A plan about failover.")
       plan.tag_names = [ "infra" ]
       plan.save!
@@ -97,7 +97,7 @@ RSpec.describe "Api::V1::Libraries", type: :request do
       expect(row["summary"]).to eq("A plan about failover.")
       expect(row["tags"]).to eq([ "infra" ])
       expect(row["folder_path"]).to eq("Infra")
-      expect(row["author"]).to eq(bob.name)
+      expect(row["author"]).to eq(alice.name)
     end
 
     it "filters by folder subtree with recursive=true" do
@@ -306,7 +306,10 @@ RSpec.describe "Api::V1::Libraries", type: :request do
       expect(listed.first["actor_label"]).to eq(alice_token.name)
     end
 
-    it "moves a plan between libraries with from_library_id" do
+    # A plan lives in one library, so moving it into another takes it out
+    # of the first — nothing has to name the source. `from_library_id` is
+    # still accepted from older callers and ignored.
+    it "moves a plan between libraries, emptying the one it came from" do
       # Simulate a future team library by making bob's library writable to
       # alice — writable_by? is the only gate Organize consults.
       allow_any_instance_of(CoPlan::Library).to receive(:writable_by?).and_return(true)

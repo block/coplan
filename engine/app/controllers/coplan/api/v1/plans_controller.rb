@@ -15,10 +15,10 @@ module CoPlan
           # (folder ids are global), and the plans themselves stay
           # viewer-filtered above.
           if params[:folder_id].present?
-            plans = plans.joins(:placements)
+            plans = plans.joins(:placement)
               .where(coplan_plan_placements: { folder_id: params[:folder_id] })
           end
-          @viewer_placements = current_user.library.placements
+          @placements = PlanPlacement.where(plan_id: plans.map(&:id))
             .includes(folder: { parent: :parent })
             .index_by(&:plan_id)
           render json: plans.map { |p| plan_json(p) }
@@ -83,7 +83,7 @@ module CoPlan
             if params[:references].is_a?(Array)
               params[:references].each do |ref_params|
                 next unless ref_params[:url].present?
-                ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url])
+                ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url], own_host: request.host)
                 ref = plan.references.find_or_initialize_by(url: ref_params[:url])
                 ref.assign_attributes(key: ref_params[:key], title: ref_params[:title], reference_type: ref_type, source: "explicit")
                 ref.save!
@@ -220,7 +220,7 @@ module CoPlan
           if params[:references].is_a?(Array)
             params[:references].each do |ref_params|
               next unless ref_params[:url].present?
-              ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url])
+              ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url], own_host: request.host)
               ref = @plan.references.find_or_initialize_by(url: ref_params[:url])
               # Only emit a "reference_added" event for genuinely new references;
               # existing-reference updates fall through silently for now.
@@ -250,11 +250,13 @@ module CoPlan
           render json: versions.map { |v| version_json(v) }
         end
 
-        # Everywhere this plan is shelved — the reverse lookup of "what
-        # folder is this document actually in?", across every library
-        # (yours, other people's, and future team libraries).
+        # Where this plan is filed — "what folder is this document
+        # actually in?". Now that a plan lives in exactly one place this
+        # answers with at most one entry, but it stays an array: clients
+        # already iterate it, and an unfiled plan legitimately has none.
         def locations
-          placements = @plan.placements.includes(:placed_by_user, library: :owner, folder: { parent: :parent })
+          placements = PlanPlacement.where(plan_id: @plan.id)
+            .includes(:placed_by_user, library: :owner, folder: { parent: :parent })
           render json: placements.map { |placement|
             library = placement.library
             {
@@ -400,19 +402,20 @@ module CoPlan
           end
         end
 
-        # folder_id/folder_path are viewer-relative: where *the caller*
-        # shelved this plan in their own library. One query per call — index
-        # batches placements up front via @viewer_placements.
-        def viewer_placement_for(plan)
-          if defined?(@viewer_placements) && @viewer_placements
-            @viewer_placements[plan.id]
+        # Where the plan lives. Used to be viewer-relative — the caller's
+        # own shelf — but a plan is filed in exactly one place now, so
+        # every caller gets the same answer. One query per call; index
+        # batches placements up front via @placements.
+        def placement_for(plan)
+          if defined?(@placements) && @placements
+            @placements[plan.id]
           else
-            current_user.library.placements.find_by(plan_id: plan.id)
+            plan.placement
           end
         end
 
         def plan_json(plan)
-          placement = viewer_placement_for(plan)
+          placement = placement_for(plan)
           {
             id: plan.id,
             title: plan.title,

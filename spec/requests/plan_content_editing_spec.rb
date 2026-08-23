@@ -36,7 +36,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
         }
       }.to change(CoPlan::PlanVersion, :count).by(1)
 
-      expect(response).to redirect_to(plan_path(plan))
+      expect(response).to redirect_to(plan_page_path(plan))
       plan.reload
       expect(plan.current_content).to eq("# Plan\n\nEdited body.\n")
       version = plan.current_plan_version
@@ -60,7 +60,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
           base_revision: plan.current_revision
         }
       }.not_to change(CoPlan::PlanVersion, :count)
-      expect(response).to redirect_to(plan_path(plan))
+      expect(response).to redirect_to(plan_page_path(plan))
     end
 
     it "re-renders the editor with the draft preserved on a stale base_revision" do
@@ -119,7 +119,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
         }
       }.to change(CoPlan::PlanVersion, :count).by(1)
 
-      expect(response).to redirect_to(plan_path(plan))
+      expect(response).to redirect_to(plan_page_path(plan))
       expect(plan.reload.current_content).to eq("# Plan\n\nMy conflicting draft.\n")
     end
 
@@ -168,8 +168,9 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
         plan: { title: "Renamed Plan", tag_names: "security, api-design" }
       }
 
-      expect(response).to redirect_to(plan_path(plan))
-      plan.reload
+      # Retitling reslugs the document — the redirect lands on its new
+      # address, not the one it had going in.
+      expect(response).to redirect_to(plan_page_path(plan.reload))
       expect(plan.title).to eq("Renamed Plan")
       expect(plan.tag_names).to contain_exactly("security", "api-design")
       expect(plan.current_content).to eq("# Plan\n\nEdited with metadata.\n")
@@ -184,9 +185,9 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
         plan: { title: "Rename Only" }
       }
 
-      expect(response).to redirect_to(plan_path(plan))
+      expect(response).to redirect_to(plan_page_path(plan.reload))
       expect(flash[:notice]).to eq("Plan updated.")
-      expect(plan.reload.title).to eq("Rename Only")
+      expect(plan.title).to eq("Rename Only")
     end
 
     it "says 'No changes to save.' when nothing changed" do
@@ -196,7 +197,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
         plan: { title: plan.title }
       }
 
-      expect(response).to redirect_to(plan_path(plan))
+      expect(response).to redirect_to(plan_page_path(plan))
       expect(flash[:notice]).to eq("No changes to save.")
     end
 
@@ -245,7 +246,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
 
       patch plan_path(plan), params: { plan: { title: plan.title, tag_names: "security, api-design" } }
 
-      expect(response).to redirect_to(plan_path(plan))
+      expect(response).to redirect_to(plan_page_path(plan))
       expect(plan.reload.tag_names).to contain_exactly("security", "api-design")
       events = plan.plan_events.where(event_type: "tag_added")
       expect(events.map(&:after_value)).to include("api-design")

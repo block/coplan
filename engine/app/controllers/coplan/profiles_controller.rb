@@ -1,32 +1,17 @@
 module CoPlan
-  # A person's public face: identity (enriched by the host's directory
-  # adapter), their published plans, and their library shelves. Profiles
-  # are them-facing — they show only publicly listed work, so drafts and
-  # archived plans never appear here, not even on your own profile.
+  # A person's page and their library are the same page now: /<handle>,
+  # served by BrowseController. This is the old /people/:id address, kept so
+  # links written before the switch still land — and 301, so the address bar
+  # and everything copied out of it converges on the readable form.
+  #
+  # The identity this page used to carry (name, title, team, directory link)
+  # is the header of that page; the "Published plans" and "Library" columns
+  # are the level view underneath it, with the same filters and counts
+  # everyone gets.
   class ProfilesController < ApplicationController
     def show
-      @user = User.find_by(username: params[:id]) || User.find(params[:id])
-      @profile = Directory.profile_for(@user)
-      @library = @user.library
-
-      @plans = @user.created_plans
-        .publicly_listed
-        .includes(:plan_type, :tags)
-        .order(updated_at: :desc)
-
-      # Same shelf-tree ivars LibrariesController#show sets — the profile
-      # embeds the library rather than reimplementing it.
-      @folders = @library.folders.order(:name).to_a
-      @folder_children = @folders.group_by(&:parent_id)
-      @root_folders = @folder_children[nil] || []
-
-      placements = @library.placements
-        .where(plan: Plan.publicly_listed)
-        .joins(:plan).order("coplan_plans.updated_at DESC")
-        .includes(plan: [ :created_by_user, :plan_type ])
-        .to_a
-      @placements_by_folder = placements.group_by(&:folder_id)
-      @shelved_count = placements.size
+      user = User.find_by(username: params[:id]) || User.find(params[:id])
+      redirect_to browse_library_path(handle: user.library.handle), status: :moved_permanently
     end
   end
 end

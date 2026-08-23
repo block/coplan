@@ -1,56 +1,130 @@
 CoPlan::Engine.routes.draw do
-  resources :plans, only: [ :index, :show, :edit, :update ] do
-    patch :publish, on: :member
-    patch :hide, on: :member
-    patch :archive, on: :member
-    patch :unarchive, on: :member
-    patch :toggle_checkbox, on: :member
-    patch :move_to_folder, on: :member
-    get :history, on: :member
-    get :edit_content, on: :member
-    patch :update_content, on: :member
-    post :preview, on: :member
-    resources :versions, controller: "plan_versions", only: [ :show ] do
-      get :diff, on: :member
-    end
-    resources :references, controller: "references", only: [ :create, :destroy ]
-    resources :attachments, controller: "attachments", only: [ :create, :destroy ]
-    # Cleans up a spoken remark and works out which passage it was about;
-    # see DictationsController.
-    resources :dictations, only: [ :create ]
-    resources :comment_threads, only: [ :create ] do
-      member do
-        patch :resolve
-        patch :accept
-        patch :discard
-        patch :reopen
+  # --- The shape of this file ----------------------------------------
+  #
+  # People are the root namespace. A handle is a top-level segment, so a
+  # document's address reads like the person whose library it's in:
+  #
+  #   /sam                               Sam, and Sam's library
+  #   /sam/liveorder                     a folder
+  #   /sam/liveorder/cart-state-machine  a document
+  #
+  # Every prefix is a real page, so trimming a segment walks up the tree.
+  #
+  # Everything that isn't a place lives under `_`: settings, search, the
+  # id-based mutation endpoints, and whatever gets added next. That single
+  # character is the whole reservation — a handle can never *be* `_`,
+  # because slug rules strip non-alphanumerics (CoPlan::Slug), so the split
+  # is structural rather than a list someone has to remember to update.
+  # `_` is reserved inside a library too (/sam/_/…), by the same mechanism,
+  # so library-scoped pages have somewhere to go that can't collide with a
+  # folder name.
+  #
+  # The legacy block near the bottom is the one fixed list, frozen at the
+  # paths that shipped before this. It can shrink; it never has to grow.
+  #
+  # Order matters: the `:handle` routes at the very bottom are a catchall,
+  # so everything else has to be declared above them.
+
+  # Handles are ASCII slugs, so they never contain a dot. That's what keeps
+  # file-like root paths (llms.txt, the service worker) out of the catchall
+  # without needing to enumerate them.
+  handle = /[a-z0-9][a-z0-9-]*/
+
+  # A 301 that survives being mounted somewhere other than "/".
+  legacy = ->(to) { redirect(status: 301) { |_params, req| "#{req.script_name}#{to}" } }
+
+  # --- App machinery -------------------------------------------------
+  #
+  # Path-only scope: helper names stay unprefixed, so `settings_path`,
+  # `publish_plan_path` and the rest read the same at every call site.
+  scope "_" do
+    # Cross-library view: everything you can see, wherever it lives. The
+    # per-library view is /:handle — this is the one that spans them, which
+    # is why it isn't a place and lives here.
+    #
+    # The member routes are id-based mutations. A document's *address* is
+    # its readable path; these are the machinery behind the buttons on it.
+    resources :plans, only: [ :index, :show, :edit, :update ] do
+      patch :publish, on: :member
+      patch :hide, on: :member
+      patch :archive, on: :member
+      patch :unarchive, on: :member
+      patch :toggle_checkbox, on: :member
+      patch :move_to_folder, on: :member
+      get :history, on: :member
+      get :edit_content, on: :member
+      patch :update_content, on: :member
+      post :preview, on: :member
+      resources :versions, controller: "plan_versions", only: [ :show ] do
+        get :diff, on: :member
       end
-      resources :comments, only: [ :create, :destroy ]
+      resources :references, controller: "references", only: [ :create, :destroy ]
+      resources :attachments, controller: "attachments", only: [ :create, :destroy ]
+      # Cleans up a spoken remark and works out which passage it was about;
+      # see DictationsController.
+      resources :dictations, only: [ :create ]
+      resources :comment_threads, only: [ :create ] do
+        member do
+          patch :resolve
+          patch :accept
+          patch :discard
+          patch :reopen
+        end
+        resources :comments, only: [ :create, :destroy ]
+      end
     end
+
+    namespace :settings do
+      root "settings#index"
+      resources :tokens, only: [ :index, :create, :destroy ]
+      patch "theme", to: "settings#update_theme"
+      patch "voice_hotkey", to: "settings#update_voice_hotkey"
+    end
+
+    # Web folder creation (sidebar "New folder" input) and reparenting (drag
+    # a folder onto a folder). Rename/delete go through the API or admin for
+    # now.
+    resources :folders, only: [ :create, :update ]
+
+    # Every library you can see. Id-based library links land here too, and
+    # 301 onward to the handle form.
+    get "libraries", to: "libraries#index", as: :browse_root
+    resources :libraries, only: [ :show ]
+    get "library", to: "libraries#mine", as: :my_library
+
+    resources :users, only: [] do
+      get :search, on: :collection
+    end
+
+    resources :notifications, only: [ :index, :show ] do
+      member do
+        patch :mark_read
+      end
+      collection do
+        post :mark_all_read
+        post :mark_plan_read
+      end
+    end
+
+    # Web Push subscription management. Endpoint URLs come from the browser's
+    # PushManager and uniquely identify a (browser, device, app) tuple per user.
+    scope :web_push, module: "web_push", as: :web_push do
+      resource :subscription, only: [ :create, :destroy ], controller: "subscriptions"
+      # Turbo-frame target for the per-device list on the Settings page.
+      # Reloaded by the settings Stimulus controller after enable/disable so
+      # the list reflects the new browser without a full page refresh.
+      get "devices", to: "subscriptions#devices", as: :devices
+    end
+
+    get "home", to: "home#show", as: :home
+    get "welcome", to: "welcome#show", as: :welcome
+    get "search", to: "search#index", as: :search
   end
 
-  namespace :settings do
-    root "settings#index"
-    resources :tokens, only: [ :index, :create, :destroy ]
-    patch "theme", to: "settings#update_theme"
-    patch "voice_hotkey", to: "settings#update_voice_hotkey"
-  end
+  # --- Root-level by necessity ---------------------------------------
 
-  # Web folder creation (sidebar "New folder" input) and reparenting (drag
-  # a folder onto a folder). Rename/delete go through the API or admin for
-  # now.
-  resources :folders, only: [ :create, :update ]
-
-  # Read-only library browsing (folder-jump discovery). "library" without
-  # an id is the signed-in user's own — handy for nav links.
-  resources :libraries, only: [ :show ]
-  get "library", to: "libraries#mine", as: :my_library
-
-  # Profile pages — the front door to a person's library. :id is a
-  # username or user id; usernames may contain dots, so the constraint
-  # keeps Rails from peeling ".l" off "hampton.l" as a format.
-  get "people/:id", to: "profiles#show", as: :profile, constraints: { id: %r{[^/]+} }
-
+  # The agent API is an external contract with published paths; moving it
+  # under `_` would break every caller for no gain.
   namespace :api do
     namespace :v1 do
       resources :tags, only: [ :index ]
@@ -109,46 +183,68 @@ CoPlan::Engine.routes.draw do
     end
   end
 
-  resources :users, only: [] do
-    get :search, on: :collection
-  end
-
-  resources :notifications, only: [ :index, :show ] do
-    member do
-      patch :mark_read
-    end
-    collection do
-      post :mark_all_read
-      post :mark_plan_read
-    end
-  end
-
-  get "llms.txt", to: "llms#show", as: :llms_txt
+  # The published entry point for agents — it's in every API response, in
+  # llms.txt, and in whatever config people have already pasted it into.
+  # Same argument as the API above: an external contract stays where it was.
   get "agent-instructions", to: "agent_instructions#show", as: :agent_instructions
   # Sub-instructions: the library-organizing guide, fetched on demand so the
   # main instructions stay small (agents only spend context when organizing).
   get "agent-instructions/organizing", to: "agent_instructions#organizing", as: :agent_instructions_organizing
 
-  # Service worker — served from a route (not the asset pipeline) so it has a
-  # stable URL the browser can update in place. Scope is whatever the engine
-  # is mounted at in the host app.
+  # Convention puts this at the root, like robots.txt.
+  get "llms.txt", to: "llms#show", as: :llms_txt
+
+  # Service worker — served from a route (not the asset pipeline) so it has
+  # a stable URL the browser can update in place. This one *has* to stay at
+  # the root: a worker's scope is the directory it's served from, and push
+  # notifications need to focus and navigate any tab, not just /_/*.
   get "coplan_service_worker.js", to: "service_workers#show", as: :service_worker
 
-  # Web Push subscription management. Endpoint URLs come from the browser's
-  # PushManager and uniquely identify a (browser, device, app) tuple per user.
-  scope :web_push, module: "web_push", as: :web_push do
-    resource :subscription, only: [ :create, :destroy ], controller: "subscriptions"
-    # Turbo-frame target for the per-device list on the Settings page.
-    # Reloaded by the settings Stimulus controller after enable/disable so
-    # the list reflects the new browser without a full page refresh.
-    get "devices", to: "subscriptions#devices", as: :devices
+  # --- Legacy paths --------------------------------------------------
+  #
+  # The addresses that shipped before people became the root namespace.
+  # This is the whole reserved list, and it's frozen: anything new goes
+  # under `_`, which costs no handle. The price is that nobody can have
+  # the handle "settings" or "plans", which seems survivable.
+  # Most of these reuse the controllers they always pointed at, because
+  # those already 301 onward — a document at /plans/<uuid> converges on its
+  # readable address whether you arrived by the old path or the new one.
+  scope as: :legacy do
+    # Your workspace was /plans. It's your library now.
+    get "plans", to: "libraries#mine"
+    get "library", to: "libraries#mine"
+    # PlansController#show 301s onto the readable address (and renders in
+    # place for a document with no slug yet).
+    get "plans/:id", to: "plans#show", as: :plan
+    # A person's page and their library are the same page now. :id is a
+    # username or a user id; usernames may contain dots, so the constraint
+    # keeps Rails from peeling ".l" off "hampton.l" as a format.
+    get "people/:id", to: "profiles#show", as: :person, constraints: { id: %r{[^/]+} }
+    # LibrariesController#show 301s onward, ?folder=<id> and all.
+    get "libraries/:id", to: "libraries#show", as: :library_by_id
+    get "libraries", to: legacy.call("/_/libraries"), as: :libraries
+
+    get "settings", to: legacy.call("/_/settings"), as: :settings
+    get "settings/*rest", to: redirect(status: 301) { |p, r| "#{r.script_name}/_/settings/#{p[:rest]}" }, as: :settings_page
+    get "search", to: legacy.call("/_/search"), as: :search
+    get "notifications", to: legacy.call("/_/notifications"), as: :notifications
+    get "notifications/*rest", to: redirect(status: 301) { |p, r| "#{r.script_name}/_/notifications/#{p[:rest]}" }, as: :notification_page
+    get "home", to: legacy.call("/_/home"), as: :home
+    get "welcome", to: legacy.call("/_/welcome"), as: :welcome
   end
 
-  get "home", to: "home#show", as: :home
-
-  get "welcome", to: "welcome#show", as: :welcome
-
-  get "search", to: "search#index", as: :search
-
   root "welcome#show"
+
+  # --- People, and everything in their libraries ----------------------
+  #
+  # The catchall. `format: false` on the glob, or a document slug like
+  # "pricing-v1.2" would have its tail parsed as a format.
+  #
+  # `/:handle/_/…` needs no route of its own: a folder can never be named
+  # `_` (CoPlan::Slug strips it), so the segment resolves to nothing and
+  # 404s. That's the reservation — library-scoped pages can be declared
+  # above this line whenever we have one, and nothing a user creates can
+  # ever be sitting there already.
+  get ":handle", to: "browse#browse", as: :browse_library, constraints: { handle: handle }
+  get ":handle/*slug_path", to: "browse#browse", as: :browse, format: false, constraints: { handle: handle }
 end
