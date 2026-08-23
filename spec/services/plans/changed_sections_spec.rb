@@ -155,6 +155,38 @@ RSpec.describe CoPlan::Plans::ChangedSections do
       expect(result(old_md, new_md)).to have_attributes(rewritten?: false, keys: [ "section-1", "section-2" ])
     end
 
+    # Renaming a heading files an untouched body under a new key, which
+    # looks like new text to a key-level diff. The headings still
+    # highlight; they just don't add up to a rewrite.
+    it "does not call a batch of renamed headings a rewrite" do
+      bodies = [ "one " * 40, "two " * 40, "three " * 40, "four " * 40 ]
+      old_md = bodies.each_with_index.map { |b, i| "## Section #{i + 1}\n\n#{b}\n" }.join("\n")
+      new_md = [ "Overview", "Approach", "Risks", "Section 4" ]
+        .each_with_index.map { |title, i| "## #{title}\n\n#{bodies[i]}\n" }.join("\n")
+
+      expect(result(old_md, new_md)).to have_attributes(
+        rewritten?: false,
+        keys: [ "overview", "approach", "risks" ]
+      )
+    end
+
+    it "still calls it a rewrite when the renamed sections got new bodies too" do
+      old_md = doc("one", "two", "three", "four")
+      new_md = [ "Overview", "Approach", "Risks", "Section 4" ]
+        .each_with_index.map { |title, i| "## #{title}\n\nwholly new body #{i}\n" }.join("\n")
+
+      expect(result(old_md, new_md)).to have_attributes(rewritten?: true, keys: [])
+    end
+
+    # One old section can only excuse one new one, or repeated boilerplate
+    # would discount a document that really was rewritten around it.
+    it "matches carried-over bodies one for one" do
+      old_md = doc("shared", "b", "c", "d", "e")
+      new_md = doc("shared", "shared", "shared", "shared", "shared")
+
+      expect(result(old_md, new_md)).to have_attributes(rewritten?: true, keys: [])
+    end
+
     it "reports neither keys nor a rewrite when nothing changed" do
       md = doc("one", "two", "three", "four", "five")
 

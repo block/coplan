@@ -55,19 +55,42 @@ module CoPlan
           key if !old_sections.key?(key) || old_sections[key] != body
         end
         return NONE if changed.empty?
-        return Result.new(keys: [], rewritten: true) if rewritten?(new_sections, changed)
+        return Result.new(keys: [], rewritten: true) if rewritten?(old_sections, new_sections, changed)
 
         Result.new(keys: changed, rewritten: false)
       end
 
-      def self.rewritten?(new_sections, changed)
+      def self.rewritten?(old_sections, new_sections, changed)
         return false if new_sections.size < REWRITE_MIN_SECTIONS
-        return false unless changed.size > new_sections.size * REWRITE_RATIO
+
+        fresh = written_from_scratch(old_sections, new_sections, changed)
+        return false unless fresh.size > new_sections.size * REWRITE_RATIO
 
         total = new_sections.sum { |_key, body| body.length }
         return true if total.zero?
 
-        changed.sum { |key| new_sections[key].length } > total * REWRITE_RATIO
+        fresh.sum { |key| new_sections[key].length } > total * REWRITE_RATIO
+      end
+
+      # Changed sections minus the ones that only moved. A renamed heading
+      # files an untouched body under a new key, which the key-level diff
+      # can't tell from newly written text — so three renames in a
+      # four-section plan would claim a rewrite the reader never got. Any
+      # body that already existed somewhere in the old document is carried
+      # over, not written; it still highlights (the heading did change),
+      # it just doesn't count toward "most of this is new". Matching is by
+      # exact body, one old section per new one, so duplicated text can't
+      # discount two sections at once.
+      def self.written_from_scratch(old_sections, new_sections, changed)
+        carried_over = old_sections.values.reject(&:empty?).tally
+
+        changed.reject do |key|
+          body = new_sections[key]
+          next false unless carried_over.fetch(body, 0).positive?
+
+          carried_over[body] -= 1
+          true
+        end
       end
 
       def self.sections(markdown)

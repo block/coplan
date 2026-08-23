@@ -61,7 +61,7 @@ RSpec.describe "Changed-section highlights", type: :request do
     plan.update_columns(current_plan_version_id: v2.id, current_revision: 2)
 
     sign_in_as(viewer)
-    get plan_path(plan)
+    get plan_page_path(plan)
 
     expect(keys_attr(response.body)).to eq("[]")
     expect(rewritten_attr(response.body)).to eq("true")
@@ -69,7 +69,7 @@ RSpec.describe "Changed-section highlights", type: :request do
 
   it "does not flag a rewrite when there is nothing new at all" do
     sign_in_as(viewer)
-    get plan_path(plan)
+    get plan_page_path(plan)
 
     expect(rewritten_attr(response.body)).to eq("false")
   end
