@@ -137,6 +137,12 @@ export default class extends Controller {
       return
     }
 
+    // The keyboard mirror of the click pass-through below: a focused
+    // control on a slide owns its keys, so Space toggles the checkbox it
+    // sits on instead of advancing. Escape stays the exit everywhere.
+    const tag = event.target.tagName
+    if (event.key !== "Escape" && (this._typing(event.target) || tag === "BUTTON" || tag === "SUMMARY")) return
+
     switch (event.key) {
       case "ArrowRight":
       case "ArrowDown":
@@ -178,6 +184,27 @@ export default class extends Controller {
 
     const deck = this.element.querySelector(".deck")
     const onCanvas = deck && deck.contains(event.target)
+
+    // A same-document link mid-show: the target's slide is display: none,
+    // so the browser's fragment jump would show nothing — and would clobber
+    // the #present-N resume hash. Navigate the show to the slide that owns
+    // the target instead; targets outside the deck (the footnote back
+    // matter, hidden behind the overlay) are swallowed as no-ops.
+    const anchor = onCanvas && event.target.closest('a[href^="#"]')
+    if (anchor) {
+      event.preventDefault()
+      event.stopPropagation()
+      let id = anchor.getAttribute("href").slice(1)
+      try { id = decodeURIComponent(id) } catch {}
+      const target = id ? deck.querySelector(`#${CSS.escape(id)}`) : null
+      const slide = target?.closest("section.deck-slide")
+      if (slide) {
+        this._show(this._slides(deck).indexOf(slide))
+        target.scrollIntoView({ block: "nearest" })
+      }
+      return
+    }
+
     // Links, checkboxes, and buttons on a slide still work; everything
     // else — canvas, letterbox, the page hidden behind the overlay —
     // advances (and is swallowed so hidden controls can't be hit).
