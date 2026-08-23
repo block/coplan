@@ -1,4 +1,10 @@
 import { Controller } from "@hotwired/stimulus"
+import { DeckInk } from "coplan/deck_ink"
+
+// How far the pointer may travel between mousedown and click and still count
+// as a click. Past it, the gesture was a drag — the presenter highlighting a
+// line, not asking for the next slide.
+const DRAG_SLOP = 4
 
 /*
  * coplan--deck-presenter
@@ -10,6 +16,11 @@ import { Controller } from "@hotwired/stimulus"
  * wrapper, with the fixed-overlay CSS as the fallback when the browser
  * refuses, so presenting works either way.
  *
+ * Two gestures mark up a slide without leaving the show. Dragging across
+ * text highlights it in the deck's accent — the room's eyes follow the
+ * marker. `d` arms the pen (DeckInk) and a drag paints instead; either way
+ * the mark is temporary, and a still click is always "next".
+ *
  * The wrapper sits OUTSIDE the live-update swap target: an edit landing
  * mid-presentation replaces the deck underneath without disconnecting this
  * controller. Every entry point re-acquires the current deck by lookup, and
@@ -20,8 +31,10 @@ export default class extends Controller {
   connect() {
     this.presenting = false
     this.index = 0
+    this.ink = new DeckInk(this.element)
     this._onKeydown = this._handleKeydown.bind(this)
     this._onClick = this._handleClick.bind(this)
+    this._onMouseDown = this._handleMouseDown.bind(this)
     this._onMouseUp = this._handleMouseUp.bind(this)
     this._onFullscreenChange = this._handleFullscreenChange.bind(this)
     // Turbo snapshots the page before controllers disconnect; a cached
@@ -51,6 +64,7 @@ export default class extends Controller {
     this._pageOverflow = document.documentElement.style.overflow
     document.documentElement.style.overflow = "hidden"
     document.addEventListener("click", this._onClick, true)
+    document.addEventListener("mousedown", this._onMouseDown, true)
     document.addEventListener("mouseup", this._onMouseUp, true)
     // A comment thread popover left open on the page must not float above
     // the show.
@@ -116,7 +130,24 @@ export default class extends Controller {
     this._promoteDeck()
     slides.forEach((slide, i) => slide.classList.toggle("deck-slide--current", i === this.index))
     slides[this.index].scrollTop = 0
+    this._clearSelectionOutside(slides[this.index])
+    // Ink is drawn on the canvas, not on the slide's text, so nothing about
+    // it survives the slide it was drawn on — including a stroke still in
+    // progress when a key advanced the show.
+    this.ink.clear()
     history.replaceState(history.state, "", `#present-${this.index + 1}`)
+  }
+
+  // A highlight belongs to the slide it was drawn on. Once the show moves
+  // on (or the deck is swapped underneath), drop it — a stale selection
+  // would make the next bare click read as the tail of a drag and stall the
+  // show.
+  _clearSelectionOutside(slide) {
+    const selection = document.getSelection()
+    if (!selection || selection.isCollapsed) return
+    if (slide.contains(selection.anchorNode) && slide.contains(selection.focusNode)) return
+
+    selection.removeAllRanges()
   }
 
   // The show must escape the page: an ancestor with backdrop-filter (the
@@ -197,16 +228,26 @@ export default class extends Controller {
       case "End":
         this._navigate(event, Infinity)
         break
+      case "d":
+        // Draw. The pen is a mode because the two marking gestures share
+        // one drag: with it stowed a drag highlights text, with it out a
+        // drag paints. The badge it raises is what tells the presenter
+        // which.
+        event.preventDefault()
+        event.stopPropagation()
+        this.ink.toggle()
+        break
       case "Escape":
         event.preventDefault()
         event.stopPropagation()
-        // A popover above the show (a reference preview, a pinned thread)
-        // is what Escape visibly targets — dismiss it and keep presenting;
-        // only a bare Escape ends the show. The browser may drop native
-        // fullscreen on this same keypress (that exit is uncancelable), so
-        // mark the peel: the resulting fullscreenchange is forgiven and
-        // the show continues on the top-layer fallback.
-        if (this._dismissForeignPopovers()) {
+        // Escape peels one layer at a time: whatever is visibly in front of
+        // the show goes first — a popover (a reference preview, a pinned
+        // thread), then the pen — and only a bare Escape ends the show. The
+        // browser may drop native fullscreen on the same keypress (that
+        // exit is uncancelable), so mark the peel: the resulting
+        // fullscreenchange is forgiven and the show continues on the
+        // top-layer fallback.
+        if (this._dismissForeignPopovers() || this._stowPen()) {
           if (document.fullscreenElement === this.element) this._peeling = true
           return
         }
@@ -234,6 +275,14 @@ export default class extends Controller {
     return dismissed
   }
 
+  // Puts the pen away. Returns whether there was a pen out to put away.
+  _stowPen() {
+    if (!this.ink.armed) return false
+
+    this.ink.stow()
+    return true
+  }
+
   _navigate(event, index) {
     event.preventDefault()
     event.stopPropagation()
@@ -251,6 +300,18 @@ export default class extends Controller {
     // visible UI, not hidden page — its buttons and links keep working.
     const popover = event.target.closest?.("[popover]")
     if (popover && popover !== deck && popover.matches(":popover-open")) return
+
+    // Dragging across a slide marks it up — a highlight, or a pen stroke —
+    // and the point being made must not also page forward (advancing hides
+    // the slide, which takes the mark with it). Shift extends a highlight
+    // for the same reason. Everything else is a still click, which stays
+    // "next" unconditionally: it advances, and _show drops whatever was
+    // left on the slide being left behind.
+    if (this._gestureWasDrag(event) || event.shiftKey) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
 
     // A same-document link mid-show: the target's slide is display: none,
     // so the browser's fragment jump would show nothing — and would clobber
@@ -280,6 +341,30 @@ export default class extends Controller {
     event.preventDefault()
     event.stopPropagation()
     this._show(this.index + 1)
+  }
+
+  _handleMouseDown(event) {
+    if (!this.presenting) return
+
+    this._pointerOrigin = { x: event.clientX, y: event.clientY }
+  }
+
+  // Whether the click that just landed is the tail of a drag rather than a
+  // click in place. Pointer travel is the whole test for a highlight on
+  // purpose: a live selection is NOT evidence, because Chrome holds off
+  // collapsing one until mouseup when the press lands inside it (it is
+  // waiting to see a selection drag) — reading the selection here would
+  // swallow the click that a presenter aims at their own highlight, and
+  // stall the show. A pen stroke has no travel to read (see
+  // DeckInk#consumePainted), so the pen answers for itself.
+  _gestureWasDrag(event) {
+    if (this.ink.consumePainted()) return true
+
+    const origin = this._pointerOrigin
+    if (!origin) return false
+
+    return Math.abs(event.clientX - origin.x) > DRAG_SLOP ||
+      Math.abs(event.clientY - origin.y) > DRAG_SLOP
   }
 
   // text-selection offers "comment on this selection" from mouseup on the
@@ -332,7 +417,11 @@ export default class extends Controller {
 
   _teardown() {
     document.removeEventListener("click", this._onClick, true)
+    document.removeEventListener("mousedown", this._onMouseDown, true)
     document.removeEventListener("mouseup", this._onMouseUp, true)
+    this._pointerOrigin = null
+    // The pen never outlives the show it was drawn with.
+    this.ink.destroy()
     if (this._pageOverflow !== undefined) {
       document.documentElement.style.overflow = this._pageOverflow
       this._pageOverflow = undefined

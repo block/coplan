@@ -1874,7 +1874,9 @@ img.avatar {
   color: var(--color-text);
 }
 
-.markdown-rendered .mermaid-diagram svg {
+/* The diagram's own SVG only — the expand button's icon is an svg inside
+   the same container, and it must keep its own 16px geometry. */
+.markdown-rendered .mermaid-diagram > svg {
   max-width: 100%;
   height: auto;
 }

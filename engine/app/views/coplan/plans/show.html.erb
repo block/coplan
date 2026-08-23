@@ -62,9 +62,15 @@
             set apart so it reads as "after the document", not part of it. %>
         <ul class="content-nav__list content-nav__list--footnotes">
           <%# ids: the reference/attachment Turbo Streams keep these counts
-              live alongside the footnote headers' own counters. %>
-          <li><a href="#footnote-references" class="content-nav__footnote-link">References <span class="section-count" id="nav-references-count"><%= reference_count %></span></a></li>
-          <li><a href="#footnote-attachments" class="content-nav__footnote-link">Attachments <span class="section-count" id="nav-attachments-count"><%= @attachments.size %></span></a></li>
+              live alongside the footnote headers' own counters.
+
+              The jump is handled in JS for the same reason the outline links
+              above are: Turbo treats a same-page fragment link as a full
+              visit, so the bare anchor refetched and re-rendered the page —
+              and on a deck the re-rendered slides settle their heights
+              asynchronously, landing the scroll nowhere near the section. %>
+          <li><a href="#footnote-references" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">References <span class="section-count" id="nav-references-count"><%= reference_count %></span></a></li>
+          <li><a href="#footnote-attachments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Attachments <span class="section-count" id="nav-attachments-count"><%= @attachments.size %></span></a></li>
         </ul>
       </nav>
       <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>
@@ -84,7 +90,10 @@
         <% if @plan.presentation? %>
         <div class="deck-presenter" data-controller="coplan--deck-presenter">
           <div class="deck-toolbar">
-            <button type="button" class="deck-toolbar__present" data-action="coplan--deck-presenter#start" title="Present (p)">
+            <%# The only place the show's keys are advertised before it
+                starts — mid-show there is no room for a legend, and the pen
+                is the one gesture nobody would guess. %>
+            <button type="button" class="deck-toolbar__present" data-action="coplan--deck-presenter#start" title="Present (p) — mid-show, drag to highlight, d for the pen">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.8a1 1 0 0 1 1.53-.85l11.1 7.2a1 1 0 0 1 0 1.7l-11.1 7.2A1 1 0 0 1 7 19.2z"/></svg>
               Present <kbd>p</kbd>
             </button>
