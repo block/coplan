@@ -30,6 +30,13 @@ RSpec.describe "Deck UX", type: :system do
         markdown --> Split
         Split --> Classify
       ```
+
+      ---
+
+      ## Before the readout
+
+      - [ ] Confirm the fit report is clean
+      - [ ] Send the deck round
     MARKDOWN
   end
 
@@ -128,6 +135,26 @@ RSpec.describe "Deck UX", type: :system do
       expect(current_slide).to eq("3")
       expect(page.evaluate_script("document.getSelection().toString()")).to eq("")
     end
+
+    it "still hands a focused control its keys after the mouse has been used" do
+      visit plan_path(plan)
+      start_show
+
+      # Three mouse clicks to reach the task slide — each one leaves a
+      # pointer origin behind, which is the whole point of the setup.
+      3.times { find(".deck-slide--current").click }
+      expect(current_slide).to eq("4")
+
+      checkbox = find(".deck-slide--current input[type='checkbox']", match: :first)
+      checkbox.execute_script("this.focus()")
+
+      # Space on a focused checkbox is the presenter ticking a box mid-show.
+      # The click the browser synthesizes for it carries no coordinates, so
+      # measuring it against the last mouse position read as a drag: the
+      # click was swallowed and the box silently did not move.
+      send_keys(:space)
+      expect(checkbox).to be_checked
+    end
   end
 
   describe "the pen" do
@@ -169,6 +196,35 @@ RSpec.describe "Deck UX", type: :system do
       expect(strokes_drawn).to eq(0)
       # The pen stays out across the slide change.
       expect(page).to have_css(".deck--inking .deck-ink-badge")
+    end
+
+    it "does not eat the next click when a stroke is cancelled mid-air" do
+      visit plan_path(plan)
+      start_show
+      send_keys("d")
+      expect(page).to have_css(".deck--inking")
+
+      # The browser can take the pointer away mid-stroke (a touch becoming a
+      # system gesture). No click follows a cancellation, so the pen must not
+      # claim one — the next real click belongs to the show. Scripted because
+      # a driver has no way to make the browser cancel a pointer.
+      page.execute_script(<<~JS)
+        const slide = document.querySelector(".deck-slide--current");
+        const box = slide.getBoundingClientRect();
+        const fire = (type, x, y) => slide.dispatchEvent(new PointerEvent(type, {
+          pointerId: 7, isPrimary: true, button: 0, buttons: 1,
+          bubbles: true, cancelable: true, clientX: x, clientY: y
+        }));
+        fire("pointerdown", box.left + 40, box.top + 40);
+        for (let i = 1; i <= 20; i++) fire("pointermove", box.left + 40 + i * 8, box.top + 40);
+        fire("pointercancel", box.left + 200, box.top + 40);
+      JS
+
+      # A cancelled stroke was never made.
+      expect(page).to have_no_css(".deck-ink__stroke")
+
+      find(".deck-slide--current").click
+      expect(current_slide).to eq("2")
     end
 
     it "puts the pen away on Escape without ending the show" do

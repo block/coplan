@@ -100,7 +100,8 @@ export class DeckInk {
     this.wrapper.querySelector(".deck")?.classList.remove("deck--inking")
     this.wrapper.querySelectorAll(".deck-ink-badge").forEach(badge => badge.remove())
     // Strokes already drawn keep fading — the show moved on from the pen,
-    // not from the point being made.
+    // not from the point being made. A stroke still in the air is committed
+    // and left to fade too, but claims no click: Escape is not a press.
   }
 
   // A mark belongs to the slide it was drawn on: when the show moves (or
@@ -179,6 +180,15 @@ export class DeckInk {
   _handlePointerEnd(event) {
     if (!this.stroke || event.pointerId !== this.stroke.pointerId) return
 
+    // Only a lifted pointer synthesizes the click the presenter has to
+    // swallow, so only a lifted pointer claims one. A cancelled gesture (the
+    // browser took the pointer away mid-stroke) produces no click at all —
+    // claiming one would leave the flag set, and the presenter's next
+    // unrelated click would be eaten instead of advancing the show. The
+    // half-drawn mark goes with it: a cancelled stroke was never made.
+    if (event.type === "pointercancel") return this._endStroke(true)
+
+    this.painted = !!this.stroke.path
     this._endStroke()
   }
 
@@ -190,7 +200,6 @@ export class DeckInk {
     if (!stroke?.path) return
     if (discard) return stroke.path.remove()
 
-    this.painted = true
     // Hand the fade to CSS, and reap the node on a timer regardless:
     // animationend never arrives where animations are turned off, and a
     // stroke that outlives its fade would sit on the slide forever.

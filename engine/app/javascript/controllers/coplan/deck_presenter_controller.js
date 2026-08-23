@@ -291,6 +291,16 @@ export default class extends Controller {
 
   _handleClick(event) {
     if (!this.presenting) return
+
+    // The origin belongs to the click its own press produced, and to nothing
+    // after it. A click synthesized from the keyboard (Space on a focused
+    // checkbox) or from assistive technology carries no coordinates, so
+    // measuring it against a mouse position left over from earlier read as a
+    // drag — the click was swallowed before the interactive-control
+    // pass-through below, and the box silently did not move.
+    const origin = this._pointerOrigin
+    this._pointerOrigin = null
+
     if (event.target.closest?.("dialog")) return
 
     const deck = this.element.querySelector(".deck")
@@ -307,7 +317,7 @@ export default class extends Controller {
     // for the same reason. Everything else is a still click, which stays
     // "next" unconditionally: it advances, and _show drops whatever was
     // left on the slide being left behind.
-    if (this._gestureWasDrag(event) || event.shiftKey) {
+    if (this._gestureWasDrag(event, origin) || event.shiftKey) {
       event.preventDefault()
       event.stopPropagation()
       return
@@ -356,11 +366,10 @@ export default class extends Controller {
   // waiting to see a selection drag) — reading the selection here would
   // swallow the click that a presenter aims at their own highlight, and
   // stall the show. A pen stroke has no travel to read (see
-  // DeckInk#consumePainted), so the pen answers for itself.
-  _gestureWasDrag(event) {
+  // DeckInk#consumePainted), so the pen answers for itself. No origin means
+  // no press of ours came first: the keyboard, or assistive technology.
+  _gestureWasDrag(event, origin) {
     if (this.ink.consumePainted()) return true
-
-    const origin = this._pointerOrigin
     if (!origin) return false
 
     return Math.abs(event.clientX - origin.x) > DRAG_SLOP ||
