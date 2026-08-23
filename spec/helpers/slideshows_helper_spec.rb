@@ -23,6 +23,77 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
       expect(doc.css("script")).to be_empty
     end
 
+    it "stamps each slide with its classified pattern and type step" do
+      doc = deck("# Opener\n\nA subtitle\n\n---\n\n## Points\n\n- one\n- two")
+
+      title, content = doc.css("section.deck-slide")
+      expect(title.classes).to include("deck-slide--title", "deck-step-1")
+      expect(title["data-pattern"]).to eq("title")
+      expect(content.classes).to include("deck-slide--content", "deck-step-1")
+    end
+
+    it "names the deck content container and the theme on the deck root" do
+      doc = deck("# One")
+
+      expect(doc.at_css(".deck")["data-deck-theme"]).to eq("coplan")
+      expect(doc.at_css("section.deck-slide > .deck-content.markdown-rendered")).to be_present
+    end
+
+    it "wraps a trailing split image into panes with the heading spanning" do
+      doc = deck("## Status\n\n- beta live\n- survey drafted\n\n![board](board.png)")
+
+      slide = doc.at_css("section.deck-slide--split")
+      expect(slide["data-media"]).to eq("trailing")
+      children = slide.at_css(".deck-content").element_children
+      expect(children.map(&:name)).to eq(%w[h2 div div])
+      expect(children[1]["class"]).to eq("deck-body")
+      expect(children[1].at_css("ul")).to be_present
+      expect(children[2]["class"]).to eq("deck-media")
+      expect(children[2].at_css("img")["src"]).to eq("board.png")
+    end
+
+    it "wraps a leading split image with the pane first in source order" do
+      # Two text blocks so the image can't read as a stage caption's media.
+      doc = deck("![board](board.png)\n\nThe words beside the picture.\n\nMore words below them.")
+
+      children = doc.at_css("section.deck-slide--split .deck-content").element_children
+      expect(children.map { |el| el["class"] }).to eq(%w[deck-media deck-body])
+      expect(children.last.css("p").size).to eq(2)
+    end
+
+    it "skips split wrappers when sanitize deletes the classified shape" do
+      # The classifier sees [image, html_block] — split, media leading. The
+      # sanitizer then deletes the script wholesale, leaving one child; the
+      # renderer must not wrap the wrong element (per SLIDE_SPEC.md).
+      doc = deck("![art](a.png)\n\n<script>alert(1)</script>")
+
+      slide = doc.at_css("section.deck-slide--split")
+      expect(slide).to be_present
+      expect(slide.css(".deck-media, .deck-body")).to be_empty
+    end
+
+    it "skips split wrappers rather than reorder loose text sanitize left behind" do
+      # Sanitize reduces the <figure> block to a bare text node between two
+      # body blocks. Wrapping only the elements would move them past the
+      # text — a source-order violation — so the slide keeps flat markup.
+      doc = deck("## Latency\n\n- p99 alert added\n\n<figure><figcaption>Figure 3: p99 by region</figcaption></figure>\n\nNotes live in the appendix.\n\n![chart](p99.png)")
+
+      slide = doc.at_css("section.deck-slide--split")
+      expect(slide.css(".deck-media, .deck-body")).to be_empty
+      expect(slide.text.squish).to include("p99 alert added Figure 3: p99 by region Notes live in the appendix.")
+    end
+
+    it "keeps a raw-HTML heading inside the body pane instead of spanning it" do
+      # The classifier saw [html_block, paragraph, image]: no lead heading,
+      # so the rendered <h2> is body content — it must not take the
+      # spanning direct-child slot a markdown lead heading gets.
+      doc = deck("<h2>Pasted heading</h2>\n\nReal body prose, long enough that this cannot read as a caption riding along with the image on a stage slide under any of the catalog rules.\n\n![board](board.png)")
+
+      content = doc.at_css("section.deck-slide--split .deck-content")
+      expect(content.element_children.map { |el| el["class"] }).to eq(%w[deck-body deck-media])
+      expect(content.at_css(".deck-body h2").text).to eq("Pasted heading")
+    end
+
     it "keeps checkbox source lines document-absolute on later slides" do
       content = "# One\n\n- [ ] first task\n\n---\n\n# Two\n\n- [ ] second task"
       doc = deck(content)

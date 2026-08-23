@@ -121,6 +121,22 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include('data-coplan--text-selection-target="content"')
   end
 
+  it "show presentation plan wires up the deck presenter with a Present control" do
+    deck_type = create(:plan_type, name: "Presentation", behavior: "presentation")
+    deck_plan = create(:plan, plan_type: deck_type, created_by_user: alice)
+    get plan_page_path(deck_plan)
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include('data-controller="coplan--deck-presenter"')
+    expect(response.body).to include('data-action="coplan--deck-presenter#start"')
+  end
+
+  it "show document plan renders no presenter chrome" do
+    get plan_page_path(plan)
+    expect(response).to have_http_status(:success)
+    expect(response.body).not_to include("deck-presenter")
+    expect(response.body).not_to include("deck-toolbar")
+  end
+
   it "show plan without content does not render content nav sidebar" do
     empty_plan = create(:plan, :considering, created_by_user: alice)
     empty_plan.current_plan_version.update_columns(content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
