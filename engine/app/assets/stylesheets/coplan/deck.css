@@ -478,10 +478,24 @@
   overflow: hidden;
   background: #000;
   box-shadow: 0 0 0 100vmax #000;
+  /* The presenter focuses the deck on start (tabindex="-1") so stray
+     focus can't soak up the navigation keys — no ring for that. */
+  outline: none;
 }
 
 .deck--presenting::backdrop {
   background: #000;
+}
+
+/* Presenting is the audience view: comment anchors keep their text but
+   drop their chrome — no tint, no underline. pointer-events: none means
+   hovering or clicking anchored text can't raise a thread popover over
+   the show; the click falls through to slide navigation. (The extra
+   .deck-slide level outranks the status variants' :hover rules.) */
+.deck--presenting .deck-slide .anchor-highlight {
+  background: none;
+  border-bottom: none;
+  pointer-events: none;
 }
 
 /* Fullscreen is requested on the presenter wrapper (it survives

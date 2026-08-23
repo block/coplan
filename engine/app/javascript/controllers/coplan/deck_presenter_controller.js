@@ -22,6 +22,7 @@ export default class extends Controller {
     this.index = 0
     this._onKeydown = this._handleKeydown.bind(this)
     this._onClick = this._handleClick.bind(this)
+    this._onMouseUp = this._handleMouseUp.bind(this)
     this._onFullscreenChange = this._handleFullscreenChange.bind(this)
     // Turbo snapshots the page before controllers disconnect; a cached
     // mid-show deck would restore wearing a closed popover attribute —
@@ -50,22 +51,48 @@ export default class extends Controller {
     this._pageOverflow = document.documentElement.style.overflow
     document.documentElement.style.overflow = "hidden"
     document.addEventListener("click", this._onClick, true)
+    document.addEventListener("mouseup", this._onMouseUp, true)
+    // A comment thread popover left open on the page must not float above
+    // the show.
+    this._dismissForeignPopovers()
     this.observer = new MutationObserver(() => {
       if (this.presenting && this.element.querySelector(".deck") !== this.deck) this._show(this.index)
     })
     this.observer.observe(this.element, { childList: true, subtree: true })
 
     const resumed = window.location.hash.match(/^#present-(\d+)$/)
+    // Presenting borrows the URL fragment for #present-N; remember what
+    // was there (a heading deep link, a footnote) to give back on exit.
+    this._priorHash = resumed ? "" : window.location.hash
+    this._peeling = false
     this._show(resumed ? Number(resumed[1]) - 1 : 0)
     // _show stops the show itself on a slideless deck — don't take the
     // screen for nothing.
     if (!this.presenting) return
 
+    // Move focus into the show. Clicking the Present button leaves the
+    // button focused, and a focused control outside the deck would
+    // otherwise soak up the navigation keys.
+    this._trigger = document.activeElement
+    const deck = this.element.querySelector(".deck")
+    if (deck) {
+      deck.tabIndex = -1
+      deck.focus({ preventScroll: true })
+    }
+
     // Native fullscreen when the browser grants it; the top-layer popover
     // (see _promoteDeck) is what actually fills the screen either way.
     // Re-promote once fullscreen resolves — the fullscreen wrapper enters
     // the top layer above the already-shown popover and would cover it.
-    this.element.requestFullscreen?.().then(() => this._promoteDeck(true)).catch(() => {})
+    this.element.requestFullscreen?.().then(() => {
+      // The grant can outlive a fast Escape: if the show already ended,
+      // give the screen back instead of re-promoting a stopped deck.
+      if (!this.presenting) {
+        if (document.fullscreenElement === this.element) document.exitFullscreen().catch(() => {})
+        return
+      }
+      this._promoteDeck(true)
+    }).catch(() => {})
   }
 
   stop() {
@@ -75,7 +102,7 @@ export default class extends Controller {
     this._teardown()
     if (document.fullscreenElement === this.element) document.exitFullscreen().catch(() => {})
     if (window.location.hash.startsWith("#present-")) {
-      history.replaceState(history.state, "", window.location.pathname + window.location.search)
+      history.replaceState(history.state, "", window.location.pathname + window.location.search + (this._priorHash || ""))
     }
   }
 
@@ -138,10 +165,10 @@ export default class extends Controller {
     }
 
     // The keyboard mirror of the click pass-through below: a focused
-    // control on a slide owns its keys, so Space toggles the checkbox it
-    // sits on instead of advancing. Escape stays the exit everywhere.
-    const tag = event.target.tagName
-    if (event.key !== "Escape" && (this._typing(event.target) || tag === "BUTTON" || tag === "SUMMARY")) return
+    // control owns the keys it actually responds to — Space toggles the
+    // checkbox it sits on — while keys a control ignores (arrows, paging)
+    // keep driving the show. Escape stays the exit everywhere.
+    if (event.key !== "Escape" && this._claimsKey(event.target, event.key)) return
 
     switch (event.key) {
       case "ArrowRight":
@@ -163,13 +190,40 @@ export default class extends Controller {
         this._navigate(event, Infinity)
         break
       case "Escape":
-        // Native fullscreen exits itself (we stop on fullscreenchange);
-        // this covers the fixed-overlay fallback.
         event.preventDefault()
         event.stopPropagation()
+        // A popover above the show (a reference preview, a pinned thread)
+        // is what Escape visibly targets — dismiss it and keep presenting;
+        // only a bare Escape ends the show. The browser may drop native
+        // fullscreen on this same keypress (that exit is uncancelable), so
+        // mark the peel: the resulting fullscreenchange is forgiven and
+        // the show continues on the top-layer fallback.
+        if (this._dismissForeignPopovers()) {
+          if (document.fullscreenElement === this.element) this._peeling = true
+          return
+        }
         this.stop()
         break
+      default:
+        // The page behind the show is invisible; its shortcut handlers
+        // (comment j/k navigation, section jumps) must not fire under the
+        // presentation. Propagation stops here — browser defaults (Tab,
+        // find, reload) are untouched.
+        event.stopPropagation()
     }
+  }
+
+  // Closes any open popover that isn't the presented deck. Returns whether
+  // anything was dismissed.
+  _dismissForeignPopovers() {
+    const deck = this.element.querySelector(".deck")
+    let dismissed = false
+    document.querySelectorAll(":popover-open").forEach(popover => {
+      if (popover === deck) return
+      try { popover.hidePopover() } catch {}
+      dismissed = true
+    })
+    return dismissed
   }
 
   _navigate(event, index) {
@@ -184,6 +238,11 @@ export default class extends Controller {
 
     const deck = this.element.querySelector(".deck")
     const onCanvas = deck && deck.contains(event.target)
+
+    // A popover above the show (reference preview, a pinned thread) is
+    // visible UI, not hidden page — its buttons and links keep working.
+    const popover = event.target.closest?.("[popover]")
+    if (popover && popover !== deck && popover.matches(":popover-open")) return
 
     // A same-document link mid-show: the target's slide is display: none,
     // so the browser's fragment jump would show nothing — and would clobber
@@ -215,8 +274,27 @@ export default class extends Controller {
     this._show(this.index + 1)
   }
 
+  // text-selection offers "comment on this selection" from mouseup on the
+  // content target — mid-show that affordance would pop over the deck.
+  // Starve the listener; native click synthesis is unaffected, so slide
+  // links and checkboxes still work.
+  _handleMouseUp(event) {
+    if (!this.presenting) return
+    if (event.target.closest?.("dialog")) return
+
+    event.stopPropagation()
+  }
+
   _handleFullscreenChange() {
-    if (this.presenting && !document.fullscreenElement) this.stop()
+    if (!this.presenting || document.fullscreenElement) return
+
+    // One exit is forgiven when Escape was consumed dismissing a popover —
+    // the keypress was aimed at the popover, not the show.
+    if (this._peeling) {
+      this._peeling = false
+      return
+    }
+    this.stop()
   }
 
   _typing(target) {
@@ -224,18 +302,45 @@ export default class extends Controller {
     return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable
   }
 
+  // Which keys a focused element keeps from the show, per what the control
+  // actually responds to. Text entry owns every key wherever it lives (the
+  // only text fields reachable mid-show sit in popovers above the deck);
+  // toggles own just their activation keys; buttons qualify only on the
+  // canvas — the Present button outside it owns nothing.
+  _claimsKey(target, key) {
+    if (target.isContentEditable) return true
+    const tag = target.tagName
+    if (tag === "TEXTAREA" || tag === "SELECT") return true
+    if (tag === "INPUT") {
+      const type = (target.type || "").toLowerCase()
+      if (type === "checkbox" || type === "radio") return key === " " || key === "Enter"
+      return true
+    }
+    if (tag === "BUTTON" || tag === "SUMMARY") {
+      return (key === " " || key === "Enter") && !!this.element.querySelector(".deck")?.contains(target)
+    }
+    return false
+  }
+
   _teardown() {
     document.removeEventListener("click", this._onClick, true)
+    document.removeEventListener("mouseup", this._onMouseUp, true)
     if (this._pageOverflow !== undefined) {
       document.documentElement.style.overflow = this._pageOverflow
       this._pageOverflow = undefined
     }
     this.observer?.disconnect()
     this.observer = null
+    // Hand focus back to whatever launched the show (usually the Present
+    // button) — before the deck lookup, because the one case where focus
+    // was forcibly lost is exactly the deck being swapped away.
+    if (this._trigger?.isConnected) this._trigger.focus?.({ preventScroll: true })
+    this._trigger = null
     const deck = this.element.querySelector(".deck")
     if (!deck) return
 
     deck.classList.remove("deck--presenting")
+    deck.removeAttribute("tabindex")
     deck.querySelectorAll(".deck-slide--current").forEach(slide => slide.classList.remove("deck-slide--current"))
     // A closed popover is display: none — the attribute must go too, or
     // the deck vanishes from the page after the show.
