@@ -81,9 +81,16 @@ export default class extends Controller {
 
     this.listening = false
     this._watchAgentPill()
+
+    // The markup ships with the page; the control only works from here on.
+    // A key held — or the mic clicked — before this point has nothing
+    // listening for it, which is exactly what made the system specs flake
+    // under CI load. They wait for this attribute.
+    this.element.dataset.voiceReady = "true"
   }
 
   disconnect() {
+    delete this.element.dataset.voiceReady
     // A capture can be mid-flight — _startRecording awaiting the
     // microphone, the hold timer still deciding. Mark the take dead
     // first, so a promise that resumes after this teardown bails out
