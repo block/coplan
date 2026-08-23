@@ -193,12 +193,34 @@
   height: 0.85em;
 }
 
+/* On a slide the diagram IS the content, so it loses the document's framed
+   panel. That framing is painted from the host's --color-* tokens, which
+   flip with the reader's light/dark mode — the same leak the code panel
+   above pins shut — and it put an app-dark box behind a light deck's
+   diagram. The expand chip is deck chrome for the same reason. */
 .deck-slide .deck-content .mermaid-diagram {
   display: flex;
   justify-content: center;
+  margin: 0.8em 0;
+  padding: 0;
+  background: none;
+  border: none;
 }
 
-.deck-slide .deck-content .mermaid-diagram svg {
+.deck-slide .deck-content .mermaid-diagram__expand {
+  background: var(--deck-bg);
+  border-color: var(--deck-rule);
+  color: var(--deck-muted);
+}
+
+.deck-slide--title .deck-content .mermaid-diagram__expand {
+  background: var(--deck-title-bg);
+}
+
+/* The diagram's own SVG only — a .mermaid-diagram also holds the expand
+   button, whose icon is an svg too, and sizing that to the canvas puts a
+   full-slide glyph over the diagram. */
+.deck-slide .deck-content .mermaid-diagram > svg {
   max-width: 100%;
   max-height: 34cqi;
 }
@@ -293,7 +315,7 @@
   width: 100%;
 }
 
-.deck-slide--stage .deck-content .mermaid-diagram svg {
+.deck-slide--stage .deck-content .mermaid-diagram > svg {
   width: 100%;
   height: 44cqi;
   max-width: none !important;
@@ -496,6 +518,127 @@
   background: none;
   border-bottom: none;
   pointer-events: none;
+}
+
+/* Selecting text mid-show is the presenter's marker: drag across a line to
+   put the room's eyes on it (the presenter swallows the drag so it doesn't
+   also page forward, and starves the comment affordance). Inverse video in
+   the deck's own accent, not the OS selection tint — this has to read from
+   the back of a room, on a projector, in every theme. Title slides invert
+   against their own canvas instead: poster's title background IS its
+   accent, so an accent block would vanish there. */
+.deck--presenting .deck-slide::selection,
+.deck--presenting .deck-slide ::selection {
+  background: var(--deck-accent);
+  color: var(--deck-accent-ink);
+}
+
+.deck--presenting .deck-slide--title::selection,
+.deck--presenting .deck-slide--title ::selection {
+  background: var(--deck-title-accent, var(--deck-accent));
+  color: var(--deck-title-bg);
+}
+
+/* ---- the pen — ephemeral ink over the canvas --------------------------
+   `d` arms the pen mid-show (DeckInk): a drag paints instead of selecting.
+   Strokes are a gesture in the room, so each one fades on its own timer and
+   nothing is stored. The layer is a child of .deck because the presented
+   deck is a top-layer popover — a sibling on the page would paint
+   underneath it — and it is sized to the canvas rather than to a slide, so
+   the mark stays put while the pointer roams. */
+
+.deck-ink {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  /* Ink never eats the click: navigation, links, and checkboxes keep
+     working under it. Strokes come from listeners on the document. */
+  pointer-events: none;
+}
+
+.deck-ink__stroke {
+  fill: none;
+  /* Themes registered before the pen existed still get a visible mark. */
+  stroke: var(--deck-pen, var(--deck-accent));
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* Lifts the stroke off a canvas close to its own hue without a second
+     path underneath it. */
+  filter: drop-shadow(0 0.15cqi 0.3cqi rgb(0 0 0 / 0.35));
+}
+
+/* A theme may art-direct its title canvas into the pen's own color
+   (poster's title slide IS the accent), so the pen gets the same
+   title-slide escape hatch the accent does. :has() rather than
+   inheritance: the layer belongs to the canvas, not to a slide. */
+.deck--presenting:has(.deck-slide--current.deck-slide--title) .deck-ink__stroke {
+  stroke: var(--deck-title-pen, var(--deck-pen, var(--deck-accent)));
+}
+
+/* Held at full strength long enough to make the point, then gone. The
+   stroke gets this only on release — a slow deliberate line must not start
+   fading while it is still being drawn. */
+.deck-ink__stroke--done {
+  animation: deck-ink-fade 2.6s ease-in forwards;
+}
+
+@keyframes deck-ink-fade {
+  0%, 45% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* With the pen out the canvas is a drawing surface: no text selection to
+   fight the stroke, no touch scrolling to swallow it, and a crosshair so
+   the presenter can see the mode. */
+.deck--inking,
+.deck--inking .deck-slide {
+  cursor: crosshair;
+  user-select: none;
+  touch-action: none;
+}
+
+/* Pen-out indicator, mirroring the slide number's inset on the other
+   corner. The key hint is pseudo-element content: real text here would be
+   counted as slide text by comment anchoring. */
+.deck-ink-badge {
+  position: absolute;
+  left: 1.6cqi;
+  bottom: 1.1cqi;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.6cqi;
+  padding: 0.4cqi 0.9cqi;
+  border: 1px solid var(--deck-rule);
+  border-radius: 999px;
+  background: var(--deck-bg);
+  color: var(--deck-pen, var(--deck-accent));
+  font-family: var(--deck-font-text);
+  font-size: 1.5cqi;
+  line-height: 1;
+}
+
+.deck-ink-badge svg {
+  width: 1.8cqi;
+  height: 1.8cqi;
+}
+
+.deck-ink-badge::after {
+  content: "d";
+  color: var(--deck-muted);
+}
+
+/* The badge's shell follows the canvas it sits on, and only the glyph is
+   the pen. A theme's --deck-muted is a color for its body canvas: on an
+   art-directed title canvas the hint has to come from that canvas's own
+   ink instead, or it disappears into the background. */
+.deck--presenting:has(.deck-slide--current.deck-slide--title) .deck-ink-badge {
+  background: var(--deck-title-bg);
+  color: var(--deck-title-pen, var(--deck-pen, var(--deck-accent)));
+}
+
+.deck--presenting:has(.deck-slide--current.deck-slide--title) .deck-ink-badge::after {
+  color: var(--deck-title-ink);
 }
 
 /* Fullscreen is requested on the presenter wrapper (it survives

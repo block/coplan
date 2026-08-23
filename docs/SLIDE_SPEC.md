@@ -709,6 +709,8 @@ Every theme defines all of:
 | `--deck-title-bg` | title-slide canvas (lets a theme art-direct openers) |
 | `--deck-title-ink` | text on the title canvas |
 | `--deck-title-accent` | accent on the title canvas (a theme whose title canvas is the accent color must pick a visible one) |
+| `--deck-pen` | the presenter's ink: strokes drawn over a slide during a show, and never part of the artifact. Pick something the theme's own accent can't be mistaken for |
+| `--deck-title-pen` | ink on the title canvas — optional, falls back to `--deck-pen`. Required only of a theme whose title canvas would swallow it |
 | `--deck-font-display` | headings |
 | `--deck-font-text` | body |
 | `--deck-font-mono` | code |
