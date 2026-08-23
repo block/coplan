@@ -500,7 +500,11 @@ export default class extends Controller {
         this.buttonTarget.style.setProperty("--voice-level", Math.min(peak / 40, 1).toFixed(2))
         requestAnimationFrame(sample)
       }
-      requestAnimationFrame(sample)
+      // The first reading happens now, not at the next frame: a take can
+      // end before the browser paints again (a loaded CI box between two
+      // instant clicks), and a meter that hadn't ticked yet reads as
+      // "never ran" — which sends the silence it was there to catch.
+      sample()
     } catch {
       // Metering is a check on the recording, not part of making it. If
       // it can't run, assume there was speech — refusing to post what
