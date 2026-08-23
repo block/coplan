@@ -152,9 +152,17 @@ export default class extends Controller {
   }
 
   _handleKeydown(event) {
-    if (event.metaKey || event.ctrlKey || event.altKey) return
     // A modal (the mermaid lightbox) owns its own keys.
     if (event.target.closest?.("dialog")) return
+    if (event.metaKey || event.ctrlKey || event.altKey) {
+      // Modifier chords aren't the show's to handle, but mid-show the
+      // page's own hotkeys must still be starved — Ctrl+Space (or held
+      // Alt) would start a voice recording invisibly behind the overlay.
+      // Text entry above the show keeps its shortcuts (Cmd+Enter submits
+      // a reply); browser chords (reload, find, copy) ignore propagation.
+      if (this.presenting && !this._typing(event.target)) event.stopPropagation()
+      return
+    }
 
     if (!this.presenting) {
       if (event.key !== "p" || this._typing(event.target)) return
