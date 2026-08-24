@@ -13,13 +13,13 @@ Mint one as your first call (this is the only endpoint that works on request aut
 ```bash
 <%= @curl %> -X POST \
   -H "Content-Type: application/json" \
-  -d '{"agent_name": "Claude", "name": "claude run", "ttl_seconds": 43200, "metadata": {"harness": "claude-code", "harness_version": "2.1.3", "model": "claude-fable-5"}}' \
+  -d '{"agent_name": "Claude", "name": "claude run", "metadata": {"harness": "claude-code", "harness_version": "2.1.3", "model": "claude-fable-5"}}' \
   "<%= @base %>/api/v1/tokens" | jq .
 ```
 
 - `agent_name`: who you are ("Claude", "Amp") — stamped on every version, event, and comment you write. Truncated past 20 characters.
 - `metadata`: optional JSON object of identity facts about this run — schemaless, like a User-Agent string. Suggested keys: `harness`, `harness_version`, `model`. Recorded on the token, and everything you write links back to it, so include whatever would help a human reading the history later understand what produced the edit. Capped at 4 KB.
-- `ttl_seconds`: optional, default 12 hours, max 7 days.
+- `ttl_seconds`: optional, default 7 days, max 30 days.
 - The response's `token` is shown once. Send it as `Authorization: Bearer <token>` on every subsequent call.
 - Mint once at the start of your run and reuse it — minting per call would give you a new identity every time.
 - When you finish, `DELETE <%= @base %>/api/v1/tokens/current` (authenticated with the token itself) so the credential dies with the run instead of waiting out its TTL.

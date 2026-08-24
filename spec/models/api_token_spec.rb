@@ -72,7 +72,7 @@ RSpec.describe CoPlan::ApiToken, type: :model do
       expect(child.user_id).to eq(user.id)
       expect(child.parent_id).to eq(parent.id)
       expect(child.agent_name).to eq("Claude refactor")
-      expect(child.expires_at).to be_within(1.minute).of(12.hours.from_now)
+      expect(child.expires_at).to be_within(1.minute).of(described_class::DEFAULT_SESSION_TTL.from_now)
       expect(CoPlan::ApiToken.authenticate(raw)).to eq(child)
     end
 
@@ -82,7 +82,7 @@ RSpec.describe CoPlan::ApiToken, type: :model do
     end
 
     it "clamps the ttl to the maximum" do
-      child, = parent.mint_session_token!(ttl: 30.days)
+      child, = parent.mint_session_token!(ttl: 60.days)
       expect(child.expires_at).to be_within(1.minute).of(described_class::MAX_SESSION_TTL.from_now)
     end
 
@@ -156,7 +156,7 @@ RSpec.describe CoPlan::ApiToken, type: :model do
       expect(token.user_id).to eq(user.id)
       expect(token.parent_id).to be_nil
       expect(token.agent_name).to eq("Claude")
-      expect(token.expires_at).to be_within(1.minute).of(12.hours.from_now)
+      expect(token.expires_at).to be_within(1.minute).of(CoPlan::ApiToken::DEFAULT_SESSION_TTL.from_now)
       expect(CoPlan::ApiToken.authenticate(raw)).to eq(token)
     end
 
