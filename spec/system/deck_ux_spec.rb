@@ -104,7 +104,21 @@ RSpec.describe "Deck UX", type: :system do
   # button the server hasn't sent yet. (The examples below that don't
   # present already wait explicitly for the same reason.)
   def start_show
-    expect(page).to have_css(".deck-slide", wait: 10)
+    unless page.has_css?(".deck-slide", wait: 10)
+      # TEMPORARY: one CI-only example loses its deck and the failure alone
+      # doesn't say why. Report what the browser is actually looking at.
+      raise <<~DIAG
+        No .deck-slide.
+          url:     #{page.current_url}
+          title:   #{page.title.inspect}
+          markers: presenter=#{page.has_css?('.deck-presenter', wait: 0)} \
+        toolbar=#{page.has_css?('.deck-toolbar', wait: 0)} \
+        deck=#{page.has_css?('.deck', wait: 0)} \
+        content=#{page.has_css?('#plan-content-body', wait: 0)}
+          console: #{page.driver.browser.logs.get(:browser).map(&:message).last(5).inspect}
+          body:    #{page.find('body').text[0, 400].inspect}
+      DIAG
+    end
     click_button "Present"
     expect(page).to have_css(".deck--presenting .deck-slide--current", wait: 5)
   end
