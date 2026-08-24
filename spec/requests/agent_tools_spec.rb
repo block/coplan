@@ -34,9 +34,17 @@ RSpec.describe "Agent tools", type: :request do
     end
 
     it "never treats the tool name as a path" do
-      get "/agent-tools/..%2F..%2Fconfig%2Froutes.rb"
-
+      # A bare ".." satisfies the route constraint, so it reaches the
+      # controller — the whitelist is what stops it.
+      get "/agent-tools/.."
       expect(response).to have_http_status(:not_found)
+
+      # Encoded slashes knock the request out of the agent-tools route
+      # entirely; the browse catchall picks it up like any garbage
+      # address. All that matters is that no file leaves the server.
+      get "/agent-tools/..%2F..%2Fconfig%2Froutes.rb"
+      expect(response).not_to have_http_status(:ok)
+      expect(response.body).not_to include("Engine.routes.draw")
     end
   end
 end

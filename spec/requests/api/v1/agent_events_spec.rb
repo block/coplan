@@ -294,7 +294,9 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
 
       event = CoPlan::AgentEvent.for_token(agent_token).where(event_type: "plan.content_changed").first
       expect(event).to be_present
-      expect(event.payload["changed_sections"]).to be_an(Array)
+      # ChangedSections::Result serializes as {"keys" => [...], "rewritten" => bool}.
+      expect(event.payload["changed_sections"]["keys"]).to be_an(Array)
+      expect(event.payload["changed_sections"]).to have_key("rewritten")
       expect(event.payload["change_summary"]).to eq("Rewrite")
     end
   end
