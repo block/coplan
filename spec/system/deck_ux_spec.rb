@@ -114,11 +114,16 @@ RSpec.describe "Deck UX", type: :system do
       # transient server state; a second failure means something about this
       # request is genuinely different.
       asked = plan_path(plan)
-      recognized = begin
-        Rails.application.routes.recognize_path(asked, method: :get).inspect
+      recognize = lambda do |set|
+        set.recognize_path(asked, method: :get).inspect
       rescue StandardError => e
         "#{e.class}: #{e.message}"
       end
+      # The helper generated `asked`, so a route named `plan` exists. Ask
+      # both sets to recognize it, and dump what the engine actually has
+      # under /_/plans — locally both recognize it and the route is there.
+      routes = CoPlan::Engine.routes.routes.map { |r| r.path.spec.to_s }.grep(%r{^/_/plans}).first(4)
+      mounted = Rails.application.routes.routes.count { |r| r.app.respond_to?(:app) && r.app.app == CoPlan::Engine }
       first = "url=#{page.current_url} title=#{page.title.inspect}"
       visit asked
       retried = "url=#{page.current_url} deck=#{page.has_css?('.deck-slide', wait: 10)}"
@@ -129,7 +134,9 @@ RSpec.describe "Deck UX", type: :system do
           plan:       slug=#{plan.slug.inspect} suffix=#{plan.slug_suffix.inspect} \
         handle=#{plan.library_handle.inspect} url_path=#{plan.url_path.inspect} \
         visibility=#{plan.visibility.inspect}
-          recognized: #{recognized}
+          app recog:  #{recognize.call(Rails.application.routes)}
+          eng recog:  #{recognize.call(CoPlan::Engine.routes)}
+          eng routes: #{routes.inspect} (engine mounted #{mounted}x)
           first try:  #{first}
           retry:      #{retried}
           console:    #{page.driver.browser.logs.get(:browser).map(&:message).last(5).inspect}
