@@ -25,6 +25,51 @@ RSpec.describe CoPlan::LinkPreviews do
     end
   end
 
+  it "resolves browsable URLs — canonical, edit, history, and version sub-pages" do
+    expect(CoPlan::Plan).not_to receive(:visible_to)
+    expect(CoPlan::PlanPolicy).not_to receive(:new)
+
+    plan.update!(visibility: "published")
+    plan.reload
+    # url_path is "handle/slug" — the browsable address without a leading slash.
+    path = plan.url_path
+    expect(path).to be_present, "plan should have a browsable url_path"
+
+    [
+      "#{base_url}/#{path}",
+      "#{base_url}/#{path}/edit",
+      "#{base_url}/#{path}/history",
+      "#{base_url}/#{path}/history/#{plan.current_plan_version.revision}",
+      "#{base_url}/#{path}/history/#{plan.current_plan_version.revision}/diff"
+    ].each do |url|
+      resolved = described_class.resolve(url: url, base_url: base_url)
+      expect(resolved&.external_id).to eq(plan.id),
+        "expected #{url} to resolve to plan #{plan.id}, got #{resolved&.external_id.inspect}"
+    end
+  end
+
+  it "emits a browsable canonical URL from for_plan instead of /plans/<id>" do
+    plan.update!(visibility: "published")
+    plan.reload
+
+    preview = described_class.for_plan(plan, base_url: base_url)
+    # The canonical URL should contain the plan's url_path (handle/slug),
+    # not the legacy /plans/<id> path.
+    expect(preview.canonical_url).to include("/#{plan.url_path}")
+    expect(preview.canonical_url).not_to include("/plans/#{plan.id}")
+  end
+
+  it "does not treat reserved handles as browsable plan paths" do
+    plan.update!(visibility: "published")
+    plan.reload
+
+    # /plans/<id> is a legacy path, not a browsable handle — "plans" is
+    # in RESERVED_HANDLES, so a URL like /plans/something should only
+    # resolve via the legacy matcher, not the browsable matcher.
+    reserved_url = "#{base_url}/plans/#{plan.url_path.split('/').last}"
+    expect(described_class.resolve(url: reserved_url, base_url: base_url)).to be_nil
+  end
+
   it "rejects foreign origins, credentials, insecure hosts, mount lookalikes, bad IDs, and unsupported paths" do
     urls = [
       "https://other.test/app/plans/#{plan.id}",

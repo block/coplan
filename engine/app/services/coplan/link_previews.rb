@@ -13,11 +13,11 @@ module CoPlan
         base = parse_url(base_url, enforce_https: true)
         return unless supplied && base && safe_origin?(supplied, base)
 
-        plan_id = plan_id_from(supplied.path, base.path)
-        return unless plan_id
+        plan = plan_from_legacy_path(supplied.path, base.path) ||
+               plan_from_browsable_path(supplied.path, base.path)
+        return unless plan
 
-        plan = Plan.includes(:created_by_user, :plan_type, :current_plan_version).find_by(id: plan_id)
-        for_plan(plan, base_url: base_url) if plan
+        for_plan(plan, base_url: base_url)
       rescue URI::InvalidURIError
         nil
       end
@@ -30,7 +30,12 @@ module CoPlan
         raise ArgumentError, "invalid base_url" unless base
 
         canonical = base.dup
-        canonical.path = join_path(base.path, "plans/#{plan.id}")
+        # The browsable URL is canonical — /<handle>/<slug-path> — falling
+        # back to the legacy /plans/<id> path only when url_path is nil
+        # (a plan with no library or slug, which shouldn't happen in
+        # practice since both are NOT NULL after the backfill migration).
+        path_suffix = plan.url_path || "plans/#{plan.id}"
+        canonical.path = join_path(base.path, path_suffix)
         canonical.query = canonical.fragment = nil
         description = plan.summary.presence || plain_content(plan)
 
@@ -79,6 +84,35 @@ module CoPlan
         uri.to_s if uri&.scheme == "https"
       rescue URI::InvalidURIError
         nil
+      end
+
+      def plan_from_legacy_path(path, mount_path)
+        plan_id = plan_id_from(path, mount_path)
+        return unless plan_id
+
+        Plan.includes(:created_by_user, :plan_type, :current_plan_version).find_by(id: plan_id)
+      end
+
+      def plan_from_browsable_path(path, mount_path)
+        mount = mount_path.to_s.sub(%r{/*\z}, "")
+        relative = mount.empty? ? path : path.delete_prefix(mount)
+        return if !mount.empty? && relative == path
+        return unless relative.start_with?("/")
+
+        # Strip known sub-page tails: /edit, /history, /history/<rev>, /history/<rev>/diff
+        relative = relative.sub(%r{/(edit|history(/[^/]+)?(/diff)?)?/*\z}, "")
+
+        match = relative.match(%r{\A/([a-z0-9][a-z0-9-]*)/(.+)/*\z})
+        return unless match
+
+        handle = match[1]
+        return if Library::RESERVED_HANDLES.include?(handle)
+
+        result = Urls::Resolve.call(handle: handle, slug_path: match[2])
+        return unless result&.found? && result.plan
+
+        # Urls::Resolve doesn't preload the associations for_plan needs.
+        Plan.includes(:created_by_user, :plan_type, :current_plan_version).find_by(id: result.plan.id)
       end
 
       def plan_id_from(path, mount_path)
