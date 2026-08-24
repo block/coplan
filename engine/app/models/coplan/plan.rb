@@ -289,6 +289,9 @@ module CoPlan
       end
     end
 
+    # Free when `tags` is already loaded — `pluck` reads the loaded records
+    # instead of querying — and one query when it isn't. So a list endpoint
+    # pays a query a plan unless it eager-loads `:tags`; they all do.
     def tag_names
       tags.pluck(:name)
     end

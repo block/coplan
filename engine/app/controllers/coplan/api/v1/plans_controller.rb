@@ -12,7 +12,7 @@ module CoPlan
             # folder's ancestors, and `url` walks those *and* the library for
             # its handle. Left to the associations that's several queries a
             # plan on a list endpoint agents page through.
-            .includes(:plan_type, :created_by_user,
+            .includes(:plan_type, :created_by_user, :tags,
               placement: [ :library, { folder: { parent: :parent } } ])
             .visible_to(current_user)
             .order(updated_at: :desc)
