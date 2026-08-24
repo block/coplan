@@ -112,7 +112,7 @@ RSpec.describe "Deck UX", type: :system do
 
   describe "present mode" do
     it "treats a drag as a highlight and a bare click as the next slide" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       start_show
       expect(current_slide).to eq("1")
 
@@ -137,7 +137,7 @@ RSpec.describe "Deck UX", type: :system do
     end
 
     it "still hands a focused control its keys after the mouse has been used" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       start_show
 
       # Three mouse clicks to reach the task slide — each one leaves a
@@ -159,7 +159,7 @@ RSpec.describe "Deck UX", type: :system do
 
   describe "the pen" do
     it "paints a drag, holds the slide, and lets the stroke fade on its own" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       start_show
       find(".deck-slide--current").click
       expect(current_slide).to eq("2")
@@ -181,7 +181,7 @@ RSpec.describe "Deck UX", type: :system do
     end
 
     it "still advances on a bare click, and leaves no dot behind" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       start_show
       send_keys("d")
       expect(page).to have_css(".deck--inking")
@@ -199,7 +199,7 @@ RSpec.describe "Deck UX", type: :system do
     end
 
     it "does not eat the next click when a stroke is cancelled mid-air" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       start_show
       send_keys("d")
       expect(page).to have_css(".deck--inking")
@@ -228,7 +228,7 @@ RSpec.describe "Deck UX", type: :system do
     end
 
     it "puts the pen away on Escape without ending the show" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       start_show
       send_keys("d")
       expect(page).to have_css(".deck--inking")
@@ -245,7 +245,7 @@ RSpec.describe "Deck UX", type: :system do
 
   describe "Mermaid diagrams on a slide" do
     it "keeps the expand control chip-sized instead of scaling it to the canvas" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       expect(page).to have_css(".deck-slide .mermaid-diagram > svg", wait: 15)
 
       sizes = page.evaluate_script(<<~JS)
@@ -269,7 +269,7 @@ RSpec.describe "Deck UX", type: :system do
         io: StringIO.new("handout"), filename: "handout.txt", content_type: "text/plain"
       )
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       expect(page).to have_css(".deck-slide", wait: 5)
 
       # Turbo counts a same-page fragment link as a full visit, so a bare

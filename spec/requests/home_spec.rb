@@ -41,6 +41,41 @@ RSpec.describe "Home feed", type: :request do
       expect(response.body).to include("1 comment")
     end
 
+    # A tag spans libraries, so it isn't a place inside one and has no path
+    # in anybody's — the Feed is where "everyone's work on this" lives now
+    # that the workspace has no everyone's-plans mode to link to.
+    describe "?tag=" do
+      before do
+        create(:plan, :considering, created_by_user: author, title: "Checkout Rewrite", tag_names: [ "payments" ])
+        create(:plan, :considering, created_by_user: author, title: "Nav Refresh", tag_names: [ "design" ])
+      end
+
+      it "narrows the feed to one tag" do
+        get home_path(tag: "payments")
+
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("Checkout Rewrite")
+        expect(response.body).not_to include("Nav Refresh")
+      end
+
+      it "offers a way back out, and says so when the tag has nothing" do
+        get home_path(tag: "payments")
+        expect(response.body).to include("Clear #payments filter")
+
+        get home_path(tag: "nobody-uses-this")
+        expect(response.body).to include("No published activity tagged #nobody-uses-this")
+        expect(response.body).not_to include("Checkout Rewrite")
+      end
+
+      # The chips on each row are what put a tag in the URL, so they have to
+      # point at the page that reads it.
+      it "is where a row's own tag chip points" do
+        get home_path
+
+        expect(response.body).to include(%(href="#{home_path(tag: 'payments')}"))
+      end
+    end
+
     it "shows an empty state when nothing happened recently" do
       plan = create(:plan, :considering, created_by_user: author, title: "Ancient Plan")
       plan.plan_versions.update_all(created_at: 2.months.ago)

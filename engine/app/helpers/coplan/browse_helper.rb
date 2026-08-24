@@ -8,16 +8,23 @@ module CoPlan
       browse_library_path(handle: library.handle, **options)
     end
 
+    # "Back to your own work" — where anything that needs somewhere to
+    # land goes when it has no place of its own to return to. This is the
+    # app's home base, and it's an address like any other.
+    def own_library_browse_path(user, **options)
+      library_browse_path(user.library, **options)
+    end
+
     def folder_browse_path(folder, **options)
       browse_path(handle: folder.library.handle, slug_path: folder.slug_path, **options)
     end
 
-    # Falls back to the id form for a plan whose slug hasn't been
-    # backfilled yet — the migration leaves them NULL and lets the app
-    # fill them in on the next save, so both forms have to work meanwhile.
+    # A plan has exactly one address, so there is no id form to fall back
+    # to: `slug` is NOT NULL and every plan sits in exactly one library
+    # (see BackfillPlanSlugs), which makes `url_path` total.
     #
-    # Extra options (`thread:`, `anchor:`) ride along either way, so
-    # deep links don't have to know which form they got.
+    # Extra options (`thread:`, `anchor:`) ride along, so deep links keep
+    # working without knowing anything about the shape of the path.
     #
     # Built from the view's own route helpers rather than delegating to
     # Urls::Canonical: a host that mounts the engine somewhere other than
@@ -25,17 +32,37 @@ module CoPlan
     # outside a request have no way to know about it.
     def plan_browse_path(plan, **options)
       handle, slug_path = Urls::Canonical.split(plan.url_path)
-      return plan_path(plan, **options) if slug_path.blank?
-
       browse_path(handle: handle, slug_path: slug_path, **options)
     end
 
-    # Absolute form, for rel=canonical. Returns nil rather than falling
-    # back: a canonical tag pointing at the id form would be claiming the
-    # ugly URL is the real one.
+    # Absolute form, for rel=canonical and anything that leaves the app.
     def plan_browse_url(plan)
       handle, slug_path = Urls::Canonical.split(plan.url_path)
-      slug_path && browse_url(handle: handle, slug_path: slug_path)
+      browse_url(handle: handle, slug_path: slug_path)
+    end
+
+    # The document's own pages, addressed under the document. Same split as
+    # above, so they stay correct through a retitle or a move.
+    def plan_edit_browse_path(plan, **options)
+      handle, slug_path = Urls::Canonical.split(plan.url_path)
+      browse_edit_path(handle: handle, slug_path: slug_path, **options)
+    end
+
+    def plan_history_browse_path(plan, **options)
+      handle, slug_path = Urls::Canonical.split(plan.url_path)
+      browse_history_path(handle: handle, slug_path: slug_path, **options)
+    end
+
+    def plan_version_browse_path(plan, version, **options)
+      handle, slug_path = Urls::Canonical.split(plan.url_path)
+      browse_version_path(handle: handle, slug_path: slug_path,
+        revision: version.revision, **options)
+    end
+
+    def plan_version_diff_browse_path(plan, version, **options)
+      handle, slug_path = Urls::Canonical.split(plan.url_path)
+      browse_version_diff_path(handle: handle, slug_path: slug_path,
+        revision: version.revision, **options)
     end
 
     # Level-view link for either kind of row, so folder and plan lists

@@ -77,7 +77,9 @@ Optional query params: `?visibility=draft` (your own private/unshared plans) or 
   "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
 ```
 
-Returns: `id`, `title`, `visibility`, `archived`, `current_content` (markdown), `current_revision`, `references` (array of linked resources).
+Returns: `id`, `title`, `url`, `visibility`, `archived`, `current_content` (markdown), `current_revision`, `references` (array of linked resources).
+
+`url` is the document's address, and there is exactly one — `<%= @base %>/<handle>/<folders>/<slug>`, reading like the document it points at. **When you tell a human about a plan, give them the `url`, never the id.** It follows a retitle or a move on its own, and the old address keeps resolving.
 
 ### Get Plan Snapshot (Recommended)
 
@@ -232,7 +234,7 @@ Each folder includes `id`, `name`, `library_id`, `parent_id`, `path` (e.g. `"Tea
 - `folder_path` finds or creates the whole hierarchy in your library — the easiest way to organize.
 - Alternatively pass `folder_id` with an existing folder's ID from your library.
 - Pass an empty `folder_id` (`{"folder_id": ""}`) to take a plan off your shelf.
-- `folder_id`/`folder_path` in plan responses are **yours**: where *you* shelved that plan, `null` if you haven't.
+- `folder_id`/`folder_path` in plan responses say where the plan lives — one answer, the same for everybody, `null` for a plan nobody has filed yet. Filing a plan that's already filed **moves** it; there's no second copy.
 
 **Guidelines:**
 - Check `GET <%= @base %>/api/v1/library` (your library's map — folder tree with descriptions and counts) before creating new folders — reuse the existing structure.

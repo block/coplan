@@ -38,6 +38,11 @@ module CoPlan
     # produces a NOT NULL-satisfying row. The method is idempotent.
     before_validation :assign_slug
     before_save :assign_slug
+    # Claiming a segment is the folder's half of a contest plans are also
+    # entering — see Library#lock_namespace!. Held from here through
+    # #disambiguate_shadowed_plans, so a plan created at this level while
+    # the folder lands can't be missed by the sweep *and* miss the folder.
+    before_save :lock_library_namespace
     # A rename or a move leaves behind one prefix alias, which covers
     # every plan and subfolder underneath — O(renames), not O(documents).
     before_save :stash_previous_url_path
@@ -211,6 +216,14 @@ module CoPlan
       self.slug = CoPlan::Slug.call(name).presence || "folder"
     end
 
+    # Only when the folder is actually taking a segment: a description edit
+    # contests nothing and shouldn't queue behind anything.
+    def lock_library_namespace
+      return unless will_save_change_to_slug? || will_save_change_to_parent_id?
+
+      library&.lock_namespace!
+    end
+
     # Captured before the write, because afterwards `ancestors` walks the
     # *new* parent chain and the old path is no longer reconstructible.
     def stash_previous_url_path
@@ -249,14 +262,19 @@ module CoPlan
 
     # Plans addressed at this folder's own level: those filed in its
     # parent, or the library's loose plans when it's a root folder.
+    #
+    # A locking read, in the same shape and for the same reasons as
+    # AssignSlug#siblings — see the note there. Without it, a plan that took
+    # this segment while we waited on the namespace lock stays invisible
+    # behind this transaction's snapshot and never gets moved aside.
     def shadowed_plans
       scope = if parent_id.present?
-        Plan.where(id: PlanPlacement.where(folder_id: parent_id).select(:plan_id))
+        Plan.joins(:placement).where(coplan_plan_placements: { folder_id: parent_id })
       else
         library.unfiled_plans
       end
 
-      scope.where(slug: slug, slug_suffix: nil)
+      scope.where(slug: slug, slug_suffix: nil).lock
     end
 
     def parent_cannot_create_cycle

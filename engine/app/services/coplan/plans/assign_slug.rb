@@ -38,7 +38,13 @@ module CoPlan
         @record_alias = record_alias
       end
 
+      # Runs inside the caller's transaction — a plan's own `before_save`,
+      # a move, or the folder rename that shadowed it — and takes the
+      # destination library's namespace lock before reading, so the
+      # `contested?` answer is still true when the caller writes it.
       def call
+        target_library&.lock_namespace!
+
         @plan.slug = derive
         @plan.slug_suffix = contested? ? assign_suffix : nil
 
@@ -47,6 +53,13 @@ module CoPlan
       end
 
       private
+
+      # Where the plan is landing, which is the namespace it competes in.
+      # Mid-move that's the destination, not where it's leaving: the level
+      # it vacates can't gain a collision by losing a member.
+      def target_library
+        @target_library ||= @folder&.library || @plan.library
+      end
 
       def default_previous_path
         @plan.slug.present? ? @plan.url_path : nil
@@ -96,46 +109,74 @@ module CoPlan
         tokens
       end
 
-      # Something else at this level already holds the segment. Checked
-      # against the folder's placements, which is the plan's real
-      # uniqueness scope — see the note in AddPlanSlugsAndUrlAliases about
-      # why this isn't a DB constraint yet.
+      # Something else at this level already holds the segment.
+      #
+      # Enforced here rather than by a unique index, and not only because
+      # the slug and the location live in different tables: the contest
+      # crosses *models*. A folder and a plan compete for the same segment,
+      # and no single index spans coplan_folders and coplan_plans. So the
+      # write path is where "one segment, one thing" can actually be
+      # decided, and it decides it from the read below.
+      def contested?
+        taken.include?([ @plan.slug, nil ])
+      end
+
+      # Every segment already spoken for at this level, as [slug, suffix].
       #
       # Sibling *folders* count too. Urls::Resolve hands the segment to a
       # folder when both want it — mistaking a folder for a plan would
       # break a whole subtree — so a plan sharing a folder's slug would
-      # have no reachable address at all. Folders never take a suffix;
-      # plans do, which makes the plan the one that moves.
-      def contested?
-        return true if sibling_folders.where(slug: @plan.slug).exists?
-
-        siblings.where(slug: @plan.slug, slug_suffix: nil).exists?
+      # have no reachable address at all. Folders never take a suffix, which
+      # is what makes the plan the one that moves.
+      #
+      # Read with FOR UPDATE, and not because these rows are being written.
+      # Under MySQL's REPEATABLE READ a plain SELECT answers from the
+      # snapshot this transaction took at its *first* read, which happened
+      # before Library#lock_namespace! — so the writer we just finished
+      # waiting for would still be invisible and we would confidently claim
+      # the segment it had already taken. A locking read sees the latest
+      # committed row instead. Safe under the namespace lock: one writer per
+      # library is in here at a time, and neither query reaches outside the
+      # library it holds.
+      def taken
+        @taken ||= (
+          sibling_folders.lock.pluck(:slug).map { |slug| [ slug, nil ] } +
+            siblings.lock.pluck(:slug, :slug_suffix)
+        ).to_set
       end
 
       # The folders that sit at the same level of the URL as this plan: the
       # children of the folder it's filed in, or the library's root folders
       # when it's filed nowhere.
       def sibling_folders
-        library = @folder&.library || @plan.library
-        return Folder.none if library.nil?
+        return Folder.none if target_library.nil?
 
-        library.folders.where(parent_id: @folder&.id)
+        target_library.folders.where(parent_id: @folder&.id)
       end
 
+      # The plans at that same level.
+      #
+      # Both shapes below keep coplan_plans in the *outer* query, and that's
+      # the load-bearing part. FOR UPDATE reads latest-committed only for
+      # what the query itself scans, so a plan reached through
+      # `where(id: <subquery over coplan_plans>)` — the shape this used to
+      # have — gets filtered out by the snapshot before the locking scan
+      # ever sees it, and the lock guards a set that was never refreshed.
+      #
+      # The filed case joins, because the placement row is what decides
+      # membership and so has to be read fresh too. The unfiled case can
+      # leave placements in a subquery: a plan created a moment ago has no
+      # placement in either the snapshot or the present, so `NOT IN` gives
+      # the same answer from both, and the plan row itself comes off the
+      # locking scan.
       def siblings
         scope = if @folder
-          Plan.where(id: @folder.placements.select(:plan_id))
+          Plan.joins(:placement).where(coplan_plan_placements: { folder_id: @folder.id })
         else
-          Plan.where(id: unfiled_sibling_ids)
+          target_library&.unfiled_plans || Plan.none
         end
         scope = scope.where.not(id: @plan.id) if @plan.persisted?
         scope
-      end
-
-      # At a library root, a plan's siblings are the other plans its
-      # library shows there — the ones with no placement of their own.
-      def unfiled_sibling_ids
-        @plan.library&.unfiled_plans&.select(:id) || []
       end
 
       # Keeps trying until the pair is free. Random rather than sequential
@@ -143,7 +184,7 @@ module CoPlan
       def assign_suffix
         10.times do
           candidate = SUFFIX_LENGTH.times.map { SUFFIX_ALPHABET[SecureRandom.random_number(SUFFIX_ALPHABET.length)] }.join
-          return candidate unless siblings.where(slug: @plan.slug, slug_suffix: candidate).exists?
+          return candidate unless taken.include?([ @plan.slug, candidate ])
         end
         SecureRandom.hex(4)
       end

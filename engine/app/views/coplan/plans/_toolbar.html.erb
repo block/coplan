@@ -16,7 +16,7 @@
 <% can_edit = allowed_to?(plan, :edit_content?) %>
 <div id="plan-toolbar" class="plan-actions" role="toolbar" aria-label="Plan actions">
   <% if can_edit %>
-    <%= link_to edit_content_plan_path(plan), class: "btn btn--ghost btn--sm",
+    <%= link_to plan_edit_browse_path(plan), class: "btn btn--ghost btn--sm",
           title: "Edit this plan — content, title, and tags" do %>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>
       <span>Edit</span>
@@ -30,7 +30,7 @@
     </button>
     <div id="plan-menu" popover="auto" class="menu" data-coplan--menu-target="menu"
          data-action="toggle->coplan--menu#reposition" role="menu" aria-label="Plan actions menu">
-      <%= link_to history_plan_path(plan), class: "menu__item", role: "menuitem" do %>
+      <%= link_to plan_history_browse_path(plan), class: "menu__item", role: "menuitem" do %>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
         <span>History</span>
       <% end %>

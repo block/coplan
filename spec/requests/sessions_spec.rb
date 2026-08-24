@@ -29,14 +29,16 @@ RSpec.describe "Sessions", type: :request do
     delete sign_out_path
     expect(response).to redirect_to(sign_in_path)
 
-    # /plans is auth-gated; / (welcome) is intentionally public per CIRCLE-49.
-    get plans_path
+    # A library page is auth-gated; / (welcome) is intentionally public
+    # per CIRCLE-49.
+    get library_page_path(alice)
     expect(response).to redirect_to(sign_in_path)
   end
 
   it "unauthenticated access to a protected page redirects to sign in" do
-    # /plans requires authentication; / (welcome) is the public landing page.
-    get plans_path
+    # A library page requires authentication; / (welcome) is the public
+    # landing page.
+    get library_page_path(alice)
     expect(response).to redirect_to(sign_in_path)
   end
 
