@@ -16,16 +16,22 @@ module CoPlan
       # The committing controller passes the resolved user and agent so the
       # version is attributed the way comments are; direct Ruby callers
       # (cloud personas) fall back to the session's own actor fields.
-      def self.call(session:, change_summary: nil, actor_id: nil, agent_name: nil, api_token_id: nil)
-        new(session:, change_summary:, actor_id:, agent_name:, api_token_id:).call
+      def self.call(session:, change_summary: nil, actor_id: nil, agent_name: nil, api_token_id: nil, reader_type: nil, reader_id: nil)
+        new(session:, change_summary:, actor_id:, agent_name:, api_token_id:, reader_type:, reader_id:).call
       end
 
-      def initialize(session:, change_summary: nil, actor_id: nil, agent_name: nil, api_token_id: nil)
+      def initialize(session:, change_summary: nil, actor_id: nil, agent_name: nil, api_token_id: nil, reader_type: nil, reader_id: nil)
         @session = session
         @change_summary = change_summary || session.change_summary
         @actor_id = actor_id || session.actor_id
         @agent_name = agent_name
         @api_token_id = api_token_id
+        # Whose reads count for the human-edit fence. A live commit passes
+        # the credential making the request; the expiry job has no request,
+        # so it falls back to the session's owner. A human-actor session
+        # isn't fenced at all.
+        @reader_type = reader_type || (session.actor_type == "human" ? nil : "api_token")
+        @reader_id = reader_id || (session.actor_type == "human" ? nil : session.actor_id)
       end
 
       def call
@@ -44,6 +50,15 @@ module CoPlan
           end
 
           plan.lock!
+
+          # Under the lock, and on every route into this service — the
+          # expiry job commits sessions with no request behind them, so a
+          # controller-level check alone would let an abandoned session
+          # rebase straight over a hand edit.
+          Plans::HumanEditGuard.enforce!(
+            plan: plan, reader_type: @reader_type, reader_id: @reader_id,
+            base_revision: @session.base_revision
+          )
 
           base_revision = @session.base_revision
           current_revision = plan.current_revision

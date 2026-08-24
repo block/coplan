@@ -48,7 +48,8 @@ module CoPlan
             change_summary: params[:change_summary],
             actor_id: api_user_id,
             agent_name: api_agent_name,
-            api_token_id: api_token_id
+            api_token_id: api_token_id,
+            **fence_reader
           )
 
           response = {
@@ -66,6 +67,8 @@ module CoPlan
           end
 
           render json: response
+        rescue Plans::HumanEditGuard::Blocked => e
+          render json: e.payload, status: :conflict
         rescue Plans::CommitSession::SessionNotOpenError => e
           render json: { error: e.message }, status: :unprocessable_content
         rescue Plans::CommitSession::StaleSessionError => e

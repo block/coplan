@@ -236,6 +236,85 @@ RSpec.describe "Human edit fence", type: :request do
     end
   end
 
+  # The controller before_action is a fast, informative refusal; it is not
+  # the enforcement point. These pin the enforcement that runs under the
+  # plan lock, on the paths that never touch a controller at all.
+  describe "enforcement under the plan lock" do
+    it "refuses when the early check passed but a hand edit is there at write time" do
+      agent_has_read(plan, alice_token)
+      hand_edit!(from: "Q4", to: "Q3")
+
+      # Stand in for the window: the before_action ran a moment before the
+      # hand edit committed, so it saw a clean plan and waved the request
+      # through. Only the check under the plan lock can still catch it.
+      early_check = true
+      allow(CoPlan::Plans::HumanEditGuard).to receive(:call).and_wrap_original do |original, **kwargs|
+        next original.call(**kwargs) unless early_check
+
+        early_check = false
+        nil
+      end
+
+      expect {
+        post api_v1_plan_operations_path(plan),
+          params: {
+            base_revision: 1,
+            operations: [ { op: "replace_exact", old_text: "Owner: Sam.", new_text: "Owner: Dana.", count: 1 } ]
+          },
+          headers: headers, as: :json
+      }.not_to change(CoPlan::PlanVersion, :count)
+
+      expect(response).to have_http_status(:conflict)
+      expect(JSON.parse(response.body)["code"]).to eq("human_edit_pending")
+      expect(plan.reload.current_content).to include("Owner: Sam.")
+      expect(plan.current_content).to include("Q3")
+    end
+
+    it "blocks the expiry job from auto-committing over an unread hand edit" do
+      agent_has_read(plan, alice_token)
+      session = CoPlan::EditSession.create!(
+        plan: plan, actor_type: "local_agent", actor_id: alice_token.id,
+        base_revision: 1, expires_at: 1.minute.ago
+      )
+      applied = CoPlan::Plans::ApplyOperations.call(
+        content: initial_content,
+        operations: [ { "op" => "replace_exact", "old_text" => "Owner: Sam.", "new_text" => "Owner: Dana.", "count" => 1 } ]
+      )
+      session.update!(operations_json: applied[:applied], draft_content: applied[:content])
+
+      hand_edit!(from: "Q4", to: "Q3")
+
+      expect {
+        CoPlan::CommitExpiredSessionJob.perform_now(session_id: session.id)
+      }.not_to change(CoPlan::PlanVersion, :count)
+
+      expect(session.reload.status).to eq("failed")
+      expect(session.change_summary).to match(/Auto-commit blocked/)
+      expect(plan.reload.current_content).to include("Owner: Sam.")
+      expect(plan.current_content).to include("Q3")
+    end
+
+    it "still auto-commits an expired session when no human edited" do
+      agent_has_read(plan, alice_token)
+      session = CoPlan::EditSession.create!(
+        plan: plan, actor_type: "local_agent", actor_id: alice_token.id,
+        base_revision: 1, expires_at: 1.minute.ago
+      )
+      applied = CoPlan::Plans::ApplyOperations.call(
+        content: initial_content,
+        operations: [ { "op" => "replace_exact", "old_text" => "Owner: Sam.", "new_text" => "Owner: Dana.", "count" => 1 } ]
+      )
+      session.update!(operations_json: applied[:applied], draft_content: applied[:content])
+
+      expect {
+        CoPlan::CommitExpiredSessionJob.perform_now(session_id: session.id)
+      }.to change(CoPlan::PlanVersion, :count).by(1)
+
+      expect(session.reload.status).to eq("committed")
+      expect(plan.reload.current_content).to include("Owner: Dana.")
+    end
+  end
+
   describe "read receipts" do
     it "records the revision handed over by GET /plans/:id" do
       get api_v1_plan_path(plan), headers: headers, as: :json
@@ -255,6 +334,53 @@ RSpec.describe "Human edit fence", type: :request do
       get api_v1_plan_path(plan), headers: headers, as: :json
 
       expect(receipt_revision).to eq(5)
+    end
+
+    # The reason monotonicity lives in the UPDATE's WHERE clause rather than
+    # in a load-compare-save is concurrency: two overlapping reads on one
+    # credential could otherwise both load the same row and the slower one
+    # save the older revision last. A single-threaded spec can't race that —
+    # the guarantee is structural, since a guarded UPDATE has no window
+    # between the compare and the write. What this pins is the contract
+    # either implementation owes: a lower revision never lands, and doesn't
+    # cost a write.
+    it "ignores a lower revision without touching the row" do
+      agent_has_read(plan, alice_token, revision: 7)
+      before = CoPlan::PlanRead.find_by(plan_id: plan.id, reader_id: alice_token.id)
+
+      CoPlan::PlanRead.record!(
+        plan: plan, reader_type: "api_token", reader_id: alice_token.id, revision: 6
+      )
+
+      after = CoPlan::PlanRead.find_by(plan_id: plan.id, reader_id: alice_token.id)
+      expect(after.last_seen_revision).to eq(7)
+      expect(after.updated_at).to eq(before.updated_at)
+    end
+
+    it "creates the receipt exactly once when another request wins the insert" do
+      raced = false
+      allow(CoPlan::PlanRead).to receive(:create!).and_wrap_original do |original, **attrs|
+        unless raced
+          raced = true
+          # insert_all bypasses create!, so this stands in for another
+          # process getting the row in first — the original call below then
+          # hits the unique index and the retry takes the UPDATE path.
+          now = Time.current
+          CoPlan::PlanRead.insert_all([ {
+            id: SecureRandom.uuid_v7, plan_id: plan.id,
+            reader_type: "api_token", reader_id: alice_token.id,
+            last_seen_revision: 3, last_seen_at: now, created_at: now, updated_at: now
+          } ])
+        end
+        original.call(**attrs)
+      end
+
+      CoPlan::PlanRead.record!(
+        plan: plan, reader_type: "api_token", reader_id: alice_token.id, revision: 4
+      )
+
+      expect(CoPlan::PlanRead.where(plan_id: plan.id).count).to eq(1)
+      expect(receipt_revision).to eq(4)
     end
 
     def receipt_revision

@@ -34,10 +34,41 @@ module CoPlan
       # re-read the plan regardless.
       MAX_EDITS_LISTED = 10
 
+      # Raised by .enforce!. Carries the same payload .call returns, so a
+      # controller can render it identically wherever the block is caught.
+      class Blocked < StandardError
+        attr_reader :payload
+
+        def initialize(payload)
+          @payload = payload
+          super(payload[:error])
+        end
+      end
+
       # Returns nil when the write may proceed, or a JSON-ready Hash
       # describing the block (render it with status :conflict).
+      #
+      # Call this early — before a request does any work — for a fast,
+      # informative refusal. It is NOT the enforcement point: a human edit
+      # can land between this check and the write. Use .enforce! inside the
+      # plan-locked transaction for that.
       def self.call(plan:, reader_type:, reader_id:, base_revision: nil)
         new(plan: plan, reader_type: reader_type, reader_id: reader_id, base_revision: base_revision).call
+      end
+
+      # The enforcement point. Must be called inside the same transaction
+      # that holds the plan lock and creates the version, so no human
+      # revision can land between the check and the write — otherwise the
+      # rebase machinery downstream would happily merge the agent's edit
+      # past a hand edit that arrived microseconds too late.
+      #
+      # A blank reader identity means the caller isn't an agent (a human
+      # editing in the web UI, a system write); the fence doesn't apply.
+      def self.enforce!(plan:, reader_type:, reader_id:, base_revision: nil)
+        return if reader_type.blank? || reader_id.blank?
+
+        payload = call(plan: plan, reader_type: reader_type, reader_id: reader_id, base_revision: base_revision)
+        raise Blocked, payload if payload
       end
 
       def initialize(plan:, reader_type:, reader_id:, base_revision: nil)

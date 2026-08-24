@@ -158,6 +158,15 @@ module CoPlan
           render json: block, status: :conflict if block
         end
 
+        # Reader identity to hand a service that writes under the plan lock,
+        # where the fence is actually enforced. Empty for a human calling
+        # the API on hook auth — their write *is* a human edit.
+        def fence_reader
+          return {} if api_author_type == "human"
+
+          { reader_type: api_reader_type, reader_id: api_reader_id }
+        end
+
         def set_plan
           @plan = CoPlan::Plan.find_by(id: params[:plan_id] || params[:id])
           unless @plan

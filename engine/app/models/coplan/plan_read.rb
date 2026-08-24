@@ -24,17 +24,35 @@ module CoPlan
     # Records that `reader` has seen `revision`. Monotonic: a later read of
     # an older revision (a version fetch, a cached response) never walks the
     # receipt backwards.
+    #
+    # The advance is a single UPDATE whose WHERE clause *is* the
+    # monotonicity, rather than a load-compare-save. Two concurrent reads on
+    # the same credential can otherwise both load the same row and the
+    # slower one can save the older revision last — walking the receipt
+    # backwards and leaving an agent fenced after it genuinely read the
+    # human's edit.
     def self.record!(plan:, reader_type:, reader_id:, revision:)
-      return nil if reader_type.blank? || reader_id.blank? || revision.blank?
+      return false if reader_type.blank? || reader_id.blank? || revision.blank?
 
-      record = find_or_initialize_by(plan_id: plan.id, reader_type: reader_type, reader_id: reader_id)
-      return record if record.persisted? && record.last_seen_revision >= revision.to_i
+      revision = revision.to_i
+      scope = where(plan_id: plan.id, reader_type: reader_type, reader_id: reader_id)
+      now = Time.current
 
-      record.last_seen_revision = revision.to_i
-      record.last_seen_at = Time.current
-      record.save!
-      record
+      advanced = scope.where(last_seen_revision: ...revision)
+        .update_all(last_seen_revision: revision, last_seen_at: now, updated_at: now)
+      return true if advanced.positive?
+      # No rows advanced: either the receipt is already at or past this
+      # revision, or there is no receipt yet.
+      return true if scope.exists?
+
+      create!(
+        plan_id: plan.id, reader_type: reader_type, reader_id: reader_id,
+        last_seen_revision: revision, last_seen_at: now
+      )
+      true
     rescue ActiveRecord::RecordNotUnique
+      # Another request inserted the row first; go around again and take the
+      # UPDATE path. Terminates: the row now exists.
       retry
     end
 

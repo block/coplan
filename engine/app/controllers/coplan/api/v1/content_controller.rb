@@ -50,7 +50,8 @@ module CoPlan
             agent_name: api_agent_name,
             api_token_id: api_token_id,
             change_summary: params[:change_summary],
-            reason: params[:reason]
+            reason: params[:reason],
+            **fence_reader
           )
 
           if result[:no_op]
@@ -71,6 +72,8 @@ module CoPlan
             applied: result[:applied],
             version_id: version.id
           }, status: :created
+        rescue Plans::HumanEditGuard::Blocked => e
+          render json: e.payload, status: :conflict
         rescue Plans::ReplaceContent::StaleRevisionError => e
           render json: {
             error: e.message,

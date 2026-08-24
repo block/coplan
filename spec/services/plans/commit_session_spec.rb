@@ -14,7 +14,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
   end
 
   def build_session(plan:, operations_json: [], draft_content: nil, base_revision: nil, **attrs)
-    CoPlan::EditSession.create!(
+    session = CoPlan::EditSession.create!(
       plan: plan,
       actor_type: "local_agent",
       actor_id: SecureRandom.uuid_v7,
@@ -25,6 +25,17 @@ RSpec.describe CoPlan::Plans::CommitSession do
       expires_at: 1.hour.from_now,
       **attrs
     )
+    # Revision 1 is a human version, and CommitSession fences an agent that
+    # hasn't read the human's words (Plans::HumanEditGuard). Opening a
+    # session in real life means the agent read the plan first; these specs
+    # are about the rebase, so give it the receipt. The intervening versions
+    # below are agent versions on purpose — OT rebase is for agent-vs-agent
+    # races; a hand edit stops the commit.
+    CoPlan::PlanRead.record!(
+      plan: plan, reader_type: "api_token", reader_id: session.actor_id,
+      revision: session.base_revision
+    )
+    session
   end
 
   describe "happy path" do
@@ -152,7 +163,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
       end_pos = start_pos + old_text.length
       CoPlan::PlanVersion.create!(
         plan: plan, revision: 2,
-        content_markdown: v2_content, actor_type: "human", actor_id: user.id,
+        content_markdown: v2_content, actor_type: "local_agent", actor_id: user.id,
         operations_json: [ {
           "op" => "replace_exact",
           "old_text" => old_text,
@@ -197,7 +208,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
       end_pos = start_pos + old_text.length
       CoPlan::PlanVersion.create!(
         plan: plan, revision: 2,
-        content_markdown: v2_content, actor_type: "human", actor_id: user.id,
+        content_markdown: v2_content, actor_type: "local_agent", actor_id: user.id,
         operations_json: [ {
           "op" => "replace_exact",
           "old_text" => old_text,
@@ -249,7 +260,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
         new_content = current_content + "\n\nRevision #{rev} content."
         CoPlan::PlanVersion.create!(
           plan: plan, revision: rev,
-          content_markdown: new_content, actor_type: "human", actor_id: user.id,
+          content_markdown: new_content, actor_type: "local_agent", actor_id: user.id,
           operations_json: []
         )
         current_content = new_content

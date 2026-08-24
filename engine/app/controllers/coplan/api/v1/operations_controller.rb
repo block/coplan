@@ -32,6 +32,8 @@ module CoPlan
           end
         rescue Plans::OperationError => e
           render json: { error: e.message }, status: :unprocessable_content
+        rescue Plans::HumanEditGuard::Blocked => e
+          render json: e.payload, status: :conflict
         end
 
         private
@@ -104,6 +106,7 @@ module CoPlan
           ActiveRecord::Base.transaction do
             @plan.lock!
             @plan.reload
+            enforce_human_edit_fence!(base_revision)
 
             current_content = @plan.current_content || ""
 
@@ -191,6 +194,7 @@ module CoPlan
           ActiveRecord::Base.transaction do
             @plan.lock!
             @plan.reload
+            enforce_human_edit_fence!(base_revision)
 
             if @plan.current_revision != base_revision
               render json: {
@@ -329,6 +333,20 @@ module CoPlan
               end
             end
           end
+        end
+
+        # The before_action gives the caller a fast refusal; this is the one
+        # that actually holds the line, because it runs under the plan lock
+        # that the version creation below shares.
+        def enforce_human_edit_fence!(base_revision)
+          return if api_author_type == "human"
+
+          Plans::HumanEditGuard.enforce!(
+            plan: @plan,
+            reader_type: api_reader_type,
+            reader_id: api_reader_id,
+            base_revision: base_revision
+          )
         end
 
         def broadcast_plan_update
