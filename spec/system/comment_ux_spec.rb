@@ -62,12 +62,12 @@ RSpec.describe "Comment UX", type: :system do
     before { sign_in(author) }
 
     it "renders the plan layout" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       expect(page).to have_css(".plan-layout__content")
     end
 
     it "renders plan content in markdown" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       expect(page).to have_content("Architecture Overview")
       expect(page).to have_content("microservices architecture")
     end
@@ -83,7 +83,7 @@ RSpec.describe "Comment UX", type: :system do
         ```
       MARKDOWN
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       expect(page).to have_css(".mermaid-diagram svg", wait: 10)
       expect(page).not_to have_css('pre[lang="mermaid"]')
@@ -103,7 +103,7 @@ RSpec.describe "Comment UX", type: :system do
         ```
       MARKDOWN
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       expect(page).to have_css(".mermaid-diagram svg", wait: 10)
       find(".mermaid-diagram").click
@@ -120,7 +120,7 @@ RSpec.describe "Comment UX", type: :system do
         ```
       MARKDOWN
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       expect(page).to have_css(".mermaid-diagram--error", wait: 10)
       expect(page).to have_content("Diagram could not be rendered.")
@@ -134,7 +134,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "renders open thread highlights as accent-colored marks" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       expect(page).to have_css("mark.anchor-highlight--open", text: "microservices architecture")
     end
@@ -144,7 +144,7 @@ RSpec.describe "Comment UX", type: :system do
       todo_thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       todo_thread.accept!(author)
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       pending_mark = find("mark.anchor-highlight--pending")
       pending_border = pending_mark.evaluate_script("getComputedStyle(this).borderBottomColor")
@@ -159,7 +159,7 @@ RSpec.describe "Comment UX", type: :system do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       # Mark is present (text must remain visible) but has no visual highlight styling
       expect(page).to have_css("mark.anchor-highlight--resolved", text: "PostgreSQL")
       mark = find("mark.anchor-highlight--resolved")
@@ -171,7 +171,7 @@ RSpec.describe "Comment UX", type: :system do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       find("body").send_keys("s")
 
       mark = find("mark.anchor-highlight--resolved")
@@ -184,7 +184,7 @@ RSpec.describe "Comment UX", type: :system do
       resolved = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       resolved.resolve!(author)
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       find("mark[data-thread-id='comment_thread_#{open_thread.id}']").click
       within(".thread-popover:popover-open") do
         find("textarea").send_keys("s")
@@ -201,7 +201,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "opens a popover when clicking a highlight" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       find("mark.anchor-highlight--open").click
 
@@ -225,7 +225,7 @@ RSpec.describe "Comment UX", type: :system do
         user: reviewer
       )
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       expect(page).to have_css(".mermaid-diagram svg", wait: 10)
       mark_selector = ".mermaid-diagram mark[data-thread-id='comment_thread_#{thread.id}']"
@@ -273,7 +273,7 @@ RSpec.describe "Comment UX", type: :system do
         user: reviewer
       )
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       expect(page).to have_css(".mermaid-diagram svg", wait: 10)
       find("body").send_keys("j")
@@ -366,7 +366,7 @@ RSpec.describe "Comment UX", type: :system do
         user: reviewer
       )
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       expect(page).to have_css(".mermaid-diagram--error", wait: 10)
       page.execute_script(<<~JS)
@@ -411,7 +411,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "shows reply form for open threads" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       find("mark.anchor-highlight--open").click
 
       within(".thread-popover") do
@@ -421,7 +421,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "shows status-specific badge in popover" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       find("mark.anchor-highlight--open").click
 
       within(".thread-popover") do
@@ -431,7 +431,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "shows action buttons for plan author" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       find("mark.anchor-highlight--open").click
 
       within(".thread-popover") do
@@ -448,7 +448,7 @@ RSpec.describe "Comment UX", type: :system do
       # The reviewer authored this comment but does not own the plan, so they
       # must not see the author-only triage actions.
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       find("mark.anchor-highlight--open").click
 
       within(".thread-popover") do
@@ -463,7 +463,7 @@ RSpec.describe "Comment UX", type: :system do
       # they don't own the plan.
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.discard!(author)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       find("body").send_keys("s")
       find("mark.anchor-highlight--resolved").click
 
@@ -481,7 +481,7 @@ RSpec.describe "Comment UX", type: :system do
     it "does not show Reopen on a closed thread the viewer neither owns nor authored" do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.discard!(author)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       find("body").send_keys("s")
       find("mark.anchor-highlight--resolved").click
 
@@ -496,7 +496,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "renders no floating toolbar — navigation is keyboard-only" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       expect(page).to have_css("mark.anchor-highlight--open")
       expect(page).not_to have_css(".comment-toolbar")
@@ -506,7 +506,7 @@ RSpec.describe "Comment UX", type: :system do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "First", user: reviewer)
       create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Second", user: reviewer)
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       find("body").send_keys("j")
       expect(page).to have_css("mark.anchor-highlight--active")
@@ -525,7 +525,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "accepts a thread (pending → todo)" do
       thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Agree with this", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       find("mark.anchor-highlight--open").click
       expect(page).to have_css(".thread-popover", visible: true)
 
@@ -538,7 +538,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "discards a thread (pending → discarded)" do
       thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Not relevant", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       find("mark.anchor-highlight--open").click
       expect(page).to have_css(".thread-popover", visible: true)
 
@@ -556,7 +556,7 @@ RSpec.describe "Comment UX", type: :system do
     it "focuses reply textarea when pressing r after navigating to a thread" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
       create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       # Navigate to the first thread with j
       find("body").send_keys("j")
@@ -574,7 +574,7 @@ RSpec.describe "Comment UX", type: :system do
     it "focuses reply textarea when pressing r after mouse-clicking a highlight" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
       create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       # Open popover for the second thread via mouse click (not j/k)
       marks = all("mark.anchor-highlight--open")
@@ -591,7 +591,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "does not fire r shortcut when typing in a textarea" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       # Navigate and focus reply
       find("body").send_keys("j")
@@ -605,7 +605,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "submits reply form with Enter key" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       find("mark.anchor-highlight--open").click
       expect(page).to have_css(".thread-popover", visible: true)
@@ -624,7 +624,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "inserts newline with Shift+Enter in reply textarea" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       find("mark.anchor-highlight--open").click
       expect(page).to have_css(".thread-popover", visible: true)
@@ -647,7 +647,7 @@ RSpec.describe "Comment UX", type: :system do
     it "accepts a pending thread with 'a' key and auto-advances" do
       thread1 = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback 1", user: reviewer)
       thread2 = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Feedback 2", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       # Navigate to first thread
       find("body").send_keys("j")
@@ -664,7 +664,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "discards a pending thread with 'd' key" do
       thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Not relevant", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       find("body").send_keys("j")
       expect(page).to have_css("mark.anchor-highlight--active")
@@ -678,7 +678,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "does not fire a/d shortcuts when typing in a textarea" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       find("body").send_keys("j")
       expect(page).to have_css(".thread-popover", visible: true)
@@ -690,7 +690,7 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "submits new comment form with Enter key" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       page.execute_script <<~JS
         const form = document.getElementById('new-comment-form');
@@ -717,7 +717,7 @@ RSpec.describe "Comment UX", type: :system do
     before { sign_in(author) }
 
     it "closes the new comment form when pressing Escape with textarea focused" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       # Open the comment form programmatically (simulating text selection flow)
       page.execute_script <<~JS
@@ -736,7 +736,7 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "closes the new comment form when pressing Escape without textarea focused" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       page.execute_script <<~JS
         const form = document.getElementById('new-comment-form');
@@ -757,7 +757,7 @@ RSpec.describe "Comment UX", type: :system do
     before { sign_in(author) }
 
     it "shows comment popover when selection extends past content boundary" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       # Simulate a whole-line selection that bleeds past the content target.
       # This reproduces the bug where commonAncestorContainer is above
@@ -797,7 +797,7 @@ RSpec.describe "Comment UX", type: :system do
         user: author
       )
       resolved.update!(status: "resolved", resolved_by_user: author)
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       page.execute_script <<~JS
         const content = document.querySelector('[data-coplan--text-selection-target="content"]');
@@ -843,7 +843,7 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "creates a thread via the text selection form" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       # Simulate the JS text-selection flow
       page.execute_script <<~JS
@@ -930,7 +930,7 @@ RSpec.describe "Comment UX", type: :system do
         user: reviewer
       )
 
-      visit plan_path(bold_plan)
+      visit plan_page_path(bold_plan)
 
       # The cross-element anchor produces multiple <mark> elements
       mark_count = page.all("mark.anchor-highlight").count
@@ -966,7 +966,7 @@ RSpec.describe "Comment UX", type: :system do
     before { sign_in(author) }
 
     it "shows the comment popover when selecting a two-character string" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       # Select "We" (2 chars) from "We use PostgreSQL..." — this would have
       # been silently ignored by the old text.length < 3 check.
@@ -1000,7 +1000,7 @@ RSpec.describe "Comment UX", type: :system do
         user: reviewer
       )
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       expect(page).to have_css("mark.anchor-highlight", text: "a")
     end
 
@@ -1014,7 +1014,7 @@ RSpec.describe "Comment UX", type: :system do
       )
       number_plan.update!(current_plan_version: version, current_revision: 1)
 
-      visit plan_path(number_plan)
+      visit plan_page_path(number_plan)
 
       page.execute_script <<~JS
         const content = document.querySelector('[data-coplan--text-selection-target="content"]');
@@ -1069,7 +1069,7 @@ RSpec.describe "Comment UX", type: :system do
     before { sign_in(author) }
 
     it "preserves table structure when highlighting text that spans multiple cells" do
-      visit plan_path(table_plan)
+      visit plan_page_path(table_plan)
       anchor = page.evaluate_script(
         "document.querySelector('table tbody tr:nth-child(2)').textContent.trim()"
       )
@@ -1091,7 +1091,7 @@ RSpec.describe "Comment UX", type: :system do
         body_markdown: "This row looks expensive"
       )
 
-      visit plan_path(table_plan)
+      visit plan_page_path(table_plan)
 
       data_rows = all("table tbody tr")
       expect(data_rows.length).to eq(3)
@@ -1119,7 +1119,7 @@ RSpec.describe "Comment UX", type: :system do
         user: reviewer
       )
 
-      visit plan_path(table_plan)
+      visit plan_page_path(table_plan)
 
       expect(page).to have_css("td mark.anchor-highlight", text: "Phase 1")
 
@@ -1129,7 +1129,7 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "creates a comment on table text via the UI and highlights it" do
-      visit plan_path(table_plan)
+      visit plan_page_path(table_plan)
 
       rendered_text = page.evaluate_script(
         "document.querySelector('table').textContent"

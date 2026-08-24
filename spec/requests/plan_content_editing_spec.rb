@@ -12,7 +12,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
 
   describe "GET edit_content" do
     it "renders the editor with the current content and revision" do
-      get edit_content_plan_path(plan)
+      get plan_edit_page_path(plan)
 
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("Original body.")
@@ -21,7 +21,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
 
     it "rejects non-authors" do
       sign_in_as(other_user)
-      get edit_content_plan_path(plan)
+      get plan_edit_page_path(plan)
       expect(response).not_to have_http_status(:ok)
     end
   end

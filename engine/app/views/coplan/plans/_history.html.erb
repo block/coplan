@@ -15,7 +15,7 @@
   </div>
 
   <div class="history-split__detail">
-    <turbo-frame id="version-diff" src="<%= first_version ? diff_plan_version_path(plan, first_version) : nil %>">
+    <turbo-frame id="version-diff" src="<%= first_version ? plan_version_diff_browse_path(plan, first_version) : nil %>">
       <div class="history-split__placeholder">
         <p class="text-muted">Loading…</p>
       </div>

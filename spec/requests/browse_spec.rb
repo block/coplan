@@ -9,6 +9,14 @@ RSpec.describe "Browsable library URLs", type: :request do
     plan.reload
   end
 
+  def revise(plan, content, actor: author)
+    CoPlan::Plans::ReplaceContent.call(
+      plan: plan.reload, new_content: content,
+      base_revision: plan.current_revision,
+      actor_type: "human", actor_id: actor.id
+    )
+  end
+
   describe "every prefix is a real page" do
     let!(:folder) { create(:folder, name: "LiveOrder", created_by_user: author) }
     let!(:nested) { create(:folder, name: "Q3", parent: folder, created_by_user: author) }
@@ -67,6 +75,77 @@ RSpec.describe "Browsable library URLs", type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("Team EBT")
+    end
+  end
+
+  # A document's own pages hang off its address, so trimming "/edit" off
+  # the editor's URL lands on the thing being edited.
+  describe "a document's sub-pages" do
+    let!(:folder) { create(:folder, name: "LiveOrder", created_by_user: author) }
+    let!(:plan) do
+      create(:plan, :published, created_by_user: author, title: "Cart Roadmap")
+        .tap { |p| place(p, folder) }
+    end
+
+    before { sign_in_as(author) }
+
+    it "serves the editor" do
+      get "/hampton/liveorder/cart-roadmap/edit"
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Save new version")
+    end
+
+    it "serves the history page" do
+      get "/hampton/liveorder/cart-roadmap/history"
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("history-split")
+      expect(response.body).to include(">v1<")
+    end
+
+    it "serves one revision, addressed by its number" do
+      revise(plan, "Second draft.")
+
+      get "/hampton/liveorder/cart-roadmap/history/2"
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Second draft.")
+    end
+
+    it "serves a revision's diff as a bare fragment for the history frame" do
+      revise(plan, "Second draft.")
+
+      get "/hampton/liveorder/cart-roadmap/history/2/diff"
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include("<html")
+    end
+
+    it "404s a revision that never happened" do
+      get "/hampton/liveorder/cart-roadmap/history/99"
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    # The tail only names a sub-page when it hangs off a document. A plan
+    # actually called "Edit" owns that segment, and the path has to come
+    # back together to find it.
+    it "reads the tail as a document slug when it names one" do
+      edit = create(:plan, :published, created_by_user: author, title: "Edit")
+      place(edit, folder)
+      expect(edit.reload.slug).to eq("edit")
+
+      get "/hampton/liveorder/edit"
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Edit")
+    end
+
+    it "404s a sub-page of nothing" do
+      get "/hampton/liveorder/nope/history"
+
+      expect(response).to have_http_status(:not_found)
     end
   end
 
@@ -201,15 +280,12 @@ RSpec.describe "Browsable library URLs", type: :request do
         expect(response).to have_http_status(:ok)
       end
 
-      # Nothing to converge on yet: both forms have to work while slugs
-      # backfill, so an unslugged plan renders at its id.
-      it "renders in place for a plan with no slug yet" do
-        plan.update_columns(slug: nil)
-
-        get "/plans/#{plan.id}"
-
-        expect(response).to have_http_status(:ok)
-        expect(response.body).to include("Cart Roadmap")
+      # There is no "no readable address yet" case to fall back to: the
+      # column is NOT NULL, so every plan has one and the legacy form
+      # always converges.
+      it "cannot leave a plan without a slug to converge on" do
+        expect { plan.update_columns(slug: nil) }
+          .to raise_error(ActiveRecord::NotNullViolation)
       end
     end
   end

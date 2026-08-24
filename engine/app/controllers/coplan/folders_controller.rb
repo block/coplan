@@ -51,7 +51,7 @@ module CoPlan
         if parent.nil?
           # Don't silently create a root folder when the chosen parent has
           # since been deleted (matches the API's unknown-parent handling).
-          redirect_back fallback_location: plans_path,
+          redirect_back fallback_location: helpers.own_library_browse_path(current_user),
             alert: "Couldn't create folder: the parent folder no longer exists."
           return
         end
@@ -69,9 +69,11 @@ module CoPlan
           library: library, actor: current_user,
           event_type: "folder_created", folder: folder, after: folder.path
         )
-        redirect_to plans_path(folder: folder.id), notice: "Folder “#{folder.name}” created."
+        # Straight to the new folder's own address — it's a place now, so
+        # that's where "created" lands.
+        redirect_to helpers.folder_browse_path(folder), notice: "Folder “#{folder.name}” created."
       else
-        redirect_back fallback_location: plans_path,
+        redirect_back fallback_location: helpers.own_library_browse_path(current_user),
           alert: "Couldn't create folder: #{folder.errors.full_messages.join(", ")}"
       end
     end

@@ -25,10 +25,10 @@ RSpec.describe "Human plan editing", type: :system do
   before { sign_in(author) }
 
   it "edits plan content through the web editor" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
     within("#plan-toolbar") { click_link "Edit" }
 
-    expect(page).to have_current_path(edit_content_plan_path(plan))
+    expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(page).to have_field("content", with: /First draft body/)
 
     fill_in "content", with: "# Editable Plan\n\nRevised body from the browser.\n"
@@ -49,7 +49,7 @@ RSpec.describe "Human plan editing", type: :system do
     plan.tag_names = [ "security" ]
     plan.save!
 
-    visit edit_content_plan_path(plan)
+    visit plan_edit_page_path(plan)
     fill_in "Title", with: "Renamed In Editor"
     # Tag chips: type a tag and press Enter to commit it as a chip. Wait for
     # the existing tag's chip first — it only renders once the Stimulus
@@ -67,7 +67,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "previews markdown before saving" do
-    visit edit_content_plan_path(plan)
+    visit plan_edit_page_path(plan)
 
     fill_in "content", with: "# Preview me\n\n**bold text**\n"
     click_button "Preview"
@@ -85,7 +85,7 @@ RSpec.describe "Human plan editing", type: :system do
 
   it "changes visibility from the overflow menu in place, no reload" do
     plan.update!(visibility: "draft")
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     # Private is the rare state — the byline flags it.
     expect(page).to have_css("#plan-header .state-flag", text: "Private")
@@ -108,7 +108,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "archives and restores the plan in place" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
     expect(page).to have_css(".plan-location-link--nav", visible: :all)
 
     open_plan_menu
@@ -138,7 +138,7 @@ RSpec.describe "Human plan editing", type: :system do
     click_link "Sign out"
     sign_in(other)
 
-    visit plan_path(plan)
+    visit plan_page_path(plan)
     expect(page).to have_content("Editable Plan")
     # A reader gets the overflow menu and nothing else. There used to be a
     # Save here that filed the plan onto their own shelf; a plan lives in

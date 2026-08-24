@@ -38,26 +38,22 @@ CoPlan::Engine.routes.draw do
   # Path-only scope: helper names stay unprefixed, so `settings_path`,
   # `publish_plan_path` and the rest read the same at every call site.
   scope "_" do
-    # Cross-library view: everything you can see, wherever it lives. The
-    # per-library view is /:handle — this is the one that spans them, which
-    # is why it isn't a place and lives here.
+    # Id-based mutations, and nothing else. A document's pages all hang off
+    # its readable address (see the browse routes at the bottom); what's
+    # left here is the machinery behind the buttons on them, which is
+    # keyed by id because a button doesn't need a readable URL.
     #
-    # The member routes are id-based mutations. A document's *address* is
-    # its readable path; these are the machinery behind the buttons on it.
-    resources :plans, only: [ :index, :show, :edit, :update ] do
+    # `:update` is what keeps the `plan_path` helper — the PATCH target for
+    # the title-and-tags form.
+    resources :plans, only: [ :update ] do
       patch :publish, on: :member
       patch :hide, on: :member
       patch :archive, on: :member
       patch :unarchive, on: :member
       patch :toggle_checkbox, on: :member
       patch :move_to_folder, on: :member
-      get :history, on: :member
-      get :edit_content, on: :member
       patch :update_content, on: :member
       post :preview, on: :member
-      resources :versions, controller: "plan_versions", only: [ :show ] do
-        get :diff, on: :member
-      end
       resources :references, controller: "references", only: [ :create, :destroy ]
       resources :attachments, controller: "attachments", only: [ :create, :destroy ]
       # Cleans up a spoken remark and works out which passage it was about;
@@ -213,8 +209,8 @@ CoPlan::Engine.routes.draw do
     # Your workspace was /plans. It's your library now.
     get "plans", to: "libraries#mine"
     get "library", to: "libraries#mine"
-    # PlansController#show 301s onto the readable address (and renders in
-    # place for a document with no slug yet).
+    # PlansController#show 301s onto the readable address — every document
+    # has one, so this always converges.
     get "plans/:id", to: "plans#show", as: :plan
     # A person's page and their library are the same page now. :id is a
     # username or a user id; usernames may contain dots, so the constraint
@@ -237,7 +233,7 @@ CoPlan::Engine.routes.draw do
 
   # --- People, and everything in their libraries ----------------------
   #
-  # The catchall. `format: false` on the glob, or a document slug like
+  # The catchall. `format: false` on the globs, or a document slug like
   # "pricing-v1.2" would have its tail parsed as a format.
   #
   # `/:handle/_/…` needs no route of its own: a folder can never be named
@@ -245,6 +241,31 @@ CoPlan::Engine.routes.draw do
   # 404s. That's the reservation — library-scoped pages can be declared
   # above this line whenever we have one, and nothing a user creates can
   # ever be sitting there already.
+
+  # A document's own pages hang off its address, so trimming the tail
+  # walks back to the document — the same property every other prefix in
+  # this scheme has. They're unambiguous by construction: a document has
+  # no children, so a segment following one can only name an action.
+  #
+  # All four land on `browse#browse`, which resolves the path once and
+  # then dispatches on `page`. When the tail turns out *not* to hang off a
+  # document — `/sam/notes/history`, where "notes" is a folder — it gets
+  # put back together and resolved as a place, so a plan someone titled
+  # "History" keeps its address.
+  #
+  # Versions are addressed by revision, not id: it's the number already on
+  # screen in the history list, and it nests under the page that lists it.
+  get ":handle/*slug_path/edit", to: "browse#browse", as: :browse_edit,
+    defaults: { page: "edit" }, format: false, constraints: { handle: handle }
+  get ":handle/*slug_path/history", to: "browse#browse", as: :browse_history,
+    defaults: { page: "history" }, format: false, constraints: { handle: handle }
+  get ":handle/*slug_path/history/:revision", to: "browse#browse", as: :browse_version,
+    defaults: { page: "version" }, format: false,
+    constraints: { handle: handle, revision: /\d+/ }
+  get ":handle/*slug_path/history/:revision/diff", to: "browse#browse", as: :browse_version_diff,
+    defaults: { page: "version_diff" }, format: false,
+    constraints: { handle: handle, revision: /\d+/ }
+
   get ":handle", to: "browse#browse", as: :browse_library, constraints: { handle: handle }
   get ":handle/*slug_path", to: "browse#browse", as: :browse, format: false, constraints: { handle: handle }
 end

@@ -10,7 +10,7 @@ module CoPlan
     #
     # `folder` isn't in it: a folder names a place, so it travels as path
     # segments rather than a query param. See workspace_path.
-    WORKSPACE_LINK_PARAMS = %i[scope filter plan_type tag updated].freeze
+    WORKSPACE_LINK_PARAMS = %i[filter plan_type tag updated].freeze
 
     # A workspace URL for the library being browsed, carrying the current
     # filters with `overrides` applied; pass nil to clear one.

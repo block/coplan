@@ -85,7 +85,7 @@ module CoPlan
             turbo_stream.remove(helpers.plan_unread_badge_id(plan_id))
           ]
         end
-        format.html { redirect_back fallback_location: plans_path, notice: "Notifications cleared." }
+        format.html { redirect_back fallback_location: helpers.own_library_browse_path(current_user), notice: "Notifications cleared." }
       end
     end
 

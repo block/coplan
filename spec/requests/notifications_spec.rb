@@ -142,7 +142,7 @@ RSpec.describe "Notifications", type: :request do
 
       post mark_plan_read_notifications_path(plan_id: plan.id)
 
-      expect(response).to redirect_to(plans_path)
+      expect(response).to redirect_to(library_page_path(user))
     end
 
     it "is a no-op without a plan_id" do

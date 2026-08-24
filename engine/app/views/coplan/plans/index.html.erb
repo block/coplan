@@ -95,11 +95,6 @@
     <% end %>
 
     <% active_filters = [] %>
-    <% if @scope == "all" %>
-      <%# Reachable from Home's tag links etc. — the sidebar no longer
-          offers it, so show it as a clearable state, not a mode. %>
-      <% active_filters << ["Everyone’s plans", workspace_path(scope: nil)] %>
-    <% end %>
     <% if params[:tag].present? %>
       <% active_filters << ["Tag: #{params[:tag]}", workspace_path(tag: nil)] %>
     <% end %>
@@ -123,7 +118,7 @@
             <%= link_to "✕", clear_path, class: "workspace__filter-clear", aria: { label: "Clear #{label} filter" } %>
           </span>
         <% end %>
-        <%= link_to "Clear all", workspace_path(filter: nil, tag: nil, plan_type: nil, updated: nil, scope: @scope == "mine" ? nil : @scope),
+        <%= link_to "Clear all", workspace_path(filter: nil, tag: nil, plan_type: nil, updated: nil),
               class: "active-filter__clear" %>
       </div>
     <% end %>

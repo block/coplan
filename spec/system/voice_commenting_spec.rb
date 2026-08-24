@@ -46,7 +46,7 @@ RSpec.describe "Voice commenting", type: :system do
   # controller marks itself at the end of connect(); every example here
   # wants a live control, so every visit goes through this.
   def visit_plan(target = plan)
-    visit plan_path(target)
+    visit plan_page_path(target)
     expect(page).to have_css("[data-voice-ready]")
   end
 

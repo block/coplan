@@ -1,11 +1,9 @@
 <% content_for(:title, "#{@plan.title} — CoPlan") %>
 <% content_for(:head) do %>
   <%# One address per document. Anything that reaches this page by the
-      legacy /plans/<uuid> form (a link that predates slugs, an unslugged
-      plan) still says here which URL is the real one. %>
-  <% if (canonical = plan_browse_url(@plan)) %>
-    <link rel="canonical" href="<%= canonical %>">
-  <% end %>
+      legacy /plans/<uuid> form — a link that predates slugs — still says
+      here which URL is the real one. %>
+  <link rel="canonical" href="<%= plan_browse_url(@plan) %>">
   <meta property="og:title" content="<%= @plan.title %>">
   <meta property="og:description" content="<%= plan_og_description(@plan) %>">
   <meta property="og:type" content="article">
@@ -50,7 +48,7 @@
 
 <div class="plan-document card">
   <% if @plan.current_content.present? %>
-    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_sections.keys.to_json %>" data-coplan--changed-sections-rewritten-value="<%= @changed_sections.rewritten? %>" data-coplan--changed-sections-history-url-value="<%= history_plan_path(@plan) %>">
+    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_sections.keys.to_json %>" data-coplan--changed-sections-rewritten-value="<%= @changed_sections.rewritten? %>" data-coplan--changed-sections-history-url-value="<%= plan_history_browse_path(@plan) %>">
       <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
         <%# No "Contents" label — the outline speaks for itself, and the plan
             title now lives in the sticky nav. Just the collapse control. %>

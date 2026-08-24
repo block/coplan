@@ -419,6 +419,10 @@ module CoPlan
           {
             id: plan.id,
             title: plan.title,
+            # The document's address — the one a caller should hand to a
+            # human. An agent that files a plan and then says where it went
+            # has to be able to name it, and the id form isn't the name.
+            url: plan_web_url(plan),
             visibility: plan.visibility,
             archived: plan.archived?,
             archived_at: plan.archived_at,

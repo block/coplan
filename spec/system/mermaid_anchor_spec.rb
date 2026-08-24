@@ -76,7 +76,7 @@ RSpec.describe "Comment anchors and Mermaid diagrams", type: :system do
     end
 
     it "keeps marks out of the SVG stylesheet and keeps label anchors working" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       wait_for_diagram
 
       # Highlights re-apply after Mermaid settles; wait for the prose and
@@ -106,7 +106,7 @@ RSpec.describe "Comment anchors and Mermaid diagrams", type: :system do
 
   describe "capturing a selection swept across a diagram" do
     it "excludes the SVG stylesheet from the anchor text" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       wait_for_diagram
 
       page.execute_script(<<~JS)

@@ -27,7 +27,7 @@ RSpec.describe "Analytics instrumentation", type: :request do
     it "does not track the 301 off the legacy /plans/<uuid> address" do
       plan = create(:plan, :considering, created_by_user: user)
 
-      events = capture_analytics_events { get plan_path(plan) }
+      events = capture_analytics_events { get legacy_plan_path(plan) }
 
       expect(response).to have_http_status(:moved_permanently)
       expect(events.select { |name, _| name == "page_view" }).to be_empty
@@ -37,7 +37,7 @@ RSpec.describe "Analytics instrumentation", type: :request do
       create(:plan, :considering, created_by_user: user)
 
       events = capture_analytics_events do
-        get plans_path, headers: { "Turbo-Frame" => "plan-list" }
+        get library_page_path(user), headers: { "Turbo-Frame" => "plan-list" }
       end
 
       expect(events.select { |name, _| name == "page_view" }).to be_empty
@@ -45,7 +45,7 @@ RSpec.describe "Analytics instrumentation", type: :request do
 
     it "does not track agent (non-browser) requests" do
       events = capture_analytics_events do
-        get plans_path, headers: { "User-Agent" => "curl/8" }
+        get library_page_path(user), headers: { "User-Agent" => "curl/8" }
       end
       expect(events.select { |name, _| name == "page_view" }).to be_empty
     end
