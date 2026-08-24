@@ -9,6 +9,9 @@ RSpec.describe "Api::V1::Operations", type: :request do
 
   before do
     alice_token # ensure token exists
+    # Revision 1 is a human version, so the agent has to have read the plan
+    # before it may write (CoPlan::Plans::HumanEditGuard).
+    agent_has_read(plan, alice_token)
     CoPlan::EditLease.acquire!(
       plan: plan,
       holder_type: "local_agent",

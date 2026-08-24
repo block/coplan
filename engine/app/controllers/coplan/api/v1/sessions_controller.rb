@@ -5,6 +5,12 @@ module CoPlan
         before_action :set_plan
         before_action :authorize_plan_access!
         before_action :set_session, only: [ :show, :commit ]
+        # Checked twice on purpose: at #create so an agent can't start
+        # accumulating operations against content it has never seen, and
+        # again at #commit because a person may have edited by hand while
+        # the session was open. Neither is a rebase — a human's hand edit
+        # stops the write until the agent pulls it.
+        before_action :guard_human_edits!, only: [ :create, :commit ]
 
         # POST /api/v1/plans/:plan_id/sessions
         # Cloud personas create sessions via direct Ruby service calls, not this endpoint.
@@ -55,6 +61,8 @@ module CoPlan
             response[:revision] = result[:version].revision
             response[:version_id] = result[:version].id
             response[:content_sha256] = result[:version].content_sha256
+            # The caller has seen this content — it just wrote it.
+            record_plan_read!(@plan, revision: result[:version].revision)
           end
 
           render json: response

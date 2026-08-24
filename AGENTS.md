@@ -123,6 +123,7 @@ it is.
 - **Editing model**: humans comment, AI agents apply edits via semantic operations (`replace_exact`, `insert_under_heading`, `delete_paragraph_containing`)
 - **Edit leases**: one agent edits at a time, enforced by a lease with TTL
 - **Versions are immutable** — every edit creates a new PlanVersion with full provenance
+- **A person's hand edit is a fence, not a merge input** — agent-vs-agent staleness gets rebased through intervening versions (OT), but a `human` version blocks every agent write with a 409 (`code: human_edit_pending`) carrying the human's diff, until that credential has actually re-read the plan. Proof of reading is a `PlanRead` receipt, not the caller's `base_revision`. See `Plans::HumanEditGuard`.
 
 ## Comment & Review UX
 

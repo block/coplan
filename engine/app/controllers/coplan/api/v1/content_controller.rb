@@ -11,9 +11,15 @@ module CoPlan
       #
       # Optimistic concurrency: caller MUST supply base_revision matching
       # the plan's current_revision, or the request fails with 409.
+      #
+      # Human edits go further than that: if a person has edited by hand
+      # since this credential last read the plan, the write is refused with
+      # their diff attached and no amount of base_revision bumping gets
+      # past it — see Plans::HumanEditGuard.
       class ContentController < BaseController
         before_action :set_plan
         before_action :authorize_plan_access!
+        before_action :guard_human_edits!
 
         def update
           if params[:content].nil?
@@ -57,6 +63,8 @@ module CoPlan
           end
 
           version = result[:version]
+          # The caller has seen this content — it just wrote it.
+          record_plan_read!(@plan, revision: version.revision)
           render json: {
             revision: version.revision,
             content_sha256: version.content_sha256,

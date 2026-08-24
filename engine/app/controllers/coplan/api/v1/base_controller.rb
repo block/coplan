@@ -118,6 +118,46 @@ module CoPlan
           @api_token&.id
         end
 
+        # Which credential is reading/writing, for read receipts. Distinct
+        # from api_actor_id only in being explicit about the namespace: a
+        # token id and a user id are both UUIDs, and a receipt earned by one
+        # must never satisfy the other.
+        def api_reader_type
+          @api_token ? "api_token" : "user"
+        end
+
+        def api_reader_id
+          api_actor_id
+        end
+
+        # Call from any endpoint that hands the caller a plan's content.
+        # This is the only way to earn the right to write over a human's
+        # edit — see Plans::HumanEditGuard.
+        def record_plan_read!(plan, revision: nil)
+          CoPlan::PlanRead.record!(
+            plan: plan,
+            reader_type: api_reader_type,
+            reader_id: api_reader_id,
+            revision: revision || plan.current_revision
+          )
+        end
+
+        # A hand-written human edit is a hard stop for agents until they've
+        # pulled it. Hook-authenticated callers are the human themselves, so
+        # the fence doesn't apply to them.
+        def guard_human_edits!
+          return unless @plan
+          return if api_author_type == "human"
+
+          block = CoPlan::Plans::HumanEditGuard.call(
+            plan: @plan,
+            reader_type: api_reader_type,
+            reader_id: api_reader_id,
+            base_revision: params[:base_revision].presence&.to_i
+          )
+          render json: block, status: :conflict if block
+        end
+
         def set_plan
           @plan = CoPlan::Plan.find_by(id: params[:plan_id] || params[:id])
           unless @plan

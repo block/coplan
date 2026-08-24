@@ -32,6 +32,7 @@ Keeping a local Markdown file and syncing whole documents is the intended workfl
 2. **Edit** the local file however you like.
 3. **Write** — `PUT <%= @base %>/api/v1/plans/$PLAN_ID/content` with the full new content, `base_revision` set to the revision you read, and a specific `change_summary` (it becomes the version's label in the plan history — "Tightened rollout plan per Sam's feedback", not "Update").
 4. **On `409 Conflict`** someone edited in between: re-read the snapshot, re-apply your changes to the fresh content, and PUT again with the new revision. Never retry with the stale `base_revision`.
+5. **On `409` with `"code": "human_edit_pending"`** a person edited the plan by hand and you haven't read it since. Their diff is in the response. Read it, keep what they wrote, and only then write again — see [When a person has edited by hand](#when-a-person-has-edited-by-hand).
 
 The server diffs your content against the current revision, records granular operations automatically, and preserves comment anchors in unchanged regions. Re-read before every editing session — don't trust a local copy that's more than a few minutes old, and don't keep long-lived local state between tasks.
 
@@ -427,9 +428,43 @@ Returns:
 - `201 Created` with `{revision, content_sha256, applied, version_id}` on success
 - `200 OK` with `{no_op: true}` if the content is unchanged
 - `409 Conflict` with `{current_revision}` if `base_revision` is stale (re-read the plan and retry)
+- `409 Conflict` with `{"code": "human_edit_pending"}` if a person edited by hand since you last read the plan (see below)
 - `422 Unprocessable Content` if `content` or `base_revision` is missing or invalid
 
 This is the right tool for any non-trivial edit: rewriting a section, adding multiple paragraphs, restructuring headings, applying many small fixes at once, or doing a wholesale rewrite.
+
+### When a person has edited by hand
+
+A direct human edit is the highest-authority input a plan gets. Agent-vs-agent races get merged for you; a human's edit does not — **every agent write is refused until you have pulled their words**:
+
+```json
+{
+  "error": "Blocked: Sam edited this plan by hand (an edit, now at v7) and you last read v5. A person's direct edit outranks an agent's — it is not something to merge past. Read the current content, keep their changes, fold your own work in around them, then write again.",
+  "code": "human_edit_pending",
+  "current_revision": 7,
+  "last_human_revision": 7,
+  "last_seen_revision": 5,
+  "human_edits": [
+    {
+      "revision": 7,
+      "editor": "Sam",
+      "edited_at": "2026-08-24T17:02:11Z",
+      "change_summary": "Edited in web UI",
+      "diff": "@@ -12,3 +12,3 @@\n-Ship behind a flag in Q4.\n+Ship behind a flag in Q3 — legal signed off on the earlier date.\n"
+    }
+  ],
+  "resolve": "GET /api/v1/plans/:id/snapshot to pull the current content …"
+}
+```
+
+What to do:
+
+1. **Read the diff in the response.** It is the person's own wording, and it is what they meant.
+2. **`GET .../snapshot`** to pull the current content. That read is what lifts the block — the server tracks which revision your credential has actually fetched, so bumping `base_revision` to the number in the error does *not* get you through.
+3. **Rebuild your edit on top of theirs.** Do not re-send the body you already had; it predates their change and re-sending it deletes their words.
+4. If your instructions and their edit genuinely conflict, **leave their text alone and raise it in a comment** (`POST /api/v1/plans/:id/comments`) rather than overwriting a decision a person made deliberately.
+
+This applies to every agent write path — content replacement, operations, and session commits. It does not apply to a plan nobody has hand-edited.
 
 ## Editing Plans (Advanced: Lease + Operations)
 
@@ -646,5 +681,5 @@ For approved changes, the recommended path is: read the snapshot → edit the ma
 | 401 | Not authenticated |
 | 403 | Not authorized for this action |
 | 404 | Plan not found (or no access) |
-| 409 | Edit lease conflict or stale revision |
+| 409 | Edit lease conflict, stale revision, or an unread human edit (`code: human_edit_pending`) |
 | 422 | Validation error or operation failed |

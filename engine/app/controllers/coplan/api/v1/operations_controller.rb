@@ -4,6 +4,10 @@ module CoPlan
       class OperationsController < BaseController
         before_action :set_plan
         before_action :authorize_plan_access!
+        # A stale agent write gets rebased through intervening versions
+        # below. A stale write over a *human's* hand edit does not — it is
+        # refused here, before any of that machinery runs.
+        before_action :guard_human_edits!
 
         def create
           operations = params[:operations]
@@ -227,6 +231,9 @@ module CoPlan
           )
 
           @plan.comment_threads.mark_out_of_date_for_new_version!(version)
+
+          # The caller has seen this content — it just wrote it.
+          record_plan_read!(@plan, revision: new_revision)
 
           broadcast_plan_update
 
