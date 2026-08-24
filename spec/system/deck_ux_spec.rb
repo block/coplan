@@ -1,9 +1,10 @@
 require "rails_helper"
 
 # Browser-level coverage for the deck's pointer and navigation behavior:
-# the two ways a presenter marks up a live slide (selecting text, and the
-# pen), the Mermaid expand chip staying chip-sized on a slide, and the
-# back-matter links jumping in place instead of refetching the page.
+# the show filling the window rather than taking the screen (a call shares
+# windows), the two ways a presenter marks up a live slide (selecting text,
+# and the pen), the Mermaid expand chip staying chip-sized on a slide, and
+# the back-matter links jumping in place instead of refetching the page.
 RSpec.describe "Deck UX", type: :system do
   let(:user) { create(:coplan_user, email: "presenter@example.com") }
   let(:deck_type) { create(:plan_type, name: "Presentation", behavior: "presentation") }
@@ -225,6 +226,40 @@ RSpec.describe "Deck UX", type: :system do
 
       find(".deck-slide--current").click
       expect(current_slide).to eq("2")
+    end
+
+    # A call shares a window; macOS moves a fullscreen window onto its own
+    # Space, where screen-share pickers can't see it. So starting the show
+    # must not take the screen — `f` is the presenter asking for it.
+    it "fills the window without taking the screen, and takes it on f" do
+      visit plan_path(plan)
+      start_show
+      expect(page.evaluate_script("!!document.fullscreenElement")).to be(false)
+
+      # The window is the canvas either way: the deck is in the top layer,
+      # so no glass card ancestor can trap or cover it.
+      expect(page.evaluate_script(<<~JS)).to be(true)
+        (() => {
+          const deck = document.querySelector(".deck--presenting");
+          if (!deck.matches(":popover-open")) return false;
+          const box = deck.getBoundingClientRect();
+          const fits = Math.min(window.innerWidth, window.innerHeight * 16 / 9);
+          return Math.abs(box.width - fits) < 2;
+        })()
+      JS
+
+      send_keys("f")
+      expect(page.evaluate_script("!!document.fullscreenElement")).to be(true)
+
+      # Escape gives the screen back and the show carries on in the window —
+      # full screen is a layer to peel, not the show itself.
+      send_keys(:escape)
+      expect(page.evaluate_script("!!document.fullscreenElement")).to be(false)
+      expect(page).to have_css(".deck--presenting")
+      expect(current_slide).to eq("1")
+
+      send_keys(:escape)
+      expect(page).to have_no_css(".deck--presenting")
     end
 
     it "puts the pen away on Escape without ending the show" do

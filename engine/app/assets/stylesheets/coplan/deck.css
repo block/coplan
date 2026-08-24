@@ -473,11 +473,14 @@
   object-fit: contain;
 }
 
-/* ---- presenting — the deck takes the screen ---------------------------
+/* ---- presenting — the deck takes the window ---------------------------
    Present mode (coplan--deck-presenter) shows the deck as a top-layer
-   popover sized to the largest 16:9 canvas that fits the viewport — the
-   deck stays the size container, so every cqi measurement above scales to
-   the screen with no presentation-specific typography. Top layer matters:
+   popover sized to the largest 16:9 canvas that fits the viewport. That
+   is the whole mechanism, in a window and under native fullscreen alike:
+   viewport units mean pressing `f` needs no presentation-specific rule,
+   the canvas just grows into the screen. The deck stays the size
+   container, so every cqi measurement above scales with it and no
+   presentation-specific typography is needed. Top layer matters:
    fixed positioning alone resolves against any backdrop-filter ancestor
    (the host's glass card), while top-layer elements always position
    against the viewport. The spread shadow blacks out the letterbox bars
