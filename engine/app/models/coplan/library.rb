@@ -127,6 +127,34 @@ module CoPlan
       owner_type == "CoPlan::User" && owner_id == user.id
     end
 
+    # Takes the library's namespace lock: every URL segment under this
+    # handle is claimed one writer at a time.
+    #
+    # A segment is contested across *models* — a folder and a plan at the
+    # same level want the same word, and the folder wins (Urls::Resolve),
+    # which is why Folder#disambiguate_shadowed_plans moves the plan aside.
+    # No unique index can span coplan_folders and coplan_plans, and a plan's
+    # own scope is split across coplan_plans (the slug) and
+    # coplan_plan_placements (the level), so "one segment, one thing" is
+    # decided by reading before writing. This is what makes that read
+    # authoritative: check and claim happen with nobody else writing here.
+    #
+    # A library is one person's, so nothing ever waits on this in practice,
+    # and one lock per transaction — always the library being written to —
+    # means writers can't deadlock against each other.
+    #
+    # Row-level `FOR UPDATE` rather than an advisory lock, so it works the
+    # same on MySQL and PostgreSQL and releases itself on commit.
+    def lock_namespace!
+      unless self.class.connection.transaction_open?
+        raise "lock_namespace! must run inside a transaction — outside one " \
+              "the lock is released immediately and guards nothing"
+      end
+
+      self.class.lock.where(id: id).pick(:id)
+      self
+    end
+
     private
 
     # A personal library takes its owner's username — their ldap — so the
