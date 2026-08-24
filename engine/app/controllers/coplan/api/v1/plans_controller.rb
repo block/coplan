@@ -7,7 +7,13 @@ module CoPlan
 
         def index
           plans = Plan
-            .includes(:plan_type, :created_by_user)
+            # Where each plan lives, preloaded whole. Two fields need it and
+            # each needs more of it than it looks: `folder_path` walks the
+            # folder's ancestors, and `url` walks those *and* the library for
+            # its handle. Left to the associations that's several queries a
+            # plan on a list endpoint agents page through.
+            .includes(:plan_type, :created_by_user,
+              placement: [ :library, { folder: { parent: :parent } } ])
             .visible_to(current_user)
             .order(updated_at: :desc)
           plans = apply_index_filters(plans)
@@ -18,9 +24,6 @@ module CoPlan
             plans = plans.joins(:placement)
               .where(coplan_plan_placements: { folder_id: params[:folder_id] })
           end
-          @placements = PlanPlacement.where(plan_id: plans.map(&:id))
-            .includes(folder: { parent: :parent })
-            .index_by(&:plan_id)
           render json: plans.map { |p| plan_json(p) }
         end
 
@@ -402,20 +405,12 @@ module CoPlan
           end
         end
 
-        # Where the plan lives. Used to be viewer-relative — the caller's
-        # own shelf — but a plan is filed in exactly one place now, so
-        # every caller gets the same answer. One query per call; index
-        # batches placements up front via @placements.
-        def placement_for(plan)
-          if defined?(@placements) && @placements
-            @placements[plan.id]
-          else
-            plan.placement
-          end
-        end
-
         def plan_json(plan)
-          placement = placement_for(plan)
+          # Where the plan lives. Used to be viewer-relative — the caller's
+          # own shelf — but a plan is filed in exactly one place now, so
+          # every caller gets the same answer. The list endpoint preloads
+          # this; single-plan responses take the one query.
+          placement = plan.placement
           {
             id: plan.id,
             title: plan.title,

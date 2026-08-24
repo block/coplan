@@ -13,6 +13,46 @@ RSpec.describe "Api::V1::Plans", type: :request do
     alice_token # ensure token exists
   end
 
+  # Every row carries `url` and `folder_path`, and both want the plan's
+  # whole location — the folder's ancestors, and the library for its handle.
+  # Reached through the associations that's several queries per plan on a
+  # list agents page through, so the location is preloaded.
+  #
+  # Counts only the location tables, not every query: `tag_names` plucks per
+  # plan for reasons of its own, and a total would fail for that instead and
+  # then get bumped to whatever number made it pass. Asserted as a shape —
+  # the cost doesn't follow the list — rather than a magic number.
+  it "reads each plan's location once for the whole index, not once per plan" do
+    folder = create(:folder, name: "LiveOrder", created_by_user: alice)
+    nested = create(:folder, name: "Q3", parent: folder, created_by_user: alice)
+
+    location_queries = lambda do
+      count = 0
+      sub = ActiveSupport::Notifications.subscribe("sql.active_record") do |*, payload|
+        next if payload[:name].to_s =~ /SCHEMA|TRANSACTION/
+        count += 1 if payload[:sql].to_s.match?(/coplan_(plan_placements|folders|libraries)/)
+      end
+      get api_v1_plans_path, headers: headers
+      ActiveSupport::Notifications.unsubscribe(sub)
+      expect(response).to have_http_status(:success)
+      count
+    end
+
+    3.times { |i| CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice, title: "Roadmap #{i}"), folder: nested, actor: alice) }
+    few = location_queries.call
+
+    27.times { |i| CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice, title: "Later #{i}"), folder: folder, actor: alice) }
+    many = location_queries.call
+
+    body = JSON.parse(response.body)
+    expect(body.size).to eq(30)
+    # The preload has to be right, not just cheap — thirty distinct addresses,
+    # each naming the folder the plan is actually in.
+    expect(body.map { |p| p["url"] }.uniq.size).to eq(30)
+    expect(body.map { |p| p["folder_path"] }.tally).to eq("LiveOrder/Q3" => 3, "LiveOrder" => 27)
+    expect(many).to eq(few)
+  end
+
   it "index returns plans" do
     plan # trigger creation
     get api_v1_plans_path, headers: headers
