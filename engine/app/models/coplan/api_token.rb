@@ -2,8 +2,8 @@ module CoPlan
   class ApiToken < ApplicationRecord
     HOLDER_TYPE = "local_agent"
 
-    DEFAULT_SESSION_TTL = 12.hours
-    MAX_SESSION_TTL = 7.days
+    DEFAULT_SESSION_TTL = 7.days
+    MAX_SESSION_TTL = 30.days
     MIN_SESSION_TTL = 1.minute
 
     # Matches the comment agent_name cap so a token's name can always be
