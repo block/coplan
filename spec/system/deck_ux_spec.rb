@@ -105,18 +105,35 @@ RSpec.describe "Deck UX", type: :system do
   # present already wait explicitly for the same reason.)
   def start_show
     unless page.has_css?(".deck-slide", wait: 10)
-      # TEMPORARY: one CI-only example loses its deck and the failure alone
-      # doesn't say why. Report what the browser is actually looking at.
+      # TEMPORARY: on CI this one example lands on a routing error for
+      # /_/plans/<uuid> — a path the other examples in this file fetch
+      # happily in the same process, so a static route table can't be the
+      # whole story. Report the record, the path asked for, whether the
+      # test process's own route set recognizes it, and — the discriminator
+      # — whether simply asking again works. A passing retry means
+      # transient server state; a second failure means something about this
+      # request is genuinely different.
+      asked = plan_path(plan)
+      recognized = begin
+        Rails.application.routes.recognize_path(asked, method: :get).inspect
+      rescue StandardError => e
+        "#{e.class}: #{e.message}"
+      end
+      first = "url=#{page.current_url} title=#{page.title.inspect}"
+      visit asked
+      retried = "url=#{page.current_url} deck=#{page.has_css?('.deck-slide', wait: 10)}"
+
       raise <<~DIAG
         No .deck-slide.
-          url:     #{page.current_url}
-          title:   #{page.title.inspect}
-          markers: presenter=#{page.has_css?('.deck-presenter', wait: 0)} \
-        toolbar=#{page.has_css?('.deck-toolbar', wait: 0)} \
-        deck=#{page.has_css?('.deck', wait: 0)} \
-        content=#{page.has_css?('#plan-content-body', wait: 0)}
-          console: #{page.driver.browser.logs.get(:browser).map(&:message).last(5).inspect}
-          body:    #{page.find('body').text[0, 400].inspect}
+          asked:      #{asked}
+          plan:       slug=#{plan.slug.inspect} suffix=#{plan.slug_suffix.inspect} \
+        handle=#{plan.library_handle.inspect} url_path=#{plan.url_path.inspect} \
+        visibility=#{plan.visibility.inspect}
+          recognized: #{recognized}
+          first try:  #{first}
+          retry:      #{retried}
+          console:    #{page.driver.browser.logs.get(:browser).map(&:message).last(5).inspect}
+          body:       #{page.find('body').text[0, 300].inspect}
       DIAG
     end
     click_button "Present"
