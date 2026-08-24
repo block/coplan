@@ -13,10 +13,10 @@ RSpec.describe "Welcome", type: :request do
         expect(response.body).to include("How it works")
       end
 
-      it "shows a sign-in CTA instead of the plans CTA" do
+      it "shows a sign-in CTA instead of the library CTA" do
         get root_path
         expect(response.body).to include("Sign in to get started")
-        expect(response.body).not_to include("Browse plans")
+        expect(response.body).not_to include("Go to your library")
       end
 
       it "points visitors at the agent instructions" do
@@ -35,9 +35,10 @@ RSpec.describe "Welcome", type: :request do
         expect(response.body).to include("Design docs, built for AI-assisted planning")
       end
 
-      it "shows a 'Browse plans' CTA for signed-in users" do
+      it "sends signed-in users to their own library" do
         get root_path
-        expect(response.body).to include("Browse plans")
+        expect(response.body).to include("Go to your library")
+        expect(response.body).to include(library_page_path(bob))
       end
     end
 
@@ -61,9 +62,9 @@ RSpec.describe "Welcome", type: :request do
         create(:plan, :considering, created_by_user: alice)
       end
 
-      it "redirects to the workspace" do
+      it "redirects to their library" do
         get root_path
-        expect(response).to redirect_to(plans_path)
+        expect(response).to redirect_to(library_page_path(alice))
       end
 
       it "renders the landing page when force=1 is passed (escape hatch)" do
@@ -81,9 +82,9 @@ RSpec.describe "Welcome", type: :request do
         create(:plan, :considering, created_by_user: alice)
       end
 
-      it "redirects to the workspace just like /" do
+      it "redirects to their library just like /" do
         get welcome_path
-        expect(response).to redirect_to(plans_path)
+        expect(response).to redirect_to(library_page_path(alice))
       end
     end
 

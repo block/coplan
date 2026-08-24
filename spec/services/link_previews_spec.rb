@@ -1,3 +1,4 @@
+require "cgi"
 require "rails_helper"
 
 RSpec.describe CoPlan::LinkPreviews do
@@ -23,6 +24,101 @@ RSpec.describe CoPlan::LinkPreviews do
         expect(described_class.resolve(url: url, base_url: base_url)&.external_id).to eq(plan.id)
       end
     end
+  end
+
+  it "resolves browsable URLs — canonical, edit, history, and version sub-pages" do
+    expect(CoPlan::Plan).not_to receive(:visible_to)
+    expect(CoPlan::PlanPolicy).not_to receive(:new)
+
+    plan.update!(visibility: "published")
+    plan.reload
+    # url_path is "handle/slug" — the browsable address without a leading slash.
+    path = plan.url_path
+    expect(path).to be_present, "plan should have a browsable url_path"
+
+    [
+      "#{base_url}/#{path}",
+      "#{base_url}/#{path}/edit",
+      "#{base_url}/#{path}/history",
+      "#{base_url}/#{path}/history/#{plan.current_plan_version.revision}",
+      "#{base_url}/#{path}/history/#{plan.current_plan_version.revision}/diff"
+    ].each do |url|
+      resolved = described_class.resolve(url: url, base_url: base_url)
+      expect(resolved&.external_id).to eq(plan.id),
+        "expected #{url} to resolve to plan #{plan.id}, got #{resolved&.external_id.inspect}"
+    end
+  end
+
+  it "emits a browsable canonical URL from for_plan instead of /plans/<id>" do
+    plan.update!(visibility: "published")
+    plan.reload
+
+    preview = described_class.for_plan(plan, base_url: base_url)
+    # The canonical URL should contain the plan's url_path (handle/slug),
+    # not the legacy /plans/<id> path.
+    expect(preview.canonical_url).to include("/#{plan.url_path}")
+    expect(preview.canonical_url).not_to include("/plans/#{plan.id}")
+  end
+
+  it "does not treat reserved handles as browsable plan paths" do
+    plan.update!(visibility: "published")
+    plan.reload
+
+    # /plans/<id> is a legacy path, not a browsable handle — "plans" is
+    # in RESERVED_HANDLES, so a URL like /plans/something should only
+    # resolve via the legacy matcher, not the browsable matcher.
+    reserved_url = "#{base_url}/plans/#{plan.url_path.split('/').last}"
+    expect(described_class.resolve(url: reserved_url, base_url: base_url)).to be_nil
+  end
+
+  it "resolves browsable URLs for plans whose slug is literally 'edit' or 'history'" do
+    author = plan.created_by_user
+    library = author.library
+
+    edit_plan = create(:plan, :published, created_by_user: author, title: "Edit")
+    create(:plan_placement, plan: edit_plan, folder: create(:folder, library: library, created_by_user: author))
+    edit_plan.reload
+    expect(edit_plan.slug).to eq("edit")
+
+    # The full path /<handle>/<folder-slug>/edit is a valid plan URL,
+    # not a sub-page action — resolve must find the plan, not strip "edit".
+    url = "#{base_url}/#{edit_plan.url_path}"
+    resolved = described_class.resolve(url: url, base_url: base_url)
+    expect(resolved&.external_id).to eq(edit_plan.id)
+  end
+
+  it "encodes Unicode slugs in the canonical URL from for_plan" do
+    author = plan.created_by_user
+    library = author.library
+
+    unicode_plan = create(:plan, :published, created_by_user: author, title: "信頼性向上ロードマップ")
+    create(:plan_placement, plan: unicode_plan,
+      folder: create(:folder, library: library, name: "プロジェクト", created_by_user: author))
+    unicode_plan.reload
+
+    # for_plan must not raise on Unicode url_path — it should percent-encode.
+    expect { described_class.for_plan(unicode_plan, base_url: base_url) }.not_to raise_error
+    preview = described_class.for_plan(unicode_plan, base_url: base_url)
+    expect(preview.canonical_url).to start_with(base_url)
+    # The URL should be valid and parseable.
+    expect { URI.parse(preview.canonical_url) }.not_to raise_error
+  end
+
+  it "resolves percent-encoded browsable URLs for Unicode slugs" do
+    author = plan.created_by_user
+    library = author.library
+
+    unicode_plan = create(:plan, :published, created_by_user: author, title: "信頼性向上ロードマップ")
+    create(:plan_placement, plan: unicode_plan,
+      folder: create(:folder, library: library, name: "プロジェクト", created_by_user: author))
+    unicode_plan.reload
+
+    # Slack sends percent-encoded URLs — simulate that here.
+    encoded_path = unicode_plan.url_path.split("/").map { |s| CGI.escape(s) }.join("/")
+    url = "#{base_url}/#{encoded_path}"
+
+    resolved = described_class.resolve(url: url, base_url: base_url)
+    expect(resolved&.external_id).to eq(unicode_plan.id)
   end
 
   it "rejects foreign origins, credentials, insecure hosts, mount lookalikes, bad IDs, and unsupported paths" do

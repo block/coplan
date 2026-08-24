@@ -11,7 +11,7 @@
 
     <div class="landing__cta-row">
       <% if signed_in? %>
-        <%= link_to "Browse plans", plans_path, class: "btn btn--primary" %>
+        <%= link_to "Go to your library", own_library_browse_path(current_user), class: "btn btn--primary" %>
       <% elsif CoPlan.configuration.sign_in_path %>
         <%= link_to "Sign in to get started", CoPlan.configuration.sign_in_path, class: "btn btn--primary" %>
       <% end %>
@@ -160,7 +160,7 @@
     <% if signed_in? %>
       <p>
         Signed in as <strong><%= current_user.name %></strong>.
-        <%= link_to "Browse all plans →", plans_path(scope: "all"), class: "landing__inline-link" %>
+        <%= link_to "See what's happening →", home_path, class: "landing__inline-link" %>
       </p>
     <% end %>
     <p class="landing__footer-oss">

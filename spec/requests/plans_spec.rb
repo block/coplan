@@ -10,22 +10,24 @@ RSpec.describe "Plans", type: :request do
 
   it "index shows plans" do
     plan # trigger creation
-    get plans_path
+    get library_page_path(alice)
     expect(response).to have_http_status(:success)
     expect(response.body).to include(plan.title)
   end
 
   it "index filters by status" do
     plan # trigger creation
-    get plans_path(status: "considering")
+    get library_page_path(alice, status: "considering")
     expect(response).to have_http_status(:success)
     expect(response.body).to include(plan.title)
   end
 
-  it "index filters to my plans" do
+  # A library is one person's shelf, so there is nothing to filter: someone
+  # else's plan is on their page, never on yours.
+  it "index shows only the library owner's plans" do
     plan # created by alice
     bobs_plan = create(:plan, :considering, created_by_user: bob)
-    get plans_path(scope: "mine")
+    get library_page_path(alice)
     expect(response).to have_http_status(:success)
     expect(response.body).to include(plan.title)
     expect(response.body).not_to include(bobs_plan.title)
@@ -35,7 +37,7 @@ RSpec.describe "Plans", type: :request do
     plan.tag_names = [ "infra" ]
     other = create(:plan, :considering, created_by_user: alice, title: "Other Plan")
     other.tag_names = [ "frontend" ]
-    get plans_path(tag: "infra")
+    get library_page_path(alice, tag: "infra")
     expect(response).to have_http_status(:success)
     expect(response.body).to include(plan.title)
     expect(response.body).not_to include("Other Plan")
@@ -43,7 +45,7 @@ RSpec.describe "Plans", type: :request do
 
   it "index lists tags in the sidebar, not as chips on the rows" do
     plan.tag_names = [ "infra", "api" ]
-    get plans_path
+    get library_page_path(alice)
     expect(response.body).to include("#infra")
     expect(response.body).to include("#api")
     # Row tag chips were dropped: they crowded the byline off its corner
@@ -53,7 +55,7 @@ RSpec.describe "Plans", type: :request do
 
   it "index shows active tag filter bar" do
     plan.tag_names = [ "infra" ]
-    get plans_path(tag: "infra")
+    get library_page_path(alice, tag: "infra")
     expect(response.body).to include("active-filter")
     expect(response.body).to include("infra")
     expect(response.body).to include("Clear")
@@ -160,11 +162,6 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include("turbo-cable-stream-source")
   end
 
-  it "edit redirects to the unified editor (title/tags merged into it)" do
-    get edit_plan_path(plan)
-    expect(response).to redirect_to(edit_content_plan_path(plan))
-  end
-
   it "update plan updates title without creating a version" do
     plan # trigger creation
     expect {
@@ -177,36 +174,38 @@ RSpec.describe "Plans", type: :request do
     expect(response).to redirect_to(plan_page_path(plan))
   end
 
-  it "index hides other users brainstorm plans on the All scope" do
+  it "index hides other users brainstorm plans when you visit their library" do
     brainstorm_plan # alice's brainstorm
     sign_in_as(bob)
-    get plans_path(scope: "all")
+    get library_page_path(alice)
     expect(response).to have_http_status(:success)
     expect(response.body).not_to include(brainstorm_plan.title)
   end
 
   it "index shows own brainstorm plans" do
     brainstorm_plan # alice's brainstorm
-    get plans_path
+    get library_page_path(alice)
     expect(response).to have_http_status(:success)
     expect(response.body).to include(brainstorm_plan.title)
   end
 
-  describe "default scope" do
-    it "defaults to 'mine' and hides other users' plans" do
+  describe "whose shelf you are looking at" do
+    it "shows the owner's plans and nobody else's" do
       plan # alice's
       bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Roadmap")
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to include(plan.title)
       expect(response.body).not_to include(bobs_plan.title)
     end
 
-    it "scope=all shows everyone's published plans" do
+    # Everyone's work is still reachable — it lives at their address, not
+    # behind a scope toggle on yours.
+    it "shows someone else's published plans on their own page" do
       plan # alice's
       bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Roadmap")
-      get plans_path(scope: "all")
-      expect(response.body).to include(plan.title)
+      get library_page_path(bob)
       expect(response.body).to include(bobs_plan.title)
+      expect(response.body).not_to include(plan.title)
     end
 
     it "lists folders and loose docs at the root level; filed docs live inside their folder" do
@@ -215,7 +214,7 @@ RSpec.describe "Plans", type: :request do
       CoPlan::Plans::Place.call(plan: filed, folder: root, actor: alice)
       create(:plan, :published, created_by_user: alice, title: "Loose Plan")
 
-      get plans_path
+      get library_page_path(alice)
 
       expect(response.body).to include("folder-row")
       expect(response.body).to include("Team EBT")
@@ -230,11 +229,11 @@ RSpec.describe "Plans", type: :request do
       nested = create(:plan, :published, created_by_user: alice, title: "Nested Plan")
       CoPlan::Plans::Place.call(plan: nested, folder: sub, actor: alice)
 
-      get plans_path(folder: root.id)
+      get folder_page_path(root)
       expect(response.body).to include("Q3")
       expect(response.body).not_to include("Nested Plan")
 
-      get plans_path(folder: sub.id)
+      get folder_page_path(sub)
       expect(response.body).to include("Nested Plan")
     end
 
@@ -242,7 +241,7 @@ RSpec.describe "Plans", type: :request do
       create(:folder, name: "Empty Folder", created_by_user: alice)
       create(:plan, :published, created_by_user: alice)
 
-      get plans_path
+      get library_page_path(alice)
 
       expect(response.body).to include("Empty Folder")
       expect(response.body).to match(/folder-row__count[^>]*>\s*empty\s*</)
@@ -252,7 +251,7 @@ RSpec.describe "Plans", type: :request do
       create(:plan, :draft, created_by_user: alice, title: "Quiet Draft")
       create(:plan, :published, created_by_user: alice, title: "Published Plan")
 
-      get plans_path
+      get library_page_path(alice)
 
       expect(response.body).to include("Quiet Draft")
       expect(response.body).to include("Published Plan")
@@ -264,7 +263,7 @@ RSpec.describe "Plans", type: :request do
       CoPlan::Plans::Place.call(plan: filed, folder: root, actor: alice)
       create_list(:plan, CoPlan::PlansController::PER_PAGE + 5, :published, created_by_user: alice)
 
-      get plans_path
+      get library_page_path(alice)
 
       expect(response).to have_http_status(:success)
       expect(response.body).to include("Team EBT")
@@ -272,7 +271,7 @@ RSpec.describe "Plans", type: :request do
 
     it "paginates the level's doc list via a lazy frame" do
       create_list(:plan, CoPlan::PlansController::PER_PAGE + 2, :published, created_by_user: alice)
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to include('id="plans-level-page-2"')
       expect(response.body).to include("group=level")
     end
@@ -283,7 +282,7 @@ RSpec.describe "Plans", type: :request do
         CoPlan::Plans::Place.call(plan: p, folder: root, actor: alice)
       end
 
-      get plans_path(folder: root.id)
+      get folder_page_path(root)
 
       expect(response.body).to include('id="plans-level-page-2"')
       # The next-page frame still has to know which folder it's paging, and
@@ -298,7 +297,7 @@ RSpec.describe "Plans", type: :request do
       CoPlan::Plans::Place.call(plan: filed, folder: root, actor: alice)
       create(:plan, :published, created_by_user: alice, title: "Loose Plan")
 
-      get plans_path(group: "level", page: 1), headers: { "Turbo-Frame" => "plans-level-page-1" }
+      get library_page_path(alice, group: "level", page: 1), headers: { "Turbo-Frame" => "plans-level-page-1" }
 
       expect(response.body).to include("Loose Plan")
       expect(response.body).not_to include("Filed Plan")
@@ -307,38 +306,39 @@ RSpec.describe "Plans", type: :request do
     it "renders a flat list (no folder rows) when filtered to a single visibility" do
       create(:folder, name: "Team EBT", created_by_user: alice)
       create(:plan, :published, created_by_user: alice, title: "Published Plan")
-      get plans_path(filter: "published")
+      get library_page_path(alice, filter: "published")
       expect(response.body).not_to include("folder-row")
       expect(response.body).to include("Published Plan")
     end
 
-    it "scope=all shows everyone's visible plans at the root level" do
+    it "shows the library owner's visible plans at the root level" do
       create(:plan, :published, created_by_user: bob, title: "Bobs Published Plan")
-      get plans_path(scope: "all")
+      get library_page_path(bob)
       expect(response.body).to include("Bobs Published Plan")
     end
   end
 
-  # The strip follows the active scope, so "mine" stays your own work.
+  # The strip covers the library you're looking at, so on your own page it
+  # is your own work.
   describe "since you last looked" do
     it "flags plans updated after the viewer's last visit" do
       seen_plan = create(:plan, :published, created_by_user: alice, title: "Moved On")
       create(:plan_viewer, plan: seen_plan, user: alice, last_seen_at: 2.days.ago)
       seen_plan.update!(updated_at: 1.hour.ago)
 
-      get plans_path
+      get library_page_path(alice)
 
       expect(response.body).to include("Since you last looked")
       expect(response.body).to include("recent-updates__badge--updated")
     end
 
-    # Only under scope=all: "new to you" needs someone else's work, and
-    # the default workspace is yours alone now that a plan can't be filed
-    # onto two shelves.
+    # Only on their page: "new to you" needs someone else's work, and your
+    # own library is yours alone now that a plan can't be filed onto two
+    # shelves.
     it "flags never-opened plans by other people as new to you" do
       create(:plan, :published, created_by_user: bob, title: "Fresh From Bob")
 
-      get plans_path(scope: "all")
+      get library_page_path(bob)
 
       expect(response.body).to include("recent-updates__badge--new-to-you")
       expect(response.body).to include("Fresh From Bob")
@@ -347,18 +347,16 @@ RSpec.describe "Plans", type: :request do
     it "does not flag the viewer's own unopened plans" do
       create(:plan, :published, created_by_user: alice, title: "My Own Plan")
 
-      get plans_path
+      get library_page_path(alice)
 
       expect(response.body).not_to include("Since you last looked")
     end
 
     it "does not flag plans the viewer has seen since their last update" do
       seen_plan = create(:plan, :published, created_by_user: bob, title: "Old News")
-      root = create(:folder, name: "Reading", created_by_user: alice)
-      CoPlan::Plans::Place.call(plan: seen_plan, folder: root, actor: alice)
       create(:plan_viewer, plan: seen_plan, user: alice, last_seen_at: Time.current)
 
-      get plans_path
+      get library_page_path(bob)
 
       expect(response.body).not_to include("Since you last looked")
     end
@@ -367,7 +365,7 @@ RSpec.describe "Plans", type: :request do
       buried = create(:plan, :archived, created_by_user: bob, title: "Archived But Fresh")
       buried.update!(updated_at: 1.minute.ago)
 
-      get plans_path(scope: "all")
+      get library_page_path(bob)
 
       expect(response.body).not_to include("Archived But Fresh")
     end
@@ -375,7 +373,7 @@ RSpec.describe "Plans", type: :request do
     it "caps the strip at RECENT_LIMIT entries" do
       7.times { |i| create(:plan, :published, created_by_user: bob, title: "Bulk Update #{i}") }
 
-      get plans_path(scope: "all")
+      get library_page_path(bob)
 
       count = response.body.scan("recent-updates__badge--new-to-you").size
       expect(count).to eq(CoPlan::PlansController::RECENT_LIMIT)
@@ -388,7 +386,7 @@ RSpec.describe "Plans", type: :request do
         create(:plan, :published, created_by_user: bob, title: "Noise #{i}")
       end
 
-      get plans_path(scope: "all")
+      get library_page_path(bob)
 
       expect(response.body).not_to include("Ancient Unseen")
     end
@@ -398,7 +396,7 @@ RSpec.describe "Plans", type: :request do
     it "leads rows with the type's file icon, name in the tooltip — never a chip" do
       rfc = create(:plan_type, name: "RFC", icon: "scroll")
       create(:plan, :published, created_by_user: alice, plan_type: rfc, title: "Typed Plan")
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to include("plan-type-icon")
       expect(response.body).to include('title="RFC"')
       expect(response.body).to include('aria-label="RFC document"')
@@ -408,7 +406,7 @@ RSpec.describe "Plans", type: :request do
     it "colors the icon with a stable per-name tint" do
       rfc = create(:plan_type, name: "RFC", icon: "scroll")
       create(:plan, :published, created_by_user: alice, plan_type: rfc)
-      get plans_path
+      get library_page_path(alice)
       tint = Zlib.crc32("RFC") % CoPlan::PlansHelper::PLAN_TYPE_COLOR_COUNT
       expect(response.body).to include("plan-type-icon--#{tint}")
     end
@@ -416,14 +414,14 @@ RSpec.describe "Plans", type: :request do
     it "falls back to the document glyph for unknown icon names" do
       weird = create(:plan_type, name: "Mystery Type", icon: "definitely-not-real")
       create(:plan, :published, created_by_user: alice, plan_type: weird)
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to include("plan-type-icon")
       expect(response.body).to include('title="Mystery Type"')
     end
 
     it "renders the General type icon for plans created without an explicit type" do
       create(:plan, :published, created_by_user: alice, plan_type: nil)
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to include('aria-label="General document"')
       tint = Zlib.crc32("General") % CoPlan::PlansHelper::PLAN_TYPE_COLOR_COUNT
       expect(response.body).to include("plan-type-icon--#{tint}")
@@ -433,7 +431,7 @@ RSpec.describe "Plans", type: :request do
   describe "content preview on rows" do
     it "renders a markdown-stripped preview when there is no AI summary" do
       plan.current_plan_version.update!(content_markdown: "# Heading\n\nThis is the **plan body** with [links](https://example.com).")
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to include("plan-row__summary")
       expect(response.body).to include("This is the plan body with links")
       expect(response.body).not_to include("**plan body**")
@@ -441,7 +439,7 @@ RSpec.describe "Plans", type: :request do
 
     it "omits the summary line when the plan has no content" do
       plan.current_plan_version.update_columns(content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).not_to include("plan-row__summary")
     end
   end
@@ -455,13 +453,13 @@ RSpec.describe "Plans", type: :request do
   describe "onboarding banner" do
     it "shows banner when user has no plans" do
       sign_in_as(bob)
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to include("onboarding-banner")
     end
 
     it "hides banner when user has created a plan" do
       plan # alice has a plan
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).not_to include("onboarding-banner")
     end
 
@@ -469,7 +467,7 @@ RSpec.describe "Plans", type: :request do
       sign_in_as(bob)
       original = CoPlan.configuration.onboarding_banner
       CoPlan.configuration.onboarding_banner = nil
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).not_to include("onboarding-banner")
       CoPlan.configuration.onboarding_banner = original
     end
@@ -478,7 +476,7 @@ RSpec.describe "Plans", type: :request do
       sign_in_as(bob)
       original = CoPlan.configuration.onboarding_banner
       CoPlan.configuration.onboarding_banner = "Custom onboarding message"
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to include("Custom onboarding message")
       CoPlan.configuration.onboarding_banner = original
     end
@@ -497,7 +495,7 @@ RSpec.describe "Plans", type: :request do
     end
 
     it "shows the folder's own docs and subfolders at that level" do
-      get plans_path(folder: root.id)
+      get folder_page_path(root)
       expect(response.body).to include("Root Level Plan")
       expect(response.body).to include("Q3") # subfolder row, one click away
       expect(response.body).not_to include("Subfolder Plan")
@@ -508,20 +506,20 @@ RSpec.describe "Plans", type: :request do
       root_plan.tag_names = [ "infra" ]
       sub_plan.tag_names = [ "infra" ]
 
-      get plans_path(folder: root.id, tag: "infra")
+      get folder_page_path(root, tag: "infra")
       expect(response.body).to include("Root Level Plan")
       expect(response.body).to include("Subfolder Plan")
       expect(response.body).not_to include("Unfiled Plan")
     end
 
     it "filters to a leaf folder only" do
-      get plans_path(folder: sub.id)
+      get folder_page_path(sub)
       expect(response.body).to include("Subfolder Plan")
       expect(response.body).not_to include("Root Level Plan")
     end
 
     it "shows the folder trail as breadcrumbs, not a filter chip" do
-      get plans_path(folder: sub.id)
+      get folder_page_path(sub)
       expect(response.body).to include("workspace-crumbs")
       expect(response.body).to include("My Plans")
       expect(response.body).to include("Team EBT")
@@ -529,14 +527,14 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).not_to include("Folder: Team EBT")
     end
 
-    it "combines folder with tag and scope filters" do
+    it "combines a folder with a tag filter" do
       root_plan.tag_names = [ "infra" ]
       sub_plan.tag_names = [ "frontend" ]
       also_infra = create(:plan, :considering, created_by_user: alice, title: "Second Infra Plan")
       CoPlan::Plans::Place.call(plan: also_infra, folder: root, actor: alice)
       also_infra.tag_names = [ "infra" ]
 
-      get plans_path(folder: root.id, tag: "infra", scope: "all")
+      get folder_page_path(root, tag: "infra")
       expect(response.body).to include("Root Level Plan")
       expect(response.body).to include("Second Infra Plan")
       expect(response.body).not_to include("Subfolder Plan")
@@ -544,21 +542,22 @@ RSpec.describe "Plans", type: :request do
 
     it "renders a folder-specific empty state" do
       empty = create(:folder, name: "Empty Folder", created_by_user: alice)
-      get plans_path(folder: empty.id)
+      get folder_page_path(empty)
       expect(response.body).to include("empty-state")
       expect(response.body).to include("Empty Folder")
     end
 
     it "shows the filing location on rows in flat results" do
       sub_plan.tag_names = [ "infra" ]
-      get plans_path(tag: "infra")
+      get library_page_path(alice, tag: "infra")
       expect(response.body).to include("Team EBT/Q3")
     end
 
-    it "redirects with an alert when the folder no longer exists" do
-      get plans_path(folder: "gone", tag: "infra")
-      expect(response).to redirect_to(plans_path(tag: "infra"))
-      expect(flash[:alert]).to include("no longer exists")
+    # A folder is a place with an address, so a folder that's gone is a path
+    # that names nothing rather than a stale param to recover from.
+    it "404s when the folder no longer exists" do
+      get "#{library_page_path(alice)}/gone?tag=infra"
+      expect(response).to have_http_status(:not_found)
     end
 
     it "pages a folder's level view past the first 20 without losing the folder scope" do
@@ -569,7 +568,7 @@ RSpec.describe "Plans", type: :request do
       end
       root_plan.update_columns(updated_at: 2.days.ago) # oldest, lands on page 2
 
-      get plans_path(folder: root.id)
+      get folder_page_path(root)
       expect(response.body).to include("Paged Plan 00")
       expect(response.body).not_to include("Root Level Plan")
       # The lazy next-page frame must carry the folder, or page 2 would
@@ -577,7 +576,7 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include("page=2")
       expect(response.body).to include(browse_path(handle: alice.library.handle, slug_path: "team-ebt"))
 
-      get plans_path(folder: root.id, group: "level", page: 2),
+      get folder_page_path(root, group: "level", page: 2),
         headers: { "Turbo-Frame" => "plans-level-page-2" }
       expect(response.body).to include("Root Level Plan")
       expect(response.body).to include("Paged Plan 20")
@@ -586,7 +585,7 @@ RSpec.describe "Plans", type: :request do
     end
 
     it "clamps a non-positive page param instead of erroring" do
-      get plans_path(filter: "published", page: "0")
+      get library_page_path(alice, filter: "published", page: "0")
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("Root Level Plan")
     end
@@ -596,33 +595,36 @@ RSpec.describe "Plans", type: :request do
     it "renders the folder tree with visible-plan counts" do
       folder = create(:folder, name: "Infra", created_by_user: alice)
       CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: folder, actor: alice)
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to include("folder-tree")
       expect(response.body).to include("Infra")
     end
 
-    it "shows only the viewer's own library in the sidebar" do
+    # The sidebar belongs to the library on screen, so browsing someone
+    # else's page never mixes their shelves into yours.
+    it "shows the browsed library's folders, not the viewer's" do
       folder = create(:folder, name: "Secret Stash", created_by_user: bob)
       CoPlan::Plans::Place.call(plan: create(:plan, :draft, created_by_user: bob), folder: folder, actor: bob)
 
       sign_in_as(alice)
-      get plans_path(scope: "all")
-      # Bob's folders are his library, not part of alice's workspace sidebar.
+      get library_page_path(alice)
       expect(response.body).not_to include("Secret Stash")
 
+      # Bob's own draft counts on his own page; it stays invisible to alice.
       sign_in_as(bob)
-      get plans_path(scope: "all")
+      get library_page_path(bob)
       expect(response.body).to match(%r{Secret Stash</span>\s*<span class="sidebar__count">1</span>})
+
+      sign_in_as(alice)
+      get library_page_path(bob)
+      expect(response.body).to match(%r{Secret Stash</span>\s*<span class="sidebar__count">0</span>})
     end
 
-    it "counts the plans filed in a folder in both scopes" do
+    it "counts the plans filed in a folder" do
       folder = create(:folder, name: "My Corner", created_by_user: alice)
       CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: folder, actor: alice)
 
-      get plans_path
-      expect(response.body).to match(%r{My Corner</span>\s*<span class="sidebar__count">1</span>})
-
-      get plans_path(scope: "all")
+      get library_page_path(alice)
       expect(response.body).to match(%r{My Corner</span>\s*<span class="sidebar__count">1</span>})
     end
 
@@ -630,7 +632,7 @@ RSpec.describe "Plans", type: :request do
       root = create(:folder, name: "Team EBT", created_by_user: alice)
       sub = create(:folder, name: "Q3", parent: root, created_by_user: alice)
       CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice), folder: sub, actor: alice)
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to match(%r{Team EBT</span>\s*<span class="sidebar__count">1</span>})
     end
 
@@ -640,21 +642,21 @@ RSpec.describe "Plans", type: :request do
       visible = create(:plan, :considering, created_by_user: bob)
       visible.tag_names = [ "public-tag" ]
 
-      get plans_path(scope: "all")
+      get library_page_path(bob)
       expect(response.body).to include("public-tag")
       expect(response.body).not_to include("secret-tag")
     end
 
-    it "scopes sidebar tags to the active workspace scope" do
+    it "scopes sidebar tags to the library being browsed" do
       others = create(:plan, :considering, created_by_user: bob)
       others.tag_names = [ "bobs-tag" ]
 
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).not_to include("bobs-tag")
     end
 
     it "shows a New folder form" do
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to include("New folder")
       expect(response.body).to include('action="/_/folders"')
     end
@@ -666,12 +668,12 @@ RSpec.describe "Plans", type: :request do
         loose.tag_names = [ "kmp" ]
       end
 
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to match(%r{#kmp</span>\s*<span class="sidebar__count">2</span>})
 
       # Inside an empty folder no plans match — the tag disappears rather
       # than advertising a count that clicking can't produce.
-      get plans_path(folder: payments.id)
+      get folder_page_path(payments)
       expect(response.body).not_to include("#kmp")
     end
 
@@ -682,12 +684,12 @@ RSpec.describe "Plans", type: :request do
       stale.tag_names = [ "legacy" ]
       stale.update_columns(updated_at: 2.months.ago)
 
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to match(%r{Last 7 days</span>\s*<span class="sidebar__count">1</span>})
 
       # Under a tag whose only plan is months old the windows would show 0 —
       # they drop out instead, like tags and types do.
-      get plans_path(tag: "legacy")
+      get library_page_path(alice, tag: "legacy")
       expect(response.body).not_to include("Last 7 days")
     end
 
@@ -701,10 +703,10 @@ RSpec.describe "Plans", type: :request do
 
       # WORKSPACE_LINK_PARAMS carries :filter, so a sidebar folder link
       # keeps the archived filter — its count must match that destination.
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to match(%r{Mixed</span>\s*<span class="sidebar__count">1</span>})
 
-      get plans_path(filter: "archived")
+      get library_page_path(alice, filter: "archived")
       expect(response.body).to match(%r{Mixed</span>\s*<span class="sidebar__count">2</span>})
     end
 
@@ -715,13 +717,13 @@ RSpec.describe "Plans", type: :request do
       tagged.tag_names = [ "infra" ]
       create(:plan, :considering, created_by_user: alice, plan_type: design)
 
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to match(%r{RFC</span>\s*<span class="sidebar__count">1</span>})
       expect(response.body).to match(%r{Design Doc</span>\s*<span class="sidebar__count">1</span>})
 
       # Under the tag filter only the RFC matches; Design Doc drops out
       # instead of showing a dead count.
-      get plans_path(tag: "infra")
+      get library_page_path(alice, tag: "infra")
       expect(response.body).to match(%r{RFC</span>\s*<span class="sidebar__count">1</span>})
       expect(response.body).not_to include("Design Doc")
     end
@@ -733,7 +735,7 @@ RSpec.describe "Plans", type: :request do
       stale = create(:plan, :considering, created_by_user: alice, title: "Stale Plan")
       stale.update_columns(updated_at: 2.months.ago)
 
-      get plans_path(updated: "7d")
+      get library_page_path(alice, updated: "7d")
       expect(response).to have_http_status(:success)
       expect(response.body).to include(fresh.title)
       expect(response.body).not_to include(stale.title)
@@ -742,14 +744,14 @@ RSpec.describe "Plans", type: :request do
 
     it "offers 7 and 30 day windows in the sidebar when they'd show something" do
       plan # a fresh plan matches both windows
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to include("Last 7 days")
       expect(response.body).to include("Last 30 days")
     end
 
     it "ignores unknown window values" do
       plan
-      get plans_path(updated: "9999d")
+      get library_page_path(alice, updated: "9999d")
       expect(response).to have_http_status(:success)
       expect(response.body).to include(plan.title)
       expect(response.body).not_to include("Updated: last")
@@ -761,7 +763,7 @@ RSpec.describe "Plans", type: :request do
       thread = create(:comment_thread, plan: plan, created_by_user: bob)
       notification = create(:notification, user: alice, plan: plan, comment_thread: thread)
 
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).to include("Needs attention (1)")
       expect(response.body).to include("1 unread comment")
       attention_link = Nokogiri::HTML(response.body).at_css(".attention__link")
@@ -773,7 +775,7 @@ RSpec.describe "Plans", type: :request do
       thread = create(:comment_thread, :resolved, plan: plan, created_by_user: bob)
       notification = create(:notification, user: alice, plan: plan, comment_thread: thread)
 
-      get plans_path
+      get library_page_path(alice)
 
       expect(response.body).to include(notification_path(notification))
       expect(response.body).not_to include(%(href="#{plan_path(plan)}" class="attention__link"))
@@ -781,7 +783,7 @@ RSpec.describe "Plans", type: :request do
 
     it "is omitted when nothing is unread" do
       plan # visible plan, no notifications
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).not_to include("Needs attention")
     end
 
@@ -790,7 +792,7 @@ RSpec.describe "Plans", type: :request do
       thread = create(:comment_thread, plan: archived, created_by_user: bob)
       create(:notification, user: alice, plan: archived, comment_thread: thread)
 
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).not_to include("Buried Plan")
     end
 
@@ -799,7 +801,7 @@ RSpec.describe "Plans", type: :request do
       thread = create(:comment_thread, plan: bobs_draft, created_by_user: bob)
       create(:notification, user: alice, plan: bobs_draft, comment_thread: thread)
 
-      get plans_path
+      get library_page_path(alice)
       expect(response.body).not_to include("Bobs Secret Draft")
     end
 
@@ -811,7 +813,7 @@ RSpec.describe "Plans", type: :request do
 
       expect(CoPlan::Notifications::NeedsAttention).not_to receive(:call)
 
-      get plans_path(group: "level", page: 1), headers: { "Turbo-Frame" => "plans-level-page-1" }
+      get library_page_path(alice, group: "level", page: 1), headers: { "Turbo-Frame" => "plans-level-page-1" }
 
       expect(response).to have_http_status(:success)
       expect(response.body).to include("1")
@@ -821,7 +823,7 @@ RSpec.describe "Plans", type: :request do
       thread = create(:comment_thread, plan: plan, created_by_user: bob)
       create(:notification, user: alice, plan: plan, comment_thread: thread)
 
-      get plans_path
+      get library_page_path(alice)
 
       clear_form = Nokogiri::HTML(response.body).at_css(".attention__clear-form")
       expect(clear_form["action"]).to eq(mark_plan_read_notifications_path(plan_id: plan.id))
@@ -874,7 +876,7 @@ RSpec.describe "Plans", type: :request do
     it "does not clear anything on the history page" do
       notification = create(:notification, user: alice, plan: plan, comment_thread: thread)
 
-      get history_plan_path(plan)
+      get plan_history_page_path(plan)
 
       expect(notification.reload.read_at).to be_nil
     end
@@ -908,7 +910,7 @@ RSpec.describe "Plans", type: :request do
       expect {
         patch move_to_folder_plan_path(plan), params: { folder_id: folder.id }
       }.to change(CoPlan::PlanEvent, :count).by(1)
-      expect(response).to redirect_to(plans_path)
+      expect(response).to redirect_to(library_page_path(alice))
       expect(flash[:notice]).to include("Infra")
       expect(alice_placement.folder).to eq(folder)
 
@@ -981,16 +983,13 @@ RSpec.describe "Plans", type: :request do
       }.not_to change(CoPlan::PlanEvent, :count)
     end
 
-    it "renders every row draggable into the viewer's library" do
+    it "renders rows draggable, with no per-row save control" do
       plan # alice's plan
-      bobs_plan = create(:plan, :considering, created_by_user: bob, title: "Bobs Plan")
-      get plans_path(scope: "all")
+      get library_page_path(alice)
       rows = response.body.scan(/<article class="plan-row"[^>]*>/)
-      alice_row = rows.find { |r| r.include?(plan.id) }
-      bob_row = rows.find { |r| r.include?(bobs_plan.id) }
-      # Anyone can shelve any visible plan into their own library.
-      expect(alice_row).to include('draggable="true"')
-      expect(bob_row).to include('draggable="true"')
+      # Dragging a row moves the document, so it needs no destination
+      # chooser — the sidebar is the drop target.
+      expect(rows.find { |r| r.include?(plan.id) }).to include('draggable="true"')
       # No per-row bookmark (and so no navigator popover) on the workspace:
       # rows file via drag & drop; the plan page's title bookmark is the
       # click path.
@@ -1005,7 +1004,7 @@ RSpec.describe "Plans", type: :request do
       folder = CoPlan::Folder.find_by(name: "Team EBT")
       expect(folder).to be_present
       expect(folder.created_by_user).to eq(alice)
-      expect(response).to redirect_to(plans_path(folder: folder.id))
+      expect(response).to redirect_to(folder_page_path(folder))
     end
 
     it "creates a nested folder" do

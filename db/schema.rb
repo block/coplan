@@ -356,7 +356,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_24_120000) do
     t.json "metadata"
     t.string "plan_type_id", limit: 36, null: false
     t.text "search_text", size: :medium
-    t.string "slug"
+    t.string "slug", null: false
     t.string "slug_suffix", limit: 8
     t.text "summary"
     t.string "summary_content_sha256", limit: 64
@@ -453,6 +453,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_24_120000) do
     t.index ["user_id"], name: "index_coplan_web_push_subscriptions_on_user_id"
   end
 
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "coplan_agent_events", "coplan_api_tokens", column: "api_token_id"
   add_foreign_key "coplan_agent_events", "coplan_plans", column: "plan_id"

@@ -1,3 +1,4 @@
+require "cgi"
 require "uri"
 
 module CoPlan
@@ -13,11 +14,11 @@ module CoPlan
         base = parse_url(base_url, enforce_https: true)
         return unless supplied && base && safe_origin?(supplied, base)
 
-        plan_id = plan_id_from(supplied.path, base.path)
-        return unless plan_id
+        plan = plan_from_legacy_path(supplied.path, base.path) ||
+               plan_from_browsable_path(supplied.path, base.path)
+        return unless plan
 
-        plan = Plan.includes(:created_by_user, :plan_type, :current_plan_version).find_by(id: plan_id)
-        for_plan(plan, base_url: base_url) if plan
+        for_plan(plan, base_url: base_url)
       rescue URI::InvalidURIError
         nil
       end
@@ -30,7 +31,14 @@ module CoPlan
         raise ArgumentError, "invalid base_url" unless base
 
         canonical = base.dup
-        canonical.path = join_path(base.path, "plans/#{plan.id}")
+        # The browsable URL is canonical — /<handle>/<slug-path> — falling
+        # back to the legacy /plans/<id> path only when url_path is nil
+        # (a plan with no library or slug, which shouldn't happen in
+        # practice since both are NOT NULL after the backfill migration).
+        # Percent-encode each segment so Unicode slugs (Japanese, Arabic,
+        # accented Latin) don't raise URI::InvalidComponentError.
+        path_suffix = plan.url_path || "plans/#{plan.id}"
+        canonical.path = join_path(base.path, encode_path_segments(path_suffix))
         canonical.query = canonical.fragment = nil
         description = plan.summary.presence || plain_content(plan)
 
@@ -81,6 +89,67 @@ module CoPlan
         nil
       end
 
+      def plan_from_legacy_path(path, mount_path)
+        plan_id = plan_id_from(path, mount_path)
+        return unless plan_id
+
+        Plan.includes(:created_by_user, :plan_type, :current_plan_version).find_by(id: plan_id)
+      end
+
+      def plan_from_browsable_path(path, mount_path)
+        mount = mount_path.to_s.sub(%r{/*\z}, "")
+        relative = mount.empty? ? path : path.delete_prefix(mount)
+        return if !mount.empty? && relative == path
+        return unless relative.start_with?("/")
+
+        # Try the full path first — a plan's slug might literally be "edit"
+        # or "history" (see spec/requests/browse_spec.rb). Only when that
+        # fails do we strip known sub-page tails and try again, matching
+        # the route order the browse controller uses.
+        candidates = [ relative ]
+        stripped = relative.sub(%r{/(edit|history(/[^/]+)?(/diff)?)?/*\z}, "")
+        candidates << stripped if stripped != relative
+
+        candidates.each do |candidate|
+          plan = plan_from_browsable_candidate(candidate)
+          return plan if plan
+        end
+
+        nil
+      end
+
+      def plan_from_browsable_candidate(relative)
+        match = relative.match(%r{\A/([a-z0-9][a-z0-9-]*)/(.+)/*\z})
+        return unless match
+
+        handle = match[1]
+        return if Library::RESERVED_HANDLES.include?(handle)
+
+        # Slack sends percent-encoded URLs; decode each segment to match
+        # the UTF-8 slugs stored in the database (Unicode slugs are
+        # explicitly supported — see CoPlan::Slug).
+        slug_path = decode_path_segments(match[2])
+
+        resolve_plan(handle, slug_path)
+      end
+
+      def resolve_plan(handle, slug_path)
+        result = Urls::Resolve.call(handle: handle, slug_path: slug_path)
+
+        # Follow alias redirects: a renamed plan, folder, or library
+        # still resolves via UrlAlias, but Urls::Resolve represents that
+        # as redirect_to_path with no plan. Re-resolve the rewritten path.
+        if result&.redirect_to_path
+          new_handle, _, new_slug_path = result.redirect_to_path.partition("/")
+          result = Urls::Resolve.call(handle: new_handle, slug_path: new_slug_path)
+        end
+
+        return unless result&.found? && result.plan
+
+        # Urls::Resolve doesn't preload the associations for_plan needs.
+        Plan.includes(:created_by_user, :plan_type, :current_plan_version).find_by(id: result.plan.id)
+      end
+
       def plan_id_from(path, mount_path)
         mount = mount_path.to_s.sub(%r{/+\z}, "")
         relative = mount.empty? ? path : path.delete_prefix(mount)
@@ -95,6 +164,19 @@ module CoPlan
 
       def join_path(base, suffix)
         "#{base.to_s.sub(%r{/+\z}, "")}/#{suffix}"
+      end
+
+      # Percent-encodes each path segment for safe assignment to URI#path=.
+      # URI#path= rejects raw non-ASCII (Japanese, Arabic, accented Latin),
+      # so Unicode slugs must be encoded on the way out.
+      def encode_path_segments(path)
+        path.split("/").map { |seg| CGI.escape(seg) }.join("/")
+      end
+
+      # Percent-decodes each path segment so encoded Unicode slugs from
+      # Slack match the UTF-8 slugs stored in the database.
+      def decode_path_segments(path)
+        path.split("/").map { |seg| CGI.unescape(seg) }.join("/")
       end
 
       def plain_content(plan)

@@ -14,15 +14,13 @@ module CoPlan
     # The absolute form needs a host, which only a request knows, so
     # `browse_url` stays in the helper.
     module Canonical
-      # `/<handle>/<folders>/<slug>`, or the id form for a plan whose
-      # slug hasn't been backfilled yet. Both have to work while slugs
-      # fill in, and `/plans/<uuid>` 301s here once one exists.
+      # `/<handle>/<folders>/<slug>` — the plan's one and only address.
+      # There's no id form to fall back to: `slug` is NOT NULL and a plan
+      # lives in exactly one library, so this is total.
       def self.plan_path(plan, **options)
-        routes = CoPlan::Engine.routes.url_helpers
         handle, slug_path = split(plan.url_path)
-        return routes.plan_path(plan, **options) if slug_path.blank?
-
-        routes.browse_path(handle: handle, slug_path: slug_path, **options)
+        CoPlan::Engine.routes.url_helpers
+          .browse_path(handle: handle, slug_path: slug_path, **options)
       end
 
       # Splits "handle/rest/of/path" into its two route segments. A path

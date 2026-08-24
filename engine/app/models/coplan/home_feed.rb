@@ -24,9 +24,15 @@ module CoPlan
     end
 
     # Returns Items sorted by most recent activity, newest first.
-    def self.build(now: Time.current)
+    #
+    # `tag` narrows the whole feed to one tag. That's what a tag chip does:
+    # "everyone's work on this", which spans libraries and so belongs here
+    # rather than inside anybody's — a library is one person's shelf.
+    def self.build(now: Time.current, tag: nil)
       since = now - WINDOW
-      listed = Plan.publicly_listed.select(:id)
+      listed = Plan.publicly_listed
+      listed = listed.with_tag(tag) if tag.present?
+      listed = listed.select(:id)
 
       rollups = Hash.new do |h, k|
         h[k] = { published: false, edits: 0, comments: 0, last_at: nil }

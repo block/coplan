@@ -48,6 +48,38 @@ module CoPlan
         if @folder && @folder.library_id != @library.id
           return Result.new(error: "Folder belongs to a different library")
         end
+        # Filing requires the plan to be listable for you — an unlisted
+        # draft someone linked you can be read, but filing it into a
+        # browsable library would surface what its author hasn't published.
+        if @folder && !PlanPolicy.new(@actor, @plan).listed?
+          return Result.new(error: "Only published plans (or your own drafts) can be filed")
+        end
+
+        ActiveRecord::Base.transaction { move! }
+      rescue ActiveRecord::RecordInvalid => e
+        Result.new(error: e.record.errors.full_messages.join(", "))
+      rescue ActiveRecord::RecordNotUnique
+        # Two concurrent files of the same plan raced past the read; the
+        # unique plan_id index caught it. The transaction above rolled back,
+        # so retrying once starts a clean one — and the placement now
+        # exists, which makes this a plain move.
+        raise if @retried_unique
+        @retried_unique = true
+        @plan.reload_placement
+        retry
+      end
+
+      private
+
+      # One transaction, because a move is one fact: the row that says where
+      # the plan lives, the slug that follows from it, the alias that keeps
+      # the old address working, and the two audit trails either all happen
+      # or none do. The namespace lock is taken first and released by the
+      # commit, so nothing else claims a segment here while the new slug is
+      # being chosen — see Library#lock_namespace!.
+      def move!
+        @library.lock_namespace!
+
         placement = @plan.placement
         old_path = placement&.folder&.path
         # Captured before the write: afterwards the plan resolves through
@@ -64,13 +96,6 @@ module CoPlan
           return Result.new(placement: nil)
         end
 
-        # Filing requires the plan to be listable for you — an unlisted
-        # draft someone linked you can be read, but filing it into a
-        # browsable library would surface what its author hasn't published.
-        unless PlanPolicy.new(@actor, @plan).listed?
-          return Result.new(error: "Only published plans (or your own drafts) can be filed")
-        end
-
         if placement
           return Result.new(placement:) if placement.folder_id == @folder.id
 
@@ -84,19 +109,7 @@ module CoPlan
         reslug(old_url_path, @folder)
         log_move(old_path, @folder.path)
         Result.new(placement:)
-      rescue ActiveRecord::RecordInvalid => e
-        Result.new(error: e.record.errors.full_messages.join(", "))
-      rescue ActiveRecord::RecordNotUnique
-        # Two concurrent files of the same plan raced past the read; the
-        # unique plan_id index caught it. Retry once — the placement now
-        # exists, so this becomes a plain move.
-        raise if @retried_unique
-        @retried_unique = true
-        @plan.reload_placement
-        retry
       end
-
-      private
 
       # Filing is a move of the document, not curation of a personal
       # shelf, so it takes authority on both sides: write access to the

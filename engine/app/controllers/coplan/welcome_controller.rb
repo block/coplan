@@ -3,7 +3,9 @@ module CoPlan
   #
   # Behavior at "/" (root):
   # * Signed-in users who already have at least one plan are redirected to
-  #   their Workspace — that's home base; the Feed is a nav click away.
+  #   their own library — that's home base, and it has an address, so the
+  #   session starts on the URL they'd want to share. The Feed is a nav
+  #   click away.
   # * Everyone else (signed-in users with no plans yet, or anyone hitting the
   #   page anonymously) sees the landing partial configured via
   #   `CoPlan.configuration.landing_page_partial`.
@@ -16,7 +18,8 @@ module CoPlan
     # page that needs to work for first-time visitors. We replace the engine's
     # required-auth `before_action` with a softer version that resolves the
     # current user when present (so we can personalize CTAs and redirect
-    # established users to /plans) but doesn't reject anonymous visitors.
+    # established users to their library) but doesn't reject anonymous
+    # visitors.
     # Hosts that gate the whole app at the perimeter (BeyondCorp, OIDC) will
     # still enforce sign-in upstream.
     skip_before_action :authenticate_coplan_user!
@@ -24,7 +27,7 @@ module CoPlan
 
     def show
       if signed_in? && current_user.created_plans.exists? && params[:force].blank?
-        redirect_to plans_path and return
+        redirect_to helpers.own_library_browse_path(current_user) and return
       end
 
       @landing_partial = CoPlan.configuration.landing_page_partial

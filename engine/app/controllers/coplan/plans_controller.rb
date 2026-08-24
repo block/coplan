@@ -1,6 +1,6 @@
 module CoPlan
   class PlansController < ApplicationController
-    before_action :set_plan, only: [ :show, :edit, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :history, :edit_content, :update_content, :preview ]
+    before_action :set_plan, only: [ :show, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :update_content, :preview ]
     # /plans/<uuid> is the legacy address; the readable one is canonical.
     # `only: [ :show ]` matters twice over — it's also why BrowseController,
     # which calls `show` as a method from its own action, doesn't bounce
@@ -8,9 +8,6 @@ module CoPlan
     before_action :redirect_to_canonical_url, only: [ :show ]
 
     PER_PAGE = 20
-
-    SCOPES = %w[mine all].freeze
-    DEFAULT_SCOPE = "mine".freeze
 
     # "private" is the user-facing name; "draft" is the stored visibility
     # value and stays accepted so old links keep working.
@@ -30,26 +27,21 @@ module CoPlan
     # Turbo-frame requests are page fetches for one of those lists and
     # render only the row page partial (`group` param: "level" pages the
     # direct-placement list, anything else the flat results).
+    #
+    # `@library` and `@folder` say which place is being browsed, and both
+    # arrive from BrowseController, which resolved them from the path.
+    # There is no folder param: a folder is a place, and places have
+    # addresses — a folder that no longer exists no longer resolves, so
+    # "that folder is gone" is a 404 on the way in rather than a check
+    # here.
     def index
-      @scope = SCOPES.include?(params[:scope]) ? params[:scope] : DEFAULT_SCOPE
       @filter = FILTERS.include?(params[:filter]) ? params[:filter] : nil
       @filter = "draft" if @filter == "private"
       @updated_window = UPDATED_WINDOWS[params[:updated]] && params[:updated]
       load_folder_tree
 
-      if params[:folder].present?
-        @folder = @folders_by_id[params[:folder]]
-        if @folder.nil? && !turbo_frame_request?
-          redirect_to plans_path(params.permit(:scope, :filter, :plan_type, :tag, :updated).to_h),
-            alert: "That folder no longer exists."
-          return
-        end
-      end
-
-      plans = scoped_plans_base.includes(:plan_type, :tags, :created_by_user, :current_version_stub)
+      plans = library_plans.includes(:plan_type, :tags, :created_by_user, :current_version_stub)
       plans = apply_workspace_filters(plans)
-      # Stale frame fetch for a since-deleted folder: render an empty page.
-      plans = plans.none if params[:folder].present? && @folder.nil?
 
       if filtered_view? || turbo_frame_request?
         plans = if params[:group] == "level" || (!filtered_view? && turbo_frame_request?)
@@ -77,7 +69,7 @@ module CoPlan
               has_next_page: @has_next_page,
               group_key: params[:group].presence || "results",
               frame_filter: @filter,
-              frame_folder: params[:folder].presence
+              frame_folder: @folder&.id
             },
             layout: false
           return
@@ -114,7 +106,7 @@ module CoPlan
         unless folder
           respond_to do |format|
             format.json { render json: { error: "Unknown folder" }, status: :unprocessable_content }
-            format.html { redirect_back fallback_location: plans_path, alert: "Unknown folder." }
+            format.html { redirect_back fallback_location: helpers.own_library_browse_path(current_user), alert: "Unknown folder." }
           end
           return
         end
@@ -124,7 +116,7 @@ module CoPlan
       unless result.success?
         respond_to do |format|
           format.json { render json: { error: result.error }, status: :unprocessable_content }
-          format.html { redirect_back fallback_location: plans_path, alert: result.error }
+          format.html { redirect_back fallback_location: helpers.own_library_browse_path(current_user), alert: result.error }
         end
         return
       end
@@ -138,7 +130,7 @@ module CoPlan
             message: notice
           }
         end
-        format.html { redirect_back fallback_location: plans_path, notice: notice }
+        format.html { redirect_back fallback_location: helpers.own_library_browse_path(current_user), notice: notice }
       end
     end
 
@@ -146,7 +138,7 @@ module CoPlan
       authorize!(@plan, :show?)
       # Old ?tab=history links: history is its own page now (the other
       # former tabs are same-page sections).
-      return redirect_to history_plan_path(@plan) if params[:tab] == "history"
+      return redirect_to helpers.plan_history_browse_path(@plan) if params[:tab] == "history"
       # Where the plan lives. One placement, the same for every reader —
       # it drives the compact jump up to the containing folder.
       @placement = PlanPlacement.includes(:library, folder: { parent: :parent })
@@ -166,17 +158,26 @@ module CoPlan
     end
 
     # A full page (reached from the header's clock icon), not a tab —
-    # Backspace or the back link returns to the document.
+    # Backspace or the back link returns to the document. Lives at
+    # <document>/history; the actions below are the pages under it.
     def history
       authorize!(@plan, :show?)
       @history_items = @plan.history_items
     end
 
-    # The separate title-and-tags page merged into the unified editor —
-    # keep the route working for old links.
-    def edit
-      authorize!(@plan, :update?)
-      redirect_to edit_content_plan_path(@plan)
+    # One past version, addressed by the revision number the history list
+    # shows — <document>/history/7.
+    def version
+      authorize!(@plan, :show?)
+      load_version
+    end
+
+    # The same comparison as a bare fragment, for the turbo-frame that the
+    # history page loads it into (rendered without a layout — see
+    # BrowseController::PAGES).
+    def version_diff
+      authorize!(@plan, :show?)
+      load_version
     end
 
     def update
@@ -493,12 +494,12 @@ module CoPlan
     # PlanViewer.last_seen_at — recency against your own reading history,
     # not workflow state. Bounded: only the newest RECENT_CANDIDATES are
     # considered, and at most RECENT_LIMIT surface.
-    # Follows the active scope, so "mine" stays your own work. That means
-    # the "new to you" badge only fires under scope=all: it needs plans
-    # someone else wrote, and those used to reach your workspace by being
-    # filed onto your shelf. With one place per plan, they don't.
+    # Scoped to the library being browsed, which is why the "new to you"
+    # badge fires on someone else's page rather than your own: it needs
+    # plans another person wrote, and with one place per plan those live on
+    # their shelf, not yours.
     def load_recently_updated
-      candidates = scoped_plans_base.active
+      candidates = library_plans.active
         .includes(:created_by_user)
         .order(updated_at: :desc, id: :desc)
         .limit(RECENT_CANDIDATES)
@@ -557,14 +558,6 @@ module CoPlan
     # The base relation for this view. Used by both the main-pane plan
     # lists and the sidebar counts, so folder/tag counts always match what
     # clicking through shows.
-    def scoped_plans_base
-      # Everything you can see, wherever it lives — the one view that isn't
-      # a place. Reached by link (Home's tags), never from the sidebar.
-      return Plan.visible_to(current_user) if @scope == "all"
-
-      library_plans
-    end
-
     # Every document in the library being browsed, in either sense of "in":
     # filed into one of its folders, or loose at its root — its owner's own
     # work that isn't filed anywhere.
@@ -584,8 +577,8 @@ module CoPlan
     # derived in memory.
     #
     # `@library` is whatever the route resolved to — BrowseController sets
-    # it before delegating here. Your own is the default, which is what
-    # /_/plans and the legacy /plans both mean.
+    # it before delegating here. Your own is the default, which is what the
+    # legacy /plans and /library both mean.
     def load_folder_tree
       @library ||= current_user.library
       @can_write = @library.writable_by?(current_user)
@@ -621,11 +614,11 @@ module CoPlan
     # folder counts respect tag/type/date), INCLUDING the Hidden filter:
     # folder/tag/type links carry `filter` (WORKSPACE_LINK_PARAMS), so with
     # "Archived" active a folder count means "archived plans in here". All
-    # from scoped_plans_base, so other users' private plans never leak
+    # from library_plans, so other users' private plans never leak
     # through counts (Plan.visible_to). Without a filter, archived plans
     # are opt-in and excluded (filtered_plans defaults to .active).
     def load_workspace_sidebar
-      count_base = filtered_plans(scoped_plans_base, @filter)
+      count_base = filtered_plans(library_plans, @filter)
 
       direct_counts = apply_workspace_filters(count_base)
         .joins(:placement)
@@ -724,21 +717,31 @@ module CoPlan
       @plan = Plan.find(params[:id])
     end
 
+    # The revision number in the URL, not a version id — see
+    # BrowseController's routes. A revision nobody wrote is a 404, the same
+    # as any other address that names nothing.
+    def load_version
+      @version = @plan.plan_versions.find_by!(revision: params[:revision])
+      @previous_version = @plan.plan_versions.find_by(revision: @version.revision - 1)
+      return if @previous_version.nil?
+
+      @diff = Diffy::Diff.new(@previous_version.content_markdown, @version.content_markdown,
+        include_plus_and_minus_in_html: true, context: 3)
+    end
+
     # 301s /plans/<uuid> onto the document's readable address, so the
     # address bar — and everything anyone copies out of it — converges
     # there. Permanent rather than temporary: the id form isn't a
     # redirect-of-the-day, it's the old name for this page.
     #
     # HTML GETs only. A Turbo Frame fetch or a JSON caller asked for this
-    # exact URL and should get a response, not a hop. A plan whose slug
-    # hasn't been backfilled yet has no readable address to go to, so it
-    # renders here.
+    # exact URL and should get a response, not a hop. Every plan has a
+    # readable address to go to — `slug` is NOT NULL — so this always hops.
     def redirect_to_canonical_url
       return unless request.get? && request.format.html?
       return if turbo_frame_request?
 
       canonical = helpers.plan_browse_path(@plan)
-      return if canonical == plan_path(@plan)
 
       # The query string comes along: `?thread=<id>` deep-links a comment
       # and `?tab=history` is itself a legacy hop onward. Dropping either

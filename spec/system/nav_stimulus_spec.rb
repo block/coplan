@@ -20,7 +20,7 @@ RSpec.describe "Navigation chrome", type: :system do
     let!(:plan) { create(:plan, :published, created_by_user: user, title: "Quarterly Payments Review") }
 
     it "opens with the / shortcut and shows typeahead results" do
-      visit plans_path
+      visit library_page_path(user)
       find("body").send_keys("/")
       expect(page).to have_css(".search-modal:popover-open")
 
@@ -32,7 +32,7 @@ RSpec.describe "Navigation chrome", type: :system do
     end
 
     it "opens from the header search button" do
-      visit plans_path
+      visit library_page_path(user)
       find(".site-nav__search").click
       expect(page).to have_css(".search-modal:popover-open")
     end
@@ -43,7 +43,7 @@ RSpec.describe "Navigation chrome", type: :system do
       thread = create(:comment_thread, plan: create(:plan, :published, created_by_user: user), created_by_user: user)
       create(:notification, user: user, plan: thread.plan, comment_thread: thread)
 
-      visit plans_path
+      visit library_page_path(user)
       find(".site-nav__bell").click
       expect(page).to have_css(".inbox-panel", visible: :visible)
       expect(find(".site-nav__bell")["aria-expanded"]).to eq("true")

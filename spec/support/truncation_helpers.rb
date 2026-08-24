@@ -9,10 +9,15 @@ module TruncationHelpers
   # them: a library handle is globally unique, so a leaked row keeps
   # "alice" reserved and the *next* spec's alice quietly gets a different
   # URL. Truncating users without them leaves exactly that orphan.
+  #
+  # Plan events are here for a related reason: filing a plan writes one,
+  # and a leaked event is invisible to the spec that leaked it but shows up
+  # as an extra row in the next spec that counts them.
   PLAN_TABLES = %w[
     coplan_plan_tags
     coplan_tags
     coplan_plan_placements
+    coplan_plan_events
     coplan_plan_versions
     coplan_plans
     coplan_folders
