@@ -166,7 +166,7 @@ CoPlan::Engine.routes.draw do
         end
         # Presence/state for an agent working this plan (drives the
         # "Claude is editing…" pill and subscribes the token to events).
-        resource :agent_session, only: [:create, :update, :destroy], controller: "agent_sessions"
+        resource :agent_session, only: [ :create, :update, :destroy ], controller: "agent_sessions"
         # Deletes an individual comment (by comment ID, not thread ID).
         # Distinct from the routes above, which key off thread ID.
         delete "comments/:id/delete", to: "comments#destroy", as: :destroy_comment

@@ -8,7 +8,7 @@ RSpec.describe CoPlan::AgentEventBus do
       bus.with_slot do |first|
         bus.with_slot do |second|
           bus.with_slot do |third|
-            expect([first, second, third]).to eq([true, true, false])
+            expect([ first, second, third ]).to eq([ true, true, false ])
           end
         end
       end
