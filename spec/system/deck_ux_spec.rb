@@ -104,45 +104,7 @@ RSpec.describe "Deck UX", type: :system do
   # button the server hasn't sent yet. (The examples below that don't
   # present already wait explicitly for the same reason.)
   def start_show
-    unless page.has_css?(".deck-slide", wait: 10)
-      # TEMPORARY: on CI this one example lands on a routing error for
-      # /_/plans/<uuid> — a path the other examples in this file fetch
-      # happily in the same process, so a static route table can't be the
-      # whole story. Report the record, the path asked for, whether the
-      # test process's own route set recognizes it, and — the discriminator
-      # — whether simply asking again works. A passing retry means
-      # transient server state; a second failure means something about this
-      # request is genuinely different.
-      asked = plan_path(plan)
-      recognize = lambda do |set|
-        set.recognize_path(asked, method: :get).inspect
-      rescue StandardError => e
-        "#{e.class}: #{e.message}"
-      end
-      # The helper generated `asked`, so a route named `plan` exists. Ask
-      # both sets to recognize it, and dump what the engine actually has
-      # under /_/plans — locally both recognize it and the route is there.
-      routes = CoPlan::Engine.routes.routes.map { |r| r.path.spec.to_s }.grep(%r{^/_/plans}).first(4)
-      mounted = Rails.application.routes.routes.count { |r| r.app.respond_to?(:app) && r.app.app == CoPlan::Engine }
-      first = "url=#{page.current_url} title=#{page.title.inspect}"
-      visit asked
-      retried = "url=#{page.current_url} deck=#{page.has_css?('.deck-slide', wait: 10)}"
-
-      raise <<~DIAG
-        No .deck-slide.
-          asked:      #{asked}
-          plan:       slug=#{plan.slug.inspect} suffix=#{plan.slug_suffix.inspect} \
-        handle=#{plan.library_handle.inspect} url_path=#{plan.url_path.inspect} \
-        visibility=#{plan.visibility.inspect}
-          app recog:  #{recognize.call(Rails.application.routes)}
-          eng recog:  #{recognize.call(CoPlan::Engine.routes)}
-          eng routes: #{routes.inspect} (engine mounted #{mounted}x)
-          first try:  #{first}
-          retry:      #{retried}
-          console:    #{page.driver.browser.logs.get(:browser).map(&:message).last(5).inspect}
-          body:       #{page.find('body').text[0, 300].inspect}
-      DIAG
-    end
+    expect(page).to have_css(".deck-slide", wait: 10)
     click_button "Present"
     expect(page).to have_css(".deck--presenting .deck-slide--current", wait: 5)
   end
@@ -205,8 +167,14 @@ RSpec.describe "Deck UX", type: :system do
     # A call shares a window; macOS moves a fullscreen window onto its own
     # Space, where screen-share pickers can't see it. So starting the show
     # must not take the screen — `f` is the presenter asking for it.
+    #
+    # Reached by its readable address rather than plan_path's /_/plans/<id>.
+    # That's the canonical URL — PlansController 301s the id form onto it —
+    # so it's the address a presenter actually opens. It also steps around
+    # a CI-only routing failure on the legacy id path that this example
+    # kept tripping (see the note on the issue filed alongside this).
     it "fills the window without taking the screen, and takes it on f" do
-      visit plan_path(plan)
+      visit "/#{plan.url_path}"
       start_show
       expect(page.evaluate_script("!!document.fullscreenElement")).to be(false)
 
