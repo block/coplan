@@ -5,7 +5,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     it "replaces text" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: "Hello world, hello universe.",
-        operations: [{ "op" => "replace_exact", "old_text" => "world", "new_text" => "planet", "count" => 1 }]
+        operations: [ { "op" => "replace_exact", "old_text" => "world", "new_text" => "planet", "count" => 1 } ]
       )
       expect(result[:content]).to eq("Hello planet, hello universe.")
       expect(result[:applied].length).to eq(1)
@@ -14,7 +14,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     it "replaces all occurrences with count 2" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: "foo bar foo baz",
-        operations: [{ "op" => "replace_exact", "old_text" => "foo", "new_text" => "qux", "count" => 2 }]
+        operations: [ { "op" => "replace_exact", "old_text" => "foo", "new_text" => "qux", "count" => 2 } ]
       )
       expect(result[:content]).to eq("qux bar qux baz")
     end
@@ -23,7 +23,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect {
         CoPlan::Plans::ApplyOperations.call(
           content: "Hello world",
-          operations: [{ "op" => "replace_exact", "old_text" => "missing", "new_text" => "found", "count" => 1 }]
+          operations: [ { "op" => "replace_exact", "old_text" => "missing", "new_text" => "found", "count" => 1 } ]
         )
       }.to raise_error(CoPlan::Plans::OperationError, /found 0 occurrences/)
     end
@@ -32,7 +32,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect {
         CoPlan::Plans::ApplyOperations.call(
           content: "foo foo foo",
-          operations: [{ "op" => "replace_exact", "old_text" => "foo", "new_text" => "bar", "count" => 1 }]
+          operations: [ { "op" => "replace_exact", "old_text" => "foo", "new_text" => "bar", "count" => 1 } ]
         )
       }.to raise_error(CoPlan::Plans::OperationError, /found 3 occurrences/)
     end
@@ -41,7 +41,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect {
         CoPlan::Plans::ApplyOperations.call(
           content: "Hello",
-          operations: [{ "op" => "replace_exact", "new_text" => "Bye" }]
+          operations: [ { "op" => "replace_exact", "new_text" => "Bye" } ]
         )
       }.to raise_error(CoPlan::Plans::OperationError, /requires 'old_text'/)
     end
@@ -52,7 +52,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       content = "# Title\n\nIntro\n\n## Goals\n\nExisting goals."
       result = CoPlan::Plans::ApplyOperations.call(
         content: content,
-        operations: [{ "op" => "insert_under_heading", "heading" => "## Goals", "content" => "- New goal" }]
+        operations: [ { "op" => "insert_under_heading", "heading" => "## Goals", "content" => "- New goal" } ]
       )
       expect(result[:content]).to include("## Goals\n- New goal")
       expect(result[:content]).to include("Existing goals.")
@@ -62,7 +62,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect {
         CoPlan::Plans::ApplyOperations.call(
           content: "# Title\n\nContent",
-          operations: [{ "op" => "insert_under_heading", "heading" => "## Missing", "content" => "stuff" }]
+          operations: [ { "op" => "insert_under_heading", "heading" => "## Missing", "content" => "stuff" } ]
         )
       }.to raise_error(CoPlan::Plans::OperationError, /no heading matching/)
     end
@@ -72,7 +72,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect {
         CoPlan::Plans::ApplyOperations.call(
           content: content,
-          operations: [{ "op" => "insert_under_heading", "heading" => "## Goals", "content" => "stuff" }]
+          operations: [ { "op" => "insert_under_heading", "heading" => "## Goals", "content" => "stuff" } ]
         )
       }.to raise_error(CoPlan::Plans::OperationError, /found 2 headings/)
     end
@@ -83,7 +83,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       content = "First paragraph.\n\nThis is deprecated.\n\nThird paragraph."
       result = CoPlan::Plans::ApplyOperations.call(
         content: content,
-        operations: [{ "op" => "delete_paragraph_containing", "needle" => "deprecated" }]
+        operations: [ { "op" => "delete_paragraph_containing", "needle" => "deprecated" } ]
       )
       expect(result[:content]).to eq("First paragraph.\n\nThird paragraph.")
       expect(result[:content]).not_to include("deprecated")
@@ -93,7 +93,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect {
         CoPlan::Plans::ApplyOperations.call(
           content: "Some content.",
-          operations: [{ "op" => "delete_paragraph_containing", "needle" => "missing" }]
+          operations: [ { "op" => "delete_paragraph_containing", "needle" => "missing" } ]
         )
       }.to raise_error(CoPlan::Plans::OperationError, /no paragraph containing/)
     end
@@ -103,7 +103,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect {
         CoPlan::Plans::ApplyOperations.call(
           content: content,
-          operations: [{ "op" => "delete_paragraph_containing", "needle" => "deprecated" }]
+          operations: [ { "op" => "delete_paragraph_containing", "needle" => "deprecated" } ]
         )
       }.to raise_error(CoPlan::Plans::OperationError, /found 2 paragraphs/)
     end
@@ -117,7 +117,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     it "replaces an entire section including heading" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: content,
-        operations: [{ "op" => "replace_section", "heading" => "## Goals", "new_content" => "## Goals\n\nNew goals here." }]
+        operations: [ { "op" => "replace_section", "heading" => "## Goals", "new_content" => "## Goals\n\nNew goals here." } ]
       )
       expect(result[:content]).to include("## Goals\n\nNew goals here.")
       expect(result[:content]).not_to include("Goal 1.")
@@ -127,7 +127,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     it "replaces section body only when include_heading is false" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: content,
-        operations: [{ "op" => "replace_section", "heading" => "## Goals", "new_content" => "Replaced body.", "include_heading" => false }]
+        operations: [ { "op" => "replace_section", "heading" => "## Goals", "new_content" => "Replaced body.", "include_heading" => false } ]
       )
       expect(result[:content]).to include("## Goals")
       expect(result[:content]).to include("Replaced body.")
@@ -137,7 +137,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     it "separates heading from body when include_heading is false on heading-only content" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: "## Solo",
-        operations: [{ "op" => "replace_section", "heading" => "## Solo", "new_content" => "New body.", "include_heading" => false }]
+        operations: [ { "op" => "replace_section", "heading" => "## Solo", "new_content" => "New body.", "include_heading" => false } ]
       )
       expect(result[:content]).to eq("## Solo\nNew body.")
     end
@@ -145,7 +145,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     it "replaces the last section (extends to EOF)" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: content,
-        operations: [{ "op" => "replace_section", "heading" => "## Timeline", "new_content" => "## Timeline\n\nNew timeline." }]
+        operations: [ { "op" => "replace_section", "heading" => "## Timeline", "new_content" => "## Timeline\n\nNew timeline." } ]
       )
       expect(result[:content]).to include("## Timeline\n\nNew timeline.")
       expect(result[:content]).not_to include("Q1 2025.")
@@ -156,7 +156,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       fenced_content = "# Title\n\n## Real\n\nContent.\n\n```\n## Fake\n\nNot real.\n```\n\n## After\n\nMore."
       result = CoPlan::Plans::ApplyOperations.call(
         content: fenced_content,
-        operations: [{ "op" => "replace_section", "heading" => "## Real", "new_content" => "## Real\n\nReplaced." }]
+        operations: [ { "op" => "replace_section", "heading" => "## Real", "new_content" => "## Real\n\nReplaced." } ]
       )
       # ## Fake inside code fence is NOT a section boundary, so the ## Real
       # section extends from ## Real all the way to ## After (including the fence)
@@ -170,7 +170,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect {
         CoPlan::Plans::ApplyOperations.call(
           content: content,
-          operations: [{ "op" => "replace_section", "heading" => "## Missing", "new_content" => "x" }]
+          operations: [ { "op" => "replace_section", "heading" => "## Missing", "new_content" => "x" } ]
         )
       }.to raise_error(CoPlan::Plans::OperationError, /heading_not_found/)
     end
@@ -180,7 +180,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect {
         CoPlan::Plans::ApplyOperations.call(
           content: dup_content,
-          operations: [{ "op" => "replace_section", "heading" => "## Goals", "new_content" => "x" }]
+          operations: [ { "op" => "replace_section", "heading" => "## Goals", "new_content" => "x" } ]
         )
       }.to raise_error(CoPlan::Plans::OperationError, /ambiguous_heading/)
     end
@@ -189,7 +189,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect {
         CoPlan::Plans::ApplyOperations.call(
           content: content,
-          operations: [{ "op" => "replace_section", "new_content" => "x" }]
+          operations: [ { "op" => "replace_section", "new_content" => "x" } ]
         )
       }.to raise_error(CoPlan::Plans::OperationError, /requires 'heading'/)
     end
@@ -198,7 +198,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect {
         CoPlan::Plans::ApplyOperations.call(
           content: content,
-          operations: [{ "op" => "replace_section", "heading" => "## Goals" }]
+          operations: [ { "op" => "replace_section", "heading" => "## Goals" } ]
         )
       }.to raise_error(CoPlan::Plans::OperationError, /requires 'new_content'/)
     end
@@ -206,7 +206,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     it "includes resolved position data" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: content,
-        operations: [{ "op" => "replace_section", "heading" => "## Goals", "new_content" => "## Goals\n\nNew." }]
+        operations: [ { "op" => "replace_section", "heading" => "## Goals", "new_content" => "## Goals\n\nNew." } ]
       )
       applied = result[:applied][0]
       expect(applied["resolved_range"]).to be_an(Array)
@@ -218,7 +218,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       nested = "# Title\n\n## Section\n\nBody.\n\n### Subsection\n\nSub body.\n\n## Next\n\nOther."
       result = CoPlan::Plans::ApplyOperations.call(
         content: nested,
-        operations: [{ "op" => "replace_section", "heading" => "## Section", "new_content" => "## Section\n\nAll new." }]
+        operations: [ { "op" => "replace_section", "heading" => "## Section", "new_content" => "## Section\n\nAll new." } ]
       )
       expect(result[:content]).to include("## Section\n\nAll new.")
       expect(result[:content]).not_to include("### Subsection")
@@ -244,7 +244,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     expect {
       CoPlan::Plans::ApplyOperations.call(
         content: "Hello",
-        operations: [{ "op" => "unknown_op" }]
+        operations: [ { "op" => "unknown_op" } ]
       )
     }.to raise_error(CoPlan::Plans::OperationError, /unknown op/)
   end
@@ -266,7 +266,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
   it "works with string keys" do
     result = CoPlan::Plans::ApplyOperations.call(
       content: "Hello world",
-      operations: [{ "op" => "replace_exact", "old_text" => "world", "new_text" => "planet", "count" => 1 }]
+      operations: [ { "op" => "replace_exact", "old_text" => "world", "new_text" => "planet", "count" => 1 } ]
     )
     expect(result[:content]).to eq("Hello planet")
   end
@@ -274,7 +274,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
   it "works with symbol keys" do
     result = CoPlan::Plans::ApplyOperations.call(
       content: "Hello world",
-      operations: [{ op: "replace_exact", old_text: "world", new_text: "planet", count: 1 }]
+      operations: [ { op: "replace_exact", old_text: "world", new_text: "planet", count: 1 } ]
     )
     expect(result[:content]).to eq("Hello planet")
   end
@@ -283,7 +283,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     it "occurrence: 2 targets the second match" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: "foo bar foo baz foo",
-        operations: [{ "op" => "replace_exact", "old_text" => "foo", "new_text" => "qux", "occurrence" => 2 }]
+        operations: [ { "op" => "replace_exact", "old_text" => "foo", "new_text" => "qux", "occurrence" => 2 } ]
       )
       expect(result[:content]).to eq("foo bar qux baz foo")
     end
@@ -291,7 +291,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     it "replace_all: true replaces all occurrences" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: "foo bar foo baz foo",
-        operations: [{ "op" => "replace_exact", "old_text" => "foo", "new_text" => "qux", "replace_all" => true }]
+        operations: [ { "op" => "replace_exact", "old_text" => "foo", "new_text" => "qux", "replace_all" => true } ]
       )
       expect(result[:content]).to eq("qux bar qux baz qux")
     end
@@ -299,7 +299,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     it "legacy count still works for backward compat" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: "foo bar foo baz",
-        operations: [{ "op" => "replace_exact", "old_text" => "foo", "new_text" => "qux", "count" => 2 }]
+        operations: [ { "op" => "replace_exact", "old_text" => "foo", "new_text" => "qux", "count" => 2 } ]
       )
       expect(result[:content]).to eq("qux bar qux baz")
     end
@@ -309,31 +309,31 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
     it "single replace_exact includes resolved_range, new_range, and delta" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: "Hello world",
-        operations: [{ "op" => "replace_exact", "old_text" => "world", "new_text" => "planet", "count" => 1 }]
+        operations: [ { "op" => "replace_exact", "old_text" => "world", "new_text" => "planet", "count" => 1 } ]
       )
       applied = result[:applied][0]
-      expect(applied["resolved_range"]).to eq([6, 11])
-      expect(applied["new_range"]).to eq([6, 12])
+      expect(applied["resolved_range"]).to eq([ 6, 11 ])
+      expect(applied["new_range"]).to eq([ 6, 12 ])
       expect(applied["delta"]).to eq(1)
     end
 
     it "replace_all applied ops include replacements array" do
       result = CoPlan::Plans::ApplyOperations.call(
         content: "foo bar foo baz",
-        operations: [{ "op" => "replace_exact", "old_text" => "foo", "new_text" => "quux", "replace_all" => true }]
+        operations: [ { "op" => "replace_exact", "old_text" => "foo", "new_text" => "quux", "replace_all" => true } ]
       )
       applied = result[:applied][0]
       expect(applied["replacements"]).to be_an(Array)
       expect(applied["replacements"].length).to eq(2)
 
       first = applied["replacements"][0]
-      expect(first["resolved_range"]).to eq([0, 3])
-      expect(first["new_range"]).to eq([0, 4])
+      expect(first["resolved_range"]).to eq([ 0, 3 ])
+      expect(first["new_range"]).to eq([ 0, 4 ])
       expect(first["delta"]).to eq(1)
 
       second = applied["replacements"][1]
-      expect(second["resolved_range"]).to eq([8, 11])
-      expect(second["new_range"]).to eq([8, 12])
+      expect(second["resolved_range"]).to eq([ 8, 11 ])
+      expect(second["new_range"]).to eq([ 8, 12 ])
       expect(second["delta"]).to eq(1)
 
       expect(applied["total_delta"]).to eq(2)
@@ -343,7 +343,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       content = "# Title\n\nIntro\n\n## Goals\n\nExisting goals."
       result = CoPlan::Plans::ApplyOperations.call(
         content: content,
-        operations: [{ "op" => "insert_under_heading", "heading" => "## Goals", "content" => "- New goal" }]
+        operations: [ { "op" => "insert_under_heading", "heading" => "## Goals", "content" => "- New goal" } ]
       )
       applied = result[:applied][0]
       expect(applied["resolved_range"]).to be_an(Array)
@@ -356,7 +356,7 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       content = "First paragraph.\n\nThis is deprecated.\n\nThird paragraph."
       result = CoPlan::Plans::ApplyOperations.call(
         content: content,
-        operations: [{ "op" => "delete_paragraph_containing", "needle" => "deprecated" }]
+        operations: [ { "op" => "delete_paragraph_containing", "needle" => "deprecated" } ]
       )
       applied = result[:applied][0]
       expect(applied["resolved_range"]).to be_an(Array)
@@ -376,13 +376,13 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       expect(result[:content]).to eq("Hi world. Bye world.")
 
       first_applied = result[:applied][0]
-      expect(first_applied["resolved_range"]).to eq([0, 5])
-      expect(first_applied["new_range"]).to eq([0, 2])
+      expect(first_applied["resolved_range"]).to eq([ 0, 5 ])
+      expect(first_applied["new_range"]).to eq([ 0, 2 ])
       expect(first_applied["delta"]).to eq(-3)
 
       second_applied = result[:applied][1]
-      expect(second_applied["resolved_range"]).to eq([10, 17])
-      expect(second_applied["new_range"]).to eq([10, 13])
+      expect(second_applied["resolved_range"]).to eq([ 10, 17 ])
+      expect(second_applied["new_range"]).to eq([ 10, 13 ])
       expect(second_applied["delta"]).to eq(-4)
     end
 
@@ -400,15 +400,15 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
             "op" => "replace_exact",
             "old_text" => "",  # intentionally wrong / empty
             "new_text" => "x",
-            "_pre_resolved_ranges" => [[0, 10]]
+            "_pre_resolved_ranges" => [ [ 0, 10 ] ]
           }
         ]
       )
 
       expect(result[:content]).to eq("xABCDEFGHIJ")
       expect(result[:applied][0]["delta"]).to eq(-9)  # 1 - (10 - 0), NOT 1 - 0
-      expect(result[:applied][0]["resolved_range"]).to eq([0, 10])
-      expect(result[:applied][0]["new_range"]).to eq([0, 1])
+      expect(result[:applied][0]["resolved_range"]).to eq([ 0, 10 ])
+      expect(result[:applied][0]["new_range"]).to eq([ 0, 1 ])
     end
   end
 end

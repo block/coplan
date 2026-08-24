@@ -1,5 +1,9 @@
 <% content_for(:title, "#{@plan.title} — CoPlan") %>
 <% content_for(:head) do %>
+  <%# One address per document. Anything that reaches this page by the
+      legacy /plans/<uuid> form — a link that predates slugs — still says
+      here which URL is the real one. %>
+  <link rel="canonical" href="<%= plan_browse_url(@plan) %>">
   <meta property="og:title" content="<%= @plan.title %>">
   <meta property="og:description" content="<%= plan_og_description(@plan) %>">
   <meta property="og:type" content="article">
@@ -9,24 +13,23 @@
   <meta name="twitter:description" content="<%= plan_og_description(@plan) %>">
 <% end %>
 
-<% my_placement = current_user && @shelf_placements.find { |p| p.library.writable_by?(current_user) } %>
 <% reference_count = plan_reference_count(@plan, @references) %>
 
 <%# Fills the sticky nav's title slot (see layouts/coplan/application). The
     containing-folder control, icon, and title mirror the masthead;
     coplan--nav-title fades them in once #plan-header scrolls behind the bar. %>
 <% content_for :nav_title do %>
-  <%= render "coplan/plans/nav_context", plan: @plan, author_placement: @author_placement %>
+  <%= render "coplan/plans/nav_context", plan: @plan, placement: @placement %>
 <% end %>
 
 <%= turbo_stream_from @plan %>
 
 <%# plan-keys: Backspace goes back to wherever you came from; [ / ] jump
     between the document and its footnote sections. Cold opens (direct link,
-    new tab) have no history — fall back to where the plan lives in the
-    viewer's library, not the workspace root. %>
+    new tab) have no history — fall back to the folder the plan actually
+    lives in, not the workspace root. %>
 <div data-controller="coplan--plan-keys coplan--folder-picker"
-     data-coplan--plan-keys-fallback-url-value="<%= my_placement&.folder_id ? plans_path(folder: my_placement.folder_id) : plans_path %>">
+     data-coplan--plan-keys-fallback-url-value="<%= @placement ? folder_browse_path(@placement.folder) : library_browse_path(@plan.library) %>">
 
 <%# The masthead: the plan's identity (broadcast-replaced #plan-header)
     on the left, and the viewer-relative side column (presence + toolbar)
@@ -34,11 +37,11 @@
     broadcasts own the left, this request (and the visibility/archive
     stream responses) own the right, so neither can clobber the other. %>
 <div class="plan-masthead" data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
-  <%= render partial: "coplan/plans/header", locals: { plan: @plan, author_placement: @author_placement } %>
+  <%= render partial: "coplan/plans/header", locals: { plan: @plan, placement: @placement } %>
   <div class="plan-masthead__side">
     <%= render partial: "coplan/plans/agent_sessions", locals: { agent_sessions: CoPlan::AgentSession.visible.where(plan_id: @plan.id).order(:created_at) } %>
     <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(@plan), current_user: current_user } %>
-    <%= render partial: "coplan/plans/toolbar", locals: { plan: @plan, my_placement: my_placement } %>
+    <%= render partial: "coplan/plans/toolbar", locals: { plan: @plan, placement: @placement } %>
   </div>
 </div>
 
@@ -46,7 +49,7 @@
 
 <div class="plan-document card">
   <% if @plan.current_content.present? %>
-    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_section_keys.to_json %>">
+    <div class="plan-layout" data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_sections.keys.to_json %>" data-coplan--changed-sections-rewritten-value="<%= @changed_sections.rewritten? %>" data-coplan--changed-sections-history-url-value="<%= plan_history_browse_path(@plan) %>">
       <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
         <%# No "Contents" label — the outline speaks for itself, and the plan
             title now lives in the sticky nav. Just the collapse control. %>
@@ -58,9 +61,15 @@
             set apart so it reads as "after the document", not part of it. %>
         <ul class="content-nav__list content-nav__list--footnotes">
           <%# ids: the reference/attachment Turbo Streams keep these counts
-              live alongside the footnote headers' own counters. %>
-          <li><a href="#footnote-references" class="content-nav__footnote-link">References <span class="section-count" id="nav-references-count"><%= reference_count %></span></a></li>
-          <li><a href="#footnote-attachments" class="content-nav__footnote-link">Attachments <span class="section-count" id="nav-attachments-count"><%= @attachments.size %></span></a></li>
+              live alongside the footnote headers' own counters.
+
+              The jump is handled in JS for the same reason the outline links
+              above are: Turbo treats a same-page fragment link as a full
+              visit, so the bare anchor refetched and re-rendered the page —
+              and on a deck the re-rendered slides settle their heights
+              asynchronously, landing the scroll nowhere near the section. %>
+          <li><a href="#footnote-references" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">References <span class="section-count" id="nav-references-count"><%= reference_count %></span></a></li>
+          <li><a href="#footnote-attachments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Attachments <span class="section-count" id="nav-attachments-count"><%= @attachments.size %></span></a></li>
         </ul>
       </nav>
       <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>
@@ -70,6 +79,25 @@
           anchored to diagram labels get their marks (and pending ?thread=
           deep links can resolve). %>
       <div class="plan-layout__content">
+        <%# Presentations present: `p` or the button starts a fullscreen
+            show (deck_presenter_controller). The wrapper sits outside the
+            live-update swap target so a collaborator's edit landing
+            mid-show doesn't disconnect the presenter — and the toolbar sits
+            outside the text-selection content target below, because its
+            label is visible text and comment anchors count visible-text
+            occurrences under that target. %>
+        <% if @plan.presentation? %>
+        <div class="deck-presenter" data-controller="coplan--deck-presenter">
+          <div class="deck-toolbar">
+            <%# The only place the show's keys are advertised before it
+                starts — mid-show there is no room for a legend, and the pen
+                is the one gesture nobody would guess. %>
+            <button type="button" class="deck-toolbar__present" data-action="coplan--deck-presenter#start" title="Present (p) — mid-show, drag to highlight, d for the pen">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.8a1 1 0 0 1 1.53-.85l11.1 7.2a1 1 0 0 1 0 1.7l-11.1 7.2A1 1 0 0 1 7 19.2z"/></svg>
+              Present <kbd>p</kbd>
+            </button>
+          </div>
+        <% end %>
         <%# Selection-to-comment is scoped to this inner wrapper: the back
             matter below shares the column but must not offer comment
             anchors — they'd never resolve against the document body. %>
@@ -89,6 +117,9 @@
 
           <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
         </div>
+        <% if @plan.presentation? %>
+        </div>
+        <% end %>
 
         <%= render partial: "coplan/plans/footnotes",
               locals: { plan: @plan, references: @references, attachments: @attachments } %>

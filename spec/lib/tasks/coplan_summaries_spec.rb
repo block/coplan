@@ -46,7 +46,7 @@ RSpec.describe "coplan:summaries:backfill", type: :task do
     clear_enqueued_jobs
     run_task
 
-    expect(enqueued_jobs.map { |job| job[:args].first["plan_id"] }).to eq([eligible.id])
+    expect(enqueued_jobs.map { |job| job[:args].first["plan_id"] }).to eq([ eligible.id ])
   end
 
   it "clears a stale sha claim on a summary-less plan so the retried job isn't debounced away" do

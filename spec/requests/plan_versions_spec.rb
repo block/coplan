@@ -9,7 +9,7 @@ RSpec.describe "Plan versions", type: :request do
 
   describe "GET /plans/:plan_id/versions/:id" do
     it "renders a version to any viewer" do
-      get plan_version_path(plan, plan.current_plan_version)
+      get plan_version_page_path(plan, plan.current_plan_version)
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(plan.title)
     end
@@ -21,7 +21,7 @@ RSpec.describe "Plan versions", type: :request do
                   content_markdown: "# Plan\n\nChanged line.\n", actor_id: author.id)
       plan.update!(current_plan_version: v2, current_revision: 2)
 
-      get diff_plan_version_path(plan, v2)
+      get plan_version_diff_page_path(plan, v2)
       expect(response).to have_http_status(:ok)
       # Assert on text, not raw HTML: Diffy shells out to the platform diff
       # binary, and GNU vs BSD diff pair changed lines differently — the
@@ -30,7 +30,7 @@ RSpec.describe "Plan versions", type: :request do
     end
 
     it "handles revision 1, which has no previous version" do
-      get diff_plan_version_path(plan, plan.current_plan_version)
+      get plan_version_diff_page_path(plan, plan.current_plan_version)
       expect(response).to have_http_status(:ok)
     end
   end

@@ -4,7 +4,7 @@ module CoPlan
     FAVICON_COLORS = {
       "production"  => { start: "#3B82F6", stop: "#1E40AF" },
       "staging"     => { start: "#F59E0B", stop: "#D97706" },
-      "development" => { start: "#10B981", stop: "#047857" },
+      "development" => { start: "#10B981", stop: "#047857" }
     }.freeze
 
     def coplan_favicon_tag
@@ -45,13 +45,20 @@ module CoPlan
       truncate([ preview.context, preview.description ].compact.join(" — "), length: 250, omission: "…")
     end
 
-    # Canonical URL for a user's profile — username when they have one
-    # (readable, stable), id otherwise.
+    # Where a person lives: their library, which is their page. Their handle
+    # is usually their username, but not always (collisions get a suffix),
+    # so it has to be read rather than derived.
+    #
+    # Memoized per request because list pages ask for the same few authors
+    # over and over — one lookup per distinct person, not per row. A library
+    # is materialized on first touch (User#library), so the first ask for
+    # someone who has never had one also creates it.
     def profile_path_for(user)
-      profile_path(user.username.presence || user.id)
+      handles = (@browse_handles ||= {})
+      browse_library_path(handle: handles[user.id] ||= user.library.handle)
     end
 
-    # Author names everywhere in the app link to profiles.
+    # Author names everywhere in the app link to their library.
     def profile_link(user, css_class: "profile-link")
       return "" unless user
       link_to user.name, profile_path_for(user), class: css_class

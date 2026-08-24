@@ -9,6 +9,8 @@ module CoPlan
   # access is the library's call (Library#writable_by?), which is what
   # lets a future team library reuse all of this unchanged.
   class Folder < ApplicationRecord
+    include BroadcastsLibraryChanges
+
     MAX_DEPTH = 3
 
     # "/" is reserved as the path separator for folder_path lookups
@@ -27,10 +29,44 @@ module CoPlan
     # find_or_create_by_path!.
     normalizes :name, with: ->(name) { name.strip }
 
+    # The folder's URL segment, derived from its name. Nothing downstream
+    # stores it — a plan knows only its own slug — so renaming a folder
+    # updates this one row and no plan row at all.
+    #
+    # On both callbacks deliberately: before_validation so the uniqueness
+    # check sees the slug, before_save so a `save(validate: false)` still
+    # produces a NOT NULL-satisfying row. The method is idempotent.
+    before_validation :assign_slug
+    before_save :assign_slug
+    # Claiming a segment is the folder's half of a contest plans are also
+    # entering — see Library#lock_namespace!. Held from here through
+    # #disambiguate_shadowed_plans, so a plan created at this level while
+    # the folder lands can't be missed by the sweep *and* miss the folder.
+    before_save :lock_library_namespace
+    # A rename or a move leaves behind one prefix alias, which covers
+    # every plan and subfolder underneath — O(renames), not O(documents).
+    before_save :stash_previous_url_path
+    after_save :record_url_alias
+    # A folder arriving on a segment a plan was already using takes it —
+    # see #disambiguate_shadowed_plans.
+    after_save :disambiguate_shadowed_plans
+    # The folder tree and every count beside it are on screen for anyone
+    # browsing this library — a new shelf, a rename, a move or a deletion
+    # all change what they are looking at.
+    after_commit :broadcast_folder_change
+
     validates :name, presence: true,
       uniqueness: { scope: [ :library_id, :parent_id ], case_sensitive: false },
       format: { with: NAME_FORMAT, message: "cannot contain \"/\"" },
       length: { maximum: 100 }
+    # Siblings can share neither a name nor a slug: "Team EBT" and
+    # "Team-EBT" are distinct names claiming the same URL segment.
+    # Folders never take a disambiguating suffix the way plans do — a
+    # folder's segment appears in every URL beneath it, so it stays clean
+    # and the second folder is asked for a different name instead.
+    validates :slug, presence: true,
+      uniqueness: { scope: [ :library_id, :parent_id ], case_sensitive: false,
+                    message: "is already taken by a folder here" }
     # What belongs in this folder, in one line — read by agents (via the
     # library overview API) to organize by meaning, not just name.
     validates :description, length: { maximum: 255 }
@@ -64,9 +100,24 @@ module CoPlan
       ancestors.length + 1
     end
 
-    # Human-readable location, e.g. "Team EBT/Q3".
+    # Human-readable location, e.g. "Team EBT/Q3". This is the shape the
+    # API's `folder_path` param speaks, and it stays display-cased — the
+    # URL form is #slug_path, which is a different string.
     def path
       (ancestors + [ self ]).map(&:name).join("/")
+    end
+
+    # Library-relative URL path, e.g. "team-ebt/q3". Deliberately excludes
+    # the library handle so renaming a handle rewrites one library row
+    # rather than every folder underneath it.
+    def slug_path
+      (ancestors + [ self ]).map(&:slug).join("/")
+    end
+
+    # Handle-first path, the form URLs and aliases both speak:
+    # "orders/team-ebt/q3".
+    def url_path
+      [ library.handle, slug_path ].compact_blank.join("/")
     end
 
     # Finds or creates the folder hierarchy for a "/"-separated path like
@@ -109,6 +160,21 @@ module CoPlan
       end
     end
 
+    # Walks a slug path — "team-ebt/q3" — one segment at a time, which is
+    # how every browsable URL resolves. Returns the deepest folder, or nil
+    # if any segment is missing. Stops at MAX_DEPTH so a long hostile path
+    # can't turn into an unbounded query loop.
+    def self.find_by_slug_path(slug_path, library:)
+      segments = slug_path.to_s.split("/").map(&:strip).reject(&:blank?)
+      return nil if segments.empty? || segments.length > MAX_DEPTH
+
+      segments.reduce(nil) do |parent, slug|
+        folder = library.folders.find_by(parent_id: parent&.id, slug: slug.downcase)
+        return nil unless folder
+        folder
+      end
+    end
+
     # Full "A/B/C" path for every given folder, keyed by id, computed from
     # the in-memory list (no per-folder queries). Shared by the folders API
     # and the folder-picker helper.
@@ -127,7 +193,7 @@ module CoPlan
     end
 
     def self.ransackable_attributes(_auth_object = nil)
-      %w[id name description library_id parent_id created_by_user_id created_at updated_at]
+      %w[id name slug description library_id parent_id created_by_user_id created_at updated_at]
     end
 
     def self.ransackable_associations(_auth_object = nil)
@@ -135,6 +201,81 @@ module CoPlan
     end
 
     private
+
+    def broadcast_folder_change
+      broadcast_library_refresh(library)
+    end
+
+    # Follows the name. A rename is rare and its old URL keeps resolving
+    # via UrlAlias, so the segment tracking the current name is worth more
+    # than a frozen one.
+    def assign_slug
+      return if name.blank?
+      return unless slug.blank? || will_save_change_to_name?
+
+      self.slug = CoPlan::Slug.call(name).presence || "folder"
+    end
+
+    # Only when the folder is actually taking a segment: a description edit
+    # contests nothing and shouldn't queue behind anything.
+    def lock_library_namespace
+      return unless will_save_change_to_slug? || will_save_change_to_parent_id?
+
+      library&.lock_namespace!
+    end
+
+    # Captured before the write, because afterwards `ancestors` walks the
+    # *new* parent chain and the old path is no longer reconstructible.
+    def stash_previous_url_path
+      @previous_url_path = nil
+      return if new_record?
+      return unless will_save_change_to_slug? || will_save_change_to_parent_id?
+
+      old_slug = slug_in_database
+      return if old_slug.blank?
+
+      old_parent = parent_id_in_database.present? ? Folder.find_by(id: parent_id_in_database) : nil
+      @previous_url_path = [ library.handle, old_parent&.slug_path, old_slug ].compact_blank.join("/")
+    end
+
+    def record_url_alias
+      return if @previous_url_path.blank?
+
+      UrlAlias.record!(from: @previous_url_path, to: url_path, kind: "prefix")
+      @previous_url_path = nil
+    end
+
+    # Urls::Resolve gives a folder the segment when a plan at the same
+    # level wants it too, so a folder created or renamed onto a plan's
+    # address would quietly make that document unreachable. The plan gets
+    # the disambiguating suffix it would have been given had the folder
+    # come first, and its old address keeps working through the alias
+    # AssignSlug records on the way past.
+    def disambiguate_shadowed_plans
+      return unless saved_change_to_slug? || saved_change_to_parent_id?
+
+      shadowed_plans.each do |plan|
+        Plans::AssignSlug.call(plan: plan)
+        plan.save!
+      end
+    end
+
+    # Plans addressed at this folder's own level: those filed in its
+    # parent, or the library's loose plans when it's a root folder.
+    #
+    # A locking read, in the same shape and for the same reasons as
+    # AssignSlug#siblings — see the note there. Without it, a plan that took
+    # this segment while we waited on the namespace lock stays invisible
+    # behind this transaction's snapshot and never gets moved aside.
+    def shadowed_plans
+      scope = if parent_id.present?
+        Plan.joins(:placement).where(coplan_plan_placements: { folder_id: parent_id })
+      else
+        library.unfiled_plans
+      end
+
+      scope.where(slug: slug, slug_suffix: nil).lock
+    end
 
     def parent_cannot_create_cycle
       return if parent_id.blank?

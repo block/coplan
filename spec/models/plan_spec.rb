@@ -51,20 +51,47 @@ RSpec.describe CoPlan::Plan, type: :model do
     expect(plan.current_content).to include("Plan Content")
   end
 
-  it "uses the author's own library placement as its containing location" do
-    author = create(:coplan_user)
-    viewer = create(:coplan_user)
-    plan = create(:plan, :published, created_by_user: author)
-    author_folder = create(:folder, created_by_user: author)
-    viewer_folder = create(:folder, created_by_user: viewer)
-    create(:plan_placement, plan: plan, folder: viewer_folder)
-    author_placement = create(:plan_placement, plan: plan, folder: author_folder)
+  describe "where it lives" do
+    let(:author) { create(:coplan_user) }
 
-    expect(plan.author_placement).to eq(author_placement)
+    it "is the folder it's filed in" do
+      plan = create(:plan, :published, created_by_user: author)
+      folder = create(:folder, created_by_user: author)
+      placement = create(:plan_placement, plan: plan, folder: folder)
+
+      expect(plan.placement).to eq(placement)
+      expect(plan.folder).to eq(folder)
+      expect(plan.library).to eq(author.library)
+    end
+
+    # Unfiled isn't homeless: the plan sits at the root of the library it
+    # was written in, which is what /<handle>/<slug> addresses.
+    it "falls back to the author's library when filed nowhere" do
+      plan = create(:plan, :published, created_by_user: author)
+
+      expect(plan.placement).to be_nil
+      expect(plan.folder).to be_nil
+      expect(plan.library).to eq(author.library)
+    end
   end
 
   # THE discovery predicate (mirrored by PlanPolicy#listed?). Everything a
   # user can be shown in a list routes through one of these two scopes.
+  describe "#presentation?" do
+    it "reflects the plan type's behavior" do
+      deck_type = create(:plan_type, name: "Presentation", behavior: "presentation")
+      expect(create(:plan, plan_type: deck_type).presentation?).to be(true)
+      expect(create(:plan).presentation?).to be(false)
+    end
+
+    it "changes when the plan is retyped" do
+      deck_type = create(:plan_type, name: "Presentation", behavior: "presentation")
+      plan = create(:plan)
+      plan.update!(plan_type: deck_type)
+      expect(plan.presentation?).to be(true)
+    end
+  end
+
   describe ".visible_to" do
     let(:author) { create(:coplan_user) }
     let(:viewer) { create(:coplan_user) }
@@ -102,7 +129,7 @@ RSpec.describe CoPlan::Plan, type: :model do
         :considering,
         created_by_user: author,
         title: "Quarterly Strategy Document")
-      plan.tags = [CoPlan::Tag.find_or_create_by!(name: "strategy")]
+      plan.tags = [ CoPlan::Tag.find_or_create_by!(name: "strategy") ]
       plan.reload
 
       expect(plan.search_text).to include("Quarterly Strategy Document")
@@ -121,14 +148,14 @@ RSpec.describe CoPlan::Plan, type: :model do
     it "refreshes when a tag is added" do
       plan = create(:plan, :considering)
       expect(plan.search_text).not_to include("infrastructure")
-      plan.tags = [CoPlan::Tag.find_or_create_by!(name: "infrastructure")]
+      plan.tags = [ CoPlan::Tag.find_or_create_by!(name: "infrastructure") ]
       expect(plan.reload.search_text).to include("infrastructure")
     end
 
     it "refreshes every associated plan when a tag is renamed" do
       tag = CoPlan::Tag.find_or_create_by!(name: "old-name")
       plan = create(:plan, :considering)
-      plan.tags = [tag]
+      plan.tags = [ tag ]
       expect(plan.reload.search_text).to include("old-name")
 
       tag.update!(name: "new-name")
@@ -141,7 +168,7 @@ RSpec.describe CoPlan::Plan, type: :model do
       # Simulates the after_commit on PlanTag running when its parent Plan
       # row is already gone — this happens during dependent: :destroy cascade.
       plan = create(:plan, :considering)
-      plan.tags = [CoPlan::Tag.find_or_create_by!(name: "platform")]
+      plan.tags = [ CoPlan::Tag.find_or_create_by!(name: "platform") ]
       plan_tag = plan.plan_tags.first
       allow(plan_tag).to receive(:plan).and_return(plan)
       allow(plan).to receive(:destroyed?).and_return(true)
@@ -168,8 +195,7 @@ RSpec.describe CoPlan::Plan, type: :model do
     self.use_transactional_tests = false
 
     after do
-      truncate_tables(*%w[coplan_plan_tags coplan_tags coplan_plan_versions coplan_plans
-                          coplan_plan_types coplan_search_queries coplan_users])
+      truncate_plan_tables
     end
 
     let!(:author) { create(:coplan_user, name: "Tessa Engineer") }

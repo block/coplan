@@ -135,6 +135,26 @@ The comment system is central to the collaboration workflow. Domain experts leav
 - Author marks completed work: **Resolve** (`todo → resolved`)
 - Resolved/discarded threads can be **Reopened** back to `pending`
 
+### Notifications follow the thread
+A closed thread (`resolved`/`discarded`) carries no unread inbox rows — its
+highlight is hidden in the doc view, so a row pointing at it would send the
+reader to an apparently empty page.
+- Closing a thread sweeps its unread notifications read (`CommentThread`
+  `after_commit` → `Notifications::MarkThreadRead`)
+- `agent_response` and `status_change` don't notify at all on an
+  already-closed thread (`Notifications::Create::SILENT_ON_CLOSED_THREAD`);
+  human replies and mentions still do
+- Opening a plan clears that plan's unread rows for the viewer
+  (`Notifications::MarkPlanRead`) — you looked, so the nudge is done. The
+  "you looked" signal is `PlanPresenceChannel#subscribed`, not the GET:
+  workspace rows prefetch on hover, and Turbo serves the click from its
+  prefetch cache without asking the server again. `PlansController#show`
+  does it too, but skips `X-Sec-Purpose: prefetch` requests — which is also
+  what keeps a hover from burning the changed-section highlights
+- The workspace "Needs attention" strip is `Notifications::NeedsAttention`,
+  and each row has a ✕ that clears the same plan without opening it
+  (`NotificationsController#mark_plan_read`, same service)
+
 ### Inline review UI
 - **Highlights**: anchored text is wrapped in `<mark>` elements — amber for `pending`, blue for `todo`, unstyled for `resolved`
 - **Margin dots**: colored indicators in the left margin aligned to each highlight's vertical position
@@ -147,6 +167,7 @@ The comment system is central to the collaboration workflow. Domain experts leav
 - `a` — accept the current pending thread
 - `d` — discard the current pending thread
 - `Enter` — submit reply; `Shift+Enter` — newline
+- Push-to-talk (hold to dictate a comment) is a per-user setting — `Ctrl+Space` by default, or Shift / Option / off (`CoPlan::User::VOICE_HOTKEYS`, `voice_controller.js`). A bare modifier has to be held past a delay to tell talking from typing; a chord records from the press.
 
 ### How thread data flows
 - Thread data is **server-rendered** as hidden `[data-anchor-text]` elements in `#plan-threads` (via `_thread_popover.html.erb`)

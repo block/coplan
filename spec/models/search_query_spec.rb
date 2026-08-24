@@ -62,7 +62,7 @@ RSpec.describe CoPlan::SearchQuery, type: :model do
       described_class.log!(user: user, query: "mine")
       described_class.log!(user: other_user, query: "theirs")
 
-      expect(described_class.recent_for(user).pluck(:query)).to eq(["mine"])
+      expect(described_class.recent_for(user).pluck(:query)).to eq([ "mine" ])
     end
   end
 end

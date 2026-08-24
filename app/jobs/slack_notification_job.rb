@@ -27,7 +27,7 @@ class SlackNotificationJob < ApplicationJob
     comment_body = first_comment_body(thread).truncate(300)
     plan_url = CoPlan::Engine.routes.url_helpers.plan_url(plan, **default_url_options)
 
-    lines = ["New comment on *#{plan.title}*:"]
+    lines = [ "New comment on *#{plan.title}*:" ]
     if thread.anchor_text.present?
       lines << "> _#{thread.anchor_text.truncate(120)}_"
     end

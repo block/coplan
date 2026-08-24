@@ -40,8 +40,10 @@ export default class extends Controller {
       const mermaid = await loadMermaid()
       if (!this.element.isConnected || generation !== this.renderGeneration) return
 
-      const theme = configureMermaid(mermaid)
       for (const { container, source } of sources) {
+        // Sequential renders, so re-configuring per diagram is safe (and
+        // a no-op when the theme hasn't changed).
+        const theme = configureMermaid(mermaid, diagramDark(container))
         await this.renderDiagram(mermaid, container, source, theme, generation)
       }
     } catch {
@@ -166,10 +168,21 @@ function loadMermaid() {
   return mermaidPromise
 }
 
-function configureMermaid(mermaid) {
+// A deck is a fixed artifact — its diagrams follow the deck theme, not
+// the reader's app scheme, so a dark-mode reader sees the same slides as
+// a light-mode one. Outside a deck, diagrams follow the app. The theme
+// list is small enough to name here; when the theme picker lands, the
+// deck can carry scheme metadata instead.
+function diagramDark(container) {
+  const deck = container.closest(".deck")
+  if (deck) return deck.dataset.deckTheme === "graphite"
+
   const explicitTheme = document.documentElement.dataset.theme
-  const dark = explicitTheme === "dark" ||
+  return explicitTheme === "dark" ||
     (!explicitTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)
+}
+
+function configureMermaid(mermaid, dark) {
   const theme = dark ? "dark" : "light"
   if (theme === configuredTheme) return theme
 

@@ -16,6 +16,31 @@ RSpec.describe CoPlan::PlanPresenceChannel, type: :channel do
       expect(CoPlan::PlanViewer.where(plan: plan, user: user)).to exist
     end
 
+    # The page being open is the real "you looked at it" signal: the GET can
+    # be a hover prefetch, and a prefetched click never reaches the server.
+    it "clears the plan's unread notifications for the viewer" do
+      thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: create(:coplan_user))
+      mine = create(:notification, user: user, plan: plan, comment_thread: thread)
+      other_plan = create(:plan, created_by_user: user)
+      other_thread = create(:comment_thread, plan: other_plan, plan_version: other_plan.current_plan_version, created_by_user: user)
+      elsewhere = create(:notification, user: user, plan: other_plan, comment_thread: other_thread)
+
+      subscribe(plan_id: plan.id)
+
+      expect(mine.reload.read_at).to be_present
+      expect(elsewhere.reload.read_at).to be_nil
+    end
+
+    it "clears nothing when the subscription is rejected" do
+      thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: user)
+      stale = create(:notification, user: user, plan: plan, comment_thread: thread)
+
+      subscribe(plan_id: "does-not-exist")
+
+      expect(subscription).to be_rejected
+      expect(stale.reload.read_at).to be_nil
+    end
+
     it "authenticates through the engine callback when the connection has no current_user" do
       stub_connection(request: ActionDispatch::Request.empty)
       allow(CoPlan.configuration).to receive(:authenticate).and_return(

@@ -4,18 +4,58 @@ module CoPlan
   module PlansHelper
     include MarkdownHelper
 
-    # Everything a workspace (plans index) link may carry. Filter links
-    # build on the current params via workspace_path so no call site has
-    # to re-list this whitelist — or remember which param to omit.
-    WORKSPACE_LINK_PARAMS = %i[scope filter plan_type tag folder updated].freeze
+    # The narrowing a workspace link may carry. Filter links build on the
+    # current params via workspace_path so no call site has to re-list this
+    # whitelist — or remember which param to omit.
+    #
+    # `folder` isn't in it: a folder names a place, so it travels as path
+    # segments rather than a query param. See workspace_path.
+    WORKSPACE_LINK_PARAMS = %i[filter plan_type tag updated].freeze
 
-    # A plans-index URL carrying the current filters with `overrides`
-    # applied; pass nil to clear a filter (blank values are dropped).
+    # A workspace URL for the library being browsed, carrying the current
+    # filters with `overrides` applied; pass nil to clear one.
+    #
+    # `folder:` says which folder the link points at, as a folder id —
+    # matching the ids the sidebar and the drag-and-drop controller already
+    # work in — and comes out as path segments, because a folder is a place
+    # and places have addresses. That's what keeps clicking a folder inside
+    # someone's library on that library's URL instead of bouncing back to
+    # your own workspace.
     def workspace_path(**overrides)
-      plans_path(
-        params.permit(*WORKSPACE_LINK_PARAMS).to_h.symbolize_keys
-          .merge(overrides).compact_blank
-      )
+      query = params.permit(*WORKSPACE_LINK_PARAMS).to_h.symbolize_keys
+        .merge(overrides.except(:folder)).compact_blank
+
+      folder = workspace_link_folder(overrides)
+      return folder_browse_path(folder, **query) if folder
+
+      library_browse_path(@library, **query)
+    end
+
+    # The breadcrumb and folder-tree root. "My Plans" when it's yours — the
+    # label people already know — and the owner's name otherwise, because
+    # the same crumb in someone else's library shouldn't claim to be yours.
+    def workspace_root_label
+      return "My Plans" if @can_write
+
+      "#{@profile&.name || @library.owner.try(:name) || @library.name}’s plans"
+    end
+
+    # The folder a workspace link points at: the override when one is given
+    # (nil clears it, back to the library root), otherwise wherever we
+    # already are. Resolved against the loaded tree, so it costs no query.
+    def workspace_link_folder(overrides)
+      id = overrides.key?(:folder) ? overrides[:folder] : @folder&.id
+      return nil if id.blank?
+
+      @folders_by_id&.[](id.to_s)
+    end
+
+    # DOM id of a plan row's unread-comment badge. Shared by the row that
+    # renders it and the Turbo Stream that removes it when that plan's
+    # notifications are cleared (NotificationsController#mark_plan_read) —
+    # takes a plan or a plan id.
+    def plan_unread_badge_id(plan)
+      "plan-unread-#{plan.respond_to?(:id) ? plan.id : plan}"
     end
 
     # Published is the unmarked normal state. The hidden states (draft,
@@ -53,7 +93,8 @@ module CoPlan
       "map" => %(<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>),
       "flask" => %(<path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/>),
       "shield" => %(<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>),
-      "wrench" => %(<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>)
+      "wrench" => %(<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>),
+      "presentation" => %(<path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/>)
     }.freeze
 
     # How many tint classes exist in CSS (.plan-type-icon--0 … --N-1).
@@ -77,6 +118,16 @@ module CoPlan
         class: "plan-type-icon plan-type-icon--#{size} plan-type-icon--#{tint}",
         title: plan_type.name,
         aria: { label: "#{plan_type.name} document" })
+    end
+
+    # What the mic button says about itself. The push-to-talk key is a
+    # setting, so the button is the only place on the page that can tell
+    # you which key yours ended up being — and "hold something to talk"
+    # is worse than saying nothing.
+    def voice_button_description(hotkey)
+      return "Comment by voice" if hotkey == "off"
+
+      "Comment by voice — or hold #{User::VOICE_HOTKEY_LABELS[hotkey]} to talk"
     end
 
     def plan_content_preview(plan, limit: 200)

@@ -92,6 +92,28 @@ The server diffs your content against the current revision, records granular ope
 
 See [Editing Plans](#editing-plans-recommended-full-content-replacement) for the full request/response reference, and the lease + operations path only when you need a surgical single-operation edit.
 
+## Writing Style
+
+These rules apply to every plan you write or edit. One exception mechanism: **a plan type's description or template may override any of them — the type wins.** (A persuasive pitch type can welcome persuasive language; these defaults assume a working document.)
+
+**The platform already records it.** Never write document metadata into the body:
+
+- No date or "last updated" lines — every version is timestamped in the plan history.
+- No author, attribution, or "prepared by" lines — every version and comment is attributed, including your agent name.
+- No status lines, status fields, or status tables — visibility, archival, and tags carry state (see [Visibility &amp; Archiving](#visibility--archiving)). There is no document status; do not invent one.
+- No version numbers or changelogs — the plan history is the changelog.
+
+The exception is dates that anchor **facts**, which belong in content: "confirmed against production 2026-08-19", "verified at commit abc123".
+
+**Write plainly.** Follow Simplified-Technical-English-style rules:
+
+- Short sentences. One idea per sentence. Active voice, present tense.
+- Plain verbs: "use", not "leverage"; "check", not "perform validation of".
+- No metaphors, no marketing adjectives, no drama. Words that signal padding — "robust", "seamless", "comprehensive", "cutting-edge", "elegant", "crucially", "delve", "honest", "actually" — are banned unless you are quoting someone.
+- State facts without selling them. The reader is a colleague deciding what to do, not an audience to impress. Write like a runbook, not a keynote.
+- Prefer a table or list over a paragraph when the content is enumerable.
+- Length is a cost. Write the shortest document that serves its reader, then stop.
+
 ## API Reference
 
 ### List Plans
@@ -110,7 +132,9 @@ Optional query params: `?visibility=draft` (your own private/unshared plans) or 
   "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
 ```
 
-Returns: `id`, `title`, `visibility`, `archived`, `current_content` (markdown), `current_revision`, `references` (array of linked resources).
+Returns: `id`, `title`, `url`, `visibility`, `archived`, `current_content` (markdown), `current_revision`, `references` (array of linked resources).
+
+`url` is the document's address, and there is exactly one — `<%= @base %>/<handle>/<folders>/<slug>`, reading like the document it points at. **When you tell a human about a plan, give them the `url`, never the id.** It follows a retitle or a move on its own, and the old address keeps resolving.
 
 ### Get Plan Snapshot (Recommended)
 
@@ -207,7 +231,7 @@ Update plan metadata (title, visibility, tags). Only fields included in the requ
   "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
 ```
 
-Allowed fields: `title` (string), `visibility` (`"published"` — see [Visibility &amp; Archiving](#visibility--archiving)), `archived` (boolean), `tags` (array of strings), `references` (array — see [References](#references) below).
+Allowed fields: `title` (string), `visibility` (`"published"` — see [Visibility &amp; Archiving](#visibility--archiving)), `archived` (boolean), `plan_type` (string — retype the plan; unknown names get a 422 listing the valid ones, and the new type's `default_tags` are added), `tags` (array of strings), `references` (array — see [References](#references) below).
 
 ### List Tags
 
@@ -265,7 +289,7 @@ Each folder includes `id`, `name`, `library_id`, `parent_id`, `path` (e.g. `"Tea
 - `folder_path` finds or creates the whole hierarchy in your library — the easiest way to organize.
 - Alternatively pass `folder_id` with an existing folder's ID from your library.
 - Pass an empty `folder_id` (`{"folder_id": ""}`) to take a plan off your shelf.
-- `folder_id`/`folder_path` in plan responses are **yours**: where *you* shelved that plan, `null` if you haven't.
+- `folder_id`/`folder_path` in plan responses say where the plan lives — one answer, the same for everybody, `null` for a plan nobody has filed yet. Filing a plan that's already filed **moves** it; there's no second copy.
 
 **Guidelines:**
 - Check `GET <%= @base %>/api/v1/library` (your library's map — folder tree with descriptions and counts) before creating new folders — reuse the existing structure.
@@ -312,6 +336,7 @@ Returns every type with `name`, `description`, `default_tags`, and `template_con
 - Pick the **most specific** type that fits before creating a plan. Plans created without an explicit type get **General** — acceptable only when you've reviewed the list and nothing fits.
 - **Read the type's `template_content` and structure your document against it** — keep its sections, fill them with substance, drop a section only when it's genuinely inapplicable. The template is the type's contract with its readers.
 - The type's `default_tags` are applied automatically on create; add your own on top with `tags`.
+- **Retype a plan when it outgrows its type** — a brainstorm that firmed up into a real design, say — with `PATCH /api/v1/plans/:id` and `{"plan_type": "..."}`. Restructure the content against the new type's template in the same session.
 <% if @plan_types.any? %>
 
 **Available plan types:**

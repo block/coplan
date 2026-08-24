@@ -3,9 +3,10 @@ import { Controller } from "@hotwired/stimulus"
 /*
  * coplan--voice
  *
- * Push-to-talk commenting. Hold Shift (or tap the mic), say "this section
- * is way too formal", and what you said is posted as a comment pinned to
- * the passage you were looking at.
+ * Push-to-talk commenting. Hold the key (or tap the mic), say "this
+ * section is way too formal", and what you said is posted as a comment
+ * pinned to the passage you were looking at. Which key is a setting —
+ * see HOTKEYS below, and CoPlan::User::VOICE_HOTKEYS for the list.
  *
  * Two ways to capture, and which one is in play matters:
  *
@@ -32,16 +33,37 @@ import { Controller } from "@hotwired/stimulus"
  */
 export default class extends Controller {
   static targets = ["button", "status"]
-  static values = { url: String, dictationUrl: String, transcription: Boolean }
+  static values = { url: String, dictationUrl: String, transcription: Boolean, hotkey: String }
 
   // Peak deviation from silence, on the 0–128 scale of the time-domain
   // samples. Room tone sits in the low single digits; speech is well
   // past 20. Anything under this never made it to the microphone.
   static SILENCE_PEAK = 6
 
-  // How long Shift must be held before the press means "talk" — a tap
-  // that short is someone typing a capital letter.
+  // How long a bare modifier must be held before the press means "talk"
+  // — a tap that short is someone typing a capital letter.
   static HOLD_DELAY = 350
+
+  // The push-to-talk keys, and the two kinds of gesture they are.
+  //
+  // A bare modifier is a key people are already pressing for other
+  // reasons all day, so it has to earn the microphone: held past the
+  // delay, with nothing else down and nothing selected. A chord is
+  // nobody's accident, so it starts recording on the press — no delay to
+  // sit out, and no guessing about what was meant.
+  static HOTKEYS = {
+    ctrl_space: {
+      label: "Ctrl+Space",
+      matches: (event) => event.ctrlKey && event.code === "Space",
+      // Either half going up ends the take: whichever finger lifts
+      // first, the gesture is over.
+      releases: (event) => event.code === "Space" || event.key === "Control"
+    },
+    shift: { label: "Shift", modifier: "Shift" },
+    alt: { label: "Alt", macLabel: "⌥ Option", modifier: "Alt" }
+  }
+
+  static MODIFIER_FLAGS = { Shift: "shiftKey", Alt: "altKey", Control: "ctrlKey", Meta: "metaKey" }
 
   connect() {
     this.mode = this._chooseMode()
@@ -50,13 +72,25 @@ export default class extends Controller {
       return
     }
 
+    // "off" (and anything unrecognized) leaves the mic button as the only
+    // way in, which is a legitimate choice rather than a broken state.
+    this.hotkey = this.constructor.HOTKEYS[this.hotkeyValue] || null
+    this._describeButton()
+
     if (this.mode === "recognize") this._setUpRecognition()
 
     this.listening = false
     this._watchAgentPill()
+
+    // The markup ships with the page; the control only works from here on.
+    // A key held — or the mic clicked — before this point has nothing
+    // listening for it, which is exactly what made the system specs flake
+    // under CI load. They wait for this attribute.
+    this.element.dataset.voiceReady = "true"
   }
 
   disconnect() {
+    delete this.element.dataset.voiceReady
     // A capture can be mid-flight — _startRecording awaiting the
     // microphone, the hold timer still deciding. Mark the take dead
     // first, so a promise that resumes after this teardown bails out
@@ -92,27 +126,60 @@ export default class extends Controller {
       this._setStatus(e.error === "no-speech" ? "Didn't catch that" : "Mic error", true)
   }
 
+  // The mic names its own key, on hover and to a screen reader. The
+  // server renders a platform-neutral version of the same sentence; by
+  // here we know whether the key in front of this person is labelled
+  // Option or Alt, and a shortcut named after the wrong key is worse
+  // than no shortcut at all.
+  _describeButton() {
+    const label = this._hotkeyLabel()
+    const description = label ? `Comment by voice — or hold ${label} to talk` : "Comment by voice"
+    this.buttonTarget.dataset.tooltip = description
+    this.buttonTarget.setAttribute("aria-label", description)
+  }
+
+  _hotkeyLabel() {
+    if (!this.hotkey) return null
+
+    const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent
+    const isMac = /mac|iphone|ipad/i.test(platform)
+    return (isMac && this.hotkey.macLabel) || this.hotkey.label
+  }
+
   // ── The gesture ────────────────────────────────────────────────────
 
   toggle() {
     this.listening ? this._stop() : this._start()
   }
 
-  // Hold Shift to talk, release to send. Bound declaratively on the
+  // Hold the key to talk, release to send. Bound declaratively on the
   // control's element (keydown@document / keyup@document / blur@window)
   // — document and window are stable targets, so Stimulus owns the
   // listener lifecycle.
-  //
-  // Shift is also held while typing capitals and extending a selection,
-  // so a bare press isn't enough of a signal. Three guards keep it from
-  // firing by accident: it must be Shift alone with no other key down, it
-  // must be held past a short delay (capitals are a tap), and any other
-  // keystroke or a text selection cancels without posting.
   keyDown(event) {
-    if (!this.mode) return
+    if (!this.mode || !this.hotkey) return
+    if (this.hotkey.modifier) return this._modifierDown(event)
 
-    if (event.key !== "Shift") {
-      // Shift+something is a shortcut or a capital letter, not talking.
+    if (!this.hotkey.matches(event)) return
+    if (event.repeat || this.pushToTalk || this.listening) return
+    if (this._isTyping()) return
+
+    // A chord is unambiguous, so it takes the key outright — nothing
+    // else on the page gets to treat this press as its own.
+    event.preventDefault()
+    this.pushToTalk = true
+    this._start()
+  }
+
+  // A bare modifier is also held while typing capitals, holding down
+  // Option for a special character, and extending a selection, so the
+  // press alone isn't enough of a signal. Three guards keep it from
+  // firing by accident: it must be that modifier alone with no other key
+  // down, it must be held past a short delay (capitals are a tap), and
+  // any other keystroke or a text selection cancels without posting.
+  _modifierDown(event) {
+    if (event.key !== this.hotkey.modifier) {
+      // Modifier+something is a shortcut or a capital letter, not talking.
       if (this.pushToTalk) this._cancel()
       else if (this.ear) {
         clearTimeout(this.holdTimer)
@@ -121,7 +188,7 @@ export default class extends Controller {
       return
     }
     if (event.repeat || this.pushToTalk || this.listening) return
-    if (this._isTyping() || event.metaKey || event.ctrlKey || event.altKey) return
+    if (this._isTyping() || this._otherModifierHeld(event)) return
 
     // Capture from the instant of the press. Deciding whether the press
     // means "talk" takes 350ms and opening the microphone takes a couple
@@ -133,7 +200,8 @@ export default class extends Controller {
 
     this.holdTimer = setTimeout(() => {
       // Extending a selection with Shift+arrow or Shift+click also
-      // holds Shift; if text got selected, that's what was happening.
+      // holds the modifier; if text got selected, that's what was
+      // happening.
       if (!window.getSelection()?.isCollapsed) {
         this._closeEar()
         return
@@ -144,7 +212,8 @@ export default class extends Controller {
   }
 
   keyUp(event) {
-    if (!this.mode || event.key !== "Shift") return
+    if (!this.mode || !this.hotkey) return
+    if (!this._releasesHotkey(event)) return
 
     clearTimeout(this.holdTimer)
     if (!this.pushToTalk) {
@@ -154,6 +223,15 @@ export default class extends Controller {
 
     this.pushToTalk = false
     this._stop()
+  }
+
+  _releasesHotkey(event) {
+    return this.hotkey.modifier ? event.key === this.hotkey.modifier : this.hotkey.releases(event)
+  }
+
+  _otherModifierHeld(event) {
+    return Object.entries(this.constructor.MODIFIER_FLAGS)
+      .some(([key, flag]) => key !== this.hotkey.modifier && event[flag])
   }
 
   // Losing the window means we never see the keyup — don't leave the
@@ -390,8 +468,8 @@ export default class extends Controller {
   //
   // The meter's verdict only counts while `meterLive` is true. An
   // AudioContext starts suspended unless the browser saw a qualifying
-  // user gesture, and Chrome does not count a bare Shift keydown as one —
-  // so on the push-to-talk path the context routinely comes up dead, and
+  // user gesture, and Chrome does not count a bare modifier keydown as
+  // one — so on the push-to-talk path the context routinely comes up dead, and
   // a suspended analyser reads as perfect silence. Trusting that reading
   // meant refusing recordings people were audibly speaking into.
   _meterLevels() {
@@ -422,7 +500,11 @@ export default class extends Controller {
         this.buttonTarget.style.setProperty("--voice-level", Math.min(peak / 40, 1).toFixed(2))
         requestAnimationFrame(sample)
       }
-      requestAnimationFrame(sample)
+      // The first reading happens now, not at the next frame: a take can
+      // end before the browser paints again (a loaded CI box between two
+      // instant clicks), and a meter that hadn't ticked yet reads as
+      // "never ran" — which sends the silence it was there to catch.
+      sample()
     } catch {
       // Metering is a check on the recording, not part of making it. If
       // it can't run, assume there was speech — refusing to post what

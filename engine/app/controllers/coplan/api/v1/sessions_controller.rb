@@ -4,7 +4,7 @@ module CoPlan
       class SessionsController < BaseController
         before_action :set_plan
         before_action :authorize_plan_access!
-        before_action :set_session, only: [:show, :commit]
+        before_action :set_session, only: [ :show, :commit ]
 
         # POST /api/v1/plans/:plan_id/sessions
         # Cloud personas create sessions via direct Ruby service calls, not this endpoint.

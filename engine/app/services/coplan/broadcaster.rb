@@ -30,6 +30,22 @@ module CoPlan
         Turbo::StreamsChannel.broadcast_remove_to(streamable, target: target)
       end
 
+      # Tells every browser watching `streamable` to re-fetch its own page.
+      # Carries no content — just the news that there is some.
+      #
+      # That's the only correct shape for a library listing. What the page
+      # shows depends on the viewer (Plan.visible_to bounds every list and
+      # every count, so two people in the same folder see different numbers)
+      # and on where they are in it (current folder, active filters). There
+      # is no one fragment to render once and send to everyone, and the page
+      # carries forms, whose tokens are per-session.
+      #
+      # Turbo tags the stream with the acting request's id, so the browser
+      # that caused the change doesn't refresh on top of its own response.
+      def refresh_to(streamable)
+        Turbo::StreamsChannel.broadcast_refresh_to(streamable)
+      end
+
       # Broadcasts a custom turbo-stream action that the client may apply
       # conditionally. Used by live-content-update: the client checks for
       # unsaved drafts before swapping the body, otherwise shows a "reload"

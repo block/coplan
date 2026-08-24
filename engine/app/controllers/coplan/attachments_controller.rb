@@ -11,7 +11,7 @@ module CoPlan
       if files.empty?
         return respond_to do |format|
           format.turbo_stream { render turbo_stream: toast_stream("Choose at least one file to upload.", "alert") }
-          format.html { redirect_to plan_path(@plan, anchor: "footnote-attachments"), alert: "Choose at least one file to upload." }
+          format.html { redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-attachments"), alert: "Choose at least one file to upload." }
         end
       end
 
@@ -30,7 +30,7 @@ module CoPlan
         # never bounce the reader to the top of the plan they're in.
         format.turbo_stream { render_attachments_update(notice: notice, alert: alert) }
         format.html do
-          redirect_to plan_path(@plan, anchor: "footnote-attachments"),
+          redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-attachments"),
             { notice: notice, alert: alert }.compact
         end
       end
@@ -57,7 +57,7 @@ module CoPlan
       respond_to do |format|
         format.turbo_stream { render_attachments_update(notice: "Attachment removed.") }
         format.html do
-          redirect_to plan_path(@plan, anchor: "footnote-attachments"), notice: "Attachment removed."
+          redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-attachments"), notice: "Attachment removed."
         end
       end
     end

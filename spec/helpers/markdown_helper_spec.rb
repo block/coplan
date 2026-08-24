@@ -195,6 +195,23 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
     end
   end
 
+  describe "line_offset" do
+    it "shifts checkbox data-line back to document coordinates" do
+      # The fragment is lines 6-8 of some larger document.
+      html = helper.render_markdown("intro\n\n- [ ] task", line_offset: 5)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+
+      cb = doc.at_css('input[type="checkbox"]')
+      expect(cb["data-line"]).to eq("8")
+      expect(cb["data-line-text"]).to eq("- [ ] task")
+    end
+
+    it "defaults to unshifted lines" do
+      html = helper.render_markdown("- [ ] task")
+      expect(html).to include('data-line="1"')
+    end
+  end
+
   describe "@-mention rendering" do
     it "renders [@username](mention:username) as a styled chip" do
       html = helper.render_markdown("Hey [@hampton](mention:hampton), please look")

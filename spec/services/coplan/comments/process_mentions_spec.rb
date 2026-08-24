@@ -17,9 +17,9 @@ RSpec.describe CoPlan::Comments::ProcessMentions do
     }.to change(CoPlan::Notification, :count).by(2)
 
     notifications = CoPlan::Notification.where(reason: "mention")
-    expect(notifications.pluck(:user_id)).to match_array([hampton.id, casey.id])
-    expect(notifications.pluck(:plan_id).uniq).to eq([plan.id])
-    expect(notifications.pluck(:comment_thread_id).uniq).to eq([thread.id])
+    expect(notifications.pluck(:user_id)).to match_array([ hampton.id, casey.id ])
+    expect(notifications.pluck(:plan_id).uniq).to eq([ plan.id ])
+    expect(notifications.pluck(:comment_thread_id).uniq).to eq([ thread.id ])
   end
 
   it "does not notify the author when they @-mention themselves" do
@@ -59,7 +59,7 @@ RSpec.describe CoPlan::Comments::ProcessMentions do
     comment.update!(body_markdown: "[@hampton](mention:hampton) and [@casey](mention:casey)")
 
     notifications = CoPlan::Notification.where(reason: "mention", comment_id: comment.id)
-    expect(notifications.pluck(:user_id)).to match_array([hampton.id, casey.id])
+    expect(notifications.pluck(:user_id)).to match_array([ hampton.id, casey.id ])
     expect(notifications.where(user_id: hampton.id).count).to eq(1)
   end
 

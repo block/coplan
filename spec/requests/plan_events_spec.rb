@@ -132,13 +132,13 @@ RSpec.describe "Plan metadata event logging", type: :request do
     let(:auth_headers) { { "Authorization" => "Bearer #{raw_token}" } }
 
     it "records events for title, archival, and tag diffs in a single request" do
-      plan.tag_names = ["existing"]
+      plan.tag_names = [ "existing" ]
 
       expect {
         patch "/api/v1/plans/#{plan.id}", params: {
           title: "API-renamed",
           archived: true,
-          tags: ["existing", "added"]
+          tags: [ "existing", "added" ]
         }, headers: auth_headers, as: :json
       }.to change { plan.plan_events.count }.by(3)
 
@@ -148,11 +148,11 @@ RSpec.describe "Plan metadata event logging", type: :request do
     end
 
     it "records tag_removed events for tags that disappear from the list" do
-      plan.tag_names = ["payments", "billing"]
+      plan.tag_names = [ "payments", "billing" ]
 
       expect {
         patch "/api/v1/plans/#{plan.id}", params: {
-          tags: ["payments"]
+          tags: [ "payments" ]
         }, headers: auth_headers, as: :json
       }.to change { plan.plan_events.where(event_type: "tag_removed").count }.by(1)
 
@@ -163,7 +163,7 @@ RSpec.describe "Plan metadata event logging", type: :request do
     it "records reference_added when a new reference is included in the update payload" do
       expect {
         patch "/api/v1/plans/#{plan.id}", params: {
-          references: [{ url: "https://docs.example.com/spec", title: "Spec" }]
+          references: [ { url: "https://docs.example.com/spec", title: "Spec" } ]
         }, headers: auth_headers, as: :json
       }.to change { plan.plan_events.where(event_type: "reference_added").count }.by(1)
     end
@@ -178,8 +178,8 @@ RSpec.describe "Plan metadata event logging", type: :request do
       v2 = create(:plan_version, plan: plan, revision: 2, created_at: 1.hour.ago)
 
       items = plan.history_items
-      expect(items.map(&:id)).to eq([v2.id, e1.id, v1.id])
-      expect(items.map(&:history_kind)).to eq([:version, :event, :version])
+      expect(items.map(&:id)).to eq([ v2.id, e1.id, v1.id ])
+      expect(items.map(&:history_kind)).to eq([ :version, :event, :version ])
     end
   end
 end

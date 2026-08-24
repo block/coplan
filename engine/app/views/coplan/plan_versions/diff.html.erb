@@ -13,7 +13,7 @@
           · <%= @version.change_summary %>
         <% end %>
       </span>
-      <%= link_to "View full version →", plan_version_path(@plan, @version), class: "text-sm", data: { turbo_frame: "_top" } %>
+      <%= link_to "View full version →", plan_version_browse_path(@plan, @version), class: "text-sm", data: { turbo_frame: "_top" } %>
     </div>
 
     <% if @diff %>

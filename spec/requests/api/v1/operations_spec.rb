@@ -42,7 +42,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
       params: {
         lease_token: "no-lease",
         base_revision: plan.current_revision,
-        operations: [{ op: "replace_exact", old_text: "x", new_text: "y", count: 1 }]
+        operations: [ { op: "replace_exact", old_text: "x", new_text: "y", count: 1 } ]
       },
       headers: headers,
       as: :json
@@ -54,7 +54,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
       params: {
         lease_token: lease_token,
         base_revision: 999,
-        operations: [{ op: "replace_exact", old_text: "x", new_text: "y", count: 1 }]
+        operations: [ { op: "replace_exact", old_text: "x", new_text: "y", count: 1 } ]
       },
       headers: headers,
       as: :json
@@ -66,7 +66,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
       params: {
         lease_token: lease_token,
         base_revision: plan.current_revision,
-        operations: [{ op: "replace_exact", old_text: "nonexistent text", new_text: "y", count: 1 }]
+        operations: [ { op: "replace_exact", old_text: "nonexistent text", new_text: "y", count: 1 } ]
       },
       headers: headers,
       as: :json
@@ -97,7 +97,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
       params: {
         lease_token: lease_token,
         base_revision: plan.current_revision,
-        operations: [{ op: "replace_section", heading: "## Missing", new_content: "x" }]
+        operations: [ { op: "replace_section", heading: "## Missing", new_content: "x" } ]
       },
       headers: headers,
       as: :json
@@ -109,7 +109,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
     post api_v1_plan_operations_path(plan),
       params: {
         base_revision: plan.current_revision,
-        operations: [{ op: "replace_exact", old_text: "Some content here.", new_text: "Direct edit.", count: 1 }]
+        operations: [ { op: "replace_exact", old_text: "Some content here.", new_text: "Direct edit.", count: 1 } ]
       },
       headers: headers,
       as: :json

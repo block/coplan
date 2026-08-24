@@ -8,8 +8,7 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
   self.use_transactional_tests = false
 
   after do
-    truncate_tables(*%w[coplan_plan_tags coplan_tags coplan_plan_versions coplan_plans
-                        coplan_plan_types coplan_search_queries coplan_users])
+    truncate_plan_tables
   end
 
   let!(:alice) { create(:coplan_user, name: "Alice Searcher") }
@@ -74,12 +73,12 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
         expect(response.body).to include("Nothing matches")
       end
 
-      it "finds people by name and links to their profile" do
+      it "finds people by name and links to their library" do
         create(:coplan_user, name: "Searchable Sam", username: "sam.s", title: "Designer")
 
         get search_path, params: { q: "searchable" }
         expect(response.body).to include("Searchable Sam")
-        expect(response.body).to include(profile_path("sam.s"))
+        expect(response.body).to include(%(href="/sam-s"))
         expect(response.body).to include("Designer")
       end
 

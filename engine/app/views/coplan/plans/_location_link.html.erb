@@ -1,15 +1,15 @@
-<%# Go up from the document to its containing folder in the author's
-    library. An unfiled document goes to that library's root. %>
+<%# Go up from the document to the folder it lives in. An unfiled
+    document goes to its library's root. %>
 <% unless plan.archived? %>
-  <% library = plan.created_by_user.library %>
+  <% library = plan.library %>
   <% folder = placement&.folder %>
-  <% label = folder ? "Up to containing folder — #{folder.path}" : "Up to #{plan.created_by_user.name}’s library" %>
-  <%= link_to library_path(library, folder: folder&.id),
+  <% label = folder ? "Up to containing folder — #{folder.path}" : "Up to #{library.name}" %>
+  <%= link_to(folder ? folder_browse_path(folder) : library_browse_path(library),
         class: "plan-location-link plan-location-link--#{location}",
         title: label,
         aria: { label: label },
         tabindex: location == :nav ? -1 : nil,
-        data: { turbo_prefetch: true } do %>
+        data: { turbo_prefetch: true }) do %>
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
       <path d="m14 13-2-2-2 2"/>

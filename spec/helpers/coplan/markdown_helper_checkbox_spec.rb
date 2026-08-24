@@ -136,7 +136,7 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
     it "leaves ordered-list tasks non-interactive (toggle endpoint rejects them)" do
       checkboxes = checkboxes_for("1. [ ] Ordered task\n\n- [ ] Bullet task")
       interactive = checkboxes.reject { |cb| cb["disabled"] }
-      expect(interactive.map { |cb| cb["data-line-text"] }).to eq(["- [ ] Bullet task"])
+      expect(interactive.map { |cb| cb["data-line-text"] }).to eq([ "- [ ] Bullet task" ])
     end
 
     it "strips data-sourcepos from the rendered output" do

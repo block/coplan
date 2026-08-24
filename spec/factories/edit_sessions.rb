@@ -14,7 +14,7 @@ FactoryBot.define do
     end
 
     trait :with_operations do
-      operations_json { [{ "op" => "replace_exact", "old_text" => "old", "new_text" => "new" }] }
+      operations_json { [ { "op" => "replace_exact", "old_text" => "old", "new_text" => "new" } ] }
     end
   end
 end

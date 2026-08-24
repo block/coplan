@@ -25,17 +25,17 @@ RSpec.describe "Human plan editing", type: :system do
   before { sign_in(author) }
 
   it "edits plan content through the web editor" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
     within("#plan-toolbar") { click_link "Edit" }
 
-    expect(page).to have_current_path(edit_content_plan_path(plan))
+    expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(page).to have_field("content", with: /First draft body/)
 
     fill_in "content", with: "# Editable Plan\n\nRevised body from the browser.\n"
     fill_in "change_summary", with: "Browser edit"
     click_button "Save new version"
 
-    expect(page).to have_current_path(plan_path(plan))
+    expect(page).to have_current_path(plan_page_path(plan))
     expect(page).to have_content("Plan updated.")
     expect(page).to have_content("Revised body from the browser.")
 
@@ -46,10 +46,10 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "edits title and tags through the unified editor" do
-    plan.tag_names = ["security"]
+    plan.tag_names = [ "security" ]
     plan.save!
 
-    visit edit_content_plan_path(plan)
+    visit plan_edit_page_path(plan)
     fill_in "Title", with: "Renamed In Editor"
     # Tag chips: type a tag and press Enter to commit it as a chip. Wait for
     # the existing tag's chip first — it only renders once the Stimulus
@@ -59,15 +59,15 @@ RSpec.describe "Human plan editing", type: :system do
     find("#plan_tag_field").send_keys("api-design", :enter)
     click_button "Save new version"
 
-    expect(page).to have_current_path(plan_path(plan))
     expect(page).to have_content("Plan updated.")
-    plan.reload
+    # Retitling reslugs the document, so its address moved with it.
+    expect(page).to have_current_path(plan_page_path(plan.reload))
     expect(plan.title).to eq("Renamed In Editor")
     expect(plan.tag_names).to contain_exactly("security", "api-design")
   end
 
   it "previews markdown before saving" do
-    visit edit_content_plan_path(plan)
+    visit plan_edit_page_path(plan)
 
     fill_in "content", with: "# Preview me\n\n**bold text**\n"
     click_button "Preview"
@@ -85,7 +85,7 @@ RSpec.describe "Human plan editing", type: :system do
 
   it "changes visibility from the overflow menu in place, no reload" do
     plan.update!(visibility: "draft")
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     # Private is the rare state — the byline flags it.
     expect(page).to have_css("#plan-header .state-flag", text: "Private")
@@ -108,7 +108,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "archives and restores the plan in place" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
     expect(page).to have_css(".plan-location-link--nav", visible: :all)
 
     open_plan_menu
@@ -138,11 +138,14 @@ RSpec.describe "Human plan editing", type: :system do
     click_link "Sign out"
     sign_in(other)
 
-    visit plan_path(plan)
+    visit plan_page_path(plan)
     expect(page).to have_content("Editable Plan")
+    # A reader gets the overflow menu and nothing else. There used to be a
+    # Save here that filed the plan onto their own shelf; a plan lives in
+    # one place now, so reading one is just reading it.
     within("#plan-toolbar") do
       expect(page).not_to have_link("Edit")
-      expect(page).to have_button("Save")
+      expect(page).not_to have_button("Save")
     end
     # The reader's overflow menu is History only — no state-changing actions.
     open_plan_menu

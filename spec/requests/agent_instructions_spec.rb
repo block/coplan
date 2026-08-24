@@ -42,6 +42,18 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).to include('"plan_type"')
     end
 
+    it "sets writing-style ground rules with a type-level override" do
+      get agent_instructions_path
+
+      expect(response.body).to include("## Writing Style")
+      # Anti-metadata rules: the platform records dates/authors/status/versions.
+      expect(response.body).to include("The platform already records it.")
+      expect(response.body).to include("do not invent one")
+      # Plain-language rules with the override escape hatch.
+      expect(response.body).to include("the type wins")
+      expect(response.body).to include("Write like a runbook, not a keynote.")
+    end
+
     it "walks agents through folder, type, and template before creating" do
       get agent_instructions_path
 

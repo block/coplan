@@ -40,7 +40,7 @@ module CoPlan
     end
 
     def add_operation(op)
-      self.operations_json = operations_json + [op]
+      self.operations_json = operations_json + [ op ]
       save!
     end
 

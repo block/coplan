@@ -1,14 +1,30 @@
-<% content_for(:title, "Feed — CoPlan") %>
+<% content_for(:title, @tag ? "##{@tag} — Feed — CoPlan" : "Feed — CoPlan") %>
 
 <div class="home">
   <header class="home__header">
     <h1 class="home__title">Feed</h1>
+    <%# A tag chip narrows the feed rather than opening a list of its own —
+        same clearable-state treatment the workspace filters get. %>
+    <% if @tag %>
+      <div class="active-filter workspace__filters">
+        <span class="workspace__filter-chip">
+          #<%= @tag %>
+          <%= link_to "✕", home_path, class: "workspace__filter-clear",
+                aria: { label: "Clear ##{@tag} filter" } %>
+        </span>
+      </div>
+    <% end %>
   </header>
 
   <% if @items.empty? %>
     <div class="home__empty">
-      <p>No published activity in the last two weeks.</p>
-      <p class="text-muted text-sm">When someone publishes, edits, or discusses a plan, it shows up here.</p>
+      <% if @tag %>
+        <p>No published activity tagged #<%= @tag %> in the last two weeks.</p>
+        <p class="text-muted text-sm"><%= link_to "See everything →", home_path, class: "landing__inline-link" %></p>
+      <% else %>
+        <p>No published activity in the last two weeks.</p>
+        <p class="text-muted text-sm">When someone publishes, edits, or discusses a plan, it shows up here.</p>
+      <% end %>
     </div>
   <% else %>
     <% @items_by_date.each do |date, items| %>
@@ -28,7 +44,7 @@
               <div class="home__item-body">
                 <div class="home__item-line">
                   <%= plan_type_icon(plan, size: :sm) %>
-                  <%= link_to plan.title, plan_path(plan), class: "home__item-title" %>
+                  <%= link_to plan.title, plan_browse_path(plan), class: "home__item-title" %>
                   <% if item.summary_parts.any? %>
                     <span class="home__item-activity">
                       <% if item.published %>
@@ -44,7 +60,7 @@
                 <div class="home__item-meta text-muted">
                   by <%= profile_link(plan.created_by_user) %>
                   <% plan.tags.first(3).each do |tag| %>
-                    <%= link_to "##{tag.name}", plans_path(scope: "all", tag: tag.name), class: "home__item-tag" %>
+                    <%= link_to "##{tag.name}", home_path(tag: tag.name), class: "home__item-tag" %>
                   <% end %>
                 </div>
               </div>

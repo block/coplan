@@ -8,27 +8,15 @@
       - can edit  → Edit (the primary action) + ⋯ menu (History, Move to
         folder…, visibility, Archive). Organizing your own library is a
         rare act, so it lives a level down — like Docs' move control.
-      - reading   → Save/Saved (file it in your library to find it again)
-        + ⋯ menu (History). %>
-<% my_placement = local_assigns[:my_placement] %>
-<% my_placement ||= plan.placements.includes(:library, :folder).detect { |p| p.library.writable_by?(current_user) } if current_user %>
+      - reading   → ⋯ menu (History). There used to be a Save button here
+        that filed someone else's plan onto your own shelf. A plan lives
+        in one place now, so reading one is just reading it; the way back
+        to it is the library you found it in. %>
+<% placement = local_assigns.fetch(:placement) { plan.placement } %>
 <% can_edit = allowed_to?(plan, :edit_content?) %>
 <div id="plan-toolbar" class="plan-actions" role="toolbar" aria-label="Plan actions">
-  <% if current_user && !can_edit %>
-    <button type="button"
-            class="btn btn--ghost btn--sm plan-save<%= " plan-save--saved" if my_placement %>"
-            data-action="coplan--folder-picker#open"
-            data-move-url="<%= move_to_folder_plan_path(plan) %>"
-            data-current-folder-id="<%= my_placement&.folder_id %>"
-            data-saved="<%= my_placement.present? %>"
-            data-plan-title="<%= plan.title %>"
-            title="<%= my_placement ? "Saved in #{my_placement.folder.path} — click to move or remove" : "Save to your library to find it again" %>">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="<%= my_placement ? "currentColor" : "none" %>" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
-      <span><%= my_placement ? "Saved" : "Save" %></span>
-    </button>
-  <% end %>
   <% if can_edit %>
-    <%= link_to edit_content_plan_path(plan), class: "btn btn--ghost btn--sm",
+    <%= link_to plan_edit_browse_path(plan), class: "btn btn--ghost btn--sm",
           title: "Edit this plan — content, title, and tags" do %>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>
       <span>Edit</span>
@@ -42,7 +30,7 @@
     </button>
     <div id="plan-menu" popover="auto" class="menu" data-coplan--menu-target="menu"
          data-action="toggle->coplan--menu#reposition" role="menu" aria-label="Plan actions menu">
-      <%= link_to history_plan_path(plan), class: "menu__item", role: "menuitem" do %>
+      <%= link_to plan_history_browse_path(plan), class: "menu__item", role: "menuitem" do %>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
         <span>History</span>
       <% end %>
@@ -50,8 +38,8 @@
         <button type="button" class="menu__item" role="menuitem"
                 data-action="coplan--menu#close coplan--folder-picker#open"
                 data-move-url="<%= move_to_folder_plan_path(plan) %>"
-                data-current-folder-id="<%= my_placement&.folder_id %>"
-                data-saved="<%= my_placement.present? %>"
+                data-current-folder-id="<%= placement&.folder_id %>"
+                data-saved="<%= placement.present? %>"
                 data-plan-title="<%= plan.title %>"
                 data-picker-heading="Move to folder"
                 data-remove-label="Remove from folder">

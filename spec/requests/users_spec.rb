@@ -56,7 +56,7 @@ RSpec.describe "Users", type: :request do
         it "filters out hook results whose username doesn't exist locally" do
           get search_users_path, params: { q: "anything" }
           results = JSON.parse(response.body)
-          expect(results.map { |r| r["username"] }).to eq(["localp"])
+          expect(results.map { |r| r["username"] }).to eq([ "localp" ])
         end
       end
     end

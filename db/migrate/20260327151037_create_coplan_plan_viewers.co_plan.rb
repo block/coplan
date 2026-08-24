@@ -8,7 +8,7 @@ class CreateCoplanPlanViewers < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :coplan_plan_viewers, [:plan_id, :user_id], unique: true
+    add_index :coplan_plan_viewers, [ :plan_id, :user_id ], unique: true
     add_index :coplan_plan_viewers, :last_seen_at
     add_foreign_key :coplan_plan_viewers, :coplan_plans, column: :plan_id
     add_foreign_key :coplan_plan_viewers, :coplan_users, column: :user_id

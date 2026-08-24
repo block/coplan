@@ -19,17 +19,19 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <%# Serves the Hack code font, highlight.js grammars, and Mermaid %>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <%= stylesheet_link_tag "coplan/application", "data-turbo-track": "reload" %>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <%= stylesheet_link_tag "coplan/application", "coplan/deck",
+          "coplan/deck-theme-coplan", "coplan/deck-theme-graphite", "coplan/deck-theme-poster",
+          "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
   <body>
     <nav class="site-nav">
       <div class="site-nav__inner">
-        <%# The logo is the Workspace home — that's where signed-in work
+        <%# The logo goes to your library — that's where signed-in work
             lives, so there's no separate "Workspace" link. Signed-out
             visitors land on the public root instead. %>
-        <%= link_to(signed_in? ? coplan.plans_path : coplan.root_path, class: "site-nav__brand") do %>
+        <%= link_to(signed_in? ? profile_path_for(current_user) : coplan.root_path, class: "site-nav__brand") do %>
           <%= image_tag "coplan/coplan-logo-sm.png", alt: "CoPlan",
                 class: "site-nav__logo#{coplan_environment_logo_modifier}",
                 title: coplan_environment_logo_title %>
@@ -98,9 +100,10 @@
                       live by the dot on the ☰ button instead. %>
                 <% end %>
                 <div class="menu__separator" role="separator"></div>
-                <%= link_to coplan.profile_path(current_user.username.presence || current_user.id), class: "menu__item", role: "menuitem" do %>
+                <%# Your page and your library are the same place. %>
+                <%= link_to profile_path_for(current_user), class: "menu__item", role: "menuitem" do %>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                  <span>Profile</span>
+                  <span>Your library</span>
                 <% end %>
                 <%= link_to coplan.settings_root_path, class: "menu__item", role: "menuitem" do %>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>

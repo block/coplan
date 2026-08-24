@@ -40,7 +40,7 @@ RSpec.describe "Comment anchoring", type: :system do
 
   describe "creating a comment via the form" do
     it "creates a thread with correct anchor position" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       expect(page).to have_content("Complete Guide to Testing")
 
       # Simulate what the JS text-selection flow does: fill hidden fields and submit.

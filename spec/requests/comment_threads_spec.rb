@@ -25,7 +25,7 @@ RSpec.describe "CommentThreads", type: :request do
         }
       }
     }.to change(CoPlan::CommentThread, :count).by(1).and change(CoPlan::Comment, :count).by(1)
-    expect(response).to redirect_to(plan_path(plan))
+    expect(response).to redirect_to(plan_page_path(plan))
     thread = CoPlan::CommentThread.last
     expect(thread.anchor_text).to eq("world domination")
     expect(thread.anchor_start).to be_present # resolved at the door
@@ -44,7 +44,7 @@ RSpec.describe "CommentThreads", type: :request do
         }
       }.not_to change { [ CoPlan::CommentThread.count, CoPlan::Comment.count ] }
 
-      expect(response).to redirect_to(plan_path(plan))
+      expect(response).to redirect_to(plan_page_path(plan))
       expect(flash[:alert]).to include("nowhere to appear")
     end
 
@@ -97,9 +97,27 @@ RSpec.describe "CommentThreads", type: :request do
   it "resolve thread" do
     thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
     patch resolve_plan_comment_thread_path(plan, thread)
-    expect(response).to redirect_to(plan_path(plan))
+    expect(response).to redirect_to(plan_page_path(plan))
     thread.reload
     expect(thread.status).to eq("resolved")
+  end
+
+  it "resolving a thread clears its unread notifications" do
+    thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: bob)
+    notification = create(:notification, user: bob, plan: plan, comment_thread: thread, reason: "agent_response")
+
+    patch resolve_plan_comment_thread_path(plan, thread)
+
+    expect(notification.reload.read_at).to be_present
+  end
+
+  it "discarding a thread clears its unread notifications" do
+    thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: bob)
+    notification = create(:notification, user: bob, plan: plan, comment_thread: thread)
+
+    patch discard_plan_comment_thread_path(plan, thread)
+
+    expect(notification.reload.read_at).to be_present
   end
 
   it "accept thread as plan author" do

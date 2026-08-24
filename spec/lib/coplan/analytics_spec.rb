@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe CoPlan::Analytics do
   let(:received) { [] }
-  let(:handler) { ->(event, payload) { received << [event, payload] } }
+  let(:handler) { ->(event, payload) { received << [ event, payload ] } }
   let(:user) { create(:coplan_user) }
 
   around do |example|
@@ -48,7 +48,7 @@ RSpec.describe CoPlan::Analytics do
   it "swallows handler errors and reports them via error_reporter" do
     reported = []
     previous_reporter = CoPlan.configuration.error_reporter
-    CoPlan.configuration.error_reporter = ->(exception, context) { reported << [exception, context] }
+    CoPlan.configuration.error_reporter = ->(exception, context) { reported << [ exception, context ] }
     CoPlan.configuration.track_event = ->(_event, _payload) { raise "boom" }
 
     expect { described_class.track("plan_created", user: user) }.not_to raise_error

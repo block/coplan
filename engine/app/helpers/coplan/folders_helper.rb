@@ -11,11 +11,13 @@ module CoPlan
         .sort_by { |path, _id, _depth| path.downcase }
     end
 
-    # Where the current user shelved this plan in their own library (nil
-    # when unfiled). One placements query per request, not per row.
-    def viewer_folder_id(plan)
-      @_viewer_folder_ids ||= current_user.library.placements.pluck(:plan_id, :folder_id).to_h
-      @_viewer_folder_ids[plan.id]
+    # The folder this plan lives in, nil when unfiled. Read from the
+    # viewer's own library because that's the tree these rows draw from —
+    # a plan filed in some other library has no folder to mark here. One
+    # placements query per request, not per row.
+    def plan_folder_id(plan)
+      @_plan_folder_ids ||= current_user.library.placements.pluck(:plan_id, :folder_id).to_h
+      @_plan_folder_ids[plan.id]
     end
 
     def folder_paths_by_id

@@ -960,6 +960,7 @@ del.agent-flash {
 }
 
 .voice-control .voice-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -978,6 +979,40 @@ del.agent-flash {
   background: var(--color-surface-raised, var(--color-surface));
   color: var(--color-text, currentColor);
   transform: scale(1.06);
+}
+
+/* Hovering names the key. Push-to-talk is chosen in Settings and nothing
+   else on the page says what it ended up as — a mic you have to hold the
+   right key for is only discoverable if the mic tells you which one.
+   Written by the controller, which knows the platform: the same
+   preference reads as ⌥ Option on a Mac and Alt everywhere else. */
+.voice-control .voice-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: var(--color-text);
+  color: var(--color-surface);
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+
+.voice-control .voice-btn[data-tooltip]:hover::after {
+  opacity: 1;
+}
+
+/* Mid-take the button is a stop button, and the status text is already
+   saying what's happening — an instruction for starting would contradict
+   both. */
+.voice-control .voice-btn--listening[data-tooltip]::after {
+  content: none;
 }
 
 /* Recording reads as recording: the button fills red, and a ring grows
@@ -1670,12 +1705,39 @@ img.avatar {
 /* "Changed since you last looked" — one-time, per-viewer section
    highlights (changed_sections_controller). Quiet left accent + faint
    tint; gone on the next visit. */
-.section-changed {
+/* A run of adjacent changed blocks is one band, not one box per block:
+   the gap between blocks in a run becomes padding inside the tint instead
+   of untinted margin showing through, so a changed section reads as a
+   single stretch rather than a stack of stripes. Scoped under
+   .markdown-rendered to outrank its per-element margins. */
+.markdown-rendered .section-changed {
   box-shadow: inset 3px 0 0 var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 5%, transparent);
-  border-radius: 0 var(--radius) var(--radius) 0;
+  border-radius: 0;
   padding-left: var(--space-sm);
   margin-left: calc(-1 * var(--space-sm));
+  margin-bottom: 0;
+  padding-bottom: var(--space-md);
+}
+
+/* Headings inside a run keep their breathing room, as padding within the
+   band rather than a gap through it. The run's own first heading is
+   .section-changed--start and keeps its margin — that space separates the
+   band from the unchanged content above it. */
+.markdown-rendered .section-changed:is(h1, h2, h3):not(.section-changed--start) {
+  margin-top: 0;
+  padding-top: var(--space-xl);
+}
+
+.markdown-rendered .section-changed--start {
+  border-top-right-radius: var(--radius);
+  padding-top: var(--space-sm);
+}
+
+.markdown-rendered .section-changed--end {
+  border-bottom-right-radius: var(--radius);
+  padding-bottom: var(--space-sm);
+  margin-bottom: var(--space-md);
 }
 
 .changed-sections-note {
@@ -1683,6 +1745,12 @@ img.avatar {
   align-items: center;
   gap: var(--space-xs);
   margin-bottom: var(--space-md);
+}
+
+.changed-sections-note a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* Rendered markdown */
@@ -1934,7 +2002,9 @@ img.avatar {
   color: var(--color-text);
 }
 
-.markdown-rendered .mermaid-diagram svg {
+/* The diagram's own SVG only — the expand button's icon is an svg inside
+   the same container, and it must keep its own 16px geometry. */
+.markdown-rendered .mermaid-diagram > svg {
   max-width: 100%;
   height: auto;
 }
@@ -2596,6 +2666,10 @@ img.avatar {
   line-height: 1.5;
 }
 
+.settings-row__hint--error {
+  color: var(--color-danger);
+}
+
 .settings-row__action {
   flex: 0 0 auto;
   display: flex;
@@ -2659,29 +2733,35 @@ img.avatar {
   margin-top: var(--space-xs);
 }
 
-/* Theme switcher (segmented control) */
-.theme-switcher {
+/* Segmented control (theme switcher, push-to-talk key) */
+.segmented {
   display: inline-flex;
+  /* The control is the row's point; the explanation next to it is what
+     gives way when the window is narrow. */
+  flex: 0 0 auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
 }
 
-.theme-switcher__option {
+.segmented__option {
   cursor: pointer;
   margin: 0;
 }
 
-.theme-switcher__option input[type="radio"] {
+.segmented__option input[type="radio"] {
   position: absolute;
   opacity: 0;
   pointer-events: none;
 }
 
-.theme-switcher__btn {
+.segmented__btn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
+  /* Segments are labels for one choice each — a wrapped one reads as two
+     options and leaves the control ragged. */
+  white-space: nowrap;
   padding: var(--space-sm) var(--space-md);
   font-size: var(--text-sm);
   font-weight: 500;
@@ -2690,23 +2770,69 @@ img.avatar {
   border-right: 1px solid var(--color-border);
 }
 
-.theme-switcher__option:last-child .theme-switcher__btn {
+.segmented__option:last-child .segmented__btn {
   border-right: none;
 }
 
-.theme-switcher__btn svg {
+.segmented__btn svg {
   flex-shrink: 0;
 }
 
-.theme-switcher__option:hover .theme-switcher__btn {
+.segmented__option:hover .segmented__btn {
   background: var(--color-bg-muted);
   color: var(--color-text);
 }
 
-.theme-switcher__option:has(input:checked) .theme-switcher__btn {
+.segmented__option:has(input:checked) .segmented__btn {
   background: var(--color-primary-light);
   color: var(--color-primary);
   font-weight: 600;
+}
+
+/* On a phone there is no width to negotiate over, so the label goes above
+   the control and the strip takes the whole row. Side by side, the four
+   push-to-talk options either run off the screen or crush the explanation
+   into one word per line.
+   Segments share the leftover width rather than splitting it evenly:
+   "Ctrl+Space" has no space to break at, so an equal quarter of a 320px
+   screen clips it, while sized-to-content segments fit with room over. */
+@media (max-width: 640px) {
+  .settings-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+  }
+
+  .settings-row__action {
+    align-items: stretch;
+  }
+
+  .segmented {
+    display: flex;
+    width: 100%;
+    /* Below about 350px even sized-to-content segments run out of room,
+       so the strip takes a second line rather than hiding the last
+       option off the edge of the screen. */
+    flex-wrap: wrap;
+  }
+
+  .segmented__option {
+    flex: 1 1 auto;
+  }
+
+  /* A wrapped row needs a rule above it, which the horizontal strip
+     never did. */
+  .segmented__btn {
+    border-top: 1px solid var(--color-border);
+    margin-top: -1px;
+  }
+
+  .segmented__btn {
+    justify-content: center;
+    width: 100%;
+    padding: var(--space-sm) var(--space-xs);
+    font-size: var(--text-xs);
+  }
 }
 
 /* Thread popover data containers (hidden, provide data for JS) */
@@ -2991,6 +3117,43 @@ img.avatar {
 
 .content-nav--hidden + .content-nav-show-btn {
   display: block;
+}
+
+/* The Present control above a slideshow's deck. The show itself is
+   deck.css territory (.deck--presenting); this is host chrome. */
+.deck-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-sm);
+}
+
+.deck-toolbar__present {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  transition: color 0.15s, box-shadow 0.15s;
+}
+
+.deck-toolbar__present:hover {
+  color: var(--color-text);
+  box-shadow: var(--shadow-pop);
+}
+
+.deck-toolbar__present kbd {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 0 4px;
+  color: var(--color-text-muted);
 }
 
 /* Add scroll-margin to headings — and the plan's own masthead header — so
@@ -4801,13 +4964,6 @@ img.avatar {
   display: block;
 }
 
-/* The Save control (readers only): a labeled bookmark. Saved = filled
-   icon + accent, and clicking it opens the navigator to move or remove —
-   it never unsaves on the spot. */
-.plan-save--saved {
-  color: var(--color-primary);
-}
-
 /* Dropdown menu on the native Popover API — the toolbar's ⋯ overflow.
    Same glass as the pill it hangs from. Position is set inline by
    menu_controller (popovers open centered by default). */
@@ -5743,6 +5899,50 @@ img.avatar {
   color: var(--color-text-muted);
   font-size: 0.75rem;
   white-space: nowrap;
+}
+
+/* Dismissal sits at the far right of the row, quiet until hovered — the
+   strip is a nudge, and getting rid of a nudge shouldn't be loud. */
+.attention__clear-form {
+  margin: 0;
+  margin-left: auto;
+}
+
+/* A quiet ✕, matching the filter chips: the row already says what it is,
+   so the dismiss doesn't need a word. Padding buys a real hit area
+   without taking visual weight. */
+.attention__clear {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.attention__clear:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* Clear is instant, not a task with a progress state: Turbo marks the
+   form aria-busy the moment it's pressed, and the row hides on that —
+   gone before the request finishes, with the response replacing the
+   strip a moment later. Turbo clears aria-busy on failure, so a rejected
+   request puts the row back without any JS of ours. */
+.attention__item:has(.attention__clear-form[aria-busy="true"]) {
+  display: none;
+}
+
+/* Clearing the last row empties the strip, so take the whole thing with
+   it rather than flash an empty bordered box with a stale count. */
+.attention:has(.attention__item:only-child .attention__clear-form[aria-busy="true"]) {
+  display: none;
 }
 
 /* "Since you last looked" strip — recency against your own reading

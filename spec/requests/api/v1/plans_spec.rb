@@ -13,6 +13,46 @@ RSpec.describe "Api::V1::Plans", type: :request do
     alice_token # ensure token exists
   end
 
+  # Every row carries `url` and `folder_path`, and both want the plan's
+  # whole location — the folder's ancestors, and the library for its handle.
+  # Reached through the associations that's several queries per plan on a
+  # list agents page through, so the location is preloaded.
+  #
+  # Counts only the location tables, not every query: `tag_names` plucks per
+  # plan for reasons of its own, and a total would fail for that instead and
+  # then get bumped to whatever number made it pass. Asserted as a shape —
+  # the cost doesn't follow the list — rather than a magic number.
+  it "reads each plan's location once for the whole index, not once per plan" do
+    folder = create(:folder, name: "LiveOrder", created_by_user: alice)
+    nested = create(:folder, name: "Q3", parent: folder, created_by_user: alice)
+
+    location_queries = lambda do
+      count = 0
+      sub = ActiveSupport::Notifications.subscribe("sql.active_record") do |*, payload|
+        next if payload[:name].to_s =~ /SCHEMA|TRANSACTION/
+        count += 1 if payload[:sql].to_s.match?(/coplan_(plan_placements|folders|libraries)/)
+      end
+      get api_v1_plans_path, headers: headers
+      ActiveSupport::Notifications.unsubscribe(sub)
+      expect(response).to have_http_status(:success)
+      count
+    end
+
+    3.times { |i| CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice, title: "Roadmap #{i}"), folder: nested, actor: alice) }
+    few = location_queries.call
+
+    27.times { |i| CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice, title: "Later #{i}"), folder: folder, actor: alice) }
+    many = location_queries.call
+
+    body = JSON.parse(response.body)
+    expect(body.size).to eq(30)
+    # The preload has to be right, not just cheap — thirty distinct addresses,
+    # each naming the folder the plan is actually in.
+    expect(body.map { |p| p["url"] }.uniq.size).to eq(30)
+    expect(body.map { |p| p["folder_path"] }.tally).to eq("LiveOrder/Q3" => 3, "LiveOrder" => 27)
+    expect(many).to eq(few)
+  end
+
   it "index returns plans" do
     plan # trigger creation
     get api_v1_plans_path, headers: headers
@@ -172,25 +212,83 @@ RSpec.describe "Api::V1::Plans", type: :request do
     end
   end
 
+  describe "retyping via update" do
+    let!(:scratchpad) { create(:plan_type, name: "Scratchpad", default_tags: []) }
+    let!(:design) { create(:plan_type, name: "Engineering Design", default_tags: [ "design" ]) }
+
+    it "changes the plan's type, adopts default_tags, and logs events" do
+      typed_plan = create(:plan, :considering, created_by_user: alice, plan_type: scratchpad)
+
+      patch api_v1_plan_path(typed_plan), params: { plan_type: "engineering design" }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:success)
+      body = JSON.parse(response.body)
+      expect(body["plan_type_name"]).to eq("Engineering Design")
+      expect(body["tags"]).to include("design")
+
+      type_event = typed_plan.plan_events.find_by(event_type: "plan_type_changed")
+      expect(type_event.before_value).to eq("Scratchpad")
+      expect(type_event.after_value).to eq("Engineering Design")
+      expect(typed_plan.plan_events.where(event_type: "tag_added", after_value: "design")).to exist
+    end
+
+    it "keeps existing tags on retype" do
+      typed_plan = create(:plan, :considering, created_by_user: alice, plan_type: scratchpad)
+      typed_plan.tag_names = [ "pricing" ]
+
+      patch api_v1_plan_path(typed_plan), params: { plan_type: "Engineering Design" }, headers: headers, as: :json
+
+      expect(JSON.parse(response.body)["tags"]).to match_array([ "pricing", "design" ])
+    end
+
+    it "is a no-op event-wise when the type is unchanged" do
+      typed_plan = create(:plan, :considering, created_by_user: alice, plan_type: design)
+
+      patch api_v1_plan_path(typed_plan), params: { plan_type: "Engineering Design" }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(typed_plan.plan_events.where(event_type: "plan_type_changed")).not_to exist
+    end
+
+    it "rejects an unknown plan_type with the valid names" do
+      typed_plan = create(:plan, :considering, created_by_user: alice, plan_type: scratchpad)
+
+      patch api_v1_plan_path(typed_plan), params: { plan_type: "nope" }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(JSON.parse(response.body)["error"]).to include("Scratchpad")
+      expect(typed_plan.reload.plan_type).to eq(scratchpad)
+    end
+
+    it "rejects a blank plan_type — every plan has a type" do
+      typed_plan = create(:plan, :considering, created_by_user: alice, plan_type: scratchpad)
+
+      patch api_v1_plan_path(typed_plan), params: { plan_type: "" }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(JSON.parse(response.body)["error"]).to include("cannot be blank")
+    end
+  end
+
   describe "tags on create" do
     it "applies the plan type's default_tags" do
-      create(:plan_type, name: "design-doc", default_tags: ["design", "architecture"])
+      create(:plan_type, name: "design-doc", default_tags: [ "design", "architecture" ])
       post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", plan_type: "design-doc" }, headers: headers, as: :json
       expect(response).to have_http_status(:created)
-      expect(JSON.parse(response.body)["tags"]).to match_array(["design", "architecture"])
+      expect(JSON.parse(response.body)["tags"]).to match_array([ "design", "architecture" ])
     end
 
     it "merges explicit tags with the type's default_tags" do
-      create(:plan_type, name: "design-doc", default_tags: ["design"])
-      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", plan_type: "design-doc", tags: ["pricing", "design"] }, headers: headers, as: :json
+      create(:plan_type, name: "design-doc", default_tags: [ "design" ])
+      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", plan_type: "design-doc", tags: [ "pricing", "design" ] }, headers: headers, as: :json
       expect(response).to have_http_status(:created)
-      expect(JSON.parse(response.body)["tags"]).to match_array(["design", "pricing"])
+      expect(JSON.parse(response.body)["tags"]).to match_array([ "design", "pricing" ])
     end
 
     it "accepts explicit tags without a plan_type" do
-      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", tags: ["pricing"] }, headers: headers, as: :json
+      post api_v1_plans_path, params: { title: "Tagged Plan", content: "# Tagged", tags: [ "pricing" ] }, headers: headers, as: :json
       expect(response).to have_http_status(:created)
-      expect(JSON.parse(response.body)["tags"]).to eq(["pricing"])
+      expect(JSON.parse(response.body)["tags"]).to eq([ "pricing" ])
     end
   end
 
@@ -432,27 +530,29 @@ RSpec.describe "Api::V1::Plans", type: :request do
   end
 
   describe "GET /api/v1/plans/:id/locations" do
-    it "returns every library the plan is shelved in" do
+    # Still an array — a plan has one location or none, and clients
+    # already iterate it.
+    it "returns the one library the plan is filed in" do
       published = create(:plan, :considering, created_by_user: alice)
       alice_folder = create(:folder, name: "Mine", description: "Alice's shelf", created_by_user: alice)
-      carol_folder = create(:folder, name: "Reading List", created_by_user: carol)
       CoPlan::Plans::Place.call(plan: published, folder: alice_folder, actor: alice)
-      CoPlan::Plans::Place.call(plan: published, folder: carol_folder, actor: carol)
 
       get locations_api_v1_plan_path(published), headers: headers
       expect(response).to have_http_status(:success)
-      locations = JSON.parse(response.body)
-      expect(locations.size).to eq(2)
+      location = JSON.parse(response.body).sole
 
-      mine = locations.find { |l| l["library_id"] == alice.library.id }
-      theirs = locations.find { |l| l["library_id"] == carol.library.id }
-      expect(mine["folder_path"]).to eq("Mine")
-      expect(mine["folder_description"]).to eq("Alice's shelf")
-      expect(mine["writable"]).to be(true)
-      expect(mine["owner"]["name"]).to eq(alice.name)
-      expect(theirs["folder_path"]).to eq("Reading List")
-      expect(theirs["writable"]).to be(false)
-      expect(theirs["placed_by"]).to eq(carol.name)
+      expect(location["library_id"]).to eq(alice.library.id)
+      expect(location["folder_path"]).to eq("Mine")
+      expect(location["folder_description"]).to eq("Alice's shelf")
+      expect(location["writable"]).to be(true)
+      expect(location["owner"]["name"]).to eq(alice.name)
+      expect(location["placed_by"]).to eq(alice.name)
+    end
+
+    it "returns nothing for an unfiled plan" do
+      get locations_api_v1_plan_path(create(:plan, :considering, created_by_user: alice)),
+        headers: headers
+      expect(JSON.parse(response.body)).to be_empty
     end
 
     it "requires auth" do

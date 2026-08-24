@@ -1,0 +1,23 @@
+/* Deck theme: poster — warm paper, heavy display type, vermilion accent.
+   Title slides go full-accent: the opener is a poster. Token contract:
+   docs/SLIDE_SPEC.md "Themes". */
+
+.deck[data-deck-theme="poster"] {
+  --deck-bg: #faf6ef;
+  --deck-ink: #191713;
+  --deck-muted: #7a7266;
+  --deck-accent: #d94f30;
+  --deck-accent-ink: #fff6ee;
+  --deck-rule: #e7dfd2;
+  --deck-title-bg: #d94f30;
+  --deck-title-ink: #fff6ee;
+  --deck-title-accent: #fff6ee;
+  /* Teal against vermilion — the pen must not read as the accent. The
+     title canvas IS the accent, so the pen there is the paper color. */
+  --deck-pen: #0e6f68;
+  --deck-title-pen: #fff6ee;
+  --deck-font-display: "Lexend", system-ui, sans-serif;
+  --deck-font-text: "Lexend", system-ui, sans-serif;
+  --deck-font-mono: "Hack", ui-monospace, "SF Mono", Menlo, monospace;
+  --deck-display-weight: 800;
+}

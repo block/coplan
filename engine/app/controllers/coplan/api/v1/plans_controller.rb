@@ -7,7 +7,13 @@ module CoPlan
 
         def index
           plans = Plan
-            .includes(:plan_type, :created_by_user)
+            # Where each plan lives, preloaded whole. Two fields need it and
+            # each needs more of it than it looks: `folder_path` walks the
+            # folder's ancestors, and `url` walks those *and* the library for
+            # its handle. Left to the associations that's several queries a
+            # plan on a list endpoint agents page through.
+            .includes(:plan_type, :created_by_user,
+              placement: [ :library, { folder: { parent: :parent } } ])
             .visible_to(current_user)
             .order(updated_at: :desc)
           plans = apply_index_filters(plans)
@@ -15,12 +21,9 @@ module CoPlan
           # (folder ids are global), and the plans themselves stay
           # viewer-filtered above.
           if params[:folder_id].present?
-            plans = plans.joins(:placements)
+            plans = plans.joins(:placement)
               .where(coplan_plan_placements: { folder_id: params[:folder_id] })
           end
-          @viewer_placements = current_user.library.placements
-            .includes(folder: { parent: :parent })
-            .index_by(&:plan_id)
           render json: plans.map { |p| plan_json(p) }
         end
 
@@ -34,13 +37,8 @@ module CoPlan
 
         def create
           if params[:plan_type].present?
-            plan_type = PlanType.find_by_name(params[:plan_type])
-            unless plan_type
-              available = PlanType.order(:name).pluck(:name)
-              message = "Unknown plan_type \"#{params[:plan_type]}\"."
-              message += " Available types: #{available.map { |n| "\"#{n}\"" }.join(", ")}." if available.any?
-              return render json: { error: message }, status: :unprocessable_content
-            end
+            plan_type = resolve_plan_type_param
+            return if performed? # resolve_plan_type_param rendered an error
           end
 
           # Plans are born published; `"visibility": "draft"` is the opt-in
@@ -88,7 +86,7 @@ module CoPlan
             if params[:references].is_a?(Array)
               params[:references].each do |ref_params|
                 next unless ref_params[:url].present?
-                ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url])
+                ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url], own_host: request.host)
                 ref = plan.references.find_or_initialize_by(url: ref_params[:url])
                 ref.assign_attributes(key: ref_params[:key], title: ref_params[:title], reference_type: ref_type, source: "explicit")
                 ref.save!
@@ -117,11 +115,19 @@ module CoPlan
           return if performed? # visibility_params_for_update rendered an error
           permitted.merge!(visibility_updates)
 
+          if params.key?(:plan_type)
+            new_plan_type = resolve_plan_type_param
+            return if performed? # resolve_plan_type_param rendered an error
+            permitted[:plan_type] = new_plan_type
+          end
+
           # Snapshot before-state so LogEvent can record meaningful diffs.
           old_title = @plan.title
           old_visibility = @plan.visibility
           old_archived = @plan.archived?
           old_tag_names = @plan.tag_names
+          old_plan_type = @plan.plan_type
+          tags_changed_by_retype = false
 
           # Folder resolution (which may create folders via folder_path in
           # the caller's library), the placement move, and the plan update
@@ -141,8 +147,27 @@ module CoPlan
 
             @plan.tag_names = params[:tags] if params.key?(:tags)
             @plan.update!(permitted)
+
+            # A retype adopts the new type's default_tags (union — existing
+            # tags are never removed), mirroring what create does. After
+            # update! so an invalid update never writes tags.
+            if new_plan_type && new_plan_type != old_plan_type
+              merged_tags = @plan.tag_names | new_plan_type.default_tags.to_a
+              if merged_tags != @plan.tag_names
+                @plan.tag_names = merged_tags
+                tags_changed_by_retype = true
+              end
+            end
           end
           return if performed? # placement error rendered inside the transaction
+
+          if new_plan_type && @plan.saved_change_to_plan_type_id?
+            Plans::LogEvent.call(
+              plan: @plan, actor: current_user, event_type: "plan_type_changed",
+              before: old_plan_type&.name, after: new_plan_type.name,
+              actor_type: api_author_type, actor_id: api_user_id, agent_name: api_agent_name, api_token_id: api_token_id
+            )
+          end
 
           if @plan.saved_changes?
             Broadcaster.replace_to(@plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: @plan })
@@ -179,7 +204,7 @@ module CoPlan
             )
           end
 
-          if params.key?(:tags)
+          if params.key?(:tags) || tags_changed_by_retype
             new_tag_names = @plan.tag_names
             (new_tag_names - old_tag_names).each do |added|
               Plans::LogEvent.call(
@@ -198,7 +223,7 @@ module CoPlan
           if params[:references].is_a?(Array)
             params[:references].each do |ref_params|
               next unless ref_params[:url].present?
-              ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url])
+              ref_type = ref_params[:reference_type].presence || Reference.classify_url(ref_params[:url], own_host: request.host)
               ref = @plan.references.find_or_initialize_by(url: ref_params[:url])
               # Only emit a "reference_added" event for genuinely new references;
               # existing-reference updates fall through silently for now.
@@ -228,11 +253,13 @@ module CoPlan
           render json: versions.map { |v| version_json(v) }
         end
 
-        # Everywhere this plan is shelved — the reverse lookup of "what
-        # folder is this document actually in?", across every library
-        # (yours, other people's, and future team libraries).
+        # Where this plan is filed — "what folder is this document
+        # actually in?". Now that a plan lives in exactly one place this
+        # answers with at most one entry, but it stays an array: clients
+        # already iterate it, and an unfiled plan legitimately has none.
         def locations
-          placements = @plan.placements.includes(:placed_by_user, library: :owner, folder: { parent: :parent })
+          placements = PlanPlacement.where(plan_id: @plan.id)
+            .includes(:placed_by_user, library: :owner, folder: { parent: :parent })
           render json: placements.map { |placement|
             library = placement.library
             {
@@ -328,6 +355,25 @@ module CoPlan
           updates
         end
 
+        # Resolves the `plan_type` param (a type name, case-insensitive) to a
+        # PlanType. Every plan has a type, so a blank or unknown name is a
+        # 422 listing the valid names — the error is the agent's discovery
+        # path when it guesses. Renders and returns nil on bad input.
+        def resolve_plan_type_param
+          plan_type = PlanType.find_by_name(params[:plan_type]) if params[:plan_type].present?
+          return plan_type if plan_type
+
+          available = PlanType.order(:name).pluck(:name)
+          message = if params[:plan_type].present?
+            "Unknown plan_type \"#{params[:plan_type]}\"."
+          else
+            "plan_type cannot be blank — every plan has a type."
+          end
+          message += " Available types: #{available.map { |n| "\"#{n}\"" }.join(", ")}." if available.any?
+          render json: { error: message }, status: :unprocessable_content
+          nil
+        end
+
         # Resolves `folder_id` / `folder_path` update params to a Folder (or
         # nil to unfile). `folder_path` finds-or-creates the hierarchy in the
         # caller's own library, which is what lets an agent organize a
@@ -359,22 +405,19 @@ module CoPlan
           end
         end
 
-        # folder_id/folder_path are viewer-relative: where *the caller*
-        # shelved this plan in their own library. One query per call — index
-        # batches placements up front via @viewer_placements.
-        def viewer_placement_for(plan)
-          if defined?(@viewer_placements) && @viewer_placements
-            @viewer_placements[plan.id]
-          else
-            current_user.library.placements.find_by(plan_id: plan.id)
-          end
-        end
-
         def plan_json(plan)
-          placement = viewer_placement_for(plan)
+          # Where the plan lives. Used to be viewer-relative — the caller's
+          # own shelf — but a plan is filed in exactly one place now, so
+          # every caller gets the same answer. The list endpoint preloads
+          # this; single-plan responses take the one query.
+          placement = plan.placement
           {
             id: plan.id,
             title: plan.title,
+            # The document's address — the one a caller should hand to a
+            # human. An agent that files a plan and then says where it went
+            # has to be able to name it, and the id form isn't the name.
+            url: plan_web_url(plan),
             visibility: plan.visibility,
             archived: plan.archived?,
             archived_at: plan.archived_at,

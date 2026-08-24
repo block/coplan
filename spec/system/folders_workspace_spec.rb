@@ -27,7 +27,7 @@ RSpec.describe "Folders workspace", type: :system do
 
   describe "Drive-style navigation" do
     it "walks down through folders and back up via breadcrumbs" do
-      visit plans_path
+      visit library_page_path(author)
 
       # Root level: loose docs and folder rows; filed docs are a click away.
       expect(page).to have_css(".plan-row[data-plan-id='#{developing_plan.id}']")
@@ -52,7 +52,7 @@ RSpec.describe "Folders workspace", type: :system do
       # Turbo navigations never update document.referrer, so this relies on
       # the controller's own in-app visit tracking — a regression here sends
       # Backspace to the workspace root, losing your place.
-      visit plans_path
+      visit library_page_path(author)
       find(".folder-row", text: "Team EBT").click
       find(".folder-row", text: "Q3").click
       find(".plan-row", text: "Q3 Launch Plan").click
@@ -63,24 +63,27 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "falls back to the plan's folder on Backspace after a cold open" do
-      # Direct visit = no in-app history. Backspace should land where the
-      # plan lives in the viewer's library, not the workspace root.
-      visit plan_path(foldered_plan)
+      # Direct visit = no in-app history. Backspace should land on the
+      # folder the plan lives in — at its readable address, not the
+      # workspace root and not a folder-id query string.
+      visit plan_page_path(foldered_plan)
       expect(page).to have_css("h1", text: "Q3 Launch Plan")
 
       find("body").send_keys(:backspace)
       expect(page).to have_css(".workspace-crumbs__crumb--current", text: "Q3")
-      expect(page).to have_current_path(plans_path(folder: q3.id))
+      expect(page).to have_current_path(browse_path(handle: author.library.handle, slug_path: q3.slug_path))
     end
 
     it "goes up to the plan's containing folder from the masthead and sticky nav" do
       foldered_plan.current_plan_version.update!(
         content_markdown: (1..30).map { |n| "## Section #{n}\n\nEnough content to scroll past the masthead." }.join("\n\n")
       )
-      location_path = library_path(author.library, folder: q3.id)
-      workspace_destination = plans_path(folder: q3.id)
+      # The masthead links straight at the canonical browsable path, so
+      # clicking it lands there with no redirect hop.
+      location_path = browse_path(handle: author.library.handle, slug_path: q3.slug_path)
+      workspace_destination = location_path
 
-      visit plan_path(foldered_plan)
+      visit plan_page_path(foldered_plan)
       masthead_location = find(".plan-location-link--masthead")
       expect(masthead_location[:href]).to end_with(location_path)
       expect(masthead_location["aria-label"]).to eq("Up to containing folder — Team EBT/Q3")
@@ -88,7 +91,7 @@ RSpec.describe "Folders workspace", type: :system do
       masthead_location.click
       expect(page).to have_current_path(workspace_destination)
 
-      visit plan_path(foldered_plan)
+      visit plan_page_path(foldered_plan)
       page.execute_script("window.scrollTo(0, document.body.scrollHeight)")
       expect(page).to have_css(".site-nav__plan-context--visible")
       sticky_location = find(".plan-location-link--nav")
@@ -103,9 +106,11 @@ RSpec.describe "Folders workspace", type: :system do
       saved = create(:folder, name: "Saved by me", created_by_user: other)
       CoPlan::Plans::Place.call(plan: foldered_plan, folder: saved, actor: other)
       sign_in(other)
-      destination = library_path(author.library, folder: q3.id)
+      # The author's canonical path — a plan's location is where its author
+      # filed it, not where this viewer shelved it.
+      destination = browse_path(handle: author.library.handle, slug_path: q3.slug_path)
 
-      visit plan_path(foldered_plan)
+      visit plan_page_path(foldered_plan)
       location = find(".plan-location-link--masthead")
       expect(location[:href]).to end_with(destination)
       expect(location["aria-label"]).to eq("Up to containing folder — Team EBT/Q3")
@@ -117,13 +122,13 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "quietly flags private plans in the level view" do
-      visit plans_path
+      visit library_page_path(author)
       row = find(".plan-row[data-plan-id='#{brainstorm_plan.id}']")
       expect(row).to have_css(".state-flag", text: "Private")
     end
 
     it "navigates docs and folders with j/k/Enter and goes up with Backspace" do
-      visit plans_path
+      visit library_page_path(author)
 
       find("body").send_keys("j")
       expect(page).to have_css(".workspace-key-selected", count: 1)
@@ -141,7 +146,7 @@ RSpec.describe "Folders workspace", type: :system do
 
     it "clears filters with Escape, then jumps home from a folder" do
       developing_plan.tag_names = [ "security" ]
-      visit plans_path(tag: "security")
+      visit library_page_path(author, tag: "security")
 
       expect(page).to have_css(".active-filter__clear")
       find("body").send_keys(:escape)
@@ -157,7 +162,7 @@ RSpec.describe "Folders workspace", type: :system do
 
   describe "sidebar navigation" do
     it "jumps into a folder from the sidebar tree" do
-      visit plans_path
+      visit library_page_path(author)
 
       within(".workspace__sidebar") { click_link "Team EBT" }
       expect(page).to have_css(".workspace-crumbs__crumb--current", text: "Team EBT")
@@ -167,7 +172,7 @@ RSpec.describe "Folders workspace", type: :system do
 
     it "filters by tag from the sidebar" do
       developing_plan.tag_names = [ "security" ]
-      visit plans_path
+      visit library_page_path(author)
 
       within(".workspace__sidebar") { click_link "#security" }
       expect(page).to have_content("Payments Plan")
@@ -175,7 +180,7 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "creates a nested folder through the popover, defaulting to the current folder" do
-      visit plans_path(folder: team.id)
+      visit folder_page_path(team)
       click_button "New folder"
 
       within("#new-folder-modal") do
@@ -198,7 +203,7 @@ RSpec.describe "Folders workspace", type: :system do
 
   describe "moving plans to folders" do
     it "moves a plan by dragging its row onto a sidebar folder" do
-      visit plans_path
+      visit library_page_path(author)
 
       row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
       target = find(".folder-tree__link", text: "Infra")
@@ -219,7 +224,7 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "moves a plan by dragging it onto a folder row in the main pane" do
-      visit plans_path
+      visit library_page_path(author)
 
       row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
       target = find(".folder-row", text: "Team EBT")
@@ -235,7 +240,7 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "nests one folder under another by dragging its tree node" do
-      visit plans_path
+      visit library_page_path(author)
 
       source = find(".folder-tree__link", text: "Infra")
       target = find(".folder-tree__link", text: "Team EBT")
@@ -251,7 +256,7 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "files their own plan via Move to folder… in the plan menu" do
-      visit plan_path(developing_plan)
+      visit plan_page_path(developing_plan)
 
       # Owners organize, they don't "save" — no Save button on your own plan.
       expect(page).not_to have_button("Save")
@@ -271,7 +276,7 @@ RSpec.describe "Folders workspace", type: :system do
 
     it "unfiles their own plan with the picker's explicit Remove from folder" do
       CoPlan::Plans::Place.call(plan: developing_plan, folder: q3, actor: author)
-      visit plan_path(developing_plan)
+      visit plan_page_path(developing_plan)
 
       find("#plan-toolbar button[aria-label='More actions']").click
       within("#plan-menu") { click_button "Move to folder…" }
@@ -285,36 +290,21 @@ RSpec.describe "Folders workspace", type: :system do
       expect(author.library.placements.where(plan_id: developing_plan.id)).to be_empty
     end
 
-    it "saves and lets go of someone else's plan through the navigator, never a surprise toggle" do
+    # Reading someone else's plan offers no filing control at all: it lives
+    # in their library, and a plan has only the one home.
+    it "offers no way to file someone else's plan into your library" do
       other_plan = create(:plan, :considering, created_by_user: other, title: "Someone Elses Plan")
-      visit plans_path(scope: "all")
 
-      # The row drags into your library like any of your own…
-      row = find(".plan-row[data-plan-id='#{other_plan.id}']")
-      expect(row["draggable"]).to eq("true")
-
-      # …and the plan page offers a labeled Save that opens the navigator.
-      visit plan_path(other_plan)
-      click_button "Save"
-      within("#folder-picker-modal") do
-        expect(page).to have_css("#folder-picker-title", text: "Save to library")
-        find(".folder-picker__option", text: "Infra").click
+      visit plan_page_path(other_plan)
+      expect(page).to have_css("h1", text: "Someone Elses Plan")
+      within("#plan-toolbar") do
+        expect(page).not_to have_button("Save")
+        expect(page).not_to have_button("Saved")
       end
 
-      expect(page).to have_css(".flash--notice", text: "Infra", wait: 5)
-      expect(page).to have_button("Saved")
-      expect(author.library.placements.find_by(plan_id: other_plan.id).folder).to eq(infra)
-
-      # Clicking Saved re-opens the navigator — removal is a deliberate
-      # labeled choice inside it, not an instant unsave on the button.
-      click_button "Saved"
-      within("#folder-picker-modal") do
-        expect(page).to have_css(".folder-picker__option--current", text: "Infra")
-        click_button "Remove from library"
-      end
-
-      expect(page).to have_button("Save", wait: 5)
-      expect(author.library.placements.where(plan_id: other_plan.id)).to be_empty
+      find("#plan-toolbar button[aria-label='More actions']").click
+      within("#plan-menu") { expect(page).not_to have_button("Move to folder…") }
+      expect(CoPlan::PlanPlacement.where(plan_id: other_plan.id)).to be_empty
     end
   end
 
@@ -334,7 +324,7 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "springs a collapsed sidebar branch open after a hover, and shut when the drag moves away" do
-      visit plans_path
+      visit library_page_path(author)
 
       row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
       branch_link = find(".folder-tree__link", text: "Team EBT")
@@ -357,7 +347,7 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "tunnels the pane into a hovered folder, level by level, and files a dead-space drop right there" do
-      visit plans_path
+      visit library_page_path(author)
 
       row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
       fire_drag_event(row, "dragstart")
@@ -380,11 +370,11 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page).to have_css(".flash--notice", wait: 5)
       expect(author.library.placements.find_by(plan_id: developing_plan.id).folder).to eq(q3)
       # The drop leaves you where you dropped — inside Q3, for real.
-      expect(page).to have_current_path(plans_path(folder: q3.id), wait: 5)
+      expect(page).to have_current_path(browse_path(handle: author.library.handle, slug_path: q3.slug_path), wait: 5)
     end
 
     it "restores the original pane when a tunneled drag ends without a drop" do
-      visit plans_path
+      visit library_page_path(author)
 
       row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
       fire_drag_event(row, "dragstart")
@@ -404,7 +394,7 @@ RSpec.describe "Folders workspace", type: :system do
   describe "mobile sidebar" do
     it "collapses the sidebar behind a toggle at phone widths" do
       page.driver.browser.manage.window.resize_to(390, 844)
-      visit plans_path
+      visit library_page_path(author)
 
       expect(page).to have_css(".workspace__sidebar-toggle", visible: :visible)
       expect(page).to have_css(".workspace__sidebar-sections", visible: :hidden)

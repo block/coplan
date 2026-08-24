@@ -1,8 +1,12 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::Plans::ChangedSections do
-  def call(old_content, new_content)
+  def result(old_content, new_content)
     described_class.call(old_content: old_content, new_content: new_content)
+  end
+
+  def call(old_content, new_content)
+    result(old_content, new_content).keys
   end
 
   it "returns nothing when the content is unchanged" do
@@ -105,5 +109,94 @@ RSpec.describe CoPlan::Plans::ChangedSections do
     old_md = "## AT&amp;T merger\n\nold\n"
     new_md = "## AT&amp;T merger\n\nnew\n"
     expect(call(old_md, new_md)).to eq([ "att-merger" ])
+  end
+
+  # Highlighting only helps when it points somewhere. Once most of the
+  # document is new — the plan you glanced at mid-draft, or a rewrite —
+  # every band lights up and says nothing, so this reports a rewrite and
+  # leaves the page alone.
+  describe "rewrites" do
+    def doc(*bodies)
+      bodies.each_with_index.map { |body, i| "## Section #{i + 1}\n\n#{body}\n" }.join("\n")
+    end
+
+    it "reports a rewrite instead of keys when most of a long plan changed" do
+      old_md = doc("one", "two", "three", "four", "five")
+      new_md = doc("wholly new", "also new", "new again", "and this", "five")
+
+      expect(result(old_md, new_md)).to have_attributes(rewritten?: true, keys: [])
+    end
+
+    it "still highlights when one long section of many changed" do
+      body = "prose " * 200
+      old_md = doc(body, "two", "three", "four", "five")
+      new_md = doc("#{body} plus an edit", "two", "three", "four", "five")
+
+      expect(result(old_md, new_md)).to have_attributes(rewritten?: false, keys: [ "section-1" ])
+    end
+
+    # Section count alone would call this a rewrite; by volume it's a few
+    # words against a wall of unchanged text.
+    it "still highlights when a swarm of one-line sections changed" do
+      long = "prose " * 200
+      old_md = doc(long, "a", "b", "c", "d")
+      new_md = doc(long, "A", "B", "C", "D")
+
+      expect(result(old_md, new_md)).to have_attributes(
+        rewritten?: false,
+        keys: [ "section-2", "section-3", "section-4", "section-5" ]
+      )
+    end
+
+    it "highlights a short plan in full rather than talking about it" do
+      old_md = doc("one", "two")
+      new_md = doc("new one", "new two")
+
+      expect(result(old_md, new_md)).to have_attributes(rewritten?: false, keys: [ "section-1", "section-2" ])
+    end
+
+    # Renaming a heading files an untouched body under a new key, which
+    # looks like new text to a key-level diff. The headings still
+    # highlight; they just don't add up to a rewrite.
+    it "does not call a batch of renamed headings a rewrite" do
+      bodies = [ "one " * 40, "two " * 40, "three " * 40, "four " * 40 ]
+      old_md = bodies.each_with_index.map { |b, i| "## Section #{i + 1}\n\n#{b}\n" }.join("\n")
+      new_md = [ "Overview", "Approach", "Risks", "Section 4" ]
+        .each_with_index.map { |title, i| "## #{title}\n\n#{bodies[i]}\n" }.join("\n")
+
+      expect(result(old_md, new_md)).to have_attributes(
+        rewritten?: false,
+        keys: [ "overview", "approach", "risks" ]
+      )
+    end
+
+    it "still calls it a rewrite when the renamed sections got new bodies too" do
+      old_md = doc("one", "two", "three", "four")
+      new_md = [ "Overview", "Approach", "Risks", "Section 4" ]
+        .each_with_index.map { |title, i| "## #{title}\n\nwholly new body #{i}\n" }.join("\n")
+
+      expect(result(old_md, new_md)).to have_attributes(rewritten?: true, keys: [])
+    end
+
+    # One old section can only excuse one new one, or repeated boilerplate
+    # would discount a document that really was rewritten around it.
+    it "matches carried-over bodies one for one" do
+      old_md = doc("shared", "b", "c", "d", "e")
+      new_md = doc("shared", "shared", "shared", "shared", "shared")
+
+      expect(result(old_md, new_md)).to have_attributes(rewritten?: true, keys: [])
+    end
+
+    it "reports neither keys nor a rewrite when nothing changed" do
+      md = doc("one", "two", "three", "four", "five")
+
+      expect(result(md, md)).to have_attributes(rewritten?: false, keys: [])
+    end
+
+    # Every section is new against an empty baseline, which is the "you
+    # opened it while the agent was still drafting" case.
+    it "reports a rewrite when the plan grew from nothing into a long document" do
+      expect(result(nil, doc("one", "two", "three", "four"))).to have_attributes(rewritten?: true, keys: [])
+    end
   end
 end

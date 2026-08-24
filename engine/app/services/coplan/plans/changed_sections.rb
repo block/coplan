@@ -18,14 +18,78 @@ module CoPlan
     # ignored. Keys are slugified heading texts with the same `-2`, `-3`
     # duplicate suffixes as the client. A slug the client can't match
     # just means that section quietly doesn't highlight — the safe failure.
+    #
+    # Past a point the highlights stop being worth drawing: if you glanced
+    # at a plan while the agent was still drafting it, or the agent rewrote
+    # the thing, every section differs and the page turns into one big
+    # band. That case comes back as `rewritten?` with no keys — the page
+    # says so in a line of text instead of highlighting everything.
     class ChangedSections
       TOP_KEY = "__top__".freeze
       HEADING_TAGS = %w[h1 h2 h3].freeze
+      # "Most of it changed" — measured against both the section count and
+      # the volume of text, since either alone misreads a common shape: a
+      # swarm of one-line sections changing isn't a rewrite, and neither is
+      # one long section getting edited.
+      REWRITE_RATIO = 0.5
+      # Below this, highlighting everything is only a few inches of tint —
+      # legible, and more useful than a sentence about it. The notice is
+      # for documents long enough that a full-page band reads as noise.
+      REWRITE_MIN_SECTIONS = 4
+
+      Result = Struct.new(:keys, :rewritten, keyword_init: true) do
+        def rewritten?
+          rewritten
+        end
+      end
+
+      NONE = Result.new(keys: [].freeze, rewritten: false).freeze
 
       def self.call(old_content:, new_content:)
         old_sections = sections(old_content)
-        sections(new_content).filter_map do |key, body|
+        # An empty lead-in isn't a section; counting it would skew the
+        # rewrite ratio on every document that opens with a heading.
+        new_sections = sections(new_content).reject { |key, body| key == TOP_KEY && body.empty? }
+
+        changed = new_sections.filter_map do |key, body|
           key if !old_sections.key?(key) || old_sections[key] != body
+        end
+        return NONE if changed.empty?
+        return Result.new(keys: [], rewritten: true) if rewritten?(old_sections, new_sections, changed)
+
+        Result.new(keys: changed, rewritten: false)
+      end
+
+      def self.rewritten?(old_sections, new_sections, changed)
+        return false if new_sections.size < REWRITE_MIN_SECTIONS
+
+        fresh = written_from_scratch(old_sections, new_sections, changed)
+        return false unless fresh.size > new_sections.size * REWRITE_RATIO
+
+        total = new_sections.sum { |_key, body| body.length }
+        return true if total.zero?
+
+        fresh.sum { |key| new_sections[key].length } > total * REWRITE_RATIO
+      end
+
+      # Changed sections minus the ones that only moved. A renamed heading
+      # files an untouched body under a new key, which the key-level diff
+      # can't tell from newly written text — so three renames in a
+      # four-section plan would claim a rewrite the reader never got. Any
+      # body that already existed somewhere in the old document is carried
+      # over, not written; it still highlights (the heading did change),
+      # it just doesn't count toward "most of this is new". Matching is by
+      # exact body, one old section per new one, so duplicated text can't
+      # discount two sections at once.
+      def self.written_from_scratch(old_sections, new_sections, changed)
+        carried_over = old_sections.values.reject(&:empty?).tally
+
+        changed.reject do |key|
+          body = new_sections[key]
+          next false unless carried_over.fetch(body, 0).positive?
+
+          carried_over[body] -= 1
+          true
         end
       end
 

@@ -34,7 +34,7 @@ RSpec.describe CoPlan::PlanViewer, type: :model do
       CoPlan::PlanViewer.track(plan: plan, user: user)
 
       viewers = CoPlan::PlanViewer.active_viewers_for(plan)
-      expect(viewers).to eq([user])
+      expect(viewers).to eq([ user ])
     end
 
     it "excludes stale viewers" do
@@ -53,8 +53,8 @@ RSpec.describe CoPlan::PlanViewer, type: :model do
       CoPlan::PlanViewer.track(plan: plan, user: user)
       CoPlan::PlanViewer.track(plan: other_plan, user: other_user)
 
-      expect(CoPlan::PlanViewer.active_viewers_for(plan)).to eq([user])
-      expect(CoPlan::PlanViewer.active_viewers_for(other_plan)).to eq([other_user])
+      expect(CoPlan::PlanViewer.active_viewers_for(plan)).to eq([ user ])
+      expect(CoPlan::PlanViewer.active_viewers_for(other_plan)).to eq([ other_user ])
     end
 
     it "orders viewers alphabetically by name" do
@@ -64,7 +64,7 @@ RSpec.describe CoPlan::PlanViewer, type: :model do
       CoPlan::PlanViewer.track(plan: plan, user: zara)
       CoPlan::PlanViewer.track(plan: plan, user: alice)
 
-      expect(CoPlan::PlanViewer.active_viewers_for(plan)).to eq([alice, zara])
+      expect(CoPlan::PlanViewer.active_viewers_for(plan)).to eq([ alice, zara ])
     end
   end
 

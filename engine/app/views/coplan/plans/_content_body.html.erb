@@ -7,6 +7,12 @@
     content-mutation broadcast. skip_digest avoids the template-digest cost
     on write paths; the explicit RENDER_CACHE_VERSION key handles renderer
     changes instead. -%>
-<% cache ["coplan/plan-content-body", CoPlan::MarkdownHelper::RENDER_CACHE_VERSION, plan.id, plan.current_plan_version&.content_sha256 || plan.current_revision], skip_digest: true do %>
-  <%= render_markdown(plan.current_content, footnotes: :exclude) %>
+<%# Behavior is part of the key: retyping a plan (document ↔ presentation)
+    changes the rendering without touching the content SHA. -%>
+<% cache ["coplan/plan-content-body", CoPlan::MarkdownHelper::RENDER_CACHE_VERSION, plan.id, plan.plan_type&.behavior, plan.current_plan_version&.content_sha256 || plan.current_revision], skip_digest: true do %>
+  <% if plan.presentation? %>
+    <%= render_slideshow(plan.current_content) %>
+  <% else %>
+    <%= render_markdown(plan.current_content, footnotes: :exclude) %>
+  <% end %>
 <% end %>

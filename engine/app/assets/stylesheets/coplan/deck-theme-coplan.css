@@ -1,0 +1,24 @@
+/* Deck theme: coplan — the default. Light, Lexend, the app's blue.
+   A theme is exactly the tokens in SLIDE_SPEC.md's table, nothing else.
+   Declared on bare .deck too so a deck with no data-deck-theme is this
+   theme. Canvas colors deliberately do NOT follow the app's light/dark
+   scheme: a deck is a fixed artifact that looks the same on every screen;
+   only the page around it follows the app. */
+
+.deck,
+.deck[data-deck-theme="coplan"] {
+  --deck-bg: #ffffff;
+  --deck-ink: #1c1e24;
+  --deck-muted: #697080;
+  --deck-accent: #2563eb;
+  --deck-accent-ink: #ffffff;
+  --deck-rule: #e5e8ef;
+  --deck-title-bg: #f6f8fc;
+  --deck-title-ink: #16181f;
+  --deck-title-accent: #2563eb;
+  --deck-pen: #e11d48;
+  --deck-font-display: "Lexend", system-ui, sans-serif;
+  --deck-font-text: "Lexend", system-ui, sans-serif;
+  --deck-font-mono: "Hack", ui-monospace, "SF Mono", Menlo, monospace;
+  --deck-display-weight: 700;
+}

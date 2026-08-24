@@ -11,8 +11,8 @@ class CreateCoplanNotifications < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :coplan_notifications, [:user_id, :read_at], name: "index_coplan_notifications_on_user_id_and_read_at"
-    add_index :coplan_notifications, [:comment_thread_id, :user_id], name: "index_coplan_notifications_on_thread_and_user"
+    add_index :coplan_notifications, [ :user_id, :read_at ], name: "index_coplan_notifications_on_user_id_and_read_at"
+    add_index :coplan_notifications, [ :comment_thread_id, :user_id ], name: "index_coplan_notifications_on_thread_and_user"
     add_index :coplan_notifications, :plan_id, name: "index_coplan_notifications_on_plan_id"
 
     add_foreign_key :coplan_notifications, :coplan_users, column: :user_id

@@ -43,26 +43,13 @@ module CoPlan
           notified_user_ids << user.id if notification.previously_new_record?
         end
 
-        broadcast_badge_updates(notified_user_ids)
+        Notifications::BroadcastBadges.call(user_ids: notified_user_ids)
       end
 
       private
 
       def extract_usernames
         @comment.body_markdown.to_s.scan(MENTION_PATTERN).flatten.uniq
-      end
-
-      def broadcast_badge_updates(user_ids)
-        return if user_ids.empty?
-
-        counts = Notification.where(user_id: user_ids).unread.group(:user_id).count
-        user_ids.each do |user_id|
-          Broadcaster.update_to(
-            "coplan_notifications:#{user_id}",
-            target: "inbox-badge",
-            html: (counts[user_id] || 0).to_s
-          )
-        end
       end
     end
   end

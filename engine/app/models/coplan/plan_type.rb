@@ -2,6 +2,12 @@ module CoPlan
   class PlanType < ApplicationRecord
     GENERAL_NAME = "General"
 
+    # How plans of this type render and behave. "document" is the classic
+    # prose reading view; "presentation" renders the same markdown as a
+    # slide deck (slides split on `---`). Behavior lives on the type row —
+    # not on the type's name — so hosts can rename types freely.
+    BEHAVIORS = %w[document presentation].freeze
+
     # Every plan must have a type, so a type with plans can't be deleted —
     # nullify would mint invalid (and, at the DB level, unstorable) plans.
     # Reassign the plans first, then delete.
@@ -14,6 +20,11 @@ module CoPlan
     # name lookups are case-insensitive (see find_by_name), so two types
     # differing only by case would be indistinguishable through the API.
     validates :name, presence: true, uniqueness: { case_sensitive: false }
+    validates :behavior, presence: true, inclusion: { in: BEHAVIORS }
+
+    def presentation?
+      behavior == "presentation"
+    end
 
     # Case-insensitive, adapter-independent name lookup. MySQL's default
     # collations compare case-insensitively but PostgreSQL's don't, so a
@@ -35,7 +46,7 @@ module CoPlan
     end
 
     def self.ransackable_attributes(auth_object = nil)
-      %w[id name description icon template_content created_at updated_at]
+      %w[id name description icon behavior template_content created_at updated_at]
     end
 
     def self.ransackable_associations(auth_object = nil)

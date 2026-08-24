@@ -28,7 +28,7 @@ RSpec.describe "Plan references", type: :system do
 
   describe "footnote section" do
     it "shows content and references on one page" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       expect(page).to have_content("Some content here")
       # Empty state is one quiet line, scoped to the section (attachments
@@ -47,7 +47,7 @@ RSpec.describe "Plan references", type: :system do
       )
       plan.update!(current_plan_version: version, current_revision: 2)
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       within("#plan-extracted-references") do
         link = find_link("CoPlan repository", href: "https://github.com/block/coplan")
@@ -84,7 +84,7 @@ RSpec.describe "Plan references", type: :system do
     end
 
     it "previews references on hover and follows their links on click" do
-      visit plan_path(referenced_plan)
+      visit plan_page_path(referenced_plan)
 
       citation = find("a.reference-anchor--footnote")
       citation.hover
@@ -118,7 +118,7 @@ RSpec.describe "Plan references", type: :system do
           document.querySelector(".site-nav").getBoundingClientRect().bottom
       JS
 
-      visit plan_path(referenced_plan)
+      visit plan_page_path(referenced_plan)
       section_link = find('a.reference-anchor--section[href="#section-2-1"]')
       section_link.hover
       expect(section_link["aria-expanded"]).to eq("true")
@@ -135,7 +135,7 @@ RSpec.describe "Plan references", type: :system do
 
   describe "adding references via Turbo Stream" do
     it "closes the add-modal via the X button and via Escape" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       open_add_reference_modal
       expect(page).to have_css(".add-modal:popover-open")
@@ -149,7 +149,7 @@ RSpec.describe "Plan references", type: :system do
     end
 
     it "appends the reference to the DOM without a navigation" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       open_add_reference_modal
       expect(page).to have_css(".add-modal:popover-open")
@@ -176,7 +176,7 @@ RSpec.describe "Plan references", type: :system do
     end
 
     it "supports sequential adds with form re-expansion" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       open_add_reference_modal
       within(".add-modal:popover-open") do
@@ -206,7 +206,7 @@ RSpec.describe "Plan references", type: :system do
     it "removes reference from DOM with confirm dialog" do
       create(:reference, plan: plan, url: "https://example.com", title: "Doomed", source: "explicit")
 
-      visit plan_path(plan)
+      visit plan_page_path(plan)
       expect(page).to have_content("Doomed")
       expect(page).to have_css("#references-count", text: "1")
 
@@ -228,7 +228,7 @@ RSpec.describe "Plan references", type: :system do
 
   describe "section keyboard jumps" do
     it "jumps to the references footnote with ] and back up with [" do
-      visit plan_path(plan)
+      visit plan_page_path(plan)
 
       find("body").send_keys("]")
       expect(page).to have_css("#footnote-references", visible: :visible)

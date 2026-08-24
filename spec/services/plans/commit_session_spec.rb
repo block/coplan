@@ -32,7 +32,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
       new_content = content.sub("unit tests", "integration tests")
       session = build_session(
         plan: plan,
-        operations_json: [{ "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" }],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" } ],
         draft_content: new_content
       )
 
@@ -61,7 +61,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
       new_content = content.sub("unit tests", "integration tests")
       session = build_session(
         plan: plan,
-        operations_json: [{ "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" }],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" } ],
         draft_content: new_content,
         change_summary: "session summary"
       )
@@ -76,7 +76,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
       new_content = content.sub("unit tests", "integration tests")
       session = build_session(
         plan: plan,
-        operations_json: [{ "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" }],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" } ],
         draft_content: new_content,
         change_summary: "session summary"
       )
@@ -92,7 +92,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
     let(:session) do
       build_session(
         plan: plan,
-        operations_json: [{ "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" }],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" } ],
         draft_content: new_content
       )
     end
@@ -121,7 +121,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
     it "copies actor_type and actor_id from session" do
       session = build_session(
         plan: plan,
-        operations_json: [{ "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" }],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" } ],
         draft_content: new_content,
         actor_type: "cloud_persona",
         actor_id: "persona-123"
@@ -140,7 +140,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
       session = build_session(
         plan: plan,
         base_revision: 1,
-        operations_json: [{ "op" => "replace_exact", "old_text" => "Q1 2026 delivery.", "new_text" => "Q2 2026 delivery." }],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "Q1 2026 delivery.", "new_text" => "Q2 2026 delivery." } ],
         draft_content: content.sub("Q1 2026 delivery.", "Q2 2026 delivery.")
       )
 
@@ -153,14 +153,14 @@ RSpec.describe CoPlan::Plans::CommitSession do
       CoPlan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: v2_content, actor_type: "human", actor_id: user.id,
-        operations_json: [{
+        operations_json: [ {
           "op" => "replace_exact",
           "old_text" => old_text,
           "new_text" => new_text,
-          "resolved_range" => [start_pos, end_pos],
-          "new_range" => [start_pos, start_pos + new_text.length],
+          "resolved_range" => [ start_pos, end_pos ],
+          "new_range" => [ start_pos, start_pos + new_text.length ],
           "delta" => new_text.length - old_text.length
-        }]
+        } ]
       )
       plan.update!(current_revision: 2, current_plan_version: CoPlan::PlanVersion.find_by(plan: plan, revision: 2))
 
@@ -178,14 +178,14 @@ RSpec.describe CoPlan::Plans::CommitSession do
       session = build_session(
         plan: plan,
         base_revision: 1,
-        operations_json: [{
+        operations_json: [ {
           "op" => "replace_exact",
           "old_text" => "We should use unit tests.",
           "new_text" => "We should use integration tests.",
-          "resolved_range" => [content.index("We should use unit tests."), content.index("We should use unit tests.") + "We should use unit tests.".length],
-          "new_range" => [content.index("We should use unit tests."), content.index("We should use unit tests.") + "We should use integration tests.".length],
+          "resolved_range" => [ content.index("We should use unit tests."), content.index("We should use unit tests.") + "We should use unit tests.".length ],
+          "new_range" => [ content.index("We should use unit tests."), content.index("We should use unit tests.") + "We should use integration tests.".length ],
           "delta" => "integration tests".length - "unit tests".length
-        }],
+        } ],
         draft_content: content.sub("We should use unit tests.", "We should use integration tests.")
       )
 
@@ -198,14 +198,14 @@ RSpec.describe CoPlan::Plans::CommitSession do
       CoPlan::PlanVersion.create!(
         plan: plan, revision: 2,
         content_markdown: v2_content, actor_type: "human", actor_id: user.id,
-        operations_json: [{
+        operations_json: [ {
           "op" => "replace_exact",
           "old_text" => old_text,
           "new_text" => new_text,
-          "resolved_range" => [start_pos, end_pos],
-          "new_range" => [start_pos, start_pos + new_text.length],
+          "resolved_range" => [ start_pos, end_pos ],
+          "new_range" => [ start_pos, start_pos + new_text.length ],
           "delta" => new_text.length - old_text.length
-        }]
+        } ]
       )
       plan.update!(current_revision: 2, current_plan_version: CoPlan::PlanVersion.find_by(plan: plan, revision: 2))
 
@@ -238,7 +238,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
       session = build_session(
         plan: plan,
         base_revision: 1,
-        operations_json: [{ "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" }],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" } ],
         draft_content: content.sub("unit tests", "integration tests")
       )
 
@@ -265,7 +265,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
       new_content = content.sub("unit tests", "integration tests")
       session = build_session(
         plan: plan,
-        operations_json: [{ "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" }],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" } ],
         draft_content: new_content
       )
 
@@ -292,7 +292,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
       session_a = build_session(
         plan: plan,
         base_revision: 1,
-        operations_json: [{ "op" => "replace_exact", "old_text" => "First section content.", "new_text" => "Updated first section." }],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "First section content.", "new_text" => "Updated first section." } ],
         draft_content: content.sub("First section content.", "Updated first section.")
       )
 
@@ -300,7 +300,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
       session_b = build_session(
         plan: plan,
         base_revision: 1,
-        operations_json: [{ "op" => "replace_exact", "old_text" => "Q1 2026 delivery.", "new_text" => "Q2 2026 delivery." }],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "Q1 2026 delivery.", "new_text" => "Q2 2026 delivery." } ],
         draft_content: content.sub("Q1 2026 delivery.", "Q2 2026 delivery.")
       )
 
@@ -325,14 +325,14 @@ RSpec.describe CoPlan::Plans::CommitSession do
       session_a = build_session(
         plan: plan,
         base_revision: 1,
-        operations_json: [{ "op" => "replace_exact", "old_text" => "We should use unit tests.", "new_text" => "We should use integration tests." }],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "We should use unit tests.", "new_text" => "We should use integration tests." } ],
         draft_content: content.sub("We should use unit tests.", "We should use integration tests.")
       )
 
       session_b = build_session(
         plan: plan,
         base_revision: 1,
-        operations_json: [{ "op" => "replace_exact", "old_text" => "We should use unit tests.", "new_text" => "We should use acceptance tests." }],
+        operations_json: [ { "op" => "replace_exact", "old_text" => "We should use unit tests.", "new_text" => "We should use acceptance tests." } ],
         draft_content: content.sub("We should use unit tests.", "We should use acceptance tests.")
       )
 

@@ -1,5 +1,5 @@
 ActiveAdmin.register CoPlan::PlanType, as: "PlanType" do
-  permit_params :name, :description, :icon, :template_content
+  permit_params :name, :description, :icon, :behavior, :template_content
 
   index do
     selectable_column
@@ -22,6 +22,9 @@ ActiveAdmin.register CoPlan::PlanType, as: "PlanType" do
       f.input :icon, as: :select,
         collection: CoPlan::PlansHelper::PLAN_TYPE_ICONS.keys,
         include_blank: "(default document icon)"
+      f.input :behavior, as: :select,
+        collection: CoPlan::PlanType::BEHAVIORS,
+        include_blank: false
       f.input :template_content, as: :text
     end
     f.actions
@@ -32,6 +35,7 @@ ActiveAdmin.register CoPlan::PlanType, as: "PlanType" do
       row :id
       row :name
       row :icon
+      row :behavior
       row :description
       row :default_tags
       row :template_content

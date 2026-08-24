@@ -11,7 +11,7 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       "Roundtrip failed.\nOld:\n#{old_content.inspect}\nNew:\n#{new_content.inspect}\n" \
       "Got:\n#{result[:content].inspect}\nOps:\n#{ops.inspect}"
     }
-    [ops, result]
+    [ ops, result ]
   end
 
   describe "no-op cases" do
@@ -37,7 +37,7 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       expect(ops[0]["op"]).to eq("replace_exact")
       expect(ops[0]["old_text"]).to eq("beta\n")
       expect(ops[0]["new_text"]).to eq("BETA\n")
-      expect(ops[0]["_pre_resolved_ranges"]).to eq([[6, 11]])
+      expect(ops[0]["_pre_resolved_ranges"]).to eq([ [ 6, 11 ] ])
     end
 
     it "produces one op for an append at end of file" do
@@ -47,7 +47,7 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       expect(ops.length).to eq(1)
       expect(ops[0]["old_text"]).to eq("")
       expect(ops[0]["new_text"]).to eq("line three\n")
-      expect(ops[0]["_pre_resolved_ranges"]).to eq([[old.length, old.length]])
+      expect(ops[0]["_pre_resolved_ranges"]).to eq([ [ old.length, old.length ] ])
     end
 
     it "produces one op for an insert at start of file" do
@@ -57,7 +57,7 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       expect(ops.length).to eq(1)
       expect(ops[0]["old_text"]).to eq("")
       expect(ops[0]["new_text"]).to eq("line one\n")
-      expect(ops[0]["_pre_resolved_ranges"]).to eq([[0, 0]])
+      expect(ops[0]["_pre_resolved_ranges"]).to eq([ [ 0, 0 ] ])
     end
 
     it "produces one op for an insert in the middle" do
@@ -67,7 +67,7 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       expect(ops.length).to eq(1)
       expect(ops[0]["old_text"]).to eq("")
       expect(ops[0]["new_text"]).to eq("beta\n")
-      expect(ops[0]["_pre_resolved_ranges"]).to eq([[6, 6]])
+      expect(ops[0]["_pre_resolved_ranges"]).to eq([ [ 6, 6 ] ])
     end
 
     it "produces one op for a deletion in the middle" do
@@ -77,7 +77,7 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       expect(ops.length).to eq(1)
       expect(ops[0]["old_text"]).to eq("beta\n")
       expect(ops[0]["new_text"]).to eq("")
-      expect(ops[0]["_pre_resolved_ranges"]).to eq([[6, 11]])
+      expect(ops[0]["_pre_resolved_ranges"]).to eq([ [ 6, 11 ] ])
     end
 
     it "produces one op for a deletion at end of file" do
@@ -96,7 +96,7 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       expect(ops.length).to eq(1)
       expect(ops[0]["old_text"]).to eq("a\n")
       expect(ops[0]["new_text"]).to eq("")
-      expect(ops[0]["_pre_resolved_ranges"]).to eq([[0, 2]])
+      expect(ops[0]["_pre_resolved_ranges"]).to eq([ [ 0, 2 ] ])
     end
 
     it "groups multiple consecutive changed lines into one hunk" do
@@ -134,10 +134,10 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       ops, _ = assert_roundtrip(old, new)
       expect(ops.length).to eq(2)
       # First op replaces "a\n" (positions 0..2) with "AAAAAA\n" (delta = +5)
-      expect(ops[0]["_pre_resolved_ranges"]).to eq([[0, 2]])
+      expect(ops[0]["_pre_resolved_ranges"]).to eq([ [ 0, 2 ] ])
       # Second op replaces "c\n" — originally at positions 4..6 in old,
       # but after op 1 those positions are at 9..11 in the working content.
-      expect(ops[1]["_pre_resolved_ranges"]).to eq([[9, 11]])
+      expect(ops[1]["_pre_resolved_ranges"]).to eq([ [ 9, 11 ] ])
     end
 
     it "shifts later ops' ranges to account for prior ops' delta shrinkage" do
@@ -145,9 +145,9 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       new = "X\nb\nC\n"
       ops, _ = assert_roundtrip(old, new)
       expect(ops.length).to eq(2)
-      expect(ops[0]["_pre_resolved_ranges"]).to eq([[0, 7]])
+      expect(ops[0]["_pre_resolved_ranges"]).to eq([ [ 0, 7 ] ])
       # Original "c\n" was at positions 9..11; after op 1 (delta = -5) they're at 4..6.
-      expect(ops[1]["_pre_resolved_ranges"]).to eq([[4, 6]])
+      expect(ops[1]["_pre_resolved_ranges"]).to eq([ [ 4, 6 ] ])
     end
 
     it "handles insert + change + delete in one document" do
@@ -243,8 +243,8 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       ops, result = assert_roundtrip(old, new)
       applied = result[:applied]
       expect(applied.length).to eq(1)
-      expect(applied[0]["resolved_range"]).to eq([6, 11])
-      expect(applied[0]["new_range"]).to eq([6, 11])
+      expect(applied[0]["resolved_range"]).to eq([ 6, 11 ])
+      expect(applied[0]["new_range"]).to eq([ 6, 11 ])
       expect(applied[0]["delta"]).to eq(0)
     end
 
@@ -254,11 +254,11 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       _, result = assert_roundtrip(old, new)
       applied = result[:applied]
       expect(applied.length).to eq(2)
-      expect(applied[0]["resolved_range"]).to eq([0, 2])
-      expect(applied[0]["new_range"]).to eq([0, 7])
+      expect(applied[0]["resolved_range"]).to eq([ 0, 2 ])
+      expect(applied[0]["new_range"]).to eq([ 0, 7 ])
       expect(applied[0]["delta"]).to eq(5)
-      expect(applied[1]["resolved_range"]).to eq([9, 11])
-      expect(applied[1]["new_range"]).to eq([9, 11])
+      expect(applied[1]["resolved_range"]).to eq([ 9, 11 ])
+      expect(applied[1]["new_range"]).to eq([ 9, 11 ])
       expect(applied[1]["delta"]).to eq(0)
     end
   end
@@ -273,8 +273,8 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
 
       # Anchor on "alpha" at [0, 5] — unchanged, should survive
       version = double(operations_json: CoPlan::Plans::ApplyOperations.call(content: old, operations: ops)[:applied])
-      transformed = CoPlan::Plans::TransformRange.transform_through_versions([0, 5], [version])
-      expect(transformed).to eq([0, 5])
+      transformed = CoPlan::Plans::TransformRange.transform_through_versions([ 0, 5 ], [ version ])
+      expect(transformed).to eq([ 0, 5 ])
     end
 
     it "shifts an anchor after the change by the delta" do
@@ -285,8 +285,8 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       # Anchor on "c" at [4, 5] in old — should shift +5 to [9, 10] in new
       applied = CoPlan::Plans::ApplyOperations.call(content: old, operations: ops)[:applied]
       version = double(operations_json: applied)
-      transformed = CoPlan::Plans::TransformRange.transform_through_versions([4, 5], [version])
-      expect(transformed).to eq([9, 10])
+      transformed = CoPlan::Plans::TransformRange.transform_through_versions([ 4, 5 ], [ version ])
+      expect(transformed).to eq([ 9, 10 ])
     end
 
     it "marks an anchor inside the changed region as conflicting" do
@@ -298,7 +298,7 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
       applied = CoPlan::Plans::ApplyOperations.call(content: old, operations: ops)[:applied]
       version = double(operations_json: applied)
       expect {
-        CoPlan::Plans::TransformRange.transform_through_versions([2, 6], [version])
+        CoPlan::Plans::TransformRange.transform_through_versions([ 2, 6 ], [ version ])
       }.to raise_error(CoPlan::Plans::TransformRange::Conflict)
     end
   end
@@ -345,7 +345,7 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
     it "roundtrips when many small disjoint hunks span a large file" do
       old_lines = Array.new(50) { |i| "line_#{i}\n" }
       new_lines = old_lines.dup
-      [3, 11, 27, 41].each { |i| new_lines[i] = "CHANGED_#{i}\n" }
+      [ 3, 11, 27, 41 ].each { |i| new_lines[i] = "CHANGED_#{i}\n" }
       assert_roundtrip(old_lines.join, new_lines.join)
     end
   end

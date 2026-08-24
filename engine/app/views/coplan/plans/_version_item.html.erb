@@ -1,4 +1,4 @@
-<%= link_to diff_plan_version_path(plan, version),
+<%= link_to plan_version_diff_browse_path(plan, version),
       class: "history-split__item",
       data: { turbo_frame: "version-diff", action: "coplan--history#select" } do %>
   <div class="history-split__version">v<%= version.revision %></div>

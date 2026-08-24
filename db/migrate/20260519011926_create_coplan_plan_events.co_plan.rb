@@ -13,7 +13,7 @@ class CreateCoplanPlanEvents < ActiveRecord::Migration[8.1]
       t.datetime :created_at, null: false
 
       t.index :plan_id
-      t.index [:plan_id, :created_at]
+      t.index [ :plan_id, :created_at ]
       t.index :event_type
     end
   end

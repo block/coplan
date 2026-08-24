@@ -33,12 +33,16 @@ export default class extends Controller {
   }
 
   buildToc() {
-    const rendered = this.contentTarget.querySelector(".markdown-rendered")
-    if (!rendered) return
+    if (!this.contentTarget.querySelector(".markdown-rendered")) return
 
     this.listTarget.innerHTML = ""
     this._itemsById = new Map()
-    this._headings = Array.from(rendered.querySelectorAll("h1, h2, h3"))
+    // A document renders one .markdown-rendered; a deck renders one per
+    // slide. Scan the whole content column either way — scanning the first
+    // rendered block gave a deck an outline of slide 1 and nothing else.
+    this._headings = Array.from(
+      this.contentTarget.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3")
+    )
 
     if (this._headings.length === 0) {
       this.sidebarTarget.style.display = "none"
@@ -143,6 +147,24 @@ export default class extends Controller {
     heading.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
+  // The back-matter links (References, Attachments) jump the same way the
+  // outline above does. Turbo counts a same-page fragment link as a full
+  // visit — it refetches and re-renders the page — so the bare anchor read
+  // as a reload, and the scroll it performed landed against a layout that
+  // async rendering (Mermaid, highlighting, deck slides) had not settled
+  // yet. Scrolling in place needs neither.
+  jumpToSection(event) {
+    const id = event.currentTarget.getAttribute("href")?.replace(/^#/, "")
+    const target = id && document.getElementById(id)
+    if (!target) return
+
+    event.preventDefault()
+    history.replaceState(null, "", `#${id}`)
+
+    this._ignoreScroll = true
+    target.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
   _setActiveLink(id) {
     this.listTarget.querySelectorAll(".content-nav__link").forEach(link => {
       link.classList.remove("content-nav__link--active")
@@ -194,12 +216,14 @@ export default class extends Controller {
   updateCommentBadges() {
     if (!this._headings || this._headings.length === 0) return
 
-    const rendered = this.contentTarget.querySelector(".markdown-rendered")
-    if (!rendered) return
+    if (!this.contentTarget.querySelector(".markdown-rendered")) return
 
+    // Walk the whole content column: on a deck, consecutive outline
+    // headings live in different slides, so the span between two of them
+    // crosses .markdown-rendered blocks.
     this._headings.forEach((heading, index) => {
       const nextHeading = this._headings[index + 1]
-      const threads = this.collectThreadsBetween(heading, nextHeading, rendered)
+      const threads = this.collectThreadsBetween(heading, nextHeading, this.contentTarget)
 
       let pendingCount = 0
       let todoCount = 0

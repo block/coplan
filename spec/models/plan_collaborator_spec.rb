@@ -83,19 +83,19 @@ RSpec.describe CoPlan::PlanCollaborator, type: :model do
     it ".authors returns only author collaborators" do
       author = create(:plan_collaborator, plan: plan, role: "author")
       create(:plan_collaborator, plan: plan, role: "reviewer")
-      expect(plan.plan_collaborators.authors).to eq([author])
+      expect(plan.plan_collaborators.authors).to eq([ author ])
     end
 
     it ".approvers returns only approver collaborators" do
       approver = create(:plan_collaborator, plan: plan, role: "approver")
       create(:plan_collaborator, plan: plan, role: "viewer")
-      expect(plan.plan_collaborators.approvers).to eq([approver])
+      expect(plan.plan_collaborators.approvers).to eq([ approver ])
     end
 
     it ".highlighted returns only highlighted collaborators" do
       highlighted = create(:plan_collaborator, plan: plan, role: "highlighted", highlighted_reason: "Expert")
       create(:plan_collaborator, plan: plan, role: "author")
-      expect(plan.plan_collaborators.highlighted).to eq([highlighted])
+      expect(plan.plan_collaborators.highlighted).to eq([ highlighted ])
     end
   end
 end

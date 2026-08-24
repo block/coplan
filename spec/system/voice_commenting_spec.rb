@@ -39,6 +39,17 @@ RSpec.describe "Voice commenting", type: :system do
     expect(page).to have_current_path(root_path)
   end
 
+  # The voice control is server-rendered but inert until its Stimulus
+  # controller connects, so a key held — or the mic clicked — before then
+  # goes nowhere and the example fails on a page that was simply not ready
+  # yet. That race is what made this file flake under CI load. The
+  # controller marks itself at the end of connect(); every example here
+  # wants a live control, so every visit goes through this.
+  def visit_plan(target = plan)
+    visit plan_page_path(target)
+    expect(page).to have_css("[data-voice-ready]")
+  end
+
   # Installed before any page script runs, so the Stimulus controller sees
   # a browser that can transcribe and renders the mic button.
   #
@@ -91,7 +102,7 @@ RSpec.describe "Voice commenting", type: :system do
     }.to_json)
 
     stub_speech_recognition("this bit is like way too like cautious")
-    visit plan_path(plan)
+    visit_plan
 
     find(".voice-btn").click
 
@@ -122,7 +133,7 @@ RSpec.describe "Voice commenting", type: :system do
     allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "not configured")
 
     stub_speech_recognition("um this section is, you know, like like too vague")
-    visit plan_path(plan)
+    visit_plan
 
     find(".voice-btn").click
 
@@ -140,10 +151,108 @@ RSpec.describe "Voice commenting", type: :system do
     expect(body).to include("too vague")
   end
 
+  # The default key, and the reason it's the default: a chord is nobody's
+  # accident, so it needs none of the hold-delay hedging a bare modifier
+  # does — the press means talk.
+  describe "hold Ctrl+Space to talk" do
+    before do
+      allow(CoPlan::Ai).to receive(:call)
+        .and_return({ "text" => "Held to talk.", "span" => nil }.to_json)
+    end
+
+    after { page.driver.browser.action.release_actions }
+
+    def hold_ctrl_space
+      page.driver.browser.action.key_down(:control).key_down(:space).perform
+      yield if block_given?
+    ensure
+      page.driver.browser.action.key_up(:space).key_up(:control).perform
+    end
+
+    it "records while Ctrl+Space is held and posts on release" do
+      stub_speech_recognition("held to talk", emit_on_stop: true)
+      visit_plan
+
+      hold_ctrl_space { expect(page).to have_css(".voice-btn--listening") }
+
+      expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+      thread = CoPlan::CommentThread.where(plan_id: plan.id).sole
+      expect(thread.comments.first.body_markdown).to eq("🎙️ Held to talk.")
+    end
+
+    # No hold delay on a chord: waiting 350ms to decide would clip the
+    # first word off every short remark for no gain, because there is
+    # nothing to decide.
+    it "starts on the press rather than waiting out a hold" do
+      stub_speech_recognition("held to talk", emit_on_stop: true)
+      visit_plan
+
+      page.driver.browser.action.key_down(:control).key_down(:space).perform
+      expect(page).to have_css(".voice-btn--listening", wait: 0.3)
+    ensure
+      page.driver.browser.action.release_actions
+    end
+
+    # Space alone scrolls the page and Ctrl alone is half a shortcut;
+    # neither is somebody asking to talk.
+    it "ignores either half of the chord on its own" do
+      stub_speech_recognition("should never be sent", emit_on_stop: true)
+      visit_plan
+
+      page.driver.browser.action.key_down(:control).key_up(:control).perform
+      page.driver.browser.action.send_keys(:space).perform
+
+      expect(page).to have_no_css(".voice-btn--listening", wait: 2)
+      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+    end
+  end
+
+  # The key is a per-user setting, so the mic is the only thing on the
+  # page that can say which one yours is. Hovering has to answer it, or
+  # push-to-talk is a feature you have to remember you configured.
+  describe "the mic naming its own key" do
+    it "shows the chosen shortcut on hover" do
+      stub_speech_recognition("never sent")
+      visit_plan
+
+      expect(page).to have_css(".voice-btn[data-tooltip*='Ctrl+Space']")
+
+      author.update!(voice_hotkey: "shift")
+      visit_plan
+      expect(page).to have_css(".voice-btn[data-tooltip*='Shift']")
+
+      # Nothing to hold, nothing to promise.
+      author.update!(voice_hotkey: "off")
+      visit_plan
+      expect(page).to have_css(".voice-btn[data-tooltip='Comment by voice']")
+    end
+  end
+
+  # "Off" is a supported answer, not a broken state: the mic button is
+  # still there, and the keyboard belongs to the page again.
+  describe "with the hotkey turned off" do
+    before { author.update!(voice_hotkey: "off") }
+
+    it "leaves the keyboard alone but keeps the button" do
+      stub_speech_recognition("should never be sent", emit_on_stop: true)
+      visit_plan
+
+      page.driver.browser.action.key_down(:control).key_down(:space).perform
+      expect(page).to have_no_css(".voice-btn--listening", wait: 2)
+      page.driver.browser.action.release_actions
+
+      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(0)
+      expect(page).to have_css(".voice-btn")
+    end
+  end
+
+  # What everyone who was here before the setting existed still has,
+  # because the backfill wrote it down for them.
   describe "hold Shift to talk" do
     HOLD = 0.7 # comfortably past the controller's 350ms hold delay
 
     before do
+      author.update!(voice_hotkey: "shift")
       allow(CoPlan::Ai).to receive(:call)
         .and_return({ "text" => "Held to talk.", "span" => nil }.to_json)
     end
@@ -169,7 +278,7 @@ RSpec.describe "Voice commenting", type: :system do
 
     it "records while Shift is held and posts on release" do
       stub_speech_recognition("held to talk", emit_on_stop: true)
-      visit plan_path(plan)
+      visit_plan
 
       hold_shift
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
@@ -182,7 +291,7 @@ RSpec.describe "Voice commenting", type: :system do
     # the mic, or the feature is unusable on any page with a text field.
     it "ignores a quick tap of Shift" do
       stub_speech_recognition("should never be sent", emit_on_stop: true)
-      visit plan_path(plan)
+      visit_plan
 
       page.driver.browser.action.key_down(:shift).key_up(:shift).perform
 
@@ -194,7 +303,7 @@ RSpec.describe "Voice commenting", type: :system do
     # whatever was captured must be discarded rather than posted.
     it "cancels without posting when another key is pressed" do
       stub_speech_recognition("should never be sent", emit_on_stop: true)
-      visit plan_path(plan)
+      visit_plan
 
       hold_shift do
         expect(page).to have_css(".voice-btn--listening")
@@ -267,7 +376,7 @@ RSpec.describe "Voice commenting", type: :system do
       }.to_json)
 
       stub_recorder
-      visit plan_path(plan)
+      visit_plan
 
       find(".voice-btn").click
       expect(page).to have_css(".voice-btn--listening")
@@ -293,7 +402,7 @@ RSpec.describe "Voice commenting", type: :system do
       }.to_json)
 
       stub_recorder
-      visit plan_path(plan)
+      visit_plan
 
       find(".voice-btn").click
       find(".voice-btn").click
@@ -322,7 +431,7 @@ RSpec.describe "Voice commenting", type: :system do
         .and_return({ "text" => "Too cautious.", "span" => nil }.to_json)
 
       stub_recorder
-      visit plan_path(plan)
+      visit_plan
 
       find(".voice-btn").click
       find(".voice-btn").click
@@ -349,7 +458,7 @@ RSpec.describe "Voice commenting", type: :system do
       ] }.to_json)
 
       stub_recorder
-      visit plan_path(dual_plan)
+      visit_plan(dual_plan)
 
       find(".voice-btn").click
       find(".voice-btn").click
@@ -388,7 +497,7 @@ RSpec.describe "Voice commenting", type: :system do
         .and_return({ "text" => "Rename both of these.", "span" => nil }.to_json)
 
       stub_recorder
-      visit plan_path(tall_plan)
+      visit_plan(tall_plan)
 
       find(".voice-btn").click
       expect(page).to have_css(".voice-btn--listening")
@@ -404,12 +513,13 @@ RSpec.describe "Voice commenting", type: :system do
     # ear now opens at the keydown itself, and confirming the hold adopts
     # a capture already in progress.
     it "captures from the press when talking with Shift held" do
+      author.update!(voice_hotkey: "shift")
       allow(CoPlan::Ai).to receive(:transcribe).and_return("oh I meant both of them")
       allow(CoPlan::Ai).to receive(:call)
         .and_return({ "text" => "Oh — I meant both of them.", "span" => nil }.to_json)
 
       stub_recorder
-      visit plan_path(plan)
+      visit_plan
 
       page.driver.browser.action.key_down(:shift).perform
       sleep 0.7
@@ -432,7 +542,7 @@ RSpec.describe "Voice commenting", type: :system do
       expect(CoPlan::Ai).not_to receive(:transcribe)
 
       stub_recorder(peak: 0)
-      visit plan_path(plan)
+      visit_plan
 
       find(".voice-btn").click
       find(".voice-btn").click
@@ -452,7 +562,7 @@ RSpec.describe "Voice commenting", type: :system do
         .and_return({ "text" => "It should be main and master.", "span" => nil }.to_json)
 
       stub_recorder(peak: 0, context_state: "suspended")
-      visit plan_path(plan)
+      visit_plan
 
       find(".voice-btn").click
       find(".voice-btn").click
@@ -469,7 +579,7 @@ RSpec.describe "Voice commenting", type: :system do
       allow(CoPlan::Ai).to receive(:transcribe).and_raise(CoPlan::Ai::Error, "unavailable")
 
       stub_recorder
-      visit plan_path(plan)
+      visit_plan
 
       find(".voice-btn").click
       find(".voice-btn").click
@@ -488,7 +598,7 @@ RSpec.describe "Voice commenting", type: :system do
       .and_return({ "text" => "No agent is attached here.", "span" => nil }.to_json)
 
     stub_speech_recognition("no agent is attached here")
-    visit plan_path(plan)
+    visit_plan
 
     find(".voice-btn").click
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_20_201255) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_23_193530) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -181,19 +181,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_201255) do
     t.string "library_id", limit: 36, null: false
     t.string "name", null: false
     t.string "parent_id", limit: 36
+    t.string "slug", null: false
     t.datetime "updated_at", null: false
     t.index ["created_by_user_id"], name: "index_coplan_folders_on_created_by_user_id"
     t.index ["library_id", "parent_id", "name"], name: "index_coplan_folders_on_library_id_and_parent_id_and_name", unique: true
+    t.index ["library_id", "parent_id", "slug"], name: "index_coplan_folders_on_library_and_parent_and_slug", unique: true
     t.index ["library_id"], name: "index_coplan_folders_on_library_id"
     t.index ["parent_id"], name: "index_coplan_folders_on_parent_id"
   end
 
   create_table "coplan_libraries", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.string "handle", null: false
     t.string "name", default: "Library", null: false
     t.string "owner_id", limit: 36, null: false
     t.string "owner_type", null: false
     t.datetime "updated_at", null: false
+    t.index ["handle"], name: "index_coplan_libraries_on_handle", unique: true
     t.index ["owner_type", "owner_id"], name: "index_coplan_libraries_on_owner_type_and_owner_id", unique: true
   end
 
@@ -277,7 +281,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_201255) do
     t.index ["library_id", "folder_id", "plan_id"], name: "index_coplan_placements_covering_folder_counts"
     t.index ["library_id"], name: "index_coplan_plan_placements_on_library_id"
     t.index ["placed_by_user_id"], name: "fk_rails_ef17324b42"
-    t.index ["plan_id", "library_id"], name: "index_coplan_plan_placements_on_plan_id_and_library_id", unique: true
+    t.index ["plan_id"], name: "index_coplan_plan_placements_on_plan_id", unique: true
   end
 
   create_table "coplan_plan_tags", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -290,6 +294,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_201255) do
   end
 
   create_table "coplan_plan_types", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "behavior", limit: 20, default: "document", null: false
     t.datetime "created_at", null: false
     t.json "default_tags"
     t.text "description"
@@ -345,6 +350,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_201255) do
     t.json "metadata"
     t.string "plan_type_id", limit: 36, null: false
     t.text "search_text", size: :medium
+    t.string "slug", null: false
+    t.string "slug_suffix", limit: 8
     t.text "summary"
     t.string "summary_content_sha256", limit: 64
     t.datetime "summary_generated_at"
@@ -357,6 +364,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_201255) do
     t.index ["current_plan_version_id"], name: "fk_rails_c401577583"
     t.index ["plan_type_id"], name: "index_coplan_plans_on_plan_type_id"
     t.index ["search_text"], name: "index_coplan_plans_on_search_text", type: :fulltext
+    t.index ["slug", "slug_suffix"], name: "index_coplan_plans_on_slug_and_suffix"
     t.index ["updated_at"], name: "index_coplan_plans_on_updated_at"
     t.index ["visibility", "updated_at"], name: "index_coplan_plans_on_visibility_and_updated_at"
     t.index ["visibility"], name: "index_coplan_plans_on_visibility"
@@ -391,6 +399,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_201255) do
     t.integer "plans_count", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["name"], name: "index_coplan_tags_on_name", unique: true
+  end
+
+  create_table "coplan_url_aliases", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "kind", default: "exact", null: false
+    t.timestamp "last_resolved_at"
+    t.string "path", limit: 512, null: false
+    t.integer "resolve_count", default: 0, null: false
+    t.string "target_path", limit: 512, null: false
+    t.datetime "updated_at", null: false
+    t.index ["kind", "resolve_count", "created_at"], name: "index_coplan_url_aliases_for_pruning"
+    t.index ["path", "kind"], name: "index_coplan_url_aliases_on_path_and_kind", unique: true
   end
 
   create_table "coplan_users", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|

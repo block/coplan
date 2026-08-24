@@ -35,7 +35,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
   before { sign_in(author) }
 
   it "renders task list items as interactive checkboxes" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     checkboxes = all('input[type="checkbox"]')
     expect(checkboxes.length).to eq(4)
@@ -47,7 +47,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   it "renders checkboxes without the disabled attribute" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     disabled_values = page.evaluate_script(
       'Array.from(document.querySelectorAll(\'input[type="checkbox"]\')).map(cb => cb.disabled)'
@@ -58,19 +58,19 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   it "adds task-list-item class to checkbox list items" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     expect(page).to have_css("li.task-list-item", minimum: 4)
   end
 
   it "wraps checkbox items in labels for full-text clickability" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     expect(page).to have_css("li.task-list-item label input[type='checkbox']", minimum: 4)
   end
 
   it "checks an unchecked checkbox and creates a new version" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     initial_version_count = CoPlan::PlanVersion.count
 
@@ -94,7 +94,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   it "unchecks a checked checkbox" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     checkbox = find('input[type="checkbox"][checked]')
     expect(checkbox).to be_checked
@@ -109,7 +109,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   it "updates data-line-text after toggling" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     checkbox = all('input[type="checkbox"]').first
     expect(checkbox["data-line-text"]).to eq("- [ ] Write documentation")
@@ -125,7 +125,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   it "supports toggling multiple checkboxes in sequence" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     first_cb = all('input[type="checkbox"]')[0]
     first_cb.click
@@ -147,7 +147,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   it "toggles checkbox by clicking the label text" do
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     label = find("li.task-list-item label", text: "Write documentation")
     label.click
@@ -163,7 +163,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
       content_markdown: "# Tasks\n\n- [ ] TODO\n- [ ] TODO\n- [ ] Deploy\n- [ ] Deploy to staging"
     )
 
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     checkboxes = all('input[type="checkbox"]')
     checkboxes[1].click
@@ -179,7 +179,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
       content_markdown: "# Tasks\n\n- [ ] Deploy to staging\n- [ ] Deploy"
     )
 
-    visit plan_path(plan)
+    visit plan_page_path(plan)
 
     checkboxes = all('input[type="checkbox"]')
     checkboxes[1].click

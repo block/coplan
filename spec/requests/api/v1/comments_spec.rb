@@ -88,6 +88,20 @@ RSpec.describe "Api::V1::Comments", type: :request do
         as: :json
       expect(response).to have_http_status(:not_found)
     end
+
+    # The agent workflow that motivated this: reply to a batch of comments,
+    # then resolve them. Each resolve settles the rows it just generated
+    # instead of leaving a pile pointing at hidden highlights.
+    it "clears the thread's unread notifications" do
+      reviewer = create(:coplan_user)
+      notification = create(:notification, user: reviewer, plan: plan, comment_thread: thread_record, reason: "agent_response")
+
+      patch resolve_api_v1_plan_comment_path(plan, thread_record),
+        headers: headers,
+        as: :json
+
+      expect(notification.reload.read_at).to be_present
+    end
   end
 
   describe "PATCH discard" do

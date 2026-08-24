@@ -1,40 +1,39 @@
 require "rails_helper"
 
-# Plans::Place is the single write path for shelving — the web
+# Plans::Place is the single write path for filing — the web
 # drag-and-drop, the row menu, and the API all trust its guard rails.
 # The web move_to_folder endpoint has no authorize! of its own, so these
 # rejections ARE the security boundary.
+#
+# A plan lives in exactly one place, so every call here is a move.
 RSpec.describe CoPlan::Plans::Place do
   let(:author) { create(:coplan_user) }
   let(:other) { create(:coplan_user) }
   let(:folder) { create(:folder, created_by_user: author) }
 
   def place(plan:, folder:, actor:, library: nil)
-    described_class.call(plan: plan, folder: folder, actor: actor, library: library || actor.library)
+    described_class.call(plan: plan, folder: folder, actor: actor, library: library)
   end
 
-  it "shelves your own plan" do
+  it "files your own plan" do
     plan = create(:plan, :considering, created_by_user: author)
     result = place(plan: plan, folder: folder, actor: author)
     expect(result).to be_success
     expect(result.placement.folder).to eq(folder)
   end
 
-  it "shelves someone else's published plan (a placement, not a copy)" do
+  # The old model let you file someone else's published plan onto your own
+  # shelf — a second placement alongside the author's. There's only one
+  # place now, so doing that would take their document away from them.
+  it "refuses to move someone else's plan into your library" do
     plan = create(:plan, :published, created_by_user: other)
     result = place(plan: plan, folder: folder, actor: author)
-    expect(result).to be_success
-  end
-
-  it "refuses to shelve someone else's unlisted draft, even with the URL in hand" do
-    draft = create(:plan, :draft, created_by_user: other)
-    result = place(plan: draft, folder: folder, actor: author)
     expect(result).not_to be_success
-    expect(result.error).to include("shelved")
-    expect(author.library.placements.where(plan: draft)).to be_empty
+    expect(result.error).to include("plans you wrote")
+    expect(plan.reload.placement).to be_nil
   end
 
-  it "shelves your own draft (your library, your secret)" do
+  it "files your own draft (your library, your secret)" do
     draft = create(:plan, :draft, created_by_user: author)
     expect(place(plan: draft, folder: folder, actor: author)).to be_success
   end
@@ -43,38 +42,47 @@ RSpec.describe CoPlan::Plans::Place do
     plan = create(:plan, :considering, created_by_user: other)
     result = described_class.call(plan: plan, folder: folder, actor: other, library: author.library)
     expect(result).not_to be_success
-    expect(result.error).to include("your own library")
+    expect(result.error).to include("a library you own")
   end
 
   it "refuses a folder from a different library" do
     plan = create(:plan, :considering, created_by_user: author)
     foreign_folder = create(:folder, created_by_user: other)
-    result = place(plan: plan, folder: foreign_folder, actor: author)
+    result = described_class.call(plan: plan, folder: foreign_folder, actor: author,
+      library: author.library)
     expect(result).not_to be_success
     expect(result.error).to include("different library")
   end
 
-  it "always allows taking a plan off your own shelf, even if it stopped being listable" do
-    plan = create(:plan, :published, created_by_user: other)
+  it "lets you unfile your own plan even after it stopped being listable" do
+    plan = create(:plan, :published, created_by_user: author)
     place(plan: plan, folder: folder, actor: author)
 
-    # Simulate the plan later becoming unlisted to the shelver.
     plan.update_columns(visibility: "draft")
 
     result = place(plan: plan, folder: nil, actor: author)
     expect(result).to be_success
-    expect(author.library.placements.where(plan: plan)).to be_empty
+    expect(plan.reload.placement).to be_nil
   end
 
-  it "re-files rather than duplicating when the plan is already shelved" do
+  it "moves rather than duplicating when the plan is already filed" do
     plan = create(:plan, :considering, created_by_user: author)
     second_folder = create(:folder, created_by_user: author)
     place(plan: plan, folder: folder, actor: author)
     result = place(plan: plan, folder: second_folder, actor: author)
 
     expect(result).to be_success
-    expect(author.library.placements.where(plan: plan).count).to eq(1)
+    expect(CoPlan::PlanPlacement.where(plan: plan).count).to eq(1)
     expect(result.placement.folder).to eq(second_folder)
+  end
+
+  it "cannot be filed in two places at once" do
+    plan = create(:plan, :considering, created_by_user: author)
+    place(plan: plan, folder: folder, actor: author)
+    second = build(:plan_placement, plan: plan, folder: create(:folder, created_by_user: author))
+
+    expect(second).not_to be_valid
+    expect(second.errors[:plan_id].join).to include("already filed")
   end
 
   describe "library audit trail" do
@@ -108,14 +116,6 @@ RSpec.describe CoPlan::Plans::Place do
       expect(author.library.placements.sole.plan_id).to eq(plan.id)
       # The plan-side history event carries the same attribution.
       expect(plan.plan_events.sole.actor_type).to eq("local_agent")
-    end
-
-    it "logs shelving someone else's plan in the library trail but not the plan's history" do
-      plan = create(:plan, :published, created_by_user: other)
-      place(plan: plan, folder: folder, actor: author)
-
-      expect(author.library.library_events.sole.event_type).to eq("plan_filed")
-      expect(plan.plan_events).to be_empty
     end
 
     it "logs nothing when a re-file is a no-op" do
