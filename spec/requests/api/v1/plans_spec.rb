@@ -13,36 +13,36 @@ RSpec.describe "Api::V1::Plans", type: :request do
     alice_token # ensure token exists
   end
 
+  # Counts the index's queries against one set of tables rather than all of
+  # them: each preload spec below is about a single field, and a total would
+  # fail for an unrelated query and then get bumped to whatever number made
+  # it pass. The assertion is a shape — the cost doesn't follow the list —
+  # not a magic number.
+  def index_queries_touching(table_pattern)
+    count = 0
+    sub = ActiveSupport::Notifications.subscribe("sql.active_record") do |*, payload|
+      next if payload[:name].to_s =~ /SCHEMA|TRANSACTION/
+      count += 1 if payload[:sql].to_s.match?(table_pattern)
+    end
+    get api_v1_plans_path, headers: headers
+    ActiveSupport::Notifications.unsubscribe(sub)
+    expect(response).to have_http_status(:success)
+    count
+  end
+
   # Every row carries `url` and `folder_path`, and both want the plan's
   # whole location — the folder's ancestors, and the library for its handle.
   # Reached through the associations that's several queries per plan on a
   # list agents page through, so the location is preloaded.
-  #
-  # Counts only the location tables, not every query: `tag_names` plucks per
-  # plan for reasons of its own, and a total would fail for that instead and
-  # then get bumped to whatever number made it pass. Asserted as a shape —
-  # the cost doesn't follow the list — rather than a magic number.
   it "reads each plan's location once for the whole index, not once per plan" do
     folder = create(:folder, name: "LiveOrder", created_by_user: alice)
     nested = create(:folder, name: "Q3", parent: folder, created_by_user: alice)
 
-    location_queries = lambda do
-      count = 0
-      sub = ActiveSupport::Notifications.subscribe("sql.active_record") do |*, payload|
-        next if payload[:name].to_s =~ /SCHEMA|TRANSACTION/
-        count += 1 if payload[:sql].to_s.match?(/coplan_(plan_placements|folders|libraries)/)
-      end
-      get api_v1_plans_path, headers: headers
-      ActiveSupport::Notifications.unsubscribe(sub)
-      expect(response).to have_http_status(:success)
-      count
-    end
-
     3.times { |i| CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice, title: "Roadmap #{i}"), folder: nested, actor: alice) }
-    few = location_queries.call
+    few = index_queries_touching(/coplan_(plan_placements|folders|libraries)/)
 
     27.times { |i| CoPlan::Plans::Place.call(plan: create(:plan, :considering, created_by_user: alice, title: "Later #{i}"), folder: folder, actor: alice) }
-    many = location_queries.call
+    many = index_queries_touching(/coplan_(plan_placements|folders|libraries)/)
 
     body = JSON.parse(response.body)
     expect(body.size).to eq(30)
@@ -50,6 +50,32 @@ RSpec.describe "Api::V1::Plans", type: :request do
     # each naming the folder the plan is actually in.
     expect(body.map { |p| p["url"] }.uniq.size).to eq(30)
     expect(body.map { |p| p["folder_path"] }.tally).to eq("LiveOrder/Q3" => 3, "LiveOrder" => 27)
+    expect(many).to eq(few)
+  end
+
+  # Same story for `tags`: `tag_names` reads them straight off the plan when
+  # they're loaded, and queries for them when they aren't, so leaving them
+  # out of the index's eager loads costs a query a row.
+  it "reads every plan's tags once for the whole index, not once per plan" do
+    tag_plans = lambda do |count, prefix|
+      count.times do |i|
+        plan = create(:plan, :considering, created_by_user: alice, title: "#{prefix} #{i}")
+        plan.tag_names = [ "roadmap", "#{prefix.downcase}-#{i}" ]
+      end
+    end
+
+    tag_plans.call(3, "Roadmap")
+    few = index_queries_touching(/coplan_(tags|plan_tags)/)
+
+    tag_plans.call(27, "Later")
+    many = index_queries_touching(/coplan_(tags|plan_tags)/)
+
+    body = JSON.parse(response.body)
+    expect(body.size).to eq(30)
+    # Cheap and correct: each plan still gets its own two tags, not another's.
+    expected = (0...3).map { |i| [ "roadmap", "roadmap-#{i}" ] } +
+      (0...27).map { |i| [ "later-#{i}", "roadmap" ] }
+    expect(body.map { |p| p["tags"].sort }.sort).to eq(expected.map(&:sort).sort)
     expect(many).to eq(few)
   end
 
