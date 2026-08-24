@@ -131,15 +131,44 @@ RSpec.describe "Browsable library URLs", type: :request do
     # The tail only names a sub-page when it hangs off a document. A plan
     # actually called "Edit" owns that segment, and the path has to come
     # back together to find it.
+    #
+    # Asserted through rel=canonical rather than the title: the folder
+    # listing this used to fall back to *also* contains the word "Edit",
+    # so "the page mentions it" can't tell the two apart.
     it "reads the tail as a document slug when it names one" do
       edit = create(:plan, :published, created_by_user: author, title: "Edit")
       place(edit, folder)
+      revise(edit, "Ships Thursday.")
       expect(edit.reload.slug).to eq("edit")
 
       get "/hampton/liveorder/edit"
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("Edit")
+      expect(response.body).to include(
+        %(<link rel="canonical" href="http://www.example.com/hampton/liveorder/edit">)
+      )
+      expect(response.body).to include("Ships Thursday.")
+    end
+
+    # A sub-page of a moved document is still a sub-page. Dropping the tail
+    # on the way through the 301 would answer "take me to the editor" with
+    # the document — a silent demotion of what was asked for.
+    it "carries the sub-page through a stale path's 301" do
+      folder.update!(name: "Orders")
+
+      get "/hampton/liveorder/cart-roadmap/edit"
+
+      expect(response).to have_http_status(:moved_permanently)
+      expect(response.headers["Location"]).to end_with("/hampton/orders/cart-roadmap/edit")
+    end
+
+    it "carries a revision's diff through a stale path's 301" do
+      folder.update!(name: "Orders")
+
+      get "/hampton/liveorder/cart-roadmap/history/2/diff"
+
+      expect(response).to have_http_status(:moved_permanently)
+      expect(response.headers["Location"]).to end_with("/hampton/orders/cart-roadmap/history/2/diff")
     end
 
     it "404s a sub-page of nothing" do

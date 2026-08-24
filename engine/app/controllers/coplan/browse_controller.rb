@@ -38,15 +38,23 @@ module CoPlan
       # document slug (or nothing) — so put the path back together and
       # resolve it as a place.
       if page && !result.plan
+        # Reassembled before `page` goes, because the tail is derived from
+        # it: delete first and there's nothing left to put back, so the
+        # folder resolves a second time and a plan actually named "edit"
+        # never gets found.
+        whole_path = [ params[:slug_path], *page_tail ].compact_blank.join("/")
         params.delete(:page)
-        result = resolve(slug_path: [ params[:slug_path], *page_tail ].compact_blank.join("/"))
+        result = resolve(slug_path: whole_path)
       end
       return head :not_found unless result.found?
 
       # A stale-but-recognizable path: 301 so the address bar, and
-      # everything copied out of it, converges on the current URL.
+      # everything copied out of it, converges on the current URL. The
+      # sub-page tail rides along — someone who asked for a moved
+      # document's editor wants the editor, not the document.
       if result.redirect_to_path.present?
-        return redirect_to path_to_url(result.redirect_to_path), status: :moved_permanently
+        return redirect_to path_to_url([ result.redirect_to_path, *page_tail ].compact_blank.join("/")),
+          status: :moved_permanently
       end
 
       result.plan ? render_plan(result.plan) : render_library(result.library, result.folder)

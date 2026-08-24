@@ -66,9 +66,17 @@ class BackfillPlanSlugs < ActiveRecord::Migration[8.1]
       library_id, folder_id = location_for(plan, locations, creator_libraries)
       key = [ library_id, folder_id ]
       if plan["slug"].present?
+        seen = (taken[key] ||= Set.new)
         # Only an un-suffixed slug blocks the segment; a suffixed one has
-        # already moved out of the way.
-        (taken[key] ||= Set.new) << plan["slug"] if plan["slug_suffix"].blank?
+        # already moved out of the way. Its full leaf is still spoken for
+        # though, so it goes in too — otherwise a backfilled plan whose
+        # deterministic candidate happens to match would be handed the
+        # same address, and nothing downstream would reject it.
+        if plan["slug_suffix"].blank?
+          seen << plan["slug"]
+        else
+          seen << "#{plan['slug']}~#{plan['slug_suffix']}"
+        end
         next
       end
       pending << [ plan, key, folder_id, library_id ]
