@@ -42,6 +42,7 @@ module CoPlan
     has_many :plan_tags, dependent: :destroy
     has_many :tags, through: :plan_tags, source: :tag
     has_many :plan_viewers, dependent: :destroy
+    has_many :plan_reads, dependent: :destroy
     has_many :notifications, dependent: :destroy
     has_many :references, dependent: :destroy
     has_many_attached :attachments

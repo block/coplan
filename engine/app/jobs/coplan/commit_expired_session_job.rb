@@ -27,6 +27,14 @@ module CoPlan
     rescue Plans::CommitSession::SessionNotOpenError
       # Session was closed concurrently (manual commit/cancel) — nothing to do
       Rails.logger.info("CommitExpiredSessionJob: session #{session_id} already closed, skipping")
+    rescue Plans::HumanEditGuard::Blocked => e
+      # A person edited by hand while this session sat open, and the agent
+      # that owned it never came back to read them. Auto-committing would
+      # rebase an abandoned draft straight over their words with nobody in
+      # the loop to notice — so the session dies instead. The operations
+      # stay on the row if anyone wants to see what was lost.
+      session.update!(status: "failed", change_summary: "Auto-commit blocked: #{e.message}")
+      Rails.logger.warn("CommitExpiredSessionJob: session #{session_id} blocked by an unread human edit")
     rescue Plans::CommitSession::SessionConflictError, Plans::CommitSession::StaleSessionError, Plans::OperationError => e
       # Conflict during auto-commit — mark session as failed
       session.update!(status: "failed", change_summary: "Auto-commit failed: #{e.message}")

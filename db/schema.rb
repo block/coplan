@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_23_193530) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_24_120000) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -279,6 +279,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_23_193530) do
     t.index ["plan_id"], name: "index_coplan_plan_placements_on_plan_id", unique: true
   end
 
+  create_table "coplan_plan_reads", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "last_seen_at", null: false
+    t.integer "last_seen_revision", default: 0, null: false
+    t.string "plan_id", limit: 36, null: false
+    t.string "reader_id", limit: 36, null: false
+    t.string "reader_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["plan_id", "reader_type", "reader_id"], name: "index_coplan_plan_reads_on_plan_and_reader", unique: true
+  end
+
   create_table "coplan_plan_tags", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "plan_id", limit: 36, null: false
@@ -478,6 +489,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_23_193530) do
   add_foreign_key "coplan_plan_placements", "coplan_libraries", column: "library_id"
   add_foreign_key "coplan_plan_placements", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_placements", "coplan_users", column: "placed_by_user_id"
+  add_foreign_key "coplan_plan_reads", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_tags", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_tags", "coplan_tags", column: "tag_id"
   add_foreign_key "coplan_plan_versions", "coplan_api_tokens", column: "api_token_id"

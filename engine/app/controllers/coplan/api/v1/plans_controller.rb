@@ -27,7 +27,11 @@ module CoPlan
           render json: plans.map { |p| plan_json(p) }
         end
 
+        # Handing over the content is what earns a read receipt, which is
+        # what lifts a Plans::HumanEditGuard block. Recorded here and in
+        # #snapshot — the two endpoints that return current_content.
         def show
+          record_plan_read!(@plan)
           render json: plan_json(@plan).merge(
             current_content: @plan.current_content,
             current_revision: @plan.current_revision,
@@ -286,6 +290,7 @@ module CoPlan
         end
 
         def snapshot
+          record_plan_read!(@plan)
           threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)
           references = @plan.references.order(created_at: :desc)
           collaborators = @plan.plan_collaborators.includes(:user)

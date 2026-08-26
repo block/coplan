@@ -17,7 +17,13 @@ RSpec.describe "Api::V1::Content", type: :request do
     p
   end
 
-  before { alice_token }
+  before do
+    alice_token
+    # Revision 1 is a human version, so the agent has to have read the plan
+    # before it may write. See the human-edit fence specs for the fence
+    # itself; these are about everything else.
+    agent_has_read(plan, alice_token)
+  end
 
   def put_content(body, params: {})
     payload = { base_revision: plan.current_revision, content: body }.merge(params)

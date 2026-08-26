@@ -8,6 +8,11 @@ RSpec.describe "Api::V1::Sessions", type: :request do
 
   before do
     alice_token # ensure token exists
+    # Revision 1 is a human version, so the agent has to have read the plan
+    # before it may write (CoPlan::Plans::HumanEditGuard). The intervening
+    # versions these specs create are agent versions on purpose — OT rebase
+    # is for agent-vs-agent races; a human's hand edit stops the write.
+    agent_has_read(plan, alice_token)
   end
 
   describe "POST /api/v1/plans/:plan_id/sessions" do
@@ -235,7 +240,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
         plan: plan,
         revision: new_rev,
         content_markdown: intervening_content,
-        actor_type: "human",
+        actor_type: "local_agent",
         actor_id: alice.id,
         operations_json: [ {
           "op" => "replace_exact",
@@ -278,7 +283,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
         plan: plan,
         revision: new_rev,
         content_markdown: intervening_content,
-        actor_type: "human",
+        actor_type: "local_agent",
         actor_id: alice.id,
         operations_json: [ {
           "op" => "replace_exact",
@@ -313,6 +318,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       p = CoPlan::Plan.create!(title: "Rich Plan", created_by_user: alice)
       v = CoPlan::PlanVersion.create!(plan: p, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
       p.update!(current_plan_version: v, current_revision: 1)
+      agent_has_read(p, alice_token)
       p
     end
 
@@ -323,7 +329,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       new_rev = plan.current_revision + 1
       v = CoPlan::PlanVersion.create!(
         plan: plan, revision: new_rev,
-        content_markdown: new_content, actor_type: "human", actor_id: alice.id,
+        content_markdown: new_content, actor_type: "local_agent", actor_id: alice.id,
         operations_json: [ {
           "op" => "replace_exact",
           "old_text" => old_text, "new_text" => new_text,
@@ -408,6 +414,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       p = CoPlan::Plan.create!(title: "Rich Plan", created_by_user: alice)
       v = CoPlan::PlanVersion.create!(plan: p, revision: 1, content_markdown: rich_content, actor_type: "human", actor_id: alice.id)
       p.update!(current_plan_version: v, current_revision: 1)
+      agent_has_read(p, alice_token)
       p
     end
 
@@ -418,7 +425,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       new_rev = plan.current_revision + 1
       v = CoPlan::PlanVersion.create!(
         plan: plan, revision: new_rev,
-        content_markdown: new_content, actor_type: "human", actor_id: alice.id,
+        content_markdown: new_content, actor_type: "local_agent", actor_id: alice.id,
         operations_json: [ {
           "op" => "replace_exact",
           "old_text" => old_text, "new_text" => new_text,

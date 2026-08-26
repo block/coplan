@@ -30,7 +30,7 @@ module CoPlan
       # Surfaces as a 500 (rather than silently persisting wrong content).
       class RoundtripFailureError < StandardError; end
 
-      def self.call(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil)
+      def self.call(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil)
         new(
           plan: plan,
           new_content: new_content,
@@ -40,11 +40,13 @@ module CoPlan
           agent_name: agent_name,
           api_token_id: api_token_id,
           change_summary: change_summary,
-          reason: reason
+          reason: reason,
+          reader_type: reader_type,
+          reader_id: reader_id
         ).call
       end
 
-      def initialize(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil)
+      def initialize(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil)
         @plan = plan
         # Normalize line endings to LF before diffing. Browser textareas, agents
         # running on Windows, and copy-paste from various sources commonly emit
@@ -61,12 +63,23 @@ module CoPlan
         @api_token_id = api_token_id
         @change_summary = change_summary
         @reason = reason
+        # Who is writing, for the human-edit fence. Blank for a human in the
+        # web UI or a system write — those aren't fenced.
+        @reader_type = reader_type
+        @reader_id = reader_id
       end
 
       def call
         ActiveRecord::Base.transaction do
           @plan.lock!
           @plan.reload
+
+          # Inside the lock: a human edit committing between an earlier
+          # check and here would otherwise be merged past.
+          Plans::HumanEditGuard.enforce!(
+            plan: @plan, reader_type: @reader_type, reader_id: @reader_id,
+            base_revision: @base_revision
+          )
 
           if @plan.current_revision != @base_revision
             raise StaleRevisionError.new(
