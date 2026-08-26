@@ -9,12 +9,20 @@ const DRAG_SLOP = 4
 /*
  * coplan--deck-presenter
  *
- * Present mode: the deck takes the screen as one 16:9 canvas — exactly what
- * a Zoom or Meet screen-share needs. One slide shows at a time; arrows,
- * space, page keys, and clicks advance; Escape (or leaving native
- * fullscreen) ends the show. Native fullscreen is requested on this
- * wrapper, with the fixed-overlay CSS as the fallback when the browser
- * refuses, so presenting works either way.
+ * Present mode: the deck takes the browser window as one 16:9 canvas. One
+ * slide shows at a time; arrows, space, page keys, and clicks advance;
+ * Escape ends the show.
+ *
+ * The window, not the screen, is the default on purpose. Presenting over
+ * Zoom or Meet means sharing a window, and on macOS native fullscreen moves
+ * the window onto its own Space — where screen-share pickers can no longer
+ * see it at all. Taking the screen also buries the call controls the
+ * presenter is talking through. So the show fills the window (the top-layer
+ * popover in _promoteDeck is what makes that airtight), and `f` takes the
+ * whole screen for the times there's a projector and no call. Fullscreen is
+ * a mode within the show, not the show itself: dropping out of it — by `f`,
+ * by Escape, by the browser's own chrome — leaves the deck presenting in
+ * the window.
  *
  * Two gestures mark up a slide without leaving the show. Dragging across
  * text highlights it in the deck's accent — the room's eyes follow the
@@ -78,10 +86,9 @@ export default class extends Controller {
     // Presenting borrows the URL fragment for #present-N; remember what
     // was there (a heading deep link, a footnote) to give back on exit.
     this._priorHash = resumed ? "" : window.location.hash
-    this._peeling = false
     this._show(resumed ? Number(resumed[1]) - 1 : 0)
-    // _show stops the show itself on a slideless deck — don't take the
-    // screen for nothing.
+    // _show stops the show itself on a slideless deck — don't black out
+    // the window for nothing.
     if (!this.presenting) return
 
     // Move focus into the show. Clicking the Present button leaves the
@@ -93,12 +100,18 @@ export default class extends Controller {
       deck.tabIndex = -1
       deck.focus({ preventScroll: true })
     }
+  }
 
-    // Native fullscreen when the browser grants it; the top-layer popover
-    // (see _promoteDeck) is what actually fills the screen either way.
-    // Re-promote once fullscreen resolves — the fullscreen wrapper enters
-    // the top layer above the already-shown popover and would cover it.
-    this.element.requestFullscreen?.().then(() => {
+  // `f` mid-show. Fullscreen is asked for on the wrapper rather than the
+  // deck so the deck stays free to be a popover; the top-layer popover is
+  // what fills the space either way, and re-promoting is what keeps it
+  // visible — the fullscreen wrapper enters the top layer ABOVE the
+  // already-shown popover and would otherwise cover it.
+  _toggleFullscreen() {
+    if (document.fullscreenElement === this.element) return document.exitFullscreen().catch(() => {})
+    if (!this.element.requestFullscreen) return
+
+    this.element.requestFullscreen().then(() => {
       // The grant can outlive a fast Escape: if the show already ended,
       // give the screen back instead of re-promoting a stopped deck.
       if (!this.presenting) {
@@ -237,18 +250,28 @@ export default class extends Controller {
         event.stopPropagation()
         this.ink.toggle()
         break
+      case "f":
+        // Full screen. For a projector in a room; a call wants the window
+        // (see the note at the top of this file), which is what the show
+        // gives back when this toggles off.
+        event.preventDefault()
+        event.stopPropagation()
+        this._toggleFullscreen()
+        break
       case "Escape":
         event.preventDefault()
         event.stopPropagation()
         // Escape peels one layer at a time: whatever is visibly in front of
         // the show goes first — a popover (a reference preview, a pinned
-        // thread), then the pen — and only a bare Escape ends the show. The
-        // browser may drop native fullscreen on the same keypress (that
-        // exit is uncancelable), so mark the peel: the resulting
-        // fullscreenchange is forgiven and the show continues on the
-        // top-layer fallback.
-        if (this._dismissForeignPopovers() || this._stowPen()) {
-          if (document.fullscreenElement === this.element) this._peeling = true
+        // thread), then the pen, then the screen — and only a bare Escape
+        // ends the show. Giving the screen back is its own step because
+        // full screen is the one layer the presenter took deliberately;
+        // Escape should undo that, not the whole show. (The browser drops
+        // fullscreen on this keypress anyway, uncancelably — exiting here
+        // just makes the same thing happen on purpose.)
+        if (this._dismissForeignPopovers() || this._stowPen()) return
+        if (document.fullscreenElement === this.element) {
+          document.exitFullscreen().catch(() => {})
           return
         }
         this.stop()
@@ -390,13 +413,13 @@ export default class extends Controller {
   _handleFullscreenChange() {
     if (!this.presenting || document.fullscreenElement) return
 
-    // One exit is forgiven when Escape was consumed dismissing a popover —
-    // the keypress was aimed at the popover, not the show.
-    if (this._peeling) {
-      this._peeling = false
-      return
-    }
-    this.stop()
+    // Losing the screen no longer ends the show — the presenter is back to
+    // the window they started in, which is the shape a call wants. However
+    // it happened (the `f` toggle, Escape, the browser's own chrome), the
+    // one thing to check is that the deck is still in the top layer: the
+    // fullscreen wrapper leaving it is the moment a promotion could be
+    // dropped, and a closed popover is a blank page.
+    this._promoteDeck()
   }
 
   _typing(target) {

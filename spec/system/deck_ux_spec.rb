@@ -1,9 +1,10 @@
 require "rails_helper"
 
 # Browser-level coverage for the deck's pointer and navigation behavior:
-# the two ways a presenter marks up a live slide (selecting text, and the
-# pen), the Mermaid expand chip staying chip-sized on a slide, and the
-# back-matter links jumping in place instead of refetching the page.
+# the show filling the window rather than taking the screen (a call shares
+# windows), the two ways a presenter marks up a live slide (selecting text,
+# and the pen), the Mermaid expand chip staying chip-sized on a slide, and
+# the back-matter links jumping in place instead of refetching the page.
 RSpec.describe "Deck UX", type: :system do
   let(:user) { create(:coplan_user, email: "presenter@example.com") }
   let(:deck_type) { create(:plan_type, name: "Presentation", behavior: "presentation") }
@@ -96,7 +97,14 @@ RSpec.describe "Deck UX", type: :system do
     page.evaluate_script("window.__strokes")
   end
 
+  # Wait for the deck itself before reaching for the button. This page
+  # renders Mermaid, so it settles well past Capybara's 2s default on a
+  # loaded CI runner — and the toolbar only exists once the deck does, so
+  # a bare click_button spends that whole default budget looking for a
+  # button the server hasn't sent yet. (The examples below that don't
+  # present already wait explicitly for the same reason.)
   def start_show
+    expect(page).to have_css(".deck-slide", wait: 10)
     click_button "Present"
     expect(page).to have_css(".deck--presenting .deck-slide--current", wait: 5)
   end
@@ -154,6 +162,46 @@ RSpec.describe "Deck UX", type: :system do
       # click was swallowed and the box silently did not move.
       send_keys(:space)
       expect(checkbox).to be_checked
+    end
+
+    # A call shares a window; macOS moves a fullscreen window onto its own
+    # Space, where screen-share pickers can't see it. So starting the show
+    # must not take the screen — `f` is the presenter asking for it.
+    #
+    # Reached by its readable address rather than plan_path's /_/plans/<id>.
+    # That's the canonical URL — PlansController 301s the id form onto it —
+    # so it's the address a presenter actually opens. It also steps around
+    # a CI-only routing failure on the legacy id path that this example
+    # kept tripping (see the note on the issue filed alongside this).
+    it "fills the window without taking the screen, and takes it on f" do
+      visit "/#{plan.url_path}"
+      start_show
+      expect(page.evaluate_script("!!document.fullscreenElement")).to be(false)
+
+      # The window is the canvas either way: the deck is in the top layer,
+      # so no glass card ancestor can trap or cover it.
+      expect(page.evaluate_script(<<~JS)).to be(true)
+        (() => {
+          const deck = document.querySelector(".deck--presenting");
+          if (!deck.matches(":popover-open")) return false;
+          const box = deck.getBoundingClientRect();
+          const fits = Math.min(window.innerWidth, window.innerHeight * 16 / 9);
+          return Math.abs(box.width - fits) < 2;
+        })()
+      JS
+
+      send_keys("f")
+      expect(page).to have_css(".deck-presenter:fullscreen", wait: 5)
+
+      # Escape gives the screen back and the show carries on in the window —
+      # full screen is a layer to peel, not the show itself.
+      send_keys(:escape)
+      expect(page).to have_no_css(".deck-presenter:fullscreen", wait: 5)
+      expect(page).to have_css(".deck--presenting")
+      expect(current_slide).to eq("1")
+
+      send_keys(:escape)
+      expect(page).to have_no_css(".deck--presenting")
     end
   end
 
