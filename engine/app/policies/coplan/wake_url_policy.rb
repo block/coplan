@@ -31,13 +31,29 @@ module CoPlan
     module_function
 
     def allowed?(uri)
+      !vetted_addresses(uri).nil?
+    end
+
+    # Resolve-and-vet in one step: the addresses the host resolves to,
+    # iff every one of them is public; nil means refused. A caller that
+    # goes on to connect must pin the connection to one of these —
+    # resolving again at connect time reopens the rebinding window this
+    # policy exists to close (answer the check with a public address,
+    # answer the connection with a private one).
+    #
+    # A configured custom policy owns the whole decision and judges the
+    # URI, not its addresses, so an allow comes back as :unpinned —
+    # there is nothing safe to pin to.
+    def vetted_addresses(uri)
       policy = CoPlan.configuration.wake_url_policy
-      return !!policy.call(uri) if policy
+      return (policy.call(uri) ? :unpinned : nil) if policy
 
       addresses = Resolv.getaddresses(uri.host.to_s)
-      addresses.any? && addresses.none? { |address| blocked_address?(address) }
+      return nil if addresses.empty? || addresses.any? { |address| blocked_address?(address) }
+
+      addresses
     rescue Resolv::ResolvError, Resolv::ResolvTimeout
-      false
+      nil
     end
 
     # Unparseable answers are refused, not excused.

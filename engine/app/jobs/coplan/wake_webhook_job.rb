@@ -55,7 +55,8 @@ module CoPlan
       # differently now (rebinding), and the policy itself may have
       # changed. A refused URL is skipped, not retried — retrying can't
       # make it allowed.
-      unless WakeUrlPolicy.allowed?(uri)
+      vetted = WakeUrlPolicy.vetted_addresses(uri)
+      if vetted.nil?
         Rails.logger.warn("CoPlan::WakeWebhookJob: egress policy refused wake URL for agent session #{session.id}")
         return
       end
@@ -73,8 +74,13 @@ module CoPlan
       request["X-CoPlan-Signature"] = "sha256=#{OpenSSL::HMAC.hexdigest("SHA256", session.wake_secret.to_s, body)}"
       request.body = body
 
-      response = Net::HTTP.start(uri.hostname, uri.port,
-        use_ssl: uri.scheme == "https", open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT) do |http|
+      # Connect to the address the policy actually vetted (hostname still
+      # drives Host/SNI/cert verification); resolving the name a second
+      # time here would hand a rebinding host the connection the check
+      # just refused. :unpinned (custom policy) resolves normally.
+      http_options = { use_ssl: uri.scheme == "https", open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT }
+      http_options[:ipaddr] = vetted.first.to_s if vetted.is_a?(Array)
+      response = Net::HTTP.start(uri.hostname, uri.port, **http_options) do |http|
         http.request(request)
       end
 

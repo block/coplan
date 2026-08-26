@@ -150,6 +150,34 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(session.reload.state).to eq("pending")
     end
 
+    describe "status changes without a comment" do
+      # A resolve/discard has no comment row, so self-suppression keys on
+      # the actor_api_token_id the caller passes through the job instead.
+      it "suppresses a status change performed by the subscribed token itself" do
+        CoPlan::Notifications::Create.call(
+          comment_thread: thread, actor_id: hampton.id, reason: "status_change",
+          actor_api_token_id: agent_token.id
+        )
+
+        expect(CoPlan::AgentEvent.for_token(agent_token)).to be_empty
+      end
+
+      it "still fans a human's status change out to attached agents" do
+        CoPlan::Notifications::Create.call(comment_thread: thread, actor_id: hampton.id, reason: "status_change")
+
+        expect(CoPlan::AgentEvent.for_token(agent_token).first.event_type).to eq("thread.status_changed")
+      end
+
+      it "carries the acting token through the notifications job" do
+        CoPlan::CreateNotificationsJob.new.perform(
+          comment_thread_id: thread.id, actor_id: hampton.id, reason: "status_change",
+          actor_api_token_id: agent_token.id
+        )
+
+        expect(CoPlan::AgentEvent.for_token(agent_token)).to be_empty
+      end
+    end
+
     it "queues events for a detached session without giving it a pill" do
       session.update!(state: "complete", last_activity_at: 1.minute.ago)
 

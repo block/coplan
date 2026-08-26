@@ -18,6 +18,11 @@ module CoPlan
     belongs_to :parent, class_name: "CoPlan::ApiToken", optional: true
     has_many :children, class_name: "CoPlan::ApiToken", foreign_key: :parent_id, dependent: :nullify,
       inverse_of: :parent
+    # delete_all, not destroy: both tables FK this token, and a destroyed
+    # token (user cleanup cascading through tokens) must take its inbox
+    # and presence rows with it instead of raising.
+    has_many :agent_events, dependent: :delete_all
+    has_many :agent_sessions, dependent: :delete_all
 
     validates :name, presence: true
     validates :token_digest, presence: true, uniqueness: true

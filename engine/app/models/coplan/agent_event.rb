@@ -21,6 +21,14 @@ module CoPlan
     scope :after, ->(cursor) { where("id > ?", cursor) }
     scope :oldest_first, -> { order(:id) }
 
+    def self.ransackable_attributes(_auth_object = nil)
+      %w[id api_token_id plan_id comment_thread_id comment_id event_type acked_at created_at]
+    end
+
+    def self.ransackable_associations(_auth_object = nil)
+      %w[api_token plan]
+    end
+
     def as_api_json
       {
         id: id,

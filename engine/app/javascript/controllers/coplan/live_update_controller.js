@@ -55,7 +55,12 @@ export default class extends Controller {
 
       let changedKeys = []
       try {
-        changedKeys = JSON.parse(this.getAttribute("data-changed-sections") || "[]")
+        // ChangedSections::Result serializes as {"keys": [...], "rewritten": bool}.
+        // A full rewrite arrives with no keys, so the swap stays flash-free
+        // instead of lighting up the whole document. A bare array is accepted
+        // too, in case a not-yet-upgraded server is still broadcasting one.
+        const parsed = JSON.parse(this.getAttribute("data-changed-sections") || "[]")
+        changedKeys = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.keys) ? parsed.keys : [])
       } catch { /* malformed attribute — fall back to a flash-free swap */ }
 
       // `templateContent` is a DocumentFragment — it has no `innerHTML`.
@@ -185,7 +190,9 @@ function flashChangedSections(root, keys, oldSections) {
   }
 
   if (flashed.length > 0) {
-    flashed[0].scrollIntoView({ behavior: "smooth", block: "nearest" })
+    // Deliberately no scrollIntoView: a remote edit must never move a reader
+    // who didn't ask to navigate. On-screen changes flash; off-screen ones
+    // settle unseen, and that's fine.
     setTimeout(() => settleFlashes(root), FLASH_MS)
   }
 }

@@ -66,6 +66,18 @@ module CoPlan
       where(clauses, *STALE_WINDOWS.flat_map { |state, window| [ state, window.ago ] })
     }
 
+    # wake_secret is deliberately absent: it's a credential, not a
+    # search key, and must not be exposed through admin filters.
+    def self.ransackable_attributes(_auth_object = nil)
+      %w[id plan_id api_token_id agent_name state state_detail wake_url
+         wakes_answered_count wake_failures_count last_activity_at
+         last_transport_at created_at updated_at]
+    end
+
+    def self.ransackable_associations(_auth_object = nil)
+      %w[plan api_token]
+    end
+
     # Is anything actually attached behind this row? Events are still
     # queued for sessions that aren't (their inbox is durable), but a
     # session with no live process must never be given a pill.

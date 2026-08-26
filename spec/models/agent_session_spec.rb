@@ -172,6 +172,32 @@ RSpec.describe CoPlan::AgentSession, type: :model do
     end
   end
 
+  describe "parent cleanup" do
+    # Both collaboration tables FK the plan and the token; without the
+    # delete_all associations, destroying either parent raises.
+    it "is deleted with its plan, along with the plan's inbox rows" do
+      session(state: "watching", last_activity_at: Time.current)
+      CoPlan::AgentEvent.create!(api_token_id: api_token.id, plan_id: plan.id, event_type: "comment.created", payload: {})
+
+      # The current-version self-reference has to be detached before any
+      # plan can be destroyed (pre-existing, unrelated to agent rows) —
+      # this example is about the agent tables not blocking the delete.
+      plan.update_columns(current_plan_version_id: nil)
+      expect { plan.destroy! }.not_to raise_error
+      expect(described_class.where(plan_id: plan.id)).to be_empty
+      expect(CoPlan::AgentEvent.where(plan_id: plan.id)).to be_empty
+    end
+
+    it "is deleted with its token, along with the token's inbox rows" do
+      session(state: "watching", last_activity_at: Time.current)
+      CoPlan::AgentEvent.create!(api_token_id: api_token.id, plan_id: plan.id, event_type: "comment.created", payload: {})
+
+      expect { api_token.destroy! }.not_to raise_error
+      expect(described_class.where(api_token_id: api_token.id)).to be_empty
+      expect(CoPlan::AgentEvent.where(api_token_id: api_token.id)).to be_empty
+    end
+  end
+
   describe "#transport_connected?" do
     it "is true within the transport window" do
       record = session(state: "watching", last_activity_at: Time.current, last_transport_at: 30.seconds.ago)

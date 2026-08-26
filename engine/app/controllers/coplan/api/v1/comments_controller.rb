@@ -85,7 +85,8 @@ module CoPlan
           end
 
           thread.resolve!(current_user)
-          CreateNotificationsJob.perform_later(comment_thread_id: thread.id, actor_id: current_user.id, reason: "status_change")
+          CreateNotificationsJob.perform_later(comment_thread_id: thread.id, actor_id: current_user.id, reason: "status_change",
+            actor_api_token_id: @api_token&.id)
           broadcast_thread_update(thread)
 
           render json: { thread_id: thread.id, status: thread.status }
@@ -105,7 +106,8 @@ module CoPlan
           end
 
           thread.discard!(current_user)
-          CreateNotificationsJob.perform_later(comment_thread_id: thread.id, actor_id: current_user.id, reason: "status_change")
+          CreateNotificationsJob.perform_later(comment_thread_id: thread.id, actor_id: current_user.id, reason: "status_change",
+            actor_api_token_id: @api_token&.id)
           broadcast_thread_update(thread)
 
           render json: { thread_id: thread.id, status: thread.status }

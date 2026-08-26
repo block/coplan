@@ -8,15 +8,16 @@ module CoPlan
       # somebody deliberately reopening a settled conversation is news.
       SILENT_ON_CLOSED_THREAD = %w[agent_response status_change].freeze
 
-      def self.call(comment_thread:, actor_id:, comment: nil, reason:)
-        new(comment_thread:, actor_id:, comment:, reason:).call
+      def self.call(comment_thread:, actor_id:, comment: nil, reason:, actor_api_token_id: nil)
+        new(comment_thread:, actor_id:, comment:, reason:, actor_api_token_id:).call
       end
 
-      def initialize(comment_thread:, actor_id:, comment: nil, reason:)
+      def initialize(comment_thread:, actor_id:, comment: nil, reason:, actor_api_token_id: nil)
         @comment_thread = comment_thread
         @actor_id = actor_id
         @comment = comment
         @reason = reason
+        @actor_api_token_id = actor_api_token_id
       end
 
       def call
@@ -69,9 +70,11 @@ module CoPlan
       # service, so it doubles as the choke point for the agent event
       # inbox. Human notification fan-out below is unchanged; agents get
       # their own recipients (sessions on the plan). Self-wake suppression
-      # keys on the comment's api_token_id — the token that wrote it —
-      # because @actor_id holds the *human* behind the write (attribution
-      # convention), and a user id must never be compared to token ids.
+      # keys on the acting *token* — the comment's api_token_id, or for
+      # comment-less events (a resolve/discard) the token the caller
+      # passed — because @actor_id holds the *human* behind the write
+      # (attribution convention), and a user id must never be compared to
+      # token ids.
       def publish_agent_events
         event_type =
           case @reason
@@ -87,7 +90,7 @@ module CoPlan
         AgentEvents::Publish.call(
           plan: @comment_thread.plan,
           event_type: event_type,
-          actor_token_id: @comment&.api_token_id,
+          actor_token_id: @comment&.api_token_id || @actor_api_token_id,
           comment_thread: @comment_thread,
           comment: @comment
         )

@@ -66,4 +66,27 @@ RSpec.describe CoPlan::WakeUrlPolicy do
     expect(described_class.allowed?(URI.parse("http://trusted.internal/wake"))).to be(true)
     expect(described_class.allowed?(URI.parse("http://other.internal/wake"))).to be(false)
   end
+
+  describe ".vetted_addresses" do
+    # Callers that go on to connect must pin to one of these — resolving
+    # again at connect time reopens the rebinding window.
+    it "returns the vetted addresses for a public host" do
+      allow(Resolv).to receive(:getaddresses).with("agents.example.com").and_return([ "93.184.216.34" ])
+
+      expect(described_class.vetted_addresses(URI.parse("https://agents.example.com/wake")))
+        .to eq([ "93.184.216.34" ])
+    end
+
+    it "returns nil for a refused host" do
+      allow(Resolv).to receive(:getaddresses).with("agents.example.com").and_return([ "10.0.0.5" ])
+
+      expect(described_class.vetted_addresses(URI.parse("https://agents.example.com/wake"))).to be_nil
+    end
+
+    it "returns :unpinned when a custom policy allows — it vets URIs, not addresses" do
+      CoPlan.configuration.wake_url_policy = ->(_uri) { true }
+
+      expect(described_class.vetted_addresses(URI.parse("http://trusted.internal/wake"))).to eq(:unpinned)
+    end
+  end
 end

@@ -29,6 +29,28 @@ RSpec.describe CoPlan::WakeWebhookJob, type: :job do
     captured
   end
 
+  it "pins the connection to the address the policy vetted" do
+    # The test env's permissive custom policy vets URIs, not addresses, so
+    # exercise the engine default: resolve once, connect to that answer.
+    original = CoPlan.configuration.wake_url_policy
+    CoPlan.configuration.wake_url_policy = nil
+    allow(Resolv).to receive(:getaddresses).with("agents.example.com").and_return([ "93.184.216.34" ])
+
+    http = instance_double(Net::HTTP)
+    response = instance_double(Net::HTTPResponse, code: "204")
+    allow(http).to receive(:request).and_return(response)
+    captured_options = nil
+    allow(Net::HTTP).to receive(:start) { |*_args, **opts, &blk| captured_options = opts; blk.call(http) }
+
+    described_class.new.perform(agent_session_id: session.id, agent_event_id: event.id)
+
+    # A rebinding host could answer the policy check publicly and the
+    # connection privately; pinning closes that window.
+    expect(captured_options[:ipaddr]).to eq("93.184.216.34")
+  ensure
+    CoPlan.configuration.wake_url_policy = original
+  end
+
   it "posts a signed ping, not the event payload" do
     request = deliver
 
@@ -69,7 +91,7 @@ RSpec.describe CoPlan::WakeWebhookJob, type: :job do
 
   it "skips (without retrying) a URL the egress policy refuses" do
     session; event # materialize before the stub — registration passed, policy tightened since
-    allow(CoPlan::WakeUrlPolicy).to receive(:allowed?).and_return(false)
+    allow(CoPlan::WakeUrlPolicy).to receive(:vetted_addresses).and_return(nil)
 
     expect(Net::HTTP).not_to receive(:start)
     expect {

@@ -412,12 +412,18 @@ loop do
   events = resp["events"] || []
   events.each do |event|
     dispatch(event)
-  rescue => e
-    warn "coplan-bridge: dispatch failed: #{e.class}: #{e.message}"
-  end
-  if (next_cursor = resp["cursor"]) && next_cursor != cursor
-    cursor = next_cursor
+    # Ack each event only once its dispatch came back — at-least-once
+    # means a harness failure leaves the event unacked for redelivery,
+    # never swallowed by a batch-level ack.
+    cursor = event["id"]
     request(:post, "/api/v1/agent/events/ack", body: { cursor: cursor })
+  rescue => e
+    # Stop the batch here: acking later events would also ack this one
+    # (the cursor is a high-water mark). The next poll redelivers
+    # everything unacked; the sleep keeps a wedged adapter from spinning.
+    warn "coplan-bridge: dispatch failed: #{e.class}: #{e.message} — leaving event unacked"
+    sleep 3
+    break
   end
 rescue Interrupt
   puts "\ncoplan-bridge: bye"
