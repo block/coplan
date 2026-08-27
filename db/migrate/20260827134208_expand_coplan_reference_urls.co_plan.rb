@@ -31,7 +31,11 @@ class ExpandCoplanReferenceUrls < ActiveRecord::Migration[8.1]
 
   def remove_url_index_and_expand_column
     remove_index :coplan_references, column: [ :plan_id, :url ]
-    change_column :coplan_references, :url, :text, null: false
+    if connection.adapter_name == "Mysql2"
+      execute "ALTER TABLE coplan_references MODIFY url TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL"
+    else
+      change_column :coplan_references, :url, :text, null: false
+    end
   end
 
   def digest_expression

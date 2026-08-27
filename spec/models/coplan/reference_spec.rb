@@ -73,6 +73,14 @@ RSpec.describe CoPlan::Reference, type: :model do
       ref = build(:reference, plan: other_plan, url: "https://example.com")
       expect(ref).to be_valid
     end
+
+    it "treats case-sensitive URL paths as distinct" do
+      create(:reference, plan: plan, url: "https://example.com/Report")
+
+      expect {
+        create(:reference, plan: plan, url: "https://example.com/report")
+      }.to change(described_class, :count).by(1)
+    end
   end
 
   describe ".classify_url" do
