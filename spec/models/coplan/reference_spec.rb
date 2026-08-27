@@ -36,6 +36,21 @@ RSpec.describe CoPlan::Reference, type: :model do
       expect(ref).not_to be_valid
     end
 
+    it "stores URLs longer than a database string" do
+      url = "https://example.com/?query=#{"x" * 500}"
+      ref = create(:reference, plan: plan, url: url)
+
+      expect(ref.reload.url).to eq(url)
+      expect(ref.url_digest).to eq(Digest::SHA256.hexdigest(url))
+    end
+
+    it "fills a digest omitted by an older application process" do
+      ref = create(:reference, plan: plan)
+      ref.update_column(:url_digest, nil)
+
+      expect { ref.update!(title: "Updated") }.to change(ref, :url_digest).from(nil)
+    end
+
     it "allows same url on different plans" do
       other_plan = create(:plan)
       create(:reference, plan: plan, url: "https://example.com")

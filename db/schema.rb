@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_24_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_27_134208) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -385,9 +385,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_24_120000) do
     t.string "target_plan_id", limit: 36
     t.string "title"
     t.datetime "updated_at", null: false
-    t.string "url", null: false
+    t.text "url", null: false
+    t.string "url_digest", limit: 64
     t.index ["plan_id", "key"], name: "index_coplan_references_on_plan_id_and_key", unique: true
-    t.index ["plan_id", "url"], name: "index_coplan_references_on_plan_id_and_url", unique: true
+    t.index ["plan_id", "url_digest"], name: "index_coplan_references_on_plan_id_and_url_digest", unique: true
     t.index ["source"], name: "index_coplan_references_on_source"
     t.index ["target_plan_id"], name: "index_coplan_references_on_target_plan_id"
   end
