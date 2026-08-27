@@ -152,6 +152,25 @@ RSpec.describe SlackNotificationJob, type: :job do
         described_class.debounce(comment_thread_id: thread_record.id)
       }.to have_enqueued_job(described_class).on_queue("default")
     end
+
+    it "includes the comment that triggered the batch, not just later ones" do
+      # Regression test: batch_start must be the triggering comment's own
+      # created_at, not Time.current at the moment debounce runs — by the
+      # time this method is called, the comment already exists (that's what
+      # enqueued the job that led here), so Time.current would be later than
+      # created_at and would wrongly exclude this very comment.
+      comment = thread_record.comments.create!(
+        author_type: "human", author_id: commenter.id, body_markdown: "Kicks off the batch."
+      )
+
+      described_class.debounce(comment_thread_id: thread_record.id, comment_created_at: comment.created_at)
+      described_class.perform_now(comment_thread_id: thread_record.id)
+
+      expect(SlackClient).to have_received(:send_dm).with(
+        email: plan_author.email,
+        text: a_string_including("Kicks off the batch.")
+      )
+    end
   end
 
   describe "error handling" do
@@ -182,6 +201,30 @@ RSpec.describe SlackNotificationJob, type: :job do
       expect {
         described_class.perform_now(comment_thread_id: thread_record.id)
       }.to have_enqueued_job(described_class)
+    end
+
+    it "does not double-notify a recipient who already succeeded when a transient error forces a retry" do
+      other_participant = create(:coplan_user, email: "other@example.com")
+      thread_record.comments.create!(
+        author_type: "human", author_id: other_participant.id, body_markdown: "Reply."
+      )
+
+      call_log = []
+      raised = false
+      allow(SlackClient).to receive(:send_dm) do |email:, text:|
+        call_log << email
+        if email == other_participant.email && !raised
+          raised = true
+          raise SlackClient::Error, "ratelimited"
+        end
+      end
+
+      described_class.perform_now(comment_thread_id: thread_record.id) # fails partway through
+      described_class.perform_now(comment_thread_id: thread_record.id) # simulated retry
+
+      expect(call_log.tally[plan_author.email]).to eq(1)
+      expect(call_log.tally[commenter.email]).to eq(1)
+      expect(call_log.tally[other_participant.email]).to eq(2) # one failed attempt, one success
     end
   end
 end

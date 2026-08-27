@@ -45,7 +45,10 @@ CoPlan.configure do |config|
     when :comment_created
       # Debounced: an agent posting several comments in a row should produce
       # one Slack DM per recipient, not one per comment.
-      SlackNotificationJob.debounce(comment_thread_id: payload[:comment_thread_id])
+      SlackNotificationJob.debounce(
+        comment_thread_id: payload[:comment_thread_id],
+        comment_created_at: payload[:comment_created_at]
+      )
     end
   }
 
