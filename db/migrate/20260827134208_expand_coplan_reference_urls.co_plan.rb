@@ -4,13 +4,12 @@ class ExpandCoplanReferenceUrls < ActiveRecord::Migration[8.1]
     if connection.adapter_name == "PostgreSQL"
       remove_url_index_and_expand_column
       add_digest_column
+      add_digest_index
     else
       add_digest_column
+      add_digest_index
       remove_url_index_and_expand_column
     end
-
-    add_index :coplan_references, [ :plan_id, :url_digest ], unique: true,
-      name: "index_coplan_references_on_plan_id_and_url_digest"
   end
 
   def down
@@ -23,6 +22,11 @@ class ExpandCoplanReferenceUrls < ActiveRecord::Migration[8.1]
   def add_digest_column
     add_column :coplan_references, :url_digest, :virtual, type: :string, limit: 64,
       as: digest_expression, stored: true
+  end
+
+  def add_digest_index
+    add_index :coplan_references, [ :plan_id, :url_digest ], unique: true,
+      name: "index_coplan_references_on_plan_id_and_url_digest"
   end
 
   def remove_url_index_and_expand_column
