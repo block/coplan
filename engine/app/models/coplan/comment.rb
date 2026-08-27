@@ -11,7 +11,7 @@ module CoPlan
     validates :agent_name, length: { maximum: 20 }, allow_nil: true
 
     before_save :rewrite_plain_mentions, if: :body_markdown_changed?
-    after_create_commit :notify_plan_author, if: :first_comment_in_thread?
+    after_create_commit :notify_thread_participants
     after_create_commit :track_comment_created
     # Runs on save (not just create) so adding a mention via edit also
     # notifies. ProcessMentions uses find_or_create_by to dedupe.
@@ -54,7 +54,7 @@ module CoPlan
       @first_comment_in_thread = comment_thread.comments.count == 1
     end
 
-    def notify_plan_author
+    def notify_thread_participants
       CoPlan::NotificationJob.perform_later("comment_created", { comment_thread_id: comment_thread_id })
     end
 

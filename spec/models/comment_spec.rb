@@ -52,27 +52,16 @@ RSpec.describe CoPlan::Comment, type: :model do
       }.to have_enqueued_job(CoPlan::NotificationJob)
     end
 
-    it "does not enqueue NotificationJob for subsequent comments" do
+    # Every comment fires the event now, not just the thread opener — a
+    # reply should notify anyone already in the thread. It's up to the
+    # notification_handler (Slack DM job, debounced) to decide who actually
+    # hears about it and to coalesce a burst into one message.
+    it "enqueues NotificationJob for subsequent comments too" do
       create(:comment, comment_thread: thread_record)
 
       expect {
         create(:comment, comment_thread: thread_record)
-      }.not_to have_enqueued_job(CoPlan::NotificationJob)
-    end
-
-    # Regression for COPLAN-30: `first_comment_in_thread?` used to compare
-    # UUIDs with `id < ?`, which is not insertion-ordered. A reply whose UUID
-    # sorts before the opener's was wrongly treated as the thread opener,
-    # firing a duplicate "new comment thread" notification for the plan author.
-    it "does not enqueue NotificationJob for a reply whose UUID sorts before the opener" do
-      high_id = "ffffffff-ffff-ffff-ffff-ffffffffffff"
-      low_id  = "00000000-0000-0000-0000-000000000001"
-
-      create(:comment, comment_thread: thread_record, id: high_id)
-
-      expect {
-        create(:comment, comment_thread: thread_record, id: low_id)
-      }.not_to have_enqueued_job(CoPlan::NotificationJob)
+      }.to have_enqueued_job(CoPlan::NotificationJob)
     end
   end
 
