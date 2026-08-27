@@ -36,6 +36,21 @@ RSpec.describe CoPlan::Reference, type: :model do
       expect(ref).not_to be_valid
     end
 
+    it "enforces database uniqueness when a writer omits the generated digest" do
+      create(:reference, plan: plan, url: "https://example.com")
+      attributes = {
+        id: SecureRandom.uuid,
+        plan_id: plan.id,
+        url: "https://example.com",
+        reference_type: "link",
+        source: "extracted",
+        created_at: Time.current,
+        updated_at: Time.current
+      }
+
+      expect { described_class.insert_all!([ attributes ]) }.to raise_error(ActiveRecord::RecordNotUnique)
+    end
+
     it "stores URLs longer than a database string" do
       url = "https://example.com/?query=#{"x" * 500}"
       ref = create(:reference, plan: plan, url: url)
@@ -44,11 +59,12 @@ RSpec.describe CoPlan::Reference, type: :model do
       expect(ref.url_digest).to eq(Digest::SHA256.hexdigest(url))
     end
 
-    it "fills a digest omitted by an older application process" do
-      ref = create(:reference, plan: plan)
-      ref.update_column(:url_digest, nil)
+    it "updates the database-generated digest when the URL changes" do
+      ref = create(:reference, plan: plan, url: "https://example.com/old")
 
-      expect { ref.update!(title: "Updated") }.to change(ref, :url_digest).from(nil)
+      ref.update!(url: "https://example.com/new")
+
+      expect(ref.reload.url_digest).to eq(Digest::SHA256.hexdigest(ref.url))
     end
 
     it "allows same url on different plans" do

@@ -1,32 +1,43 @@
 # This migration comes from co_plan (originally 20260827000000)
-require "digest"
-
 class ExpandCoplanReferenceUrls < ActiveRecord::Migration[8.1]
-  class MigrationReference < ActiveRecord::Base
-    self.table_name = "coplan_references"
-  end
-
   def up
-    add_column :coplan_references, :url_digest, :string, limit: 64
-
-    MigrationReference.reset_column_information
-    MigrationReference.find_each do |reference|
-      reference.update_column(:url_digest, Digest::SHA256.hexdigest(reference.url))
+    if connection.adapter_name == "PostgreSQL"
+      remove_url_index_and_expand_column
+      add_digest_column
+    else
+      add_digest_column
+      remove_url_index_and_expand_column
     end
 
-    # Keep this nullable for rolling-deploy compatibility: old application
-    # processes do not populate the digest. The new model fills any missing
-    # digest before validation, including rows written during this migration.
-    remove_index :coplan_references, column: [ :plan_id, :url ]
-    change_column :coplan_references, :url, :text, null: false
     add_index :coplan_references, [ :plan_id, :url_digest ], unique: true,
       name: "index_coplan_references_on_plan_id_and_url_digest"
   end
 
   def down
-    remove_index :coplan_references, name: "index_coplan_references_on_plan_id_and_url_digest"
-    change_column :coplan_references, :url, :string, null: false
-    add_index :coplan_references, [ :plan_id, :url ], unique: true
-    remove_column :coplan_references, :url_digest
+    raise ActiveRecord::IrreversibleMigration,
+      "reference URLs may exceed the former 255-character limit"
+  end
+
+  private
+
+  def add_digest_column
+    add_column :coplan_references, :url_digest, :virtual, type: :string, limit: 64,
+      as: digest_expression, stored: true
+  end
+
+  def remove_url_index_and_expand_column
+    remove_index :coplan_references, column: [ :plan_id, :url ]
+    change_column :coplan_references, :url, :text, null: false
+  end
+
+  def digest_expression
+    case connection.adapter_name
+    when "Mysql2"
+      "SHA2(url, 256)"
+    when "PostgreSQL"
+      "encode(sha256(url::bytea), 'hex')"
+    else
+      raise "Unsupported database adapter: #{connection.adapter_name}"
+    end
   end
 end

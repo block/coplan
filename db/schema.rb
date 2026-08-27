@@ -386,7 +386,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_27_134208) do
     t.string "title"
     t.datetime "updated_at", null: false
     t.text "url", null: false
-    t.string "url_digest", limit: 64
+    t.virtual "url_digest", type: :string, limit: 64, as: "sha2(`url`,256)", stored: true
     t.index ["plan_id", "key"], name: "index_coplan_references_on_plan_id_and_key", unique: true
     t.index ["plan_id", "url_digest"], name: "index_coplan_references_on_plan_id_and_url_digest", unique: true
     t.index ["source"], name: "index_coplan_references_on_source"
