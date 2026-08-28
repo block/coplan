@@ -53,6 +53,7 @@ export default class extends Controller {
     if (this.hasShowBtnTarget) this.showBtnTarget.style.display = ""
 
     const usedIds = new Set()
+    const canonicalUrl = document.querySelector('link[rel="canonical"]')?.href || window.location.href
 
     this._headings.forEach((heading, index) => {
       heading.querySelector(":scope > .section-permalink")?.remove()
@@ -67,13 +68,16 @@ export default class extends Controller {
       usedIds.add(id)
 
       const permalink = document.createElement("a")
+      const sectionUrl = new URL(canonicalUrl)
+      sectionUrl.search = ""
+      sectionUrl.hash = id
       permalink.className = "section-permalink"
-      permalink.href = `#${id}`
+      permalink.href = sectionUrl.href
+      permalink.dataset.action = "click->coplan--content-nav#copySectionLink"
       permalink.dataset.sectionTitle = headingText
       permalink.setAttribute("aria-label", `Copy link to ${headingText}`)
       permalink.title = "Copy link to this section"
       permalink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
-      permalink.addEventListener("click", event => this.copySectionLink(event))
       heading.appendChild(permalink)
 
       const li = document.createElement("li")
@@ -108,6 +112,9 @@ export default class extends Controller {
   }
 
   setupScrollTracking() {
+    if (this._scrollHandler) {
+      window.removeEventListener("scroll", this._scrollHandler)
+    }
     if (!this._headings || this._headings.length === 0) return
 
     this._scrollHandler = () => {
@@ -128,6 +135,12 @@ export default class extends Controller {
     }
     window.addEventListener("scroll", this._scrollHandler, { passive: true })
     this._updateActiveFromScroll()
+  }
+
+  contentUpdated() {
+    this._activeHeadingId = null
+    this.buildToc()
+    this.setupScrollTracking()
   }
 
   _updateActiveFromScroll() {

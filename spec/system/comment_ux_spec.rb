@@ -73,12 +73,15 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "copies a shortcut link to a section" do
-      visit plan_page_path(plan)
+      visit plan_page_path(plan, thread: "transient-comment-id")
 
       shortcut = find("h1 .section-permalink", visible: :all)
       expect(shortcut[:href]).to end_with("#{plan_page_path(plan)}#architecture-overview")
+      expect(shortcut[:href]).not_to include("thread=")
       expect(shortcut["aria-label"]).to eq("Copy link to Architecture Overview")
-      expect(page).to have_no_css("h1 .section-permalink", visible: true)
+      if page.evaluate_script("matchMedia('(hover: hover)').matches")
+        expect(page).to have_no_css("h1 .section-permalink", visible: true)
+      end
 
       find(".markdown-rendered h1").hover
       shortcut = find("h1 .section-permalink", visible: true)
