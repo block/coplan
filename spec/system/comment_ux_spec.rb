@@ -93,9 +93,41 @@ RSpec.describe "Comment UX", type: :system do
         })()
       JS
       expect(center_delta).to be < 1
+
+      page.driver.browser.manage.window.resize_to(390, 844)
+      find(".markdown-rendered h1").hover
+      shortcut = find("h1 .section-permalink", visible: true)
       shortcut.click
       expect(page).to have_css("h1 .section-permalink[data-copy-state='copied']", visible: :all)
       expect(find("h1 .section-permalink", visible: :all)["aria-label"]).to eq("Copied link to section")
+
+      viewport = page.evaluate_script(<<~JS)
+        (() => ({
+          contentWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
+          feedbackRight: getComputedStyle(document.querySelector("h1 .section-permalink"), "::after").right
+        }))()
+      JS
+      expect(viewport["contentWidth"]).to be <= viewport["viewportWidth"]
+      expect(viewport["feedbackRight"]).to eq("0px")
+    end
+
+    it "does not reuse an existing document fragment for a section shortcut" do
+      visit plan_page_path(plan)
+      page.execute_script(<<~JS)
+        const content = document.querySelector(".markdown-rendered")
+        const existing = document.createElement("span")
+        existing.id = "existing-fragment"
+        content.prepend(existing)
+        const heading = content.querySelector("h2")
+        heading.removeAttribute("id")
+        heading.textContent = "Existing Fragment"
+        content.dispatchEvent(new CustomEvent("coplan:content-updated", { bubbles: true }))
+      JS
+
+      heading = find(".markdown-rendered h2", text: "Existing Fragment", exact_text: true)
+      expect(heading[:id]).to eq("existing-fragment-2")
+      expect(heading.find(".section-permalink", visible: :all)[:href]).to end_with("#existing-fragment-2")
     end
 
     it "renders Mermaid fences as diagrams" do

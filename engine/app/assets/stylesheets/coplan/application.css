@@ -1713,6 +1713,13 @@ img.avatar {
   .section-permalink { opacity: 1; }
 }
 
+@media (max-width: 640px) {
+  .section-permalink[data-copy-state]::after {
+    left: auto;
+    right: 0;
+  }
+}
+
 .markdown-rendered p {
   margin-bottom: var(--space-md);
   line-height: 1.9;

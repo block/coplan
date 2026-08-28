@@ -52,7 +52,19 @@ export default class extends Controller {
     this.sidebarTarget.style.display = ""
     if (this.hasShowBtnTarget) this.showBtnTarget.style.display = ""
 
-    const usedIds = new Set()
+    // Commonmarker supplies an empty self-link inside each heading. The
+    // shortcut replaces it; keeping both would leave two elements claiming
+    // the same fragment once the heading itself receives that id.
+    this._headings.forEach(heading => {
+      heading.querySelectorAll("a.anchor[id]").forEach(anchor => anchor.remove())
+    })
+
+    const headingSet = new Set(this._headings)
+    const usedIds = new Set(
+      Array.from(document.querySelectorAll("[id]"))
+        .filter(element => !headingSet.has(element))
+        .map(element => element.id)
+    )
     const pageUrl = new URL(window.location.href)
     pageUrl.search = ""
 
