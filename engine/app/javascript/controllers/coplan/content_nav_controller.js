@@ -66,7 +66,16 @@ export default class extends Controller {
         id = `${baseId}-${suffix++}`
       }
       heading.id = id
+      heading.classList.add("section-heading")
       usedIds.add(id)
+
+      let title = heading.querySelector(":scope > .section-heading__title")
+      if (!title) {
+        title = document.createElement("span")
+        title.className = "section-heading__title"
+        while (heading.firstChild) title.appendChild(heading.firstChild)
+        heading.appendChild(title)
+      }
 
       const permalink = document.createElement("a")
       const sectionUrl = new URL(pageUrl)

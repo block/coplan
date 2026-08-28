@@ -85,6 +85,14 @@ RSpec.describe "Comment UX", type: :system do
 
       find(".markdown-rendered h1").hover
       shortcut = find("h1 .section-permalink", visible: true)
+      center_delta = page.evaluate_script(<<~JS)
+        (() => {
+          const title = document.querySelector("h1 .section-heading__title").getBoundingClientRect()
+          const link = document.querySelector("h1 .section-permalink").getBoundingClientRect()
+          return Math.abs((title.top + title.bottom - link.top - link.bottom) / 2)
+        })()
+      JS
+      expect(center_delta).to be < 1
       shortcut.click
       expect(page).to have_css("h1 .section-permalink[data-copy-state='copied']", visible: :all)
       expect(find("h1 .section-permalink", visible: :all)["aria-label"]).to eq("Copied link to section")
