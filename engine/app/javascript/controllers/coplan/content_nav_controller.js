@@ -55,7 +55,9 @@ export default class extends Controller {
     const usedIds = new Set()
 
     this._headings.forEach((heading, index) => {
-      let baseId = heading.id || this.slugify(heading.textContent) || `section-${index + 1}`
+      heading.querySelector(":scope > .section-permalink")?.remove()
+      const headingText = heading.textContent.trim().replace(/\s+/g, " ")
+      let baseId = heading.id || this.slugify(headingText) || `section-${index + 1}`
       let id = baseId
       let suffix = 2
       while (usedIds.has(id)) {
@@ -63,6 +65,16 @@ export default class extends Controller {
       }
       heading.id = id
       usedIds.add(id)
+
+      const permalink = document.createElement("a")
+      permalink.className = "section-permalink"
+      permalink.href = `#${id}`
+      permalink.dataset.sectionTitle = headingText
+      permalink.setAttribute("aria-label", `Copy link to ${headingText}`)
+      permalink.title = "Copy link to this section"
+      permalink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+      permalink.addEventListener("click", event => this.copySectionLink(event))
+      heading.appendChild(permalink)
 
       const li = document.createElement("li")
       li.className = `content-nav__item content-nav__item--${heading.tagName.toLowerCase()}`
@@ -75,7 +87,7 @@ export default class extends Controller {
 
       const text = document.createElement("span")
       text.className = "content-nav__link-text"
-      text.textContent = heading.textContent
+      text.textContent = headingText
       a.appendChild(text)
 
       li.appendChild(a)
@@ -145,6 +157,35 @@ export default class extends Controller {
     this._setActiveLink(heading.id)
 
     heading.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  async copySectionLink(event) {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+
+    event.preventDefault()
+    const link = event.currentTarget
+
+    try {
+      await navigator.clipboard.writeText(link.href)
+      this.flashSectionLink(link, "copied", "Copied link to section")
+    } catch {
+      this.flashSectionLink(link, "failed", "Copy failed")
+    }
+  }
+
+  flashSectionLink(link, state, label) {
+    link.dataset.copyState = state
+    link.dataset.copyMessage = state === "copied" ? "Copied!" : "Copy failed"
+    link.setAttribute("aria-label", label)
+    link.title = label
+
+    clearTimeout(link._copyResetTimer)
+    link._copyResetTimer = setTimeout(() => {
+      link.removeAttribute("data-copy-state")
+      link.removeAttribute("data-copy-message")
+      link.setAttribute("aria-label", `Copy link to ${link.dataset.sectionTitle}`)
+      link.title = "Copy link to this section"
+    }, 2000)
   }
 
   // The back-matter links (References, Attachments) jump the same way the

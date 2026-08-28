@@ -72,6 +72,21 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_content("microservices architecture")
     end
 
+    it "copies a shortcut link to a section" do
+      visit plan_page_path(plan)
+
+      shortcut = find("h1 .section-permalink", visible: :all)
+      expect(shortcut[:href]).to end_with("#{plan_page_path(plan)}#architecture-overview")
+      expect(shortcut["aria-label"]).to eq("Copy link to Architecture Overview")
+      expect(page).to have_no_css("h1 .section-permalink", visible: true)
+
+      find(".markdown-rendered h1").hover
+      shortcut = find("h1 .section-permalink", visible: true)
+      shortcut.click
+      expect(page).to have_css("h1 .section-permalink[data-copy-state='copied']", visible: :all)
+      expect(find("h1 .section-permalink", visible: :all)["aria-label"]).to eq("Copied link to section")
+    end
+
     it "renders Mermaid fences as diagrams" do
       plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
         # Request flow
