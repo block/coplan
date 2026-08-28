@@ -11,7 +11,7 @@ module CoPlan
     validates :agent_name, length: { maximum: 20 }, allow_nil: true
 
     before_save :rewrite_plain_mentions, if: :body_markdown_changed?
-    after_create_commit :notify_plan_author, if: :first_comment_in_thread?
+    after_create_commit :notify_thread_participants
     after_create_commit :track_comment_created
     # Runs on save (not just create) so adding a mention via edit also
     # notifies. ProcessMentions uses find_or_create_by to dedupe.
@@ -49,13 +49,16 @@ module CoPlan
       # IDs are random UUIDs, not insertion-ordered, so we can't compare them
       # with `id < ?`. after_create_commit guarantees the row is persisted, so
       # a total count of 1 reliably means this comment opened the thread.
-      # Memoized: both the notify and analytics callbacks ask.
+      # Memoized since the analytics callback re-asks in the same request.
       return @first_comment_in_thread if defined?(@first_comment_in_thread)
       @first_comment_in_thread = comment_thread.comments.count == 1
     end
 
-    def notify_plan_author
-      CoPlan::NotificationJob.perform_later("comment_created", { comment_thread_id: comment_thread_id })
+    def notify_thread_participants
+      CoPlan::NotificationJob.perform_later(
+        "comment_created",
+        { comment_thread_id: comment_thread_id, comment_created_at: created_at }
+      )
     end
 
     def track_comment_created

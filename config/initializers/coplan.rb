@@ -43,7 +43,12 @@ CoPlan.configure do |config|
   config.notification_handler = ->(event, payload) {
     case event
     when :comment_created
-      SlackNotificationJob.perform_later(comment_thread_id: payload[:comment_thread_id])
+      # Debounced: an agent posting several comments in a row should produce
+      # one Slack DM per recipient, not one per comment.
+      SlackNotificationJob.debounce(
+        comment_thread_id: payload[:comment_thread_id],
+        comment_created_at: payload[:comment_created_at]
+      )
     end
   }
 
