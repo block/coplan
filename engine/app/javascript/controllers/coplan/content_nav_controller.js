@@ -53,7 +53,8 @@ export default class extends Controller {
     if (this.hasShowBtnTarget) this.showBtnTarget.style.display = ""
 
     const usedIds = new Set()
-    const canonicalUrl = document.querySelector('link[rel="canonical"]')?.href || window.location.href
+    const pageUrl = new URL(window.location.href)
+    pageUrl.search = ""
 
     this._headings.forEach((heading, index) => {
       heading.querySelector(":scope > .section-permalink")?.remove()
@@ -68,8 +69,7 @@ export default class extends Controller {
       usedIds.add(id)
 
       const permalink = document.createElement("a")
-      const sectionUrl = new URL(canonicalUrl)
-      sectionUrl.search = ""
+      const sectionUrl = new URL(pageUrl)
       sectionUrl.hash = id
       permalink.className = "section-permalink"
       permalink.href = sectionUrl.href
