@@ -118,6 +118,28 @@ RSpec.describe "Deck UX", type: :system do
     JS
   end
 
+  it "keeps the title-slide accent above its aligned section shortcut" do
+    visit plan_page_path(plan)
+    expect(page).to have_css(".deck-slide--title .section-permalink", visible: :all)
+
+    layout = page.evaluate_script(<<~JS)
+      (() => {
+        const heading = document.querySelector(".deck-slide--title .section-heading")
+        const title = heading.querySelector(".section-heading__title").getBoundingClientRect()
+        const link = heading.querySelector(".section-permalink").getBoundingClientRect()
+        const accent = getComputedStyle(heading, "::before")
+        return {
+          display: getComputedStyle(heading).display,
+          accentColumn: `${accent.gridColumnStart} / ${accent.gridColumnEnd}`,
+          centerDelta: Math.abs((title.top + title.bottom - link.top - link.bottom) / 2)
+        }
+      })()
+    JS
+
+    expect(layout).to include("display" => "grid", "accentColumn" => "1 / -1")
+    expect(layout["centerDelta"]).to be < 1
+  end
+
   describe "present mode" do
     it "treats a drag as a highlight and a bare click as the next slide" do
       visit plan_page_path(plan)

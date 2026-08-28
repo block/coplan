@@ -241,6 +241,10 @@
 .deck-slide--title .deck-content h1,
 .deck-slide--title .deck-content h2,
 .deck-slide--title .deck-content h3 {
+  display: grid;
+  grid-template-columns: minmax(0, auto) auto;
+  align-items: center;
+  justify-content: start;
   font-size: 2.8em;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -256,6 +260,7 @@
   display: block;
   width: 1.6em;
   height: 0.16em;
+  grid-column: 1 / -1;
   border-radius: 0.08em;
   background: var(--deck-title-accent, var(--deck-accent));
   margin-bottom: 0.55em;
