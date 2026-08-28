@@ -1673,6 +1673,11 @@ img.avatar {
   cursor: pointer;
 }
 
+.markdown-rendered .task-list-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
 .markdown-rendered .task-list-item input[type="checkbox"] {
   cursor: pointer;
   flex-shrink: 0;

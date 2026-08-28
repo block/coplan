@@ -48,6 +48,17 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(label.at_css('input[type="checkbox"]')).to be_present
     end
 
+    it "groups task text and inline markup into a single flex item" do
+      html = helper.render_markdown("- [ ] Before `cards.buyer_id`, verify `CardService` behavior")
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      label = doc.at_css("li.task-list-item label")
+      task_body = label.at_css(".task-list-item-content")
+
+      expect(label.element_children.to_a).to eq([ label.at_css('input[type="checkbox"]'), task_body ])
+      expect(task_body.css("code").map(&:text)).to eq([ "cards.buyer_id", "CardService" ])
+      expect(task_body.text.squish).to eq("Before cards.buyer_id, verify CardService behavior")
+    end
+
     it "handles mixed task and non-task items" do
       md = "- [ ] Task item\n- Regular item"
       html = helper.render_markdown(md)
