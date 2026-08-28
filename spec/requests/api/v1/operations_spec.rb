@@ -38,6 +38,24 @@ RSpec.describe "Api::V1::Operations", type: :request do
     expect(body["revision"]).to eq(plan.current_revision + 1)
   end
 
+  it "applies content containing a URL longer than a database string" do
+    url = "https://example.com/?query=#{"x" * 500}"
+
+    post api_v1_plan_operations_path(plan),
+      params: {
+        lease_token: lease_token,
+        base_revision: plan.current_revision,
+        operations: [
+          { op: "replace_exact", old_text: "Some content here.", new_text: "Read [the report](#{url}).", count: 1 }
+        ]
+      },
+      headers: headers,
+      as: :json
+
+    expect(response).to have_http_status(:created)
+    expect(plan.references.find_by!(url: url).source).to eq("extracted")
+  end
+
   it "apply operations fails without lease" do
     CoPlan::EditLease.find_by(plan_id: plan.id)&.destroy
 

@@ -116,5 +116,13 @@ RSpec.describe CoPlan::References::ExtractFromContent do
       expect(plan.references.count).to eq(1)
       expect(plan.references.first.url).to eq("https://example.com")
     end
+
+    it "extracts URLs longer than a database string" do
+      url = "https://example.com/?query=#{"x" * 500}"
+      update_content(plan, "Visit [the report](#{url}) for more info.")
+
+      expect { described_class.call(plan: plan) }.to change(plan.references, :count).by(1)
+      expect(plan.references.first.url).to eq(url)
+    end
   end
 end

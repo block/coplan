@@ -36,11 +36,50 @@ RSpec.describe CoPlan::Reference, type: :model do
       expect(ref).not_to be_valid
     end
 
+    it "enforces database uniqueness when a writer omits the generated digest" do
+      create(:reference, plan: plan, url: "https://example.com")
+      attributes = {
+        id: SecureRandom.uuid,
+        plan_id: plan.id,
+        url: "https://example.com",
+        reference_type: "link",
+        source: "extracted",
+        created_at: Time.current,
+        updated_at: Time.current
+      }
+
+      expect { described_class.insert_all!([ attributes ]) }.to raise_error(ActiveRecord::RecordNotUnique)
+    end
+
+    it "stores URLs longer than a database string" do
+      url = "https://example.com/?query=#{"x" * 500}"
+      ref = create(:reference, plan: plan, url: url)
+
+      expect(ref.reload.url).to eq(url)
+      expect(ref.url_digest).to eq(Digest::SHA256.hexdigest(url))
+    end
+
+    it "updates the database-generated digest when the URL changes" do
+      ref = create(:reference, plan: plan, url: "https://example.com/old")
+
+      ref.update!(url: "https://example.com/new")
+
+      expect(ref.reload.url_digest).to eq(Digest::SHA256.hexdigest(ref.url))
+    end
+
     it "allows same url on different plans" do
       other_plan = create(:plan)
       create(:reference, plan: plan, url: "https://example.com")
       ref = build(:reference, plan: other_plan, url: "https://example.com")
       expect(ref).to be_valid
+    end
+
+    it "treats case-sensitive URL paths as distinct" do
+      create(:reference, plan: plan, url: "https://example.com/Report")
+
+      expect {
+        create(:reference, plan: plan, url: "https://example.com/report")
+      }.to change(described_class, :count).by(1)
     end
   end
 
