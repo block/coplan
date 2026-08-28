@@ -52,17 +52,24 @@ export default class extends Controller {
     this.sidebarTarget.style.display = ""
     if (this.hasShowBtnTarget) this.showBtnTarget.style.display = ""
 
-    // Commonmarker supplies an empty self-link inside each heading. The
-    // shortcut replaces it; keeping both would leave two elements claiming
-    // the same fragment once the heading itself receives that id.
+    // Commonmarker supplies an empty self-link inside each heading. Promote
+    // its generated fragment to the heading itself when that heading does
+    // not already own a different server-assigned id. Visible or non-self
+    // links are authored content and stay untouched.
+    const promotedAnchors = new Map()
     this._headings.forEach(heading => {
-      heading.querySelectorAll("a.anchor[id]").forEach(anchor => anchor.remove())
+      const anchor = Array.from(heading.querySelectorAll("a.anchor[id]"))
+        .find(candidate => candidate.textContent.trim() === "" &&
+          candidate.getAttribute("href") === `#${candidate.id}` &&
+          (!heading.id || heading.id === candidate.id))
+      if (anchor) promotedAnchors.set(heading, anchor)
     })
 
     const headingSet = new Set(this._headings)
+    const promotedAnchorSet = new Set(promotedAnchors.values())
     const usedIds = new Set(
       Array.from(document.querySelectorAll("[id]"))
-        .filter(element => !headingSet.has(element))
+        .filter(element => !headingSet.has(element) && !promotedAnchorSet.has(element))
         .map(element => element.id)
     )
     const pageUrl = new URL(window.location.href)
@@ -70,14 +77,16 @@ export default class extends Controller {
 
     this._headings.forEach((heading, index) => {
       heading.querySelector(":scope > .section-permalink")?.remove()
+      const promotedAnchor = promotedAnchors.get(heading)
       const headingText = heading.textContent.trim().replace(/\s+/g, " ")
-      let baseId = heading.id || this.slugify(headingText) || `section-${index + 1}`
+      let baseId = heading.id || promotedAnchor?.id || this.slugify(headingText) || `section-${index + 1}`
       let id = baseId
       let suffix = 2
       while (usedIds.has(id)) {
         id = `${baseId}-${suffix++}`
       }
       heading.id = id
+      promotedAnchor?.remove()
       heading.classList.add("section-heading")
       usedIds.add(id)
 
