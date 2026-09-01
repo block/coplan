@@ -72,6 +72,86 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_content("microservices architecture")
     end
 
+    it "copies a shortcut link to a section" do
+      visit plan_page_path(plan, thread: "transient-comment-id")
+
+      shortcut = find("h1 .section-permalink", visible: :all)
+      expect(shortcut[:href]).to end_with("#{plan_page_path(plan)}#architecture-overview")
+      expect(shortcut[:href]).not_to include("thread=")
+      expect(shortcut["aria-label"]).to eq("Copy link to Architecture Overview")
+      if page.evaluate_script("matchMedia('(hover: hover)').matches")
+        expect(page).to have_no_css("h1 .section-permalink", visible: true)
+      end
+
+      find(".markdown-rendered h1").hover
+      shortcut = find("h1 .section-permalink", visible: true)
+      center_delta = page.evaluate_script(<<~JS)
+        (() => {
+          const title = document.querySelector("h1 .section-heading__title").getBoundingClientRect()
+          const link = document.querySelector("h1 .section-permalink").getBoundingClientRect()
+          return Math.abs((title.top + title.bottom - link.top - link.bottom) / 2)
+        })()
+      JS
+      expect(center_delta).to be < 1
+
+      page.driver.browser.manage.window.resize_to(390, 844)
+      begin
+        find(".markdown-rendered h1").hover
+        shortcut = find("h1 .section-permalink", visible: true)
+        shortcut.click
+        expect(page).to have_css("h1 .section-permalink[data-copy-state='copied']", visible: :all)
+        expect(find("h1 .section-permalink", visible: :all)["aria-label"]).to eq("Copied link to section")
+
+        viewport = page.evaluate_script(<<~JS)
+          (() => ({
+            contentWidth: document.documentElement.scrollWidth,
+            viewportWidth: window.innerWidth,
+            feedbackRight: getComputedStyle(document.querySelector("h1 .section-permalink"), "::after").right
+          }))()
+        JS
+        expect(viewport["contentWidth"]).to be <= viewport["viewportWidth"]
+        expect(viewport["feedbackRight"]).to eq("0px")
+      ensure
+        page.driver.browser.manage.window.resize_to(1400, 900)
+      end
+    end
+
+    it "does not reuse an existing document fragment for a section shortcut" do
+      visit plan_page_path(plan)
+      page.execute_script(<<~JS)
+        const content = document.querySelector(".markdown-rendered")
+        const existing = document.createElement("span")
+        existing.id = "existing-fragment"
+        content.prepend(existing)
+        const heading = content.querySelector("h2")
+        heading.removeAttribute("id")
+        heading.textContent = "Existing Fragment"
+        content.dispatchEvent(new CustomEvent("coplan:content-updated", { bubbles: true }))
+      JS
+
+      heading = find(".markdown-rendered h2", text: "Existing Fragment", exact_text: true)
+      expect(heading[:id]).to eq("existing-fragment-2")
+      expect(heading.find(".section-permalink", visible: :all)[:href]).to end_with("#existing-fragment-2")
+    end
+
+    it "preserves generated duplicate fragments and authored heading links" do
+      plan.current_plan_version.update!(content_markdown: "## Intro\n\nFirst\n\n## Intro\n\nSecond")
+      visit plan_page_path(plan)
+
+      expect(all(".markdown-rendered h2").map { |heading| heading[:id] }).to eq(%w[intro intro-1])
+
+      page.execute_script(<<~JS)
+        const content = document.querySelector(".markdown-rendered")
+        const heading = content.querySelector("h2")
+        heading.removeAttribute("id")
+        heading.innerHTML = '<a class="anchor" id="details" href="/details">Details</a>'
+        content.dispatchEvent(new CustomEvent("coplan:content-updated", { bubbles: true }))
+      JS
+
+      expect(find(".markdown-rendered h2", text: "Details", exact_text: true)[:id]).to eq("details-2")
+      expect(find(".markdown-rendered h2 a#details", text: "Details")[:href]).to end_with("/details")
+    end
+
     it "renders Mermaid fences as diagrams" do
       plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
         # Request flow

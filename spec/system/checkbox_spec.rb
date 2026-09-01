@@ -135,6 +135,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
     # second checkbox only after the swap lands, or the handle can detach
     # between find and click.
     wait_for_content_refresh(2)
+    expect(page).to have_css("h1 .section-permalink", visible: :all)
 
     second_cb = all('input[type="checkbox"]')[1]
     second_cb.click

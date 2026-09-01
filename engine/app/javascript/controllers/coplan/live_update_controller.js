@@ -63,6 +63,7 @@ export default class extends Controller {
         if (incomingRevision) {
           target.setAttribute("data-coplan--live-update-revision-value", String(incomingRevision))
         }
+        target.dispatchEvent(new CustomEvent("coplan:content-updated", { bubbles: true }))
         clearStaleBanner()
       }
     }
