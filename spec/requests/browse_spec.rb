@@ -63,6 +63,18 @@ RSpec.describe "Browsable library URLs", type: :request do
       expect(response).to have_http_status(:ok)
       expect(versioned.slug).to eq("pricing-v1-2")
     end
+
+    it "directs an authenticated non-browser client to the API instructions" do
+      get "/hampton/liveorder/q3/cart-roadmap", headers: {
+        "Accept" => "text/markdown",
+        "User-Agent" => "curl/8.11.0"
+      }
+
+      expect(response).to have_http_status(:unauthorized)
+      expect(response.media_type).to eq("text/markdown")
+      expect(response.body).to include("# CoPlan API")
+      expect(response.body).to include("/agent-instructions")
+    end
   end
 
   describe "the owner's own library" do
