@@ -34,7 +34,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 11
+    RENDER_CACHE_VERSION = 12
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -218,9 +218,22 @@ module CoPlan
 
         li.add_class("task-list-item")
 
-        # Wrap li contents in a <label> so the whole text is clickable
+        # Wrap li contents in a <label> so the whole text is clickable. Keep
+        # the rendered task body in one flex item so inline elements such as
+        # <code> participate in normal inline flow instead of becoming
+        # separate columns alongside the checkbox.
         label = Nokogiri::XML::Node.new("label", doc)
-        li.children.each { |child| label.add_child(child) }
+        task_body = Nokogiri::XML::Node.new("span", doc)
+        task_body["class"] = "task-list-item-content"
+
+        li.children.to_a.each do |child|
+          if child == cb
+            label.add_child(child)
+          else
+            task_body.add_child(child)
+          end
+        end
+        label.add_child(task_body)
         li.add_child(label)
 
         ul = li.parent
