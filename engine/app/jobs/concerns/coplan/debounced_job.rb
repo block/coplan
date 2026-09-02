@@ -91,11 +91,27 @@ module CoPlan
           debounce_pending_cache_key(key), true,
           expires_in: debounce_state_ttl, unless_exist: true
         )
-        return false unless claimed
 
-        Rails.cache.write(debounce_batch_start_cache_key(key), boundary.iso8601(9), expires_in: debounce_state_ttl)
-        set(wait: debounce_window).perform_later(key: key, **arguments)
-        true
+        unless claimed
+          # Still waiting out its window: the eventual perform_batch query
+          # is "since batch_start" and naturally picks this event up, no
+          # action needed. Already running perform_batch, though, means the
+          # query may have already executed before this event landed —
+          # record it so perform schedules a catch-up run instead of
+          # silently dropping it (see the rearm branch in #perform).
+          mark_dirty(key, boundary) if running?(key)
+          return false
+        end
+
+        # Fold in anything a previous run marked dirty but didn't live long
+        # enough to rearm for itself (see #perform) — release_debounce
+        # deliberately leaves the dirty marker alone so a later claim can
+        # still pick it up instead of the event being lost between the two.
+        leftover = consume_dirty(key)
+        effective_boundary = leftover && leftover < boundary ? leftover : boundary
+
+        Rails.cache.write(debounce_batch_start_cache_key(key), effective_boundary.iso8601(9), expires_in: debounce_state_ttl)
+        schedule_run(key, arguments)
       end
 
       # The timestamp the batch for `key` started at, or nil if no batch
@@ -110,8 +126,9 @@ module CoPlan
       end
 
       # Ends the batch for `key`, so the next event starts a new one.
-      # Called for you after `perform_batch` returns; the ordering matters,
-      # see the comment inside.
+      # Called for you after `perform_batch` returns with nothing left
+      # dirty; the ordering matters, see the comment inside. Deliberately
+      # does not touch the dirty marker — see `debounce`'s leftover fold-in.
       def release_debounce(key)
         # Boundary first, claim second. The other order leaves a moment
         # where a new event can win the claim and write its own boundary,
@@ -120,12 +137,68 @@ module CoPlan
         Rails.cache.delete(debounce_pending_cache_key(key))
       end
 
+      # True while a job for `key` is actively inside `perform_batch` — a
+      # narrower window than the claim itself, which also spans the wait.
+      # `debounce` uses this to tell "still waiting, will naturally be
+      # picked up" apart from "query may have already run, could be missed".
+      def running?(key)
+        Rails.cache.exist?(debounce_running_cache_key(key))
+      end
+
+      def mark_running(key)
+        Rails.cache.write(debounce_running_cache_key(key), true, expires_in: debounce_state_ttl)
+      end
+
+      def clear_running(key)
+        Rails.cache.delete(debounce_running_cache_key(key))
+      end
+
+      # Records that an event arrived while perform_batch was running and
+      # may not have made it into that run's query. Keeps the earliest such
+      # event so a second and third arrival during the same run don't
+      # shadow the first.
+      def mark_dirty(key, event_at)
+        cache_key = debounce_dirty_cache_key(key)
+        current = Rails.cache.read(cache_key)
+        earliest = current ? [ Time.zone.parse(current), event_at ].min : event_at
+        Rails.cache.write(cache_key, earliest.iso8601(9), expires_in: debounce_state_ttl)
+      end
+
+      # Returns and clears the dirty boundary, or nil if nothing arrived
+      # mid-run.
+      def consume_dirty(key)
+        cache_key = debounce_dirty_cache_key(key)
+        raw = Rails.cache.read(cache_key)
+        return nil unless raw
+
+        Rails.cache.delete(cache_key)
+        Time.zone.parse(raw)
+      end
+
+      # Re-arms the claim this job already holds for a follow-up run,
+      # instead of releasing and re-claiming. Release-then-reclaim would
+      # open a gap where an unrelated concurrent `debounce` call could win
+      # the fresh claim with its own (later) boundary and skip over the
+      # event that's still unhandled here.
+      def rearm(key, event_at, arguments)
+        Rails.cache.write(debounce_batch_start_cache_key(key), event_at.iso8601(9), expires_in: debounce_state_ttl)
+        schedule_run(key, arguments)
+      end
+
       def debounce_pending_cache_key(key)
         "coplan:debounced_job:#{debounce_namespace}:pending:#{key}"
       end
 
       def debounce_batch_start_cache_key(key)
         "coplan:debounced_job:#{debounce_namespace}:batch_start:#{key}"
+      end
+
+      def debounce_running_cache_key(key)
+        "coplan:debounced_job:#{debounce_namespace}:running:#{key}"
+      end
+
+      def debounce_dirty_cache_key(key)
+        "coplan:debounced_job:#{debounce_namespace}:dirty:#{key}"
       end
 
       # Namespaces cache keys per job class, so two debounced jobs keyed on
@@ -153,18 +226,47 @@ module CoPlan
 
         value
       end
+
+      # Releases the claim if the job never actually made it onto the
+      # queue — a raised adapter error, or a halted enqueue callback
+      # returning an unsuccessfully-enqueued job — so a stuck claim doesn't
+      # block every `debounce` call for this key until debounce_state_ttl
+      # expires with no job to show for it.
+      def schedule_run(key, arguments)
+        job = set(wait: debounce_window).perform_later(key: key, **arguments)
+        return true if job&.successfully_enqueued?
+
+        release_debounce(key)
+        false
+      rescue StandardError
+        release_debounce(key)
+        raise
+      end
     end
 
     # Including jobs implement `perform_batch`, not `perform` — this owns
-    # `perform` so the claim is always released in the right place.
+    # `perform` so the claim is always released (or rearmed) in the right
+    # place.
     def perform(key:, **arguments)
+      self.class.mark_running(key)
       perform_batch(key: key, batch_start: debounce_batch_start(key), **arguments)
 
-      # Only after the work is done. Releasing on enqueue, or in an
-      # `ensure`, would let an event arriving mid-send (or mid-retry, since
-      # a raise skips this line and leaves the claim held) open a second
-      # batch that overlaps and clobbers this one.
-      self.class.release_debounce(key)
+      # An event that arrived while perform_batch was running may already
+      # be too late for the query it just ran — rearm the same claim for a
+      # follow-up instead of releasing, so it isn't silently dropped.
+      if (dirty_at = self.class.consume_dirty(key))
+        self.class.rearm(key, dirty_at, arguments)
+      else
+        self.class.release_debounce(key)
+      end
+    ensure
+      # Cleared unconditionally, including on a raise from perform_batch
+      # (retry_on leaves the claim itself held — see release_debounce not
+      # being called above on that path). A retry re-queries batch_start
+      # fresh, so it naturally covers anything that arrived in the gap;
+      # `running?` only needs to be accurate for the window it's actually
+      # protecting.
+      self.class.clear_running(key)
     end
 
     private

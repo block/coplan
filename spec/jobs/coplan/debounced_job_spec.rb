@@ -120,13 +120,17 @@ RSpec.describe CoPlan::DebouncedJob, type: :job do
       expect(enqueued_jobs.count { |j| j["job_class"] == "DebouncedJobSpecJob" }).to eq(1)
     end
 
-    it "claims with a write-if-absent and never reads the cache first" do
+    it "claims with a write-if-absent and never reads the pending key to decide" do
       allow(Rails.cache).to receive(:read).and_call_original
       allow(Rails.cache).to receive(:write).and_call_original
 
       job.debounce(key: key, event_at: 1.minute.ago)
 
-      expect(Rails.cache).not_to have_received(:read)
+      # The claim itself never reads: the atomic write's return value is the
+      # only input. (A read of the *dirty* key does happen here, to fold in
+      # anything left over from a previous run — see "leftover dirty state"
+      # below — but that's unrelated to who wins the claim.)
+      expect(Rails.cache).not_to have_received(:read).with(job.debounce_pending_cache_key(key))
       expect(Rails.cache).to have_received(:write).with(
         job.debounce_pending_cache_key(key), true, hash_including(unless_exist: true)
       ).once
@@ -265,6 +269,107 @@ RSpec.describe CoPlan::DebouncedJob, type: :job do
         expect(job.debounce(key: key, event_at: later_at)).to be(true)
         expect(job.batch_start_for(key)).to eq(later_at)
       end
+    end
+  end
+
+  # Failure mode 4: an event lands after perform_batch has already queried
+  # but before the claim is released. The claim being held makes a plain
+  # `debounce` call at that moment a no-op, and the query that already ran
+  # can't retroactively include it — without a rearm, it's gone for good.
+  describe "events arriving mid-run" do
+    it "rearms a follow-up run for an event that arrives while perform_batch is executing" do
+      freeze_time do
+        job.debounce(key: key, event_at: 30.seconds.ago)
+        travel 2.minutes
+
+        late_arrival = Time.current
+        allow_any_instance_of(DebouncedJobSpecJob).to receive(:perform_batch) do
+          # Simulates a comment landing after this job's own query already ran.
+          expect(job.debounce(key: key, event_at: late_arrival)).to be(false)
+        end
+
+        expect {
+          job.perform_now(key: key)
+        }.to have_enqueued_job(DebouncedJobSpecJob).with(key: key)
+
+        expect(job.debounce_pending?(key)).to be(true)
+        expect(job.batch_start_for(key)).to eq(late_arrival)
+      end
+    end
+
+    it "does not rearm when nothing arrives while perform_batch is executing" do
+      freeze_time do
+        job.debounce(key: key, event_at: Time.current)
+        travel 2.minutes
+
+        job.perform_now(key: key)
+
+        expect(job.debounce_pending?(key)).to be(false)
+        # Only the original debounce's own enqueue — no follow-up rearm.
+        expect(enqueued_jobs.count { |j| j["job_class"] == "DebouncedJobSpecJob" }).to eq(1)
+      end
+    end
+
+    it "keeps the earliest of several mid-run arrivals as the follow-up boundary" do
+      freeze_time do
+        job.debounce(key: key, event_at: Time.current)
+        travel 2.minutes
+
+        earlier = Time.current
+        later = Time.current + 1.second
+        allow_any_instance_of(DebouncedJobSpecJob).to receive(:perform_batch) do
+          job.debounce(key: key, event_at: later)
+          job.debounce(key: key, event_at: earlier)
+        end
+
+        job.perform_now(key: key)
+
+        expect(job.batch_start_for(key)).to eq(earlier)
+      end
+    end
+
+    it "does not treat an event still waiting out the window as mid-run" do
+      freeze_time do
+        job.debounce(key: key, event_at: Time.current)
+
+        travel 10.seconds
+        job.debounce(key: key, event_at: Time.current) # still waiting, perform hasn't started
+
+        travel 2.minutes
+        job.perform_now(key: key)
+
+        expect(job.debounce_pending?(key)).to be(false) # released normally, no rearm needed
+      end
+    end
+  end
+
+  # Failure mode 5: `debounce` writes the claim, then perform_later fails
+  # (adapter error, or a halted enqueue callback) before actually scheduling
+  # anything. Without cleanup, every event for this key silently no-ops
+  # until debounce_state_ttl expires, even though no job exists to run them.
+  describe "when enqueueing fails" do
+    it "releases the claim and re-raises when the queue adapter raises" do
+      configured_job = double("configured_job")
+      allow(job).to receive(:set).and_return(configured_job)
+      allow(configured_job).to receive(:perform_later).and_raise(StandardError, "queue unavailable")
+
+      expect {
+        job.debounce(key: key, event_at: 1.minute.ago)
+      }.to raise_error(StandardError, "queue unavailable")
+
+      expect(job.debounce_pending?(key)).to be(false)
+      expect(job.batch_start_for(key)).to be_nil
+    end
+
+    it "releases the claim when perform_later returns a job that wasn't actually enqueued" do
+      configured_job = double("configured_job")
+      allow(job).to receive(:set).and_return(configured_job)
+      allow(configured_job).to receive(:perform_later).and_return(instance_double(DebouncedJobSpecJob, successfully_enqueued?: false))
+
+      expect(job.debounce(key: key, event_at: 1.minute.ago)).to be(false)
+
+      expect(job.debounce_pending?(key)).to be(false)
+      expect(job.batch_start_for(key)).to be_nil
     end
   end
 
