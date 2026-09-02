@@ -859,7 +859,9 @@ RSpec.describe "Comment UX", type: :system do
       end
 
       expect(page).not_to have_css("#new-comment-form", visible: true, wait: 5)
-      thread = plan.comment_threads.reload.last
+      # Plain #last has no ORDER BY, so its row order is unspecified — it
+      # happens to match insertion order on MySQL but not on Postgres.
+      thread = plan.comment_threads.reload.order(:created_at).last
       expect(thread.anchor_text).to eq("Hard")
       expect(page).to have_css("mark.anchor-highlight", text: "Hard", wait: 5)
       expect(page).to have_css("##{ActionView::RecordIdentifier.dom_id(thread)}")
