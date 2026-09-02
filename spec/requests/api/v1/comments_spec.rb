@@ -104,36 +104,6 @@ RSpec.describe "Api::V1::Comments", type: :request do
     end
   end
 
-  describe "PATCH discard" do
-    it "discards a thread" do
-      patch discard_api_v1_plan_comment_path(plan, thread_record),
-        headers: headers,
-        as: :json
-      expect(response).to have_http_status(:ok)
-      body = JSON.parse(response.body)
-      expect(body["status"]).to eq("discarded")
-      expect(thread_record.reload.status).to eq("discarded")
-    end
-
-    it "returns 404 for nonexistent thread" do
-      patch discard_api_v1_plan_comment_path(plan, "nonexistent-id"),
-        headers: headers,
-        as: :json
-      expect(response).to have_http_status(:not_found)
-    end
-
-    it "returns 403 when user is not the plan author" do
-      bob = create(:coplan_user)
-      bob_token = create(:api_token, user: bob, raw_token: "test-token-bob")
-      bob_headers = { "Authorization" => "Bearer test-token-bob" }
-
-      patch discard_api_v1_plan_comment_path(plan, thread_record),
-        headers: bob_headers,
-        as: :json
-      expect(response).to have_http_status(:forbidden)
-    end
-  end
-
   # The token always knows who it speaks for, so omitting agent_name is
   # no longer an error — it falls back to the token's agent_name, then
   # its name. (It used to 422, which punished exactly the callers who

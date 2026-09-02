@@ -136,7 +136,7 @@ RSpec.describe "Api::V1::Content", type: :request do
         anchor_revision: 1,
         anchor_start: initial_content.index(anchor_text),
         anchor_end: initial_content.index(anchor_text) + anchor_text.length,
-        status: "todo"
+        status: "open"
       )
     end
 

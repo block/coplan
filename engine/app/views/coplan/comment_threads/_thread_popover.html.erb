@@ -47,11 +47,8 @@
         <% end %>
       </div>
 
-      <div class="thread-popover__actions comment-actions--plan-author">
-        <% if thread.status == "pending" %>
-          <%= button_to "Accept (a)", accept_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "accept" } %>
-        <% end %>
-        <%= button_to "Discard (d)", discard_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "discard" } %>
+      <div class="thread-popover__actions comment-actions--owner">
+        <%= button_to "Resolve (e)", resolve_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "resolve" } %>
       </div>
     <% else %>
       <div class="thread-popover__actions comment-actions--owner">

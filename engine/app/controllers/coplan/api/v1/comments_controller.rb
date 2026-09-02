@@ -92,27 +92,6 @@ module CoPlan
           render json: { thread_id: thread.id, status: thread.status }
         end
 
-        def discard
-          thread = @plan.comment_threads.find_by(id: params[:id])
-          unless thread
-            render json: { error: "Comment thread not found" }, status: :not_found
-            return
-          end
-
-          policy = CommentThreadPolicy.new(current_user, thread)
-          unless policy.discard?
-            render json: { error: "Not authorized" }, status: :forbidden
-            return
-          end
-
-          thread.discard!(current_user)
-          CreateNotificationsJob.perform_later(comment_thread_id: thread.id, actor_id: current_user.id, reason: "status_change",
-            actor_api_token_id: @api_token&.id)
-          broadcast_thread_update(thread)
-
-          render json: { thread_id: thread.id, status: thread.status }
-        end
-
         def destroy
           # Scope the lookup to this plan's comments so an ID from another
           # plan returns 404 rather than being acted on. (The policy also

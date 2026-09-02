@@ -285,7 +285,7 @@ RSpec.describe CoPlan::Plans::CommitSession do
         plan: plan,
         plan_version: plan.current_plan_version,
         created_by_user: user,
-        status: "pending",
+        status: "open",
         anchor_text: "We should use unit tests."
       )
 

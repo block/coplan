@@ -1202,9 +1202,7 @@ del.agent-flash {
   flex-shrink: 0;
   opacity: 0.8;
 }
-.badge--pending     { background: var(--color-status-considering-bg); color: var(--color-status-considering); }
-.badge--todo        { background: var(--color-status-developing-bg); color: var(--color-status-developing); }
-.badge--discarded   { background: var(--color-status-abandoned-bg); color: var(--color-status-abandoned); }
+.badge--open        { background: var(--color-status-considering-bg); color: var(--color-status-considering); }
 .badge--resolved    { background: var(--color-status-live-bg); color: var(--color-status-live); }
 .badge--success     { background: var(--color-success-soft); color: var(--color-success); }
 .badge--warning     { background: var(--color-warning-soft); color: var(--color-warning); }
@@ -2395,24 +2393,6 @@ img.avatar {
   background: var(--color-highlight-open-hover-bg);
 }
 
-.anchor-highlight--pending {
-  background: var(--color-highlight-pending-bg);
-  border-bottom: 2px solid var(--color-highlight-pending-border);
-}
-
-.anchor-highlight--pending:hover {
-  background: var(--color-highlight-pending-hover-bg);
-}
-
-.anchor-highlight--todo {
-  background: var(--color-highlight-todo-bg);
-  border-bottom: 2px solid var(--color-highlight-todo-border);
-}
-
-.anchor-highlight--todo:hover {
-  background: var(--color-highlight-todo-hover-bg);
-}
-
 .anchor-highlight--resolved {
   background: none;
   border-bottom: none;
@@ -3022,12 +3002,10 @@ img.avatar {
    current_user, so these are rendered unconditionally and hidden by default.
    The coplan--viewer-role controller tags each thread with the viewer's role
    (.viewer-is-plan-author / .viewer-is-thread-author) to reveal them. */
-.comment-actions--plan-author,
 .comment-actions--owner {
   display: none;
 }
 
-.viewer-is-plan-author .comment-actions--plan-author,
 .viewer-is-plan-author .comment-actions--owner,
 .viewer-is-thread-author .comment-actions--owner {
   display: flex;
@@ -3152,12 +3130,8 @@ img.avatar {
   line-height: 1;
 }
 
-.content-nav__badge--pending {
+.content-nav__badge--open {
   background: var(--color-status-considering);
-}
-
-.content-nav__badge--todo {
-  background: var(--color-status-developing);
 }
 
 /* Toggle button when sidebar is hidden — shown outside the sidebar */

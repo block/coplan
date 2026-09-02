@@ -51,7 +51,7 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       )
       thread.update_columns(anchor_text: "text no longer in the plan", anchor_start: nil, anchor_end: nil)
 
-      expect(thread.reload.update(status: "todo")).to be true
+      expect(thread.reload.update(status: "resolved")).to be true
     end
   end
 

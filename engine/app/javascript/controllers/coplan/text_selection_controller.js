@@ -638,14 +638,13 @@ export default class extends Controller {
     threads.forEach(thread => {
       const anchor = thread.dataset.anchorText
       const occurrence = thread.dataset.anchorOccurrence
-      const status = thread.dataset.threadStatus || "pending"
+      const status = thread.dataset.threadStatus || "open"
       const threadId = thread.id
 
       if (anchor && anchor.length > 0) {
-        const isOpen = status === "pending" || status === "todo"
+        const isOpen = status === "open"
         const statusClass = isOpen ? "anchor-highlight--open" : "anchor-highlight--resolved"
-        const specificClass = isOpen ? `anchor-highlight--${status}` : ""
-        const classes = `anchor-highlight ${statusClass} ${specificClass}`.trim()
+        const classes = `anchor-highlight ${statusClass}`.trim()
         const marks = this.findAndHighlightAll(anchor, occurrence, classes)
 
         if (marks.length > 0 && threadId) {

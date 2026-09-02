@@ -7,8 +7,12 @@ RSpec.describe MarkClosedThreadNotificationsRead do
   let(:user) { create(:coplan_user) }
   let(:plan) { create(:plan, created_by_user: user) }
 
+  # Bypasses the model's current status validation (now just open/resolved)
+  # to plant the raw status values this historical migration actually ran
+  # against, back when pending/todo/discarded were valid.
   def notification_on(status)
-    thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: user, status: status)
+    thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: user)
+    thread.update_column(:status, status)
     create(:notification, user: user, plan: plan, comment_thread: thread)
   end
 

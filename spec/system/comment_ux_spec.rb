@@ -48,7 +48,7 @@ RSpec.describe "Comment UX", type: :system do
       anchor_text: anchor_text,
       anchor_occurrence: 1,
       created_by_user: user,
-      status: "pending"
+      status: "open"
     )
     thread.comments.create!(
       author_type: "human",
@@ -217,22 +217,6 @@ RSpec.describe "Comment UX", type: :system do
       visit plan_page_path(plan)
 
       expect(page).to have_css("mark.anchor-highlight--open", text: "microservices architecture")
-    end
-
-    it "renders pending highlights in amber and todo highlights in blue" do
-      pending_thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
-      todo_thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
-      todo_thread.accept!(author)
-
-      visit plan_page_path(plan)
-
-      pending_mark = find("mark.anchor-highlight--pending")
-      pending_border = pending_mark.evaluate_script("getComputedStyle(this).borderBottomColor")
-      expect(pending_border).to include("245")  # amber/orange channel
-
-      todo_mark = find("mark.anchor-highlight--todo")
-      todo_border = todo_mark.evaluate_script("getComputedStyle(this).borderBottomColor")
-      expect(todo_border).to include("130")  # blue channel (59, 130, 246)
     end
 
     it "renders resolved thread highlights unstyled by default" do
@@ -505,7 +489,7 @@ RSpec.describe "Comment UX", type: :system do
       find("mark.anchor-highlight--open").click
 
       within(".thread-popover") do
-        expect(page).to have_css(".badge--pending")
+        expect(page).to have_css(".badge--open")
       end
     end
 
@@ -515,8 +499,7 @@ RSpec.describe "Comment UX", type: :system do
       find("mark.anchor-highlight--open").click
 
       within(".thread-popover") do
-        expect(page).to have_button("Accept (a)")
-        expect(page).to have_button("Discard (d)")
+        expect(page).to have_button("Resolve (e)")
       end
     end
   end
@@ -524,17 +507,14 @@ RSpec.describe "Comment UX", type: :system do
   describe "thread popovers as a non-author" do
     before { sign_in(reviewer) }
 
-    it "does not show Accept/Discard to someone who isn't the plan author" do
-      # The reviewer authored this comment but does not own the plan, so they
-      # must not see the author-only triage actions.
+    it "shows Resolve to the thread's own author even though they don't own the plan" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
       visit plan_page_path(plan)
       find("mark.anchor-highlight--open").click
 
       within(".thread-popover") do
         expect(page).to have_css("textarea[placeholder='Press r to reply']")
-        expect(page).to have_no_button("Accept (a)")
-        expect(page).to have_no_button("Discard (d)")
+        expect(page).to have_button("Resolve (e)")
       end
     end
 
@@ -542,7 +522,7 @@ RSpec.describe "Comment UX", type: :system do
       # The reviewer authored this thread, so they may reopen it even though
       # they don't own the plan.
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
-      thread.discard!(author)
+      thread.resolve!(author)
       visit plan_page_path(plan)
       find("body").send_keys("s")
       find("mark.anchor-highlight--resolved").click
@@ -560,7 +540,7 @@ RSpec.describe "Comment UX", type: :system do
 
     it "does not show Reopen on a closed thread the viewer neither owns nor authored" do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
-      thread.discard!(author)
+      thread.resolve!(author)
       visit plan_page_path(plan)
       find("body").send_keys("s")
       find("mark.anchor-highlight--resolved").click
@@ -603,30 +583,17 @@ RSpec.describe "Comment UX", type: :system do
   describe "lifecycle actions via popover" do
     before { sign_in(author) }
 
-    it "accepts a thread (pending → todo)" do
+    it "resolves a thread (open → resolved)" do
       thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Agree with this", user: reviewer)
       visit plan_page_path(plan)
       find("mark.anchor-highlight--open").click
       expect(page).to have_css(".thread-popover", visible: true)
 
-      accept_form = find(".thread-popover", visible: true).find("form[action*='accept']", visible: :all)
-      accept_form.find("input[type='submit'], button[type='submit']", visible: :all).click
+      resolve_form = find(".thread-popover", visible: true).find("form[action*='resolve']", visible: :all)
+      resolve_form.find("input[type='submit'], button[type='submit']", visible: :all).click
 
       expect(page).not_to have_css(".thread-popover", visible: true)
-      expect(thread.reload.status).to eq("todo")
-    end
-
-    it "discards a thread (pending → discarded)" do
-      thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Not relevant", user: reviewer)
-      visit plan_page_path(plan)
-      find("mark.anchor-highlight--open").click
-      expect(page).to have_css(".thread-popover", visible: true)
-
-      discard_form = find(".thread-popover", visible: true).find("form[action*='discard']", visible: :all)
-      discard_form.find("input[type='submit'], button[type='submit']", visible: :all).click
-
-      expect(page).not_to have_css(".thread-popover", visible: true)
-      expect(thread.reload.status).to eq("discarded")
+      expect(thread.reload.status).to eq("resolved")
     end
   end
 
@@ -724,7 +691,7 @@ RSpec.describe "Comment UX", type: :system do
       expect(thread.comments.count).to eq(1)
     end
 
-    it "accepts a pending thread with 'a' key and auto-advances" do
+    it "resolves an open thread with 'e' key and auto-advances" do
       thread1 = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback 1", user: reviewer)
       thread2 = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Feedback 2", user: reviewer)
       visit plan_page_path(plan)
@@ -734,29 +701,15 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css("mark.anchor-highlight--active")
       expect(find(".thread-popover", visible: true)).to have_content("Feedback 1")
 
-      # Press 'a' to accept
-      find("body").send_keys("a")
+      # Press 'e' to resolve
+      find("body").send_keys("e")
 
       # Wait for the thread data attribute to update via broadcast
-      expect(page).to have_css("[data-thread-status='todo']", visible: :all, wait: 5)
-      expect(thread1.reload.status).to eq("todo")
+      expect(page).to have_css("[data-thread-status='resolved']", visible: :all, wait: 5)
+      expect(thread1.reload.status).to eq("resolved")
     end
 
-    it "discards a pending thread with 'd' key" do
-      thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Not relevant", user: reviewer)
-      visit plan_page_path(plan)
-
-      find("body").send_keys("j")
-      expect(page).to have_css("mark.anchor-highlight--active")
-      expect(page).to have_css(".thread-popover", visible: true)
-
-      find("body").send_keys("d")
-
-      expect(page).to have_css("[data-thread-status='discarded']", visible: :all, wait: 5)
-      expect(thread.reload.status).to eq("discarded")
-    end
-
-    it "does not fire a/d shortcuts when typing in a textarea" do
+    it "does not fire the e shortcut when typing in a textarea" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
       visit plan_page_path(plan)
 
@@ -764,7 +717,7 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css(".thread-popover", visible: true)
       find("body").send_keys("r")
 
-      # Type 'a' inside the textarea — should not trigger accept
+      # Type 'e' inside the textarea — should not trigger resolve
       active_el = page.evaluate_script("document.activeElement.tagName")
       expect(active_el).to eq("TEXTAREA")
     end
@@ -916,7 +869,7 @@ RSpec.describe "Comment UX", type: :system do
 
       expect(page).to have_css("mark.anchor-highlight", text: "Hard", wait: 5)
       mark = find("mark[data-thread-id='#{ActionView::RecordIdentifier.dom_id(thread)}']")
-      expect(mark[:class]).to include("anchor-highlight--todo")
+      expect(mark[:class]).to include("anchor-highlight--open")
       mark.click
       expect(page).to have_css("##{ActionView::RecordIdentifier.dom_id(thread)}_popover", visible: true)
       expect(page).to have_content("This case needs more detail.")
@@ -947,7 +900,7 @@ RSpec.describe "Comment UX", type: :system do
       thread = plan.comment_threads.reload.last
       expect(thread).to be_present
       expect(thread.anchor_text).to eq("microservices architecture")
-      expect(thread.status).to eq("todo") # author's own comments start as todo
+      expect(thread.status).to eq("open")
       expect(thread.comments.first.body_markdown).to eq("Should we reconsider this?")
     end
   end
@@ -986,7 +939,7 @@ RSpec.describe "Comment UX", type: :system do
         anchor_end: anchor_text.length,
         anchor_revision: plan.current_revision,
         created_by_user: user,
-        status: "pending"
+        status: "open"
       )
       thread.comments.create!(
         author_type: "human",
@@ -1159,7 +1112,7 @@ RSpec.describe "Comment UX", type: :system do
         plan_version: table_plan.current_plan_version,
         anchor_text: anchor,
         created_by_user: reviewer,
-        status: "pending",
+        status: "open",
         anchor_start: 0,
         anchor_end: anchor.length,
         anchor_revision: table_plan.current_revision

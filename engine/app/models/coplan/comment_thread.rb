@@ -1,8 +1,8 @@
 module CoPlan
   class CommentThread < ApplicationRecord
-    STATUSES = %w[pending todo resolved discarded].freeze
-    OPEN_STATUSES = %w[pending todo].freeze
-    CLOSED_STATUSES = %w[resolved discarded].freeze
+    STATUSES = %w[open resolved].freeze
+    OPEN_STATUSES = %w[open].freeze
+    CLOSED_STATUSES = %w[resolved].freeze
 
     attr_accessor :anchor_occurrence
 
@@ -128,12 +128,8 @@ module CoPlan
       )
     end
 
-    def accept!(user)
-      update!(status: "todo", resolved_by_user: user)
-    end
-
-    def discard!(user)
-      update!(status: "discarded", resolved_by_user: user)
+    def reopen!(user)
+      update!(status: "open", resolved_by_user: nil)
     end
 
     def open?
