@@ -18,14 +18,24 @@ RSpec.describe MarkClosedThreadNotificationsRead do
 
   before { migration.verbose = false }
 
-  it "marks unread rows on resolved and discarded threads read" do
+  it "marks unread rows on resolved threads read" do
     resolved = notification_on("resolved")
-    discarded = notification_on("discarded")
 
     migration.up
 
     expect(resolved.reload.read_at).to be_present
-    expect(discarded.reload.read_at).to be_present
+  end
+
+  it "leaves unread rows on a legacy discarded thread alone" do
+    # The migration matches CommentThread::CLOSED_STATUSES, which no
+    # longer includes "discarded" now that thread statuses have
+    # collapsed to open/resolved — so a stray legacy row wouldn't be
+    # swept by a re-run of this historical migration today.
+    discarded = notification_on("discarded")
+
+    migration.up
+
+    expect(discarded.reload.read_at).to be_nil
   end
 
   it "leaves rows on open threads unread" do
