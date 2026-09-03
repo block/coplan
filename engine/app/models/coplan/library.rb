@@ -32,7 +32,7 @@ module CoPlan
     RESERVED_HANDLES = %w[
       _ new edit all
       plans people libraries library settings search notifications home welcome
-      api agent-instructions admin assets rails up sign_in sign_out integrations
+      api agent-instructions agent-tools admin assets rails up sign_in sign_out integrations
     ].freeze
     HANDLE_FORMAT = /\A[a-z0-9][a-z0-9-]*\z/
     HANDLE_MAX_LENGTH = 60

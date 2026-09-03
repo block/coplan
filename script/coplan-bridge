@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Thin shim: the real script lives in the engine (engine/agent_tools/) so
+# any CoPlan server can serve it to agents at /agent-tools/coplan-bridge.
+# This keeps `script/coplan-bridge` working for local development.
+load File.expand_path("../engine/agent_tools/coplan-bridge", __dir__)

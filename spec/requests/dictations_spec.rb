@@ -125,6 +125,24 @@ RSpec.describe "Dictations", type: :request do
     expect(response).to have_http_status(:ok)
   end
 
+  it "forwards what was mid-screen so the model favors it for the span" do
+    expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
+      expect(user_content).to include("They were reading this part")
+      expect(user_content).to match(/reading this part.*world domination/m)
+      { "text" => "Too grand.", "span" => nil }.to_json
+    end
+
+    post plan_dictations_path(plan),
+      params: {
+        transcript: "too grand",
+        excerpt: "## Ambition\nOur goal is world domination by Q3.\nMore below the fold.",
+        focus: "Our goal is world domination by Q3."
+      },
+      as: :json
+
+    expect(response).to have_http_status(:ok)
+  end
+
   it "falls back to the plan content when the client sends no excerpt" do
     expect(CoPlan::Ai).to receive(:call) do |user_content:, **|
       expect(user_content).to include(plan.current_content.truncate(50, omission: ""))

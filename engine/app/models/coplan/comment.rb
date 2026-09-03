@@ -2,13 +2,20 @@ module CoPlan
   class Comment < ApplicationRecord
     AUTHOR_TYPES = %w[human local_agent cloud_persona system].freeze
 
+    # Attribution labels sit inline next to the body, so they stay short.
+    AGENT_NAME_LIMIT = 20
+
     belongs_to :comment_thread
+    # Notifications reference the comment, so deleting one used to fail on
+    # a foreign key. They're delivery records for a comment that no longer
+    # exists — they go with it.
+    has_many :notifications, class_name: "CoPlan::Notification", dependent: :delete_all
     belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
 
     validates :body_markdown, presence: true
     validates :author_type, presence: true, inclusion: { in: AUTHOR_TYPES }
     validates :agent_name, presence: { message: "is required for agent comments" }, if: -> { author_type == "local_agent" }
-    validates :agent_name, length: { maximum: 20 }, allow_nil: true
+    validates :agent_name, length: { maximum: AGENT_NAME_LIMIT }, allow_nil: true
 
     before_save :rewrite_plain_mentions, if: :body_markdown_changed?
     after_create_commit :notify_thread_participants

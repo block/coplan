@@ -40,6 +40,14 @@ CoPlan.configure do |config|
   #   }
   # }
 
+  # Wake webhook egress: the engine default refuses URLs whose hosts
+  # resolve to private/loopback/link-local space (SSRF). Locally that's
+  # exactly where agents live, and specs use non-resolving example hosts,
+  # so dev and test allow any well-formed http(s) URL.
+  if Rails.env.development? || Rails.env.test?
+    config.wake_url_policy = ->(uri) { true }
+  end
+
   config.notification_handler = ->(event, payload) {
     case event
     when :comment_created

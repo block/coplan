@@ -49,7 +49,8 @@ module CoPlan
       MIN_ANCHOR_LENGTH = 8
 
       SYSTEM_PROMPT = <<~PROMPT.freeze
-        You process a spoken remark somebody made about a document.
+        You turn a spoken remark somebody made about a document into the
+        comment they meant to leave on it.
 
         You are given an excerpt of what was on their screen and a raw
         speech-to-text transcript. Return JSON of this shape:
@@ -63,9 +64,17 @@ module CoPlan
         point at two copies of the same text, repeat the span in two
         comments.
 
-        "text": the remark cleaned up into a readable comment.
-        - Remove filler words and verbal tics: um, uh, like, you know,
-          I mean, sort of, kind of, basically, actually.
+        "text": the comment as the speaker would have typed it.
+        - It is their comment, in their voice, from their point of view,
+          and it will appear under their name. You edit their words; you
+          are not a participant in the conversation. Never reply to the
+          remark, never answer a question it asks, never promise action.
+          "Hmm, not enough information on tax attach" becomes "Not enough
+          information on tax attach." — rewriting it as "I will add more
+          information" would sign a promise in their name that they never
+          made.
+        - Remove filler words and verbal tics: hmm, um, uh, like,
+          you know, I mean, sort of, kind of, basically, actually.
         - Repair false starts and repetitions into what they meant to say.
         - Fix obvious mis-transcriptions using the excerpt as context
           (technical terms in the excerpt are almost certainly what they
@@ -76,8 +85,15 @@ module CoPlan
 
         "span": the exact text from the excerpt the remark is about.
         - Copied character-for-character from the excerpt.
+        - The remark usually names its own target: when it mentions words
+          that appear in the excerpt ("tax attach"), the span is the
+          passage containing them.
         - The smallest span that identifies the target: a phrase or
           sentence, not a whole section.
+        - People read near the middle of their screen. When a "they were
+          reading" section is given, the target is most likely in it; the
+          rest of the excerpt is context that scrolled past while they
+          spoke.
         - Use null if the remark is about the document as a whole, or you
           cannot identify a specific passage.
 
@@ -92,7 +108,7 @@ module CoPlan
 
       def self.call(...) = new(...).call
 
-      def initialize(excerpt:, transcript:, document: nil, recent_comments: [])
+      def initialize(excerpt:, transcript:, document: nil, recent_comments: [], focus: nil)
         @excerpt = excerpt.to_s
         # What the anchor ultimately has to resolve against. Defaults to
         # the excerpt so callers that only have the one string still work.
@@ -101,6 +117,11 @@ module CoPlan
         # [{ body:, anchor: }, ...], newest first — the conversation the
         # remark may be continuing.
         @recent_comments = recent_comments
+        # What was mid-screen when they finished speaking. The excerpt
+        # accumulates everything that scrolled past during the take, so
+        # without this the model has no idea which part of it the person
+        # was actually reading.
+        @focus = focus.to_s.strip
       end
 
       def call
@@ -123,9 +144,22 @@ module CoPlan
           ---
           #{@excerpt}
           ---
-          #{comments_section}
+          #{focus_section}#{comments_section}
           Transcript: #{@transcript}
         CONTENT
+      end
+
+      # Omitted when it adds nothing: no focus reported, or the excerpt
+      # fit on one screen so "what they were reading" is the whole thing.
+      def focus_section
+        return "" if @focus.blank? || @focus == @excerpt.strip
+
+        <<~SECTION
+          They were reading this part as they finished speaking (the span is usually in here):
+          ---
+          #{@focus}
+          ---
+        SECTION
       end
 
       def comments_section

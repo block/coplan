@@ -98,6 +98,19 @@ module CoPlan
     #   }
     attr_accessor :directory_profile
 
+    # Lambda deciding whether the server may POST wake pings to a given
+    # URL. Receives a URI, returns truthy to allow. When nil (default),
+    # CoPlan::WakeUrlPolicy applies: the host must resolve entirely to
+    # public address space — loopback, RFC1918, link-local (cloud
+    # metadata), and friends are refused. Deployments that wake agents on
+    # an internal network (or dev, waking localhost) override this:
+    #
+    #   config.wake_url_policy = ->(uri) { uri.host.end_with?(".internal.example.com") }
+    #
+    # Checked both when a session registers the URL and again before every
+    # POST, because DNS is allowed to change its mind in between.
+    attr_accessor :wake_url_policy
+
     # Library handles a host wants to keep out of user hands, on top of
     # CoPlan::Library::RESERVED_HANDLES. Handles live under /<handle>,
     # so they can't collide with the host's own routes — this is for
@@ -107,6 +120,7 @@ module CoPlan
     # Example:
     #   config.reserved_handles = %w[square block official]
     attr_accessor :reserved_handles
+
 
     def initialize
       @authenticate = nil
@@ -120,6 +134,7 @@ module CoPlan
       @onboarding_banner = 'Want to upload Agentic plans? Give your agent <a href="/agent-instructions">these instructions</a>.'
       @agent_curl_prefix = 'curl -s -H "Authorization: Bearer $TOKEN"'
       @seed_plan_types = []
+      @wake_url_policy = nil
       @landing_page_partial = "coplan/welcome/default_landing"
       @landing_agents_partial = "coplan/welcome/default_agents"
       @agent_auth_instructions = <<~MARKDOWN

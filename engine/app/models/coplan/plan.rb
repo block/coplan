@@ -45,6 +45,11 @@ module CoPlan
     has_many :plan_reads, dependent: :destroy
     has_many :notifications, dependent: :destroy
     has_many :references, dependent: :destroy
+    # delete_all, not destroy: inbox rows and presence pills are transient
+    # state with no teardown of their own, and both tables FK this plan —
+    # without these, destroying a plan with collaboration history raises.
+    has_many :agent_events, dependent: :delete_all
+    has_many :agent_sessions, dependent: :delete_all
     has_many_attached :attachments
 
     after_initialize { self.metadata ||= {} }

@@ -144,4 +144,41 @@ RSpec.describe "Api::V1::Tokens", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
   end
+
+  # A token is also the unit of agent-collaboration identity: the agent
+  # session it claims and the event inbox it drains.
+  describe "minted tokens in the live-collaboration loop" do
+    let(:plan) { create(:plan, :considering, created_by_user: alice) }
+
+    it "mints a session token usable for the rest of the API" do
+      post api_v1_tokens_path, params: { agent_name: "Claude refactor" }, headers: root_headers, as: :json
+      token = JSON.parse(response.body)["token"]
+
+      post api_v1_plan_agent_session_path(plan),
+        headers: { "Authorization" => "Bearer #{token}" }, as: :json
+
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body)["agent_name"]).to eq("Claude refactor")
+    end
+
+    it "gives each minted token its own event inbox" do
+      post api_v1_tokens_path, params: { agent_name: "One" }, headers: root_headers, as: :json
+      first = JSON.parse(response.body)["token"]
+      post api_v1_tokens_path, params: { agent_name: "Two" }, headers: root_headers, as: :json
+      second = JSON.parse(response.body)["token"]
+
+      expect(first).not_to eq(second)
+
+      post api_v1_plan_agent_session_path(plan), headers: { "Authorization" => "Bearer #{first}" }, as: :json
+      CoPlan::AgentEvents::Publish.call(plan: plan, event_type: "plan.content_changed")
+
+      get api_v1_agent_events_path, headers: { "Authorization" => "Bearer #{first}" }, params: { wait: 0 }
+      expect(JSON.parse(response.body)["events"].length).to eq(1)
+
+      # The second token never attached to that plan, so its inbox is empty
+      # — two agents on one machine don't steal each other's wakes.
+      get api_v1_agent_events_path, headers: { "Authorization" => "Bearer #{second}" }, params: { wait: 0 }
+      expect(JSON.parse(response.body)["events"]).to be_empty
+    end
+  end
 end

@@ -1,0 +1,123 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# coplan — every CoPlan API call an agent needs, already authenticated.
+#
+# The point is that the token never passes through the agent. It lives in
+# a session file (see script/coplan_session.rb), this script reads it, and
+# nothing secret appears in a command line, a transcript, or a log.
+#
+#   script/coplan whoami
+#   script/coplan get  /api/v1/plans/$PLAN/snapshot
+#   script/coplan post /api/v1/plans/$PLAN/comments '{"body_markdown":"…"}'
+#   script/coplan reply $PLAN $THREAD "on it — proposing a fix below"
+#   script/coplan say   $PLAN "new thread on the whole doc"
+#
+# Session control:
+#
+#   script/coplan session          show this run's token identity (never the secret)
+#   script/coplan session --new    force a fresh token
+#   script/coplan session --revoke revoke it server-side and forget it
+#
+# Setup is one long-lived token in the environment; everything below
+# mints and reuses a short-lived child of it, sticky for this agent run:
+#
+#   export COPLAN_BASE=http://localhost:3223
+#   export COPLAN_TOKEN=<long-lived token from Settings → API tokens>
+
+require "json"
+require "net/http"
+require "uri"
+require_relative "coplan_session"
+
+$stdout.sync = true
+
+BASE = URI(ENV["COPLAN_BASE"] || "http://localhost:3000")
+PARENT = ENV["COPLAN_TOKEN"]
+AGENT_NAME = ENV["COPLAN_AGENT_NAME"] || "Agent"
+
+abort "coplan: set COPLAN_TOKEN (a long-lived token from Settings → API tokens)" if PARENT.to_s.empty?
+
+def token(force: false)
+  @token = nil if force
+  @token ||= CoPlanSession.ensure_token(base: BASE, parent: PARENT, agent_name: AGENT_NAME, force: force)
+end
+
+def request(method, path, body = nil, retried: false)
+  # Concatenation, not URI.join: an absolute path in URI.join discards
+  # the base's mount prefix, and CoPlan engines may be mounted under one.
+  uri = URI("#{BASE.to_s.chomp("/")}#{path}")
+  klass = {
+    "get" => Net::HTTP::Get, "post" => Net::HTTP::Post,
+    "patch" => Net::HTTP::Patch, "put" => Net::HTTP::Put, "delete" => Net::HTTP::Delete
+  }.fetch(method.to_s.downcase) { abort "coplan: unknown method #{method}" }
+
+  req = klass.new(uri)
+  req["Authorization"] = "Bearer #{token}"
+  req["Content-Type"] = "application/json"
+  req.body = body.is_a?(String) ? body : body.to_json if body
+
+  res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") { |http| http.request(req) }
+
+  # A stored token can be revoked out from under us (or its parent can be).
+  # Mint a new one once rather than making the agent debug an auth error.
+  if res.code == "401" && !retried
+    CoPlanSession.forget(CoPlanSession.session_key)
+    token(force: true)
+    return request(method, path, body, retried: true)
+  end
+
+  warn "coplan: #{method.upcase} #{path} -> #{res.code}" unless res.code.start_with?("2")
+  puts res.body unless res.body.to_s.empty?
+  exit(res.code.start_with?("2") ? 0 : 1)
+end
+
+command = ARGV.shift
+
+case command
+when "get", "post", "patch", "put", "delete"
+  path = ARGV.shift or abort "coplan: #{command} needs a path"
+  request(command, path, ARGV.shift)
+
+when "reply"
+  plan, thread, *rest = ARGV
+  abort "coplan: reply PLAN_ID THREAD_ID BODY" unless plan && thread && rest.any?
+  request("post", "/api/v1/plans/#{plan}/comments/#{thread}/reply", { body_markdown: rest.join(" ") })
+
+when "say"
+  plan, *rest = ARGV
+  abort "coplan: say PLAN_ID BODY [--anchor TEXT]" unless plan && rest.any?
+  anchor = nil
+  if (i = rest.index("--anchor"))
+    anchor = rest[i + 1]
+    rest = rest[0...i]
+  end
+  request("post", "/api/v1/plans/#{plan}/comments",
+    { body_markdown: rest.join(" "), anchor_text: anchor }.compact)
+
+when "session"
+  if ARGV.include?("--revoke")
+    CoPlanSession.revoke(base: BASE)
+    puts "revoked and forgotten"
+    exit 0
+  end
+  token(force: ARGV.include?("--new"))
+  key = CoPlanSession.session_key
+  record = CoPlanSession.read(key) || {}
+  # Deliberately not the token itself.
+  puts JSON.pretty_generate({
+    "session_key" => key,
+    "token_id" => record["id"],
+    "agent_name" => record["agent_name"],
+    "expires_at" => record["expires_at"],
+    "stored_at" => CoPlanSession.path(key),
+    "minted" => record.key?("id")
+  })
+
+when "whoami"
+  request("get", "/api/v1/plans?limit=1")
+
+else
+  puts File.read(__FILE__).lines[2..27].map { |l| l.sub(/^# ?/, "") }.join
+  exit(command.nil? ? 0 : 1)
+end

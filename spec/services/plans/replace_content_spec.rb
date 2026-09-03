@@ -31,7 +31,8 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
     let(:new_content) { initial_content.sub("unit tests", "integration tests") }
 
     it "broadcasts the new content body so other tabs live-update" do
-      expect(CoPlan::Broadcaster).to receive(:replace_plan_content).with(plan).and_call_original
+      expect(CoPlan::Broadcaster).to receive(:replace_plan_content)
+        .with(plan, changed_sections: kind_of(CoPlan::Plans::ChangedSections::Result)).and_call_original
       allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to)
       allow(Turbo::StreamsChannel).to receive(:broadcast_replace_to)
 

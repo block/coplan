@@ -1,0 +1,434 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# coplan-bridge — wakes your local coding agent when someone comments on a
+# CoPlan plan. Harness-agnostic: it drains the plan's agent event inbox
+# (long-poll, NAT-proof) and injects each event into whichever harness you
+# run via a per-harness "resume session with a message" command.
+#
+# The simple path needs no config file at all:
+#
+#   export COPLAN_BASE=https://coplan.example COPLAN_TOKEN=<token>
+#   coplan-bridge --acp "goose acp" --plan <plan-id> --name Goose
+#
+# The config file carries the same keys for setups worth writing down.
+# Precedence is flags > $COPLAN_BASE/$COPLAN_TOKEN > file, --plan
+# replaces the file's plan list, and the bridge announces which config
+# file it loaded:
+#
+#   coplan-bridge --config bridge.json
+#
+# Config (JSON):
+#   {
+#     "base_url": "http://localhost:3000",
+#     "token": "<coplan api token>",
+#     "agent_name": "Claude",
+#     "plans": ["<plan id>", ...],          // sessions are claimed on start
+#     "adapter": "claude",                  // which command template to use
+#     "harness_session": "<session/thread id for resume>",
+#     "adapters": { ... },                  // optional overrides, see DEFAULT_ADAPTERS
+#     "acp_command": ["goose", "acp"]       // for adapter "acp": see AcpAgent
+#   }
+#
+# The adapter command receives the rendered wake prompt as its final
+# argument ({prompt}) and the harness session id as {session}. The prompt
+# tells the agent to do the polite thing: fast-ack the session, reply,
+# edit, complete. The bridge itself flips the session pill to `active`
+# before the harness even boots, so humans see life within a second.
+#
+# The "demo" adapter needs no harness or API budget: it acks, replies to
+# the thread, and makes a small visible edit — enough to exercise the
+# full live-collaboration UI end to end.
+
+require "json"
+require "net/http"
+require "uri"
+require "optparse"
+require "open3"
+require "shellwords"
+
+$stdout.sync = true
+
+DEFAULT_ADAPTERS = {
+  # Every entry is "resume a named session with this message" in that
+  # harness's dialect. {session} and {prompt} are substituted.
+  "claude"    => [ "claude", "-p", "--resume", "{session}", "--permission-mode", "acceptEdits", "{prompt}" ],
+  "codex"     => [ "codex", "exec", "resume", "{session}", "{prompt}" ],
+  "goose"     => [ "goose", "run", "--name", "{session}", "--resume", "-t", "{prompt}" ],
+  "openhands" => [ "openhands", "--headless", "--resume", "{session}", "-t", "{prompt}" ],
+  "amp"       => [ "amp", "threads", "continue", "{session}", "-x", "{prompt}" ],
+  "acp"       => [], # one live agent subprocess over ACP, see AcpAgent
+  "demo"      => [] # handled in-process, see DemoAgent
+}.freeze
+
+options = { plans: [], overrides: {} }
+OptionParser.new do |opts|
+  opts.banner = "Usage: coplan-bridge [--acp COMMAND] [--plan PLAN_ID]... [--config PATH]"
+  opts.on("--plan PLAN_ID", "Plan to watch (repeatable; replaces the config file's plans)") { |v| options[:plans] << v }
+  opts.on("--acp COMMAND", 'ACP agent command, e.g. "goose acp"') do |v|
+    command = begin
+      Shellwords.split(v)
+    rescue ArgumentError => e
+      abort "coplan-bridge: bad --acp command (#{e.message})"
+    end
+    # An empty command sails past every later guard (the config key
+    # exists) and then fails per event, after the pill said "active" —
+    # the classic cause is --acp "$SOME_VAR" with the variable unset.
+    abort "coplan-bridge: --acp needs a command, e.g. --acp \"goose acp\"" if command.empty?
+    options[:overrides]["adapter"] = "acp"
+    options[:overrides]["acp_command"] = command
+  end
+  opts.on("--adapter NAME", "Adapter to use (#{DEFAULT_ADAPTERS.keys.join(", ")})") { |v| options[:overrides]["adapter"] = v }
+  opts.on("--session ID", "Harness session/thread id for exec-resume adapters") { |v| options[:overrides]["harness_session"] = v }
+  opts.on("--name NAME", "Agent name shown on the pill") { |v| options[:overrides]["agent_name"] = v }
+  opts.on("--cwd DIR", "Working directory for the ACP agent's session (default: where the bridge runs)") { |v| options[:overrides]["acp_cwd"] = v }
+  opts.on("--base URL", "CoPlan base URL (default $COPLAN_BASE)") { |v| options[:overrides]["base_url"] = v }
+  opts.on("--token TOKEN", "API token (default $COPLAN_TOKEN)") { |v| options[:overrides]["token"] = v }
+  opts.on("--approve", "Grant the ACP agent's permission requests (default: reject)") { options[:overrides]["acp_permission"] = "approve" }
+  opts.on("--config PATH", "Path to bridge config JSON (default ~/.config/coplan/bridge.json)") { |v| options[:config] = v }
+end.parse!
+
+# The default-path file still loads when it exists — that is what a
+# default config is for — but never silently: a leftover bridge.json
+# quietly steering a flags-only run at an old host would be worse than
+# having no default at all. (An explicit --config that doesn't exist is
+# an error; silently ignoring a named file would be worse than failing.)
+config_path = options[:config] || File.expand_path("~/.config/coplan/bridge.json")
+file_config =
+  if options[:config] || File.exist?(config_path)
+    begin
+      JSON.parse(File.read(config_path)).tap { puts "coplan-bridge: using config #{config_path}" }
+    rescue JSON::ParserError => e
+      abort "coplan-bridge: could not parse #{config_path}: #{e.message}"
+    end
+  else
+    {}
+  end
+CONFIG = file_config.merge(options[:overrides])
+# --plan REPLACES the file's plans — "flags win over the file" with no
+# exceptions. A union would quietly re-attach the bridge to every plan a
+# leftover file names, and claim sessions the user never asked for.
+CONFIG["plans"] = options[:plans] if options[:plans].any?
+
+# Base URL and token resolve flags > environment > config file. An env
+# var the user just exported must never lose to a file they didn't name.
+resolve = lambda do |key, env|
+  [ options[:overrides][key], ENV[env], file_config[key] ].find { |v| !v.to_s.empty? }
+end
+BASE = URI(resolve.call("base_url", "COPLAN_BASE") || abort("coplan-bridge: no base URL (set COPLAN_BASE, or pass --base)"))
+TOKEN = resolve.call("token", "COPLAN_TOKEN") || abort("coplan-bridge: no token (set COPLAN_TOKEN, or pass --token)")
+
+abort "coplan-bridge: nothing to watch (pass --plan, or put \"plans\" in the config)" if Array(CONFIG["plans"]).empty?
+# The adapter must be chosen, not defaulted: the old default was "demo",
+# which replies to threads and edits the plan — a rude surprise for
+# someone who downloaded this script and ran it with only a --plan.
+abort "coplan-bridge: no adapter (pass --acp \"<command>\" or --adapter NAME; --adapter demo runs the built-in demo agent)" if CONFIG["adapter"].to_s.empty?
+# And it must be a real one, checked now — a typo'd --adapter that only
+# fails at the first wake leaves a claimed session and an unanswered
+# human, hours after anyone was watching the terminal.
+KNOWN_ADAPTERS = DEFAULT_ADAPTERS.keys | (CONFIG["adapters"] || {}).keys
+abort "coplan-bridge: unknown adapter #{CONFIG["adapter"]} (know: #{KNOWN_ADAPTERS.join(", ")})" unless KNOWN_ADAPTERS.include?(CONFIG["adapter"])
+if CONFIG["adapter"] == "acp" && Array(CONFIG["acp_command"]).empty?
+  abort "coplan-bridge: adapter \"acp\" needs a command (pass --acp \"goose acp\" or set \"acp_command\")"
+end
+
+def request(method, path, body: nil, params: nil, read_timeout: 90)
+  # Concatenation, not URI.join: an absolute path in URI.join discards
+  # the base's mount prefix (host/coplan + /api/v1/x -> host/api/v1/x),
+  # and CoPlan engines may be mounted under a prefix.
+  uri = URI("#{BASE.to_s.chomp("/")}#{path}")
+  uri.query = URI.encode_www_form(params) if params
+  klass = { get: Net::HTTP::Get, post: Net::HTTP::Post, patch: Net::HTTP::Patch, put: Net::HTTP::Put }.fetch(method)
+  req = klass.new(uri)
+  req["Authorization"] = "Bearer #{TOKEN}"
+  req["Content-Type"] = "application/json"
+  req.body = body.to_json if body
+  Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https", read_timeout: read_timeout) do |http|
+    res = http.request(req)
+    warn "coplan-bridge: #{method.upcase} #{path} -> #{res.code}" unless res.code.start_with?("2")
+    res.body && !res.body.empty? ? JSON.parse(res.body) : {}
+  end
+rescue JSON::ParserError
+  {}
+end
+
+def claim_sessions
+  Array(CONFIG["plans"]).each do |plan_id|
+    request(:post, "/api/v1/plans/#{plan_id}/agent_session", body: { agent_name: CONFIG.fetch("agent_name", "Agent") })
+    puts "coplan-bridge: watching plan #{plan_id}"
+  end
+end
+
+def wake_prompt(event)
+  payload = event["payload"] || {}
+  <<~PROMPT
+    [coplan-bridge] A CoPlan event needs your attention.
+
+    Event: #{event["type"]} on plan "#{payload["plan_title"]}" (plan id #{event["plan_id"]}, thread id #{event["comment_thread_id"]}).
+    #{payload["comment_author"] ? "#{payload["comment_author"]} wrote: #{payload["comment_body"].to_s.strip}" : ""}
+    #{payload["anchor_text"] ? "Anchored to: \"#{payload["anchor_text"]}\"" : ""}
+
+    Respond as the plan's agent, over the CoPlan API at #{BASE} (full instructions: #{BASE}/agent-instructions):
+    1. PATCH /api/v1/plans/#{event["plan_id"]}/agent_session {"state":"active","detail":"<what you're doing>"} immediately.
+    2. Reply on the thread first (narrate what you'll change), then apply any edit with PUT .../content.
+    3. Finish with {"state":"complete"} (or "awaiting_input" if you asked a question).
+  PROMPT
+end
+
+# One protocol instead of five dialects. The Agent Client Protocol
+# (agentclientprotocol.com) is JSON-RPC 2.0 over a subprocess's stdio,
+# newline-delimited — and unlike the exec-resume adapters, the agent
+# stays *alive* between events: we spawn it once, open one session, and
+# push each CoPlan event in as a `session/prompt` turn. Anything that
+# ships an ACP server works here unmodified: `goose acp`, Gemini CLI
+# `--acp`, Claude Code and Codex via their `@agentclientprotocol/*`
+# adapters, Amp via the community `amp-acp` wrapper, and the rest of the
+# ACP registry.
+#
+# Config keys:
+#   "acp_command":    ["goose", "acp"]        (required)
+#   "acp_cwd":        working dir for the session (default: bridge's cwd)
+#   "acp_permission": "reject" | "approve"    what to answer when the
+#                     agent asks permission (default reject — the bridge
+#                     never escalates beyond what the config says)
+#   "acp_turn_timeout": seconds one turn may run before the agent is
+#                     presumed wedged (default 600 — generous, because a
+#                     real turn legitimately thinks for minutes)
+class AcpAgent
+  PROTOCOL_VERSION = 1
+  DEFAULT_TURN_TIMEOUT = 600
+
+  def self.instance
+    @instance ||= new(
+      CONFIG.fetch("acp_command") { abort "coplan-bridge: adapter \"acp\" needs \"acp_command\", e.g. [\"goose\", \"acp\"]" },
+      cwd: CONFIG.fetch("acp_cwd", Dir.pwd),
+      permission: CONFIG.fetch("acp_permission", "reject"),
+      turn_timeout: CONFIG.fetch("acp_turn_timeout", DEFAULT_TURN_TIMEOUT)
+    )
+  end
+
+  def initialize(command, cwd:, permission:, turn_timeout:)
+    @command = Array(command)
+    @cwd = File.expand_path(cwd)
+    @permission = permission
+    @turn_timeout = turn_timeout
+    @next_id = 0
+    boot
+  end
+
+  def prompt(text)
+    rpc("session/prompt", { sessionId: @session_id, prompt: [ { type: "text", text: text } ] })
+  rescue AgentGone
+    warn "coplan-bridge: ACP agent died — respawning"
+    boot
+    # The first attempt may have gotten partway through (a reply posted,
+    # an edit half-applied) before the process died. A fresh session has
+    # no memory of that, so blindly replaying the same prompt risks
+    # duplicate replies — tell the agent to look before acting.
+    recovery = "NOTE: a previous attempt at this event may have partially completed " \
+               "before the agent restarted. Check the plan's thread and content first, " \
+               "and do not duplicate replies or edits already made.\n\n#{text}"
+    rpc("session/prompt", { sessionId: @session_id, prompt: [ { type: "text", text: recovery } ] })
+  end
+
+  private
+
+  class AgentGone < StandardError; end
+
+  def boot
+    # stderr passes through so the agent's own logging stays visible.
+    @stdin, @stdout, @wait_thread = Open3.popen2(*@command)
+    rpc("initialize", {
+      protocolVersion: PROTOCOL_VERSION,
+      # No fs or terminal capabilities: the agent works through its own
+      # tools, not through us.
+      clientCapabilities: {},
+      clientInfo: { name: "coplan-bridge", version: "1.0" }
+    })
+    @session_id = rpc("session/new", { cwd: @cwd, mcpServers: [] }).fetch("sessionId")
+    puts "coplan-bridge: ACP session #{@session_id} (#{@command.join(" ")})"
+  end
+
+  def rpc(method, params)
+    id = (@next_id += 1)
+    send_message(jsonrpc: "2.0", id: id, method: method, params: params)
+    pump_until(id)
+  end
+
+  def send_message(message)
+    @stdin.puts(JSON.generate(message))
+    @stdin.flush
+  rescue Errno::EPIPE, IOError
+    raise AgentGone
+  end
+
+  # Synchronous message pump: read until the response to `id` arrives,
+  # servicing whatever the agent sends in the meantime (progress
+  # notifications, permission requests). The whole turn shares one
+  # deadline — an agent that stops answering would otherwise wedge the
+  # bridge forever on a blocking read, silently detaching it from every
+  # plan it watches.
+  def pump_until(id)
+    deadline = Time.now + @turn_timeout
+    loop do
+      remaining = deadline - Time.now
+      unless remaining.positive? && IO.select([ @stdout ], nil, nil, remaining)
+        warn "coplan-bridge: ACP agent silent for #{@turn_timeout}s — killing it"
+        Process.kill("KILL", @wait_thread.pid) rescue nil
+        raise AgentGone
+      end
+      line = @stdout.gets or raise AgentGone
+      message = JSON.parse(line) rescue next
+
+      if message["method"].nil? && message.key?("id")
+        next unless message["id"] == id
+        raise "coplan-bridge: ACP error from agent: #{message["error"].to_json}" if message["error"]
+        return message["result"] || {}
+      elsif message.key?("id")
+        answer_request(message)
+      else
+        show_progress(message)
+      end
+    end
+  end
+
+  def answer_request(message)
+    if message["method"] == "session/request_permission"
+      options = Array(message.dig("params", "options"))
+      wanted = @permission == "approve" ? "allow" : "reject"
+      chosen = options.find { |o| o["kind"].to_s.start_with?(wanted) } || (@permission == "approve" ? options.first : nil)
+      outcome = chosen ? { outcome: "selected", optionId: chosen["optionId"] } : { outcome: "cancelled" }
+      send_message(jsonrpc: "2.0", id: message["id"], result: { outcome: outcome })
+    else
+      # We advertised no capabilities, so anything else is the agent's
+      # mistake — refuse it rather than hang its turn.
+      send_message(jsonrpc: "2.0", id: message["id"],
+        error: { code: -32601, message: "coplan-bridge does not provide #{message["method"]}" })
+    end
+  end
+
+  def show_progress(message)
+    return unless message["method"] == "session/update"
+
+    update = message.dig("params", "update") || {}
+    text = update.dig("content", "text")
+    print text if update["sessionUpdate"] == "agent_message_chunk" && text
+  end
+end
+
+# A deterministic stand-in agent so the whole loop can be demoed without
+# spending a real harness turn: ack -> narrated reply -> small visible edit.
+class DemoAgent
+  def self.handle(event)
+    plan_id = event["plan_id"]
+    payload = event["payload"] || {}
+    return unless event["type"].start_with?("comment.")
+
+    Bridge.patch_state(plan_id, "active", "rewording that section")
+    sleep 1 # visible thinking beat
+
+    if event["comment_thread_id"]
+      Bridge.reply(plan_id, event["comment_thread_id"], "🤖 Got it — making that clearer now.")
+    end
+
+    snapshot = Bridge.request(:get, "/api/v1/plans/#{plan_id}/snapshot")
+    content = snapshot["current_content"].to_s
+    anchor = payload["anchor_text"].to_s
+    if anchor.length > 3 && content.include?(anchor)
+      new_content = content.sub(anchor, rewrite(anchor))
+      Bridge.request(:put, "/api/v1/plans/#{plan_id}/content", body: {
+        base_revision: snapshot["current_revision"],
+        content: new_content,
+        change_summary: "Reworded per comment (demo agent)"
+      })
+    end
+
+    Bridge.patch_state(plan_id, "complete", nil)
+  end
+
+  # A visible, boring rewrite: swap stiff words for plain ones.
+  def self.rewrite(text)
+    text
+      .gsub(/\butilize\b/i, "use")
+      .gsub(/\bleverage\b/i, "use")
+      .gsub(/\bfacilitate\b/i, "help")
+      .gsub(/\bin order to\b/i, "to")
+      .gsub(/\badditionally\b/i, "also")
+  end
+end
+
+module Bridge
+  module_function
+
+  def request(method, path, body: nil, params: nil)
+    Object.send(:request, method, path, body: body, params: params)
+  end
+
+  def patch_state(plan_id, state, detail)
+    request(:patch, "/api/v1/plans/#{plan_id}/agent_session", body: { state: state, detail: detail }.compact)
+  end
+
+  def reply(plan_id, thread_id, text)
+    request(:post, "/api/v1/plans/#{plan_id}/comments/#{thread_id}/reply", body: {
+      body_markdown: text, agent_name: CONFIG.fetch("agent_name", "Agent")
+    })
+  end
+end
+
+def dispatch(event)
+  adapter = CONFIG.fetch("adapter")
+  if adapter == "demo"
+    DemoAgent.handle(event)
+    return
+  end
+
+  if adapter == "acp"
+    # Honest pill before the turn starts; the prompt tells the agent to
+    # land on complete itself.
+    Bridge.patch_state(event["plan_id"], "active", "reading your comment")
+    puts "coplan-bridge: dispatching #{event["type"]} -> acp"
+    AcpAgent.instance.prompt(wake_prompt(event))
+    return
+  end
+
+  template = (CONFIG["adapters"] || {}).fetch(adapter, DEFAULT_ADAPTERS[adapter])
+  abort "coplan-bridge: unknown adapter #{adapter}" unless template
+
+  # Honest pill before the harness even boots.
+  Bridge.patch_state(event["plan_id"], "active", "reading your comment")
+
+  cmd = template.map do |part|
+    part.gsub("{session}", CONFIG.fetch("harness_session", "coplan")).gsub("{prompt}", wake_prompt(event))
+  end
+  puts "coplan-bridge: dispatching #{event["type"]} -> #{adapter}"
+  system(*cmd)
+end
+
+claim_sessions
+cursor = nil
+puts "coplan-bridge: draining events from #{BASE}"
+loop do
+  resp = request(:get, "/api/v1/agent/events", params: { wait: 25, cursor: cursor }.compact)
+  events = resp["events"] || []
+  events.each do |event|
+    dispatch(event)
+    # Ack each event only once its dispatch came back — at-least-once
+    # means a harness failure leaves the event unacked for redelivery,
+    # never swallowed by a batch-level ack.
+    cursor = event["id"]
+    request(:post, "/api/v1/agent/events/ack", body: { cursor: cursor })
+  rescue => e
+    # Stop the batch here: acking later events would also ack this one
+    # (the cursor is a high-water mark). The next poll redelivers
+    # everything unacked; the sleep keeps a wedged adapter from spinning.
+    warn "coplan-bridge: dispatch failed: #{e.class}: #{e.message} — leaving event unacked"
+    sleep 3
+    break
+  end
+rescue Interrupt
+  puts "\ncoplan-bridge: bye"
+  exit 0
+rescue => e
+  warn "coplan-bridge: #{e.class}: #{e.message} — retrying in 3s"
+  sleep 3
+end

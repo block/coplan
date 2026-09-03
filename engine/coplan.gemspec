@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.license     = "Apache-2.0"
 
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
-    Dir["{app,config,db,lib,prompts}/**/*", "Rakefile"]
+    Dir["{agent_tools,app,config,db,lib,prompts}/**/*", "Rakefile"]
   end
 
   spec.add_dependency "rails", ">= 8.0"

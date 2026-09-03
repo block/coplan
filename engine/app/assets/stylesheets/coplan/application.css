@@ -815,6 +815,134 @@ img, svg {
   white-space: nowrap;
 }
 
+/* Agent presence pill — live state of an agent session on this plan.
+   Broadcast-replaced; must read at a glance as "the agent is engaged". */
+.plan-agent-sessions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.agent-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  white-space: nowrap;
+}
+
+.agent-pill__icon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.agent-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  animation: agent-pill-pulse 1.4s ease-in-out infinite;
+}
+
+/* Listening: just the agent's name and a green pulse — a mic-live
+   indicator, not a status message. Chrome stays muted so working states
+   still out-rank it visually. */
+.agent-pill--watching {
+  background: color-mix(in srgb, var(--color-text-muted) 6%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-text-muted) 20%, transparent);
+}
+
+.agent-pill--watching .agent-pill__icon {
+  color: var(--color-text-muted);
+}
+
+.agent-pill--watching .agent-pill__dot {
+  background: var(--color-success);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 60%, transparent);
+  animation: agent-pill-listen 2s ease-in-out infinite;
+}
+
+@keyframes agent-pill-listen {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 55%, transparent);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-success) 0%, transparent);
+  }
+}
+
+.agent-pill--awaiting_input {
+  background: color-mix(in srgb, var(--color-warning, #b45309) 10%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-warning, #b45309) 30%, transparent);
+}
+
+.agent-pill--awaiting_input .agent-pill__dot,
+.agent-pill--awaiting_input .agent-pill__icon {
+  color: var(--color-warning, #b45309);
+  background: var(--color-warning, #b45309);
+  animation: none;
+}
+
+.agent-pill--awaiting_input .agent-pill__icon {
+  background: none;
+}
+
+@keyframes agent-pill-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+
+/* Live-edit diff flashes — applied by live_update_controller when a
+   broadcast revision lands: changed blocks tint-and-fade, inline
+   insertions get an <ins> wash, removed text lingers struck-through in a
+   <del> then collapses. Green wash = new words, not "success". */
+.agent-flash-block {
+  animation: agent-flash-bg 2.4s ease-out;
+}
+
+ins.agent-flash {
+  text-decoration: none;
+  border-radius: 2px;
+  animation: agent-flash-ins 2.4s ease-out;
+}
+
+del.agent-flash {
+  text-decoration: line-through;
+  border-radius: 2px;
+  color: var(--color-text-muted);
+  animation: agent-flash-del 2.4s ease-out forwards;
+}
+
+@keyframes agent-flash-bg {
+  0% { background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+  100% { background: transparent; }
+}
+
+@keyframes agent-flash-ins {
+  0% { background: color-mix(in srgb, var(--color-success) 30%, transparent); }
+  100% { background: transparent; }
+}
+
+@keyframes agent-flash-del {
+  0% { background: color-mix(in srgb, var(--color-danger, #b91c1c) 22%, transparent); opacity: 1; }
+  60% { background: transparent; opacity: 0.7; }
+  100% { opacity: 0; font-size: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-pill__dot { animation: none; }
+  .agent-flash-block, ins.agent-flash { animation: none; }
+  del.agent-flash { animation: none; display: none; }
+}
+
 /* Voice push-to-talk — mic button + transient transcript/status text. */
 /* The mic follows the scroll. A dictated comment is pinned to whatever
    passage is on screen when you speak, so a control that lives in the
