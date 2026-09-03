@@ -45,11 +45,14 @@ module CoPlan
     end
 
     def authenticate_coplan_user!
+      if request.get? && agent_request?
+        render plain: agent_redirect_instructions, content_type: "text/markdown", status: :unauthorized
+        return
+      end
+
       @current_coplan_user = CoPlan::Authentication.user_from_request(request)
       unless @current_coplan_user
-        if agent_request?
-          render plain: agent_redirect_instructions, content_type: "text/markdown", status: :unauthorized
-        elsif CoPlan.configuration.sign_in_path
+        if CoPlan.configuration.sign_in_path
           redirect_to CoPlan.configuration.sign_in_path, alert: "Please sign in."
         else
           head :unauthorized
