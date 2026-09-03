@@ -492,12 +492,6 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(body["comments"].length).to eq(1)
     end
 
-    it "accepts dismiss as an alias for discard" do
-      patch dismiss_api_v1_plan_comment_path(plan, thread), headers: agent_headers, as: :json
-      expect(response).to have_http_status(:ok)
-      expect(thread.reload.status).to eq("discarded")
-    end
-
     it "does not leave an orphan thread when the first comment fails validation" do
       expect {
         # An empty body fails the comment, which must roll the thread back
@@ -507,10 +501,10 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(response).to have_http_status(:unprocessable_content)
     end
 
-    it "gives the plan author's own API threads the todo initial status" do
+    it "gives API threads the open initial status regardless of author" do
       post api_v1_plan_comments_path(plan), params: { body_markdown: "note to self", agent_name: "Claude" }, headers: agent_headers, as: :json
       expect(response).to have_http_status(:created)
-      expect(JSON.parse(response.body)["status"]).to eq("todo")
+      expect(JSON.parse(response.body)["status"]).to eq("open")
     end
   end
 

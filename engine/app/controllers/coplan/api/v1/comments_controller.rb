@@ -19,19 +19,13 @@ module CoPlan
         end
 
         def create
-          # Same initial-status rule as the web flow: the plan author's own
-          # comments start as "todo" (self-assigned), everyone else's as
-          # "pending" (awaiting author triage).
-          initial_status = current_user&.id == @plan.created_by_user_id ? "todo" : "pending"
-
           thread = @plan.comment_threads.new(
             plan_version: @plan.current_plan_version,
             anchor_text: params[:anchor_text].presence,
             anchor_occurrence: params[:anchor_occurrence]&.to_i,
             start_line: params[:start_line].presence,
             end_line: params[:end_line].presence,
-            created_by_user: current_user,
-            status: initial_status
+            created_by_user: current_user
           )
 
           # Atomic, matching the web flow: a thread whose first comment
