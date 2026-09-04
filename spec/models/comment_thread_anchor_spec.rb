@@ -67,34 +67,34 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       expect(content[thread.anchor_start...thread.anchor_end]).to eq("unit tests")
     end
 
+    # Helper: create a plan with the given markdown, then create a thread
+    # anchored to `dom_text` (what the browser selection returns). Asserts
+    # that the resolved raw range matches `expected_raw`.
+    def assert_anchor_resolves(markdown, dom_text, expected_raw, occurrence: nil)
+      p = CoPlan::Plan.create!(title: "Test", created_by_user: user)
+      v = CoPlan::PlanVersion.create!(
+        plan: p, revision: 1,
+        content_markdown: markdown, actor_type: "human", actor_id: user.id
+      )
+      p.update!(current_plan_version: v, current_revision: 1)
+
+      attrs = {
+        plan_version: p.current_plan_version,
+        created_by_user: user,
+        anchor_text: dom_text
+      }
+      attrs[:anchor_occurrence] = occurrence if occurrence
+
+      thread = p.comment_threads.create!(**attrs)
+      expect(thread.anchor_start).to be_present, "anchor_start should be set for #{dom_text.inspect}"
+      expect(thread.anchor_end).to be_present
+      matched = markdown[thread.anchor_start...thread.anchor_end]
+      expect(matched).to eq(expected_raw),
+        "Expected raw range to be #{expected_raw.inspect}, got #{matched.inspect}"
+      thread
+    end
+
     context "when anchor text spans markdown formatting" do
-      # Helper: create a plan with the given markdown, then create a thread
-      # anchored to `dom_text` (what the browser selection returns). Asserts
-      # that the resolved raw range matches `expected_raw`.
-      def assert_anchor_resolves(markdown, dom_text, expected_raw, occurrence: nil)
-        p = CoPlan::Plan.create!(title: "Test", created_by_user: user)
-        v = CoPlan::PlanVersion.create!(
-          plan: p, revision: 1,
-          content_markdown: markdown, actor_type: "human", actor_id: user.id
-        )
-        p.update!(current_plan_version: v, current_revision: 1)
-
-        attrs = {
-          plan_version: p.current_plan_version,
-          created_by_user: user,
-          anchor_text: dom_text
-        }
-        attrs[:anchor_occurrence] = occurrence if occurrence
-
-        thread = p.comment_threads.create!(**attrs)
-        expect(thread.anchor_start).to be_present, "anchor_start should be set for #{dom_text.inspect}"
-        expect(thread.anchor_end).to be_present
-        matched = markdown[thread.anchor_start...thread.anchor_end]
-        expect(matched).to eq(expected_raw),
-          "Expected raw range to be #{expected_raw.inspect}, got #{matched.inspect}"
-        thread
-      end
-
       it "inline code (backticks)" do
         assert_anchor_resolves(
           "Hello `me` you should read this.",
@@ -265,6 +265,69 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       end
     end
 
+    # Commenting on a line that carries a citation. The reader sees a
+    # superscript number where the source says `[^label]`, and sweeping a
+    # selection across the line hands back exactly what they saw — so the
+    # citation is where the anchor has to survive a change of alphabet.
+    context "when anchor text crosses a footnote citation" do
+      it "resolves a selection swept through the citation" do
+        assert_anchor_resolves(
+          "The claim holds.[^data] The rest follows.\n\n[^data]: Evidence.",
+          "The claim holds.1 The rest follows.",
+          "The claim holds.[^data] The rest follows."
+        )
+      end
+
+      # A selection that stops on the marker was a selection of the prose;
+      # the number is punctuation the reader swept up on the way past. Half
+      # a citation is not a range anyone can act on.
+      it "leaves the citation out when the selection merely ends on it" do
+        assert_anchor_resolves(
+          "The claim holds.[^data] The rest follows.\n\n[^data]: Evidence.",
+          "The claim holds.1",
+          "The claim holds."
+        )
+      end
+
+      it "numbers by first reference, not by definition order" do
+        assert_anchor_resolves(
+          "See this[^second] and that[^first].\n\n[^first]: One.\n[^second]: Two.",
+          "See this1 and that2.",
+          "See this[^second] and that[^first]."
+        )
+      end
+
+      it "gives a twice-cited label the same number both times" do
+        assert_anchor_resolves(
+          "Here[^a] and later[^b] and again[^a].\n\n[^a]: One.\n[^b]: Two.",
+          "and again1.",
+          "and again[^a]."
+        )
+      end
+    end
+
+    # A paragraph hard-wrapped in the source is one flowing line on screen.
+    # The browser collapses the wrap to a space; the source still has a
+    # newline. Every selection that crossed a wrapped line used to be refused
+    # — citations had nothing to do with it.
+    context "when anchor text crosses a hard-wrapped line" do
+      it "resolves plain prose spanning a source line break" do
+        assert_anchor_resolves(
+          "Watch the error rate for a full\nweek before widening.",
+          "error rate for a full week before widening",
+          "error rate for a full\nweek before widening"
+        )
+      end
+
+      it "resolves a wrapped line that also carries a link" do
+        assert_anchor_resolves(
+          "The numbers live in\n[§2.1](#section-2-1), so read on.",
+          "numbers live in §2.1, so read on",
+          "numbers live in\n[§2.1](#section-2-1), so read on"
+        )
+      end
+    end
+
     it "handles missing anchor_text gracefully" do
       thread = plan.comment_threads.create!(
         plan_version: plan.current_plan_version,
@@ -421,6 +484,30 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
 
       expect(thread.anchor_occurrence_index).to eq(0)
     end
+
+    # Resolution and counting read the same text or they disagree about which
+    # copy of a repeated phrase this is, and the highlight lands on the wrong
+    # one. Only a phrase that both repeats and crosses a wrapped line can tell
+    # the two apart: unfolded, the count finds no match at all and quietly
+    # answers "the first one".
+    it "counts a repeated phrase that spans a line break" do
+      md = "Alpha the rate is fine\nhere. Beta.\n\nGamma the rate is fine\nhere. Delta."
+      p = CoPlan::Plan.create!(title: "Wrapped Occ", created_by_user: user)
+      v = CoPlan::PlanVersion.create!(
+        plan: p, revision: 1,
+        content_markdown: md, actor_type: "human", actor_id: user.id
+      )
+      p.update!(current_plan_version: v, current_revision: 1)
+
+      thread = p.comment_threads.create!(
+        plan_version: p.current_plan_version,
+        created_by_user: user,
+        anchor_text: "the rate is fine here",
+        anchor_occurrence: 2
+      )
+
+      expect(thread.anchor_occurrence_index).to eq(1)
+    end
   end
 
   describe ".strip_markdown (delegates to Plans::MarkdownTextExtractor)" do
@@ -527,6 +614,34 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
     it "preserves softbreaks as newlines" do
       stripped, _ = CoPlan::CommentThread.strip_markdown("Line one\nline two")
       expect(stripped).to include("Line one\nline two")
+    end
+
+    it "substitutes a footnote citation with the number the reader sees" do
+      stripped, _ = CoPlan::CommentThread.strip_markdown("A claim.[^src] Next.\n\n[^src]: Source.")
+      expect(stripped).to include("A claim.1 Next.")
+    end
+
+    # The digits spell nothing that exists in the source, so they carry the
+    # -1 sentinel every other synthetic character does. The position-map
+    # integrity example above is what would catch a real index here.
+    it "maps citation digits to sentinel positions" do
+      md = "A claim.[^src] Next.\n\n[^src]: Source."
+      stripped, pos_map = CoPlan::CommentThread.strip_markdown(md)
+      expect(pos_map[stripped.index("1")]).to eq(-1)
+    end
+  end
+
+  describe ".fold_whitespace" do
+    it "collapses a run onto its first source position" do
+      folded, map = CoPlan::CommentThread.fold_whitespace("a \n b", [ 0, 1, 2, 3, 4 ])
+      expect(folded).to eq("a b")
+      expect(map).to eq([ 0, 1, 4 ])
+    end
+
+    it "leaves text without runs untouched" do
+      folded, map = CoPlan::CommentThread.fold_whitespace("a b", [ 0, 1, 2 ])
+      expect(folded).to eq("a b")
+      expect(map).to eq([ 0, 1, 2 ])
     end
   end
 

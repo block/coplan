@@ -244,6 +244,33 @@ RSpec.describe "Plan references", type: :system do
       expect(page.evaluate_script("window.location.hash")).to eq("#section-2-1")
       expect(page).to have_no_css(".reference-preview__jump")
     end
+
+    # The whole point of getting the preview out of the way: the reader is
+    # trying to comment. Everything else here stops at the card, which leaves
+    # the half that actually fails a reader untested — the selection has to
+    # survive the trip to the server and come back as a placed anchor. Only a
+    # real drag proves it: the citation reaches the server as the number the
+    # reader saw, not as the `[^label]` the source spells.
+    it "saves a comment selected across a citation" do
+      visit plan_page_path(referenced_plan)
+
+      line = line_with_references
+      press_at_start_of(line).move_to(find('a.reference-anchor--section[href="#section-2-1"]').native).release.perform
+
+      find(".comment-popover button").click
+      within("#new-comment-form") do
+        fill_in "comment_thread[body_markdown]", with: "Does this cover the rollout?"
+        click_button "Comment"
+      end
+      expect(page).to have_no_css("#new-comment-form", visible: true)
+
+      thread = referenced_plan.comment_threads.reload.last
+      expect(thread).to be_present
+      expect(thread.anchor_text).to include("evidence.1")
+      expect(thread.anchor_start).to be_present
+      raw = referenced_plan.current_content[thread.anchor_start...thread.anchor_end]
+      expect(raw).to include("[^launch-data]")
+    end
   end
 
   describe "adding references via Turbo Stream" do
