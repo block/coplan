@@ -20,13 +20,30 @@ export default class extends Controller {
     this.cancelClose()
   }
 
+  // A held button means the reader is sweeping a selection across the line,
+  // not resting on a reference — a card that opens mid-drag covers the very
+  // text they are trying to select and comment on. Each entry point reads
+  // that for itself, so there is no flag to leave stranded when a gesture
+  // ends without a mouseup (a link drag, a release outside the window):
+  // mouseenter carries the button state, and the focus Chromium fires on
+  // mousedown answers with :focus-visible, which a press never matches but
+  // keyboard and assistive-technology focus always do.
   enter(event) {
     const anchor = event.currentTarget
     if (!this.targetFor(anchor)) return
+    if (event.type === "mouseenter" && event.buttons !== 0) return
 
+    const focused = event.type === "focus"
     this.cancelOpen()
     this.cancelClose()
-    this.openTimer = setTimeout(() => this.show(anchor, "hover"), HOVER_OPEN_DELAY)
+    this.openTimer = setTimeout(() => {
+      // Asked as the card is about to open, not while the focus event is
+      // still dispatching: Chrome settles :focus-visible afterwards, so
+      // reading it inside the handler races and intermittently turns a
+      // keyboard reader away.
+      if (focused && !anchor.matches(":focus-visible")) return
+      this.show(anchor, "hover")
+    }, HOVER_OPEN_DELAY)
   }
 
   leave() {
@@ -62,6 +79,13 @@ export default class extends Controller {
   // Preserve ordinary hash-link behavior even while dismissing the preview.
   // Turbo does not consistently navigate same-document fragments after the
   // hover card changes state during the click, so perform the jump directly.
+  // A live selection deliberately does NOT veto the jump. It cannot mean
+  // "this click is the tail of a sweep": the browser dispatches a sweep's
+  // click on the common ancestor paragraph rather than the anchor, and
+  // refuses to start a selection from a press on a link at all. So a
+  // selection here always predates the press, the click is always
+  // deliberate, and swallowing it strands the reader — clicking a link
+  // never collapses a selection, so every retry would be swallowed too.
   follow(event) {
     const href = event.currentTarget.getAttribute("href")
     const target = this.targetFor(event.currentTarget)

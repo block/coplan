@@ -83,6 +83,119 @@ RSpec.describe "Plan references", type: :system do
       p
     end
 
+    # The reference line, as the reader meets it: one paragraph carrying both
+    # a citation and a section link. Commenting on it means dragging across
+    # both, so these gestures have to be real — a scripted Range fires no
+    # mouseenter and synthesizes no click, which is exactly the machinery
+    # under test.
+    def line_with_references
+      find("#plan-content-body p", match: :first)
+    end
+
+    def press_at_start_of(element)
+      page.driver.browser.action
+          .move_to(element.native, -(element.native.rect.width.to_i / 2) + 2, 0)
+          .click_and_hold
+    end
+
+    # A held button outlives a failed example and would silence the preview
+    # for every later one, reporting one regression as a cascade.
+    after { page.driver.browser.action.release_actions }
+
+    it "keeps the preview out of the way while a selection is dragged across the line" do
+      visit plan_page_path(referenced_plan)
+
+      line = line_with_references
+      section_link = find('a.reference-anchor--section[href="#section-2-1"]')
+
+      # Press on plain text and sweep onto the anchor, holding there. The
+      # press cannot start on the link — that begins Chrome's native link
+      # drag instead of a selection — and the held move has to land on the
+      # anchor, since one pointerMove only fires mouseenter for the element
+      # under its destination.
+      press_at_start_of(line).move_to(section_link.native).perform
+
+      # Longer than HOVER_OPEN_DELAY, so an unguarded controller has time to
+      # open the card. It has to sit between two performs: a `pause` inside
+      # the chain blocks the renderer, and the timer would never run.
+      sleep 0.5
+
+      # Proves the sweep reached the anchor. Without it the assertions below
+      # would pass just as well for a gesture that missed.
+      expect(page).to have_css("a.reference-anchor--section:hover", visible: :visible)
+      expect(page).to have_no_css(".reference-preview", visible: :visible)
+      expect(section_link["aria-expanded"]).to eq("false")
+
+      page.driver.browser.action.release.perform
+
+      # The suppression is specific to the drag — an ordinary hover still
+      # previews. Moving off the anchor first is load bearing: the pointer is
+      # still inside it, and staying inside fires no second mouseenter.
+      find("#section-2-1").hover
+      section_link.hover
+      expect(page).to have_css(".reference-preview__title", text: "2.1 Rollout", visible: :visible)
+    end
+
+    it "keeps the preview out of the way when the press lands on the reference itself" do
+      visit plan_page_path(referenced_plan)
+
+      section_link = find('a.reference-anchor--section[href="#section-2-1"]')
+
+      # Crossing the anchor arms the open timer, and the press then focuses
+      # it — which re-arms, and turns the card away because a press never
+      # matches :focus-visible. `duration: 0` is what makes this the gesture
+      # worth testing: Selenium's default 250ms move outlasts
+      # HOVER_OPEN_DELAY, so the card would already be open before the press
+      # landed and the example would be asking a different question.
+      page.driver.browser.action(duration: 0).move_to(section_link.native).click_and_hold.perform
+      sleep 0.5
+
+      expect(page).to have_no_css(".reference-preview", visible: :visible)
+      expect(section_link["aria-expanded"]).to eq("false")
+
+      page.driver.browser.action.release.perform
+    end
+
+    # The press above is turned away by asking :focus-visible, not by
+    # refusing focus outright — so the reader who never touches a mouse still
+    # gets the preview a hover would have given them.
+    it "still previews for a reader who reaches the reference with the keyboard" do
+      visit plan_page_path(referenced_plan)
+
+      # Focus is moved directly rather than by tabbing: the citation sits
+      # ahead of the section link, and walking through it leaves a card
+      # opening and a close timer in flight that race the assertion. Scripted
+      # focus matches :focus-visible exactly as Tab does, which is the branch
+      # under test.
+      page.execute_script(%{document.querySelector('a.reference-anchor--section').focus()})
+
+      expect(page.evaluate_script("document.activeElement.className"))
+        .to include("reference-anchor--section")
+      expect(page).to have_css(".reference-preview__title", text: "2.1 Rollout", visible: :visible)
+    end
+
+    # The tempting fix for the drag case is to have #follow bail whenever a
+    # selection is live. It must not: the browser dispatches a sweep's click
+    # on the paragraph rather than the anchor and will not start a selection
+    # from a press on a link, so a selection here is always older than the
+    # click and the click is always deliberate. Swallowing it strands the
+    # reader for good, because clicking a link never collapses a selection.
+    it "still follows a reference clicked while text is selected" do
+      visit plan_page_path(referenced_plan)
+
+      line = line_with_references
+      press_at_start_of(line)
+        .move_to(line.native, (line.native.rect.width.to_i / 2) - 2, 0)
+        .release
+        .perform
+
+      expect(page.evaluate_script("document.getSelection().toString()"))
+        .to include("This claim has evidence")
+
+      find('a.reference-anchor--section[href="#section-2-1"]').click
+      expect(page.evaluate_script("window.location.hash")).to eq("#section-2-1")
+    end
+
     it "previews references on hover and follows their links on click" do
       visit plan_page_path(referenced_plan)
 
@@ -130,6 +243,33 @@ RSpec.describe "Plan references", type: :system do
       section_link.click
       expect(page.evaluate_script("window.location.hash")).to eq("#section-2-1")
       expect(page).to have_no_css(".reference-preview__jump")
+    end
+
+    # The whole point of getting the preview out of the way: the reader is
+    # trying to comment. Everything else here stops at the card, which leaves
+    # the half that actually fails a reader untested — the selection has to
+    # survive the trip to the server and come back as a placed anchor. Only a
+    # real drag proves it: the citation reaches the server as the number the
+    # reader saw, not as the `[^label]` the source spells.
+    it "saves a comment selected across a citation" do
+      visit plan_page_path(referenced_plan)
+
+      line = line_with_references
+      press_at_start_of(line).move_to(find('a.reference-anchor--section[href="#section-2-1"]').native).release.perform
+
+      find(".comment-popover button").click
+      within("#new-comment-form") do
+        fill_in "comment_thread[body_markdown]", with: "Does this cover the rollout?"
+        click_button "Comment"
+      end
+      expect(page).to have_no_css("#new-comment-form", visible: true)
+
+      thread = referenced_plan.comment_threads.reload.last
+      expect(thread).to be_present
+      expect(thread.anchor_text).to include("evidence.1")
+      expect(thread.anchor_start).to be_present
+      raw = referenced_plan.current_content[thread.anchor_start...thread.anchor_end]
+      expect(raw).to include("[^launch-data]")
     end
   end
 

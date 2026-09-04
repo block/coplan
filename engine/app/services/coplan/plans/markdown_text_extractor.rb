@@ -21,11 +21,16 @@ module CoPlan
       end
 
       def call
-        doc = Commonmarker.parse(@content)
+        # Parsed with the renderer's own extensions. Reading the page with a
+        # different grammar than we wrote it with is how `[^note]` ended up
+        # here verbatim while the reader saw a superscript number — and a
+        # comment selected across that citation could never be placed.
+        doc = Commonmarker.parse(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS })
         byte_to_char = build_byte_to_char_map
         line_byte_offsets = build_line_byte_offsets
         stripped = +""
         pos_map = []
+        @footnote_numbers = {}
 
         extract_text_nodes(doc, line_byte_offsets, byte_to_char, stripped, pos_map)
 
@@ -120,6 +125,14 @@ module CoPlan
                 pos_map << (char_idx + i)
               end
             end
+          when :footnote_reference
+            # The reader sees the number the renderer assigned, so that is
+            # what a selection sweeping across the citation carries. Its
+            # digits are sentinels: no character of "[^note]" spells "1", and
+            # a selection that merely ends on the marker should resolve back
+            # to the prose before it rather than to half a citation.
+            marker = footnote_number(child, line_byte_offsets, byte_to_char).to_s
+            marker.each_char { |char| append_separator(stripped, pos_map, char) }
           when :softbreak, :linebreak
             pos = child.source_position
             start_byte = line_byte_offsets[pos[:start_line]] + pos[:start_column] - 1
@@ -136,6 +149,20 @@ module CoPlan
       def append_separator(stripped, pos_map, char)
         stripped << char
         pos_map << -1
+      end
+
+      # The number the renderer prints for this citation. Commonmarker counts
+      # by first reference rather than by definition order, and a label cited
+      # twice keeps its original number, so the count is keyed on the label —
+      # which the node itself won't hand over, but its source span will.
+      def footnote_number(node, line_byte_offsets, byte_to_char)
+        pos = node.source_position
+        start_char = byte_to_char[line_byte_offsets[pos[:start_line]] + pos[:start_column] - 1]
+        end_char = byte_to_char[line_byte_offsets[pos[:end_line]] + pos[:end_column] - 1]
+        return "" unless start_char && end_char
+
+        label = @content[start_char..end_char].to_s.delete_prefix("[^").delete_suffix("]")
+        @footnote_numbers[label] ||= @footnote_numbers.size + 1
       end
     end
   end

@@ -160,15 +160,17 @@ module CoPlan
 
       # When anchor_start is known, count occurrences before it.
       if anchor_start.present?
-        stripped, pos_map = plan.stripped_content
+        # Folded the same way resolution folds it — the two have to agree on
+        # what the text looks like or they disagree about which occurrence
+        # this is, and the highlight lands on the wrong copy of the phrase.
+        stripped, pos_map = self.class.fold_whitespace(*plan.stripped_content)
         # Map raw anchor_start to its position in the stripped string.
         # Use >= to find the closest valid position if anchor_start falls
         # on a stripped formatting character.
         stripped_start = pos_map.index { |raw_idx| raw_idx >= anchor_start }
         return nil if stripped_start.nil?
 
-        normalized_anchor = anchor_text.gsub("\t", " ")
-        ranges = find_all_occurrences(stripped, normalized_anchor)
+        ranges = find_all_occurrences(stripped, self.class.fold_anchor(anchor_text))
         return ranges.index { |s, _| s >= stripped_start } || 0
       end
 
@@ -194,6 +196,38 @@ module CoPlan
 
     def self.strip_markdown(content)
       Plans::MarkdownTextExtractor.call(content)
+    end
+
+    # A browser hands back a selection with every run of whitespace collapsed
+    # to a single space: a hard-wrapped paragraph is one flowing line on
+    # screen, and the reader swept across it as one. The extractor keeps the
+    # source's own newlines, so without this a selection that crosses a
+    # wrapped line — reference or not — never resolves.
+    def self.fold_anchor(text)
+      text.gsub(/\s+/, " ")
+    end
+
+    # The same fold over the stripped text, carrying the position map. A run
+    # collapses onto its first character, so ranges still land on real source
+    # positions.
+    def self.fold_whitespace(text, pos_map)
+      folded = +""
+      map = []
+      in_run = false
+
+      text.each_char.with_index do |char, i|
+        if char.match?(/\s/)
+          next if in_run
+          in_run = true
+          folded << " "
+        else
+          in_run = false
+          folded << char
+        end
+        map << pos_map[i]
+      end
+
+      [ folded, map ]
     end
 
     private
@@ -227,10 +261,10 @@ module CoPlan
       # cell text without pipe delimiters). Parse the markdown AST to
       # extract plain text with source position mapping.
       if ranges.empty?
-        stripped, pos_map = self.class.strip_markdown(content)
-        # Normalize tabs to spaces — browser selections across table cells
-        # produce tab-separated text, but the stripped markdown uses spaces.
-        normalized_anchor = anchor_text.gsub("\t", " ")
+        stripped, pos_map = self.class.fold_whitespace(*self.class.strip_markdown(content))
+        # Fold the anchor to match: tabs between table cells, and the newlines
+        # a hard-wrapped paragraph carries, both reach us as plain spaces.
+        normalized_anchor = self.class.fold_anchor(anchor_text)
         stripped_ranges = find_all_occurrences(stripped, normalized_anchor)
 
         # Mermaid labels line-break on literal <br/> tags, and the browser
