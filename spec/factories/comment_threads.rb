@@ -3,7 +3,7 @@ FactoryBot.define do
     plan
     plan_version { plan.current_plan_version }
     created_by_user { association(:coplan_user) }
-    status { "pending" }
+    status { "open" }
     out_of_date { false }
 
     # Threads refuse anchors that don't resolve against the plan content,

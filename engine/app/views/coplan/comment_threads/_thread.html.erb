@@ -7,7 +7,9 @@
      data-thread-author-id="<%= thread.created_by_user_id %>">
   <div class="comment-thread__header">
     <div class="comment-thread__meta">
-      <span class="badge badge--<%= thread.open? ? 'resolved' : 'discarded' %>"><%= thread.status %></span>
+      <% if thread.closed? %>
+        <span class="badge badge--<%= thread.status %>"><%= thread.status %></span>
+      <% end %>
       <% if thread.out_of_date? %>
         <span class="badge badge--archived">out of date</span>
       <% end %>
@@ -30,9 +32,8 @@
   <% if thread.open? %>
     <%= render partial: "coplan/comment_threads/reply_form", locals: { thread: thread, plan: plan } %>
 
-    <div class="comment-thread__actions comment-actions--plan-author">
-      <%= link_to "Accept", accept_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
-      <%= link_to "Discard", discard_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
+    <div class="comment-thread__actions comment-actions--owner">
+      <%= link_to "Resolve", resolve_plan_comment_thread_path(plan, thread), data: { turbo_method: :patch }, class: "btn btn--secondary btn--sm" %>
     </div>
   <% else %>
     <div class="comment-thread__actions comment-actions--owner">

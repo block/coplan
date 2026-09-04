@@ -134,14 +134,6 @@ RSpec.describe CoPlan::Notifications::Create do
       }.not_to change(CoPlan::Notification, :count)
     end
 
-    it "does not notify about an agent response on a discarded thread" do
-      thread.update!(status: "discarded", resolved_by_user: plan_author)
-
-      expect {
-        described_class.call(comment_thread: thread, actor_id: create(:coplan_user).id, reason: "agent_response")
-      }.not_to change(CoPlan::Notification, :count)
-    end
-
     it "still notifies about a human reply — somebody reopening the conversation is news" do
       expect {
         described_class.call(comment_thread: resolved_thread, actor_id: create(:coplan_user).id, reason: "reply")
@@ -155,7 +147,7 @@ RSpec.describe CoPlan::Notifications::Create do
     it "sees a close that committed after the job loaded the thread" do
       stale = CoPlan::CommentThread.find(thread.id)
       CoPlan::CommentThread.find(thread.id).resolve!(plan_author)
-      expect(stale.status).to eq("pending") # in-memory copy is behind
+      expect(stale.status).to eq("open") # in-memory copy is behind
 
       expect {
         described_class.call(comment_thread: stale, actor_id: create(:coplan_user).id, reason: "agent_response")
@@ -163,7 +155,7 @@ RSpec.describe CoPlan::Notifications::Create do
     end
 
     it "still notifies about a status change when the thread was reopened" do
-      resolved_thread.update!(status: "pending", resolved_by_user: nil)
+      resolved_thread.update!(status: "open", resolved_by_user: nil)
 
       expect {
         described_class.call(comment_thread: resolved_thread, actor_id: plan_author.id, reason: "status_change")

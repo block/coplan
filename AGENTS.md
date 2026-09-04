@@ -130,14 +130,13 @@ it is.
 The comment system is central to the collaboration workflow. Domain experts leave inline feedback anchored to specific text in the plan, and the plan author triages that feedback.
 
 ### Thread lifecycle
-- **Reviewer comments** start as `pending` (awaiting author triage)
-- **Author's own comments** start as `todo` (self-assigned work items)
-- Author triages pending feedback: **Accept** (`pending → todo`) or **Discard** (`pending → discarded`)
-- Author marks completed work: **Resolve** (`todo → resolved`)
-- Resolved/discarded threads can be **Reopened** back to `pending`
+- Every thread starts `open`, regardless of who created it
+- **Resolve** (`open → resolved`) is the only closing action — no accept/reject mechanics, just done or not done
+- Resolved threads can be **Reopened** back to `open`
+- Either the thread creator or the plan author can resolve/reopen (`CommentThreadPolicy#resolve?`/`#reopen?`)
 
 ### Notifications follow the thread
-A closed thread (`resolved`/`discarded`) carries no unread inbox rows — its
+A closed (`resolved`) thread carries no unread inbox rows — its
 highlight is hidden in the doc view, so a row pointing at it would send the
 reader to an apparently empty page.
 - Closing a thread sweeps its unread notifications read (`CommentThread`
@@ -157,7 +156,7 @@ reader to an apparently empty page.
   (`NotificationsController#mark_plan_read`, same service)
 
 ### Inline review UI
-- **Highlights**: anchored text is wrapped in `<mark>` elements — amber for `pending`, blue for `todo`, unstyled for `resolved`
+- **Highlights**: anchored text is wrapped in `<mark>` elements — amber for `open`, unstyled for `resolved`
 - **Margin dots**: colored indicators in the left margin aligned to each highlight's vertical position
 - **Thread popovers**: native HTML Popover API (`popover="auto"`) showing the comment thread, reply form, and action buttons; positioned relative to the anchor and tracked on scroll
 - **Comment toolbar**: fixed bottom bar showing open thread count, j/k navigation, and a "Show resolved" toggle
@@ -165,8 +164,7 @@ reader to an apparently empty page.
 ### Keyboard shortcuts
 - `j` / `k` — navigate between open threads (scrolls to highlight, opens popover)
 - `r` — focus the reply textarea in the current popover
-- `a` — accept the current pending thread
-- `d` — discard the current pending thread
+- `e` — resolve the current open thread
 - `Enter` — submit reply; `Shift+Enter` — newline
 - Push-to-talk (hold to dictate a comment) is a per-user setting — `Ctrl+Space` by default, or Shift / Option / off (`CoPlan::User::VOICE_HOTKEYS`, `voice_controller.js`). A bare modifier has to be held past a delay to tell talking from typing; a chord records from the press.
 

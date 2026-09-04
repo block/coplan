@@ -39,13 +39,9 @@ export default class extends Controller {
         event.preventDefault()
         this.focusReply()
         break
-      case "a":
+      case "e":
         event.preventDefault()
-        this.acceptCurrent()
-        break
-      case "d":
-        event.preventDefault()
-        this.discardCurrent()
+        this.resolveCurrent()
         break
       case "s":
         event.preventDefault()
@@ -201,12 +197,8 @@ export default class extends Controller {
     }
   }
 
-  acceptCurrent() {
-    this.submitPopoverAction("accept")
-  }
-
-  discardCurrent() {
-    this.submitPopoverAction("discard")
+  resolveCurrent() {
+    this.submitPopoverAction("resolve")
   }
 
   submitPopoverAction(action) {
@@ -221,11 +213,6 @@ export default class extends Controller {
       this.currentIndex = 0
     }
 
-    // For accept (pending→todo), the thread stays open so we need to
-    // explicitly advance. For discard, the thread leaves openHighlights
-    // and the current index naturally points to the next one.
-    const shouldAdvance = action === "accept"
-
     // Watch for the broadcast DOM update that replaces the thread data,
     // then advance to the next thread once the highlights have changed.
     // One pending advance at a time, with a timeout so a failed submit
@@ -236,7 +223,7 @@ export default class extends Controller {
       this.cancelPendingAdvance()
       this.advanceObserver = new MutationObserver(() => {
         this.cancelPendingAdvance()
-        this.advanceAfterAction(shouldAdvance)
+        this.advanceAfterAction()
       })
       this.advanceObserver.observe(threadsContainer, { childList: true, subtree: true })
       this.advanceTimeout = setTimeout(() => this.cancelPendingAdvance(), 5000)
@@ -252,15 +239,13 @@ export default class extends Controller {
     this.advanceTimeout = null
   }
 
-  advanceAfterAction(shouldAdvance) {
+  advanceAfterAction() {
     const highlights = this.openHighlights
     if (highlights.length === 0) {
       this.currentIndex = -1
       return
     }
-    if (shouldAdvance) {
-      this.currentIndex = (this.currentIndex + 1) % highlights.length
-    } else if (this.currentIndex >= highlights.length) {
+    if (this.currentIndex >= highlights.length) {
       this.currentIndex = 0
     }
     this.navigateTo(highlights[this.currentIndex])
@@ -275,12 +260,13 @@ export default class extends Controller {
     }
   }
 
-  // Keyboard "s": show/hide resolved-thread highlights (the visible
-  // toolbar checkbox is gone — this is deliberately a power-user toggle).
+  // Keyboard "s": resolved threads show as a dashed underline by default —
+  // nothing about a plan's history disappears — so this hides them instead,
+  // for a decluttered read of only what's still open.
   toggleResolved() {
     const planLayout = document.querySelector(".plan-layout")
     if (!planLayout) return
 
-    planLayout.classList.toggle("plan-layout--show-resolved")
+    planLayout.classList.toggle("plan-layout--hide-resolved")
   }
 }

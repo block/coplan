@@ -67,7 +67,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
 
       # Threads in every reviewer-facing state, all anchors resolved.
       threads = showcase.comment_threads
-      expect(threads.pluck(:status)).to include("pending", "todo", "resolved")
+      expect(threads.pluck(:status)).to include("open", "resolved")
       expect(threads.where(anchor_text: nil)).to exist
       anchored = threads.where.not(anchor_text: nil)
       expect(anchored.pluck(:anchor_start)).to all(be_present)

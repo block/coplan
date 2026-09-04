@@ -1,8 +1,8 @@
 module CoPlan
   class CommentThread < ApplicationRecord
-    STATUSES = %w[pending todo resolved discarded].freeze
-    OPEN_STATUSES = %w[pending todo].freeze
-    CLOSED_STATUSES = %w[resolved discarded].freeze
+    STATUSES = %w[open resolved].freeze
+    OPEN_STATUSES = %w[open].freeze
+    CLOSED_STATUSES = %w[resolved].freeze
 
     attr_accessor :anchor_occurrence
 
@@ -26,9 +26,9 @@ module CoPlan
     before_validation :resolve_anchor_position, on: :create
     validate :anchor_must_resolve, on: :create
 
-    # Closing a thread settles its inbox rows. Every path that resolves or
-    # discards goes through an ordinary status write, so the sweep lives
-    # here rather than in the two controllers that trigger it.
+    # Closing a thread settles its inbox rows. Every path that resolves it
+    # goes through an ordinary status write, so the sweep lives here rather
+    # than in the controllers that trigger it.
     after_commit :mark_notifications_read_if_closed, on: :update
 
     scope :open_threads, -> { where(status: OPEN_STATUSES) }
@@ -128,12 +128,8 @@ module CoPlan
       )
     end
 
-    def accept!(user)
-      update!(status: "todo", resolved_by_user: user)
-    end
-
-    def discard!(user)
-      update!(status: "discarded", resolved_by_user: user)
+    def reopen!(user)
+      update!(status: "open", resolved_by_user: nil)
     end
 
     def open?

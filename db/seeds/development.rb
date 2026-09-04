@@ -807,11 +807,10 @@ module CoPlan
         body: "The comparison writes through to the shared tier, right? Otherwise the dark-read never warms it and the ramp threshold lies."
       )
 
-      # Accepted into the author's to-do list.
+      # Still open — nobody's resolved it yet.
       seed_thread(
         plan: showcase, user: users.fetch("mateo"),
         anchor: "no per-key TTL tuning",
-        accepted_by: priya,
         body: "Add one sentence on what happens when the version-stamp publish itself fails — that's the first question ops will ask."
       )
 
@@ -830,14 +829,14 @@ module CoPlan
     end
 
     def seed_thread(plan:, user:, body:, anchor: nil, author_type: "human",
-      agent_name: nil, api_token: nil, resolved_by: nil, accepted_by: nil)
+      agent_name: nil, api_token: nil, resolved_by: nil)
       return if seeded_thread?(plan, body)
 
       thread = plan.comment_threads.new(
         plan_version: plan.current_plan_version,
         created_by_user: user,
         anchor_text: anchor,
-        status: "pending"
+        status: "open"
       )
       # Anchors resolve against current content; if a local edit removed the
       # anchored sentence, skip the fixture rather than fail the whole seed.
@@ -853,7 +852,6 @@ module CoPlan
         agent_name: agent_name,
         api_token_id: api_token&.id
       )
-      thread.accept!(accepted_by) if accepted_by
       thread.resolve!(resolved_by) if resolved_by
       thread
     end

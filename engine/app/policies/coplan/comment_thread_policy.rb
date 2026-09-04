@@ -8,14 +8,6 @@ module CoPlan
       record.created_by_user_id == user.id || record.plan.created_by_user_id == user.id
     end
 
-    def accept?
-      record.plan.created_by_user_id == user.id
-    end
-
-    def discard?
-      record.plan.created_by_user_id == user.id
-    end
-
     def reopen?
       record.created_by_user_id == user.id || record.plan.created_by_user_id == user.id
     end

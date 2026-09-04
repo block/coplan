@@ -393,8 +393,8 @@ RSpec.describe "Voice commenting", type: :system do
     # the keyboard has to work on it. Comment navigation used to render
     # only when the page loaded with threads already present — so on a
     # fresh plan the dictated comment appeared, its popover opened, and
-    # d/j/k did nothing at all.
-    it "lets the keyboard discard the first comment without a reload" do
+    # e/j/k did nothing at all.
+    it "lets the keyboard resolve the first comment without a reload" do
       allow(CoPlan::Ai).to receive(:transcribe).and_return("too cautious")
       allow(CoPlan::Ai).to receive(:call).and_return({
         "text" => "Too cautious.",
@@ -410,12 +410,12 @@ RSpec.describe "Voice commenting", type: :system do
       thread = nil
       expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
       expect { thread = CoPlan::CommentThread.where(plan_id: plan.id).sole }.not_to raise_error
-      # The auto-opened popover is the discard target.
+      # The auto-opened popover is the resolve target.
       expect(page).to have_css("#comment_thread_#{thread.id}_popover", visible: true, wait: 10)
 
-      find("body").send_keys("d")
+      find("body").send_keys("e")
 
-      Timeout.timeout(10) { sleep 0.1 until thread.reload.status == "discarded" }
+      Timeout.timeout(10) { sleep 0.1 until thread.reload.status == "resolved" }
       expect(page).to have_no_css("mark.anchor-highlight--open", wait: 10)
     end
 

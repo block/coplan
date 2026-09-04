@@ -675,15 +675,6 @@ Mark a comment thread as resolved (addressed by the plan author or thread creato
   "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/resolve" | jq .
 ```
 
-### Dismiss Thread
-
-Dismiss a comment thread (plan author only — for comments that are out of scope or not applicable). `discard` is accepted as an alias for `dismiss`.
-
-```bash
-<%= @curl %> -X PATCH \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/dismiss" | jq .
-```
-
 ### Get a Single Thread
 
 Fetch one thread with its comments — handy when reacting to a single event without refetching the whole snapshot.
