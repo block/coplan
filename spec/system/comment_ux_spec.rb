@@ -219,28 +219,28 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css("mark.anchor-highlight--open", text: "microservices architecture")
     end
 
-    it "renders resolved thread highlights unstyled by default" do
+    it "renders resolved thread highlights with a dashed underline by default" do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
 
       visit plan_page_path(plan)
-      # Mark is present (text must remain visible) but has no visual highlight styling
+      # Resolved threads stay part of the doc's browsable history by default.
       expect(page).to have_css("mark.anchor-highlight--resolved", text: "PostgreSQL")
       mark = find("mark.anchor-highlight--resolved")
       border = mark.evaluate_script("getComputedStyle(this).borderBottomStyle")
-      expect(border).to eq("none")
+      expect(border).to eq("dashed")
     end
 
-    it "shows resolved highlights with dashed underline after pressing s" do
+    it "hides resolved highlights after pressing s" do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
 
       visit plan_page_path(plan)
       find("body").send_keys("s")
 
-      mark = find("mark.anchor-highlight--resolved")
+      mark = find("mark.anchor-highlight--resolved", visible: :all)
       border = mark.evaluate_script("getComputedStyle(this).borderBottomStyle")
-      expect(border).to eq("dashed")
+      expect(border).to eq("none")
     end
 
     it "does not toggle resolved visibility while typing s in a reply box" do
@@ -254,7 +254,7 @@ RSpec.describe "Comment UX", type: :system do
         find("textarea").send_keys("s")
       end
 
-      expect(page).not_to have_css(".plan-layout--show-resolved")
+      expect(page).not_to have_css(".plan-layout--hide-resolved")
     end
   end
 
@@ -483,13 +483,24 @@ RSpec.describe "Comment UX", type: :system do
       end
     end
 
-    it "shows status-specific badge in popover" do
+    it "shows no status badge for an open thread" do
       create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
       visit plan_page_path(plan)
       find("mark.anchor-highlight--open").click
 
       within(".thread-popover") do
-        expect(page).to have_css(".badge--open")
+        expect(page).to have_no_css(".badge--open")
+      end
+    end
+
+    it "shows a resolved badge once a thread is closed" do
+      thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
+      thread.resolve!(author)
+      visit plan_page_path(plan)
+      find("mark.anchor-highlight--resolved").click
+
+      within(".thread-popover") do
+        expect(page).to have_css(".badge--resolved")
       end
     end
 
@@ -524,7 +535,6 @@ RSpec.describe "Comment UX", type: :system do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
       visit plan_page_path(plan)
-      find("body").send_keys("s")
       find("mark.anchor-highlight--resolved").click
 
       within(".thread-popover") do
@@ -542,7 +552,6 @@ RSpec.describe "Comment UX", type: :system do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
       visit plan_page_path(plan)
-      find("body").send_keys("s")
       find("mark.anchor-highlight--resolved").click
 
       within(".thread-popover") do

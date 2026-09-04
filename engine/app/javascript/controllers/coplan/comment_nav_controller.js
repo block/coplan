@@ -260,12 +260,13 @@ export default class extends Controller {
     }
   }
 
-  // Keyboard "s": show/hide resolved-thread highlights (the visible
-  // toolbar checkbox is gone — this is deliberately a power-user toggle).
+  // Keyboard "s": resolved threads show as a dashed underline by default —
+  // nothing about a plan's history disappears — so this hides them instead,
+  // for a decluttered read of only what's still open.
   toggleResolved() {
     const planLayout = document.querySelector(".plan-layout")
     if (!planLayout) return
 
-    planLayout.classList.toggle("plan-layout--show-resolved")
+    planLayout.classList.toggle("plan-layout--hide-resolved")
   }
 }

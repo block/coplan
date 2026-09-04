@@ -2395,15 +2395,15 @@ img.avatar {
 
 .anchor-highlight--resolved {
   background: none;
-  border-bottom: none;
-  cursor: default;
-  pointer-events: none;
-}
-
-.plan-layout--show-resolved .anchor-highlight--resolved {
   border-bottom: 1px dashed var(--color-text-muted);
   cursor: pointer;
   pointer-events: auto;
+}
+
+.plan-layout--hide-resolved .anchor-highlight--resolved {
+  border-bottom: none;
+  cursor: default;
+  pointer-events: none;
 }
 
 .anchor-highlight--active {
