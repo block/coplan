@@ -316,14 +316,14 @@ RSpec.describe "Deck UX", type: :system do
   describe "Mermaid diagrams on a slide" do
     it "keeps the expand control chip-sized instead of scaling it to the canvas" do
       visit plan_page_path(plan)
-      expect(page).to have_css(".deck-slide .mermaid-diagram > svg", wait: 15)
+      expect(page).to have_css(".deck-slide .mermaid-diagram__canvas > svg", wait: 15)
 
       sizes = page.evaluate_script(<<~JS)
         (() => {
           const diagram = document.querySelector(".deck-slide .mermaid-diagram");
           const icon = diagram.querySelector(".mermaid-diagram__expand svg");
           const box = el => Math.round(el.getBoundingClientRect().width);
-          return { diagram: box(diagram.querySelector(":scope > svg")), icon: box(icon) };
+          return { diagram: box(diagram.querySelector(".mermaid-diagram__canvas > svg")), icon: box(icon) };
         })()
       JS
 

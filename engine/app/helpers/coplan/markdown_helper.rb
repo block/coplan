@@ -34,7 +34,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 12
+    RENDER_CACHE_VERSION = 13
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -51,7 +51,12 @@ module CoPlan
     # document when rendering a slice of a larger plan (slideshow slides).
     # Checkbox toggles write to source lines by number, so their data-line
     # must stay document-absolute even when the render sees only a fragment.
-    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0)
+    #
+    # data_tables: wrap tables in their scroll frame and give them the
+    # spreadsheet expander. Decks opt out — a slide is a fixed, scaled
+    # artifact whose typography the deck layout engine already owns, and a
+    # nested scroll frame inside a transformed slide belongs to nobody.
+    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true)
       render_options = { unsafe: true }
       # Sourcepos is only needed to wire checkboxes to their source lines;
       # make_checkboxes_interactive strips it from the final output.
@@ -65,6 +70,7 @@ module CoPlan
       result = select_footnotes(result, footnotes)
       return result.html_safe if footnotes == :only
 
+      result = wrap_data_tables(result) if data_tables
       tag.div(result.html_safe, class: "markdown-rendered", data: { controller: "coplan--mermaid coplan--syntax-highlight" })
     end
 
@@ -241,6 +247,34 @@ module CoPlan
       end
 
       doc.css("[data-sourcepos]").each { |el| el.remove_attribute("data-sourcepos") }
+      doc.to_html
+    end
+
+    # A table is a block of data, not a paragraph. Each one gets a scroll
+    # frame — so a wide table can't run off the page the way it does bare —
+    # and the Stimulus controller that pins its header, fades its edges, and
+    # opens it as a full-screen spreadsheet.
+    #
+    # This runs after sanitization on purpose: the frame carries
+    # data-controller and data-*-target attributes that document markup is
+    # deliberately never allowed to write for itself. It adds structure
+    # only, never text, so comment anchors — which count occurrences in the
+    # rendered text — see exactly what they saw before.
+    def wrap_data_tables(html)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      tables = doc.css("table").reject { |table| table.ancestors("table").any? }
+      return html if tables.empty?
+
+      tables.each do |table|
+        grid = doc.document.create_element("div", class: "data-grid",
+                                                 "data-controller" => "coplan--data-grid")
+        frame = doc.document.create_element("div", class: "data-grid__frame",
+                                                  "data-coplan--data-grid-target" => "frame")
+        table.add_previous_sibling(grid)
+        grid.add_child(frame)
+        frame.add_child(table)
+      end
+
       doc.to_html
     end
 

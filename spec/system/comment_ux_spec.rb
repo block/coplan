@@ -175,7 +175,7 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css('.mermaid-diagram[data-mermaid-theme="dark"]', wait: 10)
     end
 
-    it "expands a Mermaid diagram into a lightbox on click" do
+    it "expands a Mermaid diagram into the takeover surface on click" do
       plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
         ```mermaid
         flowchart LR
@@ -187,10 +187,12 @@ RSpec.describe "Comment UX", type: :system do
 
       expect(page).to have_css(".mermaid-diagram svg", wait: 10)
       find(".mermaid-diagram").click
-      expect(page).to have_css(".mermaid-lightbox svg")
+      expect(page).to have_css(".expander--diagram .expander__canvas > svg")
 
-      find(".mermaid-lightbox").click
-      expect(page).not_to have_css(".mermaid-lightbox")
+      # Dismissal is the backdrop or Escape — a click inside is a pan, not
+      # a close.
+      find(".expander__close").click
+      expect(page).not_to have_css(".expander--diagram")
     end
 
     it "keeps invalid Mermaid source readable" do

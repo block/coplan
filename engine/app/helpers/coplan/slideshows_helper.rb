@@ -31,6 +31,7 @@ module CoPlan
         classification = Slideshows::Classify.call(preamble + slide.source)
         lead_by_slide[slide.index.to_s] = classification.lead
         inner = render_markdown(preamble + slide.source, interactive:, footnotes: :exclude,
+                                data_tables: false,
                                 line_offset: slide.start_line - 1 - preamble.count("\n"))
         tag.section(inner,
                     class: [ "deck-slide", "deck-slide--#{classification.pattern}",
@@ -44,7 +45,7 @@ module CoPlan
       # on every slide. The document-mode render is the ground truth readers
       # and agents link against; these passes rewrite the deck to match it.
       deck = Nokogiri::HTML::DocumentFragment.parse(safe_join(sections))
-      document = Nokogiri::HTML::DocumentFragment.parse(render_markdown(content, interactive: false))
+      document = Nokogiri::HTML::DocumentFragment.parse(render_markdown(content, interactive: false, data_tables: false))
       renumber_deck_footnotes(deck, document)
       align_heading_ids(deck, document)
       mirror_section_link_enhancement(deck, document)

@@ -246,4 +246,51 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).not_to include('class="mention"')
     end
   end
+
+  describe "data tables" do
+    let(:markdown) do
+      <<~MD
+        | Phase | Owner |
+        |---|---|
+        | One | sam |
+      MD
+    end
+
+    it "frames a table so a wide one scrolls instead of running off the page" do
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))
+
+      grid = doc.at_css("div.data-grid")
+      expect(grid["data-controller"]).to eq("coplan--data-grid")
+      frame = grid.at_css("div.data-grid__frame")
+      expect(frame["data-coplan--data-grid-target"]).to eq("frame")
+      expect(frame.element_children.map(&:name)).to eq([ "table" ])
+    end
+
+    it "adds no visible text, so comment anchors count what they counted before" do
+      framed = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown)).text
+      bare = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown, data_tables: false)).text
+
+      expect(framed).to eq(bare)
+    end
+
+    it "frames every table in a document" do
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown("#{markdown}\n#{markdown}"))
+
+      expect(doc.css("div.data-grid").size).to eq(2)
+      expect(doc.css("table").all? { |table| table.parent.classes.include?("data-grid__frame") }).to be(true)
+    end
+
+    it "leaves a document without tables alone" do
+      html = helper.render_markdown("Just a paragraph.")
+
+      expect(html).not_to include("data-grid")
+    end
+
+    it "can be turned off, for decks that own their own tabular layout" do
+      html = helper.render_markdown(markdown, data_tables: false)
+
+      expect(html).not_to include("data-grid")
+      expect(html).to include("<table>")
+    end
+  end
 end
