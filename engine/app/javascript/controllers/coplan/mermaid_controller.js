@@ -187,11 +187,19 @@ export default class extends Controller {
       onChange: scale => { if (readout) readout.textContent = `${Math.round(scale * 100)}%` }
     })
 
-    expander.addTool({ label: "Zoom out", hint: "Zoom out (−)", icon: ICONS.zoomOut, onClick: () => this.panZoom.zoomOut() })
+    // The canvas owns the pan/zoom keys, so every toolbar button hands focus
+    // straight back to it — otherwise one click on Zoom in leaves +/-/0/1
+    // firing against a button that ignores them.
+    const tool = spec => expander.addTool({
+      ...spec,
+      onClick: () => { spec.onClick(); viewport.focus({ preventScroll: true }) }
+    })
+
+    tool({ label: "Zoom out", hint: "Zoom out (−)", icon: ICONS.zoomOut, onClick: () => this.panZoom.zoomOut() })
     readout = expander.addToolReadout(`${Math.round(this.panZoom.scale * 100)}%`)
-    expander.addTool({ label: "Zoom in", hint: "Zoom in (+)", icon: ICONS.zoomIn, onClick: () => this.panZoom.zoomIn() })
-    expander.addTool({ label: "Fit to screen", hint: "Fit to screen (0)", icon: ICONS.fit, onClick: () => this.panZoom.fit() })
-    expander.addTool({ label: "Actual size", hint: "Actual size (1)", icon: ICONS.actual, onClick: () => this.panZoom.actualSize() })
+    tool({ label: "Zoom in", hint: "Zoom in (+)", icon: ICONS.zoomIn, onClick: () => this.panZoom.zoomIn() })
+    tool({ label: "Fit to screen", hint: "Fit to screen (0)", icon: ICONS.fit, onClick: () => this.panZoom.fit() })
+    tool({ label: "Actual size", hint: "Actual size (1)", icon: ICONS.actual, onClick: () => this.panZoom.actualSize() })
 
     const hint = document.createElement("span")
     hint.className = "expander__hint"

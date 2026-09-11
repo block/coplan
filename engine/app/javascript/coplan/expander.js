@@ -105,6 +105,11 @@ export function openExpander({ title = "", label = "Expanded view", variant = nu
 // diagram present the same affordance in the same place.
 export function attachExpandAffordance(container, { label, hint, onExpand, className }) {
   const button = toolButton({ label, hint: hint || label, icon: ICONS.expand, className })
+  // Turbo caches the DOM as it stands, including this button — and on a back
+  // navigation the controller reconnects against that snapshot and appends
+  // another one. Marking it temporary keeps it out of the cached copy, so
+  // there's always exactly one affordance in the corner.
+  button.dataset.turboTemporary = ""
   button.addEventListener("click", event => {
     event.preventDefault()
     event.stopPropagation()

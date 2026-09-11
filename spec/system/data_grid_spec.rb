@@ -125,6 +125,22 @@ RSpec.describe "Data tables", type: :system do
       expect(page).to have_css(".data-grid.is-expandable")
       expect(page).to have_css(".data-grid__expand", visible: :all)
     end
+
+    it "still offers exactly one affordance after a cached back navigation" do
+      visit plan_page_path(plan)
+      expect(page).to have_css(".data-grid__expand", visible: :all)
+
+      # A Turbo visit, not a fresh load: that's what fills the snapshot cache
+      # the back navigation then restores.
+      page.execute_script("Turbo.visit('#{root_path}')")
+      expect(page).to have_current_path(root_path)
+      page.go_back
+      expect(page).to have_css(".data-grid__frame table")
+
+      # Turbo caches the DOM as the controller left it; without care the
+      # affordance is restored *and* appended again.
+      expect(page).to have_css(".data-grid__expand", visible: :all, count: 1)
+    end
   end
 
   describe "expanded" do
@@ -193,6 +209,13 @@ RSpec.describe "Data tables", type: :system do
         'Array.from(document.querySelectorAll(".data-sheet__table tbody td:nth-child(4)")).map(c => c.textContent.trim())'
       )
       expect(order).to eq([ "0%", "0%", "2%", "5%", "10%", "25%", "40%", "60%", "100%" ])
+    end
+
+    it "gives the keyboard back to the grid after a toolbar click" do
+      find("button[aria-label='Wrap cell text']").click
+      page.driver.browser.action.send_keys(:arrow_down).perform
+
+      expect(page).to have_css(".data-sheet__address", text: "A2")
     end
 
     it "stays open when you click inside it" do

@@ -120,6 +120,17 @@ RSpec.describe "Expanding a Mermaid diagram", type: :system do
       expect(zoom_percent).to eq(fitted)
     end
 
+    it "gives the keyboard back to the canvas after a toolbar click" do
+      fitted = zoom_percent
+      find("button[aria-label='Zoom in']").click
+      expect(zoom_percent).to be > fitted
+
+      # Sent to whatever is focused — which has to be the canvas again, or
+      # the shortcuts die the moment anyone touches the toolbar.
+      page.driver.browser.action.send_keys("0").perform
+      expect(zoom_percent).to eq(fitted)
+    end
+
     it "pans on drag, and a drag does not dismiss the surface" do
       before_drag = canvas_transform
       canvas = find(".expander__canvas")

@@ -188,8 +188,11 @@ class Sheet {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
       if (!this.cursor) return
       event.preventDefault()
+      // Only say "copied" once the clipboard has actually taken it: over
+      // plain http there's no clipboard API at all, and a flash that lies
+      // costs more than one that never appears.
       navigator.clipboard?.writeText(this.cursor.textContent.trim())
-      this.flashCopied()
+        .then(() => this.flashCopied(), () => {})
       return
     }
     if (event.metaKey || event.ctrlKey) return
@@ -323,7 +326,13 @@ class Sheet {
     const wrapped = this.frame.classList.toggle("is-wrapped")
     this.wrapButton.classList.toggle("is-active", wrapped)
     this.wrapButton.setAttribute("aria-pressed", String(wrapped))
-    if (this.cursor) this.reveal(this.cursor)
+    // Hand the keyboard back to the grid: the arrow keys only reach the
+    // sheet's own listener while focus is inside the frame, so leaving it on
+    // the toolbar button would strand the cursor.
+    if (this.cursor) {
+      this.cursor.focus({ preventScroll: true })
+      this.reveal(this.cursor)
+    }
   }
 
   flashCopied() {
