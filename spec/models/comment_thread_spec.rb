@@ -69,16 +69,11 @@ RSpec.describe CoPlan::CommentThread, type: :model do
     expect(thread_record.resolved_by_user).to eq(user)
   end
 
-  it "accept! sets status to todo" do
-    thread_record.accept!(user)
-    expect(thread_record.status).to eq("todo")
-    expect(thread_record.resolved_by_user).to eq(user)
-  end
-
-  it "discard! sets status and user" do
-    thread_record.discard!(user)
-    expect(thread_record.status).to eq("discarded")
-    expect(thread_record.resolved_by_user).to eq(user)
+  it "reopen! sets status back to open and clears resolved_by_user" do
+    thread_record.resolve!(user)
+    thread_record.reopen!(user)
+    expect(thread_record.status).to eq("open")
+    expect(thread_record.resolved_by_user).to be_nil
   end
 
   describe "clearing notifications when a thread closes" do
@@ -94,22 +89,6 @@ RSpec.describe CoPlan::CommentThread, type: :model do
       expect(notification.reload.read_at).to be_present
     end
 
-    it "marks the thread's unread rows read on discard" do
-      notification = create(:notification, user: recipient, plan: plan, comment_thread: thread_record)
-
-      thread_record.discard!(user)
-
-      expect(notification.reload.read_at).to be_present
-    end
-
-    it "leaves rows alone when the thread stays open" do
-      notification = create(:notification, user: recipient, plan: plan, comment_thread: thread_record)
-
-      thread_record.accept!(user)
-
-      expect(notification.reload.read_at).to be_nil
-    end
-
     it "does not clear rows on an unrelated update to a closed thread" do
       thread_record.resolve!(user)
       notification = create(:notification, user: recipient, plan: plan, comment_thread: thread_record, reason: "reply")
@@ -120,28 +99,20 @@ RSpec.describe CoPlan::CommentThread, type: :model do
     end
   end
 
-  it "open? returns true for pending and todo" do
-    thread_record.status = "pending"
-    expect(thread_record).to be_open
-    thread_record.status = "todo"
+  it "open? returns true for open" do
+    thread_record.status = "open"
     expect(thread_record).to be_open
   end
 
-  it "closed? returns true for resolved and discarded only" do
+  it "closed? returns true for resolved only" do
     thread_record.status = "resolved"
     expect(thread_record).to be_closed
-    thread_record.status = "discarded"
-    expect(thread_record).to be_closed
-    thread_record.status = "pending"
-    expect(thread_record).not_to be_closed
-    thread_record.status = "todo"
+    thread_record.status = "open"
     expect(thread_record).not_to be_closed
   end
 
-  it "open? returns false for resolved and discarded" do
+  it "open? returns false for resolved" do
     thread_record.status = "resolved"
-    expect(thread_record).not_to be_open
-    thread_record.status = "discarded"
     expect(thread_record).not_to be_open
   end
 

@@ -17,17 +17,9 @@ RSpec.describe CoPlan::CommentThread, "analytics" do
     expect(payload[:properties]).to include(
       plan_id: thread.plan_id,
       comment_thread_id: thread.id,
-      previous_status: "pending",
+      previous_status: "open",
       comment_count: 2,
       anchored: false
     )
-  end
-
-  it "does not track when accept! or discard! are called" do
-    events = capture_analytics_events do
-      thread.accept!(user)
-      create(:comment_thread).discard!(user)
-    end
-    expect(events).to be_empty
   end
 end

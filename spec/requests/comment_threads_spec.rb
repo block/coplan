@@ -29,7 +29,7 @@ RSpec.describe "CommentThreads", type: :request do
     thread = CoPlan::CommentThread.last
     expect(thread.anchor_text).to eq("world domination")
     expect(thread.anchor_start).to be_present # resolved at the door
-    expect(thread.status).to eq("todo") # author's own comments start as todo
+    expect(thread.status).to eq("open")
     expect(thread.plan_version_id).to eq(plan.current_plan_version_id)
   end
 
@@ -111,44 +111,22 @@ RSpec.describe "CommentThreads", type: :request do
     expect(notification.reload.read_at).to be_present
   end
 
-  it "discarding a thread clears its unread notifications" do
-    thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: bob)
-    notification = create(:notification, user: bob, plan: plan, comment_thread: thread)
-
-    patch discard_plan_comment_thread_path(plan, thread)
-
-    expect(notification.reload.read_at).to be_present
-  end
-
-  it "accept thread as plan author" do
-    thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
-    patch accept_plan_comment_thread_path(plan, thread)
-    thread.reload
-    expect(thread.status).to eq("todo")
-  end
-
-  it "discard thread as plan author" do
-    thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
-    patch discard_plan_comment_thread_path(plan, thread)
-    thread.reload
-    expect(thread.status).to eq("discarded")
-  end
-
   it "reopen resolved thread" do
     thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
     thread.resolve!(alice)
     patch reopen_plan_comment_thread_path(plan, thread)
     thread.reload
-    expect(thread.status).to eq("pending")
+    expect(thread.status).to eq("open")
     expect(thread.resolved_by_user_id).to be_nil
   end
 
-  it "non-author cannot accept thread" do
-    sign_in_as(bob)
+  it "non-creator, non-plan-author cannot resolve thread" do
+    carol = create(:coplan_user)
+    sign_in_as(carol)
     thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: bob)
-    patch accept_plan_comment_thread_path(plan, thread)
+    patch resolve_plan_comment_thread_path(plan, thread)
     expect(response).to have_http_status(:not_found)
     thread.reload
-    expect(thread.status).to eq("pending")
+    expect(thread.status).to eq("open")
   end
 end
