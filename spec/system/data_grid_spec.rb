@@ -112,6 +112,44 @@ RSpec.describe "Data tables", type: :system do
       expect(page).to have_css(".data-grid.is-scrolled-end")
     end
 
+    # The frame is a new scroll container between the mark and the viewport.
+    # A `scroll` event from it doesn't bubble, so a popover positioned once
+    # against the mark's viewport coordinates would sit still while the mark
+    # slid out from under it.
+    it "keeps an open thread popover on its mark when the frame scrolls" do
+      thread = wide_plan.comment_threads.create!(
+        plan_version: wide_plan.current_plan_version,
+        anchor_text: "value-2-unbreakable", anchor_occurrence: 1,
+        created_by_user: author, status: "pending"
+      )
+      thread.comments.create!(author_type: "human", author_id: author.id,
+                              body_markdown: "Where does this value come from?")
+
+      visit plan_page_path(wide_plan)
+      find(".data-grid mark.anchor-highlight").click
+      expect(page).to have_css("#comment_thread_#{thread.id}_popover", visible: true)
+
+      travel = page.evaluate_script(<<~JS)
+        (() => {
+          const mark = document.querySelector(".data-grid mark.anchor-highlight")
+          const popover = document.querySelector("#comment_thread_#{thread.id}_popover")
+          const left = el => el.getBoundingClientRect().left
+          const before = { mark: left(mark), popover: left(popover) }
+          const frame = document.querySelector(".data-grid__frame")
+          frame.scrollLeft += 200
+          return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
+            resolve({
+              mark: Math.round(before.mark - left(mark)),
+              popover: Math.round(before.popover - left(popover))
+            })
+          })))
+        })()
+      JS
+
+      expect(travel["mark"]).to be > 0
+      expect(travel["popover"]).to be_within(2).of(travel["mark"])
+    end
+
     it "pins the header row inside the frame" do
       visit plan_page_path(plan)
 

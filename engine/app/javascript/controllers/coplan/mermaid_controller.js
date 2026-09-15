@@ -121,9 +121,20 @@ export default class extends Controller {
     const svg = canvas?.querySelector("svg")
     if (!svg) return
 
+    // A slide is a fixed, scaled artifact and deck.css sizes its diagrams to
+    // the slide canvas. The floor's whole move is to pin a pixel width, which
+    // on a slide pins the diagram wider than the slide it has to fit inside.
+    if (diagram.closest(".deck")) return
+
     const { width, height } = naturalSize(svg)
-    const available = canvas.clientWidth
-    if (!width || !available) return
+    // The content box, not clientWidth — that includes the canvas's padding,
+    // while the SVG's `max-width: 100%` resolves against the box inside it.
+    // Measuring the wrong one calls a diagram legible and then lets CSS
+    // shrink it past the floor regardless.
+    const padding = getComputedStyle(canvas)
+    const available = canvas.clientWidth -
+      parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight)
+    if (!width || available <= 0) return
 
     const scrolling = available / width < MIN_INLINE_SCALE
     diagram.classList.toggle("mermaid-diagram--scrolling", scrolling)

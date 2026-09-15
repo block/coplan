@@ -36,7 +36,13 @@ export default class extends Controller {
     this._boundPopoverToggle = this._handlePopoverToggle.bind(this)
     this.contentTarget.addEventListener("mouseup", this._boundHandleMouseUp)
     document.addEventListener("mousedown", this._boundHandleDocumentMouseDown)
-    window.addEventListener("scroll", this._handleScroll, { passive: true })
+    // Captured on the document rather than bound to `window`: a `scroll`
+    // event from a nested scroller — a data table's frame, the expanded
+    // sheet — does not bubble, so a window listener never hears it and an
+    // open popover sits still while the mark it points at scrolls away.
+    // Capture at the document sees both, and the handler returns
+    // immediately unless a popover is actually open.
+    document.addEventListener("scroll", this._handleScroll, { capture: true, passive: true })
     this.highlightAnchors()
 
     // Watch for broadcast-appended threads and re-highlight
@@ -57,7 +63,7 @@ export default class extends Controller {
     this.contentTarget.removeEventListener("mouseup", this._boundHandleMouseUp)
     document.removeEventListener("mousedown", this._boundHandleDocumentMouseDown)
     document.removeEventListener("turbo:before-cache", this._boundBeforeCache)
-    window.removeEventListener("scroll", this._handleScroll)
+    document.removeEventListener("scroll", this._handleScroll, { capture: true })
     this._cancelHoverOpen()
     this._cancelHoverClose()
     clearTimeout(this._linkedThreadRetry)
