@@ -316,20 +316,61 @@ RSpec.describe "Deck UX", type: :system do
   describe "Mermaid diagrams on a slide" do
     it "keeps the expand control chip-sized instead of scaling it to the canvas" do
       visit plan_page_path(plan)
-      expect(page).to have_css(".deck-slide .mermaid-diagram > svg", wait: 15)
+      expect(page).to have_css(".deck-slide .mermaid-diagram__canvas > svg", wait: 15)
 
       sizes = page.evaluate_script(<<~JS)
         (() => {
           const diagram = document.querySelector(".deck-slide .mermaid-diagram");
           const icon = diagram.querySelector(".mermaid-diagram__expand svg");
           const box = el => Math.round(el.getBoundingClientRect().width);
-          return { diagram: box(diagram.querySelector(":scope > svg")), icon: box(icon) };
+          return { diagram: box(diagram.querySelector(".mermaid-diagram__canvas > svg")), icon: box(icon) };
         })()
       JS
 
       # The diagram still takes the stage; the chip's icon stays an icon.
       expect(sizes["diagram"]).to be > 200
       expect(sizes["icon"]).to be <= 24
+    end
+
+    # The deck sizes slide diagrams in cqi against the slide canvas. Those
+    # rules address the SVG through the diagram's DOM, so a change to that
+    # DOM can leave them matching nothing — silently, because a small
+    # diagram still looks fine unsized.
+    it "sizes a slide's diagram from the deck's rules, not the document's" do
+      visit plan_page_path(plan)
+      expect(page).to have_css(".deck-slide .mermaid-diagram__canvas > svg", wait: 15)
+
+      sizing = page.evaluate_script(<<~JS)
+        (() => {
+          const canvas = document.querySelector(".deck-slide .mermaid-diagram__canvas")
+          const slide = canvas.closest(".deck-slide")
+          const svg = canvas.querySelector("svg")
+          const canvasStyle = getComputedStyle(canvas)
+          const svgStyle = getComputedStyle(svg)
+          return {
+            stage: slide.classList.contains("deck-slide--stage"),
+            bound: slide.classList.contains("deck-slide--stage")
+              ? svgStyle.height
+              : svgStyle.maxHeight,
+            overflowX: canvasStyle.overflowX,
+            paddingLeft: canvasStyle.paddingLeft,
+            scrolling: canvas.closest(".mermaid-diagram").classList.contains("mermaid-diagram--scrolling"),
+            fits: svg.getBoundingClientRect().height <= slide.getBoundingClientRect().height
+          }
+        })()
+      JS
+
+      # A cqi rule resolves to a pixel length; "none"/"auto" means the
+      # selector missed and the slide is showing an unsized diagram.
+      expect(sizing["bound"]).to match(/\d+(\.\d+)?px/)
+      expect(sizing["fits"]).to be(true)
+
+      # ...and none of the document's scroll-box treatment comes along: a
+      # slide is a fixed frame, so the diagram is fitted to it rather than
+      # pinned at its natural size behind a scrollbar.
+      expect(sizing["overflowX"]).to eq("visible")
+      expect(sizing["paddingLeft"]).to eq("0px")
+      expect(sizing["scrolling"]).to be(false)
     end
   end
 

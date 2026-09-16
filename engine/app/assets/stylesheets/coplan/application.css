@@ -2009,15 +2009,30 @@ img.avatar {
 
 .markdown-rendered .mermaid-diagram {
   position: relative;
-  display: flex;
-  justify-content: center;
-  overflow-x: auto;
   margin-bottom: var(--space-md);
-  padding: var(--space-md);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   cursor: zoom-in;
+}
+
+/* The diagram's scroll box, separate from the frame so the expand control
+   stays pinned to the corner instead of scrolling away with a wide
+   diagram. */
+.markdown-rendered .mermaid-diagram__canvas {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  padding: var(--space-md);
+  border-radius: inherit;
+  scrollbar-width: thin;
+}
+
+/* Past the legibility floor a diagram stops shrinking to fit and keeps its
+   real size — the controller pins the SVG's pixel width and this box
+   scrolls instead, so labels stay readable. */
+.markdown-rendered .mermaid-diagram--scrolling .mermaid-diagram__canvas {
+  justify-content: flex-start;
 }
 
 .markdown-rendered .mermaid-diagram__expand {
@@ -2042,49 +2057,19 @@ img.avatar {
   opacity: 1;
 }
 
-.mermaid-lightbox {
-  width: 94vw;
-  height: 92vh;
-  max-width: 94vw;
-  max-height: 92vh;
-  padding: var(--space-lg);
-  margin: auto;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
-  cursor: zoom-out;
-}
-
-.mermaid-lightbox::backdrop {
-  background: rgba(0, 0, 0, 0.35);
-}
-
-.mermaid-lightbox__close {
-  position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-xs);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  color: var(--color-text-muted);
-  cursor: pointer;
-}
-
-.mermaid-lightbox__close:hover {
-  color: var(--color-text);
-}
-
 /* The diagram's own SVG only — the expand button's icon is an svg inside
    the same container, and it must keep its own 16px geometry. */
-.markdown-rendered .mermaid-diagram > svg {
+.markdown-rendered .mermaid-diagram__canvas > svg {
   max-width: 100%;
   height: auto;
+}
+
+/* `flex: none` is load-bearing: the canvas is a flex container, and a flex
+   item shrinks to fit by default — which would undo the pixel width the
+   controller just pinned and put the diagram straight back to unreadable. */
+.markdown-rendered .mermaid-diagram--scrolling .mermaid-diagram__canvas > svg {
+  max-width: none;
+  flex: none;
 }
 
 /* Mermaid sizes node boxes assuming its own label line-height (~1.2); the
@@ -2094,9 +2079,9 @@ img.avatar {
 .markdown-rendered .mermaid-diagram foreignObject div,
 .markdown-rendered .mermaid-diagram foreignObject span,
 .markdown-rendered .mermaid-diagram foreignObject p,
-.mermaid-lightbox foreignObject div,
-.mermaid-lightbox foreignObject span,
-.mermaid-lightbox foreignObject p {
+.expander--diagram foreignObject div,
+.expander--diagram foreignObject span,
+.expander--diagram foreignObject p {
   line-height: 1.2;
 }
 
@@ -2135,6 +2120,153 @@ img.avatar {
 .markdown-rendered th {
   background: var(--color-bg);
   font-weight: 600;
+}
+
+/* ── Data grid: a markdown table in the document ──────────────────────────
+   The bare rules above still apply wherever a table isn't wrapped (deck
+   slides own their own tabular typography). Everywhere else the table sits
+   in a frame it can scroll inside, instead of a block it overflows. */
+.markdown-rendered .data-grid {
+  position: relative;
+  margin-bottom: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.markdown-rendered .data-grid__frame {
+  overflow: auto;
+  /* Tall tables scroll inside the frame so the header can pin; short ones
+     never reach this and are unaffected. */
+  max-height: 75vh;
+  border-radius: inherit;
+  scrollbar-width: thin;
+}
+
+.markdown-rendered .data-grid table {
+  /* Columns size to their content and the table still fills a narrow
+     frame. width:100% squeezed columns to nothing instead, which is how a
+     wide table ended up unreadable *and* off the page. */
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  /* Collapsed borders don't travel with a sticky header — the header's own
+     border scrolls out from under it. Separate borders plus inset shadows
+     stay put. */
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
+}
+
+.markdown-rendered .data-grid th,
+.markdown-rendered .data-grid td {
+  border: none;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  vertical-align: top;
+  min-width: 6ch;
+  max-width: 34ch;
+  overflow-wrap: break-word;
+}
+
+.markdown-rendered .data-grid tr > *:last-child {
+  border-right: none;
+}
+
+.markdown-rendered .data-grid tbody tr:last-child > * {
+  border-bottom: none;
+}
+
+.markdown-rendered .data-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface-muted);
+  white-space: nowrap;
+  font-weight: 600;
+  box-shadow: inset 0 -1px 0 var(--color-border);
+}
+
+.markdown-rendered .data-grid tbody tr:nth-child(even) > * {
+  background: var(--color-surface-muted);
+}
+
+/* Edge fades: the honest signal that the frame is holding more than it's
+   showing. Only lit when there really is more in that direction. */
+.markdown-rendered .data-grid::before,
+.markdown-rendered .data-grid::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 2rem;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.markdown-rendered .data-grid::before {
+  left: 1px;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: linear-gradient(to right, var(--color-surface), transparent);
+}
+
+.markdown-rendered .data-grid::after {
+  right: 1px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: linear-gradient(to left, var(--color-surface), transparent);
+}
+
+.markdown-rendered .data-grid.is-scrolled-start::before,
+.markdown-rendered .data-grid.is-scrolled-end::after {
+  opacity: 1;
+}
+
+.markdown-rendered .data-grid__expand {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  z-index: 3;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  box-shadow: var(--shadow-pop);
+  cursor: zoom-in;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+/* Offered only where it buys something — a four-column, five-row table is
+   already entirely visible. */
+.markdown-rendered .data-grid.is-expandable .data-grid__expand {
+  display: flex;
+}
+
+.markdown-rendered .data-grid.is-expandable:hover .data-grid__expand,
+.markdown-rendered .data-grid.is-expandable:focus-within .data-grid__expand,
+.markdown-rendered .data-grid__expand:focus-visible {
+  opacity: 1;
+}
+
+.markdown-rendered .data-grid__expand:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+/* Nothing hovers on a touch screen, and tap-to-expand isn't available
+   here — selecting table text is how a comment gets anchored. */
+@media (hover: none) {
+  .markdown-rendered .data-grid.is-expandable .data-grid__expand {
+    opacity: 1;
+  }
 }
 
 .markdown-rendered hr {
@@ -6516,5 +6648,409 @@ img.avatar {
     padding-top: 0;
     margin-left: calc(2rem + var(--space-md));
     font-size: 0.75rem;
+  }
+}
+
+/* ═══ Expanded view ═══════════════════════════════════════════════════════
+   The shared takeover surface (coplan/expander.js) behind an expanded
+   Mermaid diagram and an expanded data table. The chrome — title bar,
+   toolbar, status line, dismissal — is identical for both; only the body
+   differs. */
+
+/* showModal() dims the page but doesn't stop it scrolling behind the
+   overlay. */
+.expander-open {
+  overflow: hidden;
+}
+
+.expander {
+  display: flex;
+  flex-direction: column;
+  width: 94vw;
+  height: 92vh;
+  max-width: 94vw;
+  max-height: 92vh;
+  padding: 0;
+  margin: auto;
+  overflow: hidden;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.expander::backdrop {
+  background: rgba(8, 12, 24, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.expander__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: none;
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+  background: var(--color-surface-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.expander__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.expander__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.expander__tool,
+.expander__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 var(--space-xs);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.expander__tool:hover,
+.expander__close:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+.expander__tool.is-active {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.expander__tool--hidden {
+  display: none;
+}
+
+.expander__close {
+  margin-left: var(--space-xs);
+}
+
+.expander__readout {
+  min-width: 3.5rem;
+  text-align: center;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.expander__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.expander__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: none;
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-surface-muted);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.expander__hint {
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Diagram body: the pan/zoom viewport ──────────────────────────────── */
+
+.expander__canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  /* The browser's own pan and pinch would fight the controller's. */
+  touch-action: none;
+  cursor: grab;
+}
+
+.expander__canvas.is-grabbing {
+  cursor: grabbing;
+}
+
+.expander__canvas:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.expander__canvas > svg {
+  display: block;
+}
+
+/* ── Table body: the spreadsheet ──────────────────────────────────────── */
+
+.data-sheet {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* The value bar. Cells stay clipped to one line so a wide table is
+   scannable; this is where the focused cell is shown in full. */
+.data-sheet__value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  flex: none;
+  min-height: 2.75rem;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.data-sheet__value-label {
+  flex: none;
+  max-width: 12rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.data-sheet__value-content {
+  flex: 1;
+  min-width: 0;
+  max-height: 5.5rem;
+  overflow-y: auto;
+}
+
+.data-sheet__value-content > *:last-child {
+  margin-bottom: 0;
+}
+
+.data-sheet__value.is-empty .data-sheet__value-content::after {
+  content: "empty";
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.data-sheet__frame {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.data-sheet__frame:focus {
+  outline: none;
+}
+
+.data-sheet__table {
+  width: max-content;
+  min-width: 100%;
+  background: var(--color-surface);
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
+}
+
+/* Body cells are transparent on purpose: it lets a background on the
+   column's <col> paint the crosshair band for free, however many rows the
+   table has. */
+.data-sheet__table th,
+.data-sheet__table td {
+  position: relative;
+  max-width: 40ch;
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.data-sheet__frame.is-wrapped th,
+.data-sheet__frame.is-wrapped td {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: break-word;
+}
+
+.data-sheet__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding-right: calc(var(--space-md) + 0.75rem);
+  background: var(--color-surface-muted);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: inset 0 -1px 0 var(--color-border);
+}
+
+.data-sheet__table thead th:first-child {
+  left: 0;
+  z-index: 4;
+}
+
+/* The row-label column pins too — the header alone doesn't tell you which
+   row you're reading once you've scrolled sideways. Opaque, so the cells
+   it slides over disappear under it cleanly. */
+.data-sheet__table tbody tr > *:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--color-surface);
+  font-weight: 500;
+  box-shadow: inset -1px 0 0 var(--color-border);
+}
+
+/* The crosshair. Mixed from --color-primary rather than using
+   --color-primary-light, which is near-white in light mode and would make
+   the bands invisible on exactly the theme that needs them most.
+   Translucent on purpose: the row band paints over the column band, so
+   the cell where they cross deepens on its own. */
+.data-sheet__table col.is-cursor-column,
+.data-sheet__table tbody tr.is-cursor-row > * {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+/* The pinned cells can't be translucent — rows scrolling underneath would
+   show through them — so they take the same tint, mixed solid. */
+.data-sheet__table tbody tr.is-cursor-row > *:first-child {
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+}
+
+.data-sheet__table thead th.is-cursor-column {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-muted));
+}
+
+/* Written the long way round so it outranks the pinned first column's own
+   box-shadow — the cursor has to be visible in column A too. */
+.data-sheet__table tbody tr > td.is-cursor,
+.data-sheet__table tbody tr > th.is-cursor {
+  z-index: 5;
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+  outline: none;
+}
+
+/* Sort state: a triangle in the header's reserved right-hand gutter. */
+.data-sheet__table thead th::after {
+  content: "";
+  position: absolute;
+  right: var(--space-sm);
+  top: calc(50% - 2px);
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.data-sheet__table thead th:hover::after {
+  border-top: 5px solid currentColor;
+  opacity: 0.4;
+}
+
+.data-sheet__table thead th.is-sorted-asc::after {
+  border-top: none;
+  border-bottom: 5px solid var(--color-primary);
+  opacity: 1;
+}
+
+.data-sheet__table thead th.is-sorted-desc::after {
+  border-bottom: none;
+  border-top: 5px solid var(--color-primary);
+  opacity: 1;
+}
+
+/* A comment anchor inside a cell still shows, but as a mark, not as
+   something you can open — the sheet is a copy, and its threads live back
+   in the document. */
+.data-sheet mark {
+  background: transparent;
+  color: inherit;
+  text-decoration: underline wavy var(--color-highlight-open-border);
+  text-decoration-skip-ink: none;
+  pointer-events: none;
+}
+
+.data-sheet__address {
+  min-width: 3.25rem;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.data-sheet__address.is-copied {
+  color: var(--color-success);
+}
+
+.data-sheet__address.is-copied::after {
+  content: " copied";
+  font-family: var(--font-sans);
+  font-weight: 400;
+}
+
+.data-sheet__column {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+@media (max-width: 640px) {
+  /* A phone has no room for a framed dialog: the takeover takes the screen.
+     Sized by `inset` rather than 100vw/100dvh — a modal dialog's default
+     `margin: auto` centres it, so any disagreement between the viewport units
+     and the actual layout width leaves a sliver of backdrop down one edge. */
+  .expander {
+    inset: 0;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+  }
+
+  /* No room for keyboard instructions beside the cell address — but the
+     diagram's hint is the only place the pan/zoom gestures are named, and
+     it's short enough to keep. */
+  .expander__hint {
+    display: none;
+  }
+
+  .expander--diagram .expander__hint {
+    display: block;
+  }
+
+  .data-sheet__value-label {
+    max-width: 7rem;
   }
 }

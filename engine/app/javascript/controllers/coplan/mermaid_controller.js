@@ -1,8 +1,21 @@
 import { Controller } from "@hotwired/stimulus"
+import { openExpander, attachExpandAffordance, nearestHeading, ICONS } from "coplan/expander"
+import { createPanZoom } from "coplan/pan_zoom"
 
 let diagramId = 0
 let mermaidPromise
 let configuredTheme
+
+// How far a diagram may be shrunk to fit the document column before
+// legibility loses the argument. Past this, the diagram keeps its real size
+// and its frame scrolls sideways instead — a label you can't read is worse
+// than a scrollbar.
+const MIN_INLINE_SCALE = 0.8
+
+// The same bargain in the expanded surface, where there's somewhere to pan
+// to: a wide diagram "fitted" to a phone would land at 15%, so fit stops at
+// roughly 9px labels and lets you drag the rest into view.
+const MIN_EXPANDED_SCALE = 0.55
 
 export default class extends Controller {
   connect() {
@@ -11,6 +24,9 @@ export default class extends Controller {
     this.colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)")
     window.addEventListener("coplan:theme-changed", this.boundThemeChange)
     this.colorSchemeQuery.addEventListener("change", this.boundThemeChange)
+    this.sizeObserver = new ResizeObserver(entries => {
+      entries.forEach(entry => this.sizeDiagram(entry.target.closest(".mermaid-diagram")))
+    })
     this.renderDiagrams()
   }
 
@@ -18,7 +34,8 @@ export default class extends Controller {
     this.renderGeneration += 1
     window.removeEventListener("coplan:theme-changed", this.boundThemeChange)
     this.colorSchemeQuery.removeEventListener("change", this.boundThemeChange)
-    this.lightbox?.close()
+    this.sizeObserver?.disconnect()
+    this.closeExpanded()
   }
 
   async renderDiagrams() {
@@ -38,6 +55,10 @@ export default class extends Controller {
 
     try {
       const mermaid = await loadMermaid()
+      // Mermaid measures label text in the DOM to size its node boxes. Lexend
+      // arrives as a swapped webfont, so measuring before it lands sizes every
+      // box for the fallback face and the real labels then overflow them.
+      await document.fonts?.ready
       if (!this.element.isConnected || generation !== this.renderGeneration) return
 
       for (const { container, source } of sources) {
@@ -70,10 +91,20 @@ export default class extends Controller {
       diagram.setAttribute("aria-label", "Mermaid diagram")
       diagram.dataset.mermaidSource = source
       diagram.dataset.mermaidTheme = theme
-      diagram.innerHTML = svg
+
+      // The SVG lives in its own scroll box so the expand affordance stays
+      // pinned to the frame's corner instead of scrolling away with a wide
+      // diagram.
+      const canvas = document.createElement("div")
+      canvas.className = "mermaid-diagram__canvas"
+      canvas.innerHTML = svg
+      diagram.append(canvas)
+
       this.makeExpandable(diagram)
       sourceContainer.replaceWith(diagram)
-      bindFunctions?.(diagram)
+      bindFunctions?.(canvas)
+      this.sizeDiagram(diagram)
+      this.sizeObserver?.observe(canvas)
     } catch {
       document.getElementById(id)?.remove()
       document.getElementById(`d${id}`)?.remove()
@@ -83,57 +114,118 @@ export default class extends Controller {
     }
   }
 
+  // Decides between fitting the diagram to the column and letting it keep
+  // its real size behind a horizontal scroll.
+  sizeDiagram(diagram) {
+    const canvas = diagram?.querySelector(".mermaid-diagram__canvas")
+    const svg = canvas?.querySelector("svg")
+    if (!svg) return
+
+    // A slide is a fixed, scaled artifact and deck.css sizes its diagrams to
+    // the slide canvas. The floor's whole move is to pin a pixel width, which
+    // on a slide pins the diagram wider than the slide it has to fit inside.
+    if (diagram.closest(".deck")) return
+
+    const { width, height } = naturalSize(svg)
+    // The content box, not clientWidth — that includes the canvas's padding,
+    // while the SVG's `max-width: 100%` resolves against the box inside it.
+    // Measuring the wrong one calls a diagram legible and then lets CSS
+    // shrink it past the floor regardless.
+    const padding = getComputedStyle(canvas)
+    const available = canvas.clientWidth -
+      parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight)
+    if (!width || available <= 0) return
+
+    const scrolling = available / width < MIN_INLINE_SCALE
+    diagram.classList.toggle("mermaid-diagram--scrolling", scrolling)
+    const nextWidth = scrolling ? `${Math.round(width)}px` : ""
+    const nextHeight = scrolling ? `${Math.round(height)}px` : ""
+    // Only write when the value changes: the observer watches this element,
+    // and an unconditional write would keep re-triggering itself.
+    if (svg.style.width !== nextWidth) svg.style.width = nextWidth
+    if (svg.style.height !== nextHeight) svg.style.height = nextHeight
+  }
+
   makeExpandable(diagram) {
-    const expand = document.createElement("button")
-    expand.type = "button"
-    expand.className = "mermaid-diagram__expand"
-    expand.setAttribute("aria-label", "Expand diagram")
-    expand.title = "Expand diagram"
-    expand.innerHTML = EXPAND_ICON
-    diagram.append(expand)
+    attachExpandAffordance(diagram, {
+      label: "Expand diagram",
+      hint: "Expand diagram",
+      className: "mermaid-diagram__expand",
+      onExpand: () => this.openExpanded(diagram)
+    })
 
     diagram.addEventListener("click", event => {
       // Let clicks on interactive nodes inside the diagram behave normally.
       // Comment marks open their thread popover — expanding here would
       // force-hide it (showModal closes every open popover).
       if (event.target.closest("a, mark.anchor-highlight")) return
-      this.openLightbox(diagram)
+      this.openExpanded(diagram)
     })
   }
 
-  openLightbox(diagram) {
+  openExpanded(diagram) {
     const svg = diagram.querySelector("svg")
-    if (!svg || this.lightbox) return
+    if (!svg || this.expanded) return
 
-    const lightbox = document.createElement("dialog")
-    lightbox.className = "mermaid-lightbox"
-    lightbox.setAttribute("aria-label", "Expanded Mermaid diagram")
-    lightbox.dataset.turboTemporary = ""
+    const { width, height } = naturalSize(svg)
+    const expander = openExpander({
+      title: nearestHeading(diagram) || "Diagram",
+      label: "Expanded Mermaid diagram",
+      variant: "diagram",
+      status: true,
+      onClose: () => {
+        this.panZoom?.destroy()
+        this.panZoom = null
+        this.expanded = null
+      }
+    })
+    this.expanded = expander
 
-    const close = document.createElement("button")
-    close.type = "button"
-    close.className = "mermaid-lightbox__close"
-    close.setAttribute("aria-label", "Close expanded diagram")
-    close.title = "Close"
-    close.innerHTML = CLOSE_ICON
-
+    const viewport = document.createElement("div")
+    viewport.className = "expander__canvas"
+    viewport.tabIndex = 0
     const content = svg.cloneNode(true)
     content.removeAttribute("width")
     content.removeAttribute("height")
-    content.style.maxWidth = "none"
-    content.style.width = "100%"
-    content.style.height = "100%"
+    viewport.append(content)
+    expander.body.append(viewport)
 
-    lightbox.append(close, content)
-    lightbox.addEventListener("click", () => lightbox.close())
-    lightbox.addEventListener("close", () => {
-      lightbox.remove()
-      if (this.lightbox === lightbox) this.lightbox = null
+    let readout
+    this.panZoom = createPanZoom(viewport, content, {
+      width,
+      height,
+      minFit: MIN_EXPANDED_SCALE,
+      onChange: scale => { if (readout) readout.textContent = `${Math.round(scale * 100)}%` }
     })
 
-    this.lightbox = lightbox
-    document.body.append(lightbox)
-    lightbox.showModal()
+    // The canvas owns the pan/zoom keys, so every toolbar button hands focus
+    // straight back to it — otherwise one click on Zoom in leaves +/-/0/1
+    // firing against a button that ignores them.
+    const tool = spec => expander.addTool({
+      ...spec,
+      onClick: () => { spec.onClick(); viewport.focus({ preventScroll: true }) }
+    })
+
+    tool({ label: "Zoom out", hint: "Zoom out (−)", icon: ICONS.zoomOut, onClick: () => this.panZoom.zoomOut() })
+    readout = expander.addToolReadout(`${Math.round(this.panZoom.scale * 100)}%`)
+    tool({ label: "Zoom in", hint: "Zoom in (+)", icon: ICONS.zoomIn, onClick: () => this.panZoom.zoomIn() })
+    tool({ label: "Fit to screen", hint: "Fit to screen (0)", icon: ICONS.fit, onClick: () => this.panZoom.fit() })
+    tool({ label: "Actual size", hint: "Actual size (1)", icon: ICONS.actual, onClick: () => this.panZoom.actualSize() })
+
+    const hint = document.createElement("span")
+    hint.className = "expander__hint"
+    // On a touch screen the gestures are the whole interface — and the
+    // keyboard shortcuts are not available — so say the touch ones instead.
+    hint.textContent = window.matchMedia("(hover: none)").matches
+      ? "Drag to pan · pinch to zoom · double-tap to fit"
+      : "Drag to pan · scroll or pinch to zoom · double-click to fit · 0 fit · 1 actual size"
+    expander.setStatus(hint)
+
+    viewport.focus({ preventScroll: true })
+  }
+
+  closeExpanded() {
+    this.expanded?.close()
   }
 
   showError(sourceContainer) {
@@ -149,23 +241,21 @@ export default class extends Controller {
   }
 }
 
-const EXPAND_ICON = `
-  <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/>
-  </svg>
-`
-
-const CLOSE_ICON = `
-  <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-    <path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>
-  </svg>
-`
-
 function loadMermaid() {
   if (mermaidPromise) return mermaidPromise
 
   mermaidPromise = import("mermaid").then(({ default: mermaid }) => mermaid)
   return mermaidPromise
+}
+
+// A mermaid SVG carries its laid-out size in the viewBox; the width/height
+// attributes are the responsive "100%" mermaid applies on top.
+function naturalSize(svg) {
+  const box = svg.viewBox?.baseVal
+  if (box?.width) return { width: box.width, height: box.height }
+
+  const rect = svg.getBoundingClientRect()
+  return { width: rect.width, height: rect.height }
 }
 
 // A deck is a fixed artifact — its diagrams follow the deck theme, not
@@ -186,15 +276,36 @@ function configureMermaid(mermaid, dark) {
   const theme = dark ? "dark" : "light"
   if (theme === configuredTheme) return theme
 
+  const fontFamily = appFontStack()
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: "strict",
     suppressErrorRendering: true,
     theme: dark ? "base" : "default",
-    ...(dark && { themeVariables: darkThemeVariables() })
+    // Mermaid's 14px default reads small next to 16px body copy, and it's
+    // the label size that survives (or doesn't) being scaled to fit.
+    fontFamily,
+    themeVariables: { fontSize: "16px", fontFamily, ...(dark && darkThemeVariables()) },
+    themeCSS: THEME_CSS,
+    flowchart: { padding: 14, nodeSpacing: 55, rankSpacing: 60, useMaxWidth: true },
+    sequence: { actorFontSize: 15, messageFontSize: 15, noteFontSize: 14 },
+    gantt: { fontSize: 14 }
   })
   configuredTheme = theme
   return theme
+}
+
+// Thin hairlines are the other half of "hard to read" — at a reduced scale
+// a 1px edge disappears well before its label does.
+const THEME_CSS = `
+  .flowchart-link, .relationshipLine, .messageLine0, .messageLine1 { stroke-width: 1.75px; }
+  .edgeLabel { font-size: 14px; }
+  .cluster rect { stroke-width: 1.25px; }
+`
+
+function appFontStack() {
+  const declared = getComputedStyle(document.documentElement).getPropertyValue("--font-sans").trim()
+  return declared || "system-ui, sans-serif"
 }
 
 function darkThemeVariables() {
