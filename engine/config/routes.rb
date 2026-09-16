@@ -147,6 +147,7 @@ CoPlan::Engine.routes.draw do
         get :locations, on: :member
         get :comments, on: :member
         get :snapshot, on: :member
+        post :approval_requests, on: :member
         resource :content, only: [ :update ], controller: "content"
         resource :lease, only: [ :create, :update, :destroy ], controller: "leases"
         resources :operations, only: [ :create ]

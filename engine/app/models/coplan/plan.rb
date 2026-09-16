@@ -53,6 +53,7 @@ module CoPlan
     has_many_attached :attachments
 
     after_initialize { self.metadata ||= {} }
+    after_initialize { self.touched_files ||= [] if has_attribute?(:touched_files) }
 
     # Every plan has a type (belongs_to above + NOT NULL in the schema).
     # Callers that don't pick one get the General catch-all, so creation
@@ -68,6 +69,7 @@ module CoPlan
 
     validates :title, presence: true
     validates :visibility, presence: true, inclusion: { in: VISIBILITIES }
+    validate :touched_files_are_valid
     validate :attachments_within_limits
 
     scope :with_tag, ->(name) { joins(:tags).where(coplan_tags: { name: name }) }
@@ -321,6 +323,29 @@ module CoPlan
     end
 
     private
+
+    def touched_files_are_valid
+      return unless has_attribute?(:touched_files)
+
+      errors.add(:touched_files, "must be an array") unless touched_files.is_a?(Array)
+      return unless touched_files.is_a?(Array)
+      errors.add(:touched_files, "cannot contain more than 500 files") if touched_files.size > 500
+
+      touched_files.each_with_index do |entry, index|
+        unless entry.is_a?(Hash)
+          errors.add(:touched_files, "entry #{index + 1} must be an object")
+          next
+        end
+
+        repo = entry["repo"] || entry[:repo]
+        path = entry["path"] || entry[:path]
+        ref = entry["ref"] || entry[:ref]
+        errors.add(:touched_files, "entry #{index + 1} repo must be owner/name") unless repo.to_s.match?(%r{\A[^/\s]+/[^/\s]+\z})
+        errors.add(:touched_files, "entry #{index + 1} path is required") if path.to_s.blank?
+        errors.add(:touched_files, "entry #{index + 1} path must be relative") if path.to_s.start_with?("/") || path.to_s.split("/").include?("..")
+        errors.add(:touched_files, "entry #{index + 1} ref is required") if ref.to_s.blank?
+      end
+    end
 
     def broadcast_listing_change
       return unless previously_new_record? || (saved_changes.keys & LISTED_ATTRIBUTES).any?

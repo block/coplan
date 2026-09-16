@@ -33,6 +33,7 @@ module CoPlan
       attachment_removed
       comment_deleted
       moved_to_folder
+      touched_files_changed
     ].freeze
 
     belongs_to :plan

@@ -37,6 +37,7 @@ See the [Host App Integration Guide](./docs/HOST_APP_GUIDE.md) for full setup in
 ### Optional integrations
 
 - [`coplan-slack`](./integrations/slack/README.md) adds signed Slack Events API handling and rich link unfurls without coupling Slack to the core engine.
+- [`coplan-owner-owl`](./integrations/owner_owl/README.md) routes plan approval requests from touched repository paths through Owner Owl.
 
 ## Development Setup
 

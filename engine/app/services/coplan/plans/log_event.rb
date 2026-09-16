@@ -88,6 +88,7 @@ module CoPlan
         when "attachment_added", "attachment_removed" then "attachments"
         when "comment_deleted" then "comments"
         when "moved_to_folder" then "folder"
+        when "touched_files_changed" then "touched_files"
         end
       end
 
