@@ -120,7 +120,7 @@ RSpec.describe "Data tables", type: :system do
       thread = wide_plan.comment_threads.create!(
         plan_version: wide_plan.current_plan_version,
         anchor_text: "value-2-unbreakable", anchor_occurrence: 1,
-        created_by_user: author, status: "pending"
+        created_by_user: author, status: "open"
       )
       thread.comments.create!(author_type: "human", author_id: author.id,
                               body_markdown: "Where does this value come from?")
