@@ -62,8 +62,6 @@ CoPlan::Engine.routes.draw do
       resources :comment_threads, only: [ :create ] do
         member do
           patch :resolve
-          patch :accept
-          patch :discard
           patch :reopen
         end
         resources :comments, only: [ :create, :destroy ]
@@ -158,11 +156,6 @@ CoPlan::Engine.routes.draw do
         resources :comments, only: [ :create, :show ], controller: "comments" do
           post :reply, on: :member
           patch :resolve, on: :member
-          patch :discard, on: :member
-          # Alias: the agent instructions long documented this action as
-          # "dismiss" while the route said "discard" — accept both so
-          # agents following either name succeed.
-          patch :dismiss, on: :member, action: :discard
         end
         # Presence/state for an agent working this plan (drives the
         # "Claude is editing…" pill and subscribes the token to events).

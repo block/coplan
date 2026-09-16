@@ -307,14 +307,7 @@ export default class extends Controller {
     // crosses .markdown-rendered blocks.
     this._headings.forEach((heading, index) => {
       const nextHeading = this._headings[index + 1]
-      const threads = this.collectThreadsBetween(heading, nextHeading, this.contentTarget)
-
-      let pendingCount = 0
-      let todoCount = 0
-      threads.forEach(status => {
-        if (status === "pending") pendingCount++
-        else if (status === "todo") todoCount++
-      })
+      const count = this.countOpenThreadsBetween(heading, nextHeading, this.contentTarget)
 
       const item = this._itemsById?.get(heading.id)
       if (!item) return
@@ -322,20 +315,17 @@ export default class extends Controller {
       const existing = item.querySelector(".content-nav__badge")
       if (existing) existing.remove()
 
-      const total = pendingCount + todoCount
-      if (total > 0) {
+      if (count > 0) {
         const badge = document.createElement("span")
-        const badgeType = pendingCount > 0 ? "pending" : "todo"
-        badge.className = `content-nav__badge content-nav__badge--${badgeType}`
-        badge.textContent = total
+        badge.className = "content-nav__badge content-nav__badge--open"
+        badge.textContent = count
         item.querySelector(".content-nav__link").appendChild(badge)
       }
     })
   }
 
-  collectThreadsBetween(startHeading, endHeading, container) {
+  countOpenThreadsBetween(startHeading, endHeading, container) {
     const seen = new Set()
-    const threads = []
     let collecting = false
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, null)
 
@@ -349,14 +339,10 @@ export default class extends Controller {
 
       if (collecting && node.tagName === "MARK" && node.classList.contains("anchor-highlight--open")) {
         const threadId = node.dataset.threadId
-        if (threadId && !seen.has(threadId)) {
-          seen.add(threadId)
-          const status = node.classList.contains("anchor-highlight--pending") ? "pending" : "todo"
-          threads.push(status)
-        }
+        if (threadId) seen.add(threadId)
       }
     }
 
-    return threads
+    return seen.size
   }
 }

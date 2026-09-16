@@ -235,7 +235,7 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
         anchor_revision: 1,
         anchor_start: initial_content.index("My Plan"),
         anchor_end: initial_content.index("My Plan") + "My Plan".length,
-        status: "todo"
+        status: "open"
       )
     end
 
@@ -248,7 +248,7 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
         anchor_revision: 1,
         anchor_start: initial_content.index("unit tests"),
         anchor_end: initial_content.index("unit tests") + "unit tests".length,
-        status: "todo"
+        status: "open"
       )
     end
 
@@ -261,7 +261,7 @@ RSpec.describe CoPlan::Plans::ReplaceContent do
         anchor_revision: 1,
         anchor_start: initial_content.index("Q1 2026 delivery."),
         anchor_end: initial_content.index("Q1 2026 delivery.") + "Q1 2026 delivery.".length,
-        status: "todo"
+        status: "open"
       )
     end
 

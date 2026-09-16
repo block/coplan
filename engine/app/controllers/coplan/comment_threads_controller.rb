@@ -3,14 +3,10 @@ module CoPlan
     include ActionView::RecordIdentifier
 
     before_action :set_plan
-    before_action :set_thread, only: [ :resolve, :accept, :discard, :reopen ]
+    before_action :set_thread, only: [ :resolve, :reopen ]
 
     def create
       authorize!(@plan, :show?)
-
-      # Author's own comments start as "todo" (self-assigned work item);
-      # non-author comments start as "pending" (awaiting author triage).
-      initial_status = current_user.id == @plan.created_by_user_id ? "todo" : "pending"
 
       thread_params = params.expect(
         comment_thread: [ :anchor_text, :anchor_context, :anchor_occurrence,
@@ -23,8 +19,7 @@ module CoPlan
         anchor_occurrence: thread_params[:anchor_occurrence].presence&.to_i,
         start_line: thread_params[:start_line].presence,
         end_line: thread_params[:end_line].presence,
-        created_by_user: current_user,
-        status: initial_status
+        created_by_user: current_user
       )
 
       # Atomic: a thread without its first comment is an empty orphan whose
@@ -78,25 +73,9 @@ module CoPlan
       respond_with_stream_or_redirect("Thread resolved.", streams: [ stream ])
     end
 
-    def accept
-      authorize!(@thread, :accept?)
-      @thread.accept!(current_user)
-      CreateNotificationsJob.perform_later(comment_thread_id: @thread.id, actor_id: current_user.id, reason: "status_change")
-      stream = broadcast_thread_replace(@thread)
-      respond_with_stream_or_redirect("Thread accepted.", streams: [ stream ])
-    end
-
-    def discard
-      authorize!(@thread, :discard?)
-      @thread.discard!(current_user)
-      CreateNotificationsJob.perform_later(comment_thread_id: @thread.id, actor_id: current_user.id, reason: "status_change")
-      stream = broadcast_thread_replace(@thread)
-      respond_with_stream_or_redirect("Thread discarded.", streams: [ stream ])
-    end
-
     def reopen
       authorize!(@thread, :reopen?)
-      @thread.update!(status: "pending", resolved_by_user: nil)
+      @thread.reopen!(current_user)
       CreateNotificationsJob.perform_later(comment_thread_id: @thread.id, actor_id: current_user.id, reason: "status_change")
       stream = broadcast_thread_replace(@thread)
       respond_with_stream_or_redirect("Thread reopened.", streams: [ stream ])
