@@ -11,12 +11,17 @@ module CoPlan
     validates :highlighted_reason, presence: true, if: -> { role == "highlighted" }
 
     before_validation :clear_irrelevant_role_data
+    after_initialize { self.routing_metadata ||= {} if has_attribute?(:routing_metadata) }
 
     private
 
     def clear_irrelevant_role_data
       self.approved_at = nil unless role == "approver"
       self.highlighted_reason = nil unless role == "highlighted"
+      unless role == "approver"
+        self.routing_source = nil if has_attribute?(:routing_source)
+        self.routing_metadata = {} if has_attribute?(:routing_metadata)
+      end
     end
 
     public
