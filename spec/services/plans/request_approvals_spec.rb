@@ -12,7 +12,7 @@ RSpec.describe CoPlan::Plans::RequestApprovals do
   end
   let(:router_class) do
     Class.new do
-      def source = "owner_owl"
+      def source = "test_router"
       def call(**) = @routes
       def routes=(routes)
         @routes = routes
@@ -41,13 +41,13 @@ RSpec.describe CoPlan::Plans::RequestApprovals do
     expect(result.approvers.map(&:user)).to eq([ alice ])
     expect(result.unresolved_identities).to eq([ "missing" ])
     expect(result.approvers.first).to have_attributes(
-      role: "approver", approved_at: nil, routing_source: "owner_owl",
+      role: "approver", approved_at: nil, routing_source: "test_router",
       routing_metadata: include("identities" => [ "alice" ])
     )
   end
 
   it "reconciles stale routed approvers but preserves manual approvers" do
-    stale = create(:plan_collaborator, :approver, plan:, user: bob, routing_source: "owner_owl")
+    stale = create(:plan_collaborator, :approver, plan:, user: bob, routing_source: "test_router")
     manual_user = create(:coplan_user, username: "manual")
     manual = create(:plan_collaborator, :approver, plan:, user: manual_user)
 

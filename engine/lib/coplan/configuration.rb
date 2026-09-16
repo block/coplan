@@ -11,7 +11,7 @@ module CoPlan
     # Optional callable used by Plans::RequestApprovals. It receives
     # `plan:`, `touched_files:`, and `author_identity:` and returns reviewer
     # routes. Each route is a hash with an `identity` and optional `metadata`.
-    # Integrations such as coplan-owner-owl provide this callable.
+    # Host applications provide this callable for their approval system.
     attr_accessor :approval_router
 
     # Optional callable that maps an approval router's external identity to a

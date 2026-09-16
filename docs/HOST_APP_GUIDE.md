@@ -224,8 +224,8 @@ CoPlan.configure do |config|
     AnalyticsEvent.create!(name: event, payload: payload)
   }
 
-  # Approval routing (optional). Adapters such as coplan-owner-owl install
-  # this callable. Route identities match CoPlan usernames by default.
+  # Approval routing (optional). Host applications install this callable.
+  # Route identities match CoPlan usernames by default.
   config.approval_router = nil
   config.approval_identity_resolver = ->(external_identity) {
     CoPlan::User.find_by(username: external_identity)

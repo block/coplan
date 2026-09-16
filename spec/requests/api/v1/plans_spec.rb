@@ -559,7 +559,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
     let!(:owner) { create(:coplan_user, username: "code-owner") }
     let(:router) do
       Class.new do
-        def source = "owner_owl"
+        def source = "test_router"
         def call(**) = [ { identity: "code-owner", metadata: { "source" => "OWNERS.yaml" } } ]
       end.new
     end
@@ -602,7 +602,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
       expect(response).to have_http_status(:success)
       body = JSON.parse(response.body)
       expect(body["approvers"].sole).to include(
-        "role" => "approver", "routing_source" => "owner_owl",
+        "role" => "approver", "routing_source" => "test_router",
         "user" => include("id" => owner.id)
       )
       expect(body["unresolved_identities"]).to eq([])
