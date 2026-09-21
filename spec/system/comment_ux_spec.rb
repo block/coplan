@@ -221,6 +221,33 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css("mark.anchor-highlight--open", text: "microservices architecture")
     end
 
+    it "normalizes the plan text once when refreshing multiple thread highlights" do
+      create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "First", user: reviewer)
+      create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Second", user: reviewer)
+      visit plan_page_path(plan)
+
+      normalization_count = page.evaluate_script(<<~JS)
+        (() => {
+          const layout = document.querySelector('[data-controller~="coplan--text-selection"]')
+          const controller = window.Stimulus.getControllerForElementAndIdentifier(
+            layout,
+            "coplan--text-selection"
+          )
+          const original = controller._buildNormalizedMap.bind(controller)
+          let count = 0
+          controller._buildNormalizedMap = (...args) => {
+            count += 1
+            return original(...args)
+          }
+          controller.highlightAnchors()
+          return count
+        })()
+      JS
+
+      expect(normalization_count).to eq(1)
+      expect(page).to have_css("mark.anchor-highlight--open", count: 2)
+    end
+
     it "renders resolved thread highlights with a dashed underline by default" do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
