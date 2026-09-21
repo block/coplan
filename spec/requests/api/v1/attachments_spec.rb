@@ -36,6 +36,11 @@ RSpec.describe "Api::V1::Attachments", type: :request do
       # ActiveStorage routes (redirect mode → 302 to the service URL).
       get data["url"]
       expect(response).to have_http_status(:found)
+      expect(request.path_parameters[:controller]).to eq("active_storage/blobs/redirect")
+      follow_redirect!
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("image/png")
+      expect(response.body.b).to eq(File.binread(Rails.root.join("spec/fixtures/files/sample.png")))
     end
 
     it "stamps the uploader into the blob metadata" do

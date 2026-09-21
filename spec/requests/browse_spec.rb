@@ -17,6 +17,20 @@ RSpec.describe "Browsable library URLs", type: :request do
     )
   end
 
+  describe "a user named rails" do
+    let(:author) { create(:coplan_user, username: "rails") }
+
+    it "still serves ordinary plans outside the Active Storage namespace" do
+      plan = create(:plan, :published, created_by_user: author, title: "Ordinary plan")
+      sign_in_as(viewer)
+
+      get plan_page_path(plan)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Ordinary plan")
+    end
+  end
+
   describe "every prefix is a real page" do
     let!(:folder) { create(:folder, name: "LiveOrder", created_by_user: author) }
     let!(:nested) { create(:folder, name: "Q3", parent: folder, created_by_user: author) }
