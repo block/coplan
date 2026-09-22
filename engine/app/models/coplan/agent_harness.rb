@@ -8,7 +8,7 @@ module CoPlan
       "cursor" => { display_name: "Cursor", icon: "coplan/agent-cursor.svg", pattern: /\bcursor(?:\s+agent)?\b/ },
       "gemini-cli" => { display_name: "Gemini CLI", icon: "coplan/agent-gemini.png", pattern: /\bgemini(?:\s+cli)?\b/ },
       "goose" => { display_name: "Goose", icon: "coplan/agent-goose.svg", pattern: /\bgoose\b/ },
-      "opencode" => { display_name: "OpenCode", icon: "coplan/agent-opencode.png", pattern: /\bopen[\s_-]?code\b/ }
+      "opencode" => { display_name: "OpenCode", icon: "coplan/agent-opencode.svg", pattern: /\bopen[\s_-]?code\b/ }
     }.freeze
 
     has_many :comments, dependent: :nullify
