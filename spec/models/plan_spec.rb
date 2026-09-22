@@ -23,6 +23,23 @@ RSpec.describe CoPlan::Plan, type: :model do
     expect(plan.visibility).to eq("published")
   end
 
+  describe "touched files" do
+    it "defaults to an empty array" do
+      expect(CoPlan::Plan.new.touched_files).to eq([])
+    end
+
+    it "accepts repository-relative paths" do
+      plan = build(:plan, touched_files: [ { "repo" => "squareup/java", "ref" => "main", "path" => "service/Foo.kt" } ])
+      expect(plan).to be_valid
+    end
+
+    it "rejects malformed repositories and unsafe paths" do
+      plan = build(:plan, touched_files: [ { "repo" => "java", "ref" => "main", "path" => "../secret" } ])
+      expect(plan).not_to be_valid
+      expect(plan.errors[:touched_files]).to include("entry 1 repo must be owner/name", "entry 1 path must be relative")
+    end
+  end
+
   # Untyped plans are unrepresentable: belongs_to presence + NOT NULL in
   # the schema. Creation stays type-optional — the General catch-all fills
   # in — so no caller is forced to pick a type.

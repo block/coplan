@@ -555,6 +555,78 @@ RSpec.describe "Api::V1::Plans", type: :request do
     end
   end
 
+  describe "approval routing" do
+    let!(:owner) { create(:coplan_user, username: "code-owner") }
+    let(:router) do
+      Class.new do
+        def source = "test_router"
+        def call(**) = [ { identity: "code-owner", metadata: { "source" => "OWNERS.yaml" } } ]
+      end.new
+    end
+
+    after do
+      CoPlan.configuration.approval_router = nil
+      CoPlan.configuration.approval_identity_resolver = nil
+    end
+
+    it "persists normalized touched files on update and exposes them in plan JSON" do
+      patch api_v1_plan_path(plan), params: {
+        touched_files: [ { repo: "squareup/java", path: "./payments/Foo.kt" } ]
+      }, headers:, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(JSON.parse(response.body)["touched_files"]).to eq([
+        { "repo" => "squareup/java", "ref" => "HEAD", "path" => "payments/Foo.kt" }
+      ])
+      expect(plan.reload.plan_events.where(event_type: "touched_files_changed")).to exist
+    end
+
+    it "accepts touched files while creating a plan" do
+      post api_v1_plans_path, params: {
+        title: "Routed plan", content: "# Plan",
+        touched_files: [ { repo: "squareup/java", ref: "main", path: "payments/Foo.kt" } ]
+      }, headers:, as: :json
+
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body)["touched_files"]).to eq([
+        { "repo" => "squareup/java", "ref" => "main", "path" => "payments/Foo.kt" }
+      ])
+    end
+
+    it "routes pending approvers for the author" do
+      plan.update!(touched_files: [ { "repo" => "squareup/java", "ref" => "main", "path" => "payments/Foo.kt" } ])
+      CoPlan.configuration.approval_router = router
+
+      post approval_requests_api_v1_plan_path(plan), headers: headers
+
+      expect(response).to have_http_status(:success)
+      body = JSON.parse(response.body)
+      expect(body["approvers"].sole).to include(
+        "role" => "approver", "routing_source" => "test_router",
+        "user" => include("id" => owner.id)
+      )
+      expect(body["unresolved_identities"]).to eq([])
+    end
+
+    it "rejects approval routing by someone other than the author" do
+      plan.update!(touched_files: [ { "repo" => "squareup/java", "ref" => "main", "path" => "payments/Foo.kt" } ])
+      CoPlan.configuration.approval_router = router
+      carol_token
+
+      post approval_requests_api_v1_plan_path(plan), headers: { "Authorization" => "Bearer test-token-carol" }
+
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it "returns service unavailable when no approval router is configured" do
+      plan.update!(touched_files: [ { "repo" => "squareup/java", "ref" => "main", "path" => "payments/Foo.kt" } ])
+
+      post approval_requests_api_v1_plan_path(plan), headers: headers
+
+      expect(response).to have_http_status(:service_unavailable)
+    end
+  end
+
   describe "GET /api/v1/plans/:id/locations" do
     # Still an array — a plan has one location or none, and clients
     # already iterate it.

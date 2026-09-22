@@ -74,6 +74,11 @@ module CoPlan
         else
           "Deleted comment"
         end
+      when "touched_files_changed"
+        count = event.after_value.to_i
+        repositories = Array(event.metadata&.dig("repositories"))
+        suffix = repositories.any? ? " across #{repositories.to_sentence}" : ""
+        "Updated touched files — #{pluralize(count, "file")}#{suffix}"
       else
         # Fallback for unknown / future event types — still useful, never blank.
         "#{event.event_type}: #{event.before_value || "—"} → #{event.after_value || "—"}"

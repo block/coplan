@@ -2,8 +2,8 @@ module CoPlan
   module Api
     module V1
       class PlansController < BaseController
-        before_action :set_plan, only: [ :show, :update, :versions, :comments, :snapshot, :locations ]
-        before_action :authorize_plan_access!, only: [ :show, :update, :versions, :comments, :snapshot, :locations ]
+        before_action :set_plan, only: [ :show, :update, :versions, :comments, :snapshot, :locations, :approval_requests ]
+        before_action :authorize_plan_access!, only: [ :show, :update, :versions, :comments, :snapshot, :locations, :approval_requests ]
 
         def index
           plans = Plan
@@ -65,6 +65,9 @@ module CoPlan
               agent_name: api_agent_name,
               api_token_id: api_token_id
             )
+            if params.key?(:touched_files)
+              plan.update!(touched_files: Plans::TouchedFiles.normalize(params[:touched_files]))
+            end
 
             # Filing happens in the same transaction as creation so a bad
             # folder param never leaves behind an unfiled plan (or, via
@@ -115,6 +118,7 @@ module CoPlan
 
           permitted = {}
           permitted[:title] = params[:title] if params.key?(:title)
+          permitted[:touched_files] = Plans::TouchedFiles.normalize(params[:touched_files]) if params.key?(:touched_files)
           visibility_updates = visibility_params_for_update
           return if performed? # visibility_params_for_update rendered an error
           permitted.merge!(visibility_updates)
@@ -131,6 +135,7 @@ module CoPlan
           old_archived = @plan.archived?
           old_tag_names = @plan.tag_names
           old_plan_type = @plan.plan_type
+          old_touched_files = @plan.touched_files.deep_dup
           tags_changed_by_retype = false
 
           # Folder resolution (which may create folders via folder_path in
@@ -224,6 +229,15 @@ module CoPlan
             end
           end
 
+          if permitted.key?(:touched_files) && @plan.saved_change_to_touched_files?
+            Plans::LogEvent.call(
+              plan: @plan, actor: current_user, event_type: "touched_files_changed",
+              before: old_touched_files.size, after: @plan.touched_files.size,
+              metadata: { repositories: @plan.touched_files.map { |file| file["repo"] }.uniq.sort },
+              actor_type: api_author_type, actor_id: api_user_id, agent_name: api_agent_name, api_token_id: api_token_id
+            )
+          end
+
           if params[:references].is_a?(Array)
             params[:references].each do |ref_params|
               next unless ref_params[:url].present?
@@ -302,6 +316,26 @@ module CoPlan
             references: references.map { |r| reference_json(r) },
             collaborators: collaborators.map { |c| collaborator_json(c) }
           )
+        end
+
+        def approval_requests
+          unless PlanPolicy.new(current_user, @plan).update?
+            return render json: { error: "Not authorized" }, status: :forbidden
+          end
+          if @plan.touched_files.blank?
+            return render json: { error: "touched_files must contain at least one file" }, status: :unprocessable_content
+          end
+
+          result = Plans::RequestApprovals.call(plan: @plan, requester: current_user)
+          render json: {
+            approvers: result.approvers.map { |collaborator| collaborator_json(collaborator) },
+            unresolved_identities: result.unresolved_identities
+          }
+        rescue Plans::RequestApprovals::NotConfigured => e
+          render json: { error: e.message }, status: :service_unavailable
+        rescue Plans::RequestApprovals::InvalidRouterResponse => e
+          CoPlan.configuration.error_reporter&.call(e, { source: "approval_router", plan_id: @plan.id })
+          render json: { error: "Approval routing failed" }, status: :bad_gateway
         end
 
         private
@@ -429,6 +463,7 @@ module CoPlan
             # Legacy five-state field, kept for the deprecation window.
             status: plan.legacy_status,
             current_revision: plan.current_revision,
+            touched_files: plan.touched_files,
             tags: plan.tag_names,
             folder_id: placement&.folder_id,
             folder_path: placement&.folder&.path,
@@ -471,6 +506,10 @@ module CoPlan
             role: collaborator.role
           }
           json[:approved_at] = collaborator.approved_at if collaborator.role == "approver"
+          if collaborator.role == "approver" && collaborator.routing_source.present?
+            json[:routing_source] = collaborator.routing_source
+            json[:routing_metadata] = collaborator.routing_metadata
+          end
           json[:highlighted_reason] = collaborator.highlighted_reason if collaborator.role == "highlighted"
           json
         end

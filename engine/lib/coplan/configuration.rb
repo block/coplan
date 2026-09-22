@@ -8,6 +8,16 @@ module CoPlan
     attr_accessor :ai_base_url, :ai_api_key, :ai_model
     attr_accessor :error_reporter
     attr_accessor :notification_handler
+    # Optional callable used by Plans::RequestApprovals. It receives
+    # `plan:`, `touched_files:`, and `author_identity:` and returns reviewer
+    # routes. Each route is a hash with an `identity` and optional `metadata`.
+    # Host applications provide this callable for their approval system.
+    attr_accessor :approval_router
+
+    # Optional callable that maps an approval router's external identity to a
+    # CoPlan::User. Without it, routing falls back to a case-insensitive match
+    # on CoPlan::User#username.
+    attr_accessor :approval_identity_resolver
 
     # Lambda invoked for every analytics event tracked via
     # `CoPlan::Analytics.track`. Receives (event_name, payload_hash).
@@ -130,6 +140,8 @@ module CoPlan
       @ai_model = "gpt-4o"
       @error_reporter = ->(exception, context) { Rails.error.report(exception, context: context) }
       @notification_handler = nil
+      @approval_router = nil
+      @approval_identity_resolver = nil
       @track_event = nil
       @onboarding_banner = 'Want to upload Agentic plans? Give your agent <a href="/agent-instructions">these instructions</a>.'
       @agent_curl_prefix = 'curl -s -H "Authorization: Bearer $TOKEN"'

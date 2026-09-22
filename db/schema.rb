@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_28_120001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_16_000000) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -244,9 +244,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_28_120001) do
     t.text "highlighted_reason"
     t.string "plan_id", limit: 36, null: false
     t.string "role", null: false
+    t.json "routing_metadata"
+    t.string "routing_source"
     t.datetime "updated_at", null: false
     t.string "user_id", limit: 36, null: false
     t.index ["added_by_user_id"], name: "index_coplan_plan_collaborators_on_added_by_user_id"
+    t.index ["plan_id", "routing_source"], name: "index_coplan_collaborators_on_plan_and_routing_source"
     t.index ["plan_id", "user_id"], name: "index_coplan_plan_collaborators_on_plan_id_and_user_id", unique: true
     t.index ["plan_id"], name: "index_coplan_plan_collaborators_on_plan_id"
     t.index ["user_id"], name: "index_coplan_plan_collaborators_on_user_id"
@@ -367,6 +370,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_28_120001) do
     t.string "summary_content_sha256", limit: 64
     t.datetime "summary_generated_at"
     t.string "title", null: false
+    t.json "touched_files"
     t.datetime "updated_at", null: false
     t.string "visibility", default: "published", null: false
     t.index ["archived_at"], name: "index_coplan_plans_on_archived_at"
