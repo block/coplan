@@ -110,19 +110,30 @@ RSpec.describe "Editor code controls", type: :system do
   context "with an existing code block" do
     let(:source) { "Before prose.\n\n```ruby\nputs :other\n```\n\nAfter prose.\n" }
 
-    it "inserts at the clicked paragraph when selectionchange has not reached the editor yet" do
+    it "preserves the visible caret when decorations update before selectionchange" do
       find('[aria-label="Document body"] p', text: "Before prose.").click
       expect(page).to have_css('[aria-label="Document body"]:focus') {
         page.evaluate_script('Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").richEditor.view.state.selection.$from.parent.textContent') == "Before prose."
       }
-      page.execute_script(<<~'JS')
-        window.delaySelection = event => event.stopImmediatePropagation();
-        document.addEventListener('selectionchange', window.delaySelection, true);
+      positions = page.evaluate_async_script(<<~'JS')
+        const done = arguments[0];
+        import('prosemirror-view').then(({ Decoration, DecorationSet }) => {
+          const controller = Stimulus.getControllerForElementAndIdentifier(document.querySelector('form.document-editor'), 'coplan--editor');
+          const view = controller.richEditor.view;
+          window.delaySelection = event => event.stopImmediatePropagation();
+          document.addEventListener('selectionchange', window.delaySelection, true);
+          const paragraph = [...view.dom.querySelectorAll('p')].find(p => p.textContent === 'After prose.');
+          getSelection().collapse(paragraph.firstChild, 0);
+          const before = { native: getSelection().anchorNode.textContent, model: view.state.selection.$from.parent.textContent };
+          // Syntax highlighting can dispatch a decoration-only transaction before
+          // the browser's queued selectionchange reaches ProseMirror.
+          const highlightKey = view.state.plugins.find(plugin => plugin.key.startsWith('coplan-code-highlight')).key;
+          view.dispatch(view.state.tr.setMeta(highlightKey, DecorationSet.create(view.state.doc, [Decoration.inline(1, 3, { class: 'caret-regression-highlight' })])));
+          document.querySelector('[popovertarget="coplan-insert-code"]').click();
+          done(before);
+        });
       JS
-      find('[aria-label="Document body"] p', text: "After prose.").click
-      expect(page.evaluate_script('getSelection().anchorNode.textContent')).to eq("After prose.")
-      expect(page.evaluate_script('Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").richEditor.view.state.selection.$from.parent.textContent')).to eq("Before prose.")
-      click_button "Insert code block"
+      expect(positions).to eq({ "native" => "After prose.", "model" => "Before prose." })
       find('[role="option"]', text: "JavaScript", exact_text: true).click
       page.execute_script("document.removeEventListener('selectionchange', window.delaySelection, true)")
       page.driver.browser.action.send_keys("const inserted = 1;").perform

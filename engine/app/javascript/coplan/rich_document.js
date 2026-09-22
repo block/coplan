@@ -136,6 +136,15 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       code_block: (node, view, getPos) => codeNodeView(node, view, getPos, preview)
     }, attributes: { class: "markdown-rendered", role: "textbox", "aria-label": "Document body", "aria-multiline": "true" },
     dispatchTransaction(transaction) {
+      // Async decorations can redraw before selectionchange reaches the view.
+      // Preserve the native caret instead of restoring a stale model selection.
+      if (!transaction.docChanged && !transaction.selectionSet && view.hasFocus() && !view.composing) {
+        const { $from, $to } = visibleSelection(view.state, view)
+        if ($from.parent.inlineContent && $to.parent.inlineContent) {
+          const selection = TextSelection.create(transaction.doc, $from.pos, $to.pos)
+          if (!selection.eq(transaction.selection)) transaction.setSelection(selection)
+        }
+      }
       view.updateState(view.state.apply(transaction))
       if (transaction.docChanged && !transaction.getMeta("remote")) changed(serializeDocument(view.state.doc))
       selectionChanged(toolbarState(view.state))

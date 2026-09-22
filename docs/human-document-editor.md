@@ -93,6 +93,8 @@ blank paragraphs to otherwise untouched source.
 Editable code uses the existing pinned highlight.js 11.11.1 core and lazy
 language grammars. Its escaped output is parsed in a detached tree and converted
 to ProseMirror decorations; highlight.js never rewrites the editable contentDOM.
+Decoration updates preserve the visible caret even before the browser delivers
+selectionchange, so a late highlight cannot move the insertion point.
 Aliases such as `js`, `rb` and `py` resolve to canonical grammars. Only the first
 fence-info token selects a grammar; metadata is retained. Language changes
 refresh tokens, and theme variables match the reading view. Blank, plain-text,
