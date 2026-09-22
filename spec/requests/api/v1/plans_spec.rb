@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe "Api::V1::Plans", type: :request do
   let(:alice) { create(:coplan_user, :admin) }
   let(:carol) { create(:coplan_user, :admin) }
-  let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }
+  let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice", agent_name: "Claude") }
   let(:carol_token) { create(:api_token, user: carol, raw_token: "test-token-carol") }
   let(:revoked_token) { create(:api_token, :revoked, user: alice, raw_token: "test-token-revoked") }
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }
@@ -123,7 +123,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
 
   it "create creates new plan" do
     expect {
-      post api_v1_plans_path, params: { title: "API Plan", content: "# API Plan\n\nCreated via API.", agent_name: "Claude" }, headers: headers, as: :json
+      post api_v1_plans_path, params: { title: "API Plan", content: "# API Plan\n\nCreated via API." }, headers: headers, as: :json
     }.to change(CoPlan::Plan, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
@@ -204,7 +204,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
     end
 
     it "records the filing in the library audit log with agent attribution" do
-      post api_v1_plans_path, params: { title: "Filed Plan", content: "# Filed", folder_path: "Infra", agent_name: "Claude" }, headers: headers, as: :json
+      post api_v1_plans_path, params: { title: "Filed Plan", content: "# Filed", folder_path: "Infra" }, headers: headers, as: :json
       expect(response).to have_http_status(:created)
 
       event = alice.library.library_events.find_by(event_type: "plan_filed")

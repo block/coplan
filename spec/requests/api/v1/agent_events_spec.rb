@@ -15,7 +15,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
 
   describe "agent sessions" do
     it "claims a session, drives states, and rejects bogus states" do
-      post api_v1_plan_agent_session_path(plan), params: { agent_name: "Claude" }, headers: agent_headers, as: :json
+      post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
       # Claiming means "attached", not "working" — the pill must not
@@ -65,7 +65,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     end
 
     it "reads as presence rather than activity while watching" do
-      post api_v1_plan_agent_session_path(plan), params: { agent_name: "Claude" }, headers: agent_headers, as: :json
+      post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json
 
       session = CoPlan::AgentSession.find_by(plan_id: plan.id, api_token_id: agent_token.id)
       expect(session.display_status).to eq("Claude")
@@ -430,16 +430,16 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
 
   describe "agent attribution ergonomics" do
     # The token is the identity; the session is just presence on one plan.
-    # Every write path (comments, versions, events) resolves the name the
-    # same way — explicit param, then the token's agent_name, then its
-    # name — so one agent can't sign comments "Ada" while its versions
-    # say "Claude".
-    it "attributes writes to the token's name even when the session was claimed under another label" do
-      post api_v1_plan_agent_session_path(plan), params: { agent_name: "Ada" }, headers: agent_headers, as: :json
+    # Every write path (comments, versions, events) resolves the name from
+    # the token, so one credential cannot sign comments "Ada" while its
+    # versions say "Claude".
+    it "attributes sessions and writes to the same token identity" do
+      post api_v1_plan_agent_session_path(plan), headers: agent_headers, as: :json
 
-      post api_v1_plan_comments_path(plan), params: { body_markdown: "no name given" }, headers: agent_headers, as: :json
+      post api_v1_plan_comments_path(plan), params: { body_markdown: "token identity" }, headers: agent_headers, as: :json
 
       expect(response).to have_http_status(:created)
+      expect(CoPlan::AgentSession.last.agent_name).to eq("Claude")
       expect(CoPlan::Comment.last.agent_name).to eq("Claude")
     end
 
@@ -448,15 +448,6 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
 
       expect(response).to have_http_status(:created)
       expect(CoPlan::Comment.last.agent_name).to eq("Claude")
-    end
-
-    it "truncates an over-long name instead of losing the comment" do
-      post api_v1_plan_comments_path(plan),
-        params: { body_markdown: "hi", agent_name: "Claude (this session, attached)" },
-        headers: agent_headers, as: :json
-
-      expect(response).to have_http_status(:created)
-      expect(CoPlan::Comment.last.agent_name.length).to eq(CoPlan::Comment::AGENT_NAME_LIMIT)
     end
 
     it "returns id alongside comment_id so creates match the rest of the API" do
@@ -502,7 +493,7 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
     end
 
     it "gives API threads the open initial status regardless of author" do
-      post api_v1_plan_comments_path(plan), params: { body_markdown: "note to self", agent_name: "Claude" }, headers: agent_headers, as: :json
+      post api_v1_plan_comments_path(plan), params: { body_markdown: "note to self" }, headers: agent_headers, as: :json
       expect(response).to have_http_status(:created)
       expect(JSON.parse(response.body)["status"]).to eq("open")
     end

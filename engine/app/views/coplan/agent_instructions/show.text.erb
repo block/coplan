@@ -4,9 +4,9 @@ Interact with the CoPlan app to create, read, edit, and comment on plan document
 
 <%= @auth_instructions %>
 
-## Your Identity: Session Tokens
+## Your Identity: One Session Token
 
-Every API call except the mint below requires `Authorization: Bearer <token>`. The token is how your work is attributed — plan history shows "Claude (via User Name)" instead of passing your edits off as the user's own — so each agent run should hold its own short-lived token rather than share a long-lived secret.
+Every API call except the mint below requires `Authorization: Bearer <token>`. Create one short-lived token for this run and declare your identity once. CoPlan then applies that token's agent name, harness, model, and human owner to every version, event, session, and comment automatically. Do not add signatures to plan content or repeat your identity in later requests.
 
 Mint one as your first call (this is the only endpoint that works on request auth alone; it also accepts a long-lived root token from the settings UI):
 
@@ -17,8 +17,8 @@ Mint one as your first call (this is the only endpoint that works on request aut
   "<%= @base %>/api/v1/tokens" | jq .
 ```
 
-- `agent_name`: who you are ("Claude", "Amp") — stamped on every version, event, and comment you write. Truncated past 20 characters.
-- `metadata`: optional JSON object of identity facts about this run — schemaless, like a User-Agent string. Suggested keys: `harness`, `harness_version`, `model`. Recorded on the token, and everything you write links back to it, so include whatever would help a human reading the history later understand what produced the edit. Capped at 4 KB.
+- `agent_name`: a short label for this agent session ("Claude", "Amp"). Declare it here once; the token supplies it on every later call. Truncated past 20 characters.
+- `metadata`: optional JSON identity facts for this run. Use `harness`, `harness_version`, and `model`. Stable harness keys include `amp`, `claude-code`, `codex`, `cursor`, `gemini-cli`, `goose`, and `opencode`; unknown keys are registered automatically. Capped at 4 KB.
 - `ttl_seconds`: optional, default 7 days, max 30 days.
 - The response's `token` is shown once. Send it as `Authorization: Bearer <token>` on every subsequent call.
 - Mint once at the start of your run and reuse it — minting per call would give you a new identity every time.
@@ -100,7 +100,7 @@ These rules apply to every plan you write or edit. One exception mechanism: **a 
 **The platform already records it.** Never write document metadata into the body:
 
 - No date or "last updated" lines — every version is timestamped in the plan history.
-- No author, attribution, or "prepared by" lines — every version and comment is attributed, including your agent name.
+- No author, attribution, or "prepared by" lines — your session token already attributes every version and comment to your harness and its human owner.
 - No status lines, status fields, or status tables — visibility, archival, and tags carry state (see [Visibility &amp; Archiving](#visibility--archiving)). There is no document status; do not invent one.
 - No version numbers or changelogs — the plan history is the changelog.
 
@@ -647,22 +647,21 @@ or matches more than one heading.
   -H "Content-Type: application/json" \
   -d '{
     "body_markdown": "This section needs more detail.",
-    "anchor_text": "the exact text you are commenting on",
-    "agent_name": "Amp"
+    "anchor_text": "the exact text you are commenting on"
   }' \
   "<%= @base %>/api/v1/plans/$PLAN_ID/comments" | jq .
 ```
 
 - `anchor_text`: the exact text from the plan content that this comment is about. It will be highlighted in the UI and the comment will be anchored to it.
 - Omit `anchor_text` for a general (non-anchored) comment.
-- `agent_name`: optional per-request override of who is writing, displayed as "Agent Name (via User Name)". You normally don't need it — it defaults to your token's `agent_name`, then the token's name — so pass it only when posting as a different persona than the one you minted with.
+- Do not send attribution fields. CoPlan reads the agent harness, session label, and human owner from your Bearer token.
 
 ### Reply to Thread
 
 ```bash
 <%= @curl %> -X POST \
   -H "Content-Type: application/json" \
-  -d '{"body_markdown": "Good point, I will address this.", "agent_name": "Amp"}' \
+  -d '{"body_markdown": "Good point, I will address this."}' \
   "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/reply" | jq .
 ```
 
@@ -694,7 +693,7 @@ Claiming a session subscribes your token to the plan's events and shows a live p
 ```bash
 <%= @curl %> -X POST \
   -H "Content-Type: application/json" \
-  -d '{"agent_name": "Claude"}' \
+  -d '{}' \
   "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
 ```
 
@@ -707,7 +706,7 @@ Keep the pill honest by updating your state as you work (`state`: `active`, `awa
 ```bash
 <%= @curl %> -X POST \
   -H "Content-Type: application/json" \
-  -d '{"agent_name": "Claude", "wake_url": "https://your-platform.example/hooks/coplan"}' \
+  -d '{"wake_url": "https://your-platform.example/hooks/coplan"}' \
   "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
 ```
 
@@ -790,7 +789,7 @@ Your token *is* your subscription: sessions, inboxes, and pills are all keyed to
   "<%= @base %>/api/v1/tokens" | jq -r .token
 ```
 
-The minted token inherits your principal (it can never act for a different human), expires on its own (12h default, 7d max), and cannot mint further tokens. Revoking the parent revokes every token it minted. Clean up when you exit:
+The minted token inherits your principal (it can never act for a different human), expires on its own (7 day default, 30 day max), and cannot mint further tokens. Revoking the parent revokes every token it minted. Clean up when you exit:
 
 ```bash
 <%= @curl %> -X DELETE "<%= @base %>/api/v1/tokens/current" | jq .
