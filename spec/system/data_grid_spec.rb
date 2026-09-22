@@ -92,6 +92,34 @@ RSpec.describe "Data tables", type: :system do
 
   before { sign_in(author) }
 
+  it "expands a cell on double-click while a single click keeps browsing inline" do
+    visit plan_page_path(plan)
+    cell = find(".data-grid td", text: "Pilot", exact_text: true)
+    cell.click
+    expect(page).to have_no_css("dialog.expander")
+    cell.double_click
+    expect(page).to have_css("dialog.expander--grid td.is-cursor:focus", text: "Pilot", exact_text: true)
+    expect(page).to have_no_css(".source-comments", visible: true)
+  end
+
+  it "preserves a double-clicked header without sorting or selecting a body cell" do
+    visit plan_page_path(wide_plan)
+    header = find(".data-grid th", text: "Column16", exact_text: true)
+    header.scroll_to(:center)
+    header.double_click
+    expect(page).to have_css("dialog th.is-cursor:focus[aria-sort='none']", text: "Column16")
+    expect(page).to have_no_css("dialog td.is-cursor")
+    expect(page.evaluate_script(<<~JS)).to be(true)
+      (() => {
+        const box = document.querySelector('dialog th.is-cursor').getBoundingClientRect();
+        const frame = document.querySelector('.data-sheet__frame').getBoundingClientRect();
+        return box.left >= frame.left && box.right <= frame.right + 1;
+      })()
+    JS
+    find("dialog th.is-cursor").send_keys(:arrow_down)
+    expect(page).to have_css("dialog td.is-cursor", text: "value-16-unbreakable")
+  end
+
   describe "in the document" do
     it "wraps long cells so a realistic table fits the column" do
       visit plan_page_path(plan)
@@ -199,22 +227,21 @@ RSpec.describe "Data tables", type: :system do
 
     it "starts the cursor on the first cell and moves it with the arrow keys" do
       expect(page).to have_css(".data-sheet__address", text: "A1")
-      expect(page).to have_css(".data-sheet__value-label", text: "Phase")
+      expect(page).to have_no_css(".data-sheet__value", visible: true)
 
       find(".data-sheet__table td.is-cursor").send_keys(:arrow_right, :arrow_down)
 
       expect(page).to have_css(".data-sheet__address", text: "B2")
       expect(page).to have_css(".data-sheet__column", text: "Owner")
-      expect(page).to have_css(".data-sheet__value-content", text: "kim")
+      expect(page).to have_no_css(".data-sheet__value", visible: true)
       expect(page).to have_css(".data-sheet__table tr.is-cursor-row td", text: "Ramp")
     end
 
-    it "shows a long value in full even though the cell itself is clipped" do
+    it "does not duplicate a value that already fits in its cell" do
       find(".data-sheet__table td.is-cursor").send_keys(:end)
 
-      expect(page).to have_css(".data-sheet__value-label", text: "Notes")
-      expect(page).to have_css(".data-sheet__value-content",
-                               text: "Internal merchants only, behind the flag")
+      expect(page).to have_no_css(".data-sheet__value", visible: true)
+      expect(page).to have_css("td.is-cursor", text: "Internal merchants only, behind the flag")
     end
 
     it "keeps the cursor inside the table at the edges" do
@@ -227,11 +254,11 @@ RSpec.describe "Data tables", type: :system do
       first_owner = -> { page.evaluate_script('document.querySelector(".data-sheet__table tbody td:nth-child(2)").textContent.trim()') }
       expect(first_owner.call).to eq("sam")
 
-      find(".data-sheet__table thead th", text: "Owner").click
+      find('.data-sheet__table [aria-label="Sort by Owner"]').click
       expect(page).to have_css(".data-sheet__table thead th.is-sorted-asc", text: "Owner")
       expect(first_owner.call).to eq("ada")
 
-      find(".data-sheet__table thead th", text: "Owner").click
+      find('.data-sheet__table [aria-label="Sort by Owner"]').click
       expect(page).to have_css(".data-sheet__table thead th.is-sorted-desc", text: "Owner")
       expect(first_owner.call).to eq("tom")
 
@@ -241,7 +268,7 @@ RSpec.describe "Data tables", type: :system do
     end
 
     it "sorts a column of numbers by value, not by its digits as text" do
-      find(".data-sheet__table thead th", text: "Traffic").click
+      find('.data-sheet__table [aria-label="Sort by Traffic"]').click
 
       order = page.evaluate_script(
         'Array.from(document.querySelectorAll(".data-sheet__table tbody td:nth-child(4)")).map(c => c.textContent.trim())'

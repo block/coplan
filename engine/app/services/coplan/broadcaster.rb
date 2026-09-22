@@ -79,6 +79,13 @@ module CoPlan
           html: html,
           attrs: attrs
         )
+        # Structured anchors move through the same OT as prose anchors.
+        # Refresh their source ranges together with the rendered document;
+        # the client compares content digests before displaying a badge.
+        plan.comment_threads.where.not(anchor_kind: nil).with_kept_comments.includes(:comments, :created_by_user).each do |thread|
+          replace_to(plan, target: ActionView::RecordIdentifier.dom_id(thread),
+            partial: "coplan/comment_threads/thread_popover", locals: { plan: plan, thread: thread })
+        end
       end
 
       # Reference extraction runs after the version transaction commits. Build

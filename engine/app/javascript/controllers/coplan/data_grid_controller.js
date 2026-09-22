@@ -10,7 +10,7 @@ import { openExpander, attachExpandAffordance, nearestHeading, ICONS } from "cop
 //
 // Expanded it becomes a spreadsheet: header row and first column pinned, a
 // cell cursor you drive with the arrow keys, a crosshair on the current row
-// and column, a value bar showing the focused cell in full, and sortable
+// and column, on-demand row expansion for reading long values, and sortable
 // columns. The surface itself is shared with Mermaid diagrams — see
 // coplan/expander.
 
@@ -33,7 +33,7 @@ export default class extends Controller {
 
     this.affordance = attachExpandAffordance(this.element, {
       label: "Expand table",
-      hint: "Open as a spreadsheet",
+      hint: "Expand table",
       className: "data-grid__expand",
       onExpand: () => this.expand()
     })
@@ -65,18 +65,32 @@ export default class extends Controller {
       overflowX || overflowY || rows > WORTH_EXPANDING_ROWS || columns > WORTH_EXPANDING_COLUMNS)
   }
 
-  expand() {
+  expandFromDoubleClick(event) {
+    if (event.target.closest("a, button, input, textarea, select, [contenteditable], [data-source-badge], .anchor-highlight")) return
+    event.preventDefault()
+    window.getSelection()?.removeAllRanges()
+    const cell = event.target.closest("td, th")
+    const position = cell && cell.closest("table") === this.table ? {
+      row: cell.closest("thead") ? -1 : Array.from(this.table.tBodies[0]?.rows || []).indexOf(cell.parentElement),
+      column: cell.cellIndex
+    } : null
+    this.expand(position)
+  }
+
+  expand(position = null) {
     if (this.expanded) return
 
     const expander = openExpander({
       title: nearestHeading(this.element) || "Table",
       label: "Expanded table",
       variant: "grid",
+      container: this.element.closest('[data-controller~="coplan--source-comments"]') || document.body,
       status: true,
       onClose: () => { this.expanded = null; this.sheet = null }
     })
     this.expanded = expander
-    this.sheet = new Sheet(this.table, expander)
+    this.sheet = new Sheet(this.table, expander, position)
+    expander.dialog.dispatchEvent(new CustomEvent("coplan:expander-opened", { bubbles: true }))
   }
 }
 
@@ -84,7 +98,7 @@ export default class extends Controller {
 // sorting and the cursor never touch what the page (or a comment anchor)
 // is looking at.
 class Sheet {
-  constructor(sourceTable, expander) {
+  constructor(sourceTable, expander, position) {
     this.expander = expander
     this.table = sourceTable.cloneNode(true)
     this.table.className = "data-sheet__table"
@@ -93,13 +107,16 @@ class Sheet {
     this.headerCells = Array.from(this.table.tHead?.rows[0]?.cells || [])
     this.bodyRows = Array.from(this.table.tBodies[0]?.rows || [])
     this.sourceOrder = this.bodyRows.slice()
+    this.prose = this.bodyRows.some(row => Array.from(row.cells).some(cell =>
+      cellText(cell).length > 120 || cell.querySelector("br, pre, ul, ol")))
     this.columnCount = this.headerCells.length || this.bodyRows[0]?.cells.length || 0
     this.sort = null
     this.cursor = null
 
     this.build()
     this.wire()
-    if (this.bodyRows.length > 0) this.moveTo(0, 0)
+    if (position) this.moveTo(position.row, position.column)
+    else if (this.bodyRows.length > 0) this.moveTo(0, 0)
     else this.frame.focus({ preventScroll: true })
   }
 
@@ -119,7 +136,16 @@ class Sheet {
       cell.setAttribute("scope", "col")
       cell.dataset.column = index
       cell.setAttribute("aria-sort", "none")
-      cell.tabIndex = -1
+      cell.tabIndex = 0
+      const sortButton = node("button", "data-sheet__sort")
+      sortButton.type = "button"
+      sortButton.textContent = "↕"
+      sortButton.setAttribute("aria-label", `Sort by ${cellText(cell) || index + 1}`)
+      sortButton.addEventListener("click", event => {
+        event.stopPropagation()
+        this.applySort(this.nextSortFor(index))
+      })
+      cell.append(sortButton)
     })
 
     this.bodyRows.forEach(row => {
@@ -130,17 +156,13 @@ class Sheet {
       })
     })
 
-    this.valueBar = node("div", "data-sheet__value")
-    this.valueLabel = node("span", "data-sheet__value-label")
-    this.valueContent = node("div", "data-sheet__value-content")
-    this.valueBar.append(this.valueLabel, this.valueContent)
-
     this.frame = node("div", "data-sheet__frame")
+    this.frame.classList.toggle("is-wrapped", this.prose)
     this.frame.tabIndex = 0
     this.frame.append(this.table)
 
     const sheet = node("div", "data-sheet")
-    sheet.append(this.valueBar, this.frame)
+    sheet.append(this.frame)
     this.expander.body.append(sheet)
 
     this.wrapButton = this.expander.addTool({
@@ -149,6 +171,8 @@ class Sheet {
       icon: ICONS.wrap,
       onClick: () => this.toggleWrap()
     })
+    this.wrapButton.classList.toggle("is-active", this.prose)
+    this.wrapButton.setAttribute("aria-pressed", String(this.prose))
     this.resetButton = this.expander.addTool({
       label: "Reset sort order",
       hint: "Back to the document's order",
@@ -162,19 +186,25 @@ class Sheet {
     this.dimensions = node("span", "data-sheet__dimensions")
     this.dimensions.textContent =
       `${count(this.bodyRows.length, "row")} × ${count(this.columnCount, "column")}`
-    const hint = node("span", "expander__hint")
-    hint.textContent = "Arrows move · Home/End jump · ⌘C copies the cell"
-    this.expander.setStatus([ this.address, this.column, this.dimensions, hint ])
+    const hint = node("span", "expander__hint data-sheet__hint")
+    hint.innerHTML = '<kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> Move <span>·</span> <kbd>⌘/Ctrl C</kbd> Copy'
+    this.commentButton = node("button", "btn btn--secondary btn--sm data-sheet__comment")
+    this.commentButton.type = "button"
+    this.commentButton.innerHTML = '<kbd>C</kbd> Comment'
+    this.commentButton.dataset.action = "coplan--source-comments#commentOnCell"
+    this.commentButton.hidden = !this.table.querySelector("[data-source-target]")
+    this.rowButton = node("button", "btn btn--secondary btn--sm data-sheet__row-toggle")
+    this.rowButton.type = "button"
+    this.rowButton.addEventListener("click", () => this.toggleRow())
+    this.expander.setStatus([ this.address, this.column, this.dimensions, hint, this.rowButton, this.commentButton ])
+    this.updateRowControl()
   }
 
   wire() {
     this.table.addEventListener("click", event => {
       const cell = event.target.closest("td, th")
       if (!cell) return
-      if (cell.parentElement.parentElement === this.table.tHead) {
-        this.applySort(this.nextSortFor(Number(cell.dataset.column)))
-        return
-      }
+      if (event.target.closest("a, button, [data-source-badge]") || cell.parentElement.parentElement === this.table.tHead) return
       const row = this.bodyRows.indexOf(cell.parentElement)
       if (row >= 0) this.moveTo(row, Number(cell.dataset.column))
     })
@@ -191,11 +221,17 @@ class Sheet {
       // Only say "copied" once the clipboard has actually taken it: over
       // plain http there's no clipboard API at all, and a flash that lies
       // costs more than one that never appears.
-      navigator.clipboard?.writeText(this.cursor.textContent.trim())
+      navigator.clipboard?.writeText(cellText(this.cursor))
         .then(() => this.flashCopied(), () => {})
       return
     }
     if (event.metaKey || event.ctrlKey) return
+
+    if (event.key.toLowerCase() === "r") {
+      event.preventDefault()
+      this.toggleRow()
+      return
+    }
 
     const lastRow = this.bodyRows.length - 1
     const lastColumn = this.columnCount - 1
@@ -224,11 +260,11 @@ class Sheet {
     }
 
     event.preventDefault()
-    this.moveTo(clamp(row, 0, lastRow), clamp(column, 0, lastColumn))
+    this.moveTo(clamp(row, this.position?.row === -1 ? -1 : 0, lastRow), clamp(column, 0, lastColumn))
   }
 
   moveTo(row, column) {
-    const cell = this.bodyRows[row]?.cells[column]
+    const cell = row === -1 ? this.headerCells[column] : this.bodyRows[row]?.cells[column]
     if (!cell) return
 
     this.cursor?.classList.remove("is-cursor")
@@ -239,20 +275,19 @@ class Sheet {
 
     this.position = { row, column }
     this.cursor = cell
+    this.commentButton.disabled = !cell.dataset.sourceTarget
     cell.classList.add("is-cursor")
     cell.setAttribute("aria-selected", "true")
-    this.bodyRows[row].classList.add("is-cursor-row")
+    this.bodyRows[row]?.classList.add("is-cursor-row")
     this.columns[column]?.classList.add("is-cursor-column")
     this.headerCells[column]?.classList.add("is-cursor-column")
 
-    this.address.textContent = `${columnName(column)}${row + 1}`
-    const header = this.headerCells[column]?.textContent.trim()
+    this.address.textContent = `${columnName(column)}${row === -1 ? "" : row + 1}`
+    const header = cellText(this.headerCells[column])
     this.column.textContent = header || ""
     this.column.hidden = !header
 
-    this.valueLabel.textContent = header || columnName(column)
-    this.valueContent.replaceChildren(...Array.from(cell.cloneNode(true).childNodes))
-    this.valueBar.classList.toggle("is-empty", cell.textContent.trim() === "")
+    this.updateRowControl()
 
     cell.focus({ preventScroll: true })
     this.reveal(cell)
@@ -264,14 +299,15 @@ class Sheet {
   reveal(cell) {
     const frame = this.frame.getBoundingClientRect()
     const box = cell.getBoundingClientRect()
-    const headerHeight = this.table.tHead?.getBoundingClientRect().height || 0
+    const headerHeight = this.position.row === -1 ? 0 : (this.table.tHead?.getBoundingClientRect().height || 0)
     const gutter = this.position.column === 0 ? 0 : (this.bodyRows[0]?.cells[0]?.getBoundingClientRect().width || 0)
 
     let left = 0
     let top = 0
-    if (box.top < frame.top + headerHeight) top = box.top - frame.top - headerHeight
+    if (box.height > frame.height - headerHeight || box.top < frame.top + headerHeight) top = box.top - frame.top - headerHeight
     else if (box.bottom > frame.bottom) top = box.bottom - frame.bottom
-    if (box.left < frame.left + gutter) left = box.left - frame.left - gutter
+    if (this.position.column === 0) left = -this.frame.scrollLeft
+    else if (box.left < frame.left + gutter) left = box.left - frame.left - gutter
     else if (box.right > frame.right) left = box.right - frame.right
 
     if (left || top) this.frame.scrollBy({ left, top, behavior: "instant" })
@@ -289,7 +325,7 @@ class Sheet {
 
     if (sort) {
       const values = new Map(this.sourceOrder.map(row =>
-        [ row, (row.cells[sort.column]?.textContent || "").trim() ]))
+        [ row, cellText(row.cells[sort.column]) ]))
       const numeric = this.sourceOrder.every(row => isNumeric(values.get(row)))
       const order = sort.direction === "asc" ? 1 : -1
       this.bodyRows = this.sourceOrder.slice().sort((a, b) => {
@@ -326,6 +362,7 @@ class Sheet {
     const wrapped = this.frame.classList.toggle("is-wrapped")
     this.wrapButton.classList.toggle("is-active", wrapped)
     this.wrapButton.setAttribute("aria-pressed", String(wrapped))
+    this.updateRowControl()
     // Hand the keyboard back to the grid: the arrow keys only reach the
     // sheet's own listener while focus is inside the frame, so leaving it on
     // the toolbar button would strand the cursor.
@@ -333,6 +370,22 @@ class Sheet {
       this.cursor.focus({ preventScroll: true })
       this.reveal(this.cursor)
     }
+  }
+
+  toggleRow() {
+    if (!this.cursor || this.position.row === -1 || this.frame.classList.contains("is-wrapped")) return
+    this.cursor.parentElement.classList.toggle("is-expanded")
+    this.updateRowControl()
+    this.cursor.focus({ preventScroll: true })
+    this.reveal(this.cursor)
+  }
+
+  updateRowControl() {
+    this.rowButton.hidden = this.frame.classList.contains("is-wrapped")
+    this.rowButton.disabled = !this.cursor || this.position.row === -1
+    const expanded = this.cursor?.parentElement.classList.contains("is-expanded") || false
+    this.rowButton.setAttribute("aria-expanded", String(expanded))
+    this.rowButton.innerHTML = `<kbd>R</kbd> ${expanded ? "Collapse" : "Expand"} row`
   }
 
   flashCopied() {
@@ -377,4 +430,15 @@ function isNumeric(value) {
 
 function numberOf(value) {
   return Number.parseFloat(value.replace(/[^\d.-]/g, "")) || 0
+}
+
+// Comment badges and sorting controls are UI, never spreadsheet data.
+function cleanCell(cell) {
+  const copy = cell.cloneNode(true)
+  copy.querySelectorAll("[data-source-badge], button").forEach(el => el.remove())
+  return copy
+}
+
+function cellText(cell) {
+  return cell ? cleanCell(cell).textContent.trim() : ""
 }

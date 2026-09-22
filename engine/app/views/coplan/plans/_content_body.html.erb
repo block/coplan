@@ -13,6 +13,6 @@
   <% if plan.presentation? %>
     <%= render_slideshow(plan.current_content) %>
   <% else %>
-    <%= render_markdown(plan.current_content, footnotes: :exclude) %>
+    <%= render_markdown(plan.current_content, footnotes: :exclude, source_comments: true) %>
   <% end %>
 <% end %>

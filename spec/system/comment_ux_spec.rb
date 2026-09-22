@@ -175,7 +175,7 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css('.mermaid-diagram[data-mermaid-theme="dark"]', wait: 10)
     end
 
-    it "expands a Mermaid diagram into the takeover surface on click" do
+    it "expands a Mermaid diagram using the expand control" do
       plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
         ```mermaid
         flowchart LR
@@ -186,7 +186,8 @@ RSpec.describe "Comment UX", type: :system do
       visit plan_page_path(plan)
 
       expect(page).to have_css(".mermaid-diagram svg", wait: 10)
-      find(".mermaid-diagram").click
+      find(".mermaid-diagram").hover
+      find(".mermaid-diagram__expand").click
       expect(page).to have_css(".expander--diagram .expander__canvas > svg")
 
       # Dismissal is the backdrop or Escape — a click inside is a pan, not
@@ -1232,12 +1233,19 @@ RSpec.describe "Comment UX", type: :system do
       expect(rendered_text).to include(cell_text)
 
       page.execute_script <<~JS
-        const form = document.getElementById('new-comment-form');
-        form.style.display = 'block';
-        form.querySelector('[name="comment_thread[anchor_text]"]').value = '#{cell_text}';
-        form.querySelector('[name="comment_thread[anchor_context]"]').value = '';
-        form.querySelector('[name="comment_thread[anchor_occurrence]"]').value = '1';
+        const cell = Array.from(document.querySelectorAll('table td')).find(cell => cell.textContent.trim() === '#{cell_text}');
+        const range = document.createRange();
+        range.selectNodeContents(cell);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        cell.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
       JS
+      expect(page).to have_css(".comment-popover", visible: true)
+      expect(page).to have_no_css("#new-comment-form", visible: true)
+      expect(page).to have_no_css(".source-comments", visible: true)
+      page.driver.browser.action.send_keys("c").perform
+      expect(page).to have_css("#new-comment-form textarea:focus")
 
       within("#new-comment-form") do
         fill_in "comment_thread[body_markdown]", with: "Review this phase"

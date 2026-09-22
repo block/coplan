@@ -662,3 +662,60 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
     end
   end
 end
+
+RSpec.describe CoPlan::CommentThread, "structured source anchor tracking" do
+  let(:user) { create(:coplan_user) }
+  let(:content) { "# Plan\n\n| A | B |\n|---|---|\n| same | same |\n|||\n" }
+  let(:plan) do
+    CoPlan::Plan.create!(title: "Source tracking", created_by_user: user).tap do |p|
+      version = create(:plan_version, plan: p, revision: 1, content_markdown: content)
+      p.update!(current_plan_version: version, current_revision: 1)
+    end
+  end
+  let(:target) do
+    html = Commonmarker.to_html(content, options: { render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
+    doc = CoPlan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
+    JSON.parse(doc.css("[data-source-target]")[3]["data-source-target"])
+  end
+  let!(:thread) do
+    plan.comment_threads.create!(plan_version: plan.current_plan_version, created_by_user: user,
+      source_token: target["token"])
+  end
+
+  def replace_content(new_content)
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: new_content, base_revision: plan.current_revision,
+      actor_type: "human", actor_id: user.id)
+    thread.reload
+  end
+
+  it "moves the exact duplicate's range through unrelated edits" do
+    replace_content("Preface 🌱\n\n#{content}")
+    expect(thread).to have_attributes(anchor_start: target["start"] + "Preface 🌱\n\n".length,
+      anchor_revision: 2, out_of_date: false, anchor_kind: "table_cell")
+    expect(plan.current_content[thread.anchor_start...thread.anchor_end]).to eq(" same ")
+  end
+
+  it "marks an edited target out of date instead of finding an identical neighbor" do
+    new_content = content.dup
+    new_content[target["start"]...target["end"]] = " changed "
+    replace_content(new_content)
+    expect(thread).to be_out_of_date
+    expect(thread.out_of_date_since_version).to eq(plan.current_plan_version)
+  end
+
+  it "invalidates a removed row" do
+    replace_content(content.sub("| same | same |\n", ""))
+    expect(thread).to be_out_of_date
+  end
+  it "marks a cell out of date when a nonoverlapping edit removes the table grammar" do
+    replace_content(content.sub("|---|---|", "No table delimiter"))
+    expect(thread).to be_out_of_date
+    expect(thread.anchor_context_with_highlight).to include("** same **")
+    expect(thread.anchor_context_with_highlight).to include("|---|---|")
+  end
+  it "retains original source context after a complete rewrite" do
+    replace_content("# Empty plan")
+    expect(thread).to be_out_of_date
+    expect(thread.anchor_context_with_highlight).to include("** same **")
+  end
+end

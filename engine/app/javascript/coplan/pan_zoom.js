@@ -18,10 +18,6 @@ export function createPanZoom(viewport, content, {
   // Fitting a three-node diagram to a 1400px screen would blow it up to a
   // cartoon. Fit is allowed to enlarge, but only so far.
   maxFit = 2,
-  // ...and the other end: a wide diagram "fitted" to a phone is a field of
-  // specks. Past this floor, fit stops shrinking and the surface pans
-  // instead. Zooming out by hand still goes all the way to `min`.
-  minFit = min,
   onChange = null
 } = {}) {
   const abort = new AbortController()
@@ -32,6 +28,9 @@ export function createPanZoom(viewport, content, {
   let x = 0
   let y = 0
   let fitScale = 1
+  let fitted = true
+  let gestureStart
+  let dragged = false
 
   content.style.position = "absolute"
   content.style.top = "0"
@@ -50,8 +49,9 @@ export function createPanZoom(viewport, content, {
   }
 
   function setScale(next, anchorX, anchorY) {
-    const clamped = Math.min(max, Math.max(min, next))
+    const clamped = Math.min(max, Math.max(Math.min(min, fitScale), next))
     if (clamped === scale) return
+    fitted = false
     const ratio = clamped / scale
     // Hold the content point under the anchor still.
     x = anchorX - ratio * (anchorX - x)
@@ -73,11 +73,10 @@ export function createPanZoom(viewport, content, {
   function fit() {
     const box = viewport.getBoundingClientRect()
     const available = { width: Math.max(1, box.width - padding * 2), height: Math.max(1, box.height - padding * 2) }
-    fitScale = Math.min(maxFit, Math.max(minFit, Math.min(available.width / width, available.height / height)))
+    fitScale = Math.min(maxFit, available.width / width, available.height / height)
+    fitted = true
     scale = fitScale
-    // Centre on whichever axis the whole thing does fit; on an axis held up
-    // by the floor, start at the beginning of the content rather than its
-    // middle — `apply` clamps these to the edge.
+    // Fit always contains the full diagram, even below the normal zoom minimum.
     x = width * scale <= box.width ? (box.width - width * scale) / 2 : 0
     y = height * scale <= box.height ? (box.height - height * scale) / 2 : 0
     apply()
@@ -96,6 +95,7 @@ export function createPanZoom(viewport, content, {
   viewport.addEventListener("wheel", event => {
     event.preventDefault()
     if (event.shiftKey && !event.ctrlKey) {
+      fitted = false
       x -= event.deltaY || event.deltaX
       apply()
       return
@@ -109,7 +109,11 @@ export function createPanZoom(viewport, content, {
 
   viewport.addEventListener("pointerdown", event => {
     if (event.button !== 0 && event.pointerType === "mouse") return
-    viewport.setPointerCapture(event.pointerId)
+    if (event.target.closest("a, button")) return
+    if (pointers.size === 0) {
+      gestureStart = { x: event.clientX, y: event.clientY }
+      dragged = false
+    } else dragged = true
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
     viewport.classList.add("is-grabbing")
   }, { signal })
@@ -118,8 +122,12 @@ export function createPanZoom(viewport, content, {
     const previous = pointers.get(event.pointerId)
     if (!previous) return
     const current = { x: event.clientX, y: event.clientY }
+    if (distance(gestureStart, current) > 6) dragged = true
+    if (!dragged) return
+    viewport.setPointerCapture(event.pointerId)
 
     if (pointers.size === 1) {
+      fitted = false
       x += current.x - previous.x
       y += current.y - previous.y
       pointers.set(event.pointerId, current)
@@ -151,6 +159,11 @@ export function createPanZoom(viewport, content, {
   }
   viewport.addEventListener("pointerup", release, { signal })
   viewport.addEventListener("pointercancel", release, { signal })
+  viewport.addEventListener("click", event => {
+    if (!dragged) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+  }, { signal, capture: true })
 
   viewport.addEventListener("dblclick", event => {
     event.preventDefault()
@@ -164,6 +177,7 @@ export function createPanZoom(viewport, content, {
     if (event.metaKey || event.ctrlKey || !KEYS.has(event.key)) return
     event.preventDefault()
     const step = event.shiftKey ? 200 : 60
+    if (event.key.startsWith("Arrow")) fitted = false
     switch (event.key) {
       case "+": case "=": zoomBy(1.25); break
       case "-": case "_": zoomBy(0.8); break
@@ -176,7 +190,7 @@ export function createPanZoom(viewport, content, {
     }
   }, { signal })
 
-  const resize = new ResizeObserver(() => apply())
+  const resize = new ResizeObserver(() => fitted ? fit() : apply())
   resize.observe(viewport)
 
   fit()

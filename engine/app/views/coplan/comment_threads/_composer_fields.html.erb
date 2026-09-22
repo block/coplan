@@ -1,0 +1,16 @@
+<%# Shared by text selections and diagram/table selections. Keep one composer. %>
+<div class="form-group">
+  <%= text_area_tag "comment_thread[body_markdown]", nil,
+        id: local_assigns.fetch(:field_id, "comment_thread_body_markdown"),
+        rows: 3, placeholder: "Write a comment...", required: true,
+        aria: { label: "New comment" },
+        data: { controller: "coplan--comment-form",
+                "coplan--comment-form-search-url-value": search_users_path }.merge(local_assigns.fetch(:textarea_data, {})) %>
+</div>
+<div class="comment-form__error text-sm" role="status" id="<%= local_assigns.fetch(:error_id, "new-comment-form-error") %>"></div>
+<div class="comment-form__actions">
+  <button type="submit" class="btn btn--primary btn--sm" data-turbo-submits-with="Posting…">Comment</button>
+  <button type="button" class="btn btn--secondary btn--sm"
+          aria-label="<%= local_assigns.fetch(:cancel_label, "Cancel") %>"
+          data-action="<%= local_assigns.fetch(:cancel_action, "coplan--text-selection#cancelComment") %>">Cancel</button>
+</div>

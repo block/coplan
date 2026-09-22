@@ -130,3 +130,60 @@ RSpec.describe "CommentThreads", type: :request do
     expect(thread.status).to eq("open")
   end
 end
+
+RSpec.describe "Source-backed element comments", type: :request do
+  let(:user) { create(:coplan_user) }
+  let(:content) { "| A | B |\n|---|---|\n| same | same |\n|||\n" }
+  let(:plan) do
+    create(:plan, created_by_user: user).tap do |p|
+      version = create(:plan_version, plan: p, revision: 2, content_markdown: content)
+      p.update!(current_plan_version: version, current_revision: 2)
+    end
+  end
+  let(:targets) do
+    html = Commonmarker.to_html(content, options: { render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
+    CoPlan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
+      .css("[data-source-target]").map { |cell| JSON.parse(cell["data-source-target"]) }
+  end
+
+  before { sign_in_as(user) }
+
+  def post_target(token, body: "Please update this cell")
+    post plan_comment_threads_path(plan), params: {
+      comment_thread: { source_token: token, anchor_text: "same", anchor_occurrence: 1, body_markdown: body }
+    }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+  end
+
+  it "anchors the selected duplicate, ignoring caller-supplied text and occurrence" do
+    target = targets[3]
+    post_target(target["token"])
+    expect(response).to have_http_status(:ok)
+    thread = plan.comment_threads.last
+    expect(thread).to have_attributes(anchor_start: target["start"], anchor_end: target["end"],
+      anchor_text: " same ", anchor_kind: "table_cell", anchor_revision: 2, plan_version: plan.current_plan_version)
+    expect(response.body).to include("data-anchor-kind=\"table_cell\"")
+    expect(thread.anchor_context_with_highlight).to include("** same **")
+  end
+
+  it "creates an empty-cell comment with an editable source fence" do
+    post_target(targets.last["token"])
+    expect(response).to have_http_status(:ok)
+    expect(plan.comment_threads.last).to have_attributes(anchor_text: "||", anchor_kind: "table_cell")
+  end
+
+  it "rejects stale source instead of moving onto identical text in another revision" do
+    old_token = targets[3]["token"]
+    version = create(:plan_version, plan: plan, revision: 3, content_markdown: "prefix\n\n#{content}")
+    plan.update!(current_plan_version: version, current_revision: 3)
+    expect { post_target(old_token) }.not_to change(CoPlan::CommentThread, :count)
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(response.body).to include("source-comment-error", "no longer valid")
+  end
+
+  it "rejects tampered tokens and rolls back empty comments" do
+    expect { post_target(targets.last["token"] + "x") }.not_to change(CoPlan::CommentThread, :count)
+    expect(response).to have_http_status(:unprocessable_content)
+    expect { post_target(targets.last["token"], body: "") }.not_to change(CoPlan::CommentThread, :count)
+    expect(response).to have_http_status(:unprocessable_content)
+  end
+end

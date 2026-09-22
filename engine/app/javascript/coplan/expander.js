@@ -24,7 +24,7 @@ export const ICONS = {
 
 // Opens the surface. Returns a handle: fill `body`, hang controls off
 // `addTool`, write a one-line readout with `setStatus`.
-export function openExpander({ title = "", label = "Expanded view", variant = null, status = false, onClose = null } = {}) {
+export function openExpander({ title = "", label = "Expanded view", variant = null, status = false, onClose = null, container = document.body } = {}) {
   current?.close()
 
   const dialog = document.createElement("dialog")
@@ -89,6 +89,7 @@ export function openExpander({ title = "", label = "Expanded view", variant = nu
 
   dialog.addEventListener("close", () => {
     document.documentElement.classList.remove("expander-open")
+    dialog.dispatchEvent(new CustomEvent("coplan:expander-closing", { bubbles: true }))
     dialog.remove()
     if (current === handle) current = null
     onClose?.()
@@ -96,7 +97,7 @@ export function openExpander({ title = "", label = "Expanded view", variant = nu
 
   current = handle
   document.documentElement.classList.add("expander-open")
-  document.body.append(dialog)
+  container.append(dialog)
   dialog.showModal()
   return handle
 }

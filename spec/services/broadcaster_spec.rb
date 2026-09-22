@@ -36,6 +36,16 @@ RSpec.describe CoPlan::Broadcaster do
       expect(payloads.first).to include("Hello world")
     end
 
+    it "refreshes structured source ranges with requestless thread partials" do
+      thread = create(:comment_thread, plan: plan, anchor_text: "Some content")
+      thread.update_column(:anchor_kind, "table_cell")
+      create(:comment, comment_thread: thread, author_id: author.id)
+      expect(described_class).to receive(:replace_to).with(plan,
+        target: ActionView::RecordIdentifier.dom_id(thread),
+        partial: "coplan/comment_threads/thread_popover", locals: { plan: plan, thread: thread })
+      described_class.replace_plan_content(plan)
+    end
+
     it "reflects the latest revision so stale-tab clients can ignore self-broadcasts" do
       version2 = CoPlan::PlanVersion.create!(
         plan: plan, revision: 2,

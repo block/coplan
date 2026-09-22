@@ -52,13 +52,13 @@ export default class extends Controller {
 
   get openHighlights() {
     return this._deduplicateByThread(
-      Array.from(document.querySelectorAll("mark.anchor-highlight--open[data-thread-id]"))
+      Array.from(document.querySelectorAll(".anchor-highlight--open[data-thread-id]"))
     )
   }
 
   get allHighlights() {
     return this._deduplicateByThread(
-      Array.from(document.querySelectorAll("mark.anchor-highlight[data-thread-id]"))
+      Array.from(document.querySelectorAll(".anchor-highlight[data-thread-id]"))
     )
   }
 
