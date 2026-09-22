@@ -256,6 +256,7 @@ export default class extends Controller {
 
     // Build full text for position lookups
     this.fullText = this._renderedText()
+    this._normalizedFullText = this._buildNormalizedMap(this.fullText)
 
     const highlighted = this.findAndHighlight(anchor, occurrence, "anchor-highlight--active")
     if (highlighted) {
@@ -637,8 +638,11 @@ export default class extends Controller {
     })
     this.contentTarget.normalize()
 
-    // Build full text once for position lookups
+    // Build the rendered and normalized text once for every thread lookup.
+    // Normalizing the entire plan separately for each thread made adding one
+    // comment quadratic in the document size and thread count.
     this.fullText = this._renderedText()
+    this._normalizedFullText = this._buildNormalizedMap(this.fullText)
 
     const threads = this.element.querySelectorAll("[data-anchor-text]")
     threads.forEach(thread => {
@@ -684,14 +688,14 @@ export default class extends Controller {
     if (occurrence !== undefined && occurrence !== "") {
       const occurrenceNum = parseInt(occurrence, 10)
       if (!isNaN(occurrenceNum)) {
-        match = this._findNthNormalized(fullText, text, occurrenceNum)
+        match = this._findNthNormalized(fullText, text, occurrenceNum, this._normalizedFullText)
       }
     } else {
       // Fallback only when occurrence is missing/blank (not when a specific
       // occurrence was requested but couldn't be found — that means the
       // content has changed and highlighting the wrong passage is worse
       // than showing no highlight).
-      match = this._findNthNormalized(fullText, text, 0)
+      match = this._findNthNormalized(fullText, text, 0, this._normalizedFullText)
     }
 
     if (!match) return null
@@ -708,11 +712,11 @@ export default class extends Controller {
     if (occurrence !== undefined && occurrence !== "") {
       const occurrenceNum = parseInt(occurrence, 10)
       if (!isNaN(occurrenceNum)) {
-        match = this._findNthNormalized(fullText, text, occurrenceNum)
+        match = this._findNthNormalized(fullText, text, occurrenceNum, this._normalizedFullText)
       }
     } else {
       // Fallback only when occurrence is missing/blank
-      match = this._findNthNormalized(fullText, text, 0)
+      match = this._findNthNormalized(fullText, text, 0, this._normalizedFullText)
     }
 
     if (!match) return []
@@ -754,8 +758,8 @@ export default class extends Controller {
   // Finds the Nth occurrence of `search` in `text` using whitespace-normalized
   // matching. Returns { startIndex, matchLength } in the *original* text,
   // or null if not found.
-  _findNthNormalized(text, search, n) {
-    const { normText, origIndices } = this._buildNormalizedMap(text)
+  _findNthNormalized(text, search, n, normalizedMap = null) {
+    const { normText, origIndices } = normalizedMap || this._buildNormalizedMap(text)
     const normSearch = this._normalizeWhitespace(search)
 
     let pos = -1
