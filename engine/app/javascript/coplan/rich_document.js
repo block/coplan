@@ -161,6 +161,14 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       tr.setSelection(TextSelection.near(tr.doc.resolve(tr.doc.content.size - 1))).scrollIntoView()
       view.dispatch(tr); view.focus()
     },
+    captureSelection() {
+      // Read the native caret before a toolbar popover moves focus away. A
+      // click's selectionchange may not have reached ProseMirror yet.
+      const { $from, $to } = visibleSelection(view.state, view)
+      if (!$from.parent.inlineContent || !$to.parent.inlineContent) return
+      const selection = TextSelection.create(view.state.doc, $from.pos, $to.pos)
+      if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection))
+    },
     insertCode(language = "") {
       const block = schema.nodes.code_block.create({ params: language })
       const tr = view.state.tr.replaceSelectionWith(block)

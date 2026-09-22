@@ -110,10 +110,33 @@ RSpec.describe "Editor code controls", type: :system do
   context "with an existing code block" do
     let(:source) { "Before prose.\n\n```ruby\nputs :other\n```\n\nAfter prose.\n" }
 
+    it "inserts at the clicked paragraph when selectionchange has not reached the editor yet" do
+      find('[aria-label="Document body"] p', text: "Before prose.").click
+      expect(page).to have_css('[aria-label="Document body"]:focus') {
+        page.evaluate_script('Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").richEditor.view.state.selection.$from.parent.textContent') == "Before prose."
+      }
+      page.execute_script(<<~'JS')
+        window.delaySelection = event => event.stopImmediatePropagation();
+        document.addEventListener('selectionchange', window.delaySelection, true);
+      JS
+      find('[aria-label="Document body"] p', text: "After prose.").click
+      expect(page.evaluate_script('getSelection().anchorNode.textContent')).to eq("After prose.")
+      expect(page.evaluate_script('Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").richEditor.view.state.selection.$from.parent.textContent')).to eq("Before prose.")
+      click_button "Insert code block"
+      find('[role="option"]', text: "JavaScript", exact_text: true).click
+      page.execute_script("document.removeEventListener('selectionchange', window.delaySelection, true)")
+      page.driver.browser.action.send_keys("const inserted = 1;").perform
+      expect(all('[aria-label="Code language"]').map(&:value)).to eq([ "ruby", "javascript" ])
+      click_link "Close editor"
+      expect(page).to have_current_path(plan_page_path(plan), wait: 10)
+      expect(plan.reload.current_content.index("puts :other")).to be < plan.current_content.index("const inserted = 1;")
+    end
+
     it "deletes only the selected window and supports undo and redo in both panes" do
       click_button "Insert code block"
       find('[role="option"]', text: "JavaScript", exact_text: true).click
       page.driver.browser.action.send_keys("const keep = 1;").perform
+      expect(all('[aria-label="Code language"]').map(&:value)).to eq([ "ruby", "javascript" ])
       click_button "Dual", exact: true
       expect(page).not_to have_css(".document-editor__block-header label", text: "Language")
       find(".document-editor__code-window", text: "const keep = 1;").click_button("Delete code block")

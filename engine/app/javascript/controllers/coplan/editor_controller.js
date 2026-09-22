@@ -371,6 +371,7 @@ export default class extends Controller {
   }
   prepareCodePicker(event) {
     if (event.newState !== "open") return
+    this.richEditor.captureSelection()
     this.newLanguageTarget.value = ""
     this.filterCodeLanguages()
     this.positionCodePicker(true)
