@@ -105,7 +105,8 @@ RSpec.describe "Browsable library URLs", type: :request do
       get "/hampton/liveorder/cart-roadmap/edit"
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("Markdown")
+      modes = Nokogiri::HTML(response.body).css('[aria-label="Editing mode"] button').map(&:text)
+      expect(modes).to eq([ "Editer", "Raw", "Dual" ])
     end
 
     it "serves the history page" do
