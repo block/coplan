@@ -1,6 +1,6 @@
 module CoPlan
   class PlansController < ApplicationController
-    before_action :set_plan, only: [ :show, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :update_content, :preview ]
+    before_action :set_plan, only: [ :show, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :update_content, :preview, :editor_lease, :editor_state ]
     # /plans/<uuid> is the legacy address; the readable one is canonical.
     # `only: [ :show ]` matters twice over — it's also why BrowseController,
     # which calls `show` as a method from its own action, doesn't bounce
@@ -184,12 +184,59 @@ module CoPlan
       authorize!(@plan, :update?)
       # expect (Rails 8) turns a malformed payload into a 400, not a 500.
       plan_params = params.expect(plan: [ :title, :tag_names ])
-      apply_metadata_changes!(
-        title: plan_params[:title],
-        tag_names: plan_params.key?(:tag_names) ? plan_params[:tag_names] : nil
-      )
+      @plan.with_lock do
+        EditLease.enforce!(plan: @plan, lease_token: params[:lease_token])
+        apply_metadata_changes!(
+          title: plan_params[:title],
+          tag_names: plan_params.key?(:tag_names) ? plan_params[:tag_names] : nil
+        )
+      end
       broadcast_plan_update(@plan)
       redirect_to helpers.plan_browse_path(@plan), notice: "Plan updated."
+    end
+
+    def new
+      @plan = Plan.new(title: "", created_by_user: current_user)
+      @draft_content = ""
+      @base_revision = 0
+      load_tag_suggestions
+      render :edit_content
+    end
+
+    def create
+      plan = ActiveRecord::Base.transaction do
+        created = Plans::Create.call(title: params.dig(:plan, :title), content: params[:content], user: current_user,
+          visibility: "draft", actor_type: "human")
+        created.tag_names = params.dig(:plan, :tag_names).to_s.split(",")
+        created.save!
+        created
+      end
+      @plan = plan
+      render json: editor_snapshot.merge(edit_url: helpers.plan_edit_browse_path(plan), id: plan.id,
+        subscription_html: helpers.turbo_stream_from(plan),
+        update_url: update_content_plan_path(plan), state_url: editor_state_plan_path(plan), lease_url: editor_lease_plan_path(plan))
+    rescue ActiveRecord::RecordInvalid => error
+      render json: { error: error.record.errors.full_messages.to_sentence }, status: :unprocessable_content
+    end
+
+    def editor_state
+      authorize!(@plan, :edit_content?)
+      response.headers["Cache-Control"] = "no-store"
+      render json: editor_snapshot
+    end
+
+    # Compatibility for already-open prototype tabs. Editing no longer acquires
+    # a browser-session lease. Revision checks still protect their saves.
+    def editor_lease
+      authorize!(@plan, :edit_content?)
+      @plan.with_lock do
+        @plan.edit_lease&.destroy! if @plan.edit_lease&.holder_type == "human"
+      end
+      render json: { revision: @plan.current_revision }
+    end
+
+    def preview_draft
+      render html: helpers.render_markdown(params[:content].to_s, interactive: false), layout: false
     end
 
     def edit_content
@@ -203,57 +250,41 @@ module CoPlan
     # edits: Plans::ReplaceContent diffs against the base revision, creates
     # an immutable PlanVersion with actor_type "human", preserves comment
     # anchors in unchanged regions, and broadcasts the new body. Optimistic
-    # concurrency: a stale base_revision re-renders the editor with the
-    # user's draft intact instead of clobbering intervening edits.
+    # concurrency: disjoint edits merge; overlaps return both the current
+    # server snapshot and a conflict, leaving the local draft intact.
     def update_content
       authorize!(@plan, :edit_content?)
 
-      # The editor is the one place a plan gets edited, so it carries
-      # title/tags too. Metadata isn't revisioned — apply it up front, even
-      # if the content save below hits a conflict (a rename shouldn't be
-      # lost to someone else's body edit).
-      metadata_changed = if params[:plan].present?
-        plan_params = params.expect(plan: [ :title, :tag_names ])
-        apply_metadata_changes!(
-          title: plan_params[:title],
-          tag_names: plan_params.key?(:tag_names) ? plan_params[:tag_names] : nil
-        )
-      else
-        false
+      fields = params[:plan].present? ? params.expect(plan: [ :title, :tag_names ]) : {}
+      metadata = fields.to_h.symbolize_keys
+      baseline = params[:base_metadata].present? ? params.expect(base_metadata: [ :title, :tag_names ]).to_h.symbolize_keys : {}
+      changed = false
+      result = Plans::SaveHumanDraft.call(plan: @plan, content: params[:content].to_s.delete("\r"),
+        base_revision: params[:base_revision].to_i, actor: current_user,
+        metadata: metadata, base_metadata: baseline, overwrite_revision: params[:overwrite_revision],
+        change_summary: params[:change_summary]) do |updates|
+        changed = apply_metadata_changes!(title: updates[:title], tag_names: updates[:tag_names])
       end
-      broadcast_plan_update(@plan) if metadata_changed
-
-      # After a conflict, the form keeps its stale base_revision so an
-      # unreviewed re-save fails loudly again instead of silently clobbering
-      # the intervening edit. "Save anyway" submits overwrite_revision —
-      # explicit consent to replace that specific revision; if the plan has
-      # moved on again since, this still conflicts.
-      base_revision = (params[:overwrite_revision].presence || params[:base_revision]).to_i
-
-      result = Plans::ReplaceContent.call(
-        plan: @plan,
-        new_content: params[:content].to_s,
-        base_revision: base_revision,
-        actor_type: "human",
-        actor_id: current_user.id,
-        change_summary: params[:change_summary].presence || "Edited in web UI"
-      )
-
-      if result[:no_op]
-        notice = metadata_changed ? "Plan updated." : "No changes to save."
-        redirect_to helpers.plan_browse_path(@plan), notice: notice
+      broadcast_plan_update(@plan) if changed
+      if request.format.json?
+        render json: editor_snapshot.merge(no_op: result[:no_op] && !changed)
       else
-        redirect_to helpers.plan_browse_path(@plan), notice: "Plan updated."
+        redirect_to helpers.plan_browse_path(@plan), notice: result[:no_op] && !changed ? "No changes to save." : "Plan updated."
       end
-    rescue Plans::ReplaceContent::StaleRevisionError => e
-      @draft_content = params[:content].to_s
-      @base_revision = params[:base_revision].to_i
-      @conflict_revision = e.current_revision
-      @conflict = true
-      load_tag_suggestions
-      flash.now[:alert] = "This plan was updated to v#{e.current_revision} while you were editing. " \
-                          "Your draft is preserved below — review the latest version before saving again."
-      render :edit_content, status: :conflict
+    rescue Plans::MergeText::Conflict, Plans::ReplaceContent::StaleRevisionError => error
+      @plan.reload
+      if request.format.json?
+        render json: editor_snapshot.merge(error: error.message, code: "overlapping_edits"), status: :conflict
+      else
+        @draft_content = params[:content].to_s
+        @base_revision = params[:base_revision].to_i
+        @conflict_revision = @plan.current_revision
+        @conflict = true
+        load_tag_suggestions
+        render :edit_content, status: :conflict
+      end
+    rescue ActiveRecord::RecordInvalid => error
+      render json: { error: error.record.errors.full_messages.to_sentence }, status: :unprocessable_content
     end
 
     # Renders submitted markdown for the editor's preview pane. Non-interactive
@@ -398,6 +429,11 @@ module CoPlan
 
     private
 
+    def editor_snapshot
+      { revision: @plan.current_revision, content: @plan.current_content.to_s,
+        title: @plan.title, tags: @plan.tag_names.join(", "), url: helpers.plan_browse_path(@plan) }
+    end
+
     # Title/tag updates with their audit events — shared by the metadata
     # PATCH (#update) and the unified editor (#update_content). Returns
     # true when anything actually changed.
@@ -406,7 +442,7 @@ module CoPlan
       old_tag_names = @plan.tag_names
 
       @plan.tag_names = tag_names.to_s.split(",") unless tag_names.nil?
-      @plan.update!(title: title) if title.present?
+      @plan.update!(title: title) unless title.nil?
 
       changed = false
       if @plan.saved_change_to_title?

@@ -1,0 +1,410 @@
+import { diffArrays } from "diff"
+import { codeHighlight } from "coplan/code_highlight"
+import { textHunks } from "coplan/merge_text"
+import { Schema, Fragment } from "prosemirror-model"
+import { EditorState, TextSelection, Plugin } from "prosemirror-state"
+import { EditorView } from "prosemirror-view"
+import { defaultMarkdownParser, defaultMarkdownSerializer } from "prosemirror-markdown"
+import { baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exitCode, selectAll } from "prosemirror-commands"
+import { wrapInList, splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list"
+import { keymap } from "prosemirror-keymap"
+import { history, undo, redo } from "prosemirror-history"
+
+const mac = /Mac|iP(hone|ad|od)/.test(navigator.platform)
+const lineNavigation = mac ? { "Ctrl-a": codeLineStart } : {}
+
+// Preserve the exact source of untouched top-level blocks. Constructs outside
+// the rich schema are atomic source cards, never silently parsed away.
+let nodes = defaultMarkdownParser.schema.spec.nodes
+nodes.forEach((name, spec) => {
+  if (name !== "text") nodes = nodes.update(name, { ...spec, attrs: { ...spec.attrs, source: { default: null }, snapshot: { default: null } } })
+})
+nodes = nodes.addBefore("paragraph", "preserved", {
+  group: "block", atom: true, attrs: { source: {} },
+  toDOM: node => ["div", { class: "document-editor__preserved", hidden: node.attrs.source.trim() ? null : "hidden", contenteditable: "false" },
+    ["small", "Preserved Markdown block"], ["pre", node.attrs.source]]
+})
+const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.marks })
+function signature(node) {
+  const json = node.toJSON()
+  if (json.attrs) json.attrs = Object.fromEntries(Object.entries(json.attrs).filter(([key]) => !["source", "snapshot"].includes(key)))
+  return JSON.stringify(json)
+}
+function trailingParagraph() {
+  const node = schema.nodes.paragraph.create()
+  return node.type.create({ source: "", snapshot: signature(node) })
+}
+function needsTrailing(doc) {
+  if (doc.lastChild?.type === schema.nodes.paragraph) return false
+  let last
+  doc.forEach(node => { if (node.type !== schema.nodes.preserved || node.attrs.source.trim()) last = node })
+  return last?.type === schema.nodes.code_block || last?.type === schema.nodes.preserved
+}
+function ensureTrailing(doc) {
+  return needsTrailing(doc) ? doc.copy(doc.content.append(Fragment.from(trailingParagraph()))) : doc
+}
+function moveBelowCode(state, dispatch) {
+  const { $head, empty } = state.selection
+  if (!empty || $head.parent.type !== schema.nodes.code_block || $head.parentOffset !== $head.parent.content.size) return false
+  const position = $head.after()
+  if (dispatch) {
+    const tr = state.tr
+    if (tr.doc.nodeAt(position)?.type !== schema.nodes.paragraph) tr.insert(position, trailingParagraph())
+    tr.setSelection(TextSelection.near(tr.doc.resolve(position + 1))).scrollIntoView()
+    dispatch(tr)
+  }
+  return true
+}
+function preserved(source) { return schema.nodes.preserved.create({ source }) }
+export function parseDocument(markdown) {
+  if (!markdown) return schema.topNodeType.createAndFill()
+  const lines = markdown.split("\n")
+  const offsets = [0]
+  lines.forEach(line => offsets.push(offsets.at(-1) + line.length + 1))
+  const tokens = defaultMarkdownParser.tokenizer.parse(markdown, {})
+  const ranges = tokens.filter(t => t.level === 0 && t.map && t.nesting !== -1).map(t => t.map)
+  const blocks = []
+  let cursor = 0
+  for (const [from, to] of ranges) {
+    const start = offsets[from], end = Math.min(offsets[to], markdown.length)
+    if (start < cursor) continue
+    if (start > cursor) blocks.push(preserved(markdown.slice(cursor, start)))
+    const source = markdown.slice(start, end)
+    try {
+      // Raw HTML, tables, task lists, footnotes and reference definitions are
+      // preserved until dedicated rich node views exist for them.
+      const parsed = defaultMarkdownParser.parse(source)
+      if (parsed.firstChild?.type.name !== "code_block" && /~~|\]\s*\[|\]\(mention:|<\/?[a-z!]|^\s*\|.*\||^\s*\|?\s*:?-{3,}.*\||^\s*(?:>\s*)*(?:[-*+]|\d+[.)]) \[[ xX]\]|^\s*\[[^\]]+\]:|\[\^[^\]]+\]/im.test(source)) throw new Error("preserve")
+      if (parsed.childCount !== 1) throw new Error("preserve")
+      let node = schema.nodeFromJSON(parsed.firstChild.toJSON())
+      node = node.type.create({ ...node.attrs, source, snapshot: signature(node) }, node.content, node.marks)
+      blocks.push(node)
+    } catch { blocks.push(preserved(source)) }
+    cursor = end
+  }
+  if (cursor < markdown.length) blocks.push(preserved(markdown.slice(cursor)))
+  return ensureTrailing(schema.topNodeType.create(null, blocks.length ? blocks : schema.nodes.paragraph.create()))
+}
+export function serializeDocument(doc) {
+  let output = "", previousChanged = false
+  doc.forEach(node => {
+    const unchanged = node.type.name === "preserved" || (node.attrs.source !== null && node.attrs.snapshot === signature(node))
+    const source = unchanged ? node.attrs.source : defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node))
+    // New/changed blocks need a block separator, including after an original
+    // final paragraph with no trailing newline. Untouched boundaries stay exact.
+    if (output && source.trim() && (!unchanged || previousChanged) && !output.endsWith("\n\n")) output += output.endsWith("\n") ? "\n" : "\n\n"
+    output += source
+    if (source.trim()) previousChanged = !unchanged
+  })
+  return output
+}
+export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null) {
+  const state = EditorState.create({
+    doc: parseDocument(markdown),
+    plugins: [history(), codeHighlight(), new Plugin({ appendTransaction(transactions, oldState, state) {
+      if (transactions.some(tr => tr.docChanged) && needsTrailing(state.doc))
+        return state.tr.insert(state.doc.content.size, trailingParagraph()).setMeta("addToHistory", false)
+    } }), keymap({
+      "Mod-a": selectFocusedText, ...lineNavigation,
+      "Mod-b": toggleMark(schema.marks.strong), "Mod-i": toggleMark(schema.marks.em),
+      "Mod-z": undo, "Mod-Shift-z": redo, "Mod-y": redo,
+      "Ctrl-b": toggleMark(schema.marks.strong), "Meta-b": toggleMark(schema.marks.strong),
+      "Ctrl-i": toggleMark(schema.marks.em), "Meta-i": toggleMark(schema.marks.em),
+      "Ctrl-z": undo, "Meta-z": undo, "Ctrl-Shift-z": redo, "Meta-Shift-z": redo, "Ctrl-y": redo,
+      "Shift-Enter": chainCommands(codeNewline, (state, dispatch) => { if (dispatch) dispatch(state.tr.replaceSelectionWith(schema.nodes.hard_break.create()).scrollIntoView()); return true }),
+      "Mod-Enter": exitCode, ArrowDown: moveBelowCode,
+      "Mod-k": linkCommand, "Ctrl-k": linkCommand, "Meta-k": linkCommand,
+      "Mod-Shift-7": wrapInList(schema.nodes.ordered_list), "Mod-Shift-8": wrapInList(schema.nodes.bullet_list),
+      "Mod-Alt-0": setBlockType(schema.nodes.paragraph), "Mod-Alt-1": setBlockType(schema.nodes.heading, { level: 1 }),
+      "Mod-Alt-2": setBlockType(schema.nodes.heading, { level: 2 }), "Mod-Alt-3": setBlockType(schema.nodes.heading, { level: 3 }),
+      Enter: chainCommands(codeNewline, splitListItem(schema.nodes.list_item)), Tab: chainCommands(indentCode, sinkListItem(schema.nodes.list_item)),
+      "Shift-Tab": liftListItem(schema.nodes.list_item)
+    }), keymap(baseKeymap)]
+  })
+  const view = new EditorView(element, {
+    state, nodeViews: {
+      preserved: (node, view, getPos) => sourceNodeView(node, view, getPos, preview),
+      code_block: (node, view, getPos) => codeNodeView(node, view, getPos, preview)
+    }, attributes: { class: "markdown-rendered", role: "textbox", "aria-label": "Document body", "aria-multiline": "true" },
+    dispatchTransaction(transaction) {
+      view.updateState(view.state.apply(transaction))
+      if (transaction.docChanged && !transaction.getMeta("remote")) changed(serializeDocument(view.state.doc))
+      selectionChanged(toolbarState(view.state))
+    }
+  })
+  return {
+    view,
+    content: () => serializeDocument(view.state.doc),
+    toolbarState: () => toolbarState(view.state),
+    historyState: () => ({ undo: undo(view.state), redo: redo(view.state) }),
+    update(markdown) {
+      if (serializeDocument(view.state.doc) === markdown) return
+      const next = parseDocument(markdown)
+      const transaction = view.state.tr
+      patchChildren(transaction, view.state.doc, next, 0)
+      // Remote steps map selection and existing undo events; they are never an
+      // undoable user edit. Do not focus or scroll a background update.
+      view.dispatch(transaction.setMeta("addToHistory", false).setMeta("remote", true))
+    },
+    destroy: () => view.destroy(),
+    appendParagraph() {
+      const tr = view.state.tr, last = tr.doc.lastChild
+      const exists = last?.type === schema.nodes.paragraph && last.content.size === 0
+      if (!exists) tr.insert(tr.doc.content.size, trailingParagraph())
+      tr.setSelection(TextSelection.near(tr.doc.resolve(tr.doc.content.size - 1))).scrollIntoView()
+      view.dispatch(tr); view.focus()
+    },
+    insertCode(language = "") {
+      const tr = view.state.tr.replaceSelectionWith(schema.nodes.code_block.create({ params: language }))
+      // Selection.near searches back into the new block before the trailing paragraph.
+      tr.setSelection(TextSelection.near(tr.doc.resolve(tr.selection.from), -1))
+      view.dispatch(tr.scrollIntoView()); view.focus()
+    },
+    setLanguage(position, language) {
+      const node = view.state.doc.nodeAt(position)
+      if (node?.type !== schema.nodes.code_block || /[\r\n`]/.test(language)) return false
+      view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, params: language }))
+      return true
+    },
+    sourceRange(position) {
+      let offset = 0, result = null
+      view.state.doc.forEach((node, pos, index) => {
+        const prefix = serializeDocument(schema.topNodeType.create(null, view.state.doc.content.cut(0, pos + node.nodeSize)))
+        if (pos === position) result = { from: offset, to: prefix.length }
+        offset = prefix.length
+      })
+      return result
+    },
+    command(name, value) {
+      const commands = {
+        bold: toggleMark(schema.marks.strong), italic: toggleMark(schema.marks.em),
+        heading: setBlockType(schema.nodes.heading, { level: Number(value || 2) }), paragraph: setBlockType(schema.nodes.paragraph), code_block: setBlockType(schema.nodes.code_block),
+        bullet: chainCommands(liftListItem(schema.nodes.list_item), wrapInList(schema.nodes.bullet_list)), ordered: chainCommands(liftListItem(schema.nodes.list_item), wrapInList(schema.nodes.ordered_list)),
+        quote: chainCommands(lift, wrapIn(schema.nodes.blockquote)), code: toggleMark(schema.marks.code), undo, redo
+      }
+      commands.link = linkCommand
+      commands[name]?.(view.state, view.dispatch, view)
+      view.focus()
+    }
+  }
+}
+
+function toolbarState(state) {
+  const { from, to, empty, $from } = state.selection
+  const marks = state.storedMarks || $from.marks()
+  const markActive = name => empty ? !!schema.marks[name].isInSet(marks) : state.doc.rangeHasMark(from, to, schema.marks[name])
+  const ancestor = name => { for (let depth = $from.depth; depth > 0; depth--) if ($from.node(depth).type.name === name) return $from.node(depth); return null }
+  return { bold: markActive("strong"), italic: markActive("em"), code: markActive("code"), link: markActive("link"),
+    bullet: !!ancestor("bullet_list"), ordered: !!ancestor("ordered_list"), quote: !!ancestor("blockquote"),
+    heading: ancestor("code_block") ? "code" : ancestor("heading")?.attrs.level || 0, undo: undo(state), redo: redo(state) }
+}
+
+// Compare semantic content without the lossless-serialization bookkeeping.
+function semantic(node) {
+  if (node.type.name === "preserved") return JSON.stringify(node.toJSON())
+  return JSON.stringify(node.toJSON(), (key, value) => ["source", "snapshot"].includes(key) ? undefined : value)
+}
+function patchChildren(tr, before, after, offset) {
+  const oldChildren = [], newChildren = []
+  before.forEach(node => oldChildren.push(node)); after.forEach(node => newChildren.push(node))
+  // Text-node boundaries change when marks change. Diff the characters first
+  // so a remote bold/link edit cannot replace (and erase undo for) local text.
+  if (before.isTextblock && after.isTextblock && [...oldChildren, ...newChildren].every(node => node.isText)) {
+    for (const hunk of textHunks(before.textContent, after.textContent).reverse()) {
+      tr.replaceWith(offset + hunk.from, offset + hunk.to, hunk.text ? schema.text(hunk.text) : Fragment.empty)
+    }
+    if (after.content.size) {
+      tr.removeMark(offset, offset + after.content.size)
+      let position = offset
+      after.forEach(node => {
+        for (const mark of node.marks) tr.addMark(position, position + node.nodeSize, mark)
+        position += node.nodeSize
+      })
+    }
+    return
+  }
+  let cursor = offset, pending = null, oldIndex = 0, newIndex = 0
+  const edits = []
+  for (const part of diffArrays(oldChildren, newChildren, { comparator: (a, b) => semantic(a) === semantic(b) })) {
+    if (!part.added && !part.removed) {
+      if (pending) edits.push(pending)
+      pending = null
+      // Keep source spelling changes even if the parsed content is identical.
+      for (let i = 0; i < part.value.length; i++) {
+        const old = oldChildren[oldIndex++], next = newChildren[newIndex++]
+        if (!old.eq(next)) edits.push({ from: cursor, to: cursor + old.nodeSize, old: [old], nodes: [next] })
+        cursor += old.nodeSize
+      }
+    } else {
+      pending ||= { from: cursor, to: cursor, old: [], nodes: [] }
+      if (part.removed) { oldIndex += part.value.length; pending.old.push(...part.value); cursor += part.value.reduce((n, node) => n + node.nodeSize, 0); pending.to = cursor }
+      else { newIndex += part.value.length; pending.nodes.push(...part.value) }
+    }
+  }
+  if (pending) edits.push(pending)
+  for (const edit of edits.reverse()) {
+    const old = edit.old[0], next = edit.nodes[0]
+    if (edit.old.length === 1 && edit.nodes.length === 1 && old.type === next.type && old.sameMarkup(next)) {
+      if (old.isText) {
+        for (const hunk of textHunks(old.text, next.text).reverse()) {
+          tr.replaceWith(edit.from + hunk.from, edit.from + hunk.to, hunk.text ? schema.text(hunk.text, next.marks) : Fragment.empty)
+        }
+      } else if (!old.isLeaf) patchChildren(tr, old, next, edit.from + 1)
+      else tr.replaceWith(edit.from, edit.to, next)
+    } else if (edit.old.length === 1 && edit.nodes.length === 1 && old.type === next.type && !old.isLeaf && !old.isText ) {
+      patchChildren(tr, old, next, edit.from + 1)
+      tr.setNodeMarkup(edit.from, next.type, next.attrs, next.marks)
+    } else tr.replaceWith(edit.from, edit.to, Fragment.fromArray(edit.nodes))
+  }
+}
+
+// A code box is its own text selection scope. ProseMirror's selectAll
+// selects the entire document, including every other code/prose block.
+function visibleSelection(state, view) {
+  let { $from, $to } = state.selection
+  // A native click can precede ProseMirror's asynchronous selectionchange.
+  // Scope this shortcut to the visible caret, including decorated token nodes.
+  const selection = view.dom.ownerDocument.getSelection()
+  if (selection?.anchorNode && view.dom.contains(selection.anchorNode) && view.dom.contains(selection.focusNode)) {
+    $from = state.doc.resolve(view.posAtDOM(selection.anchorNode, selection.anchorOffset))
+    $to = state.doc.resolve(view.posAtDOM(selection.focusNode, selection.focusOffset))
+  }
+  return { $from, $to }
+}
+function selectFocusedText(state, dispatch, view) {
+  const { $from, $to } = visibleSelection(state, view)
+  if ($from.sameParent($to) && $from.parent.type === schema.nodes.code_block) {
+    if (dispatch) dispatch(state.tr.setSelection(TextSelection.create(state.doc, $from.start(), $from.end())))
+    return true
+  }
+  return selectAll(state, dispatch)
+}
+
+// On macOS Control+A means the current line, not the entire multiline block.
+function codeLineStart(state, dispatch, view) {
+  const { $to } = visibleSelection(state, view)
+  if (!$to.parent.type.spec.code) return false
+  const before = $to.parent.textContent.slice(0, $to.parentOffset)
+  const position = $to.start() + before.lastIndexOf("\n") + 1
+  if (dispatch) dispatch(state.tr.setSelection(TextSelection.create(state.doc, position)).scrollIntoView())
+  return true
+}
+function codeNewline(state, dispatch) {
+  const { $from, $to } = state.selection
+  if (!$from.sameParent($to) || !$from.parent.type.spec.code) return false
+  const line = $from.parent.textBetween(0, $from.parentOffset).split("\n").at(-1)
+  const indent = line.match(/^[ \t]*/)[0]
+  if (dispatch) dispatch(state.tr.insertText("\n" + indent).scrollIntoView())
+  return true
+}
+function indentCode(state, dispatch) {
+  if (!state.selection.$from.parent.type.spec.code) return false
+  if (dispatch) dispatch(state.tr.insertText("  ").scrollIntoView())
+  return true
+}
+
+function linkCommand(state, dispatch) {
+  const href = window.prompt("Link URL (https://…)")
+  if (href && /^(https?:\/\/|mailto:)/i.test(href)) toggleMark(schema.marks.link, { href })(state, dispatch)
+  return true
+}
+
+// Node-view chrome uses the form's Stimulus actions. The editable code content
+// remains owned by ProseMirror; preview DOM is an isolated, non-editable sibling.
+function blockChrome(getPos, label) {
+  const dom = document.createElement("div"); dom.className = "document-editor__block"
+  dom.coplanPosition = getPos
+  const header = document.createElement("div"); header.className = "document-editor__block-header"; header.contentEditable = "false"
+  const title = document.createElement("span"); title.textContent = label
+  const edit = document.createElement("button"); edit.type = "button"; edit.textContent = "Edit Markdown"
+  edit.dataset.action = "coplan--editor#editSource"
+  header.append(title, edit); dom.append(header)
+  return { dom, header, title, edit }
+}
+function sourceNodeView(initial, view, getPos, preview) {
+  let node = initial, generation = 0
+  const { dom, title } = blockChrome(getPos, "Markdown block")
+  dom.contentEditable = "false"
+  const body = document.createElement("div"); body.className = "document-editor__block-preview"; dom.append(body)
+  const render = async () => {
+    const sequence = ++generation, source = node.attrs.source
+    dom.hidden = !source.trim()
+    if (dom.hidden) return
+    const isTable = /^\s*\|?.*\|.*\n\s*\|?\s*:?-{3,}/m.test(source)
+    title.textContent = isTable ? "Table · edit cells in Markdown" : "Markdown block · edit source"
+    body.replaceChildren()
+    const fallback = document.createElement("pre"); fallback.textContent = source; body.append(fallback)
+    if (preview) {
+      try { const html = await preview(source); if (sequence === generation) body.innerHTML = html } catch { /* Source remains usable offline. */ }
+    }
+  }
+  render()
+  return { dom, update(next) { if (next.type !== node.type) return false; if (next.attrs.source !== node.attrs.source) { node = next; render() } return true },
+    stopEvent: () => true, ignoreMutation: () => true, destroy() { generation++ } }
+}
+function codeNodeView(initial, view, getPos, preview) {
+  let node = initial, generation = 0, timer
+  const { dom, header, title, edit } = blockChrome(getPos, "Code")
+  const label = document.createElement("label"); label.textContent = "Language"
+  const language = document.createElement("input"); language.type = "text"; language.className = "document-editor__code-language"
+  language.setAttribute("aria-label", "Code language"); language.placeholder = "Plain text"; language.setAttribute("list", "coplan-code-languages")
+  language.dataset.action = "input->coplan--editor#languageInput change->coplan--editor#languageChanged"
+  label.append(language); title.replaceWith(label)
+  const pre = document.createElement("pre"), contentDOM = document.createElement("code"); pre.append(contentDOM); dom.append(pre)
+  const diagram = document.createElement("div"); diagram.className = "document-editor__block-preview"; diagram.contentEditable = "false"; dom.append(diagram)
+  const render = (languageChanged = true) => {
+    if (languageChanged && language.value !== (node.attrs.params || "")) language.value = node.attrs.params || ""
+    const sequence = ++generation, mermaid = node.attrs.params?.trim().split(/\s+/)[0] === "mermaid"
+    clearTimeout(timer)
+    edit.hidden = !mermaid
+    diagram.hidden = !mermaid
+    if (!mermaid) { diagram.replaceChildren(); return }
+    if (!preview) return
+    timer = setTimeout(async () => {
+      try {
+        const html = await preview(defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node)))
+        if (sequence === generation) diagram.innerHTML = html
+      } catch { if (sequence === generation) diagram.textContent = "Preview unavailable. Your Mermaid source is retained." }
+    }, 250)
+  }
+  render()
+  return { dom, contentDOM, update(next) { if (next.type !== node.type) return false; const changed = !node.eq(next), languageChanged = node.attrs.params !== next.attrs.params; node = next; if (changed) render(languageChanged); return true },
+    stopEvent: event => header.contains(event.target) || diagram.contains(event.target),
+    ignoreMutation: mutation => mutation.type !== "selection" && !contentDOM.contains(mutation.target) && mutation.target !== contentDOM,
+    destroy() { clearTimeout(timer); generation++ } }
+}
+
+// A source editor with no Markdown interpretation. Its history and selection
+// map through incoming character edits, just like the rich editor's history.
+export function createMarkdownDocument(element, source, changed) {
+  const rawSchema = new Schema({ nodes: {
+    doc: { content: "code_block" },
+    code_block: { content: "text*", code: true, marks: "", toDOM: () => ["pre", ["code", 0]] }, text: {}
+  } })
+  const rawDoc = text => rawSchema.node("doc", null, rawSchema.node("code_block", null, text ? rawSchema.text(text) : null))
+  const state = EditorState.create({ doc: rawDoc(source), plugins: [history(), keymap({
+    "Mod-a": selectAll, ...lineNavigation,
+    "Mod-z": undo, "Mod-Shift-z": redo, "Mod-y": redo,
+    "Ctrl-z": undo, "Meta-z": undo, "Ctrl-Shift-z": redo, "Meta-Shift-z": redo, "Ctrl-y": redo,
+    Tab: (state, dispatch) => { dispatch(state.tr.insertText("  ")); return true }
+  }), keymap(baseKeymap)] })
+  const view = new EditorView(element, { state, attributes: { role: "textbox", "aria-label": "Markdown source", "aria-multiline": "true", spellcheck: "false" },
+    handlePaste(view, event) {
+      const text = event.clipboardData?.getData("text/plain")
+      if (text === undefined) return false
+      view.dispatch(view.state.tr.insertText(text)); return true
+    },
+    clipboardTextSerializer: slice => slice.content.textBetween(0, slice.content.size, "\n"),
+    dispatchTransaction(tr) { view.updateState(view.state.apply(tr)); if (tr.docChanged && !tr.getMeta("remote")) changed(view.state.doc.textContent) }
+  })
+  return { view, content: () => view.state.doc.textContent, destroy: () => view.destroy(),
+    historyState: () => ({ undo: undo(view.state), redo: redo(view.state) }),
+    command(name) { ({ undo, redo })[name]?.(view.state, view.dispatch); view.focus() },
+    select(from, to = from) { view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, Math.min(from + 1, view.state.doc.content.size - 1), Math.min(to + 1, view.state.doc.content.size - 1))).scrollIntoView()); view.focus() },
+    update(text) {
+      const tr = view.state.tr
+      for (const hunk of textHunks(view.state.doc.textContent, text).reverse()) tr.insertText(hunk.text, hunk.from + 1, hunk.to + 1)
+      if (tr.docChanged) view.dispatch(tr.setMeta("remote", true).setMeta("addToHistory", false))
+    }
+  }
+}

@@ -24,11 +24,12 @@ module CoPlan
     # ops in the sequence — so applying them via ApplyOperations one after
     # another produces correct positional metadata on every op.
     class DiffToOperations
-      def self.call(old_content:, new_content:)
-        new(old_content: old_content, new_content: new_content).call
+      def self.call(old_content:, new_content:, granularity: :line)
+        new(old_content: old_content, new_content: new_content, granularity: granularity).call
       end
 
-      def initialize(old_content:, new_content:)
+      def initialize(old_content:, new_content:, granularity: :line)
+        @granularity = granularity
         @old_content = old_content || ""
         @new_content = new_content || ""
       end
@@ -36,8 +37,8 @@ module CoPlan
       def call
         return [] if @old_content == @new_content
 
-        old_lines = @old_content.lines
-        new_lines = @new_content.lines
+        old_lines = @granularity == :character ? @old_content.each_char.to_a : @old_content.lines
+        new_lines = @granularity == :character ? @new_content.each_char.to_a : @new_content.lines
 
         # offsets[i] = character offset of the start of line i (offsets[len] = total chars).
         # Positions throughout the codebase (anchor_start/anchor_end, resolved_range, etc.)

@@ -126,7 +126,16 @@ RSpec.describe "Api::V1::Operations", type: :request do
     expect(JSON.parse(response.body)["error"]).to match(/heading_not_found/)
   end
 
-  it "apply operations without lease_token uses direct mode" do
+  it "allows direct mode after the lease is released" do
+    plan.edit_lease.release!(lease_token: lease_token)
+    post api_v1_plan_operations_path(plan),
+      params: { base_revision: plan.current_revision,
+        operations: [ { op: "replace_exact", old_text: "Some content here.", new_text: "Direct edit.", count: 1 } ] },
+      headers: headers, as: :json
+    expect(response).to have_http_status(:created)
+  end
+
+  it "rejects bypassing an active lease by omitting its token" do
     post api_v1_plan_operations_path(plan),
       params: {
         base_revision: plan.current_revision,
@@ -134,6 +143,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
       },
       headers: headers,
       as: :json
-    expect(response).to have_http_status(:created)
+    expect(response).to have_http_status(:conflict)
+    expect(response.parsed_body["code"]).to eq("edit_locked")
   end
 end

@@ -50,6 +50,7 @@ module CoPlan
           end
 
           plan.lock!
+          EditLease.enforce!(plan: plan)
 
           # Under the lock, and on every route into this service — the
           # expiry job commits sessions with no request behind them, so a

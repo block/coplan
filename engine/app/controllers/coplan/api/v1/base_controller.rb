@@ -2,6 +2,10 @@ module CoPlan
   module Api
     module V1
       class BaseController < ActionController::API
+        rescue_from CoPlan::EditLease::Conflict do |error|
+          render json: { error: error.message, code: "edit_locked" }, status: :conflict
+        end
+
         # Disable Rails' wrap_parameters middleware: it auto-wraps the
         # JSON body under the controller's resource name, which collides
         # with body params that share that name (e.g. PUT /content with

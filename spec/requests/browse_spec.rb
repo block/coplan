@@ -105,7 +105,7 @@ RSpec.describe "Browsable library URLs", type: :request do
       get "/hampton/liveorder/cart-roadmap/edit"
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("Save new version")
+      expect(response.body).to include("Markdown")
     end
 
     it "serves the history page" do

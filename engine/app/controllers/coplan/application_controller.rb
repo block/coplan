@@ -1,5 +1,9 @@
 module CoPlan
   class ApplicationController < ::ApplicationController
+    rescue_from CoPlan::EditLease::Conflict do |error|
+      render json: { error: error.message, code: "edit_locked" }, status: :conflict
+    end
+
     layout "coplan/application"
 
     # CoPlan.underscore produces "co_plan", but our views/templates use "coplan/"
