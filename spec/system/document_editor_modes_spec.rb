@@ -43,7 +43,7 @@ RSpec.describe "Document editor modes", type: :system do
     find(".document-editor__block", text: "Table ·").click_button("Edit Markdown")
     expect(raw).to have_text("| Draft | Ready |")
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
-    click_button "Editer"
+    click_button "Editor"
     click_button "Raw", exact: true
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
     save_now
@@ -52,20 +52,20 @@ RSpec.describe "Document editor modes", type: :system do
     expect(plan.current_content).to eq(source)
   end
 
-  it "saves exact unsupported Markdown from raw mode and returns through Back" do
+  it "saves exact unsupported Markdown from raw mode and returns by closing the editor" do
     open_editor
     block_saves
     click_button "Raw", exact: true
     replacement = source.sub("Ready", "Approved") + "\n<details><summary>More</summary>Exact HTML</details>\n\nNote[^1]\n\n[^1]: retained\n"
     raw.send_keys([ mod, "a" ], replacement)
-    click_button "Editer"
+    click_button "Editor"
     click_button "Raw", exact: true
     expect(raw.text).to include("Approved", "[^1]: retained")
-    # A pre-save hover must not cache the old reading page for Back.
-    find_link("Back").hover
+    # A pre-save hover must not cache the old reading page when closing.
+    find_link("Close editor").hover
     sleep 0.25 # Turbo hover prefetch waits 100ms.
     page.execute_script("window.fetch = window.originalFetch")
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
     expect(plan.reload.current_content).to eq(replacement)
     expect(page).to have_css("table", text: "Approved")
@@ -73,23 +73,23 @@ RSpec.describe "Document editor modes", type: :system do
     expect(page).to have_css("table", text: "Approved")
   end
 
-  it "keeps the draft in place when Back fails, then retries and navigates" do
+  it "keeps the draft in place when closing fails, then retries and navigates" do
     open_editor
     block_saves
     click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Retain this draft")
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_content("Offline")
     expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(raw).to have_text("Retain this draft")
     expect(plan.reload.current_revision).to eq(1)
     page.execute_script('window.fetch = window.originalFetch')
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
     expect(plan.reload.current_content).to eq("Retain this draft")
   end
 
-  it "waits for a save in flight before going Back" do
+  it "waits for a save in flight before closing" do
     open_editor
     page.execute_script(<<~'JS')
       const original = window.fetch;
@@ -104,20 +104,20 @@ RSpec.describe "Document editor modes", type: :system do
     save_now
     expect(page).to have_content("Saving…")
     raw.send_keys(:right, " and in flight")
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
     expect(plan.reload.current_content).to eq("Before request and in flight")
   end
 
-  it "blocks Back on overlapping changes in raw mode" do
+  it "blocks closing on overlapping changes in raw mode" do
     open_editor
     block_saves
     click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Local replacement")
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Remote replacement", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
     expect(page).to have_content("Both edits change", wait: 10)
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_content("Resolve the conflict before going back")
     expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(raw).to have_text("Local replacement")
@@ -137,10 +137,10 @@ RSpec.describe "Document editor modes", type: :system do
     expect(raw).to have_text("Agent prose.")
     raw.send_keys([ mod, :shift, "z" ])
     expect(raw).to have_text("Human tail")
-    click_button "Editer"
+    click_button "Editor"
     expect(page).to have_css(".document-editor__body .ProseMirror", text: "Agent prose.")
     page.execute_script('window.fetch = window.originalFetch')
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
     expect(plan.reload.current_content).to include("Agent prose.", "Human tail")
   end
@@ -157,7 +157,7 @@ RSpec.describe "Document editor modes", type: :system do
     find(".document-editor__body .ProseMirror > p:last-child").click
     page.driver.browser.action.send_keys("Clicked below").perform
     expect(page).to have_css(".ProseMirror > p", text: "Clicked below")
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
     expect(plan.reload.current_content).to include("```ruby\nputs :hello\n```", "Outside code", "Clicked below")
   end
@@ -170,7 +170,7 @@ RSpec.describe "Document editor modes", type: :system do
     click_button "Raw", exact: true
     expect(raw).to have_text("```python")
     expect(raw).to have_text("puts :hello")
-    click_button "Editer"
+    click_button "Editor"
     click_button "Undo"
     expect(all('[aria-label="Code language"]').last.value).to eq("ruby")
     click_button "Redo"
@@ -179,7 +179,7 @@ RSpec.describe "Document editor modes", type: :system do
     expect(page).not_to have_css(".document-editor__block .mermaid-diagram")
     all('[aria-label="Code language"]').first.fill_in(with: "mermaid")
     expect(page).to have_css(".document-editor__block .mermaid-diagram svg", wait: 20)
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
     expect(plan.reload.current_content).to include("```python", "puts :hello", "```mermaid", "graph LR; A-->B")
   end
@@ -236,19 +236,19 @@ RSpec.describe "Document editor modes", type: :system do
     expect(plan.reload.current_content).to eq("Retained raw **draft**.")
   end
 
-  it "keeps Back on invalid fields and allows valid source mode to save" do
+  it "blocks closing on invalid fields and allows valid source mode to save" do
     open_editor
     fill_in "plan_title", with: ""
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(page).to have_content("Correct the highlighted field")
     fill_in "plan_title", with: plan.title
     all('[aria-label="Code language"]').last.fill_in(with: "ruby`")
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_edit_page_path(plan))
     click_button "Raw", exact: true
     raw.send_keys([ mod, :end ], "\nValid source edit")
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
     expect(plan.reload.current_content).to include("Valid source edit")
   end
@@ -263,7 +263,7 @@ RSpec.describe "Document editor modes", type: :system do
     expect(raw).to have_text("Untouched **Markdown**.")
     created = CoPlan::Plan.find_by!(title: "Autosaved new source")
     expect(page).to have_current_path(plan_edit_page_path(created))
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_page_path(created))
     expect(created.current_plan_version.actor_type).to eq("human")
   end
@@ -300,7 +300,7 @@ RSpec.describe "Document editor modes", type: :system do
     page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
     expect(page.evaluate_script('window.selectAllEvent')).to eq({ "prevented" => false, "target" => "SUMMARY" })
     page.execute_script('window.savedRequests = 0; window.fetch = (url, options) => { if (options?.method === "PATCH") window.savedRequests++; return window.originalFetch(url, options) }')
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(/selection-stays-local$/, wait: 15)
     expect(plan.reload.current_revision).to eq(2)
     expect(plan.current_content).to include("More.", "custom-lang extra=1")
@@ -323,17 +323,17 @@ RSpec.describe "Document editor modes", type: :system do
     raw.send_keys([ mod, :shift, "z" ])
     expect(raw).to have_text("Human tail")
     click_button "Raw", exact: true
-    click_button "Editer", exact: true
+    click_button "Editor", exact: true
     click_button "Dual", exact: true
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source.sub("Original prose.", "Agent prose.") + "\nHuman tail")
   end
 
-  it "retains both panes and the dual preference after a failed Back and recovery" do
+  it "retains both panes and the dual preference after a failed close and recovery" do
     open_editor
     block_saves
     click_button "Dual", exact: true
     raw.send_keys([ mod, "a" ], "Retained dual **draft**.")
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_content("Offline")
     expect(find('[aria-label="Document body"]')).to have_text("Retained dual draft.")
     page.refresh
@@ -350,7 +350,7 @@ RSpec.describe "Document editor modes", type: :system do
     raw.send_keys([ mod, "a" ], "Local replacement")
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Remote replacement", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
     expect(page).to have_content("Both edits change", wait: 10)
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_content("Resolve the conflict before going back")
     expect(raw).to have_text("Local replacement")
     expect(find('[aria-label="Document body"]')).to have_text("Local replacement")

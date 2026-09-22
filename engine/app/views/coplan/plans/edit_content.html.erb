@@ -27,9 +27,16 @@
         </details>
       </div>
     </div>
-    <%= link_to creating ? library_browse_path(current_user.library) : plan_browse_path(@plan), class: "document-editor__back btn btn--secondary", data: { turbo: true, turbo_prefetch: false, action: "click->coplan--editor#back", "coplan--editor-target": "back" } do %>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7M5 12h14"/></svg> Back
-    <% end %>
+    <div class="document-editor__actions">
+      <div class="document-editor__mode" role="group" aria-label="Editing mode">
+        <button type="button" aria-pressed="true" data-mode="rich" data-action="coplan--editor#switchMode">Editor</button>
+        <button type="button" aria-pressed="false" data-mode="markdown" data-action="coplan--editor#switchMode">Raw</button>
+        <button type="button" aria-pressed="false" data-mode="dual" data-action="coplan--editor#switchMode">Dual</button>
+      </div>
+      <%= link_to creating ? library_browse_path(current_user.library) : plan_browse_path(@plan), class: "document-editor__back", title: "Close editor", aria: { label: "Close editor" }, data: { turbo: true, turbo_prefetch: false, action: "click->coplan--editor#back", "coplan--editor-target": "back" } do %>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg>
+      <% end %>
+    </div>
   </div>
   <% if @conflict %><p class="editor__conflict">This plan was updated to v<%= @conflict_revision %>. Your draft is preserved.</p><% end %>
   <div class="editor__draft-notice" data-coplan--editor-target="draftNotice" hidden>
@@ -46,11 +53,6 @@
     </div>
     <details><summary>Review the saved version</summary><pre data-coplan--editor-target="latest"></pre></details>
   </div>
-  <div class="document-editor__mode" role="group" aria-label="Editing mode">
-    <button type="button" aria-pressed="true" data-mode="rich" data-action="coplan--editor#switchMode">Editer</button>
-    <button type="button" aria-pressed="false" data-mode="markdown" data-action="coplan--editor#switchMode">Raw</button>
-    <button type="button" aria-pressed="false" data-mode="dual" data-action="coplan--editor#switchMode">Dual</button>
-  </div>
   <div data-coplan--editor-target="toolbar" class="document-editor__toolbar" role="toolbar" aria-label="Text formatting" data-action="mousedown->coplan--editor#keepSelection">
     <select aria-label="Paragraph style" data-command="heading" data-coplan--editor-target="style" data-action="change->coplan--editor#style">
       <option value="0">Normal text</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option><option value="code">Code block</option>
@@ -59,8 +61,7 @@
     <div class="document-editor__insert-code">
       <button type="button" aria-label="Insert code block" title="Insert code block" popovertarget="coplan-insert-code"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="m8 9-3 3 3 3m8-6 3 3-3 3"/></svg></button>
       <div id="coplan-insert-code" class="document-editor__code-picker" popover data-coplan--editor-target="codePicker" data-action="beforetoggle->coplan--editor#prepareCodePicker toggle->coplan--editor#codePickerToggled resize@window->coplan--editor#positionCodePicker scroll@document->coplan--editor#positionCodePicker:capture">
-        <label for="coplan-insert-language">Insert code block</label>
-        <input id="coplan-insert-language" aria-label="New code language" role="combobox" aria-autocomplete="list" aria-controls="coplan-code-options" aria-expanded="false" autocomplete="off" placeholder="Search languages…" data-coplan--editor-target="newLanguage" data-action="input->coplan--editor#filterCodeLanguages keydown->coplan--editor#codePickerKeydown">
+        <input id="coplan-insert-language" aria-label="New code language" role="combobox" aria-autocomplete="list" aria-controls="coplan-code-options" aria-expanded="false" autocomplete="off" autofocus placeholder="Search languages…" data-coplan--editor-target="newLanguage" data-action="input->coplan--editor#filterCodeLanguages keydown->coplan--editor#codePickerKeydown">
         <div id="coplan-code-options" class="document-editor__code-options" role="listbox" aria-label="Code languages">
           <% language_labels = { "text" => "Plain text", "javascript" => "JavaScript", "typescript" => "TypeScript", "sql" => "SQL", "json" => "JSON", "yaml" => "YAML", "html" => "HTML", "css" => "CSS" } %>
           <% (["text"] + CoPlan.configuration.editor_code_languages).uniq.each_with_index do |language, index| %>

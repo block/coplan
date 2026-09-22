@@ -143,7 +143,7 @@ RSpec.describe "Human plan editing", type: :system do
     page.execute_script('window.fetch = window.originalFetch')
     accept_confirm { click_button "Replace reviewed version with my draft" }
     expect(page).to have_content("All changes saved · v3")
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_page_path(plan))
     expect(plan.reload.edit_lease).to be_nil
   end
@@ -160,7 +160,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_content("All changes saved · v2", wait: 10)
     expect(plan.reload.current_content).to include("Autosaved from typing")
     expect(plan.edit_lease).to be_nil
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_css(".markdown-rendered", text: "Autosaved from typing")
     page.refresh
     expect(page).to have_css(".markdown-rendered", text: "Autosaved from typing")

@@ -162,9 +162,13 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       view.dispatch(tr); view.focus()
     },
     insertCode(language = "") {
-      const tr = view.state.tr.replaceSelectionWith(schema.nodes.code_block.create({ params: language }))
-      // Selection.near searches back into the new block before the trailing paragraph.
-      tr.setSelection(TextSelection.near(tr.doc.resolve(tr.selection.from), -1))
+      const block = schema.nodes.code_block.create({ params: language })
+      const tr = view.state.tr.replaceSelectionWith(block)
+      // The default insertion selection may land in following prose. Locate
+      // this new node (copies retain its attrs) and select its editable content.
+      tr.doc.descendants((node, position) => {
+        if (node.attrs === block.attrs) tr.setSelection(TextSelection.create(tr.doc, position + 1))
+      })
       view.dispatch(tr.scrollIntoView()); view.focus()
     },
     deleteCode(position) {

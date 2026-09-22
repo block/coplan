@@ -20,7 +20,7 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
   end
 
   it "moves ArrowDown into existing prose after code without inserting a paragraph" do
-    [ "Editer", "Dual" ].each do |mode|
+    [ "Editor", "Dual" ].each do |mode|
       click_button mode, exact: true
       paragraphs = all('[aria-label="Document body"] p').count
       code.click
@@ -35,13 +35,13 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     end
     page.driver.browser.action.send_keys("Reached ").perform
     expect(find('[aria-label="Document body"] p', text: "Reached After prose.")).to be_present
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_page_path(plan), wait: 10)
     expect(plan.reload.current_content).to eq(source.sub("After prose.", "Reached After prose."))
   end
 
   it "selects and replaces only focused code in Rich and Dual, retaining other blocks and native inputs" do
-    [ "Editer", "Dual" ].each do |mode|
+    [ "Editor", "Dual" ].each do |mode|
       click_button mode, exact: true
       code.click
       page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
@@ -64,9 +64,9 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     find('[aria-label="Document body"] p', text: "Before prose.").click
     page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
     expect(page.evaluate_script('getSelection().toString()')).to include("Before prose.", "After prose.")
-    expect(page.evaluate_script('getSelection().toString()')).not_to include("Code scopes", "Editer", "Dual")
+    expect(page.evaluate_script('getSelection().toString()')).not_to include("Code scopes", "Editor", "Dual")
     find("#plan_title").send_keys([ mod, "a" ], "Scoped title")
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(/scoped-title$/, wait: 10)
     expect(plan.reload.current_content).to include("Before prose.", "const scoped = 7;", "After prose.", "puts :other")
   end
@@ -94,7 +94,7 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     expect(code).to have_text("function hi()")
     expect(code).to have_css(".hljs-number", text: "42")
     page.save_screenshot(Rails.root.join("tmp/editor-highlighted-code.png"))
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_page_path(plan), wait: 10)
     expect(plan.reload.current_content).to include("return 42;")
     expect(page).to have_css(".hljs-keyword", text: "function", wait: 20)

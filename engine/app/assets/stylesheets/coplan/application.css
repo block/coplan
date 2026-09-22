@@ -7093,9 +7093,17 @@ img.avatar {
 .editor__conflict pre { max-height: 260px; overflow: auto; white-space: pre-wrap; }
 @media (max-width: 640px) { .document-editor__top { flex-wrap: wrap; } .document-editor__byline { gap: 8px; } .document-editor__toolbar { padding: 6px; } .document-editor__tool-divider { margin: 0 2px; } }
 
-.document-editor__back { display: inline-flex; align-items: center; gap: 6px; }
+.document-editor__actions { display: flex; align-items: center; gap: 24px; flex-shrink: 0; }
+.document-editor__back { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; color: var(--color-text-muted); }
+.document-editor__back:hover { color: var(--color-text); background: var(--color-surface-muted); }
+.document-editor__back:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+@media (max-width: 800px) {
+  .document-editor__top { flex-wrap: wrap; }
+  .document-editor__identity { flex-basis: 100%; }
+  .document-editor__actions { width: 100%; justify-content: space-between; }
+}
 /* One segmented control, with a raised selected segment. */
-.document-editor__mode { display: inline-flex; align-items: center; gap: 2px; padding: 3px; margin: 0 0 16px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-muted); }
+.document-editor__mode { display: inline-flex; align-items: center; gap: 2px; padding: 3px; margin: 0; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-muted); }
 .document-editor__mode button { min-width: 76px; border: 0; border-radius: 7px; color: var(--color-text-muted); background: transparent; padding: 7px 16px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; transition: background-color 120ms, color 120ms, box-shadow 120ms; }
 .document-editor__mode button:hover { color: var(--color-text); }
 .document-editor__mode button[aria-pressed="true"] { color: var(--color-text); background: var(--color-surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .14), inset 0 0 0 1px var(--color-border); }
@@ -7141,7 +7149,6 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 .document-editor__insert-code { position: relative; }
 .document-editor__code-picker { position: fixed; inset: auto; margin: 0; width: 268px; max-width: calc(100vw - 16px); box-sizing: border-box; padding: 10px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); overflow: auto; }
 .document-editor__code-picker:popover-open { display: flex; flex-direction: column; gap: 8px; }
-.document-editor__code-picker label { margin: 0; padding: 2px 4px; font-size: 12px; font-weight: 600; color: var(--color-text-muted); }
 .document-editor__code-picker input { width: 100%; box-sizing: border-box; margin: 0; padding: 9px 10px; font: inherit; font-size: 13px; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; }
 .document-editor__code-options { overflow-y: auto; min-height: 0; max-height: 248px; flex-shrink: 1; }
 .document-editor__code-picker .document-editor__code-options button { display: block; width: 100%; height: auto; min-height: 36px; padding: 8px 10px; text-align: left; font-size: 13px; font-weight: 400; color: var(--color-text); border-radius: 6px; }

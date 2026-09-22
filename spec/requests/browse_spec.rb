@@ -106,7 +106,7 @@ RSpec.describe "Browsable library URLs", type: :request do
 
       expect(response).to have_http_status(:ok)
       modes = Nokogiri::HTML(response.body).css('[aria-label="Editing mode"] button').map(&:text)
-      expect(modes).to eq([ "Editer", "Raw", "Dual" ])
+      expect(modes).to eq([ "Editor", "Raw", "Dual" ])
     end
 
     it "serves the history page" do

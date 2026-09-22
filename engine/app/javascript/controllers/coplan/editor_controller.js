@@ -358,6 +358,7 @@ export default class extends Controller {
     if (event.newState !== "open") return
     this.newLanguageTarget.value = ""
     this.filterCodeLanguages()
+    this.positionCodePicker(true)
   }
   codePickerToggled(event) {
     const open = event.newState === "open"
@@ -366,14 +367,15 @@ export default class extends Controller {
     this.positionCodePicker()
     this.newLanguageTarget.focus()
   }
-  positionCodePicker() {
-    if (!this.codePickerTarget.matches(":popover-open")) return
+  positionCodePicker(opening = false) {
+    if (opening !== true && !this.codePickerTarget.matches(":popover-open")) return
     const trigger = this.element.querySelector('[popovertarget="coplan-insert-code"]')
     const rect = trigger.getBoundingClientRect(), picker = this.codePickerTarget
     const availableBelow = window.innerHeight - rect.bottom - 16
-    const above = availableBelow < 220 && rect.top > availableBelow
+    const width = picker.offsetWidth || parseFloat(getComputedStyle(picker).width)
+    const above = picker.offsetHeight > 0 && availableBelow < 220 && rect.top > availableBelow
     picker.style.maxHeight = `${Math.max(120, above ? rect.top - 16 : availableBelow)}px`
-    picker.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - picker.offsetWidth - 8))}px`
+    picker.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`
     picker.style.top = `${above ? Math.max(8, rect.top - picker.offsetHeight - 6) : rect.bottom + 6}px`
   }
   filterCodeLanguages() {

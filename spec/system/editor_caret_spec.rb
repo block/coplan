@@ -52,7 +52,7 @@ RSpec.describe "Editor code caret", type: :system do
     prior = caret
     page.driver.browser.action.send_keys(:enter).perform
     expect(caret["rect"]["top"]).to be > prior["rect"]["top"]
-    click_link "Back"
+    click_link "Close editor"
     created = CoPlan::Plan.find_by!(title: "Caret regression")
     expect(page).to have_current_path(plan_page_path(created), wait: 10)
     expect(created.reload.current_content).to include("```typescript", "function hi() {", "return 1")

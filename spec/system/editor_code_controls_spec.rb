@@ -34,7 +34,7 @@ RSpec.describe "Editor code controls", type: :system do
     page.save_screenshot(Rails.root.join("tmp/editor-code-window.png"))
     click_button "Dual", exact: true
     expect(find('[aria-label="Markdown source"]')).to have_text("```javascript")
-    click_link "Back"
+    click_link "Close editor"
     expect(page).to have_current_path(plan_page_path(plan), wait: 10)
     expect(plan.reload.current_content).to include("```javascript\nconst answer = 42;\n```")
   end
@@ -58,6 +58,33 @@ RSpec.describe "Editor code controls", type: :system do
     fill_in "coplan-insert-language", with: "custom-lang extra=1"
     click_button "Insert", exact: true
     expect(all('[aria-label="Code language"]').map(&:value)).to include("custom-lang extra=1")
+  end
+
+  [ "Editor", "Dual" ].each do |mode|
+    it "places immediate typing inside the new code block after Enter in #{mode}" do
+      click_button mode, exact: true
+      find('[aria-label="Document body"] p', text: "After prose.").click
+      click_button "Insert code block"
+      expect(page).to have_css("#coplan-insert-language:focus")
+      page.driver.browser.action.send_keys("java", :enter, "const entered = 7;").perform
+      expect(page).to have_css('[aria-label="Document body"]:focus')
+      expect(page).to have_css(".document-editor__code-window > pre > code", text: "const entered = 7;")
+      expect(find('[aria-label="Code language"]').value).to eq("javascript")
+      click_link "Close editor"
+      expect(page).to have_current_path(plan_page_path(plan), wait: 10)
+      expect(plan.reload.current_content).to include("```javascript\nconst entered = 7;\n```")
+    end
+  end
+
+  it "focuses a code block inserted before the first paragraph" do
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css('[aria-label="Document body"]', wait: 20)
+    click_button "Insert code block"
+    expect(page).to have_css("#coplan-insert-language:focus")
+    page.driver.browser.action.send_keys("java", :enter, "const first = 1;").perform
+    expect(page).to have_css(".document-editor__code-window > pre > code", text: "const first = 1;")
+    expect(page).to have_css('[aria-label="Document body"] p', text: "Before prose.", exact_text: true)
+    expect(page).to have_css('[aria-label="Document body"] p', text: "After prose.", exact_text: true)
   end
 
   it "uses the highlighted autocomplete choice when Insert is clicked" do
@@ -101,7 +128,7 @@ RSpec.describe "Editor code controls", type: :system do
       click_button "Redo"
       expect(page).to have_css(".document-editor__code-window", count: 1)
       expect(page).to have_css(".document-editor__code-window", text: "puts :other")
-      click_link "Back"
+      click_link "Close editor"
       expect(page).to have_current_path(plan_page_path(plan), wait: 10)
       expect(plan.reload.current_content).not_to include("const keep", "```javascript")
     end

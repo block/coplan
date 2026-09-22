@@ -1,7 +1,8 @@
 # Human document editor prototype
 
-Owners use **Edit** to write in the document. **Editer**, **Raw**, and **Dual** are
-first-class modes sharing one draft, base revision and autosave pipeline. The
+Owners use **Edit** to write in the document. **Editor**, **Raw**, and **Dual** are
+modes in the top bar, beside the close button, sharing one draft, base revision
+and autosave pipeline. The
 workspace **New document** starts a private draft. Add a title and content and it saves in
 place, without replacing the editor or interrupting typing.
 
@@ -17,13 +18,13 @@ Lucide outline convention as the app; style controls and native options follow
 light/dark themes. Cmd/Ctrl+B/I format, Cmd/Ctrl+Z undoes, Cmd/Ctrl+Shift+Z redoes,
 and Cmd/Ctrl+K adds a link. Lists support Enter, Tab and Shift+Tab.
 
-Changes autosave after a 900ms pause. Cmd/Ctrl+S flushes immediately. **Back** is
+Changes autosave after a 900ms pause. Cmd/Ctrl+S flushes immediately. **Close editor** (X) is
 the single navigation action: it waits for an in-flight save, saves any newer
-valid draft, then returns to reading view. Back disables hover prefetch because
+valid draft, then returns to reading view. Close editor disables hover prefetch because
 its destination must reflect the completed save; navigation clears stale Turbo
 snapshots. Failed saves, invalid titles and
 unresolved conflicts keep you in the editor with your draft. An untouched empty
-new draft can simply go Back. Comments remain available in reading view.
+new draft can simply close the editor. Comments remain available in reading view.
 
 ## Markdown, tables and diagrams
 
@@ -54,8 +55,9 @@ Slides remain deferred.
 ## Code blocks
 
 Use the toolbar **Insert code block** button to open a dropdown directly beneath
-it. Search languages and click a suggestion, or use arrow keys and Enter to
-insert the selected language. Type custom fence info and press Insert when no
+it with the search field focused. Search languages and click a suggestion, or
+use arrow keys and Enter to insert the selected language and continue typing
+inside the new code block. Type custom fence info and press Insert when no
 suggestion fits. Escape dismisses the dropdown. The style selector also converts
 the current text block; inline code remains a separate formatting action.
 
@@ -164,7 +166,7 @@ expired sign-in and uncertain responses never count as acknowledged saves.
 
 A conflict retains the draft and shows the latest saved source. Download the
 draft, use the saved version, or explicitly confirm replacement of the reviewed
-revision. Further intervening changes conflict again. Back never bypasses this.
+revision. Further intervening changes conflict again. Close editor never bypasses this.
 Browser drafts are not cross-device backups; local undo does not survive reload.
 This is cooperative Markdown editing, not a full CRDT: overlaps need review and
 large structural rewrites can move the selection to the changed range.
@@ -174,7 +176,7 @@ large structural rewrites can move the selection to the changed range.
 Run `bundle exec rspec`. Concurrent worktrees need distinct test databases via
 `DATABASE_URL`, so one suite cannot reset another suite’s schema or data.
 `spec/system/document_editor_modes_spec.rb` covers mode
-fidelity, table/Mermaid previews, Back success/error/conflict/in-flight behavior,
+fidelity, table/Mermaid previews, Close editor success/error/conflict/in-flight behavior,
 raw live merging and undo, code exit/language, themes and new-document autosave.
 `spec/system/human_editing_spec.rb` covers the existing keyboard, draft, merge,
 persistence and reading flows. Request/service tests cover sanitized previews,
@@ -191,7 +193,7 @@ fallbacks. The caret spec checks vertical movement after Enter with syntax
 highlighting enabled. The live-delivery specs disable polling, commit through
 the real backend service and observe ActionCable/Turbo updates. They cover
 clean/dirty/conflicting drafts, queued snapshots, in-flight saves, immediate
-subscriptions after in-place creation, reconnect catch-up and cleanup on Back.
+subscriptions after in-place creation, reconnect catch-up and cleanup on Close editor.
 
 Composition regressions simulate browser composition events. A physical
 non-Latin input-method session is not covered by this automation. Tests run
