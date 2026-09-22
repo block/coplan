@@ -38,6 +38,40 @@ RSpec.describe "Human document editor", type: :request do
     expect(plan.reload.current_content).to eq("```unknown extra=1\nbody\n```")
   end
 
+  it "deduplicates creation retries with a browser key" do
+    key = SecureRandom.uuid
+    post plans_path, params: { creation_key: key, plan: { title: "Retry document" }, content: "First draft" }, as: :json
+    expect(response).to have_http_status(:ok)
+    id = response.parsed_body["id"]
+    expect {
+      post plans_path, params: { creation_key: key, plan: { title: "Retry document" }, content: "Changed retry" }, as: :json
+    }.not_to change(CoPlan::Plan, :count)
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to include("id" => id, "content" => "First draft")
+  end
+
+  it "renders an HTML lease conflict with the submitted draft intact" do
+    CoPlan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: author.id, lease_token: "agent-token")
+    patch plan_path(plan), params: { plan: { title: "Uncommitted title" } }
+    expect(response).to have_http_status(:conflict)
+    expect(response.media_type).to eq("text/html")
+    expect(response.body).to include("Uncommitted title", "Changes weren’t saved")
+    expect(plan.reload.title).not_to eq("Uncommitted title")
+    patch update_content_plan_path(plan), params: { content: "Retained content", base_revision: 1 }
+    expect(response).to have_http_status(:conflict)
+    expect(response.media_type).to eq("text/html")
+    expect(response.body).to include("Retained content")
+  end
+
+  it "keeps in-page lease conflicts in place with a toast" do
+    CoPlan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: author.id, lease_token: "agent-token")
+    patch plan_path(plan), params: { plan: { title: "Uncommitted title" } }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    expect(response).to have_http_status(:conflict)
+    expect(response.media_type).to eq("text/vnd.turbo-stream.html")
+    expect(response.body).to include('action="append" target="coplan-toasts"', "Plan is currently being edited in another session")
+    expect(plan.reload.title).not_to eq("Uncommitted title")
+  end
+
   it "validates blank creation without persisting a plan" do
     expect { post plans_path, params: { plan: { title: "" }, content: "" }, as: :json }.not_to change(CoPlan::Plan, :count)
     expect(response).to have_http_status(:unprocessable_content)

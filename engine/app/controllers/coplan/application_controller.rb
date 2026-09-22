@@ -1,7 +1,11 @@
 module CoPlan
   class ApplicationController < ::ApplicationController
     rescue_from CoPlan::EditLease::Conflict do |error|
-      render json: { error: error.message, code: "edit_locked" }, status: :conflict
+      respond_to do |format|
+        format.json { render json: { error: error.message, code: "edit_locked" }, status: :conflict }
+        format.turbo_stream { render turbo_stream: toast_stream(error.message, "alert"), status: :conflict }
+        format.html { render "coplan/shared/edit_locked", locals: { message: error.message }, status: :conflict }
+      end
     end
 
     layout "coplan/application"

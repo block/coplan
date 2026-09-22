@@ -4,6 +4,7 @@ module CoPlan
     LEASE_DURATION = 5.minutes
 
     class Conflict < StandardError; end
+    class InvalidToken < StandardError; end
 
     belongs_to :plan
 
@@ -13,7 +14,8 @@ module CoPlan
     validates :last_heartbeat_at, presence: true
 
     def self.acquire!(plan:, holder_type:, holder_id:, lease_token:)
-      digest = Digest::SHA256.hexdigest(lease_token.to_s)
+      raise InvalidToken, "Lease token must be a nonblank string" unless lease_token.is_a?(String) && lease_token.present?
+      digest = Digest::SHA256.hexdigest(lease_token)
 
       ActiveRecord::Base.transaction do
         plan.lock! # Serializes acquisition even when no lease row exists yet.
@@ -45,7 +47,7 @@ module CoPlan
     def release!(lease_token:)
       plan.with_lock do
         reload
-        raise Conflict, "Lease token mismatch" unless lease_token_digest == Digest::SHA256.hexdigest(lease_token.to_s)
+        raise Conflict, "Lease token mismatch" unless token_matches?(lease_token)
         destroy!
       end
     end
@@ -54,7 +56,7 @@ module CoPlan
     def self.enforce!(plan:, lease_token: nil)
       lease = find_by(plan_id: plan.id)
       return unless lease&.held?
-      raise Conflict, "Plan is currently being edited in another session" unless lease.held_by?(lease_token: lease_token.to_s)
+      raise Conflict, "Plan is currently being edited in another session" unless lease.held_by?(lease_token: lease_token)
     end
 
     def held?
@@ -62,8 +64,13 @@ module CoPlan
     end
 
     def held_by?(lease_token:)
-      digest = Digest::SHA256.hexdigest(lease_token.to_s)
-      lease_token_digest == digest && held?
+      token_matches?(lease_token) && held?
+    end
+
+    private
+
+    def token_matches?(token)
+      token.is_a?(String) && token.present? && lease_token_digest == Digest::SHA256.hexdigest(token)
     end
   end
 end

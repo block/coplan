@@ -8,7 +8,10 @@ place, without replacing the editor or interrupting typing.
 
 Run `bundle exec rails server -p 3100` from the host app and sign in at
 `http://localhost:3100/sign_in`. ProseMirror loads through pinned importmaps;
-first load requires esm.sh. There is no Node/build step.
+first load requires esm.sh. There is no Node/build step. Install the engine's
+migrations with `bin/rails co_plan:install:migrations` and run `bin/rails db:migrate`
+when upgrading; creation retries use a nullable key on plans with an author-scoped
+unique index.
 
 ## Everyday editing
 
@@ -166,12 +169,20 @@ subscription with the editor DOM. Mapped ProseMirror transactions preserve selec
 local undo for incoming text/formatting changes. Typing during a save is merged
 against the submitted snapshot and saved next. IME composition defers syncing.
 Every content commit remains an immutable version with its normal actor identity.
+New-document requests retain a creation key and the first submitted snapshot.
+Retrying after a lost response returns the same document; newer local typing is
+merged and saved afterward, including after reload.
 The prototype's contribution percentages/UI/endpoints have been removed.
 
 Unsaved source, title, tags and original base snapshot live in browser-local
 storage separated by user, document and editor instance. Reload can recover the
 draft without granting permission to overwrite newer edits. Failed requests,
 expired sign-in and uncertain responses never count as acknowledged saves.
+Legacy source-editor drafts remain discoverable by document ID. Because those
+copies contain no user identity, they are offered for explicit review, never
+autosaved. Review preserves newer scoped drafts and requires confirmation before
+replacing the saved version; that requirement survives reload. The legacy copy
+is removed only after an acknowledged save or explicit discard.
 
 A conflict retains the draft and shows the latest saved source. Download the
 draft, use the saved version, or explicitly confirm replacement of the reviewed
@@ -190,6 +201,10 @@ raw live merging and undo, code exit/language, themes and new-document autosave.
 `spec/system/human_editing_spec.rb` covers the existing keyboard, draft, merge,
 persistence and reading flows. Request/service tests cover sanitized previews,
 authorization, atomic saves, surgical ranges, immutable versions and conflicts.
+
+`spec/system/editor_recovery_spec.rb` covers legacy and newer drafts, stale
+revisions, consent across reload/in-flight saves, deliberately blank titles, and
+lost creation responses with newer typing and retries.
 
 `spec/system/editor_toolbar_spec.rb` covers in-flight typing, acknowledged save
 feedback and fading, error recovery, pane-specific control availability, raw

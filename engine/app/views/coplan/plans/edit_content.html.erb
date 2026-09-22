@@ -27,6 +27,10 @@
     </div>
   </div>
   <% if @conflict %><p class="editor__conflict">This plan was updated to v<%= @conflict_revision %>. Your draft is preserved.</p><% end %>
+  <div class="editor__draft-notice" data-coplan--editor-target="legacyDraftNotice" hidden>
+    <span>An older draft is available on this device. Its author could not be verified.</span>
+    <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--editor#reviewLegacyDraft">Review older draft</button>
+  </div>
   <div class="editor__draft-notice" data-coplan--editor-target="draftNotice" hidden>
     <span>Recovered an unsaved draft.</span>
     <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--editor#discardDraft">Discard recovered draft</button>

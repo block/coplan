@@ -33,6 +33,24 @@ RSpec.describe "Document editor modes", type: :system do
     page.execute_script('window.originalFetch = window.fetch; window.fetch = (url, options) => options?.method === "PATCH" ? Promise.reject(new TypeError("Offline")) : window.originalFetch(url, options)')
   end
 
+  it "selects only a source card after serialization inserts a separator" do
+    open_editor
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      import("coplan/rich_document").then(m => {
+        const host = document.createElement('div');
+        const source = "Before.\n\n| A | B |\n|---|---|\n| 1 | 2 |\n";
+        const rich = m.createRichDocument(host, source, () => {});
+        rich.view.dispatch(rich.view.state.tr.insertText("Changed", 1, 8));
+        let position;
+        rich.view.state.doc.forEach((node, pos) => { if (node.type.name === 'preserved' && node.attrs.source.includes('| A |')) position = pos; });
+        const range = rich.sourceRange(position), selected = rich.content().slice(range.from, range.to);
+        rich.destroy(); done(selected);
+      });
+    JS
+    expect(result).to eq("| A | B |\n|---|---|\n| 1 | 2 |\n")
+  end
+
   it "previews tables and diagrams and switches source modes without rewriting a byte" do
     open_editor
     expect(page).to have_css(".document-editor__block table", text: "Ready")

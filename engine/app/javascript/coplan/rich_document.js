@@ -92,15 +92,17 @@ export function parseDocument(markdown) {
   if (cursor < markdown.length) blocks.push(preserved(markdown.slice(cursor)))
   return ensureTrailing(schema.topNodeType.create(null, blocks.length ? blocks : schema.nodes.paragraph.create()))
 }
-export function serializeDocument(doc) {
+export function serializeDocument(doc, recordRange = null) {
   let output = "", previousChanged = false
-  doc.forEach(node => {
+  doc.forEach((node, position) => {
     const unchanged = node.type.name === "preserved" || (node.attrs.source !== null && node.attrs.snapshot === signature(node))
     const source = unchanged ? node.attrs.source : defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node))
     // New/changed blocks need a block separator, including after an original
     // final paragraph with no trailing newline. Untouched boundaries stay exact.
     if (output && source.trim() && (!unchanged || previousChanged) && !output.endsWith("\n\n")) output += output.endsWith("\n") ? "\n" : "\n\n"
+    const from = output.length
     output += source
+    recordRange?.(position, { from, to: output.length })
     if (source.trim()) previousChanged = !unchanged
   })
   return output
@@ -194,12 +196,8 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       return true
     },
     sourceRange(position) {
-      let offset = 0, result = null
-      view.state.doc.forEach((node, pos, index) => {
-        const prefix = serializeDocument(schema.topNodeType.create(null, view.state.doc.content.cut(0, pos + node.nodeSize)))
-        if (pos === position) result = { from: offset, to: prefix.length }
-        offset = prefix.length
-      })
+      let result = null
+      serializeDocument(view.state.doc, (pos, range) => { if (pos === position) result = range })
       return result
     },
     command(name, value) {

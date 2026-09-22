@@ -6,6 +6,21 @@ RSpec.describe CoPlan::EditLease, type: :model do
   let(:api_token) { create(:api_token, user: user) }
   let(:lease_token) { SecureRandom.hex(32) }
 
+  [ nil, "", "   " ].each do |blank|
+    it "rejects acquisition and ownership with blank token #{blank.inspect}" do
+      expect {
+        CoPlan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: api_token.id, lease_token: blank)
+      }.to raise_error(CoPlan::EditLease::InvalidToken)
+      expect(plan.reload.edit_lease).to be_nil
+      # Even a legacy lease containing an empty-token digest must be closed.
+      lease = CoPlan::EditLease.create!(plan: plan, holder_type: "local_agent", holder_id: api_token.id,
+        lease_token_digest: Digest::SHA256.hexdigest(blank.to_s), expires_at: 5.minutes.from_now, last_heartbeat_at: Time.current)
+      expect(lease.held_by?(lease_token: blank)).to be(false)
+      expect { lease.renew!(lease_token: blank) }.to raise_error(CoPlan::EditLease::Conflict)
+      expect { lease.release!(lease_token: blank) }.to raise_error(CoPlan::EditLease::Conflict)
+    end
+  end
+
   it "acquire creates new lease" do
     lease = CoPlan::EditLease.acquire!(
       plan: plan,

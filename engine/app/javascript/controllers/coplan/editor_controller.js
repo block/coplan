@@ -4,13 +4,14 @@ import { Controller } from "@hotwired/stimulus"
 // sent snapshot and edits typed while it was in flight. Nothing clears a draft
 // until the server has acknowledged that exact content.
 export default class extends Controller {
-  static targets = ["textarea", "surface", "status", "statusText", "back", "rawSurface", "toolbar", "newLanguage", "codePicker", "codeOption", "draftNotice", "conflict", "error", "replace", "latest", "style", "subscription"]
+  static targets = ["textarea", "surface", "status", "statusText", "back", "rawSurface", "toolbar", "newLanguage", "codePicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "replace", "latest", "style", "subscription"]
   static values = { planId: String, userId: String, revision: Number, stateUrl: String, previewUrl: String, leaseUrl: String }
 
   async connect() {
     this.active = true
     this.base = { ...this.snapshot(), revision: this.revisionValue }
     this.token = crypto.randomUUID()
+    this.creationKey = crypto.randomUUID()
     this.restoreDraft()
     // Turbo owns subscribing/unsubscribing as its element enters/leaves the DOM.
     // Catch up on connection, including revisions committed while disconnected.
@@ -29,7 +30,7 @@ export default class extends Controller {
       this.editor = this.richEditor
       this.updateToolbar(this.editor.toolbarState())
       try { this.setMode(sessionStorage.getItem(`coplan-editor-mode-${this.userIdValue}`) || "rich") } catch {}
-      this.setStatus(this.dirty() ? "Recovered draft · waiting to sync" : this.isNew ? "Private draft" : `All changes saved · v${this.base.revision}`)
+      if (!this.blocked) this.setStatus(this.dirty() ? "Recovered draft · waiting to sync" : this.isNew ? "Private draft" : `All changes saved · v${this.base.revision}`)
       // Retire leases from the previous prototype, without acquiring one.
       if (this.leaseUrlValue) await this.request(this.leaseUrlValue, "DELETE", {}).catch(() => {})
       if (!this.active) return
@@ -119,18 +120,20 @@ export default class extends Controller {
     if (this.blocked && !overwriteRevision) { if (manual) this.setStatus("Resolve the conflicting edit before saving", "error"); return }
     if (!manual && !this.element.checkValidity()) { this.setStatus("Add a title to save this draft", "error"); return false }
     if (!this.element.reportValidity()) { this.setStatus("Add a document title to save", "error"); return }
-    const sent = this.snapshot(), sentBase = { ...this.base }
+    const sent = this.isNew ? (this.creationSnapshot ||= this.snapshot()) : this.snapshot(), sentBase = { ...this.base }
     this.busy = true
     this.setStatus("Saving…", "saving")
     this.persistDraft()
     try {
       const result = await this.request(this.element.action, this.isNew ? "POST" : "PATCH", {
+        creation_key: this.isNew ? this.creationKey : undefined,
         content: sent.content, plan: { title: sent.title, tag_names: sent.tags },
         base_revision: sentBase.revision, base_metadata: { title: overwriteRevision ? this.pendingRemote.title : sentBase.title, tag_names: overwriteRevision ? this.pendingRemote.tags : sentBase.tags },
         overwrite_revision: overwriteRevision
       })
       if (this.isNew) {
         this.clearDraft()
+        this.creationSnapshot = null
         this.planIdValue = result.id
         this.element.action = result.update_url
         this.stateUrlValue = result.state_url
@@ -149,6 +152,9 @@ export default class extends Controller {
       this.persistDraft()
       return true
     } catch (error) {
+      // A definite validation rejection did not create anything. A lost or
+      // uncertain response keeps the original request snapshot for safe retry.
+      if (this.isNew && error.status === 422) { this.creationSnapshot = null; this.persistDraft() }
       if (error.code === "overlapping_edits" || error instanceof this.merge.MergeConflict) this.showConflict(error.code === "overlapping_edits" ? error : this.pendingRemote, error.message)
       else {
         this.fail(error.message || "Offline — your draft is retained")
@@ -476,31 +482,76 @@ export default class extends Controller {
   persistDraft() {
     if (!this.base) return
     try {
-      if (this.dirty()) localStorage.setItem(this.draftKey(), JSON.stringify({ ...this.snapshot(), revision: this.base.revision, base: this.base, savedAt: Date.now() }))
+      if (this.dirty() || this.blocked) localStorage.setItem(this.draftKey(), JSON.stringify({ ...this.snapshot(), revision: this.base.revision, base: this.base, creationKey: this.creationKey, creationSnapshot: this.creationSnapshot, reviewRequired: !!this.blocked, legacySource: this.legacySource, savedAt: Date.now() }))
       else this.clearDraft()
     } catch { this.setStatus("Browser storage unavailable · keep this page open until saved", "error") }
   }
   restoreDraft() {
     try {
+      if (!this.isNew) {
+        const key = `coplan-editor-draft-${this.planIdValue}`, raw = localStorage.getItem(key)
+        let data
+        try { data = JSON.parse(raw) } catch {}
+        if (typeof data?.content === "string" && Number.isInteger(data.revision)) {
+          this.legacyDraft = { key, raw, data }
+          this.legacyDraftNoticeTarget.hidden = false
+        }
+      }
       const candidates = Object.keys(localStorage).filter(key => key.startsWith(this.draftPrefix())).map(key => ({ key, raw: localStorage.getItem(key) }))
         .map(item => { try { return { ...item, data: JSON.parse(item.raw) } } catch { return null } }).filter(item => item?.data)
         .sort((a, b) => (b.data.savedAt || 0) - (a.data.savedAt || 0))
-      const saved = candidates.find(item => item.key === this.draftKey()) || candidates.find(({ data }) => data.content !== this.base.content || data.title !== this.base.title || data.tags !== this.base.tags)
+      const saved = candidates.find(item => item.key === this.draftKey()) || candidates.find(({ data }) => data.reviewRequired || data.content !== this.base.content || data.title !== this.base.title || data.tags !== this.base.tags)
       if (!saved) return
       this.recoveredDraft = saved
       const draft = saved.data
+      this.creationKey = draft.creationKey ?? this.creationKey
+      this.creationSnapshot = draft.creationSnapshot
       if (draft.base) this.base = draft.base
       else if (draft.revision !== this.base.revision) { this.blocked = true; this.fail("An older draft needs review before syncing.") }
       this.textareaTarget.value = draft.content
-      this.element.querySelector('[name="plan[title]"]').value = draft.title || this.base.title
-      this.element.querySelector('[name="plan[tag_names]"]').value = draft.tags || ""
+      this.element.querySelector('[name="plan[title]"]').value = draft.title ?? this.base.title
+      this.element.querySelector('[name="plan[tag_names]"]').value = draft.tags ?? this.base.tags
       this.draftNoticeTarget.hidden = false
+      if (draft.legacySource?.key === `coplan-editor-draft-${this.planIdValue}`) {
+        this.legacySource = draft.legacySource
+        this.legacyDraftNoticeTarget.hidden = true
+      }
+      if (draft.reviewRequired) { this.blocked = true; this.fail("Recovered draft needs review before syncing.") }
     } catch {}
+  }
+  async reviewLegacyDraft(event) {
+    if (!this.legacyDraft || !this.richEditor) return
+    const button = event.currentTarget
+    button.disabled = true
+    button.setAttribute("aria-busy", "true")
+    try {
+      // A response already in flight must finish before installing a draft
+      // that requires consent; accept() clears the previous conflict state.
+      while (this.busy || this.composing) { await this.whenIdle(); await this.whenCompositionEnds(); if (!this.active) return }
+      // Keep any newer draft in its own slot before opening this unowned copy.
+      this.persistDraft()
+      this.token = crypto.randomUUID()
+      const latest = this.pendingRemote || this.base
+      this.base = { ...latest }
+      this.applyBase()
+      this.legacySource = { key: this.legacyDraft.key, raw: this.legacyDraft.raw }
+      this.recoveredDraft = null
+      this.updateEditors(this.legacyDraft.data.content)
+      this.textareaTarget.value = this.legacyDraft.data.content
+      this.legacyDraftNoticeTarget.hidden = true
+      this.showConflict(latest, "Review this older draft before replacing the saved version")
+      this.editor.view.focus()
+    } finally {
+      button.disabled = false
+      button.removeAttribute("aria-busy")
+    }
   }
   clearDraft() {
     try {
       localStorage.removeItem(this.draftKey())
       if (this.recoveredDraft && localStorage.getItem(this.recoveredDraft.key) === this.recoveredDraft.raw) localStorage.removeItem(this.recoveredDraft.key)
+      if (this.legacySource && localStorage.getItem(this.legacySource.key) === this.legacySource.raw) localStorage.removeItem(this.legacySource.key)
+      this.legacySource = null
       this.recoveredDraft = null
     } catch {}
   }

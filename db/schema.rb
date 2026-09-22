@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_28_120001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_22_214857) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -356,6 +356,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_28_120001) do
     t.datetime "archived_at"
     t.datetime "created_at", null: false
     t.string "created_by_user_id", limit: 36, null: false
+    t.string "creation_key", limit: 36
     t.string "current_plan_version_id", limit: 36
     t.integer "current_revision", default: 0, null: false
     t.json "metadata"
@@ -370,6 +371,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_28_120001) do
     t.datetime "updated_at", null: false
     t.string "visibility", default: "published", null: false
     t.index ["archived_at"], name: "index_coplan_plans_on_archived_at"
+    t.index ["created_by_user_id", "creation_key"], name: "index_coplan_plans_on_author_and_creation_key", unique: true
     t.index ["created_by_user_id", "updated_at"], name: "index_coplan_plans_on_author_and_updated_at"
     t.index ["created_by_user_id"], name: "index_coplan_plans_on_created_by_user_id"
     t.index ["current_plan_version_id"], name: "fk_rails_c401577583"

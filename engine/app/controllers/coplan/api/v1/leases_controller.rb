@@ -6,7 +6,7 @@ module CoPlan
         before_action :authorize_plan_access!
 
         def create
-          lease_token = params[:lease_token] || SecureRandom.hex(32)
+          lease_token = params.key?(:lease_token) ? params[:lease_token] : SecureRandom.hex(32)
 
           lease = EditLease.acquire!(
             plan: @plan,
@@ -21,6 +21,8 @@ module CoPlan
             plan_id: @plan.id
           }, status: :created
 
+        rescue EditLease::InvalidToken => e
+          render json: { error: e.message }, status: :unprocessable_content
         rescue EditLease::Conflict => e
           render json: { error: e.message }, status: :conflict
         end

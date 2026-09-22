@@ -15,6 +15,13 @@ RSpec.describe "Content write lock enforcement" do
     expect(plan.reload.current_revision).to eq(1)
   end
 
+  it "blocks tokenless writes against a legacy empty-token lease" do
+    plan.edit_lease.update!(lease_token_digest: Digest::SHA256.hexdigest(""))
+    expect { CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Bypass", base_revision: 1, actor_type: "human", actor_id: plan.created_by_user_id) }.to raise_error(CoPlan::EditLease::Conflict)
+    expect { create(:plan_version, plan: plan, revision: 2) }.to raise_error(CoPlan::EditLease::Conflict)
+    expect(plan.reload.current_revision).to eq(1)
+  end
+
   it "allows the holder, and permits another writer after expiry" do
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Human", base_revision: 1, actor_type: "human", actor_id: plan.created_by_user_id, lease_token: token)
     travel 6.minutes do

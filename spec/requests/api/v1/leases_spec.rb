@@ -12,6 +12,14 @@ RSpec.describe "Api::V1::Leases", type: :request do
     alice_token # ensure token exists
   end
 
+  [ nil, "", "   " ].each do |blank|
+    it "rejects an explicitly blank token #{blank.inspect}" do
+      post api_v1_plan_lease_path(plan), params: { lease_token: blank }, headers: headers, as: :json
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(plan.reload.edit_lease).to be_nil
+    end
+  end
+
   it "acquire lease" do
     post api_v1_plan_lease_path(plan),
       params: { lease_token: "my-token" },

@@ -204,17 +204,14 @@ module CoPlan
     end
 
     def create
-      plan = ActiveRecord::Base.transaction do
-        created = Plans::Create.call(title: params.dig(:plan, :title), content: params[:content], user: current_user,
-          visibility: "draft", actor_type: "human")
-        created.tag_names = params.dig(:plan, :tag_names).to_s.split(",")
-        created.save!
-        created
-      end
+      plan = Plans::CreateHumanDraft.call(user: current_user, title: params.dig(:plan, :title), content: params[:content],
+        tags: params.dig(:plan, :tag_names), creation_key: params[:creation_key])
       @plan = plan
       render json: editor_snapshot.merge(edit_url: helpers.plan_edit_browse_path(plan), id: plan.id,
         subscription_html: helpers.turbo_stream_from(plan),
         update_url: update_content_plan_path(plan), state_url: editor_state_plan_path(plan), lease_url: editor_lease_plan_path(plan))
+    rescue Plans::CreateHumanDraft::InvalidKey => error
+      render json: { error: error.message }, status: :unprocessable_content
     rescue ActiveRecord::RecordInvalid => error
       render json: { error: error.record.errors.full_messages.to_sentence }, status: :unprocessable_content
     end
