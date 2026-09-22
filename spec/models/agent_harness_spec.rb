@@ -12,6 +12,13 @@ RSpec.describe CoPlan::AgentHarness, type: :model do
 
       expect(harness).to have_attributes(key: "acme-agent", display_name: "Acme Agent")
     end
+
+    it "bounds values derived from token metadata to the database columns" do
+      harness = described_class.resolve(identifier: "A" * 400)
+
+      expect(harness.key.length).to eq(255)
+      expect(harness.display_name.length).to eq(255)
+    end
   end
 
   it "uses a generic built-in icon for an unknown harness" do

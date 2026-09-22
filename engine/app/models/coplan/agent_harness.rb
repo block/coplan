@@ -1,5 +1,6 @@
 module CoPlan
   class AgentHarness < ApplicationRecord
+    STRING_LIMIT = 255
     BUILT_IN_ICONS = {
       "amp" => "coplan/agent-amp.svg",
       "claude-code" => "coplan/agent-claude.svg"
@@ -7,9 +8,10 @@ module CoPlan
 
     has_many :comments, dependent: :nullify
 
-    validates :key, presence: true, uniqueness: true
-    validates :display_name, presence: true
-    validates :icon_url, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]) }, allow_blank: true
+    validates :key, presence: true, uniqueness: true, length: { maximum: STRING_LIMIT }
+    validates :display_name, presence: true, length: { maximum: STRING_LIMIT }
+    validates :icon_url, length: { maximum: STRING_LIMIT },
+      format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]) }, allow_blank: true
 
     def self.resolve(identifier:)
       key = canonical_key(identifier)
@@ -24,7 +26,7 @@ module CoPlan
       return "Amp" if key == "amp"
       return "Claude" if key == "claude-code"
 
-      identifier.to_s.titleize.presence || "Agent"
+      identifier.to_s.titleize.first(STRING_LIMIT).presence || "Agent"
     end
 
     def self.canonical_key(identifier)
@@ -32,7 +34,7 @@ module CoPlan
       return "amp" if normalized.match?(/\bamp\b/)
       return "claude-code" if normalized.include?("claude")
 
-      normalized.parameterize.presence || "agent"
+      normalized.parameterize.first(STRING_LIMIT).presence || "agent"
     end
 
     def built_in_icon

@@ -1,4 +1,6 @@
 class CreateCoplanAgentHarnesses < ActiveRecord::Migration[8.1]
+  STRING_LIMIT = 255
+
   class MigrationHarness < ActiveRecord::Base
     self.table_name = "coplan_agent_harnesses"
   end
@@ -52,7 +54,7 @@ class CreateCoplanAgentHarnesses < ActiveRecord::Migration[8.1]
     return "Amp" if key == "amp"
     return "Claude" if key == "claude-code"
 
-    identity.to_s.titleize.presence || "Agent"
+    identity.to_s.titleize.first(STRING_LIMIT).presence || "Agent"
   end
 
   def canonical_key(identity)
@@ -60,6 +62,6 @@ class CreateCoplanAgentHarnesses < ActiveRecord::Migration[8.1]
     return "amp" if normalized.match?(/\bamp\b/)
     return "claude-code" if normalized.include?("claude")
 
-    normalized.parameterize.presence || "agent"
+    normalized.parameterize.first(STRING_LIMIT).presence || "agent"
   end
 end
