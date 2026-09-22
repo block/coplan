@@ -43,8 +43,8 @@ RSpec.describe "Document editor modes", type: :system do
     find(".document-editor__block", text: "Table ·").click_button("Edit Markdown")
     expect(raw).to have_text("| Draft | Ready |")
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
-    click_button "Rich text"
-    click_button "Markdown", exact: true
+    click_button "Editer"
+    click_button "Raw", exact: true
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
     save_now
     expect(page).to have_content("All changes saved · v1")
@@ -55,11 +55,11 @@ RSpec.describe "Document editor modes", type: :system do
   it "saves exact unsupported Markdown from raw mode and returns through Back" do
     open_editor
     block_saves
-    click_button "Markdown", exact: true
+    click_button "Raw", exact: true
     replacement = source.sub("Ready", "Approved") + "\n<details><summary>More</summary>Exact HTML</details>\n\nNote[^1]\n\n[^1]: retained\n"
     raw.send_keys([ mod, "a" ], replacement)
-    click_button "Rich text"
-    click_button "Markdown", exact: true
+    click_button "Editer"
+    click_button "Raw", exact: true
     expect(raw.text).to include("Approved", "[^1]: retained")
     # A pre-save hover must not cache the old reading page for Back.
     find_link("Back").hover
@@ -76,7 +76,7 @@ RSpec.describe "Document editor modes", type: :system do
   it "keeps the draft in place when Back fails, then retries and navigates" do
     open_editor
     block_saves
-    click_button "Markdown", exact: true
+    click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Retain this draft")
     click_link "Back"
     expect(page).to have_content("Offline")
@@ -99,7 +99,7 @@ RSpec.describe "Document editor modes", type: :system do
         return response;
       };
     JS
-    click_button "Markdown", exact: true
+    click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Before request")
     save_now
     expect(page).to have_content("Saving…")
@@ -113,7 +113,7 @@ RSpec.describe "Document editor modes", type: :system do
   it "blocks Back on overlapping changes in raw mode" do
     open_editor
     block_saves
-    click_button "Markdown", exact: true
+    click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Local replacement")
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Remote replacement", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
     expect(page).to have_content("Both edits change", wait: 10)
@@ -127,7 +127,7 @@ RSpec.describe "Document editor modes", type: :system do
   it "merges live raw edits and retains local undo across an incoming agent change" do
     open_editor
     block_saves
-    click_button "Markdown", exact: true
+    click_button "Raw", exact: true
     raw.send_keys([ mod, :end ], "\nHuman tail")
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("Original prose.", "Agent prose."), base_revision: 1, actor_type: "local_agent", actor_id: author.id)
     expect(raw).to have_text("Agent prose.", wait: 10)
@@ -137,7 +137,7 @@ RSpec.describe "Document editor modes", type: :system do
     expect(raw).to have_text("Agent prose.")
     raw.send_keys([ mod, :shift, "z" ])
     expect(raw).to have_text("Human tail")
-    click_button "Rich text"
+    click_button "Editer"
     expect(page).to have_css(".document-editor__body .ProseMirror", text: "Agent prose.")
     page.execute_script('window.fetch = window.originalFetch')
     click_link "Back"
@@ -167,10 +167,10 @@ RSpec.describe "Document editor modes", type: :system do
     language = all('[aria-label="Code language"]').last
     language.fill_in(with: "python")
     language.send_keys(:tab)
-    click_button "Markdown", exact: true
+    click_button "Raw", exact: true
     expect(raw).to have_text("```python")
     expect(raw).to have_text("puts :hello")
-    click_button "Rich text"
+    click_button "Editer"
     click_button "Undo"
     expect(all('[aria-label="Code language"]').last.value).to eq("ruby")
     click_button "Redo"
@@ -198,7 +198,7 @@ RSpec.describe "Document editor modes", type: :system do
     expect(page).to have_css(".document-editor__block pre", text: "puts :agent")
     click_button "Redo"
     expect(all('[aria-label="Code language"]').last.value).to eq("python")
-    click_button "Markdown", exact: true
+    click_button "Raw", exact: true
     expect(raw).to have_text("```python")
     expect(raw).to have_text("puts :agent")
   end
@@ -224,7 +224,7 @@ RSpec.describe "Document editor modes", type: :system do
   it "retains a raw draft and its mode through reload, then saves it" do
     open_editor
     block_saves
-    click_button "Markdown", exact: true
+    click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Retained raw **draft**.")
     fill_in "plan_title", with: "Recovered source title"
     save_now
@@ -246,7 +246,7 @@ RSpec.describe "Document editor modes", type: :system do
     all('[aria-label="Code language"]').last.fill_in(with: "ruby`")
     click_link "Back"
     expect(page).to have_current_path(plan_edit_page_path(plan))
-    click_button "Markdown", exact: true
+    click_button "Raw", exact: true
     raw.send_keys([ mod, :end ], "\nValid source edit")
     click_link "Back"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
@@ -256,7 +256,7 @@ RSpec.describe "Document editor modes", type: :system do
   it "creates a new document through autosave without replacing its editor" do
     visit new_plan_path
     expect(page).to have_css('.document-editor__body .ProseMirror[contenteditable="true"]', wait: 20)
-    click_button "Markdown", exact: true
+    click_button "Raw", exact: true
     raw.send_keys("# New source\n\nUntouched **Markdown**.")
     fill_in "plan_title", with: "Autosaved new source"
     expect(page).to have_content("All changes saved · v1", wait: 15)
@@ -295,10 +295,10 @@ RSpec.describe "Document editor modes", type: :system do
     expect(page.evaluate_script('document.querySelector("[aria-label=\"Document body\"]").contains(getSelection().anchorNode)')).to eq(true)
     expect(page.evaluate_script('getSelection().toString()')).to include("Shared draft")
     # Focus a control outside either editor: default browser selection is allowed.
-    find('[aria-label="Editing mode"]').click
+    find(".document-editor__menu summary").click
     page.execute_script('window.addEventListener("keydown", event => { if (event.key === "a") window.selectAllEvent = { target: event.target.tagName, prevented: event.defaultPrevented } })')
     page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
-    expect(page.evaluate_script('window.selectAllEvent')).to eq({ "prevented" => false, "target" => "BODY" })
+    expect(page.evaluate_script('window.selectAllEvent')).to eq({ "prevented" => false, "target" => "SUMMARY" })
     page.execute_script('window.savedRequests = 0; window.fetch = (url, options) => { if (options?.method === "PATCH") window.savedRequests++; return window.originalFetch(url, options) }')
     click_link "Back"
     expect(page).to have_current_path(/selection-stays-local$/, wait: 15)
@@ -322,8 +322,8 @@ RSpec.describe "Document editor modes", type: :system do
     expect(raw).to have_text("Agent prose.")
     raw.send_keys([ mod, :shift, "z" ])
     expect(raw).to have_text("Human tail")
-    click_button "Markdown", exact: true
-    click_button "Rich text", exact: true
+    click_button "Raw", exact: true
+    click_button "Editer", exact: true
     click_button "Dual", exact: true
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source.sub("Original prose.", "Agent prose.") + "\nHuman tail")
   end

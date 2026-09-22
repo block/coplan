@@ -30,7 +30,7 @@ RSpec.describe "Editor live cable delivery", type: :system do
       actor_type: "local_agent", actor_id: author.id)
   end
 
-  [ "Rich text", "Markdown", "Dual" ].each do |mode|
+  [ "Editer", "Raw", "Dual" ].each do |mode|
     it "receives a real broadcast in #{mode} with polling disabled" do
       click_button mode, exact: true
       agent_write(source.sub("Agent section.", "Committed background edit."))
@@ -142,7 +142,7 @@ RSpec.describe "New document live delivery", type: :system do
     page.execute_script('window.createdConsumer.connect()')
     expect(page).to have_css('form.document-editor turbo-cable-stream-source[connected]', visible: :all, count: 1, wait: 10)
     expect(raw).to have_text("Agent edit while disconnected.", wait: 5)
-    [ "Rich text", "Markdown", "Dual" ].each { |mode| click_button mode, exact: true }
+    [ "Editer", "Raw", "Dual" ].each { |mode| click_button mode, exact: true }
     expect(page.evaluate_script('window.createdConsumer.subscriptions.subscriptions.filter(s => s.identifier === window.createdSubscription.identifier).length')).to eq(1)
     expect(page.evaluate_script('Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").poll')).to be_nil
     click_link "Back"

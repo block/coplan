@@ -19,8 +19,29 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     all(".document-editor__block > pre > code").first
   end
 
+  it "moves ArrowDown into existing prose after code without inserting a paragraph" do
+    [ "Editer", "Dual" ].each do |mode|
+      click_button mode, exact: true
+      paragraphs = all('[aria-label="Document body"] p').count
+      code.click
+      page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).send_keys(:arrow_right).perform
+      Selenium::WebDriver::Wait.new(timeout: 3).until do
+        page.evaluate_script('(() => { const s = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").richEditor.view.state.selection; return s.empty && s.$head.parent.type.name === "code_block" && s.$head.parentOffset === s.$head.parent.content.size })()')
+      end
+      page.driver.browser.action.send_keys(:arrow_down).perform
+      expect(all('[aria-label="Document body"] p').count).to eq(paragraphs)
+      expect(page.evaluate_script('getSelection().anchorNode.parentElement.closest("p")?.textContent')).to eq("After prose.")
+      expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
+    end
+    page.driver.browser.action.send_keys("Reached ").perform
+    expect(find('[aria-label="Document body"] p', text: "Reached After prose.")).to be_present
+    click_link "Back"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 10)
+    expect(plan.reload.current_content).to eq(source.sub("After prose.", "Reached After prose."))
+  end
+
   it "selects and replaces only focused code in Rich and Dual, retaining other blocks and native inputs" do
-    [ "Rich text", "Dual" ].each do |mode|
+    [ "Editer", "Dual" ].each do |mode|
       click_button mode, exact: true
       code.click
       page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
@@ -43,7 +64,7 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     find('[aria-label="Document body"] p', text: "Before prose.").click
     page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
     expect(page.evaluate_script('getSelection().toString()')).to include("Before prose.", "After prose.")
-    expect(page.evaluate_script('getSelection().toString()')).not_to include("Code scopes", "Rich text", "Dual")
+    expect(page.evaluate_script('getSelection().toString()')).not_to include("Code scopes", "Editer", "Dual")
     find("#plan_title").send_keys([ mod, "a" ], "Scoped title")
     click_link "Back"
     expect(page).to have_current_path(/scoped-title$/, wait: 10)

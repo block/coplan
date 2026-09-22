@@ -7094,10 +7094,11 @@ img.avatar {
 @media (max-width: 640px) { .document-editor__top { flex-wrap: wrap; } .document-editor__byline { gap: 8px; } .document-editor__toolbar { padding: 6px; } .document-editor__tool-divider { margin: 0 2px; } }
 
 .document-editor__back { display: inline-flex; align-items: center; gap: 6px; }
-.document-editor__mode { display: flex; align-items: center; gap: 4px; margin: 0 0 12px; }
-.document-editor__mode button { border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text-muted); background: var(--color-surface); padding: 7px 12px; cursor: pointer; font: inherit; font-size: 13px; }
-.document-editor__mode button[aria-pressed="true"] { color: var(--color-primary); background: var(--color-primary-light); border-color: var(--color-primary); }
-.document-editor__mode span { margin-left: 10px; color: var(--color-text-muted); font-size: 12px; }
+/* One segmented control, with a raised selected segment. */
+.document-editor__mode { display: inline-flex; align-items: center; gap: 2px; padding: 3px; margin: 0 0 16px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-muted); }
+.document-editor__mode button { min-width: 76px; border: 0; border-radius: 7px; color: var(--color-text-muted); background: transparent; padding: 7px 16px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; transition: background-color 120ms, color 120ms, box-shadow 120ms; }
+.document-editor__mode button:hover { color: var(--color-text); }
+.document-editor__mode button[aria-pressed="true"] { color: var(--color-text); background: var(--color-surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .14), inset 0 0 0 1px var(--color-border); }
 .document-editor__mode button:focus-visible, .document-editor__toolbar select:focus-visible, .document-editor__code-language:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .document-editor__toolbar select, .document-editor__toolbar select option, .document-editor__code-language { background-color: var(--color-surface); color: var(--color-text); }
 .document-editor__toolbar select:focus { background-color: var(--color-primary-light); }
@@ -7119,7 +7120,6 @@ img.avatar {
 html[data-theme="dark"] .document-editor select, html[data-theme="dark"] .document-editor input { color-scheme: dark; }
 html[data-theme="light"] .document-editor select, html[data-theme="light"] .document-editor input { color-scheme: light; }
 @media (prefers-color-scheme: dark) { html:not([data-theme]) .document-editor select, html:not([data-theme]) .document-editor input { color-scheme: dark; } }
-@media (max-width: 640px) { .document-editor__mode { flex-wrap: wrap; } .document-editor__mode span { flex-basis: 100%; margin: 4px 0 0; } }
 
 /* Each pane owns its selection; the form owns the shared draft/save queue. */
 .document-editor[data-mode="dual"] .document-editor__paper { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }

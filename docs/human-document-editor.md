@@ -1,6 +1,6 @@
 # Human document editor prototype
 
-Owners use **Edit** to write in the document. **Rich text**, **Markdown**, and **Dual** are
+Owners use **Edit** to write in the document. **Editer**, **Raw**, and **Dual** are
 first-class modes sharing one draft, base revision and autosave pipeline. The
 workspace **New document** starts a private draft. Add a title and content and it saves in
 place, without replacing the editor or interrupting typing.
@@ -27,7 +27,7 @@ new draft can simply go Back. Comments remain available in reading view.
 
 ## Markdown, tables and diagrams
 
-Markdown mode edits the exact source in a plain, unformatted editor. Switching
+Raw mode edits the exact Markdown source in a plain, unformatted editor. Switching
 modes alone does not serialize, save or normalize the text, including unsupported
 syntax. Each mode keeps its selection and undo history for the current visit;
 incoming edits map through both editors without focusing the background pane. Source-card **Edit Markdown** buttons switch modes and
@@ -64,8 +64,8 @@ Selecting `mermaid` enables the diagram preview; switching to another language
 keeps its source as ordinary code. This does not provide a visual diagram editor.
 
 Enter adds a code line and carries forward its leading whitespace. Tab inserts
-two spaces. Ordinary code blocks have no redundant Edit Markdown button. ArrowDown at the end of the block moves into a paragraph
-below; a final code block already has an editable empty paragraph after it. You
+two spaces. Ordinary code blocks have no redundant Edit Markdown button. ArrowDown at the end of the block moves into the next existing text block,
+skipping preserved Markdown separators without inserting a blank paragraph; a final code block already has an editable empty paragraph after it. You
 can also click that empty paragraph directly. There is no visible “Write below”
 label. That empty editing affordance contributes no
 Markdown until you type, so opening, navigating or switching modes cannot add

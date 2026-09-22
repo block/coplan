@@ -49,8 +49,15 @@ function moveBelowCode(state, dispatch) {
   const position = $head.after()
   if (dispatch) {
     const tr = state.tr
-    if (tr.doc.nodeAt(position)?.type !== schema.nodes.paragraph) tr.insert(position, trailingParagraph())
-    tr.setSelection(TextSelection.near(tr.doc.resolve(position + 1))).scrollIntoView()
+    // Exact Markdown separators are preserved nodes between visible blocks.
+    // Skip those and use the next text block before creating an escape line.
+    const next = TextSelection.findFrom(state.doc.resolve(position), 1, true)
+    if (next) tr.setSelection(next)
+    else {
+      tr.insert(position, trailingParagraph())
+      tr.setSelection(TextSelection.near(tr.doc.resolve(position + 1)))
+    }
+    tr.scrollIntoView()
     dispatch(tr)
   }
   return true
