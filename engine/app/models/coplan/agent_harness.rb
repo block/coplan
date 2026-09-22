@@ -1,9 +1,14 @@
 module CoPlan
   class AgentHarness < ApplicationRecord
     STRING_LIMIT = 255
-    BUILT_IN_ICONS = {
-      "amp" => "coplan/agent-amp.svg",
-      "claude-code" => "coplan/agent-claude.svg"
+    BUILT_INS = {
+      "amp" => { display_name: "Amp", icon: "coplan/agent-amp.svg", pattern: /\bamp\b/ },
+      "claude-code" => { display_name: "Claude", icon: "coplan/agent-claude.svg", pattern: /\bclaude(?:\s+code)?\b/ },
+      "codex" => { display_name: "Codex", icon: "coplan/agent-codex.svg", pattern: /\bcodex\b/ },
+      "cursor" => { display_name: "Cursor", icon: "coplan/agent-cursor.svg", pattern: /\bcursor(?:\s+agent)?\b/ },
+      "gemini-cli" => { display_name: "Gemini CLI", icon: "coplan/agent-gemini.png", pattern: /\bgemini(?:\s+cli)?\b/ },
+      "goose" => { display_name: "Goose", icon: "coplan/agent-goose.svg", pattern: /\bgoose\b/ },
+      "opencode" => { display_name: "OpenCode", icon: "coplan/agent-opencode.png", pattern: /\bopen[\s_-]?code\b/ }
     }.freeze
 
     has_many :comments, dependent: :nullify
@@ -22,23 +27,33 @@ module CoPlan
       find_by!(key: key)
     end
 
+    def self.install_built_ins!
+      BUILT_INS.each do |key, attributes|
+        find_or_create_by!(key: key) do |harness|
+          harness.display_name = attributes.fetch(:display_name)
+        end
+      rescue ActiveRecord::RecordNotUnique
+        find_by!(key: key)
+      end
+    end
+
     def self.default_display_name(key, identifier)
-      return "Amp" if key == "amp"
-      return "Claude" if key == "claude-code"
+      built_in = BUILT_INS[key]
+      return built_in.fetch(:display_name) if built_in
 
       identifier.to_s.titleize.first(STRING_LIMIT).presence || "Agent"
     end
 
     def self.canonical_key(identifier)
       normalized = identifier.to_s.downcase
-      return "amp" if normalized.match?(/\bamp\b/)
-      return "claude-code" if normalized.include?("claude")
+      built_in = BUILT_INS.find { |_key, attributes| normalized.match?(attributes.fetch(:pattern)) }
+      return built_in.first if built_in
 
       normalized.parameterize.first(STRING_LIMIT).presence || "agent"
     end
 
     def built_in_icon
-      BUILT_IN_ICONS.fetch(key, "coplan/agent-avatar.svg")
+      BUILT_INS.dig(key, :icon) || "coplan/agent-avatar.svg"
     end
 
     def self.ransackable_attributes(_auth_object = nil)

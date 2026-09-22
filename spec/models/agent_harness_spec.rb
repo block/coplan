@@ -2,9 +2,20 @@ require "rails_helper"
 
 RSpec.describe CoPlan::AgentHarness, type: :model do
   describe ".resolve" do
-    it "canonicalizes known Amp and Claude harness identities" do
-      expect(described_class.resolve(identifier: "Amp CLI")).to have_attributes(key: "amp", display_name: "Amp")
-      expect(described_class.resolve(identifier: "claude-code")).to have_attributes(key: "claude-code", display_name: "Claude")
+    it "canonicalizes standard harness identities" do
+      expected_harnesses = {
+        "Amp CLI" => [ "amp", "Amp" ],
+        "Claude Code" => [ "claude-code", "Claude" ],
+        "OpenAI Codex" => [ "codex", "Codex" ],
+        "Cursor Agent" => [ "cursor", "Cursor" ],
+        "Google Gemini CLI" => [ "gemini-cli", "Gemini CLI" ],
+        "goose" => [ "goose", "Goose" ],
+        "Open Code" => [ "opencode", "OpenCode" ]
+      }
+
+      expected_harnesses.each do |identifier, (key, display_name)|
+        expect(described_class.resolve(identifier: identifier)).to have_attributes(key: key, display_name: display_name)
+      end
     end
 
     it "creates an editable entry for an unknown harness" do
@@ -21,7 +32,10 @@ RSpec.describe CoPlan::AgentHarness, type: :model do
     end
   end
 
-  it "uses a generic built-in icon for an unknown harness" do
+  it "uses the configured icons for built-ins and the generic icon otherwise" do
+    described_class::BUILT_INS.each do |key, attributes|
+      expect(build(:agent_harness, key: key).built_in_icon).to eq(attributes.fetch(:icon))
+    end
     expect(build(:agent_harness).built_in_icon).to eq("coplan/agent-avatar.svg")
   end
 end

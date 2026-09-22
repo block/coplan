@@ -1,5 +1,14 @@
 class CreateCoplanAgentHarnesses < ActiveRecord::Migration[8.1]
   STRING_LIMIT = 255
+  BUILT_INS = {
+    "amp" => { display_name: "Amp", pattern: /\bamp\b/ },
+    "claude-code" => { display_name: "Claude", pattern: /\bclaude(?:\s+code)?\b/ },
+    "codex" => { display_name: "Codex", pattern: /\bcodex\b/ },
+    "cursor" => { display_name: "Cursor", pattern: /\bcursor(?:\s+agent)?\b/ },
+    "gemini-cli" => { display_name: "Gemini CLI", pattern: /\bgemini(?:\s+cli)?\b/ },
+    "goose" => { display_name: "Goose", pattern: /\bgoose\b/ },
+    "opencode" => { display_name: "OpenCode", pattern: /\bopen[\s_-]?code\b/ }
+  }.freeze
 
   class MigrationHarness < ActiveRecord::Base
     self.table_name = "coplan_agent_harnesses"
@@ -21,6 +30,7 @@ class CreateCoplanAgentHarnesses < ActiveRecord::Migration[8.1]
       t.timestamps
     end
     add_index :coplan_agent_harnesses, :key, unique: true
+    seed_built_ins
 
     add_reference :coplan_comments, :agent_harness, type: :string, limit: 36,
       foreign_key: { to_table: :coplan_agent_harnesses }
@@ -35,6 +45,16 @@ class CreateCoplanAgentHarnesses < ActiveRecord::Migration[8.1]
   end
 
   private
+
+  def seed_built_ins
+    BUILT_INS.each do |key, attributes|
+      MigrationHarness.create!(
+        id: SecureRandom.uuid,
+        key: key,
+        display_name: attributes.fetch(:display_name)
+      )
+    end
+  end
 
   def backfill_harnesses
     MigrationComment.where(author_type: %w[local_agent cloud_persona]).find_each do |comment|
@@ -51,16 +71,16 @@ class CreateCoplanAgentHarnesses < ActiveRecord::Migration[8.1]
   end
 
   def default_display_name(key, identity)
-    return "Amp" if key == "amp"
-    return "Claude" if key == "claude-code"
+    built_in = BUILT_INS[key]
+    return built_in.fetch(:display_name) if built_in
 
     identity.to_s.titleize.first(STRING_LIMIT).presence || "Agent"
   end
 
   def canonical_key(identity)
     normalized = identity.to_s.downcase
-    return "amp" if normalized.match?(/\bamp\b/)
-    return "claude-code" if normalized.include?("claude")
+    built_in = BUILT_INS.find { |_key, attributes| normalized.match?(attributes.fetch(:pattern)) }
+    return built_in.first if built_in
 
     normalized.parameterize.first(STRING_LIMIT).presence || "agent"
   end

@@ -46,16 +46,17 @@ This creates the engine's tables (`coplan_users`, `coplan_plans`, etc.) in your 
 bin/rails coplan:seed
 ```
 
-CoPlan needs a built-in **General** plan type to exist. Replaying every
-migration creates it, but databases initialized from a checked-in schema
-(`db:schema:load`, `db:prepare`, `db:setup`) skip data migrations — the
-tables exist and the migrations are marked applied, but the row is missing
-and API plan creation with `plan_type` returns 422.
+CoPlan needs built-in reference rows such as the **General** plan type and
+known agent harnesses. Replaying every migration creates them, but databases
+initialized from a checked-in schema (`db:schema:load`, `db:prepare`,
+`db:setup`) skip data migrations — the tables exist and the migrations are
+marked applied, but the rows are missing.
 
-`coplan:seed` is idempotent and never overwrites plan types you've
-customized, so run it after any of the setup paths above. Alternatively,
-call `CoPlan::Engine.load_seed` from your own `db/seeds.rb` so `db:setup`
-and `db:seed` cover it automatically.
+`coplan:seed` is idempotent and never overwrites plan types or agent harnesses
+you've customized. Run it after setup and after each engine version bump so
+new reference rows are installed. Alternatively, call
+`CoPlan::Engine.load_seed` from your own `db/seeds.rb` so `db:setup` and
+`db:seed` cover it automatically.
 
 ### 5. Configure authentication
 

@@ -54,6 +54,15 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).to include("Write like a runbook, not a keynote.")
     end
 
+    it "declares identity once through the session token" do
+      get agent_instructions_path
+
+      expect(response.body).to include("Declare it here once; the token supplies it on every later call.")
+      expect(response.body).to include("Do not send attribution fields.")
+      expect(response.body).not_to include("per-request override of who is writing")
+      expect(response.body).not_to include('"body_markdown": "Good point, I will address this.", "agent_name"')
+    end
+
     it "walks agents through folder, type, and template before creating" do
       get agent_instructions_path
 
