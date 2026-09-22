@@ -274,17 +274,21 @@ CoPlan::Engine.routes.draw do
   #
   # Versions are addressed by revision, not id: it's the number already on
   # screen in the history list, and it nests under the page that lists it.
-  get ":handle/*slug_path/edit", to: "browse#browse", as: :browse_edit,
-    defaults: { page: "edit" }, format: false, constraints: { handle: handle }
-  get ":handle/*slug_path/history", to: "browse#browse", as: :browse_history,
-    defaults: { page: "history" }, format: false, constraints: { handle: handle }
-  get ":handle/*slug_path/history/:revision", to: "browse#browse", as: :browse_version,
-    defaults: { page: "version" }, format: false,
-    constraints: { handle: handle, revision: /\d+/ }
-  get ":handle/*slug_path/history/:revision/diff", to: "browse#browse", as: :browse_version_diff,
-    defaults: { page: "version_diff" }, format: false,
-    constraints: { handle: handle, revision: /\d+/ }
+  # A root-mounted engine must pass attachment URLs through to the host's
+  # Active Storage routes instead of treating "rails" as a library handle.
+  constraints ->(request) { !request.path_info.start_with?("#{ActiveStorage.routes_prefix}/") } do
+    get ":handle/*slug_path/edit", to: "browse#browse", as: :browse_edit,
+      defaults: { page: "edit" }, format: false, constraints: { handle: handle }
+    get ":handle/*slug_path/history", to: "browse#browse", as: :browse_history,
+      defaults: { page: "history" }, format: false, constraints: { handle: handle }
+    get ":handle/*slug_path/history/:revision", to: "browse#browse", as: :browse_version,
+      defaults: { page: "version" }, format: false,
+      constraints: { handle: handle, revision: /\d+/ }
+    get ":handle/*slug_path/history/:revision/diff", to: "browse#browse", as: :browse_version_diff,
+      defaults: { page: "version_diff" }, format: false,
+      constraints: { handle: handle, revision: /\d+/ }
 
-  get ":handle", to: "browse#browse", as: :browse_library, constraints: { handle: handle }
-  get ":handle/*slug_path", to: "browse#browse", as: :browse, format: false, constraints: { handle: handle }
+    get ":handle", to: "browse#browse", as: :browse_library, constraints: { handle: handle }
+    get ":handle/*slug_path", to: "browse#browse", as: :browse, format: false, constraints: { handle: handle }
+  end
 end

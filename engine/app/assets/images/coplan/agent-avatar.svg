@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img">
+  <defs>
+    <linearGradient id="agent-gradient" x1="4" y1="3" x2="28" y2="29" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#4338CA"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#agent-gradient)"/>
+  <path d="M16 6.5c.45 4.92 2.58 7.05 7.5 7.5-4.92.45-7.05 2.58-7.5 7.5-.45-4.92-2.58-7.05-7.5-7.5 4.92-.45 7.05-2.58 7.5-7.5Z" fill="#fff"/>
+  <path d="M24.25 20.25c.23 2.47 1.28 3.52 3.75 3.75-2.47.23-3.52 1.28-3.75 3.75-.23-2.47-1.28-3.52-3.75-3.75 2.47-.23 3.52-1.28 3.75-3.75Z" fill="#C7D2FE"/>
+</svg>

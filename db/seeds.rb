@@ -1,6 +1,6 @@
-# Engine-required reference data (the General plan type) — idempotent and
-# environment-independent. Schema-loaded databases skip the engine's data
-# migrations, so this must run everywhere. See engine/db/seeds.rb.
+# Engine-required reference data (plan types and known agent harnesses) —
+# idempotent and environment-independent. Schema-loaded databases skip the
+# engine's data migrations, so this must run everywhere. See engine/db/seeds.rb.
 CoPlan::Engine.load_seed
 
 if Rails.env.local?
