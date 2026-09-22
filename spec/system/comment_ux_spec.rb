@@ -275,6 +275,27 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_content("Why not monolith?")
     end
 
+    it "visually distinguishes an agent comment from its human owner" do
+      thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
+      thread.comments.create!(
+        author_type: "local_agent",
+        author_id: author.id,
+        agent_name: "Amp",
+        body_markdown: "I checked the migration path."
+      )
+      visit plan_page_path(plan)
+
+      find("mark.anchor-highlight--open").click
+
+      within(".thread-popover:popover-open .comment--agent") do
+        expect(page).to have_css("img.comment__agent-avatar[src*='agent-amp']")
+        expect(page).to have_css(".comment__agent-name", text: "Amp")
+        expect(page).to have_css(".comment__agent-owner", text: "#{author.name.split.first}'s agent")
+        expect(page).to have_no_css("img.avatar")
+        expect(page).to have_content("I checked the migration path.")
+      end
+    end
+
     it "opens a popover for a comment anchored to a Mermaid label" do
       plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
         # Request flow

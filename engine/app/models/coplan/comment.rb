@@ -11,12 +11,14 @@ module CoPlan
     # exists — they go with it.
     has_many :notifications, class_name: "CoPlan::Notification", dependent: :delete_all
     belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
+    belongs_to :agent_harness, class_name: "CoPlan::AgentHarness", optional: true
 
     validates :body_markdown, presence: true
     validates :author_type, presence: true, inclusion: { in: AUTHOR_TYPES }
     validates :agent_name, presence: { message: "is required for agent comments" }, if: -> { author_type == "local_agent" }
     validates :agent_name, length: { maximum: AGENT_NAME_LIMIT }, allow_nil: true
 
+    before_create :assign_agent_harness, if: :agent?
     before_save :rewrite_plain_mentions, if: :body_markdown_changed?
     after_create_commit :notify_thread_participants
     after_create_commit :track_comment_created
@@ -51,6 +53,11 @@ module CoPlan
     end
 
     private
+
+    def assign_agent_harness
+      identity = api_token&.metadata.to_h["harness"].presence || agent_name.presence || "agent"
+      self.agent_harness ||= AgentHarness.resolve(identifier: identity, display_name: agent_name)
+    end
 
     def first_comment_in_thread?
       # IDs are random UUIDs, not insertion-ordered, so we can't compare them

@@ -2697,7 +2697,33 @@ img.avatar {
 }
 
 .comment__header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
   margin-bottom: var(--space-xs);
+}
+
+.comment__agent-avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  border-radius: 7px;
+}
+
+.comment__agent-name {
+  color: var(--color-agent);
+}
+
+.comment__agent-owner {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--color-agent-bg);
+  color: var(--color-agent);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .comment__body .markdown-rendered {

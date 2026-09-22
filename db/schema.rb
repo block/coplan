@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_28_120001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_21_210833) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -65,6 +65,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_28_120001) do
     t.index ["api_token_id", "acked_at"], name: "index_coplan_agent_events_on_api_token_id_and_acked_at"
     t.index ["api_token_id", "id"], name: "index_coplan_agent_events_on_api_token_id_and_id"
     t.index ["plan_id"], name: "index_coplan_agent_events_on_plan_id"
+  end
+
+  create_table "coplan_agent_harnesses", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "display_name", null: false
+    t.string "icon_url"
+    t.string "key", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_coplan_agent_harnesses_on_key", unique: true
   end
 
   create_table "coplan_agent_sessions", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -131,6 +140,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_28_120001) do
   end
 
   create_table "coplan_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "agent_harness_id", limit: 36
     t.string "agent_name"
     t.string "api_token_id", limit: 36
     t.string "author_id", limit: 36
@@ -140,6 +150,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_28_120001) do
     t.datetime "created_at", null: false
     t.datetime "deleted_at"
     t.datetime "updated_at", null: false
+    t.index ["agent_harness_id"], name: "index_coplan_comments_on_agent_harness_id"
     t.index ["api_token_id"], name: "index_coplan_comments_on_api_token_id"
     t.index ["comment_thread_id", "created_at"], name: "index_coplan_comments_on_comment_thread_id_and_created_at"
   end
@@ -473,6 +484,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_28_120001) do
   add_foreign_key "coplan_comment_threads", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_comment_threads", "coplan_users", column: "created_by_user_id"
   add_foreign_key "coplan_comment_threads", "coplan_users", column: "resolved_by_user_id"
+  add_foreign_key "coplan_comments", "coplan_agent_harnesses", column: "agent_harness_id"
   add_foreign_key "coplan_comments", "coplan_api_tokens", column: "api_token_id"
   add_foreign_key "coplan_comments", "coplan_comment_threads", column: "comment_thread_id"
   add_foreign_key "coplan_edit_leases", "coplan_plans", column: "plan_id"

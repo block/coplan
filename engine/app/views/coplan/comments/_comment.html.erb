@@ -2,7 +2,7 @@
     comment_actions Stimulus controller — one broadcast is shared with every
     `current_user`, so we ship the button on every human comment and let
     the browser remove it for non-authors. Server still enforces auth. %>
-<div class="comment <%= 'comment--deleted' if comment.deleted? %>"
+<div class="comment <%= 'comment--deleted' if comment.deleted? %> <%= 'comment--agent' if comment.agent? %>"
      id="<%= dom_id(comment) %>"
      data-controller="coplan--comment-actions"
      data-coplan--comment-actions-author-id-value="<%= comment.author_id %>"
@@ -14,12 +14,15 @@
   <% else %>
     <div class="comment__header text-sm text-muted">
       <% author = comment_author_user(comment) %>
-      <% if author %>
-        <%= user_avatar(author) %>
-      <% end %>
-      <strong><%= author ? profile_link(author) : comment_author_name(comment) %></strong>
       <% if comment.agent? %>
-        <span class="badge badge--agent">agent</span>
+        <%= image_tag comment_agent_icon_source(comment), alt: "", class: "comment__agent-avatar" %>
+        <strong class="comment__agent-name"><%= comment.agent_harness&.display_name.presence || comment.agent_name.presence || "Agent" %></strong>
+        <span class="comment__agent-owner"><%= comment_agent_owner_label(comment) %></span>
+      <% elsif author %>
+        <%= user_avatar(author) %>
+        <strong><%= profile_link(author) %></strong>
+      <% else %>
+        <strong><%= comment_author_name(comment) %></strong>
       <% end %>
       · <%= time_ago_in_words(comment.created_at) %> ago
     </div>
