@@ -67,10 +67,10 @@ export default class extends Controller {
     // Typing during a request must not hide its spinner or an unresolved error.
     if (state === "dirty") {
       if (["saving", "error"].includes(this.statusTarget.dataset.state)) return
-      state = "idle"
-      if (message === "Unsaved changes") message = ""
+      state = this.dirty() ? "queued" : "idle"
+      if (message === "Unsaved changes") message = state === "queued" ? "Saving soon…" : `All changes saved · v${this.base.revision}`
     }
-    this.statusTextTarget.textContent = message
+    if (this.statusTextTarget.textContent !== message) this.statusTextTarget.textContent = message
     this.statusTarget.dataset.state = state
     this.statusTarget.title = state === "saved" ? `${message} · ${new Date().toLocaleTimeString()}` : message
   }
@@ -107,7 +107,7 @@ export default class extends Controller {
   async flush(manual = false, overwriteRevision = null) {
     clearTimeout(this.saveTimer)
     if (this.editor && !this.isNew && !this.dirty() && !overwriteRevision) return true
-    if (this.isNew && !manual && !this.textareaTarget.value.trim()) { this.setStatus("Add document content to save", "dirty"); return false }
+    if (this.isNew && !manual && !this.textareaTarget.value.trim()) { this.setStatus("Add document content to save", "idle"); return false }
     if (!this.editor) return this.fail("The editor is still loading. Your draft is retained.")
     if (this.composing) { this.scheduleSave(250); return }
     if (this.busy) {

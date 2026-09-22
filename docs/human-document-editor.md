@@ -20,7 +20,8 @@ and Cmd/Ctrl+K adds a link. Lists support Enter, Tab and Shift+Tab.
 
 The toolbar stays visible in all modes. Formatting and code insertion are disabled
 while Raw has focus, including in Dual; Undo and Redo still act on the focused pane.
-Save feedback sits at the far right: a spinner during the request, then a muted
+Save feedback sits at the far right: a muted clock while autosave is queued,
+a spinner during the request, then a muted
 check that fades after acknowledgement. Hover for the saved version and time.
 Errors stay visible and successful saves are announced to assistive technology.
 The editor has no Details menu, tag editing, or change-summary field; existing tags

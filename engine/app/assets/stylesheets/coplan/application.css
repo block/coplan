@@ -7065,6 +7065,7 @@ img.avatar {
 .document-editor__format-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; min-width: 0; flex: 1; }
 .document-editor__save-status { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 32px; min-height: 32px; flex-shrink: 0; color: var(--color-text-muted); }
 .document-editor__save-status > svg { display: none; flex-shrink: 0; }
+.document-editor__save-status[data-state="queued"] .document-editor__save-queued { display: block; opacity: .65; }
 .document-editor__save-status[data-state="loading"] .document-editor__save-spinner,
 .document-editor__save-status[data-state="saving"] .document-editor__save-spinner { display: block; animation: editor-save-spin 800ms linear infinite; }
 .document-editor__save-status[data-state="saved"] .document-editor__save-check { display: block; animation: editor-save-fade 3s ease-out forwards; }

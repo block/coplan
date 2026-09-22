@@ -29,6 +29,12 @@ RSpec.describe "Editor toolbar", type: :system do
     page.execute_script(<<~'JS')
       const original = window.fetch;
       window.savedBodies = [];
+      window.saveStates = [];
+      const status = document.querySelector('.document-editor__save-status');
+      new MutationObserver(() => window.saveStates.push({
+        state: status.dataset.state, title: status.title,
+        queuedVisible: getComputedStyle(status.querySelector('.document-editor__save-queued')).display !== 'none'
+      })).observe(status, { attributes: true, attributeFilter: ['data-state'] });
       const firstSave = new Promise(resolve => { window.finishSave = resolve; });
       window.fetch = async (url, options) => {
         if (options?.method !== "PATCH") return original(url, options);
@@ -41,6 +47,10 @@ RSpec.describe "Editor toolbar", type: :system do
     raw.send_keys([ mod, "a" ], "First edit")
     expect(page).to have_css('.document-editor__save-status[data-state="saving"] .document-editor__save-spinner')
     expect(status["title"]).to eq("Saving…")
+    expect(page.evaluate_script("window.saveStates")).to include(
+      { "state" => "queued", "title" => "Saving soon…", "queuedVisible" => true },
+      { "state" => "saving", "title" => "Saving…", "queuedVisible" => false }
+    )
     raw.send_keys(:right, " and newer typing")
     expect(status["data-state"]).to eq("saving")
     page.execute_script("window.finishSave()")
@@ -57,6 +67,16 @@ RSpec.describe "Editor toolbar", type: :system do
     expect(page).to have_css(".document-editor__save-check")
     expect(plan.reload.current_content).to end_with("again")
     page.save_screenshot(Rails.root.join("tmp/editor-toolbar-raw.png"))
+  end
+
+  it "clears the queued icon when undo returns to the saved draft before autosave" do
+    click_button "Raw", exact: true
+    # Both native key sequences occur within the debounce, without a test sleep.
+    raw.send_keys([ mod, "a" ], "Temporary edit", [ mod, "z" ])
+    expect(raw).to have_text("Original prose.")
+    expect(page).to have_css('.document-editor__save-status[data-state="idle"]')
+    expect(page).not_to have_css(".document-editor__save-queued")
+    expect(plan.reload.current_revision).to eq(1)
   end
 
   it "keeps save errors visible while typing and recovers after retry" do
