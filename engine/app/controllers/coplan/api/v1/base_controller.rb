@@ -98,17 +98,15 @@ module CoPlan
           current_user&.id
         end
 
-        # Which agent to attribute a write to: the caller can say
-        # per-request, otherwise the token knows who it was minted for,
-        # otherwise the token's own name. Nil under hook auth — a human,
-        # not an agent (only reachable where require_api_token! is
-        # skipped).
+        # Which agent to attribute a write to. Identity is fixed when the
+        # token is minted; per-request attribution would let one credential
+        # present contradictory identities across comments and history.
+        # Nil under hook auth — a human, not an agent (only reachable where
+        # require_api_token! is skipped).
         def api_agent_name
           return nil unless @api_token
 
-          ApiToken.normalized_agent_name(
-            params[:agent_name].presence || @api_token.agent_name.presence || @api_token.name
-          )
+          @api_token.agent_name.presence || @api_token.name
         end
 
         # The provenance join: attribution rows keep the display string in

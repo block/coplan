@@ -4,7 +4,7 @@ module CoPlan
       # An agent claims a session on a plan to (a) subscribe its token to
       # the plan's event inbox and (b) drive the presence pill humans see.
       #
-      #   POST  /api/v1/plans/:plan_id/agent_session {"agent_name": "Claude"}
+      #   POST  /api/v1/plans/:plan_id/agent_session
       #   PATCH /api/v1/plans/:plan_id/agent_session {"state": "active", "detail": "editing Rollout"}
       #
       # Claim states: watching / active. PATCH states: active /

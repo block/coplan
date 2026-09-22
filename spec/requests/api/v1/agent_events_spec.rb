@@ -430,10 +430,9 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
 
   describe "agent attribution ergonomics" do
     # The token is the identity; the session is just presence on one plan.
-    # Every write path (comments, versions, events) resolves the name the
-    # same way — explicit param, then the token's agent_name, then its
-    # name — so one agent can't sign comments "Ada" while its versions
-    # say "Claude".
+    # Every write path (comments, versions, events) resolves the name from
+    # the token, so one credential cannot sign comments "Ada" while its
+    # versions say "Claude".
     it "attributes writes to the token's name even when the session was claimed under another label" do
       post api_v1_plan_agent_session_path(plan), params: { agent_name: "Ada" }, headers: agent_headers, as: :json
 
@@ -450,13 +449,13 @@ RSpec.describe "Api::V1::AgentEvents", type: :request do
       expect(CoPlan::Comment.last.agent_name).to eq("Claude")
     end
 
-    it "truncates an over-long name instead of losing the comment" do
+    it "ignores per-request attribution that conflicts with the token" do
       post api_v1_plan_comments_path(plan),
-        params: { body_markdown: "hi", agent_name: "Claude (this session, attached)" },
+        params: { body_markdown: "hi", agent_name: "Amp" },
         headers: agent_headers, as: :json
 
       expect(response).to have_http_status(:created)
-      expect(CoPlan::Comment.last.agent_name.length).to eq(CoPlan::Comment::AGENT_NAME_LIMIT)
+      expect(CoPlan::Comment.last.agent_name).to eq("Claude")
     end
 
     it "returns id alongside comment_id so creates match the rest of the API" do

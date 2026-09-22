@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Api::V1::Content", type: :request do
   let(:alice) { create(:coplan_user, :admin) }
-  let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice") }
+  let(:alice_token) { create(:api_token, user: alice, raw_token: "test-token-alice", agent_name: "Claude") }
   let(:headers) { { "Authorization" => "Bearer test-token-alice" } }
   let(:initial_content) { "# Plan\n\nSection one.\n\nSection two.\n" }
   let!(:plan) do
@@ -68,10 +68,10 @@ RSpec.describe "Api::V1::Content", type: :request do
       expect(version.api_token_id).to eq(alice_token.id)
     end
 
-    it "falls back to the token's name when agent_name is omitted" do
+    it "uses the token's agent name when agent_name is omitted" do
       put_content(initial_content + "\nagent addendum.\n")
 
-      expect(plan.reload.current_plan_version.agent_name).to eq(alice_token.name)
+      expect(plan.reload.current_plan_version.agent_name).to eq(alice_token.agent_name)
     end
 
     it "accepts change_summary and persists it on the version" do
