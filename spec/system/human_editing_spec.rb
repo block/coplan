@@ -46,15 +46,17 @@ RSpec.describe "Human plan editing", type: :system do
     expect(plan.current_plan_version.actor_type).to eq("human")
   end
 
-  it "edits title and tags atomically in place" do
+  it "edits the title while retaining tags without metadata controls" do
+    plan.update!(tag_names: [ "security", "api-design" ])
     visit plan_edit_page_path(plan)
     editor
     # Use native selection/typing: Capybara's programmatic input.select() can
     # lose its range when Chrome refocuses the element before send_keys.
     modifier = RUBY_PLATFORM.include?("darwin") ? :meta : :control
     find("#plan_title").send_keys([ modifier, "a" ], "Renamed In Editor")
-    find("summary", text: "Details").click
-    fill_in "plan_tag_names", with: "security, api-design"
+    expect(page).not_to have_css(".document-editor__menu")
+    expect(page).not_to have_field("plan_tag_names")
+    expect(page).not_to have_field("change_summary", visible: :all)
     save_now
     expect(page).to have_content("All changes saved · v1")
     expect(plan.reload.title).to eq("Renamed In Editor")

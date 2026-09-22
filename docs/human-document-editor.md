@@ -18,6 +18,14 @@ Lucide outline convention as the app; style controls and native options follow
 light/dark themes. Cmd/Ctrl+B/I format, Cmd/Ctrl+Z undoes, Cmd/Ctrl+Shift+Z redoes,
 and Cmd/Ctrl+K adds a link. Lists support Enter, Tab and Shift+Tab.
 
+The toolbar stays visible in all modes. Formatting and code insertion are disabled
+while Raw has focus, including in Dual; Undo and Redo still act on the focused pane.
+Save feedback sits at the far right: a spinner during the request, then a muted
+check that fades after acknowledgement. Hover for the saved version and time.
+Errors stay visible and successful saves are announced to assistive technology.
+The editor has no Details menu, tag editing, or change-summary field; existing tags
+and incoming tag updates are retained.
+
 Changes autosave after a 900ms pause. Cmd/Ctrl+S flushes immediately. **Close editor** (X) is
 the single navigation action: it waits for an in-flight save, saves any newer
 valid draft, then returns to reading view. Close editor disables hover prefetch because
@@ -33,7 +41,7 @@ modes alone does not serialize, save or normalize the text, including unsupporte
 syntax. Each mode keeps its selection and undo history for the current visit;
 incoming edits map through both editors without focusing the background pane. Source-card **Edit Markdown** buttons switch modes and
 select the block's source. The source mode has ordinary text Enter/Tab and
-Cmd/Ctrl+Z/Shift+Z; rich toolbar controls are hidden there.
+Cmd/Ctrl+Z/Shift+Z; rich toolbar controls remain visible but disabled there.
 
 Tables render as table previews with **Edit Markdown** above them. Edit table
 cells/rows/alignment in source, then switch back to see the result. There are no
@@ -101,7 +109,7 @@ Dual places editable Markdown on the left and rich text on the right; below
 ProseMirror transactions notify the controller once; counterpart updates are
 marked remote and do not echo back or create undo events. Each pane retains its
 own history. Keyboard undo and toolbar Undo/Redo operate on the last focused
-pane; formatting controls act on rich text. Structural source rewrites can
+pane; formatting controls are enabled only when rich text has focus. Structural source rewrites can
 invalidate older undo steps or move a mapped selection; this is not shared CRDT
 history. IME composition defers counterpart updates and incoming responses
 until ProseMirror has reconciled the composition DOM.
@@ -181,6 +189,10 @@ raw live merging and undo, code exit/language, themes and new-document autosave.
 `spec/system/human_editing_spec.rb` covers the existing keyboard, draft, merge,
 persistence and reading flows. Request/service tests cover sanitized previews,
 authorization, atomic saves, surgical ranges, immutable versions and conflicts.
+
+`spec/system/editor_toolbar_spec.rb` covers in-flight typing, acknowledged save
+feedback and fading, error recovery, pane-specific control availability, raw
+Undo/Redo, retained metadata, and narrow toolbar layout.
 
 `spec/system/editor_code_controls_spec.rb` covers anchored desktop/narrow dropdown
 placement, mouse and keyboard autocomplete, dismissal without draft changes,

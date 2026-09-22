@@ -295,10 +295,10 @@ RSpec.describe "Document editor modes", type: :system do
     expect(page.evaluate_script('document.querySelector("[aria-label=\"Document body\"]").contains(getSelection().anchorNode)')).to eq(true)
     expect(page.evaluate_script('getSelection().toString()')).to include("Shared draft")
     # Focus a control outside either editor: default browser selection is allowed.
-    find(".document-editor__menu summary").click
+    title.click
     page.execute_script('window.addEventListener("keydown", event => { if (event.key === "a") window.selectAllEvent = { target: event.target.tagName, prevented: event.defaultPrevented } })')
     page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
-    expect(page.evaluate_script('window.selectAllEvent')).to eq({ "prevented" => false, "target" => "SUMMARY" })
+    expect(page.evaluate_script('window.selectAllEvent')).to eq({ "prevented" => false, "target" => "INPUT" })
     page.execute_script('window.savedRequests = 0; window.fetch = (url, options) => { if (options?.method === "PATCH") window.savedRequests++; return window.originalFetch(url, options) }')
     click_link "Close editor"
     expect(page).to have_current_path(/selection-stays-local$/, wait: 15)

@@ -4,7 +4,7 @@ import { Controller } from "@hotwired/stimulus"
 // sent snapshot and edits typed while it was in flight. Nothing clears a draft
 // until the server has acknowledged that exact content.
 export default class extends Controller {
-  static targets = ["textarea", "surface", "status", "back", "rawSurface", "toolbar", "newLanguage", "codePicker", "codeOption", "draftNotice", "conflict", "error", "replace", "latest", "style", "subscription"]
+  static targets = ["textarea", "surface", "status", "statusText", "back", "rawSurface", "toolbar", "newLanguage", "codePicker", "codeOption", "draftNotice", "conflict", "error", "replace", "latest", "style", "subscription"]
   static values = { planId: String, userId: String, revision: Number, stateUrl: String, previewUrl: String, leaseUrl: String }
 
   async connect() {
@@ -62,7 +62,18 @@ export default class extends Controller {
       tags: this.element.querySelector('[name="plan[tag_names]"]').value }
   }
   dirty() { return JSON.stringify(this.snapshot()) !== JSON.stringify({ content: this.base.content, title: this.base.title, tags: this.base.tags }) }
-  setStatus(message, state = "saved") { if (!this.active) return; this.statusTarget.textContent = message; this.statusTarget.dataset.state = state }
+  setStatus(message, state = "idle") {
+    if (!this.active) return
+    // Typing during a request must not hide its spinner or an unresolved error.
+    if (state === "dirty") {
+      if (["saving", "error"].includes(this.statusTarget.dataset.state)) return
+      state = "idle"
+      if (message === "Unsaved changes") message = ""
+    }
+    this.statusTextTarget.textContent = message
+    this.statusTarget.dataset.state = state
+    this.statusTarget.title = state === "saved" ? `${message} · ${new Date().toLocaleTimeString()}` : message
+  }
 
   async request(url, method = "GET", body) {
     const abort = new AbortController(), timer = setTimeout(() => abort.abort(), 15000)
@@ -106,7 +117,7 @@ export default class extends Controller {
       return this.flush(manual, overwriteRevision)
     }
     if (this.blocked && !overwriteRevision) { if (manual) this.setStatus("Resolve the conflicting edit before saving", "error"); return }
-    if (!manual && !this.element.checkValidity()) { this.setStatus("Add a title to save this draft", "dirty"); return false }
+    if (!manual && !this.element.checkValidity()) { this.setStatus("Add a title to save this draft", "error"); return false }
     if (!this.element.reportValidity()) { this.setStatus("Add a document title to save", "error"); return }
     const sent = this.snapshot(), sentBase = { ...this.base }
     this.busy = true
@@ -116,7 +127,7 @@ export default class extends Controller {
       const result = await this.request(this.element.action, this.isNew ? "POST" : "PATCH", {
         content: sent.content, plan: { title: sent.title, tag_names: sent.tags },
         base_revision: sentBase.revision, base_metadata: { title: overwriteRevision ? this.pendingRemote.title : sentBase.title, tag_names: overwriteRevision ? this.pendingRemote.tags : sentBase.tags },
-        overwrite_revision: overwriteRevision, change_summary: this.element.querySelector('[name="change_summary"]').value
+        overwrite_revision: overwriteRevision
       })
       if (this.isNew) {
         this.clearDraft()
@@ -194,7 +205,7 @@ export default class extends Controller {
       if (!this.active) return
       this.accept(remote)
       this.persistDraft()
-      if (updated) this.setStatus(this.dirty() ? `Live update merged · saving your changes` : `Updated live · v${remote.revision}`, this.dirty() ? "dirty" : "saved")
+      if (updated) this.setStatus(this.dirty() ? `Live update merged · saving your changes` : `Updated live · v${remote.revision}`, this.dirty() ? "dirty" : "idle")
       if (this.dirty()) this.scheduleSave()
     } catch (error) {
       if (error instanceof this.merge.MergeConflict) this.showConflict(this.pendingRemote, error.message)
@@ -251,19 +262,24 @@ export default class extends Controller {
 
   format(event) {
     const command = event.currentTarget.dataset.command
+    if (this.editor !== this.richEditor && !["undo", "redo"].includes(command)) return
     const editor = ["undo", "redo"].includes(command) ? this.editor : this.richEditor
     editor?.command(command, event.currentTarget.value)
   }
   keepSelection(event) { if (event.target.closest("button")) event.preventDefault() }
   updateToolbar(state) {
-    this.element.querySelectorAll("[data-command]").forEach(button => {
+    const rawFocused = this.editor === this.rawEditor && !!this.rawEditor
+    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-code"]').disabled = rawFocused
+    if (rawFocused && this.codePickerTarget.matches(":popover-open")) this.codePickerTarget.hidePopover()
+    this.toolbarTarget.querySelectorAll("[data-command]").forEach(button => {
       const command = button.dataset.command
-      if (button.tagName === "SELECT") { button.value = state.heading || "0"; return }
+      button.disabled = rawFocused
+      if (button.tagName === "SELECT") { button.value = rawFocused ? "0" : state.heading || "0"; return }
       if (["undo", "redo"].includes(command)) button.disabled = !(this.editor?.historyState() || state)[command]
-      else button.setAttribute("aria-pressed", String(!!state[command]))
+      else button.setAttribute("aria-pressed", String(!rawFocused && !!state[command]))
     })
   }
-  style(event) { this.richEditor?.command(event.currentTarget.value === "0" ? "paragraph" : event.currentTarget.value === "code" ? "code_block" : "heading", event.currentTarget.value) }
+  style(event) { if (this.editor !== this.richEditor) return; this.richEditor?.command(event.currentTarget.value === "0" ? "paragraph" : event.currentTarget.value === "code" ? "code_block" : "heading", event.currentTarget.value) }
   keydown(event) {
     if (!event.defaultPrevented && (event.metaKey || event.ctrlKey) && ["s", "Enter"].includes(event.key)) { event.preventDefault(); this.flush(true) }
   }
@@ -310,12 +326,11 @@ export default class extends Controller {
     this.updateEditors(this.textareaTarget.value)
     this.surfaceTarget.hidden = mode === "markdown"
     this.rawSurfaceTarget.hidden = mode === "rich"
-    this.toolbarTarget.hidden = mode === "markdown"
     this.element.dataset.mode = mode
     this.surfaceTarget.querySelectorAll(".document-editor__code-language").forEach(input => { input.disabled = mode === "markdown" })
     this.element.querySelectorAll("[data-mode]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.mode === mode)))
     this.editor.view.focus()
-    if (mode !== "markdown") this.updateToolbar(this.richEditor.toolbarState())
+    this.updateToolbar(this.richEditor.toolbarState())
   }
   get composing() { return !!(this.richEditor?.view.composing || this.rawEditor?.view.composing) }
   focusPane(event) {
@@ -413,6 +428,7 @@ export default class extends Controller {
     this.insertCodeLanguage(selected?.dataset.language ?? this.newLanguageTarget.value.trim())
   }
   insertCodeLanguage(language) {
+    if (this.editor !== this.richEditor) return
     if (/[\r\n`]/.test(language)) {
       this.newLanguageTarget.setCustomValidity("Use a language without backticks or line breaks.")
       this.newLanguageTarget.reportValidity()
