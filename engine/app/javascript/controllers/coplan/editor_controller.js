@@ -4,7 +4,7 @@ import { Controller } from "@hotwired/stimulus"
 // sent snapshot and edits typed while it was in flight. Nothing clears a draft
 // until the server has acknowledged that exact content.
 export default class extends Controller {
-  static targets = ["textarea", "surface", "status", "back", "rawSurface", "toolbar", "newLanguage", "draftNotice", "conflict", "error", "replace", "latest", "style", "subscription"]
+  static targets = ["textarea", "surface", "status", "back", "rawSurface", "toolbar", "newLanguage", "codePicker", "codeOption", "draftNotice", "conflict", "error", "replace", "latest", "style", "subscription"]
   static values = { planId: String, userId: String, revision: Number, stateUrl: String, previewUrl: String, leaseUrl: String }
 
   async connect() {
@@ -354,8 +354,63 @@ export default class extends Controller {
     }
     this.compositionTimer = setTimeout(finish, 20)
   }
+  prepareCodePicker(event) {
+    if (event.newState !== "open") return
+    this.newLanguageTarget.value = ""
+    this.filterCodeLanguages()
+  }
+  codePickerToggled(event) {
+    const open = event.newState === "open"
+    this.newLanguageTarget.setAttribute("aria-expanded", String(open))
+    if (!open) return
+    this.positionCodePicker()
+    this.newLanguageTarget.focus()
+  }
+  positionCodePicker() {
+    if (!this.codePickerTarget.matches(":popover-open")) return
+    const trigger = this.element.querySelector('[popovertarget="coplan-insert-code"]')
+    const rect = trigger.getBoundingClientRect(), picker = this.codePickerTarget
+    const availableBelow = window.innerHeight - rect.bottom - 16
+    const above = availableBelow < 220 && rect.top > availableBelow
+    picker.style.maxHeight = `${Math.max(120, above ? rect.top - 16 : availableBelow)}px`
+    picker.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - picker.offsetWidth - 8))}px`
+    picker.style.top = `${above ? Math.max(8, rect.top - picker.offsetHeight - 6) : rect.bottom + 6}px`
+  }
+  filterCodeLanguages() {
+    const query = this.newLanguageTarget.value.trim().toLowerCase()
+    for (const option of this.codeOptionTargets) {
+      option.hidden = !`${option.textContent} ${option.dataset.language}`.toLowerCase().includes(query)
+    }
+    this.highlightCodeOption(this.codeOptionTargets.find(option => !option.hidden))
+    this.positionCodePicker()
+  }
+  highlightCodeOption(selected) {
+    for (const option of this.codeOptionTargets) option.setAttribute("aria-selected", String(option === selected))
+    if (selected) this.newLanguageTarget.setAttribute("aria-activedescendant", selected.id)
+    else this.newLanguageTarget.removeAttribute("aria-activedescendant")
+  }
+  codePickerKeydown(event) {
+    if (event.isComposing) return
+    const options = this.codeOptionTargets.filter(option => !option.hidden)
+    const selected = options.findIndex(option => option.getAttribute("aria-selected") === "true")
+    if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+      event.preventDefault()
+      const next = options[(selected + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length]
+      this.highlightCodeOption(next)
+      next?.scrollIntoView({ block: "nearest" })
+    } else if (event.key === "Enter") {
+      event.preventDefault()
+      this.insertCode()
+    }
+  }
+  chooseCodeLanguage(event) {
+    this.insertCodeLanguage(event.currentTarget.dataset.language)
+  }
   insertCode() {
-    const language = this.newLanguageTarget.value
+    const selected = this.codeOptionTargets.find(option => !option.hidden && option.getAttribute("aria-selected") === "true")
+    this.insertCodeLanguage(selected?.dataset.language ?? this.newLanguageTarget.value.trim())
+  }
+  insertCodeLanguage(language) {
     if (/[\r\n`]/.test(language)) {
       this.newLanguageTarget.setCustomValidity("Use a language without backticks or line breaks.")
       this.newLanguageTarget.reportValidity()
@@ -365,6 +420,10 @@ export default class extends Controller {
     this.newLanguageTarget.setCustomValidity("")
     this.newLanguageTarget.closest("[popover]").hidePopover()
     this.richEditor.insertCode(language)
+  }
+  deleteCode(event) {
+    const position = event.currentTarget.closest(".document-editor__block").coplanPosition()
+    this.richEditor.deleteCode(position)
   }
   editSource(event) {
     const position = event.currentTarget.closest(".document-editor__block").coplanPosition()

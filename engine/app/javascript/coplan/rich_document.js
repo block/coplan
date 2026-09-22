@@ -8,7 +8,7 @@ import { defaultMarkdownParser, defaultMarkdownSerializer } from "prosemirror-ma
 import { baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exitCode, selectAll } from "prosemirror-commands"
 import { wrapInList, splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list"
 import { keymap } from "prosemirror-keymap"
-import { history, undo, redo } from "prosemirror-history"
+import { history, undo, redo, closeHistory } from "prosemirror-history"
 
 const mac = /Mac|iP(hone|ad|od)/.test(navigator.platform)
 const lineNavigation = mac ? { "Ctrl-a": codeLineStart } : {}
@@ -166,6 +166,14 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       // Selection.near searches back into the new block before the trailing paragraph.
       tr.setSelection(TextSelection.near(tr.doc.resolve(tr.selection.from), -1))
       view.dispatch(tr.scrollIntoView()); view.focus()
+    },
+    deleteCode(position) {
+      const node = view.state.doc.nodeAt(position)
+      if (node?.type !== schema.nodes.code_block) return false
+      const tr = closeHistory(view.state.tr.delete(position, position + node.nodeSize))
+      tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(position, tr.doc.content.size))))
+      view.dispatch(tr.scrollIntoView()); view.focus()
+      return true
     },
     setLanguage(position, language) {
       const node = view.state.doc.nodeAt(position)
@@ -352,11 +360,20 @@ function sourceNodeView(initial, view, getPos, preview) {
 function codeNodeView(initial, view, getPos, preview) {
   let node = initial, generation = 0, timer
   const { dom, header, title, edit } = blockChrome(getPos, "Code")
-  const label = document.createElement("label"); label.textContent = "Language"
+  dom.classList.add("document-editor__code-window")
+  const controls = document.createElement("div"); controls.className = "document-editor__window-controls"
+  const remove = document.createElement("button"); remove.type = "button"; remove.className = "document-editor__window-close"
+  remove.setAttribute("aria-label", "Delete code block"); remove.title = "Delete code block"; remove.textContent = "×"
+  remove.dataset.action = "coplan--editor#deleteCode"
+  controls.append(remove)
+  for (const color of ["yellow", "green"]) {
+    const dot = document.createElement("span"); dot.className = `document-editor__window-dot document-editor__window-dot--${color}`
+    dot.setAttribute("aria-hidden", "true"); controls.append(dot)
+  }
   const language = document.createElement("input"); language.type = "text"; language.className = "document-editor__code-language"
   language.setAttribute("aria-label", "Code language"); language.placeholder = "Plain text"; language.setAttribute("list", "coplan-code-languages")
   language.dataset.action = "input->coplan--editor#languageInput change->coplan--editor#languageChanged"
-  label.append(language); title.replaceWith(label)
+  title.replaceWith(controls, language)
   const pre = document.createElement("pre"), contentDOM = document.createElement("code"); pre.append(contentDOM); dom.append(pre)
   const diagram = document.createElement("div"); diagram.className = "document-editor__block-preview"; diagram.contentEditable = "false"; dom.append(diagram)
   const render = (languageChanged = true) => {

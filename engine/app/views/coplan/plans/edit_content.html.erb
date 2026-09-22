@@ -58,10 +58,16 @@
     <span class="document-editor__tool-divider" aria-hidden="true"></span>
     <div class="document-editor__insert-code">
       <button type="button" aria-label="Insert code block" title="Insert code block" popovertarget="coplan-insert-code"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="m8 9-3 3 3 3m8-6 3 3-3 3"/></svg></button>
-      <div id="coplan-insert-code" class="document-editor__code-picker" popover>
-        <label for="coplan-insert-language">Code language</label>
-        <input id="coplan-insert-language" aria-label="New code language" list="coplan-code-languages" placeholder="Plain text" data-coplan--editor-target="newLanguage" data-action="keydown.enter->coplan--editor#insertCode:prevent">
-        <button type="button" data-action="coplan--editor#insertCode">Insert</button>
+      <div id="coplan-insert-code" class="document-editor__code-picker" popover data-coplan--editor-target="codePicker" data-action="beforetoggle->coplan--editor#prepareCodePicker toggle->coplan--editor#codePickerToggled resize@window->coplan--editor#positionCodePicker scroll@document->coplan--editor#positionCodePicker:capture">
+        <label for="coplan-insert-language">Insert code block</label>
+        <input id="coplan-insert-language" aria-label="New code language" role="combobox" aria-autocomplete="list" aria-controls="coplan-code-options" aria-expanded="false" autocomplete="off" placeholder="Search languages…" data-coplan--editor-target="newLanguage" data-action="input->coplan--editor#filterCodeLanguages keydown->coplan--editor#codePickerKeydown">
+        <div id="coplan-code-options" class="document-editor__code-options" role="listbox" aria-label="Code languages">
+          <% language_labels = { "text" => "Plain text", "javascript" => "JavaScript", "typescript" => "TypeScript", "sql" => "SQL", "json" => "JSON", "yaml" => "YAML", "html" => "HTML", "css" => "CSS" } %>
+          <% (["text"] + CoPlan.configuration.editor_code_languages).uniq.each_with_index do |language, index| %>
+            <button type="button" role="option" tabindex="-1" id="coplan-code-option-<%= index %>" aria-selected="false" data-language="<%= language %>" data-coplan--editor-target="codeOption" data-action="coplan--editor#chooseCodeLanguage"><%= language_labels.fetch(language, language.capitalize) %></button>
+          <% end %>
+        </div>
+        <button type="button" class="document-editor__code-insert" data-action="coplan--editor#insertCode">Insert</button>
       </div>
     </div>
     <% [["bold", "Bold", "⌘B / Ctrl+B", "B"], ["italic", "Italic", "⌘I / Ctrl+I", "I"], ["code", "Inline code", "", "</>"], ["link", "Link", "⌘K / Ctrl+K", ""]].each do |command, label, shortcut, icon| %>

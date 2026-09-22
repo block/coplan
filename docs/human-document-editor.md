@@ -53,11 +53,16 @@ Slides remain deferred.
 
 ## Code blocks
 
-Use the toolbar **Insert code block** button, choose or type a language, and
-press Insert (or Enter). The style selector also converts the current text block.
-Inline code remains a separate formatting action. Every fenced block
-has a **Language** field with suggestions (Ruby, JavaScript, Python, SQL, JSON,
-Mermaid, and others). Custom fence info is supported except backticks/newlines.
+Use the toolbar **Insert code block** button to open a dropdown directly beneath
+it. Search languages and click a suggestion, or use arrow keys and Enter to
+insert the selected language. Type custom fence info and press Insert when no
+suggestion fits. Escape dismisses the dropdown. The style selector also converts
+the current text block; inline code remains a separate formatting action.
+
+Every fenced block has a window-style header with an editable language name
+and suggestions (Ruby, JavaScript, Python, SQL, JSON, Mermaid, and others).
+The red close button deletes that code block; Undo restores it, including its
+language and contents. Custom fence info is supported except backticks/newlines.
 Changing the field changes the Markdown fence info and keeps the code content.
 Language changes participate in undo/redo, autosave and incoming-version merges.
 Selecting `mermaid` enables the diagram preview; switching to another language
@@ -166,12 +171,19 @@ large structural rewrites can move the selection to the changed range.
 
 ## Verification
 
-Run `bundle exec rspec`. `spec/system/document_editor_modes_spec.rb` covers mode
+Run `bundle exec rspec`. Concurrent worktrees need distinct test databases via
+`DATABASE_URL`, so one suite cannot reset another suite’s schema or data.
+`spec/system/document_editor_modes_spec.rb` covers mode
 fidelity, table/Mermaid previews, Back success/error/conflict/in-flight behavior,
 raw live merging and undo, code exit/language, themes and new-document autosave.
 `spec/system/human_editing_spec.rb` covers the existing keyboard, draft, merge,
 persistence and reading flows. Request/service tests cover sanitized previews,
 authorization, atomic saves, surgical ranges, immutable versions and conflicts.
+
+`spec/system/editor_code_controls_spec.rb` covers anchored desktop/narrow dropdown
+placement, mouse and keyboard autocomplete, dismissal without draft changes,
+custom languages, JavaScript highlighting and saved fence info, and scoped
+window deletion with undo/redo and Dual synchronization.
 
 The code selection and highlighting specs use real browser keyboard input and
 native selection, with replacement, undo, themes, language aliases and large-block
