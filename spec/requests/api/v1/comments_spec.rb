@@ -16,7 +16,6 @@ RSpec.describe "Api::V1::Comments", type: :request do
       post api_v1_plan_comments_path(plan),
         params: {
           body_markdown: "API comment here",
-          agent_name: "Amp",
           start_line: 1,
           end_line: 3
         },
@@ -39,7 +38,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
   it "create general comment thread" do
     expect {
       post api_v1_plan_comments_path(plan),
-        params: { body_markdown: "General API feedback", agent_name: "Amp" },
+        params: { body_markdown: "General API feedback" },
         headers: headers,
         as: :json
     }.to change(CoPlan::CommentThread, :count).by(1)
@@ -49,7 +48,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
   it "reply to thread" do
     expect {
       post reply_api_v1_plan_comment_path(plan, thread_record),
-        params: { body_markdown: "API reply", agent_name: "Amp" },
+        params: { body_markdown: "API reply" },
         headers: headers,
         as: :json
     }.to change(CoPlan::Comment, :count).by(1)

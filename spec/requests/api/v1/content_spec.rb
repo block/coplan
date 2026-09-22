@@ -59,7 +59,7 @@ RSpec.describe "Api::V1::Content", type: :request do
     # with the human's actor_type, so the history tab presented it as an
     # edit the human made themselves.
     it "attributes the version to the agent acting for the user" do
-      put_content(initial_content + "\nagent addendum.\n", params: { agent_name: "Claude" })
+      put_content(initial_content + "\nagent addendum.\n")
 
       version = plan.reload.current_plan_version
       expect(version.actor_type).to eq("local_agent")

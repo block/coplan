@@ -123,7 +123,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
 
   it "create creates new plan" do
     expect {
-      post api_v1_plans_path, params: { title: "API Plan", content: "# API Plan\n\nCreated via API.", agent_name: "Claude" }, headers: headers, as: :json
+      post api_v1_plans_path, params: { title: "API Plan", content: "# API Plan\n\nCreated via API." }, headers: headers, as: :json
     }.to change(CoPlan::Plan, :count).by(1)
     expect(response).to have_http_status(:created)
     body = JSON.parse(response.body)
@@ -204,7 +204,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
     end
 
     it "records the filing in the library audit log with agent attribution" do
-      post api_v1_plans_path, params: { title: "Filed Plan", content: "# Filed", folder_path: "Infra", agent_name: "Claude" }, headers: headers, as: :json
+      post api_v1_plans_path, params: { title: "Filed Plan", content: "# Filed", folder_path: "Infra" }, headers: headers, as: :json
       expect(response).to have_http_status(:created)
 
       event = alice.library.library_events.find_by(event_type: "plan_filed")
