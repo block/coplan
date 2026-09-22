@@ -44,9 +44,9 @@ RSpec.describe CoPlan::Comment, type: :model do
   end
 
   it "registers and associates the agent harness when an agent comments" do
-    token = create(:api_token, agent_name: "Amp", metadata: { "harness" => "amp" })
+    token = create(:api_token, agent_name: "Custom Agent", metadata: { "harness" => "amp" })
 
-    comment = create(:comment, author_type: "local_agent", agent_name: "Amp", author_id: token.user_id, api_token: token)
+    comment = create(:comment, author_type: "local_agent", agent_name: "Custom Agent", author_id: token.user_id, api_token: token)
 
     expect(comment.agent_harness).to have_attributes(key: "amp", display_name: "Amp")
   end

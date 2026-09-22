@@ -56,7 +56,7 @@ module CoPlan
 
     def assign_agent_harness
       identity = api_token&.metadata.to_h["harness"].presence || agent_name.presence || "agent"
-      self.agent_harness ||= AgentHarness.resolve(identifier: identity, display_name: agent_name)
+      self.agent_harness ||= AgentHarness.resolve(identifier: identity)
     end
 
     def first_comment_in_thread?

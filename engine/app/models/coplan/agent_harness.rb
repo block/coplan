@@ -11,13 +11,20 @@ module CoPlan
     validates :display_name, presence: true
     validates :icon_url, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]) }, allow_blank: true
 
-    def self.resolve(identifier:, display_name: nil)
+    def self.resolve(identifier:)
       key = canonical_key(identifier)
       find_or_create_by!(key: key) do |harness|
-        harness.display_name = display_name.presence || identifier.to_s.titleize.presence || "Agent"
+        harness.display_name = default_display_name(key, identifier)
       end
     rescue ActiveRecord::RecordNotUnique
       find_by!(key: key)
+    end
+
+    def self.default_display_name(key, identifier)
+      return "Amp" if key == "amp"
+      return "Claude" if key == "claude-code"
+
+      identifier.to_s.titleize.presence || "Agent"
     end
 
     def self.canonical_key(identifier)

@@ -3,14 +3,14 @@ require "rails_helper"
 RSpec.describe CoPlan::AgentHarness, type: :model do
   describe ".resolve" do
     it "canonicalizes known Amp and Claude harness identities" do
-      expect(described_class.resolve(identifier: "Amp CLI", display_name: "Amp").key).to eq("amp")
-      expect(described_class.resolve(identifier: "claude-code", display_name: "Claude").key).to eq("claude-code")
+      expect(described_class.resolve(identifier: "Amp CLI")).to have_attributes(key: "amp", display_name: "Amp")
+      expect(described_class.resolve(identifier: "claude-code")).to have_attributes(key: "claude-code", display_name: "Claude")
     end
 
     it "creates an editable entry for an unknown harness" do
-      harness = described_class.resolve(identifier: "Acme Agent", display_name: "Acme")
+      harness = described_class.resolve(identifier: "Acme Agent")
 
-      expect(harness).to have_attributes(key: "acme-agent", display_name: "Acme")
+      expect(harness).to have_attributes(key: "acme-agent", display_name: "Acme Agent")
     end
   end
 

@@ -41,13 +41,19 @@ class CreateCoplanAgentHarnesses < ActiveRecord::Migration[8.1]
       metadata = token ? token.metadata.to_h : {}
       identity = metadata["harness"].presence || comment.agent_name.presence || "agent"
       key = canonical_key(identity)
-      display_name = comment.agent_name.presence || identity.to_s.titleize
       harness = MigrationHarness.find_or_create_by!(key: key) do |record|
         record.id = SecureRandom.uuid
-        record.display_name = display_name
+        record.display_name = default_display_name(key, identity)
       end
       comment.update_columns(agent_harness_id: harness.id)
     end
+  end
+
+  def default_display_name(key, identity)
+    return "Amp" if key == "amp"
+    return "Claude" if key == "claude-code"
+
+    identity.to_s.titleize.presence || "Agent"
   end
 
   def canonical_key(identity)
