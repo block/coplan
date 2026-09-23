@@ -63,6 +63,27 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).not_to include('"body_markdown": "Good point, I will address this.", "agent_name"')
     end
 
+    it "documents safe harness-specific live setup for plan-scoped work" do
+      get agent_instructions_path
+
+      expect(response.body).to include("## Live Setup: Choose a Wake Path Safely")
+      expect(response.body).to include("check whether your harness has a way to start another model turn")
+      expect(response.body).to include("Claiming a presence pill without running a wait, bridge, or webhook is not attachment")
+      expect(response.body).to include("Never run an unbounded wait in the foreground")
+      expect(response.body).to include("| Codex desktop |")
+      expect(response.body).to include("| Codex CLI / IDE |")
+      expect(response.body).to include("in-chat scheduled follow-up that drains `wait=0`")
+      expect(response.body).to include("`claude --resume <session-id> -p <event>`")
+      expect(response.body).to include("Starting an ACP server creates a different agent")
+      expect(response.body).to include("ACP is intentionally not an attachment path here")
+      expect(response.body).to include("ACP-created agents are a separate deployment mode")
+      expect(response.body).not_to include("coplan-bridge --acp")
+      expect(response.body).to include("Harness names are hints, not proof")
+      expect(response.body).to include("degraded fallback, not successful live setup")
+      expect(response.body).not_to include("optional-but-recommended upgrade")
+      expect(response.body).not_to include("Correct, just not live")
+    end
+
     it "walks agents through folder, type, and template before creating" do
       get agent_instructions_path
 

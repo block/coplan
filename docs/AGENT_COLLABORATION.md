@@ -54,12 +54,13 @@ pub/sub transport rather than held Rack threads.
 
 Full API reference: `GET /agent-instructions` → "Live Collaboration".
 
-## Attaching (the normal case)
+## Waiting while an agent turn is active
 
-An agent that is **alive and watching** doesn't need waking — it needs
-interrupting. `script/coplan-attach` holds one server-driven SSE
-connection and prints the moment something happens: no interval to tune,
-no daemon, no config file, no harness integration.
+An agent that is **currently alive and explicitly waiting** can receive an
+event as ordinary tool output. `script/coplan-attach` holds one server-driven
+SSE connection and prints the moment something happens. That handles event
+delivery inside the current turn; it does not arrange a future model turn or
+make a completed conversation resumable.
 
 The scripts live in the engine (`engine/agent_tools/`) and every CoPlan
 server serves them at `/agent-tools/coplan-attach`,
@@ -69,7 +70,7 @@ executable code fetched from the network (and need Ruby), so the
 "Setup: Your First Five Minutes as a Live Agent" section of
 `/agent-instructions` leads with a raw-curl wait loop any agent can
 run, then tells the agent to save that wiring as a durable local
-skill, saved command, or standing ACP bridge config — and only then
+skill, saved command, or standing resume-bridge config — and only then
 offers the scripts as an optional convenience, behind a
 read-before-you-run checklist scoped per script (attach and its
 helper: network calls to this server only, writes only under
@@ -80,17 +81,19 @@ configured).
 ```bash
 export COPLAN_BASE=http://localhost:3222 COPLAN_TOKEN=<token>
 
-# Turn-based agents: blocks until the first event, prints a brief, acks, exits.
-script/coplan-attach --plan <plan-id> --name Claude --once
+# Explicit foreground monitoring: bounded wait, prints a brief, acks, exits.
+script/coplan-attach --plan <plan-id> --name Claude --once --timeout 300
 
-# Or stay attached and stream everything:
+# Under an external supervisor only, stay attached and stream everything:
 script/coplan-attach --plan <plan-id> --name Claude
 ```
 
-`--once` is the shape a harness wants: run it as a tool call, get woken
-by its output, act on the brief, run it again. While attached you hold
-the presence pill; Ctrl-C detaches cleanly. `--timeout N` exits 64 if
-nothing arrives, so a supervising loop can decide when to stop watching.
+`--once --timeout N` is the safe foreground shape: run it as a tool call only
+for an explicit wait/monitor request, act on any returned brief, and run it
+again only while that request remains active. While attached you hold the
+presence pill; Ctrl-C detaches cleanly. A timeout exits 64 if nothing arrives.
+The unbounded streaming form belongs under an external supervisor that owns
+its lifecycle and has a real way to re-enter the model.
 
 It's a thin convenience over the API — an agent that can curl can do the
 same thing straight from `/agent-instructions`, and doesn't need this
@@ -110,18 +113,19 @@ comments that had been buffered for minutes.
 
 The shapes that close the loop, most portable first:
 
-1. **Blocking tool call.** Run `coplan-attach --once` (or the long-poll
-   curl) as a foreground tool call; the event returns as tool output.
-   Works in every harness; occupies the turn while waiting.
+1. **Blocking tool call.** Run `coplan-attach --once --timeout N` (or a
+   bounded long-poll curl) as a foreground tool call; the event returns as
+   tool output. Use this only while the user explicitly asked the agent to
+   wait or monitor; it occupies the turn while waiting.
 2. **Background process + exit re-invocation.** `coplan-attach --once`
    in the background; the process exiting is the wake. Requires the
-   harness to re-invoke the model when a background task completes —
-   Claude Code does, most others don't.
-3. **Sidecar resume.** `script/coplan-bridge` drains the inbox from
-   outside the harness and injects each event — over ACP into one live
-   agent session (`"adapter": "acp"`, works with anything in the ACP
-   registry), or via a per-harness resume-with-message command (adapter
-   table below).
+   harness to demonstrably re-invoke the model when a background task
+   completes. A terminal notification or retained process is not enough.
+3. **Sidecar resume.** `script/coplan-bridge` drains the inbox from outside
+   the harness and invokes a per-harness resume-with-message command for a
+   known existing session (adapter table below). Its ACP mode is different:
+   it creates and owns a separate dedicated agent, so it is not a way to
+   attach the primary authoring conversation.
 4. **Webhook wake.** For hosted agents that can receive HTTP but can't
    hold connections or be exec-resumed (Amp orbs, scheduled runners):
    claim the session with a `wake_url` and CoPlan POSTs a signed "you
@@ -158,28 +162,26 @@ Presence stays honest whichever way delivery goes, on two principles:
   session into a turn state like `awaiting_input` — no unearned "asked a
   question" pill on arrival.
 
-## The bridge (only for agents that have exited)
+## The resume bridge (only for known existing sessions)
 
 If nothing is running, something has to start it. The bridge claims
 sessions on the plans you list, drains the inbox, and injects each event
-into your harness via ACP or a "resume session with message" command. It
-flips the pill to `active` before the harness even boots, so the human
-sees life immediately.
+with a "resume session with message" command. It flips the pill to `active`
+before the harness resumes, so the human sees life immediately.
 
 This is strictly the cold-start path. If you keep a session attached
 while you work, skip the bridge entirely.
 
-The simple path is flags — no config file:
+The simple path is flags — no config file, but a known resumable session id
+is required:
 
 ```bash
 export COPLAN_BASE=http://localhost:3222 COPLAN_TOKEN=<token>
-script/coplan-bridge --acp "goose acp" --plan <plan-id> --name Goose
+script/coplan-bridge --adapter claude --session <session-id> --plan <plan-id> --name Claude
 ```
 
-(`--adapter <name> --session <id>` for the exec-resume rows; `--approve`
-to auto-grant ACP permission asks; an adapter must always be named —
-there is no default, so nobody gets the plan-editing demo agent by
-surprise — and it's validated at startup, not at the first wake.) Setups
+An adapter must always be named — there is no default — and it is validated
+at startup, not at the first wake. Setups
 worth writing down go in a config file, with the same keys. Precedence
 is flags > `$COPLAN_BASE`/`$COPLAN_TOKEN` > file, `--plan` replaces the
 file's plan list outright, and the bridge prints which config file it
@@ -197,21 +199,31 @@ steers a flags-only run:
 }
 ```
 
-### Per-harness adapters
+### Per-harness resume adapters
 
-`acp` is the preferred adapter: one protocol, one live agent session that
-events are pushed into as prompt turns, no per-harness dialect. The
-exec-resume rows survive for harnesses without an ACP server.
+The following adapters re-enter an existing session and require its id.
 
 | `adapter` | Command shape | Notes |
 |---|---|---|
-| `acp` | `"acp_command"`: `["goose", "acp"]`, `["npx", "@google/gemini-cli", "--acp"]`, `["npx", "@agentclientprotocol/claude-agent-acp"]`, `["npx", "@agentclientprotocol/codex-acp"]`, `["npx", "-y", "amp-acp"]`, … | JSON-RPC over stdio (`initialize` → `session/new` → `session/prompt` per event). Agent stays alive between events. `"acp_permission": "approve"` to auto-grant permission asks (default reject). |
 | `claude` | `claude -p --resume <session> <prompt>` | exec-resume |
-| `codex` | `codex exec resume <session> <prompt>` | exec-resume; or ACP via `codex-acp` above |
-| `goose` | `goose run --name <session> --resume -t <prompt>` | exec-resume; or ACP via `goose acp` above |
-| `openhands` | `openhands --headless --resume <session> -t <prompt>` | exec-resume; also ships `openhands acp` |
-| `amp` | `amp threads continue <session> -x <prompt>` | exec-resume into a local thread; Amp declined native ACP — community `amp-acp` wraps it. For Amp **orbs**, skip the bridge: register the orb's `amp.createWebhook` URL as the session's `wake_url`. |
+| `codex` | `codex exec resume <session> <prompt>` | exec-resume |
+| `goose` | `goose run --name <session> --resume -t <prompt>` | exec-resume |
+| `openhands` | `openhands --headless --resume <session> -t <prompt>` | exec-resume |
+| `amp` | `amp threads continue <session> -x <prompt>` | exec-resume into a local thread. For Amp **orbs**, skip the bridge: register the orb's `amp.createWebhook` URL as the session's `wake_url`. |
 | `demo` | in-process deterministic agent (ack → reply → small edit) — no harness or tokens needed | — |
+
+### Dedicated ACP agents (separate deployment mode)
+
+The bridge still has an ACP adapter for an operator who intentionally wants a
+standing CoPlan worker or reviewer. It starts a harness ACP server, calls
+`session/new`, and pushes plan events into the new session as prompt turns.
+That agent has its own identity and lifecycle; it is not the primary author
+and it does not attach or resume the conversation that launched the bridge.
+Keep ACP out of automatic attachment guidance and provision it explicitly:
+
+```bash
+script/coplan-bridge --acp "goose acp" --plan <plan-id> --name "Review agent"
+```
 
 Unattended runs need each harness's permission-relaxation flag
 (`--permission-mode acceptEdits`, `--full-auto`, `GOOSE_MODE=auto`, …).
@@ -219,9 +231,12 @@ The stock `claude` command template uses `acceptEdits`; choose your own
 posture deliberately — the bridge never escalates beyond what the
 config says.
 
-An agent doesn't need the bridge at all: any agent that can run curl in
-a loop can follow the "Live Collaboration" section of
-`/agent-instructions` directly.
+An agent doesn't need the bridge to drain events during its current turn: it
+can follow the "Live Collaboration" protocol in `/agent-instructions`
+directly. That becomes a durable attachment only when the harness can turn
+the wait's completion into another model turn. A foreground loop that merely
+blocks, or a background loop that only writes a notification, is not a wake
+path.
 
 ## Demoing locally
 
