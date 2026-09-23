@@ -497,26 +497,35 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(plan.comment_threads.last.anchor_kind).to eq("mermaid_node")
   end
 
-  it "keeps an open diagram draft attached and restores focus after a theme rerender" do
-    expect(page).to have_css(".mermaid-diagram g.node[data-source-target]", count: 3, wait: 20)
-    find(".mermaid-diagram").send_keys("c")
-    node = all(".mermaid-diagram g.node[data-source-target]")[1]
-    original_id = node[:id]
-    token = JSON.parse(node["data-source-target"])["token"]
-    node.click
-    panel.fill_in "Write a comment...", with: "Keep this theme-change draft"
-    page.execute_script("document.documentElement.dataset.theme = 'light'; window.dispatchEvent(new Event('coplan:theme-changed'))")
-    expect(page).to have_no_css("[id='#{original_id}']")
-    expect(page).to have_css('.mermaid-diagram[data-mermaid-theme="light"] .is-source-selected')
-    replacement = find(".mermaid-diagram g.node.is-source-selected")
-    expect(JSON.parse(replacement["data-source-target"])["token"]).to eq(token)
-    expect(panel).to have_field("Write a comment...", with: "Keep this theme-change draft")
-    bounds = panel.evaluate_script("[this.getBoundingClientRect().left, this.getBoundingClientRect().top]")
-    expect(bounds.first).to be > 16
-    expect(bounds.last).to be > 16
-    page.driver.browser.action.send_keys(:escape).perform
-    expect(replacement).to match_css(":focus")
-    expect(page).to have_no_css(".is-source-selected")
+  [ "node", "whole diagram", "sequence diagram" ].each do |target|
+    context "#{target} draft" do
+      let(:content) do
+        target == "sequence diagram" ? super().sub(/flowchart LR.*?```/m, "sequenceDiagram\n  Client->>API: sends payment\n```") : super()
+      end
+
+      it "keeps an open #{target} draft attached and restores focus after a theme rerender" do
+        expect(page).to have_css(".mermaid-diagram__canvas > svg", wait: 20)
+        find(".mermaid-diagram").send_keys("c")
+        original_svg_id = find(".mermaid-diagram__canvas > svg")[:id]
+        element = target == "node" ? all(".mermaid-diagram g.node[data-source-target]")[1] : find(".diagram-comments__whole")
+        token = JSON.parse(element["data-source-target"])["token"]
+        element.click
+        panel.fill_in "Write a comment...", with: "Keep this theme-change draft"
+        page.execute_script("document.documentElement.dataset.theme = 'light'; window.dispatchEvent(new Event('coplan:theme-changed'))")
+        expect(page).to have_no_css("[id='#{original_svg_id}']")
+        expect(page).to have_css('.mermaid-diagram[data-mermaid-theme="light"].is-comment-mode .is-source-selected')
+        replacement = find(".mermaid-diagram .is-source-selected")
+        expect(JSON.parse(replacement["data-source-target"])["token"]).to eq(token)
+        expect(panel).to have_field("Write a comment...", with: "Keep this theme-change draft")
+        expect(panel).to have_css("textarea:focus")
+        bounds = panel.evaluate_script("[this.getBoundingClientRect().left, this.getBoundingClientRect().top]")
+        expect(bounds.first).to be > 16
+        expect(bounds.last).to be > 16
+        page.driver.browser.action.send_keys(:escape).perform
+        expect(replacement).to match_css(":focus")
+        expect(page).to have_no_css(".is-source-selected")
+      end
+    end
   end
 
   it "keeps Markdown links interactive instead of selecting their cell" do

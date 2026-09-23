@@ -79,6 +79,7 @@ export default class extends Controller {
 
       const diagram = document.createElement("div")
       diagram.className = "mermaid-diagram"
+      diagram.classList.toggle("is-comment-mode", sourceContainer.classList.contains("is-comment-mode"))
       diagram.setAttribute("role", "img")
       diagram.setAttribute("aria-label", "Mermaid diagram")
       diagram.dataset.mermaidSource = source
@@ -183,20 +184,23 @@ export default class extends Controller {
     whole.hidden = true
     actions.append(toggle, hint, whole)
     controls.append(actions)
-    const setMode = (active, keyboard = false) => {
-      if (active) window.getSelection()?.removeAllRanges()
+    const setMode = (active, keyboard = false, moveFocus = true) => {
+      if (active && moveFocus) window.getSelection()?.removeAllRanges()
       surface.classList.toggle("is-comment-mode", active)
       surface.classList.toggle("is-whole-diagram-comment", active && targets().length === 0)
       toggle.setAttribute("aria-pressed", String(active))
       hint.hidden = !active
       whole.hidden = !active && !whole.classList.contains("has-source-comments")
       targets().forEach(target => { target.tabIndex = active ? 0 : -1 })
+      if (!moveFocus) return
       // Entering a mode must not choose a target. Tab explicitly moves into it.
       if (active && keyboard) (surface.querySelector(".expander__canvas") || surface).focus({ preventScroll: true })
       else if (active) toggle.focus({ preventScroll: true })
       else (surface.querySelector(".expander__canvas") || surface).focus({ preventScroll: true })
     }
-    targets().forEach(target => { target.tabIndex = -1 })
+    // Rebuilding for a theme change preserves mode without stealing focus
+    // from an open comment/reply field or clearing the reader's selection.
+    setMode(surface.classList.contains("is-comment-mode"), false, false)
     toggle.addEventListener("click", () => setMode(!surface.classList.contains("is-comment-mode")))
     surface.addEventListener("click", event => {
       if (surface.classList.contains("is-whole-diagram-comment") &&
