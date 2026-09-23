@@ -50,15 +50,25 @@ export default class extends Controller {
     }
   }
 
+  get navigationSurface() {
+    return document.querySelector("dialog.expander[open]") || document
+  }
+
+  navigateExpanded(event) {
+    if (event.detail.direction === 0) this.toggleResolved()
+    else if (event.detail.direction === 1) this.next()
+    else this.prev()
+  }
+
   get openHighlights() {
     return this._deduplicateByThread(
-      Array.from(document.querySelectorAll("mark.anchor-highlight--open[data-thread-id]"))
+      Array.from(this.navigationSurface.querySelectorAll(".anchor-highlight--open[data-thread-id]"))
     )
   }
 
   get allHighlights() {
     return this._deduplicateByThread(
-      Array.from(document.querySelectorAll("mark.anchor-highlight[data-thread-id]"))
+      Array.from(this.navigationSurface.querySelectorAll(".anchor-highlight[data-thread-id]"))
     )
   }
 
@@ -103,6 +113,16 @@ export default class extends Controller {
     const openPopover = this.findOpenPopover()
     if (openPopover) {
       try { openPopover.hidePopover() } catch {}
+    }
+
+    this.activeMark = null
+    this.activePopover = null
+    if (mark.hasAttribute("data-source-badge")) {
+      const thread = document.getElementById(mark.dataset.threadId)
+      if (thread) mark.dispatchEvent(new CustomEvent("coplan:source-thread", {
+        bubbles: true, cancelable: true, detail: { threadId: thread.dataset.threadId }
+      }))
+      return
     }
 
     // Add active class and scroll into view
@@ -260,13 +280,12 @@ export default class extends Controller {
     }
   }
 
-  // Keyboard "s": resolved threads show as a dashed underline by default —
-  // nothing about a plan's history disappears — so this hides them instead,
-  // for a decluttered read of only what's still open.
+  // Keyboard "s" explicitly reveals or hides resolved discussions.
   toggleResolved() {
     const planLayout = document.querySelector(".plan-layout")
     if (!planLayout) return
 
     planLayout.classList.toggle("plan-layout--hide-resolved")
+    planLayout.dispatchEvent(new CustomEvent("coplan:resolved-visibility", { bubbles: true }))
   }
 }

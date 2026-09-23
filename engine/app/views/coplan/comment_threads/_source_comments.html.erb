@@ -1,0 +1,27 @@
+<aside class="source-comments comment-form" popover="manual" role="dialog" aria-label="Element comments"
+       data-coplan--source-comments-target="panel"
+       data-action="toggle->coplan--source-comments#panelToggled focusin@document->coplan--source-comments#browseFocus pointerdown@document->coplan--source-comments#dismissFromOutside:capture keydown->coplan--source-comments#discussionKey turbo:submit-end->coplan--source-comments#submitted resize@window->coplan--source-comments#positionPanel scroll@document->coplan--source-comments#positionPanel:capture">
+  <div data-coplan--source-comments-target="discussions"
+       data-controller="coplan--viewer-role" data-coplan--viewer-role-viewer-id-value="<%= current_user&.id %>"></div>
+  <%= form_with url: plan_comment_threads_path(plan), method: :post, data: { "coplan--source-comments-target": "composer" } do %>
+    <input type="hidden" name="comment_thread[source_token]" data-coplan--source-comments-target="token">
+    <div class="comment-form__anchor">
+      <span class="text-sm text-muted">Commenting on:</span>
+      <blockquote class="comment-form__quote" data-coplan--source-comments-target="quote"></blockquote>
+    </div>
+    <%= render "coplan/comment_threads/composer_fields",
+          field_id: "source-comment-body", error_id: "source-comment-error",
+          textarea_data: { "coplan--source-comments-target": "body" },
+          cancel_action: "coplan--source-comments#dismiss", cancel_label: "Close element comments" %>
+  <% end %>
+  <div class="comment-form__actions" data-coplan--source-comments-target="discussionActions" hidden>
+    <button type="button" class="btn btn--secondary btn--sm" data-coplan--source-comments-target="newComment"
+            data-action="coplan--source-comments#newComment">New comment</button>
+    <button type="button" class="btn btn--secondary btn--sm" aria-label="Close element comments"
+            data-action="coplan--source-comments#dismiss">Close</button>
+  </div>
+</aside>
+
+<button type="button" hidden class="btn btn--secondary source-comments-outdated"
+        data-coplan--source-comments-target="outdated"
+        data-action="coplan--source-comments#showOutdated">Outdated element comments</button>

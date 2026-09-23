@@ -112,7 +112,8 @@ RSpec.describe "Plans", type: :request do
   it "show plan wires up both text-selection and content-nav controllers" do
     get plan_page_path(plan)
     expect(response).to have_http_status(:success)
-    expect(response.body).to include('data-controller="coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview"')
+    controllers = Nokogiri::HTML(response.body).at_css(".plan-layout")["data-controller"].split
+    expect(controllers).to include("coplan--source-comments", "coplan--text-selection", "coplan--content-nav", "coplan--reference-preview")
     expect(response.body).to include('data-coplan--reference-preview-target="popover"')
   end
 

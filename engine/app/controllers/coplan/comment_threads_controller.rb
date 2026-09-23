@@ -10,13 +10,14 @@ module CoPlan
 
       thread_params = params.expect(
         comment_thread: [ :anchor_text, :anchor_context, :anchor_occurrence,
-                          :start_line, :end_line, :body_markdown ]
+                          :start_line, :end_line, :body_markdown, :source_token ]
       )
       thread = @plan.comment_threads.new(
         plan_version: @plan.current_plan_version,
         anchor_text: thread_params[:anchor_text].presence,
         anchor_context: thread_params[:anchor_context].presence,
         anchor_occurrence: thread_params[:anchor_occurrence].presence&.to_i,
+        source_token: thread_params[:source_token].presence,
         start_line: thread_params[:start_line].presence,
         end_line: thread_params[:end_line].presence,
         created_by_user: current_user
@@ -27,6 +28,10 @@ module CoPlan
       comment = nil
       begin
         ActiveRecord::Base.transaction do
+          # Serialize source validation with plan edits. Reload the version
+          # after taking the lock, including when this request waited on one.
+          @plan.lock!
+          thread.plan_version = @plan.current_plan_version
           thread.save!
           comment = thread.comments.create!(
             author_type: "human",
@@ -86,7 +91,7 @@ module CoPlan
     def render_comment_error(message)
       respond_to do |format|
         format.turbo_stream do
-          render turbo_stream: turbo_stream.update("new-comment-form-error", message),
+          render turbo_stream: [ turbo_stream.update("new-comment-form-error", message), turbo_stream.update("source-comment-error", message) ],
             status: :unprocessable_content
         end
         format.html { redirect_to helpers.plan_browse_path(@plan), alert: message }

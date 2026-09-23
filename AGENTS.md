@@ -89,6 +89,29 @@ wouldn't, treat it as a bug — regardless of how idiomatic the Rails behind
 it is.
 - **Prefer server-rendered HTML with standard Stimulus bindings** (`data-controller`, `data-action`, `data-*-target`) — direct `addEventListener` is a last resort, only when elements are created dynamically in JS and Stimulus can't bind to them (e.g., inline text highlights wrapping arbitrary DOM ranges). Even these cases should be revisited for server-side alternatives when practical.
 
+### Interaction and attention colors
+
+Follow [the design guidance](docs/DESIGN.md) across document, rich preview,
+expanded table/diagram, and editing surfaces:
+
+- **Blue means interaction:** subtle blue for hover, blue for keyboard focus,
+  selection, active discussions, and comment-composer quotes, in both themes.
+- **Selection supports reading first:** clicking table cells or selecting text
+  must not open a composer. Offer Comment and the C shortcut. Intentional comment
+  actions focus the comment or reply field immediately. Diagrams browse by
+  default; C or Comment enters a mode that highlights supported element targets.
+  Never imply an exact item anchor when only a whole-diagram anchor is available.
+- **Orange means attention:** use it only for a task the current viewer must
+  complete or new material they need to review. Hover, typing, an open panel,
+  and an unresolved thread do not establish an attention state.
+- Opening a discussion acknowledges its unread review attention immediately;
+  clear that orange across every representation and persist the acknowledgement.
+  Reading does not resolve the discussion. Actual tasks remain orange until
+  completed or explicitly acknowledged as appropriate to that task.
+- Unresolved discussions retain small muted badges after reading. Resolved
+  discussions are hidden unless explicitly requested. Never infer unread state
+  from `status: open` or introduce orange without real viewer-specific state.
+
 ## Testing
 
 - **RSpec** with `rspec-rails`
@@ -156,7 +179,7 @@ reader to an apparently empty page.
   (`NotificationsController#mark_plan_read`, same service)
 
 ### Inline review UI
-- **Highlights**: anchored text is wrapped in `<mark>` elements — amber for `open`, unstyled for `resolved`
+- **Highlights**: anchored text is wrapped in `<mark>` elements — subtle blue for `open`, unstyled for `resolved`; orange is reserved for viewer-specific attention, never thread status
 - **Margin dots**: colored indicators in the left margin aligned to each highlight's vertical position
 - **Thread popovers**: native HTML Popover API (`popover="auto"`) showing the comment thread, reply form, and action buttons; positioned relative to the anchor and tracked on scroll
 - **Comment toolbar**: fixed bottom bar showing open thread count, j/k navigation, and a "Show resolved" toggle

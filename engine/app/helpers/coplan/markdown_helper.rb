@@ -34,7 +34,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 13
+    RENDER_CACHE_VERSION = 16
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -56,16 +56,16 @@ module CoPlan
     # spreadsheet expander. Decks opt out — a slide is a fixed, scaled
     # artifact whose typography the deck layout engine already owns, and a
     # nested scroll frame inside a transformed slide belongs to nobody.
-    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true)
+    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, source_comments: false)
       render_options = { unsafe: true }
-      # Sourcepos is only needed to wire checkboxes to their source lines;
-      # make_checkboxes_interactive strips it from the final output.
+      # Sourcepos wires checkboxes and structural comment targets to source;
+      # it is stripped after generating trusted interaction metadata.
       render_options[:sourcepos] = true if interactive
       html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
-      result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset) : sanitized
+      result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments) : sanitized
       result = scope_footnote_ids(result, footnote_prefix) if footnote_prefix
       result = select_footnotes(result, footnotes)
       return result.html_safe if footnotes == :only
@@ -205,9 +205,10 @@ module CoPlan
     # only becomes interactive when its own source line matches
     # TASK_LINE_PATTERN. Sourcepos lines are fragment-relative; line_offset
     # shifts the emitted data-line back to document coordinates.
-    def make_checkboxes_interactive(html, content, line_offset: 0)
+    def make_checkboxes_interactive(html, content, line_offset: 0, source_comments: false)
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
       source_lines = content.to_s.each_line.map(&:rstrip)
+      Plans::SourceTargets.new(content).annotate(doc) if source_comments && line_offset.zero?
 
       doc.css('input[type="checkbox"]').each do |cb|
         li = cb.ancestors("li").first
@@ -267,7 +268,8 @@ module CoPlan
 
       tables.each do |table|
         grid = doc.document.create_element("div", class: "data-grid",
-                                                 "data-controller" => "coplan--data-grid")
+                                                 "data-controller" => "coplan--data-grid",
+                                                 "data-action" => "dblclick->coplan--data-grid#expandFromDoubleClick")
         frame = doc.document.create_element("div", class: "data-grid__frame",
                                                   "data-coplan--data-grid-target" => "frame")
         table.add_previous_sibling(grid)

@@ -494,6 +494,7 @@ module CoPlan
 
         def compute_anchor_occurrence(thread, content, stripped_data)
           return nil unless thread.anchored?
+          return nil if thread.anchor_kind.present?
           return 0 unless content.present? && thread.anchor_start.present? && stripped_data
 
           stripped = stripped_data[:stripped]
@@ -516,6 +517,10 @@ module CoPlan
             id: thread.id,
             status: thread.status,
             anchor_text: thread.anchor_text,
+            anchor_kind: thread.anchor_kind,
+            anchor_start: thread.anchor_start,
+            anchor_end: thread.anchor_end,
+            anchor_revision: thread.anchor_revision,
             anchor_context: thread.anchor_context_with_highlight,
             anchor_valid: thread.anchor_valid?,
             start_line: thread.start_line,

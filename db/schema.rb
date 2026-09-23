@@ -116,6 +116,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_214857) do
     t.string "addressed_in_plan_version_id", limit: 36
     t.text "anchor_context"
     t.integer "anchor_end"
+    t.string "anchor_kind"
     t.integer "anchor_revision"
     t.integer "anchor_start"
     t.text "anchor_text"

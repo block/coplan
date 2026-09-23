@@ -11,6 +11,22 @@ RSpec.describe "Api::V1::Comments", type: :request do
     alice_token # ensure token exists
   end
 
+  it "exposes exact source offsets and their revision to agents" do
+    content = "| A | B |\n|---|---|\n| same | same |\n"
+    version = create(:plan_version, plan: plan, revision: 2, content_markdown: content)
+    plan.update!(current_plan_version: version, current_revision: 2)
+    html = Commonmarker.to_html(content, options: { render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
+    doc = CoPlan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
+    target = JSON.parse(doc.css("[data-source-target]").last["data-source-target"])
+    thread = plan.comment_threads.create!(plan_version: version, created_by_user: alice, source_token: target["token"])
+    get api_v1_plan_comment_path(plan, thread), headers: headers
+    expect(response).to have_http_status(:ok)
+    body = JSON.parse(response.body)
+    expect(body).to include("anchor_kind" => "table_cell", "anchor_start" => target["start"],
+      "anchor_end" => target["end"], "anchor_revision" => 2, "anchor_text" => " same ")
+    expect(body["anchor_context"]).to include("** same **")
+  end
+
   it "create comment thread" do
     expect {
       post api_v1_plan_comments_path(plan),

@@ -49,6 +49,9 @@
   --color-primary-light: #eff6ff;
   --color-success: #059669;
   --color-success-soft: #ecfdf5;
+  /* Orange means a viewer-specific task or unread review item, never interaction. */
+  --color-interaction-hover-bg: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  --color-interaction-active-bg: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
   --color-warning: #d97706;
   --color-warning-soft: #fef3c7;
   --color-danger: #dc2626;
@@ -2013,7 +2016,7 @@ img.avatar {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  cursor: zoom-in;
+  cursor: default;
 }
 
 /* The diagram's scroll box, separate from the frame so the expand control
@@ -2026,13 +2029,6 @@ img.avatar {
   padding: var(--space-md);
   border-radius: inherit;
   scrollbar-width: thin;
-}
-
-/* Past the legibility floor a diagram stops shrinking to fit and keeps its
-   real size — the controller pins the SVG's pixel width and this box
-   scrolls instead, so labels stay readable. */
-.markdown-rendered .mermaid-diagram--scrolling .mermaid-diagram__canvas {
-  justify-content: flex-start;
 }
 
 .markdown-rendered .mermaid-diagram__expand {
@@ -2062,14 +2058,6 @@ img.avatar {
 .markdown-rendered .mermaid-diagram__canvas > svg {
   max-width: 100%;
   height: auto;
-}
-
-/* `flex: none` is load-bearing: the canvas is a flex container, and a flex
-   item shrinks to fit by default — which would undo the pixel width the
-   controller just pinned and put the diagram straight back to unreadable. */
-.markdown-rendered .mermaid-diagram--scrolling .mermaid-diagram__canvas > svg {
-  max-width: none;
-  flex: none;
 }
 
 /* Mermaid sizes node boxes assuming its own label line-height (~1.2); the
@@ -2168,7 +2156,7 @@ img.avatar {
   vertical-align: top;
   min-width: 6ch;
   max-width: 34ch;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 .markdown-rendered .data-grid tr > *:last-child {
@@ -2551,12 +2539,12 @@ img.avatar {
 }
 
 .comment-form__quote {
-  border-left: 3px solid var(--color-warning);
+  border-left: 3px solid var(--color-quote-info-border);
   padding: var(--space-xs) var(--space-sm);
   margin: var(--space-xs) 0 0 0;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
-  background: var(--color-quote-warning-bg);
+  background: var(--color-quote-info-bg);
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 
@@ -2577,12 +2565,12 @@ img.avatar {
 
 /* Thread anchor quote */
 .comment-thread__anchor-quote {
-  border-left: 3px solid var(--color-warning);
+  border-left: 3px solid var(--color-quote-info-border);
   padding: var(--space-xs) var(--space-sm);
   margin: var(--space-xs) 0 0 0;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
-  background: var(--color-quote-warning-bg-subtle);
+  background: var(--color-quote-info-bg);
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 
@@ -4750,8 +4738,8 @@ img.avatar {
 }
 
 .landing-mock__highlight {
-  background: var(--color-highlight-pending-bg);
-  border-bottom: 2px solid var(--color-highlight-pending-border);
+  background: var(--color-highlight-open-bg);
+  border-bottom: 2px solid var(--color-highlight-open-border);
   color: inherit;
   padding: 0 0.1em;
   border-radius: 2px;
@@ -5724,8 +5712,7 @@ img.avatar {
   background: var(--color-bg-muted);
 }
 
-/* ============================================================
-   Plans workspace (sidebar + grouped index)
+/* =====================================================   Plans workspace (sidebar + grouped index)
    ============================================================ */
 
 .workspace {
@@ -6841,47 +6828,6 @@ img.avatar {
   min-height: 0;
 }
 
-/* The value bar. Cells stay clipped to one line so a wide table is
-   scannable; this is where the focused cell is shown in full. */
-.data-sheet__value {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-sm);
-  flex: none;
-  min-height: 2.75rem;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-muted);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.data-sheet__value-label {
-  flex: none;
-  max-width: 12rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-
-.data-sheet__value-content {
-  flex: 1;
-  min-width: 0;
-  max-height: 5.5rem;
-  overflow-y: auto;
-}
-
-.data-sheet__value-content > *:last-child {
-  margin-bottom: 0;
-}
-
-.data-sheet__value.is-empty .data-sheet__value-content::after {
-  content: "empty";
-  color: var(--color-text-muted);
-  font-style: italic;
-}
-
 .data-sheet__frame {
   flex: 1;
   min-height: 0;
@@ -6922,10 +6868,21 @@ img.avatar {
 
 .data-sheet__frame.is-wrapped th,
 .data-sheet__frame.is-wrapped td {
+  width: clamp(14rem, 28vw, 28rem);
+  min-width: min(14rem, 45vw);
+  max-width: 28rem;
   white-space: normal;
   overflow: visible;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
 }
+
+.data-sheet__table tr > :first-child { max-width: min(32ch, 35vw); }
+.data-sheet__frame.is-wrapped tr > :first-child { width: min(22rem, 35vw); min-width: min(10rem, 35vw); max-width: min(22rem, 35vw); }
+.data-sheet__table code { font-family: var(--font-mono); font-size: 0.9em; }
+.data-sheet__frame.is-wrapped code { white-space: normal; overflow-wrap: anywhere; }
+.data-sheet__frame.is-wrapped pre { white-space: pre-wrap; }
+.data-sheet__table :is(p, ul, ol, pre) { margin: 0 0 var(--space-sm); }
+.data-sheet__table :is(p, ul, ol, pre):last-child { margin-bottom: 0; }
 
 .data-sheet__table thead th {
   position: sticky;
@@ -6980,7 +6937,8 @@ img.avatar {
 /* Written the long way round so it outranks the pinned first column's own
    box-shadow — the cursor has to be visible in column A too. */
 .data-sheet__table tbody tr > td.is-cursor,
-.data-sheet__table tbody tr > th.is-cursor {
+.data-sheet__table tbody tr > th.is-cursor,
+.data-sheet__table thead tr > th.is-cursor {
   z-index: 5;
   box-shadow: inset 0 0 0 2px var(--color-primary);
   outline: none;
@@ -7045,9 +7003,20 @@ img.avatar {
 }
 
 .data-sheet__column {
+  min-width: 0;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 600;
   color: var(--color-text);
 }
+
+.expander--grid .expander__status { flex-wrap: wrap; padding-block: var(--space-sm); }
+.data-sheet__hint { display: flex; align-items: center; gap: 4px; color: var(--color-text); }
+.expander--grid kbd { border: 1px solid var(--color-border-strong); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; font: 500 0.8rem var(--font-mono); color: var(--color-text); background: var(--color-surface); }
+.data-sheet__comment { flex: none; }
+.data-sheet__comment[hidden] { display: none; }
 
 @media (max-width: 640px) {
   /* A phone has no room for a framed dialog: the takeover takes the screen.
@@ -7076,10 +7045,143 @@ img.avatar {
     display: block;
   }
 
-  .data-sheet__value-label {
-    max-width: 7rem;
-  }
+  .data-sheet__column { max-width: 6rem; }
+  .data-sheet__dimensions { margin-right: auto; }
 }
+
+/* Source-backed element commenting: steady document geometry, a floating
+   inspector on desktop, and a reachable bottom sheet on touch screens. */
+[data-source-target] { cursor: pointer; }
+th[data-source-target], td[data-source-target] { position: relative; }
+.markdown-rendered .data-grid tr > :is(th, td):hover,
+.data-sheet .data-sheet__table tr > :is(th, td):hover {
+  background-color: var(--color-interaction-hover-bg);
+}
+th[data-source-target]:focus-visible, td[data-source-target]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+.markdown-rendered .data-grid :is(th, td)[data-source-target].is-source-browsing,
+.markdown-rendered .data-grid :is(th, td)[data-source-target].is-source-selected,
+.data-sheet__table tr > :is(th, td)[data-source-target].is-source-selected {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  background-color: var(--color-interaction-active-bg);
+}
+/* Focus follows the actual SVG shape, not the group box enlarged by badges. */
+svg .node[data-source-target], svg path.flowchart-link[data-source-target] { outline: none; }
+svg .node[data-source-target]:focus-visible .source-node-shape {
+  stroke: var(--color-primary) !important;
+  stroke-width: 3px !important;
+}
+svg .node.is-source-selected .source-node-shape {
+  stroke: var(--color-primary) !important;
+  stroke-width: 3px !important;
+}
+svg path.flowchart-link[data-source-target]:not(.source-edge-hit):focus-visible {
+  stroke: var(--color-primary) !important;
+  stroke-width: 4px !important;
+}
+svg path.flowchart-link.is-source-selected:not(.source-edge-hit) {
+  stroke: var(--color-primary) !important;
+  stroke-width: 4px !important;
+}
+svg path.source-edge-hit {
+  stroke: transparent !important;
+  stroke-width: 24px !important;
+  fill: none !important;
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+.source-thread-badge.anchor-highlight {
+  display: inline-block;
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface));
+  color: var(--color-primary);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 55%, var(--color-surface));
+  border-radius: 999px;
+  font: 600 11px/18px var(--font-sans);
+  min-width: 20px;
+  text-align: center;
+  padding: 0;
+  margin-inline-start: 6px;
+  cursor: pointer;
+}
+td > .source-thread-badge, th > .source-thread-badge { position: absolute; top: 6px; margin: 0; }
+/* Mermaid's diagram-ID selectors otherwise recolor these as node shapes. */
+svg .source-thread-badge circle { fill: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface)) !important; stroke: color-mix(in srgb, var(--color-primary) 55%, var(--color-surface)) !important; stroke-width: 1px !important; }
+svg .source-thread-badge text { fill: var(--color-primary) !important; font: 600 10px var(--font-sans); text-anchor: middle; }
+.plan-layout--hide-resolved .source-thread-badge.anchor-highlight--resolved { display: none; }
+/* Source selections use the same composer and thread chrome as text selections.
+   Only their top-layer positioning and multiple-thread container differ. */
+.source-comments { position: fixed; margin: 0; max-width: calc(100vw - 32px); color: var(--color-text); }
+.source-comments:not(.comment-form--sheet):not(.thread-popover--sheet) { inset: auto; }
+.source-comments__discussion + .source-comments__discussion { border-top: 1px solid var(--color-border); margin-top: var(--space-md); padding-top: var(--space-md); }
+.source-comments > .comment-form__actions { margin-top: var(--space-sm); }
+.source-comments .comment-form__actions[hidden] { display: none; }
+.data-sheet__sort { margin-left: 8px; border: 0; background: transparent; color: inherit; cursor: pointer; min-width: 32px; min-height: 32px; }
+@media (max-width: 640px) {
+  .comment-form.comment-form--sheet, .thread-popover.thread-popover--sheet { width: 100%; max-width: 100%; }
+}
+@media (hover: none) {
+  .markdown-rendered .mermaid-diagram__expand { opacity: 1; min-width: 44px; min-height: 44px; }
+}
+
+.source-comments-outdated { grid-column: 1 / -1; justify-self: start; margin-top: var(--space-md); }
+
+.is-comment-mode svg path.source-edge-hit { pointer-events: stroke; }
+.diagram-comments { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); }
+.mermaid-diagram > .diagram-comments { padding: var(--space-sm); border-top: 1px solid var(--color-border); }
+.diagram-comments__hint { color: var(--color-text-muted); font-size: var(--text-sm); }
+.diagram-comments [hidden] { display: none; }
+.diagram-comments:not(:has(> :not([hidden]))) { display: none; }
+.is-comment-mode svg { user-select: none; -webkit-user-select: none; }
+.diagram-comments kbd { font: inherit; border: 1px solid var(--color-border-strong); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; }
+.diagram-comments__toggle[aria-pressed="true"] { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-interaction-active-bg); }
+.expander--diagram .expander__status { flex-wrap: wrap; }
+.expander--diagram.is-comment-mode .expander__hint { display: none; }
+.diagram-comments__whole { position: relative; }
+
+/* Reading a compact row is deliberate; moving the cursor never adds a pane. */
+.data-sheet__table tr.is-expanded > td {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+.data-sheet__table tr.is-expanded code { white-space: normal; overflow-wrap: anywhere; }
+.data-sheet__row-toggle { flex: none; }
+.data-sheet__row-toggle[hidden] { display: none; }
+/* Keep browsing cursors stable across shapes, labels and connection paths.
+   Only actual comment targets receive the speech-bubble pointer. */
+:root {
+  --cursor-comment: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M3 2v22l5-6 4 9 4-2-4-9h8Z' fill='white' stroke='%230f172a' stroke-width='1.5' stroke-linejoin='round'/%3E%3Cpath d='M19 8h9a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3l-4 4v-4h-2a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z' fill='%2360a5fa' stroke='%230f172a' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 3 2, pointer;
+}
+:is(.mermaid-diagram__canvas, .expander__canvas) svg,
+:is(.mermaid-diagram__canvas, .expander__canvas) svg :is([data-source-target], .node *, .source-edge-label *) {
+  cursor: inherit;
+}
+:is(.mermaid-diagram__canvas, .expander__canvas) svg .source-thread-badge,
+.is-comment-mode svg :is(.node[data-source-target], path[data-source-target], .source-edge-label) {
+  cursor: var(--cursor-comment);
+}
+/* Hover and keyboard focus provide the same affordance, without repainting
+   every target or changing authored line styles when comment mode opens. */
+.is-comment-mode:not(:has(.is-grabbing)) svg .node[data-source-target]:is(:hover, :focus-visible) .source-node-shape,
+.is-comment-mode:not(:has(.is-grabbing)) svg path.flowchart-link[data-source-target]:not(.source-edge-hit):is(:hover, :focus-visible),
+.is-comment-mode:not(:has(.is-grabbing)) svg path.flowchart-link:has(+ .source-edge-hit:hover),
+.is-comment-mode:not(:has(.is-grabbing)) svg .source-edge-label:hover {
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--color-primary) 40%, transparent));
+}
+.is-whole-diagram-comment :is(.mermaid-diagram__canvas, .expander__canvas):not(.is-grabbing) {
+  cursor: var(--cursor-comment);
+}
+.is-whole-diagram-comment :is(.mermaid-diagram__canvas, .expander__canvas):not(.is-grabbing):hover {
+  box-shadow: inset 0 0 4px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+.expander__canvas.is-grabbing,
+.expander__canvas.is-grabbing svg * { cursor: grabbing !important; }
+
+.source-edge-badges { pointer-events: none; }
+.source-edge-badges [data-source-badge] { pointer-events: all; }
 
 /* Rich editing uses the same .markdown-rendered typography as reading. */
 .document-editor { max-width: var(--max-width); margin: 0 auto; }

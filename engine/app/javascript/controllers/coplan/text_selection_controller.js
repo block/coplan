@@ -6,7 +6,7 @@ import { Controller } from "@hotwired/stimulus"
 // wrapping a <mark> inside a <style> re-parents part of the CSS out of the
 // sheet (a <style> only parses its direct child text), which strips the
 // diagram's styling and renders it as unstyled black shapes.
-const NON_RENDERED_TEXT_SELECTOR = "style, script, noscript"
+const NON_RENDERED_TEXT_SELECTOR = "style, script, noscript, [data-source-badge]"
 
 export default class extends Controller {
   static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote", "threads"]
@@ -152,6 +152,13 @@ export default class extends Controller {
     this.popoverTarget.style.display = "block"
     this.popoverTarget.style.top = `${rect.bottom - contentRect.top + 8}px`
     this.popoverTarget.style.left = `${rect.left - contentRect.left}px`
+  }
+
+  selectionKey(event) {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.target.closest("input, textarea, select, [contenteditable]")) return
+    if (event.key.toLowerCase() !== "c" || !this.hasPopoverTarget || this.popoverTarget.style.display !== "block") return
+    event.stopPropagation()
+    this.openCommentForm(event)
   }
 
   openCommentForm(event) {
@@ -347,7 +354,7 @@ export default class extends Controller {
   _restoreActiveThreadPopover(threadId, mode) {
     if (!threadId || !this._activePopover) return
 
-    const replacementMark = this.contentTarget.querySelector(`mark[data-thread-id="${threadId}"]`)
+    const replacementMark = this.contentTarget.querySelector(`.anchor-highlight[data-thread-id="${threadId}"]`)
     if (replacementMark && this._findOpenPopover() === this._activePopover) {
       this._showThreadPopoverFor(replacementMark, mode || "pinned")
       return
@@ -646,6 +653,7 @@ export default class extends Controller {
 
     const threads = this.element.querySelectorAll("[data-anchor-text]")
     threads.forEach(thread => {
+      if (thread.dataset.anchorKind) return
       const anchor = thread.dataset.anchorText
       const occurrence = thread.dataset.anchorOccurrence
       const status = thread.dataset.threadStatus || "open"
@@ -778,7 +786,16 @@ export default class extends Controller {
     if (!threadId) return
 
     const domId = `comment_thread_${threadId}`
-    const mark = this.contentTarget.querySelector(`mark[data-thread-id="${domId}"]`)
+    const threadData = document.getElementById(domId)
+    if (threadData?.dataset.anchorKind) {
+      const event = new CustomEvent("coplan:source-thread", { bubbles: true, cancelable: true, detail: { threadId } })
+      this.element.dispatchEvent(event)
+      if (event.defaultPrevented) {
+        this._pendingThreadId = null
+        return
+      }
+    }
+    const mark = this.contentTarget.querySelector(`[data-thread-id="${domId}"].anchor-highlight`)
     // Mermaid replaces its source block asynchronously. Wait for the rendered
     // label instead of opening a popover against a source mark that will detach.
     if (mark?.closest('pre[lang="mermaid"]')) {
@@ -792,7 +809,7 @@ export default class extends Controller {
       requestAnimationFrame(() => {
         if (this._pendingThreadId !== threadId) return
 
-        const currentMark = this.contentTarget.querySelector(`mark[data-thread-id="${domId}"]`)
+        const currentMark = this.contentTarget.querySelector(`[data-thread-id="${domId}"].anchor-highlight`)
         if (currentMark?.isConnected) {
           currentMark.scrollIntoView({ behavior: "instant", block: "center" })
           if (this._showThreadPopoverFor(currentMark, "pinned")) {

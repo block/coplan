@@ -79,6 +79,15 @@ module CoPlan
           html: html,
           attrs: attrs
         )
+        # Structured anchors move through the same OT as prose anchors.
+        # Refresh their source ranges together with the rendered document;
+        # the client compares content digests before displaying a badge.
+        updates = plan.comment_threads.where.not(anchor_kind: nil).with_kept_comments.includes(:comments, :created_by_user).map do |thread|
+          target = ERB::Util.html_escape(ActionView::RecordIdentifier.dom_id(thread))
+          html = render(partial: "coplan/comment_threads/thread_popover", locals: { plan: plan, thread: thread })
+          %(<turbo-stream action="replace" target="#{target}"><template>#{html}</template></turbo-stream>)
+        end
+        Turbo::StreamsChannel.broadcast_stream_to(plan, content: updates.join.html_safe) if updates.any?
       end
 
       # Reference extraction runs after the version transaction commits. Build

@@ -6,8 +6,7 @@ require "rails_helper"
 RSpec.describe "Expanding a Mermaid diagram", type: :system do
   let(:author) { create(:coplan_user, email: "author@example.com") }
 
-  # Wide enough that fitting it to the document column would shrink it past
-  # the legibility floor.
+  # Deliberately wide: Fit must show every node even at a small zoom level.
   let(:wide_diagram) do
     chain = (1..14).map { |n| "S#{n}[Stage number #{n}]" }.each_cons(2).map { |a, b| "    #{a} --> #{b}" }
     "```mermaid\nflowchart LR\n#{chain.join("\n")}\n```"
@@ -62,8 +61,8 @@ RSpec.describe "Expanding a Mermaid diagram", type: :system do
   end
 
   describe "in the document" do
-    it "keeps a wide diagram at a readable size and scrolls it instead" do
-      expect(page).to have_css(".mermaid-diagram--scrolling")
+    it "fits the complete wide diagram inside the document" do
+      expect(page).to have_no_css(".mermaid-diagram--scrolling")
 
       readable = page.evaluate_script(<<~JS)
         (() => {
@@ -77,10 +76,9 @@ RSpec.describe "Expanding a Mermaid diagram", type: :system do
         })()
       JS
 
-      # Shown at full size, with the frame — not the page — taking the
-      # overflow.
-      expect(readable["scale"]).to be_within(0.02).of(1.0)
-      expect(readable["scrolls"]).to be(true)
+      expect(readable["scale"]).to be > 0
+      expect(readable["scale"]).to be < 1
+      expect(readable["scrolls"]).to be(false)
       expect(page.evaluate_script("document.documentElement.scrollWidth <= window.innerWidth")).to be(true)
     end
   end
@@ -108,6 +106,13 @@ RSpec.describe "Expanding a Mermaid diagram", type: :system do
 
       find("button[aria-label='Fit to screen']").click
       expect(zoom_percent).to eq(fitted)
+      expect(page.evaluate_script(<<~JS)).to be(true)
+        (() => {
+          const view = document.querySelector('.expander__canvas').getBoundingClientRect();
+          const svg = document.querySelector('.expander__canvas > svg').getBoundingClientRect();
+          return svg.left >= view.left && svg.top >= view.top && svg.right <= view.right + 1 && svg.bottom <= view.bottom + 1;
+        })()
+      JS
     end
 
     it "zooms from the keyboard" do
@@ -132,6 +137,7 @@ RSpec.describe "Expanding a Mermaid diagram", type: :system do
     end
 
     it "pans on drag, and a drag does not dismiss the surface" do
+      click_button "Actual size"
       before_drag = canvas_transform
       canvas = find(".expander__canvas")
 
@@ -148,6 +154,24 @@ RSpec.describe "Expanding a Mermaid diagram", type: :system do
       expect(canvas_transform).not_to eq(before_drag)
     end
 
+    it "allows an interactive click immediately after panning" do
+      canvas = find(".expander__canvas")
+      page.driver.browser.action.move_to(canvas.native, 0, 0).click_and_hold.move_by(60, 40).release.perform
+      # Exercise the shared viewport's interactive-child contract without
+      # relying on Mermaid's strict-mode policy for authored hyperlinks.
+      page.execute_script(<<~JS)
+        const link = document.createElement('a');
+        link.href = '#';
+        link.textContent = 'Open linked detail';
+        link.style.cssText = 'position:absolute;top:20px;left:20px';
+        link.addEventListener('click', event => { event.preventDefault(); link.textContent = 'Opened linked detail'; });
+        document.querySelector('.expander__canvas').append(link);
+      JS
+      click_link "Open linked detail"
+      expect(page).to have_link("Opened linked detail")
+      expect(page).to have_css(".expander--diagram")
+    end
+
     it "closes on Escape" do
       find(".expander__canvas").send_keys(:escape)
 
@@ -156,8 +180,10 @@ RSpec.describe "Expanding a Mermaid diagram", type: :system do
     end
   end
 
-  it "still expands on a click anywhere in the diagram" do
-    find(".mermaid-diagram__canvas").click
+  it "browses on a single click and expands on a double-click in the diagram background" do
+    find(".mermaid-diagram__canvas").click(x: 4, y: 4)
+    expect(page).to have_no_css(".expander--diagram")
+    find(".mermaid-diagram__canvas").double_click(x: 4, y: 4)
 
     expect(page).to have_css(".expander--diagram .expander__canvas > svg")
   end

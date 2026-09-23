@@ -4,7 +4,7 @@ module CoPlan
     OPEN_STATUSES = %w[open].freeze
     CLOSED_STATUSES = %w[resolved].freeze
 
-    attr_accessor :anchor_occurrence
+    attr_accessor :anchor_occurrence, :source_token
 
     belongs_to :plan
     belongs_to :plan_version
@@ -16,6 +16,7 @@ module CoPlan
     has_many :notifications, dependent: :destroy
 
     validates :status, presence: true, inclusion: { in: STATUSES }
+    validates :anchor_kind, inclusion: { in: Plans::SourceTargets::KINDS }, allow_nil: true
 
     # Resolution runs before validation so validation can see its result:
     # a thread whose anchor never resolved renders nowhere — no highlight,
@@ -69,6 +70,10 @@ module CoPlan
         []
       end
 
+      source_ranges = if anchored_threads.any? { |thread| thread.anchor_kind.present? }
+        Plans::SourceTargets.new(new_version.content_markdown).ranges
+      end
+
       anchored_threads.each do |thread|
         unless thread.anchor_start.present? && thread.anchor_end.present? && thread.anchor_revision.present?
           thread.update_columns(out_of_date: true, out_of_date_since_version_id: new_version.id)
@@ -82,6 +87,9 @@ module CoPlan
             [ thread.anchor_start, thread.anchor_end ],
             intervening
           )
+          if thread.anchor_kind.present? && !source_ranges.include?([ thread.anchor_kind, *new_range ])
+            raise Plans::TransformRange::Conflict, "Source element no longer exists"
+          end
           thread.update_columns(
             anchor_start: new_range[0],
             anchor_end: new_range[1],
@@ -97,7 +105,7 @@ module CoPlan
     end
 
     def anchored?
-      anchor_text.present?
+      anchor_kind.present? || anchor_text.present?
     end
 
     def line_specific?
@@ -150,6 +158,7 @@ module CoPlan
     # to find the correct occurrence in the rendered DOM text.
     def anchor_occurrence_index
       return nil unless anchored?
+      return nil if anchor_kind.present?
 
       content = plan.current_content
       return nil unless content.present?
@@ -178,8 +187,14 @@ module CoPlan
       return nil unless anchored? && anchor_start.present?
 
       content = plan.current_content
-      return nil unless content.present?
 
+      # Outdated ranges belong to their last successfully tracked revision.
+      # Showing current source here would hand agents an unrelated neighbor.
+      if out_of_date? && anchor_kind.present?
+        content = plan.plan_versions.find_by(revision: anchor_revision)&.content_markdown
+        return unless content
+      end
+      return nil unless content.present?
       context_start = [ anchor_start - chars, 0 ].max
       context_end = [ anchor_end + chars, content.length ].min
 
@@ -235,12 +250,28 @@ module CoPlan
     end
 
     def anchor_must_resolve
+      if source_token.present? && !@source_token_valid
+        errors.add(:base, "This source selection is no longer valid. Reopen the latest plan and select the element again; your comment has not been posted.")
+        return
+      end
       return if anchor_text.blank? || anchor_start.present?
 
       errors.add(:anchor_text, "doesn't match the plan content — the comment would have nowhere to appear")
     end
 
     def resolve_anchor_position
+      if source_token.present?
+        data = Plans::SourceTargets.resolve(source_token, plan.current_content.to_s)
+        @source_token_valid = data.present?
+        if data
+          self.anchor_start, self.anchor_end = data.values_at("start", "end")
+          self.anchor_kind = data["kind"]
+          self.anchor_text = plan.current_content[anchor_start...anchor_end]
+          self.anchor_context = data["label"]
+          self.anchor_revision = plan.current_revision
+        end
+        return
+      end
       return unless anchor_text.present?
 
       content = plan.current_content
