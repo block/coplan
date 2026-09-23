@@ -201,7 +201,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
       expect(flash[:notice]).to eq("No changes to save.")
     end
 
-    it "persists metadata even when the content save hits a conflict" do
+    it "keeps metadata atomic with content when saving hits a conflict" do
       stale = plan.current_revision
       new_version = create(:plan_version, plan: plan, revision: stale + 1,
                            content_markdown: "# Plan\n\nSomeone else edited.\n", actor_id: other_user.id)
@@ -213,12 +213,11 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
         plan: { title: "Renamed During Conflict" }
       }
 
-      # The body conflicts, but the rename must not be lost to someone
-      # else's edit — metadata applies up front.
+      # A failed save must not partially change the document.
       expect(response).to have_http_status(:conflict)
       plan.reload
-      expect(plan.title).to eq("Renamed During Conflict")
-      expect(plan.plan_events.where(event_type: "title_changed")).to exist
+      expect(plan.title).not_to eq("Renamed During Conflict")
+      expect(plan.plan_events.where(event_type: "title_changed")).not_to exist
       expect(plan.current_content).to eq("# Plan\n\nSomeone else edited.\n")
     end
   end

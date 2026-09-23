@@ -42,6 +42,7 @@ module CoPlan
         ActiveRecord::Base.transaction do
           @plan.lock!
           @plan.reload
+          EditLease.enforce!(plan: @plan)
 
           if @plan.current_revision != @base_revision
             raise ReplaceContent::StaleRevisionError.new(

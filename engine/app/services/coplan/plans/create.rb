@@ -5,14 +5,14 @@ module CoPlan
       # caller explicitly asks for an unlisted draft.
       def self.call(
         title:, content:, user:, plan_type_id: nil, visibility: "published",
-        actor_type: "human", actor_id: nil, agent_name: nil, api_token_id: nil
+        actor_type: "human", actor_id: nil, agent_name: nil, api_token_id: nil, creation_key: nil
       )
-        new(title:, content:, user:, plan_type_id:, visibility:, actor_type:, actor_id:, agent_name:, api_token_id:).call
+        new(title:, content:, user:, plan_type_id:, visibility:, actor_type:, actor_id:, agent_name:, api_token_id:, creation_key:).call
       end
 
       def initialize(
         title:, content:, user:, plan_type_id: nil, visibility: "published",
-        actor_type: "human", actor_id: nil, agent_name: nil, api_token_id: nil
+        actor_type: "human", actor_id: nil, agent_name: nil, api_token_id: nil, creation_key: nil
       )
         @title = title
         @content = content
@@ -23,11 +23,12 @@ module CoPlan
         @actor_id = actor_id || user.id
         @agent_name = agent_name
         @api_token_id = api_token_id
+        @creation_key = creation_key
       end
 
       def call
         plan = ActiveRecord::Base.transaction do
-          plan = Plan.create!(title: @title, created_by_user: @user, plan_type_id: @plan_type_id, visibility: @visibility)
+          plan = Plan.create!(title: @title, created_by_user: @user, plan_type_id: @plan_type_id, visibility: @visibility, creation_key: @creation_key)
           version = PlanVersion.create!(
             plan: plan,
             revision: 1,

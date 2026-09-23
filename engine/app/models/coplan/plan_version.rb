@@ -1,5 +1,9 @@
 module CoPlan
   class PlanVersion < ApplicationRecord
+    attr_accessor :edit_lease_token
+
+    before_create :enforce_edit_lease
+
     ACTOR_TYPES = %w[human local_agent cloud_persona system].freeze
 
     belongs_to :plan
@@ -32,6 +36,11 @@ module CoPlan
     after_create_commit :enqueue_summary_regeneration
 
     private
+
+    def enforce_edit_lease
+      plan.lock!
+      EditLease.enforce!(plan: plan, lease_token: edit_lease_token)
+    end
 
     def extract_references
       CoPlan::References::ExtractFromContent.call(plan: plan, content: content_markdown)

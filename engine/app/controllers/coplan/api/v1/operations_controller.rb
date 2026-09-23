@@ -216,6 +216,7 @@ module CoPlan
 
           version = PlanVersion.create!(
             plan: @plan,
+            edit_lease_token: params[:lease_token],
             revision: new_revision,
             content_markdown: result[:content],
             actor_type: api_author_type,
