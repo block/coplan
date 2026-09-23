@@ -223,7 +223,8 @@ export default class extends Controller {
     if (!data) return
     if (data.dataset.outOfDate === "true") this.showOutdated()
     else {
-      const element = Array.from(this.element.querySelectorAll("[data-source-target]")).find(el =>
+      const surface = this.element.querySelector("dialog.expander[open]") || this.element
+      const element = Array.from(surface.querySelectorAll("[data-source-target]")).find(el =>
         !el.classList.contains("source-edge-hit") && this.matchingThreads(JSON.parse(el.dataset.sourceTarget)).includes(data))
       if (!element) return // Mermaid may still be rendering; the caller retries.
       element.scrollIntoView({ block: "center", behavior: "instant" })

@@ -326,6 +326,41 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(page.evaluate_script("document.activeElement.matches('td[data-source-target]')")).to be(true)
   end
 
+  it "navigates source discussions through the shared panel in the active table and keeps reply drafts" do
+    cells = all(".data-grid tbody tr").map { |row| row.all("td")[1] }
+    cells[0].send_keys("c")
+    comment("First cell discussion")
+    page.driver.browser.action.send_keys(:escape).perform
+    cells[1].send_keys("c")
+    comment("Second cell discussion")
+    page.driver.browser.action.send_keys(:escape).perform
+
+    find("body").send_keys("j")
+    expect(panel).to have_text("First cell discussion")
+    panel.fill_in "Press r to reply", with: "Keep my navigation draft"
+    panel.find('[aria-label="Close element comments"]').send_keys("j")
+    expect(panel).to have_text("Second cell discussion")
+    page.driver.browser.action.send_keys(:escape).perform
+
+    find(".data-grid").hover
+    find(".data-grid__expand").click
+    find("td.is-cursor").send_keys("j")
+    expect(page).to have_css("dialog .source-comments:popover-open", text: "First cell discussion")
+    expect(panel).to have_field("Press r to reply", with: "Keep my navigation draft")
+    expect(page).to have_css("dialog td.is-source-selected", count: 1)
+    expect(page).to have_no_css("#plan-threads .thread-popover:popover-open")
+
+    # A nested scroller must reposition the shared panel, not a legacy popover.
+    page.execute_script("const frame = document.querySelector('.data-sheet__frame'); frame.style.flex = 'none'; frame.style.height = '90px'")
+    top = panel.evaluate_script("this.getBoundingClientRect().top")
+    page.execute_script("document.querySelector('.data-sheet__frame').scrollTop = 20")
+    expect(page).to have_css('.source-comments:popover-open')
+    expect(page).to have_css(".source-comments:popover-open") { |element| element.evaluate_script("this.getBoundingClientRect().top") < top }
+    panel.find('[aria-label="Close element comments"]').send_keys("j")
+    expect(panel).to have_text("Second cell discussion")
+    expect(page).to have_css("dialog td.is-source-selected", count: 1)
+  end
+
   it "dismisses outside clicks and keeps drafts in the document and expanded table" do
     cell = all(".data-grid tbody tr")[1].all("td")[1]
     cell.send_keys("c")

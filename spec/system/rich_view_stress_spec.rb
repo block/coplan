@@ -246,7 +246,7 @@ RSpec.describe "Rich views with dense content", type: :system do
         find('dialog [aria-label="Close"]').click
       end
       page.execute_script("document.documentElement.dataset.theme = 'light'; window.dispatchEvent(new Event('coplan:theme-changed'))")
-      expect(page).to have_css('.mermaid-diagram[data-mermaid-theme="light"] svg', count: 8, wait: 45)
+      expect(page).to have_css('.mermaid-diagram[data-mermaid-theme="light"] .mermaid-diagram__canvas > svg', count: 8, wait: 45)
       expect(page).to have_no_css(".mermaid-diagram--error")
     end
   end

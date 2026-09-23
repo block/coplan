@@ -19,6 +19,8 @@ RSpec.describe CoPlan::Plans::SourceTargets do
   it "maps repeated Unicode and formatted cells to character offsets in their own source" do
     content = "🌱\n\n| Nom | Note |\n| --- | --- |\n| 同 | **same** |\n| 同 | **same** |\n"
     targets = cells(content)
+    expect(targets.map { |t| t["text"] }).to eq([ " Nom ", " Note ", " 同 ", " **same** ", " 同 ", " **same** " ])
+    expect(targets[2].values_at("start", "end")).to eq([ content.index(" 同 "), content.index(" 同 ") + 3 ])
     same = targets.select { |t| t["text"].include?("same") }
     expect(same.size).to eq(2)
     expect(same.map { |t| t["start"] }.uniq.size).to eq(2)
@@ -61,6 +63,17 @@ RSpec.describe CoPlan::Plans::SourceTargets do
     end
     expect(map["nodes"]["C"]["text"]).to eq("C{同}")
     expect(map["edges"].last["text"]).to eq("C{同} --> D")
+  end
+
+  it "keeps character offsets after multibyte node and edge labels" do
+    content, map = graph("flowchart LR\n A[🌱 同] -->|café 同| B[終]\n B --> C[🌈]")
+    expected = { "A" => "A[🌱 同]", "B" => "B[終]", "C" => "C[🌈]" }
+    expected.each do |id, text|
+      target = map.fetch("nodes").fetch(id)
+      expect(target.values_at("start", "end", "text")).to eq([ content.index(text), content.index(text) + text.length, text ])
+      expect(described_class.resolve(target["token"], content)).to include("start" => content.index(text))
+    end
+    expect(map["edges"].map { |t| t["text"] }).to eq([ "A[🌱 同] -->|café 同| B[終]", "B --> C[🌈]" ])
   end
 
   it "declines nodes with repeated declarations rather than choosing by label" do
