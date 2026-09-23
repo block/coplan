@@ -122,5 +122,27 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
       expect(response.body.scan('id="search-modal"').size).to eq(1)
       expect(response.body.scan('id="keyboard-shortcuts-modal"').size).to eq(1)
     end
+
+    it "renders the same shortcut catalog into the help and the dispatcher payload" do
+      sign_in_as(alice)
+      get search_path
+      document = Nokogiri::HTML(response.body)
+      catalog = JSON.parse(CoPlan::Engine.root.join("config/keyboard_shortcuts.json").read)
+      expect(JSON.parse(document.at_css("#coplan-shortcut-catalog").text)).to eq(catalog)
+      help = document.at_css("#keyboard-shortcuts-modal")
+      catalog.each_value do |scope|
+        scope.fetch("bindings").each do |binding|
+          expect(help.text).to include(binding.fetch("description"))
+        end
+      end
+      expect(help.text).to include(CoPlan::User::VOICE_HOTKEY_LABELS.fetch(alice.voice_hotkey))
+    end
+
+    it "does not advertise a disabled voice shortcut" do
+      alice.update!(voice_hotkey: "off")
+      sign_in_as(alice)
+      get search_path
+      expect(response.body).not_to include('id="shortcut-voice"')
+    end
   end
 end

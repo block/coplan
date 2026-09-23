@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { registerShortcuts, commandFor } from "coplan/shortcuts"
 
 export default class extends Controller {
 
@@ -6,44 +7,37 @@ export default class extends Controller {
     this.currentIndex = -1
     this.activeMark = null
     this.activePopover = null
-    this.handleKeydown = this.handleKeydown.bind(this)
     this.handleScroll = this.handleScroll.bind(this)
-    document.addEventListener("keydown", this.handleKeydown)
+    this.releaseShortcuts = registerShortcuts(this, "comments", event => this.handleKeydown(event))
     window.addEventListener("scroll", this.handleScroll, { passive: true })
   }
 
   disconnect() {
-    document.removeEventListener("keydown", this.handleKeydown)
+    this.releaseShortcuts()
     window.removeEventListener("scroll", this.handleScroll)
     this.cancelPendingAdvance()
   }
 
   handleKeydown(event) {
-    // Don't intercept when typing in inputs/textareas or when modifier keys are held
-    const tag = event.target.tagName
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target.isContentEditable) return
-    if (event.metaKey || event.ctrlKey || event.altKey) return
-
-    switch (event.key) {
-      case "j":
-      case "ArrowDown":
+    // The dispatcher owns text-entry and overlay guards for page commands.
+    switch (commandFor("comments", event)) {
+      case "next":
         event.preventDefault()
         this.next()
         break
-      case "k":
-      case "ArrowUp":
+      case "previous":
         event.preventDefault()
         this.prev()
         break
-      case "r":
+      case "reply":
         event.preventDefault()
         this.focusReply()
         break
-      case "e":
+      case "resolve":
         event.preventDefault()
         this.resolveCurrent()
         break
-      case "s":
+      case "resolved":
         event.preventDefault()
         this.toggleResolved()
         break

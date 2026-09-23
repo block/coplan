@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { commandFor } from "coplan/shortcuts"
 
 // One network operation at a time. Every response is reconciled with both the
 // sent snapshot and edits typed while it was in flight. Nothing clears a draft
@@ -287,7 +288,7 @@ export default class extends Controller {
   }
   style(event) { if (this.editor !== this.richEditor) return; this.richEditor?.command(event.currentTarget.value === "0" ? "paragraph" : event.currentTarget.value === "code" ? "code_block" : "heading", event.currentTarget.value) }
   keydown(event) {
-    if (!event.defaultPrevented && (event.metaKey || event.ctrlKey) && ["s", "Enter"].includes(event.key)) { event.preventDefault(); this.flush(true) }
+    if (commandFor("editor", event) === "save") { event.preventDefault(); this.flush(true) }
   }
   beforeUnload(event) { if (this.dirty()) { this.persistDraft(); event.preventDefault(); event.returnValue = "" } }
   back(event) { event.preventDefault(); this.navigate(() => this.backTarget.href) }

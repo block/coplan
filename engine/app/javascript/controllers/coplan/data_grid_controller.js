@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { commandFor } from "coplan/shortcuts"
 import { openExpander, attachExpandAffordance, nearestHeading, ICONS } from "coplan/expander"
 
 // A markdown table, twice over.
@@ -185,7 +186,7 @@ class Sheet {
   handleKey(event) {
     if (event.altKey) return
 
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
+    if (commandFor("table", event) === "copy") {
       if (!this.cursor) return
       event.preventDefault()
       // Only say "copied" once the clipboard has actually taken it: over
@@ -202,21 +203,23 @@ class Sheet {
     const page = Math.max(1, Math.floor(this.frame.clientHeight / (this.cursor?.offsetHeight || 32)) - 1)
     let { row, column } = this.position || { row: 0, column: 0 }
 
-    switch (event.key) {
-      case "ArrowUp": row -= 1; break
-      case "ArrowDown": row += 1; break
-      case "ArrowLeft": column -= 1; break
-      case "ArrowRight": column += 1; break
-      case "PageUp": row -= page; break
-      case "PageDown": row += page; break
+    switch (commandFor("table", event)) {
+      case "up": row -= 1; break
+      case "down": row += 1; break
+      case "left": column -= 1; break
+      case "right": column += 1; break
+      case "pageUp": row -= page; break
+      case "pageDown": row += page; break
       // Home/End move along the row; with shift they jump to the corners of
       // the whole table, the way a spreadsheet's ctrl+Home does (ctrl is
       // already spoken for by copy).
-      case "Home":
+      case "start":
+      case "first":
         column = 0
         if (event.shiftKey) row = 0
         break
-      case "End":
+      case "end":
+      case "last":
         column = lastColumn
         if (event.shiftKey) row = lastRow
         break

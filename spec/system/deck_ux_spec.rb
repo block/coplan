@@ -79,6 +79,21 @@ RSpec.describe "Deck UX", type: :system do
     )
   end
 
+  it "opens help above a presentation without navigating the slide behind it" do
+    visit plan_page_path(plan)
+    start_show
+    first_slide = current_slide
+    page.driver.browser.action.send_keys("?").perform
+    expect(page).to have_css(".keyboard-shortcuts[open]")
+    page.driver.browser.action.send_keys(:arrow_right).perform
+    expect(current_slide).to eq(first_slide)
+    page.driver.browser.action.send_keys(:escape).perform
+    expect(page).not_to have_css(".keyboard-shortcuts[open]")
+    expect(page).to have_css(".deck--presenting")
+    page.driver.browser.action.send_keys(:arrow_right).perform
+    expect(current_slide).not_to eq(first_slide)
+  end
+
   # Strokes are ephemeral by design, so counting them after the fact is a
   # race with their own fade. Watch the canvas instead and count every
   # stroke that was ever added to it.

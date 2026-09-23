@@ -5121,7 +5121,7 @@ img.avatar {
   font-size: var(--text-sm);
 }
 
-/* Sitewide keyboard reference. Like search, this is one native popover in
+/* Sitewide keyboard reference. One native modal dialog in
    the layout: no navigation, scroll movement, or loading state to interrupt
    the surface the user is on. */
 .keyboard-shortcuts {
@@ -5143,11 +5143,11 @@ img.avatar {
   flex-direction: column;
 }
 
-.keyboard-shortcuts:not(:popover-open) {
+.keyboard-shortcuts:not([open]) {
   display: none;
 }
 
-.keyboard-shortcuts:popover-open {
+.keyboard-shortcuts[open] {
   display: flex;
 }
 
@@ -5156,6 +5156,7 @@ img.avatar {
 }
 
 .keyboard-shortcuts__header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -5198,6 +5199,7 @@ img.avatar {
 }
 
 .keyboard-shortcuts__body {
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-lg) var(--space-xl);

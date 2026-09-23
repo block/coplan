@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { registerShortcuts, commandFor } from "coplan/shortcuts"
 
 // Keyboard navigation for the workspace file browser:
 //
@@ -15,46 +16,39 @@ export default class extends Controller {
   static targets = ["item"]
 
   connect() {
-    this._onKeydown = this._handleKeydown.bind(this)
-    document.addEventListener("keydown", this._onKeydown)
+    this.releaseShortcuts = registerShortcuts(this, "library", event => this._handleKeydown(event))
   }
 
   disconnect() {
-    document.removeEventListener("keydown", this._onKeydown)
+    this.releaseShortcuts()
   }
 
   _handleKeydown(event) {
-    if (event.metaKey || event.ctrlKey || event.altKey) return
-    const tag = event.target.tagName
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target.isContentEditable) return
-    if (this._popoverOpen()) return
     // A focused button/link/summary owns its activation keys — a keyboard
     // user tabbed to "New folder" must get the button, not the selected row.
     const activation = !!event.target.closest("a, button, summary")
 
-    switch (event.key) {
-      case "j":
-      case "ArrowDown":
+    switch (commandFor("library", event)) {
+      case "next":
         event.preventDefault()
         this._move(1)
         break
-      case "k":
-      case "ArrowUp":
+      case "previous":
         event.preventDefault()
         this._move(-1)
         break
-      case "Enter":
+      case "open":
         if (!activation && this._selected()) {
           event.preventDefault()
           this._open(this._selected())
         }
         break
-      case "Backspace":
+      case "up":
         if (activation) return
         event.preventDefault()
         this._goUp()
         break
-      case "Escape":
+      case "home":
         this._clearOrGoHome(event)
         break
     }
@@ -106,11 +100,4 @@ export default class extends Controller {
     }
   }
 
-  _popoverOpen() {
-    try {
-      return !!document.querySelector(":popover-open")
-    } catch {
-      return false
-    }
-  }
 }
