@@ -51,8 +51,11 @@ Sign in with any `@example.com` email (stub OIDC).
 ## Tests
 
 ```bash
-bin/rails test
+bundle exec rspec
 ```
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for pull request, spec, and visual testing requirements.
+Interactive features are tested with JavaScript-enabled browser specs in `spec/system/`.
 
 ## API
 
