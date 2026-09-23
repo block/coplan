@@ -7110,7 +7110,7 @@ td > .source-thread-badge, th > .source-thread-badge { position: absolute; top: 
 /* Mermaid's diagram-ID selectors otherwise recolor these as node shapes. */
 svg .source-thread-badge circle { fill: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface)) !important; stroke: color-mix(in srgb, var(--color-primary) 55%, var(--color-surface)) !important; stroke-width: 1px !important; }
 svg .source-thread-badge text { fill: var(--color-primary) !important; font: 600 10px var(--font-sans); text-anchor: middle; }
-.source-thread-badge.anchor-highlight--resolved { display: none; }
+.plan-layout--hide-resolved .source-thread-badge.anchor-highlight--resolved { display: none; }
 /* Source selections use the same composer and thread chrome as text selections.
    Only their top-layer positioning and multiple-thread container differ. */
 .source-comments { position: fixed; margin: 0; max-width: calc(100vw - 32px); color: var(--color-text); }

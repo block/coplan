@@ -82,7 +82,17 @@ export default class extends Controller {
     return true
   }
 
-  show(element, includeResolved = false) {
+  get showResolved() {
+    return !this.element.classList.contains("plan-layout--hide-resolved")
+  }
+
+  resolvedVisibilityChanged() {
+    this.includeResolved = this.showResolved
+    this.saveReplyDrafts()
+    this.refresh()
+  }
+
+  show(element, includeResolved = this.showResolved) {
     // Badges are rebuilt on broadcasts; anchor to the lasting connection.
     if (element.ownerSVGElement && JSON.parse(element.dataset.sourceTarget).kind === "mermaid_edge") {
       element = Array.from(element.ownerSVGElement.querySelectorAll("path.flowchart-link[data-source-target]:not(.source-edge-hit)"))
@@ -317,8 +327,8 @@ export default class extends Controller {
     this.element.querySelectorAll("[data-source-target]").forEach(element => {
       if (element.classList.contains("source-edge-hit")) return
       const target = JSON.parse(element.dataset.sourceTarget)
-      const threads = this.matchingThreads(target)
-      element.classList.toggle("has-source-comments", threads.some(t => t.dataset.threadStatus === "open"))
+      const threads = this.matchingThreads(target).filter(thread => this.showResolved || thread.dataset.threadStatus === "open")
+      element.classList.toggle("has-source-comments", threads.length > 0)
       if (target.kind === "mermaid_diagram") {
         element.hidden = !element.classList.contains("has-source-comments") &&
           !element.closest(".is-comment-mode")
@@ -346,6 +356,8 @@ export default class extends Controller {
     const svg = element.ownerSVGElement
     const badge = svg ? document.createElementNS("http://www.w3.org/2000/svg", "g") : document.createElement("span")
     badge.dataset.sourceBadge = ""
+    // `thread` is the server-rendered DOM element, not a model: its id
+    // is comment_thread_<uuid>, the same identity used by prose marks.
     badge.dataset.threadId = thread.id
     badge.classList.add("source-thread-badge", "anchor-highlight", `anchor-highlight--${thread.dataset.threadStatus}`)
     badge.setAttribute("aria-label", `Open discussion ${index + 1}`)

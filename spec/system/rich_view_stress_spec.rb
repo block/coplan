@@ -16,6 +16,29 @@ RSpec.describe "Rich views with dense content", type: :system do
     click_button "Sign In"
     expect(page).to have_current_path(root_path)
     visit plan_page_path(plan)
+    page.execute_script(<<~JS)
+      window.richSubmissions = [];
+      document.addEventListener('turbo:submit-end', event => {
+        window.richSubmissions.push({success: event.detail.success, source: !!event.target.closest('.source-comments')});
+      }, true);
+    JS
+  end
+
+  after do |example|
+    if example.exception
+      warn page.evaluate_script(<<~JS)
+        (() => {
+          const root = document.querySelector('.plan-layout');
+          const c = window.Stimulus.getControllerForElementAndIdentifier(root, 'coplan--source-comments');
+          return JSON.stringify({submissions: window.richSubmissions, open: c.panelTarget.matches(':popover-open'),
+            composing: c.composing, bodyPresent: !!c.bodyTarget.value, composerHidden: c.composerTarget.hidden,
+            matchedThreads: c.selection && c.matchingThreads(c.selection).length,
+            discussions: Array.from(c.discussionsTarget.children).map(el => ({text: el.textContent, display: getComputedStyle(el).display,
+              html: el.innerHTML.replace(/value="[^"]*"/g, 'value="[omitted]"')}))});
+        })()
+      JS
+      warn page.driver.browser.logs.get(:browser).map(&:message).join("\n")
+    end
   end
 
   after { page.current_window.resize_to(1400, 900) }
@@ -191,6 +214,16 @@ RSpec.describe "Rich views with dense content", type: :system do
       end
       expect(page).to have_text("Review this sequence")
       expect(plan.comment_threads.order(:created_at).last).to have_attributes(anchor_kind: "mermaid_diagram")
+      within(".source-comments") { click_button "Resolve (e)" }
+      expect(page).to have_no_css(".source-comments:popover-open")
+      diagrams[2].send_keys("c")
+      expect(diagrams[2]).to have_no_button("Comment on whole diagram")
+      find("body").send_keys("s")
+      diagrams[2].click_button "Comment on whole diagram"
+      within(".source-comments") do
+        expect(page).to have_text("Review this sequence")
+        click_button "Reopen"
+      end
       visit plan_page_path(plan)
       expect(page).to have_css(".mermaid-diagram__canvas svg", count: 8, wait: 45)
       all(".mermaid-diagram")[2].click_button "Comment on whole diagram"

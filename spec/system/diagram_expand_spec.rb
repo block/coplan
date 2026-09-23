@@ -154,6 +154,24 @@ RSpec.describe "Expanding a Mermaid diagram", type: :system do
       expect(canvas_transform).not_to eq(before_drag)
     end
 
+    it "allows an interactive click immediately after panning" do
+      canvas = find(".expander__canvas")
+      page.driver.browser.action.move_to(canvas.native, 0, 0).click_and_hold.move_by(60, 40).release.perform
+      # Exercise the shared viewport's interactive-child contract without
+      # relying on Mermaid's strict-mode policy for authored hyperlinks.
+      page.execute_script(<<~JS)
+        const link = document.createElement('a');
+        link.href = '#';
+        link.textContent = 'Open linked detail';
+        link.style.cssText = 'position:absolute;top:20px;left:20px';
+        link.addEventListener('click', event => { event.preventDefault(); link.textContent = 'Opened linked detail'; });
+        document.querySelector('.expander__canvas').append(link);
+      JS
+      click_link "Open linked detail"
+      expect(page).to have_link("Opened linked detail")
+      expect(page).to have_css(".expander--diagram")
+    end
+
     it "closes on Escape" do
       find(".expander__canvas").send_keys(:escape)
 

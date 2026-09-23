@@ -55,7 +55,8 @@ export default class extends Controller {
   }
 
   navigateExpanded(event) {
-    if (event.detail.direction === 1) this.next()
+    if (event.detail.direction === 0) this.toggleResolved()
+    else if (event.detail.direction === 1) this.next()
     else this.prev()
   }
 
@@ -279,13 +280,12 @@ export default class extends Controller {
     }
   }
 
-  // Keyboard "s": resolved threads show as a dashed underline by default —
-  // nothing about a plan's history disappears — so this hides them instead,
-  // for a decluttered read of only what's still open.
+  // Keyboard "s" explicitly reveals or hides resolved discussions.
   toggleResolved() {
     const planLayout = document.querySelector(".plan-layout")
     if (!planLayout) return
 
     planLayout.classList.toggle("plan-layout--hide-resolved")
+    planLayout.dispatchEvent(new CustomEvent("coplan:resolved-visibility", { bubbles: true }))
   }
 }

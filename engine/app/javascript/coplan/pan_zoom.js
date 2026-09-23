@@ -109,6 +109,7 @@ export function createPanZoom(viewport, content, {
 
   viewport.addEventListener("pointerdown", event => {
     if (event.button !== 0 && event.pointerType === "mouse") return
+    if (pointers.size === 0) dragged = false
     if (event.target.closest("a, button")) return
     if (pointers.size === 0) {
       gestureStart = { x: event.clientX, y: event.clientY }
@@ -161,6 +162,7 @@ export function createPanZoom(viewport, content, {
   viewport.addEventListener("pointercancel", release, { signal })
   viewport.addEventListener("click", event => {
     if (!dragged) return
+    dragged = false
     event.preventDefault()
     event.stopImmediatePropagation()
   }, { signal, capture: true })

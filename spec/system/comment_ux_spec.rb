@@ -249,19 +249,19 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css("mark.anchor-highlight--open", count: 2)
     end
 
-    it "renders resolved thread highlights with a dashed underline by default" do
+    it "leaves resolved text unstyled by default" do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
 
       visit plan_page_path(plan)
-      # Resolved threads stay part of the doc's browsable history by default.
+      # Resolved text stays readable, without an interaction highlight.
       expect(page).to have_css("mark.anchor-highlight--resolved", text: "PostgreSQL")
       mark = find("mark.anchor-highlight--resolved")
       border = mark.evaluate_script("getComputedStyle(this).borderBottomStyle")
-      expect(border).to eq("dashed")
+      expect(border).to eq("none")
     end
 
-    it "hides resolved highlights after pressing s" do
+    it "reveals resolved highlights with s and hides them with s again" do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
 
@@ -270,7 +270,9 @@ RSpec.describe "Comment UX", type: :system do
 
       mark = find("mark.anchor-highlight--resolved", visible: :all)
       border = mark.evaluate_script("getComputedStyle(this).borderBottomStyle")
-      expect(border).to eq("none")
+      expect(border).to eq("dashed")
+      find("body").send_keys("s")
+      expect(mark.evaluate_script("getComputedStyle(this).borderBottomStyle")).to eq("none")
     end
 
     it "does not toggle resolved visibility while typing s in a reply box" do
@@ -284,7 +286,7 @@ RSpec.describe "Comment UX", type: :system do
         find("textarea").send_keys("s")
       end
 
-      expect(page).not_to have_css(".plan-layout--hide-resolved")
+      expect(page).to have_css(".plan-layout--hide-resolved")
     end
   end
 
@@ -548,6 +550,7 @@ RSpec.describe "Comment UX", type: :system do
       thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Feedback", user: reviewer)
       thread.resolve!(author)
       visit plan_page_path(plan)
+      find("body").send_keys("s")
       find("mark.anchor-highlight--resolved").click
 
       within(".thread-popover") do
@@ -586,6 +589,7 @@ RSpec.describe "Comment UX", type: :system do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
       visit plan_page_path(plan)
+      find("body").send_keys("s")
       find("mark.anchor-highlight--resolved").click
 
       within(".thread-popover") do
@@ -603,6 +607,7 @@ RSpec.describe "Comment UX", type: :system do
       thread = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
       thread.resolve!(author)
       visit plan_page_path(plan)
+      find("body").send_keys("s")
       find("mark.anchor-highlight--resolved").click
 
       within(".thread-popover") do

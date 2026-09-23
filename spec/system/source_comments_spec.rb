@@ -453,6 +453,29 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     node.click
     expect(panel).to have_css(".comment-form__quote", text: "Same")
   end
+  it "reveals resolved cell discussions with S in both reading and expanded views" do
+    cell = all(".data-grid tbody tr")[1].all("td")[1]
+    cell.send_keys("c")
+    comment("Resolved cell to revisit")
+    panel.click_button "Resolve (e)"
+    expect(cell).to have_no_css(".source-thread-badge")
+    find("body").send_keys("s")
+    cell.find(".source-thread-badge.anchor-highlight--resolved").click
+    expect(panel).to have_text("Resolved cell to revisit")
+    expect(panel).to have_button("Reopen")
+    page.driver.browser.action.send_keys(:escape).perform
+
+    find(".data-grid").hover
+    find(".data-grid__expand").click
+    find("td.is-cursor").send_keys("s")
+    expect(page).to have_no_css("dialog .source-thread-badge")
+    find("td.is-cursor").send_keys("s")
+    find("dialog .source-thread-badge.anchor-highlight--resolved").click
+    expect(panel).to have_text("Resolved cell to revisit")
+    panel.click_button "Reopen"
+    expect(panel).to have_button("Resolve (e)")
+  end
+
   it "opens a resolved source thread from its permalink even though its badge is hidden" do
     all(".data-grid tbody tr")[1].all("td")[1].send_keys("c")
     comment("A resolved source discussion")

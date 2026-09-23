@@ -62,10 +62,10 @@ export function openExpander({ title = "", label = "Expanded view", variant = nu
   // default action, which propagation doesn't govern.
   dialog.addEventListener("keydown", event => {
     if (!isTyping(event.target)) {
-      if (!event.ctrlKey && !event.metaKey && !event.altKey && ["j", "k"].includes(event.key)) {
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && ["j", "k", "s"].includes(event.key)) {
         event.preventDefault()
         dialog.dispatchEvent(new CustomEvent("coplan:comment-navigate", {
-          bubbles: true, detail: { direction: event.key === "j" ? 1 : -1 }
+          bubbles: true, detail: { direction: event.key === "s" ? 0 : event.key === "j" ? 1 : -1 }
         }))
       }
       event.stopPropagation()

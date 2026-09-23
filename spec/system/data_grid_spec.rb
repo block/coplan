@@ -198,8 +198,9 @@ RSpec.describe "Data tables", type: :system do
 
       # A Turbo visit, not a fresh load: that's what fills the snapshot cache
       # the back navigation then restores.
-      page.execute_script("Turbo.visit('#{root_path}')")
-      expect(page).to have_current_path(root_path)
+      library_path = browse_library_path(handle: author.library.handle)
+      page.execute_script("Turbo.visit('#{library_path}')")
+      expect(page).to have_current_path(library_path)
       page.go_back
       expect(page).to have_css(".data-grid__frame table")
 
