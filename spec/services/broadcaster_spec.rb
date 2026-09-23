@@ -36,14 +36,30 @@ RSpec.describe CoPlan::Broadcaster do
       expect(payloads.first).to include("Hello world")
     end
 
-    it "refreshes structured source ranges with requestless thread partials" do
-      thread = create(:comment_thread, plan: plan, anchor_text: "Some content")
-      thread.update_column(:anchor_kind, "table_cell")
-      create(:comment, comment_thread: thread, author_id: author.id)
-      expect(described_class).to receive(:replace_to).with(plan,
-        target: ActionView::RecordIdentifier.dom_id(thread),
-        partial: "coplan/comment_threads/thread_popover", locals: { plan: plan, thread: thread })
+    it "batches structured source refreshes without replacing prose threads or leaking session tokens" do
+      threads = 3.times.map do
+        thread = create(:comment_thread, plan: plan, anchor_text: "Some content")
+        thread.update_column(:anchor_kind, "table_cell")
+        create(:comment, comment_thread: thread, author_id: author.id)
+        thread
+      end
+      prose = create(:comment_thread, plan: plan, anchor_text: "Hello world")
+      create(:comment, comment_thread: prose, author_id: author.id)
+      payloads = []
+      allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to) do |_streamable, content:|
+        payloads << content.to_s
+      end
+
       described_class.replace_plan_content(plan)
+
+      expect(payloads.size).to eq(2)
+      updates = Nokogiri::HTML.fragment(payloads.last).css("turbo-stream")
+      expect(updates.map { |update| update["target"] }).to match_array(threads.map { |thread| ActionView::RecordIdentifier.dom_id(thread) })
+      expect(updates.map { |update| update["action"] }).to all(eq("replace"))
+      threads.each do |thread|
+        expect(payloads.last).to include(%(data-thread-id="#{thread.id}"))
+      end
+      expect(payloads.last).not_to include(prose.id, 'name="authenticity_token"')
     end
 
     it "reflects the latest revision so stale-tab clients can ignore self-broadcasts" do

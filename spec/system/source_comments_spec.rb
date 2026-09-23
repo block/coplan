@@ -497,6 +497,28 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(plan.comment_threads.last.anchor_kind).to eq("mermaid_node")
   end
 
+  it "keeps an open diagram draft attached and restores focus after a theme rerender" do
+    expect(page).to have_css(".mermaid-diagram g.node[data-source-target]", count: 3, wait: 20)
+    find(".mermaid-diagram").send_keys("c")
+    node = all(".mermaid-diagram g.node[data-source-target]")[1]
+    original_id = node[:id]
+    token = JSON.parse(node["data-source-target"])["token"]
+    node.click
+    panel.fill_in "Write a comment...", with: "Keep this theme-change draft"
+    page.execute_script("document.documentElement.dataset.theme = 'light'; window.dispatchEvent(new Event('coplan:theme-changed'))")
+    expect(page).to have_no_css("[id='#{original_id}']")
+    expect(page).to have_css('.mermaid-diagram[data-mermaid-theme="light"] .is-source-selected')
+    replacement = find(".mermaid-diagram g.node.is-source-selected")
+    expect(JSON.parse(replacement["data-source-target"])["token"]).to eq(token)
+    expect(panel).to have_field("Write a comment...", with: "Keep this theme-change draft")
+    bounds = panel.evaluate_script("[this.getBoundingClientRect().left, this.getBoundingClientRect().top]")
+    expect(bounds.first).to be > 16
+    expect(bounds.last).to be > 16
+    page.driver.browser.action.send_keys(:escape).perform
+    expect(replacement).to match_css(":focus")
+    expect(page).to have_no_css(".is-source-selected")
+  end
+
   it "keeps Markdown links interactive instead of selecting their cell" do
     link = find(".data-grid a", text: "Example")
     expect(link[:target]).to eq("_blank")
@@ -526,7 +548,8 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     panel.click_button "Resolve (e)"
     expect(cell).to have_no_css(".source-thread-badge")
     find("body").send_keys("s")
-    cell.find(".source-thread-badge.anchor-highlight--resolved").click
+    expect(cell).to have_css(".source-thread-badge.anchor-highlight--resolved")
+    cell.send_keys("c")
     expect(panel).to have_text("Resolved cell to revisit")
     expect(panel).to have_button("Reopen")
     page.driver.browser.action.send_keys(:escape).perform
@@ -536,7 +559,7 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     find("td.is-cursor").send_keys("s")
     expect(page).to have_no_css("dialog .source-thread-badge")
     find("td.is-cursor").send_keys("s")
-    find("dialog .source-thread-badge.anchor-highlight--resolved").click
+    find("dialog td:has(.source-thread-badge.anchor-highlight--resolved)").send_keys(:enter)
     expect(panel).to have_text("Resolved cell to revisit")
     panel.click_button "Reopen"
     expect(panel).to have_button("Resolve (e)")

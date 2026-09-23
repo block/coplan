@@ -334,8 +334,9 @@ export default class extends Controller {
       panel.style.left = ""
       return
     }
-    const rect = (this.showingOutdated ? this.outdatedTarget : this.trigger)?.getBoundingClientRect()
-    if (!rect) return
+    const anchor = this.showingOutdated ? this.outdatedTarget : this.trigger
+    if (!anchor?.isConnected) return
+    const rect = anchor.getBoundingClientRect()
     let left = rect.right + 12
     if (left + panel.offsetWidth > window.innerWidth - 16) left = rect.left - panel.offsetWidth - 12
     panel.style.left = `${Math.max(16, Math.min(left, window.innerWidth - panel.offsetWidth - 16))}px`
@@ -365,6 +366,12 @@ export default class extends Controller {
       const bounds = threads.length && element.ownerSVGElement ? element.getBBox() : null
       threads.forEach((thread, index) => this.addBadge(element, thread, index, bounds))
     })
+    if (this.selection && !this.trigger?.isConnected) {
+      const surface = this.panelTarget.closest("dialog.expander[open]") || this.element
+      const replacement = Array.from(surface.querySelectorAll("[data-source-target]:not(.source-edge-hit):not(.source-edge-label):not([data-source-badge])"))
+        .find(element => JSON.parse(element.dataset.sourceTarget).token === this.selection.token)
+      if (replacement) this.trigger = replacement
+    }
     this.paintSelection()
     this.renderDiscussions()
     this.element.dispatchEvent(new CustomEvent("coplan:anchors-updated", { bubbles: true }))
