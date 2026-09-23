@@ -361,6 +361,31 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(page).to have_css("dialog td.is-source-selected", count: 1)
   end
 
+  it "clears the cell selection when navigating to prose and preserves its reply draft" do
+    prose = create(:comment_thread, plan: plan, created_by_user: user, anchor_text: "Source selections")
+    create(:comment, comment_thread: prose, author_id: user.id, body_markdown: "A prose discussion")
+    visit plan_page_path(plan)
+    all(".data-grid tbody tr")[1].all("td")[1].send_keys("c")
+    comment("A cell discussion")
+    page.driver.browser.action.send_keys(:escape).perform
+
+    find("body").send_keys("j")
+    expect(page).to have_css("#plan-threads .thread-popover:popover-open", text: "A prose discussion")
+    find("body").send_keys("j")
+    expect(panel).to have_text("A cell discussion")
+    panel.fill_in "Press r to reply", with: "Keep this mixed-navigation draft"
+    panel.find('[aria-label="Close element comments"]').send_keys("k")
+    expect(page).to have_css("#plan-threads .thread-popover:popover-open", text: "A prose discussion")
+    expect(page).to have_no_css(".source-comments:popover-open")
+    expect(page).to have_no_css(".is-source-selected")
+    page.driver.browser.action.send_keys(:escape).perform
+    expect(page).to have_no_css(".is-source-selected")
+
+    find("body").send_keys("j")
+    expect(panel).to have_text("A cell discussion")
+    expect(panel).to have_field("Press r to reply", with: "Keep this mixed-navigation draft")
+  end
+
   it "dismisses outside clicks and keeps drafts in the document and expanded table" do
     cell = all(".data-grid tbody tr")[1].all("td")[1]
     cell.send_keys("c")

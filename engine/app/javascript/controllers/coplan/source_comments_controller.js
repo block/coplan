@@ -167,6 +167,14 @@ export default class extends Controller {
     this.dismiss(null, false)
   }
 
+  panelToggled(event) {
+    // Shared discussion navigation can close the native popover directly.
+    // Ignore a queued close if show() has already reopened it for a new target.
+    if (event.newState === "closed" && !this.panelTarget.matches(":popover-open") && (this.selection || this.showingOutdated)) {
+      this.dismiss(null, false)
+    }
+  }
+
   dismiss(event, restoreFocus = true) {
     if (event && !this.panelTarget.matches(":popover-open")) return
     event?.preventDefault()

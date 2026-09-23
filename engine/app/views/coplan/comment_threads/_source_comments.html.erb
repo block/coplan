@@ -1,6 +1,6 @@
 <aside class="source-comments comment-form" popover="manual" role="dialog" aria-label="Element comments"
        data-coplan--source-comments-target="panel"
-       data-action="focusin@document->coplan--source-comments#browseFocus pointerdown@document->coplan--source-comments#dismissFromOutside:capture keydown->coplan--source-comments#discussionKey turbo:submit-end->coplan--source-comments#submitted resize@window->coplan--source-comments#positionPanel scroll@document->coplan--source-comments#positionPanel:capture">
+       data-action="toggle->coplan--source-comments#panelToggled focusin@document->coplan--source-comments#browseFocus pointerdown@document->coplan--source-comments#dismissFromOutside:capture keydown->coplan--source-comments#discussionKey turbo:submit-end->coplan--source-comments#submitted resize@window->coplan--source-comments#positionPanel scroll@document->coplan--source-comments#positionPanel:capture">
   <div data-coplan--source-comments-target="discussions"
        data-controller="coplan--viewer-role" data-coplan--viewer-role-viewer-id-value="<%= current_user&.id %>"></div>
   <%= form_with url: plan_comment_threads_path(plan), method: :post, data: { "coplan--source-comments-target": "composer" } do %>
