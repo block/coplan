@@ -431,6 +431,47 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(panel).to have_css(".thread-popover__reply textarea:focus")
   end
 
+  it "refreshes posted replies while keeping another discussion's draft and form alive" do
+    all(".data-grid tbody tr")[1].all("td")[1].send_keys("c")
+    comment("First discussion")
+    panel.click_button "New comment"
+    comment("Second discussion")
+    threads = panel.all(".source-comments__discussion")
+    threads[0].fill_in "Press r to reply", with: "Unsent first reply"
+    threads[1].fill_in "Press r to reply", with: "Posted second reply"
+    threads[1].find("textarea").send_keys(:enter)
+    expect(panel).to have_text("Posted second reply")
+    expect(panel.all(".source-comments__discussion")[0]).to have_field("Press r to reply", with: "Unsent first reply")
+    expect(panel.all(".source-comments__discussion")[1]).to have_field("Press r to reply", with: "")
+    expect(plan.comment_threads.joins(:comments).where(coplan_comments: { body_markdown: "Posted second reply" }).count).to eq(1)
+  end
+
+  it "opens comments on linked diagram nodes without following their links in comment mode" do
+    expect(page).to have_css(".mermaid-diagram g.node[data-source-target]", count: 3, wait: 20)
+    # Strict Mermaid rendering strips authored links. Exercise the same DOM
+    # contract for renderers that retain links without relaxing that policy.
+    page.execute_script(<<~JS)
+      const node = document.querySelector('.mermaid-diagram g.node[data-source-target]');
+      const link = document.createElementNS('http://www.w3.org/2000/svg', 'a');
+      link.setAttribute('href', '#linked-detail');
+      link.append(...node.childNodes);
+      node.append(link);
+    JS
+    diagram = find(".mermaid-diagram")
+    link = diagram.find('svg a[href="#linked-detail"]')
+    link.click
+    expect(page.evaluate_script("location.hash")).to eq("#linked-detail")
+    expect(page).to have_no_css(".source-comments:popover-open")
+    page.execute_script('history.replaceState(null, "", location.pathname)')
+    diagram.send_keys("c")
+    link.click
+    expect(panel).to have_field("Write a comment...")
+    expect(panel).to have_css("textarea:focus")
+    expect(page.evaluate_script("location.hash")).to eq("")
+    comment("Discuss the linked node")
+    expect(plan.comment_threads.last.anchor_kind).to eq("mermaid_node")
+  end
+
   it "keeps Markdown links interactive instead of selecting their cell" do
     link = find(".data-grid a", text: "Example")
     expect(link[:target]).to eq("_blank")

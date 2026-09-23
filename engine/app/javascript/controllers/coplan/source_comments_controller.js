@@ -31,12 +31,13 @@ export default class extends Controller {
   }
 
   key(event) {
-    if (event.ctrlKey || event.metaKey || event.altKey || !["Enter", " ", "c", "C"].includes(event.key) || event.target.closest("a, button, input, textarea, [contenteditable]")) return
+    if (event.ctrlKey || event.metaKey || event.altKey || !["Enter", " ", "c", "C"].includes(event.key) || event.target.closest("button, input, textarea, [contenteditable]")) return
     if (!window.getSelection().isCollapsed) return
     const element = event.target.closest("[data-source-target]")
     if (!element) return
     const diagram = element.closest(".mermaid-diagram, .expander--diagram")
     if (diagram && (event.key.toLowerCase() === "c" || !diagram.classList.contains("is-comment-mode"))) return
+    if (event.target.closest("a") && !diagram?.classList.contains("is-comment-mode")) return
     event.preventDefault()
     event.stopPropagation()
     this.show(element)
@@ -68,10 +69,14 @@ export default class extends Controller {
   }
 
   select(event) {
-    if (event.target.closest("a, input, button, mark.anchor-highlight") || !window.getSelection().isCollapsed) return
+    if (event.target.closest("input, button, mark.anchor-highlight") || !window.getSelection().isCollapsed) return
     const element = event.target.closest("[data-source-target]")
     if (!element) return
     const diagram = element.closest(".mermaid-diagram, .expander--diagram")
+    if (event.target.closest("a")) {
+      if (!diagram?.classList.contains("is-comment-mode")) return
+      event.preventDefault()
+    }
     if (diagram && !diagram.classList.contains("is-comment-mode") && !event.target.closest("[data-source-badge]")) return
     if (element.matches("td, th") && !event.target.closest("[data-source-badge]")) {
       this.browse(element)
@@ -122,7 +127,7 @@ export default class extends Controller {
     try { panel.hidePopover() } catch {}
     if (dialog) dialog.append(panel)
     else this.panelHome.after(panel)
-    this.renderDiscussions(true)
+    this.renderDiscussions()
     this.paintSelection()
     panel.showPopover()
     this.positionPanel()
@@ -199,7 +204,8 @@ export default class extends Controller {
       event.target.querySelectorAll("textarea").forEach(textarea => { textarea.value = "" })
       this.replyDrafts.delete(event.target.closest("[data-thread-id]")?.dataset.threadId)
     }
-    // Turbo renders the stream response before dispatching submit-end.
+    // Streams may render before or after submit-end. Reconcile here and
+    // on canonical-thread mutations, preserving other threads' reply forms.
     this.renderDiscussions()
   }
 
@@ -222,7 +228,7 @@ export default class extends Controller {
     this.showingOutdated = true
     this.composerTarget.hidden = true
     this.panelHome.after(this.panelTarget)
-    this.renderDiscussions(true)
+    this.renderDiscussions()
     this.panelTarget.showPopover()
     this.positionPanel()
     this.focusClose()
@@ -250,10 +256,15 @@ export default class extends Controller {
       thread.dataset.anchorKind && thread.dataset.outOfDate === "true")
   }
 
-  renderDiscussions(force = false) {
+  renderDiscussions() {
     if (!this.selection && !this.showingOutdated) return
-    // Incoming broadcasts must never destroy a reply someone is writing.
-    if (!force && Array.from(this.discussionsTarget.querySelectorAll("textarea")).some(el => el.value)) return
+    // Keep the actual reply forms alive through broadcasts, including a
+    // form whose submit-end is still pending. Rebuilding those forms either
+    // loses a draft/focus or detaches the submission event from this panel.
+    this.saveReplyDrafts()
+    const focused = this.discussionsTarget.contains(document.activeElement) ? document.activeElement : null
+    const replies = new Map(Array.from(this.discussionsTarget.children).map(thread =>
+      [thread.dataset.threadId, thread.querySelector(".thread-popover__reply")]))
     const matches = this.showingOutdated ? this.outdatedThreads() : this.matchingThreads(this.selection)
     const openThreads = matches.filter(thread => thread.dataset.threadStatus === "open")
     if (this.openThreadIds?.size && !openThreads.length && !this.composing && !this.bodyTarget.value) {
@@ -278,11 +289,17 @@ export default class extends Controller {
       const quote = copy.querySelector(".thread-popover__quote")
       if (thread.dataset.anchorKind === "table_cell" && !this.showingOutdated) quote?.remove()
       else if (!this.showingOutdated && quote) quote.textContent = this.quoteTarget.textContent
-      const textarea = copy.querySelector("textarea")
-      if (textarea) textarea.value = this.replyDrafts.get(copy.dataset.threadId) || ""
+      const previousReply = replies.get(copy.dataset.threadId)
+      const nextReply = copy.querySelector(".thread-popover__reply")
+      if (previousReply && nextReply) nextReply.replaceWith(previousReply)
+      else {
+        const textarea = copy.querySelector("textarea")
+        if (textarea) textarea.value = this.replyDrafts.get(copy.dataset.threadId) || ""
+      }
       return copy
     })
     this.discussionsTarget.replaceChildren(...discussions)
+    if (focused?.isConnected && this.panelTarget.matches(":popover-open")) focused.focus({ preventScroll: true })
     this.composerTarget.hidden = this.showingOutdated || (threads.length > 0 && !this.composing && !this.bodyTarget.value)
     this.discussionActionsTarget.hidden = !this.composerTarget.hidden
     this.newCommentTarget.hidden = this.showingOutdated
@@ -294,7 +311,7 @@ export default class extends Controller {
   newComment() {
     this.composing = true
     this.saveReplyDrafts()
-    this.renderDiscussions(true)
+    this.renderDiscussions()
     this.bodyTarget.focus({ preventScroll: true })
   }
 

@@ -155,7 +155,7 @@ RSpec.describe "Rich views with dense content", type: :system do
         fill_in "Write a comment...", with: "Check the far corner"
         click_button "Comment", exact: true
       end
-      expect(page).to have_text("Check the far corner")
+      expect(find(".source-comments")).to have_text("Check the far corner")
       expect(plan.comment_threads.last.anchor_text.strip).to eq("Value 120.23 with details")
       page.driver.browser.action.send_keys(:escape).perform
       find("td.is-cursor").send_keys([ :shift, :home ])
@@ -195,7 +195,7 @@ RSpec.describe "Rich views with dense content", type: :system do
         fill_in "Write a comment...", with: "Review the new document shape"
         click_button "Comment", exact: true
       end
-      expect(page).to have_text("Review the new document shape")
+      expect(find(".source-comments")).to have_text("Review the new document shape")
       expect(plan.comment_threads.last.anchor_text).to include('Request@{ shape: doc')
       page.driver.browser.action.send_keys(:escape).perform
       expect(page).to have_css("dialog.is-comment-mode")
