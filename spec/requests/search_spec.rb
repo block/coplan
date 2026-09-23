@@ -108,6 +108,7 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
       get root_path
       expect(response.body).not_to include('class="site-nav__search"')
       expect(response.body).not_to include('id="search-modal"')
+      expect(response.body).not_to include('id="keyboard-shortcuts-modal"')
     end
 
     it "is visible to signed-in users" do
@@ -119,6 +120,7 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
       follow_redirect! if response.redirect?
       expect(response.body).to include('class="site-nav__search"')
       expect(response.body.scan('id="search-modal"').size).to eq(1)
+      expect(response.body.scan('id="keyboard-shortcuts-modal"').size).to eq(1)
     end
   end
 end

@@ -1,0 +1,97 @@
+<%# Global keyboard reference. Keep this list in sync with the shortcut
+    controllers in engine/app/javascript/controllers/coplan/. %>
+<div id="keyboard-shortcuts-modal"
+     popover="auto"
+     class="keyboard-shortcuts"
+     role="dialog"
+     aria-labelledby="keyboard-shortcuts-title"
+     data-controller="coplan--keyboard-shortcuts"
+     data-action="toggle->coplan--keyboard-shortcuts#onToggle keydown->coplan--keyboard-shortcuts#contain">
+  <header class="keyboard-shortcuts__header">
+    <div>
+      <h2 id="keyboard-shortcuts-title" class="keyboard-shortcuts__title">Keyboard shortcuts</h2>
+      <p class="keyboard-shortcuts__subtitle">Shortcuts pause while you’re typing.</p>
+    </div>
+    <button type="button"
+            class="keyboard-shortcuts__close"
+            popovertarget="keyboard-shortcuts-modal"
+            popovertargetaction="hide"
+            aria-label="Close keyboard shortcuts"
+            data-coplan--keyboard-shortcuts-target="close">×</button>
+  </header>
+
+  <div class="keyboard-shortcuts__body">
+    <section class="keyboard-shortcuts__group" aria-labelledby="shortcuts-everywhere">
+      <h3 id="shortcuts-everywhere">Everywhere</h3>
+      <dl>
+        <div><dt><kbd>/</kbd></dt><dd>Search plans and people</dd></div>
+        <div><dt><kbd>?</kbd></dt><dd>Show keyboard shortcuts</dd></div>
+        <div><dt><kbd>↑</kbd><span>/</span><kbd>↓</kbd></dt><dd>Move through search results</dd></div>
+        <div><dt><kbd>Enter</kbd></dt><dd>Open the selected search result</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Close the open dialog or menu</dd></div>
+      </dl>
+    </section>
+
+    <section class="keyboard-shortcuts__group" aria-labelledby="shortcuts-library">
+      <h3 id="shortcuts-library">Library</h3>
+      <dl>
+        <div><dt><kbd>J</kbd><span>or</span><kbd>↓</kbd></dt><dd>Select the next item</dd></div>
+        <div><dt><kbd>K</kbd><span>or</span><kbd>↑</kbd></dt><dd>Select the previous item</dd></div>
+        <div><dt><kbd>Enter</kbd></dt><dd>Open the selected item</dd></div>
+        <div><dt><kbd>Backspace</kbd></dt><dd>Go up one folder</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Clear filters or return to the library root</dd></div>
+      </dl>
+    </section>
+
+    <section class="keyboard-shortcuts__group" aria-labelledby="shortcuts-plan">
+      <h3 id="shortcuts-plan">Plan</h3>
+      <dl>
+        <div><dt><kbd>Backspace</kbd></dt><dd>Go back</dd></div>
+        <div><dt><kbd>[</kbd></dt><dd>Previous section</dd></div>
+        <div><dt><kbd>]</kbd></dt><dd>Next section</dd></div>
+        <div><dt><kbd>T</kbd></dt><dd>Toggle the table of contents</dd></div>
+        <% unless current_user.voice_hotkey == "off" %>
+          <div><dt><kbd><%= CoPlan::User::VOICE_HOTKEY_LABELS.fetch(current_user.voice_hotkey) %></kbd></dt><dd>Hold to comment by voice</dd></div>
+        <% end %>
+      </dl>
+    </section>
+
+    <section class="keyboard-shortcuts__group" aria-labelledby="shortcuts-review">
+      <h3 id="shortcuts-review">Review comments</h3>
+      <dl>
+        <div><dt><kbd>J</kbd><span>or</span><kbd>↓</kbd></dt><dd>Next open thread</dd></div>
+        <div><dt><kbd>K</kbd><span>or</span><kbd>↑</kbd></dt><dd>Previous open thread</dd></div>
+        <div><dt><kbd>R</kbd></dt><dd>Reply to the open thread</dd></div>
+        <div><dt><kbd>E</kbd></dt><dd>Resolve the open thread</dd></div>
+        <div><dt><kbd>S</kbd></dt><dd>Show or hide resolved threads</dd></div>
+        <div><dt><kbd>Enter</kbd></dt><dd>Submit a reply</dd></div>
+        <div><dt><kbd>Shift</kbd><b>+</b><kbd>Enter</kbd></dt><dd>Add a line to a reply</dd></div>
+      </dl>
+    </section>
+
+    <section class="keyboard-shortcuts__group" aria-labelledby="shortcuts-present">
+      <h3 id="shortcuts-present">Presentations</h3>
+      <dl>
+        <div><dt><kbd>P</kbd></dt><dd>Start presenting</dd></div>
+        <div><dt><kbd>→</kbd><span>/</span><kbd>↓</kbd><span>/</span><kbd>Space</kbd><span>/</span><kbd>Page Down</kbd></dt><dd>Next slide</dd></div>
+        <div><dt><kbd>←</kbd><span>/</span><kbd>↑</kbd><span>/</span><kbd>Backspace</kbd><span>/</span><kbd>Page Up</kbd></dt><dd>Previous slide</dd></div>
+        <div><dt><kbd>Home</kbd><span>/</span><kbd>End</kbd></dt><dd>First or last slide</dd></div>
+        <div><dt><kbd>D</kbd></dt><dd>Toggle the drawing pen</dd></div>
+        <div><dt><kbd>F</kbd></dt><dd>Toggle full screen</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Exit the current presentation layer</dd></div>
+      </dl>
+    </section>
+
+    <section class="keyboard-shortcuts__group" aria-labelledby="shortcuts-editing">
+      <h3 id="shortcuts-editing">Editing and data</h3>
+      <dl>
+        <div><dt><kbd>⌘</kbd><span>or</span><kbd>Ctrl</kbd><b>+</b><kbd>Enter</kbd></dt><dd>Save a plan edit</dd></div>
+        <div><dt><kbd>Arrow keys</kbd></dt><dd>Move through an expanded table</dd></div>
+        <div><dt><kbd>Page Up</kbd><span>/</span><kbd>Page Down</kbd></dt><dd>Move by a page in a table</dd></div>
+        <div><dt><kbd>Home</kbd><span>/</span><kbd>End</kbd></dt><dd>Jump across a table row</dd></div>
+        <div><dt><kbd>Shift</kbd><b>+</b><kbd>Home</kbd><span>/</span><kbd>End</kbd></dt><dd>Jump to a table corner</dd></div>
+        <div><dt><kbd>⌘</kbd><span>or</span><kbd>Ctrl</kbd><b>+</b><kbd>C</kbd></dt><dd>Copy the selected table cell</dd></div>
+      </dl>
+    </section>
+  </div>
+</div>

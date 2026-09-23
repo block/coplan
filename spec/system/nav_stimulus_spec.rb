@@ -1,9 +1,9 @@
 require "rails_helper"
 
-# Browser-level coverage for the chrome's Stimulus flows: the search modal
-# (popover + typeahead), the inbox dropdown, and the theme switcher. Server
-# responses for these are covered by request specs; these verify the JS
-# wiring users actually click.
+# Browser-level coverage for the chrome's Stimulus flows: the search and
+# keyboard-shortcut modals, the inbox dropdown, and the theme switcher.
+# Server responses for these are covered by request specs; these verify the
+# JS wiring users actually use.
 RSpec.describe "Navigation chrome", type: :system do
   let(:user) { create(:coplan_user, email: "navigator@example.com") }
 
@@ -35,6 +35,36 @@ RSpec.describe "Navigation chrome", type: :system do
       visit library_page_path(user)
       find(".site-nav__search").click
       expect(page).to have_css(".search-modal:popover-open")
+    end
+  end
+
+  describe "keyboard shortcuts modal" do
+    it "opens with ? and closes with Escape" do
+      visit library_page_path(user)
+      find("body").send_keys("?")
+
+      expect(page).to have_css(".keyboard-shortcuts:popover-open")
+      within(".keyboard-shortcuts:popover-open") do
+        expect(page).to have_content("Keyboard shortcuts")
+        expect(page).to have_content("Search plans and people")
+        expect(page).to have_content("Move through search results")
+        expect(page).to have_content("Next open thread")
+        expect(page).to have_content("Start presenting")
+        expect(page).to have_content("Page Down")
+      end
+
+      find("body").send_keys(:escape)
+      expect(page).not_to have_css(".keyboard-shortcuts:popover-open")
+    end
+
+    it "does not open while typing" do
+      visit library_page_path(user)
+      find(".site-nav__search").click
+      field = find(".search-modal__input")
+      field.send_keys("?")
+
+      expect(page).not_to have_css(".keyboard-shortcuts:popover-open")
+      expect(field.value).to include("?")
     end
   end
 

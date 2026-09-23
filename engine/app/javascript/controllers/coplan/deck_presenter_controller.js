@@ -197,7 +197,7 @@ export default class extends Controller {
 
   _handleKeydown(event) {
     // A modal (the mermaid lightbox) owns its own keys.
-    if (event.target.closest?.("dialog")) return
+    if (event.target.closest?.("dialog, [role='dialog']")) return
     if (event.metaKey || event.ctrlKey || event.altKey) {
       // Modifier chords aren't the show's to handle, but mid-show the
       // page's own hotkeys must still be starved — Ctrl+Space (or held
