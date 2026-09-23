@@ -1,0 +1,11 @@
+<div class="card">
+  <h1>Changes weren’t saved</h1>
+  <p role="alert"><%= message %>. Try again when the edit lock is released.</p>
+  <% if params.dig(:plan, :title).present? %><p>Title: <%= params.dig(:plan, :title) %></p><% end %>
+  <% if params.dig(:plan, :tag_names).present? %><p>Tags: <%= params.dig(:plan, :tag_names) %></p><% end %>
+  <% if params[:content].present? %>
+    <label for="retained-draft">Your unsaved draft</label>
+    <textarea id="retained-draft" readonly rows="12"><%= params[:content] %></textarea>
+  <% end %>
+  <%= link_to "Return to document", @plan ? plan_browse_path(@plan) : own_library_browse_path(current_user), class: "btn btn--secondary" %>
+</div>

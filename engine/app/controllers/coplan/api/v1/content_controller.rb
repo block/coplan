@@ -42,6 +42,7 @@ module CoPlan
           end
 
           result = Plans::ReplaceContent.call(
+            lease_token: params[:lease_token],
             plan: @plan,
             new_content: params[:content].to_s,
             base_revision: base_revision,

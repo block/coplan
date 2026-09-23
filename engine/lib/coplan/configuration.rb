@@ -30,6 +30,8 @@ module CoPlan
     attr_accessor :onboarding_banner
     attr_accessor :agent_auth_instructions
     attr_accessor :agent_curl_prefix
+    # Suggestions for the document editor; arbitrary existing fence info stays valid.
+    attr_accessor :editor_code_languages
     attr_accessor :seed_plan_types
 
     # Path to the partial rendered as the public landing page at "/welcome"
@@ -133,6 +135,7 @@ module CoPlan
       @track_event = nil
       @onboarding_banner = 'Want to upload Agentic plans? Give your agent <a href="/agent-instructions">these instructions</a>.'
       @agent_curl_prefix = 'curl -s -H "Authorization: Bearer $TOKEN"'
+      @editor_code_languages = %w[text ruby javascript typescript python sql json yaml bash html css go java rust mermaid]
       @seed_plan_types = []
       @wake_url_policy = nil
       @landing_page_partial = "coplan/welcome/default_landing"

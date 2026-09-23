@@ -30,7 +30,7 @@ module CoPlan
       # Surfaces as a 500 (rather than silently persisting wrong content).
       class RoundtripFailureError < StandardError; end
 
-      def self.call(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil)
+      def self.call(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil, lease_token: nil, granularity: :line)
         new(
           plan: plan,
           new_content: new_content,
@@ -42,12 +42,16 @@ module CoPlan
           change_summary: change_summary,
           reason: reason,
           reader_type: reader_type,
-          reader_id: reader_id
+          reader_id: reader_id,
+          lease_token: lease_token,
+          granularity: granularity
         ).call
       end
 
-      def initialize(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil)
+      def initialize(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil, lease_token: nil, granularity: :line)
         @plan = plan
+        @lease_token = lease_token
+        @granularity = granularity
         # Normalize line endings to LF before diffing. Browser textareas, agents
         # running on Windows, and copy-paste from various sources commonly emit
         # CRLF (`\r\n`). If the stored current_content is LF and the inbound
@@ -73,6 +77,7 @@ module CoPlan
         ActiveRecord::Base.transaction do
           @plan.lock!
           @plan.reload
+          EditLease.enforce!(plan: @plan, lease_token: @lease_token)
 
           # Inside the lock: a human edit committing between an earlier
           # check and here would otherwise be merged past.
@@ -97,7 +102,8 @@ module CoPlan
 
           ops = Plans::DiffToOperations.call(
             old_content: current_content,
-            new_content: @new_content
+            new_content: @new_content,
+            granularity: @granularity
           )
 
           result = Plans::ApplyOperations.call(content: current_content, operations: ops)
@@ -114,6 +120,7 @@ module CoPlan
 
           version = PlanVersion.create!(
             plan: @plan,
+            edit_lease_token: @lease_token,
             revision: new_revision,
             content_markdown: @new_content,
             actor_type: @actor_type,

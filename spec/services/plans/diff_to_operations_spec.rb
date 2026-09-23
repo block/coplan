@@ -14,6 +14,15 @@ RSpec.describe CoPlan::Plans::DiffToOperations do
     [ ops, result ]
   end
 
+  it "uses character ranges for human edits without replacing unchanged text in the same line" do
+    original = "Café alpha and beta."
+    updated = "Café ALPHA and BETA."
+    operations = described_class.call(old_content: original, new_content: updated, granularity: :character)
+    result = CoPlan::Plans::ApplyOperations.call(content: original, operations: operations)
+    expect(result[:content]).to eq(updated)
+    expect(operations.map { |operation| operation["old_text"] }).to eq([ "alpha", "beta" ])
+  end
+
   describe "no-op cases" do
     it "returns [] when content is identical" do
       expect(described_class.call(old_content: "abc", new_content: "abc")).to eq([])

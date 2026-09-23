@@ -24,6 +24,9 @@ module CoPlan
       else
         session.update!(status: "expired", committed_at: Time.current)
       end
+    rescue EditLease::Conflict
+      # Keep the draft open and retry after the temporary document lock expires.
+      self.class.set(wait: EditLease::LEASE_DURATION).perform_later(session_id: session_id)
     rescue Plans::CommitSession::SessionNotOpenError
       # Session was closed concurrently (manual commit/cancel) — nothing to do
       Rails.logger.info("CommitExpiredSessionJob: session #{session_id} already closed, skipping")

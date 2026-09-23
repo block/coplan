@@ -149,6 +149,10 @@ module CoPlan
               end
             end
 
+            @plan.lock!
+            if params.key?(:title) || params.key?(:tags) || params.key?(:plan_type)
+              EditLease.enforce!(plan: @plan, lease_token: params[:lease_token])
+            end
             @plan.tag_names = params[:tags] if params.key?(:tags)
             @plan.update!(permitted)
 

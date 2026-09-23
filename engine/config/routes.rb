@@ -45,7 +45,11 @@ CoPlan::Engine.routes.draw do
     #
     # `:update` is what keeps the `plan_path` helper — the PATCH target for
     # the title-and-tags form.
-    resources :plans, only: [ :update ] do
+    resources :plans, only: [ :new, :create, :update ] do
+      post :preview_draft, on: :collection
+      get :editor_state, on: :member
+      post :editor_lease, on: :member
+      delete :editor_lease, on: :member
       patch :publish, on: :member
       patch :hide, on: :member
       patch :archive, on: :member
