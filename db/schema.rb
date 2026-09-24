@@ -243,7 +243,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_142426) do
     t.string "status", null: false
     t.datetime "updated_at", null: false
     t.index ["channel", "status", "created_at"], name: "index_coplan_notification_deliveries_on_channel_and_status"
-    t.index ["notification_id", "channel"], name: "index_coplan_notification_deliveries_on_notification_and_channel", unique: true
+    t.index ["notification_id", "channel"], name: "index_coplan_delivery_on_notification_and_channel", unique: true
   end
 
   create_table "coplan_notifications", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
