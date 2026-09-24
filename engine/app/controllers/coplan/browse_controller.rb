@@ -60,6 +60,24 @@ module CoPlan
       result.plan ? render_plan(result.plan) : render_library(result.library, result.folder)
     end
 
+    # The raw source form of a document's readable URL. This intentionally
+    # goes through the same resolver and policy as the HTML reader, so a
+    # renamed or moved plan keeps redirecting to its one canonical address.
+    def markdown
+      result = resolve
+      return head :not_found unless result.found?
+
+      if result.redirect_to_path.present?
+        return redirect_to "#{path_to_url(result.redirect_to_path)}.md",
+          status: :moved_permanently
+      end
+
+      return head :not_found unless result.plan
+
+      authorize!(result.plan, :show?)
+      render plain: result.plan.current_content.to_s, content_type: "text/markdown"
+    end
+
     private
 
     def resolve(slug_path: params[:slug_path])

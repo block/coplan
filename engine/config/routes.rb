@@ -277,6 +277,11 @@ CoPlan::Engine.routes.draw do
   # A root-mounted engine must pass attachment URLs through to the host's
   # Active Storage routes instead of treating "rails" as a library handle.
   constraints ->(request) { !request.path_info.start_with?("#{ActiveStorage.routes_prefix}/") } do
+    # A document's source, at the same readable address with a file
+    # extension. Declare it ahead of the catchall so `.md` is syntax, not
+    # part of the document slug.
+    get ":handle/*slug_path.md", to: "browse#markdown", as: :browse_markdown,
+      format: false, constraints: { handle: handle }
     get ":handle/*slug_path/edit", to: "browse#browse", as: :browse_edit,
       defaults: { page: "edit" }, format: false, constraints: { handle: handle }
     get ":handle/*slug_path/history", to: "browse#browse", as: :browse_history,
