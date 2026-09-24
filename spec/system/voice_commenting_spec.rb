@@ -533,6 +533,48 @@ RSpec.describe "Voice commenting", type: :system do
       page.driver.browser.action.release_actions
     end
 
+    [false, true].each do |already_recording|
+      it "discards #{already_recording ? 'active' : 'pending'} Shift dictation when shortcut help opens" do
+        author.update!(voice_hotkey: "shift")
+        stub_recorder
+        visit_plan
+        expect(CoPlan::Ai).not_to receive(:transcribe)
+
+        if already_recording
+          page.driver.browser.action.key_down(:shift).perform
+          expect(page).to have_css(".voice-btn--listening")
+        end
+
+        # Dispatch the pending gesture together so WebDriver latency cannot
+        # accidentally turn it into an already-confirmed hold.
+        page.execute_script(<<~JS, already_recording)
+          if (!arguments[0]) document.body.dispatchEvent(new KeyboardEvent("keydown", {
+            key: "Shift", code: "ShiftLeft", shiftKey: true, bubbles: true
+          }))
+          document.body.dispatchEvent(new KeyboardEvent("keydown", {
+            key: "?", code: "Slash", shiftKey: true, bubbles: true, cancelable: true
+          }))
+        JS
+        expect(page).to have_css(".keyboard-shortcuts[open]")
+
+        # Observe beyond the 350ms hold threshold: an immediate negative
+        # assertion would pass even if the pending timer were still armed.
+        page.evaluate_async_script("setTimeout(arguments[0], 450)")
+        expect(page).to have_no_css(".voice-btn--listening")
+        page.execute_script(<<~JS)
+          document.activeElement.dispatchEvent(new KeyboardEvent("keyup", {
+            key: "Shift", code: "ShiftLeft", bubbles: true
+          }))
+        JS
+        find("[aria-label='Close keyboard shortcuts']").click
+        page.driver.browser.action.key_up(:shift).perform
+        expect(page).to have_no_css(".voice-btn--listening")
+        expect(CoPlan::CommentThread.where(plan_id: plan.id)).to be_empty
+      ensure
+        page.driver.browser.action.release_actions
+      end
+    end
+
     # The failure that shipped: a recording with nothing in it still went
     # to the transcriber, which answered silence by repeating the context
     # we sent — so a heading off the page arrived as a comment, pinned to

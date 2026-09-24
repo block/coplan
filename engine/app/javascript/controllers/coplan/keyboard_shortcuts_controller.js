@@ -11,6 +11,8 @@ export default class extends Controller {
   open(event) {
     event.preventDefault()
     if (this.element.open || event.repeat) return
+    // The opening key is captured before page listeners can cancel a hold.
+    this.dispatch("open")
     this.element.showModal()
   }
 
