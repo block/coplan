@@ -1,0 +1,49 @@
+<dialog id="keyboard-shortcuts-modal"
+        class="keyboard-shortcuts"
+        aria-labelledby="keyboard-shortcuts-title"
+        data-controller="coplan--keyboard-shortcuts"
+        data-action="keydown->coplan--keyboard-shortcuts#contain pointerdown->coplan--keyboard-shortcuts#backdrop turbo:before-cache@document->coplan--keyboard-shortcuts#close">
+  <header class="keyboard-shortcuts__header">
+    <div>
+      <h2 id="keyboard-shortcuts-title" class="keyboard-shortcuts__title" tabindex="-1" autofocus>Keyboard shortcuts</h2>
+      <p class="keyboard-shortcuts__subtitle">Grouped by where they work. Page shortcuts pause while you’re typing.</p>
+    </div>
+    <button type="button" class="keyboard-shortcuts__close"
+            aria-label="Close keyboard shortcuts"
+            data-action="coplan--keyboard-shortcuts#close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+        <path d="m6 6 12 12M18 6 6 18" />
+      </svg>
+    </button>
+  </header>
+
+  <div class="keyboard-shortcuts__body" tabindex="0">
+    <% keyboard_shortcut_groups.each_with_index do |(group, scopes), index| %>
+      <section class="keyboard-shortcuts__group" aria-labelledby="shortcut-group-<%= index %>">
+        <h3 id="shortcut-group-<%= index %>"><%= group %></h3>
+        <dl>
+          <% scopes.flat_map { |scope| scope.fetch("bindings") }.each do |binding| %>
+            <div>
+              <dt>
+                <% binding.fetch("keys").each_with_index do |chord, alternative| %>
+                  <% if alternative.positive? %><span>or</span><% end %>
+                  <% chord.split("+").each_with_index do |key, part| %>
+                    <% if part.positive? %><b>+</b><% end %>
+                    <kbd><%= keyboard_shortcut_label(key) %></kbd>
+                  <% end %>
+                <% end %>
+              </dt>
+              <dd><%= binding.fetch("description") %></dd>
+            </div>
+          <% end %>
+        </dl>
+      </section>
+    <% end %>
+    <% unless current_user.voice_hotkey == "off" %>
+      <section class="keyboard-shortcuts__group" aria-labelledby="shortcut-voice">
+        <h3 id="shortcut-voice">Voice comments</h3>
+        <dl><div><dt><kbd><%= CoPlan::User::VOICE_HOTKEY_LABELS.fetch(current_user.voice_hotkey) %></kbd></dt><dd>Hold to comment by voice on a plan</dd></div></dl>
+      </section>
+    <% end %>
+  </div>
+</dialog>

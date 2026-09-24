@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { registerShortcuts, commandFor } from "coplan/shortcuts"
 
 // Keyboard navigation for a plan page:
 //
@@ -23,33 +24,27 @@ export default class extends Controller {
   static values = { fallbackUrl: String }
 
   connect() {
-    this._onKeydown = this._handleKeydown.bind(this)
-    document.addEventListener("keydown", this._onKeydown)
+    this.releaseShortcuts = registerShortcuts(this, "plan", event => this._handleKeydown(event))
   }
 
   disconnect() {
-    document.removeEventListener("keydown", this._onKeydown)
+    this.releaseShortcuts()
   }
 
   _handleKeydown(event) {
-    if (event.metaKey || event.ctrlKey || event.altKey) return
-    const tag = event.target.tagName
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target.isContentEditable) return
-    if (this._popoverOpen()) return
-
-    switch (event.key) {
-      case "Backspace":
+    switch (commandFor("plan", event)) {
+      case "back":
         // A focused link/button owns its keys (and some screen readers map
         // Backspace); don't hijack.
         if (event.target.closest("a, button, summary")) return
         event.preventDefault()
         this._goBack()
         break
-      case "[":
+      case "previous":
         event.preventDefault()
         this._jump(-1)
         break
-      case "]":
+      case "next":
         event.preventDefault()
         this._jump(1)
         break
@@ -85,11 +80,4 @@ export default class extends Controller {
     next.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
-  _popoverOpen() {
-    try {
-      return !!document.querySelector(":popover-open")
-    } catch {
-      return false
-    }
-  }
 }

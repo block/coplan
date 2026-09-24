@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { registerShortcuts, commandFor } from "coplan/shortcuts"
 import { DeckInk } from "coplan/deck_ink"
 
 // How far the pointer may travel between mousedown and click and still count
@@ -40,7 +41,6 @@ export default class extends Controller {
     this.presenting = false
     this.index = 0
     this.ink = new DeckInk(this.element)
-    this._onKeydown = this._handleKeydown.bind(this)
     this._onClick = this._handleClick.bind(this)
     this._onMouseDown = this._handleMouseDown.bind(this)
     this._onMouseUp = this._handleMouseUp.bind(this)
@@ -49,15 +49,14 @@ export default class extends Controller {
     // mid-show deck would restore wearing a closed popover attribute —
     // display: none, an invisible plan. End the show before the snapshot.
     this._onBeforeCache = () => this.stop()
-    // Capture phase: while presenting, the show owns the keyboard —
-    // Backspace pages backward instead of triggering plan-keys' go-back.
-    document.addEventListener("keydown", this._onKeydown, true)
+    // The dispatcher gives the active presentation exclusive page shortcuts.
+    this.releaseShortcuts = registerShortcuts(this, "deck", event => this._handleKeydown(event), { exclusive: () => this.presenting })
     document.addEventListener("fullscreenchange", this._onFullscreenChange)
     document.addEventListener("turbo:before-cache", this._onBeforeCache)
   }
 
   disconnect() {
-    document.removeEventListener("keydown", this._onKeydown, true)
+    this.releaseShortcuts()
     document.removeEventListener("fullscreenchange", this._onFullscreenChange)
     document.removeEventListener("turbo:before-cache", this._onBeforeCache)
     this._teardown()
@@ -197,7 +196,7 @@ export default class extends Controller {
 
   _handleKeydown(event) {
     // A modal (the mermaid lightbox) owns its own keys.
-    if (event.target.closest?.("dialog")) return
+    if (event.target.closest?.("dialog, [role='dialog']")) return
     if (event.metaKey || event.ctrlKey || event.altKey) {
       // Modifier chords aren't the show's to handle, but mid-show the
       // page's own hotkeys must still be starved — Ctrl+Space (or held
@@ -209,7 +208,7 @@ export default class extends Controller {
     }
 
     if (!this.presenting) {
-      if (event.key !== "p" || this._typing(event.target)) return
+      if (commandFor("deck", event) !== "start" || this._typing(event.target)) return
       if (!this.element.querySelector(".deck")) return
       event.preventDefault()
       this.start()
@@ -222,26 +221,20 @@ export default class extends Controller {
     // keep driving the show. Escape stays the exit everywhere.
     if (event.key !== "Escape" && this._claimsKey(event.target, event.key)) return
 
-    switch (event.key) {
-      case "ArrowRight":
-      case "ArrowDown":
-      case "PageDown":
-      case " ":
+    switch (commandFor("presentation", event)) {
+      case "next":
         this._navigate(event, this.index + 1)
         break
-      case "ArrowLeft":
-      case "ArrowUp":
-      case "PageUp":
-      case "Backspace":
+      case "previous":
         this._navigate(event, this.index - 1)
         break
-      case "Home":
+      case "first":
         this._navigate(event, 0)
         break
-      case "End":
+      case "last":
         this._navigate(event, Infinity)
         break
-      case "d":
+      case "draw":
         // Draw. The pen is a mode because the two marking gestures share
         // one drag: with it stowed a drag highlights text, with it out a
         // drag paints. The badge it raises is what tells the presenter
@@ -250,7 +243,7 @@ export default class extends Controller {
         event.stopPropagation()
         this.ink.toggle()
         break
-      case "f":
+      case "fullscreen":
         // Full screen. For a projector in a room; a call wants the window
         // (see the note at the top of this file), which is what the show
         // gives back when this toggles off.
@@ -258,7 +251,7 @@ export default class extends Controller {
         event.stopPropagation()
         this._toggleFullscreen()
         break
-      case "Escape":
+      case "exit":
         event.preventDefault()
         event.stopPropagation()
         // Escape peels one layer at a time: whatever is visibly in front of

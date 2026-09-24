@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { registerShortcuts, commandFor } from "coplan/shortcuts"
 
 // Sitewide search modal controller.
 //
@@ -21,14 +22,13 @@ export default class extends Controller {
   }
 
   connect() {
-    this._onGlobalKeydown = this._onGlobalKeydown.bind(this)
-    document.addEventListener("keydown", this._onGlobalKeydown)
+    this.releaseShortcuts = registerShortcuts(this, "search", event => this._onGlobalKeydown(event))
     this._selectedIndex = -1
     this._debounceTimer = null
   }
 
   disconnect() {
-    document.removeEventListener("keydown", this._onGlobalKeydown)
+    this.releaseShortcuts()
     if (this._debounceTimer) clearTimeout(this._debounceTimer)
   }
 
@@ -54,16 +54,16 @@ export default class extends Controller {
   // Keyboard nav within the input box.
   onKeydown(event) {
     const items = this._resultItems()
-    switch (event.key) {
-      case "ArrowDown":
+    switch (commandFor("results", event)) {
+      case "next":
         event.preventDefault()
         this._moveSelection(1, items)
         break
-      case "ArrowUp":
+      case "previous":
         event.preventDefault()
         this._moveSelection(-1, items)
         break
-      case "Enter":
+      case "open":
         if (this._selectedIndex >= 0 && items[this._selectedIndex]) {
           event.preventDefault()
           items[this._selectedIndex].click()
@@ -84,12 +84,7 @@ export default class extends Controller {
   // --- private ---
 
   _onGlobalKeydown(event) {
-    if (event.key !== "/") return
-    if (event.metaKey || event.ctrlKey || event.altKey) return
-    const t = event.target
-    if (!t) return
-    const tag = t.tagName
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable) return
+    if (commandFor("search", event) !== "open") return
     event.preventDefault()
     this.element.showPopover()
   }

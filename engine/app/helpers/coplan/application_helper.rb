@@ -1,5 +1,6 @@
 module CoPlan
   module ApplicationHelper
+    include CoPlan::KeyboardShortcutsHelper
     include MarkdownHelper
     FAVICON_COLORS = {
       "production"  => { start: "#3B82F6", stop: "#1E40AF" },

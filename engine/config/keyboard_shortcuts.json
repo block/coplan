@@ -1,0 +1,116 @@
+{
+  "help": {
+    "group": "Everywhere",
+    "global": true,
+    "bindings": [
+      {"id":"show","keys":["?"],"description":"Show keyboard shortcuts"}
+    ]
+  },
+  "search": {
+    "group": "Everywhere",
+    "bindings": [
+      {"id":"open","keys":["/"],"description":"Search plans and people"}
+    ]
+  },
+  "library": {
+    "group": "Library",
+    "bindings": [
+      {"id":"next","keys":["j","ArrowDown"],"description":"Select the next item"},
+      {"id":"previous","keys":["k","ArrowUp"],"description":"Select the previous item"},
+      {"id":"open","keys":["Enter"],"description":"Open the selected item"},
+      {"id":"up","keys":["Backspace"],"description":"Go up one folder"},
+      {"id":"home","keys":["Escape"],"description":"Clear filters or return to the library root"}
+    ]
+  },
+  "plan": {
+    "group": "Plan",
+    "bindings": [
+      {"id":"back","keys":["Backspace"],"description":"Go back"},
+      {"id":"previous","keys":["["],"description":"Previous section"},
+      {"id":"next","keys":["]"],"description":"Next section"}
+    ]
+  },
+  "outline": {
+    "group": "Plan",
+    "bindings": [
+      {"id":"toggle","keys":["t"],"description":"Toggle the table of contents"}
+    ]
+  },
+  "comments": {
+    "group": "Review comments",
+    "overlays": [".thread-popover"],
+    "bindings": [
+      {"id":"next","keys":["j","ArrowDown"],"description":"Next open thread"},
+      {"id":"previous","keys":["k","ArrowUp"],"description":"Previous open thread"},
+      {"id":"reply","keys":["r"],"description":"Reply to the open thread"},
+      {"id":"resolve","keys":["e"],"description":"Resolve the open thread"},
+      {"id":"resolved","keys":["s"],"description":"Show or hide resolved threads"}
+    ]
+  },
+  "deck": {
+    "group": "Presentations",
+    "bindings": [
+      {"id":"start","keys":["p"],"description":"Start presenting"}
+    ]
+  },
+  "presentation": {
+    "group": "While presenting",
+    "bindings": [
+      {"id":"next","keys":["ArrowRight","ArrowDown","PageDown"," "],"description":"Next slide"},
+      {"id":"previous","keys":["ArrowLeft","ArrowUp","PageUp","Backspace"],"description":"Previous slide"},
+      {"id":"first","keys":["Home"],"description":"First slide"},
+      {"id":"last","keys":["End"],"description":"Last slide"},
+      {"id":"draw","keys":["d"],"description":"Toggle the drawing pen"},
+      {"id":"fullscreen","keys":["f"],"description":"Toggle full screen"},
+      {"id":"exit","keys":["Escape"],"description":"Close overlay, stow pen, leave full screen, or end show"}
+    ]
+  },
+  "results": {
+    "group": "Search results",
+    "local": true,
+    "bindings": [
+      {"id":"next","keys":["ArrowDown"],"description":"Next search result"},
+      {"id":"previous","keys":["ArrowUp"],"description":"Previous search result"},
+      {"id":"open","keys":["Enter"],"description":"Open the selected search result"}
+    ]
+  },
+  "reply": {
+    "group": "Writing comments",
+    "local": true,
+    "bindings": [
+      {"id":"submit","keys":["Enter"],"description":"Submit a comment or reply"},
+      {"id":"newline","keys":["Shift+Enter"],"description":"Add a line to a comment","native":true}
+    ]
+  },
+  "editor": {
+    "group": "Editing",
+    "local": true,
+    "bindings": [
+      {"id":"save","keys":["Mod+s","Mod+Enter"],"description":"Save pending changes (otherwise autosaved)"}
+    ]
+  },
+  "table": {
+    "group": "Expanded tables",
+    "local": true,
+    "bindings": [
+      {"id":"up","keys":["ArrowUp"],"description":"Move up"},
+      {"id":"down","keys":["ArrowDown"],"description":"Move down"},
+      {"id":"left","keys":["ArrowLeft"],"description":"Move left"},
+      {"id":"right","keys":["ArrowRight"],"description":"Move right"},
+      {"id":"pageUp","keys":["PageUp"],"description":"Move up a page"},
+      {"id":"pageDown","keys":["PageDown"],"description":"Move down a page"},
+      {"id":"first","keys":["Home"],"description":"First cell in the row"},
+      {"id":"last","keys":["End"],"description":"Last cell in the row"},
+      {"id":"start","keys":["Shift+Home"],"description":"First cell in the table"},
+      {"id":"end","keys":["Shift+End"],"description":"Last cell in the table"},
+      {"id":"copy","keys":["Mod+c"],"description":"Copy the selected cell"}
+    ]
+  },
+  "native": {
+    "group": "Everywhere",
+    "local": true,
+    "bindings": [
+      {"id":"dismiss","keys":["Escape"],"description":"Close the open dialog or menu","native":true}
+    ]
+  }
+}

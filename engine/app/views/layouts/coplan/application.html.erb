@@ -25,7 +25,8 @@
           "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
-  <body>
+  <body data-controller="coplan--shortcut-dispatcher" data-action="keydown@window->coplan--shortcut-dispatcher#capture:capture keydown@window->coplan--shortcut-dispatcher#keydown">
+    <script type="application/json" id="coplan-shortcut-catalog"><%= raw json_escape(keyboard_shortcut_catalog.to_json) %></script>
     <nav class="site-nav">
       <div class="site-nav__inner">
         <%# The logo goes to your library — that's where signed-in work
@@ -148,6 +149,7 @@
     <%= render "coplan/shared/web_push_banner" %>
     <% if signed_in? %>
       <%= render "coplan/search/modal" %>
+      <%= render "coplan/shared/keyboard_shortcuts" %>
     <% end %>
   </body>
 </html>

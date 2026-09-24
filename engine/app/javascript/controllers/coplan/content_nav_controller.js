@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { registerShortcuts, commandFor } from "coplan/shortcuts"
 
 const STORAGE_KEY = "coplan:content-nav-visible"
 
@@ -15,8 +16,7 @@ export default class extends Controller {
     this.buildToc()
     this.setupScrollTracking()
 
-    this.handleKeydown = this.handleKeydown.bind(this)
-    document.addEventListener("keydown", this.handleKeydown)
+    this.releaseShortcuts = registerShortcuts(this, "outline", event => this.handleKeydown(event))
 
     this._handleAnchorsUpdated = () => this.updateCommentBadges()
     this.element.addEventListener("coplan:anchors-updated", this._handleAnchorsUpdated)
@@ -26,7 +26,7 @@ export default class extends Controller {
     if (this._scrollHandler) {
       window.removeEventListener("scroll", this._scrollHandler)
     }
-    document.removeEventListener("keydown", this.handleKeydown)
+    this.releaseShortcuts()
     if (this._handleAnchorsUpdated) {
       this.element.removeEventListener("coplan:anchors-updated", this._handleAnchorsUpdated)
     }
@@ -285,13 +285,9 @@ export default class extends Controller {
   }
 
   handleKeydown(event) {
-    const tag = event.target.tagName
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target.isContentEditable) return
-    if (event.metaKey || event.ctrlKey || event.altKey) return
-
     // "t" as in table of contents — [ and ] belong to section jumps
     // (coplan--plan-keys).
-    if (event.key === "t") {
+    if (commandFor("outline", event) === "toggle") {
       event.preventDefault()
       this.toggle()
     }

@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { commandFor } from "coplan/shortcuts"
 
 // Comment-form behavior: submit-on-Enter (Shift+Enter for newline) plus an
 // inline @-mention picker. The picker activates when the user types `@` at a
@@ -89,7 +90,7 @@ export default class extends Controller {
     }
 
     // Submit-on-Enter (only when picker is closed).
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    if (commandFor("reply", event) === "submit") {
       const form = this.element.closest("form")
       if (!form) return
       event.preventDefault()

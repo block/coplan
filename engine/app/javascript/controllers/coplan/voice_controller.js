@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { pageShortcutsAllowed } from "coplan/shortcuts"
 
 /*
  * coplan--voice
@@ -157,6 +158,11 @@ export default class extends Controller {
   // — document and window are stable targets, so Stimulus owns the
   // listener lifecycle.
   keyDown(event) {
+    // Dictation can reply inside a thread, just like comment navigation.
+    if (!pageShortcutsAllowed("comments")) {
+      this.interrupt()
+      return
+    }
     if (!this.mode || !this.hotkey) return
     if (this.hotkey.modifier) return this._modifierDown(event)
 

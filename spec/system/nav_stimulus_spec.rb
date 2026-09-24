@@ -1,9 +1,9 @@
 require "rails_helper"
 
-# Browser-level coverage for the chrome's Stimulus flows: the search modal
-# (popover + typeahead), the inbox dropdown, and the theme switcher. Server
-# responses for these are covered by request specs; these verify the JS
-# wiring users actually click.
+# Browser-level coverage for the chrome's Stimulus flows: the search and
+# keyboard-shortcut modals, the inbox dropdown, and the theme switcher.
+# Server responses for these are covered by request specs; these verify the
+# JS wiring users actually use.
 RSpec.describe "Navigation chrome", type: :system do
   let(:user) { create(:coplan_user, email: "navigator@example.com") }
 
@@ -35,6 +35,113 @@ RSpec.describe "Navigation chrome", type: :system do
       visit library_page_path(user)
       find(".site-nav__search").click
       expect(page).to have_css(".search-modal:popover-open")
+    end
+  end
+
+  describe "keyboard shortcuts modal" do
+    %w[light dark].each do |theme|
+      it "opens with ? and closes with Escape in #{theme} mode" do
+        user.update!(theme_preference: theme)
+        visit library_page_path(user)
+        expect(page).to have_css("html[data-theme='#{theme}']")
+        find("body").send_keys("?")
+
+        expect(page).to have_css(".keyboard-shortcuts[open]")
+        within(".keyboard-shortcuts[open]") do
+          expect(page).to have_content("Keyboard shortcuts")
+          expect(page).to have_content("Search plans and people")
+          expect(page).to have_content("Next search result")
+          expect(page).to have_content("Next open thread")
+          expect(page).to have_content("Start presenting")
+          expect(page).to have_content("Page Down")
+        end
+
+        find("body").send_keys(:escape)
+        expect(page).not_to have_css(".keyboard-shortcuts[open]")
+      end
+    end
+
+    it "does not open while typing" do
+      visit library_page_path(user)
+      find(".site-nav__search").click
+      field = find(".search-modal__input")
+      field.send_keys("?")
+
+      expect(page).not_to have_css(".keyboard-shortcuts[open]")
+      expect(field.value).to include("?")
+    end
+
+    it "traps focus, blocks background shortcuts, and restores focus on close" do
+      visit library_page_path(user)
+      page.execute_script("document.querySelector('.site-nav__search').focus()")
+      page.driver.browser.action.send_keys("?").perform
+      expect(page).to have_css(".keyboard-shortcuts[open]")
+      expect(page.evaluate_script("document.activeElement.id")).to eq("keyboard-shortcuts-title")
+
+      page.driver.browser.action.send_keys("/").send_keys(:tab).perform
+      expect(page.evaluate_script("document.activeElement.getAttribute('aria-label')")).to eq("Close keyboard shortcuts")
+      expect(page).not_to have_css(".search-modal:popover-open")
+      expect(page.evaluate_script("document.activeElement.closest('dialog')?.id")).to eq("keyboard-shortcuts-modal")
+      page.driver.browser.action.send_keys(:escape).perform
+      expect(page).not_to have_css(".keyboard-shortcuts[open]")
+      expect(page.evaluate_script("document.activeElement.matches('.site-nav__search')")).to be(true)
+    end
+
+    it "matches the catalog, ignores composition and modifiers, and refreshes after Turbo navigation" do
+      visit library_page_path(user)
+      # Replace the embedded catalog as a Turbo body replacement would.
+      page.execute_script(<<~JS)
+        const old = document.getElementById('coplan-shortcut-catalog');
+        const replacement = old.cloneNode(true);
+        const catalog = JSON.parse(old.textContent);
+        catalog.help.bindings[0].keys = ['h'];
+        replacement.textContent = JSON.stringify(catalog);
+        old.replaceWith(replacement);
+        document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'h', bubbles: true, isComposing: true}));
+        document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'h', bubbles: true, ctrlKey: true}));
+      JS
+      expect(page).not_to have_css(".keyboard-shortcuts[open]")
+      find("body").send_keys("?")
+      expect(page).not_to have_css(".keyboard-shortcuts[open]")
+      find("body").send_keys("h")
+      expect(page).to have_css(".keyboard-shortcuts[open]")
+      find("body").send_keys(:escape)
+
+      page.execute_script("Turbo.visit(arguments[0])", settings_root_path)
+      expect(page).to have_current_path(settings_root_path)
+      find("body").send_keys("?")
+      expect(page).to have_css(".keyboard-shortcuts[open]", count: 1)
+    end
+
+    it "lets a focused widget consume a key before page navigation" do
+      create(:plan, :published, created_by_user: user)
+      visit library_page_path(user)
+      page.execute_script(<<~JS)
+        const button = document.querySelector('.site-nav__search');
+        button.addEventListener('keydown', event => event.preventDefault(), {once: true});
+        button.focus();
+      JS
+      page.driver.browser.action.send_keys("j").perform
+      expect(page).not_to have_css(".workspace-key-selected")
+      find("body").send_keys("j")
+      expect(page).to have_css(".workspace-key-selected")
+    end
+
+    it "blocks library navigation behind a popover even when focus is outside its input" do
+      create(:plan, :published, created_by_user: user)
+      visit library_page_path(user)
+      find(".site-nav__search").click
+      expect(page).to have_css(".search-modal:popover-open")
+      # Exercise the overlay guard, not the separate text-entry guard.
+      page.execute_script("document.activeElement.blur()")
+      find("body").send_keys("j")
+      expect(page).not_to have_css(".workspace-key-selected")
+      expect(page).to have_css(".search-modal:popover-open")
+
+      find("body").send_keys(:escape)
+      expect(page).not_to have_css(".search-modal:popover-open")
+      find("body").send_keys("j")
+      expect(page).to have_css(".workspace-key-selected")
     end
   end
 
