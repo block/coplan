@@ -533,7 +533,7 @@ RSpec.describe "Voice commenting", type: :system do
       page.driver.browser.action.release_actions
     end
 
-    [false, true].each do |already_recording|
+    [ false, true ].each do |already_recording|
       it "discards #{already_recording ? 'active' : 'pending'} Shift dictation when shortcut help opens" do
         author.update!(voice_hotkey: "shift")
         stub_recorder
