@@ -39,22 +39,26 @@ RSpec.describe "Navigation chrome", type: :system do
   end
 
   describe "keyboard shortcuts modal" do
-    it "opens with ? and closes with Escape" do
-      visit library_page_path(user)
-      find("body").send_keys("?")
+    %w[light dark].each do |theme|
+      it "opens with ? and closes with Escape in #{theme} mode" do
+        user.update!(theme_preference: theme)
+        visit library_page_path(user)
+        expect(page).to have_css("html[data-theme='#{theme}']")
+        find("body").send_keys("?")
 
-      expect(page).to have_css(".keyboard-shortcuts[open]")
-      within(".keyboard-shortcuts[open]") do
-        expect(page).to have_content("Keyboard shortcuts")
-        expect(page).to have_content("Search plans and people")
-        expect(page).to have_content("Next search result")
-        expect(page).to have_content("Next open thread")
-        expect(page).to have_content("Start presenting")
-        expect(page).to have_content("Page Down")
+        expect(page).to have_css(".keyboard-shortcuts[open]")
+        within(".keyboard-shortcuts[open]") do
+          expect(page).to have_content("Keyboard shortcuts")
+          expect(page).to have_content("Search plans and people")
+          expect(page).to have_content("Next search result")
+          expect(page).to have_content("Next open thread")
+          expect(page).to have_content("Start presenting")
+          expect(page).to have_content("Page Down")
+        end
+
+        find("body").send_keys(:escape)
+        expect(page).not_to have_css(".keyboard-shortcuts[open]")
       end
-
-      find("body").send_keys(:escape)
-      expect(page).not_to have_css(".keyboard-shortcuts[open]")
     end
 
     it "does not open while typing" do
