@@ -156,7 +156,15 @@ export default class extends Controller {
 
   selectionKey(event) {
     if (event.ctrlKey || event.metaKey || event.altKey || event.target.closest("input, textarea, select, [contenteditable]")) return
-    if (event.key.toLowerCase() !== "c" || !this.hasPopoverTarget || this.popoverTarget.style.display !== "block") return
+    if (event.key.toLowerCase() !== "c" || !this.hasPopoverTarget) return
+
+    // Keyboard-created selections do not fire mouseup. Read the live range
+    // so C works without the floating action and never uses a stale anchor.
+    const selection = window.getSelection()
+    if (!selection.rangeCount || selection.isCollapsed ||
+        !this.contentTarget.contains(selection.getRangeAt(0).startContainer)) return
+    this.checkSelection()
+    if (this.popoverTarget.style.display !== "block") return
     event.stopPropagation()
     this.openCommentForm(event)
   }

@@ -1119,15 +1119,28 @@ del.agent-flash {
 }
 
 .btn--primary {
-  background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
-  color: var(--color-text-inverse);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 1px 2px rgba(15, 23, 42, 0.2);
+  background: color-mix(in srgb, var(--color-text) 11%, var(--color-surface));
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-text) 20%, var(--color-border));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-surface) 70%, transparent), var(--shadow-pop);
+  font-weight: 600;
 }
 
 .btn--primary:hover {
-  filter: brightness(1.07);
-  color: var(--color-text-inverse);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 6px rgba(15, 23, 42, 0.25);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+  box-shadow: var(--shadow-pop);
+  transform: translateY(-1px);
+}
+
+.btn--primary:active {
+  transform: translateY(0);
+}
+
+.btn--primary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .btn--secondary {
@@ -2488,6 +2501,51 @@ img.avatar {
   position: absolute;
   z-index: 10;
   animation: popover-fade-in 0.15s ease-out;
+}
+
+.comment-popover__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.1rem;
+  padding: 0.25rem 0.45rem 0.25rem 0.3rem;
+  border: 1px solid var(--card-edge);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-glass);
+  color: var(--color-text);
+  font: 500 0.75rem/1 var(--font-sans);
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.comment-popover__action:hover {
+  background: var(--color-interaction-hover-bg);
+  box-shadow: var(--shadow-pop);
+  transform: translateY(-1px);
+}
+
+.comment-popover__action:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.comment-popover__icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: none;
+}
+
+.comment-popover kbd {
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--card-edge);
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
 }
 
 @keyframes popover-fade-in {

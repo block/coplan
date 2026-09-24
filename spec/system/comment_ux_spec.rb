@@ -854,6 +854,29 @@ RSpec.describe "Comment UX", type: :system do
   describe "whole-line text selection" do
     before { sign_in(author) }
 
+    it "opens the composer with C for a selection made without mouseup" do
+      visit plan_page_path(plan)
+
+      page.execute_script <<~JS
+        const text = Array.from(document.querySelectorAll('#plan-content-body p'))
+          .find(element => element.textContent.includes('microservices'))
+          .firstChild;
+        const start = text.textContent.indexOf('microservices');
+        const range = document.createRange();
+        range.setStart(text, start);
+        range.setEnd(text, start + 'microservices'.length);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      JS
+
+      expect(page).to have_no_css(".comment-popover", visible: true)
+      page.driver.browser.action.send_keys("c").perform
+
+      expect(page).to have_css("#new-comment-form textarea:focus")
+      expect(find("#new-comment-form [name='comment_thread[anchor_text]']", visible: :all).value).to eq("microservices")
+    end
+
     it "shows comment popover when selection extends past content boundary" do
       visit plan_page_path(plan)
 
