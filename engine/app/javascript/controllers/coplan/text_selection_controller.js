@@ -124,12 +124,10 @@ export default class extends Controller {
       return
     }
 
-    // Clamp the range to the last rendered markdown element, not the
-    // content wrapper's lastChild (which is a hidden popover/form control).
+    // Clamp the range to the last rendered markdown element. The selection
+    // popover lives outside this wrapper so it also works while editing.
     if (root === this.contentTarget && startInContent && !endInContent) {
-      const clampTarget = this.hasPopoverTarget
-        ? this.popoverTarget.previousElementSibling || this.popoverTarget.previousSibling
-        : this.contentTarget.lastChild
+      const clampTarget = root.lastElementChild || root.lastChild
       if (clampTarget) range.setEndAfter(clampTarget)
     }
 
