@@ -10,7 +10,7 @@ watch. Design docs (options + tradeoffs) live in CoPlan itself — see the
 1. A human comments (typed, or spoken via the mic button).
 2. The comment fans out to the **agent event inbox** (`AgentEvent`) of
    every agent session on the plan — never back to the actor itself.
-3. The agent (or `script/coplan-bridge` on its behalf) is long-polling
+3. The agent (or `coplan-bridge` on its behalf) is long-polling
    `GET /api/v1/agent/events` and wakes.
 4. It flips its **agent session** to `active` (the presence pill humans
    see), replies on the thread narrating what it'll change, PUTs the
@@ -57,36 +57,17 @@ Full API reference: `GET /agent-instructions` → "Live Collaboration".
 ## Waiting while an agent turn is active
 
 An agent that is **currently alive and explicitly waiting** can receive an
-event as ordinary tool output. `script/coplan-attach` holds one server-driven
-SSE connection and prints the moment something happens. That handles event
+event as ordinary tool output. `coplan-attach` holds one server-driven SSE
+connection and prints the moment something happens. That handles event
 delivery inside the current turn; it does not arrange a future model turn or
 make a completed conversation resumable.
 
-The scripts live in the engine (`engine/agent_tools/`) and every CoPlan
-server serves them at `/agent-tools/coplan-attach`,
-`/agent-tools/coplan_session.rb`, and `/agent-tools/coplan-bridge` —
-but they are deliberately not the front door. Served scripts are
-executable code fetched from the network (and need Ruby), so the
-"Setup: Your First Five Minutes as a Live Agent" section of
-`/agent-instructions` leads with a raw-curl wait loop any agent can
-run, then tells the agent to save that wiring as a durable local
-skill, saved command, or standing resume-bridge config — and only then
-offers the scripts as an optional convenience, behind a
-read-before-you-run checklist scoped per script (attach and its
-helper: network calls to this server only, writes only under
-`~/.coplan`/`$COPLAN_HOME`, no subprocesses; the bridge: additionally
-reads its config file and execs exactly the one agent command you
-configured).
-
-```bash
-export COPLAN_BASE=http://localhost:3222 COPLAN_TOKEN=<token>
-
-# Explicit foreground monitoring: bounded wait, prints a brief, acks, exits.
-script/coplan-attach --plan <plan-id> --name Claude --once --timeout 300
-
-# Under an external supervisor only, stay attached and stream everything:
-script/coplan-attach --plan <plan-id> --name Claude
-```
+The runtime contract is `/agent-instructions`, not a repository checkout.
+Production agents either use the HTTP protocol there or download the optional
+tools served at `/agent-tools/coplan-attach`, `/agent-tools/coplan_session.rb`,
+and `/agent-tools/coplan-bridge`. Their source lives in `engine/agent_tools/`.
+The top-level `script/coplan-*` files are thin shims for local development and
+appear only in the local demo below.
 
 `--once --timeout N` is the safe foreground shape: run it as a tool call only
 for an explicit wait/monitor request, act on any returned brief, and run it
@@ -95,9 +76,8 @@ presence pill; Ctrl-C detaches cleanly. A timeout exits 64 if nothing arrives.
 The unbounded streaming form belongs under an external supervisor that owns
 its lifecycle and has a real way to re-enter the model.
 
-It's a thin convenience over the API — an agent that can curl can do the
-same thing straight from `/agent-instructions`, and doesn't need this
-script at all.
+The served tool is a thin convenience over the API. An agent that can make
+HTTP requests can follow `/agent-instructions` directly and does not need it.
 
 ## What the harness must provide
 
@@ -121,7 +101,7 @@ The shapes that close the loop, most portable first:
    in the background; the process exiting is the wake. Requires the
    harness to demonstrably re-invoke the model when a background task
    completes. A terminal notification or retained process is not enough.
-3. **Sidecar resume.** `script/coplan-bridge` drains the inbox from outside
+3. **Sidecar resume.** `coplan-bridge` drains the inbox from outside
    the harness and invokes a per-harness resume-with-message command for a
    known existing session (adapter table below). Its ACP mode is different:
    it creates and owns a separate dedicated agent, so it is not a way to
@@ -177,7 +157,7 @@ is required:
 
 ```bash
 export COPLAN_BASE=http://localhost:3222 COPLAN_TOKEN=<token>
-script/coplan-bridge --adapter claude --session <session-id> --plan <plan-id> --name Claude
+coplan-bridge --adapter claude --session <session-id> --plan <plan-id> --name Claude
 ```
 
 An adapter must always be named — there is no default — and it is validated
@@ -222,7 +202,7 @@ and it does not attach or resume the conversation that launched the bridge.
 Keep ACP out of automatic attachment guidance and provision it explicitly:
 
 ```bash
-script/coplan-bridge --acp "goose acp" --plan <plan-id> --name "Review agent"
+coplan-bridge --acp "goose acp" --plan <plan-id> --name "Review agent"
 ```
 
 Unattended runs need each harness's permission-relaxation flag
