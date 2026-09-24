@@ -76,9 +76,10 @@ RSpec.describe "Navigation chrome", type: :system do
       page.execute_script("document.querySelector('.site-nav__search').focus()")
       page.driver.browser.action.send_keys("?").perform
       expect(page).to have_css(".keyboard-shortcuts[open]")
-      expect(page.evaluate_script("document.activeElement.getAttribute('aria-label')")).to eq("Close keyboard shortcuts")
+      expect(page.evaluate_script("document.activeElement.id")).to eq("keyboard-shortcuts-title")
 
       page.driver.browser.action.send_keys("/").send_keys(:tab).perform
+      expect(page.evaluate_script("document.activeElement.getAttribute('aria-label')")).to eq("Close keyboard shortcuts")
       expect(page).not_to have_css(".search-modal:popover-open")
       expect(page.evaluate_script("document.activeElement.closest('dialog')?.id")).to eq("keyboard-shortcuts-modal")
       page.driver.browser.action.send_keys(:escape).perform
@@ -122,6 +123,23 @@ RSpec.describe "Navigation chrome", type: :system do
       JS
       page.driver.browser.action.send_keys("j").perform
       expect(page).not_to have_css(".workspace-key-selected")
+      find("body").send_keys("j")
+      expect(page).to have_css(".workspace-key-selected")
+    end
+
+    it "blocks library navigation behind a popover even when focus is outside its input" do
+      create(:plan, :published, created_by_user: user)
+      visit library_page_path(user)
+      find(".site-nav__search").click
+      expect(page).to have_css(".search-modal:popover-open")
+      # Exercise the overlay guard, not the separate text-entry guard.
+      page.execute_script("document.activeElement.blur()")
+      find("body").send_keys("j")
+      expect(page).not_to have_css(".workspace-key-selected")
+      expect(page).to have_css(".search-modal:popover-open")
+
+      find("body").send_keys(:escape)
+      expect(page).not_to have_css(".search-modal:popover-open")
       find("body").send_keys("j")
       expect(page).to have_css(".workspace-key-selected")
     end

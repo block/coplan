@@ -5170,6 +5170,12 @@ img.avatar {
   font-size: var(--text-lg);
 }
 
+/* Initial focus announces the reference without highlighting an action.
+   Interactive controls keep their normal keyboard focus indicators. */
+.keyboard-shortcuts__title:focus {
+  outline: none;
+}
+
 .keyboard-shortcuts__subtitle {
   margin: 3px 0 0;
   color: var(--color-text-muted);
@@ -5184,11 +5190,10 @@ img.avatar {
   height: 32px;
   padding: 0;
   border: 0;
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-muted);
   font: inherit;
-  font-size: 1.4rem;
   line-height: 1;
   cursor: pointer;
 }
