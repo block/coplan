@@ -205,6 +205,44 @@ RSpec.describe "Browsable library URLs", type: :request do
     end
   end
 
+  describe "a document's Markdown source" do
+    let!(:folder) { create(:folder, name: "LiveOrder", created_by_user: author) }
+    let!(:plan) do
+      create(:plan, :published, created_by_user: author, title: "Cart Roadmap")
+        .tap do |created_plan|
+          place(created_plan, folder)
+          revise(created_plan, "# Delivery\n\nShip the **new cart**.")
+        end
+    end
+
+    before { sign_in_as(viewer) }
+
+    it "serves the current raw Markdown at the readable URL with .md appended" do
+      get "/hampton/liveorder/cart-roadmap.md"
+
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("text/markdown")
+      expect(response.body).to eq("# Delivery\n\nShip the **new cart**.")
+    end
+
+    it "redirects a stale Markdown URL to the current readable URL" do
+      folder.update!(name: "Orders")
+
+      get "/hampton/liveorder/cart-roadmap.md"
+
+      expect(response).to have_http_status(:moved_permanently)
+      expect(response.headers["Location"]).to end_with("/hampton/orders/cart-roadmap.md")
+    end
+
+    it "does not expose folders or unknown paths as Markdown documents" do
+      get "/hampton/liveorder.md"
+      expect(response).to have_http_status(:not_found)
+
+      get "/hampton/liveorder/missing.md"
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
   describe "stale paths" do
     before { sign_in_as(viewer) }
 
