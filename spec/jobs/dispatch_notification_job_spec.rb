@@ -13,10 +13,4 @@ RSpec.describe CoPlan::DispatchNotificationJob, type: :job do
   ensure
     CoPlan.configuration.notification_delivery_handlers.delete(handler)
   end
-
-  it "retries on a worker that has not enabled the adapter" do
-    notification = create(:notification)
-    expect { described_class.new.perform(notification.id) }
-      .to raise_error(described_class::AdapterUnavailable)
-  end
 end

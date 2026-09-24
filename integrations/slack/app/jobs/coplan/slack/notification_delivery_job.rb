@@ -1,13 +1,10 @@
 module CoPlan
   module Slack
     class NotificationDeliveryJob < ActiveJob::Base
-      class AdapterUnavailable < StandardError; end
-
       include CoPlan::DebouncedJob
 
       queue_as :default
-      debounces_with window: 2.minutes, retry_horizon: 90.minutes
-      retry_on AdapterUnavailable, wait: 1.minute, attempts: 60
+      debounces_with window: 2.minutes
       retry_on WebClient::RetryableError, wait: :polynomially_longer, attempts: 5 do |job, error|
         job.fail_pending!(error)
       end
@@ -15,7 +12,7 @@ module CoPlan
       def perform_batch(key:, batch_start:)
         user_id, thread_id = key.split(":", 2)
         config = CoPlan::Slack.configuration
-        raise AdapterUnavailable, "CoPlan Slack notifications are not configured on this worker" unless config.notifications_configured?
+        raise ArgumentError, "CoPlan Slack notifications require bot_token and base_url" unless config.notifications_configured?
 
         deliveries = pending_for(user_id, thread_id)
           .includes(notification: [ :comment, :plan, :user, :comment_thread ])

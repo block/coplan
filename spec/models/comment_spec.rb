@@ -71,13 +71,6 @@ RSpec.describe CoPlan::Comment, type: :model do
         create(:comment, comment_thread: thread_record)
       }.to have_enqueued_job(CoPlan::NotificationJob)
     end
-
-    it "stops emitting legacy events when a host switches adapters" do
-      allow(CoPlan.configuration).to receive(:legacy_notification_emission_enabled).and_return(false)
-
-      expect { create(:comment, comment_thread: thread_record) }
-        .not_to have_enqueued_job(CoPlan::NotificationJob)
-    end
   end
 
   describe "soft delete" do

@@ -69,9 +69,6 @@ module CoPlan
     end
 
     def notify_thread_participants
-      return unless CoPlan.configuration.notification_handler
-      return unless CoPlan.configuration.legacy_notification_emission_enabled
-
       CoPlan::NotificationJob.perform_later(
         "comment_created",
         { comment_thread_id: comment_thread_id, comment_created_at: created_at }
