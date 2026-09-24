@@ -46,6 +46,13 @@ Each notification gets a durable channel delivery status and, when sent, the
 Slack message timestamp. Message content and a reporting view are not stored
 by this adapter.
 
+When replacing a host's existing notification handler during a rolling deploy,
+first deploy this adapter with DMs disabled so every worker can load its jobs.
+Then enable DMs and set `CoPlan.configuration.legacy_notification_emission_enabled = false`.
+Keep the old handler and job class until jobs queued before the switch have
+drained. Adapter jobs picked up by a worker from the first stage retry until
+an enabled worker can process them.
+
 Point Slack's Events API request URL at `/integrations/slack/events`. Configure the `links:read` and `links:write` bot scopes, subscribe to `link_shared`, and register the CoPlan domain under **App unfurl domains**. The endpoint must be reachable from Slack over HTTPS.
 
 ## Brand the Slack app

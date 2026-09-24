@@ -65,6 +65,15 @@ RSpec.describe CoPlan::Slack::NotificationDeliveryJob, type: :job do
     expect(notification.notification_deliveries.first.reload.status).to eq("skipped")
   end
 
+  it "retries on a worker that has not enabled Slack delivery" do
+    notification = notify("Comment")
+    CoPlan::Slack.configuration.notifications_enabled = false
+
+    expect { described_class.new.perform_batch(key: key, batch_start: notification.created_at) }
+      .to raise_error(described_class::AdapterUnavailable)
+    expect(notification.notification_deliveries.first.reload.status).to eq("pending")
+  end
+
   it "includes an older notification when dispatch runs out of order" do
     older = record_notification("Older comment")
     newer = record_notification("Newer comment")
