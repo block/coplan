@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_22_214857) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_24_142426) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -231,6 +231,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_214857) do
     t.index ["library_id", "created_at"], name: "index_coplan_library_events_on_library_id_and_created_at"
     t.index ["plan_id"], name: "index_coplan_library_events_on_plan_id"
     t.index ["run_id"], name: "index_coplan_library_events_on_run_id"
+  end
+
+  create_table "coplan_notification_deliveries", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "channel", null: false
+    t.datetime "created_at", null: false
+    t.string "error_code"
+    t.string "external_id"
+    t.string "notification_id", limit: 36, null: false
+    t.datetime "sent_at"
+    t.string "status", null: false
+    t.datetime "updated_at", null: false
+    t.index ["channel", "status", "created_at"], name: "index_coplan_notification_deliveries_on_channel_and_status"
+    t.index ["notification_id", "channel"], name: "index_coplan_notification_deliveries_on_notification_and_channel", unique: true
   end
 
   create_table "coplan_notifications", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -497,6 +510,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_214857) do
   add_foreign_key "coplan_folders", "coplan_users", column: "created_by_user_id"
   add_foreign_key "coplan_library_events", "coplan_api_tokens", column: "api_token_id"
   add_foreign_key "coplan_library_events", "coplan_libraries", column: "library_id"
+  add_foreign_key "coplan_notification_deliveries", "coplan_notifications", column: "notification_id", on_delete: :cascade
   add_foreign_key "coplan_notifications", "coplan_comment_threads", column: "comment_thread_id"
   add_foreign_key "coplan_notifications", "coplan_comments", column: "comment_id"
   add_foreign_key "coplan_notifications", "coplan_plans", column: "plan_id"

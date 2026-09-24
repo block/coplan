@@ -12,6 +12,6 @@ Gem::Specification.new do |spec|
   spec.files = Dir.chdir(__dir__) { Dir["{app,config,lib}/**/*", "README.md"] }
   spec.metadata["source_code_uri"] = "https://github.com/block/coplan/tree/main/integrations/slack"
 
-  spec.add_dependency "coplan-engine", ">= 0.4", "< 1"
+  spec.add_dependency "coplan-engine", ">= 0.5", "< 1"
   spec.add_dependency "slack-ruby-client", "~> 3.0"
 end

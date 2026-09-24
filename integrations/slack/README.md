@@ -42,6 +42,9 @@ same thread for each recipient, and skips DMs when the recipient has already
 cleared the on-site notification. Edits, status changes, and agent responses
 do not send Slack DMs. The Slack app needs `users:read.email` and `chat:write`
 bot scopes. Use a shared Rails cache store to coalesce bursts across workers.
+Each notification gets a durable channel delivery status and, when sent, the
+Slack message timestamp. Message content and a reporting view are not stored
+by this adapter.
 
 Point Slack's Events API request URL at `/integrations/slack/events`. Configure the `links:read` and `links:write` bot scopes, subscribe to `link_shared`, and register the CoPlan domain under **App unfurl domains**. The endpoint must be reachable from Slack over HTTPS.
 

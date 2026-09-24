@@ -27,9 +27,14 @@ module CoPlan
             raise ArgumentError, "CoPlan Slack notifications require bot_token and base_url"
           end
 
+          delivery = CoPlan::NotificationDelivery.create_or_find_by!(notification: notification, channel: "slack") do |record|
+            record.status = "pending"
+          end
+          next unless delivery.status == "pending"
+
           NotificationDeliveryJob.debounce(
             key: "#{notification.user_id}:#{notification.comment_thread_id}",
-            event_at: notification.created_at
+            event_at: delivery.created_at
           )
         }
       end

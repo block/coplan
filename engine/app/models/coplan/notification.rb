@@ -6,6 +6,7 @@ module CoPlan
     belongs_to :plan, class_name: "CoPlan::Plan"
     belongs_to :comment_thread, class_name: "CoPlan::CommentThread"
     belongs_to :comment, class_name: "CoPlan::Comment", optional: true
+    has_many :notification_deliveries, dependent: :delete_all
 
     validates :reason, presence: true, inclusion: { in: REASONS }
 

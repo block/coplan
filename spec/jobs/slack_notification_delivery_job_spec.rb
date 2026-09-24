@@ -26,13 +26,19 @@ RSpec.describe CoPlan::Slack::NotificationDeliveryJob, type: :job do
   before do
     allow(CoPlan::Slack::WebClient).to receive(:new).and_return(client)
     allow(client).to receive(:users_lookup_by_email).and_return("user" => { "id" => "U123" })
-    allow(client).to receive(:chat_post_message)
+    allow(client).to receive(:chat_post_message).and_return("ts" => "123.456")
   end
 
-  def notify(body, reason: "reply", read_at: nil)
+  def record_notification(body, reason: "reply", read_at: nil)
     comment = create(:comment, comment_thread: thread, author_id: author.id, body_markdown: body)
     create(:notification, user: recipient, plan: plan, comment_thread: thread,
       comment: comment, reason: reason, read_at: read_at)
+  end
+
+  def notify(body, reason: "reply", read_at: nil)
+    notification = record_notification(body, reason: reason, read_at: read_at)
+    create(:notification_delivery, notification: notification)
+    notification
   end
 
   it "groups unread comments for one recipient and thread into one DM" do
@@ -47,6 +53,7 @@ RSpec.describe CoPlan::Slack::NotificationDeliveryJob, type: :job do
       text: a_string_including("2 new comments", "First comment", "Second comment", "https://coplan.example.test/"),
       mrkdwn: true
     ).once
+    expect(CoPlan::NotificationDelivery.where(status: "delivered").count).to eq(2)
   end
 
   it "skips comments the recipient has already cleared" do
@@ -55,6 +62,52 @@ RSpec.describe CoPlan::Slack::NotificationDeliveryJob, type: :job do
     described_class.new.perform_batch(key: key, batch_start: notification.created_at)
 
     expect(client).not_to have_received(:chat_post_message)
+    expect(notification.notification_deliveries.first.reload.status).to eq("skipped")
+  end
+
+  it "includes an older notification when dispatch runs out of order" do
+    older = record_notification("Older comment")
+    newer = record_notification("Newer comment")
+    handler = CoPlan::Slack.notification_delivery_handler
+
+    handler.call(newer)
+    handler.call(older)
+    described_class.new.perform_batch(key: key, batch_start: newer.created_at)
+
+    expect(client).to have_received(:chat_post_message).with(
+      channel: "U123", text: a_string_including("Older comment", "Newer comment"), mrkdwn: true
+    ).once
+    expect(CoPlan::NotificationDelivery.where(status: "delivered").count).to eq(2)
+  end
+
+  it "records a permanent Slack failure without retrying the same intent" do
+    notification = notify("Comment")
+    allow(client).to receive(:users_lookup_by_email)
+      .and_raise(CoPlan::Slack::WebClient::PermanentError, "users_not_found")
+    allow(Rails.error).to receive(:report)
+
+    described_class.new.perform_batch(key: key, batch_start: notification.created_at)
+
+    expect(notification.notification_deliveries.first.reload.status).to eq("failed")
+    expect(client).not_to have_received(:chat_post_message)
+  end
+
+  it "records exhausted retryable failures and releases the debounce claim" do
+    notification = notify("Attempted comment")
+    job = described_class.new(key: key)
+    allow(Rails.error).to receive(:report)
+    allow(client).to receive(:users_lookup_by_email)
+      .and_raise(CoPlan::Slack::WebClient::RetryableError, "timeout")
+    Rails.cache.write(described_class.debounce_pending_cache_key(key), true)
+
+    expect { job.perform_batch(key: key, batch_start: notification.created_at) }
+      .to raise_error(CoPlan::Slack::WebClient::RetryableError)
+    later = notify("Later comment")
+    job.fail_pending!(CoPlan::Slack::WebClient::RetryableError.new("timeout"))
+
+    expect(notification.notification_deliveries.first.reload).to have_attributes(status: "failed", error_code: "timeout")
+    expect(later.notification_deliveries.first.reload.status).to eq("pending")
+    expect(described_class.debounce_pending?(key)).to be(true)
   end
 
   it "schedules one debounced delivery for a burst of eligible notifications" do
