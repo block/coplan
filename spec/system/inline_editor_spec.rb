@@ -165,7 +165,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     title = find("#plan-header .inline-editor__title", wait: 10)
     title.click
-    title.send_keys([RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a"])
+    title.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ])
     title.send_keys("A clearer title")
     find(".inline-editor").click_button "Done editing"
 
@@ -196,7 +196,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css(".inline-editor__title", wait: 20)
     title = find(".inline-editor__title")
     title.click
-    title.send_keys([RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a"])
+    title.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ])
     title.send_keys("A" * 280)
 
     expect(title.text.length).to eq(255)
