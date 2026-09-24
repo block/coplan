@@ -16,6 +16,15 @@ RSpec.describe CoPlan::Notification, type: :model do
     expect(notification).not_to be_valid
   end
 
+  it "queues delivery to installed adapters after creation" do
+    handler = ->(_notification) { nil }
+    CoPlan.configuration.notification_delivery_handlers << handler
+    expect { create(:notification) }
+      .to have_enqueued_job(CoPlan::DispatchNotificationJob)
+  ensure
+    CoPlan.configuration.notification_delivery_handlers.delete(handler)
+  end
+
   describe "scopes" do
     let(:user) { create(:coplan_user) }
     let(:plan) { create(:plan) }

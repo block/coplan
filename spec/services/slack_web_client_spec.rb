@@ -9,6 +9,20 @@ RSpec.describe CoPlan::Slack::WebClient do
     expect(client.chat_unfurl(channel: "C", ts: "1", unfurls: {})).to eq("ok" => true)
   end
 
+  it "looks up a recipient and posts a DM" do
+    expect(delegate).to receive(:users_lookupByEmail).with(email: "person@example.com").and_return("user" => { "id" => "U123" })
+    expect(delegate).to receive(:chat_postMessage).with(channel: "U123", text: "Hello", mrkdwn: true)
+
+    user = client.users_lookup_by_email(email: "person@example.com")
+    client.chat_post_message(channel: user.dig("user", "id"), text: "Hello", mrkdwn: true)
+  end
+
+  it "classifies a missing Slack user as permanent" do
+    allow(delegate).to receive(:users_lookupByEmail).and_raise(::Slack::Web::Api::Errors::SlackError.new("users_not_found"))
+    expect { client.users_lookup_by_email(email: "missing@example.com") }
+      .to raise_error(described_class::PermanentError, "users_not_found")
+  end
+
   it "classifies transport failures as retryable" do
     allow(delegate).to receive(:chat_unfurl).and_raise(Faraday::ConnectionFailed.new("down"))
     expect { client.chat_unfurl }.to raise_error(described_class::RetryableError, "down")
