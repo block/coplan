@@ -5,11 +5,12 @@ import { commandFor } from "coplan/shortcuts"
 // sent snapshot and edits typed while it was in flight. Nothing clears a draft
 // until the server has acknowledged that exact content.
 export default class extends Controller {
-  static targets = ["textarea", "surface", "status", "statusText", "back", "rawSurface", "toolbar", "newLanguage", "codePicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "replace", "latest", "style", "subscription"]
-  static values = { planId: String, userId: String, revision: Number, stateUrl: String, previewUrl: String, leaseUrl: String }
+  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "replace", "latest", "style", "subscription"]
+  static values = { planId: String, userId: String, revision: Number, stateUrl: String, previewUrl: String, leaseUrl: String, inline: Boolean }
 
   async connect() {
     this.active = true
+    this.inlineVisible = !this.inlineValue
     this.base = { ...this.snapshot(), revision: this.revisionValue }
     this.token = crypto.randomUUID()
     this.creationKey = crypto.randomUUID()
@@ -27,10 +28,29 @@ export default class extends Controller {
       this.richModule = rich
       this.mode = "rich"
       this.richEditor = rich.createRichDocument(this.surfaceTarget, this.textareaTarget.value,
-        content => this.editorChanged("rich", content), state => this.updateToolbar(state), source => this.preview(source))
+        content => this.editorChanged("rich", content), state => this.updateToolbar(state), source => this.preview(source),
+        this.inlineValue ? this.comments() : [])
+      if (this.inlineValue) {
+        const threads = document.getElementById("plan-threads")
+        if (threads) {
+          this.commentsObserver = new MutationObserver(() => {
+            this.richEditor?.updateComments(this.comments())
+            this.element.dispatchEvent(new CustomEvent("coplan:anchors-updated", { bubbles: true }))
+          })
+          this.commentsObserver.observe(threads, { childList: true })
+        }
+      }
       this.editor = this.richEditor
       this.updateToolbar(this.editor.toolbarState())
-      try { this.setMode(sessionStorage.getItem(`coplan-editor-mode-${this.userIdValue}`) || "rich") } catch {}
+      if (this.inlineValue && this.hasMoreToolsTarget) {
+        this.toolResizeObserver = new ResizeObserver(() => this.updateToolOverflow())
+        this.toolResizeObserver.observe(this.toolbarTarget)
+        this.toolResizeObserver.observe(this.formatControlsTarget)
+        requestAnimationFrame(() => this.updateToolOverflow())
+      }
+      if (!this.inlineValue) {
+        try { this.setMode(sessionStorage.getItem(`coplan-editor-mode-${this.userIdValue}`) || "rich") } catch {}
+      }
       if (!this.blocked) this.setStatus(this.dirty() ? "Recovered draft · waiting to sync" : this.isNew ? "Private draft" : `All changes saved · v${this.base.revision}`)
       // Retire leases from the previous prototype, without acquiring one.
       if (this.leaseUrlValue) await this.request(this.leaseUrlValue, "DELETE", {}).catch(() => {})
@@ -41,12 +61,18 @@ export default class extends Controller {
         this.poll = setInterval(() => { if (!document.hidden) this.refresh() }, 2500)
         if (this.dirty()) this.scheduleSave()
       }
-    } catch (error) { this.fail(error.message || "The editor could not load. Reload to retry.") }
+      if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-ready", { bubbles: true, detail: { controller: this } }))
+    } catch (error) {
+      this.fail(error.message || "The editor could not load. Reload to retry.")
+      if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-error", { bubbles: true, detail: { error } }))
+    }
   }
 
   disconnect() {
     this.active = false
     this.subscriptionObserver?.disconnect()
+    this.commentsObserver?.disconnect()
+    this.toolResizeObserver?.disconnect()
     clearInterval(this.poll)
     clearTimeout(this.saveTimer)
     clearTimeout(this.refreshTimer)
@@ -70,11 +96,19 @@ export default class extends Controller {
     if (state === "dirty") {
       if (["saving", "error"].includes(this.statusTarget.dataset.state)) return
       state = this.dirty() ? "queued" : "idle"
-      if (message === "Unsaved changes") message = state === "queued" ? "Saving soon…" : `All changes saved · v${this.base.revision}`
+      if (message === "Unsaved changes") message = state === "queued" ? (this.inlineValue ? "Changes ready to save" : "Saving soon…") : `All changes saved · v${this.base.revision}`
     }
     if (this.statusTextTarget.textContent !== message) this.statusTextTarget.textContent = message
+    if (this.hasStatusAnnouncementTarget && this.statusAnnouncementTarget.textContent !== message) this.statusAnnouncementTarget.textContent = message
     this.statusTarget.dataset.state = state
     this.statusTarget.title = state === "saved" ? `${message} · ${new Date().toLocaleTimeString()}` : message
+    if (this.inlineValue) {
+      const close = this.statusTarget.closest(".document-editor__close-inline")
+      close.dataset.state = state === "saved" ? "idle" : state
+      close.disabled = ["loading", "saving"].includes(state)
+      close.setAttribute("aria-label", { loading: "Opening document", queued: "Done editing and save changes", saving: "Saving document", error: "Review save error" }[state] || "Done editing")
+      close.title = state === "error" ? message : state === "loading" || state === "saving" ? message : `Done editing · ${message}`
+    }
   }
 
   async request(url, method = "GET", body) {
@@ -119,7 +153,9 @@ export default class extends Controller {
       return this.flush(manual, overwriteRevision)
     }
     if (this.blocked && !overwriteRevision) { if (manual) this.setStatus("Resolve the conflicting edit before saving", "error"); return }
-    if (!manual && !this.element.checkValidity()) { this.setStatus("Add a title to save this draft", "error"); return false }
+    if (!this.snapshot().title.trim()) { this.setStatus(this.inlineValue ? "Add a document title to save" : "Add a title to save this draft", "error"); if (this.inlineValue) this.revealDetails(); return false }
+    if (!manual && !this.element.checkValidity()) { this.setStatus("Correct the highlighted field to save this draft", "error"); return false }
+    if (!this.element.checkValidity() && this.inlineValue) this.revealDetails()
     if (!this.element.reportValidity()) { this.setStatus("Add a document title to save", "error"); return }
     const sent = this.isNew ? (this.creationSnapshot ||= this.snapshot()) : this.snapshot(), sentBase = { ...this.base }
     this.busy = true
@@ -149,7 +185,10 @@ export default class extends Controller {
       // to the current draft, including keystrokes that arrived during save.
       await this.whenCompositionEnds()
       this.accept(result, sent)
-      this.setStatus(this.dirty() ? "Saved · newer changes waiting" : `All changes saved · v${result.revision}`, this.dirty() ? "dirty" : "saved")
+      if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-saved", { bubbles: true, detail: { revision: result.revision } }))
+      const newerChanges = this.dirty()
+      this.setStatus(newerChanges ? (this.inlineValue ? "Changes ready to save" : "Saved · newer changes waiting") : `All changes saved · v${result.revision}`,
+        newerChanges ? "queued" : "saved")
       this.persistDraft()
       return true
     } catch (error) {
@@ -183,11 +222,17 @@ export default class extends Controller {
     // Update before dispatching remote steps; those transactions preserve local
     // undo history and selection and intentionally do not call input().
     if (this.active) {
+      const contentChanged = this.textareaTarget.value !== merged.content
       this.updateEditors(merged.content)
       this.textareaTarget.value = merged.content
+      if (contentChanged && this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-content-changed", { bubbles: true }))
       for (const [name, value] of [["plan[title]", merged.title], ["plan[tag_names]", merged.tags]]) {
         const input = this.element.querySelector(`[name="${name}"]`)
         if (input.value !== value) input.value = value
+      }
+      if (this.inlineValue) {
+        const title = document.querySelector("#plan-header .inline-editor__title")
+        if (title && title.textContent !== merged.title) title.textContent = merged.title
       }
       if (remote.url) this.backTarget.href = remote.url
     }
@@ -287,11 +332,65 @@ export default class extends Controller {
     })
   }
   style(event) { if (this.editor !== this.richEditor) return; this.richEditor?.command(event.currentTarget.value === "0" ? "paragraph" : event.currentTarget.value === "code" ? "code_block" : "heading", event.currentTarget.value) }
+  updateToolOverflow() {
+    if (!this.active || !this.hasMoreToolsTarget || !this.hasFormatControlsTarget) return
+    const controls = this.formatControlsTarget
+    const button = this.moreToolsTarget
+    const overflowing = controls.scrollWidth > controls.clientWidth + 2
+    button.hidden = !overflowing
+    if (!overflowing) return
+    const atEnd = controls.scrollLeft + controls.clientWidth >= controls.scrollWidth - 3
+    button.textContent = atEnd ? "‹" : "›"
+    button.setAttribute("aria-label", atEnd ? "Earlier formatting tools" : "More formatting tools")
+    button.title = button.getAttribute("aria-label")
+  }
+  scrollTools() {
+    const controls = this.formatControlsTarget
+    const atEnd = controls.scrollLeft + controls.clientWidth >= controls.scrollWidth - 3
+    controls.scrollBy({ left: atEnd ? -controls.scrollWidth : controls.clientWidth * 0.7, behavior: "smooth" })
+  }
   keydown(event) {
     if (commandFor("editor", event) === "save") { event.preventDefault(); this.flush(true) }
   }
   beforeUnload(event) { if (this.dirty()) { this.persistDraft(); event.preventDefault(); event.returnValue = "" } }
-  back(event) { event.preventDefault(); this.navigate(() => this.backTarget.href) }
+  back(event) {
+    event.preventDefault()
+    if (this.inlineValue && this.statusTarget.dataset.state === "error" && !this.conflictTarget.hidden) {
+      this.conflictTarget.scrollIntoView({ block: "nearest" })
+      this.conflictTarget.querySelector("button:not([hidden])")?.focus()
+    } else if (this.inlineValue) this.closeInline()
+    else this.navigate(() => this.backTarget.href)
+  }
+  async closeInline() {
+    if (this.navigating) return
+    this.navigating = true
+    try {
+      await this.whenIdle()
+      if (!this.active || this.blocked) return
+      if (!this.snapshot().title.trim()) { this.setStatus("Add a document title to save", "error"); this.revealDetails(); return }
+      if (!this.element.checkValidity()) this.revealDetails()
+      if (!this.element.reportValidity()) return
+      while (this.dirty()) {
+        if (!await this.flush(true) || !this.active || this.blocked) return
+      }
+      this.element.dispatchEvent(new CustomEvent("coplan:editor-closed", { bubbles: true,
+        detail: { controller: this, snapshot: { ...this.base } } }))
+    } finally { this.navigating = false }
+  }
+  showInline(anchor, { focus = true } = {}) {
+    this.inlineVisible = true
+    if (focus) this.richEditor?.focusText(anchor?.text, anchor?.occurrence)
+  }
+  revealDetails() {
+    document.querySelector("#plan-header .inline-editor__title")?.focus()
+  }
+  comments() {
+    return Array.from(document.querySelectorAll('#plan-threads [data-anchor-text]:not([data-thread-out-of-date="true"])'), thread => ({
+      id: thread.id, text: thread.dataset.anchorText,
+      occurrence: Number.parseInt(thread.dataset.anchorOccurrence || "0", 10) || 0,
+      status: thread.dataset.threadStatus || "open"
+    }))
+  }
   beforeVisit(event) {
     if (this.leaving) return
     event.preventDefault()
@@ -325,9 +424,12 @@ export default class extends Controller {
   switchMode(event) { this.setMode(event.currentTarget.dataset.mode) }
   setMode(mode) {
     if (!this.richEditor || !["rich", "markdown", "dual"].includes(mode) || mode === this.mode || this.composing) return
+    const sourceSelection = this.editor?.sourceSelection()
     if (mode !== "rich" && !this.rawEditor) this.rawEditor = this.richModule.createMarkdownDocument(this.rawSurfaceTarget, this.textareaTarget.value,
       content => this.editorChanged("markdown", content))
     this.mode = mode
+    this.element.querySelectorAll(".document-editor__mode [data-mode]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.mode === mode)))
+    if (this.inlineValue) this.element.querySelectorAll(".document-editor__inline-mode [data-mode]").forEach(button => { button.hidden = button.dataset.mode === mode })
     try { sessionStorage.setItem(`coplan-editor-mode-${this.userIdValue}`, mode) } catch {}
     this.editor = mode === "markdown" ? this.rawEditor : this.richEditor
     this.updateEditors(this.textareaTarget.value)
@@ -336,7 +438,10 @@ export default class extends Controller {
     this.element.dataset.mode = mode
     this.surfaceTarget.querySelectorAll(".document-editor__code-language").forEach(input => { input.disabled = mode === "markdown" })
     this.element.querySelectorAll("[data-mode]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.mode === mode)))
-    this.editor.view.focus()
+    if (this.inlineVisible) {
+      if (sourceSelection) (this.editor === this.rawEditor ? this.rawEditor.select(sourceSelection.from, sourceSelection.to) : this.richEditor.selectSource(sourceSelection.from, sourceSelection.to))
+      else this.editor.view.focus()
+    }
     this.updateToolbar(this.richEditor.toolbarState())
   }
   get composing() { return !!(this.richEditor?.view.composing || this.rawEditor?.view.composing) }
@@ -351,6 +456,7 @@ export default class extends Controller {
     // Never round-trip a composing DOM or the source of the transaction.
     if (!this.composing) counterpart?.update(content)
     this.input()
+    if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-content-changed", { bubbles: true }))
   }
   updateEditors(content) {
     this.richEditor?.update(content)
@@ -456,6 +562,17 @@ export default class extends Controller {
     const range = this.richEditor.sourceRange(position)
     this.setMode("markdown")
     if (range) this.rawEditor.select(range.from, range.to)
+  }
+  async copyBlock(event) {
+    const position = event.currentTarget.closest(".document-editor__block").coplanPosition()
+    const range = this.richEditor.sourceRange(position)
+    if (!range) return
+    try {
+      await navigator.clipboard.writeText(this.richEditor.content().slice(range.from, range.to))
+      const button = event.currentTarget
+      button.textContent = "Copied"
+      setTimeout(() => { if (button.isConnected) button.textContent = "Copy" }, 1400)
+    } catch { this.setStatus("Could not copy this block", "error") }
   }
   languageInput(event) { this.languageChanged(event) }
   languageChanged(event) {

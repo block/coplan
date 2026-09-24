@@ -16,6 +16,8 @@ export default class extends Controller {
     // re-sync the title copy from it.
     this.masthead = document.querySelector(".plan-masthead")
     this.textEl = this.element.querySelector(".site-nav__doc-title-text")
+    this.editEl = this.element.querySelector(".site-nav__edit")
+    if (this.editEl) this.editEl.hidden = !document.querySelector('#plan-toolbar a[title^="Edit this document"]')
     this._observeAnchor()
 
     if (this.masthead) {
@@ -40,6 +42,11 @@ export default class extends Controller {
   scrollToTop(event) {
     event.preventDefault()
     window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  edit(event) {
+    event.preventDefault()
+    document.dispatchEvent(new CustomEvent("coplan:edit-request"))
   }
 
   // (Re)bind the IntersectionObserver to the current header element. Only

@@ -19,6 +19,7 @@ pin "prosemirror-history", to: "https://esm.sh/prosemirror-history@1.4.1?bundle&
 pin "prosemirror-schema-list", to: "https://esm.sh/prosemirror-schema-list@1.5.1?bundle&external=prosemirror-model,prosemirror-state,prosemirror-view,prosemirror-transform,prosemirror-commands,prosemirror-keymap,prosemirror-history,prosemirror-schema-list,prosemirror-markdown", preload: false
 pin "prosemirror-markdown", to: "https://esm.sh/prosemirror-markdown@1.13.2?bundle&external=prosemirror-model,prosemirror-state,prosemirror-view,prosemirror-transform,prosemirror-commands,prosemirror-keymap,prosemirror-history,prosemirror-schema-list,prosemirror-markdown", preload: false
 pin "coplan/rich_document", to: "coplan/rich_document.js", preload: false
+pin "coplan/viewport_anchor", to: "coplan/viewport_anchor.js", preload: false
 pin "diff", to: "https://esm.sh/diff@8.0.2?bundle", preload: false
 pin "coplan/merge_text", to: "coplan/merge_text.js", preload: false
 

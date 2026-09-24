@@ -1,0 +1,20 @@
+<div id="plan-threads" data-coplan--text-selection-target="threads"
+     data-controller="coplan--viewer-role"
+     data-coplan--viewer-role-viewer-id-value="<%= current_user&.id %>">
+  <% threads.each do |thread| %>
+    <%= render partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: plan } %>
+  <% end %>
+</div>
+<%= render "coplan/plans/general_comments", threads: threads %>
+<% displaced = threads.select { |thread| thread.out_of_date? && thread.anchor_kind.blank? } %>
+<aside id="plan-detached-comments" class="detached-comments" aria-label="Comments needing a new anchor"<%= " hidden" if displaced.empty? %>>
+  <% if displaced.any? %>
+    <strong>Comments needing a new anchor</strong>
+    <p>The quoted text changed. These comments are kept in the document history.</p>
+    <% displaced.each do |thread| %>
+      <button type="button" data-thread-id="<%= dom_id(thread) %>" data-action="coplan--text-selection#openDetachedThread">
+        <%= thread.anchor_preview %><% if thread.closed? %> · resolved<% end %>
+      </button>
+    <% end %>
+  <% end %>
+</aside>

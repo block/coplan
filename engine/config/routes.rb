@@ -48,6 +48,8 @@ CoPlan::Engine.routes.draw do
     resources :plans, only: [ :new, :create, :update ] do
       post :preview_draft, on: :collection
       get :editor_state, on: :member
+      get :content_body, on: :member
+      get :comments_body, on: :member
       post :editor_lease, on: :member
       delete :editor_lease, on: :member
       patch :publish, on: :member

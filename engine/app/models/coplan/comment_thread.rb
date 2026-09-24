@@ -74,6 +74,17 @@ module CoPlan
         Plans::SourceTargets.new(new_version.content_markdown).ranges
       end
 
+      stripped_positions = nil
+      source_positions = nil
+      visible_text_at = lambda do |range|
+        stripped, positions = (stripped_positions ||= strip_markdown(new_version.content_markdown))
+        # Synthetic separators map to -1. Drop them once so each comment
+        # can find its source bounds without scanning the whole document.
+        source_positions ||= positions.each_with_index.filter_map { |position, index| [ position, index ] if position >= 0 }
+        from = source_positions.bsearch { |position, _| position >= range[0] }&.last
+        to = source_positions.bsearch { |position, _| position >= range[1] }&.last || positions.length
+        from ? fold_anchor(stripped[from...to].to_s).strip : ""
+      end
       anchored_threads.each do |thread|
         unless thread.anchor_start.present? && thread.anchor_end.present? && thread.anchor_revision.present?
           thread.update_columns(out_of_date: true, out_of_date_since_version_id: new_version.id)
@@ -83,17 +94,32 @@ module CoPlan
         intervening = all_versions.select { |v| v.revision > thread.anchor_revision && v.revision <= new_version.revision }
 
         begin
-          new_range = Plans::TransformRange.transform_through_versions(
+          new_range, touched = Plans::TransformRange.transform_comment_through_versions(
             [ thread.anchor_start, thread.anchor_end ],
             intervening
           )
           if thread.anchor_kind.present? && !source_ranges.include?([ thread.anchor_kind, *new_range ])
             raise Plans::TransformRange::Conflict, "Source element no longer exists"
           end
+          new_anchor = if touched && thread.anchor_kind.nil?
+            selected = visible_text_at.call(new_range)
+            original = fold_anchor(thread.anchor_text).strip
+            prefix = 0
+            prefix += 1 while prefix < [ selected.length, original.length ].min && selected[prefix] == original[prefix]
+            suffix = 0
+            suffix += 1 while suffix < [ selected.length, original.length ].min - prefix && selected[-suffix - 1] == original[-suffix - 1]
+            insertion_inside = prefix.positive? && suffix.positive? && prefix + suffix == original.length
+            deletion_inside = prefix.positive? && suffix.positive? && prefix + suffix == selected.length &&
+              selected.length >= [ 3, (original.length * 0.3).ceil ].max
+            small_change = prefix + suffix >= original.length - 8
+            raise Plans::TransformRange::Conflict if selected.blank? || !(insertion_inside || deletion_inside || small_change)
+            selected
+          end
           thread.update_columns(
             anchor_start: new_range[0],
             anchor_end: new_range[1],
-            anchor_revision: new_version.revision
+            anchor_revision: new_version.revision,
+            **(touched && thread.anchor_kind.nil? ? { anchor_text: new_anchor } : {})
           )
         rescue Plans::TransformRange::Conflict
           thread.update_columns(
@@ -101,6 +127,22 @@ module CoPlan
             out_of_date_since_version_id: new_version.id
           )
         end
+      end
+
+      # An undo can restore the exact quote at its original source range
+      # after a previous version marked it out of date. Reattach only at
+      # that stored position; searching for matching text elsewhere could
+      # move the comment to the wrong passage.
+      where(out_of_date: true).each do |thread|
+        next if thread.anchor_kind.present?
+        next unless thread.anchored? && thread.anchor_start.present? && thread.anchor_end.present?
+        next unless visible_text_at.call([ thread.anchor_start, thread.anchor_end ]) == fold_anchor(thread.anchor_text).strip
+
+        thread.update_columns(
+          out_of_date: false,
+          out_of_date_since_version_id: nil,
+          anchor_revision: new_version.revision
+        )
       end
     end
 

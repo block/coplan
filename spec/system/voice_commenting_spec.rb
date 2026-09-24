@@ -151,6 +151,45 @@ RSpec.describe "Voice commenting", type: :system do
     expect(body).to include("too vague")
   end
 
+  it "shows an unanchored voice remark as a document comment and opens it" do
+    content = (1..35).map { |number| "Note #{number} without a heading." }.join("\n\n")
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    allow(CoPlan::Ai).to receive(:call).and_return({ "text" => "The whole document needs another pass.", "span" => nil }.to_json)
+    stub_speech_recognition("the whole document needs another pass")
+    visit_plan
+    page.execute_script("document.querySelectorAll('#plan-content-body p')[20].scrollIntoView({block: 'center'})")
+    scroll_before = page.evaluate_script("window.scrollY")
+
+    find(".voice-btn").click
+
+    expect(page).to have_css(".voice-status", text: /Comment added to document/, wait: 10)
+    thread = CoPlan::CommentThread.where(plan_id: plan.id).last
+    expect(thread.anchor_text).to be_nil
+    expect(page).to have_css("#plan-general-comments", text: "The whole document needs another pass.", wait: 10)
+    expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "The whole document needs another pass.", wait: 10)
+    expect(page.evaluate_script("window.scrollY")).to be_within(24).of(scroll_before)
+  end
+
+  it "pins an explicit paragraph number during inline editing when interpretation has no span" do
+    numbered = "# Notes\n\n" + (1..12).map { |number| "Paragraph #{number}: review this sentence." }.join("\n\n")
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: numbered,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    allow(CoPlan::Ai).to receive(:call).and_return({ "text" => "Paragraph 10 should be removed.", "span" => nil }.to_json)
+    stub_speech_recognition("Paragraph 10 should be removed")
+    visit_plan
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 10)
+
+    find(".voice-btn").click
+
+    expect(page).to have_css(".voice-status", text: /Comment added to “Paragraph 10”/, wait: 10)
+    thread = CoPlan::CommentThread.where(plan_id: plan.id).last
+    expect(thread.reload.anchor_text).to eq("Paragraph 10")
+    expect(page).to have_css(".inline-editor mark[data-thread-id='comment_thread_#{thread.id}']", text: "Paragraph 10", wait: 10)
+    expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Paragraph 10 should be removed.", wait: 10)
+  end
+
   # The default key, and the reason it's the default: a chord is nobody's
   # accident, so it needs none of the hold-delay hedging a bare modifier
   # does — the press means talk.

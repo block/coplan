@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { captureViewport, restoreViewport } from "coplan/viewport_anchor"
 
 /*
  * coplan--live-update
@@ -71,14 +72,27 @@ export default class extends Controller {
       if (hasDirtyDrafts()) {
         showStaleBanner(target, incomingRevision)
       } else {
+        const viewport = captureViewport(target)
         const oldSections = snapshotSections(target, changedKeys)
         target.replaceChildren(fragment)
         if (incomingRevision) {
           target.setAttribute("data-coplan--live-update-revision-value", String(incomingRevision))
         }
         target.dispatchEvent(new CustomEvent("coplan:content-updated", { bubbles: true }))
+        restoreViewport(target, viewport)
+        // Browser scroll anchoring and async layout (fonts/diagrams) can run
+        // after the synchronous swap. Reconcile the same passage once layout
+        // has settled instead of letting that native adjustment move the reader.
+        requestAnimationFrame(() => restoreViewport(target, viewport))
         clearStaleBanner()
-        if (changedKeys.length > 0) flashChangedSections(target, changedKeys, oldSections)
+        if (changedKeys.length > 0) {
+          const offscreenKeys = flashChangedSections(target, changedKeys, oldSections)
+          if (offscreenKeys.length > 0) {
+            target.dispatchEvent(new CustomEvent("coplan:remote-change", {
+              bubbles: true, detail: { keys: offscreenKeys }
+            }))
+          }
+        } else refreshAnchors(target)
       }
     }
 
@@ -168,6 +182,7 @@ function snapshotSections(root, keys) {
 function flashChangedSections(root, keys, oldSections) {
   const wanted = new Set(keys)
   const flashed = []
+  const offscreen = new Set()
 
   for (const [key, blocks] of sectionBlocks(root)) {
     if (!wanted.has(key)) continue
@@ -187,6 +202,8 @@ function flashChangedSections(root, keys, oldSections) {
         block.classList.add("agent-flash-block")
       }
       flashed.push(block)
+      const rect = block.getBoundingClientRect()
+      if (rect.bottom <= 0 || rect.top >= window.innerHeight) offscreen.add(key)
     })
   }
 
@@ -194,8 +211,13 @@ function flashChangedSections(root, keys, oldSections) {
     // Deliberately no scrollIntoView: a remote edit must never move a reader
     // who didn't ask to navigate. On-screen changes flash; off-screen ones
     // settle unseen, and that's fine.
-    setTimeout(() => settleFlashes(root), FLASH_MS)
-  }
+    setTimeout(() => { settleFlashes(root); refreshAnchors(root) }, FLASH_MS)
+  } else refreshAnchors(root)
+  return Array.from(offscreen)
+}
+
+function refreshAnchors(root) {
+  if (root.id === "plan-content-body") root.dispatchEvent(new CustomEvent("coplan:highlight-settled", { bubbles: true }))
 }
 
 // Word-level flash for a plain-text block: rebuild its text as a
