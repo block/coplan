@@ -4,8 +4,8 @@ Gem::Specification.new do |spec|
   spec.name = "coplan-slack"
   spec.version = CoPlan::Slack::VERSION
   spec.authors = [ "Block" ]
-  spec.summary = "Optional Slack link previews for CoPlan"
-  spec.description = "A Rails engine that adds Slack link unfurling to a CoPlan deployment."
+  spec.summary = "Optional Slack integration for CoPlan"
+  spec.description = "A Rails engine that adds Slack link previews and notification DMs to a CoPlan deployment."
   spec.homepage = "https://github.com/block/coplan"
   spec.license = "Apache-2.0"
   spec.required_ruby_version = ">= 3.2"

@@ -8,6 +8,7 @@ module CoPlan
     attr_accessor :ai_base_url, :ai_api_key, :ai_model
     attr_accessor :error_reporter
     attr_accessor :notification_handler
+    attr_reader :notification_delivery_handlers
 
     # Lambda invoked for every analytics event tracked via
     # `CoPlan::Analytics.track`. Receives (event_name, payload_hash).
@@ -132,6 +133,7 @@ module CoPlan
       @ai_model = "gpt-4o"
       @error_reporter = ->(exception, context) { Rails.error.report(exception, context: context) }
       @notification_handler = nil
+      @notification_delivery_handlers = []
       @track_event = nil
       @onboarding_banner = 'Want to upload Agentic plans? Give your agent <a href="/agent-instructions">these instructions</a>.'
       @agent_curl_prefix = 'curl -s -H "Authorization: Bearer $TOKEN"'

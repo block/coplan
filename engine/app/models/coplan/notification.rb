@@ -14,6 +14,7 @@ module CoPlan
     scope :newest_first, -> { order(created_at: :desc) }
 
     after_commit :enqueue_web_push_deliveries, on: :create
+    after_commit :enqueue_adapter_deliveries, on: :create
 
     def read?
       read_at.present?
@@ -32,6 +33,10 @@ module CoPlan
     end
 
     private
+
+    def enqueue_adapter_deliveries
+      DispatchNotificationJob.perform_later(id) if CoPlan.configuration.notification_delivery_handlers.any?
+    end
 
     # Fan-out one WebPushDeliveryJob per active subscription belonging to the
     # recipient. Quietly skips when Web Push isn't configured (host hasn't

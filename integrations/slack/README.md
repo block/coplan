@@ -23,6 +23,26 @@ CoPlan::Slack.configure do |config|
 end
 ```
 
+To send comment and reply DMs in a host that does not use link unfurls,
+configure these three values:
+
+```ruby
+CoPlan::Slack.configure do |config|
+  config.bot_token = ENV["SLACK_BOT_TOKEN"]
+  config.base_url = ENV["COPLAN_BASE_URL"]
+  config.notifications_enabled = true
+end
+```
+
+`signing_secret` is only for inbound link unfurls. If the host already uses
+link unfurls, add `notifications_enabled = true` to its existing block.
+The adapter uses CoPlan's
+persisted notification recipients, waits two minutes to group comments in the
+same thread for each recipient, and skips DMs when the recipient has already
+cleared the on-site notification. Edits, status changes, and agent responses
+do not send Slack DMs. The Slack app needs `users:read.email` and `chat:write`
+bot scopes. Use a shared Rails cache store to coalesce bursts across workers.
+
 Point Slack's Events API request URL at `/integrations/slack/events`. Configure the `links:read` and `links:write` bot scopes, subscribe to `link_shared`, and register the CoPlan domain under **App unfurl domains**. The endpoint must be reachable from Slack over HTTPS.
 
 ## Brand the Slack app

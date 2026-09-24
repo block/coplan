@@ -18,7 +18,7 @@ module CoPlan
         ekm_access_denied invalid_arguments invalid_auth invalid_blocks invalid_source
         invalid_unfurl_id invalid_unfurls_format is_bot missing_channel missing_scope
         missing_source missing_ts missing_unfurl_id missing_unfurls no_permission not_authed
-        not_in_channel team_access_not_granted token_expired token_revoked
+        not_in_channel team_access_not_granted token_expired token_revoked users_not_found
       ].freeze
 
       def initialize(token:, client: nil)
@@ -26,7 +26,21 @@ module CoPlan
       end
 
       def chat_unfurl(**arguments)
-        @client.chat_unfurl(**arguments)
+        request { @client.chat_unfurl(**arguments) }
+      end
+
+      def users_lookup_by_email(email:)
+        request { @client.users_lookupByEmail(email: email) }
+      end
+
+      def chat_post_message(**arguments)
+        request { @client.chat_postMessage(**arguments) }
+      end
+
+      private
+
+      def request
+        yield
       rescue ::Slack::Web::Api::Errors::TooManyRequestsError => error
         raise RateLimitedError.new(error.retry_after)
       rescue ::Slack::Web::Api::Errors::SlackError => error
