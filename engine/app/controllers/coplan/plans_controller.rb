@@ -1,6 +1,6 @@
 module CoPlan
   class PlansController < ApplicationController
-    before_action :set_plan, only: [ :show, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :update_content, :preview, :editor_lease, :editor_state ]
+    before_action :set_plan, only: [ :show, :content_body, :comments_body, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :update_content, :preview, :editor_lease, :editor_state ]
     # /plans/<uuid> is the legacy address; the readable one is canonical.
     # `only: [ :show ]` matters twice over — it's also why BrowseController,
     # which calls `show` as a method from its own action, doesn't bounce
@@ -150,11 +150,27 @@ module CoPlan
       # References section.
       @references = @plan.references.order(reference_type: :asc, created_at: :desc)
       @attachments = @plan.attachments_attachments.includes(:blob).order(created_at: :desc)
+      @draft_content = @plan.current_content.to_s
+      @base_revision = @plan.current_revision
       # Order matters: compute the one-time "changed since you last looked"
       # highlights against the old last_seen_at, then advance it — so the
       # next visit renders clean.
       @changed_sections = changed_sections_since_last_visit
       record_visit unless prefetch_request?
+    end
+
+    def content_body
+      authorize!(@plan, :show?)
+      response.headers["Cache-Control"] = "no-store"
+      response.headers["X-CoPlan-Revision"] = @plan.current_revision.to_s
+      render partial: "coplan/plans/content_body", locals: { plan: @plan }, layout: false
+    end
+
+    def comments_body
+      authorize!(@plan, :show?)
+      response.headers["Cache-Control"] = "no-store"
+      @threads = @plan.comment_threads.with_kept_comments.includes({ comments: :agent_harness }, :created_by_user).order(:created_at)
+      render partial: "coplan/plans/thread_collection", locals: { plan: @plan, threads: @threads }, layout: false
     end
 
     # A full page (reached from the header's clock icon), not a tab —

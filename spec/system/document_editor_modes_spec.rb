@@ -51,6 +51,56 @@ RSpec.describe "Document editor modes", type: :system do
     expect(result).to eq("| A | B |\n|---|---|\n| 1 | 2 |\n")
   end
 
+  it "keeps the caret on the same characters when switching between Editor and Markdown" do
+    markdown = "# Draft\n\nBefore **bold** after.\n\n[link](https://example.com) tail.\n\n```ruby\nputs :hello\nconst message = `Hello`;\n```\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: markdown,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    open_editor
+
+    { "Draft" => 2, "bold" => 2, "link" => 2, "puts" => 2, "Hello" => 2 }.each do |text, offset|
+      page.execute_script(<<~JS, text, offset)
+        const [text, offset] = arguments
+        const node = [...document.querySelectorAll('.document-editor__body .ProseMirror *')]
+          .flatMap(element => [...element.childNodes])
+          .find(node => node.nodeType === Node.TEXT_NODE && node.textContent.includes(text))
+        const range = document.createRange()
+        range.setStart(node, node.textContent.indexOf(text) + offset)
+        range.collapse(true)
+        const selection = window.getSelection()
+        selection.removeAllRanges()
+        selection.addRange(range)
+      JS
+      click_button "Raw", exact: true
+      expect(page.evaluate_script("window.getSelection().anchorOffset")).to eq(markdown.index(text) + offset)
+
+      click_button "Editor", exact: true
+      expect(page.evaluate_script("window.getSelection().anchorNode.textContent")).to include(text)
+      expect(page.evaluate_script("window.getSelection().anchorOffset - window.getSelection().anchorNode.textContent.indexOf(arguments[0])", text)).to eq(offset)
+    end
+  end
+
+  it "copies and pastes table and Mermaid blocks as Markdown with their types intact" do
+    open_editor
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0]
+      Promise.all([import("coplan/rich_document"), import("prosemirror-state")]).then(([m, state]) => {
+        const first = m.createRichDocument(document.createElement("div"),
+          "| Name | State |\n| --- | --- |\n| Alpha | Ready |\n\n```mermaid\ngraph LR; A-->B\n```\n", () => {})
+        first.view.dispatch(first.view.state.tr.setSelection(new state.AllSelection(first.view.state.doc)))
+        const clipboard = new DataTransfer()
+        first.view.dom.dispatchEvent(new ClipboardEvent("copy", { clipboardData: clipboard, bubbles: true, cancelable: true }))
+        const second = m.createRichDocument(document.createElement("div"), "", () => {})
+        second.view.dom.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }))
+        const result = { copied: clipboard.getData("text/plain"), pasted: second.content() }
+        first.destroy(); second.destroy(); done(result)
+      }).catch(error => done({ error: error.message }))
+    JS
+    expect(result).not_to have_key("error")
+    expect(result.fetch("copied")).to include("| Alpha | Ready |", "```mermaid")
+    expect(result.fetch("pasted")).to include("| Alpha | Ready |", "```mermaid", "graph LR; A-->B")
+    expect(result.fetch("pasted")).not_to include("Preserved Markdown block")
+  end
+
   it "previews tables and diagrams and switches source modes without rewriting a byte" do
     open_editor
     expect(page).to have_css(".document-editor__block table", text: "Ready")
@@ -58,7 +108,7 @@ RSpec.describe "Document editor modes", type: :system do
     expect(page).not_to have_button("Save")
     expect(page).not_to have_link("Done")
     expect(page).not_to have_content("Edit origin")
-    find(".document-editor__block", text: "Table ·").click_button("Edit Markdown")
+    find(".document-editor__block", text: "Table").click_button("Edit Markdown")
     expect(raw).to have_text("| Draft | Ready |")
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
     click_button "Editor"

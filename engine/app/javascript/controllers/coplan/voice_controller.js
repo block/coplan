@@ -558,6 +558,11 @@ export default class extends Controller {
 
   async _submit({ transcript, audio, durationMs }) {
     this._setStatus(audio ? "Transcribing…" : "Tidying up…")
+    const editorForm = document.querySelector('[data-editing="true"] .inline-editor form.document-editor')
+    if (editorForm) {
+      const editor = window.Stimulus?.getControllerForElementAndIdentifier(editorForm, "coplan--editor")
+      if (!editor || !await editor.flush(true)) { this._setStatus("Save the document before commenting by voice", true); return }
+    }
     // Sampled before the round trip: the viewport at the moment of
     // release is the best evidence of what the remark was about.
     this.focus = this._focus()
@@ -586,7 +591,7 @@ export default class extends Controller {
       // The heading fallback is for the remark as a whole; only the first
       // comment takes it. A second unanchorable comment posts unpinned
       // rather than piling onto the same heading.
-      let anchor = comment.anchor || (index === 0 ? this._viewportAnchor() : null)
+      let anchor = comment.anchor || (index === 0 ? this._mentionedParagraphAnchor(transcript || interpreted?.transcript || comment.body) || this._viewportAnchor() : null)
 
       let response = await this._postComment(comment.body, anchor)
 
@@ -617,7 +622,7 @@ export default class extends Controller {
     // several, the first opens and the count says to look for the rest.
     const first = posted.find((p) => p.threadId)
     if (first) {
-      this.dispatch("open-thread", { prefix: "coplan", detail: { threadId: first.threadId } })
+      this.dispatch("open-thread", { prefix: "coplan", detail: { threadId: first.threadId, origin: "voice" } })
     }
 
     // State what happened, and nothing more. Whether an agent picks this
@@ -626,7 +631,7 @@ export default class extends Controller {
     this.awaitingAck = true
     this._setStatus(posted.length > 1
       ? `${posted.length} comments added`
-      : (posted[0].anchor ? `Comment added to “${this._truncate(posted[0].anchor.text)}”` : "Comment added"))
+      : (posted[0].anchor ? `Comment added to “${this._truncate(posted[0].anchor.text)}”` : "Comment added to document"))
     setTimeout(() => {
       this.awaitingAck = false
       this._setStatus("")
@@ -688,7 +693,7 @@ export default class extends Controller {
       const comments = (data.comments || [])
         .filter((c) => c.body)
         .map((c) => ({ body: c.body, anchor: this._resolveAnchor(c.anchor_text, seen) }))
-      return { comments }
+      return { comments, transcript: data.transcript }
     } catch {
       return null
     } finally {
@@ -712,12 +717,28 @@ export default class extends Controller {
   _resolveAnchor(anchorText, seen = new Map()) {
     if (!anchorText) return null
 
-    const content = document.getElementById("plan-content-body")
+    const content = this._contentRoot()
     if (!content?.textContent?.includes(anchorText)) return null
 
     const priorUses = seen.get(anchorText) || 0
     seen.set(anchorText, priorUses + 1)
     return { text: anchorText, occurrence: this._occurrenceOfNearViewport(content, anchorText) + priorUses }
+  }
+
+  // A spoken paragraph number is an explicit location, even when the
+  // interpreter could not quote a span from its viewport excerpt. Use it
+  // only when exactly one paragraph carries that label in the document.
+  _mentionedParagraphAnchor(spoken) {
+    const reference = spoken?.match(/\bparagraph\s+(\d+)\b/i)
+    if (!reference) return null
+    const rich = document.querySelector('[data-editing="true"] .inline-editor .document-editor__body .ProseMirror') ||
+      document.getElementById("plan-content-body")
+    if (!rich) return null
+    const matches = Array.from(rich.querySelectorAll("p"), paragraph => paragraph.textContent.trim())
+      .filter(text => new RegExp(`^paragraph\\s+${reference[1]}\\b`, "i").test(text))
+    if (matches.length !== 1) return null
+    const phrase = matches[0].match(new RegExp(`^paragraph\\s+${reference[1]}\\b`, "i"))?.[0]
+    return phrase && rich.textContent.split(phrase).length === 2 ? { text: phrase, occurrence: 1 } : null
   }
 
   // Fallback tidy-up for when the interpret call fails: drop the tics
@@ -780,9 +801,16 @@ export default class extends Controller {
   }
 
   _allBlocks() {
-    const content = document.getElementById("plan-content-body")
+    const content = this._contentRoot()
     if (!content) return []
     return Array.from(content.querySelectorAll("h1, h2, h3, h4, h5, h6, p, li, blockquote, pre, td"))
+      .filter(el => !el.closest(".document-editor__block-header"))
+  }
+
+  _contentRoot() {
+    return document.querySelector('[data-editing="true"] .inline-editor .document-editor__body:not([hidden]) .ProseMirror') ||
+      document.querySelector('[data-editing="true"] .inline-editor .document-editor__raw:not([hidden]) .ProseMirror') ||
+      document.getElementById("plan-content-body")
   }
 
   _visibleBlocks() {
@@ -820,7 +848,7 @@ export default class extends Controller {
   // above the reading line, so scrolling mid-section still pins to that
   // section rather than to the one coming up.
   _viewportAnchor() {
-    const content = document.getElementById("plan-content-body")
+    const content = this._contentRoot()
     if (!content) return null
 
     const headings = Array.from(content.querySelectorAll("h1, h2, h3, h4, h5, h6"))

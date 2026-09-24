@@ -28,7 +28,10 @@
     between the document and its footnote sections. Cold opens (direct link,
     new tab) have no history — fall back to the folder the plan actually
     lives in, not the workspace root. %>
-<div data-controller="coplan--plan-keys coplan--folder-picker"
+<div data-controller="coplan--plan-keys coplan--folder-picker coplan--inline-editor"
+     data-action="coplan:edit-request@document->coplan--inline-editor#open coplan:editor-ready->coplan--inline-editor#ready coplan:editor-closed->coplan--inline-editor#closed coplan:editor-error->coplan--inline-editor#error coplan:editor-saved->coplan--inline-editor#refreshThreads"
+     data-coplan--inline-editor-content-url-value="<%= content_body_plan_path(@plan) %>"
+     data-coplan--inline-editor-comments-url-value="<%= comments_body_plan_path(@plan) %>"
      data-coplan--plan-keys-fallback-url-value="<%= @placement ? folder_browse_path(@placement.folder) : library_browse_path(@plan.library) %>">
 
 <%# The masthead: the plan's identity (broadcast-replaced #plan-header)
@@ -49,7 +52,7 @@
 
 <div class="plan-document card">
   <% if @plan.current_content.present? %>
-    <div class="plan-layout plan-layout--hide-resolved" data-controller="coplan--source-comments coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="coplan:source-thread->coplan--source-comments#openThread coplan:resolved-visibility->coplan--source-comments#resolvedVisibilityChanged coplan:diagram-moved->coplan--source-comments#positionPanel keydown.esc@document->coplan--source-comments#dismiss:capture turbo:before-cache@document->coplan--source-comments#beforeCache coplan:mermaid-settled->coplan--source-comments#refresh coplan:content-updated->coplan--source-comments#refresh coplan:expander-opened->coplan--source-comments#refresh coplan:expander-closing->coplan--source-comments#expanderClosing keydown@document->coplan--text-selection#selectionKey keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread coplan:content-updated->coplan--content-nav#contentUpdated" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_sections.keys.to_json %>" data-coplan--changed-sections-rewritten-value="<%= @changed_sections.rewritten? %>" data-coplan--changed-sections-history-url-value="<%= plan_history_browse_path(@plan) %>">
+    <div class="plan-layout plan-layout--hide-resolved" data-controller="coplan--source-comments coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="coplan:source-thread->coplan--source-comments#openThread coplan:resolved-visibility->coplan--source-comments#resolvedVisibilityChanged coplan:diagram-moved->coplan--source-comments#positionPanel keydown.esc@document->coplan--source-comments#dismiss:capture turbo:before-cache@document->coplan--source-comments#beforeCache coplan:mermaid-settled->coplan--source-comments#refresh coplan:content-updated->coplan--source-comments#refresh coplan:expander-opened->coplan--source-comments#refresh coplan:expander-closing->coplan--source-comments#expanderClosing keydown@document->coplan--text-selection#selectionKey keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread coplan:content-updated->coplan--content-nav#contentUpdated coplan:remote-change->coplan--content-nav#remoteChange coplan:editor-content-changed->coplan--content-nav#editorContentChanged coplan:editor-preview-settled->coplan--text-selection#editorPreviewSettled coplan:mermaid-settled->coplan--text-selection#editorPreviewSettled" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_sections.keys.to_json %>" data-coplan--changed-sections-rewritten-value="<%= @changed_sections.rewritten? %>" data-coplan--changed-sections-history-url-value="<%= plan_history_browse_path(@plan) %>">
       <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
         <%# No "Contents" label — the outline speaks for itself, and the plan
             title now lives in the sticky nav. Just the collapse control. %>
@@ -103,26 +106,32 @@
         <%# Selection-to-comment is scoped to this inner wrapper: the back
             matter below shares the column but must not offer comment
             anchors — they'd never resolve against the document body. %>
-        <div data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-action="coplan:mermaid-settled->coplan--text-selection#handleContentSettled coplan:highlight-settled->coplan--text-selection#handleContentSettled">
+        <div data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-coplan--inline-editor-target="reader" data-action="coplan:mermaid-settled->coplan--text-selection#handleContentSettled coplan:highlight-settled->coplan--text-selection#handleContentSettled">
           <div id="plan-content-body"
                data-controller="coplan--live-update"
                data-coplan--live-update-revision-value="<%= @plan.current_revision %>">
             <%= render partial: "coplan/plans/content_body", locals: { plan: @plan } %>
           </div>
 
-          <div class="comment-popover" data-coplan--text-selection-target="popover" style="display: none;">
-            <button type="button" class="comment-popover__action" data-action="coplan--text-selection#openCommentForm" title="Comment on selected text (C)">
-              <%# Lucide message-circle-plus, copyright 2026 Lucide Icons, ISC license. %>
-              <svg class="comment-popover__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>
-                <path d="M8 12h8M12 8v8"/>
-              </svg>
-              Comment <kbd>C</kbd>
-            </button>
-          </div>
 
-          <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
         </div>
+        <% if allowed_to?(@plan, :edit_content?) && !@plan.presentation? %>
+          <div class="inline-editor" data-coplan--inline-editor-target="editor" hidden>
+            <template data-coplan--inline-editor-target="template"><%= render "coplan/plans/editor_form", inline_editor: true %></template>
+          </div>
+          <p class="inline-editor__error" data-coplan--inline-editor-target="error" role="alert" hidden></p>
+        <% end %>
+        <div class="comment-popover" data-coplan--text-selection-target="popover" style="display: none;">
+          <button type="button" class="comment-popover__action" data-action="coplan--text-selection#openCommentForm" title="Comment on selected text (C)">
+            <%# Lucide message-circle-plus, copyright 2026 Lucide Icons, ISC license. %>
+            <svg class="comment-popover__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>
+              <path d="M8 12h8M12 8v8"/>
+            </svg>
+            Comment <kbd>C</kbd>
+          </button>
+        </div>
+        <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
         <% if @plan.presentation? %>
         </div>
         <% end %>
@@ -147,13 +156,7 @@
         <%= render partial: "coplan/comment_threads/source_comments", locals: { plan: @plan } %>
       </div>
 
-      <div id="plan-threads" data-coplan--text-selection-target="threads"
-           data-controller="coplan--viewer-role"
-           data-coplan--viewer-role-viewer-id-value="<%= current_user&.id %>">
-        <% @threads.select(&:anchored?).each do |thread| %>
-          <%= render partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: @plan } %>
-        <% end %>
-      </div>
+      <%= render "coplan/plans/thread_collection", plan: @plan, threads: @threads %>
     </div>
   <% else %>
     <div class="empty-state">

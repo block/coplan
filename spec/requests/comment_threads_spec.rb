@@ -74,24 +74,28 @@ RSpec.describe "CommentThreads", type: :request do
 
   it "broadcasts thread status changes via requestless partial render" do
     thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
-    expect(CoPlan::Broadcaster).to receive(:replace_to) do |_streamable, **kwargs|
-      expect(kwargs[:partial]).to eq("coplan/comment_threads/thread_popover")
+    partials = []
+    expect(CoPlan::Broadcaster).to receive(:replace_to).twice do |_streamable, **kwargs|
+      partials << kwargs[:partial]
       expect(kwargs[:html]).to be_nil
     end
 
     patch resolve_plan_comment_thread_path(plan, thread)
+    expect(partials).to contain_exactly("coplan/comment_threads/thread_popover", "coplan/plans/general_comments")
   end
 
   it "create general comment thread" do
     expect {
-      post plan_comment_threads_path(plan), params: {
-        comment_thread: {
-          body_markdown: "General feedback."
-        }
-      }
+      post plan_comment_threads_path(plan),
+        params: { comment_thread: { body_markdown: "General feedback." } },
+        headers: { "Accept" => "text/vnd.turbo-stream.html, text/html" }
     }.to change(CoPlan::CommentThread, :count).by(1)
     thread = CoPlan::CommentThread.last
     expect(thread.anchor_text).to be_nil
+    expect(response.body).to include("plan-general-comments", "General feedback.", "comment_thread_#{thread.id}_popover")
+
+    get plan_page_path(plan)
+    expect(response.body).to include("plan-general-comments", "General feedback.", "comment_thread_#{thread.id}_popover")
   end
 
   it "resolve thread" do

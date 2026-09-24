@@ -47,7 +47,7 @@ export default class extends Controller {
 
     // Watch for broadcast-appended threads and re-highlight
     if (this.hasThreadsTarget) {
-      this._threadsObserver = new MutationObserver(() => this.highlightAnchors())
+      this._threadsObserver = new MutationObserver(() => { this.highlightAnchors(); this.refreshEditorPreviews() })
       this._threadsObserver.observe(this.threadsTarget, { childList: true })
     }
 
@@ -78,6 +78,16 @@ export default class extends Controller {
     setTimeout(() => this.checkSelection(event), 10)
   }
 
+  handleEditorMouseUp(event) {
+    const editor = event.currentTarget.querySelector(".ProseMirror")
+    if (!editor) return
+    // The selection is usually complete at mouseup. Read it now so an
+    // editor redraw cannot clear it during the delayed fallback.
+    const selection = window.getSelection()
+    if (selection?.rangeCount && !selection.isCollapsed && editor.contains(selection.getRangeAt(0).startContainer)) this.checkSelection(event, editor)
+    else setTimeout(() => this.checkSelection(event, editor), 10)
+  }
+
   dismiss(event) {
     // Close the comment form if it's visible
     if (this.hasFormTarget && this.formTarget.style.display === "block") {
@@ -99,7 +109,7 @@ export default class extends Controller {
     }
   }
 
-  checkSelection(event) {
+  checkSelection(event, root = this.contentTarget) {
     const selection = window.getSelection()
 
     if (!selection.rangeCount) return
@@ -108,18 +118,16 @@ export default class extends Controller {
     // Make sure at least part of the selection is within the content area.
     // Whole-line selections (e.g. triple-click) can set commonAncestorContainer
     // to a parent element above contentTarget, so we check start/end individually.
-    const startInContent = this.contentTarget.contains(range.startContainer)
-    const endInContent = this.contentTarget.contains(range.endContainer)
+    const startInContent = root.contains(range.startContainer)
+    const endInContent = root.contains(range.endContainer)
     if (!startInContent) {
       return
     }
 
-    // Clamp the range to the last rendered markdown element, not the
-    // content wrapper's lastChild (which is a hidden popover/form control).
-    if (startInContent && !endInContent) {
-      const clampTarget = this.hasPopoverTarget
-        ? this.popoverTarget.previousElementSibling || this.popoverTarget.previousSibling
-        : this.contentTarget.lastChild
+    // Clamp the range to the last rendered markdown element. The selection
+    // popover lives outside this wrapper so it also works while editing.
+    if (root === this.contentTarget && startInContent && !endInContent) {
+      const clampTarget = root.lastElementChild || root.lastChild
       if (clampTarget) range.setEndAfter(clampTarget)
     }
 
@@ -133,7 +141,7 @@ export default class extends Controller {
     // Normalize whitespace (collapse runs of spaces/tabs/newlines) so the
     // stored anchor_text matches the server-side canonical form.
     const fragment = range.cloneContents()
-    fragment.querySelectorAll(NON_RENDERED_TEXT_SELECTOR).forEach(el => el.remove())
+    fragment.querySelectorAll(`${NON_RENDERED_TEXT_SELECTOR}, .document-editor__block-header, .document-editor__preview-note, .document-editor__preserved small, button, input`).forEach(el => el.remove())
     const text = this._normalizeWhitespace(fragment.textContent).trim()
 
     if (text.length < 1) {
@@ -142,12 +150,24 @@ export default class extends Controller {
     }
 
     this.selectedText = text
-    this.selectedContext = this.extractContext(range, text)
-    this.selectedOccurrence = this.computeOccurrence(range, text)
+    this.selectedContext = this.extractContext(range, text, root)
+    this.selectedOccurrence = this.computeOccurrence(range, text, root)
+    this.selectionInEditor = root !== this.contentTarget
+    if (this.selectionInEditor) {
+      const startElement = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement
+      const preview = startElement?.closest(".document-editor__block-preview[data-source-from]")
+      if (preview?.contains(range.endContainer)) {
+        const from = Number.parseInt(preview.dataset.sourceFrom, 10)
+        const source = this.element.querySelector(".inline-editor textarea[name=content]")?.value || ""
+        const earlier = source.slice(0, from).split(text).length - 1
+        this.selectedOccurrence = earlier + this.computeOccurrence(range, text, preview)
+        this.selectedContext = this.extractContext(range, text, preview)
+      }
+    }
 
     // Position popover near the selection
     const rect = range.getBoundingClientRect()
-    const contentRect = this.contentTarget.getBoundingClientRect()
+    const contentRect = this.element.querySelector(".plan-layout__content").getBoundingClientRect()
 
     this.popoverTarget.style.display = "block"
     this.popoverTarget.style.top = `${rect.bottom - contentRect.top + 8}px`
@@ -169,9 +189,15 @@ export default class extends Controller {
     this.openCommentForm(event)
   }
 
-  openCommentForm(event) {
+  async openCommentForm(event) {
     event.preventDefault()
     if (!this.selectedText) return
+
+    if (this.selectionInEditor) {
+      const form = this.element.querySelector(".inline-editor form.document-editor")
+      const editor = form && window.Stimulus?.getControllerForElementAndIdentifier(form, "coplan--editor")
+      if (!editor || !await editor.flush(true)) return
+    }
 
     // Set the anchor text, surrounding context, and occurrence index
     this.anchorInputTarget.value = this.selectedText
@@ -256,6 +282,7 @@ export default class extends Controller {
     this.selectedText = null
     this.selectedContext = null
     this.selectedOccurrence = null
+    this.selectionInEditor = false
   }
 
   scrollToAnchor(event) {
@@ -284,6 +311,64 @@ export default class extends Controller {
     this._showThreadPopoverFor(event.currentTarget, "pinned")
   }
 
+  openEditorThread(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    this._showThreadPopoverFor(event.currentTarget, "pinned")
+  }
+
+  openDetachedThread(event) {
+    this._showThreadPopoverFor(event.currentTarget, "pinned")
+  }
+
+  editorThreadEnter(event) { this.handleMarkHoverEnter(event.currentTarget) }
+  editorThreadLeave(event) { this.handleMarkHoverLeave(event.currentTarget) }
+
+  editorPreviewSettled(event) {
+    const preview = event.target.closest(".inline-editor .document-editor__block-preview")
+    if (preview) this.highlightEditorPreview(preview)
+  }
+
+  refreshEditorPreviews() {
+    this.element.querySelectorAll(".inline-editor .document-editor__block-preview[data-source-from]")
+      .forEach(preview => this.highlightEditorPreview(preview))
+  }
+
+  highlightEditorPreview(preview) {
+    const from = Number.parseInt(preview.dataset.sourceFrom, 10)
+    const to = Number.parseInt(preview.dataset.sourceTo, 10)
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return
+
+    preview.querySelectorAll("mark.anchor-highlight").forEach(mark => mark.replaceWith(...mark.childNodes))
+    preview.normalize()
+    const fullText = this._renderedText(preview)
+    const normalized = this._buildNormalizedMap(fullText)
+    const source = this.element.querySelector(".inline-editor textarea[name=content]")?.value || ""
+
+    for (const thread of this.threadsTarget.querySelectorAll("[data-anchor-text][data-anchor-start]")) {
+      if (thread.dataset.threadOutOfDate === "true") continue
+      const start = Number.parseInt(thread.dataset.anchorStart, 10)
+      const end = Number.parseInt(thread.dataset.anchorEnd, 10)
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start < from || end > to) continue
+      const text = thread.dataset.anchorText
+      if (!text) continue
+      // Most labels are unique inside a block. If a table or diagram repeats
+      // one, count exact earlier source matches to pick the corresponding
+      // rendered occurrence rather than marking every copy.
+      const prefix = source.slice(from, start)
+      const count = prefix.split(text).length - 1
+      const match = this._findNthNormalized(fullText, text, count, normalized)
+      if (!match) continue
+      const status = thread.dataset.threadStatus || "open"
+      const marks = this.highlightAtIndexAll(match.startIndex, match.matchLength,
+        `anchor-highlight anchor-highlight--${status}`, preview)
+      marks.forEach(mark => {
+        mark.dataset.threadId = thread.id
+        mark.dataset.action = "click->coplan--text-selection#openEditorThread mouseenter->coplan--text-selection#editorThreadEnter mouseleave->coplan--text-selection#editorThreadLeave"
+      })
+    }
+  }
+
   // Fired after an async client-side content transform (Mermaid render,
   // syntax highlighting) has rewritten part of the plan body — re-anchor
   // comment highlights against the new DOM.
@@ -297,6 +382,7 @@ export default class extends Controller {
   // open treatment as arriving via ?thread=ID.
   openThread(event) {
     this._pendingThreadId = event.detail.threadId
+    this._pendingThreadOrigin = event.detail.origin
     this._openLinkedThread()
   }
 
@@ -560,9 +646,9 @@ export default class extends Controller {
     popover.style.left = `${left}px`
   }
 
-  extractContext(range, selectedText) {
+  extractContext(range, selectedText, root = this.contentTarget) {
     // Grab surrounding text for disambiguation
-    const fullText = this._renderedText()
+    const fullText = this._renderedText(root)
     const selIndex = fullText.indexOf(selectedText)
     if (selIndex === -1) return ""
 
@@ -578,7 +664,7 @@ export default class extends Controller {
     const contextAfter = 100
 
     // Use a DOM-based walk to figure out the offset in the text content
-    const offset = this.getSelectionOffset(range)
+    const offset = this.getSelectionOffset(range, root)
 
     const start = Math.max(0, offset - contextBefore)
     const end = Math.min(fullText.length, offset + selectedText.length + contextAfter)
@@ -588,9 +674,9 @@ export default class extends Controller {
   // Computes the 1-based occurrence number of the selected text in the DOM content.
   // This is sent to the server so resolve_anchor_position picks the right match.
   // Uses whitespace-normalized matching for consistency with findAndHighlight.
-  computeOccurrence(range, text) {
-    const offset = this.getSelectionOffset(range)
-    const fullText = this._renderedText()
+  computeOccurrence(range, text, root = this.contentTarget) {
+    const offset = this.getSelectionOffset(range, root)
+    const fullText = this._renderedText(root)
     const { normText, origIndices } = this._buildNormalizedMap(fullText)
     const normSearch = this._normalizeWhitespace(text)
 
@@ -607,11 +693,11 @@ export default class extends Controller {
     return count > 0 ? count : 1
   }
 
-  getSelectionOffset(range) {
-    if (!range || !this.contentTarget) return 0
+  getSelectionOffset(range, root = this.contentTarget) {
+    if (!range || !root) return 0
 
     let offset = 0
-    for (const node of this._renderedTextNodes()) {
+    for (const node of this._renderedTextNodes(root)) {
       if (range.startContainer === node) return offset + range.startOffset
       offset += node.textContent.length
     }
@@ -623,8 +709,8 @@ export default class extends Controller {
   // those inside non-rendered elements (see NON_RENDERED_TEXT_SELECTOR).
   // Anchor capture, occurrence counting, and highlighting must all walk this
   // same sequence — mixing it with raw textContent shifts every offset.
-  _renderedTextNodes() {
-    const walker = document.createTreeWalker(this.contentTarget, NodeFilter.SHOW_TEXT, null)
+  _renderedTextNodes(root = this.contentTarget) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null)
     const nodes = []
     let node
 
@@ -635,9 +721,9 @@ export default class extends Controller {
     return nodes
   }
 
-  _renderedText() {
+  _renderedText(root = this.contentTarget) {
     let text = ""
-    for (const node of this._renderedTextNodes()) text += node.textContent
+    for (const node of this._renderedTextNodes(root)) text += node.textContent
     return text
   }
 
@@ -661,7 +747,7 @@ export default class extends Controller {
 
     const threads = this.element.querySelectorAll("[data-anchor-text]")
     threads.forEach(thread => {
-      if (thread.dataset.anchorKind) return
+      if (thread.dataset.anchorKind || thread.dataset.threadOutOfDate === "true") return
       const anchor = thread.dataset.anchorText
       const occurrence = thread.dataset.anchorOccurrence
       const status = thread.dataset.threadStatus || "open"
@@ -803,7 +889,10 @@ export default class extends Controller {
         return
       }
     }
-    const mark = this.contentTarget.querySelector(`[data-thread-id="${domId}"].anchor-highlight`)
+    const activeEditor = document.querySelector('[data-editing="true"] .inline-editor .document-editor__body:not([hidden])')
+    const content = activeEditor || this.contentTarget
+    const mark = content.querySelector(`mark.anchor-highlight[data-thread-id="${domId}"]`) ||
+      this.element.querySelector(`#plan-general-comments [data-thread-id="${domId}"], #plan-detached-comments [data-thread-id="${domId}"]`)
     // Mermaid replaces its source block asynchronously. Wait for the rendered
     // label instead of opening a popover against a source mark that will detach.
     if (mark?.closest('pre[lang="mermaid"]')) {
@@ -817,11 +906,16 @@ export default class extends Controller {
       requestAnimationFrame(() => {
         if (this._pendingThreadId !== threadId) return
 
-        const currentMark = this.contentTarget.querySelector(`[data-thread-id="${domId}"].anchor-highlight`)
+        const currentMark = content.querySelector(`mark.anchor-highlight[data-thread-id="${domId}"]`) ||
+          this.element.querySelector(`#plan-general-comments [data-thread-id="${domId}"], #plan-detached-comments [data-thread-id="${domId}"]`)
         if (currentMark?.isConnected) {
-          currentMark.scrollIntoView({ behavior: "instant", block: "center" })
-          if (this._showThreadPopoverFor(currentMark, "pinned")) {
+          const generalVoiceComment = this._pendingThreadOrigin === "voice" && currentMark.closest("#plan-general-comments")
+          const trigger = generalVoiceComment ? document.querySelector(".voice-btn") || currentMark : currentMark
+          if (generalVoiceComment) trigger.dataset.threadId = domId
+          else currentMark.scrollIntoView({ behavior: "instant", block: "center" })
+          if (this._showThreadPopoverFor(trigger, "pinned")) {
             this._pendingThreadId = null
+            this._pendingThreadOrigin = null
             return
           }
         }
@@ -846,12 +940,12 @@ export default class extends Controller {
     return marks[0] || null
   }
 
-  highlightAtIndexAll(startIndex, length, className) {
+  highlightAtIndexAll(startIndex, length, className, root = this.contentTarget) {
     if (startIndex < 0 || length <= 0) return []
 
     const textNodes = []
     let offset = 0
-    for (const node of this._renderedTextNodes()) {
+    for (const node of this._renderedTextNodes(root)) {
       textNodes.push({ node, start: offset })
       offset += node.textContent.length
     }

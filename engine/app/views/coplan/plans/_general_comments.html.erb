@@ -1,0 +1,11 @@
+<% general_threads = threads.reject(&:anchored?).reject(&:out_of_date?) %>
+<aside id="plan-general-comments" class="detached-comments general-comments" aria-label="Document comments"<%= " hidden" if general_threads.empty? %>>
+  <% if general_threads.any? %>
+    <strong>Document comments</strong>
+    <% general_threads.each do |thread| %>
+      <button type="button" data-thread-id="<%= dom_id(thread) %>" data-action="coplan--text-selection#openDetachedThread">
+        <%= truncate(thread.comments.find { |comment| !comment.deleted? }&.body_markdown.to_s.delete_prefix("🎙️ "), length: 110) %><% if thread.closed? %> · resolved<% end %>
+      </button>
+    <% end %>
+  <% end %>
+</aside>

@@ -94,6 +94,43 @@ module CoPlan
 
         current_range
       end
+
+      # An insertion strictly inside a comment's range is unambiguous even
+      # when the editor saves several typed characters as one operation.
+      # A deletion strictly inside the range is also positionally clear;
+      # the caller checks how much recognizable text remains. Other broad
+      # replacements invalidate the quote rather than moving it elsewhere.
+      def self.transform_comment_through_versions(range, versions)
+        current = range.dup
+        touched = false
+        versions.each do |version|
+          ops = version.is_a?(Hash) ? version[:operations_json] || version["operations_json"] : version.operations_json
+          Array(ops).each do |data|
+            data = data.transform_keys(&:to_s)
+            edits = data.key?("replacements") ? data["replacements"].sort_by { |entry| -entry["resolved_range"][0] } : [ data ]
+            edits.each do |edit|
+              edit = edit.transform_keys(&:to_s)
+              raise Conflict, "Operation lacks replacement length" unless edit.key?("new_range") || edit.key?("delta")
+              begin
+                current = transform(current, edit)
+              rescue Conflict
+                s, e = current
+                s2, e2 = edit.fetch("resolved_range")
+                old_text = edit["old_text"].to_s
+                new_text = edit["new_text"].to_s
+                inside = s2 >= s && e2 <= e && (s2 > s || e2 < e)
+                insertion = s2 == e2 && old_text.empty? && s < s2 && s2 < e
+                deletion = new_text.empty? && old_text.present? && s < s2 && e2 < e && e2 - s2 == old_text.length
+                small_replacement = old_text.length + new_text.length <= 8 && e2 - s2 == old_text.length
+                raise unless inside && (insertion || deletion || small_replacement)
+                current = [ s, e + new_text.length - old_text.length ]
+                touched = true
+              end
+            end
+          end
+        end
+        [ current, touched ]
+      end
     end
   end
 end

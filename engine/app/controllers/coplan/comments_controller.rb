@@ -63,6 +63,13 @@ module CoPlan
         inline_stream = turbo_stream.replace(target, html)
       end
 
+      unless @thread.anchored?
+        locals = { threads: @plan.comment_threads.with_kept_comments.includes(:comments).order(:created_at) }
+        Broadcaster.replace_to(@plan, target: "plan-general-comments", partial: "coplan/plans/general_comments", locals: locals)
+        html = render_to_string(partial: "coplan/plans/general_comments", locals: locals, formats: [ :html ])
+        inline_stream = [ inline_stream, turbo_stream.replace("plan-general-comments", html) ]
+      end
+
       # Inline response updates the actor immediately; the broadcast handles
       # other viewers (remove/replace are idempotent on echo).
       respond_to do |format|

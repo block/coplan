@@ -30,19 +30,23 @@ export default class extends Controller {
     if (this._handleAnchorsUpdated) {
       this.element.removeEventListener("coplan:anchors-updated", this._handleAnchorsUpdated)
     }
+    clearTimeout(this._editorTocTimer)
   }
 
   buildToc() {
-    if (!this.contentTarget.querySelector(".markdown-rendered")) return
+    const editing = this.element.closest("[data-editing='true']")
+    const editorRoot = editing?.querySelector(".inline-editor .ProseMirror")
+    if (editorRoot) { this.buildEditorToc(editorRoot); return }
+    this._editorRoot = null
+    const documentRoot = this.contentTarget
+    if (!documentRoot.querySelector(".markdown-rendered") && !documentRoot.classList.contains("markdown-rendered")) return
 
     this.listTarget.innerHTML = ""
     this._itemsById = new Map()
     // A document renders one .markdown-rendered; a deck renders one per
     // slide. Scan the whole content column either way — scanning the first
     // rendered block gave a deck an outline of slide 1 and nothing else.
-    this._headings = Array.from(
-      this.contentTarget.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3")
-    )
+    this._headings = Array.from(documentRoot.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3"))
 
     if (this._headings.length === 0) {
       this.sidebarTarget.style.display = "none"
@@ -132,6 +136,64 @@ export default class extends Controller {
     this.updateCommentBadges()
   }
 
+  // ProseMirror owns every node under its root. The reader's heading IDs,
+  // title spans and permalink links cannot be inserted there: its next DOM
+  // reconciliation would discard them and could move the caret. Keep the
+  // outline as a read-only projection of the editor document instead.
+  buildEditorToc(root) {
+    this._editorRoot = root
+    this._headings = this.editorHeadings()
+    this._editorHeadingSignature = this.editorHeadingSignature(this._headings)
+    this._outlineIds = []
+    this._itemsById = new Map()
+    this.listTarget.replaceChildren()
+    this.sidebarTarget.style.display = this._headings.length ? "" : "none"
+    if (this.hasShowBtnTarget) this.showBtnTarget.style.display = this._headings.length ? "" : "none"
+
+    const used = new Set()
+    this._headings.forEach((heading, index) => {
+      const title = heading.textContent.trim().replace(/\s+/g, " ")
+      const base = this.slugify(title) || `section-${index + 1}`
+      let id = base, suffix = 2
+      while (used.has(id)) id = `${base}-${suffix++}`
+      used.add(id)
+      this._outlineIds.push(id)
+
+      const item = document.createElement("li")
+      item.className = `content-nav__item content-nav__item--${heading.tagName.toLowerCase()}`
+      item.dataset.headingId = id
+      const link = document.createElement("a")
+      link.className = "content-nav__link"
+      link.href = `#${id}`
+      const label = document.createElement("span")
+      label.className = "content-nav__link-text"
+      label.textContent = title
+      link.append(label)
+      link.addEventListener("click", event => this.handleLinkClick(event, this.editorHeadings()[index], id))
+      item.append(link)
+      this.listTarget.append(item)
+      this._itemsById.set(id, item)
+    })
+    this.updateCommentBadges()
+  }
+
+  editorHeadings() {
+    return Array.from(this._editorRoot?.querySelectorAll(":scope > h1, :scope > h2, :scope > h3") || [])
+  }
+
+  editorHeadingSignature(headings) {
+    return headings.map(heading => `${heading.tagName}:${heading.textContent}`).join("\0")
+  }
+
+  editorContentChanged() {
+    clearTimeout(this._editorTocTimer)
+    this._editorTocTimer = setTimeout(() => {
+      if (this._editorRoot && this.editorHeadingSignature(this.editorHeadings()) !== this._editorHeadingSignature) {
+        this.editorModeChanged()
+      }
+    }, 120)
+  }
+
   slugify(text) {
     return text
       .toLowerCase()
@@ -167,16 +229,40 @@ export default class extends Controller {
     this._updateActiveFromScroll()
   }
 
-  contentUpdated() {
+  contentUpdated(event) {
+    // Footnote counts and citation lists also receive live stream swaps.
+    // They do not change document headings, and rebuilding the outline for
+    // them would erase a recent remote-change cue.
+    if (!this.contentTarget.querySelector("#plan-content-body")?.contains(event?.target)) return
     this._activeHeadingId = null
     this.buildToc()
     this.setupScrollTracking()
   }
 
+  editorModeChanged() {
+    this._activeHeadingId = null
+    this.buildToc()
+    this.setupScrollTracking()
+  }
+
+  remoteChange(event) {
+    for (const key of event.detail.keys || []) {
+      const item = this._itemsById?.get(key)
+      if (!item) continue
+      item.classList.remove("content-nav__item--remote-change")
+      // Restart the pulse when consecutive revisions touch one section.
+      void item.offsetWidth
+      item.classList.add("content-nav__item--remote-change")
+      clearTimeout(item._remoteChangeTimer)
+      item._remoteChangeTimer = setTimeout(() => item.classList.remove("content-nav__item--remote-change"), 2600)
+    }
+  }
+
   _updateActiveFromScroll() {
     const threshold = 100
     let active = null
-    for (const heading of this._headings) {
+    const headings = this._editorRoot ? this.editorHeadings() : this._headings
+    for (const heading of headings) {
       if (heading.getBoundingClientRect().top <= threshold) {
         active = heading
       } else {
@@ -184,20 +270,22 @@ export default class extends Controller {
       }
     }
 
-    const id = active?.id || this._headings[0]?.id
+    const index = headings.indexOf(active)
+    const id = this._editorRoot ? this._outlineIds[Math.max(index, 0)] : active?.id || this._headings[0]?.id
     if (id && id !== this._activeHeadingId) {
       this._activeHeadingId = id
       this._setActiveLink(id)
     }
   }
 
-  handleLinkClick(event, heading) {
+  handleLinkClick(event, heading, outlineId = heading?.id) {
     event.preventDefault()
-    history.replaceState(null, "", `#${heading.id}`)
+    if (!heading) return
+    history.replaceState(null, "", `#${outlineId}`)
 
     this._ignoreScroll = true
-    this._activeHeadingId = heading.id
-    this._setActiveLink(heading.id)
+    this._activeHeadingId = outlineId
+    this._setActiveLink(outlineId)
 
     heading.scrollIntoView({ behavior: "smooth", block: "start" })
   }
@@ -296,16 +384,18 @@ export default class extends Controller {
   updateCommentBadges() {
     if (!this._headings || this._headings.length === 0) return
 
-    if (!this.contentTarget.querySelector(".markdown-rendered")) return
+    const container = this._editorRoot || this.contentTarget
+    if (!container.querySelector(".markdown-rendered") && !container.classList.contains("markdown-rendered")) return
 
     // Walk the whole content column: on a deck, consecutive outline
     // headings live in different slides, so the span between two of them
     // crosses .markdown-rendered blocks.
-    this._headings.forEach((heading, index) => {
-      const nextHeading = this._headings[index + 1]
-      const count = this.countOpenThreadsBetween(heading, nextHeading, this.contentTarget)
+    const headings = this._editorRoot ? this.editorHeadings() : this._headings
+    headings.forEach((heading, index) => {
+      const nextHeading = headings[index + 1]
+      const count = this.countOpenThreadsBetween(heading, nextHeading, container)
 
-      const item = this._itemsById?.get(heading.id)
+      const item = this._itemsById?.get(this._editorRoot ? this._outlineIds[index] : heading.id)
       if (!item) return
 
       const existing = item.querySelector(".content-nav__badge")

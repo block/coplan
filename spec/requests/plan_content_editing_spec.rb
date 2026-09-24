@@ -26,6 +26,41 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
     end
   end
 
+  describe "GET content_body" do
+    it "returns the latest rendered body and revision without caching" do
+      get content_body_plan_path(plan)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Original body.")
+      expect(response.headers["X-CoPlan-Revision"]).to eq(plan.current_revision.to_s)
+      expect(response.headers["Cache-Control"]).to include("no-store")
+    end
+
+    it "allows a non-author with the URL to read an unlisted draft" do
+      sign_in_as(other_user)
+      plan.update!(visibility: "draft")
+
+      get content_body_plan_path(plan)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Original body.")
+    end
+  end
+
+  describe "GET comments_body" do
+    it "keeps a displaced comment visible after its quote changes" do
+      thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Original body.")
+      thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Keep this comment")
+      thread.update_columns(out_of_date: true)
+
+      get comments_body_plan_path(plan)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Comments needing a new anchor", "Keep this comment", thread.id)
+      expect(response.headers["Cache-Control"]).to include("no-store")
+    end
+  end
+
   describe "PATCH update_content" do
     it "creates a new human-authored version through ReplaceContent" do
       expect {

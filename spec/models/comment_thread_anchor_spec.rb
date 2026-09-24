@@ -338,6 +338,52 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
   end
 
   describe "mark_out_of_date_for_new_version! with positions" do
+    it "keeps a comment pinned through a one-character edit inside its quote" do
+      thread = plan.comment_threads.create!(plan_version: plan.current_plan_version,
+        created_by_user: user, anchor_text: "unit tests")
+      position = content.index("unit tests") + 6
+      new_content = content.sub("unit tests", "unit tasts")
+      version = CoPlan::PlanVersion.create!(plan: plan, revision: 2,
+        content_markdown: new_content, actor_type: "human", actor_id: user.id,
+        operations_json: [ { "op" => "replace_exact", "old_text" => "e", "new_text" => "a",
+          "resolved_range" => [ position, position + 1 ], "new_range" => [ position, position + 1 ] } ])
+      plan.update!(current_plan_version: version, current_revision: 2)
+
+      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version)
+      expect(thread.reload).not_to be_out_of_date
+      expect(thread.anchor_text).to eq("unit tasts")
+      expect(thread.anchor_revision).to eq(2)
+    end
+
+    it "keeps a quote pinned through a burst of typing inside it and an undo" do
+      thread = plan.comment_threads.create!(plan_version: plan.current_plan_version,
+        created_by_user: user, anchor_text: "unit tests")
+      position = content.index("unit tests") + "unit ".length
+      inserted = "asdfdsaasdf"
+      expanded = content.dup.insert(position, inserted)
+      version2 = CoPlan::PlanVersion.create!(plan: plan, revision: 2,
+        content_markdown: expanded, actor_type: "human", actor_id: user.id,
+        operations_json: [ { "op" => "replace_exact", "old_text" => "", "new_text" => inserted,
+          "resolved_range" => [ position, position ], "new_range" => [ position, position + inserted.length ] } ])
+      plan.update!(current_plan_version: version2, current_revision: 2)
+
+      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version2)
+      expect(thread.reload).not_to be_out_of_date
+      expect(thread.anchor_text).to eq("unit #{inserted}tests")
+      expect(thread.anchor_end).to eq(position + inserted.length + "tests".length)
+
+      version3 = CoPlan::PlanVersion.create!(plan: plan, revision: 3,
+        content_markdown: content, actor_type: "human", actor_id: user.id,
+        operations_json: [ { "op" => "replace_exact", "old_text" => inserted, "new_text" => "",
+          "resolved_range" => [ position, position + inserted.length ], "new_range" => [ position, position ] } ])
+      plan.update!(current_plan_version: version3, current_revision: 3)
+
+      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version3)
+      expect(thread.reload).not_to be_out_of_date
+      expect(thread.anchor_text).to eq("unit tests")
+      expect(thread.anchor_revision).to eq(3)
+    end
+
     it "does NOT mark outdated when edit is in unrelated section" do
       thread = plan.comment_threads.create!(
         plan_version: plan.current_plan_version,
@@ -378,6 +424,32 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       CoPlan::CommentThread.mark_out_of_date_for_new_version!(version2)
       thread.reload
       expect(thread.out_of_date).to be true
+    end
+
+    it "reattaches an out-of-date quote when an undo restores it at the same position" do
+      thread = plan.comment_threads.create!(plan_version: plan.current_plan_version,
+        created_by_user: user, anchor_text: "unit tests")
+      position = content.index("unit tests")
+      replacement = "integration tests"
+      changed = content.sub("unit tests", replacement)
+      version2 = CoPlan::PlanVersion.create!(plan: plan, revision: 2,
+        content_markdown: changed, actor_type: "human", actor_id: user.id,
+        operations_json: [ { "op" => "replace_exact", "old_text" => "unit tests", "new_text" => replacement,
+          "resolved_range" => [ position, position + 10 ], "new_range" => [ position, position + replacement.length ] } ])
+      plan.update!(current_plan_version: version2, current_revision: 2)
+      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version2)
+      expect(thread.reload).to be_out_of_date
+
+      version3 = CoPlan::PlanVersion.create!(plan: plan, revision: 3,
+        content_markdown: content, actor_type: "human", actor_id: user.id,
+        operations_json: [ { "op" => "replace_exact", "old_text" => replacement, "new_text" => "unit tests",
+          "resolved_range" => [ position, position + replacement.length ], "new_range" => [ position, position + 10 ] } ])
+      plan.update!(current_plan_version: version3, current_revision: 3)
+      CoPlan::CommentThread.mark_out_of_date_for_new_version!(version3)
+
+      expect(thread.reload).not_to be_out_of_date
+      expect(thread.anchor_revision).to eq(3)
+      expect(thread.anchor_start).to eq(position)
     end
 
     it "shifts anchor positions when edit is before anchor" do

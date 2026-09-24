@@ -55,17 +55,13 @@ module CoPlan
         reason: "new_comment"
       )
 
-      inline_streams = []
-      if thread.anchored?
-        locals = { thread: thread, plan: @plan }
-        # The popover contains forms; the broadcast copy is rendered
-        # requestless so other viewers never receive this request's session
-        # authenticity tokens. The inline copy for the actor stays
-        # request-scoped.
-        Broadcaster.append_to(@plan, target: "plan-threads", partial: "coplan/comment_threads/thread_popover", locals: locals)
-        html = render_to_string(partial: "coplan/comment_threads/thread_popover", locals: locals, formats: [ :html ])
-        inline_streams << turbo_stream.append("plan-threads", html)
-      end
+      locals = { thread: thread, plan: @plan }
+      # The popover contains forms; broadcast HTML is rendered requestless
+      # so it never carries the actor's session token to other viewers.
+      Broadcaster.append_to(@plan, target: "plan-threads", partial: "coplan/comment_threads/thread_popover", locals: locals)
+      html = render_to_string(partial: "coplan/comment_threads/thread_popover", locals: locals, formats: [ :html ])
+      inline_streams = [ turbo_stream.append("plan-threads", html) ]
+      inline_streams << general_comments_stream unless thread.anchored?
 
       respond_with_stream_or_redirect("Comment added.", streams: inline_streams)
     end
@@ -75,7 +71,7 @@ module CoPlan
       @thread.resolve!(current_user)
       CreateNotificationsJob.perform_later(comment_thread_id: @thread.id, actor_id: current_user.id, reason: "status_change")
       stream = broadcast_thread_replace(@thread)
-      respond_with_stream_or_redirect("Thread resolved.", streams: [ stream ])
+      respond_with_stream_or_redirect("Thread resolved.", streams: [ stream, (@thread.anchored? ? nil : general_comments_stream) ].compact)
     end
 
     def reopen
@@ -83,7 +79,7 @@ module CoPlan
       @thread.reopen!(current_user)
       CreateNotificationsJob.perform_later(comment_thread_id: @thread.id, actor_id: current_user.id, reason: "status_change")
       stream = broadcast_thread_replace(@thread)
-      respond_with_stream_or_redirect("Thread reopened.", streams: [ stream ])
+      respond_with_stream_or_redirect("Thread reopened.", streams: [ stream, (@thread.anchored? ? nil : general_comments_stream) ].compact)
     end
 
     private
@@ -128,6 +124,13 @@ module CoPlan
       Broadcaster.replace_to(@plan, target: dom_id(thread), partial: "coplan/comment_threads/thread_popover", locals: locals)
       html = render_to_string(partial: "coplan/comment_threads/thread_popover", locals: locals, formats: [ :html ])
       turbo_stream.replace(dom_id(thread), html)
+    end
+
+    def general_comments_stream
+      locals = { threads: @plan.comment_threads.with_kept_comments.includes(:comments).order(:created_at) }
+      Broadcaster.replace_to(@plan, target: "plan-general-comments", partial: "coplan/plans/general_comments", locals: locals)
+      html = render_to_string(partial: "coplan/plans/general_comments", locals: locals, formats: [ :html ])
+      turbo_stream.replace("plan-general-comments", html)
     end
   end
 end
