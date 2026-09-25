@@ -124,6 +124,34 @@ expanded table/diagram, and editing surfaces:
 - FactoryBot syntax methods (`create`, `build`) are included globally via `config.include FactoryBot::Syntax::Methods`
 - `sign_in_as(user)` helper is defined in `spec/rails_helper.rb` for request specs
 
+### Human tryout for local agent work
+
+When an agent builds a feature or fixes a bug in a local checkout, finish with
+a way for the person who requested it to try the changed behavior:
+
+- Run the relevant automated specs. Exercise UI behavior in a real browser,
+  using a built-in browser when the agent environment provides one. For UI
+  changes, check light and dark themes and capture screenshots or a short
+  recording of the result. For visual bugs, include before-and-after evidence
+  when useful.
+- Start the development server (`bin/dev`; use `bin/setup --skip-server` and
+  `bin/rails db:seed` first if setup is needed), verify the page loads, and
+  leave it running for the person's tryout when the environment supports a
+  reachable local server. Do not replace an existing server or assume its port
+  is free.
+- In the handoff, give the exact local URL, a short path through the feature or
+  bug reproduction, and what the person should expect to see. Point to the
+  screenshots or recording, then explicitly invite them to try it and report
+  feedback. Keep the server available until they have had that chance or ask
+  you to stop it.
+- For changes without a browser UI, provide the equivalent runnable API or
+  command example and its expected result. If a local server or browser is
+  unavailable, say what prevented the tryout and give the shortest setup steps
+  the person can use instead.
+
+This is a handoff practice for interactive agent work, not a requirement that
+every open source contributor run or host a server for a reviewer.
+
 ## Seeds
 
 - `db/seeds.rb` must be **idempotent** — use `find_or_create_by!` or guard with count checks

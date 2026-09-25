@@ -4,7 +4,11 @@
 
 ## Evidence
 
-<!-- For feature PRs, attach a video or images. Show UI features in both light and dark themes. For non-UI features, show relevant API or command output. Add before-and-after evidence for visual fixes when useful. -->
+<!-- For feature PRs and UI bug fixes, attach a video or images. Show UI changes in both light and dark themes. For non-UI features, show relevant API or command output. Add before-and-after evidence for visual fixes when useful. -->
+
+## How to try it
+
+<!-- Give a local or preview URL when available. List the shortest steps to exercise the feature or reproduce the fix, and the expected result. For API/CLI changes, give a runnable command or request. -->
 
 ## Testing
 
@@ -14,4 +18,4 @@
 - [ ] Added model, service, or request specs where needed for domain behavior, authorization, or API cases.
 - [ ] Ran `bundle exec rspec`, or explained why it could not run and listed the specs that did run.
 - [ ] Tested affected UI behavior in both light and dark themes, or explained why theme testing does not apply.
-- [ ] Attached a video or images demonstrating the feature, if this PR adds or changes a feature.
+- [ ] Attached a video or images demonstrating the change, if this PR adds or changes a feature or fixes a UI bug.
