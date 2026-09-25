@@ -65,6 +65,10 @@ function serviceWorkerUrl() {
   return document.head.querySelector("meta[name='coplan-service-worker-url']")?.content || null
 }
 
+function subscriptionUrl() {
+  return document.head.querySelector("meta[name='coplan-web-push-subscription-url']")?.content || null
+}
+
 function csrfToken() {
   return document.head.querySelector("meta[name='csrf-token']")?.content || ""
 }
@@ -112,11 +116,9 @@ async function deleteSubscription(subscription) {
 }
 
 function endpointUrl() {
-  // Engine mount point is the directory of the SW URL — works no matter
-  // where the host mounts CoPlan.
-  const swUrl = serviceWorkerUrl()
-  const base = swUrl.replace(/\/coplan_service_worker\.js$/, "")
-  return `${base}/web_push/subscription`
+  // Use the Rails route helper so path scopes and the host's engine mount
+  // point stay in sync with the endpoint.
+  return subscriptionUrl()
 }
 
 function headers() {
