@@ -35,9 +35,4 @@ class ApplicationController < ActionController::Base
   rescue_from NotAuthorizedError do
     head :not_found
   end
-
-  def authenticate_admin!
-    authenticate_user!
-    redirect_to coplan.root_path, alert: "Not authorized." unless current_user&.admin?
-  end
 end

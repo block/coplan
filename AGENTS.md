@@ -19,13 +19,13 @@ Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), 
 - **Routes** — engine routes in `engine/config/routes.rb`, mounted by the host
 
 ### Host app (top-level) — thin deployment shell
-- **ActiveAdmin** — admin registrations in `app/admin/`
+- **ActiveAdmin** — optional host setup calls `CoPlan::Admin.install!`; CoPlan model registrations live in `engine/app/admin/`, while host-specific pages can live in the host's `app/admin/`
 - **Auth** — `SessionsController`, `User` model (legacy, being migrated to `CoPlan::User`)
 - **App-specific integrations** — `SlackClient`, `SlackNotificationJob`
 - **Migrations** — this app is just the example/demo host, so `db/migrate/` mostly holds the `*.co_plan.rb` copies of engine migrations (the engine owns schema for `coplan_*` tables)
 - **Config** — database, deployment, environment, seeds
 
-**When adding new features, put them in the engine** unless they are deployment- or host-specific (admin UI, external integrations, auth).
+**When adding new features, put them in the engine** unless they are deployment- or host-specific (host admin extensions, external integrations, auth).
 
 ## Tech Stack & Philosophy
 

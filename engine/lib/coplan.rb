@@ -2,6 +2,7 @@ require "commonmarker"
 require "diffy"
 require "openai"
 require "coplan/configuration"
+require "coplan/admin"
 require "coplan/analytics"
 require "coplan/engine"
 

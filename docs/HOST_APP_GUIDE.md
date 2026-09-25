@@ -100,6 +100,31 @@ The callback is called on every CoPlan request. The engine automatically finds o
 
 Return `nil` to indicate the user is not authenticated (the engine will respond with `401 Unauthorized`).
 
+### Shared administration
+
+Hosts using ActiveAdmin can load the CoPlan admin screens and add their own
+resources to the same menu. ActiveAdmin remains an optional host dependency;
+the engine does not require it for its regular UI.
+
+```ruby
+# Gemfile
+gem "activeadmin", "~> 4.0.0.beta"
+gem "activeadmin_assets"
+
+# config/initializers/active_admin.rb, inside ActiveAdmin.setup
+CoPlan::Admin.install!(config)
+
+# config/routes.rb, before mounting CoPlan::Engine
+ActiveAdmin.routes(self)
+```
+
+The default URL is `/_/admin`. If CoPlan is mounted under `/coplan`, pass
+`path: "coplan/_/admin"` to `install!`. Every host registration in `app/admin`
+joins the same namespace by default, so a host can add a model or custom page
+without copying engine registrations. The host's `authenticate` callback
+supplies the admin flag; the shared admin checks it again on every request.
+It rejects signed-in non-admins even if the host has a permissive edge route.
+
 ## Authentication examples
 
 ### Devise
