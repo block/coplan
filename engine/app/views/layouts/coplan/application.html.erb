@@ -12,6 +12,7 @@
     <% if CoPlan.configuration.web_push_configured? %>
       <meta name="coplan-vapid-public-key" content="<%= CoPlan.configuration.vapid_public_key %>">
       <meta name="coplan-service-worker-url" content="<%= coplan.service_worker_path %>">
+      <meta name="coplan-web-push-subscription-url" content="<%= coplan.web_push_subscription_path %>">
     <% end %>
     <%= coplan_favicon_tag %>
     <%= yield :head %>
