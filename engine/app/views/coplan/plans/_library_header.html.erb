@@ -5,11 +5,7 @@
 <header class="library-header">
   <div class="library-header__identity">
     <% if @profile %>
-      <% if @profile.avatar_url.present? %>
-        <img src="<%= @profile.avatar_url %>" alt="" class="avatar avatar--lg" loading="lazy">
-      <% else %>
-        <span class="avatar avatar--lg avatar--initials"><%= @profile.name.split.map { |w| w[0] }.first(2).join.upcase %></span>
-      <% end %>
+      <%= user_avatar(@profile, size: "lg") %>
     <% end %>
     <div class="library-header__text">
       <h1 class="library-header__name"><%= @profile&.name || @library.name %></h1>
