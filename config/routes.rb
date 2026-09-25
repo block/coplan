@@ -1,4 +1,6 @@
 Rails.application.routes.draw do
+  get "/admin", to: redirect("/_/admin")
+  get "/admin/*path", to: redirect("/_/admin/%{path}")
   ActiveAdmin.routes(self)
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
