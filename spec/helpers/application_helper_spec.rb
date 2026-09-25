@@ -1,6 +1,28 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::ApplicationHelper, type: :helper do
+  describe "#user_avatar" do
+    it "renders accessible initials without an image when no photo is set" do
+      user = build(:coplan_user, name: "Ada Marie Lovelace", avatar_url: nil)
+      avatar = Nokogiri::HTML.fragment(helper.user_avatar(user, size: "lg"))
+
+      expect(avatar.at_css(".avatar--lg[role='img']")["aria-label"]).to eq(user.name)
+      expect(avatar.text).to eq("AM")
+      expect(avatar.css("img")).to be_empty
+    end
+
+    it "keeps escaped initials underneath a lazy photo and preserves viewer styling" do
+      user = build(:coplan_user, name: "<Alex> &Morgan", avatar_url: "https://example.com/photo.png")
+      avatar = Nokogiri::HTML.fragment(helper.user_avatar(user, css_class: "plan-viewers__avatar plan-viewers__avatar--you"))
+
+      expect(avatar.at_css(".plan-viewers__avatar--you").text).to eq("<&")
+      expect(avatar.at_css("img")["src"]).to eq(user.avatar_url)
+      expect(avatar.at_css("img")["loading"]).to eq("lazy")
+      expect(avatar.at_css("img")["data-controller"]).to eq("coplan--avatar")
+      expect(avatar.css("alex")).to be_empty
+    end
+  end
+
   describe "#plan_og_description" do
     let(:plan) { create(:plan, :published, title: "My Plan") }
 

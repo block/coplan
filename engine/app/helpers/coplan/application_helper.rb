@@ -65,12 +65,14 @@ module CoPlan
       link_to user.name, profile_path_for(user), class: css_class
     end
 
-    def user_avatar(user, size: "sm")
+    def user_avatar(user, size: "sm", css_class: "avatar avatar--#{size} avatar--initials")
       initials = user.name.split.map { |w| w[0] }.first(2).join.upcase
-      if user.avatar_url.present?
-        tag.img(src: user.avatar_url, alt: user.name, class: "avatar avatar--#{size}", loading: "lazy")
-      else
-        tag.span(initials, class: "avatar avatar--#{size} avatar--initials", title: user.name)
+      tag.span(class: css_class, role: "img", aria: { label: user.name }, title: user.name) do
+        photo = if user.avatar_url.present?
+          tag.img(src: user.avatar_url, alt: "", class: "avatar__image", loading: "lazy",
+            data: { controller: "coplan--avatar", action: "load->coplan--avatar#loaded error->coplan--avatar#failed" })
+        end
+        safe_join([ initials, photo ])
       end
     end
 
