@@ -6,7 +6,7 @@ RSpec.describe CoPlan::ContentRegions::Split do
     result = described_class.call(source)
 
     expect(result.regions.map(&:kind)).to eq(%i[document presentation document presentation document])
-    expect(result.regions.map(&:start_line)).to eq([1, 4, 8, 12, 16])
+    expect(result.regions.map(&:start_line)).to eq([ 1, 4, 8, 12, 16 ])
     expect(result.regions[1].id).to eq("first")
     expect(result.regions[1].theme).to eq("graphite")
     expect(result.canonical_source.lines.count).to eq(source.lines.count)
@@ -17,7 +17,7 @@ RSpec.describe CoPlan::ContentRegions::Split do
     source = "```text\n::: {.presentation}\n```\n\n> ::: {.presentation}\n\n::: {.presentation}\n\nUnclosed"
     result = described_class.call(source)
 
-    expect(result.regions.map(&:kind)).to eq([:document])
+    expect(result.regions.map(&:kind)).to eq([ :document ])
     expect(result.canonical_source).to eq(source)
   end
 end
