@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { renderedBlocks } from "coplan/content_sections"
 
 // One-time "changed since you last looked" highlights. The server passes
 // the slug keys of sections whose content changed since this viewer's
@@ -39,7 +40,7 @@ export default class extends Controller {
     const runs = []
     let run = null
 
-    for (const node of Array.from(rendered.children)) {
+    for (const node of renderedBlocks(this.element)) {
       if (/^H[1-3]$/.test(node.tagName)) {
         // Every heading is slugged, changed or not: the `used` set carries
         // the -2/-3 duplicate counter and has to stay in step with Ruby's.

@@ -61,18 +61,18 @@ module CoPlan
     # Render prose and any number of decks, then align every fragment against
     # one whole-plan render. This keeps footnotes, link definitions and heading
     # IDs global rather than restarting them at each region boundary.
-    def render_content_regions(content)
-      return render_markdown(content, footnotes: :exclude, source_comments: true) unless content.include?("::: {.presentation")
+    def render_content_regions(content, interactive: true)
+      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true) unless content.include?("::: {.presentation")
 
       result = ContentRegions::Split.call(content)
-      return render_markdown(content, footnotes: :exclude, source_comments: true) unless result.regions.any? { |region| region.kind == :presentation }
+      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true) unless result.regions.any? { |region| region.kind == :presentation }
 
       definitions = Slideshows::Split.call(result.canonical_source).definition_blocks
       deck_number = 0
       fragments = result.regions.map do |region|
         if region.kind == :presentation
           deck_number += 1
-          deck = render_slideshow(region.source, theme: region.theme, definitions: definitions,
+          deck = render_slideshow(region.source, interactive:, theme: region.theme, definitions: definitions,
                                   line_offset: region.start_line - 1, reconcile: false)
           tag.div(class: "deck-presenter deck-region", id: region.id,
                   tabindex: 0, data: { controller: "coplan--deck-presenter coplan--deck-reader",
@@ -94,7 +94,7 @@ module CoPlan
           fragment = Slideshows::Split::Slide.new(start_line: region.start_line,
             end_line: region.start_line + region.source.count("\n"))
           preamble = deck_preamble(definitions, fragment)
-          render_markdown(preamble + region.source, footnotes: :exclude, source_comments: true,
+          render_markdown(preamble + region.source, interactive:, footnotes: :exclude, source_comments: true,
                           line_offset: region.start_line - 1 - preamble.count("\n"))
         end
       end

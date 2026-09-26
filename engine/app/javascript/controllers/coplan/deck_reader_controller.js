@@ -41,7 +41,10 @@ export default class extends Controller {
     try { id = decodeURIComponent(window.location.hash.slice(1)) } catch { return }
     const target = document.getElementById(id)
     const slide = target?.closest(".deck-slide")
-    if (slide && this.element.contains(slide)) this.show(Number(slide.dataset.slide) - 1)
+    if (slide && this.element.contains(slide)) {
+      this.show(Number(slide.dataset.slide) - 1)
+      requestAnimationFrame(() => target.scrollIntoView({ block: "start" }))
+    }
   }
 
   show(index) {
@@ -51,5 +54,6 @@ export default class extends Controller {
     this.slides.forEach((slide, i) => slide.classList.toggle("deck-slide--current", i === this.index))
     this.countTarget.dataset.count = `${this.index + 1} / ${this.slides.length}`
     this.countTarget.setAttribute("aria-label", `Slide ${this.index + 1} of ${this.slides.length}`)
+    this.element.dispatchEvent(new CustomEvent("coplan:deck-slide-changed", { bubbles: true }))
   }
 }

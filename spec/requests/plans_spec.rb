@@ -134,6 +134,15 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include("Before", "After", "deck-slide")
   end
 
+  it "renders presentation regions in historical versions" do
+    plan.current_plan_version.update!(content_markdown: "Before\n\n::: {.presentation}\n\n# Historical slide\n\n:::\n\nAfter", content_sha256: nil)
+
+    get plan_version_page_path(plan, plan.current_plan_version)
+
+    expect(response).to have_http_status(:success)
+    expect(response.body).to include('class="deck-presenter deck-region"', "Historical slide")
+  end
+
   it "show document plan renders no presenter chrome" do
     get plan_page_path(plan)
     expect(response).to have_http_status(:success)

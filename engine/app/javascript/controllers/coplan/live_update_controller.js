@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import { captureViewport, restoreViewport } from "coplan/viewport_anchor"
+import { renderedBlocks } from "coplan/content_sections"
 
 /*
  * coplan--live-update
@@ -171,14 +172,11 @@ function slugify(text, used) {
 // Map of section key → array of block elements (live nodes for the new
 // DOM; for snapshots we keep outerHTML/text copies instead).
 function sectionBlocks(root) {
-  const rendered = root.querySelector(".markdown-rendered")
-  if (!rendered) return new Map()
-
   const sections = new Map([[TOP_KEY, []]])
   const used = new Set()
   let currentKey = TOP_KEY
 
-  for (const node of Array.from(rendered.children)) {
+  for (const node of renderedBlocks(root)) {
     if (/^H[1-3]$/.test(node.tagName)) {
       currentKey = slugify(node.textContent, used)
       sections.set(currentKey, [])
