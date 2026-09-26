@@ -124,13 +124,14 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include('data-coplan--text-selection-target="content"')
   end
 
-  it "show presentation plan wires up the deck presenter with a Present control" do
-    deck_type = create(:plan_type, name: "Presentation", behavior: "presentation")
-    deck_plan = create(:plan, plan_type: deck_type, created_by_user: alice)
+  it "show a presentation region in any plan with its own Present control" do
+    deck_plan = create(:plan, created_by_user: alice)
+    deck_plan.current_plan_version.update!(content_markdown: "Before\n\n::: {.presentation}\n\n# Slide\n\n:::\n\nAfter", content_sha256: nil)
     get plan_page_path(deck_plan)
     expect(response).to have_http_status(:success)
-    expect(response.body).to include('data-controller="coplan--deck-presenter"')
+    expect(response.body).to include('coplan--deck-presenter coplan--deck-reader')
     expect(response.body).to include('data-action="coplan--deck-presenter#start"')
+    expect(response.body).to include("Before", "After", "deck-slide")
   end
 
   it "show document plan renders no presenter chrome" do

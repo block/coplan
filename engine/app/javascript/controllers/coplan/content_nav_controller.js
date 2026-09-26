@@ -287,6 +287,7 @@ export default class extends Controller {
     this._activeHeadingId = outlineId
     this._setActiveLink(outlineId)
 
+    this._revealDeckSlide(heading)
     heading.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
@@ -334,7 +335,15 @@ export default class extends Controller {
     history.replaceState(null, "", `#${id}`)
 
     this._ignoreScroll = true
+    this._revealDeckSlide(target)
     target.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  _revealDeckSlide(element) {
+    const slide = element.closest(".deck-region .deck-slide")
+    if (slide) slide.dispatchEvent(new CustomEvent("coplan:deck-reveal", {
+      bubbles: true, detail: { slide: slide.dataset.slide }
+    }))
   }
 
   _setActiveLink(id) {

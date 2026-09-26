@@ -69,35 +69,48 @@ export default class extends Controller {
       // shot. Stimulus controllers inside target will disconnect + reconnect.
       const fragment = this.templateContent
 
-      if (hasDirtyDrafts()) {
+      if (target.querySelector(".deck--presenting")) {
+        // Keep the active deck and its presenter connected. Apply the latest
+        // whole-body update as soon as the show ends.
+        target.__pendingDeckUpdate = { fragment: fragment.cloneNode(true), incomingRevision, changedKeys }
+        if (!target.__deckStopListener) {
+          target.__deckStopListener = () => {
+            const pending = target.__pendingDeckUpdate
+            target.__pendingDeckUpdate = null
+            if (!pending) return
+            if (hasDirtyDrafts()) showStaleBanner(target, pending.incomingRevision)
+            else applyContent(target, pending.fragment, pending.incomingRevision, pending.changedKeys)
+          }
+          target.addEventListener("coplan:deck-stopped", target.__deckStopListener)
+        }
+      } else if (hasDirtyDrafts()) {
         showStaleBanner(target, incomingRevision)
       } else {
-        const viewport = captureViewport(target)
-        const oldSections = snapshotSections(target, changedKeys)
-        target.replaceChildren(fragment)
-        if (incomingRevision) {
-          target.setAttribute("data-coplan--live-update-revision-value", String(incomingRevision))
-        }
-        target.dispatchEvent(new CustomEvent("coplan:content-updated", { bubbles: true }))
-        restoreViewport(target, viewport)
-        // Browser scroll anchoring and async layout (fonts/diagrams) can run
-        // after the synchronous swap. Reconcile the same passage once layout
-        // has settled instead of letting that native adjustment move the reader.
-        requestAnimationFrame(() => restoreViewport(target, viewport))
-        clearStaleBanner()
-        if (changedKeys.length > 0) {
-          const offscreenKeys = flashChangedSections(target, changedKeys, oldSections)
-          if (offscreenKeys.length > 0) {
-            target.dispatchEvent(new CustomEvent("coplan:remote-change", {
-              bubbles: true, detail: { keys: offscreenKeys }
-            }))
-          }
-        } else refreshAnchors(target)
+        applyContent(target, fragment, incomingRevision, changedKeys)
       }
     }
 
     window.__coplanLiveUpdateRegistered = true
   }
+}
+
+function applyContent(target, fragment, incomingRevision, changedKeys) {
+  const viewport = captureViewport(target)
+  const oldSections = snapshotSections(target, changedKeys)
+  target.replaceChildren(fragment)
+  if (incomingRevision) target.setAttribute("data-coplan--live-update-revision-value", String(incomingRevision))
+  target.dispatchEvent(new CustomEvent("coplan:content-updated", { bubbles: true }))
+  restoreViewport(target, viewport)
+  requestAnimationFrame(() => restoreViewport(target, viewport))
+  clearStaleBanner()
+  if (changedKeys.length > 0) {
+    const offscreenKeys = flashChangedSections(target, changedKeys, oldSections)
+    if (offscreenKeys.length > 0) {
+      target.dispatchEvent(new CustomEvent("coplan:remote-change", {
+        bubbles: true, detail: { keys: offscreenKeys }
+      }))
+    }
+  } else refreshAnchors(target)
 }
 
 /*

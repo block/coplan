@@ -6,7 +6,7 @@
     <span class="site-nav__doc-title-text"><%= plan.title %></span>
   </a>
   <%= link_to plan_edit_browse_path(plan), class: "site-nav__edit", tabindex: -1, hidden: true,
-        data: (plan.presentation? ? {} : { action: "click->coplan--nav-title#edit" }) do %>
+        data: { action: "click->coplan--nav-title#edit" } do %>
     <svg class="plan-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>
     <svg class="plan-done-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12 5 5L20 6"/></svg>
     <span>Edit</span>

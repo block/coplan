@@ -1,18 +1,19 @@
 ---
 name: Presentation
 icon: presentation
-behavior: presentation
 description: >-
-  A slide deck written as plain markdown — every `---` starts a new slide,
-  layout is inferred from the content, and the deck is reviewed, versioned,
-  and presented from the same plan. One idea per slide.
+  A slide deck embedded in a plan. Add prose before or after it, or include
+  more than one deck. Every `---` inside a deck starts a new slide.
 ---
-<!-- Presentation: a deck, not a document. Each slide is separated by `---` on
+<!-- A presentation region is delimited by ::: {.presentation} and :::.
+Each slide inside it is separated by `---` on
 its own line. Keep one idea per slide - a headline sentence, not a topic
 label, plus at most a handful of bullets. Layout is chosen automatically
 from what the slide contains (a lone heading becomes a title slide, two
 lists become columns, a code block gets the stage), so there is no styling
 syntax to learn. Delete these comments as you write. -->
+
+::: {.presentation}
 
 # Deck title
 
@@ -33,3 +34,5 @@ hidden from the slides and shown only to the presenter. -->
 ## What we're asking for
 
 End on the decision or next step you want from the audience.
+
+:::

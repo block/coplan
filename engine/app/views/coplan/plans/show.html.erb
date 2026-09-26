@@ -91,18 +91,6 @@
             content target below, because its
             label is visible text and comment anchors count visible-text
             occurrences under that target. %>
-        <% if @plan.presentation? %>
-        <div class="deck-presenter" data-controller="coplan--deck-presenter">
-          <div class="deck-toolbar">
-            <%# The only place the show's keys are advertised before it
-                starts — mid-show there is no room for a legend, and the pen
-                is the one gesture nobody would guess. %>
-            <button type="button" class="deck-toolbar__present" data-action="coplan--deck-presenter#start" title="Present (p) — mid-show, f for full screen, drag to highlight, d for the pen">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.8a1 1 0 0 1 1.53-.85l11.1 7.2a1 1 0 0 1 0 1.7l-11.1 7.2A1 1 0 0 1 7 19.2z"/></svg>
-              Present <kbd>p</kbd>
-            </button>
-          </div>
-        <% end %>
         <%# Selection-to-comment is scoped to this inner wrapper: the back
             matter below shares the column but must not offer comment
             anchors — they'd never resolve against the document body. %>
@@ -115,7 +103,7 @@
 
 
         </div>
-        <% if allowed_to?(@plan, :edit_content?) && !@plan.presentation? %>
+        <% if allowed_to?(@plan, :edit_content?) %>
           <div class="inline-editor" data-coplan--inline-editor-target="editor" hidden>
             <template data-coplan--inline-editor-target="template"><%= render "coplan/plans/editor_form", inline_editor: true %></template>
           </div>
@@ -132,9 +120,6 @@
           </button>
         </div>
         <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
-        <% if @plan.presentation? %>
-        </div>
-        <% end %>
 
         <%= render partial: "coplan/plans/footnotes",
               locals: { plan: @plan, references: @references, attachments: @attachments } %>

@@ -7,7 +7,7 @@ require "rails_helper"
 # the back-matter links jumping in place instead of refetching the page.
 RSpec.describe "Deck UX", type: :system do
   let(:user) { create(:coplan_user, email: "presenter@example.com") }
-  let(:deck_type) { create(:plan_type, name: "Presentation", behavior: "presentation") }
+  let(:deck_type) { create(:plan_type, name: "Deck UX Presentation") }
 
   let(:deck_content) do
     <<~MARKDOWN
@@ -45,7 +45,7 @@ RSpec.describe "Deck UX", type: :system do
     p = create(:plan, :published, created_by_user: user, plan_type: deck_type, title: "Readout deck")
     version = CoPlan::PlanVersion.create!(
       plan: p, revision: 2,
-      content_markdown: deck_content, actor_type: "human", actor_id: user.id
+      content_markdown: "::: {.presentation}\n\n#{deck_content}\n:::", actor_type: "human", actor_id: user.id
     )
     p.update!(current_plan_version: version, current_revision: 2)
     p
@@ -77,6 +77,68 @@ RSpec.describe "Deck UX", type: :system do
     page.evaluate_script(
       %{document.querySelector(".deck-slide--current")?.dataset.slide}
     )
+  end
+
+  it "reads and presents each embedded deck independently" do
+    mixed = <<~MD
+      Introductory context.
+
+      ::: {.presentation}
+
+      # First deck, one
+
+      ---
+
+      # First deck, two
+
+      :::
+
+      Between the proposals.
+
+      ::: {.presentation}
+
+      # Second deck, one
+
+      ---
+
+      # Second deck, two
+
+      :::
+
+      Closing analysis.
+    MD
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: mixed,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
+    visit plan_page_path(plan)
+
+    expect(page).to have_css(".deck-region", count: 2)
+    first_deck, second_deck = all(".deck-region")
+    first_deck.find(".deck-toolbar__step--next").click
+    expect(first_deck.find(".deck-toolbar__count")["data-count"]).to eq("2 / 2")
+    expect(second_deck.find(".deck-toolbar__count")["data-count"]).to eq("1 / 2")
+    second_deck.find(".deck-toolbar__present").click
+    expect(second_deck).to have_css(".deck--presenting .deck-slide--current[data-slide='1']")
+    send_keys(:escape)
+    second_deck.click
+    send_keys(:arrow_right)
+    expect(second_deck.find(".deck-toolbar__count")["data-count"]).to eq("2 / 2")
+    expect(first_deck.find(".deck-toolbar__count")["data-count"]).to eq("2 / 2")
+  end
+
+  it "reveals a hidden slide when its heading is selected in the outline" do
+    visit plan_page_path(plan)
+
+    expect(page).to have_css(".deck-region .deck-slide--current[data-slide='1']")
+    find(".content-nav__link", text: "How a slide finds its shape").click
+
+    expect(page).to have_css(".deck-region .deck-slide--current[data-slide='3']")
+    expect(find(".deck-toolbar__count")["data-count"]).to eq("3 / 4")
+  end
+
+  it "reveals a hidden slide targeted by a direct link" do
+    visit "#{plan_page_path(plan)}#how-a-slide-finds-its-shape"
+
+    expect(page).to have_css(".deck-region .deck-slide--current[data-slide='3']")
   end
 
   it "opens help above a presentation without navigating the slide behind it" do
@@ -120,7 +182,7 @@ RSpec.describe "Deck UX", type: :system do
   # present already wait explicitly for the same reason.)
   def start_show
     expect(page).to have_css(".deck-slide", wait: 10)
-    click_button "Present"
+    find(".deck-toolbar__present").click
     expect(page).to have_css(".deck--presenting .deck-slide--current", wait: 5)
   end
 
@@ -331,6 +393,7 @@ RSpec.describe "Deck UX", type: :system do
   describe "Mermaid diagrams on a slide" do
     it "keeps the expand control chip-sized instead of scaling it to the canvas" do
       visit plan_page_path(plan)
+      2.times { find(".deck-toolbar__step--next").click }
       expect(page).to have_css(".deck-slide .mermaid-diagram__canvas > svg", wait: 15)
 
       sizes = page.evaluate_script(<<~JS)
@@ -353,6 +416,7 @@ RSpec.describe "Deck UX", type: :system do
     # diagram still looks fine unsized.
     it "sizes a slide's diagram from the deck's rules, not the document's" do
       visit plan_page_path(plan)
+      2.times { find(".deck-toolbar__step--next").click }
       expect(page).to have_css(".deck-slide .mermaid-diagram__canvas > svg", wait: 15)
 
       sizing = page.evaluate_script(<<~JS)

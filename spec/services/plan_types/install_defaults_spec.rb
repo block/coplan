@@ -28,13 +28,13 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
       expect(CoPlan::PlanType.find_by_name("General").template_content).to be_nil
     end
 
-    it "installs behavior from front matter, defaulting to document" do
+    it "installs a presentation template with an explicit region" do
       described_class.call
 
       presentation = CoPlan::PlanType.find_by_name("Presentation")
-      expect(presentation.behavior).to eq("presentation")
+      expect(presentation.template_content).to include("::: {.presentation}")
       expect(presentation.template_content).to include("---")
-      expect(CoPlan::PlanType.find_by_name("Research").behavior).to eq("document")
+      expect(presentation.template_content).to end_with(":::")
     end
 
     it "is idempotent" do

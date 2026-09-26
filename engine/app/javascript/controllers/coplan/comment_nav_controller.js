@@ -121,6 +121,10 @@ export default class extends Controller {
 
     // Add active class and scroll into view
     mark.classList.add("anchor-highlight--active")
+    const slide = mark.closest(".deck-region .deck-slide")
+    if (slide) slide.dispatchEvent(new CustomEvent("coplan:deck-reveal", {
+      bubbles: true, detail: { slide: slide.dataset.slide }
+    }))
     mark.scrollIntoView({ behavior: "instant", block: "center" })
 
     // Open the thread popover if there's one

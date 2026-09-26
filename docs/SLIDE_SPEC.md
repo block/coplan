@@ -1,5 +1,38 @@
 # SLIDE_SPEC — the deck layout contract
 
+## Embedding decks in a plan
+
+A plan is Markdown. A standalone fenced region makes part of it a deck:
+
+```markdown
+Context before the deck.
+
+::: {.presentation #proposal theme="coplan"}
+
+# Opening slide
+
+---
+
+## Next slide
+
+:::
+
+Analysis after the deck. Another deck can follow later in the same plan.
+```
+
+The opening and closing lines must stand alone, with blank lines around the
+region. The optional ID starts with a letter and contains letters, digits,
+underscores or hyphens. The optional theme is `coplan` (default) or
+`graphite`. The region can contain ordinary Markdown, including Mermaid,
+images, links, and footnotes. Link definitions and footnotes apply to the
+whole plan; footnotes render together in References. Each `---` inside a
+presentation region starts a slide. Outside one, it remains a horizontal
+rule. An unknown or unclosed region marker displays as ordinary Markdown.
+
+In reading mode, each deck has its own slide controls and Present button.
+The presentation occupies the browser window and returns to its reader
+position when closed.
+
 This document is the product boundary of CoPlan's deck design system. On one
 side: plain CommonMark and a deterministic classifier that assigns every slide
 a layout pattern. On the other: a markup contract and a stylesheet

@@ -3433,6 +3433,17 @@ img.avatar {
   color: var(--color-text-muted);
 }
 
+.deck-region { margin-block: var(--space-lg); outline: none; }
+.deck-region:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+.deck-region .deck-slide:not(.deck-slide--current) { display: none; }
+.deck-region .deck-toolbar { align-items: center; gap: var(--space-xs); }
+.deck-toolbar__step { border: 1px solid var(--color-border); background: var(--color-surface); border-radius: var(--radius); color: var(--color-text-muted); cursor: pointer; padding: var(--space-xs) var(--space-sm); }
+.deck-toolbar__step:hover { color: var(--color-text); }
+.deck-toolbar__step--previous::before { content: "←"; }
+.deck-toolbar__step--next::before { content: "→"; }
+.deck-toolbar__count::before { content: attr(data-count); color: var(--color-text-muted); font-size: var(--text-sm); }
+.deck-toolbar__present::before { content: "▶ Present"; }
+
 /* Add scroll-margin to headings — and the plan's own masthead header — so
    they clear the sticky nav. The nav-title control scrolls to the very top
    in JS; this keeps a no-JS #plan-header jump landing below the bar too. */
