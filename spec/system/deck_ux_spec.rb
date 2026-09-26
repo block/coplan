@@ -179,6 +179,31 @@ RSpec.describe "Deck UX", type: :system do
     expect(page).not_to have_css(".content-nav__item[data-heading-id='before-the-readout'] .content-nav__link--active")
   end
 
+  it "reveals a hidden slide before opening its structural comment" do
+    visit plan_page_path(plan)
+    page.execute_script(<<~JS)
+      const slide = document.querySelector('.deck-slide[data-slide="3"]')
+      const badge = document.createElement("mark")
+      badge.className = "anchor-highlight anchor-highlight--open"
+      badge.dataset.threadId = "structural-thread"
+      badge.setAttribute("data-source-badge", "")
+      badge.addEventListener("coplan:source-thread", event => {
+        window.__sourceDispatched = true
+        event.stopPropagation()
+      })
+      slide.append(badge)
+      const thread = document.createElement("div")
+      thread.id = "structural-thread"
+      thread.dataset.threadId = "structural-thread"
+      document.body.append(thread)
+      const nav = document.querySelector('[data-controller~="coplan--comment-nav"]')
+      window.Stimulus.getControllerForElementAndIdentifier(nav, "coplan--comment-nav").navigateTo(badge)
+    JS
+
+    expect(page).to have_css(".deck-slide--current[data-slide='3']")
+    expect(page.evaluate_script("window.__sourceDispatched")).to eq(true)
+  end
+
   it "marks changes in a later content region" do
     content = <<~MD
       # Opening

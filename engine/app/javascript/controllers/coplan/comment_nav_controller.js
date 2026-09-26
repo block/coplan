@@ -111,6 +111,10 @@ export default class extends Controller {
 
     this.activeMark = null
     this.activePopover = null
+    const slide = mark.closest(".deck-region .deck-slide")
+    if (slide) slide.dispatchEvent(new CustomEvent("coplan:deck-reveal", {
+      bubbles: true, detail: { slide: slide.dataset.slide }
+    }))
     if (mark.hasAttribute("data-source-badge")) {
       const thread = document.getElementById(mark.dataset.threadId)
       if (thread) mark.dispatchEvent(new CustomEvent("coplan:source-thread", {
@@ -121,10 +125,6 @@ export default class extends Controller {
 
     // Add active class and scroll into view
     mark.classList.add("anchor-highlight--active")
-    const slide = mark.closest(".deck-region .deck-slide")
-    if (slide) slide.dispatchEvent(new CustomEvent("coplan:deck-reveal", {
-      bubbles: true, detail: { slide: slide.dataset.slide }
-    }))
     mark.scrollIntoView({ behavior: "instant", block: "center" })
 
     // Open the thread popover if there's one
