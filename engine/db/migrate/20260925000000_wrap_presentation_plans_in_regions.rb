@@ -9,18 +9,24 @@ class WrapPresentationPlansInRegions < ActiveRecord::Migration[8.1]
     end
 
     CoPlan::Plan.where(plan_type_id: presentation_types.select(:id)).find_each do |plan|
-      content = plan.current_content.to_s
-      next if content.empty? || CoPlan::ContentRegions::Split.call(content).regions.any? { |region| region.kind == :presentation }
+      plan.with_lock do
+        content = plan.current_content.to_s
+        next if content.empty? || CoPlan::ContentRegions::Split.call(content).regions.any? { |region| region.kind == :presentation }
 
-      CoPlan::Plans::ReplaceContent.call(
-        plan: plan,
-        new_content: "::: {.presentation}\n\n#{content.rstrip}\n\n:::\n",
-        base_revision: plan.current_revision,
-        actor_type: "system",
-        actor_id: nil,
-        change_summary: "Wrapped existing presentation in a content region",
-        reason: "Presentation rendering now follows Markdown regions"
-      )
+        # This is a deployment backfill, not an interactive edit. Clear a
+        # persisted lease under the plan lock so it cannot abort the schema
+        # migration; an in-flight editor will see the new revision as stale.
+        CoPlan::EditLease.where(plan_id: plan.id).delete_all
+        CoPlan::Plans::ReplaceContent.call(
+          plan: plan,
+          new_content: "::: {.presentation}\n\n#{content.rstrip}\n\n:::\n",
+          base_revision: plan.current_revision,
+          actor_type: "system",
+          actor_id: nil,
+          change_summary: "Wrapped existing presentation in a content region",
+          reason: "Presentation rendering now follows Markdown regions"
+        )
+      end
     end
     remove_column :coplan_plan_types, :behavior
   end

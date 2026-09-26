@@ -13,6 +13,29 @@ RSpec.describe "Plan versions", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(plan.title)
     end
+
+    it "keeps footnote definitions in a historical mixed-content version" do
+      plan.current_plan_version.update!(content_markdown: <<~MD, content_sha256: nil)
+        Context[^a].
+
+        ::: {.presentation}
+
+        # Slide
+
+        Evidence[^b].
+
+        :::
+
+        [^a]: Context source.
+        [^b]: Slide source.
+      MD
+
+      get plan_version_page_path(plan, plan.current_plan_version)
+
+      doc = Nokogiri::HTML(response.body)
+      expect(doc.css("a[data-footnote-ref]").map { |ref| ref["href"] }).to eq([ "#fn-a", "#fn-b" ])
+      expect(doc.css("section[data-footnotes] > ol > li").map { |item| item["id"] }).to eq(%w[fn-a fn-b])
+    end
   end
 
   describe "GET /plans/:plan_id/versions/:id/diff" do
