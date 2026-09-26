@@ -43,6 +43,39 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
       expect(doc.css("section[data-footnotes]")).to be_empty
       expect(doc.css("a[data-footnote-ref]").map { |a| a["id"] }).to eq(%w[fnref-a fnref-b fnref-a-2])
     end
+
+    it "signs structural comment targets against the complete mixed document" do
+      source = <<~MD
+        | Before |
+        | ------ |
+        | alpha  |
+
+        ::: {.presentation}
+
+        # Diagram
+
+        ```mermaid
+        flowchart LR
+          A --> B
+        ```
+
+        :::
+
+        | After |
+        | ----- |
+        | omega |
+      MD
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source))
+      targets = doc.css("[data-source-target]").map { |node| JSON.parse(node["data-source-target"]) }
+      diagrams = doc.css("[data-source-targets]").map { |node| JSON.parse(node["data-source-targets"])["diagram"] }
+
+      expect(targets.map { |target| target["text"] }).to include(" alpha  ", " omega ")
+      expect(diagrams.size).to eq(1)
+      (targets + diagrams).each do |target|
+        expect(CoPlan::Plans::SourceTargets.resolve(target["token"], source)).to include("start" => target["start"])
+      end
+      expect(doc.css("[data-sourcepos]")).to be_empty
+    end
   end
 
   describe "#render_slideshow" do

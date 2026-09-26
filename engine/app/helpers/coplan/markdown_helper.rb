@@ -56,7 +56,7 @@ module CoPlan
     # spreadsheet expander. Decks opt out — a slide is a fixed, scaled
     # artifact whose typography the deck layout engine already owns, and a
     # nested scroll frame inside a transformed slide belongs to nobody.
-    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, source_comments: false)
+    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, source_comments: false, retain_sourcepos: false)
       render_options = { unsafe: true }
       # Sourcepos wires checkboxes and structural comment targets to source;
       # it is stripped after generating trusted interaction metadata.
@@ -65,7 +65,7 @@ module CoPlan
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
-      result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments) : sanitized
+      result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments, retain_sourcepos: retain_sourcepos) : sanitized
       result = scope_footnote_ids(result, footnote_prefix) if footnote_prefix
       result = select_footnotes(result, footnotes)
       return result.html_safe if footnotes == :only
@@ -205,7 +205,7 @@ module CoPlan
     # only becomes interactive when its own source line matches
     # TASK_LINE_PATTERN. Sourcepos lines are fragment-relative; line_offset
     # shifts the emitted data-line back to document coordinates.
-    def make_checkboxes_interactive(html, content, line_offset: 0, source_comments: false)
+    def make_checkboxes_interactive(html, content, line_offset: 0, source_comments: false, retain_sourcepos: false)
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
       source_lines = content.to_s.each_line.map(&:rstrip)
       Plans::SourceTargets.new(content).annotate(doc) if source_comments && line_offset.zero?
@@ -247,7 +247,14 @@ module CoPlan
         ul.add_class("task-list") if ul&.name == "ul"
       end
 
-      doc.css("[data-sourcepos]").each { |el| el.remove_attribute("data-sourcepos") }
+      doc.css("[data-sourcepos]").each do |el|
+        position = /\A(\d+):(\d+)-(\d+):(\d+)\z/.match(el["data-sourcepos"])
+        if retain_sourcepos && position && position[1].to_i + line_offset > 0 && position[3].to_i + line_offset > 0
+          el["data-sourcepos"] = "#{position[1].to_i + line_offset}:#{position[2]}-#{position[3].to_i + line_offset}:#{position[4]}"
+        else
+          el.remove_attribute("data-sourcepos")
+        end
+      end
       doc.to_html
     end
 

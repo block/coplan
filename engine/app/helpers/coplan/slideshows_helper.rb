@@ -18,7 +18,7 @@ module CoPlan
     # to every fragment so references still resolve); footnotes render once,
     # document-wide, in the plan's References back matter, exactly as they
     # do for documents.
-    def render_slideshow(content, interactive: true, theme: "coplan", definitions: nil, line_offset: 0, reconcile: true)
+    def render_slideshow(content, interactive: true, theme: "coplan", definitions: nil, line_offset: 0, reconcile: true, retain_sourcepos: false)
       result = Slideshows::Split.call(content)
       definition_blocks = definitions || result.definition_blocks
 
@@ -35,6 +35,7 @@ module CoPlan
         lead_by_slide[slide.index.to_s] = classification.lead
         inner = render_markdown(preamble + slide.source, interactive:, footnotes: :exclude,
                                 data_tables: false,
+                                retain_sourcepos:,
                                 line_offset: slide.start_line - 1 - preamble.count("\n"))
         tag.section(inner,
                     class: [ "deck-slide", "deck-slide--#{classification.pattern}",
@@ -73,7 +74,7 @@ module CoPlan
         if region.kind == :presentation
           deck_number += 1
           deck = render_slideshow(region.source, interactive:, theme: region.theme, definitions: definitions,
-                                  line_offset: region.start_line - 1, reconcile: false)
+                                  line_offset: region.start_line - 1, reconcile: false, retain_sourcepos: interactive)
           tag.div(class: "deck-presenter deck-region", id: region.id,
                   tabindex: 0, data: { controller: "coplan--deck-presenter coplan--deck-reader",
                     deck_number: deck_number,
@@ -94,13 +95,15 @@ module CoPlan
           fragment = Slideshows::Split::Slide.new(start_line: region.start_line,
             end_line: region.start_line + region.source.count("\n"))
           preamble = deck_preamble(definitions, fragment)
-          render_markdown(preamble + region.source, interactive:, footnotes: :exclude, source_comments: true,
+          render_markdown(preamble + region.source, interactive:, footnotes: :exclude, retain_sourcepos: interactive,
                           line_offset: region.start_line - 1 - preamble.count("\n"))
         end
       end
       rendered = Nokogiri::HTML::DocumentFragment.parse(safe_join(fragments))
       document = Nokogiri::HTML::DocumentFragment.parse(render_markdown(result.canonical_source, interactive: false, data_tables: false))
       reconcile_references(rendered, document)
+      Plans::SourceTargets.new(content).annotate(rendered) if interactive
+      rendered.css("[data-sourcepos]").each { |element| element.remove_attribute("data-sourcepos") }
       rendered.to_html.html_safe
     end
 
