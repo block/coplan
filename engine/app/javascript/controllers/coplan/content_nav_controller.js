@@ -258,10 +258,17 @@ export default class extends Controller {
     }
   }
 
+  slideChanged() {
+    requestAnimationFrame(() => this._updateActiveFromScroll())
+  }
+
   _updateActiveFromScroll() {
     const threshold = 100
     let active = null
-    const headings = this._editorRoot ? this.editorHeadings() : this._headings
+    const headings = this._editorRoot ? this.editorHeadings() : this._headings.filter(heading => {
+      const slide = heading.closest(".deck-slide")
+      return !slide || slide.classList.contains("deck-slide--current")
+    })
     for (const heading of headings) {
       if (heading.getBoundingClientRect().top <= threshold) {
         active = heading
@@ -271,7 +278,7 @@ export default class extends Controller {
     }
 
     const index = headings.indexOf(active)
-    const id = this._editorRoot ? this._outlineIds[Math.max(index, 0)] : active?.id || this._headings[0]?.id
+    const id = this._editorRoot ? this._outlineIds[Math.max(index, 0)] : active?.id || headings[0]?.id
     if (id && id !== this._activeHeadingId) {
       this._activeHeadingId = id
       this._setActiveLink(id)
@@ -287,6 +294,7 @@ export default class extends Controller {
     this._activeHeadingId = outlineId
     this._setActiveLink(outlineId)
 
+    this._revealDeckSlide(heading)
     heading.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
@@ -334,7 +342,15 @@ export default class extends Controller {
     history.replaceState(null, "", `#${id}`)
 
     this._ignoreScroll = true
+    this._revealDeckSlide(target)
     target.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  _revealDeckSlide(element) {
+    const slide = element.closest(".deck-region .deck-slide")
+    if (slide) slide.dispatchEvent(new CustomEvent("coplan:deck-reveal", {
+      bubbles: true, detail: { slide: slide.dataset.slide }
+    }))
   }
 
   _setActiveLink(id) {

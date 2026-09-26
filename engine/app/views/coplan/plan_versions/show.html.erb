@@ -26,7 +26,7 @@
   </div>
 <% end %>
 
-<div class="plan-layout" data-controller="coplan--content-nav">
+<div class="plan-layout" data-controller="coplan--content-nav" data-action="coplan:deck-slide-changed->coplan--content-nav#slideChanged">
   <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
     <div class="content-nav__header">
       <span class="content-nav__title">Contents</span>
@@ -37,6 +37,8 @@
   <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>
 
   <div class="plan-layout__content card" data-coplan--content-nav-target="content">
-    <%= render_markdown(@version.content_markdown, interactive: false) %>
+    <%= render_content_regions(@version.content_markdown, interactive: false) %>
+    <% version_footnotes = render_markdown(@version.content_markdown, interactive: false, footnotes: :only) %>
+    <%= tag.div(version_footnotes, class: "markdown-rendered") if version_footnotes.present? %>
   </div>
 </div>

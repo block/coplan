@@ -25,7 +25,7 @@ module CoPlan
       { name: "Runbook", icon: "wrench", description: "Operational diagnosis and recovery steps", default_tags: [ "operations" ] },
       { name: "Research Note", icon: "flask", description: "Findings, evidence, and open questions", default_tags: [ "research" ] },
       { name: "Roadmap", icon: "map", description: "Sequenced outcomes and milestones", default_tags: [ "roadmap" ] },
-      { name: "Presentation", icon: "presentation", behavior: "presentation", description: "A markdown slide deck — `---` starts a new slide", default_tags: [] }
+      { name: "Presentation", icon: "presentation", description: "A markdown slide deck — `---` starts a new slide inside a presentation region", default_tags: [] }
     ].freeze
 
     # The browsable-URL showcase renames one folder and retitles one
@@ -922,7 +922,9 @@ module CoPlan
       # Fixtures that are complete document bodies — no lorem filler around them.
       if %i[spanish japanese arabic code_walkthrough collab_showcase slideshow_deck pattern_showcase].include?(definition[:fixture])
         parts << fixture
-        return parts.join("\n\n")
+        content = parts.join("\n\n")
+        return "::: {.presentation}\n\n#{content}\n\n:::" if %i[slideshow_deck pattern_showcase].include?(definition[:fixture])
+        return content
       end
 
       parts << Faker::Lorem.paragraph(sentence_count: 3)

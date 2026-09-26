@@ -302,6 +302,7 @@ export default class extends Controller {
 
     const highlighted = this.findAndHighlight(anchor, occurrence, "anchor-highlight--active")
     if (highlighted) {
+      this._revealDeckSlide(highlighted)
       highlighted.scrollIntoView({ behavior: "smooth", block: "center" })
     }
   }
@@ -403,10 +404,18 @@ export default class extends Controller {
     }
   }
 
+  _revealDeckSlide(element) {
+    const slide = element.closest(".deck-region .deck-slide")
+    if (slide) slide.dispatchEvent(new CustomEvent("coplan:deck-reveal", {
+      bubbles: true, detail: { slide: slide.dataset.slide }
+    }))
+  }
+
   // Internal: open the popover for a given mark in either "hover" or "pinned" mode.
   // Returns true if the popover was shown, false otherwise.
   _showThreadPopoverFor(trigger, mode) {
     if (!trigger) return false
+    this._revealDeckSlide(trigger)
     const threadId = trigger.dataset.threadId
     if (!threadId) return false
 
@@ -912,7 +921,10 @@ export default class extends Controller {
           const generalVoiceComment = this._pendingThreadOrigin === "voice" && currentMark.closest("#plan-general-comments")
           const trigger = generalVoiceComment ? document.querySelector(".voice-btn") || currentMark : currentMark
           if (generalVoiceComment) trigger.dataset.threadId = domId
-          else currentMark.scrollIntoView({ behavior: "instant", block: "center" })
+          else {
+            this._revealDeckSlide(currentMark)
+            currentMark.scrollIntoView({ behavior: "instant", block: "center" })
+          }
           if (this._showThreadPopoverFor(trigger, "pinned")) {
             this._pendingThreadId = null
             this._pendingThreadOrigin = null

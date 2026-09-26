@@ -82,7 +82,7 @@ export function parseDocument(markdown) {
       // Raw HTML, tables, task lists, footnotes and reference definitions are
       // preserved until dedicated rich node views exist for them.
       const parsed = defaultMarkdownParser.parse(source)
-      if (parsed.firstChild?.type.name !== "code_block" && /~~|\]\s*\[|\]\(mention:|<\/?[a-z!]|^\s*\|.*\||^\s*\|?\s*:?-{3,}.*\||^\s*(?:>\s*)*(?:[-*+]|\d+[.)]) \[[ xX]\]|^\s*\[[^\]]+\]:|\[\^[^\]]+\]/im.test(source)) throw new Error("preserve")
+      if (parsed.firstChild?.type.name !== "code_block" && /~~|\]\s*\[|\]\(mention:|<\/?[a-z!]|^\s*\|.*\||^\s*\|?\s*:?-{3,}.*\||^\s*(?:>\s*)*(?:[-*+]|\d+[.)]) \[[ xX]\]|^\s*\[[^\]]+\]:|\[\^[^\]]+\]|^:::(?: \{\.presentation.*\})?$/im.test(source)) throw new Error("preserve")
       if (parsed.childCount !== 1) throw new Error("preserve")
       let node = schema.nodeFromJSON(parsed.firstChild.toJSON())
       node = node.type.create({ ...node.attrs, source, snapshot: signature(node) }, node.content, node.marks)

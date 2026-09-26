@@ -30,11 +30,8 @@ const DRAG_SLOP = 4
  * marker. `d` arms the pen (DeckInk) and a drag paints instead; either way
  * the mark is temporary, and a still click is always "next".
  *
- * The wrapper sits OUTSIDE the live-update swap target: an edit landing
- * mid-presentation replaces the deck underneath without disconnecting this
- * controller. Every entry point re-acquires the current deck by lookup, and
- * a childList observer re-applies the presenting state to a freshly swapped
- * deck so the show survives collaboration.
+ * Each region owns its presenter. The wrapper and deck are replaced together
+ * on a remote content update; disconnect releases presentation state.
  */
 export default class extends Controller {
   connect() {
@@ -81,11 +78,11 @@ export default class extends Controller {
     })
     this.observer.observe(this.element, { childList: true, subtree: true })
 
-    const resumed = window.location.hash.match(/^#present-(\d+)$/)
+    const resumed = window.location.hash.match(new RegExp(`^#present-${this.element.dataset.deckNumber}-(\\d+)$`))
     // Presenting borrows the URL fragment for #present-N; remember what
     // was there (a heading deep link, a footnote) to give back on exit.
     this._priorHash = resumed ? "" : window.location.hash
-    this._show(resumed ? Number(resumed[1]) - 1 : 0)
+    this._show(resumed ? Number(resumed[1]) - 1 : Number(this.element.dataset.currentSlide || 1) - 1)
     // _show stops the show itself on a slideless deck — don't black out
     // the window for nothing.
     if (!this.presenting) return
@@ -130,6 +127,7 @@ export default class extends Controller {
     if (window.location.hash.startsWith("#present-")) {
       history.replaceState(history.state, "", window.location.pathname + window.location.search + (this._priorHash || ""))
     }
+    this.element.dispatchEvent(new CustomEvent("coplan:deck-stopped", { bubbles: true }))
   }
 
   _show(index) {
@@ -138,6 +136,7 @@ export default class extends Controller {
     if (slides.length === 0) return this.stop()
 
     this.index = Math.max(0, Math.min(index, slides.length - 1))
+    this.element.dispatchEvent(new CustomEvent("coplan:deck-slide", { detail: { index: this.index } }))
     deck.classList.add("deck--presenting")
     this._promoteDeck()
     slides.forEach((slide, i) => slide.classList.toggle("deck-slide--current", i === this.index))
@@ -147,7 +146,7 @@ export default class extends Controller {
     // it survives the slide it was drawn on — including a stroke still in
     // progress when a key advanced the show.
     this.ink.clear()
-    history.replaceState(history.state, "", `#present-${this.index + 1}`)
+    history.replaceState(history.state, "", `#present-${this.element.dataset.deckNumber}-${this.index + 1}`)
   }
 
   // A highlight belongs to the slide it was drawn on. Once the show moves
@@ -209,7 +208,13 @@ export default class extends Controller {
 
     if (!this.presenting) {
       if (commandFor("deck", event) !== "start" || this._typing(event.target)) return
-      if (!this.element.querySelector(".deck")) return
+      const regions = Array.from(document.querySelectorAll(".deck-region"))
+      const focused = document.activeElement?.closest?.(".deck-region")
+      const visible = regions.find(region => {
+        const box = region.getBoundingClientRect()
+        return box.bottom > 0 && box.top < window.innerHeight
+      })
+      if (this.element !== (focused || visible || regions[0])) return
       event.preventDefault()
       this.start()
       return
@@ -463,7 +468,6 @@ export default class extends Controller {
 
     deck.classList.remove("deck--presenting")
     deck.removeAttribute("tabindex")
-    deck.querySelectorAll(".deck-slide--current").forEach(slide => slide.classList.remove("deck-slide--current"))
     // A closed popover is display: none — the attribute must go too, or
     // the deck vanishes from the page after the show.
     if (deck.matches("[popover]")) {

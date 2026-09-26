@@ -111,6 +111,10 @@ export default class extends Controller {
 
     this.activeMark = null
     this.activePopover = null
+    const slide = mark.closest(".deck-region .deck-slide")
+    if (slide) slide.dispatchEvent(new CustomEvent("coplan:deck-reveal", {
+      bubbles: true, detail: { slide: slide.dataset.slide }
+    }))
     if (mark.hasAttribute("data-source-badge")) {
       const thread = document.getElementById(mark.dataset.threadId)
       if (thread) mark.dispatchEvent(new CustomEvent("coplan:source-thread", {

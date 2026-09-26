@@ -5,6 +5,79 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
     Nokogiri::HTML::DocumentFragment.parse(helper.render_slideshow(content, **options))
   end
 
+  describe "#render_content_regions" do
+    it "renders prose and two independent decks in source order" do
+      source = "Intro\n\n::: {.presentation}\n\n# First\n\n---\n\n# Second\n\n:::\n\nBetween\n\n::: {.presentation}\n\n# Third\n\n:::\n\nEnd"
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source))
+
+      expect(doc.css(".deck-region").size).to eq(2)
+      expect(doc.css(".deck-region .deck-slide").size).to eq(3)
+      expect(doc.css(".markdown-rendered p").map { |p| p.text.strip }).to include("Intro", "Between", "End")
+      expect(doc.text.index("Intro")).to be < doc.text.index("First")
+      expect(doc.text.index("Between")).to be < doc.text.index("Third")
+    end
+
+    it "shares footnote numbering and link definitions across prose and decks" do
+      source = <<~MD
+        Prose[^a] and [source][link].
+
+        ::: {.presentation}
+
+        # Deck
+
+        Slide[^b] and [source][link].
+
+        :::
+
+        More[^a].
+
+        [^a]: First source
+        [^b]: Second source
+
+        [link]: https://example.com
+      MD
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source))
+
+      expect(doc.css("a[data-footnote-ref]").map(&:text)).to eq(%w[1 2 1])
+      expect(doc.css('a[href="https://example.com"]').size).to eq(2)
+      expect(doc.css("section[data-footnotes]")).to be_empty
+      expect(doc.css("a[data-footnote-ref]").map { |a| a["id"] }).to eq(%w[fnref-a fnref-b fnref-a-2])
+    end
+
+    it "signs structural comment targets against the complete mixed document" do
+      source = <<~MD
+        | Before |
+        | ------ |
+        | alpha  |
+
+        ::: {.presentation}
+
+        # Diagram
+
+        ```mermaid
+        flowchart LR
+          A --> B
+        ```
+
+        :::
+
+        | After |
+        | ----- |
+        | omega |
+      MD
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source))
+      targets = doc.css("[data-source-target]").map { |node| JSON.parse(node["data-source-target"]) }
+      diagrams = doc.css("[data-source-targets]").map { |node| JSON.parse(node["data-source-targets"])["diagram"] }
+
+      expect(targets.map { |target| target["text"] }).to include(" alpha  ", " omega ")
+      expect(diagrams.size).to eq(1)
+      (targets + diagrams).each do |target|
+        expect(CoPlan::Plans::SourceTargets.resolve(target["token"], source)).to include("start" => target["start"])
+      end
+      expect(doc.css("[data-sourcepos]")).to be_empty
+    end
+  end
+
   describe "#render_slideshow" do
     it "wraps each slide in a deck section with its 1-based index" do
       doc = deck("# One\n\n---\n\n# Two")

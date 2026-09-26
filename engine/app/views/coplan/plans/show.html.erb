@@ -52,7 +52,7 @@
 
 <div class="plan-document card">
   <% if @plan.current_content.present? %>
-    <div class="plan-layout plan-layout--hide-resolved" data-controller="coplan--source-comments coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="coplan:source-thread->coplan--source-comments#openThread coplan:resolved-visibility->coplan--source-comments#resolvedVisibilityChanged coplan:diagram-moved->coplan--source-comments#positionPanel keydown.esc@document->coplan--source-comments#dismiss:capture turbo:before-cache@document->coplan--source-comments#beforeCache coplan:mermaid-settled->coplan--source-comments#refresh coplan:content-updated->coplan--source-comments#refresh coplan:expander-opened->coplan--source-comments#refresh coplan:expander-closing->coplan--source-comments#expanderClosing keydown@document->coplan--text-selection#selectionKey keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread coplan:content-updated->coplan--content-nav#contentUpdated coplan:remote-change->coplan--content-nav#remoteChange coplan:editor-content-changed->coplan--content-nav#editorContentChanged coplan:editor-preview-settled->coplan--text-selection#editorPreviewSettled coplan:mermaid-settled->coplan--text-selection#editorPreviewSettled" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_sections.keys.to_json %>" data-coplan--changed-sections-rewritten-value="<%= @changed_sections.rewritten? %>" data-coplan--changed-sections-history-url-value="<%= plan_history_browse_path(@plan) %>">
+    <div class="plan-layout plan-layout--hide-resolved" data-controller="coplan--source-comments coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="coplan:source-thread->coplan--source-comments#openThread coplan:resolved-visibility->coplan--source-comments#resolvedVisibilityChanged coplan:diagram-moved->coplan--source-comments#positionPanel keydown.esc@document->coplan--source-comments#dismiss:capture turbo:before-cache@document->coplan--source-comments#beforeCache coplan:mermaid-settled->coplan--source-comments#refresh coplan:content-updated->coplan--source-comments#refresh coplan:expander-opened->coplan--source-comments#refresh coplan:expander-closing->coplan--source-comments#expanderClosing keydown@document->coplan--text-selection#selectionKey keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread coplan:content-updated->coplan--content-nav#contentUpdated coplan:remote-change->coplan--content-nav#remoteChange coplan:deck-slide-changed->coplan--content-nav#slideChanged coplan:editor-content-changed->coplan--content-nav#editorContentChanged coplan:editor-preview-settled->coplan--text-selection#editorPreviewSettled coplan:mermaid-settled->coplan--text-selection#editorPreviewSettled" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-keys-value="<%= @changed_sections.keys.to_json %>" data-coplan--changed-sections-rewritten-value="<%= @changed_sections.rewritten? %>" data-coplan--changed-sections-history-url-value="<%= plan_history_browse_path(@plan) %>">
       <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
         <%# No "Contents" label — the outline speaks for itself, and the plan
             title now lives in the sticky nav. Just the collapse control. %>
@@ -82,27 +82,9 @@
           anchored to diagram labels get their marks (and pending ?thread=
           deep links can resolve). %>
       <div class="plan-layout__content">
-        <%# Presentations present: `p` or the button fills the window with
-            the deck (deck_presenter_controller) — a window is what a call
-            can screen-share, and `f` takes the whole screen for a room.
-            The wrapper sits outside the live-update swap target so a
-            collaborator's edit landing mid-show doesn't disconnect the
-            presenter — and the toolbar sits outside the text-selection
-            content target below, because its
-            label is visible text and comment anchors count visible-text
-            occurrences under that target. %>
-        <% if @plan.presentation? %>
-        <div class="deck-presenter" data-controller="coplan--deck-presenter">
-          <div class="deck-toolbar">
-            <%# The only place the show's keys are advertised before it
-                starts — mid-show there is no room for a legend, and the pen
-                is the one gesture nobody would guess. %>
-            <button type="button" class="deck-toolbar__present" data-action="coplan--deck-presenter#start" title="Present (p) — mid-show, f for full screen, drag to highlight, d for the pen">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.8a1 1 0 0 1 1.53-.85l11.1 7.2a1 1 0 0 1 0 1.7l-11.1 7.2A1 1 0 0 1 7 19.2z"/></svg>
-              Present <kbd>p</kbd>
-            </button>
-          </div>
-        <% end %>
+        <%# Each presentation region owns its own reader controls and
+            presenter. Live updates wait until an active show ends before
+            replacing the content target below. %>
         <%# Selection-to-comment is scoped to this inner wrapper: the back
             matter below shares the column but must not offer comment
             anchors — they'd never resolve against the document body. %>
@@ -115,7 +97,7 @@
 
 
         </div>
-        <% if allowed_to?(@plan, :edit_content?) && !@plan.presentation? %>
+        <% if allowed_to?(@plan, :edit_content?) %>
           <div class="inline-editor" data-coplan--inline-editor-target="editor" hidden>
             <template data-coplan--inline-editor-target="template"><%= render "coplan/plans/editor_form", inline_editor: true %></template>
           </div>
@@ -132,9 +114,6 @@
           </button>
         </div>
         <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
-        <% if @plan.presentation? %>
-        </div>
-        <% end %>
 
         <%= render partial: "coplan/plans/footnotes",
               locals: { plan: @plan, references: @references, attachments: @attachments } %>

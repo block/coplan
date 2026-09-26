@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import { captureViewport, restoreViewport } from "coplan/viewport_anchor"
+import { renderedBlocks } from "coplan/content_sections"
 
 /*
  * coplan--live-update
@@ -69,35 +70,60 @@ export default class extends Controller {
       // shot. Stimulus controllers inside target will disconnect + reconnect.
       const fragment = this.templateContent
 
-      if (hasDirtyDrafts()) {
+      if (target.querySelector(".deck--presenting")) {
+        // Keep the active deck and its presenter connected. Apply the latest
+        // whole-body update as soon as the show ends.
+        target.__pendingDeckUpdate = { fragment: fragment.cloneNode(true), incomingRevision, changedKeys }
+        if (!target.__deckStopListener) {
+          target.__deckStopListener = () => {
+            const pending = target.__pendingDeckUpdate
+            target.__pendingDeckUpdate = null
+            if (!pending) return
+            if (hasDirtyDrafts()) showStaleBanner(target, pending.incomingRevision)
+            else applyContent(target, pending.fragment, pending.incomingRevision, pending.changedKeys)
+          }
+          target.addEventListener("coplan:deck-stopped", target.__deckStopListener)
+        }
+      } else if (hasDirtyDrafts()) {
         showStaleBanner(target, incomingRevision)
       } else {
-        const viewport = captureViewport(target)
-        const oldSections = snapshotSections(target, changedKeys)
-        target.replaceChildren(fragment)
-        if (incomingRevision) {
-          target.setAttribute("data-coplan--live-update-revision-value", String(incomingRevision))
-        }
-        target.dispatchEvent(new CustomEvent("coplan:content-updated", { bubbles: true }))
-        restoreViewport(target, viewport)
-        // Browser scroll anchoring and async layout (fonts/diagrams) can run
-        // after the synchronous swap. Reconcile the same passage once layout
-        // has settled instead of letting that native adjustment move the reader.
-        requestAnimationFrame(() => restoreViewport(target, viewport))
-        clearStaleBanner()
-        if (changedKeys.length > 0) {
-          const offscreenKeys = flashChangedSections(target, changedKeys, oldSections)
-          if (offscreenKeys.length > 0) {
-            target.dispatchEvent(new CustomEvent("coplan:remote-change", {
-              bubbles: true, detail: { keys: offscreenKeys }
-            }))
-          }
-        } else refreshAnchors(target)
+        applyContent(target, fragment, incomingRevision, changedKeys)
       }
     }
 
     window.__coplanLiveUpdateRegistered = true
   }
+}
+
+function applyContent(target, fragment, incomingRevision, changedKeys) {
+  const viewport = captureViewport(target)
+  const oldSections = snapshotSections(target, changedKeys)
+  const deckPositions = Array.from(target.querySelectorAll(".deck-region"), region => ({
+    id: region.id,
+    slide: Number(region.dataset.currentSlide || 1)
+  }))
+  target.replaceChildren(fragment)
+  const positionsById = new Map(deckPositions.filter(position => position.id).map(position => [position.id, position.slide]))
+  target.querySelectorAll(".deck-region").forEach((region, index) => {
+    const slides = Array.from(region.querySelectorAll(":scope > .deck > .deck-slide"))
+    const previous = positionsById.get(region.id) || deckPositions[index]?.slide || 1
+    const current = Math.max(1, Math.min(previous, slides.length))
+    region.dataset.currentSlide = String(current)
+    slides.forEach((slide, slideIndex) => slide.classList.toggle("deck-slide--current", slideIndex === current - 1))
+  })
+  if (incomingRevision) target.setAttribute("data-coplan--live-update-revision-value", String(incomingRevision))
+  target.dispatchEvent(new CustomEvent("coplan:content-updated", { bubbles: true }))
+  restoreViewport(target, viewport)
+  requestAnimationFrame(() => restoreViewport(target, viewport))
+  clearStaleBanner()
+  if (changedKeys.length > 0) {
+    const offscreenKeys = flashChangedSections(target, changedKeys, oldSections)
+    if (offscreenKeys.length > 0) {
+      target.dispatchEvent(new CustomEvent("coplan:remote-change", {
+        bubbles: true, detail: { keys: offscreenKeys }
+      }))
+    }
+  } else refreshAnchors(target)
 }
 
 /*
@@ -146,14 +172,11 @@ function slugify(text, used) {
 // Map of section key → array of block elements (live nodes for the new
 // DOM; for snapshots we keep outerHTML/text copies instead).
 function sectionBlocks(root) {
-  const rendered = root.querySelector(".markdown-rendered")
-  if (!rendered) return new Map()
-
   const sections = new Map([[TOP_KEY, []]])
   const used = new Set()
   let currentKey = TOP_KEY
 
-  for (const node of Array.from(rendered.children)) {
+  for (const node of renderedBlocks(root)) {
     if (/^H[1-3]$/.test(node.tagName)) {
       currentKey = slugify(node.textContent, used)
       sections.set(currentKey, [])

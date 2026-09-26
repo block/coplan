@@ -18,12 +18,15 @@ module CoPlan
     # to every fragment so references still resolve); footnotes render once,
     # document-wide, in the plan's References back matter, exactly as they
     # do for documents.
-    def render_slideshow(content, interactive: true, theme: "coplan")
+    def render_slideshow(content, interactive: true, theme: "coplan", definitions: nil, line_offset: 0, reconcile: true, retain_sourcepos: false)
       result = Slideshows::Split.call(content)
+      definition_blocks = definitions || result.definition_blocks
 
       lead_by_slide = {}
       sections = result.slides.map do |slide|
-        preamble = deck_preamble(result.definition_blocks, slide)
+        slide.start_line += line_offset
+        slide.end_line += line_offset
+        preamble = deck_preamble(definition_blocks, slide)
         # Classify the exact string being rendered — with the preamble,
         # reference-style images resolve to image nodes here the same way
         # they resolve on screen (the sentinel comment classifies as
@@ -32,10 +35,12 @@ module CoPlan
         lead_by_slide[slide.index.to_s] = classification.lead
         inner = render_markdown(preamble + slide.source, interactive:, footnotes: :exclude,
                                 data_tables: false,
+                                retain_sourcepos:,
                                 line_offset: slide.start_line - 1 - preamble.count("\n"))
         tag.section(inner,
                     class: [ "deck-slide", "deck-slide--#{classification.pattern}",
-                             "deck-step-#{classification.step}" ],
+                             "deck-step-#{classification.step}",
+                             (!reconcile && slide.index == 1 ? "deck-slide--current" : nil) ].compact,
                     data: { slide: slide.index, pattern: classification.pattern,
                             media: classification.media }.compact)
       end
@@ -45,18 +50,72 @@ module CoPlan
       # on every slide. The document-mode render is the ground truth readers
       # and agents link against; these passes rewrite the deck to match it.
       deck = Nokogiri::HTML::DocumentFragment.parse(safe_join(sections))
-      document = Nokogiri::HTML::DocumentFragment.parse(render_markdown(content, interactive: false, data_tables: false))
-      renumber_deck_footnotes(deck, document)
-      align_heading_ids(deck, document)
-      mirror_section_link_enhancement(deck, document)
-      drop_misleading_ids(deck, document)
-      strip_duplicate_ids(deck)
+      if reconcile
+        document = Nokogiri::HTML::DocumentFragment.parse(render_markdown(content, interactive: false, data_tables: false))
+        reconcile_references(deck, document)
+      end
       decorate_slide_content(deck, lead_by_slide)
 
       tag.div(deck.to_html.html_safe, class: "deck", data: { deck_theme: theme })
     end
 
+    # Render prose and any number of decks, then align every fragment against
+    # one whole-plan render. This keeps footnotes, link definitions and heading
+    # IDs global rather than restarting them at each region boundary.
+    def render_content_regions(content, interactive: true)
+      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true) unless content.include?("::: {.presentation")
+
+      result = ContentRegions::Split.call(content)
+      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true) unless result.regions.any? { |region| region.kind == :presentation }
+
+      definitions = Slideshows::Split.call(result.canonical_source).definition_blocks
+      deck_number = 0
+      fragments = result.regions.map do |region|
+        if region.kind == :presentation
+          deck_number += 1
+          deck = render_slideshow(region.source, interactive:, theme: region.theme, definitions: definitions,
+                                  line_offset: region.start_line - 1, reconcile: false, retain_sourcepos: interactive)
+          tag.div(class: "deck-presenter deck-region", id: region.id,
+                  tabindex: 0, data: { controller: "coplan--deck-presenter coplan--deck-reader",
+                    deck_number: deck_number,
+                    action: "click->coplan--deck-reader#focus keydown->coplan--deck-reader#keydown coplan:deck-slide->coplan--deck-reader#synced coplan:deck-reveal->coplan--deck-reader#reveal" }) do
+            safe_join([
+              tag.div(class: "deck-toolbar") do
+                safe_join([
+                  tag.button("", type: "button", class: "deck-toolbar__step deck-toolbar__step--previous", aria: { label: "Previous slide" }, data: { action: "coplan--deck-reader#previous" }),
+                  tag.span("", class: "deck-toolbar__count", role: "status", aria: { live: "polite" }, data: { "coplan--deck-reader-target": "count" }),
+                  tag.button("", type: "button", class: "deck-toolbar__step deck-toolbar__step--next", aria: { label: "Next slide" }, data: { action: "coplan--deck-reader#next" }),
+                  tag.button("", type: "button", class: "deck-toolbar__present", aria: { label: "Present deck" }, data: { action: "coplan--deck-presenter#start" })
+                ])
+              end,
+              deck
+            ])
+          end
+        else
+          fragment = Slideshows::Split::Slide.new(start_line: region.start_line,
+            end_line: region.start_line + region.source.count("\n"))
+          preamble = deck_preamble(definitions, fragment)
+          render_markdown(preamble + region.source, interactive:, footnotes: :exclude, retain_sourcepos: interactive,
+                          line_offset: region.start_line - 1 - preamble.count("\n"))
+        end
+      end
+      rendered = Nokogiri::HTML::DocumentFragment.parse(safe_join(fragments))
+      document = Nokogiri::HTML::DocumentFragment.parse(render_markdown(result.canonical_source, interactive: false, data_tables: false))
+      reconcile_references(rendered, document)
+      Plans::SourceTargets.new(content).annotate(rendered) if interactive
+      rendered.css("[data-sourcepos]").each { |element| element.remove_attribute("data-sourcepos") }
+      rendered.to_html.html_safe
+    end
+
     private
+
+    def reconcile_references(rendered, document)
+      renumber_deck_footnotes(rendered, document)
+      align_heading_ids(rendered, document)
+      mirror_section_link_enhancement(rendered, document)
+      drop_misleading_ids(rendered, document)
+      strip_duplicate_ids(rendered)
+    end
 
     # SLIDE_SPEC.md's markup contract on the rendered DOM: the slide's
     # block container gets the spec's neutral .deck-content name (the

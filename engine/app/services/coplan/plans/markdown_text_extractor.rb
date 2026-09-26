@@ -17,7 +17,7 @@ module CoPlan
       end
 
       def initialize(content)
-        @content = content
+        @content = content.to_s.include?("::: {.presentation") ? ContentRegions::Split.call(content).canonical_source : content
       end
 
       def call
