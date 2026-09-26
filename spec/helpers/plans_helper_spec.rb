@@ -15,6 +15,15 @@ RSpec.describe CoPlan::PlansHelper, type: :helper do
       expect(preview).not_to include("](")
     end
 
+    it "omits presentation delimiters from a mixed plan preview" do
+      plan.current_plan_version.update!(content_markdown: "::: {.presentation}\n\n# Opening slide\n\n:::\n\nClosing context.")
+
+      preview = helper.plan_content_preview(plan)
+
+      expect(preview).to include("Opening slide", "Closing context")
+      expect(preview).not_to include(":::", "presentation")
+    end
+
     it "truncates to the requested limit" do
       plan.current_plan_version.update!(content_markdown: "word " * 100)
       preview = helper.plan_content_preview(plan, limit: 40)
