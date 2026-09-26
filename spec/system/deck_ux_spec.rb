@@ -119,10 +119,35 @@ RSpec.describe "Deck UX", type: :system do
     second_deck.find(".deck-toolbar__present").click
     expect(second_deck).to have_css(".deck--presenting .deck-slide--current[data-slide='1']")
     send_keys(:escape)
+    expect(second_deck).to have_css(".deck-slide--current[data-slide='1']", visible: true)
     second_deck.click
     send_keys(:arrow_right)
     expect(second_deck.find(".deck-toolbar__count")["data-count"]).to eq("2 / 2")
     expect(first_deck.find(".deck-toolbar__count")["data-count"]).to eq("2 / 2")
+    send_keys("p")
+    expect(second_deck).to have_css(".deck--presenting .deck-slide--current[data-slide='2']")
+    send_keys(:escape)
+  end
+
+  it "keeps the reader's slide when live content replaces the document" do
+    visit plan_page_path(plan)
+    find(".deck-toolbar__step--next").click
+    expect(find(".deck-toolbar__count")["data-count"]).to eq("2 / 4")
+
+    page.execute_script(<<~JS)
+      const target = document.getElementById("plan-content-body")
+      const stream = document.createElement("turbo-stream")
+      stream.setAttribute("action", "coplan-replace-if-clean")
+      stream.setAttribute("target", "plan-content-body")
+      stream.setAttribute("data-revision", "#{plan.current_revision + 1}")
+      const template = document.createElement("template")
+      template.innerHTML = target.innerHTML
+      stream.append(template)
+      document.body.append(stream)
+    JS
+
+    expect(find(".deck-toolbar__count")["data-count"]).to eq("2 / 4")
+    expect(page).to have_css(".deck-slide--current[data-slide='2']", visible: true)
   end
 
   it "reveals a hidden slide when its heading is selected in the outline" do

@@ -206,7 +206,19 @@ export default class extends Controller {
       return
     }
 
-    if (!this.presenting) return
+    if (!this.presenting) {
+      if (commandFor("deck", event) !== "start" || this._typing(event.target)) return
+      const regions = Array.from(document.querySelectorAll(".deck-region"))
+      const focused = document.activeElement?.closest?.(".deck-region")
+      const visible = regions.find(region => {
+        const box = region.getBoundingClientRect()
+        return box.bottom > 0 && box.top < window.innerHeight
+      })
+      if (this.element !== (focused || visible || regions[0])) return
+      event.preventDefault()
+      this.start()
+      return
+    }
 
     // The keyboard mirror of the click pass-through below: a focused
     // control owns the keys it actually responds to — Space toggles the
@@ -456,7 +468,6 @@ export default class extends Controller {
 
     deck.classList.remove("deck--presenting")
     deck.removeAttribute("tabindex")
-    deck.querySelectorAll(".deck-slide--current").forEach(slide => slide.classList.remove("deck-slide--current"))
     // A closed popover is display: none — the attribute must go too, or
     // the deck vanishes from the page after the show.
     if (deck.matches("[popover]")) {
