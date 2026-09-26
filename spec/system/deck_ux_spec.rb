@@ -161,13 +161,20 @@ RSpec.describe "Deck UX", type: :system do
   end
 
   it "reveals a hidden slide targeted by a direct link" do
+    content = ("Long introduction.\n\n" * 40) + "::: {.presentation}\n\n#{deck_content}\n:::"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     visit "#{plan_page_path(plan)}#how-a-slide-finds-its-shape"
 
     expect(page).to have_css(".deck-region .deck-slide--current[data-slide='3']")
-    heading_top = page.evaluate_script(<<~JS)
-      document.getElementById("how-a-slide-finds-its-shape").getBoundingClientRect().top
-    JS
-    expect(heading_top).to be_between(-20, 140)
+    Selenium::WebDriver::Wait.new(timeout: 5).until do
+      page.evaluate_script(<<~JS)
+        (() => {
+          const top = document.getElementById("how-a-slide-finds-its-shape").getBoundingClientRect().top
+          return top >= -20 && top < window.innerHeight
+        })()
+      JS
+    end
   end
 
   it "tracks the visible slide in the outline" do

@@ -38,6 +38,7 @@
 
   <div class="plan-layout__content card" data-coplan--content-nav-target="content">
     <%= render_content_regions(@version.content_markdown, interactive: false) %>
-    <%= render_markdown(@version.content_markdown, interactive: false, footnotes: :only) %>
+    <% version_footnotes = render_markdown(@version.content_markdown, interactive: false, footnotes: :only) %>
+    <%= tag.div(version_footnotes, class: "markdown-rendered") if version_footnotes.present? %>
   </div>
 </div>

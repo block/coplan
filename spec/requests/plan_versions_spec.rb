@@ -35,6 +35,7 @@ RSpec.describe "Plan versions", type: :request do
       doc = Nokogiri::HTML(response.body)
       expect(doc.css("a[data-footnote-ref]").map { |ref| ref["href"] }).to eq([ "#fn-a", "#fn-b" ])
       expect(doc.css("section[data-footnotes] > ol > li").map { |item| item["id"] }).to eq(%w[fn-a fn-b])
+      expect(doc.css(".markdown-rendered > section[data-footnotes]").size).to eq(1)
     end
   end
 
