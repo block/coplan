@@ -393,6 +393,10 @@ RSpec.describe "Inline plan editing", type: :system do
     find("body").send_keys("s")
     expect(page).to have_css("#plan-general-comments", visible: true)
     expect(page).to have_css("#plan-detached-comments", visible: true)
+
+    visit plan_page_path(plan, thread: displaced.id)
+    expect(page).to have_css("#plan-detached-comments", visible: true)
+    expect(page).to have_css("#comment_thread_#{displaced.id}_popover:popover-open", wait: 10)
   end
 
   it "uses the visible editing surface for voice comment context" do

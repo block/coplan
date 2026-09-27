@@ -903,6 +903,12 @@ export default class extends Controller {
     }
 
     if (mark) {
+      // A direct link is an explicit request to see this resolved discussion.
+      // Reveal its list before scrolling to a button hidden by the default view.
+      if (mark.closest(".detached-comments") && threadData?.dataset.threadStatus === "resolved") {
+        this.element.classList.remove("plan-layout--hide-resolved")
+        this.element.dispatchEvent(new CustomEvent("coplan:resolved-visibility", { bubbles: true }))
+      }
       requestAnimationFrame(() => {
         if (this._pendingThreadId !== threadId) return
 
