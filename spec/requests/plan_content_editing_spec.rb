@@ -56,7 +56,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
       get comments_body_plan_path(plan)
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("Comments needing a new anchor", "Keep this comment", thread.id)
+      expect(response.body).to include("Comments on earlier text", "Keep this comment", thread.id)
       expect(response.headers["Cache-Control"]).to include("no-store")
     end
   end

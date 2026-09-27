@@ -1,0 +1,12 @@
+<% displaced = threads.select { |thread| thread.out_of_date? && thread.anchor_kind.blank? } %>
+<aside id="plan-detached-comments" class="detached-comments<%= ' detached-comments--all-resolved' if displaced.all?(&:closed?) %>" aria-label="Comments on earlier text"<%= " hidden" if displaced.empty? %>>
+  <% if displaced.any? %>
+    <strong>Comments on earlier text</strong>
+    <p>The quoted text changed. These discussions are kept here for reference.</p>
+    <% displaced.each do |thread| %>
+      <button type="button" class="<%= 'detached-comments__resolved' if thread.closed? %>" data-thread-id="<%= dom_id(thread) %>" data-action="coplan--text-selection#openDetachedThread">
+        <%= thread.anchor_preview %><% if thread.closed? %> · resolved<% end %>
+      </button>
+    <% end %>
+  <% end %>
+</aside>

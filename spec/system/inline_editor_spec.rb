@@ -356,6 +356,45 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Original placement")
   end
 
+  it "keeps the editor readable when general and displaced comments are visible" do
+    general = create(:comment_thread, plan: plan, created_by_user: author)
+    general.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Whole document feedback")
+    displaced = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Second paragraph.")
+    displaced.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Old passage feedback")
+    displaced.update_columns(out_of_date: true)
+    visit plan_page_path(plan)
+
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+    widths = page.evaluate_script(<<~JS)
+      (() => {
+        const content = document.querySelector('.plan-layout__content').getBoundingClientRect()
+        const editor = document.querySelector('.inline-editor .ProseMirror').getBoundingClientRect()
+        const general = document.querySelector('#plan-general-comments').getBoundingClientRect()
+        const displaced = document.querySelector('#plan-detached-comments').getBoundingClientRect()
+        return [content.width, editor.width, general.width, displaced.width]
+      })()
+    JS
+    expect(widths).to all(be > 400)
+  end
+
+  it "hides resolved comments on earlier text until resolved discussions are requested" do
+    general = create(:comment_thread, plan: plan, created_by_user: author)
+    general.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Whole document feedback")
+    general.resolve!(author)
+    displaced = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Second paragraph.")
+    displaced.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Old passage feedback")
+    displaced.update_columns(out_of_date: true)
+    displaced.resolve!(author)
+    visit plan_page_path(plan)
+
+    expect(page).to have_no_css("#plan-general-comments", visible: true)
+    expect(page).to have_no_css("#plan-detached-comments", visible: true)
+    find("body").send_keys("s")
+    expect(page).to have_css("#plan-general-comments", visible: true)
+    expect(page).to have_css("#plan-detached-comments", visible: true)
+  end
+
   it "uses the visible editing surface for voice comment context" do
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)

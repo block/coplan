@@ -71,7 +71,7 @@ module CoPlan
       @thread.resolve!(current_user)
       CreateNotificationsJob.perform_later(comment_thread_id: @thread.id, actor_id: current_user.id, reason: "status_change")
       stream = broadcast_thread_replace(@thread)
-      respond_with_stream_or_redirect("Thread resolved.", streams: [ stream, (@thread.anchored? ? nil : general_comments_stream) ].compact)
+      respond_with_stream_or_redirect("Thread resolved.", streams: [ stream, *comment_list_streams(@thread) ])
     end
 
     def reopen
@@ -79,7 +79,7 @@ module CoPlan
       @thread.reopen!(current_user)
       CreateNotificationsJob.perform_later(comment_thread_id: @thread.id, actor_id: current_user.id, reason: "status_change")
       stream = broadcast_thread_replace(@thread)
-      respond_with_stream_or_redirect("Thread reopened.", streams: [ stream, (@thread.anchored? ? nil : general_comments_stream) ].compact)
+      respond_with_stream_or_redirect("Thread reopened.", streams: [ stream, *comment_list_streams(@thread) ])
     end
 
     private
@@ -131,6 +131,20 @@ module CoPlan
       Broadcaster.replace_to(@plan, target: "plan-general-comments", partial: "coplan/plans/general_comments", locals: locals)
       html = render_to_string(partial: "coplan/plans/general_comments", locals: locals, formats: [ :html ])
       turbo_stream.replace("plan-general-comments", html)
+    end
+
+    def comment_list_streams(thread)
+      streams = []
+      streams << general_comments_stream unless thread.anchored?
+      streams << detached_comments_stream if thread.out_of_date? && thread.anchor_kind.blank?
+      streams
+    end
+
+    def detached_comments_stream
+      locals = { threads: @plan.comment_threads.with_kept_comments.includes(:comments).order(:created_at) }
+      Broadcaster.replace_to(@plan, target: "plan-detached-comments", partial: "coplan/plans/detached_comments", locals: locals)
+      html = render_to_string(partial: "coplan/plans/detached_comments", locals: locals, formats: [ :html ])
+      turbo_stream.replace("plan-detached-comments", html)
     end
   end
 end

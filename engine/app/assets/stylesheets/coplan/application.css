@@ -2662,6 +2662,8 @@ img.avatar {
 .detached-comments p { margin: 4px 0 10px; }
 .detached-comments button { display: block; max-width: 100%; margin-top: 6px; padding: 6px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; border-radius: 5px; background: var(--color-surface-muted); color: var(--color-text); cursor: pointer; }
 .detached-comments button:hover { color: var(--color-primary); }
+.plan-layout--hide-resolved .detached-comments--all-resolved,
+.plan-layout--hide-resolved .detached-comments__resolved { display: none; }
 
 /* Comment form */
 .comment-form {

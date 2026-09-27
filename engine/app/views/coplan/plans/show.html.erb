@@ -154,9 +154,8 @@
           <div class="reference-preview__body" data-coplan--reference-preview-target="body"></div>
         </aside>
         <%= render partial: "coplan/comment_threads/source_comments", locals: { plan: @plan } %>
+        <%= render "coplan/plans/thread_collection", plan: @plan, threads: @threads %>
       </div>
-
-      <%= render "coplan/plans/thread_collection", plan: @plan, threads: @threads %>
     </div>
   <% else %>
     <div class="empty-state">

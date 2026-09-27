@@ -84,6 +84,20 @@ RSpec.describe "CommentThreads", type: :request do
     expect(partials).to contain_exactly("coplan/comment_threads/thread_popover", "coplan/plans/general_comments")
   end
 
+  it "updates the earlier-text list when its last open discussion is resolved or reopened" do
+    thread = create(:comment_thread, plan: plan, created_by_user: alice, anchor_text: "world domination")
+    thread.comments.create!(author_type: "human", author_id: alice.id, body_markdown: "Old passage feedback")
+    thread.update_columns(out_of_date: true)
+    headers = { "Accept" => "text/vnd.turbo-stream.html" }
+
+    patch resolve_plan_comment_thread_path(plan, thread), headers: headers
+    expect(response.body).to include('target="plan-detached-comments"', "detached-comments--all-resolved")
+
+    patch reopen_plan_comment_thread_path(plan, thread), headers: headers
+    expect(response.body).to include('target="plan-detached-comments"')
+    expect(response.body).not_to include("detached-comments--all-resolved")
+  end
+
   it "create general comment thread" do
     expect {
       post plan_comment_threads_path(plan),
