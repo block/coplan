@@ -32,6 +32,23 @@ RSpec.describe "CoPlan administration", type: :request do
     expect(response).to have_http_status(:ok)
   end
 
+  it "does not let an admin grant privileges through the shared users page" do
+    admin = create(:coplan_user, admin: true)
+    other = create(:coplan_user, admin: false)
+    sign_in_as(admin)
+
+    get "/_/admin/users/#{other.id}"
+    expect(response).to have_http_status(:ok)
+    expect(response.body).not_to include("Edit User")
+
+    get "/_/admin/users/#{other.id}/edit"
+    expect(response).to have_http_status(:not_found)
+
+    patch "/_/admin/users/#{other.id}", params: { user: { admin: true } }
+    expect(response).to have_http_status(:not_found)
+    expect(other.reload.admin?).to be(false)
+  end
+
   it "redirects the former admin URL to the shared admin area" do
     sign_in_as(create(:coplan_user, admin: true))
 
