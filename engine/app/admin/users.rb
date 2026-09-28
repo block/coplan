@@ -2,9 +2,9 @@ ActiveAdmin.register CoPlan::User, as: "User" do
   # Host authentication owns identity and privileges. A stored admin flag can
   # also be read by bearer-token API calls, so this page must not grant it.
   actions :index, :show
+  config.batch_actions = false
 
   index do
-    selectable_column
     id_column
     column :name
     column :email

@@ -47,6 +47,10 @@ RSpec.describe "CoPlan administration", type: :request do
     patch "/_/admin/users/#{other.id}", params: { user: { admin: true } }
     expect(response).to have_http_status(:not_found)
     expect(other.reload.admin?).to be(false)
+
+    post "/_/admin/users/batch_action", params: { batch_action: "destroy", collection_selection: [ other.id ] }
+    expect(response).to have_http_status(:not_found)
+    expect(CoPlan::User.exists?(other.id)).to be(true)
   end
 
   it "redirects the former admin URL to the shared admin area" do
