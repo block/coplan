@@ -131,9 +131,17 @@ export default class extends Controller {
       }
       for (const old of oldThreads.values()) old.remove()
       const detached = this.element.querySelector("#plan-detached-comments")
-      if (detached) { detached.innerHTML = nextDetached.innerHTML; detached.hidden = nextDetached.hidden }
+      if (detached) {
+        detached.innerHTML = nextDetached.innerHTML
+        detached.className = nextDetached.className
+        detached.hidden = nextDetached.hidden
+      }
       const general = this.element.querySelector("#plan-general-comments")
-      if (general) { general.innerHTML = nextGeneral.innerHTML; general.hidden = nextGeneral.hidden }
+      if (general) {
+        general.innerHTML = nextGeneral.innerHTML
+        general.className = nextGeneral.className
+        general.hidden = nextGeneral.hidden
+      }
       this.controller?.richEditor?.updateComments(this.controller.comments())
       if (!this.editing) {
         const layout = this.readerTarget.closest(".plan-layout")

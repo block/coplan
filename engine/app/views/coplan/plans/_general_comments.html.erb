@@ -1,5 +1,5 @@
 <% general_threads = threads.reject(&:anchored?).reject(&:out_of_date?) %>
-<aside id="plan-general-comments" class="detached-comments general-comments<%= ' detached-comments--all-resolved' if general_threads.all?(&:closed?) %>" aria-label="Document comments"<%= " hidden" if general_threads.empty? %>>
+<aside id="plan-general-comments" class="detached-comments general-comments<%= ' detached-comments--all-resolved' if general_threads.any? && general_threads.all?(&:closed?) %>" aria-label="Document comments"<%= " hidden" if general_threads.empty? %>>
   <% if general_threads.any? %>
     <strong>Document comments</strong>
     <% general_threads.each do |thread| %>

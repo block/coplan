@@ -356,6 +356,32 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Original placement")
   end
 
+  it "shows an open comment when an inline edit first displaces its text" do
+    thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Second paragraph.")
+    thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Keep this discussion visible")
+    visit plan_page_path(plan)
+
+    expect(page).to have_no_css("#plan-detached-comments", visible: true)
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+    page.execute_script(<<~JS)
+      const form = document.querySelector('.inline-editor form.document-editor')
+      const view = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor.view
+      let position
+      view.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text.includes('Second paragraph.')) position = pos + node.text.indexOf('Second paragraph.')
+      })
+      view.dispatch(view.state.tr.insertText('A new ending.', position, position + 'Second paragraph.'.length))
+    JS
+
+    expect(page).to have_css(".document-editor__save-status[data-state='saved']", visible: :all, wait: 15)
+    expect(thread.reload).to be_out_of_date
+    expect(page).to have_css("#plan-detached-comments", visible: true, wait: 10)
+    expect(page).to have_no_css("#plan-detached-comments.detached-comments--all-resolved", visible: :all)
+    within("#plan-detached-comments") { click_button "Second paragraph." }
+    expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Keep this discussion visible")
+  end
+
   it "keeps the editor readable when general and displaced comments are visible" do
     general = create(:comment_thread, plan: plan, created_by_user: author)
     general.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Whole document feedback")
