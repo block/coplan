@@ -32,7 +32,7 @@ module CoPlan
     NOISE_TOKENS = %w[plan plans doc document].freeze
 
     def self.call(text)
-      normalize(text.to_s.unicode_normalize(:nfc).downcase.gsub(/[^[[:alnum:]]]+/, "-"))
+      normalize(utf8_text(text).unicode_normalize(:nfc).downcase.gsub(/[^[[:alnum:]]]+/, "-"))
     end
 
     # ASCII-only variant for library handles. A handle is the root of
@@ -41,8 +41,19 @@ module CoPlan
     # even when the name it came from doesn't. Empty is a legitimate
     # answer — callers fall back (see Library.unclaimed_handle).
     def self.handle(text)
-      normalize(text.to_s.unicode_normalize(:nfkd).downcase.gsub(/[^a-z0-9]+/, "-"))
+      normalize(utf8_text(text).unicode_normalize(:nfkd).downcase.gsub(/[^a-z0-9]+/, "-"))
     end
+
+    # Host authentication can supply text tagged as ASCII-8BIT, which
+    # unicode_normalize rejects even for plain ASCII usernames. Interpret
+    # those bytes as UTF-8; transcode strings with a declared encoding.
+    # Invalid bytes become separators, never part of a URL segment.
+    def self.utf8_text(text)
+      text = text.to_s
+      text = text.dup.force_encoding(Encoding::UTF_8) if text.encoding == Encoding::BINARY
+      text.encode(Encoding::UTF_8, invalid: :replace, undef: :replace)
+    end
+    private_class_method :utf8_text
 
     # Hyphen-insensitive form, for asking "do these two names say the
     # same thing?" without caring how the writer spaced it.

@@ -1,9 +1,7 @@
 module CoPlan
   # A library is the owner-shaped container for a folder tree and the
-  # placements filed into it. Every user always has one — it's an invariant,
-  # not a feature: `Library.for(owner)` materializes it on first touch, so
-  # "user without a library" is not a state that exists anywhere else in
-  # the app.
+  # placements filed into it. Directory-only users may not have one yet;
+  # `Library.for(owner)` creates it when the app first needs it.
   #
   # Ownership is polymorphic on purpose. Users are the only owner type
   # today, but a team library later is a new owner type on this same model,

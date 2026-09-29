@@ -14,6 +14,7 @@ RSpec.describe "Profiles", type: :request do
     # A username can hold characters a handle can't — "ada.a" becomes the
     # handle "ada-a" — so this is a translation, not a prefix trim.
     it "301s a username link onto the person's library" do
+      author.library
       get legacy_person_path("ada.a")
 
       expect(response).to have_http_status(:moved_permanently)
@@ -21,6 +22,7 @@ RSpec.describe "Profiles", type: :request do
     end
 
     it "301s an id link onto the person's library" do
+      author.library
       get legacy_person_path(author.id)
 
       expect(response).to have_http_status(:moved_permanently)
@@ -31,12 +33,23 @@ RSpec.describe "Profiles", type: :request do
       get legacy_person_path("nobody-here")
       expect(response).to have_http_status(:not_found)
     end
+
+    it "creates a library on demand for a directory person's profile" do
+      expect(CoPlan::Library.where(owner: author)).not_to exist
+
+      get legacy_person_path("ada.a")
+
+      expect(response).to have_http_status(:moved_permanently)
+      expect(response).to redirect_to(browse_library_path(handle: "ada-a"))
+      expect(CoPlan::Library.where(owner: author)).to exist
+    end
   end
 
   describe "author links" do
     before { sign_in_as(viewer) }
 
     it "links the plan header author name to their library" do
+      author.library
       plan = create(:plan, :considering, created_by_user: author, title: "Linked Plan")
 
       get plan_page_path(plan)

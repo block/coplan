@@ -73,13 +73,15 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
         expect(response.body).to include("Nothing matches")
       end
 
-      it "finds people by name and links to their library" do
-        create(:coplan_user, name: "Searchable Sam", username: "sam.s", title: "Designer")
+      it "links People results to libraries, creating them on demand" do
+        sam = create(:coplan_user, name: "Searchable Sam", username: "sam.s", title: "Designer")
+        expect(CoPlan::Library.where(owner: sam)).not_to exist
 
         get search_path, params: { q: "searchable" }
         expect(response.body).to include("Searchable Sam")
         expect(response.body).to include(%(href="/sam-s"))
         expect(response.body).to include("Designer")
+        expect(CoPlan::Library.where(owner: sam)).to exist
       end
 
       it "renders 'Type to search' when query is blank" do

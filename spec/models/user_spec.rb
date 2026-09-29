@@ -6,6 +6,14 @@ RSpec.describe CoPlan::User, type: :model do
     expect(user).to be_valid
   end
 
+  it "does not create a library when a People record is provisioned" do
+    user = create(:coplan_user, username: "newperson")
+
+    expect(CoPlan::Library.where(owner: user)).not_to exist
+    expect(user.library.handle).to eq("newperson")
+    expect(CoPlan::Library.where(owner: user).count).to eq(1)
+  end
+
   it "requires external_id" do
     user = build(:coplan_user, external_id: nil)
     expect(user).not_to be_valid

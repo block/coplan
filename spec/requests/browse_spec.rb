@@ -31,6 +31,32 @@ RSpec.describe "Browsable library URLs", type: :request do
     end
   end
 
+  it "opens a plan for a viewer whose host username is binary-tagged and library is missing" do
+    plan = create(:plan, :published, created_by_user: author, title: "Shared roadmap")
+    CoPlan::Library.where(owner: viewer).delete_all
+    allow(CoPlan.configuration).to receive(:authenticate).and_return(->(_request) {
+      { external_id: viewer.external_id, name: viewer.name, username: "viewer".b }
+    })
+
+    get plan_page_path(plan)
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("Shared roadmap")
+    expect(CoPlan::Library.find_by!(owner: viewer).handle).to eq("viewer")
+  end
+
+  it "creates a person's library on their first CoPlan request" do
+    newcomer = create(:coplan_user, username: "newcomer")
+    expect(CoPlan::Library.where(owner: newcomer)).not_to exist
+    sign_in_as(newcomer)
+    expect(CoPlan::Library.where(owner: newcomer)).not_to exist
+
+    get root_path
+
+    expect(response).to have_http_status(:ok)
+    expect(CoPlan::Library.where(owner: newcomer).count).to eq(1)
+  end
+
   describe "every prefix is a real page" do
     let!(:folder) { create(:folder, name: "LiveOrder", created_by_user: author) }
     let!(:nested) { create(:folder, name: "Q3", parent: folder, created_by_user: author) }

@@ -37,17 +37,9 @@ module CoPlan
     after_initialize { self.metadata ||= {} }
     after_initialize { self.notification_preferences ||= {} }
 
-    # A library is a person's page now — it's what /<handle> addresses — so
-    # the row has to exist from the moment the person does. Materializing on
-    # first touch was enough while a library was only a filing cabinet; it
-    # isn't once someone can send you a link to a colleague who has never
-    # signed in.
-    after_create_commit :library
-
-    # Every user always has a library — it's an invariant. Never read the
-    # association directly; this accessor is what guarantees "user without a
-    # library" isn't a state that exists, including for the rows that
-    # predate the callback above.
+    # People sync creates user records for colleagues who have never used
+    # CoPlan. Keep those records passive until the app needs a library,
+    # whether on sign-in, a profile visit, or rendering an author link.
     def library
       @library ||= Library.for(self)
     end

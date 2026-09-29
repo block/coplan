@@ -6,19 +6,18 @@ RSpec.describe "Libraries", type: :request do
   before { sign_in_as(alice) }
 
   describe "GET /_/libraries" do
-    # A library exists from the moment its owner does — it's a person's page
-    # now, so a colleague who has never signed in is still browsable.
-    it "lists the libraries you can browse" do
-      create(:coplan_user, username: "bob")
+    it "lists only libraries materialized on demand" do
+      bob = create(:coplan_user, username: "bob")
 
       get browse_root_path
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include(%(href="/alice"), %(href="/bob"))
+      expect(response.body).to include(%(href="/alice"))
+      expect(response.body).not_to include(%(href="/bob"))
+      expect(CoPlan::Library.where(owner: bob)).not_to exist
     end
 
-    # The eager row above is the invariant; `User#library` is the belt to its
-    # braces, for anything that removed a row out from under it.
+    # `User#library` also recovers when a claimed row has gone missing.
     it "includes your own library even when the row has gone missing" do
       alice.library.destroy!
 
@@ -160,6 +159,8 @@ RSpec.describe "Libraries", type: :request do
     let!(:author) do
       create(:coplan_user, name: "Ada Author", username: "ada", title: "Engineer", team: "Payments")
     end
+
+    before { author.library }
 
     it "names the person, their role, and their handle" do
       get "/ada"

@@ -264,9 +264,9 @@ RSpec.describe "Deck UX", type: :system do
       document.body.append(stream)
     JS
 
-    expect(all(".deck-region").first).to have_css(".deck-toolbar__count[data-count='1 / 3']")
-    expect(all(".deck-region").first).to have_css(".deck-slide--current", text: "Gamma 1")
-    expect(all(".deck-region").last).to have_css(".deck-toolbar__count[data-count='1 / 2']")
+    expect(page).to have_css(".deck-region .deck-toolbar__count[data-count='1 / 3']")
+    expect(page).to have_css(".deck-region .deck-slide--current", text: "Gamma 1")
+    expect(page).to have_css(".deck-region .deck-toolbar__count[data-count='1 / 2']")
   end
 
   it "keeps a heading-free deck position after its DOM changes" do

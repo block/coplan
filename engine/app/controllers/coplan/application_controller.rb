@@ -59,7 +59,11 @@ module CoPlan
       end
 
       @current_coplan_user = CoPlan::Authentication.user_from_request(request)
-      unless @current_coplan_user
+      if @current_coplan_user
+        # People sync leaves directory records passive; the first authenticated
+        # CoPlan request creates the person's own library.
+        @current_coplan_user.library
+      else
         if CoPlan.configuration.sign_in_path
           redirect_to CoPlan.configuration.sign_in_path, alert: "Please sign in."
         else
