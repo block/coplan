@@ -298,9 +298,10 @@ module CoPlan
     # the image full-window on the same pan/zoom surface diagrams use. Like
     # the table frame, this runs after sanitization because it writes
     # data-controller attributes, and it adds structure only, so comment
-    # anchors never see a text change. An image that is the whole content of
-    # a link keeps the link inside the frame, so the expand button is never
-    # nested inside the anchor.
+    # anchors never see a text change. When an image is a link's only
+    # content, the frame wraps the link, so the expand button sits outside
+    # the anchor. When the link also has text or several images, each frame
+    # sits inside the link.
     def wrap_expandable_images(html)
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
       images = doc.css("img")
@@ -313,6 +314,7 @@ module CoPlan
                                                    "data-controller" => "coplan--image-expand",
                                                    "data-action" => "dblclick->coplan--image-expand#expandFromDoubleClick")
         image["data-coplan--image-expand-target"] = "image"
+        image["data-action"] = [ image["data-action"], "load->coplan--image-expand#measure" ].compact.join(" ")
         target.add_previous_sibling(frame)
         frame.add_child(target)
       end

@@ -16,7 +16,9 @@ RSpec.describe "Expanding an image", type: :system do
 
       ![Console mockup](#{blob_path(screenshot)})
 
-      A status icon ![icon](#{blob_path(icon)}) stays inline.
+      A status icon ![icon](#{blob_path(icon)}) is too small to expand.
+
+      [![Linked mockup](#{blob_path(screenshot)})](https://example.com/full)
 
       | Step | Mockup |
       |---|---|
@@ -67,7 +69,7 @@ RSpec.describe "Expanding an image", type: :system do
   before do
     sign_in(author)
     visit plan_page_path(plan)
-    expect(page).to have_css(".image-frame.is-expandable", count: 2, wait: 10)
+    expect(page).to have_css(".image-frame.is-expandable", count: 3, wait: 10)
   end
 
   it "shows the expand arrows only while the image is hovered" do
@@ -76,12 +78,64 @@ RSpec.describe "Expanding an image", type: :system do
     expect(page.evaluate_script("getComputedStyle(document.querySelector('.image-frame__expand')).opacity")).to eq("0")
 
     screenshot_frame.hover
-    sleep 0.3 # the fade-in transition
-    expect(page.evaluate_script("getComputedStyle(document.querySelector('.image-frame__expand')).opacity")).to eq("1")
+    expect(screenshot_frame).to have_css(".image-frame__expand", visible: :all, wait: 5) { |el| el.style("opacity")["opacity"] == "1" }
   end
 
-  it "offers no expander for an icon-sized image" do
-    expect(page).to have_css(".image-frame:not(.is-expandable) img[alt='icon']")
+  it "keeps the image on its own line, with a frame that hugs it" do
+    layout = page.evaluate_script(<<~JS)
+      (() => {
+        const img = document.querySelector("img[alt='Console mockup']");
+        const frame = img.closest(".image-frame");
+        return { display: getComputedStyle(frame).display,
+                 gap: Math.abs(frame.getBoundingClientRect().width - img.getBoundingClientRect().width) };
+      })()
+    JS
+    expect(layout["display"]).to eq("block")
+    expect(layout["gap"]).to be <= 1
+  end
+
+  describe "an icon-sized image" do
+    before do
+      # Wait for the icon itself to load, so the size check has run.
+      expect(page).to have_css("img[alt='icon']") { |img| img.evaluate_script("this.complete && this.naturalWidth === 16") }
+    end
+
+    it "offers no expander" do
+      expect(page).to have_css(".image-frame:not(.is-expandable) img[alt='icon']")
+    end
+
+    it "does not expand on a double-click" do
+      find("img[alt='icon']").double_click
+
+      expect(page).to have_no_css("dialog.expander")
+    end
+  end
+
+  it "expands a linked image from its corner button without following the link" do
+    frame = find("img[alt='Linked mockup']").ancestor(".image-frame")
+    frame.hover
+    frame.find(".image-frame__expand").click
+
+    expect(page).to have_css(".expander--image .expander__title", text: "Linked mockup")
+    expect(page).to have_current_path(plan_page_path(plan))
+  end
+
+  describe "inside an expanded table" do
+    before do
+      find("td", text: "Warn").double_click
+      expect(page).to have_css(".expander--grid img[alt='Table mockup']")
+    end
+
+    it "shows the image without a second expand control" do
+      expect(page).to have_no_css(".expander--grid .image-frame__expand", visible: :all)
+    end
+
+    it "keeps the table open when the image is double-clicked" do
+      find(".expander--grid img[alt='Table mockup']").double_click
+
+      expect(page).to have_css(".expander--grid")
+      expect(page).to have_no_css(".expander--image")
+    end
   end
 
   describe "expanded" do

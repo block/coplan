@@ -2090,13 +2090,9 @@ img.avatar {
    only once the image has loaded and is large enough to be worth it. */
 .markdown-rendered .image-frame {
   position: relative;
-  display: inline-block;
-  max-width: 100%;
-  vertical-align: top;
-}
-
-.markdown-rendered .image-frame img {
   display: block;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .markdown-rendered .image-frame__expand {

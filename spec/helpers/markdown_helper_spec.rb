@@ -305,6 +305,7 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(frame["data-action"]).to eq("dblclick->coplan--image-expand#expandFromDoubleClick")
       image = frame.at_css("img")
       expect(image["data-coplan--image-expand-target"]).to eq("image")
+      expect(image["data-action"]).to eq("load->coplan--image-expand#measure")
       expect(image["alt"]).to eq("Console mockup")
     end
 

@@ -17,6 +17,16 @@ export default class extends Controller {
   connect() {
     if (!this.hasImageTarget) return
 
+    // The expanded spreadsheet and the comments panel deep-clone the
+    // document, frame and button included. A cloned button has no
+    // listener, so drop it; inside an expander the frame stays inert,
+    // because opening an image there would close the surface holding it.
+    this.element.querySelector(":scope > .image-frame__expand")?.remove()
+    if (this.inert) {
+      this.element.classList.remove("is-expandable")
+      return
+    }
+
     this.affordance = attachExpandAffordance(this.element, {
       label: "Expand image",
       hint: "Expand image",
@@ -24,19 +34,25 @@ export default class extends Controller {
       onExpand: () => this.expand()
     })
 
-    this.measure = () => this.element.classList.toggle("is-expandable",
-      Math.max(this.imageTarget.naturalWidth, this.imageTarget.naturalHeight) >= WORTH_EXPANDING_PX)
-    this.imageTarget.addEventListener("load", this.measure)
     if (this.imageTarget.complete) this.measure()
   }
 
   disconnect() {
-    if (this.measure) this.imageTarget?.removeEventListener("load", this.measure)
     this.expanded?.close()
   }
 
+  get inert() {
+    return Boolean(this.element.closest("dialog.expander"))
+  }
+
+  measure() {
+    if (this.inert) return
+    this.element.classList.toggle("is-expandable",
+      Math.max(this.imageTarget.naturalWidth, this.imageTarget.naturalHeight) >= WORTH_EXPANDING_PX)
+  }
+
   expandFromDoubleClick(event) {
-    if (event.target.closest("a, button") || !this.element.classList.contains("is-expandable")) return
+    if (this.inert || event.target.closest("a, button") || !this.element.classList.contains("is-expandable")) return
     event.preventDefault()
     // An image inside a table cell must not also expand the table.
     event.stopPropagation()
@@ -66,14 +82,17 @@ export default class extends Controller {
     content.removeAttribute("width")
     content.removeAttribute("height")
     content.removeAttribute("data-coplan--image-expand-target")
+    content.removeAttribute("data-action")
     // The browser's own image drag would steal the pan gesture.
     content.draggable = false
 
+    // No `coplan:expander-opened` here: that event refreshes comment
+    // targets, an image has none, and the refresh re-renders the comments
+    // panel, which would disconnect a cloned frame and close this view.
     const { viewport } = mountPanZoom(expander, content, {
       width: image.naturalWidth,
       height: image.naturalHeight
     })
-    expander.dialog.dispatchEvent(new CustomEvent("coplan:expander-opened", { bubbles: true }))
     viewport.focus({ preventScroll: true })
   }
 }
