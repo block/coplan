@@ -1,6 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { openExpander, attachExpandAffordance, nearestHeading, ICONS } from "coplan/expander"
-import { createPanZoom } from "coplan/pan_zoom"
+import { openExpander, attachExpandAffordance, mountPanZoom, nearestHeading } from "coplan/expander"
 
 let diagramId = 0
 let mermaidPromise
@@ -227,56 +226,20 @@ export default class extends Controller {
       variant: "diagram",
       container: this.element.closest('[data-controller~="coplan--source-comments"]') || document.body,
       status: true,
-      onClose: () => {
-        this.panZoom?.destroy()
-        this.panZoom = null
-        this.expanded = null
-      }
+      onClose: () => { this.expanded = null }
     })
     this.expanded = expander
 
-    const viewport = document.createElement("div")
-    viewport.className = "expander__canvas"
-    viewport.tabIndex = 0
     const content = svg.cloneNode(true)
     content.removeAttribute("width")
     content.removeAttribute("height")
-    viewport.append(content)
-    expander.body.append(viewport)
-    expander.dialog.dispatchEvent(new CustomEvent("coplan:expander-opened", { bubbles: true }))
-
-    let readout
-    this.panZoom = createPanZoom(viewport, content, {
+    const { viewport } = mountPanZoom(expander, content, {
       width,
       height,
-      onChange: scale => {
-        if (readout) readout.textContent = `${Math.round(scale * 100)}%`
-        this.element.dispatchEvent(new CustomEvent("coplan:diagram-moved", { bubbles: true }))
-      }
+      onChange: () => this.element.dispatchEvent(new CustomEvent("coplan:diagram-moved", { bubbles: true }))
     })
+    expander.dialog.dispatchEvent(new CustomEvent("coplan:expander-opened", { bubbles: true }))
 
-    // The canvas owns the pan/zoom keys, so every toolbar button hands focus
-    // straight back to it — otherwise one click on Zoom in leaves +/-/0/1
-    // firing against a button that ignores them.
-    const tool = spec => expander.addTool({
-      ...spec,
-      onClick: () => { spec.onClick(); viewport.focus({ preventScroll: true }) }
-    })
-
-    tool({ label: "Zoom out", hint: "Zoom out (−)", icon: ICONS.zoomOut, onClick: () => this.panZoom.zoomOut() })
-    readout = expander.addToolReadout(`${Math.round(this.panZoom.scale * 100)}%`)
-    tool({ label: "Zoom in", hint: "Zoom in (+)", icon: ICONS.zoomIn, onClick: () => this.panZoom.zoomIn() })
-    tool({ label: "Fit to screen", hint: "Fit to screen (0)", icon: ICONS.fit, onClick: () => this.panZoom.fit() })
-    tool({ label: "Actual size", hint: "Actual size (1)", icon: ICONS.actual, onClick: () => this.panZoom.actualSize() })
-
-    const hint = document.createElement("span")
-    hint.className = "expander__hint"
-    // On a touch screen the gestures are the whole interface — and the
-    // keyboard shortcuts are not available — so say the touch ones instead.
-    hint.textContent = window.matchMedia("(hover: none)").matches
-      ? "Drag to pan · pinch to zoom · double-tap to fit"
-      : "Drag to pan · scroll or pinch to zoom · double-click to fit · 0 fit · 1 actual size"
-    expander.setStatus(hint)
     this.addCommentMode(expander.dialog, expander.dialog.querySelector(".expander__status"),
       JSON.parse(diagram.dataset.sourceTargets || "null"))
     // The whole-diagram action is another representation of the same thread.

@@ -293,4 +293,54 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include("<table>")
     end
   end
+
+  describe "expandable images" do
+    let(:markdown) { "Before ![Console mockup](/images/console.png) after." }
+
+    it "frames an image for the image expander" do
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))
+
+      frame = doc.at_css("span.image-frame")
+      expect(frame["data-controller"]).to eq("coplan--image-expand")
+      expect(frame["data-action"]).to eq("dblclick->coplan--image-expand#expandFromDoubleClick")
+      image = frame.at_css("img")
+      expect(image["data-coplan--image-expand-target"]).to eq("image")
+      expect(image["alt"]).to eq("Console mockup")
+    end
+
+    it "adds no visible text, so comment anchors count what they counted before" do
+      framed = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown)).text
+      bare = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown, expandable_images: false)).text
+
+      expect(framed).to eq(bare)
+    end
+
+    it "keeps an image-only link inside the frame, so the expand button is not nested in the link" do
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown("[![Mockup](/images/a.png)](https://example.com/full)"))
+
+      frame = doc.at_css("span.image-frame")
+      expect(frame.element_children.map(&:name)).to eq([ "a" ])
+      expect(frame.at_css("a > img")).to be_present
+    end
+
+    it "frames only the image when the link also has text" do
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown("[see ![icon](/images/i.png) here](https://example.com)"))
+
+      expect(doc.at_css("a > span.image-frame > img")).to be_present
+    end
+
+    it "frames each image in a link that holds several" do
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown("[![One](/a.png)![Two](/b.png)](https://example.com)"))
+
+      expect(doc.css("span.image-frame").size).to eq(2)
+      expect(doc.css("span.image-frame > img").size).to eq(2)
+    end
+
+    it "is off wherever data tables are, so decks opt out of both" do
+      html = helper.render_markdown(markdown, data_tables: false)
+
+      expect(html).not_to include("image-frame")
+      expect(html).to include("<img")
+    end
+  end
 end

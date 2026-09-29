@@ -9,6 +9,8 @@
 // lightbox this replaces closed on any click anywhere, which is precisely
 // why it could never support panning — every drag ended in a close.
 
+import { createPanZoom } from "coplan/pan_zoom"
+
 let current = null
 
 export const ICONS = {
@@ -126,6 +128,52 @@ export function attachExpandAffordance(container, { label, hint, onExpand, class
   })
   container.append(button)
   return button
+}
+
+// Fills an open expander with a pan-and-zoom canvas around fixed-size
+// content (a diagram's SVG, an image), plus the zoom toolbar and the
+// gesture hint. Diagrams and images share this so they read and handle
+// identically once expanded. The pan-zoom is torn down with the dialog.
+export function mountPanZoom(expander, content, { width, height, onChange = null } = {}) {
+  const viewport = element("div", "expander__canvas")
+  viewport.tabIndex = 0
+  viewport.append(content)
+  expander.body.append(viewport)
+
+  let readout
+  const panZoom = createPanZoom(viewport, content, {
+    width,
+    height,
+    onChange: scale => {
+      if (readout) readout.textContent = `${Math.round(scale * 100)}%`
+      onChange?.(scale)
+    }
+  })
+  expander.dialog.addEventListener("close", () => panZoom.destroy())
+
+  // The canvas owns the pan/zoom keys, so every toolbar button hands focus
+  // straight back to it — otherwise one click on Zoom in leaves +/-/0/1
+  // firing against a button that ignores them.
+  const tool = spec => expander.addTool({
+    ...spec,
+    onClick: () => { spec.onClick(); viewport.focus({ preventScroll: true }) }
+  })
+
+  tool({ label: "Zoom out", hint: "Zoom out (−)", icon: ICONS.zoomOut, onClick: () => panZoom.zoomOut() })
+  readout = expander.addToolReadout(`${Math.round(panZoom.scale * 100)}%`)
+  tool({ label: "Zoom in", hint: "Zoom in (+)", icon: ICONS.zoomIn, onClick: () => panZoom.zoomIn() })
+  tool({ label: "Fit to screen", hint: "Fit to screen (0)", icon: ICONS.fit, onClick: () => panZoom.fit() })
+  tool({ label: "Actual size", hint: "Actual size (1)", icon: ICONS.actual, onClick: () => panZoom.actualSize() })
+
+  const hint = element("span", "expander__hint")
+  // On a touch screen the gestures are the whole interface — and the
+  // keyboard shortcuts are not available — so say the touch ones instead.
+  hint.textContent = window.matchMedia("(hover: none)").matches
+    ? "Drag to pan · pinch to zoom · double-tap to fit"
+    : "Drag to pan · scroll or pinch to zoom · double-click to fit · 0 fit · 1 actual size"
+  expander.setStatus(hint)
+
+  return { viewport, panZoom }
 }
 
 export function closeExpander() {

@@ -2060,7 +2060,8 @@ img.avatar {
   scrollbar-width: thin;
 }
 
-.markdown-rendered .mermaid-diagram__expand {
+.markdown-rendered .mermaid-diagram__expand,
+.markdown-rendered .image-frame__expand {
   position: absolute;
   top: var(--space-sm);
   right: var(--space-sm);
@@ -2078,8 +2079,33 @@ img.avatar {
 }
 
 .markdown-rendered .mermaid-diagram:hover .mermaid-diagram__expand,
-.markdown-rendered .mermaid-diagram__expand:focus-visible {
+.markdown-rendered .mermaid-diagram__expand:focus-visible,
+.markdown-rendered .image-frame.is-expandable:hover .image-frame__expand,
+.markdown-rendered .image-frame__expand:focus-visible {
   opacity: 1;
+}
+
+/* An image's frame hugs the image, so the diagram's corner control sits on
+   the image itself. It lifts off the picture with a shadow, and appears
+   only once the image has loaded and is large enough to be worth it. */
+.markdown-rendered .image-frame {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+.markdown-rendered .image-frame img {
+  display: block;
+}
+
+.markdown-rendered .image-frame__expand {
+  display: none;
+  box-shadow: var(--shadow-pop);
+}
+
+.markdown-rendered .image-frame.is-expandable .image-frame__expand {
+  display: flex;
 }
 
 /* The diagram's own SVG only — the expand button's icon is an svg inside
@@ -7149,8 +7175,18 @@ img.avatar {
   outline-offset: -2px;
 }
 
-.expander__canvas > svg {
+.expander__canvas > svg,
+.expander__canvas > img {
   display: block;
+}
+
+/* Pan by dragging the picture, not the browser's image drag or a text
+   selection. */
+.expander__canvas > img {
+  border-radius: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
 }
 
 /* ── Table body: the spreadsheet ──────────────────────────────────────── */
@@ -7375,7 +7411,8 @@ img.avatar {
     display: none;
   }
 
-  .expander--diagram .expander__hint {
+  .expander--diagram .expander__hint,
+  .expander--image .expander__hint {
     display: block;
   }
 
@@ -7457,7 +7494,8 @@ svg .source-thread-badge text { fill: var(--color-primary) !important; font: 600
   .comment-form.comment-form--sheet, .thread-popover.thread-popover--sheet { width: 100%; max-width: 100%; }
 }
 @media (hover: none) {
-  .markdown-rendered .mermaid-diagram__expand { opacity: 1; min-width: 44px; min-height: 44px; }
+  .markdown-rendered .mermaid-diagram__expand,
+  .markdown-rendered .image-frame__expand { opacity: 1; min-width: 44px; min-height: 44px; }
 }
 
 .source-comments-outdated { grid-column: 1 / -1; justify-self: start; margin-top: var(--space-md); }

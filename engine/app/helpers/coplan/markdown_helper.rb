@@ -34,7 +34,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 18
+    RENDER_CACHE_VERSION = 19
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -56,7 +56,11 @@ module CoPlan
     # spreadsheet expander. Decks opt out — a slide is a fixed, scaled
     # artifact whose typography the deck layout engine already owns, and a
     # nested scroll frame inside a transformed slide belongs to nobody.
-    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, source_comments: false, retain_sourcepos: false)
+    #
+    # expandable_images: frame each image with the same full-window expander
+    # diagrams and tables use. Follows data_tables by default, so decks opt
+    # out of both together.
+    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, expandable_images: data_tables, source_comments: false, retain_sourcepos: false)
       render_options = { unsafe: true }
       # Sourcepos wires checkboxes and structural comment targets to source;
       # it is stripped after generating trusted interaction metadata.
@@ -71,6 +75,7 @@ module CoPlan
       return result.html_safe if footnotes == :only
 
       result = wrap_data_tables(result) if data_tables
+      result = wrap_expandable_images(result) if expandable_images
       tag.div(result.html_safe, class: "markdown-rendered", data: { controller: "coplan--mermaid coplan--syntax-highlight" })
     end
 
@@ -284,6 +289,32 @@ module CoPlan
         table.add_previous_sibling(grid)
         grid.add_child(frame)
         frame.add_child(table)
+      end
+
+      doc.to_html
+    end
+
+    # Each image gets a frame that carries the expand affordance and opens
+    # the image full-window on the same pan/zoom surface diagrams use. Like
+    # the table frame, this runs after sanitization because it writes
+    # data-controller attributes, and it adds structure only, so comment
+    # anchors never see a text change. An image that is the whole content of
+    # a link keeps the link inside the frame, so the expand button is never
+    # nested inside the anchor.
+    def wrap_expandable_images(html)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      images = doc.css("img")
+      return html if images.empty?
+
+      images.each do |image|
+        link = image.parent if image.parent&.name == "a" && image.parent.element_children.one? && image.parent.text.strip.empty?
+        target = link || image
+        frame = doc.document.create_element("span", class: "image-frame",
+                                                   "data-controller" => "coplan--image-expand",
+                                                   "data-action" => "dblclick->coplan--image-expand#expandFromDoubleClick")
+        image["data-coplan--image-expand-target"] = "image"
+        target.add_previous_sibling(frame)
+        frame.add_child(target)
       end
 
       doc.to_html
