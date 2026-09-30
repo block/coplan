@@ -136,6 +136,17 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include(%(href="#comment-#{comment.id}-fn-1"))
   end
 
+  it "does not make comment images expandable, because comment bodies are cloned into panels and previews" do
+    thread = create(:comment_thread, :with_anchor, plan: plan, plan_version: plan.current_plan_version, created_by_user: alice)
+    create(:comment, comment_thread: thread, author_type: "human", author_id: alice.id,
+           body_markdown: "See ![Comment screenshot](/images/comment.png)")
+
+    get plan_page_path(plan)
+    comment_image = Nokogiri::HTML(response.body).at_css(".comment__body img[alt='Comment screenshot']")
+    expect(comment_image).to be_present
+    expect(comment_image.ancestors(".image-frame")).to be_empty
+  end
+
   it "show plan renders content navigation sidebar" do
     get plan_page_path(plan)
     expect(response).to have_http_status(:success)

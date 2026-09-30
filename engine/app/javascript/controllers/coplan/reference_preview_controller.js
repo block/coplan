@@ -166,7 +166,6 @@ export default class extends Controller {
       node.removeAttribute("data-controller")
     })
     wrapper.querySelectorAll("a[data-footnote-backref]").forEach(node => node.remove())
-    wrapper.querySelectorAll(".image-frame__expand").forEach(node => node.remove())
     wrapper.querySelectorAll('input[type="checkbox"]').forEach(node => node.setAttribute("disabled", ""))
 
     const externalLinks = Array.from(wrapper.querySelectorAll('a[target="_blank"]'))

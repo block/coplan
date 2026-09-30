@@ -28,10 +28,12 @@
     </div>
     <div class="comment__body">
       <%# The record version invalidates edits; bump this namespace when Markdown rendering changes. %>
-      <%= cache(["comment-body-v3", comment], skip_digest: true) do %>
+      <%= cache(["comment-body-v2", comment], skip_digest: true) do %>
         <%# footnote_prefix keeps footnote ids unique per comment — the plan
-            body and every other comment render in the same DOM. %>
-        <%= render_markdown(comment.body_markdown, footnote_prefix: "comment-#{comment.id}") %>
+            body and every other comment render in the same DOM. Comment
+            images don't expand: the comments panel and footnote previews
+            clone comment bodies, and a cloned expander can't work there. %>
+        <%= render_markdown(comment.body_markdown, footnote_prefix: "comment-#{comment.id}", expandable_images: false) %>
       <% end %>
     </div>
     <% if comment.author_type == "human" %>
