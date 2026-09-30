@@ -202,6 +202,7 @@ RSpec.describe "Rich views with dense content", type: :system do
       page.driver.browser.action.send_keys(:escape).perform
       expect(page).to have_css("dialog.expander[open]:not(.is-comment-mode)")
       find('dialog [aria-label="Close"]').click
+      expect(page).to have_no_css("dialog.expander", visible: :all)
 
       diagrams[2].send_keys("c")
       expect(diagrams[2]).to have_text("Whole-diagram comments available")
