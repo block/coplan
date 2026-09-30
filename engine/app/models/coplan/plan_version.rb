@@ -11,6 +11,14 @@ module CoPlan
     belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
     has_many :comment_threads, dependent: :nullify
 
+    def self.ransackable_attributes(_auth_object = nil)
+      %w[id plan_id revision actor_type actor_id created_at]
+    end
+
+    def self.ransackable_associations(_auth_object = nil)
+      []
+    end
+
     # has_attribute? guard: list pages load lean stubs (id + sha only) via
     # Plan#current_version_stub, which never select this column.
     after_initialize { self.operations_json ||= [] if has_attribute?(:operations_json) }

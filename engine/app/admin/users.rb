@@ -4,6 +4,11 @@ ActiveAdmin.register CoPlan::User, as: "User" do
   actions :index, :show
   config.batch_actions = false
 
+  filter :name
+  filter :email
+  filter :admin
+  filter :created_at
+
   index do
     id_column
     column :name

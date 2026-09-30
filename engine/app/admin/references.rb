@@ -1,6 +1,11 @@
 ActiveAdmin.register CoPlan::Reference, as: "Reference" do
   permit_params :plan_id, :key, :url, :title, :reference_type, :source, :target_plan_id
 
+  filter :plan_id
+  filter :url
+  filter :reference_type
+  filter :created_at
+
   index do
     selectable_column
     id_column

@@ -3,6 +3,11 @@ ActiveAdmin.register CoPlan::AgentSession, as: "AgentSession" do
   # stays available so an operator can clear a stuck row.
   actions :index, :show, :destroy
 
+  filter :agent_name
+  filter :state
+  filter :plan_id
+  filter :created_at
+
   index do
     selectable_column
     id_column

@@ -24,6 +24,14 @@ module CoPlan
     has_many :agent_events, dependent: :delete_all
     has_many :agent_sessions, dependent: :delete_all
 
+    def self.ransackable_attributes(_auth_object = nil)
+      %w[id name user_id last_used_at revoked_at expires_at created_at]
+    end
+
+    def self.ransackable_associations(_auth_object = nil)
+      []
+    end
+
     validates :name, presence: true
     validates :token_digest, presence: true, uniqueness: true
     validate :metadata_within_budget

@@ -15,6 +15,14 @@ module CoPlan
     has_many :comments, dependent: :destroy
     has_many :notifications, dependent: :destroy
 
+    def self.ransackable_attributes(_auth_object = nil)
+      %w[id plan_id status out_of_date created_at]
+    end
+
+    def self.ransackable_associations(_auth_object = nil)
+      []
+    end
+
     validates :status, presence: true, inclusion: { in: STATUSES }
     validates :anchor_kind, inclusion: { in: Plans::SourceTargets::KINDS }, allow_nil: true
 

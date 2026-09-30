@@ -1,6 +1,10 @@
 ActiveAdmin.register CoPlan::CommentThread, as: "CommentThread" do
   permit_params :status, :out_of_date
 
+  filter :plan_id
+  filter :status
+  filter :created_at
+
   index do
     selectable_column
     id_column

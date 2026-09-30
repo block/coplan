@@ -1,6 +1,11 @@
 ActiveAdmin.register CoPlan::EditSession, as: "EditSession" do
   menu parent: "Plans"
 
+  filter :plan_id
+  filter :status
+  filter :actor_type
+  filter :created_at
+
   index do
     selectable_column
     id_column

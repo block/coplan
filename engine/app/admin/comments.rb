@@ -1,6 +1,10 @@
 ActiveAdmin.register CoPlan::Comment, as: "PlanComment" do
   permit_params :body_markdown
 
+  filter :comment_thread_id
+  filter :author_type
+  filter :created_at
+
   index do
     selectable_column
     id_column

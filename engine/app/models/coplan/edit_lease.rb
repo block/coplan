@@ -8,6 +8,14 @@ module CoPlan
 
     belongs_to :plan
 
+    def self.ransackable_attributes(_auth_object = nil)
+      %w[id plan_id holder_type holder_id expires_at created_at]
+    end
+
+    def self.ransackable_associations(_auth_object = nil)
+      []
+    end
+
     validates :holder_type, presence: true, inclusion: { in: HOLDER_TYPES }
     validates :lease_token_digest, presence: true
     validates :expires_at, presence: true

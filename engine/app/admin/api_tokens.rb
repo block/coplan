@@ -1,6 +1,11 @@
 ActiveAdmin.register CoPlan::ApiToken, as: "ApiToken" do
   permit_params :name, :user_id
 
+  filter :name
+  filter :user_id
+  filter :revoked_at
+  filter :created_at
+
   index do
     selectable_column
     id_column

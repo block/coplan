@@ -13,6 +13,14 @@ module CoPlan
     belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
     belongs_to :agent_harness, class_name: "CoPlan::AgentHarness", optional: true
 
+    def self.ransackable_attributes(_auth_object = nil)
+      %w[id comment_thread_id author_type author_id created_at]
+    end
+
+    def self.ransackable_associations(_auth_object = nil)
+      []
+    end
+
     validates :body_markdown, presence: true
     validates :author_type, presence: true, inclusion: { in: AUTHOR_TYPES }
     validates :agent_name, presence: { message: "is required for agent comments" }, if: -> { author_type == "local_agent" }

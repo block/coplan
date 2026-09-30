@@ -1,6 +1,10 @@
 ActiveAdmin.register CoPlan::Folder, as: "Folder" do
   permit_params :name, :parent_id, :library_id, :created_by_user_id
 
+  filter :name
+  filter :library_id
+  filter :created_at
+
   index do
     selectable_column
     id_column

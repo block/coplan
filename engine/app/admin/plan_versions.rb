@@ -1,6 +1,11 @@
 ActiveAdmin.register CoPlan::PlanVersion, as: "PlanVersion" do
   actions :index, :show
 
+  filter :plan_id
+  filter :revision
+  filter :actor_type
+  filter :created_at
+
   index do
     selectable_column
     id_column
