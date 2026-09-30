@@ -148,7 +148,7 @@ RSpec.describe "Document editor modes", type: :system do
     click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Retain this draft")
     click_link "Done"
-    expect(page).to have_content("Offline")
+    expect(page).to have_css('.document-editor__close-inline[data-state="error"][aria-label="Retry sync"]')
     expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(raw).to have_text("Retain this draft")
     expect(plan.reload.current_revision).to eq(1)
@@ -185,11 +185,12 @@ RSpec.describe "Document editor modes", type: :system do
     click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Local replacement")
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Remote replacement", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
-    expect(page).to have_content("Both edits change", wait: 10)
+    expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]', wait: 10)
     click_link "Done"
-    expect(page).to have_content("Both edits change the same passage")
     expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(raw).to have_text("Local replacement")
+    find('.document-editor__close-inline[data-state="conflict"]').click
+    expect(raw).to have_text("Remote replacement")
     expect(plan.reload.current_content).to eq("Remote replacement")
   end
 
@@ -290,19 +291,44 @@ RSpec.describe "Document editor modes", type: :system do
     end
   end
 
-  it "retains a raw draft and its mode through reload, then saves it" do
+  it "lets reload discard an unsaved raw draft while keeping the editing mode" do
     open_editor
     block_saves
     click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Retained raw **draft**.")
     find("#plan-header .inline-editor__title").send_keys([ mod, "a" ], "Recovered source title")
     save_now
-    expect(page).to have_content("Offline")
+    expect(page).to have_css('.document-editor__close-inline[data-state="error"][aria-label="Retry sync"]')
+    other_tab_key = "coplan-rich-draft-#{author.id}-#{plan.id}-other-tab"
+    older_tab_key = "coplan-rich-draft-#{author.id}-#{plan.id}-earlier-visit"
+    tab_key = "coplan-editor-tab-draft-#{author.id}-#{plan.id}"
+    page.execute_script("localStorage.setItem(arguments[0], arguments[1])", other_tab_key,
+      { content: "Other tab's draft", title: "Mode test", tags: "", revision: 1, savedAt: Time.current.to_i }.to_json)
+    page.execute_script(<<~'JS', older_tab_key, tab_key)
+      const [draftKey, sessionKey] = arguments
+      localStorage.setItem(draftKey, JSON.stringify({ content: "Earlier draft", title: "Mode test", tags: "", revision: 1 }))
+      sessionStorage.setItem(sessionKey, JSON.stringify([...JSON.parse(sessionStorage.getItem(sessionKey)), draftKey]))
+    JS
     page.refresh
-    expect(raw).to have_text("Retained raw **draft**.")
-    expect(find("#plan-header .inline-editor__title").text).to eq("Recovered source title")
+    expect(raw).to have_text("Original prose.")
+    expect(find("#plan-header .inline-editor__title").text).to eq("Mode test")
+    expect(page).to have_css('[data-mode="markdown"][aria-pressed="true"]')
     expect(page).to have_content("All changes saved", wait: 10)
-    expect(plan.reload.current_content).to eq("Retained raw **draft**.")
+    expect(plan.reload.current_content).to eq(source)
+    expect(page.evaluate_script("localStorage.getItem(arguments[0])", other_tab_key)).to be_present
+    expect(page.evaluate_script("localStorage.getItem(arguments[0])", older_tab_key)).to be_nil
+  end
+
+  it "lets a conflict reload the saved document" do
+    open_editor
+    block_saves
+    click_button "Raw", exact: true
+    raw.send_keys([ mod, "a" ], "Local draft")
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Remote replacement", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]', wait: 10)
+    find('.document-editor__close-inline[data-state="conflict"]').click
+    expect(raw).to have_text("Remote replacement", wait: 10)
+    expect(plan.reload.current_content).to eq("Remote replacement")
   end
 
   it "blocks closing on invalid fields and allows valid source mode to save" do
@@ -403,19 +429,20 @@ RSpec.describe "Document editor modes", type: :system do
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source.sub("Original prose.", "Agent prose.") + "\nHuman tail")
   end
 
-  it "retains both panes and the dual preference after a failed close and recovery" do
+  it "lets reload discard an unsaved dual draft while keeping the dual preference" do
     open_editor
     block_saves
     click_button "Dual", exact: true
     raw.send_keys([ mod, "a" ], "Retained dual **draft**.")
     click_link "Done"
-    expect(page).to have_content("Offline")
+    expect(page).to have_css('.document-editor__close-inline[data-state="error"][aria-label="Retry sync"]')
     expect(find('[aria-label="Document body"]')).to have_text("Retained dual draft.")
     page.refresh
-    expect(raw).to have_text("Retained dual **draft**.")
-    expect(find('[aria-label="Document body"]')).to have_text("Retained dual draft.")
+    expect(raw).to have_text("Original prose.")
+    expect(find('[aria-label="Document body"]')).to have_text("Original prose.")
+    expect(page).to have_css('[data-mode="dual"][aria-pressed="true"]')
     expect(page).to have_content("All changes saved", wait: 10)
-    expect(plan.reload.current_content).to eq("Retained dual **draft**.")
+    expect(plan.reload.current_content).to eq(source)
   end
 
   it "retains both drafts on overlapping live changes in Dual" do
@@ -424,11 +451,12 @@ RSpec.describe "Document editor modes", type: :system do
     click_button "Dual", exact: true
     raw.send_keys([ mod, "a" ], "Local replacement")
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Remote replacement", base_revision: 1, actor_type: "local_agent", actor_id: author.id)
-    expect(page).to have_content("Both edits change", wait: 10)
+    expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]', wait: 10)
     click_link "Done"
-    expect(page).to have_content("Both edits change the same passage")
     expect(raw).to have_text("Local replacement")
-    expect(find('[aria-label="Document body"]')).to have_text("Local replacement")
+    find('.document-editor__close-inline[data-state="conflict"]').click
+    expect(raw).to have_text("Remote replacement")
+    expect(find('[aria-label="Document body"]')).to have_text("Remote replacement")
     expect(plan.reload.current_content).to eq("Remote replacement")
   end
 

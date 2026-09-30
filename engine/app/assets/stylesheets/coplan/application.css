@@ -6099,6 +6099,10 @@ img.avatar {
   border: 1px solid var(--color-warning);
   display: block;
 }
+.editor__conflict[data-kind="save-error"] {
+  background: var(--color-bg-muted);
+  border-color: var(--color-border);
+}
 
 .editor__hint {
   margin-left: auto;
@@ -7700,6 +7704,8 @@ svg .source-thread-badge text { fill: var(--color-primary) !important; font: 600
 .document-editor__save-status[data-state="saved"] .document-editor__save-check { display: block; animation: editor-save-fade 3s ease-out forwards; }
 .document-editor__save-status[data-state="error"] { color: var(--color-danger); }
 .document-editor__save-status[data-state="error"] .document-editor__save-error { display: block; }
+.document-editor__save-status[data-state="conflict"] { color: var(--color-danger); }
+.document-editor__save-status[data-state="conflict"] .document-editor__save-conflict { display: block; }
 .document-editor__save-text { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .document-editor__save-status[data-state="error"] .document-editor__save-text { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip-path: none; white-space: normal; max-width: 180px; font-size: 12px; }
 @keyframes editor-save-spin { to { transform: rotate(360deg); } }
@@ -7802,16 +7808,19 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 .inline-editor .document-editor__close-inline[data-state="queued"] .document-editor__close-icon,
 .inline-editor .document-editor__close-inline[data-state="loading"] .document-editor__close-icon,
 .inline-editor .document-editor__close-inline[data-state="saving"] .document-editor__close-icon,
-.inline-editor .document-editor__close-inline[data-state="error"] .document-editor__close-icon { display: none; }
+.inline-editor .document-editor__close-inline[data-state="error"] .document-editor__close-icon,
+.inline-editor .document-editor__close-inline[data-state="conflict"] .document-editor__close-icon { display: none; }
 .inline-editor .document-editor__close-inline .document-editor__save-status { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; min-width: 0; min-height: 0; pointer-events: none; color: inherit; }
 .inline-editor .document-editor__close-inline[data-state="queued"] .document-editor__save-status,
 .inline-editor .document-editor__close-inline[data-state="loading"] .document-editor__save-status,
 .inline-editor .document-editor__close-inline[data-state="saving"] .document-editor__save-status,
-.inline-editor .document-editor__close-inline[data-state="error"] .document-editor__save-status { display: flex; }
+.inline-editor .document-editor__close-inline[data-state="error"] .document-editor__save-status,
+.inline-editor .document-editor__close-inline[data-state="conflict"] .document-editor__save-status { display: flex; }
 .inline-editor .document-editor__close-inline .document-editor__save-status > svg { width: 18px; height: 18px; }
 .inline-editor .document-editor__close-inline[data-state="queued"] .document-editor__save-queued { display: none; }
 .inline-editor .document-editor__close-inline[data-state="queued"] .document-editor__save-spinner { display: block; animation: editor-save-spin 3.6s linear infinite; }
-.inline-editor .document-editor__close-inline[data-state="error"] { color: var(--color-danger); opacity: 1; }
+.inline-editor .document-editor__close-inline[data-state="error"],
+.inline-editor .document-editor__close-inline[data-state="conflict"] { color: var(--color-danger); opacity: 1; }
 .inline-editor .document-editor__close-inline .document-editor__save-status .document-editor__save-text { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .inline-editor .document-editor__close-inline[data-state="queued"] .document-editor__save-spinner { animation: none; } }
 .inline-editor__title { display: block; width: 100%; max-width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--color-text); font: inherit; font-size: var(--text-2xl); font-weight: 700; line-height: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }

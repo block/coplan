@@ -82,15 +82,13 @@ RSpec.describe "Editor toolbar", type: :system do
     click_button "Raw", exact: true
     page.execute_script('window.originalFetch = window.fetch; window.fetch = (url, options) => options?.method === "PATCH" ? Promise.reject(new TypeError("Offline")) : window.originalFetch(url, options)')
     raw.send_keys([ mod, "a" ], "Retained draft")
-    expect(page).to have_css('.document-editor__save-status[data-state="error"]', text: "Not saved · draft retained")
-    expect(page).to have_content("Offline")
+    expect(page).to have_css('.document-editor__close-inline[data-state="error"][aria-label="Retry sync"]')
     raw.send_keys(:right, " with more")
     expect(status["data-state"]).to eq("error")
     expect(plan.reload.current_revision).to eq(1)
     page.execute_script("window.fetch = window.originalFetch")
-    click_button "Retry sync"
+    find('.document-editor__close-inline[data-state="error"]').click
     expect(page).to have_css('.document-editor__save-status[data-state="saved"]', visible: :all, wait: 10)
-    expect(page).not_to have_content("Offline")
     expect(plan.reload.current_content).to eq("Retained draft with more")
   end
 

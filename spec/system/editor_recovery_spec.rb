@@ -22,22 +22,23 @@ RSpec.describe "Editor draft recovery", type: :system do
   end
 
   [ 1, 0 ].each do |revision|
-    it "offers a legacy revision #{revision} draft for review and keeps it until acknowledged save" do
+    it "retains a legacy revision #{revision} draft while showing a conflict state" do
       store(legacy_key, { content: "Legacy content", revision: revision })
       visit plan_edit_page_path(plan)
       expect(rich).to have_text("Saved content")
       click_button "Review older draft"
       expect(rich).to have_text("Legacy content")
-      expect(page).to have_content("Review this older draft")
+      expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]')
       expect(plan.reload.current_content).to eq("Saved content")
       page.refresh
-      expect(rich).to have_text("Legacy content")
-      expect(page).to have_content("Recovered draft needs review")
+      expect(rich).to have_text("Saved content")
+      expect(page).to have_button("Review older draft")
       expect(page.evaluate_script("localStorage.getItem(arguments[0])", legacy_key)).to be_present
-      accept_confirm { click_button "Replace reviewed version with my draft" }
-      expect(page).to have_content("All changes saved · v2", wait: 10)
-      expect(plan.reload.current_content).to eq("Legacy content")
-      expect(page.evaluate_script("localStorage.getItem(arguments[0])", legacy_key)).to be_nil
+      click_button "Review older draft"
+      expect(rich).to have_text("Legacy content")
+      expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]')
+      expect(plan.reload.current_content).to eq("Saved content")
+      expect(page.evaluate_script("localStorage.getItem(arguments[0])", legacy_key)).to be_present
     end
   end
 
@@ -71,10 +72,10 @@ RSpec.describe "Editor draft recovery", type: :system do
     expect(rich).to have_text("Newer content")
     page.execute_script("window.releaseSave()")
     expect(rich).to have_text("Legacy content")
-    expect(page).to have_content("Review this older draft")
+    expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]')
     expect(plan.reload.current_content).to eq("Newer content")
     page.driver.browser.action.key_down(mod).send_keys("s").key_up(mod).perform
-    expect(page).to have_content("Resolve the conflicting edit")
+    expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]')
     expect(plan.reload.current_content).to eq("Newer content")
   end
 
@@ -103,7 +104,7 @@ RSpec.describe "Editor draft recovery", type: :system do
     click_button "Raw", exact: true
     raw = find('[aria-label="Markdown source"]')
     raw.send_keys("First draft")
-    expect(page).to have_content("Lost creation reply", wait: 10)
+    expect(page).to have_css('.document-editor__close-inline[data-state="error"][aria-label="Retry sync"]', wait: 10)
     created = author.created_plans.find_by!(title: "One document")
     raw.send_keys(:right, " and newer typing")
     page.refresh

@@ -50,7 +50,7 @@ RSpec.describe "Editor live cable delivery", type: :system do
     expect(raw).to have_text("Human local edit.")
     expect(find('[aria-label="Document body"]')).to have_text("Human local edit.")
     agent_write(plan.reload.current_content.sub("Human section.", "Conflicting remote edit."))
-    expect(page).to have_content("Both edits change", wait: 5)
+    expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]', wait: 5)
     expect(raw).to have_text("Human local edit.")
     expect(plan.reload.current_content).to include("Conflicting remote edit.")
   end

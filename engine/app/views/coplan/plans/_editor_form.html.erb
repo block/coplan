@@ -36,7 +36,7 @@
     </div>
   </div>
   <% end %>
-  <% if @conflict %><p class="editor__conflict">This plan was updated to v<%= @conflict_revision %>. Your draft is preserved.</p><% end %>
+  <% if @conflict && !inline_editor %><p class="editor__conflict">This plan was updated to v<%= @conflict_revision %>. Your draft is preserved.</p><% end %>
   <div class="editor__draft-notice" data-coplan--editor-target="legacyDraftNotice" hidden>
     <span>An older draft is available on this device. Its author could not be verified.</span>
     <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--editor#reviewLegacyDraft">Review older draft</button>
@@ -48,12 +48,13 @@
   <div class="editor__conflict" data-coplan--editor-target="conflict" hidden>
     <p data-coplan--editor-target="error"></p>
     <div class="document-editor__recovery-actions">
-      <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--editor#reconnect">Retry sync</button>
-      <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--editor#download">Download my draft</button>
-      <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--editor#useLatest">Use saved version</button>
+      <button type="button" class="btn btn--primary btn--sm" data-coplan--editor-target="retry" data-action="coplan--editor#reconnect">Retry sync</button>
+      <% unless inline_editor %>
+        <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--editor#discardChanges">Discard my unsaved changes</button>
+      <% end %>
       <button type="button" class="btn btn--danger btn--sm" data-coplan--editor-target="replace" data-action="coplan--editor#replace" hidden>Replace reviewed version with my draft</button>
     </div>
-    <details><summary>Review the saved version</summary><pre data-coplan--editor-target="latest"></pre></details>
+    <details data-coplan--editor-target="review"><summary>Review the saved version</summary><pre data-coplan--editor-target="latest"></pre></details>
   </div>
   <div data-coplan--editor-target="toolbar" class="document-editor__toolbar" role="toolbar" aria-label="Text formatting" data-action="mousedown->coplan--editor#keepSelection">
     <div class="document-editor__format-controls" data-coplan--editor-target="formatControls" data-action="scroll->coplan--editor#updateToolOverflow">
@@ -103,6 +104,7 @@
       <svg class="document-editor__save-spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8" opacity=".2"/><path d="M12 4a8 8 0 0 1 8 8"/></svg>
       <svg class="document-editor__save-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="m7.5 12 3 3 6-6"/></svg>
       <svg class="document-editor__save-error" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 4h.01"/></svg>
+      <svg class="document-editor__save-conflict" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>
       <span class="document-editor__save-text" data-coplan--editor-target="statusText">Opening document…</span>
     </span>
     <% if inline_editor %>

@@ -102,21 +102,23 @@ RSpec.describe "Human plan editing", type: :system do
     expect(result).to end_with("```mermaid\ngraph TD; A-->B\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |\n")
   end
 
-  it "retains a draft across reloads and clears it only after a successful save" do
+  it "discards unsaved edits on reload and retains saved edits" do
     visit plan_edit_page_path(plan)
-    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Recovered draft")
-    page.refresh # WebDriver accepts beforeunload automatically.
-    expect(editor).to have_text("Recovered draft")
-    # Recovery may autosave before the browser assertion runs.
-    click_button "Reconnect edit lock" if page.has_button?("Reconnect edit lock", wait: 1)
+    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Saved edit")
     save_now
     expect(page).to have_content("All changes saved · v2")
+    page.execute_script('window.originalFetch = window.fetch; window.fetch = (url, options) => options?.method === "PATCH" ? Promise.reject(new TypeError("Offline")) : window.originalFetch(url, options)')
+    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Unsaved edit")
+    save_now
+    expect(page).to have_css('.document-editor__close-inline[data-state="error"][aria-label="Retry sync"]')
     page.refresh
-    expect(editor).to have_text("Recovered draft")
+    expect(editor).to have_text("Saved edit")
+    expect(editor).not_to have_text("Unsaved edit")
     expect(page).not_to have_content("Recovered an unsaved draft")
+    expect(plan.reload.current_revision).to eq(2)
   end
 
-  it "retains the draft when a save fails and restores it after reload" do
+  it "lets reload discard a draft after a failed save" do
     visit plan_edit_page_path(plan)
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Keep this unsaved draft")
     page.execute_script(<<~'JS')
@@ -124,27 +126,28 @@ RSpec.describe "Human plan editing", type: :system do
       window.fetch = (url, options) => options?.method === "PATCH" ? Promise.reject(new TypeError("Offline")) : originalFetch(url, options);
     JS
     save_now
-    expect(page).to have_content("Offline")
+    expect(page).to have_css('.document-editor__close-inline[data-state="error"][aria-label="Retry sync"]')
     expect(plan.reload.current_revision).to eq(1)
     page.refresh
-    expect(editor).to have_text("Keep this unsaved draft")
-    save_now
-    expect(page).to have_content("All changes saved · v2")
+    expect(editor).to have_text("First draft body.")
+    expect(editor).not_to have_text("Keep this unsaved draft")
+    expect(plan.reload.current_revision).to eq(1)
   end
 
-  it "retains overlapping edits until the reviewed revision is explicitly replaced" do
+  it "lets an overlapping edit be discarded by reloading" do
     visit plan_edit_page_path(plan)
     editor
     page.execute_script('window.originalFetch = window.fetch; window.fetch = (url, options) => options?.method === "PATCH" ? Promise.reject(new TypeError("Offline")) : window.originalFetch(url, options)')
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "My retained draft")
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Intervening content", base_revision: 1,
       actor_type: "local_agent", actor_id: author.id)
-    expect(page).to have_content("Both edits change", wait: 10)
+    expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]', wait: 10)
     expect(editor).to have_text("My retained draft")
     expect(plan.reload.current_content).to eq("Intervening content")
     page.execute_script('window.fetch = window.originalFetch')
-    accept_confirm { click_button "Replace reviewed version with my draft" }
-    expect(page).to have_content("All changes saved · v3")
+    find('.document-editor__close-inline[data-state="conflict"]').click
+    expect(editor).to have_text("Intervening content", wait: 10)
+    expect(plan.reload.current_revision).to eq(2)
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(plan))
     expect(plan.reload.edit_lease).to be_nil
@@ -295,7 +298,7 @@ RSpec.describe "Human plan editing", type: :system do
     JS
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Committed despite lost response")
     save_now
-    expect(page).to have_content("Connection lost after commit")
+    expect(page).to have_css('.document-editor__close-inline[data-state="error"][aria-label="Retry sync"]')
     expect(plan.reload.current_revision).to eq(2)
     page.execute_script('window.allowSnapshots = true; window.dispatchEvent(new Event("online"))')
     expect(page).not_to have_content("Not saved", wait: 10)

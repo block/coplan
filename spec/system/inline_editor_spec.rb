@@ -21,6 +21,8 @@ RSpec.describe "Inline plan editing", type: :system do
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     expect(page).to have_current_path(original_path)
+    expect(page).to have_no_button("Revert unsaved changes")
+    expect(page).to have_no_button("Discard changes and close")
     expect(page).to have_css("[data-coplan--inline-editor-target='reader'][hidden]", visible: :all)
     expect(page).to have_css(".inline-editor button.document-editor__close-inline > .document-editor__save-status", count: 1, visible: :all)
     expect(page).to have_css("#coplan-inline-save-announcement[role='status'][aria-live='polite']", visible: :all)
@@ -78,6 +80,124 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css("#plan-header .page-header__title", text: "Inline plan", wait: 15)
     expect(page).to have_no_css(".inline-editor form.document-editor", wait: 10)
     expect(page).to have_current_path(plan_page_path(plan))
+  end
+
+  it "keeps a failed save in the icon and retries when the icon is clicked" do
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+    page.execute_script(<<~JS)
+      window.originalFetch = window.fetch
+      window.failedFetches = 0
+      window.fetch = () => { window.failedFetches++; return Promise.reject(new TypeError('Offline')) }
+      const form = document.querySelector('.inline-editor form.document-editor')
+      const view = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor.view
+      view.dispatch(view.state.tr.insertText(' Unsaved inline edit.', view.state.doc.content.size - 1))
+    JS
+    expect(page).to have_css(".inline-editor .document-editor__close-inline[data-state='error'][aria-label='Retry sync']", wait: 15)
+    expect(page).to have_css(".inline-editor .editor__conflict[hidden]", visible: :all)
+    expect(page).to have_css(".inline-editor .document-editor__save-error", visible: true)
+    expect(page).to have_css(".inline-editor .ProseMirror", text: "Unsaved inline edit.")
+    page.execute_script(<<~JS)
+      const form = document.querySelector('.inline-editor form.document-editor')
+      clearInterval(window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').poll)
+    JS
+    failed_before_retry = page.evaluate_script("window.failedFetches")
+    find(".inline-editor .document-editor__close-inline[data-state='error']").click
+    Selenium::WebDriver::Wait.new(timeout: 5).until do
+      page.evaluate_script("window.failedFetches") > failed_before_retry &&
+        page.has_css?(".inline-editor .document-editor__close-inline[data-state='error']")
+    end
+
+    page.execute_script(<<~JS)
+      window.retryWasGated = false
+      window.fetch = (url, options) => {
+        if (!window.retryWasGated && options?.method === 'GET') {
+          window.retryWasGated = true
+          return new Promise(resolve => { window.releaseRetry = () => resolve(window.originalFetch(url, options)) })
+        }
+        return window.originalFetch(url, options)
+      }
+    JS
+    find(".inline-editor .document-editor__close-inline[data-state='error']").click
+    expect(page).to have_css(".inline-editor .document-editor__close-inline[data-state='saving'][disabled]")
+    expect(page).to have_css(".inline-editor .document-editor__save-spinner", visible: true)
+    page.execute_script("window.releaseRetry()")
+    expect(page).to have_css(".inline-editor .document-editor__save-status[data-state='saved']", visible: :all, wait: 15)
+    expect(page).to have_no_css(".inline-editor .editor__conflict:not([hidden])")
+    expect(plan.reload.current_content).to include("Unsaved inline edit.")
+    expect(page).to have_current_path(plan_page_path(plan))
+  end
+
+  it "shows a distinct conflict icon that reloads the document" do
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+    remote_content = "# New heading\n\nRemote revision.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: remote_content,
+      base_revision: plan.current_revision, actor_type: "local_agent", actor_id: author.id)
+    page.execute_script(<<~JS, remote_content, plan.reload.current_revision)
+      const form = document.querySelector('.inline-editor form.document-editor')
+      const editor = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor')
+      const view = editor.richEditor.view
+      view.dispatch(view.state.tr.insertText(' My unsaved edit.', view.state.doc.content.size - 1))
+      editor.showConflict({ content: arguments[0], title: 'Inline plan', tags: '', revision: arguments[1] }, 'Both edits change')
+    JS
+    expect(page).to have_css(".inline-editor .document-editor__close-inline[data-state='conflict'][aria-label='Conflict — reload document']")
+    expect(page).to have_css(".inline-editor .document-editor__save-conflict", visible: true)
+    expect(page).to have_css(".inline-editor .editor__conflict[hidden]", visible: :all)
+    page.execute_script(<<~JS)
+      const form = document.querySelector('.inline-editor form.document-editor')
+      const editor = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor')
+      const view = editor.richEditor.view
+      view.dispatch(view.state.tr.insertText(' More local text.', view.state.doc.content.size - 1))
+      editor.flush(true)
+    JS
+    expect(page).to have_css(".inline-editor .document-editor__close-inline[data-state='conflict']")
+
+    expect(page.evaluate_script("(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented })()")).to eq(true)
+    find(".inline-editor .document-editor__close-inline[data-state='conflict']").click
+
+    expect(page).to have_no_css(".inline-editor form.document-editor", wait: 10)
+    expect(page).to have_css("#plan-content-body", text: "Remote revision.")
+    expect(page).to have_no_css("#plan-content-body", text: "First paragraph.")
+    expect(page).to have_css("#plan-content-body[data-coplan--live-update-revision-value='2']")
+  end
+
+  it "allows a page reload after an inline save fails" do
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+    page.execute_script(<<~JS)
+      window.fetch = () => Promise.reject(new TypeError('Offline'))
+      const form = document.querySelector('.inline-editor form.document-editor')
+      const view = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor.view
+      view.dispatch(view.state.tr.insertText(' Unsaved inline edit.', view.state.doc.content.size - 1))
+    JS
+    expect(page).to have_css(".inline-editor .document-editor__close-inline[data-state='error'][aria-label='Retry sync']", wait: 15)
+    expect(page.evaluate_script("(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented })()")).to eq(true)
+    page.refresh
+
+    expect(page).to have_current_path(plan_page_path(plan))
+    expect(page).to have_css("#plan-content-body", text: "Second paragraph.")
+    expect(page).to have_no_css("#plan-content-body", text: "Unsaved inline edit.")
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+    expect(page).to have_no_css(".inline-editor .ProseMirror", text: "Unsaved inline edit.")
+    expect(page).to have_css(".inline-editor [data-coplan--editor-target='draftNotice'][hidden]", visible: :all)
+    expect(plan.reload.current_revision).to eq(1)
+
+    page.execute_script(<<~JS)
+      window.originalFetch = window.fetch
+      window.fetch = (url, options) => options?.method === 'PATCH' ? Promise.reject(new TypeError('Offline')) : window.originalFetch(url, options)
+      const form = document.querySelector('.inline-editor form.document-editor')
+      const view = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor.view
+      view.dispatch(view.state.tr.insertText(' New later draft.', view.state.doc.content.size - 1))
+    JS
+    expect(page).to have_css(".inline-editor .document-editor__close-inline[data-state='error']", wait: 15)
+    page.execute_script("window.fetch = window.originalFetch; window.Turbo.visit(arguments[0])", library_page_path(author))
+    expect(page).to have_current_path(library_page_path(author), wait: 10)
+    page.execute_script("window.Turbo.visit(arguments[0])", plan_page_path(plan))
+    expect(page).to have_current_path(plan_page_path(plan), wait: 10)
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror", text: "New later draft.", wait: 20)
   end
 
   it "keeps the page at the top when editing starts above the document" do
