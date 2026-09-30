@@ -8,6 +8,13 @@ RSpec.describe "Web Push Subscriptions", type: :request do
     allow(CoPlan.configuration).to receive(:web_push_configured?).and_return(true)
   end
 
+  it "renders the mounted subscription route for the browser" do
+    get settings_root_path
+
+    meta = Nokogiri::HTML(response.body).at_css("meta[name='coplan-web-push-subscription-url']")
+    expect(meta["content"]).to eq(web_push_subscription_path)
+  end
+
   describe "POST /web_push/subscription" do
     let(:payload) do
       {
