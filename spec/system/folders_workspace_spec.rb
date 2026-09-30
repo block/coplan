@@ -391,7 +391,8 @@ RSpec.describe "Folders workspace", type: :system do
         sidebar_width = find(".workspace__sidebar").native.rect.width
 
         %w[Rollout Retro].each do |name|
-          click_button "New folder"
+          click_button "Add plan or folder"
+          within("#workspace-add-menu") { click_button "Folder" }
           within("#new-folder-modal") do
             expect(page).to have_select("Inside", selected: parent.path)
             fill_in "Name", with: name
@@ -416,7 +417,8 @@ RSpec.describe "Folders workspace", type: :system do
         expect(page).to have_css(".workspace-crumbs__crumb--current", text: "Retro")
         expect(find(".workspace__sidebar").native.rect.width).to eq(sidebar_width)
 
-        click_button "New folder"
+        click_button "Add plan or folder"
+        within("#workspace-add-menu") { click_button "Folder" }
         within("#new-folder-modal") do
           fill_in "Name", with: "Too deep"
           click_button "Create folder"
