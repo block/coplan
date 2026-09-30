@@ -55,7 +55,8 @@ module CoPlan
 
       CoPlan::Ai.call(
         system_prompt: File.read(PROMPT_PATH),
-        user_content: content
+        user_content: content,
+        intensity: :low
       ).to_s.strip.presence
     end
 

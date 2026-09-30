@@ -1,11 +1,13 @@
 module CoPlan
   class Configuration
     attr_accessor :authenticate, :api_authenticate, :sign_in_path
-    # AI provider, used for plan summaries. Any endpoint speaking the
-    # OpenAI wire protocol works — Azure OpenAI, LiteLLM, vLLM, Ollama, an
-    # internal gateway — by pointing `ai_base_url` at it. With no API key
-    # configured the features that need one degrade rather than raise.
-    attr_accessor :ai_base_url, :ai_api_key, :ai_model
+    # AI provider, used for plan summaries and dictated comments. Any endpoint
+    # speaking the OpenAI wire protocol works — Azure OpenAI, LiteLLM, vLLM,
+    # Ollama, an internal gateway — by pointing `ai_base_url` at it. With no
+    # API key configured the features that need one degrade rather than raise.
+    # ai_model is the fallback for every intensity; hosts can override
+    # individual levels in ai_models without changing other AI calls.
+    attr_accessor :ai_base_url, :ai_api_key, :ai_model, :ai_models
     attr_accessor :error_reporter
     attr_accessor :notification_handler
     attr_reader :notification_delivery_handlers
@@ -133,6 +135,7 @@ module CoPlan
       @ai_base_url = "https://api.openai.com/v1"
       @ai_api_key = nil
       @ai_model = "gpt-4o"
+      @ai_models = {}
       @error_reporter = ->(exception, context) { Rails.error.report(exception, context: context) }
       @notification_handler = nil
       @notification_delivery_handlers = []
