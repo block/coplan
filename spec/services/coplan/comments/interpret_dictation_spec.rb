@@ -26,6 +26,11 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
 
     expect(result.body).to eq("Put the median latency in seconds in the header.")
     expect(result.anchor_text).to eq("Median latency was 340 milliseconds across the pilot cohort.")
+    expect(CoPlan::Ai).to have_received(:call).with(
+      system_prompt: described_class::SYSTEM_PROMPT,
+      user_content: include("Transcript:"),
+      intensity: :medium
+    )
   end
 
   it "reads JSON the model wrapped in a code fence" do

@@ -127,7 +127,7 @@ module CoPlan
       def call
         return Result.new(comments: [ Comment.new(body: @transcript, anchor_text: nil) ]) if @transcript.empty?
 
-        parsed = parse(Ai.call(system_prompt: SYSTEM_PROMPT, user_content: user_content))
+        parsed = parse(Ai.call(system_prompt: SYSTEM_PROMPT, user_content: user_content, intensity: :medium))
         Result.new(comments: comments_from(parsed))
       rescue Ai::Error => e
         # Both halves are enhancements; a local tidy-up of what they said
