@@ -75,11 +75,12 @@ RSpec.describe "Expanding an image", type: :system do
   it "shows the expand arrows on hover or on devices without hover" do
     button = screenshot_frame.find(".image-frame__expand", visible: :all)
     expect(button["aria-label"]).to eq("Expand image")
+    find(".site-nav").hover
 
     if page.evaluate_script("matchMedia('(hover: none)').matches")
       expect(button.style("opacity")["opacity"]).to eq("1")
     else
-      expect(button.style("opacity")["opacity"]).to eq("0")
+      expect(screenshot_frame).to have_css(".image-frame__expand", visible: :all, wait: 5) { |el| el.style("opacity")["opacity"] == "0" }
       screenshot_frame.hover
       expect(screenshot_frame).to have_css(".image-frame__expand", visible: :all, wait: 5) { |el| el.style("opacity")["opacity"] == "1" }
     end
