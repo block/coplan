@@ -157,7 +157,7 @@ module CoPlan
         - Load `token` into `$TOKEN`. Use it only to mint your session token (step 1).
         - If the file does not exist, ask your principal to create a token at **Settings → API Tokens** in CoPlan. Save it and the CoPlan URL to the file, then run `chmod 600` on it.
         - If minting returns `401`, this token is not valid. Ask your principal for a new one, and update the file.
-        - Do not put the token itself in commands, files, or comments. Use the variable.
+        - Keep the token only in the credentials file. Do not put it in commands, other files, or comments. Use the variable.
       MARKDOWN
     end
 

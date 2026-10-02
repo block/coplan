@@ -60,7 +60,7 @@ Keep your state correct. People read it to know whether to wait for you.
 | State | Set by | Meaning |
 |---|---|---|
 | `watching` | you | You are attached and waiting. |
-| `pending` | the server | An event arrived for you. If you do not change to `active` within 30 seconds, the pill shows that you did not respond. |
+| `pending` | the server | An event arrived for you. If you do not change to `active` within 30 seconds, the session becomes `stale` and the pill disappears. People then see no agent on the plan. |
 | `active` | you | You are working. `detail` shows what you are doing. |
 | `awaiting_input` | you | You asked a question and need an answer to continue. |
 | `complete` | you | Your turn is done. |
