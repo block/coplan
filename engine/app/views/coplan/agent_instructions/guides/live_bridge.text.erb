@@ -17,15 +17,16 @@ curl -sfO <%= @base %>/agent-tools/coplan-bridge
 chmod +x coplan-bridge
 export PATH="$HOME/.coplan/bin:$PATH"
 export COPLAN_BASE=<%= @base %>
-# Give the bridge its own session token, not the long-lived one:
+# Give the bridge its own session token, not the long-lived one.
+# Name it for the agent that the bridge resumes:
 export COPLAN_TOKEN=$(curl -s -X POST \
   -H "Authorization: Bearer $(jq -r .token ~/.config/coplan/credentials.json)" \
   -H "Content-Type: application/json" \
-  -d '{"agent_name": "Bridge", "ttl_seconds": 2592000, "metadata": {"harness": "coplan-bridge"}}' \
+  -d '{"agent_name": "Claude", "ttl_seconds": 2592000, "metadata": {"harness": "claude-code"}}' \
   "$COPLAN_BASE/api/v1/tokens" | jq -r .token)
 ```
 
-The session token expires after 30 days and cannot mint more tokens. Run one bridge for each token: two bridges with one token share an inbox and take each other's events. When the token expires, mint a new one and restart the bridge.
+The presence pill, and any reply or edit made with this token, show the token's `agent_name` and `harness`. Set them to the agent that the bridge resumes (for example `"Amp"` and `amp`), not to the bridge. The session token expires after 30 days and cannot mint more tokens. Run one bridge for each token: two bridges with one token share an inbox and take each other's events. When the token expires, mint a new one and restart the bridge.
 
 ## Resume an existing session
 

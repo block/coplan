@@ -411,6 +411,7 @@ end
 
 claim_sessions
 cursor = nil
+failures = 0
 puts "coplan-bridge: draining events from #{BASE}"
 loop do
   resp = request(:get, "/api/v1/agent/events", params: { wait: 25, cursor: cursor }.compact)
@@ -422,12 +423,22 @@ loop do
     # never swallowed by a batch-level ack.
     cursor = event["id"]
     request(:post, "/api/v1/agent/events/ack", body: { cursor: cursor })
+    failures = 0
   rescue => e
     # Stop the batch here: acking later events would also ack this one
     # (the cursor is a high-water mark). The next poll redelivers
-    # everything unacked; the sleep keeps a wedged adapter from spinning.
-    warn "coplan-bridge: dispatch failed: #{e.class}: #{e.message} — leaving event unacked"
-    sleep 3
+    # everything unacked. Dispatch already said `active`; take that back,
+    # or every retry would refresh a pill promising a turn that isn't
+    # running. Back off so a wedged adapter doesn't spin.
+    failures += 1
+    delay = [ 3 * 2**(failures - 1), 60 ].min
+    warn "coplan-bridge: dispatch failed: #{e.class}: #{e.message} — leaving event unacked, retrying in #{delay}s"
+    begin
+      Bridge.patch_state(event["plan_id"], "complete", nil)
+    rescue StandardError
+      nil # the server may be the thing that failed; the retry will tell
+    end
+    sleep delay
     break
   end
 rescue Interrupt
