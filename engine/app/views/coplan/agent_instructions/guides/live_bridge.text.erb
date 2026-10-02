@@ -16,8 +16,15 @@ curl -sfO <%= @base %>/agent-tools/coplan-bridge
 # Read the file now. Then:
 chmod +x coplan-bridge
 export COPLAN_BASE=<%= @base %>
-export COPLAN_TOKEN=$(jq -r .token ~/.config/coplan/credentials.json)
+# Give the bridge its own session token, not the long-lived one:
+export COPLAN_TOKEN=$(curl -s -X POST \
+  -H "Authorization: Bearer $(jq -r .token ~/.config/coplan/credentials.json)" \
+  -H "Content-Type: application/json" \
+  -d '{"agent_name": "Bridge", "ttl_seconds": 2592000, "metadata": {"harness": "coplan-bridge"}}' \
+  "$COPLAN_BASE/api/v1/tokens" | jq -r .token)
 ```
+
+The session token expires after 30 days and cannot mint more tokens. Run one bridge for each token: two bridges with one token share an inbox and take each other's events. When the token expires, mint a new one and restart the bridge.
 
 ## Resume an existing session
 
@@ -52,7 +59,7 @@ The bridge can also start its own agent over the Agent Client Protocol (`--acp "
 
 ## Keep the setup
 
-Put the settings in `~/.config/coplan/bridge.json`, and run the bridge as a service. Do not put the token in this file. Give the service `COPLAN_TOKEN` from the protected credentials file (`~/.config/coplan/credentials.json`, mode `600`):
+Put the settings in `~/.config/coplan/bridge.json`, and run the bridge as a service. Do not put the token in this file. Give the service the minted session token in `COPLAN_TOKEN` (see [Install](#install)):
 
 ```json
 {

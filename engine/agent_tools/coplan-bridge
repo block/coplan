@@ -401,7 +401,12 @@ def dispatch(event)
     part.gsub("{session}", CONFIG.fetch("harness_session", "coplan")).gsub("{prompt}", wake_prompt(event))
   end
   puts "coplan-bridge: dispatching #{event["type"]} -> #{adapter}"
-  system(*cmd)
+  # system returns false on a nonzero exit and nil when the command can't
+  # start; neither raises. Raise here so the loop leaves the event unacked
+  # for redelivery instead of acking a turn that never happened.
+  return if system(*cmd)
+
+  raise "#{adapter} adapter #{$?&.exitstatus ? "exited #{$?.exitstatus}" : "could not start"}"
 end
 
 claim_sessions

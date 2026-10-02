@@ -46,12 +46,10 @@ When an event arrives:
 **Ask your principal to run the bridge.** `coplan-bridge` runs on your principal's machine. For each event, it runs `amp threads continue <thread-id> -x "<event summary>"`, which starts a new turn in this thread. Your thread ID is the `T-…` part of your thread URL. Give your principal this command. Do not start it yourself: it must keep running after your turn ends.
 
 ```bash
-export COPLAN_BASE=<%= @base %>
-export COPLAN_TOKEN=$(jq -r .token ~/.config/coplan/credentials.json)
 coplan-bridge --adapter amp --session T-<thread-id> --plan <plan-id>
 ```
 
-The bridge claims the session and sets it to `active` for you. To install it, see <<%= @base %>/agent-instructions/live/bridge>.
+First, your principal installs the bridge and mints its session token: see "Install" in <<%= @base %>/agent-instructions/live/bridge>. The bridge claims the session and sets it to `active` for you.
 
 ## Keep the setup
 
