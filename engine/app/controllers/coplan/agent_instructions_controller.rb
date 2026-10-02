@@ -52,7 +52,8 @@ module CoPlan
       @auth_instructions = CoPlan.configuration.agent_auth_instructions
       @curl = CoPlan.configuration.agent_curl_prefix
       @request_auth_available = CoPlan.configuration.api_authenticate.present?
-      @mint_curl = @request_auth_available ? "curl -s" : @curl
+      @mint_curl = CoPlan.configuration.agent_mint_curl_prefix.presence ||
+        (@request_auth_available ? "curl -s" : @curl)
       # Includes the engine's mount point — host apps may mount CoPlan under
       # a prefix (e.g. /coplan), and request.base_url alone would point every
       # curl example at the wrong path. root_path here is the engine's, which

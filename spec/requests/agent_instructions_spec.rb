@@ -84,6 +84,15 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).to include("Do not use a session token to mint another token")
     end
 
+    it "uses the host's authenticated mint command when configured" do
+      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
+      allow(CoPlan.configuration).to receive(:agent_mint_curl_prefix).and_return("sq curl -s")
+
+      get agent_instructions_path
+
+      expect(response.body.scan("sq curl -s -X POST").length).to eq(2)
+    end
+
     it "documents safe harness-specific live setup for plan-scoped work" do
       get agent_instructions_path
 
