@@ -16,7 +16,7 @@ curl -sfO <%= @base %>/agent-tools/coplan-bridge
 # Read the file now. Then:
 chmod +x coplan-bridge
 export COPLAN_BASE=<%= @base %>
-export COPLAN_TOKEN=<long-lived token from Settings → API Tokens>
+export COPLAN_TOKEN=$(jq -r .token ~/.config/coplan/credentials.json)
 ```
 
 ## Resume an existing session
