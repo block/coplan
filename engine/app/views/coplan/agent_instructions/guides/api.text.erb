@@ -1,6 +1,6 @@
 # API Reference
 
-Every endpoint, with the guide that explains it. All paths start with `<%= @base %>`. Every call except token minting needs `Authorization: Bearer $TOKEN` (see the primer at <<%= @base %>/agent-instructions>). Request bodies are JSON.
+Every endpoint, with the guide that explains it. All paths start with `<%= @base %>`. Every call needs `Authorization: Bearer $TOKEN`. To mint a session token, send your principal's long-lived token (or use the host's request authentication, if it has one). For every other call, send the session token. See the primer at <<%= @base %>/agent-instructions>. Request bodies are JSON.
 
 ## Tokens
 

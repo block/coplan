@@ -52,12 +52,11 @@ The bridge can also start its own agent over the Agent Client Protocol (`--acp "
 
 ## Keep the setup
 
-Put the settings in `~/.config/coplan/bridge.json`, and run the bridge as a service:
+Put the settings in `~/.config/coplan/bridge.json`, and run the bridge as a service. Do not put the token in this file. Give the service `COPLAN_TOKEN` from the protected credentials file (`~/.config/coplan/credentials.json`, mode `600`):
 
 ```json
 {
   "base_url": "<%= @base %>",
-  "token": "<long-lived token>",
   "plans": ["<plan id>"],
   "adapter": "claude",
   "harness_session": "<session id>"
