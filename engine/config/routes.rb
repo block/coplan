@@ -204,9 +204,13 @@ CoPlan::Engine.routes.draw do
   # llms.txt, and in whatever config people have already pasted it into.
   # Same argument as the API above: an external contract stays where it was.
   get "agent-instructions", to: "agent_instructions#show", as: :agent_instructions
-  # Sub-instructions: the library-organizing guide, fetched on demand so the
-  # main instructions stay small (agents only spend context when organizing).
-  get "agent-instructions/organizing", to: "agent_instructions#organizing", as: :agent_instructions_organizing
+  # Topic guides, fetched on demand so the primer stays small (an agent
+  # only spends context on live sessions or slide decks when it needs
+  # them). The organizing name predates the glob; library API responses
+  # link it.
+  get "agent-instructions/organizing", to: "agent_instructions#guide", defaults: { guide: "organizing" },
+    as: :agent_instructions_organizing
+  get "agent-instructions/*guide", to: "agent_instructions#guide", as: :agent_instructions_guide
 
   # Convention puts this at the root, like robots.txt.
   get "llms.txt", to: "llms#show", as: :llms_txt

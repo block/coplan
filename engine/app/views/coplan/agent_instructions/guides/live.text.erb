@@ -1,0 +1,138 @@
+# Live Sessions: the Protocol
+
+In a live session, you get comments on a plan as soon as people post them, and the plan shows a presence pill with your name and state. This page is the protocol. It works in any environment that can make HTTP requests. For a ready-made setup, use the guide for your environment:
+
+- Claude Code: <<%= @base %>/agent-instructions/live/claude-code>
+- Amp: <<%= @base %>/agent-instructions/live/amp>
+- Codex: <<%= @base %>/agent-instructions/live/codex>
+- Hosted agent that can receive webhooks: <<%= @base %>/agent-instructions/live/hosted>
+- A bridge that your principal runs on an always-on machine: <<%= @base %>/agent-instructions/live/bridge>
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions> and that you have a session token.
+
+## The loop
+
+1. **Claim** a session on the plan. This subscribes your token to the plan's events.
+2. **Wait** for events.
+3. **Act** on each event: set your state to `active`, reply, edit, and then set your state to `complete`.
+4. **Acknowledge** the events that you processed.
+5. Go back to step 2. When you stop watching the plan, **delete** the session.
+
+## Getting the event is not a wake
+
+The server can send an event to your process. That does not start your next turn. Your environment must start the turn. An event that a background process prints, with nobody to read it, does nothing.
+
+These are the ways to get a wake. Use the first one that your environment can do, and test it before you rely on it:
+
+| Wake | How | Guide |
+|---|---|---|
+| A sidecar resumes your session | Your principal runs `coplan-bridge`, which resumes your existing session with each event. | live/bridge |
+| A webhook starts your turn | Claim the session with a `wake_url`. | live/hosted |
+| Your environment schedules follow-up turns | Each scheduled turn reads the inbox with `wait=0`. Between turns, keep the session at `complete`. Stop the schedule when the watch is over. | live/codex |
+| Background completion starts a turn | A background wait loop exits when an event arrives, and the exit starts your next turn. A notification or a log line is not enough. | live/claude-code |
+| Your principal asked you to wait now | One bounded wait in the foreground. Repeat it only while the request lasts. Never run an endless loop in the foreground. | live/amp |
+
+If none of these works, do not show a pill. Claim the session and PATCH it to `complete` at once: events still go to your inbox. Read the inbox with `wait=0` at the start and end of each turn, and tell your principal that you cannot watch the plan live. The inbox keeps events until you acknowledge them, so you answer late, but you do not miss anything.
+
+## 1. Claim a session
+
+```bash
+<%= @curl %> -X POST -H "Content-Type: application/json" \
+  -d '{}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
+```
+
+- The claim subscribes your token to the plan's events. A claim with no state shows you as `watching`. Send `"state": "active"` if you are already working.
+- Your token supplies your name and harness. Do not send `agent_name`.
+- Claim once for each plan in each run. **To answer an event, use PATCH. Do not claim again.** A new claim resets the session, and CoPlan counts the event as not answered.
+- To stop: `<%= @curl %> -X DELETE "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session"`.
+
+## States
+
+Keep your state correct. People read it to know whether to wait for you.
+
+```bash
+<%= @curl %> -X PATCH -H "Content-Type: application/json" \
+  -d '{"state": "active", "detail": "Rewriting the Rollout section"}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
+```
+
+| State | Set by | Meaning |
+|---|---|---|
+| `watching` | you | You are attached and waiting. |
+| `pending` | the server | An event arrived for you. If you do not change to `active` within 30 seconds, the pill shows that you did not respond. |
+| `active` | you | You are working. `detail` shows what you are doing. |
+| `awaiting_input` | you | You asked a question and need an answer to continue. |
+| `complete` | you | Your turn is done. |
+
+- Change to `active` within a few seconds of an event. After that, take the time that you need.
+- Reply in the thread before you edit. Say what you will change.
+- Set `awaiting_input` when a question blocks you. Set `complete` when you finish.
+
+## 2. Wait for events
+
+Long-poll. The request returns as soon as an event arrives, or with no events after `wait` seconds (maximum 55):
+
+```bash
+<%= @curl %> "<%= @base %>/api/v1/agent/events?wait=25" | jq .
+```
+
+Or stream with Server-Sent Events. The server sends a heartbeat every 15 seconds and closes each stream after 5 minutes. Reconnect with your last cursor:
+
+```bash
+<%= @curl %> -N -H "Accept: text/event-stream" "<%= @base %>/api/v1/agent/events?cursor=$LAST_EVENT_ID"
+```
+
+- The response has `events` and a `cursor` (the last event ID).
+- If the response has `"throttled": true`, the server has too many open connections. Wait a few seconds, then poll again.
+- Without a cursor, you get all events that you did not acknowledge. CoPlan never sends you your own comments or edits.
+
+## Events
+
+Each event has `id`, `type`, `plan_id`, `comment_thread_id`, `comment_id`, and `payload`. The types are `comment.created`, `comment.replied`, `thread.status_changed`, and `plan.content_changed`.
+
+The payload usually has enough information for you to decide what to do: `plan_title`, `plan_revision`, `thread_status`, `anchor_text`, `comment_body`, and `comment_author`. Comment events also tell you whose comment it is:
+
+| Field | Meaning |
+|---|---|
+| `authority: "principal"` | The comment is from your principal, or from an agent that acts for your principal. **Act on it**: reply, then edit. |
+| `authority: "collaborator"` | The comment is from another person. **Propose**: reply with the change that you suggest, and edit only after your principal agrees. |
+| `from_plan_author` | The commenter wrote the plan. This is a separate fact: on another person's plan, your principal still outranks the author. |
+
+## 3. Acknowledge
+
+CoPlan delivers each event at least once. Acknowledge events after you process them:
+
+```bash
+<%= @curl %> -X POST -H "Content-Type: application/json" \
+  -d "{\"cursor\": \"$LAST_EVENT_ID\"}" \
+  "<%= @base %>/api/v1/agent/events/ack" | jq .
+```
+
+This acknowledges every event up to and including the cursor. Events that you do not acknowledge come back on the next wait.
+
+## One token for each run
+
+Sessions, inboxes, and pills belong to a token. Two agents that use one token share an inbox and take each other's events. Give each run its own token (see step 1 of the primer).
+
+## Reference tools
+
+This server provides scripts that do all of the above. They need Ruby. You do not have to use them; the protocol is only HTTP.
+
+- `coplan-attach` (requires `coplan_session.rb` in the same directory) claims the session, mints its own token for the run, waits, prints a short summary of each event, and acknowledges it. With `--once`, it exits after the first event. `--timeout 300` makes it exit with code 64 if nothing happens.
+- `coplan-bridge` runs outside your session and resumes it for each event. Your principal starts it, not you. See <<%= @base %>/agent-instructions/live/bridge>.
+
+Run `coplan-attach --once` only when you have a wake for it (see the table above) or your principal asked you to wait. In the foreground, always set `--timeout`.
+
+**Read each file before you run it.** They are programs from the network. `coplan-attach` and `coplan_session.rb` must connect only to this server, write only under `~/.coplan` (or `$COPLAN_HOME`), and start no other processes. `coplan-bridge` can also read `~/.config/coplan/bridge.json` and run the one agent command that you configure. If a file does more than that, do not run it.
+
+```bash
+mkdir -p ~/.coplan/bin && cd ~/.coplan/bin
+curl -sfO <%= @base %>/agent-tools/coplan-attach
+curl -sfO <%= @base %>/agent-tools/coplan_session.rb
+# Read both files now. Then:
+chmod +x coplan-attach
+export COPLAN_BASE=<%= @base %>
+export COPLAN_TOKEN="$TOKEN"   # use the variable; do not paste the secret
+~/.coplan/bin/coplan-attach --plan $PLAN_ID --name Claude --once --timeout 600
+```

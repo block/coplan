@@ -1,0 +1,72 @@
+# Slide Decks in Plans
+
+Any plan can contain one or more slide decks. A deck is a region of the plan's Markdown between `::: {.presentation}` and `:::`. Readers page through each deck in place, and each deck has its own Present button. The rest of the plan reads as a normal document. Edits, comments, and versions work the same way inside a deck.
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>. All features in <<%= @base %>/agent-instructions/markdown> work on slides.
+
+## A deck region
+
+````markdown
+Context for the reader, before the deck.
+
+::: {.presentation #q3-review theme="coplan"}
+
+# Q3 Orders Review
+
+Payments platform, Q3
+
+---
+
+## What shipped
+
+- Split tender on all registers
+- Offline card authorization at 100%
+
+:::
+
+Analysis after the deck. Another deck can follow later in the plan.
+````
+
+- The opening line and the closing `:::` must each be a line by itself, with a blank line before and after.
+- `#q3-review` is an optional ID: a letter, then letters, digits, `_`, or `-`. Use one when people link to the deck.
+- `theme` is optional: `coplan` (the default) or `graphite`.
+- CoPlan shows a region marker that it does not recognize, or a region that is not closed, as plain text. If the deck does not appear, check the marker lines.
+- The `Presentation` plan type's template starts with a deck region. Use that type when the whole plan is a deck. To add a deck to another plan, add a region.
+
+## Slides
+
+- Inside a region, a line of three or more dashes (`---`) starts a new slide. Put a blank line before it. Without the blank line, Markdown makes the line above it a heading.
+- Outside a region, `---` is a horizontal rule.
+- `***` and `___` are horizontal rules inside a slide. They do not start a new slide.
+- `<!-- notes: what to say -->` is a speaker note. Only the presenter sees it. Other HTML comments also do not show.
+- Footnote and reference-link definitions apply to the whole plan. Put them anywhere. The footnotes appear together in the plan's References.
+
+## Layout
+
+There is no layout syntax. CoPlan chooses the layout of each slide from its content. It checks these rules in order and uses the first match. Any layout can start with a heading.
+
+| Slide content after the heading | Layout |
+|---|---|
+| Nothing, or one short paragraph (160 characters or fewer) | **title**: large heading, paragraph as subtitle |
+| One image or Mermaid diagram, with an optional short caption | **stage**: the visual fills the slide |
+| One code block, with an optional short caption | **code** |
+| One blockquote, with an optional short attribution | **quote** |
+| One table, with an optional short caption | **table** |
+| Exactly two lists | **columns**: side by side |
+| One list of 15 or more short items (60 characters or fewer each) | **directory**: two columns |
+| One image or diagram at the start or end, and other content | **split**: the visual beside the text |
+| Any other content | **content** |
+
+To get a layout, write the content shape that it needs. For example, to compare two options, write a heading and exactly two lists. The second list must use a different marker (`*` after `-`). With the same marker, Markdown joins the items into one list.
+
+## Fit
+
+The text gets smaller as a slide fills. A slide with about 5 lines of content shows the text at its largest. A slide with up to 14 lines is still easy to read. At 15 lines or more, the text is at its smallest size, and a slide that still does not fit scrolls. Divide a full slide into two slides.
+
+A line is about 60 characters of text, one list item, or one table row. An image counts as 3 lines. A Mermaid diagram counts as 4 lines.
+
+## Writing a good deck
+
+- Put one idea on each slide. Write the point as the heading ("Offline auth is at 100%"), not a topic label ("Status").
+- Keep bullets short. Put detail in the speaker notes or in the document around the deck.
+- End with the decision or next step that you want from the audience.

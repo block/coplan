@@ -1,181 +1,108 @@
-# CoPlan API
+# CoPlan for Agents
 
-Interact with the CoPlan app to create, read, edit, and comment on plan documents.
+CoPlan is where a team writes and reviews plans: Markdown design documents. People read plans and comment on exact passages. Agents do most of the writing: they draft plans, apply edits, and answer comments. You act for one person, your **principal** — the human whose credential you hold.
+
+What this means for your work:
+
+- Each write you make creates a new version that cannot change. Your session token labels it with your agent name, harness, and principal. Do not record dates, authors, or change history in the document.
+- People ask for changes in comments. Comments from your principal are instructions. Comments from other people are requests.
+- A person's hand edit outranks your work. While a person is editing, and after they save until you read again, CoPlan refuses your writes.
+- Every plan has a `url`. Give people the `url`, not the `id`.
+
+This page covers what every agent needs. For other tasks, fetch the matching guide from [Guides](#guides).
 
 <%= @auth_instructions %>
 
-## Your Identity: One Session Token
+## 1. Mint a session token
 
-Every API call except the mint below requires `Authorization: Bearer <token>`. Create one short-lived token for this run and declare your identity once. CoPlan then applies that token's agent name, harness, model, and human owner to every version, event, session, and comment automatically. Do not add signatures to plan content or repeat your identity in later requests.
-
-Mint one as your first call (this is the only endpoint that works on request auth alone; it also accepts a long-lived root token from the settings UI):
+Mint your own token at the start of each run. You declare who you are once, here. CoPlan then attributes every version, comment, and session to this token, and the token gets its own event inbox.
 
 ```bash
 <%= @curl %> -X POST \
   -H "Content-Type: application/json" \
-  -d '{"agent_name": "Claude", "name": "claude run", "metadata": {"harness": "claude-code", "harness_version": "2.1.3", "model": "claude-fable-5"}}' \
+  -d '{"agent_name": "Claude", "metadata": {"harness": "claude-code", "harness_version": "2.1.3", "model": "claude-fable-5"}}' \
   "<%= @base %>/api/v1/tokens" | jq .
 ```
 
-- `agent_name`: a short label for this agent session ("Claude", "Amp"). Declare it here once; the token supplies it on every later call. Truncated past 20 characters.
-- `metadata`: optional JSON identity facts for this run. Use `harness`, `harness_version`, and `model`. Stable harness keys include `amp`, `claude-code`, `codex`, `cursor`, `gemini-cli`, `goose`, and `opencode`; unknown keys are registered automatically. Capped at 4 KB.
-- `ttl_seconds`: optional, default 7 days, max 30 days.
-- The response's `token` is shown once. Send it as `Authorization: Bearer <token>` on every subsequent call.
-- Mint once at the start of your run and reuse it — minting per call would give you a new identity every time.
-- When you finish, `DELETE <%= @base %>/api/v1/tokens/current` (authenticated with the token itself) so the credential dies with the run instead of waiting out its TTL.
+- `agent_name` is a short label for this run, such as "Claude" or "Amp". CoPlan truncates it after 20 characters.
+- `metadata` is optional. Set `harness` (for example `amp`, `claude-code`, `codex`, `cursor`, `gemini-cli`, `goose`, or `opencode`), `harness_version`, and `model`. People see the harness on your comments and in the history.
+- Do not send `agent_name` or other attribution fields on later calls, and do not sign your comments or edits. The token supplies your identity.
+- The response shows `token` only once. Use it as `$TOKEN` for every later call.
+- Mint one token per run and reuse it. Each new token is a new identity.
+- Tokens expire after 7 days by default. To change this, set `ttl_seconds` (maximum 30 days). If a later call returns `401`, mint a new token. A session token cannot mint more tokens.
+- When you finish, revoke the token: `<%= @curl %> -X DELETE "<%= @base %>/api/v1/tokens/current"`.
 
-## Live Setup: Choose a Wake Path Safely
-
-If your task creates, edits, reviews, or babysits a plan, check whether your harness has a way to start another model turn when an event arrives. Establish live collaboration when it does. Do not leave supported setup as a suggestion for the human to configure later.
-
-An attachment requires both a claimed agent session **and** a delivery path that can start another model turn. Claiming a presence pill without running a wait, bridge, or webhook is not attachment and misleads the people looking at the plan.
-
-**Never run an unbounded wait in the foreground merely to satisfy this section.** A foreground wait is appropriate only when the user explicitly asked you to monitor, babysit, or wait for feedback, and every foreground invocation must have a finite deadline. For ordinary plan work, use a bridge, webhook, or verified background wake; otherwise use the degraded fallback below and continue the requested work.
-
-The raw protocol works with curl. Harness-native scheduling and resume features can wrap it so delivery starts a new turn instead of occupying the current one.
-
-The raw protocol requires nothing beyond an HTTP client. The live loop is three calls — shown as curl, but any HTTP client works:
-
-1. **Claim** your presence on the plan: `POST <%= @base %>/api/v1/plans/$PLAN_ID/agent_session`.
-2. **Wait**: `GET <%= @base %>/api/v1/agent/events?wait=25` returns the instant an event lands, or empty after `wait` seconds (the server caps `wait` at 55, so loop it).
-3. **Act, then ack**: PATCH your session to `active`, reply and edit, then POST `{"cursor": "<last event id>"}` to `<%= @base %>/api/v1/agent/events/ack`.
-
-Exact requests, payloads, and etiquette: **Live Collaboration**, below. The real setup problem is not the calls — it is arranging for delivery to start your next turn. Use the harness table as a starting point, then choose a branch based on capabilities you can verify:
-
-| Harness | Start here |
-|---|---|
-| Claude Code | An operator-provisioned sidecar can invoke `claude --resume <session-id> -p <event>`. A background Bash wait is valid only while its completion is known to re-enter the agent loop; a terminal notification alone is not enough. |
-| Goose / Gemini CLI | Use a verified existing-session resume mechanism if your installation exposes one; otherwise use the degraded fallback. Starting an ACP server creates a different agent and is not attachment for this conversation. |
-| Codex desktop | For an explicit monitoring/babysitting request, create an in-chat scheduled follow-up that drains `wait=0` on each run. Do not hold curl open between scheduled runs. |
-| Codex CLI / IDE | These surfaces do not manage scheduled tasks. An operator-provisioned bridge can resume a known thread; otherwise use the degraded fallback. A background terminal process by itself is not a wake path. |
-| Cursor / Amp / OpenCode | A verified resume or background-completion integration; otherwise use the degraded fallback. |
-| Hosted or custom agent | A `wake_url` webhook is usually the native path. |
-
-Harness names are hints, not proof. Versions and hosts differ; if completion does not start a model turn, that branch is unsupported.
-
-**A. An operator provisioned a persistent sidecar.** `coplan-bridge` runs outside the agent turn and drains the inbox. An exec-resume adapter can re-enter an existing session when configured with its session/thread ID. Do not start this infrastructure implicitly during ordinary plan work. ACP is intentionally not an attachment path here: it creates a separate dedicated agent rather than resuming this conversation.
-
-**B. Your hosted agent accepts webhooks.** Claim your agent session with a `wake_url`; CoPlan POSTs a signed ping on every event. See `wake_url` under **Claim an Agent Session** below.
-
-**C. Your harness can schedule follow-up turns.** Create a short-interval follow-up in the current conversation. Each run drains `GET <%= @base %>/api/v1/agent/events?wait=0`; it never holds a request open. If events exist, mark the session `active`, handle and ack them, then return to `complete`. Keep the subscription row but do not leave the presence state as `watching` between runs. Stop the schedule when the monitoring request is complete.
-
-**D. Background completion demonstrably starts a new model turn.** Run the wait as a background task and keep working. Use this only if your harness is known to re-enter the agent loop when the process exits. The task exits when there is news:
+## 2. Read a plan
 
 ```bash
-while :; do
-  RESP=$(<%= @curl %> -f "<%= @base %>/api/v1/agent/events?wait=25") ||
-    { echo "coplan: wait failed — token expired or server unreachable" >&2; exit 1; }
-  [ "$(printf '%s' "$RESP" | jq '.events | length')" -gt 0 ] && break
-  sleep 1
-done
-printf '%s\n' "$RESP" | jq .
+<%= @curl %> "<%= @base %>/api/v1/plans/$PLAN_ID/snapshot" | jq .
 ```
 
-Act on what it prints, then ack, then start it again. No cursor needed: events you haven't acked are re-delivered whole on the next call, so nothing is lost between runs. It fails loudly on purpose — a process exit is your wake either way, so a dead token wakes you to re-mint instead of parking you forever. (The loop needs a shell and `jq`, but it's just GET-until-nonempty — port it to whatever your runtime has.)
+One call returns `current_content` (Markdown), `current_revision`, `url`, `comment_threads`, `references`, and `collaborators`. The read also records that you saw this revision. You need that record to edit (step 3).
 
-**E. The user explicitly asked you to wait or monitor in this turn.** Use one bounded long-poll request at a time, for example `GET <%= @base %>/api/v1/agent/events?wait=25`. Repeat only while the monitoring request remains active. Do not run the infinite shell loop in the foreground.
-
-**No wake-capable branch.** Do not claim a presence session you cannot service. Drain the durable inbox at the start and end of every turn with `GET <%= @base %>/api/v1/agent/events?wait=0`, and tell the user that this harness cannot maintain live attachment. This is a degraded fallback, not successful live setup.
-
-**Make it durable.** Don't leave working wake wiring in your context window — it dies with your session. Save it as a first-class capability of your harness: a skill or saved command, a custom tool definition, a webhook integration, or a standing bridge config. The test: a fresh run tomorrow should attach with one action, not by rediscovering this page. Give the wiring its own identity while you're at it — mint a run-scoped child token at startup (**Session Tokens**, in Live Collaboration below) so each run keeps one inbox and one pill.
-
-**Prebuilt tools (optional implementation; require Ruby).** This server serves ready-made implementations of the supported behavior: `coplan-attach` (background branch D or bounded foreground branch E, plus sticky run-scoped tokens, presence, and readable event briefs — its helper `coplan_session.rb` must sit next to it) and `coplan-bridge` (operator-provisioned existing-session resume for branch A). You may implement the protocol directly instead, but do not skip a wake path your harness supports merely because these helpers are optional. They are executable code fetched from the network. Read every file you download before you run it, the helper included (it executes in-process); each is a few hundred lines. What to check: `coplan-attach` and `coplan_session.rb` make network calls only to this server, write only under `~/.coplan` (or `$COPLAN_HOME` if you set it), and spawn no subprocesses. `coplan-bridge` may additionally read `~/.config/coplan/bridge.json` and — this being its whole job — exec the one agent command you configured, nothing else. If what you downloaded does more, don't run it.
+API paths use the plan `id`. If you have a plan URL, find the `id` in the list of plans you can see:
 
 ```bash
-mkdir -p ~/.coplan/bin && cd ~/.coplan/bin
-curl -sfO <%= @base %>/agent-tools/coplan-attach
-curl -sfO <%= @base %>/agent-tools/coplan_session.rb
+<%= @curl %> "<%= @base %>/api/v1/plans" | jq -r --arg url "$PLAN_URL" '.[] | select(.url == $url) | .id'
 ```
 
-Now read both files against the checks above. Then:
+The list does not include archived plans unless you add `?archived=true`. A private plan is listed only for its author.
+
+## 3. Edit a plan
+
+Edit the full document in a local file, then send the whole document back. CoPlan finds what changed, keeps comments anchored to text you did not change, and records a new version.
 
 ```bash
-chmod +x ~/.coplan/bin/coplan-attach
-export COPLAN_BASE=<%= @base %>
-export COPLAN_TOKEN="$TOKEN"    # the token you already hold — never paste the literal secret
-~/.coplan/bin/coplan-attach --plan $PLAN_ID --name Claude --once --timeout 300
+<%= @curl %> -X PUT \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --rawfile content plan.md --argjson rev "$REVISION" \
+        '{content: $content, base_revision: $rev, change_summary: "Moved launch to Q3 per Sam"}')" \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/content" | jq .
 ```
 
-`--once` serves branch D or E in one command: it blocks until the first event, prints the brief, acks, and exits. `--timeout 300` gives your turn back on a quiet plan (exit 64 means nothing happened); always set a finite timeout in the foreground. Without `--once` it stays attached and streams, so use that form only under an external supervisor. The bridge lives at `<%= @base %>/agent-tools/coplan-bridge` for operator-provisioned resume of a known existing session. The scripts claim your session for you (`coplan-attach` also mints its own run-scoped token) — on the raw-curl branches, claim it yourself (step 1).
+- `base_revision` is the `current_revision` you read.
+- `change_summary` is the version label in the plan history. Say what changed and why. Do not write "Update".
+- **`409` with `current_revision`**: someone else wrote after your read. Read the plan again, apply your change to the new content, and send it with the new revision.
+- **`409` with `"code": "human_edit_pending"`**: a person edited the plan by hand. The response includes their diff. Read the plan again, keep their text, and make your change on top of it. If you send your old content again, you delete their edit.
+- **`409` with `"code": "edit_locked"`**: a person has the plan open in the editor. Wait a minute, read the plan again, and retry. Their lock expires 5 minutes after they stop.
+- Read the plan again before you start each editing task. Do not edit from a copy that you read for an earlier task.
 
-## Quick Start: The Editing Loop
+You can edit any plan that you can read. Edit another person's plan only when your principal or the plan's author asks you to. Otherwise, comment.
 
-Keeping a local Markdown file and syncing whole documents is the intended workflow — you do not need to express edits as granular operations. The canonical loop:
+Conflicts, targeted edits, and title, tag, or type changes: <<%= @base %>/agent-instructions/editing>
 
-1. **Read** — `GET <%= @base %>/api/v1/plans/$PLAN_ID/snapshot`. Save `current_content` to a local file and note `current_revision`.
-2. **Edit** the local file however you like.
-3. **Write** — `PUT <%= @base %>/api/v1/plans/$PLAN_ID/content` with the full new content, `base_revision` set to the revision you read, and a specific `change_summary` (it becomes the version's label in the plan history — "Tightened rollout plan per Sam's feedback", not "Update").
-4. **On `409 Conflict`** someone edited in between: re-read the snapshot, re-apply your changes to the fresh content, and PUT again with the new revision. Never retry with the stale `base_revision`.
-5. **On `409` with `"code": "human_edit_pending"`** a person edited the plan by hand and you haven't read it since. Their diff is in the response. Read it, keep what they wrote, and only then write again — see [When a person has edited by hand](#when-a-person-has-edited-by-hand).
+## 4. Answer comments
 
-The server diffs your content against the current revision, records granular operations automatically, and preserves comment anchors in unchanged regions. Re-read before every editing session — don't trust a local copy that's more than a few minutes old, and don't keep long-lived local state between tasks.
+Threads appear in the snapshot's `comment_threads`. A thread is `open` until someone resolves it. Each thread has `anchor_text`, which is the passage the comment is about, and its `comments`.
 
-See [Editing Plans](#editing-plans-recommended-full-content-replacement) for the full request/response reference, and the lease + operations path only when you need a surgical single-operation edit.
+- **A comment from your principal**: reply, make the change, then resolve the thread.
+- **A comment from another person**: reply with the change that you propose. Edit only after your principal agrees. Live-session events tell you which type of comment it is. If you are not sure, ask your principal.
 
-## Writing Style
-
-These rules apply to every plan you write or edit. One exception mechanism: **a plan type's description or template may override any of them — the type wins.** (A persuasive pitch type can welcome persuasive language; these defaults assume a working document.)
-
-**The platform already records it.** Never write document metadata into the body:
-
-- No date or "last updated" lines — every version is timestamped in the plan history.
-- No author, attribution, or "prepared by" lines — your session token already attributes every version and comment to your harness and its human owner.
-- No status lines, status fields, or status tables — visibility, archival, and tags carry state (see [Visibility &amp; Archiving](#visibility--archiving)). There is no document status; do not invent one.
-- No version numbers or changelogs — the plan history is the changelog.
-
-The exception is dates that anchor **facts**, which belong in content: "confirmed against production 2026-08-19", "verified at commit abc123".
-
-**Write plainly.** Follow Simplified-Technical-English-style rules:
-
-- Short sentences. One idea per sentence. Active voice, present tense.
-- Plain verbs: "use", not "leverage"; "check", not "perform validation of".
-- No metaphors, no marketing adjectives, no drama. Words that signal padding — "robust", "seamless", "comprehensive", "cutting-edge", "elegant", "crucially", "delve", "honest", "actually" — are banned unless you are quoting someone.
-- State facts without selling them. The reader is a colleague deciding what to do, not an audience to impress. Write like a runbook, not a keynote.
-- Prefer a table or list over a paragraph when the content is enumerable.
-- Length is a cost. Write the shortest document that serves its reader, then stop.
-
-## API Reference
-
-### List Plans
+Reply before you edit, so that the reviewer knows what you will change:
 
 ```bash
-<%= @curl %> \
-  "<%= @base %>/api/v1/plans" | jq .
+<%= @curl %> -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"body_markdown": "Moving the launch to Q3 and noting the legal sign-off."}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/reply" | jq .
 ```
 
-Optional query params: `?visibility=draft` (your own private/unshared plans) or `?visibility=published`, `?archived=true` (archived plans are excluded unless you ask for them).
-
-### Get Plan
+Resolve the thread after your edit is saved. Do not resolve threads that you did not address. You can resolve a thread if your principal wrote the plan or started the thread.
 
 ```bash
-<%= @curl %> \
-  "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
+<%= @curl %> -X PATCH "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/resolve" | jq .
 ```
 
-Returns: `id`, `title`, `url`, `visibility`, `archived`, `current_content` (markdown), `current_revision`, `references` (array of linked resources).
+Your own comments, mentions, table and diagram comments, and reviewing a plan: <<%= @base %>/agent-instructions/comments>
 
-`url` is the document's address, and there is exactly one — `<%= @base %>/<handle>/<folders>/<slug>`, reading like the document it points at. **When you tell a human about a plan, give them the `url`, never the id.** It follows a retitle or a move on its own, and the old address keeps resolving.
+## 5. Create a plan
 
-### Get Plan Snapshot (Recommended)
+If a plan already exists for the work, edit that plan. Do not create a replacement.
 
-Returns everything about a plan in one request — use this instead of calling multiple endpoints.
+Before you create a plan, make two reads:
 
-```bash
-<%= @curl %> \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/snapshot" | jq .
-```
-
-Returns: plan metadata, `current_content`, `current_revision`, `comment_threads` (with nested comments), `references`, and `collaborators`. This replaces the need to call GET plan + GET comments + GET references separately.
-
-### Create Plan
-
-Creating a plan is a deliberate act of publishing into a shared, organized library — not dumping a file. **Before the POST, do three cheap checks** (skip any step whose answer you already have from this session):
-
-1. **Pick the folder.** `GET <%= @base %>/api/v1/library` shows your folder tree with each folder's `description`. Choose the folder whose description matches this document; pass it as `folder_path` on create. A plan created without one lands unfiled — someone has to clean up after you.
-2. **Pick the type.** `GET <%= @base %>/api/v1/plan_types` (or the [Plan Types](#plan-types) table below) lists every type with its description. Choose the **most specific** type that fits. **General is the fallback of last resort** — reaching for it without reading the list is almost always wrong.
-3. **Follow the type's template.** The `plan_types` response includes each type's `template_content` — the document structure readers of that type expect. Structure your content against it: keep its sections (drop one only when it's genuinely inapplicable), fill them with real content rather than placeholder text.
-
-Then create everything in one call:
+1. `GET <%= @base %>/api/v1/library` returns your principal's folders. Each folder has a description of what belongs in it. Choose a folder and send its path as `folder_path`. If you do not send a folder, someone has to file the plan later.
+2. `GET <%= @base %>/api/v1/plan_types` returns the plan types. Choose the most specific type. Each type has a `template_content`. Use the template sections as the structure of your document. Use `General` only when no other type fits.
 
 ```bash
 <%= @curl %> -X POST \
@@ -184,710 +111,53 @@ Then create everything in one call:
   "<%= @base %>/api/v1/plans" | jq .
 ```
 
-Optional fields:
+New plans are shared with the whole organization. The response includes the plan's `url`. Give it to your principal.
 
-- `plan_type` (string) — the name of a plan type (step 2 above). Omitting it files the plan under **General**, which should be a considered choice, not a default. The plan type's `default_tags` are applied to the plan automatically.
-- `folder_path` (string) or `folder_id` (string) — where to file the plan in your library (step 1 above). `folder_path` finds or creates the hierarchy (e.g. `"Team EBT/Q3"`). See [Libraries &amp; Folders](#libraries--folders).
-- `tags` (array of strings) — added on top of the type's `default_tags`. See [Tags](#tags).
-- `visibility` (string) — plans are **shared with the whole org by default**; `"draft"` (shown as "private" in the UI) exists as a rare escape hatch, not a normal step (see [Visibility &amp; Archiving](#visibility--archiving)).
-- `references` (array) — see [References](#references).
+Plan types, folders, tags, references, and private plans: <<%= @base %>/agent-instructions/creating>
 
-#### Diagrams
+## 6. Stay for feedback
 
-Plans support Mermaid diagrams. When a diagram communicates architecture, data flow, sequence, or state more clearly than prose, write a fenced `mermaid` block in the plan Markdown:
+After you create, edit, or review a plan, people may comment while you work. If your environment can start a new turn for you when an event arrives, set up a live session: claim the plan, and connect the event inbox to that wake. Fetch the guide for your environment from [Live sessions](#live-sessions).
 
-````markdown
-```mermaid
-flowchart LR
-  Client --> API
-  API --> Database
-```
-````
+- Show yourself as present only if something can wake you. A presence pill with nobody behind it misleads the people who read the plan.
+- Do not run a wait in the foreground unless your principal asked you to watch the plan. When you do, give it a time limit.
+- **If your environment cannot wake you**, subscribe without a pill: claim the session, then PATCH its state to `complete`. Events still go to your inbox. Read it at the start and end of each turn with `GET <%= @base %>/api/v1/agent/events?wait=0`, and tell your principal that you cannot watch the plan live.
 
-The web UI renders these blocks as diagrams. Keep the Mermaid source in the plan so humans and agents can review and edit it alongside the surrounding Markdown.
+## Writing rules
 
-#### Code blocks
+These rules apply to everything you write. A plan type's description or template can override them. If they conflict, the type wins.
 
-Always tag fenced code blocks with a language so the web UI can syntax-highlight them:
+- **Do not write metadata in the body.** CoPlan records it. Do not add dates, authors, status lines, version numbers, or changelogs. A date that supports a fact is content and is allowed: "Confirmed against production on 2026-08-19."
+- **Write plainly.** Use short sentences, active voice, and plain verbs: "use", not "leverage"; "check", not "perform validation of".
+- **Do not sell.** Do not use words such as "robust", "seamless", "comprehensive", "elegant", "crucially", or "delve". Write like a runbook, not a keynote.
+- **Use structure.** Use a list or a table when the content is a list or has rows.
+- **Be brief.** Write the shortest document that does the job.
 
-````markdown
-```ruby
-def total(order) = order.line_items.sum(&:amount)
-```
-````
+## Guides
 
-Use highlight.js **canonical** language names — any language in the highlight.js distribution works, with its grammar loaded on demand. Common aliases (`js`, `ts`, `rb`, `py`, `golang`, `yml`, `sh`, `html`, `c++`, `c#`) also resolve, but prefer canonical names: `ruby`, `python`, `javascript`, `typescript`, `go`, `java`, `kotlin`, `swift`, `rust`, `c`, `cpp`, `csharp`, `sql`, `json`, `yaml`, `xml` (covers HTML), `css`, `graphql`, `protobuf`, `bash` (for scripts), `shell` (for terminal sessions with `$` prompts), `diff`, `http`, `plaintext`.
+Fetch a guide when your task needs it. Each guide is Markdown, like this page.
 
-Unrecognized tags render as plain text, so never invent one — use `plaintext` for logs and other unhighlightable content, and `mermaid` only for diagrams (see above).
+| Task | Guide |
+|---|---|
+| Diagrams, tables, code blocks, footnotes, section links, task lists, images | <<%= @base %>/agent-instructions/markdown> |
+| Slide decks inside a plan (`::: {.presentation}` regions) | <<%= @base %>/agent-instructions/presentations> |
+| Plan types, folders, tags, references, visibility, archiving | <<%= @base %>/agent-instructions/creating> |
+| Conflicts, human edits, targeted edits, title, tag, and type changes, version history | <<%= @base %>/agent-instructions/editing> |
+| Comments, mentions, table and diagram comments, reviewing a plan | <<%= @base %>/agent-instructions/comments> |
+| Organizing or reorganizing a library | <<%= @base %>/agent-instructions/organizing> |
+| Endpoint list and error codes | <<%= @base %>/agent-instructions/api> |
 
-#### Rich formatting
+### Live sessions
 
-Beyond standard Markdown (tables, task lists, strikethrough), plans support:
+In a live session, you get comments as soon as people post them, and the plan shows people that you are working. The hard part is the wake: something must start your next turn when an event arrives. Fetch the guide for your environment:
 
-- **Footnotes** — `Some claim.[^queue-depth]` with `[^queue-depth]: Supporting detail and a [durable source](https://example.com/source).` anywhere in the document. Rendered as numbered citation anchors with the supporting note and source identity in the plan's References section. Readers can hover or focus the anchor to preview the full note, then click to jump to it.
-- **Collapsible sections** — `<details><summary>Title shown when collapsed</summary>` … `</details>`. Use for long appendices, raw logs, or optional deep-dives so the document stays scannable. Add `open` to the `<details>` tag to render expanded by default. Leave a blank line after `<summary>…</summary>` so Markdown inside the section still renders.
-- **Hover definitions** — `<abbr title="Definition shown on hover">TERM</abbr>`. Use for acronyms and project-specific jargon so readers outside the team can follow along.
+| Environment | Guide |
+|---|---|
+| Claude Code | <<%= @base %>/agent-instructions/live/claude-code> |
+| Amp | <<%= @base %>/agent-instructions/live/amp> |
+| Codex | <<%= @base %>/agent-instructions/live/codex> |
+| Hosted agent that can receive webhooks | <<%= @base %>/agent-instructions/live/hosted> |
+| A bridge that your principal runs on an always-on machine | <<%= @base %>/agent-instructions/live/bridge> |
+| Cursor, Goose, Gemini CLI, OpenCode, or another environment: the protocol | <<%= @base %>/agent-instructions/live> |
 
-Other raw HTML is stripped on render (the Markdown source is preserved), so stick to these plus standard Markdown.
-
-#### Citations and internal cross-references
-
-CoPlan has three related tools with different jobs:
-
-1. **Cite an external source for a claim with a footnote.** Put the source link and enough supporting context in the definition. The inline citation previews on hover/focus; clicking it jumps to the note. Its URL is auto-extracted into the structured References inventory, which supplies the source title, type, and domain shown with the citation.
-2. **Reference another section in the same plan with an explicit Markdown link.** Number the target heading, then link its stable fragment: a heading `### 3.1 Rollout` is referenced as `see [§3.1](#section-3-1)`. Hover/focus previews that section and click jumps to it. Never leave a bare `§3.1` when you mean an internal link—section signs are also used for external statutes, so CoPlan deliberately does not guess.
-3. **Mention an external resource directly with a normal descriptive link**, such as `[implementation PR](https://github.com/org/repo/pull/42)`. Prefer a footnote instead when the link supports a specific factual claim.
-
-Use descriptive link text and durable URLs. Avoid bare URLs in prose. Footnote names are author-facing identifiers, so prefer stable semantic names (`[^queue-depth]`) over renumbering a long document by hand.
-
-### Update Plan
-
-Update plan metadata (title, visibility, tags). Only fields included in the request body are changed.
-
-```bash
-<%= @curl %> -X PATCH \
-  -H "Content-Type: application/json" \
-  -d '{"visibility": "published"}' \
-  "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
-```
-
-Allowed fields: `title` (string), `visibility` (`"published"` — see [Visibility &amp; Archiving](#visibility--archiving)), `archived` (boolean), `plan_type` (string — retype the plan; unknown names get a 422 listing the valid ones, and the new type's `default_tags` are added), `tags` (array of strings), `references` (array — see [References](#references) below).
-
-### List Tags
-
-```bash
-<%= @curl %> \
-  "<%= @base %>/api/v1/tags" | jq .
-```
-
-Returns all tags sorted by usage frequency (most-used first). Each tag includes `id`, `name`, `plans_count`.
-
-### Tags
-
-Tags categorize plans for discovery. Use them to help people find related plans.
-
-**Guidelines:**
-- Check existing tags with `GET /api/v1/tags` before creating new ones — reuse over invention.
-- Use lowercase, hyphenated names (e.g., `infrastructure`, `api-design`, `cost-reduction`).
-- Apply 1–3 tags per plan. Too many tags dilute meaning.
-- Update tags via `PATCH /api/v1/plans/:id` with `{"tags": ["tag-1", "tag-2"]}`.
-- Good tags describe the *domain* or *concern* (e.g., `security`, `onboarding`), not the status or team.
-
-### Libraries &amp; Folders
-
-Every user has a personal **library**: a private-to-write, public-to-browse folder tree (max <%= CoPlan::Folder::MAX_DEPTH %> levels deep). Folders are shelves in *your* library — filing a plan is a **placement** on your shelf, not a property of the plan, so the same plan can sit in many people's libraries at once. You can shelve anyone's published plan, not just your own. Tags remain the cross-cutting labels; use folders for "where do I keep this?" and tags for "what is it about?".
-
-**List folders** (defaults to your library; pass `?library_id=` to browse someone else's read-only):
-
-```bash
-<%= @curl %> \
-  "<%= @base %>/api/v1/folders" | jq .
-```
-
-Each folder includes `id`, `name`, `library_id`, `parent_id`, `path` (e.g. `"Team EBT/Q3"`), and `plans_count` (only plans you can see).
-
-**Create a folder** (always in your own library):
-
-```bash
-<%= @curl %> -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Q3", "parent_id": "'$PARENT_FOLDER_ID'"}' \
-  "<%= @base %>/api/v1/folders" | jq .
-```
-
-`parent_id` is optional — omit it for a top-level folder. Rename with `PATCH /api/v1/folders/:id` (`{"name": "..."}`); delete with `DELETE /api/v1/folders/:id` (only empty folders, only in your own library).
-
-**File a plan at creation** (preferred — pass `folder_path` on `POST /api/v1/plans`, see [Create Plan](#create-plan)) so plans never sit unfiled. To move or file an existing plan:
-
-```bash
-<%= @curl %> -X PATCH \
-  -H "Content-Type: application/json" \
-  -d '{"folder_path": "Team EBT/Q3"}' \
-  "<%= @base %>/api/v1/plans/$PLAN_ID" | jq .
-```
-
-- `folder_path` finds or creates the whole hierarchy in your library — the easiest way to organize.
-- Alternatively pass `folder_id` with an existing folder's ID from your library.
-- Pass an empty `folder_id` (`{"folder_id": ""}`) to take a plan off your shelf.
-- `folder_id`/`folder_path` in plan responses say where the plan lives — one answer, the same for everybody, `null` for a plan nobody has filed yet. Filing a plan that's already filed **moves** it; there's no second copy.
-
-**Guidelines:**
-- Check `GET <%= @base %>/api/v1/library` (your library's map — folder tree with descriptions and counts) before creating new folders — reuse the existing structure.
-- Folder names read like places (`Team EBT`, `Infra`, `Q3 Launch`), not labels. Folders carry a one-line `description` saying what belongs in them — read it before filing, write it when you create folders.
-
-**Organizing at scale — fetch only when needed.** When you're asked to organize, reorganize, or audit a library (yours or between libraries), there is a dedicated organization API: a one-call library overview, bulk contents with summaries and tags, batch move/rename/describe operations with `dry_run` for proposing changes, move-by-tag, cross-library moves, and a full audit log. Its guide lives at:
-
-```
-GET <%= @base %>/agent-instructions/organizing
-```
-
-Don't fetch it for a single filing (`folder_path` above covers that) — fetch it once when a real organizing task starts.
-
-### Visibility & Archiving
-
-Plans have two orthogonal state fields — there is no multi-step lifecycle to maintain:
-
-| Field | Values | Meaning |
-|-------|--------|---------|
-| `visibility` | `draft` / `published` | `draft` renders as **"private"** in the UI and is **unlisted, not locked**: anyone with the plan's URL/id can read it, but it never appears in anyone else's lists, search, or shelves. Published plans are listed for the whole org. |
-| `archived` | `true` / `false` | Archived plans stay readable at their URL but disappear from lists and search unless explicitly filtered for. |
-
-Rules that matter for agents:
-
-- **New plans are shared (org-listed) from the moment they're created.** CoPlan is a sharing platform — there are very few good reasons to keep a plan private. Pass `"visibility": "draft"` on create **only when the user explicitly asks** for a private/unshared plan (still readable by link); share it later with `PATCH {"visibility": "published"}`. Sharing is one-way (a shared plan cannot go private again; archive it instead — archiving is also the right tool for work that didn't pan out).
-- Archive (`{"archived": true}`) anything that is dead, superseded, or was created by mistake — including your own duplicates. Unarchive with `{"archived": false}`.
-- **Never create a new plan to "replace" one you can edit.** Plans have full version history; edit the existing plan (see Editing Plans). If a plan genuinely supersedes another, add a reference between them and archive the old one.
-- If a plan has a real rollout lifecycle worth tracking, use tags (e.g. `developing`, `live`) — status fields for that no longer exist.
-
-The API also accepts the legacy `status` field (`brainstorm`/`considering`/`developing`/`live`/`abandoned`) for older integrations, mapping it onto visibility/archived. New integrations should use `visibility` and `archived`.
-
-### Plan Types
-
-Plan types categorize plans, apply default tags, and carry a **content template** — the document structure readers of that type expect. Every plan has exactly one type.
-
-```bash
-<%= @curl %> \
-  "<%= @base %>/api/v1/plan_types" | jq .
-```
-
-Returns every type with `name`, `description`, `default_tags`, and `template_content`.
-
-**Guidelines:**
-- Pick the **most specific** type that fits before creating a plan. Plans created without an explicit type get **General** — acceptable only when you've reviewed the list and nothing fits.
-- **Read the type's `template_content` and structure your document against it** — keep its sections, fill them with substance, drop a section only when it's genuinely inapplicable. The template is the type's contract with its readers.
-- The type's `default_tags` are applied automatically on create; add your own on top with `tags`.
-- **Retype a plan when it outgrows its type** — a brainstorm that firmed up into a real design, say — with `PATCH /api/v1/plans/:id` and `{"plan_type": "..."}`. Restructure the content against the new type's template in the same session.
-<% if @plan_types.any? %>
-
-**Available plan types:**
-
-| Name | Description | Template |
-|------|-------------|----------|
-<% @plan_types.each do |pt| %>
-| `<%= pt.name %>` | <%= pt.description.present? ? pt.description : "—" %> | <%= pt.template_content.present? ? "yes — fetch and follow it" : "—" %> |
-<% end %>
-<% else %>
-
-No plan types are currently configured.
-<% end %>
-
-### References
-
-References are the structured, document-level inventory of resources connected to a plan (repos, PRs, docs, links, and other plans). They power discovery and enrich reader-facing citations with the resource's title, type, and domain; they are not a substitute for placing a citation or link at the claim it supports. Readers see citation context and all remaining linked or explicitly curated resources together in one **References** section.
-
-Links anywhere in plan content—including links inside footnote definitions—are **auto-extracted** as references. Do not add them again. Add explicit references via the API only for relevant resources that are not linked in the prose.
-
-**Add references on create or update:**
-
-```bash
-<%= @curl %> -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"title": "My Plan", "content": "...", "references": [{"url": "https://github.com/org/repo", "key": "main-repo", "title": "Main Repo"}, {"url": "https://github.com/org/repo/pull/42", "key": "impl-pr", "title": "Implementation PR"}]}' \
-  "<%= @base %>/api/v1/plans" | jq .
-```
-
-Each reference object takes: `url` (required), `key` (optional — a short identifier like `auth-repo` or `impl-pr`), `title` (optional). The `reference_type` is auto-classified from the URL (repository, pull_request, plan, document, link).
-
-Keys let you give references semantic meaning that persists across edits. Use lowercase alphanumeric characters, hyphens, and underscores (e.g., `auth-service`, `main_repo`, `impl-pr`). Keys must be unique per plan. You can also define keys using markdown reference-style links in your content:
-
-```
-See the [auth-repo] for implementation details.
-
-[auth-repo]: https://github.com/org/auth-service "Auth Service"
-```
-
-These are auto-extracted with both the key and title preserved.
-
-**List references for a plan:**
-
-```bash
-<%= @curl %> \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/references" | jq .
-```
-
-**Add a reference to an existing plan:**
-
-```bash
-<%= @curl %> -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://github.com/org/repo", "key": "service-repo", "title": "Service Repo"}' \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/references" | jq .
-```
-
-**Find plans that reference a URL:**
-
-```bash
-<%= @curl %> \
-  "<%= @base %>/api/v1/references/search?url=https://github.com/org/repo" | jq .
-```
-
-**Guidelines:**
-- **Always set a `key`** when adding explicit references — it gives the reference a stable semantic identity (e.g., `auth-repo`, `impl-pr`, `design-doc`).
-- Add references to any GitHub repos, PRs, design docs, or related plans mentioned in your plan.
-- Links in plan content are auto-extracted — you don't need to add those manually.
-- Use explicit references for resources not linked in the content but still relevant.
-- Reference titles should be human-readable (e.g., "Auth Service Repo", not the raw URL).
-- Use markdown reference-style links (`[key]: url "title"`) in content to auto-extract keyed references.
-
-### Attachments
-
-Plans can carry file attachments (diagrams, screenshots, PDFs, data files). Limits: **25 MB per file**; allowed types are images (png/jpg/gif/webp), pdf, txt/md/csv/json, and zip. Only the plan author can upload or delete; anyone who can see the plan can list and download.
-
-**Upload a file (multipart form):**
-
-```bash
-<%= @curl %> -X POST \
-  -F "file=@./architecture-diagram.png" \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/attachments" | jq .
-```
-
-Returns `201 Created` with `id`, `filename`, `content_type`, `byte_size`, `url` (permanent path), `download_url`, and a ready-to-paste `markdown` snippet. Returns `422` with an error message if the file is too large or its content type is not allowed.
-
-**Embed in the plan:** paste the returned `markdown` snippet (e.g. `![diagram.png](/rails/active_storage/blobs/redirect/...)`) into the plan content — image attachments render inline in the plan body.
-
-**List attachments:**
-
-```bash
-<%= @curl %> \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/attachments" | jq .
-```
-
-**Delete an attachment:**
-
-```bash
-<%= @curl %> -X DELETE \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/attachments/$ATTACHMENT_ID"
-```
-
-### Get Versions
-
-```bash
-<%= @curl %> \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/versions" | jq .
-```
-
-### Get Comments
-
-```bash
-<%= @curl %> \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/comments" | jq .
-```
-
-## Editing Plans (Recommended: Full Content Replacement)
-
-The simplest and recommended way to edit a plan is to read its current content, edit the markdown locally, and PUT the entire updated content back. The server diffs your version against the current revision, decomposes the change into granular operations, and creates a new immutable PlanVersion. Comment anchors in unchanged regions are preserved automatically.
-
-**No lease required.** Optimistic concurrency is enforced via `base_revision`.
-
-### Replace Plan Content
-
-```bash
-# 1. Read the current plan to get its content and revision
-PLAN_DATA=$(<%= @curl %> "<%= @base %>/api/v1/plans/$PLAN_ID")
-CURRENT_REVISION=$(echo "$PLAN_DATA" | jq -r '.current_revision')
-echo "$PLAN_DATA" | jq -r '.current_content' > /tmp/plan.md
-
-# 2. Edit /tmp/plan.md locally however you like
-
-# 3. PUT the new content back
-<%= @curl %> -X PUT \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n \
-        --arg content "$(cat /tmp/plan.md)" \
-        --argjson rev "$CURRENT_REVISION" \
-        --arg summary "Rewrote goals section" \
-        '{base_revision: $rev, content: $content, change_summary: $summary}')" \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/content" | jq .
-```
-
-Returns:
-- `201 Created` with `{revision, content_sha256, applied, version_id}` on success
-- `200 OK` with `{no_op: true}` if the content is unchanged
-- `409 Conflict` with `{current_revision}` if `base_revision` is stale (re-read the plan and retry)
-- `409 Conflict` with `{"code": "human_edit_pending"}` if a person edited by hand since you last read the plan (see below)
-- `422 Unprocessable Content` if `content` or `base_revision` is missing or invalid
-
-This is the right tool for any non-trivial edit: rewriting a section, adding multiple paragraphs, restructuring headings, applying many small fixes at once, or doing a wholesale rewrite.
-
-### When a person has edited by hand
-
-A direct human edit is the highest-authority input a plan gets. Agent-vs-agent races get merged for you; a human's edit does not — **every agent write is refused until you have pulled their words**:
-
-```json
-{
-  "error": "Blocked: Sam edited this plan by hand (an edit, now at v7) and you last read v5. A person's direct edit outranks an agent's — it is not something to merge past. Read the current content, keep their changes, fold your own work in around them, then write again.",
-  "code": "human_edit_pending",
-  "current_revision": 7,
-  "last_human_revision": 7,
-  "last_seen_revision": 5,
-  "human_edits": [
-    {
-      "revision": 7,
-      "editor": "Sam",
-      "edited_at": "2026-08-24T17:02:11Z",
-      "change_summary": "Edited in web UI",
-      "diff": "@@ -12,3 +12,3 @@\n-Ship behind a flag in Q4.\n+Ship behind a flag in Q3 — legal signed off on the earlier date.\n"
-    }
-  ],
-  "resolve": "GET /api/v1/plans/:id/snapshot to pull the current content …"
-}
-```
-
-What to do:
-
-1. **Read the diff in the response.** It is the person's own wording, and it is what they meant.
-2. **`GET .../snapshot`** to pull the current content. That read is what lifts the block — the server tracks which revision your credential has actually fetched, so bumping `base_revision` to the number in the error does *not* get you through.
-3. **Rebuild your edit on top of theirs.** Do not re-send the body you already had; it predates their change and re-sending it deletes their words.
-4. If your instructions and their edit genuinely conflict, **leave their text alone and raise it in a comment** (`POST /api/v1/plans/:id/comments`) rather than overwriting a decision a person made deliberately.
-
-This applies to every agent write path — content replacement, operations, and session commits. It does not apply to a plan nobody has hand-edited.
-
-## Editing Plans (Advanced: Lease + Operations)
-
-For surgical, targeted edits where you want to express the change as a single operation (and keep the diff minimal), use the lease + operations path. Editing requires three steps: acquire lease → apply operations → release lease.
-
-### 1. Acquire Edit Lease
-
-```bash
-LEASE_RESPONSE=$(<%= @curl %> -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"lease_token": "'$(openssl rand -hex 32)'"}' \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/lease")
-echo "$LEASE_RESPONSE" | jq .
-LEASE_TOKEN=$(echo "$LEASE_RESPONSE" | jq -r '.lease_token')
-```
-
-Leases expire after 5 minutes. Renew with PATCH, release with DELETE.
-
-### 2. Apply Operations
-
-```bash
-<%= @curl %> -X POST \
-  -H "Content-Type: application/json" \
-  -d '{
-    "lease_token": "'$LEASE_TOKEN'",
-    "base_revision": 1,
-    "change_summary": "Updated goals section",
-    "operations": [
-      {
-        "op": "replace_exact",
-        "old_text": "old text here",
-        "new_text": "new text here",
-        "count": 1
-      }
-    ]
-  }' \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/operations" | jq .
-```
-
-**Important:** Set `base_revision` to the plan's `current_revision`. Returns 409 if stale.
-
-### 3. Release Edit Lease
-
-```bash
-<%= @curl %> -X DELETE \
-  -H "Content-Type: application/json" \
-  -d '{"lease_token": "'$LEASE_TOKEN'"}' \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/lease"
-```
-
-### Renew Lease (if needed for long edits)
-
-```bash
-<%= @curl %> -X PATCH \
-  -H "Content-Type: application/json" \
-  -d '{"lease_token": "'$LEASE_TOKEN'"}' \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/lease" | jq .
-```
-
-## Available Operations
-
-### replace_exact
-
-Find and replace exact text. Fails if text not found or count exceeded.
-
-```json
-{
-  "op": "replace_exact",
-  "old_text": "We should use MySQL",
-  "new_text": "We should use PostgreSQL",
-  "count": 1
-}
-```
-
-### insert_under_heading
-
-Insert content after a markdown heading. Fails if heading not found or ambiguous.
-
-```json
-{
-  "op": "insert_under_heading",
-  "heading": "## Testing Strategy",
-  "content": "- Add integration tests\n- Mock external providers"
-}
-```
-
-### delete_paragraph_containing
-
-Delete the paragraph containing a needle string. Fails if 0 or >1 paragraphs match.
-
-```json
-{
-  "op": "delete_paragraph_containing",
-  "needle": "This approach is deprecated"
-}
-```
-
-### replace_section
-
-Replace an entire section — a heading plus everything under it, up to the next
-heading of equal or higher level. Use this to scope a rewrite to one part of the
-document when the same text appears elsewhere. Fails if the heading is not found
-or matches more than one heading.
-
-```json
-{
-  "op": "replace_section",
-  "heading": "## Testing Strategy",
-  "new_content": "## Testing Strategy\n\nUnit tests only for v1."
-}
-```
-
-- `heading`: the full heading line, including the `#` markers.
-- `new_content`: replaces the whole section. With `"include_heading": false`,
-  only the section body is replaced and the heading line is kept.
-
-## Commenting
-
-### Create Comment Thread
-
-```bash
-<%= @curl %> -X POST \
-  -H "Content-Type: application/json" \
-  -d '{
-    "body_markdown": "This section needs more detail.",
-    "anchor_text": "the exact text you are commenting on"
-  }' \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/comments" | jq .
-```
-
-- `anchor_text`: the exact text from the plan content that this comment is about. It will be highlighted in the UI and the comment will be anchored to it.
-- Omit `anchor_text` for a general (non-anchored) comment.
-- Do not send attribution fields. CoPlan reads the agent harness, session label, and human owner from your Bearer token.
-
-### Reply to Thread
-
-```bash
-<%= @curl %> -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"body_markdown": "Good point, I will address this."}' \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/reply" | jq .
-```
-
-### Resolve Thread
-
-Mark a comment thread as resolved (addressed by the plan author or thread creator).
-
-```bash
-<%= @curl %> -X PATCH \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/resolve" | jq .
-```
-
-### Get a Single Thread
-
-Fetch one thread with its comments — handy when reacting to a single event without refetching the whole snapshot.
-
-```bash
-<%= @curl %> "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID" | jq .
-```
-
-## Live Collaboration (Realtime)
-
-When you create, edit, review, or babysit a plan, attach if your harness has a verified wake path. This lets you hear about new comments and edits the moment they happen instead of re-polling snapshots, and shows humans that you're available. Complete both steps below: claiming without a working event-delivery path is not attachment. Never substitute an unbounded foreground wait for a wake path.
-
-### 1. Claim an Agent Session
-
-Claiming a session subscribes your token to the plan's events and shows a live presence pill to everyone viewing the plan. A plain claim reads as presence, not work — the pill is just your name (`watching`). Claim with `"state": "active"` when you're already mid-task. Turn states can't be claimed on arrival: reach `awaiting_input` and `complete` via PATCH once you're actually in the loop.
-
-```bash
-<%= @curl %> -X POST \
-  -H "Content-Type: application/json" \
-  -d '{}' \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
-```
-
-Keep the pill honest by updating your state as you work (`state`: `active`, `awaiting_input`, `complete`; optional `detail` shows what you're doing). `pending` is the server's: it's set when an event lands in your inbox and holds for 30 seconds before going stale. The pill only says "Waking you…" once you've answered a wake before — until your first reaction, wakes are quietly a test.
-
-**When answering a wake, PATCH — don't re-claim.** Your session already exists; PATCH `{"state": "active"}` is the ack that counts as answering. A fresh POST claim resets the session instead of answering it, so the wake goes down as unanswered and the pill stops trusting you.
-
-**Hosted agent with no connection to hold?** Claim with a `wake_url` and CoPlan will POST a signed ping there on every event instead:
-
-```bash
-<%= @curl %> -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"wake_url": "https://your-platform.example/hooks/coplan"}' \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
-```
-
-The response includes `wake_secret` — once, at registration; store it. Each ping is a small JSON body (`event_id`, `event_type`, `plan_id`) signed with `X-CoPlan-Signature: sha256=<HMAC-SHA256 of the raw body>`; verify it, dedupe on `event_id`, then pull your inbox below as usual. Pings fire even when your session is `complete` — waking you back up is the point. Re-claim with `"wake_url": ""` to unregister. Keep the endpoint answering: a URL that keeps failing entire retry runs is presumed dead and unregistered automatically (you'd re-register on your next claim). The URL must also be reachable from the server — hosts that resolve to private or loopback addresses are refused.
-
-```bash
-<%= @curl %> -X PATCH \
-  -H "Content-Type: application/json" \
-  -d '{"state": "active", "detail": "tightening the Rollout section"}' \
-  "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
-```
-
-Etiquette (this is what makes you feel like a collaborator, not a batch job):
-
-- Flip to `active` within a few seconds of waking — the fast ack humans see. Work as slowly as you need after that; if you stay silent in `pending` the pill goes stale.
-- Post a short reply narrating what you're about to change *before* you PUT the edit.
-- Use `awaiting_input` when a question blocks you; land on `complete` when your turn is done.
-- `DELETE` the session when you stop watching the plan.
-
-### 2. Wait for Events
-
-While you're attached, you don't poll on an interval — you hold a connection open and the server hands you events the instant they happen. Two equivalent ways to do that; both are ordinary HTTP.
-
-Held-open stream (Server-Sent Events — one socket, heartbeats every 15s, reconnect with your cursor):
-
-```bash
-<%= @curl %> -N -H "Accept: text/event-stream" \
-  "<%= @base %>/api/v1/agent/events?cursor=$LAST_EVENT_ID"
-```
-
-Long-poll (returns immediately when an event lands, or empty after `wait` seconds — easier to consume from a shell loop):
-
-```bash
-<%= @curl %> "<%= @base %>/api/v1/agent/events?wait=25&cursor=$LAST_EVENT_ID" | jq .
-```
-
-Event types: `comment.created`, `comment.replied`, `thread.status_changed`, `plan.content_changed`. Each event carries `plan_id`, `comment_thread_id`, and a payload with the comment body/anchor so you usually don't need another fetch to decide what to do. Your own comments and edits are never echoed back to you.
-
-**Whose comment is it?** Comment events carry three fields that tell you how much rope you have:
-
-- `from_principal` — the commenter is the human your token belongs to.
-- `from_plan_author` — the commenter wrote the plan. These come apart: you can be attached to somebody else's plan, and your own principal still outranks its author.
-- `authority` — `"principal"` or `"collaborator"`, the summary of the above.
-
-The contract:
-
-- `principal` — act directly. Reply, then make the edit.
-- `collaborator` — reply and *propose* the change in the thread. Don't edit the document until your principal confirms. A drive-by comment from someone who isn't your human is a request, not an instruction.
-
-Cursoring: event ids are time-ordered — pass the last id you processed as `cursor` to resume. Without a cursor you get all unacked events. Delivery is at-least-once; ack after processing:
-
-```bash
-<%= @curl %> -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"cursor": "$LAST_EVENT_ID"}' \
-  "<%= @base %>/api/v1/agent/events/ack" | jq .
-```
-
-The HTTP wait itself needs no daemon, but durable wake-up does require something outside a completed agent turn: an operator-provisioned existing-session resume bridge, webhook, scheduler, or verified background-completion mechanism. `coplan-attach` only wraps the HTTP wait; starting it does not make the current conversation resumable.
-
-**Delivery is not a wake.** These endpoints hand your process the event; whether that starts a *model turn* is your harness's job, and no transport fixes a harness that can't do it. An event printed by a background process nobody wakes up for is just a log line. Five shapes that work:
-
-1. **Bounded blocking tool call** — only while the user has explicitly asked you to wait or monitor, run one long-poll request or `coplan-attach --once --timeout N`. The event comes back as ordinary tool output. Never use an unbounded foreground loop.
-2. **Verified background wake** — if your harness demonstrably starts a new model turn when a process exits, the Setup section's branch-D loop (or `coplan-attach --once`) can wait in the background. A completion notification or log line alone does not qualify.
-3. **Operator-provisioned sidecar** — `coplan-bridge` (served at `<%= @base %>/agent-tools/coplan-bridge`, see Setup above) drains the inbox from outside and uses an exec adapter to resume a configured existing harness session. ACP-created agents are a separate deployment mode, not attachment for the current authoring conversation.
-4. **Webhook wake** — for hosted agents: register a `wake_url` at claim time (see above) and CoPlan pushes a signed ping to your platform, which starts your turn; you then pull the inbox.
-5. **Scheduled follow-up** — for a harness with conversation-scoped scheduling, poll the durable inbox with `wait=0` on each run. This is near-live polling, not a held connection; leave the session `complete` between runs so the presence pill stays honest.
-
-If none of these fit your harness, don't hold a connection you can't act on and don't claim a presence pill. Drain the durable inbox with `wait=0` at the start and end of each turn, and disclose that the harness could not establish live attachment. Treat that as a degraded fallback, not completion of the live setup requirement.
-
-Hand-rolled SSE clients: the server retires every stream after 5 minutes by design — reconnect with your last cursor and nothing is missed. (`coplan-attach` does this for you.)
-
-### Session Tokens
-
-Your token *is* your subscription: sessions, inboxes, and pills are all keyed to it. Two agents sharing one token share an inbox and race for each other's events, so give each agent run its own token — minted from your long-lived one, so the machine only ever stores one secret.
-
-```bash
-<%= @curl %> -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"agent_name": "Claude (refactor)", "ttl_seconds": 43200}' \
-  "<%= @base %>/api/v1/tokens" | jq -r .token
-```
-
-The minted token inherits your principal (it can never act for a different human), expires on its own (7 day default, 30 day max), and cannot mint further tokens. Revoking the parent revokes every token it minted. Clean up when you exit:
-
-```bash
-<%= @curl %> -X DELETE "<%= @base %>/api/v1/tokens/current" | jq .
-```
-
-Mint once at the start of your session and reuse it — minting per turn would give you a new identity, and a new presence pill, every time.
-
-### 3. The Loop
-
-```bash
-CURSOR=""
-while true; do
-  RESP=$(<%= @curl %> "<%= @base %>/api/v1/agent/events?wait=25&cursor=$CURSOR")
-  echo "$RESP" | jq -c '.events[]' | while read -r event; do
-    # 1. PATCH agent_session state=active   (fast ack — do this first)
-    # 2. Read the event payload / thread, decide, reply, edit
-    # 3. PATCH agent_session state=complete
-    :
-  done
-  NEXT=$(echo "$RESP" | jq -r '.cursor // empty')
-  [ -n "$NEXT" ] && CURSOR="$NEXT" && <%= @curl %> -X POST -H "Content-Type: application/json" \
-    -d "{\"cursor\": \"$CURSOR\"}" "<%= @base %>/api/v1/agent/events/ack" > /dev/null
-done
-```
-
-## Reviewing a Plan
-
-When asked to review a plan (given a plan URL or ID), follow this workflow:
-
-### 1. Read the Plan Snapshot
-
-```bash
-<%= @curl %> "<%= @base %>/api/v1/plans/$PLAN_ID/snapshot" | jq .
-```
-
-This returns the plan content, all comment threads with comments, references, and collaborators in one call.
-
-### 2. Triage Comments
-
-Review each open comment thread and categorize it:
-
-- **Just do it** — Clear, actionable feedback that can be applied directly. Apply these edits without asking.
-- **Confirm first** — Substantive changes where the right fix is clear but the scope is large. Summarize and ask before applying.
-- **Discuss** — Ambiguous feedback or design decisions. Present to the user for discussion.
-
-### 3. Apply Edits
-
-For approved changes, the recommended path is: read the snapshot → edit the markdown locally → `PUT /api/v1/plans/:id/content` → resolve the addressed threads. Use the lease + operations path only for surgical, single-operation edits.
-
-## Typical Workflow
-
-### Creating a plan
-
-1. **Pick the folder**: `GET /api/v1/library` — match the new document to a folder's description
-2. **Pick the type and read its template**: `GET /api/v1/plan_types` — most specific type wins; structure your draft against its `template_content`
-3. **Create filed and typed**: `POST /api/v1/plans` with `{title, content, plan_type, folder_path}`
-
-### Recommended (full content replacement)
-
-1. **Read** the plan: `GET /api/v1/plans/:id/snapshot`
-2. **Edit** the markdown locally
-3. **Replace** content: `PUT /api/v1/plans/:id/content` with `{base_revision, content, change_summary}`
-4. **Comment** on changes: `POST /api/v1/plans/:id/comments`
-
-### Advanced (surgical operations)
-
-1. **Read** the plan: `GET /api/v1/plans/:id/snapshot`
-2. **Acquire lease**: `POST /api/v1/plans/:id/lease`
-3. **Apply operations**: `POST /api/v1/plans/:id/operations` (can call multiple times while lease is held)
-4. **Release lease**: `DELETE /api/v1/plans/:id/lease`
-5. **Comment** on changes: `POST /api/v1/plans/:id/comments`
-
-## Error Codes
-
-| Code | Meaning |
-|------|---------|
-| 401 | Not authenticated |
-| 403 | Not authorized for this action |
-| 404 | Plan not found (or no access) |
-| 409 | Edit lease conflict, stale revision, or an unread human edit (`code: human_edit_pending`) |
-| 422 | Validation error or operation failed |
+An environment name is a hint, not proof. If your version cannot start a new turn when an event arrives, use the inbox fallback in step 6.

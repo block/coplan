@@ -1,0 +1,94 @@
+# Creating and Filing Plans
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>. The primer shows the create request. This guide explains each choice in that request.
+
+## Before you create a plan
+
+- **Edit, do not duplicate.** If a plan for the work exists, edit it. Plans keep their full history. If a new plan really replaces an old one, link the two plans and archive the old one.
+- **Choose a folder.** Read `GET <%= @base %>/api/v1/library` (see [Folders](#folders)).
+- **Choose a type and read its template.** Read `GET <%= @base %>/api/v1/plan_types` (see [Plan types](#plan-types)).
+
+## Create request fields
+
+`POST <%= @base %>/api/v1/plans` requires `title` and `content`. Optional fields:
+
+| Field | Value |
+|---|---|
+| `plan_type` | A type name. If you do not send one, the plan gets the type **General**. |
+| `folder_path` | A path such as `"Team EBT/Q3"`. CoPlan creates missing folders in your principal's library. You can send `folder_id` instead. |
+| `tags` | An array of tag names. CoPlan adds them to the type's `default_tags`. |
+| `references` | An array of resources that the content does not link. See [References](#references). |
+| `visibility` | Send `"draft"` only when your principal asks for a private plan. See [Visibility and archiving](#visibility-and-archiving). |
+
+The response includes `id`, `url`, and `current_revision`.
+
+## Plan types
+
+Each plan has one type. A type has a description, default tags, and a content template. The type does not change how the plan renders. A `Presentation` plan is a normal plan whose template is a slide deck region (see <<%= @base %>/agent-instructions/presentations>).
+
+- Choose the most specific type that fits. Use **General** only after you check the list and no other type fits.
+- The type's `template_content` is the structure that readers of that type expect. Keep its sections and fill them with real content. Remove a section only when it does not apply.
+- CoPlan applies the type's `default_tags` when it creates the plan.
+- If a plan changes into a different kind of document, change its type: `PATCH <%= @base %>/api/v1/plans/$PLAN_ID` with `{"plan_type": "..."}`. Then restructure the content to match the new template. An unknown type name returns `422` with the list of valid names.
+<% if @plan_types.any? %>
+
+Plan types on this server:
+
+| Name | Description | Template |
+|------|-------------|----------|
+<% @plan_types.each do |pt| %>
+| `<%= pt.name %>` | <%= pt.description.present? ? pt.description : "—" %> | <%= pt.template_content.present? ? "yes — fetch and follow it" : "—" %> |
+<% end %>
+<% else %>
+
+No plan types are currently configured.
+<% end %>
+
+## Folders
+
+Each person has a library: a tree of folders, up to <%= CoPlan::Folder::MAX_DEPTH %> levels deep. A plan is filed in one folder in one library. Filing it in a different folder moves it. Use folders for where a plan lives, and use tags for what a plan is about.
+
+- `GET <%= @base %>/api/v1/library` returns your principal's folder tree. Each folder has a `description` of what belongs in it. Read the descriptions before you file a plan. Use the existing folders before you make new ones.
+- To file or move a plan that your principal wrote, send `PATCH <%= @base %>/api/v1/plans/$PLAN_ID` with `{"folder_path": "Team EBT/Q3"}`. To remove it from its folder, send `{"folder_id": ""}`.
+- Name folders like places (`Team EBT`, `Infra`, `Q3 Launch`). Give each new folder a one-line description. The next agent reads it.
+- Folder endpoints: `GET`, `POST`, `PATCH`, and `DELETE` on `<%= @base %>/api/v1/folders`. You can delete only empty folders.
+
+To reorganize a library, or to move many plans, fetch <<%= @base %>/agent-instructions/organizing>.
+
+## Tags
+
+- Read `GET <%= @base %>/api/v1/tags` before you add a tag. It lists the tags in use, most used first. Use an existing tag when one fits.
+- Use lowercase names with hyphens: `api-design`, `cost-reduction`.
+- Use 1 to 3 tags for each plan. A tag names a domain or concern (`security`, `onboarding`), not a status or a team.
+- To set tags, send `PATCH <%= @base %>/api/v1/plans/$PLAN_ID` with `{"tags": ["security", "api-design"]}`. This replaces the full tag list.
+
+## References
+
+References are the list of resources connected to a plan: repositories, pull requests, documents, and other plans. Readers see them in the plan's References section. CoPlan adds every link in the content to this list. Add a reference through the API only for a resource that the content does not link.
+
+```bash
+<%= @curl %> -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://github.com/org/auth-service", "key": "auth-repo", "title": "Auth Service"}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/references" | jq .
+```
+
+- `url` is required. Always set `key`, a short stable name such as `auth-repo` or `impl-pr` (lowercase letters, numbers, `-`, and `_`; unique in the plan). Set `title` to a name that people can read, not the URL.
+- CoPlan sets the type (repository, pull request, plan, document, or link) from the URL.
+- Only the plan author can add or remove references through the API. You can also send `references` on create or in a `PATCH` to the plan.
+- `GET <%= @base %>/api/v1/plans/$PLAN_ID/references` lists the references of a plan.
+- `GET <%= @base %>/api/v1/references/search?url=...` finds the plans that refer to a URL.
+
+## Visibility and archiving
+
+A plan has two independent settings. There is no status. Do not put a status in the document.
+
+| Field | Values | Meaning |
+|---|---|---|
+| `visibility` | `published`, `draft` | `published` plans are listed for the whole organization. This is the default. A `draft` plan shows as **private**: it is not in lists, search, or libraries, but anyone with the URL can read it. |
+| `archived` | `true`, `false` | Archived plans stay at their URL but are not in lists or search. |
+
+- Create a private plan only when your principal asks for one. To share it later, send `PATCH` with `{"visibility": "published"}`. Through the API, you cannot make a shared plan private again. Archive it instead.
+- Archive plans that are finished, replaced, or created by mistake, including your own duplicates: `PATCH` with `{"archived": true}`. To restore a plan, send `{"archived": false}`.
+- To show a plan's rollout stage, use a tag such as `developing` or `live`.
+- The API still accepts the old `status` field (`brainstorm`, `considering`, `developing`, `live`, `abandoned`) and converts it to `visibility` and `archived`. Do not use it in new code.

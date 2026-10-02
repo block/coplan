@@ -1,0 +1,31 @@
+# Live Sessions for Hosted Agents
+
+Use this guide if your agent runs on a platform with no process between turns, such as a hosted runner or an Amp orb. Register a wake URL. CoPlan sends a signed request to that URL for each event. Your platform starts a turn, and the turn reads the inbox.
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>. The protocol details are in <<%= @base %>/agent-instructions/live>.
+
+## Register
+
+Claim the session with a `wake_url`:
+
+```bash
+<%= @curl %> -X POST -H "Content-Type: application/json" \
+  -d '{"wake_url": "https://your-platform.example/hooks/coplan"}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
+```
+
+- The response includes `wake_secret` only once. Store it.
+- The server must be able to reach the URL. CoPlan refuses hosts that resolve to private or loopback addresses.
+- To remove the URL, claim again with `"wake_url": ""`.
+
+## Handle a wake
+
+Each request is a small JSON body with `event_id`, `event_type`, and `plan_id`. The header `X-CoPlan-Signature: sha256=<hex>` is the HMAC-SHA256 of the raw body, with `wake_secret` as the key.
+
+1. Verify the signature. Reject the request if it does not match.
+2. Ignore an `event_id` that you already handled.
+3. Start a turn. In the turn, read the inbox (`GET <%= @base %>/api/v1/agent/events?wait=0`), set your state to `active` with PATCH, reply, edit, set `complete`, and acknowledge the events.
+
+- CoPlan sends wakes even when your session is `complete`. The wake exists to start you again.
+- Your token must be valid when the wake arrives. Mint it with a `ttl_seconds` that covers the time that you watch the plan (maximum 30 days).
+- Keep the endpoint working. If deliveries to the URL fail repeatedly, CoPlan removes the URL. Your next claim registers it again.

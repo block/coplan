@@ -1,0 +1,67 @@
+# Live Sessions Through a Bridge
+
+`coplan-bridge` runs outside the agent, on a machine that is always on. It waits for events on one or more plans. For each event, it resumes an existing agent session with a message about the event. Use it when your agent cannot wake itself.
+
+**Your principal starts the bridge, not you.** It must run before any agent is awake and after your turn ends. If you are an agent, give your principal the commands below. Do not start the bridge yourself during ordinary plan work.
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>. The protocol details are in <<%= @base %>/agent-instructions/live>.
+
+## Install
+
+The bridge needs Ruby. **Read the file before you run it.** It must connect only to this server, read only `~/.config/coplan/bridge.json` (if that file exists), and run only the agent command that you configure. If it does more, do not run it.
+
+```bash
+mkdir -p ~/.coplan/bin && cd ~/.coplan/bin
+curl -sfO <%= @base %>/agent-tools/coplan-bridge
+# Read the file now. Then:
+chmod +x coplan-bridge
+export COPLAN_BASE=<%= @base %>
+export COPLAN_TOKEN=<long-lived token from Settings → API Tokens>
+```
+
+## Resume an existing session
+
+Choose the adapter for the agent, and pass the ID of the session or thread to resume:
+
+```bash
+coplan-bridge --adapter claude --session <session-id> --plan $PLAN_ID
+coplan-bridge --adapter amp --session T-<thread-id> --plan $PLAN_ID
+coplan-bridge --adapter codex --session <session-id> --plan $PLAN_ID
+```
+
+| Adapter | Command that the bridge runs for each event |
+|---|---|
+| `claude` | `claude -p --resume <session> --permission-mode acceptEdits <message>` |
+| `amp` | `amp threads continue <session> -x <message>` |
+| `codex` | `codex exec resume <session> <message>` |
+| `goose` | `goose run --name <session> --resume -t <message>` |
+| `openhands` | `openhands --headless --resume <session> -t <message>` |
+
+`--adapter demo` runs a built-in demo agent that replies and makes a small edit. It needs no agent, so you can use it to test the setup.
+
+## What the bridge does for each event
+
+1. It claims the session on each plan at start.
+2. When an event arrives, it sets the session to `active`, so people see a response within a second.
+3. It resumes the agent with the event and these steps: set `active`, reply, edit, then set `complete` or `awaiting_input`.
+4. It acknowledges the event after the agent's turn. If the turn fails, the event stays in the inbox.
+
+## A separate agent over ACP
+
+The bridge can also start its own agent over the Agent Client Protocol (`--acp "<command>"`). That agent is a new agent with its own session. It is not the conversation that wrote the plan, so it does not know that conversation's context. Use it only when your principal wants a standing reviewer or worker for the plan. The bridge rejects the agent's permission requests unless you add `--approve`.
+
+## Keep the setup
+
+Put the settings in `~/.config/coplan/bridge.json`, and run the bridge as a service:
+
+```json
+{
+  "base_url": "<%= @base %>",
+  "token": "<long-lived token>",
+  "plans": ["<plan id>"],
+  "adapter": "claude",
+  "harness_session": "<session id>"
+}
+```
+
+Command-line options override the environment, and the environment overrides the file. `--plan` replaces the file's plan list.

@@ -1,0 +1,52 @@
+# Live Sessions in Claude Code
+
+In an interactive Claude Code session, a background Bash task that exits can start your next turn. Use that as your wake: run a wait loop in the background, continue your work, and act on the event when the task exits.
+
+This works only while the session is interactive and open. It does not work in a headless `claude -p` run, and it stops when your principal closes the session. For a wake after that, your principal can run a bridge that resumes this session with `claude --resume` (see <<%= @base %>/agent-instructions/live/bridge>).
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions> and that you have a session token in `$TOKEN`. The protocol details are in <<%= @base %>/agent-instructions/live>.
+
+## Set up
+
+1. Claim a session on the plan:
+
+   ```bash
+   <%= @curl %> -X POST -H "Content-Type: application/json" \
+     -d '{}' \
+     "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
+   ```
+
+2. Start this loop with the Bash tool and `run_in_background: true`. It exits only when there is an event or an error:
+
+   ```bash
+   while :; do
+     RESP=$(<%= @curl %> -f "<%= @base %>/api/v1/agent/events?wait=25") ||
+       { echo "coplan: wait failed: token expired or server unreachable" >&2; exit 1; }
+     [ "$(printf '%s' "$RESP" | jq '.events | length')" -gt 0 ] && break
+     sleep 1
+   done
+   printf '%s\n' "$RESP" | jq .
+   ```
+
+3. Test the wake once: post a comment on the plan, or ask your principal to. If the task's exit does not start a new turn for you, stop the loop and use the inbox fallback in step 6 of the primer.
+
+## When the task exits
+
+1. Read the output.
+2. Set your state to `active`: `PATCH <%= @base %>/api/v1/plans/$PLAN_ID/agent_session` with `{"state": "active"}`.
+3. Reply in the thread, then edit. Follow the `authority` field: act on `principal` comments; propose changes for `collaborator` comments.
+4. Set your state to `complete`, or to `awaiting_input` if you asked a question.
+5. Acknowledge: `POST <%= @base %>/api/v1/agent/events/ack` with `{"cursor": "<last event id>"}`.
+6. Start the loop again.
+
+If the loop exits with an error, mint a new token (see the primer) and start again. The loop fails on purpose: a failed task wakes you, but a silent failure leaves you waiting forever. Events that you did not acknowledge come back on the next wait, so you lose nothing.
+
+When you stop watching, stop the loop and `DELETE <%= @base %>/api/v1/plans/$PLAN_ID/agent_session`.
+
+## Use coplan-attach instead
+
+`coplan-attach --plan $PLAN_ID --name Claude --once`, run as a background task, does the same steps: it claims the session, waits, prints a summary of the event, and acknowledges it. To install it, see "Reference tools" in <<%= @base %>/agent-instructions/live>.
+
+## Keep the setup
+
+Your setup ends with your session. With your principal's agreement, save the loop and these steps as a project skill (`.claude/skills/coplan-live/SKILL.md`) or a slash command (`.claude/commands/`). A new run can then attach in one step.
