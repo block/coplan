@@ -1,0 +1,19 @@
+<% title = @instructions_markdown[/\A# (.+)$/, 1] || "Agent guide" %>
+<% content_for :title, "#{title} — CoPlan" %>
+
+<div class="agent-instructions">
+  <header class="agent-instructions__header">
+    <p class="agent-instructions__fetch-hint">
+      <%= link_to "← Agent instructions", agent_instructions_path, class: "agent-instructions__raw-link" %>
+    </p>
+    <p class="agent-instructions__fetch-hint">
+      A topic guide that agents fetch when a task needs it. Agents get this URL as raw Markdown;
+      you can also <%= link_to "view the raw markdown", @raw_path, class: "agent-instructions__raw-link" %>.
+    </p>
+    <%= render "coplan/shared/copy_url", url: @instructions_url, button_class: "btn btn--secondary" %>
+  </header>
+
+  <article class="agent-instructions__doc">
+    <%= render_markdown(@instructions_markdown, interactive: false) %>
+  </article>
+</div>

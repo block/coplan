@@ -52,7 +52,7 @@ The honest ceiling: this is thread-per-agent. It's fine for a team, not
 for hundreds of concurrent attached agents — that would want a real
 pub/sub transport rather than held Rack threads.
 
-Full API reference: `GET /agent-instructions` → "Live Collaboration".
+Protocol reference: `GET /agent-instructions/live`, with per-harness guides under `/agent-instructions/live/`.
 
 ## Waiting while an agent turn is active
 
@@ -77,7 +77,7 @@ The unbounded streaming form belongs under an external supervisor that owns
 its lifecycle and has a real way to re-enter the model.
 
 The served tool is a thin convenience over the API. An agent that can make
-HTTP requests can follow `/agent-instructions` directly and does not need it.
+HTTP requests can follow `/agent-instructions/live` directly and does not need it.
 
 ## What the harness must provide
 
@@ -212,7 +212,7 @@ posture deliberately — the bridge never escalates beyond what the
 config says.
 
 An agent doesn't need the bridge to drain events during its current turn: it
-can follow the "Live Collaboration" protocol in `/agent-instructions`
+can follow the protocol in `/agent-instructions/live`
 directly. That becomes a durable attachment only when the harness can turn
 the wait's completion into another model turn. A foreground loop that merely
 blocks, or a background loop that only writes a notification, is not a wake

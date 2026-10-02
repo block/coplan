@@ -401,11 +401,17 @@ def dispatch(event)
     part.gsub("{session}", CONFIG.fetch("harness_session", "coplan")).gsub("{prompt}", wake_prompt(event))
   end
   puts "coplan-bridge: dispatching #{event["type"]} -> #{adapter}"
-  system(*cmd)
+  # system returns false on a nonzero exit and nil when the command can't
+  # start; neither raises. Raise here so the loop leaves the event unacked
+  # for redelivery instead of acking a turn that never happened.
+  return if system(*cmd)
+
+  raise "#{adapter} adapter #{$?&.exitstatus ? "exited #{$?.exitstatus}" : "could not start"}"
 end
 
 claim_sessions
 cursor = nil
+failures = 0
 puts "coplan-bridge: draining events from #{BASE}"
 loop do
   resp = request(:get, "/api/v1/agent/events", params: { wait: 25, cursor: cursor }.compact)
@@ -417,12 +423,22 @@ loop do
     # never swallowed by a batch-level ack.
     cursor = event["id"]
     request(:post, "/api/v1/agent/events/ack", body: { cursor: cursor })
+    failures = 0
   rescue => e
     # Stop the batch here: acking later events would also ack this one
     # (the cursor is a high-water mark). The next poll redelivers
-    # everything unacked; the sleep keeps a wedged adapter from spinning.
-    warn "coplan-bridge: dispatch failed: #{e.class}: #{e.message} — leaving event unacked"
-    sleep 3
+    # everything unacked. Dispatch already said `active`; take that back,
+    # or every retry would refresh a pill promising a turn that isn't
+    # running. Back off so a wedged adapter doesn't spin.
+    failures += 1
+    delay = [ 3 * 2**(failures - 1), 60 ].min
+    warn "coplan-bridge: dispatch failed: #{e.class}: #{e.message} — leaving event unacked, retrying in #{delay}s"
+    begin
+      Bridge.patch_state(event["plan_id"], "complete", nil)
+    rescue StandardError
+      nil # the server may be the thing that failed; the retry will tell
+    end
+    sleep delay
     break
   end
 rescue Interrupt

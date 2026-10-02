@@ -1,0 +1,35 @@
+# Live Sessions in Codex
+
+Codex does not start a new turn when a background process exits. The wake depends on where Codex runs.
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions> and that you have a session token in `$TOKEN`. The protocol details are in <<%= @base %>/agent-instructions/live>.
+
+## Codex desktop: a scheduled follow-up
+
+Use this when your principal asks you to watch the plan. Do not hold a request open between runs.
+
+1. Claim the session, then set it to `complete`. The session subscribes your token to the plan's events. `complete` keeps the pill hidden between runs:
+
+   ```bash
+   <%= @curl %> -X POST -H "Content-Type: application/json" -d '{}' \
+     "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
+   <%= @curl %> -X PATCH -H "Content-Type: application/json" -d '{"state": "complete"}' \
+     "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
+   ```
+
+2. Create a scheduled follow-up in this conversation, every few minutes. Each run does this:
+   1. Read the inbox: `<%= @curl %> "<%= @base %>/api/v1/agent/events?wait=0" | jq .`
+   2. If there are no events, end the run.
+   3. If there are events: set the session to `active`, reply, edit, and set it to `complete`. Follow the `authority` field: act on `principal` comments; propose changes for `collaborator` comments.
+   4. Acknowledge: `POST <%= @base %>/api/v1/agent/events/ack` with `{"cursor": "<last event id>"}`.
+
+3. When the watch is over, delete the schedule and `DELETE <%= @base %>/api/v1/plans/$PLAN_ID/agent_session`.
+
+## Codex CLI and IDE: a bridge or the inbox
+
+These surfaces cannot schedule turns. Two options:
+
+- **Ask your principal to run the bridge.** It runs `codex exec resume <session-id> "<event summary>"` for each event. Give your principal the setup in <<%= @base %>/agent-instructions/live/bridge> with `--adapter codex` and your session ID.
+- **Read the inbox each turn.** Claim the session and set it to `complete` (step 1 above). At the start and end of each turn, read the inbox with `wait=0`. Tell your principal that you cannot watch the plan live.
+
+A background terminal process does not wake you. Do not leave one running.

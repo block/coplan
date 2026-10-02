@@ -145,24 +145,19 @@ module CoPlan
       @agent_auth_instructions = <<~MARKDOWN
         ## Authentication
 
-        Credentials are stored at `~/.config/coplan/credentials.json`:
+        Your principal's long-lived API token is in `~/.config/coplan/credentials.json`:
 
         ```json
         {
-          "base_url": "BASE_URL",
+          "base_url": "https://coplan.example.com",
           "token": "your-token-here"
         }
         ```
 
-        On first use:
-
-        1. Read `~/.config/coplan/credentials.json` to get `token` and `base_url`.
-        2. If the file does not exist, tell the user: "Go to **Settings → API Tokens** in the CoPlan web UI to create a token." Ask for the token and base URL, then save to `~/.config/coplan/credentials.json` with `chmod 600`.
-        3. If any API call returns 401, the token is invalid or revoked. Prompt the user to create a new token in Settings and update the credentials file.
-
-        Use the values from the credentials file in all API calls below.
-
-        All requests use `Authorization: Bearer $TOKEN` header.
+        - Load `token` into `$TOKEN`. Use it only to mint your session token (step 1).
+        - If the file does not exist, ask your principal to create a token at **Settings → API Tokens** in CoPlan. Save it and the CoPlan URL to the file, then run `chmod 600` on it.
+        - If minting returns `401`, this token is not valid. Ask your principal for a new one, and update the file.
+        - Keep the token only in the credentials file. Do not put it in commands, other files, or comments. Use the variable.
       MARKDOWN
     end
 

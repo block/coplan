@@ -1,0 +1,113 @@
+# Organizing a Library
+
+Use this guide to organize, reorganize, or audit a library. To file one plan, you do not need it: send `folder_path` on create or in a `PATCH` to the plan (see <<%= @base %>/agent-instructions/creating>).
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions> and that you have a session token.
+
+## The model
+
+- A **library** is a tree of folders, up to <%= CoPlan::Folder::MAX_DEPTH %> levels deep. Each person has one.
+- A plan is filed in **one** place. Filing it somewhere else moves it, also across libraries. A move changes the plan's URL, and the old URL still works.
+- To move a plan, your principal must have written it or must have write access to the library where it is now. The destination library must also be writable.
+- Each folder has a one-line `description` of what belongs in it.
+- The library's audit log records each change, and whether a person or an agent made it.
+
+Use folders for where a plan lives, and tags for what it is about. `move_by_tag` (below) connects the two.
+
+## Step 1: Read the layout
+
+```bash
+<%= @curl %> "<%= @base %>/api/v1/library" | jq .
+```
+
+This returns your principal's library: each folder's `id`, `name`, `description`, `path` (such as `"Team EBT/Q3"`), `plans_count` (plans directly in it), and `total_plans_count` (including subfolders). It also returns `unfiled_count` (your principal's plans with no folder), `top_tags`, and `recent_activity`. The `description` says what the owner meant. Trust it more than the folder name.
+
+`GET <%= @base %>/api/v1/libraries` lists all libraries with a `writable` flag. `GET <%= @base %>/api/v1/libraries/$LIBRARY_ID` reads one. You can change only writable libraries.
+
+## Step 2: Read the contents
+
+```bash
+<%= @curl %> "<%= @base %>/api/v1/library/contents" | jq .
+```
+
+This returns one row for each plan in the library: `plan_id`, `title`, `summary` (a generated abstract), `tags`, `visibility`, `archived`, `author`, `folder_path`, `placed_by`, and dates. Rows are sorted by folder path.
+
+Filters, which you can combine:
+
+- `?folder_path=Team%20EBT&recursive=true`: one subtree
+- `?tag=pricing`: plans with a tag
+- `?unfiled=true`: your principal's plans with no folder
+- `?archived=true`: archived plans (not included by default)
+- `?limit=&offset=`: pages (500 rows by default)
+
+Classify plans from `title`, `summary`, and `tags`. Do not fetch the content of each plan.
+
+## Step 3: Change it in one batch
+
+`POST <%= @base %>/api/v1/library/organize` (or `/api/v1/libraries/$LIBRARY_ID/organize`) takes up to 100 operations. Each operation applies or fails on its own. A failed operation reports its error, and the others still apply.
+
+```bash
+<%= @curl %> -X POST -H "Content-Type: application/json" \
+  -d '{
+    "dry_run": true,
+    "operations": [
+      {"op": "create_folder", "path": "Archive/2025", "description": "Shipped or replaced work from 2025"},
+      {"op": "describe_folder", "folder_path": "Infra", "description": "Platform and infrastructure plans"},
+      {"op": "rename_folder", "folder_path": "Misc", "name": "Inbox"},
+      {"op": "move_folder", "folder_path": "Q3", "new_parent_path": "Team EBT"},
+      {"op": "move_many", "plan_ids": ["'$PLAN_A'", "'$PLAN_B'"], "folder_path": "Team EBT/Q3"},
+      {"op": "move_by_tag", "tag": "pricing", "folder_path": "Pricing"},
+      {"op": "delete_folder", "folder_path": "Old Empty Folder"}
+    ]
+  }' \
+  "<%= @base %>/api/v1/library/organize" | jq .
+```
+
+| `op` | Fields | Notes |
+|---|---|---|
+| `create_folder` | `path`, `description` | Creates missing parent folders. Sets the description on the last folder. |
+| `describe_folder` | `folder_path` or `folder_id`, `description` | |
+| `rename_folder` | `folder_path` or `folder_id`, `name` | |
+| `move_folder` | `folder_path` or `folder_id`, `new_parent_path` or `new_parent_id` | An empty parent moves the folder to the top level. |
+| `delete_folder` | `folder_path` or `folder_id` | Empty folders only. |
+| `move` | `plan_id`, `folder_path` or `folder_id` | An empty destination removes the plan from its folder. `folder_path` creates missing folders. |
+| `move_many` | `plan_ids` (up to 500), `folder_path` or `folder_id` | **Use this to classify many plans**: one operation for each destination folder. Plans that cannot move are listed in `failed`; the others move. |
+| `move_by_tag` | `tag`, `folder_path` or `folder_id`, `scope` | `scope: "library"` (default) moves plans with the tag that are already in this library. `scope: "visible"` moves every plan with the tag that you can see and are allowed to move. |
+
+The response has `results` for each operation (`status: "ok"` or `status: "error"` with the reason), `ok_count`, `error_count`, and a `run_id`. Give the `run_id` to your principal. It finds this run in the audit log.
+
+### Propose first with dry_run
+
+With `"dry_run": true`, CoPlan runs the whole batch, reports what would happen (including failures), and then undoes everything. Use this for any reorganization larger than a few moves:
+
+1. Read the layout and the contents.
+2. Design the structure, and write the operations.
+3. Send them with `dry_run: true`. Show your principal the new outline and the results.
+4. After your principal agrees, send the same body with `dry_run: false`.
+
+## Where a plan is filed
+
+```bash
+<%= @curl %> "<%= @base %>/api/v1/plans/$PLAN_ID/locations" | jq .
+```
+
+This returns an array with zero or one entry: `library_name`, `owner`, `folder_path`, `folder_description`, `placed_by`, and `writable` (whether your principal can change that library).
+
+## The audit log
+
+```bash
+<%= @curl %> "<%= @base %>/api/v1/library/events" | jq .
+```
+
+Each event has `event_type` (`plan_filed`, `plan_moved`, `plan_removed`, `folder_created`, `folder_renamed`, `folder_moved`, `folder_described`, `folder_deleted`), `actor`, `actor_type` (`local_agent` for an agent that acts for the owner), `actor_label` (the token name), `run_id`, `plan_title`, and the `before` and `after` paths. Filters: `?event_type=`, `?plan_id=`, `?run_id=`, `?before=<ISO 8601>` (for pages), `?limit=` (50 by default). Only the library owner can read it.
+
+Use it to answer "who moved my plan?", to check what an earlier run did, or to summarize recent changes.
+
+## Rules
+
+- **Use the existing structure.** Read the layout first. Add to the existing folders before you make new ones. The descriptions say what the owner meant.
+- **Describe each new folder.** Every `create_folder` needs a `description`. The next agent reads it.
+- **Propose, then apply.** For more than a few moves, run a dry run and show your principal the outline first. Never reorganize a library that nobody asked you to reorganize.
+- **Keep it shallow.** A few clear top-level folders are better than a deep tree. The depth limit is <%= CoPlan::Folder::MAX_DEPTH %>.
+- **File unfiled plans first.** If `unfiled_count` is more than 0, filing those plans is the most useful low-risk change.
+- **Keep tags and folders separate.** Do not repeat the folder tree in tags. If a tag and a folder mean the same thing, use `move_by_tag` once and remove the duplicate.

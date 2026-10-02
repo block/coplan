@@ -1,0 +1,92 @@
+# Writing Plan Markdown
+
+Plans use CommonMark with the GitHub extensions: tables, task lists, strikethrough, and autolinks. CoPlan also supports the features on this page, and slide decks inside a plan (see <<%= @base %>/agent-instructions/presentations>). CoPlan removes all other raw HTML when it shows the plan, but keeps it in the source.
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>.
+
+## Tables
+
+Use a standard pipe table when each item has two or more attributes:
+
+```markdown
+| Region | p95 latency | Owner |
+|--------|------------:|-------|
+| us-east | 180 ms | Payments |
+| eu-west | 240 ms | Platform |
+```
+
+- Colons in the separator row set column alignment.
+- Keep cells short. Put explanations in a paragraph or a footnote, not in a cell.
+- Escape a literal pipe in a cell as `\|`.
+
+## Section links
+
+Number the headings that you refer to, and link to them with an explicit fragment. A heading `### 3.1 Rollout` has the fragment `#section-3-1`:
+
+```markdown
+The flag stays off until the checks in [§3.1](#section-3-1) pass.
+```
+
+Readers see a preview of the section on hover. CoPlan does not link a bare `§3.1`, because plans also use `§` to cite external documents such as laws.
+
+## Footnotes and links
+
+- **To support a claim, use a footnote.** Put the source link and the supporting detail in the definition: `Queue depth peaked at 40k.[^queue-depth]` and `[^queue-depth]: Measured during the 2026-08-12 incident. [Dashboard](https://example.com/d/queues).` Readers can preview the note on hover. Use a descriptive footnote name, not a number.
+- **To point to a resource, use a descriptive link:** `[implementation PR](https://github.com/org/repo/pull/42)`. Do not put bare URLs in prose.
+- **To give a link a stable name, use a reference-style link:** `See [auth-repo].` with `[auth-repo]: https://github.com/org/auth-service "Auth Service"`. The key and title go to the plan's References.
+
+CoPlan adds every link in the content, including links in footnotes, to the plan's References section. Do not add these links again through the API. See "References" in <<%= @base %>/agent-instructions/creating>.
+
+## Diagrams
+
+Write Mermaid in a `mermaid` fence. CoPlan shows the diagram, and the source stays editable with the rest of the plan:
+
+````markdown
+```mermaid
+flowchart LR
+  Client --> API
+  API --> Database
+```
+````
+
+Use a diagram for architecture, data flow, sequences, or state. Do not use a diagram when a short list says the same thing. Readers can comment on a node or an edge of a diagram, and on a cell of a table.
+
+## Code blocks
+
+Always put a language tag on a code fence. CoPlan highlights the syntax with highlight.js and accepts any language name that highlight.js supports. Use the canonical names: `ruby`, `python`, `javascript`, `typescript`, `go`, `java`, `kotlin`, `swift`, `rust`, `c`, `cpp`, `csharp`, `sql`, `json`, `yaml`, `xml` (also for HTML), `css`, `graphql`, `protobuf`, `bash` (scripts), `shell` (terminal sessions with `$` prompts), `diff`, `http`. Use `plaintext` for logs. Do not invent tags: CoPlan shows an unknown tag as plain text.
+
+## Task lists
+
+`- [ ] Item` and `- [x] Done item` render as checkboxes. Readers can select a checkbox in the web UI. **Each selection is a hand edit.** After a person selects a checkbox, CoPlan refuses your next write until you read the plan again.
+
+## Collapsible sections
+
+Use `<details>` for long appendices, raw logs, or optional detail:
+
+```markdown
+<details><summary>Raw benchmark output</summary>
+
+Markdown here still renders. Keep the blank line after the summary.
+
+</details>
+```
+
+Add `open` to the `<details>` tag to show the section expanded by default.
+
+## Hover definitions
+
+Use `<abbr title="Point of sale">POS</abbr>` for acronyms and team terms. Readers see the definition on hover.
+
+## Images and attachments
+
+Upload a file to the plan, then paste the `markdown` value from the response into the content. Images show in the plan body.
+
+```bash
+<%= @curl %> -X POST -F "file=@./architecture.png" \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/attachments" | jq -r .markdown
+```
+
+- The maximum size is 25 MB per file. Allowed types are PNG, JPEG, GIF, WebP, PDF, TXT, MD, CSV, JSON, and ZIP. CoPlan returns `422` for other files.
+- Only the plan author can upload or delete attachments. Any reader can list and download them.
+- List the attachments: `GET <%= @base %>/api/v1/plans/$PLAN_ID/attachments`. Delete one: `DELETE <%= @base %>/api/v1/plans/$PLAN_ID/attachments/$ATTACHMENT_ID`.
+- If a Mermaid diagram can show the content, use Mermaid instead of an image. A person can edit Mermaid; nobody can edit an image of a diagram.
