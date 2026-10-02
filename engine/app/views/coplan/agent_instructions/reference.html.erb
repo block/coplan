@@ -1,0 +1,13 @@
+<% content_for :title, "Agent instructions — CoPlan" %>
+
+<div class="agent-reference">
+  <%= link_to "← Back to agent setup", agent_setup_path, class: "agent-reference__back" %>
+  <header class="agent-reference__header">
+    <h1>Agent instructions</h1>
+    <p>This is the live reference your agent fetches when it works on CoPlan plans.</p>
+  </header>
+
+  <article class="agent-reference__doc">
+    <%= render_markdown(@instructions_markdown, interactive: false) %>
+  </article>
+</div>

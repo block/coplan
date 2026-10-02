@@ -1,0 +1,39 @@
+<% content_for :title, "Connect your AI agent — CoPlan" %>
+
+<div class="agent-setup">
+  <header class="agent-setup__header">
+    <p class="agent-setup__eyebrow">Agent setup</p>
+    <h1 class="agent-setup__title">Connect your AI agent</h1>
+    <p class="agent-setup__lede">Give this URL to your agent and let it set up the CoPlan skill.</p>
+  </header>
+
+  <ol class="agent-setup__steps" aria-label="Connect your agent in three steps">
+    <li class="agent-setup__step">
+      <span class="agent-setup__number" aria-hidden="true">1</span>
+      <div class="agent-setup__step-body">
+        <h2>Copy the setup URL</h2>
+        <p>This link goes straight to the guide for your agent.</p>
+        <%= render "coplan/shared/copy_url", url: @setup_url, button_class: "btn btn--primary" %>
+      </div>
+    </li>
+    <li class="agent-setup__step">
+      <span class="agent-setup__number" aria-hidden="true">2</span>
+      <div class="agent-setup__step-body">
+        <h2>Give it to your agent</h2>
+        <p>Paste the URL into your agent’s chat.</p>
+      </div>
+    </li>
+    <li class="agent-setup__step">
+      <span class="agent-setup__number" aria-hidden="true">3</span>
+      <div class="agent-setup__step-body">
+        <h2>Let it set up the skill</h2>
+        <p>Your agent saves the CoPlan skill and fetches current instructions when it needs them.</p>
+      </div>
+    </li>
+  </ol>
+
+  <p class="agent-setup__more">
+    Curious about what your agent will read?
+    <%= link_to "View the agent instructions", agent_instructions_reference_path %>.
+  </p>
+</div>

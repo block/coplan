@@ -2,9 +2,13 @@
   <h2 class="landing__section-title">Built for any AI agent</h2>
   <p>
     CoPlan exposes a self-describing REST API. Point any AI agent — Amp, Claude Code, Cursor,
-    your own — at <%= link_to "/agent-instructions", agent_instructions_path, class: "landing__inline-link" %>
+    your own — at <%= link_to "/_/agent/setup", agent_setup_path, class: "landing__inline-link" %>
     and it can create plans, apply edits, and leave review comments on your behalf.
-    Agents authenticate with a bearer token from <strong>Settings &rarr; API&nbsp;Tokens</strong>.
+    <% if CoPlan.configuration.api_authenticate.present? %>
+      Agents can mint their own session token using your existing sign-in.
+    <% else %>
+      Agents authenticate with a bearer token from <strong>Settings &rarr; API&nbsp;Tokens</strong>.
+    <% end %>
   </p>
-  <%= render "coplan/shared/copy_url", url: agent_instructions_url %>
+  <%= render "coplan/shared/copy_url", url: agent_setup_url(format: :md) %>
 </section>

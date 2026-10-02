@@ -31,6 +31,7 @@ module CoPlan
     attr_accessor :onboarding_banner
     attr_accessor :agent_auth_instructions
     attr_accessor :agent_curl_prefix
+    attr_accessor :agent_setup_install_command
     # Suggestions for the document editor; arbitrary existing fence info stays valid.
     attr_accessor :editor_code_languages
     attr_accessor :seed_plan_types

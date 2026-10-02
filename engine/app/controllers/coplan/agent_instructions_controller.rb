@@ -6,11 +6,9 @@ module CoPlan
   # * **Agents and CLIs** (curl, HTTP libraries, coding agents) fetch it as raw
   #   Markdown. Every API response points here via the `X-Agent-Instructions`
   #   header, so the raw behavior is load-bearing: any client that does not
-  #   explicitly ask for HTML gets `text/markdown`, byte-identical to what this
-  #   endpoint has always served.
-  # * **Humans in a browser** (e.g. clicking the link on the landing page) get
-  #   the same instructions rendered as a styled HTML page, with the raw URL
-  #   front-and-center so they can hand it to their agent.
+  #   explicitly ask for HTML continues to get `text/markdown`.
+  # * **Humans in a browser** go to the short setup page. They should not have
+  #   to read or copy the full API reference themselves.
   #
   # Negotiation is deliberately conservative: we only serve HTML when the
   # Accept header *leads* with `text/html`, which is exactly what every
@@ -19,41 +17,28 @@ module CoPlan
   # curl's default `Accept: */*`, an absent Accept header, or
   # `Accept: text/markdown` all fall through to raw Markdown. An explicit
   # format always wins over the Accept header: `/agent-instructions.md`
-  # forces raw Markdown (so browsers can view the source document) and
-  # `/agent-instructions.html` forces the rendered page.
+  # forces raw Markdown, while `.html` goes to setup even from curl.
   class AgentInstructionsController < ApplicationController
     skip_before_action :authenticate_coplan_user!
 
     def show
-      @auth_instructions = CoPlan.configuration.agent_auth_instructions
-      @curl = CoPlan.configuration.agent_curl_prefix
-      # Includes the engine's mount point — host apps may mount CoPlan under
-      # a prefix (e.g. /coplan), and request.base_url alone would point every
-      # curl example at the wrong path. root_path here is the engine's, which
-      # carries the request's SCRIPT_NAME.
-      @base = "#{request.base_url}#{root_path.chomp("/")}"
-      @plan_types = PlanType.order(:name)
-      @create_example_json = create_example_json
+      return redirect_to(agent_setup_path) if prefers_html?
 
-      if prefers_html?
-        # The page is public, but signed-in visitors should still see their
-        # normal nav chrome (search, inbox, sign-out) in the shared layout —
-        # same optional-resolve approach as WelcomeController.
-        @current_coplan_user = CoPlan::Authentication.user_from_request(request)
-        CoPlan::Current.user = current_user
+      prepare_instructions
+      render layout: false, content_type: "text/markdown", formats: [ :text ]
+    end
 
-        @instructions_url = coplan.agent_instructions_url
-        @instructions_markdown = render_to_string(:show, formats: [ :text ], layout: false)
-        render :show, formats: [ :html ]
-      else
-        render layout: false, content_type: "text/markdown", formats: [ :text ]
-      end
+    def reference
+      prepare_instructions
+      @current_coplan_user = CoPlan::Authentication.user_from_request(request)
+      CoPlan::Current.user = current_user
+      @instructions_markdown = render_to_string(:show, formats: [ :text ], layout: false)
+      render :reference
     end
 
     # Sub-instructions: the library-organizing guide, linked from the main
-    # doc and from library API responses. Markdown-only — it's fetched by
-    # agents mid-task, not browsed by humans (the main doc has the pretty
-    # HTML front door).
+    # doc and from library API responses. Markdown-only — agents fetch it
+    # when an organizing task needs it.
     def organizing
       @auth_instructions = CoPlan.configuration.agent_auth_instructions
       @curl = CoPlan.configuration.agent_curl_prefix
@@ -62,6 +47,20 @@ module CoPlan
     end
 
     private
+
+    def prepare_instructions
+      @auth_instructions = CoPlan.configuration.agent_auth_instructions
+      @curl = CoPlan.configuration.agent_curl_prefix
+      @request_auth_available = CoPlan.configuration.api_authenticate.present?
+      @mint_curl = @request_auth_available ? "curl -s" : @curl
+      # Includes the engine's mount point — host apps may mount CoPlan under
+      # a prefix (e.g. /coplan), and request.base_url alone would point every
+      # curl example at the wrong path. root_path here is the engine's, which
+      # carries the request's SCRIPT_NAME.
+      @base = "#{request.base_url}#{root_path.chomp("/")}"
+      @plan_types = PlanType.order(:name)
+      @create_example_json = create_example_json
+    end
 
     # The Create Plan curl example, with a real configured plan type so
     # agents copy an instance-accurate command. Names are admin-controlled

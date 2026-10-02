@@ -1,0 +1,19 @@
+# CoPlan agent setup
+
+You are the agent receiving this guide. Set up CoPlan in your durable skill or persistent-instructions system now. The full API reference lives at `<%= @instructions_url %>`; do not copy it into the skill or rely on a cached version.
+
+<% if @install_command.present? %>
+If your environment supports it, install the maintained CoPlan skill:
+
+```bash
+<%= @install_command %>
+```
+
+Check that the installed skill fetches the live API reference for each CoPlan task. If you cannot use that command, save the instruction below instead.
+
+<% end %>
+If a durable CoPlan skill already exists, check it against this instruction and update it only if needed. Otherwise, create one named `coplan` with this trigger and body:
+
+> Use for any request to create, read, review, edit, comment on, or manage a CoPlan plan, or when given a CoPlan URL. At the start of each CoPlan task, fetch `<%= @instructions_url %>` and follow the current response. Fetch linked subguides only when the task needs them. Never use a saved copy of the API reference. Keep tokens out of this skill.
+
+If you cannot save a durable instruction, tell the user setup is incomplete and give them the short instruction above to install. If the user also gave you a CoPlan task, fetch the live reference now and continue that task.

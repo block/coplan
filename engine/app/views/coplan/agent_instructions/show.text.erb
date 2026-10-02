@@ -8,10 +8,14 @@ Interact with the CoPlan app to create, read, edit, and comment on plan document
 
 Every API call except the mint below requires `Authorization: Bearer <token>`. Create one short-lived token for this run and declare your identity once. CoPlan then applies that token's agent name, harness, model, and human owner to every version, event, session, and comment automatically. Do not add signatures to plan content or repeat your identity in later requests.
 
-Mint one as your first call (this is the only endpoint that works on request auth alone; it also accepts a long-lived root token from the settings UI):
+<% if @request_auth_available %>
+Mint one as your first call. Your host authenticates this initial request, so you do not need a token from Settings:
+<% else %>
+Mint one as your first call using a long-lived root token from Settings:
+<% end %>
 
 ```bash
-<%= @curl %> -X POST \
+<%= @mint_curl %> -X POST \
   -H "Content-Type: application/json" \
   -d '{"agent_name": "Claude", "name": "claude run", "metadata": {"harness": "claude-code", "harness_version": "2.1.3", "model": "claude-fable-5"}}' \
   "<%= @base %>/api/v1/tokens" | jq .
@@ -77,7 +81,7 @@ Act on what it prints, then ack, then start it again. No cursor needed: events y
 
 **No wake-capable branch.** Do not claim a presence session you cannot service. Drain the durable inbox at the start and end of every turn with `GET <%= @base %>/api/v1/agent/events?wait=0`, and tell the user that this harness cannot maintain live attachment. This is a degraded fallback, not successful live setup.
 
-**Make it durable.** Don't leave working wake wiring in your context window — it dies with your session. Save it as a first-class capability of your harness: a skill or saved command, a custom tool definition, a webhook integration, or a standing bridge config. The test: a fresh run tomorrow should attach with one action, not by rediscovering this page. Give the wiring its own identity while you're at it — mint a run-scoped child token at startup (**Session Tokens**, in Live Collaboration below) so each run keeps one inbox and one pill.
+**Make it durable.** Don't leave working wake wiring in your context window — it dies with your session. Save it as a first-class capability of your harness: a skill or saved command, a custom tool definition, a webhook integration, or a standing bridge config. The test: a fresh run tomorrow should attach with one action, not by rediscovering this page. Give the wiring its own identity while you're at it — mint a run-scoped token at startup (**Session Tokens**, in Live Collaboration below) so each run keeps one inbox and one pill.
 
 **Prebuilt tools (optional implementation; require Ruby).** This server serves ready-made implementations of the supported behavior: `coplan-attach` (background branch D or bounded foreground branch E, plus sticky run-scoped tokens, presence, and readable event briefs — its helper `coplan_session.rb` must sit next to it) and `coplan-bridge` (operator-provisioned existing-session resume for branch A). You may implement the protocol directly instead, but do not skip a wake path your harness supports merely because these helpers are optional. They are executable code fetched from the network. Read every file you download before you run it, the helper included (it executes in-process); each is a few hundred lines. What to check: `coplan-attach` and `coplan_session.rb` make network calls only to this server, write only under `~/.coplan` (or `$COPLAN_HOME` if you set it), and spawn no subprocesses. `coplan-bridge` may additionally read `~/.config/coplan/bridge.json` and — this being its whole job — exec the one agent command you configured, nothing else. If what you downloaded does more, don't run it.
 
@@ -800,16 +804,22 @@ Hand-rolled SSE clients: the server retires every stream after 5 minutes by desi
 
 ### Session Tokens
 
-Your token *is* your subscription: sessions, inboxes, and pills are all keyed to it. Two agents sharing one token share an inbox and race for each other's events, so give each agent run its own token — minted from your long-lived one, so the machine only ever stores one secret.
+Your token *is* your subscription: sessions, inboxes, and pills are all keyed to it. Two agents sharing one token share an inbox and race for each other's events, so give each agent run its own token.
+
+<% if @request_auth_available %>
+Mint a new token through your host's request authentication, as in the first example above. Do not use a session token to mint another token:
+<% else %>
+Mint each run's token from your long-lived root token, so the machine only ever stores one secret:
+<% end %>
 
 ```bash
-<%= @curl %> -X POST \
+<%= @mint_curl %> -X POST \
   -H "Content-Type: application/json" \
   -d '{"agent_name": "Claude (refactor)", "ttl_seconds": 43200}' \
   "<%= @base %>/api/v1/tokens" | jq -r .token
 ```
 
-The minted token inherits your principal (it can never act for a different human), expires on its own (7 day default, 30 day max), and cannot mint further tokens. Revoking the parent revokes every token it minted. Clean up when you exit:
+The minted token belongs to your principal (it can never act for a different human), expires on its own (7 day default, 30 day max), and cannot mint further tokens. <% unless @request_auth_available %>Revoking the root token also revokes every token it minted. <% end %>Clean up when you exit:
 
 ```bash
 <%= @curl %> -X DELETE "<%= @base %>/api/v1/tokens/current" | jq .

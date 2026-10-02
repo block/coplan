@@ -15,7 +15,7 @@
       <% elsif CoPlan.configuration.sign_in_path %>
         <%= link_to "Sign in to get started", CoPlan.configuration.sign_in_path, class: "btn btn--primary" %>
       <% end %>
-      <%= link_to "Connect your agent", agent_instructions_path, class: "btn btn--secondary" %>
+      <%= link_to "Connect your agent", agent_setup_path, class: "btn btn--secondary" %>
     </div>
   </header>
 
@@ -141,8 +141,8 @@
       <div class="landing__feature">
         <h3>Works with any agent</h3>
         <p>
-          Connecting an agent takes a bearer token and one URL — the API describes itself at
-          <code>/agent-instructions</code>, and every API response points back to it.
+          Agent setup starts at <code>/_/agent/setup</code>. The skill then fetches the live
+          API reference at <code>/agent-instructions</code> whenever it needs it.
         </p>
       </div>
     </div>

@@ -134,16 +134,26 @@ RSpec.describe "Welcome", type: :request do
     before { sign_in_as(bob) }
 
     context "with the default partial" do
-      it "renders the generic agents section pointing at /agent-instructions" do
+      it "describes session minting instead of Settings tokens with host API authentication" do
+        allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
+
         get welcome_path
-        expect(response.body).to include("Built for any AI agent")
-        expect(response.body).to include("/agent-instructions")
+
+        expect(response.body).to include("Agents can mint their own session token")
+        expect(response.body).not_to include("Settings &rarr; API")
+        expect(response.body).not_to include("Connecting an agent takes a bearer token")
       end
 
-      it "includes a copy-URL element carrying the full instructions URL" do
+      it "renders the generic agents section pointing at agent setup" do
+        get welcome_path
+        expect(response.body).to include("Built for any AI agent")
+        expect(response.body).to include("/_/agent/setup")
+      end
+
+      it "includes a copy-URL element carrying the setup URL" do
         get welcome_path
         expect(response.body).to include('data-controller="coplan--clipboard"')
-        expect(response.body).to include(%(data-coplan--clipboard-text-value="http://www.example.com/agent-instructions"))
+        expect(response.body).to include(%(data-coplan--clipboard-text-value="http://www.example.com/_/agent/setup.md"))
       end
     end
 

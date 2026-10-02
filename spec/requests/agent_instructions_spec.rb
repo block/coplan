@@ -70,6 +70,20 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).not_to include('"body_markdown": "Good point, I will address this.", "agent_name"')
     end
 
+    it "uses request authentication for the first token mint when the host provides it" do
+      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
+
+      get agent_instructions_path
+
+      mint_example = response.body.split("```bash", 2).last.split("```", 2).first
+      expect(response.body).to include("you do not need a token from Settings")
+      expect(mint_example).to include("curl -s -X POST")
+      expect(mint_example).not_to include("Authorization: Bearer")
+      expect(response.body).to include('Authorization: Bearer $TOKEN')
+      expect(response.body).not_to include("minted from your long-lived one")
+      expect(response.body).to include("Do not use a session token to mint another token")
+    end
+
     it "documents safe harness-specific live setup for plan-scoped work" do
       get agent_instructions_path
 
@@ -193,29 +207,16 @@ RSpec.describe "Agent Instructions", type: :request do
     end
 
     context "browsers (Accept header includes text/html)" do
-      it "serves a rendered HTML page with the instructions content" do
+      it "redirects to the human setup page" do
         get agent_instructions_path, headers: { "Accept" => browser_accept }
 
-        expect(response).to have_http_status(:success)
-        expect(response.content_type).to include("text/html")
-        expect(response.body).to include("Connect your AI agent")
-        # The same markdown document, rendered — not served raw.
-        expect(response.body).to include("CoPlan API")
-        expect(response.body).to include("markdown-rendered")
+        expect(response).to redirect_to(agent_setup_path)
       end
 
-      it "includes a copy-to-clipboard element carrying the raw instructions URL" do
-        get agent_instructions_path, headers: { "Accept" => browser_accept }
+      it "keeps the engine mount point in the redirect" do
+        get agent_instructions_path, headers: { "Accept" => browser_accept }, env: { "SCRIPT_NAME" => "/coplan" }
 
-        expect(response.body).to include('data-controller="coplan--clipboard"')
-        expect(response.body).to include(%(data-coplan--clipboard-text-value="http://www.example.com/agent-instructions"))
-      end
-
-      it "shows a curl example and links to the raw markdown" do
-        get agent_instructions_path, headers: { "Accept" => browser_accept }
-
-        expect(response.body).to include("curl -s http://www.example.com/agent-instructions")
-        expect(response.body).to include("/agent-instructions.md")
+        expect(response).to redirect_to("/coplan/_/agent/setup")
       end
 
       it "still serves raw markdown at .md even when the client accepts HTML" do
@@ -226,21 +227,41 @@ RSpec.describe "Agent Instructions", type: :request do
         expect(response.body).not_to include("<html")
       end
 
-      it "forces the HTML page at .html regardless of the Accept header" do
+      it "redirects .html to setup regardless of the Accept header" do
         get agent_instructions_path(format: :html), headers: { "Accept" => "*/*" }
 
-        expect(response.content_type).to include("text/html")
-        expect(response.body).to include("Connect your AI agent")
+        expect(response).to redirect_to(agent_setup_path)
       end
+    end
+  end
 
-      it "renders the signed-in nav chrome for signed-in users" do
-        user = create(:coplan_user, name: "Naveen Chrome")
-        sign_in_as(user)
+  describe "GET /_/agent/instructions" do
+    it "shows the current instructions as a separate human-readable page" do
+      get agent_instructions_reference_path
 
-        get agent_instructions_path, headers: { "Accept" => browser_accept }
+      expect(response).to have_http_status(:ok)
+      expect(response.content_type).to include("text/html")
+      expect(response.body).to include("Agent instructions")
+      expect(response.body).to include("CoPlan API")
+      expect(response.body).to include(%(href="#{agent_setup_path}"))
+    end
 
-        expect(response.body).to include("Naveen Chrome")
-      end
+    it "renders with host request authentication and configured plan types" do
+      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
+      create(:plan_type, name: "Design Doc", description: "For design documents")
+
+      get agent_instructions_reference_path, headers: { "Accept" => "text/html" }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("you do not need a token from Settings")
+      expect(response.body).to include("Design Doc")
+    end
+
+    it "renders when the engine is mounted under a prefix" do
+      get agent_instructions_reference_path, env: { "SCRIPT_NAME" => "/coplan" }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("http://www.example.com/coplan/api/v1/plans")
     end
   end
 end
