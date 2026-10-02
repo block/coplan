@@ -49,7 +49,7 @@ When an event arrives:
 coplan-bridge --adapter amp --session T-<thread-id> --plan <plan-id>
 ```
 
-First, your principal installs the bridge and mints its session token: see "Install" in <<%= @base %>/agent-instructions/live/bridge>. The bridge claims the session and sets it to `active` for you.
+First, your principal installs the bridge and mints its session token: see "Install" in <<%= @base %>/agent-instructions/live/bridge>. The bridge claims its own session on the plan and sets it to `active` for each event. After the bridge starts, delete your own session (`DELETE <%= @base %>/api/v1/plans/$PLAN_ID/agent_session`). Otherwise your token stays subscribed too: it gets a second copy of each event and can show a second pill.
 
 ## Keep the setup
 

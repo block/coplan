@@ -45,7 +45,7 @@ When you stop watching, stop the loop and `DELETE <%= @base %>/api/v1/plans/$PLA
 
 ## Use coplan-attach instead
 
-`coplan-attach --plan $PLAN_ID --name Claude --once`, run as a background task, does the same steps: it claims the session, waits, prints a summary of the event, and acknowledges it. To install it, see "Reference tools" in <<%= @base %>/agent-instructions/live>.
+`coplan-attach --plan $PLAN_ID --no-session --once`, run as a background task, does the same steps: it claims the session, waits, prints a summary of the event, and acknowledges it. To install it, see "Reference tools" in <<%= @base %>/agent-instructions/live>.
 
 ## Keep the setup
 

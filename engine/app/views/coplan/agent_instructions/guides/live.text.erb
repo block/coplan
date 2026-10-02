@@ -119,7 +119,7 @@ Sessions, inboxes, and pills belong to a token. Two agents that use one token sh
 
 This server provides scripts that do all of the above. They need Ruby. You do not have to use them; the protocol is only HTTP.
 
-- `coplan-attach` (requires `coplan_session.rb` in the same directory) claims the session, mints its own token for the run, waits, prints a short summary of each event, and acknowledges it. With `--once`, it exits after the first event. `--timeout 300` makes it exit with code 64 if nothing happens.
+- `coplan-attach` (requires `coplan_session.rb` in the same directory) claims the session, waits, prints a short summary of each event, and acknowledges it. With `--once`, it exits after the first event. `--timeout 300` makes it exit with code 64 if nothing happens. `--no-session` makes it use your session token as-is; without it, it tries to mint its own token, which a session token cannot do.
 - `coplan-bridge` runs outside your session and resumes it for each event. Your principal starts it, not you. See <<%= @base %>/agent-instructions/live/bridge>.
 
 Run `coplan-attach --once` only when you have a wake for it (see the table above) or your principal asked you to wait. In the foreground, always set `--timeout`.
@@ -133,6 +133,6 @@ curl -sfO <%= @base %>/agent-tools/coplan_session.rb
 # Read both files now. Then:
 chmod +x coplan-attach
 export COPLAN_BASE=<%= @base %>
-export COPLAN_TOKEN="$TOKEN"   # use the variable; do not paste the secret
-~/.coplan/bin/coplan-attach --plan $PLAN_ID --name Claude --once --timeout 600
+export COPLAN_TOKEN="$TOKEN"   # your session token; do not paste the secret
+~/.coplan/bin/coplan-attach --plan $PLAN_ID --no-session --once --timeout 600
 ```

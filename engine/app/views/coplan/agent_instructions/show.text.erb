@@ -18,19 +18,21 @@ This page covers what every agent needs. For other tasks, fetch the matching gui
 Mint your own token at the start of each run. You declare who you are once, here. CoPlan then attributes every version, comment, and session to this token, and the token gets its own event inbox.
 
 ```bash
-<%= @curl %> -X POST \
+TOKEN=$(<%= @curl %> -X POST \
   -H "Content-Type: application/json" \
   -d '{"agent_name": "Claude", "metadata": {"harness": "claude-code", "harness_version": "2.1.3", "model": "claude-fable-5"}}' \
-  "<%= @base %>/api/v1/tokens" | jq .
+  "<%= @base %>/api/v1/tokens" | jq -r .token)
 ```
+
+This command sends the long-lived token and **replaces `$TOKEN` with the new session token**. Every later call in these instructions uses the session token. Do not send the long-lived token again.
 
 - `agent_name` is a short label for this run, such as "Claude" or "Amp". CoPlan truncates it after 20 characters.
 - `metadata` is optional. Set `harness` (for example `amp`, `claude-code`, `codex`, `cursor`, `gemini-cli`, `goose`, or `opencode`), `harness_version`, and `model`. People see the harness on your comments and in the history.
 - Do not send `agent_name` or other attribution fields on later calls, and do not sign your comments or edits. The token supplies your identity.
-- The response shows `token` only once. Use it as `$TOKEN` for every later call.
+- The response shows `token` only once. Keep it in `$TOKEN` for the whole run.
 - Mint one token per run and reuse it. Each new token is a new identity.
-- Tokens expire after 7 days by default. To change this, set `ttl_seconds` (maximum 30 days). If a later call returns `401`, mint a new token. A session token cannot mint more tokens.
-- When you finish, revoke the token: `<%= @curl %> -X DELETE "<%= @base %>/api/v1/tokens/current"`.
+- Tokens expire after 7 days by default. To change this, set `ttl_seconds` (maximum 30 days). If a later call returns `401`, load the long-lived token into `$TOKEN` again and mint a new session token. A session token cannot mint more tokens.
+- When you finish, revoke the session token: `<%= @curl %> -X DELETE "<%= @base %>/api/v1/tokens/current"`.
 
 ## 2. Read a plan
 
