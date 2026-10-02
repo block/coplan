@@ -15,6 +15,7 @@ mkdir -p ~/.coplan/bin && cd ~/.coplan/bin
 curl -sfO <%= @base %>/agent-tools/coplan-bridge
 # Read the file now. Then:
 chmod +x coplan-bridge
+export PATH="$HOME/.coplan/bin:$PATH"
 export COPLAN_BASE=<%= @base %>
 # Give the bridge its own session token, not the long-lived one:
 export COPLAN_TOKEN=$(curl -s -X POST \
