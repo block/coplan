@@ -61,10 +61,11 @@ RSpec.describe "Dictations", type: :request do
   # Only what was on screen goes to the model — narrower is more accurate,
   # cheaper, and sends less of the document off the box.
   it "sends the visible excerpt, not the whole document" do
-    expect(CoPlan::Ai).to receive(:call) do |system_prompt:, user_content:|
+    expect(CoPlan::Ai).to receive(:call) do |system_prompt:, user_content:, intensity:|
       expect(user_content).to include("only this paragraph was visible")
       expect(user_content).not_to include(plan.current_content)
       expect(system_prompt).to include("filler words")
+      expect(intensity).to eq(:medium)
       { "text" => "Tighten this.", "span" => nil }.to_json
     end
 

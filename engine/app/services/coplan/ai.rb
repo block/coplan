@@ -8,9 +8,15 @@ module CoPlan
   # callers can `discard_on` without knowing which provider is in use.
   module Ai
     class Error < StandardError; end
+    INTENSITIES = %i[low medium high].freeze
 
-    def self.call(system_prompt:, user_content:)
-      AiProviders::OpenAi.call(system_prompt: system_prompt, user_content: user_content)
+    def self.call(system_prompt:, user_content:, intensity: :medium)
+      raise ArgumentError, "Unknown AI intensity: #{intensity.inspect}" unless INTENSITIES.include?(intensity)
+
+      model = CoPlan.configuration.ai_models&.[](intensity)
+      options = { system_prompt: system_prompt, user_content: user_content }
+      options[:model] = model if model.present?
+      AiProviders::OpenAi.call(**options)
     rescue AiProviders::OpenAi::Error => e
       raise Error, e.message
     end

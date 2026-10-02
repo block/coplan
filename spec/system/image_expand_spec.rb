@@ -72,10 +72,13 @@ RSpec.describe "Expanding an image", type: :system do
     expect(page).to have_css(".image-frame.is-expandable", count: 3, wait: 10)
   end
 
-  it "shows the expand arrows only while the image is hovered" do
+  it "shows the expand arrows on hover or by default on touch devices" do
     button = screenshot_frame.find(".image-frame__expand", visible: :all)
     expect(button["aria-label"]).to eq("Expand image")
-    expect(page.evaluate_script("getComputedStyle(document.querySelector('.image-frame__expand')).opacity")).to eq("0")
+    find_button("Menu").hover
+    default_opacity = page.evaluate_script("getComputedStyle(document.querySelector('.image-frame__expand')).opacity")
+    supports_hover = page.evaluate_script("matchMedia('(hover: hover)').matches")
+    expect(default_opacity).to eq(supports_hover ? "0" : "1")
 
     screenshot_frame.hover
     expect(screenshot_frame).to have_css(".image-frame__expand", visible: :all, wait: 5) { |el| el.style("opacity")["opacity"] == "1" }

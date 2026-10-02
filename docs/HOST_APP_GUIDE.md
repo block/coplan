@@ -84,6 +84,7 @@ CoPlan.configure do |config|
   # Optional: AI provider configuration
   config.ai_api_key = ENV["OPENAI_API_KEY"]
   config.ai_model = "gpt-4o"
+  config.ai_models = { low: "gpt-4.1-nano" }
 end
 ```
 
@@ -221,13 +222,14 @@ CoPlan.configure do |config|
   # Required
   config.authenticate = ->(request) { ... }
 
-  # AI provider (optional) — powers plan summaries.
+  # AI provider (optional) — powers plan summaries and dictated comments.
   # Any endpoint speaking the OpenAI wire protocol works: Azure OpenAI,
   # LiteLLM, vLLM, Ollama, an internal gateway. With no API key set, the
   # features that need one are skipped rather than erroring.
   config.ai_base_url = "https://api.openai.com/v1"  # default
   config.ai_api_key = nil
-  config.ai_model = "gpt-4o"                         # default
+  config.ai_model = "gpt-4o"                         # fallback for all intensities
+  config.ai_models = { low: "gpt-4.1-nano" }          # optional per-intensity overrides
 
   # Error reporting (optional)
   config.error_reporter = ->(exception, context) {
@@ -251,3 +253,9 @@ CoPlan.configure do |config|
   }
 end
 ```
+
+Text-generation calls can request `:low`, `:medium`, or `:high` intensity.
+Each level uses `config.ai_models` when configured and otherwise falls back to
+`config.ai_model`. Plan summaries request `:low`; dictated comment cleanup and
+anchoring request `:medium`. Audio transcription uses its own model, configured
+with `COPLAN_TRANSCRIBE_MODEL`.
