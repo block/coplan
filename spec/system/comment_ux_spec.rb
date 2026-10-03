@@ -227,6 +227,9 @@ RSpec.describe "Comment UX", type: :system do
       create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Second", user: reviewer)
       visit plan_page_path(plan)
 
+      # The HTML can arrive before Stimulus connects and builds highlights.
+      expect(page).to have_css("mark.anchor-highlight--open", count: 2)
+
       normalization_count = page.evaluate_script(<<~JS)
         (() => {
           const layout = document.querySelector('[data-controller~="coplan--text-selection"]')

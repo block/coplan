@@ -72,18 +72,33 @@ RSpec.describe "Expanding an image", type: :system do
     expect(page).to have_css(".image-frame.is-expandable", count: 3, wait: 10)
   end
 
-  it "shows the expand arrows on hover or on devices without hover" do
+  it "shows the expand arrows only while the image is hovered" do
     button = screenshot_frame.find(".image-frame__expand", visible: :all)
     expect(button["aria-label"]).to eq("Expand image")
-    find(".site-nav").hover
+    expect(page.evaluate_script("matchMedia('(hover: hover)').matches")).to be(true)
 
-    if page.evaluate_script("matchMedia('(hover: none)').matches")
-      expect(button.style("opacity")["opacity"]).to eq("1")
-    else
-      expect(screenshot_frame).to have_css(".image-frame__expand", visible: :all, wait: 5) { |el| el.style("opacity")["opacity"] == "0" }
-      screenshot_frame.hover
-      expect(screenshot_frame).to have_css(".image-frame__expand", visible: :all, wait: 5) { |el| el.style("opacity")["opacity"] == "1" }
-    end
+    # Navigation does not reset the pointer left by signing in. Put it
+    # outside the image and wait for the CSS opacity transition to finish.
+    find("#plan-header").hover
+    expect(screenshot_frame).to have_css(".image-frame__expand", visible: :all) { |el| el.style("opacity")["opacity"] == "0" }
+
+    screenshot_frame.hover
+    expect(screenshot_frame).to have_css(".image-frame__expand", visible: :all) { |el| el.style("opacity")["opacity"] == "1" }
+
+    find("#plan-header").hover
+    expect(screenshot_frame).to have_css(".image-frame__expand", visible: :all) { |el| el.style("opacity")["opacity"] == "0" }
+  end
+
+  it "keeps the expand control available without hover on touch devices" do
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: true, maxTouchPoints: 1)
+    expect(page.evaluate_script("matchMedia('(hover: none)').matches")).to be(true)
+
+    find("#plan-header").hover
+    expect(screenshot_frame).to have_css(".image-frame__expand", visible: :all) { |el| el.style("opacity")["opacity"] == "1" }
+    screenshot_frame.find(".image-frame__expand").click
+    expect(page).to have_css(".expander--image .expander__title", text: "Console mockup")
+  ensure
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: false)
   end
 
   it "keeps the image on its own line, with a frame that hugs it" do

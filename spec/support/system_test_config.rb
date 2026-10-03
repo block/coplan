@@ -34,6 +34,10 @@ RSpec.configure do |config|
       # memory and dies mid-suite when it fills ("Chrome instance exited"
       # at session creation). Spill to /tmp instead — harmless locally.
       options.add_argument("--disable-dev-shm-usage")
+      # Headless Linux can report no pointing device despite Selenium mouse
+      # actions. Give desktop specs a mouse, as Playwright does for headless
+      # Chromium. Touch specs can override this with CDP touch emulation.
+      options.add_argument("--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4")
     end
   end
 end
