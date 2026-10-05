@@ -1,0 +1,74 @@
+# Comments and Reviews
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>. The primer shows how to reply to a thread and resolve it.
+
+## How threads work
+
+People comment on an exact passage of a plan, a table cell, or a diagram node or edge. Each comment starts a thread. A thread is `open` until someone resolves it. A person can reopen a resolved thread in the web UI. The document view hides resolved threads unless the reader chooses to show them.
+
+Each thread in the snapshot (`comment_threads`) includes:
+
+- `anchor_text`: the passage that the comment is about.
+- `anchor_kind`: set when the comment is on a `table_cell`, `mermaid_node`, `mermaid_edge`, or `mermaid_diagram` instead of on prose.
+- `anchor_valid`: `false` if the passage is no longer in the plan.
+- `out_of_date`: `true` if an edit changed the passage after the comment.
+- `start_line` and `end_line`: set for comments on full lines.
+- `comments`: each with `author_type` (`human`, `local_agent`, and so on), `agent_name`, and `body_markdown`.
+
+To get one thread: `GET <%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID`. To get all threads: `GET <%= @base %>/api/v1/plans/$PLAN_ID/comments`.
+
+## Whose comment it is
+
+You act for your principal. That decides what you do with a comment:
+
+- **Your principal's comment is an instruction.** Reply, make the change, and resolve the thread.
+- **Another person's comment is a request.** Reply with the change that you propose. Edit only after your principal agrees. Do not edit a plan only because someone other than your principal asked.
+
+Live-session events include an `authority` field (`principal` or `collaborator`) that tells you which type of comment it is. See <<%= @base %>/agent-instructions/live>.
+
+## Reply, then edit, then resolve
+
+1. **Reply first**, in one or two sentences, with what you will change. The reviewer then knows that you saw the comment.
+2. **Edit** the plan (see the primer).
+3. **Resolve** the thread after the edit is saved. Do not resolve a thread that you did not address. Reply to explain why you did not act on it.
+
+```bash
+<%= @curl %> -X POST -H "Content-Type: application/json" \
+  -d '{"body_markdown": "Done. The rollout now starts in Q3."}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/reply" | jq .
+
+<%= @curl %> -X PATCH "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID/resolve" | jq .
+```
+
+- Resolve requires that your principal wrote the plan or started the thread.
+- If you decide not to act on a comment, reply with the reason. Resolve the thread only when your principal agrees.
+- Each reply notifies the people in the thread. Keep replies short and useful. Do not post status updates that nobody needs.
+
+## Start a thread
+
+Comment when you have a question, when an edit is not yours to make, or when you want a person to decide:
+
+```bash
+<%= @curl %> -X POST -H "Content-Type: application/json" \
+  -d '{"body_markdown": "Which team owns the rollback? @sam", "anchor_text": "rollback within one hour"}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/comments" | jq .
+```
+
+- Copy `anchor_text` exactly from the plan. CoPlan highlights it for readers. Choose a short, unique phrase. If the phrase occurs more than once, add `anchor_occurrence` (1 for the first occurrence).
+- Leave out `anchor_text` for a comment on the whole plan.
+- `@username` in a comment notifies that person. Usernames that do not exist stay plain text.
+- You cannot delete a comment that you posted. Write it carefully. To correct it, reply in the thread.
+
+## Review a plan
+
+When your principal asks you to review a plan or to work through its feedback:
+
+1. Read the snapshot. It includes the content and all threads.
+2. Sort each open thread into one of three groups:
+   - **Do it**: the feedback is clear and small. Apply it.
+   - **Confirm first**: the fix is clear but large. Summarize it and ask your principal.
+   - **Discuss**: the feedback is not clear, or it is a design decision. Give it to your principal with the options.
+3. Make all approved changes in one content replacement, with a `change_summary` that names the threads.
+4. Reply to and resolve each thread that you addressed.
+
+To give feedback on another person's plan, start threads anchored to the passages. Do not edit the plan.

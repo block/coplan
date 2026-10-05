@@ -1,0 +1,108 @@
+# Editing Plans
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>. The primer shows the usual edit: read the snapshot, change the full document, and send it back. This guide covers the responses, conflicts, targeted edits, and plan settings.
+
+## Replace the content
+
+`PUT <%= @base %>/api/v1/plans/$PLAN_ID/content` with `content`, `base_revision`, and `change_summary`. Use this request for most edits: a rewrite, a new section, many small fixes, or a restructure. One request with all changes makes one clear version. Many small requests make many versions.
+
+| Response | Meaning | What to do |
+|---|---|---|
+| `201` with `revision`, `version_id`, `applied` | CoPlan saved a new version. | Continue. |
+| `200` with `"no_op": true` | The content did not change. | Nothing. |
+| `409` with `current_revision` | Someone wrote after your read. | Read again, apply your change to the new content, and send it with the new revision. Do not send the same request with the old revision. |
+| `409` with `"code": "human_edit_pending"` | A person edited by hand after your last read. | See [Hand edits](#hand-edits). |
+| `409` with `"code": "edit_locked"` | Someone holds the edit lock, usually a person in the web editor. | See [Edit locks](#edit-locks). |
+| `422` | `content` or `base_revision` is missing or not valid. | Fix the request. |
+
+CoPlan compares your content with the current version and keeps comments anchored to text that you did not change. If your edit removes the text that a comment is anchored to, the thread becomes out of date. Address the comment before you delete its text.
+
+## Hand edits
+
+A person's hand edit has the highest authority in a plan. CoPlan merges agent edits that happen at the same time, but it does not merge over a hand edit. After a person edits a plan by hand, CoPlan refuses every agent write until that agent reads the plan again. Hand edits include edits in the web editor and checkbox selections.
+
+The refusal includes the person's diff:
+
+```json
+{
+  "error": "Blocked: Sam edited this plan by hand (an edit, now at v7) and you last read v5. ...",
+  "code": "human_edit_pending",
+  "current_revision": 7,
+  "last_human_revision": 7,
+  "last_seen_revision": 5,
+  "human_edits": [
+    {
+      "revision": 7,
+      "editor": "Sam",
+      "edited_at": "2026-08-24T17:02:11Z",
+      "change_summary": "Edited in web UI",
+      "diff": "@@ -12,3 +12,3 @@\n-Ship behind a flag in Q4.\n+Ship behind a flag in Q3 — legal signed off on the earlier date.\n"
+    }
+  ]
+}
+```
+
+1. Read the diff. It shows the words that the person chose.
+2. Read the snapshot again: `GET <%= @base %>/api/v1/plans/$PLAN_ID/snapshot`. This read removes the block. A new `base_revision` alone does not.
+3. Make your change on top of the current content. Do not send the content that you had before. It does not include the person's edit, so it deletes their words.
+4. If your task conflicts with their edit, keep their text and explain the conflict in a comment.
+
+This rule applies to every way that an agent writes: content replacement and operations.
+
+## Targeted edits: operations
+
+To change one passage without sending the full document, send operations:
+
+```bash
+<%= @curl %> -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "base_revision": 7,
+    "change_summary": "Switched the datastore to PostgreSQL",
+    "operations": [
+      {"op": "replace_exact", "old_text": "We use MySQL", "new_text": "We use PostgreSQL"}
+    ]
+  }' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/operations" | jq .
+```
+
+CoPlan applies all operations in one request as one version. If another agent wrote after your `base_revision`, CoPlan moves your operations onto the current content. This works for up to 20 revisions. If the target text changed, CoPlan returns `409`. Read the plan again and retry.
+
+| `op` | Fields | Effect |
+|---|---|---|
+| `replace_exact` | `old_text`, `new_text`, optional `occurrence` (1-based) or `replace_all: true` | Replaces the text. Without `occurrence` or `replace_all`, the text must occur exactly once. |
+| `insert_under_heading` | `heading` (the full line, such as `"## Testing"`), `content` | Inserts content after the heading. The heading must occur exactly once. |
+| `delete_paragraph_containing` | `needle` | Deletes the one paragraph that contains the text. |
+| `replace_section` | `heading`, `new_content`, optional `include_heading: false` | Replaces the heading and everything under it, up to the next heading of the same or a higher level. With `include_heading: false`, CoPlan keeps the heading line and replaces only the body. |
+
+An operation that cannot apply returns `422` with the reason, and CoPlan saves nothing.
+
+## Edit locks
+
+A person who opens the web editor takes the plan's edit lock. While anyone else holds the lock, CoPlan refuses every write, including content replacement and operations, with `409` and `"code": "edit_locked"`. The lock expires 5 minutes after the holder stops. Wait, read the plan again, and retry. Do not retry in a tight loop.
+
+You can take the lock yourself to keep a long series of edits together. Most edits do not need it.
+
+- Take it: `POST <%= @base %>/api/v1/plans/$PLAN_ID/lease` with `{"lease_token": "<random string>"}`.
+- Send the same `lease_token` with each content or operation request.
+- Renew it with `PATCH` before 5 minutes pass. Release it with `DELETE` as soon as you finish. While you hold it, people cannot save in the editor.
+
+## Plan settings
+
+`PATCH <%= @base %>/api/v1/plans/$PLAN_ID` changes the fields that you send and nothing else. Only the plan author can change these settings.
+
+| Field | Value |
+|---|---|
+| `title` | A string. The plan's URL follows the new title, and the old URL still works. |
+| `plan_type` | A type name. CoPlan adds the new type's default tags. Restructure the content to match the new template. |
+| `tags` | An array. It replaces the full tag list. |
+| `folder_path` or `folder_id` | Moves the plan in its library. |
+| `visibility` | `"published"` shares a private plan. |
+| `archived` | `true` or `false`. |
+| `references` | An array of `{url, key, title}`. |
+
+See <<%= @base %>/agent-instructions/creating> for the rules on types, folders, tags, and visibility.
+
+## History
+
+`GET <%= @base %>/api/v1/plans/$PLAN_ID/versions` lists every version, newest first, with `revision`, `actor_type` (`human`, `local_agent`, and so on), `change_summary`, and `created_at`. Use it to find what changed and who changed it. Do not write a changelog in the plan.

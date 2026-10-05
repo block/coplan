@@ -1,0 +1,79 @@
+# API Reference
+
+Every endpoint, with the guide that explains it. All paths start with `<%= @base %>`. <% if @request_auth_available %>Mint a session token through the host's request authentication (`<%= @mint_curl %>`). Every other call needs `Authorization: Bearer $TOKEN` with that session token.<% else %>Every call needs `Authorization: Bearer $TOKEN`. To mint a session token, send your principal's long-lived token. For every other call, send the session token.<% end %> See the primer at <<%= @base %>/agent-instructions>. Request bodies are JSON.
+
+## Tokens
+
+| Method and path | Purpose |
+|---|---|
+| `POST /api/v1/tokens` | Mint a session token: `agent_name`, `metadata`, `ttl_seconds`. |
+| `DELETE /api/v1/tokens/current` | Revoke the token that makes the request. |
+
+## Plans
+
+| Method and path | Purpose | Guide |
+|---|---|---|
+| `GET /api/v1/plans` | List the plans that you can see. Filters: `?visibility=draft\|published`, `?archived=true`, `?folder_id=`. | primer |
+| `POST /api/v1/plans` | Create a plan. | creating |
+| `GET /api/v1/plans/:id` | Get a plan with its content and references. | primer |
+| `GET /api/v1/plans/:id/snapshot` | Get a plan with content, threads, references, and collaborators. | primer |
+| `PATCH /api/v1/plans/:id` | Change the title, type, tags, folder, visibility, archive state, or references. Plan author only. | editing |
+| `PUT /api/v1/plans/:id/content` | Replace the content. | editing |
+| `POST /api/v1/plans/:id/operations` | Apply targeted edits. | editing |
+| `POST`, `PATCH`, `DELETE /api/v1/plans/:id/lease` | Take, renew, or release the edit lock (optional). | editing |
+| `GET /api/v1/plans/:id/versions` | List the versions. | editing |
+| `GET /api/v1/plans/:id/locations` | Get the library and folder where the plan is filed. | organizing |
+| `GET /api/v1/plan_types` | List the plan types with their templates. | creating |
+| `GET /api/v1/tags` | List the tags, most used first. | creating |
+
+## Comments
+
+| Method and path | Purpose | Guide |
+|---|---|---|
+| `GET /api/v1/plans/:id/comments` | List the threads. | comments |
+| `POST /api/v1/plans/:id/comments` | Start a thread: `body_markdown`, optional `anchor_text` and `anchor_occurrence`. | comments |
+| `GET /api/v1/plans/:id/comments/:thread_id` | Get one thread. | comments |
+| `POST /api/v1/plans/:id/comments/:thread_id/reply` | Reply: `body_markdown`. | comments |
+| `PATCH /api/v1/plans/:id/comments/:thread_id/resolve` | Resolve a thread. | comments |
+| `DELETE /api/v1/plans/:id/comments/:comment_id/delete` | Delete one of your principal's own comments. Comments that an agent posted cannot be deleted. | comments |
+
+## References and attachments
+
+| Method and path | Purpose | Guide |
+|---|---|---|
+| `GET`, `POST /api/v1/plans/:id/references` | List or add references. Adding is for the plan author only. | creating |
+| `DELETE /api/v1/plans/:id/references/:reference_id` | Remove a reference. Plan author only. | creating |
+| `GET /api/v1/references/search?url=` | Find the plans that refer to a URL. | creating |
+| `GET`, `POST /api/v1/plans/:id/attachments` | List or upload files (multipart `file`). Uploading is for the plan author only. | markdown |
+| `DELETE /api/v1/plans/:id/attachments/:attachment_id` | Delete a file. Plan author only. | markdown |
+
+## Libraries and folders
+
+| Method and path | Purpose | Guide |
+|---|---|---|
+| `GET /api/v1/library` | Your principal's folder tree with descriptions and counts. | creating |
+| `GET /api/v1/library/contents` | All plans in the library, with summaries. | organizing |
+| `POST /api/v1/library/organize` | Batch folder and plan moves, with `dry_run`. | organizing |
+| `GET /api/v1/library/events` | The library's change log. | organizing |
+| `GET /api/v1/libraries`, `GET /api/v1/libraries/:id` | All libraries, or one library. | organizing |
+| `GET`, `POST /api/v1/folders`; `PATCH`, `DELETE /api/v1/folders/:id` | List, create, rename, or delete folders. | creating |
+
+## Live sessions
+
+| Method and path | Purpose | Guide |
+|---|---|---|
+| `POST`, `PATCH`, `DELETE /api/v1/plans/:id/agent_session` | Claim a session, set its state, or stop. | live |
+| `GET /api/v1/agent/events` | Wait for events: `wait` (long-poll) or `Accept: text/event-stream`, optional `cursor`. | live |
+| `POST /api/v1/agent/events/ack` | Acknowledge events up to `cursor`. | live |
+
+Guides: `<%= @base %>/agent-instructions/<guide>`, for example <<%= @base %>/agent-instructions/editing>.
+
+## Errors
+
+| Code | Meaning |
+|---|---|
+| `401` | The token is missing, not valid, revoked, or expired. Mint a new token. |
+| `403` | You are not allowed to do this. Most often, the action is for the plan author only. A `403` on a call other than minting can also mean that you sent no Bearer token. |
+| `404` | The plan or thread does not exist. |
+| `409` | A stale `base_revision`, a hand edit that you have not read (`"code": "human_edit_pending"`), or someone holds the edit lock (`"code": "edit_locked"`). See the editing guide. |
+| `422` | The request is not valid, or an operation cannot apply. The `error` field says why. |

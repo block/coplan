@@ -1,128 +1,69 @@
 require "rails_helper"
 
 RSpec.describe "Agent Instructions", type: :request do
-  it "advertises the five-level cap in the organizing guide" do
-    get agent_instructions_organizing_path
-    expect(response).to have_http_status(:success)
-    expect(response.body).to include("at most 5 levels deep", "The depth cap is 5")
-  end
-
   describe "GET /agent-instructions" do
     it "returns markdown content" do
       get agent_instructions_path
       expect(response).to have_http_status(:success)
       expect(response.content_type).to include("text/markdown")
-      expect(response.body).to include("# CoPlan API")
-      expect(response.body).to include("max 5 levels deep")
-      expect(response.body).to include("```mermaid")
+      expect(response.body).to include("# CoPlan for Agents")
     end
 
-    it "includes plan types when they exist" do
-      create(:plan_type, name: "Design Doc", description: "For design documents")
-
+    it "covers the basics every agent needs, in order" do
       get agent_instructions_path
-
-      expect(response.body).to include("### Plan Types")
-      expect(response.body).to include("Design Doc")
-      expect(response.body).to include("For design documents")
-    end
-
-    it "shows message when no plan types are configured" do
-      get agent_instructions_path
-
-      expect(response.body).to include("### Plan Types")
-      expect(response.body).to include("No plan types are currently configured")
-    end
-
-    it "lists multiple plan types sorted by name" do
-      create(:plan_type, name: "RFC")
-      create(:plan_type, name: "Design Doc")
-
-      get agent_instructions_path
-
       body = response.body
-      expect(body.index("Design Doc")).to be < body.index("RFC")
+
+      steps = [ "## 1. Mint a session token", "## 2. Read a plan", "## 3. Edit a plan",
+                "## 4. Answer comments", "## 5. Create a plan" ]
+      positions = steps.map { |step| body.index(step) }
+      expect(positions).to all(be_present)
+      expect(positions).to eq(positions.sort)
+      expect(body).to include("/api/v1/tokens")
+      expect(body).to include("human_edit_pending")
     end
 
-    it "documents plan_type in create plan section" do
-      get agent_instructions_path
-      expect(response.body).to include('"plan_type"')
-    end
-
-    it "sets writing-style ground rules with a type-level override" do
+    it "links every topic guide, and nothing it doesn't serve" do
       get agent_instructions_path
 
-      expect(response.body).to include("## Writing Style")
-      # Anti-metadata rules: the platform records dates/authors/status/versions.
-      expect(response.body).to include("The platform already records it.")
-      expect(response.body).to include("do not invent one")
-      # Plain-language rules with the override escape hatch.
-      expect(response.body).to include("the type wins")
-      expect(response.body).to include("Write like a runbook, not a keynote.")
+      linked = response.body.scan(%r{http://www\.example\.com/agent-instructions/([a-z/-]+)}).flatten.uniq
+      expect(linked).to match_array(CoPlan::AgentInstructionsController::GUIDES.keys)
     end
 
     it "declares identity once through the session token" do
       get agent_instructions_path
 
-      expect(response.body).to include("Declare it here once; the token supplies it on every later call.")
-      expect(response.body).to include("Do not send attribution fields.")
-      expect(response.body).not_to include("per-request override of who is writing")
-      expect(response.body).not_to include('"body_markdown": "Good point, I will address this.", "agent_name"')
+      expect(response.body).to include("You declare who you are once, here.")
+      expect(response.body).to include("Do not send `agent_name` or other attribution fields on later calls")
+      expect(response.body).to include(%("harness": "claude-code"))
     end
 
-    it "uses request authentication for the first token mint when the host provides it" do
-      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
-
+    it "only sets up live sessions where something can wake the agent" do
       get agent_instructions_path
+      body = response.body
 
-      mint_example = response.body.split("```bash", 2).last.split("```", 2).first
-      expect(response.body).to include("you do not need a token from Settings")
-      expect(mint_example).to include("curl -s -X POST")
-      expect(mint_example).not_to include("Authorization: Bearer")
-      expect(response.body).to include('Authorization: Bearer $TOKEN')
-      expect(response.body).not_to include("minted from your long-lived one")
-      expect(response.body).to include("Do not use a session token to mint another token")
+      expect(body).to include("## 6. Stay for feedback")
+      expect(body).to include("Show yourself as present only if something can wake you.")
+      expect(body).to include("Do not run a wait in the foreground unless your principal asked you to watch the plan.")
+      expect(body).to include("An environment name is a hint, not proof.")
+      expect(body).not_to include("coplan-bridge --acp")
     end
 
-    it "uses the host's authenticated mint command when configured" do
-      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
-      allow(CoPlan.configuration).to receive(:agent_mint_curl_prefix).and_return("sq curl -s")
-
+    it "sets writing-style ground rules with a type-level override" do
       get agent_instructions_path
 
-      expect(response.body.scan("sq curl -s -X POST").length).to eq(2)
-    end
-
-    it "documents safe harness-specific live setup for plan-scoped work" do
-      get agent_instructions_path
-
-      expect(response.body).to include("## Live Setup: Choose a Wake Path Safely")
-      expect(response.body).to include("check whether your harness has a way to start another model turn")
-      expect(response.body).to include("Claiming a presence pill without running a wait, bridge, or webhook is not attachment")
-      expect(response.body).to include("Never run an unbounded wait in the foreground")
-      expect(response.body).to include("| Codex desktop |")
-      expect(response.body).to include("| Codex CLI / IDE |")
-      expect(response.body).to include("in-chat scheduled follow-up that drains `wait=0`")
-      expect(response.body).to include("`claude --resume <session-id> -p <event>`")
-      expect(response.body).to include("Starting an ACP server creates a different agent")
-      expect(response.body).to include("ACP is intentionally not an attachment path here")
-      expect(response.body).to include("ACP-created agents are a separate deployment mode")
-      expect(response.body).not_to include("coplan-bridge --acp")
-      expect(response.body).to include("Harness names are hints, not proof")
-      expect(response.body).to include("degraded fallback, not successful live setup")
-      expect(response.body).not_to include("optional-but-recommended upgrade")
-      expect(response.body).not_to include("Correct, just not live")
+      expect(response.body).to include("## Writing rules")
+      expect(response.body).to include("Do not write metadata in the body.")
+      expect(response.body).to include("the type wins")
+      expect(response.body).to include("Write like a runbook, not a keynote.")
     end
 
     it "walks agents through folder, type, and template before creating" do
       get agent_instructions_path
 
-      expect(response.body).to include("**Pick the folder.**")
-      expect(response.body).to include("**Pick the type.**")
-      expect(response.body).to include("template_content")
+      expect(response.body).to include("/api/v1/library")
       expect(response.body).to include("/api/v1/plan_types")
+      expect(response.body).to include("template_content")
       expect(response.body).to include('"folder_path"')
-      expect(response.body).to include("fallback of last resort")
     end
 
     it "uses a real configured type (not General) in the create example" do
@@ -146,25 +87,34 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).to include(%q(Bob'\''s))
     end
 
-    it "marks which plan types carry a template" do
-      create(:plan_type, name: "RFC", template_content: "# RFC")
-      create(:plan_type, name: "Bare", template_content: nil)
+    it "uses request authentication for the first token mint when the host provides it" do
+      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
 
       get agent_instructions_path
 
-      expect(response.body).to match(/`RFC`.*yes — fetch and follow it/)
-      expect(response.body).to match(/`Bare`.*\| —/)
+      mint_example = response.body[/^TOKEN=\$\(.*?jq -r \.token\)$/m]
+      expect(response.body).to include("you do not need a token from Settings")
+      expect(mint_example).to include("curl -s -X POST")
+      expect(mint_example).not_to include("Authorization: Bearer")
+      expect(response.body).to include("run the mint command again")
+      expect(response.body).not_to include("load the long-lived token")
     end
 
-    it "distinguishes citations, internal section links, and structured references" do
-      get agent_instructions_path
+    it "uses the host's authenticated mint command when configured" do
+      allow(CoPlan.configuration).to receive(:api_authenticate).and_return(->(_request) { nil })
+      allow(CoPlan.configuration).to receive(:agent_mint_curl_prefix).and_return("sq curl -s")
 
-      expect(response.body).to include("Citations and internal cross-references")
-      expect(response.body).to include("[§3.1](#section-3-1)")
-      expect(response.body).to include("structured, document-level inventory")
-      expect(response.body).to include("one **References** section")
-      expect(response.body).to include("source title, type, and domain")
-      expect(response.body).to include("click jumps to it")
+      get agent_instructions_path
+      expect(response.body).to include("TOKEN=$(sq curl -s -X POST")
+
+      get agent_instructions_guide_path(guide: "live/bridge")
+      expect(response.body).to include("export COPLAN_TOKEN=$(sq curl -s -X POST \\\n  -H \"Content-Type: application/json\"")
+      expect(response.body).not_to include("credentials.json")
+    end
+
+    it "includes the host's auth instructions" do
+      get agent_instructions_path
+      expect(response.body).to include(CoPlan.configuration.agent_auth_instructions.lines.first.strip)
     end
 
     it "builds example URLs from the request base (root mount)" do
@@ -179,6 +129,135 @@ RSpec.describe "Agent Instructions", type: :request do
       # 404 on their first read.
       get agent_instructions_path, env: { "SCRIPT_NAME" => "/coplan" }
       expect(response.body).to include("http://www.example.com/coplan/api/v1/plans")
+      expect(response.body).to include("http://www.example.com/coplan/agent-instructions/editing")
+    end
+  end
+
+  describe "GET /agent-instructions/:guide" do
+    CoPlan::AgentInstructionsController::GUIDES.each_key do |guide|
+      it "serves the #{guide} guide as markdown" do
+        get agent_instructions_guide_path(guide: guide)
+
+        expect(response).to have_http_status(:success)
+        expect(response.content_type).to include("text/markdown")
+        expect(response.body).to start_with("# ")
+        expect(response.body).not_to include("http://www.example.com//")
+      end
+    end
+
+    it "404s an unknown guide with a pointer back to the primer" do
+      get agent_instructions_guide_path(guide: "nope")
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to include("http://www.example.com/agent-instructions")
+    end
+
+    it "keeps the organizing guide at its published path" do
+      get agent_instructions_organizing_path
+
+      expect(response).to have_http_status(:success)
+      expect(response.body).to include("# Organizing a Library")
+      expect(response.body).to include("up to #{CoPlan::Folder::MAX_DEPTH} levels deep")
+    end
+
+    describe "comments" do
+      it "uses the open/resolved lifecycle" do
+        get agent_instructions_guide_path(guide: "comments")
+        body = response.body
+
+        expect(body).to include("A thread is `open` until someone resolves it.")
+        expect(body).not_to match(/pending|todo|discard|dismiss/)
+      end
+    end
+
+    describe "editing" do
+      it "explains the edit lock that blocks every write" do
+        get agent_instructions_guide_path(guide: "editing")
+        expect(response.body).to include(%("code": "edit_locked"))
+        expect(response.body).to include("including content replacement and operations")
+      end
+    end
+
+    describe "creating" do
+      it "lists plan types with template markers" do
+        create(:plan_type, name: "RFC", description: "For proposals", template_content: "# RFC")
+        create(:plan_type, name: "Bare", template_content: nil)
+
+        get agent_instructions_guide_path(guide: "creating")
+        body = response.body
+
+        expect(body).to include("## Plan types")
+        expect(body).to match(/`RFC` \| For proposals \| yes — fetch and follow it/)
+        expect(body).to match(/`Bare` .*\| — \|/)
+        expect(body.index("`Bare`")).to be < body.index("`RFC`")
+      end
+
+      it "advertises the configured folder depth" do
+        get agent_instructions_guide_path(guide: "creating")
+        expect(response.body).to include("up to #{CoPlan::Folder::MAX_DEPTH} levels deep")
+      end
+
+      it "says so when no plan types are configured" do
+        get agent_instructions_guide_path(guide: "creating")
+        expect(response.body).to include("No plan types are currently configured")
+      end
+    end
+
+    describe "markdown" do
+      it "covers diagrams, tables, and the three kinds of links" do
+        get agent_instructions_guide_path(guide: "markdown")
+        body = response.body
+
+        expect(body).to include("```mermaid")
+        expect(body).to include("## Tables")
+        expect(body).to include("[§3.1](#section-3-1)")
+        expect(body).to include("[^queue-depth]")
+        expect(body).to include("Each selection is a hand edit.")
+      end
+    end
+
+    describe "presentations" do
+      it "documents inline deck regions, not a deck plan type" do
+        get agent_instructions_guide_path(guide: "presentations")
+        body = response.body
+
+        expect(body).to include("::: {.presentation #q3-review theme=\"coplan\"}")
+        expect(body).to include("Outside a region, `---` is a horizontal rule.")
+        expect(body).not_to include("behavior")
+      end
+    end
+
+    describe "live" do
+      it "gives Amp a wake that works between turns" do
+        get agent_instructions_guide_path(guide: "live/amp")
+        expect(response.body).to include("coplan-bridge --adapter amp --session")
+        expect(response.body).to include("events?wait=0")
+      end
+
+      it "gives Codex desktop a scheduled follow-up instead of a held connection" do
+        get agent_instructions_guide_path(guide: "live/codex")
+        expect(response.body).to include("scheduled follow-up")
+        expect(response.body).to include("Do not hold a request open between runs.")
+      end
+
+      it "keeps ACP agents out of attachment" do
+        get agent_instructions_guide_path(guide: "live/bridge")
+        expect(response.body).to include("It is not the conversation that wrote the plan")
+        expect(response.body.index("--adapter claude")).to be < response.body.index("--acp")
+      end
+
+      it "never sends per-request agent names" do
+        %w[live live/claude-code live/amp live/codex live/hosted].each do |guide|
+          get agent_instructions_guide_path(guide: guide)
+          expect(response.body).not_to include(%("agent_name":)), guide
+        end
+      end
+
+      it "documents the authority contract" do
+        get agent_instructions_guide_path(guide: "live")
+        expect(response.body).to include(%(authority: "principal"))
+        expect(response.body).to include(%(authority: "collaborator"))
+      end
     end
   end
 
@@ -192,7 +271,7 @@ RSpec.describe "Agent Instructions", type: :request do
 
         expect(response).to have_http_status(:success)
         expect(response.content_type).to include("text/markdown")
-        expect(response.body).to include("# CoPlan API")
+        expect(response.body).to include("# CoPlan for Agents")
         expect(response.body).not_to include("<html")
       end
 
@@ -200,7 +279,7 @@ RSpec.describe "Agent Instructions", type: :request do
         get agent_instructions_path, headers: { "Accept" => "text/markdown" }
 
         expect(response.content_type).to include("text/markdown")
-        expect(response.body).to include("# CoPlan API")
+        expect(response.body).to include("# CoPlan for Agents")
       end
 
       it "serves byte-identical markdown regardless of non-HTML Accept header" do
@@ -216,7 +295,7 @@ RSpec.describe "Agent Instructions", type: :request do
     end
 
     context "browsers (Accept header includes text/html)" do
-      it "redirects to the human setup page" do
+      it "redirects the primer to the human setup page" do
         get agent_instructions_path, headers: { "Accept" => browser_accept }
 
         expect(response).to redirect_to(agent_setup_path)
@@ -232,7 +311,7 @@ RSpec.describe "Agent Instructions", type: :request do
         get agent_instructions_path(format: :md), headers: { "Accept" => browser_accept }
 
         expect(response.content_type).to include("text/markdown")
-        expect(response.body).to include("# CoPlan API")
+        expect(response.body).to include("# CoPlan for Agents")
         expect(response.body).not_to include("<html")
       end
 
@@ -241,17 +320,37 @@ RSpec.describe "Agent Instructions", type: :request do
 
         expect(response).to redirect_to(agent_setup_path)
       end
+
+      it "renders guides as HTML, so links from the reference page stay browsable" do
+        get agent_instructions_guide_path(guide: "live/claude-code"), headers: { "Accept" => browser_accept }
+
+        expect(response.content_type).to include("text/html")
+        expect(response.body).to include("<title>Live Sessions in Claude Code — CoPlan</title>")
+        expect(response.body).to include("markdown-rendered")
+        expect(response.body).to include(%(href="#{agent_instructions_reference_path}"))
+        expect(response.body).to include("/agent-instructions/live/claude-code.md")
+        expect(response.body).to include(%(data-coplan--clipboard-text-value="http://www.example.com/agent-instructions/live/claude-code"))
+      end
+
+      it "renders the signed-in nav chrome on guide pages" do
+        user = create(:coplan_user, name: "Naveen Chrome")
+        sign_in_as(user)
+
+        get agent_instructions_guide_path(guide: "editing"), headers: { "Accept" => browser_accept }
+
+        expect(response.body).to include("Naveen Chrome")
+      end
     end
   end
 
   describe "GET /_/agent/instructions" do
-    it "shows the current instructions as a separate human-readable page" do
+    it "shows the primer as a separate human-readable page" do
       get agent_instructions_reference_path
 
       expect(response).to have_http_status(:ok)
       expect(response.content_type).to include("text/html")
       expect(response.body).to include("Agent instructions")
-      expect(response.body).to include("CoPlan API")
+      expect(response.body).to include("CoPlan for Agents")
       expect(response.body).to include(%(href="#{agent_setup_path}"))
     end
 

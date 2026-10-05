@@ -1,0 +1,79 @@
+# Live Sessions Through a Bridge
+
+`coplan-bridge` runs outside the agent, on a machine that is always on. It waits for events on one or more plans. For each event, it resumes an existing agent session with a message about the event. Use it when your agent cannot wake itself.
+
+**Your principal starts the bridge, not you.** It must run before any agent is awake and after your turn ends. If you are an agent, give your principal the commands below. Do not start the bridge yourself during ordinary plan work.
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>. The protocol details are in <<%= @base %>/agent-instructions/live>.
+
+## Install
+
+The bridge needs Ruby. **Read the file before you run it.** It must connect only to this server, read only `~/.config/coplan/bridge.json` (if that file exists), and run only the agent command that you configure. If it does more, do not run it.
+
+```bash
+mkdir -p ~/.coplan/bin && cd ~/.coplan/bin
+curl -sfO <%= @base %>/agent-tools/coplan-bridge
+# Read the file now. Then:
+chmod +x coplan-bridge
+export PATH="$HOME/.coplan/bin:$PATH"
+export COPLAN_BASE=<%= @base %>
+# Give the bridge its own session token, not the long-lived one.
+# Name it for the agent that the bridge resumes:
+<% if @request_auth_available %>
+export COPLAN_TOKEN=$(<%= @mint_curl %> -X POST \
+<% else %>
+export COPLAN_TOKEN=$(curl -s -X POST \
+  -H "Authorization: Bearer $(jq -r .token ~/.config/coplan/credentials.json)" \
+<% end %>
+  -H "Content-Type: application/json" \
+  -d '{"agent_name": "Claude", "ttl_seconds": 2592000, "metadata": {"harness": "claude-code"}}' \
+  "$COPLAN_BASE/api/v1/tokens" | jq -r .token)
+```
+
+The presence pill, and any reply or edit made with this token, show the token's `agent_name` and `harness`. Set them to the agent that the bridge resumes (for example `"Amp"` and `amp`), not to the bridge. The session token expires after 30 days and cannot mint more tokens. Run one bridge for each token: two bridges with one token share an inbox and take each other's events. When the token expires, mint a new one and restart the bridge.
+
+## Resume an existing session
+
+Choose the adapter for the agent, and pass the ID of the session or thread to resume:
+
+```bash
+coplan-bridge --adapter claude --session <session-id> --plan $PLAN_ID
+coplan-bridge --adapter amp --session T-<thread-id> --plan $PLAN_ID
+coplan-bridge --adapter codex --session <session-id> --plan $PLAN_ID
+```
+
+| Adapter | Command that the bridge runs for each event |
+|---|---|
+| `claude` | `claude -p --resume <session> --permission-mode acceptEdits <message>` |
+| `amp` | `amp threads continue <session> -x <message>` |
+| `codex` | `codex exec resume <session> <message>` |
+| `goose` | `goose run --name <session> --resume -t <message>` |
+| `openhands` | `openhands --headless --resume <session> -t <message>` |
+
+`--adapter demo` runs a built-in demo agent that replies and makes a small edit. It needs no agent, so you can use it to test the setup.
+
+## What the bridge does for each event
+
+1. It claims the session on each plan at start.
+2. When an event arrives, it sets the session to `active`, so people see a response within a second.
+3. It resumes the agent with the event and these steps: set `active`, reply, edit, then set `complete` or `awaiting_input`.
+4. It acknowledges the event after the agent's turn. If the turn fails, the event stays in the inbox.
+
+## A separate agent over ACP
+
+The bridge can also start its own agent over the Agent Client Protocol (`--acp "<command>"`). That agent is a new agent with its own session. It is not the conversation that wrote the plan, so it does not know that conversation's context. Use it only when your principal wants a standing reviewer or worker for the plan. The bridge rejects the agent's permission requests unless you add `--approve`.
+
+## Keep the setup
+
+Put the settings in `~/.config/coplan/bridge.json`, and run the bridge as a service. Do not put the token in this file. Give the service the minted session token in `COPLAN_TOKEN` (see [Install](#install)):
+
+```json
+{
+  "base_url": "<%= @base %>",
+  "plans": ["<plan id>"],
+  "adapter": "claude",
+  "harness_session": "<session id>"
+}
+```
+
+Command-line options override the environment, and the environment overrides the file. `--plan` replaces the file's plan list.

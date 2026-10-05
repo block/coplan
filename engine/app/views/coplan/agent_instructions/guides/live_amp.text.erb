@@ -1,0 +1,56 @@
+# Live Sessions in Amp
+
+Amp does not start a new turn when a background process exits. A background wait can receive an event, but nothing reads it until someone sends a new message. A live session in Amp has two parts: waiting during your turn, and a wake between turns.
+
+This guide assumes that you have read the primer at <<%= @base %>/agent-instructions> and that you have a session token in `$TOKEN`. The protocol details are in <<%= @base %>/agent-instructions/live>.
+
+## Claim a session
+
+```bash
+<%= @curl %> -X POST -H "Content-Type: application/json" \
+  -d '{}' \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session" | jq .
+```
+
+## During your turn: wait in the foreground
+
+When your principal asks you to watch the plan, run this loop as a normal shell command. It stops at the first event or after about 10 minutes:
+
+```bash
+for i in $(seq 1 24); do
+  RESP=$(<%= @curl %> -f "<%= @base %>/api/v1/agent/events?wait=25") ||
+    { echo "coplan: wait failed: token expired or server unreachable" >&2; exit 1; }
+  [ "$(printf '%s' "$RESP" | jq '.events | length')" -gt 0 ] && { printf '%s\n' "$RESP" | jq .; exit 0; }
+done
+echo "coplan: no events"; exit 64
+```
+
+If your shell tool returns before the command ends, check the process again until it prints output. Do not start a second copy.
+
+When an event arrives:
+
+1. Set your state to `active`: `PATCH <%= @base %>/api/v1/plans/$PLAN_ID/agent_session` with `{"state": "active"}`.
+2. Reply in the thread, then edit. Follow the `authority` field: act on `principal` comments; propose changes for `collaborator` comments.
+3. Set your state to `complete`, or to `awaiting_input` if you asked a question.
+4. Acknowledge: `POST <%= @base %>/api/v1/agent/events/ack` with `{"cursor": "<last event id>"}`.
+5. Run the loop again, or end your turn if your principal does not need you to keep watching.
+
+## Between turns: two options
+
+**Read your inbox at the start and end of each turn.** This needs no setup. Set the session to `complete` (`PATCH` with `{"state": "complete"}`) so that the plan does not show a pill for you between turns. Tell your principal that you cannot watch the plan live. You answer late, but you do not miss events:
+
+```bash
+<%= @curl %> "<%= @base %>/api/v1/agent/events?wait=0" | jq .
+```
+
+**Ask your principal to run the bridge.** `coplan-bridge` runs on your principal's machine. For each event, it runs `amp threads continue <thread-id> -x "<event summary>"`, which starts a new turn in this thread. Your thread ID is the `T-…` part of your thread URL. Give your principal this command. Do not start it yourself: it must keep running after your turn ends.
+
+```bash
+coplan-bridge --adapter amp --session T-<thread-id> --plan <plan-id>
+```
+
+First, your principal installs the bridge and mints its session token: see "Install" in <<%= @base %>/agent-instructions/live/bridge>. The bridge claims its own session on the plan and sets it to `active` for each event. After the bridge starts, delete your own session (`DELETE <%= @base %>/api/v1/plans/$PLAN_ID/agent_session`). Otherwise your token stays subscribed too: it gets a second copy of each event and can show a second pill.
+
+## Keep the setup
+
+Your setup ends with your thread. With your principal's agreement, save the wait loop and these steps as an Amp skill, for example `.agents/skills/coplan-live/SKILL.md`. A new thread can then attach in one step.
