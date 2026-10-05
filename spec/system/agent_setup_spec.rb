@@ -12,6 +12,6 @@ RSpec.describe "Agent setup", type: :system do
 
     click_link "View the agent instructions"
     expect(page).to have_current_path(agent_instructions_reference_path)
-    expect(page).to have_content("CoPlan API")
+    expect(page).to have_content("CoPlan for Agents")
   end
 end

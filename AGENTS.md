@@ -157,6 +157,16 @@ every open source contributor run or host a server for a reviewer.
 - `db/seeds.rb` must be **idempotent** — use `find_or_create_by!` or guard with count checks
 - Seeds should provide enough data to demo features from a fresh checkout
 
+## Agent Instructions Stay Current
+
+Agents learn CoPlan only from the served instructions, not from this repo. A change that agents can observe is not done until those instructions match it. That includes API endpoints, fields, status codes and error codes, as well as comment, editing, versioning and attribution rules, Markdown features, the live-session protocol, and `engine/agent_tools/`.
+
+- The primer is `engine/app/views/coplan/agent_instructions/show.text.erb` (served at `/agent-instructions`). Keep it to what every agent needs.
+- Topic guides are in `engine/app/views/coplan/agent_instructions/guides/` (served at `/agent-instructions/<guide>`). Put task-specific detail there. A new guide needs an entry in `AgentInstructionsController::GUIDES` and a link from the primer; `spec/requests/agent_instructions_spec.rb` checks both.
+- Update `guides/api.text.erb` when you add, remove, or change an endpoint.
+- Remove anything that stops being true. Wrong instructions are worse than missing ones.
+- Write in plain, short sentences, like the existing guides. Agents follow the commands literally, so run any new command against a local server before you document it.
+
 ## Code Review
 
 - Run the `code-review` skill before considering a session complete

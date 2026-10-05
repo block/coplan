@@ -64,7 +64,7 @@ RSpec.describe "Agent setup", type: :request do
     get link["href"], headers: { "Accept" => browser_accept }
 
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include("CoPlan API")
+    expect(response.body).to include("CoPlan for Agents")
   end
 
   it "serves Markdown at .md even to browsers" do
