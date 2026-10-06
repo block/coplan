@@ -44,13 +44,17 @@ RSpec.describe "Push-to-talk key setting", type: :system do
   # will actually work, and says why.
   context "when the server refuses the save" do
     before do
-      page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~JS)
+      @failed_save_script = page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~JS).fetch("identifier")
         const realFetch = window.fetch
         window.fetch = (url, options) =>
           String(url).includes("voice_hotkey")
             ? Promise.resolve(new Response("", { status: 500 }))
             : realFetch(url, options)
       JS
+    end
+
+    after do
+      page.driver.browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: @failed_save_script)
     end
 
     it "puts the previous key back and says it didn't save" do
