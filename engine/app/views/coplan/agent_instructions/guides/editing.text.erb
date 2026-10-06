@@ -47,7 +47,7 @@ The refusal includes the person's diff:
 3. Make your change on top of the current content. Do not send the content that you had before. It does not include the person's edit, so it deletes their words.
 4. If your task conflicts with their edit, keep their text and explain the conflict in a comment.
 
-This rule applies to every way that an agent writes: content replacement and operations.
+This rule applies to every way that an agent writes: content replacement, operations, and edit-session commits (`POST <%= @base %>/api/v1/plans/$PLAN_ID/sessions/$SESSION_ID/commit`).
 
 ## Targeted edits: operations
 

@@ -46,6 +46,7 @@ require "uri"
 require "optparse"
 require "open3"
 require "shellwords"
+require "set"
 
 $stdout.sync = true
 
@@ -403,8 +404,18 @@ def dispatch(event)
   # Honest pill before the harness even boots.
   Bridge.patch_state(event["plan_id"], "active", "reading your comment")
 
+  # A failed turn may still have replied or edited before it exited, and
+  # redelivery hands the same event to the agent again. Say so, the way
+  # the ACP restart path does, so the retry checks before acting.
+  prompt = wake_prompt(event)
+  if ATTEMPTED.include?(event["id"])
+    prompt = "NOTE: an earlier attempt at this event failed and may have partially completed. " \
+             "Check the plan's thread and content first, and do not duplicate replies or edits already made.\n\n#{prompt}"
+  end
+  ATTEMPTED << event["id"]
+
   cmd = template.map do |part|
-    part.gsub("{session}", CONFIG.fetch("harness_session", "coplan")).gsub("{prompt}", wake_prompt(event))
+    part.gsub("{session}", CONFIG.fetch("harness_session", "coplan")).gsub("{prompt}", prompt)
   end
   puts "coplan-bridge: dispatching #{event["type"]} -> #{adapter}"
   # system returns false on a nonzero exit and nil when the command can't
@@ -414,6 +425,11 @@ def dispatch(event)
 
   raise "#{adapter} adapter #{$?&.exitstatus ? "exited #{$?.exitstatus}" : "could not start"}"
 end
+
+# Event ids already handed to an exec adapter, so a redelivered event
+# can be marked as a retry. Bounded by the redelivery window in practice:
+# an event leaves the inbox once acked.
+ATTEMPTED = Set.new
 
 claim_sessions
 cursor = nil
