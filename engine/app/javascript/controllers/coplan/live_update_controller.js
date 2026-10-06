@@ -119,13 +119,16 @@ function applyContent(target, fragment, incomingRevision, changedKeys) {
 
 /*
  * Returns true if ANY textarea or contenteditable on the page contains
- * user-typed text. Used to decide whether it's safe to blow away the
- * rendered body. We're conservative: if even one textarea has trimmed
- * non-empty text, we treat the page as dirty.
+ * user-typed text. Prefilled comment editors are dirty only when changed,
+ * including clearing the original text. Other composers start empty.
  */
 function hasDirtyDrafts() {
   const textareas = document.querySelectorAll("textarea")
   for (const ta of textareas) {
+    if (ta.closest(".comment__editor")) {
+      if (ta.value !== ta.defaultValue) return true
+      continue
+    }
     if (ta.value && ta.value.trim().length > 0) return true
   }
   const editables = document.querySelectorAll("[contenteditable='true']")

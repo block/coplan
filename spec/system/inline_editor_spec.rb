@@ -664,6 +664,28 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(CoPlan::CommentThread.where(plan: plan, anchor_text: "Ready").count).to eq(1)
   end
 
+  [ "An unsaved comment edit", "" ].each do |draft|
+    it "preserves a #{draft.empty? ? 'cleared' : 'changed'} comment edit when a remote document update arrives" do
+      thread = create(:comment_thread, plan: plan, created_by_user: author)
+      create(:comment, comment_thread: thread, author_id: author.id, body_markdown: "Original comment")
+      visit plan_page_path(plan)
+      expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all, wait: 10)
+      find("#plan-general-comments button").click
+      within(".thread-popover:popover-open") do
+        click_button "Edit", exact: true
+        find("textarea[aria-label='Edit comment']").fill_in with: draft
+      end
+
+      CoPlan::Plans::ReplaceContent.call(plan: plan.reload,
+        new_content: content + "\nA remote document update.\n",
+        base_revision: plan.current_revision, actor_type: "local_agent", actor_id: author.id)
+
+      expect(page).to have_css("#plan-stale-banner", text: "Your draft is preserved", wait: 10)
+      expect(page).to have_field("Edit comment", enable_aria_label: true, with: draft)
+      expect(page).to have_no_css("#plan-content-body", text: "A remote document update.")
+    end
+  end
+
   it "keeps the reading passage in place and pulses the outline for an offscreen agent edit" do
     long_content = "# Introduction\n\nOpening words.\n\n# Main section\n\n" +
       (1..75).map { |n| "Main paragraph #{n} with a stable reading position." }.join("\n\n")
