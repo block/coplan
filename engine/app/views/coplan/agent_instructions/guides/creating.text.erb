@@ -51,7 +51,7 @@ Each person has a library: a tree of folders, up to <%= CoPlan::Folder::MAX_DEPT
 - `GET <%= @base %>/api/v1/library` returns your principal's folder tree. Each folder has a `description` of what belongs in it. Read the descriptions before you file a plan. Use the existing folders before you make new ones.
 - To file or move a plan that your principal wrote, send `PATCH <%= @base %>/api/v1/plans/$PLAN_ID` with `{"folder_path": "Team EBT/Q3"}`. To remove it from its folder, send `{"folder_id": ""}`.
 - Name folders like places (`Team EBT`, `Infra`, `Q3 Launch`). Give each new folder a one-line description. The next agent reads it.
-- Folder endpoints: `GET`, `POST`, `PATCH`, and `DELETE` on `<%= @base %>/api/v1/folders`. You can delete only empty folders.
+- Folder endpoints: `GET` and `POST` on `<%= @base %>/api/v1/folders` to list and create; `PATCH` (with `name`) and `DELETE` on `<%= @base %>/api/v1/folders/$FOLDER_ID` to rename and delete. You can delete only empty folders.
 
 To reorganize a library, or to move many plans, fetch <<%= @base %>/agent-instructions/organizing>.
 
