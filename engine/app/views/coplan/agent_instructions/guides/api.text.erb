@@ -20,7 +20,7 @@ Every endpoint, with the guide that explains it. All paths start with `<%= @base
 | `PATCH /api/v1/plans/:id` | Change the title, type, tags, folder, visibility, archive state, or references. Plan author only. | editing |
 | `PUT /api/v1/plans/:id/content` | Replace the content. | editing |
 | `POST /api/v1/plans/:id/operations` | Apply targeted edits. | editing |
-| `POST /api/v1/plans/:id/sessions` | Open an edit session (10 minutes): returns `id` and `base_revision`. Send that `id` as `session_id` on operation requests to collect them without saving. | editing |
+| `POST /api/v1/plans/:id/sessions` | Open an edit session (10 minutes): returns `id` and `base_revision`. Send `session_id` and that `base_revision` on each operation request to collect operations without saving. | editing |
 | `GET /api/v1/plans/:id/sessions/:session_id` | Get an edit session: `status`, `expires_at`, `operations_count`. | editing |
 | `POST /api/v1/plans/:id/sessions/:session_id/commit` | Save the session's operations as one version: `change_summary`. | editing |
 | `POST`, `PATCH`, `DELETE /api/v1/plans/:id/lease` | Take, renew, or release the edit lock (optional). | editing |
