@@ -58,7 +58,7 @@ coplan-bridge --adapter codex --session <session-id> --plan $PLAN_ID
 
 1. It claims the session on each plan at start.
 2. When an event arrives, it sets the session to `active`, so people see a response within a second.
-3. It resumes the agent with the event and these steps: set `active`, reply, edit, then set `complete` or `awaiting_input`.
+3. It resumes the agent with the event and these steps, and gives the agent its session token as `$TOKEN` (and `$COPLAN_TOKEN`), so the agent's replies and edits use it: set `active`, reply, edit, then set `complete` or `awaiting_input`.
 4. It acknowledges the event after the agent's turn. If the turn fails, the event stays in the inbox.
 
 ## A separate agent over ACP

@@ -175,7 +175,8 @@ def wake_prompt(event)
     #{payload["comment_author"] ? "#{payload["comment_author"]} wrote: #{payload["comment_body"].to_s.strip}" : ""}
     #{payload["anchor_text"] ? "Anchored to: \"#{payload["anchor_text"]}\"" : ""}
 
-    Respond as the plan's agent, over the CoPlan API at #{BASE} (full instructions: #{BASE}/agent-instructions):
+    Respond as the plan's agent, over the CoPlan API at #{BASE} (full instructions: #{BASE}/agent-instructions).
+    Authenticate every call with `Authorization: Bearer $TOKEN`: $TOKEN in your environment is this bridge's session token.
     1. PATCH /api/v1/plans/#{event["plan_id"]}/agent_session {"state":"active","detail":"<what you're doing>"} immediately.
     2. Reply on the thread first (narrate what you'll change), then apply any edit with PUT .../content.
     3. Finish with {"state":"complete"} (or "awaiting_input" if you asked a question).
@@ -421,7 +422,10 @@ def dispatch(event)
   # system returns false on a nonzero exit and nil when the command can't
   # start; neither raises. Raise here so the loop leaves the event unacked
   # for redelivery instead of acking a turn that never happened.
-  return if system(*cmd)
+  # The agent acts with the bridge's session token, under the name the
+  # instructions use for it. Its replies and edits are then attributed to
+  # that token, and never echoed back to this bridge's inbox.
+  return if system({ "TOKEN" => TOKEN, "COPLAN_TOKEN" => TOKEN }, *cmd)
 
   raise "#{adapter} adapter #{$?&.exitstatus ? "exited #{$?.exitstatus}" : "could not start"}"
 end

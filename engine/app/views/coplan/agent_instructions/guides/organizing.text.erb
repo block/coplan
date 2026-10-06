@@ -30,6 +30,8 @@ This returns your principal's library: each folder's `id`, `name`, `description`
 <%= @curl %> "<%= @base %>/api/v1/library/contents" | jq .
 ```
 
+For another library, use `GET <%= @base %>/api/v1/libraries/$LIBRARY_ID/contents` here, and the same `$LIBRARY_ID` in Step 3. Use one library for the whole task, or you will classify plans from one library and move them in another.
+
 This returns one row for each plan in the library: `plan_id`, `title`, `summary` (a generated abstract), `tags`, `visibility`, `archived`, `author`, `folder_path`, `placed_by`, and dates. Rows are sorted by folder path.
 
 Filters, which you can combine:
