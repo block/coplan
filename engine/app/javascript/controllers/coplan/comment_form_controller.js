@@ -94,7 +94,10 @@ export default class extends Controller {
       const form = this.element.closest("form")
       if (!form) return
       event.preventDefault()
-      form.requestSubmit()
+      if (this.element.closest('[data-dictation-busy="true"]')) return
+      const submitter = form.querySelector('[type="submit"]')
+      if (submitter?.disabled) return
+      form.requestSubmit(submitter)
     }
   }
 
@@ -178,8 +181,13 @@ export default class extends Controller {
       this._picker = document.createElement("ul")
       this._picker.className = "mention-picker"
       this._picker.setAttribute("role", "listbox")
-      // Append to body so it can overflow form/card boundaries.
-      document.body.appendChild(this._picker)
+      // A nested top-layer picker can extend beyond the glass window.
+      const host = this.element.closest(".comment-window") || document.body
+      host.appendChild(this._picker)
+      if (host !== document.body) {
+        this._picker.setAttribute("popover", "manual")
+        Object.assign(this._picker.style, { position: "fixed", margin: "0", inset: "auto" })
+      }
     }
 
     this._picker.innerHTML = ""
@@ -225,8 +233,9 @@ export default class extends Controller {
       })
     }
 
-    this.positionPicker()
     this._picker.hidden = false
+    if (this._picker.hasAttribute("popover") && !this._picker.matches(":popover-open")) this._picker.showPopover()
+    this.positionPicker()
   }
 
   applyHighlight() {
@@ -248,8 +257,10 @@ export default class extends Controller {
   positionPicker() {
     if (!this._picker) return
     const rect = this.element.getBoundingClientRect()
-    this._picker.style.top = `${window.scrollY + rect.bottom + 4}px`
-    this._picker.style.left = `${window.scrollX + rect.left}px`
+    const fixed = this._picker.hasAttribute("popover")
+    const top = Math.max(12, Math.min(rect.bottom + 4, window.innerHeight - this._picker.offsetHeight - 12))
+    this._picker.style.top = `${fixed ? top : window.scrollY + top}px`
+    this._picker.style.left = `${fixed ? rect.left : window.scrollX + rect.left}px`
     this._picker.style.minWidth = `${Math.min(rect.width, 360)}px`
   }
 

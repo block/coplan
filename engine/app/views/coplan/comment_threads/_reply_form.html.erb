@@ -1,10 +1,8 @@
 <div class="comment-thread__reply" id="<%= dom_id(thread, :reply_form) %>">
-  <%= form_with url: plan_comment_thread_comments_path(plan, thread), method: :post, data: { action: "turbo:submit-end->coplan--text-selection#resetReplyForm" } do |f| %>
-    <div class="form-group">
-      <textarea name="comment[body_markdown]" rows="2" placeholder="Press r to reply" required
-        data-controller="coplan--comment-form"
-        data-coplan--comment-form-search-url-value="<%= search_users_path %>"></textarea>
-    </div>
-    <button type="submit" class="btn btn--secondary btn--sm">Reply</button>
+  <%= form_with url: plan_comment_thread_comments_path(plan, thread), method: :post, data: { controller: "coplan--comment-submit", action: "turbo:submit-start->coplan--comment-submit#started turbo:before-fetch-response->coplan--comment-submit#response turbo:fetch-request-error->coplan--comment-submit#failed turbo:submit-end->coplan--comment-submit#finished turbo:submit-end->coplan--text-selection#resetReplyForm" } do %>
+    <%= render "coplan/comment_threads/composer_fields", plan: plan,
+          label: "Your reply", submit_label: "Reply", field_name: "comment[body_markdown]",
+          field_id: dom_id(thread, :reply_body), error_id: dom_id(thread, :reply_error),
+          placeholder: "Press r to reply", cancel_action: nil %>
   <% end %>
 </div>

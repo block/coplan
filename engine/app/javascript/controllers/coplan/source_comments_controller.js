@@ -4,7 +4,7 @@ import { Controller } from "@hotwired/stimulus"
 // Only signed source ranges cross the wire; SVG ids are render-time lookup
 // keys, and never become comment identities.
 export default class extends Controller {
-  static targets = ["panel", "quote", "discussions", "token", "body", "outdated", "composer", "discussionActions", "newComment"]
+  static targets = ["panel", "quote", "discussions", "token", "body", "outdated", "composer", "threadTools"]
 
   connect() {
     this.drafts = new Map()
@@ -57,8 +57,13 @@ export default class extends Controller {
   }
 
   discussionKey(event) {
+    if (!this.panelTarget.matches(":popover-open") || event.defaultPrevented || event.isComposing || event.keyCode === 229) return
     if (event.ctrlKey || event.metaKey || event.altKey || event.target.closest("input, textarea, select, [contenteditable]")) return
-    const discussion = event.target.closest(".source-comments__discussion") || this.discussionsTarget
+    const activeId = document.getElementById(this.panelTarget.dataset.navigationThreadId)?.dataset.threadId
+    const activeDiscussion = this.discussionsTarget.children.length > 1
+      ? Array.from(this.discussionsTarget.children).find(thread => thread.dataset.threadId === activeId)
+      : null
+    const discussion = event.target.closest(".source-comments__discussion") || activeDiscussion || this.panelTarget
     if (event.key === "r") {
       discussion.querySelector(".thread-popover__reply textarea")?.focus({ preventScroll: true })
     } else if (event.key === "e") {
@@ -83,7 +88,7 @@ export default class extends Controller {
       element.focus({ preventScroll: true })
       return
     }
-    this.show(element)
+    this.show(element, this.showResolved, !event.target.closest("[data-source-badge]"))
     return true
   }
 
@@ -97,7 +102,7 @@ export default class extends Controller {
     this.refresh()
   }
 
-  show(element, includeResolved = this.showResolved) {
+  show(element, includeResolved = this.showResolved, focusReply = true) {
     // Badges are rebuilt on broadcasts; anchor to the lasting connection.
     if (element.ownerSVGElement && JSON.parse(element.dataset.sourceTarget).kind === "mermaid_edge") {
       element = Array.from(element.ownerSVGElement.querySelectorAll("path.flowchart-link[data-source-target]:not(.source-edge-hit)"))
@@ -111,7 +116,6 @@ export default class extends Controller {
     const target = JSON.parse(element.dataset.sourceTarget)
     this.selection = target
     this.showingOutdated = false
-    this.composing = false
     this.trigger = element
     const preview = element.cloneNode(true)
     preview.querySelectorAll("[data-source-badge], button").forEach(el => el.remove())
@@ -131,7 +135,9 @@ export default class extends Controller {
     this.paintSelection()
     panel.showPopover()
     this.positionPanel()
-    this.focusComposer()
+    this.discussionsTarget.scrollTop = 0
+    if (focusReply) this.focusComposer()
+    else this.focusClose()
   }
 
   browse(element) {
@@ -176,6 +182,7 @@ export default class extends Controller {
   }
 
   dismiss(event, restoreFocus = true) {
+    this.panelTarget.dispatchEvent(new CustomEvent("coplan:composer-close", { bubbles: true }))
     if (event && !this.panelTarget.matches(":popover-open")) return
     event?.preventDefault()
     event?.stopPropagation()
@@ -207,7 +214,6 @@ export default class extends Controller {
     if (event.target.contains(this.bodyTarget)) {
       this.bodyTarget.value = ""
       this.drafts.delete(this.selection?.token)
-      this.composing = false
     } else {
       event.target.querySelectorAll("textarea").forEach(textarea => { textarea.value = "" })
       this.replyDrafts.delete(event.target.closest("[data-thread-id]")?.dataset.threadId)
@@ -226,7 +232,7 @@ export default class extends Controller {
 
   saveReplyDrafts() {
     this.discussionsTarget.querySelectorAll("[data-thread-id]").forEach(thread => {
-      const textarea = thread.querySelector("textarea")
+      const textarea = thread.querySelector(".thread-popover__reply textarea")
       if (textarea) this.replyDrafts.set(thread.dataset.threadId, textarea.value)
     })
   }
@@ -256,8 +262,9 @@ export default class extends Controller {
         bubbles: true, detail: { slide: slide.dataset.slide }
       }))
       element.scrollIntoView({ block: "center", behavior: "instant" })
-      this.show(element, data.dataset.threadStatus === "resolved")
+      this.show(element, data.dataset.threadStatus === "resolved", event.detail.focusReply === true)
     }
+    this.panelTarget.dataset.navigationThreadId = data.id
     event.preventDefault()
     const thread = Array.from(this.discussionsTarget.children).find(el => el.dataset.threadId === event.detail.threadId)
     thread?.scrollIntoView({ block: "nearest" })
@@ -277,9 +284,11 @@ export default class extends Controller {
     const focused = this.discussionsTarget.contains(document.activeElement) ? document.activeElement : null
     const replies = new Map(Array.from(this.discussionsTarget.children).map(thread =>
       [thread.dataset.threadId, thread.querySelector(".thread-popover__reply")]))
+    const editingComments = new Map(Array.from(this.discussionsTarget.querySelectorAll(".comment:has(.comment__editor:not([hidden]))"))
+      .map(comment => [comment.dataset.commentId, comment]))
     const matches = this.showingOutdated ? this.outdatedThreads() : this.matchingThreads(this.selection)
     const openThreads = matches.filter(thread => thread.dataset.threadStatus === "open")
-    if (this.openThreadIds?.size && !openThreads.length && !this.composing && !this.bodyTarget.value) {
+    if (this.openThreadIds?.size && !openThreads.length) {
       this.dismiss()
       return
     }
@@ -298,38 +307,46 @@ export default class extends Controller {
       popover.removeAttribute("popover")
       popover.className = "source-comments__thread"
       popover.removeAttribute("style")
+      popover.removeAttribute("data-controller")
+      popover.removeAttribute("data-action")
+      popover.querySelectorAll(".comment-window__move, .comment-window__resize").forEach(el => el.remove())
       const quote = copy.querySelector(".thread-popover__quote")
       if (thread.dataset.anchorKind === "table_cell" && !this.showingOutdated) quote?.remove()
       else if (!this.showingOutdated && quote) quote.textContent = this.quoteTarget.textContent
+      copy.querySelectorAll(".comment").forEach(comment => {
+        const previous = editingComments.get(comment.dataset.commentId)
+        if (previous?.dataset.commentVersion === comment.dataset.commentVersion) comment.replaceWith(previous)
+      })
       const previousReply = replies.get(copy.dataset.threadId)
       const nextReply = copy.querySelector(".thread-popover__reply")
       if (previousReply && nextReply) nextReply.replaceWith(previousReply)
       else {
-        const textarea = copy.querySelector("textarea")
+        const textarea = copy.querySelector(".thread-popover__reply textarea")
         if (textarea) textarea.value = this.replyDrafts.get(copy.dataset.threadId) || ""
       }
       return copy
     })
     this.discussionsTarget.replaceChildren(...discussions)
+    if (!threads.some(thread => thread.id === this.panelTarget.dataset.navigationThreadId)) {
+      this.panelTarget.dataset.navigationThreadId = threads[0]?.id || ""
+    }
+    this.threadToolsTarget.replaceChildren()
+    if (discussions.length === 1) {
+      const tools = discussions[0].querySelector("[data-window-thread-tools]")
+      this.threadToolsTarget.append(tools)
+      discussions[0].querySelector(".comment-window__bar").remove()
+    }
     if (focused?.isConnected && this.panelTarget.matches(":popover-open")) focused.focus({ preventScroll: true })
-    this.composerTarget.hidden = this.showingOutdated || (threads.length > 0 && !this.composing && !this.bodyTarget.value)
-    this.discussionActionsTarget.hidden = !this.composerTarget.hidden
-    this.newCommentTarget.hidden = this.showingOutdated
+    this.composerTarget.hidden = this.showingOutdated || threads.length > 0
     this.panelTarget.classList.toggle("comment-form", !this.composerTarget.hidden)
     this.panelTarget.classList.toggle("thread-popover", this.composerTarget.hidden)
     this.positionPanel()
   }
 
-  newComment() {
-    this.composing = true
-    this.saveReplyDrafts()
-    this.renderDiscussions()
-    this.bodyTarget.focus({ preventScroll: true })
-  }
-
   positionPanel(event) {
     const panel = this.panelTarget
     if (!panel.matches(":popover-open") || (event?.type === "scroll" && panel.contains(event.target))) return
+    if (panel.dataset.positioned === "true") return
     const mobile = window.matchMedia("(max-width: 640px)").matches
     panel.classList.toggle("comment-form--sheet", mobile && !this.composerTarget.hidden)
     panel.classList.toggle("thread-popover--sheet", mobile && this.composerTarget.hidden)

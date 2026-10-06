@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { audioConstraints, selectedMicrophone, supportsRecognitionTrack, microphoneError } from "coplan/microphone"
 import { pageShortcutsAllowed } from "coplan/shortcuts"
 
 /*
@@ -123,8 +124,22 @@ export default class extends Controller {
     this.recognition.lang = document.documentElement.lang || "en-US"
     this.recognition.onresult = (e) => this._onResult(e)
     this.recognition.onend = () => this._onRecognitionEnd()
-    this.recognition.onerror = (e) =>
-      this._setStatus(e.error === "no-speech" ? "Didn't catch that" : "Mic error", true)
+    this.recognition.onerror = (event) => this._onRecognitionError(event)
+  }
+
+  _onRecognitionError(event) {
+    if (event.error === "aborted" && this.discarded) return
+    this.recognitionFailed = true
+    this.discarded = true
+    this._stopListening()
+    this._releaseMic()
+    this._setStatus(microphoneError(event), true)
+  }
+
+  microphoneChanged() {
+    this._cancel()
+    this._releaseMic()
+    this._setStatus("Audio input changed.")
   }
 
   // The mic names its own key, on hover and to a screen reader. The
@@ -259,13 +274,19 @@ export default class extends Controller {
 
   // ── Capture ────────────────────────────────────────────────────────
 
+  otherCapture(event) {
+    if (event.detail.owner !== this.element) this._cancel()
+  }
+
   _start() {
+    document.dispatchEvent(new CustomEvent("coplan:dictation-start", { detail: { owner: this.element } }))
     // The remark is about what was on screen while it was being said —
     // all of it. People start talking about one paragraph and scroll to
     // another mid-sentence, so the excerpt accumulates: sampled here, on
     // every tick while listening, and once more when the take ends.
     this.seenBlocks = new Set(this._visibleBlocks())
     this.finalTranscript = ""
+    this.recognitionFailed = false
     this.awaitingAck = false
     this.discarded = false
     this.recorder = null
@@ -277,13 +298,40 @@ export default class extends Controller {
     this._startTicking()
 
     if (this.mode === "record") this._startRecording()
-    else this.recognition.start()
+    else this._startRecognition()
+  }
+
+  async _startRecognition() {
+    const take = this.recognitionTake = (this.recognitionTake || 0) + 1
+    const recognition = this.recognition
+    try {
+      if (selectedMicrophone()) {
+        if (!supportsRecognitionTrack()) {
+          this._onRecognitionError({ name: "Selected input unsupported" })
+          this._setStatus("This browser cannot use the selected microphone for speech recognition. Choose System default or try desktop Chrome.", true)
+          return
+        }
+        const stream = await navigator.mediaDevices.getUserMedia(audioConstraints())
+        if (take !== this.recognitionTake || !this.listening || !this.element.isConnected) {
+          stream.getTracks().forEach(track => track.stop())
+          return
+        }
+        this.stream = stream
+        recognition.start(stream.getAudioTracks()[0])
+      } else {
+        recognition.start()
+      }
+      if (this.stopRequested) recognition.stop()
+    } catch (error) {
+      if (take === this.recognitionTake && !this.discarded) this._onRecognitionError(error)
+    }
   }
 
   _stop() {
     if (!this.listening) return
 
     if (this.mode !== "record") {
+      this.stopRequested = true
       this.recognition?.stop() // → onend posts
       return
     }
@@ -301,6 +349,7 @@ export default class extends Controller {
 
   // Discards whatever was captured rather than posting it.
   _cancel() {
+    this.recognitionTake = (this.recognitionTake || 0) + 1
     clearTimeout(this.holdTimer)
     this.pushToTalk = false
     this._closeEar()
@@ -311,6 +360,7 @@ export default class extends Controller {
     else this.recognition?.abort()
 
     this._stopListening()
+    this._releaseMic()
     this._setStatus("")
   }
 
@@ -349,9 +399,9 @@ export default class extends Controller {
     const ear = { chunks: [], closed: false }
     ear.ready = (async () => {
       try {
-        ear.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      } catch {
-        ear.error = true
+        ear.stream = await navigator.mediaDevices.getUserMedia(audioConstraints())
+      } catch (error) {
+        ear.error = error
         return
       }
       if (ear.closed) {
@@ -393,17 +443,17 @@ export default class extends Controller {
       // holding one open leaves the recording indicator lit while
       // nobody is talking.
       try {
-        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      } catch {
+        this.stream = await navigator.mediaDevices.getUserMedia(audioConstraints())
+      } catch (error) {
         this._stopListening()
-        this._reportMiss("Mic blocked")
+        this._reportMiss(microphoneError(error))
         return
       }
     }
 
     if (ear?.error) {
       this._stopListening()
-      this._reportMiss("Mic blocked")
+      this._reportMiss(microphoneError(ear.error))
       return
     }
 
@@ -545,6 +595,7 @@ export default class extends Controller {
   }
 
   _onRecognitionEnd() {
+    this._releaseMic()
     this._stopListening()
     if (this.discarded) return
 

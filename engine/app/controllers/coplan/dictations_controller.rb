@@ -37,6 +37,12 @@ module CoPlan
       authorize!(@plan, :show?)
 
       transcript = spoken_text
+      # Embedded dictation belongs to a draft. Do not interpret it as commands
+      # or split it into comments; the person reviews their words before sending.
+      if params[:mode] == "draft"
+        render json: { transcript: transcript }
+        return
+      end
       result = Comments::InterpretDictation.call(
         excerpt: excerpt,
         # The span has to resolve against the markdown, not against the

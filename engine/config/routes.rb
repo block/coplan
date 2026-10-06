@@ -75,7 +75,7 @@ CoPlan::Engine.routes.draw do
           patch :resolve
           patch :reopen
         end
-        resources :comments, only: [ :create, :destroy ]
+        resources :comments, only: [ :create, :update, :destroy ]
       end
     end
 

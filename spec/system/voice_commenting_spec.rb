@@ -95,6 +95,23 @@ RSpec.describe "Voice commenting", type: :system do
     sign_in(author)
   end
 
+  it "reports speech-service failures and stops the listening indicator" do
+    stub_speech_recognition("Must not post", emit_on_stop: true)
+    visit_plan
+    page.execute_script <<~JS
+      const el = document.querySelector('.voice-control');
+      const controller = window.Stimulus.getControllerForElementAndIdentifier(el, 'coplan--voice');
+      controller.recognition.start = () => {
+        controller.recognition.onerror({ error: 'service-not-allowed' });
+        controller.recognition.onend();
+      };
+    JS
+    find(".voice-btn").click
+    expect(page).to have_css(".voice-status--error", text: "Speech recognition is unavailable in this browser")
+    expect(page).to have_no_css(".voice-btn--listening")
+    expect(plan.comment_threads.count).to eq(0)
+  end
+
   it "cleans up the remark and pins it to the passage the AI identifies" do
     allow(CoPlan::Ai).to receive(:call).and_return({
       "text" => "This bit is too cautious.",

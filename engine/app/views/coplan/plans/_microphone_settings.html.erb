@@ -1,0 +1,15 @@
+<span class="microphone-settings" data-controller="coplan--microphone"
+      data-coplan--microphone-transcription-value="<%= CoPlan::Ai.available? %>"
+      data-action="resize@window->coplan--microphone#position coplan:microphone-change@document->coplan--microphone#sync coplan:composer-close@document->coplan--microphone#closed">
+  <button type="button" class="microphone-settings__button" aria-label="Microphone settings" title="Choose audio input"
+          aria-expanded="false" data-coplan--microphone-target="button" data-action="coplan--microphone#toggle">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m3 4 3 3 3-3"/></svg>
+  </button>
+  <span popover="auto" class="microphone-settings__panel" data-coplan--microphone-target="panel" data-action="toggle->coplan--microphone#toggled" role="dialog" aria-label="Microphone settings">
+    <label>Microphone
+      <select aria-label="Audio input" data-coplan--microphone-target="input" data-action="change->coplan--microphone#change"><option value="">System default</option></select>
+    </label>
+    <span class="microphone-settings__status" role="status" data-coplan--microphone-target="status"></span>
+    <button type="button" class="btn btn--secondary btn--sm" data-coplan--microphone-target="refresh" data-action="coplan--microphone#refresh">Allow / refresh microphones</button>
+  </span>
+</span>

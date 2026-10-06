@@ -50,6 +50,51 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(panel).to have_no_field("Write a comment...")
   end
 
+  it "scrolls table discussion content without moving the resized window's header or grip" do
+    cell = all(".data-grid tbody tr")[0].all("td")[1]
+    cell.send_keys("c")
+    comment(("A table discussion. " * 45).strip)
+    page.driver.browser.action.send_keys(:escape).perform
+    cell.find(".source-thread-badge").click
+    expect(panel).to have_no_css("textarea:focus")
+    expect(panel.find('[data-coplan--source-comments-target="discussions"]').evaluate_script("this.scrollTop")).to eq(0)
+    grip = panel.find("[aria-label='Resize comment window']")
+    grip.send_keys(*Array.new(25, :up))
+    geometry = panel.evaluate_script(<<~JS)
+      (() => {
+        const box = this.getBoundingClientRect();
+        const discussions = this.querySelector('[data-coplan--source-comments-target="discussions"]');
+        const header = this.querySelector('.comment-window__bar').getBoundingClientRect();
+        const grip = this.querySelector('.comment-window__resize').getBoundingClientRect();
+        return { topInset: header.top - box.top, gripBottom: box.bottom - grip.bottom,
+          outerOverflow: this.scrollHeight - this.clientHeight,
+          contentOverflow: discussions.scrollHeight - discussions.clientHeight };
+      })()
+    JS
+    expect(geometry["topInset"]).to be >= 5
+    expect(geometry["gripBottom"]).to be_between(2, 4)
+    expect(geometry["outerOverflow"]).to be <= 1
+    expect(geometry["contentOverflow"]).to be > 0
+    grip.send_keys("r")
+    expect(panel).to have_css("textarea:focus")
+    expect(panel.find_button("Reply").rect.y + panel.find_button("Reply").rect.height).to be <= grip.rect.y - 8
+    panel.find("textarea").fill_in with: "Still reachable after shrinking"
+    expect(panel).to have_field("Press r to reply", with: "Still reachable after shrinking")
+    expect(panel.find_button("Reply").rect.y + panel.find_button("Reply").rect.height).to be < grip.rect.y
+    input = panel.find("textarea")
+    input_height = input.rect.height
+    input.fill_in with: (1..12).map { |line| "More reply text #{line}" }.join("\n")
+    expect(input.rect.height).to be > input_height
+    expect(input.rect.y + input.rect.height).to be <= panel.rect.y + panel.rect.height - 24
+    [ "light", "dark" ].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp/composer-preview/reply-footer-#{theme}.png"))
+    end
+    input.fill_in with: (1..80).map { |line| "A much longer reply #{line}" }.join("\n")
+    expect(input.evaluate_script("this.scrollHeight - this.clientHeight - this.scrollTop")).to be <= 2
+    expect(input.rect.y + input.rect.height).to be <= panel.rect.y + panel.rect.height - 24
+  end
+
   it "keeps browsing neutral and glows only hovered comment targets with a consistent cursor" do
     expect(page).to have_css(".mermaid-diagram g.node[data-source-target]", count: 3, wait: 20)
     shape_style = ->(element) { element.evaluate_script("[getComputedStyle(this).strokeWidth, getComputedStyle(this).strokeDasharray, getComputedStyle(this).filter]") }
@@ -160,7 +205,7 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
       expect(panel.evaluate_script("this.getBoundingClientRect().top")).to be > 16
       expect(panel.evaluate_script("this.getBoundingClientRect().top")).to be_within(200).of(top_before)
       page.save_screenshot(Rails.root.join("tmp/connection-comment-#{expanded}.png"))
-      panel.click_button "Resolve (e)"
+      panel.click_button "Resolve"
       expect(page).to have_no_css(".source-comments", visible: true)
       expect(page).to have_no_css("#{scope} .source-edge-badges .anchor-highlight--open")
       find('dialog [aria-label="Close"]').click if expanded
@@ -177,9 +222,9 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(panel).to have_css(".comment-form__quote", text: "Same")
     comment("Change the second Same")
     expect(plan.comment_threads.last.anchor_text).to eq("B[Same]")
-    panel.click_button "New comment", exact: true
-    expect(panel).to have_field("Write a comment...")
-    expect(panel).to have_button("Cancel")
+    expect(panel).to have_no_button("New discussion")
+    expect(panel).to have_no_field("Write a comment...")
+    expect(panel).to have_field("Press r to reply")
     panel.find('[aria-label="Close element comments"]').click
 
     find(".mermaid-diagram").hover
@@ -231,12 +276,12 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     comment("Fill this blank")
     expect(plan.comment_threads.order(:created_at).last.anchor_text).to eq("||")
     resolved_thread = plan.comment_threads.order(:created_at).last
-    panel.click_button "Resolve (e)"
+    panel.click_button "Resolve"
     expect(page).to have_no_css(".source-comments", visible: true)
     visit plan_page_path(plan, thread: resolved_thread.id)
     expect(panel).to have_button("Reopen")
     panel.click_button "Reopen"
-    expect(panel).to have_button("Resolve (e)")
+    expect(panel).to have_button("Resolve")
     panel.find('[aria-label="Close element comments"]').send_keys("r")
     expect(page.evaluate_script("document.activeElement.name")).to eq("comment[body_markdown]")
     panel.find('textarea[name="comment[body_markdown]"]').set("Reply to the empty cell")
@@ -283,7 +328,7 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(panel).to have_text(/out of date/i)
     expect(panel).to have_css(".thread-popover__quote", text: "same")
     expect(panel).to have_no_field("Write a comment...")
-    panel.click_button "Resolve (e)"
+    panel.click_button "Resolve"
     expect(page).to have_no_css(".source-comments", visible: true)
     visit plan_page_path(plan, thread: thread.id)
     expect(panel).to have_text("Keep this discussion")
@@ -369,10 +414,21 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     comment("A cell discussion")
     page.driver.browser.action.send_keys(:escape).perform
 
-    find("body").send_keys("j")
+    mark = find("mark.anchor-highlight[data-thread-id='comment_thread_#{prose.id}']")
+    mark.hover
+    sleep 0.5 # Beyond the former hover-open delay.
+    expect(page).to have_no_css(".thread-popover:popover-open")
+    mark.click
     expect(page).to have_css("#plan-threads .thread-popover:popover-open", text: "A prose discussion")
-    find("body").send_keys("j")
+    page.driver.browser.action.send_keys("j").perform
     expect(panel).to have_text("A cell discussion")
+    expect(page.evaluate_script("document.activeElement.tagName")).not_to eq("TEXTAREA")
+    page.driver.browser.action.send_keys("k").perform
+    expect(page).to have_css("#plan-threads .thread-popover:popover-open", text: "A prose discussion")
+    page.driver.browser.action.send_keys("j").perform
+    expect(panel).to have_text("A cell discussion")
+    page.driver.browser.action.send_keys("r").perform
+    expect(panel.find("textarea")).to eq(page.find(":focus"))
     panel.fill_in "Press r to reply", with: "Keep this mixed-navigation draft"
     panel.find('[aria-label="Close element comments"]').send_keys("k")
     expect(page).to have_css("#plan-threads .thread-popover:popover-open", text: "A prose discussion")
@@ -400,7 +456,10 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     cell.send_keys("c")
     expect(panel).to have_field("Write a comment...", with: "Keep this draft")
     frame = find("dialog .data-sheet__frame")
-    frame.click(x: 0, y: frame.evaluate_script("this.clientHeight") / 2 - 10)
+    # A discussion can cover the middle of the frame. Click its
+    # empty lower-left area, explicitly outside the discussion panel.
+    page.driver.browser.action.move_to(frame.native, -frame.evaluate_script("this.clientWidth") / 2 + 20,
+      frame.evaluate_script("this.clientHeight") / 2 - 10).click.perform
     expect(page).to have_no_css(".source-comments", visible: true)
     expect(page).to have_css("dialog.expander[open]")
     expect(page).to have_no_css(".is-source-selected")
@@ -409,7 +468,10 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(panel).to have_field("Write a comment...", with: "Keep this draft")
     comment("A discussion to revisit")
     panel.find('textarea[name="comment[body_markdown]"]').set("Keep this reply")
-    frame.click(x: 0, y: frame.evaluate_script("this.clientHeight") / 2 - 10)
+    # A discussion can cover the middle of the frame. Click its
+    # empty lower-left area, explicitly outside the discussion panel.
+    page.driver.browser.action.move_to(frame.native, -frame.evaluate_script("this.clientWidth") / 2 + 20,
+      frame.evaluate_script("this.clientHeight") / 2 - 10).click.perform
     expect(page).to have_no_css(".source-comments", visible: true)
     cell.send_keys("c")
     expect(panel).to have_field("comment[body_markdown]", with: "Keep this reply")
@@ -433,7 +495,7 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     cell.click
     expect(page).to have_no_css(".source-comments", visible: true)
     cell.find(".source-thread-badge").click
-    expect(panel).to have_css(".thread-popover__reply textarea:focus")
+    expect(panel).to have_no_css("textarea:focus")
     page.driver.browser.action.send_keys(:escape).perform
 
     find(".data-grid").hover
@@ -453,14 +515,54 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(panel).to have_no_css(".comment-form__anchor")
     page.driver.browser.action.send_keys(:escape).perform
     cell.find(".source-thread-badge").click
-    expect(panel).to have_css(".thread-popover__reply textarea:focus")
+    expect(panel).to have_no_css("textarea:focus")
+  end
+
+  it "keeps one reply field for an existing table discussion and supports R outside the panel" do
+    cell = all(".data-grid tbody tr")[1].all("td")[1]
+    cell.send_keys("c")
+    comment("Keep this table conversation")
+    # A saved, unfinished new-comment draft must not expose a second composer.
+    page.execute_script("document.querySelector('#source-comment-body').value = 'Earlier unfinished draft'")
+    page.driver.browser.action.send_keys(:escape).perform
+    cell.send_keys("c")
+    expect(panel).to have_css("textarea", count: 1)
+    expect(panel).to have_no_button("New discussion")
+    expect(panel).to have_no_field("Write a comment...")
+    find("body").send_keys("r")
+    expect(panel.find("textarea")).to eq(page.find(":focus"))
+    page.driver.browser.action.send_keys(:escape).perform
+    find(".data-grid").hover
+    find(".data-grid__expand").click
+    find("dialog tbody tr", text: "First").all("td")[1].send_keys("c")
+    find("td.is-cursor").send_keys("r")
+    expect(panel.find("textarea")).to eq(page.find(":focus"))
+  end
+
+  it "edits a cell comment in place and preserves rejected edits" do
+    all(".data-grid tbody tr")[1].all("td")[1].send_keys("c")
+    comment("A cell comment to refine")
+    panel.click_button "Edit", exact: true
+    panel.find("textarea[aria-label='Edit comment']").fill_in with: "   "
+    panel.click_button "Save changes"
+    expect(panel).to have_content("can't be blank")
+    panel.find("textarea[aria-label='Edit comment']").fill_in with: "A more useful cell comment"
+    panel.click_button "Save changes"
+    expect(panel).to have_css(".comment__body", text: "A more useful cell comment")
+    expect(plan.comment_threads.first.comments.first.body_markdown).to eq("A more useful cell comment")
   end
 
   it "refreshes posted replies while keeping another discussion's draft and form alive" do
     all(".data-grid tbody tr")[1].all("td")[1].send_keys("c")
     comment("First discussion")
-    panel.click_button "New comment"
-    comment("Second discussion")
+    first = plan.comment_threads.first
+    second = first.dup
+    second.id = nil
+    second.source_token = JSON.parse(all(".data-grid tbody tr")[1].all("td")[1]["data-source-target"])["token"]
+    second.save!
+    create(:comment, comment_thread: second, author_id: user.id, body_markdown: "Second discussion")
+    visit plan_page_path(plan)
+    all(".data-grid tbody tr")[1].all("td")[1].send_keys("c")
     threads = panel.all(".source-comments__discussion")
     threads[0].fill_in "Press r to reply", with: "Unsent first reply"
     threads[1].fill_in "Press r to reply", with: "Posted second reply"
@@ -554,7 +656,7 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     cell = all(".data-grid tbody tr")[1].all("td")[1]
     cell.send_keys("c")
     comment("Resolved cell to revisit")
-    panel.click_button "Resolve (e)"
+    panel.click_button "Resolve"
     expect(cell).to have_no_css(".source-thread-badge")
     find("body").send_keys("s")
     expect(cell).to have_css(".source-thread-badge.anchor-highlight--resolved")
@@ -571,14 +673,14 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     find("dialog td:has(.source-thread-badge.anchor-highlight--resolved)").send_keys(:enter)
     expect(panel).to have_text("Resolved cell to revisit")
     panel.click_button "Reopen"
-    expect(panel).to have_button("Resolve (e)")
+    expect(panel).to have_button("Resolve")
   end
 
   it "opens a resolved source thread from its permalink even though its badge is hidden" do
     all(".data-grid tbody tr")[1].all("td")[1].send_keys("c")
     comment("A resolved source discussion")
     thread = plan.comment_threads.last
-    panel.click_button "Resolve (e)"
+    panel.click_button "Resolve"
     expect(page).to have_no_css(".source-comments", visible: true)
     visit plan_page_path(plan, thread: thread.id)
     expect(panel).to have_text("A resolved source discussion")

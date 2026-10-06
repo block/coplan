@@ -83,6 +83,7 @@ export default class extends Controller {
     const highlights = this.openHighlights
     if (highlights.length === 0) return
 
+    this.syncCurrentIndex(highlights)
     this.currentIndex = (this.currentIndex + 1) % highlights.length
     this.navigateTo(highlights[this.currentIndex])
   }
@@ -91,8 +92,16 @@ export default class extends Controller {
     const highlights = this.openHighlights
     if (highlights.length === 0) return
 
+    this.syncCurrentIndex(highlights)
     this.currentIndex = this.currentIndex <= 0 ? highlights.length - 1 : this.currentIndex - 1
     this.navigateTo(highlights[this.currentIndex])
+  }
+
+  syncCurrentIndex(highlights) {
+    const popover = this.findOpenPopover()
+    const id = popover?.dataset.navigationThreadId || popover?.closest(".thread-popover-data")?.id
+    const index = highlights.findIndex(mark => mark.dataset.threadId === id)
+    if (index >= 0) this.currentIndex = index
   }
 
   navigateTo(mark) {
@@ -118,7 +127,7 @@ export default class extends Controller {
     if (mark.hasAttribute("data-source-badge")) {
       const thread = document.getElementById(mark.dataset.threadId)
       if (thread) mark.dispatchEvent(new CustomEvent("coplan:source-thread", {
-        bubbles: true, cancelable: true, detail: { threadId: thread.dataset.threadId }
+        bubbles: true, cancelable: true, detail: { threadId: thread.dataset.threadId, focusReply: false }
       }))
       return
     }
@@ -175,6 +184,7 @@ export default class extends Controller {
   }
 
   positionPopoverAtMark(popover, mark) {
+    if (popover.dataset.positioned === "true") return
     // Mirrors text_selection_controller: bottom sheet on small screens.
     if (window.matchMedia("(max-width: 640px)").matches) {
       popover.classList.add("thread-popover--sheet")
@@ -226,7 +236,8 @@ export default class extends Controller {
     const form = popover.querySelector(`form[data-action-name='${action}']`)
     if (!form) return
 
-    // Normalize currentIndex if popover was opened via mouse (not j/k)
+    this.syncCurrentIndex(this.openHighlights)
+    // Fall back when the thread has no navigable anchor.
     if (this.currentIndex < 0) {
       this.currentIndex = 0
     }

@@ -14,7 +14,7 @@
     position: fixed child and pin the button to the toolbar instead of the
     viewport. %>
 <span data-controller="coplan--voice"
-      data-action="keydown@document->coplan--voice#keyDown keyup@document->coplan--voice#keyUp blur@window->coplan--voice#interrupt coplan--keyboard-shortcuts:open@document->coplan--voice#interrupt"
+      data-action="coplan:microphone-change@document->coplan--voice#microphoneChanged coplan:dictation-start@document->coplan--voice#otherCapture keydown@document->coplan--voice#keyDown keyup@document->coplan--voice#keyUp blur@window->coplan--voice#interrupt coplan--keyboard-shortcuts:open@document->coplan--voice#interrupt"
       data-coplan--voice-url-value="<%= plan_comment_threads_path(plan) %>"
       data-coplan--voice-dictation-url-value="<%= plan_dictations_path(plan) %>"
       data-coplan--voice-transcription-value="<%= CoPlan::Ai.available? %>"
@@ -29,5 +29,6 @@
           data-tooltip="<%= voice_button_description(current_user.voice_hotkey) %>">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
   </button>
+  <%= render "coplan/plans/microphone_settings" %>
   <span class="voice-status text-sm text-muted" data-coplan--voice-target="status" aria-live="polite"></span>
 </span>

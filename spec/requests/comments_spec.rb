@@ -61,6 +61,63 @@ RSpec.describe "Comments", type: :request do
     ActionController::Base.perform_caching = original_perform_caching
   end
 
+  describe "PATCH update" do
+    let!(:comment) { create(:comment, comment_thread: thread_record, author_id: alice.id, body_markdown: "Original") }
+
+    def update_comment(body = "Revised **answer**")
+      patch plan_comment_thread_comment_path(plan, thread_record, comment),
+        params: { comment: { body_markdown: body, author_id: "forged" } },
+        headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    end
+
+    it "updates the author's comment and broadcasts a requestless replacement" do
+      allow(CoPlan::Broadcaster).to receive(:replace_to)
+      expect(CoPlan::Broadcaster).to receive(:replace_to).with(plan,
+        target: ActionView::RecordIdentifier.dom_id(comment), partial: "coplan/comments/comment", locals: { comment: comment })
+      update_comment
+      expect(response).to have_http_status(:ok)
+      expect(comment.reload.body_markdown).to eq("Revised **answer**")
+      expect(comment.author_id).to eq(alice.id)
+      expect(response.body).to include('action="replace"', '<strong>answer</strong>')
+    end
+
+    it "keeps the stored comment and returns an inline error for an empty edit" do
+      update_comment(" ")
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(comment.reload.body_markdown).to eq("Original")
+      expect(response.body).to include("edit_error_comment_#{comment.id}", "can't be blank")
+    end
+
+    it "rejects another person's comment even for an admin" do
+      comment.update!(author_id: create(:coplan_user).id)
+      update_comment
+      expect(response).to have_http_status(:not_found)
+      expect(comment.reload.body_markdown).to eq("Original")
+    end
+
+    it "rejects an agent-authored comment owned by the same user" do
+      comment.update!(author_type: "local_agent", agent_name: "Codex")
+      update_comment
+      expect(response).to have_http_status(:not_found)
+      expect(comment.reload.body_markdown).to eq("Original")
+    end
+
+    it "does not restore or edit a deleted comment" do
+      comment.soft_delete!
+      update_comment
+      expect(response).to have_http_status(:not_found)
+      expect(comment.reload.body_markdown).to eq("Original")
+    end
+
+    it "rejects a comment nested under a different thread" do
+      other_thread = create(:comment_thread, plan: plan)
+      patch plan_comment_thread_comment_path(plan, other_thread, comment),
+        params: { comment: { body_markdown: "Changed" } }
+      expect(response).to have_http_status(:not_found)
+      expect(comment.reload.body_markdown).to eq("Original")
+    end
+  end
+
   describe "DELETE destroy" do
     let!(:comment) do
       create(:comment, comment_thread: thread_record, author_type: "human", author_id: alice.id, body_markdown: "to be deleted")

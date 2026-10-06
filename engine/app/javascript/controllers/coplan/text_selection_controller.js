@@ -16,12 +16,6 @@ export default class extends Controller {
     this.selectedText = null
     this._activeMark = null
     this._activePopover = null
-    // "hover" popovers auto-close on mouseleave; "pinned" (click / j-k) stay open
-    // until explicitly dismissed (Esc, click outside, native light-dismiss).
-    this._openMode = null
-    this._hoverOpenTimer = null
-    this._hoverCloseTimer = null
-    this._hoverPendingMark = null
     this._boundHandleMouseUp = this.handleMouseUp.bind(this)
     this._boundHandleDocumentMouseDown = this.handleDocumentMouseDown.bind(this)
     this._handleScroll = this._handleScroll.bind(this)
@@ -31,8 +25,6 @@ export default class extends Controller {
     // inputs.
     this._boundBeforeCache = () => { if (this.hasFormTarget) this.hideAndResetForm() }
     document.addEventListener("turbo:before-cache", this._boundBeforeCache)
-    this._boundPopoverEnter = this._cancelHoverClose.bind(this)
-    this._boundPopoverLeave = this._handlePopoverLeave.bind(this)
     this._boundPopoverToggle = this._handlePopoverToggle.bind(this)
     this.contentTarget.addEventListener("mouseup", this._boundHandleMouseUp)
     document.addEventListener("mousedown", this._boundHandleDocumentMouseDown)
@@ -64,8 +56,6 @@ export default class extends Controller {
     document.removeEventListener("mousedown", this._boundHandleDocumentMouseDown)
     document.removeEventListener("turbo:before-cache", this._boundBeforeCache)
     document.removeEventListener("scroll", this._handleScroll, { capture: true })
-    this._cancelHoverOpen()
-    this._cancelHoverClose()
     clearTimeout(this._linkedThreadRetry)
     if (this._threadsObserver) {
       this._threadsObserver.disconnect()
@@ -90,7 +80,7 @@ export default class extends Controller {
 
   dismiss(event) {
     // Close the comment form if it's visible
-    if (this.hasFormTarget && this.formTarget.style.display === "block") {
+    if (this.hasFormTarget && this.formTarget.matches(":popover-open")) {
       event.preventDefault()
       this.hideAndResetForm()
       return
@@ -189,6 +179,17 @@ export default class extends Controller {
     this.openCommentForm(event)
   }
 
+  commentDraftKey() {
+    return JSON.stringify([this.anchorInputTarget.value, this.contextInputTarget.value, this.occurrenceInputTarget.value])
+  }
+
+  dismissCommentOutside(event) {
+    if (event.button !== 0 || !this.formTarget.matches(":popover-open") || this.formTarget.contains(event.target)) return
+    this.commentDrafts ||= new Map()
+    this.commentDrafts.set(this.commentDraftKey(), this.formTarget.querySelector("textarea").value)
+    this.hideAndResetForm(true)
+  }
+
   async openCommentForm(event) {
     event.preventDefault()
     if (!this.selectedText) return
@@ -207,28 +208,17 @@ export default class extends Controller {
       ? this.selectedText.substring(0, 120) + "…"
       : this.selectedText
     this.anchorPreviewTarget.style.display = "block"
+    this.formTarget.querySelector("textarea").value = this.commentDrafts?.get(this.commentDraftKey()) || ""
 
-    // Position the form: next to the selection on desktop, or as a fixed
-    // full-width bottom sheet on small screens — an absolutely-positioned
-    // box runs off a phone viewport, and the keyboard makes it worse.
-    if (this._isMobile()) {
-      this.formTarget.classList.add("comment-form--sheet")
-      this.formTarget.style.top = ""
-      this.formTarget.style.left = ""
-    } else {
-      this.formTarget.classList.remove("comment-form--sheet")
-      this.formTarget.style.top = this.popoverTarget.style.top
-      this.formTarget.style.left = this.popoverTarget.style.left
-    }
-    this.formTarget.style.display = "block"
-    if (this._isMobile()) {
-      // position:fixed alone won't pin the sheet to the viewport: the
-      // glass panel's backdrop-filter makes it the containing block, so
-      // "fixed" resolves against the panel. The popover top layer escapes
-      // that; "manual" keeps our own show/hide in charge (no light-dismiss
-      // mid-typing).
-      this.formTarget.setAttribute("popover", "manual")
-      try { this.formTarget.showPopover() } catch {}
+    // Move the whole window in viewport coordinates, including the quote.
+    const anchor = this.popoverTarget.getBoundingClientRect()
+    this.formTarget.classList.toggle("comment-form--sheet", this._isMobile())
+    this.formTarget.style.display = "flex"
+    this.formTarget.setAttribute("popover", "manual")
+    this.formTarget.showPopover()
+    if (!this._isMobile()) {
+      this.formTarget.style.left = `${Math.max(12, Math.min(anchor.left, innerWidth - this.formTarget.offsetWidth - 12))}px`
+      this.formTarget.style.top = `${Math.max(12, Math.min(anchor.bottom + 8, innerHeight - this.formTarget.offsetHeight - 12))}px`
     }
     this.popoverTarget.style.display = "none"
 
@@ -259,12 +249,18 @@ export default class extends Controller {
       const textarea = form.querySelector("textarea")
       if (textarea) {
         textarea.value = ""
+        textarea.dispatchEvent(new Event("input", { bubbles: true }))
         textarea.blur()
       }
+      const comments = form.closest(".thread-popover, .source-comments__thread")?.querySelector(".thread-popover__comments")
+      // Turbo inserts the reply on its render frame, after submit-end.
+      if (comments) requestAnimationFrame(() => { comments.scrollTop = comments.scrollHeight })
     }
   }
 
-  hideAndResetForm() {
+  hideAndResetForm(preserveDraft = false) {
+    if (!preserveDraft) this.commentDrafts?.delete(this.commentDraftKey())
+    this.formTarget.dispatchEvent(new CustomEvent("coplan:composer-close", { bubbles: true }))
     if (this.formTarget.hasAttribute("popover")) {
       try { this.formTarget.hidePopover() } catch {}
       this.formTarget.removeAttribute("popover")
@@ -309,21 +305,18 @@ export default class extends Controller {
 
   openThreadPopover(event) {
     event.stopPropagation()
-    this._showThreadPopoverFor(event.currentTarget, "pinned")
+    this._showThreadPopoverFor(event.currentTarget)
   }
 
   openEditorThread(event) {
     event.preventDefault()
     event.stopPropagation()
-    this._showThreadPopoverFor(event.currentTarget, "pinned")
+    this._showThreadPopoverFor(event.currentTarget)
   }
 
   openDetachedThread(event) {
-    this._showThreadPopoverFor(event.currentTarget, "pinned")
+    this._showThreadPopoverFor(event.currentTarget)
   }
-
-  editorThreadEnter(event) { this.handleMarkHoverEnter(event.currentTarget) }
-  editorThreadLeave(event) { this.handleMarkHoverLeave(event.currentTarget) }
 
   editorPreviewSettled(event) {
     const preview = event.target.closest(".inline-editor .document-editor__block-preview")
@@ -365,7 +358,7 @@ export default class extends Controller {
         `anchor-highlight anchor-highlight--${status}`, preview)
       marks.forEach(mark => {
         mark.dataset.threadId = thread.id
-        mark.dataset.action = "click->coplan--text-selection#openEditorThread mouseenter->coplan--text-selection#editorThreadEnter mouseleave->coplan--text-selection#editorThreadLeave"
+        mark.dataset.action = "click->coplan--text-selection#openEditorThread"
       })
     }
   }
@@ -392,16 +385,24 @@ export default class extends Controller {
 
     event.preventDefault()
     const link = event.currentTarget
-    const label = link.querySelector("[data-copy-label]")
-
+    const feedback = link.querySelector("[data-copy-label]")
     try {
       await navigator.clipboard.writeText(link.href)
-      label.textContent = "Copied!"
-      setTimeout(() => { label.textContent = "Copy link" }, 2000)
+      link.dataset.copied = "true"
+      link.setAttribute("aria-label", "Link copied")
+      feedback.textContent = "Copied"
     } catch {
-      label.textContent = "Copy failed"
-      setTimeout(() => { label.textContent = "Copy link" }, 2000)
+      link.setAttribute("aria-label", "Could not copy link — try again")
+      feedback.textContent = "Couldn’t copy"
+      link.dataset.copyFailed = "true"
     }
+    clearTimeout(link._copyFeedbackTimer)
+    link._copyFeedbackTimer = setTimeout(() => {
+      delete link.dataset.copied
+      delete link.dataset.copyFailed
+      link.setAttribute("aria-label", "Copy link")
+      feedback.textContent = "Copy link"
+    }, 2000)
   }
 
   _revealDeckSlide(element) {
@@ -411,9 +412,9 @@ export default class extends Controller {
     }))
   }
 
-  // Internal: open the popover for a given mark in either "hover" or "pinned" mode.
+  // Explicit click, keyboard, or deep-link intent opens a persistent discussion.
   // Returns true if the popover was shown, false otherwise.
-  _showThreadPopoverFor(trigger, mode) {
+  _showThreadPopoverFor(trigger) {
     if (!trigger) return false
     this._revealDeckSlide(trigger)
     const threadId = trigger.dataset.threadId
@@ -422,14 +423,9 @@ export default class extends Controller {
     const popover = document.getElementById(`${threadId}_popover`)
     if (!popover) return false
 
-    // Cancel any pending hover timers — we're committing to this popover now.
-    this._cancelHoverOpen()
-    this._cancelHoverClose()
-
     // If a different popover is already open, close it first. showPopover() throws
     // InvalidStateError if the same popover is already open.
     if (this._activePopover && this._activePopover !== popover) {
-      this._detachPopoverHoverListeners(this._activePopover)
       try { this._activePopover.hidePopover() } catch {}
     }
 
@@ -443,59 +439,28 @@ export default class extends Controller {
       }
     }
     this._positionPopoverAtMark(popover, trigger)
+    if (!wasOpen) popover.querySelector(".thread-popover__comments").scrollTop = 0
     popover.style.visibility = "visible"
 
     this._activeMark = trigger
     this._activePopover = popover
-    this._openMode = mode
 
-    this._attachPopoverHoverListeners(popover)
     this._attachPopoverToggleListener(popover)
     return true
   }
 
-  _restoreActiveThreadPopover(threadId, mode) {
+  _restoreActiveThreadPopover(threadId) {
     if (!threadId || !this._activePopover) return
 
     const replacementMark = this.contentTarget.querySelector(`.anchor-highlight[data-thread-id="${threadId}"]`)
     if (replacementMark && this._findOpenPopover() === this._activePopover) {
-      this._showThreadPopoverFor(replacementMark, mode || "pinned")
+      this._showThreadPopoverFor(replacementMark)
       return
     }
 
-    this._detachPopoverHoverListeners(this._activePopover)
     try { this._activePopover.hidePopover() } catch {}
     this._activeMark = null
     this._activePopover = null
-    this._openMode = null
-  }
-
-  handleMarkHoverEnter(mark) {
-    // Already showing this exact popover — just keep it alive.
-    if (this._activePopover && this._activeMark === mark) {
-      this._cancelHoverClose()
-      return
-    }
-
-    // Already showing some other hover popover — switch immediately (snappier
-    // than waiting another full open delay, like a tooltip group).
-    if (this._openMode === "hover" && this._activePopover) {
-      this._cancelHoverOpen()
-      this._cancelHoverClose()
-      this._showThreadPopoverFor(mark, "hover")
-      return
-    }
-
-    // A pinned popover (click here or j/k from comment_nav) is open — don't
-    // fight the user with a flicker. Check the DOM, not just our own state,
-    // because comment_nav opens popovers without going through this controller.
-    if (this._isAnyPopoverOpen()) return
-
-    this._scheduleHoverOpen(mark)
-  }
-
-  _isAnyPopoverOpen() {
-    return !!this._findOpenPopover()
   }
 
   // Mirror comment_nav_controller#findOpenPopover so we work in browsers where
@@ -509,81 +474,6 @@ export default class extends Controller {
     }
   }
 
-  handleMarkHoverLeave(mark) {
-    // If the open delay was pending for this mark, cancel it.
-    if (this._hoverPendingMark === mark) {
-      this._cancelHoverOpen()
-    }
-    // Only auto-close hover-opened popovers; pinned ones stay until dismissed.
-    if (this._openMode === "hover" && this._activeMark === mark) {
-      this._scheduleHoverClose()
-    }
-  }
-
-  _scheduleHoverOpen(mark) {
-    this._cancelHoverOpen()
-    this._hoverPendingMark = mark
-    this._hoverOpenTimer = setTimeout(() => {
-      this._hoverOpenTimer = null
-      this._hoverPendingMark = null
-      // Re-check guards in case state changed during the delay. Don't open
-      // if any other popover is currently pinned (click or j/k).
-      const ourPopover = document.getElementById(`${mark.dataset.threadId}_popover`)
-      const openInDom = this._findOpenPopover()
-      if (openInDom && openInDom !== ourPopover) return
-      this._showThreadPopoverFor(mark, "hover")
-    }, 350)
-  }
-
-  _cancelHoverOpen() {
-    if (this._hoverOpenTimer) {
-      clearTimeout(this._hoverOpenTimer)
-      this._hoverOpenTimer = null
-    }
-    this._hoverPendingMark = null
-  }
-
-  _scheduleHoverClose() {
-    this._cancelHoverClose()
-    this._hoverCloseTimer = setTimeout(() => {
-      this._hoverCloseTimer = null
-      if (this._openMode !== "hover" || !this._activePopover) return
-      this._detachPopoverHoverListeners(this._activePopover)
-      try { this._activePopover.hidePopover() } catch {}
-      this._activePopover = null
-      this._activeMark = null
-      this._openMode = null
-    }, 250)
-  }
-
-  _cancelHoverClose() {
-    if (this._hoverCloseTimer) {
-      clearTimeout(this._hoverCloseTimer)
-      this._hoverCloseTimer = null
-    }
-  }
-
-  _handlePopoverLeave() {
-    // Only restart the close timer for hover-opened popovers.
-    if (this._openMode === "hover") {
-      this._scheduleHoverClose()
-    }
-  }
-
-  _attachPopoverHoverListeners(popover) {
-    if (popover._coplanHoverBound) return
-    popover.addEventListener("mouseenter", this._boundPopoverEnter)
-    popover.addEventListener("mouseleave", this._boundPopoverLeave)
-    popover._coplanHoverBound = true
-  }
-
-  _detachPopoverHoverListeners(popover) {
-    if (!popover._coplanHoverBound) return
-    popover.removeEventListener("mouseenter", this._boundPopoverEnter)
-    popover.removeEventListener("mouseleave", this._boundPopoverLeave)
-    popover._coplanHoverBound = false
-  }
-
   // Bind once per popover element. The toggle listener stays attached for the
   // life of the element so we always learn about native light-dismiss (Esc,
   // click outside, another popover="auto" opening) — not just our own
@@ -594,18 +484,15 @@ export default class extends Controller {
     popover._coplanToggleBound = true
   }
 
-  // Without this, native light-dismiss would leave _activePopover/_openMode
-  // stale, which then blocks future hover-opens (the "pinned popover already
-  // open" guard would short-circuit forever).
+  // Keep the tracked anchor in sync with native dismissal.
   _handlePopoverToggle(event) {
     if (event.newState !== "closed") return
     if (event.target !== this._activePopover) return
-    this._cancelHoverClose()
-    this._detachPopoverHoverListeners(event.target)
     this._activePopover = null
     this._activeMark = null
-    this._openMode = null
   }
+
+  reposition() { this._handleScroll() }
 
   _handleScroll() {
     if (!this._activeMark || !this._activePopover) return
@@ -624,6 +511,7 @@ export default class extends Controller {
   }
 
   _positionPopoverAtMark(popover, mark) {
+    if (popover.dataset.positioned === "true") return
     // Small screens: thread popovers become a fixed bottom sheet instead
     // of floating beside the mark (where they'd overflow the viewport).
     if (this._isMobile()) {
@@ -738,7 +626,6 @@ export default class extends Controller {
 
   highlightAnchors() {
     const activeThreadId = this._activeMark?.dataset.threadId
-    const activeMode = this._openMode
 
     // Remove existing anchor highlights before re-highlighting
     this.contentTarget.querySelectorAll("mark.anchor-highlight").forEach(mark => {
@@ -773,16 +660,14 @@ export default class extends Controller {
             if (!mark.dataset.threadId) {
               mark.dataset.threadId = threadId
               mark.style.cursor = "pointer"
-              mark.addEventListener("click", (e) => this.openThreadPopover(e))
-              mark.addEventListener("mouseenter", () => this.handleMarkHoverEnter(mark))
-              mark.addEventListener("mouseleave", () => this.handleMarkHoverLeave(mark))
+              mark.dataset.action = "click->coplan--text-selection#openThreadPopover"
             }
           })
         }
       }
     })
 
-    this._restoreActiveThreadPopover(activeThreadId, activeMode)
+    this._restoreActiveThreadPopover(activeThreadId)
     this.element.dispatchEvent(new CustomEvent("coplan:anchors-updated", { bubbles: true }))
   }
 
@@ -931,7 +816,7 @@ export default class extends Controller {
             this._revealDeckSlide(currentMark)
             currentMark.scrollIntoView({ behavior: "instant", block: "center" })
           }
-          if (this._showThreadPopoverFor(trigger, "pinned")) {
+          if (this._showThreadPopoverFor(trigger)) {
             this._pendingThreadId = null
             this._pendingThreadOrigin = null
             return

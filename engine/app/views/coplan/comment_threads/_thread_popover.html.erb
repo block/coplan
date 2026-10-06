@@ -15,7 +15,9 @@
      data-plan-author-id="<%= plan.created_by_user_id %>"
      data-thread-author-id="<%= thread.created_by_user_id %>">
 
-  <div popover="auto" id="<%= dom_id(thread) %>_popover" class="thread-popover">
+  <div popover="auto" id="<%= dom_id(thread) %>_popover" class="thread-popover comment-window" data-controller="coplan--composer" data-action="input->coplan--composer#fitDraft focusin->coplan--composer#fitDraft resize@window->coplan--composer#constrain toggle->coplan--composer#toggled coplan:composer-close->coplan--composer#closed">
+    <%= render "coplan/comment_threads/window_controls", thread: thread, plan: plan %>
+    <% if thread.closed? || thread.out_of_date? %>
     <div class="thread-popover__header">
       <% if thread.closed? %>
         <span class="badge badge--<%= thread.status %>"><%= thread.status %></span>
@@ -23,14 +25,8 @@
       <% if thread.out_of_date? %>
         <span class="badge badge--archived">out of date</span>
       <% end %>
-      <%= link_to plan_browse_path(plan, thread: thread.id),
-                  class: "thread-popover__permalink btn btn--secondary btn--sm",
-                  title: "Copy link to this comment",
-                  data: { action: "coplan--text-selection#copyThreadLink" } do %>
-        <span aria-hidden="true">🔗</span>
-        <span data-copy-label>Copy link</span>
-      <% end %>
     </div>
+    <% end %>
 
     <% if thread.anchored? %>
       <blockquote class="thread-popover__quote"><%= thread.anchor_preview %></blockquote>
@@ -48,22 +44,9 @@
         viewer's role (plan author / thread author) reveals them via CSS. %>
     <% if thread.open? %>
       <div class="thread-popover__reply">
-        <%= form_with url: plan_comment_thread_comments_path(plan, thread), method: :post, data: { action: "turbo:submit-end->coplan--text-selection#resetReplyForm" } do |f| %>
-          <div class="form-group">
-            <textarea name="comment[body_markdown]" rows="2" placeholder="Press r to reply" required
-              data-controller="coplan--comment-form"></textarea>
-          </div>
-          <button type="submit" class="btn btn--secondary btn--sm">Reply</button>
-        <% end %>
+        <%= render "coplan/comment_threads/reply_form", thread: thread, plan: plan %>
       </div>
 
-      <div class="thread-popover__actions comment-actions--owner">
-        <%= button_to "Resolve (e)", resolve_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm", form: { "data-action-name": "resolve" } %>
-      </div>
-    <% else %>
-      <div class="thread-popover__actions comment-actions--owner">
-        <%= button_to "Reopen", reopen_plan_comment_thread_path(plan, thread), method: :patch, class: "btn btn--secondary btn--sm" %>
-      </div>
     <% end %>
   </div>
 </div>

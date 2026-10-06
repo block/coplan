@@ -433,10 +433,11 @@ RSpec.describe "Comment UX", type: :system do
 
       expect(page).to have_css(".thread-popover", visible: true)
       within(".thread-popover") do
-        expect(page).to have_link("Copy link", href: plan_page_path(plan, thread: thread.id))
+        expect(page).to have_link("Copy link", enable_aria_label: true, href: plan_page_path(plan, thread: thread.id))
         expect(page).to have_content("Why not monolith?")
-        click_link "Copy link"
-        expect(page).to have_link("Copied!")
+        find("[aria-label='Copy link']").click
+        expect(page).to have_link("Link copied", enable_aria_label: true)
+        expect(page).to have_css(".comment-window__copy-feedback", text: "Copied")
       end
     end
 
@@ -567,7 +568,7 @@ RSpec.describe "Comment UX", type: :system do
       find("mark.anchor-highlight--open").click
 
       within(".thread-popover") do
-        expect(page).to have_button("Resolve (e)")
+        expect(page).to have_button("Resolve")
       end
     end
   end
@@ -582,7 +583,7 @@ RSpec.describe "Comment UX", type: :system do
 
       within(".thread-popover") do
         expect(page).to have_css("textarea[placeholder='Press r to reply']")
-        expect(page).to have_button("Resolve (e)")
+        expect(page).to have_button("Resolve")
       end
     end
 
@@ -823,7 +824,9 @@ RSpec.describe "Comment UX", type: :system do
       # Open the comment form programmatically (simulating text selection flow)
       page.execute_script <<~JS
         const form = document.getElementById('new-comment-form');
-        form.style.display = 'block';
+        form.style.display = 'flex';
+        form.setAttribute('popover', 'manual');
+        form.showPopover();
         form.querySelector('[name="comment_thread[anchor_text]"]').value = 'microservices architecture';
         form.querySelector('textarea').focus();
       JS
@@ -841,7 +844,9 @@ RSpec.describe "Comment UX", type: :system do
 
       page.execute_script <<~JS
         const form = document.getElementById('new-comment-form');
-        form.style.display = 'block';
+        form.style.display = 'flex';
+        form.setAttribute('popover', 'manual');
+        form.showPopover();
         form.querySelector('[name="comment_thread[anchor_text]"]').value = 'microservices architecture';
       JS
 

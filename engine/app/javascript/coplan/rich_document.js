@@ -434,7 +434,7 @@ function commentDecorations(doc, comments) {
       decorations.push(Decoration.inline(start, end, {
         nodeName: "mark", class: `anchor-highlight anchor-highlight--${comment.status}`,
         "data-thread-id": comment.id,
-        "data-action": "click->coplan--text-selection#openEditorThread mouseenter->coplan--text-selection#editorThreadEnter mouseleave->coplan--text-selection#editorThreadLeave"
+        "data-action": "click->coplan--text-selection#openEditorThread"
       }, { expected: doc.textBetween(start, end) }))
     }
     for (let i = offset; i < offset + needle.length; i++) {

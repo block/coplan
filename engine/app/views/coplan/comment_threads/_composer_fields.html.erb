@@ -1,16 +1,33 @@
-<%# Shared by text selections and diagram/table selections. Keep one composer. %>
-<div class="form-group">
-  <%= text_area_tag "comment_thread[body_markdown]", nil,
-        id: local_assigns.fetch(:field_id, "comment_thread_body_markdown"),
-        rows: 3, placeholder: "Write a comment...", required: true,
-        aria: { label: "New comment" },
-        data: { controller: "coplan--comment-form",
-                "coplan--comment-form-search-url-value": search_users_path }.merge(local_assigns.fetch(:textarea_data, {})) %>
-</div>
-<div class="comment-form__error text-sm" role="status" id="<%= local_assigns.fetch(:error_id, "new-comment-form-error") %>"></div>
-<div class="comment-form__actions">
-  <button type="submit" class="btn btn--primary btn--sm" data-turbo-submits-with="Posting…">Comment</button>
-  <button type="button" class="btn btn--secondary btn--sm"
-          aria-label="<%= local_assigns.fetch(:cancel_label, "Cancel") %>"
-          data-action="<%= local_assigns.fetch(:cancel_action, "coplan--text-selection#cancelComment") %>">Cancel</button>
+<% label = local_assigns.fetch(:label, "New comment") %>
+<% submit_label = local_assigns.fetch(:submit_label, "Comment") %>
+<div class="composer">
+    <div class="composer__writing" data-controller="coplan--dictation"
+         data-coplan--dictation-url-value="<%= plan_dictations_path(local_assigns.fetch(:plan)) %>"
+         data-coplan--dictation-transcription-value="<%= CoPlan::Ai.available? %>"
+         data-action="coplan:microphone-change@document->coplan--dictation#microphoneChanged coplan:composer-close@document->coplan--dictation#closed coplan:dictation-start@document->coplan--dictation#otherStarted">
+      <%= text_area_tag local_assigns.fetch(:field_name, "comment_thread[body_markdown]"), local_assigns[:body],
+            id: local_assigns.fetch(:field_id, "comment_thread_body_markdown"),
+            rows: 3, placeholder: local_assigns.fetch(:placeholder, "Write a comment..."), required: true,
+            aria: { label: label }, class: "composer__input",
+            data: { controller: "coplan--comment-form", "coplan--dictation-target": "input",
+                    "coplan--comment-form-search-url-value": search_users_path }.merge(local_assigns.fetch(:textarea_data, {})) %>
+      <div class="composer__status" role="status" aria-live="polite" data-coplan--dictation-target="status"></div>
+      <div class="comment-form__error text-sm" role="alert" id="<%= local_assigns.fetch(:error_id, "new-comment-form-error") %>"></div>
+      <div class="composer__toolbar">
+        <div class="composer__voice">
+        <button type="button" class="composer__dictate" data-coplan--dictation-target="button" data-action="coplan--dictation#toggle" aria-pressed="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg>
+          <span data-coplan--dictation-target="label">Dictate</span>
+        </button>
+        <%= render "coplan/plans/microphone_settings" %>
+        </div>
+        <div class="composer__send-actions">
+          <% if local_assigns.fetch(:cancel_action, "coplan--text-selection#cancelComment").present? %>
+            <button type="button" class="composer__cancel" aria-label="<%= local_assigns.fetch(:cancel_label, "Cancel") %>"
+                    data-action="<%= local_assigns.fetch(:cancel_action, "coplan--text-selection#cancelComment") %>">Cancel</button>
+          <% end %>
+          <button type="submit" class="btn btn--primary btn--sm composer__submit" data-turbo-submits-with="<%= submit_label == 'Save changes' ? 'Saving…' : 'Posting…' %>"><%= submit_label %> <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 13V3M3 8l5-5 5 5"/></svg></button>
+        </div>
+      </div>
+    </div>
 </div>

@@ -1,0 +1,32 @@
+<div class="comment-window__bar">
+  <button type="button" class="comment-window__move" aria-label="Move comment window" title="Drag to move · Arrow keys to reposition"
+          data-action="pointerdown->coplan--composer#startMove pointermove->coplan--composer#move pointerup->coplan--composer#endGesture pointercancel->coplan--composer#endGesture keydown->coplan--composer#moveKey">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><circle cx="4" cy="3" r="1"/><circle cx="8" cy="3" r="1"/><circle cx="4" cy="6" r="1"/><circle cx="8" cy="6" r="1"/><circle cx="4" cy="9" r="1"/><circle cx="8" cy="9" r="1"/></svg>
+    <span><%= local_assigns.fetch(:title, "Discussion") %></span>
+  </button>
+  <% if local_assigns[:thread] %>
+    <div class="comment-window__tools" data-window-thread-tools data-plan-author-id="<%= plan.created_by_user_id %>" data-thread-author-id="<%= thread.created_by_user_id %>">
+    <div class="thread-popover__actions comment-actions--owner">
+      <% if thread.open? %>
+        <%= button_to "Resolve", resolve_plan_comment_thread_path(plan, thread), method: :patch, class: "comment-window__action", title: "Resolve discussion (E)", form: { "data-action-name": "resolve" } %>
+      <% else %>
+        <%= button_to "Reopen", reopen_plan_comment_thread_path(plan, thread), method: :patch, class: "comment-window__action" %>
+      <% end %>
+    </div>
+    <%= link_to plan_browse_path(plan, thread: thread.id), class: "comment-window__icon thread-popover__permalink", aria: { label: "Copy link" }, data: { action: "coplan--text-selection#copyThreadLink" } do %>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 .1l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7M14 11a5 5 0 0 0-7-.1l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg>
+      <span class="comment-window__copy-feedback" role="status" data-copy-label>Copy link</span>
+    <% end %>
+    </div>
+  <% end %>
+  <% if local_assigns[:close_action] %>
+    <div class="comment-window__tools" data-coplan--source-comments-target="threadTools" data-controller="coplan--viewer-role" data-coplan--viewer-role-viewer-id-value="<%= local_assigns[:viewer_id] %>"></div>
+    <button type="button" class="comment-window__icon" aria-label="Close element comments" title="Close" data-action="<%= close_action %>">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 4 8 8m0-8-8 8"/></svg>
+    </button>
+  <% end %>
+</div>
+<button type="button" class="comment-window__resize" aria-label="Resize comment window" title="Drag to resize · Arrow keys to adjust"
+        data-action="pointerdown->coplan--composer#startResize pointermove->coplan--composer#move pointerup->coplan--composer#endGesture pointercancel->coplan--composer#endGesture keydown->coplan--composer#resizeKey">
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="m5 12 7-7m-3 7 3-3"/></svg>
+</button>

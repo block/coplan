@@ -27,3 +27,4 @@ pin "coplan/merge_text", to: "coplan/merge_text.js", preload: false
 
 pin "coplan/syntax_highlight", to: "coplan/syntax_highlight.js", preload: false
 pin "coplan/code_highlight", to: "coplan/code_highlight.js", preload: false
+pin "coplan/microphone", to: "coplan/microphone.js", preload: true

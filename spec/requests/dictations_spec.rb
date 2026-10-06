@@ -16,6 +16,15 @@ RSpec.describe "Dictations", type: :request do
 
   before { sign_in_as(alice) }
 
+  it "returns draft dictation verbatim without interpreting or posting it" do
+    expect(CoPlan::Comments::InterpretDictation).not_to receive(:call)
+    expect {
+      post plan_dictations_path(plan), params: { transcript: "Um, keep these exact words.", mode: "draft" }, as: :json
+    }.not_to change(CoPlan::Comment, :count)
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to eq("transcript" => "Um, keep these exact words.")
+  end
+
   it "returns the cleaned body and the span" do
     allow(CoPlan::Ai).to receive(:call)
       .and_return({ "text" => "This is too grand.", "span" => "world domination" }.to_json)
@@ -161,6 +170,16 @@ RSpec.describe "Dictations", type: :request do
       file.write(content)
       file.rewind
       Rack::Test::UploadedFile.new(file.path, type)
+    end
+
+    it "transcribes draft audio without interpreting or posting comments" do
+      expect(CoPlan::Ai).to receive(:transcribe).and_return("Spoken words for my draft.")
+      expect(CoPlan::Comments::InterpretDictation).not_to receive(:call)
+      expect {
+        post plan_dictations_path(plan), params: { audio: audio_upload, mode: "draft", duration_ms: 3000 }
+      }.not_to change(CoPlan::Comment, :count)
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to eq("transcript" => "Spoken words for my draft.")
     end
 
     it "transcribes the recording and interprets what it heard" do

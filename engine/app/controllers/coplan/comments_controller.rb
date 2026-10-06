@@ -41,6 +41,38 @@ module CoPlan
       end
     end
 
+    def update
+      authorize!(@plan, :show?)
+      comment = @thread.comments.find(params[:id])
+      authorize!(comment, :update?)
+
+      unless comment.update(params.expect(comment: [ :body_markdown ]))
+        render turbo_stream: turbo_stream.update(
+          ActionView::RecordIdentifier.dom_id(comment, :edit_error),
+          comment.errors.full_messages.to_sentence
+        ), status: :unprocessable_content
+        return
+      end
+
+      target = ActionView::RecordIdentifier.dom_id(comment)
+      locals = { comment: comment }
+      Broadcaster.replace_to(@plan, target: target, partial: "coplan/comments/comment", locals: locals)
+      html = render_to_string(partial: "coplan/comments/comment", locals: locals, formats: [ :html ])
+      streams = [ turbo_stream.replace(target, html) ]
+
+      unless @thread.anchored?
+        locals = { threads: @plan.comment_threads.with_kept_comments.includes(:comments).order(:created_at) }
+        Broadcaster.replace_to(@plan, target: "plan-general-comments", partial: "coplan/plans/general_comments", locals: locals)
+        html = render_to_string(partial: "coplan/plans/general_comments", locals: locals, formats: [ :html ])
+        streams << turbo_stream.replace("plan-general-comments", html)
+      end
+
+      respond_to do |format|
+        format.turbo_stream { render turbo_stream: streams }
+        format.html { redirect_to helpers.plan_browse_path(@plan), notice: "Comment updated." }
+      end
+    end
+
     def destroy
       comment = @thread.comments.find(params[:id])
       policy = CommentPolicy.new(current_user, comment)
