@@ -141,6 +141,11 @@ export default class extends Controller {
       if (!response.ok) return
       const incoming = new DOMParser().parseFromString(await response.text(), "text/html")
       if (sequence !== this.refreshSequence || !this.element.isConnected) return
+      const tray = incoming.querySelector(".review-tray")
+      if (tray && !this.element.querySelector(".review-tray")) {
+        this.element.append(tray)
+        document.body.classList.add("has-review-tray")
+      }
       // Preserve the tray, its open state, dictation and all unsent text.
       for (const selector of ["[data-review-status]", "[data-review-decision-actions]", "[data-review-chip-label]", "[data-review-assignments]", "[data-review-history]"]) {
         const from = incoming.querySelector(selector), to = this.element.querySelector(selector)

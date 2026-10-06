@@ -118,8 +118,10 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   it "lets the author find a person and assign required or optional review" do
     other = create(:coplan_user, username: "new-reviewer", name: "Another Reviewer", email: "another-reviewer@example.com")
+    task.update!(status: "withdrawn")
     sign_in_browser(author)
-    click_button "Approvals · 1"
+    expect(page).to have_no_css(".review-tray", visible: :all)
+    click_button "Approvals", exact: true
     fill_in "Request a review", with: "Another Reviewer"
     expect(page).to have_css(".review-search-result", text: "Another Reviewer")
     find(".review-search-result", text: "Another Reviewer").click
@@ -127,6 +129,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     click_button "Request review", exact: true
     expect(page).to have_css(".review-person", text: "Another Reviewer")
     expect(plan.review_requests.find_by!(reviewer: other).requirement).to eq("optional")
+    expect(page).to have_css(".review-tray", visible: :all)
   end
 
   it "uses the existing dictation composer and keeps the bar within narrow screens in both themes" do

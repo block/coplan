@@ -8,4 +8,12 @@ FactoryBot.define do
     status { "pending" }
     requested_at { Time.current }
   end
+
+  factory :review_response, class: "CoPlan::ReviewResponse" do
+    review_request
+    plan_version { review_request.plan.current_plan_version }
+    user { review_request.reviewer }
+    decision { "approved" }
+    actor_type { "human" }
+  end
 end

@@ -56,7 +56,7 @@
     </div></details>
     <p class="review-error" role="alert" data-coplan--review-tray-target="managementError"></p>
   </dialog>
-  <% if plan.current_content.present? %>
+  <% if active_requests.any? && plan.current_content.present? %>
     <section class="review-tray" aria-label="Discussion and review">
       <div class="review-tray__discussion" data-coplan--review-tray-target="discussion" hidden>
         <div class="review-tray__heading"><strong data-coplan--review-tray-target="composerTitle">Start a discussion</strong><button type="button" class="btn btn--ghost btn--sm" aria-label="Collapse discussion" data-action="coplan--review-tray#collapse">⌄</button></div>
