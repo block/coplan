@@ -145,6 +145,12 @@ def request(method, path, body: nil, params: nil, read_timeout: 90)
   req.body = body.to_json if body
   Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https", read_timeout: read_timeout) do |http|
     res = http.request(req)
+    # A rejected token never recovers on retry, and every call after it
+    # would fail the same way. Stop so a supervisor (or a person) notices,
+    # instead of polling the server in a tight loop.
+    if res.code == "401"
+      abort "coplan-bridge: #{method.upcase} #{path} -> 401. The token is invalid, expired, or revoked. Mint a new token and restart the bridge."
+    end
     warn "coplan-bridge: #{method.upcase} #{path} -> #{res.code}" unless res.code.start_with?("2")
     res.body && !res.body.empty? ? JSON.parse(res.body) : {}
   end
@@ -415,7 +421,15 @@ failures = 0
 puts "coplan-bridge: draining events from #{BASE}"
 loop do
   resp = request(:get, "/api/v1/agent/events", params: { wait: 25, cursor: cursor }.compact)
-  events = resp["events"] || []
+  # A good poll always carries `events`. Anything else (a 5xx, an HTML
+  # error page) returned immediately, so wait before asking again. So did
+  # a throttled long-poll: the server had no thread to hold for us.
+  unless resp.key?("events")
+    sleep 5
+    next
+  end
+  sleep 3 if resp["throttled"]
+  events = resp["events"]
   events.each do |event|
     dispatch(event)
     # Ack each event only once its dispatch came back — at-least-once

@@ -18,16 +18,16 @@ This page covers what every agent needs. For other tasks, fetch the matching gui
 Mint your own token at the start of each run. You declare who you are once, here. CoPlan then attributes every version, comment, and session to this token, and the token gets its own event inbox.
 
 ```bash
-TOKEN=$(<%= @mint_curl %> -X POST \
+SESSION=$(<%= @mint_curl %> -X POST \
   -H "Content-Type: application/json" \
   -d '{"agent_name": "Claude", "metadata": {"harness": "claude-code", "harness_version": "2.1.3", "model": "claude-fable-5"}}' \
-  "<%= @base %>/api/v1/tokens" | jq -r .token)
+  "<%= @base %>/api/v1/tokens" | jq -er '.token // error(.error // "mint failed")') && TOKEN=$SESSION
 ```
 
 <% if @request_auth_available %>
-Your host authenticates this request, so you do not need a token from Settings. The command **puts the new session token in `$TOKEN`**. Every later call in these instructions uses it.
+Your host authenticates this request, so you do not need a token from Settings. The command **puts the new session token in `$TOKEN`**. Every later call in these instructions uses it. If minting fails, the command prints the error and leaves `$TOKEN` unchanged.
 <% else %>
-This command sends the long-lived token and **replaces `$TOKEN` with the new session token**. Every later call in these instructions uses the session token. Do not send the long-lived token again.
+This command sends the long-lived token and **replaces `$TOKEN` with the new session token**. Every later call in these instructions uses the session token. Do not send the long-lived token again. If minting fails, the command prints the error and leaves `$TOKEN` unchanged.
 <% end %>
 
 - `agent_name` is a short label for this run, such as "Claude" or "Amp". CoPlan truncates it after 20 characters.

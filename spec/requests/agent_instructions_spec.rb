@@ -29,6 +29,13 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(linked).to match_array(CoPlan::AgentInstructionsController::GUIDES.keys)
     end
 
+    it "keeps the long-lived token when minting fails" do
+      get agent_instructions_path
+
+      expect(response.body).to include(%q{jq -er '.token // error(.error // "mint failed")') && TOKEN=$SESSION})
+      expect(response.body).not_to include("jq -r .token)")
+    end
+
     it "declares identity once through the session token" do
       get agent_instructions_path
 
@@ -92,7 +99,7 @@ RSpec.describe "Agent Instructions", type: :request do
 
       get agent_instructions_path
 
-      mint_example = response.body[/^TOKEN=\$\(.*?jq -r \.token\)$/m]
+      mint_example = response.body[/^SESSION=\$\(.*?&& TOKEN=\$SESSION$/m]
       expect(response.body).to include("you do not need a token from Settings")
       expect(mint_example).to include("curl -s -X POST")
       expect(mint_example).not_to include("Authorization: Bearer")
@@ -105,10 +112,10 @@ RSpec.describe "Agent Instructions", type: :request do
       allow(CoPlan.configuration).to receive(:agent_mint_curl_prefix).and_return("sq curl -s")
 
       get agent_instructions_path
-      expect(response.body).to include("TOKEN=$(sq curl -s -X POST")
+      expect(response.body).to include("SESSION=$(sq curl -s -X POST")
 
       get agent_instructions_guide_path(guide: "live/bridge")
-      expect(response.body).to include("export COPLAN_TOKEN=$(sq curl -s -X POST \\\n  -H \"Content-Type: application/json\"")
+      expect(response.body).to include("COPLAN_TOKEN=$(sq curl -s -X POST \\\n  -H \"Content-Type: application/json\"")
       expect(response.body).not_to include("credentials.json")
     end
 

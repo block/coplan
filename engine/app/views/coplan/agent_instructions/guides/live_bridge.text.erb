@@ -20,15 +20,17 @@ export COPLAN_BASE=<%= @base %>
 # Give the bridge its own session token, not the long-lived one.
 # Name it for the agent that the bridge resumes:
 <% if @request_auth_available %>
-export COPLAN_TOKEN=$(<%= @mint_curl %> -X POST \
+COPLAN_TOKEN=$(<%= @mint_curl %> -X POST \
 <% else %>
-export COPLAN_TOKEN=$(curl -s -X POST \
+COPLAN_TOKEN=$(curl -s -X POST \
   -H "Authorization: Bearer $(jq -r .token ~/.config/coplan/credentials.json)" \
 <% end %>
   -H "Content-Type: application/json" \
   -d '{"agent_name": "Claude", "ttl_seconds": 2592000, "metadata": {"harness": "claude-code"}}' \
-  "$COPLAN_BASE/api/v1/tokens" | jq -r .token)
+  "$COPLAN_BASE/api/v1/tokens" | jq -er '.token // error(.error // "mint failed")') && export COPLAN_TOKEN
 ```
+
+If minting fails, the command prints the error and does not export a token, and the bridge refuses to start. If the bridge later gets a `401`, it stops: mint a new token and restart it.
 
 The presence pill, and any reply or edit made with this token, show the token's `agent_name` and `harness`. Set them to the agent that the bridge resumes (for example `"Amp"` and `amp`), not to the bridge. The session token expires after 30 days and cannot mint more tokens. Run one bridge for each token: two bridges with one token share an inbox and take each other's events. When the token expires, mint a new one and restart the bridge.
 
