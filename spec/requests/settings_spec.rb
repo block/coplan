@@ -10,6 +10,7 @@ RSpec.describe "Settings", type: :request do
       patch settings_theme_path, params: { theme: "dark" }
       expect(response).to have_http_status(:ok)
       expect(alice.reload.theme_preference).to eq("dark")
+      expect(alice.metadata).not_to have_key("theme_preference")
     end
 
     it "silently ignores unknown themes" do
@@ -24,6 +25,7 @@ RSpec.describe "Settings", type: :request do
       patch settings_voice_hotkey_path, params: { voice_hotkey: "shift" }
       expect(response).to have_http_status(:ok)
       expect(alice.reload.voice_hotkey).to eq("shift")
+      expect(alice.metadata).not_to have_key("voice_hotkey")
     end
 
     # Nobody has a key, which is a real answer: the mic button stays and

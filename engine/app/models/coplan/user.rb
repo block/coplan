@@ -29,6 +29,9 @@ module CoPlan
     has_many :web_push_subscriptions, class_name: "CoPlan::WebPushSubscription", dependent: :destroy
 
     validates :external_id, presence: true, uniqueness: true
+    # Settings belong to the engine; metadata is replaceable host/directory data.
+    validates :theme_preference, inclusion: { in: THEME_PREFERENCES }
+    validates :voice_hotkey, inclusion: { in: VOICE_HOTKEYS }
     validates :name, presence: true
     validates :email, uniqueness: true, allow_nil: true
     validates :username, uniqueness: true, allow_nil: true,
@@ -50,28 +53,6 @@ module CoPlan
 
     def self.ransackable_associations(auth_object = nil)
       %w[api_tokens plan_collaborators]
-    end
-
-    def theme_preference
-      metadata&.dig("theme_preference") || "system"
-    end
-
-    def theme_preference=(value)
-      self.metadata ||= {}
-      self.metadata["theme_preference"] = value
-    end
-
-    # Unset means Ctrl+Space. Everyone who was already here when the
-    # setting arrived had their old key (Shift) written down by the
-    # backfill, so "no preference" only ever means "new here".
-    def voice_hotkey
-      key = metadata&.dig("voice_hotkey")
-      VOICE_HOTKEYS.include?(key) ? key : DEFAULT_VOICE_HOTKEY
-    end
-
-    def voice_hotkey=(value)
-      self.metadata ||= {}
-      self.metadata["voice_hotkey"] = value
     end
   end
 end

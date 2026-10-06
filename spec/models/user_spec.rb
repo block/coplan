@@ -48,6 +48,40 @@ RSpec.describe CoPlan::User, type: :model do
     expect(user.team).to eq("Platform")
   end
 
+  describe "engine-owned settings" do
+    it "defaults new users to System and Ctrl+Space" do
+      user = described_class.new
+      expect(user.theme_preference).to eq("system")
+      expect(user.voice_hotkey).to eq("ctrl_space")
+    end
+
+    it "preserves settings when a host replaces metadata" do
+      user = create(:coplan_user, theme_preference: "dark", voice_hotkey: "off",
+        notification_preferences: { "slack" => true })
+
+      user.update!(metadata: { "department" => "Engineering" })
+      user.reload
+
+      expect(user.theme_preference).to eq("dark")
+      expect(user.voice_hotkey).to eq("off")
+      expect(user.notification_preferences).to eq("slack" => true)
+    end
+
+    it "ignores stale preferences supplied through host metadata" do
+      user = create(:coplan_user, theme_preference: "light", voice_hotkey: "alt")
+      user.update!(metadata: { "theme_preference" => "system", "voice_hotkey" => "shift" })
+      expect(user.reload.theme_preference).to eq("light")
+      expect(user.voice_hotkey).to eq("alt")
+    end
+
+    it "validates allowed settings" do
+      user = build(:coplan_user, theme_preference: "invalid", voice_hotkey: "F13")
+      expect(user).not_to be_valid
+      expect(user.errors[:theme_preference]).to be_present
+      expect(user.errors[:voice_hotkey]).to be_present
+    end
+  end
+
   describe "username" do
     it "persists an explicitly set username" do
       user = create(:coplan_user, username: "alice")

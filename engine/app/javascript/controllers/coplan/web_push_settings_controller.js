@@ -83,6 +83,6 @@ export default class extends Controller {
   _friendlyError(err) {
     const msg = err?.message || String(err)
     if (/permission/i.test(msg)) return "Permission was not granted."
-    return msg
+    return "Couldn’t update notifications. Check your connection and try again."
   }
 }

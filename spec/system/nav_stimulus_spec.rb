@@ -162,6 +162,27 @@ RSpec.describe "Navigation chrome", type: :system do
   end
 
   describe "theme switcher" do
+    %w[light dark].each do |theme|
+      it "keeps #{theme} and the voice hotkey after a host metadata refresh" do
+        visit settings_root_path
+        find(".segmented__option", text: theme.capitalize, exact_text: true).click
+        find(".segmented__option", text: "Off", exact_text: true).click
+        expect(page).to have_css("html[data-theme='#{theme}']")
+        expect(page).to have_css('input[name="voice_hotkey"][value="off"]:checked', visible: :all)
+        expect(page).not_to have_css('[data-coplan--voice-hotkey-target="error"]', visible: true)
+        # Wait on persistence rather than racing the fetch with the host write.
+        Timeout.timeout(5) do
+          sleep 0.01 until user.reload.theme_preference == theme && user.voice_hotkey == "off"
+        end
+        user.update!(metadata: { "department" => "Engineering" })
+
+        visit settings_root_path
+        expect(page).to have_css("html[data-theme='#{theme}']")
+        expect(page).to have_css("input[name='theme'][value='#{theme}']:checked", visible: :all)
+        expect(page).to have_css('input[name="voice_hotkey"][value="off"]:checked', visible: :all)
+      end
+    end
+
     it "applies the chosen theme immediately and persists it across reload" do
       visit settings_root_path
       find(".segmented__option", text: "Dark").click

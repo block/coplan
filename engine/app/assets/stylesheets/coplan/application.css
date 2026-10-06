@@ -2939,6 +2939,7 @@ img.avatar {
 .form-inline .form-group {
   flex: 1;
   min-width: 200px;
+  margin-bottom: 0;
 }
 
 .settings-section-subtitle {
@@ -2981,7 +2982,8 @@ img.avatar {
 }
 
 .settings-row__action {
-  flex: 0 0 auto;
+  flex: 0 1 24rem;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -2989,6 +2991,8 @@ img.avatar {
 }
 
 .settings-row__status {
+  max-width: 100%;
+  overflow-wrap: anywhere;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
@@ -3114,6 +3118,7 @@ img.avatar {
   }
 
   .settings-row__action {
+    flex-basis: auto;
     align-items: stretch;
   }
 

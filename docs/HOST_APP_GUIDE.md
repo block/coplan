@@ -4,6 +4,30 @@
 
 CoPlan is a Rails engine that manages collaborative planning documents. It owns its own `CoPlan::User` model and handles authentication internally via a callback you configure.
 
+## User settings and host integrations
+
+CoPlan owns the settings shown on its Settings page. Theme and push-to-talk
+preferences live in `coplan_users.theme_preference` and `coplan_users.voice_hotkey`.
+Notification preferences have their own column; browser subscriptions and API
+tokens have engine-owned tables. User `metadata` is available for host directory
+data and is not a settings API.
+
+When upgrading from metadata-backed settings, install and run the engine migration:
+
+```sh
+bin/rails co_plan:install:migrations
+bin/rails db:migrate
+```
+
+`MoveUserSettingsOutOfMetadata` copies valid existing theme and hotkey values,
+including explicit System and Off choices. Missing or invalid values use System
+and Ctrl+Space. Preferences erased by an earlier directory sync cannot be recovered.
+Rollback copies the latest settings back into metadata while preserving host fields.
+
+Pause directory sync and preference writes during this migration and restart all
+app processes on the new version before resuming them: old processes still write
+settings to metadata, which the new version no longer reads.
+
 ## Setup
 
 ### 1. Add the gem
@@ -155,7 +179,9 @@ The engine manages a `coplan_users` table with these columns:
 | `external_id` | String  | Unique ID from your auth system |
 | `name`        | String  | Display name |
 | `admin`       | Boolean | Admin flag |
-| `metadata`    | JSON    | Extensible data bag |
+| `metadata`    | JSON    | Host directory data; not CoPlan settings |
+| `theme_preference` | String | Engine-owned theme: system, light, or dark |
+| `voice_hotkey` | String | Engine-owned push-to-talk preference |
 
 `CoPlan::User` is a normal ActiveRecord model. Host apps can reference it directly:
 
