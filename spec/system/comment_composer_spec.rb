@@ -126,13 +126,23 @@ RSpec.describe "Glass comment composer", type: :system do
     find("#plan-general-comments button").click
     panel = find(".comment-window:popover-open")
     input = panel.find("textarea")
+    page.execute_script <<~JS
+      document.addEventListener('turbo:before-stream-render', event => {
+        if (event.target.getAttribute('action') !== 'append') return;
+        const render = event.detail.render;
+        event.detail.render = async stream => {
+          await new Promise(resolve => setTimeout(resolve, 250));
+          await render(stream);
+        };
+      });
+    JS
     input.fill_in with: (1..12).map { |n| "New reply line #{n}" }.join("\n")
     input.send_keys(:enter)
     expect(panel).to have_field("Your reply", with: "", enable_aria_label: true)
     expect(input.rect.height).to be <= 90
     comments = panel.find(".thread-popover__comments")
     expect(comments).to have_text("New reply line 12")
-    expect(comments.evaluate_script("this.scrollHeight - this.clientHeight - this.scrollTop")).to be <= 2
+    expect(panel).to have_css(".thread-popover__comments") { |scroller| scroller.evaluate_script("this.scrollHeight - this.clientHeight - this.scrollTop") <= 2 }
   end
 
   it "keeps a clicked discussion open when the pointer leaves during a reply" do

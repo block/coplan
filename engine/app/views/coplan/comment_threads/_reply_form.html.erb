@@ -1,5 +1,5 @@
 <div class="comment-thread__reply" id="<%= dom_id(thread, :reply_form) %>">
-  <%= form_with url: plan_comment_thread_comments_path(plan, thread), method: :post, data: { controller: "coplan--comment-submit", action: "turbo:submit-start->coplan--comment-submit#started turbo:before-fetch-response->coplan--comment-submit#response turbo:fetch-request-error->coplan--comment-submit#failed turbo:submit-end->coplan--comment-submit#finished turbo:submit-end->coplan--text-selection#resetReplyForm" } do %>
+  <%= form_with url: plan_comment_thread_comments_path(plan, thread), method: :post, data: { controller: "coplan--comment-submit", "coplan--comment-submit-comments-id-value": dom_id(thread, :comments), action: "turbo:submit-start->coplan--comment-submit#started turbo:before-stream-render@document->coplan--comment-submit#beforeStreamRender turbo:before-fetch-response->coplan--comment-submit#response turbo:fetch-request-error->coplan--comment-submit#failed turbo:submit-end->coplan--comment-submit#finished turbo:submit-end->coplan--text-selection#resetReplyForm" } do %>
     <%= render "coplan/comment_threads/composer_fields", plan: plan,
           label: "Your reply", submit_label: "Reply", field_name: "comment[body_markdown]",
           field_id: dom_id(thread, :reply_body), error_id: dom_id(thread, :reply_error),

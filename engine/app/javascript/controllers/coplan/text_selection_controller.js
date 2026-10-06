@@ -254,9 +254,6 @@ export default class extends Controller {
         textarea.dispatchEvent(new Event("input", { bubbles: true }))
         textarea.blur()
       }
-      const comments = form.closest(".thread-popover, .source-comments__thread")?.querySelector(".thread-popover__comments")
-      // Turbo inserts the reply on its render frame, after submit-end.
-      if (comments) requestAnimationFrame(() => { comments.scrollTop = comments.scrollHeight })
     }
   }
 
