@@ -77,6 +77,8 @@ CoPlan applies all operations in one request as one version. If another agent wr
 
 An operation that cannot apply returns `422` with the reason, and CoPlan saves nothing.
 
+To collect operations from several requests into one version, open an edit session: `POST <%= @base %>/api/v1/plans/$PLAN_ID/sessions`. Send its `id` as `session_id` on each operation request; CoPlan holds the operations without saving them. Then `POST <%= @base %>/api/v1/plans/$PLAN_ID/sessions/$SESSION_ID/commit` with a `change_summary` saves them as one version. A session expires after 10 minutes. Most edits do not need one: a single operations request already saves as one version.
+
 ## Edit locks
 
 A person who opens the web editor takes the plan's edit lock. While anyone else holds the lock, CoPlan refuses every write, including content replacement and operations, with `409` and `"code": "edit_locked"`. The lock expires 5 minutes after the holder stops. Wait, read the plan again, and retry. Do not retry in a tight loop.

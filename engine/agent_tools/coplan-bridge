@@ -426,9 +426,9 @@ def dispatch(event)
   raise "#{adapter} adapter #{$?&.exitstatus ? "exited #{$?.exitstatus}" : "could not start"}"
 end
 
-# Event ids already handed to an exec adapter, so a redelivered event
-# can be marked as a retry. Bounded by the redelivery window in practice:
-# an event leaves the inbox once acked.
+# Event ids handed to an exec adapter but not yet acked, so a redelivered
+# event can be marked as a retry. An id leaves the set when its ack
+# succeeds, so the set holds only events still in flight.
 ATTEMPTED = Set.new
 
 claim_sessions
@@ -453,6 +453,7 @@ loop do
     # never swallowed by a batch-level ack.
     cursor = event["id"]
     request(:post, "/api/v1/agent/events/ack", body: { cursor: cursor })
+    ATTEMPTED.delete(event["id"])
     failures = 0
   rescue => e
     # Stop the batch here: acking later events would also ack this one
