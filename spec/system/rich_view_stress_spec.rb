@@ -215,7 +215,7 @@ RSpec.describe "Rich views with dense content", type: :system do
       end
       expect(page).to have_text("Review this sequence")
       expect(plan.comment_threads.order(:created_at).last).to have_attributes(anchor_kind: "mermaid_diagram")
-      within(".source-comments") { click_button "Resolve (e)" }
+      within(".source-comments") { click_button "Resolve", exact: true }
       expect(page).to have_no_css(".source-comments:popover-open")
       diagrams[2].send_keys("c")
       expect(diagrams[2]).to have_no_button("Comment on whole diagram")

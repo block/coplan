@@ -79,6 +79,8 @@ export default class extends Controller {
   }
 
   dismiss(event) {
+    // Let native Escape dismiss the topmost microphone menu first.
+    if (event?.key === "Escape" && document.querySelector(".microphone-settings__panel:popover-open")) return
     // Close the comment form if it's visible
     if (this.hasFormTarget && this.formTarget.matches(":popover-open")) {
       event.preventDefault()

@@ -50,6 +50,18 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(panel).to have_no_field("Write a comment...")
   end
 
+  it "closes microphone settings before the table composer on Escape" do
+    all(".data-grid tbody tr")[0].all("td")[1].send_keys("c")
+    panel.fill_in "Write a comment...", with: "Keep my table draft"
+    panel.find("[aria-label='Microphone settings']").click
+    expect(panel).to have_css(".microphone-settings__panel:popover-open")
+    page.driver.browser.action.send_keys(:escape).perform
+    expect(panel).to have_no_css(".microphone-settings__panel:popover-open")
+    expect(panel).to have_field("Write a comment...", with: "Keep my table draft")
+    page.driver.browser.action.send_keys(:escape).perform
+    expect(page).to have_no_css(".source-comments:popover-open")
+  end
+
   it "scrolls table discussion content without moving the resized window's header or grip" do
     cell = all(".data-grid tbody tr")[0].all("td")[1]
     cell.send_keys("c")

@@ -7,7 +7,6 @@ export default class extends Controller {
 
   connect() {
     this.canSelect = this.transcriptionValue || supportsRecognitionTrack()
-    this.inputTarget.disabled = !this.canSelect
     this.refreshTarget.hidden = !this.canSelect
     if (!this.canSelect) this.statusTarget.textContent = "This browser uses its default microphone. Change the input in browser or system settings."
   }
@@ -20,6 +19,18 @@ export default class extends Controller {
     this.position()
     this.buttonTarget.setAttribute("aria-expanded", "true")
     if (this.canSelect) await this.load()
+    else this.loadDefaultInput()
+  }
+
+  loadDefaultInput() {
+    const selected = selectedMicrophone()
+    this.inputTarget.replaceChildren(new Option("System default", ""))
+    if (selected) this.inputTarget.add(new Option("Saved microphone (unsupported)", selected))
+    this.inputTarget.value = selected
+    this.statusTarget.textContent = selected
+      ? "This browser cannot use the saved microphone. Choose System default to resume dictation."
+      : "This browser uses its default microphone. Change the input in browser or system settings."
+    this.position()
   }
 
   position() {
@@ -80,7 +91,9 @@ export default class extends Controller {
   }
 
   sync() {
-    if (this.canSelect && this.panelTarget.matches(":popover-open")) this.load()
+    if (!this.panelTarget.matches(":popover-open")) return
+    if (this.canSelect) this.load()
+    else this.loadDefaultInput()
   }
 
   closed(event) {

@@ -182,6 +182,8 @@ export default class extends Controller {
   }
 
   dismiss(event, restoreFocus = true) {
+    // This document capture handler runs before the nested menu receives Escape.
+    if (event?.key === "Escape" && document.querySelector(".microphone-settings__panel:popover-open")) return
     this.panelTarget.dispatchEvent(new CustomEvent("coplan:composer-close", { bubbles: true }))
     if (event && !this.panelTarget.matches(":popover-open")) return
     event?.preventDefault()

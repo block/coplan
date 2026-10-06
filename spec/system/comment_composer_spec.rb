@@ -265,6 +265,59 @@ RSpec.describe "Glass comment composer", type: :system do
     expect(page).to have_no_css("#new-comment-form", visible: true)
   end
 
+  [ "reply", "new comment" ].each do |surface|
+    it "closes only microphone settings on Escape while writing a #{surface}" do
+      if surface == "new comment"
+        page.driver.browser.action.send_keys(:escape).perform
+        page.execute_script <<~JS
+          const p = document.querySelector('[data-coplan--text-selection-target="content"] p');
+          const range = document.createRange(); range.selectNodeContents(p);
+          const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+          p.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        JS
+        page.driver.browser.action.send_keys("c").perform
+      end
+      panel = find(".comment-window:popover-open")
+      panel.find("textarea").fill_in with: "Keep my draft when the microphone menu closes"
+      panel.find("[aria-label='Microphone settings']").click
+      expect(panel).to have_css(".microphone-settings__panel:popover-open")
+      page.driver.browser.action.send_keys(:escape).perform
+      expect(panel).to have_no_css(".microphone-settings__panel:popover-open")
+      expect(page).to have_css(".comment-window:popover-open")
+      expect(panel.find("textarea").value).to eq("Keep my draft when the microphone menu closes")
+      page.driver.browser.action.send_keys(:escape).perform
+      expect(page).to have_no_css(".comment-window:popover-open")
+    end
+  end
+
+  it "lets an unsupported browser reset a saved microphone and resume dictation" do
+    page.execute_script <<~JS
+      localStorage.setItem('coplan:microphone', 'old-mic');
+      Object.defineProperty(navigator, 'userAgent', { configurable: true, get: () => 'Unsupported recognition-track browser' });
+      const settings = document.querySelector('.thread-popover__reply [data-controller="coplan--microphone"]');
+      window.Stimulus.getControllerForElementAndIdentifier(settings, 'coplan--microphone').connect();
+      window.SpeechRecognition = class {
+        start() { window.defaultMicStarted = true; }
+        stop() {
+          const result = [{ transcript: 'Using the default microphone.' }]; result.isFinal = true;
+          this.onresult({ results: [result] }); this.onend();
+        }
+        abort() {}
+      };
+    JS
+    within(".thread-popover__reply") { find("[aria-label='Microphone settings']").click }
+    expect(page).to have_select("Audio input", selected: "Saved microphone (unsupported)", disabled: false, enable_aria_label: true)
+    find("select[aria-label='Audio input']").select("System default")
+    expect(page.evaluate_script("localStorage.getItem('coplan:microphone')")).to eq("")
+    within(".thread-popover__reply") { click_button "Dictate" }
+    expect(page).to have_button("Stop")
+    expect(page.evaluate_script("window.defaultMicStarted")).to be(true)
+    within(".thread-popover__reply") { click_button "Stop" }
+    expect(page).to have_field("Your reply", enable_aria_label: true, with: "Using the default microphone.")
+  ensure
+    page.execute_script("localStorage.removeItem('coplan:microphone'); delete navigator.userAgent")
+  end
+
   it "shares the selected microphone with both dictation controls and captures that input" do
     page.execute_script <<~JS
       window.micConstraints = null;
