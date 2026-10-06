@@ -87,7 +87,14 @@ You can take the lock yourself to keep a long series of edits together. Most edi
 
 - Take it: `POST <%= @base %>/api/v1/plans/$PLAN_ID/lease` with `{"lease_token": "<random string>"}`.
 - Send the same `lease_token` with each content or operation request.
-- Renew it with `PATCH` before 5 minutes pass. Release it with `DELETE` as soon as you finish. While you hold it, people cannot save in the editor.
+- Renew it before 5 minutes pass, and release it as soon as you finish. Both calls need the same `lease_token`. While you hold it, people cannot save in the editor.
+
+```bash
+<%= @curl %> -X PATCH -H "Content-Type: application/json" -d "{\"lease_token\": \"$LEASE_TOKEN\"}" \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/lease"     # renew
+<%= @curl %> -X DELETE -H "Content-Type: application/json" -d "{\"lease_token\": \"$LEASE_TOKEN\"}" \
+  "<%= @base %>/api/v1/plans/$PLAN_ID/lease"     # release
+```
 
 ## Plan settings
 

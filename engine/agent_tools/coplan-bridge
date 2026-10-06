@@ -245,7 +245,9 @@ class AcpAgent
 
   def boot
     # stderr passes through so the agent's own logging stays visible.
-    @stdin, @stdout, @wait_thread = Open3.popen2(*@command)
+    # Same token handoff as the exec adapters: the prompt tells the agent
+    # to authenticate with $TOKEN, so it has to be this bridge's token.
+    @stdin, @stdout, @wait_thread = Open3.popen2({ "TOKEN" => TOKEN, "COPLAN_TOKEN" => TOKEN }, *@command)
     rpc("initialize", {
       protocolVersion: PROTOCOL_VERSION,
       # No fs or terminal capabilities: the agent works through its own
