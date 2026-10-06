@@ -6,9 +6,14 @@
   <% end %>
 </div>
 
+<%= render "coplan/reviews/tasks", tasks: @review_tasks || [] %>
+
 <% if @notifications.any? %>
   <div class="inbox-panel__list">
     <% @notifications.each do |notification| %>
+      <% if notification.review_notification? %>
+        <%= render "coplan/reviews/notification", notification: notification %>
+      <% else %>
       <% thread = notification.comment_thread %>
       <% triggering_comment = notification.comment || thread.comments.first %>
       <%= link_to notification_path(notification), class: "inbox-row #{'inbox-row--unread' unless notification.read?}", data: { turbo: false } do %>
@@ -43,6 +48,7 @@
             <% end %>
           </div>
         </div>
+      <% end %>
       <% end %>
     <% end %>
   </div>

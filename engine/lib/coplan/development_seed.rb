@@ -255,6 +255,7 @@ module CoPlan
         seed_agent_organization_run(users, plans)
         seed_small_edits(users, plans)
         seed_reviews(users, plans)
+        seed_review_requests(users, plans)
         seed_content_discussions(users, plans)
         seed_reference_gallery(plans, base_url: base_url)
         seed_catalog(users, plans, plan_types, base_url: base_url)
@@ -677,6 +678,16 @@ module CoPlan
           actor_id: author.id, agent_name: token.agent_name, api_token_id: token.id,
           change_summary: summary
         )
+      end
+    end
+
+    # A fresh checkout includes one required and one optional task. Never
+    # reset a response somebody recorded while trying the feature.
+    def seed_review_requests(users, plans)
+      plan = plans.fetch("collab-showcase")
+      [ [ "alex", "required" ], [ "sam", "optional" ] ].each do |key, requirement|
+        next if plan.review_requests.where(reviewer: users.fetch(key)).exists?
+        Reviews::Request.call(plan: plan, reviewer: users.fetch(key), actor: plan.created_by_user, requirement: requirement)
       end
     end
 

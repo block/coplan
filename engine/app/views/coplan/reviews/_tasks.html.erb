@@ -1,0 +1,12 @@
+<% if tasks.any? %>
+  <section class="review-tasks" aria-label="Your review tasks">
+    <h2>Reviews requested</h2>
+    <% tasks.each do |task| %>
+      <%= link_to plan_browse_path(task.plan), class: "review-tasks__item" do %>
+        <span class="review-task-dot" aria-hidden="true"></span>
+        <span><%= task.plan.title %><small><%= task.requested_by_user.name %> requested your review · <%= task.requirement.humanize %></small></span>
+        <span class="text-sm text-muted">Review pending</span>
+      <% end %>
+    <% end %>
+  </section>
+<% end %>

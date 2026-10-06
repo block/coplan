@@ -1,0 +1,3 @@
+<p class="text-sm text-muted">Version <%= from.revision %> → <%= to.revision %> · <%= diff.to_s(:text).lines.count { |line| line.start_with?("+") } %> added / <%= diff.to_s(:text).lines.count { |line| line.start_with?("-") } %> removed lines</p>
+<% if from.content_sha256 == to.content_sha256 %><p>No document text changed since this approval.</p><% else %><div class="diff-view"><%= diff.to_s(:html).html_safe %></div><% end %>
+<p class="text-sm text-muted">The earlier approval remains recorded. Changes do not reset it automatically.</p>

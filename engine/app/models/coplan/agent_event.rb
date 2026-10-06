@@ -9,6 +9,8 @@ module CoPlan
       comment.replied
       thread.status_changed
       plan.content_changed
+      review.requested
+      review.responded
     ].freeze
 
     belongs_to :api_token, class_name: "CoPlan::ApiToken"

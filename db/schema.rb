@@ -256,16 +256,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_174614) do
 
   create_table "coplan_notifications", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.string "comment_id", limit: 36
-    t.string "comment_thread_id", limit: 36, null: false
+    t.string "comment_thread_id", limit: 36
     t.datetime "created_at", null: false
     t.string "plan_id", limit: 36, null: false
     t.timestamp "read_at"
     t.string "reason", null: false
+    t.string "review_request_id", limit: 36
     t.datetime "updated_at", null: false
     t.string "user_id", limit: 36, null: false
     t.index ["comment_id"], name: "fk_rails_c70f93334a"
     t.index ["comment_thread_id", "user_id"], name: "index_coplan_notifications_on_thread_and_user"
     t.index ["plan_id"], name: "index_coplan_notifications_on_plan_id"
+    t.index ["review_request_id"], name: "index_coplan_notifications_on_review_request_id"
     t.index ["user_id", "read_at"], name: "index_coplan_notifications_on_user_id_and_read_at"
   end
 
@@ -431,6 +433,40 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_174614) do
     t.index ["target_plan_id"], name: "index_coplan_references_on_target_plan_id"
   end
 
+  create_table "coplan_review_requests", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "plan_id", limit: 36, null: false
+    t.datetime "requested_at", null: false
+    t.string "requested_by_user_id", limit: 36, null: false
+    t.string "requested_plan_version_id", limit: 36, null: false
+    t.string "requirement", null: false
+    t.string "reviewer_id", limit: 36, null: false
+    t.string "status", null: false
+    t.datetime "updated_at", null: false
+    t.index ["plan_id", "reviewer_id"], name: "index_coplan_review_requests_on_plan_id_and_reviewer_id", unique: true
+    t.index ["requested_by_user_id"], name: "fk_rails_c5db6a7f68"
+    t.index ["requested_plan_version_id"], name: "fk_rails_9648b04dbb"
+    t.index ["reviewer_id", "status"], name: "index_coplan_review_requests_on_reviewer_id_and_status"
+  end
+
+  create_table "coplan_review_responses", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "actor_type", null: false
+    t.string "agent_name", limit: 20
+    t.string "api_token_id", limit: 36
+    t.string "comment_thread_id", limit: 36
+    t.datetime "created_at", null: false
+    t.string "decision", null: false
+    t.text "note"
+    t.string "plan_version_id", limit: 36, null: false
+    t.string "review_request_id", limit: 36, null: false
+    t.string "user_id", limit: 36, null: false
+    t.index ["api_token_id"], name: "fk_rails_edc220f557"
+    t.index ["comment_thread_id"], name: "fk_rails_ba6743adfa"
+    t.index ["plan_version_id"], name: "fk_rails_2feda03aa3"
+    t.index ["review_request_id", "created_at"], name: "index_coplan_review_responses_on_request_and_created"
+    t.index ["user_id"], name: "fk_rails_8aa5efae11"
+  end
+
   create_table "coplan_search_queries", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.timestamp "created_at", null: false
     t.string "query", null: false
@@ -523,6 +559,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_174614) do
   add_foreign_key "coplan_notifications", "coplan_comment_threads", column: "comment_thread_id"
   add_foreign_key "coplan_notifications", "coplan_comments", column: "comment_id"
   add_foreign_key "coplan_notifications", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_notifications", "coplan_review_requests", column: "review_request_id", on_delete: :cascade
   add_foreign_key "coplan_notifications", "coplan_users", column: "user_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_plan_collaborators", "coplan_users", column: "added_by_user_id"
@@ -544,6 +581,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_174614) do
   add_foreign_key "coplan_plans", "coplan_users", column: "created_by_user_id"
   add_foreign_key "coplan_references", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_references", "coplan_plans", column: "target_plan_id"
+  add_foreign_key "coplan_review_requests", "coplan_plan_versions", column: "requested_plan_version_id"
+  add_foreign_key "coplan_review_requests", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_review_requests", "coplan_users", column: "requested_by_user_id"
+  add_foreign_key "coplan_review_requests", "coplan_users", column: "reviewer_id"
+  add_foreign_key "coplan_review_responses", "coplan_api_tokens", column: "api_token_id", on_delete: :nullify
+  add_foreign_key "coplan_review_responses", "coplan_comment_threads", column: "comment_thread_id", on_delete: :nullify
+  add_foreign_key "coplan_review_responses", "coplan_plan_versions", column: "plan_version_id"
+  add_foreign_key "coplan_review_responses", "coplan_review_requests", column: "review_request_id"
+  add_foreign_key "coplan_review_responses", "coplan_users", column: "user_id"
   add_foreign_key "coplan_search_queries", "coplan_users", column: "user_id"
   add_foreign_key "coplan_web_push_subscriptions", "coplan_users", column: "user_id"
 end

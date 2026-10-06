@@ -18,7 +18,7 @@ module CoPlan
         @notification = notification
         @plan = notification.plan
         @thread = notification.comment_thread
-        @comment = notification.comment || @thread.comments.order(:created_at).first
+        @comment = notification.comment || @thread&.comments&.order(:created_at)&.first
       end
 
       def call
@@ -26,7 +26,7 @@ module CoPlan
           title: title,
           body: body,
           url: url,
-          tag: "comment-thread-#{@thread.id}"
+          tag: @notification.review_notification? ? "review-request-#{@notification.review_request_id}" : "comment-thread-#{@thread.id}"
         }
       end
 
@@ -34,6 +34,10 @@ module CoPlan
 
       def title
         case @notification.reason
+        when "review_requested"
+          "Your review was requested on #{@plan.title}"
+        when "review_response"
+          "Review response on #{@plan.title}"
         when "mention"
           "#{actor_name} mentioned you on #{@plan.title}"
         when "reply"
@@ -50,6 +54,7 @@ module CoPlan
       end
 
       def body
+        return "Discussion is welcome. Approve only when you are satisfied with the version you reviewed." if @notification.reason == "review_requested"
         return "" unless @comment&.body_markdown
 
         # Strip mention chips and the markdown emphasis/quote/code characters
@@ -67,7 +72,7 @@ module CoPlan
       def url
         # Relative path is fine — the SW resolves against self.location.origin
         # when opening / focusing the notification target tab.
-        CoPlan::Urls::Canonical.plan_path(@plan, thread: @thread.id)
+        CoPlan::Urls::Canonical.plan_path(@plan, thread: @thread&.id)
       end
 
       def actor_name

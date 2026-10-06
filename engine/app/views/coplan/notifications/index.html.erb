@@ -10,6 +10,8 @@
   <%= link_to "All", notifications_path(filter: "all"), class: "status-filter #{'status-filter--active' if @filter == 'all'}" %>
 </div>
 
+<%= render "coplan/reviews/tasks", tasks: @review_tasks %>
+
 <% if @notifications.any? %>
   <div class="notifications-list">
     <% @notifications.each do |notification| %>

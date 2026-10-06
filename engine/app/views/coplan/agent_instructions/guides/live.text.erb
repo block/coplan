@@ -89,7 +89,7 @@ Or stream with Server-Sent Events. The server sends a heartbeat every 15 seconds
 
 ## Events
 
-Each event has `id`, `type`, `plan_id`, `comment_thread_id`, `comment_id`, and `payload`. The types are `comment.created`, `comment.replied`, `thread.status_changed`, and `plan.content_changed`.
+Each event has `id`, `type`, `plan_id`, `comment_thread_id`, `comment_id`, and `payload`. The types are `comment.created`, `comment.replied`, `thread.status_changed`, `plan.content_changed`, `review.requested`, and `review.responded`. Review events identify the request and reviewer; responses identify the decision and version. A review event may have no `comment_thread_id`.
 
 The payload usually has enough information for you to decide what to do: `plan_title`, `plan_revision`, `thread_status`, `anchor_text`, `comment_body`, and `comment_author`. Comment events also tell you whose comment it is:
 

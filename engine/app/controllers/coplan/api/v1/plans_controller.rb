@@ -304,7 +304,8 @@ module CoPlan
             current_revision: @plan.current_revision,
             comment_threads: snapshot_threads_json(threads),
             references: references.map { |r| reference_json(r) },
-            collaborators: collaborators.map { |c| collaborator_json(c) }
+            collaborators: collaborators.map { |c| collaborator_json(c) },
+            review_requests: @plan.review_requests.includes(:reviewer, :requested_plan_version, review_responses: :plan_version).map { |r| Reviews::Serialize.call(r) }
           )
         end
 

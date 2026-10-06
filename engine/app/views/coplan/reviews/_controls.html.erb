@@ -1,0 +1,101 @@
+<% requests = plan.review_requests.includes(:reviewer, :requested_by_user, :requested_plan_version, review_responses: [ :plan_version, :user ]).order(:requested_at).to_a %>
+<% active_requests = requests.reject { |request| request.status == "withdrawn" } %>
+<% own_request = active_requests.find { |request| request.reviewer_id == current_user.id } %>
+<div id="plan-review-controls" data-controller="coplan--review-tray"
+     data-coplan--review-tray-url-value="<%= plan_review_requests_path(plan) %>"
+     data-coplan--review-tray-search-url-value="<%= search_users_path %>"
+     data-action="coplan:reviews-changed->coplan--review-tray#refresh coplan:content-updated@document->coplan--review-tray#refresh coplan:editor-saved@document->coplan--review-tray#refresh keydown.esc@document->coplan--review-tray#escape">
+  <button type="button" class="btn btn--ghost btn--sm review-chip" data-action="coplan--review-tray#openReviews" aria-haspopup="dialog">
+    <span data-review-chip-label>Approvals<%= " · #{active_requests.size}" if active_requests.any? %></span>
+  </button>
+  <dialog class="review-dialog review-management" data-coplan--review-tray-target="reviews" aria-labelledby="review-management-title">
+    <div class="review-dialog__heading"><h2 id="review-management-title">Reviews & approvals</h2><button type="button" class="btn btn--ghost btn--sm" aria-label="Close reviews" data-action="coplan--review-tray#closeReviews">×</button></div>
+    <p class="text-sm text-muted">Discussion comes first. Every sign-off records satisfaction with a particular version.</p>
+    <div data-review-assignments>
+      <% if active_requests.empty? %><p class="text-sm text-muted">No reviews requested yet.</p><% end %>
+      <% active_requests.each do |request| %>
+        <% approval = request.latest_approval %>
+        <div class="review-person">
+          <div><strong><%= request.reviewer.name %></strong><span class="text-sm text-muted"> · <%= request.requirement.humanize %></span>
+            <p class="text-sm"><%= request.pending? ? "Review requested" : request.status.humanize %></p>
+            <% if approval %>
+              <p class="text-sm text-muted">Approved v<%= approval.plan_version.revision %> · <%= l(approval.created_at, format: :short) %><%= " · #{approval.agent_name} (via #{approval.user.name})" if approval.actor_type == "local_agent" %></p>
+              <% if approval.plan_version.revision != plan.current_revision %>
+                <button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#compare" data-url="<%= compare_plan_review_request_path(plan, request, response_id: approval.id) %>">Changes since approval</button>
+              <% end %>
+            <% end %>
+          </div>
+          <% if allowed_to?(plan, :update?) %>
+            <div class="review-person__actions">
+              <button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#requestAgain" data-url="<%= plan_review_request_path(plan, request) %>"><%= request.status == "changes_requested" ? "Ready for another look" : "Request another review" %></button>
+              <button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#changeRequirement" data-url="<%= plan_review_request_path(plan, request) %>" data-requirement="<%= request.requirement == 'required' ? 'optional' : 'required' %>">Make <%= request.requirement == 'required' ? 'optional' : 'required' %></button>
+              <button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#withdraw" data-url="<%= plan_review_request_path(plan, request) %>">Remove request</button>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+    <% if allowed_to?(plan, :update?) %>
+      <%= form_with url: plan_review_requests_path(plan), class: "review-assignment-form", data: { action: "submit->coplan--review-tray#assign" } do |form| %>
+        <label for="reviewer-search">Request a review</label>
+        <input id="reviewer-search" type="search" placeholder="Find a person…" autocomplete="off" data-coplan--review-tray-target="search" data-action="input->coplan--review-tray#search" aria-controls="reviewer-results">
+        <input type="hidden" name="review_request[reviewer_id]" data-coplan--review-tray-target="reviewerId">
+        <div id="reviewer-results" class="review-search-results" data-coplan--review-tray-target="results" aria-live="polite"></div>
+        <div class="review-assignment-form__footer"><label>Review type <select name="review_request[requirement]"><option value="required">Required</option><option value="optional">Optional</option></select></label><button type="submit" class="btn btn--secondary btn--sm">Request review</button></div>
+      <% end %>
+    <% end %>
+    <details class="review-history"><summary>Approval history</summary><div data-review-history>
+      <% responses = requests.flat_map(&:review_responses).sort_by(&:created_at).reverse %>
+      <% if responses.empty? %><p class="text-sm text-muted">No responses recorded.</p><% end %>
+      <% responses.each do |response| %>
+        <div class="review-history__item"><strong><%= response.actor_type == "local_agent" ? "#{response.agent_name} (via #{response.user.name})" : response.user.name %></strong> <%= response.decision == "approved" ? "approved" : "requested changes on" %> v<%= response.plan_version.revision %><small><%= l(response.created_at, format: :short) %></small>
+          <% if response.note.present? %><p><%= response.note %></p><% end %>
+          <% if response.comment_thread_id.present? %><button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#openThread" data-thread-id="<%= response.comment_thread_id %>">Open discussion</button><% end %>
+        </div>
+      <% end %>
+    </div></details>
+    <p class="review-error" role="alert" data-coplan--review-tray-target="managementError"></p>
+  </dialog>
+  <% if plan.current_content.present? %>
+    <section class="review-tray" aria-label="Discussion and review">
+      <div class="review-tray__discussion" data-coplan--review-tray-target="discussion" hidden>
+        <div class="review-tray__heading"><strong data-coplan--review-tray-target="composerTitle">Start a discussion</strong><button type="button" class="btn btn--ghost btn--sm" aria-label="Collapse discussion" data-action="coplan--review-tray#collapse">⌄</button></div>
+        <%= form_with url: plan_comment_threads_path(plan), data: { action: "submit->coplan--review-tray#post", "coplan--review-tray-target": "commentForm" } do %>
+          <%= render "coplan/comment_threads/composer_fields", plan: plan, label: "Public review comment",
+                field_id: "review-discussion-body", error_id: "review-discussion-error", cancel_action: "coplan--review-tray#collapse",
+                submit_label: "Post comment", placeholder: "Ask a question, suggest a change, or start a discussion…" %>
+        <% end %>
+        <p class="text-sm text-muted review-tray__public">Public · Anyone who can read this plan can join the discussion.</p>
+      </div>
+      <div class="review-tray__bar">
+        <div class="review-tray__status" data-review-status>
+          <% if own_request %>
+            <% approval = own_request.latest_approval %>
+            <div><% if own_request.pending? %><span class="review-task-dot" aria-hidden="true"></span><% end %><strong><%= own_request.pending? ? "Your review is requested" : own_request.status.humanize %></strong><small><%= own_request.requirement.humanize %><%= " · Waiting for updates" if own_request.status == "changes_requested" %><%= " · Approved v#{approval.plan_version.revision}" if approval %></small></div>
+            <% if approval && approval.plan_version.revision != plan.current_revision %><button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#compare" data-url="<%= compare_plan_review_request_path(plan, own_request, response_id: approval.id) %>">Changes since approval</button><% end %>
+          <% else %><span class="text-sm text-muted">Questions and suggestions welcome</span><% end %>
+        </div>
+        <div class="review-tray__actions"><button type="button" class="btn btn--primary btn--sm" data-action="coplan--review-tray#discuss" aria-expanded="false" data-coplan--review-tray-target="discuss">Discuss</button>
+          <span data-review-decision-actions>
+            <% if own_request %>
+              <button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#requestChanges" data-url="<%= respond_plan_review_request_path(plan, own_request) %>">Request changes</button>
+              <button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#confirmApproval" data-url="<%= respond_plan_review_request_path(plan, own_request) %>">Record approval…</button>
+            <% end %>
+          </span>
+        </div>
+      </div>
+      <div class="review-tray__notice" role="status" aria-live="polite" data-coplan--review-tray-target="notice"></div>
+    </section>
+  <% end %>
+  <dialog class="review-dialog review-confirmation" data-coplan--review-tray-target="approval" aria-labelledby="approval-title">
+    <h2 id="approval-title">Happy with this version?</h2>
+    <p>AI agents can see this sign-off and use it when planning their next steps. Approve only when you are satisfied with the whole version you reviewed.</p>
+    <p class="text-sm text-muted">Still want an adjustment, clarification, or cleaner wording? Keep discussing or request changes. Approval records your feedback; it grants no permissions or authority to execute the plan.</p>
+    <form data-action="submit->coplan--review-tray#approve">
+      <label for="approval-note">Public note <span class="text-muted">(optional)</span></label><textarea id="approval-note" rows="2" data-coplan--review-tray-target="approvalNote"></textarea>
+      <p class="review-error" role="alert" data-coplan--review-tray-target="approvalError"></p>
+      <div class="review-dialog__actions"><button type="button" class="btn btn--primary btn--sm" data-action="coplan--review-tray#keepDiscussing" autofocus>Keep discussing</button><button type="submit" class="btn btn--secondary btn--sm" data-coplan--review-tray-target="approveButton">Approve version</button></div>
+    </form>
+  </dialog>
+  <dialog class="review-dialog review-comparison" data-coplan--review-tray-target="comparison" aria-label="Changes since approval"><div class="review-dialog__heading"><h2>Changes since approval</h2><button type="button" class="btn btn--ghost btn--sm" aria-label="Close comparison" data-action="coplan--review-tray#closeComparison">×</button></div><div data-coplan--review-tray-target="diff"></div></dialog>
+</div>
