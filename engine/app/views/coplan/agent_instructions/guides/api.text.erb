@@ -58,7 +58,8 @@ Every endpoint, with the guide that explains it. All paths start with `<%= @base
 | `GET /api/v1/library/contents` | All plans in the library, with summaries. | organizing |
 | `POST /api/v1/library/organize` | Batch folder and plan moves, with `dry_run`. | organizing |
 | `GET /api/v1/library/events` | The library's change log. | organizing |
-| `GET /api/v1/libraries`, `GET /api/v1/libraries/:id` | All libraries, or one library. | organizing |
+| `GET /api/v1/libraries`, `GET /api/v1/libraries/:id` | All libraries (with a `writable` flag), or one library. | organizing |
+| `GET /api/v1/libraries/:id/contents`, `POST /api/v1/libraries/:id/organize`, `GET /api/v1/libraries/:id/events` | The same contents, organize, and change-log calls for a library chosen by id. Organize needs write access; the change log is for the owner only. | organizing |
 | `GET`, `POST /api/v1/folders`; `PATCH`, `DELETE /api/v1/folders/:id` | List, create, rename, or delete folders. | creating |
 
 ## Live sessions
