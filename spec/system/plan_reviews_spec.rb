@@ -21,19 +21,30 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   before { sign_in_browser(reviewer) }
 
-  it "defaults to discussion, posts ordinary comments and stays pinned without scrolling the reader" do
-    expect(page).to have_no_css(".review-tray__discussion", visible: true)
+  it "offers equal review choices and preserves cancelled feedback without moving the reader" do
+    within(".review-tray__actions") do
+      expect(page).to have_button("Request changes")
+      expect(page).to have_button("Approve", exact: true)
+      expect(page).to have_no_button("Discuss")
+    end
+    styles = page.evaluate_script <<~JS
+      Array.from(document.querySelectorAll('.review-tray__actions button')).map(button => {
+        const style = getComputedStyle(button);
+        return [style.backgroundColor, style.color, style.borderColor, style.fontWeight];
+      })
+    JS
+    expect(styles.length).to eq(2)
+    expect(styles.first).to eq(styles.last)
     page.execute_script("window.scrollTo(0, 180)")
     scroll = page.evaluate_script("window.scrollY")
-    within(".review-tray") { click_button "Discuss" }
+    within(".review-tray") { click_button "Request changes" }
     fill_in "Public review comment", with: "Can we clarify this boundary?", enable_aria_label: true
-    within(".review-tray") { click_button "Post comment" }
-    expect(page).to have_content("Comment posted to the plan discussion.")
-    expect(page).to have_css("#plan-general-comments", text: "Can we clarify this boundary?")
+    within(".review-tray") { click_button "Cancel" }
     expect(task.reload).to be_pending
+    expect(task.review_responses).to be_empty
     expect(page.evaluate_script("window.scrollY")).to eq(scroll)
-    within(".review-tray") { click_button "Discuss" }
-    expect(page).to have_field("Public review comment", with: "", enable_aria_label: true)
+    within(".review-tray") { click_button "Request changes" }
+    expect(page).to have_field("Public review comment", with: "Can we clarify this boundary?", enable_aria_label: true)
   end
 
   it "uses existing comments for change requests and supports another look without erasing the response" do
@@ -51,14 +62,14 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(task.review_responses.count).to eq(1)
   end
 
-  it "makes approval deliberate and keeps discussing as the safe default" do
-    within(".review-tray") { click_button "Record approval…" }
-    expect(page).to have_css(".review-confirmation[open]", text: "AI agents can see this sign-off")
-    expect(page.evaluate_script("document.activeElement.textContent")).to eq("Keep discussing")
-    click_button "Keep discussing"
+  it "requires deliberate agreement with the whole version before approval" do
+    within(".review-tray") { click_button "Approve" }
+    expect(page).to have_css(".review-confirmation[open]", text: "I have read v1 and agree with all of its content.")
+    expect(page.evaluate_script("document.activeElement.textContent")).to eq("Cancel")
+    click_button "Cancel"
     expect(task.review_responses).to be_empty
-    expect(page).to have_field("Public review comment", enable_aria_label: true)
-    within(".review-tray") { click_button "Record approval…" }
+    expect(page).to have_no_css(".review-tray__discussion", visible: true)
+    within(".review-tray") { click_button "Approve" }
     fill_in "Public note", with: "Satisfied with this version."
     click_button "Approve v1"
     expect(page).to have_content("Your approval of v1 is recorded.")
@@ -71,7 +82,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
   end
 
   it "refuses sign-off when the viewed version changed and keeps the public note" do
-    within(".review-tray") { click_button "Record approval…" }
+    within(".review-tray") { click_button "Approve" }
     fill_in "Public note", with: "An unsent approval note"
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "Changed while reviewing")
     plan.update!(current_plan_version: version, current_revision: 2)
@@ -95,25 +106,28 @@ RSpec.describe "Plan discussion and approval", type: :system do
   end
 
   it "retains drafts on failure and on live review refreshes" do
-    within(".review-tray") { click_button "Discuss" }
+    within(".review-tray") { click_button "Request changes" }
     fill_in "Public review comment", with: "Keep this unsent comment", enable_aria_label: true
+    task.update!(requirement: "optional")
     page.execute_script("document.getElementById('plan-review-controls').dispatchEvent(new CustomEvent('coplan:reviews-changed'))")
+    expect(page).to have_css("[data-review-status]", text: "Optional")
     expect(page).to have_field("Public review comment", with: "Keep this unsent comment", enable_aria_label: true)
+    expect(page).to have_css('.review-tray__actions button[aria-expanded="true"]', text: "Request changes")
     page.execute_script <<~JS
       const originalFetch = window.fetch;
       window.fetch = (url, options) => {
         if (options?.method === 'POST') {
           window.fetch = originalFetch;
-          return Promise.resolve(new Response('Unavailable', { status: 503 }));
+          return Promise.reject(new TypeError('Failed to fetch'));
         }
         return originalFetch(url, options);
       };
     JS
-    within(".review-tray") { click_button "Post comment" }
-    expect(page).to have_css("#review-discussion-error", text: "Your draft is still here")
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_css("#review-discussion-error", text: "Couldn't reach CoPlan. Your draft is still here")
     expect(page).to have_field("Public review comment", with: "Keep this unsent comment", enable_aria_label: true)
-    within(".review-tray") { click_button "Post comment" }
-    expect(page).to have_content("Comment posted to the plan discussion.")
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_content("Changes requested. Your feedback is in the plan’s comments.")
   end
 
   it "lets the author find a person and assign required or optional review" do
@@ -129,11 +143,45 @@ RSpec.describe "Plan discussion and approval", type: :system do
     click_button "Request review", exact: true
     expect(page).to have_css(".review-person", text: "Another Reviewer")
     expect(plan.review_requests.find_by!(reviewer: other).requirement).to eq("optional")
-    expect(page).to have_css(".review-tray", visible: :all)
+    expect(page).to have_no_css(".review-tray", visible: :all)
+    sign_in_browser(other)
+    expect(page).to have_css(".review-tray", visible: true)
+  end
+
+  it "acknowledges saved feedback even if refreshing its comment fails" do
+    within(".review-tray") { click_button "Request changes" }
+    fill_in "Public review comment", with: "A saved request", enable_aria_label: true
+    page.execute_script <<~JS
+      const originalFetch = window.fetch;
+      const commentsUrl = document.querySelector('[data-coplan--inline-editor-comments-url-value]').getAttribute('data-coplan--inline-editor-comments-url-value');
+      window.fetch = (url, options) => {
+        if (url === commentsUrl) {
+          window.fetch = originalFetch;
+          return Promise.reject(new TypeError('Failed to fetch'));
+        }
+        return originalFetch(url, options);
+      };
+    JS
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_content("Changes requested. Your feedback is in the plan’s comments. Refresh the page to see your comment.")
+    expect(task.reload.review_responses.count).to eq(1)
+    visit plan_page_path(plan)
+    expect(page).to have_css("#plan-general-comments", text: "A saved request")
+  end
+
+  it "preserves unsent feedback when an open review request is withdrawn" do
+    within(".review-tray") { click_button "Request changes" }
+    fill_in "Public review comment", with: "An unfinished review", enable_aria_label: true
+    task.update!(status: "withdrawn")
+    page.execute_script("document.getElementById('plan-review-controls').dispatchEvent(new CustomEvent('coplan:reviews-changed'))")
+    expect(page).to have_content("This review request is no longer active. Your unsent feedback is still here.")
+    expect(page).to have_field("Public review comment", with: "An unfinished review", enable_aria_label: true)
+    within(".review-tray__discussion") { expect(page).to have_button("Request changes", disabled: true) }
+    within(".review-tray__actions") { expect(page).to have_no_button("Approve") }
   end
 
   it "uses the existing dictation composer and keeps the bar within narrow screens in both themes" do
-    within(".review-tray") { click_button "Discuss" }
+    within(".review-tray") { click_button "Request changes" }
     expect(page).to have_css('.review-tray [data-controller="coplan--dictation"]')
     [ "light", "dark" ].each do |theme|
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)

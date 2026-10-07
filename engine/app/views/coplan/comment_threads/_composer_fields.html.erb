@@ -26,7 +26,7 @@
             <button type="button" class="composer__cancel" aria-label="<%= local_assigns.fetch(:cancel_label, "Cancel") %>"
                     data-action="<%= local_assigns.fetch(:cancel_action, "coplan--text-selection#cancelComment") %>">Cancel</button>
           <% end %>
-          <button type="submit" class="btn btn--primary btn--sm composer__submit" data-turbo-submits-with="<%= submit_label == 'Save changes' ? 'Saving…' : 'Posting…' %>"><%= submit_label %> <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 13V3M3 8l5-5 5 5"/></svg></button>
+          <button type="submit" class="btn <%= local_assigns.fetch(:submit_class, 'btn--primary') %> btn--sm composer__submit" data-turbo-submits-with="<%= submit_label == 'Save changes' ? 'Saving…' : 'Posting…' %>"><%= submit_label %> <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 13V3M3 8l5-5 5 5"/></svg></button>
         </div>
       </div>
     </div>

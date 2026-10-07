@@ -1,11 +1,10 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["reviews", "discussion", "commentForm", "composerTitle", "discuss", "notice", "search", "reviewerId", "results", "managementError", "approval", "approvalNote", "approvalError", "approveButton", "comparison", "diff"]
+  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "managementError", "approval", "approvalNote", "approvalError", "approvalStatement", "approveButton", "comparison", "diff"]
   static values = { url: String, searchUrl: String }
 
   connect() {
-    this.mode = "comment"
     this.searchSequence = 0
     this.refreshSequence = 0
     // Shared streams carry an invalidation signal, never another viewer's
@@ -31,24 +30,22 @@ export default class extends Controller {
   closeReviews() { this.reviewsTarget.close() }
   closeComparison() { this.comparisonTarget.close() }
 
-  discuss() {
-    this.mode = "comment"
-    this.expand()
-  }
-
   expand() {
     this.discussionTarget.hidden = false
-    this.discussTarget.setAttribute("aria-expanded", "true")
-    this.composerTitleTarget.textContent = this.mode === "changes" ? "What would you like adjusted?" : "Start a discussion"
-    this.commentFormTarget.querySelector('[type="submit"]').firstChild.textContent = this.mode === "changes" ? "Request changes " : "Post comment "
+    if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", "true")
     this.commentFormTarget.querySelector("textarea").focus({ preventScroll: true })
   }
 
   collapse() {
     this.discussionTarget.hidden = true
-    this.discussTarget.setAttribute("aria-expanded", "false")
+    if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", "false")
     this.discussionTarget.dispatchEvent(new CustomEvent("coplan:composer-close", { bubbles: true }))
-    this.discussTarget.focus({ preventScroll: true })
+    const button = this.hasChangeButtonTarget ? this.changeButtonTarget : this.element.querySelector(".review-chip")
+    button?.focus({ preventScroll: true })
+    if (this.reviewWithdrawn) {
+      this.element.querySelector(".review-tray")?.remove()
+      document.body.classList.remove("has-review-tray")
+    }
   }
 
   escape(event) {
@@ -60,7 +57,6 @@ export default class extends Controller {
   }
 
   requestChanges(event) {
-    this.mode = "changes"
     this.responseUrl = event.currentTarget.dataset.url
     this.expand()
   }
@@ -70,22 +66,22 @@ export default class extends Controller {
     this.approvalRevision = this.viewedRevision()
     this.approvalErrorTarget.textContent = ""
     this.approveButtonTarget.textContent = `Approve v${this.approvalRevision}`
+    this.approvalStatementTarget.textContent = `I have read v${this.approvalRevision} and agree with all of its content.`
     this.approvalTarget.showModal()
   }
 
-  keepDiscussing() {
+  closeApproval() {
     this.approvalTarget.close()
-    this.discuss()
   }
 
   async approve(event) {
     event.preventDefault()
     await this.withBusy(event.target, this.approvalErrorTarget, async () => {
       const result = await this.write(this.responseUrl, "POST", { review_response: { revision: this.approvalRevision, decision: "approved", note: this.approvalNoteTarget.value } })
-      if (result.comment_thread_id) await this.refreshThreads(result.comment_thread_id)
+      const synced = !result.comment_thread_id || await this.refreshThreads(result.comment_thread_id)
       this.approvalTarget.close()
       this.approvalNoteTarget.value = ""
-      this.noticeTarget.textContent = `Your approval of v${this.approvalRevision} is recorded.`
+      this.noticeTarget.textContent = `Your approval of v${this.approvalRevision} is recorded.` + (synced ? "" : " Refresh the page to see your comment.")
       await this.refresh()
     }, "Recording…")
   }
@@ -97,19 +93,10 @@ export default class extends Controller {
     if (form.closest('[data-dictation-busy="true"]') || form.querySelector('[data-dictation-busy="true"]')) return
     const error = form.querySelector('[role="alert"]')
     await this.withBusy(form, error, async () => {
-      if (this.mode === "changes") {
-        const result = await this.write(this.responseUrl, "POST", { review_response: { revision: this.viewedRevision(), decision: "changes_requested", note: input.value } })
-        // Fetch the ordinary thread markup and discussion list through the
-        // existing comments endpoint, using this viewer's credentials.
-        await this.refreshThreads(result.comment_thread_id)
-        this.noticeTarget.textContent = "Changes requested. Your feedback is in the plan’s comments."
-      } else {
-        const response = await fetch(form.action, { method: "POST", headers: { "X-CSRF-Token": this.csrfToken(), Accept: "text/vnd.turbo-stream.html" }, body: new FormData(form), credentials: "same-origin" })
-        const html = await response.text()
-        if (!response.ok) throw new Error("Couldn't post your comment. Your draft is still here. Please try again.")
-        window.Turbo.renderStreamMessage(html)
-        this.noticeTarget.textContent = "Comment posted to the plan discussion."
-      }
+      const result = await this.write(this.responseUrl, "POST", { review_response: { revision: this.viewedRevision(), decision: "changes_requested", note: input.value } })
+      // Feedback lives in the ordinary discussion collection.
+      const synced = await this.refreshThreads(result.comment_thread_id)
+      this.noticeTarget.textContent = "Changes requested. Your feedback is in the plan’s comments." + (synced ? "" : " Refresh the page to see your comment.")
       input.value = ""
       this.collapse()
       await this.refresh()
@@ -118,20 +105,24 @@ export default class extends Controller {
 
   async refreshThreads(threadId) {
     const editor = document.querySelector('[data-coplan--inline-editor-comments-url-value]')
-    if (!editor) return
-    const response = await fetch(editor.getAttribute("data-coplan--inline-editor-comments-url-value"), { credentials: "same-origin", headers: { Accept: "text/html" } })
-    if (response.ok) {
-      const incoming = new DOMParser().parseFromString(await response.text(), "text/html")
-      const id = `comment_thread_${threadId}`
-      const thread = incoming.getElementById(id)
-      if (thread && !document.getElementById(id)) document.getElementById("plan-threads")?.append(thread)
-      for (const id of ["plan-general-comments", "plan-detached-comments"]) {
-        const from = incoming.getElementById(id), to = document.getElementById(id)
-        if (from && to) to.replaceWith(from)
+    if (!editor) return false
+    try {
+      const response = await fetch(editor.getAttribute("data-coplan--inline-editor-comments-url-value"), { credentials: "same-origin", headers: { Accept: "text/html" } })
+      if (response.ok) {
+        const incoming = new DOMParser().parseFromString(await response.text(), "text/html")
+        const id = `comment_thread_${threadId}`
+        const thread = incoming.getElementById(id)
+        if (thread && !document.getElementById(id)) document.getElementById("plan-threads")?.append(thread)
+        for (const id of ["plan-general-comments", "plan-detached-comments"]) {
+          const from = incoming.getElementById(id), to = document.getElementById(id)
+          if (from && to) to.replaceWith(from)
+        }
+        return true
       }
-    }
+    } catch { /* The response was saved; a refresh failure must not claim otherwise. */ }
     // The thread stays in the existing collection, available via its
     // normal discussion link. Posting doesn't force the reader into it.
+    return false
   }
 
   async refresh() {
@@ -142,15 +133,34 @@ export default class extends Controller {
       const incoming = new DOMParser().parseFromString(await response.text(), "text/html")
       if (sequence !== this.refreshSequence || !this.element.isConnected) return
       const tray = incoming.querySelector(".review-tray")
+      const existingTray = this.element.querySelector(".review-tray")
+      const wasWithdrawn = this.reviewWithdrawn
+      this.reviewWithdrawn = !tray
+      if (!tray && existingTray) {
+        if (this.discussionTarget.hidden) {
+          existingTray.remove()
+          document.body.classList.remove("has-review-tray")
+        } else {
+          existingTray.querySelector("[data-review-status]").textContent = "Your review request is no longer active."
+          existingTray.querySelector("[data-review-decision-actions]").replaceChildren()
+          this.commentFormTarget.querySelector('[type="submit"]').disabled = true
+          this.commentFormTarget.querySelector('[role="alert"]').textContent = "This review request is no longer active. Your unsent feedback is still here."
+        }
+      }
       if (tray && !this.element.querySelector(".review-tray")) {
         this.element.append(tray)
         document.body.classList.add("has-review-tray")
+      }
+      if (tray && wasWithdrawn && this.hasCommentFormTarget) {
+        this.commentFormTarget.querySelector('[type="submit"]').disabled = false
+        this.commentFormTarget.querySelector('[role="alert"]').textContent = ""
       }
       // Preserve the tray, its open state, dictation and all unsent text.
       for (const selector of ["[data-review-status]", "[data-review-decision-actions]", "[data-review-chip-label]", "[data-review-assignments]", "[data-review-history]"]) {
         const from = incoming.querySelector(selector), to = this.element.querySelector(selector)
         if (from && to) to.replaceChildren(...from.childNodes)
       }
+      if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", String(!this.discussionTarget.hidden))
     } catch { /* The task and draft remain usable; the next event retries. */ }
   }
 
@@ -225,7 +235,12 @@ export default class extends Controller {
   csrfToken() { return document.querySelector('meta[name="csrf-token"]')?.content || "" }
 
   async write(url, method, body) {
-    const response = await fetch(url, { method, headers: { "X-CSRF-Token": this.csrfToken(), "Content-Type": "application/json", Accept: "application/json" }, credentials: "same-origin", body: body ? JSON.stringify(body) : undefined })
+    let response
+    try {
+      response = await fetch(url, { method, headers: { "X-CSRF-Token": this.csrfToken(), "Content-Type": "application/json", Accept: "application/json" }, credentials: "same-origin", body: body ? JSON.stringify(body) : undefined })
+    } catch {
+      throw new Error("Couldn't reach CoPlan. Your draft is still here. Check that the server is running and try again.")
+    }
     if (response.status === 204) return {}
     let result
     try { result = await response.json() } catch { throw new Error("Couldn't save your response. Your draft is still here. Please try again.") }
