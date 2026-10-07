@@ -10,7 +10,7 @@
           <div class="review-log__body">
             <p class="review-log__event"><strong><%= kind == :response && item.actor_type == "local_agent" ? "#{item.agent_name} (via #{actor.name})" : actor.name %></strong>
               <% if kind == :request %>requested a review from <strong><%= item.reviewer.name %></strong><% else %><%= item.decision == "approved" ? "approved" : "requested changes on" %><% end %>
-              <span class="review-version">v<%= kind == :request ? item.requested_plan_version.revision : item.plan_version.revision %></span>
+              <% if kind == :response %><span class="review-version">v<%= item.plan_version.revision %></span><% end %>
             </p>
             <time datetime="<%= at.iso8601 %>" title="<%= l(at, format: :long) %>"><%= l(at, format: :short) %></time>
             <% if kind == :response && item.note.present? %><p class="review-log__note"><%= item.note %></p><% end %>

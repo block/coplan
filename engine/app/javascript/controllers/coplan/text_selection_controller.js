@@ -812,6 +812,8 @@ export default class extends Controller {
           const trigger = generalVoiceComment ? document.querySelector(".voice-btn") || currentMark : currentMark
           if (generalVoiceComment) trigger.dataset.threadId = domId
           else {
+            const disclosure = currentMark.closest("details.document-support__disclosure")
+            if (disclosure) disclosure.open = true
             this._revealDeckSlide(currentMark)
             currentMark.scrollIntoView({ behavior: "instant", block: "center" })
           }

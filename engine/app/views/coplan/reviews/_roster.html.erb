@@ -11,9 +11,10 @@
             <%= user_avatar(request.reviewer, size: "md") %>
             <div class="review-person__info">
               <strong><%= request.reviewer.name %></strong>
-              <span class="review-person__meta"><% if request.pending? %>Review requested · v<%= request.requested_plan_version.revision %><% elsif request.status == "changes_requested" %>Waiting for updates<% else %>Approved v<%= approval&.plan_version&.revision %><% end %></span>
+              <span class="review-person__meta"><% if request.pending? %>Review requested<% elsif request.status == "changes_requested" %>Changes requested on v<%= request.review_responses.first&.plan_version&.revision %><% else %>Approved v<%= approval&.plan_version&.revision %><% end %></span>
             </div>
-            <span class="review-state<%= ' review-state--attention' if request.pending? && request.reviewer_id == current_user.id %>"><span aria-hidden="true"><%= request.pending? ? "◷" : request.status == "approved" ? "✓" : "↩" %></span> <%= request.pending? ? "Pending" : request.status.humanize %></span>
+            <span class="review-state<%= ' review-state--approved' if request.status == 'approved' %><%= ' review-state--attention' if request.pending? && request.reviewer_id == current_user.id %>"><span aria-hidden="true"><%= request.pending? ? "◷" : request.status == "approved" ? "✓" : "↩" %></span> <%= request.pending? ? "Pending" : request.status.humanize %></span>
+            <% if !manage && !request.pending? && request.reviewer_id == current_user.id %><button type="button" class="review-log__link" data-action="coplan--review-tray#reconsider">Change decision</button><% end %>
             <% if manage && allowed_to?(plan, :update?) %>
               <span class="review-person__actions" data-controller="coplan--menu">
                 <button type="button" class="review-person__menu-button" aria-label="Actions for <%= request.reviewer.name %>" title="Actions for <%= request.reviewer.name %>" popovertarget="review-menu-<%= request.id %>" data-coplan--menu-target="trigger"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>

@@ -1,0 +1,18 @@
+<% comments = thread.comments.reject(&:deleted?) %>
+<% first = comments.first %>
+<% if first %>
+  <article class="document-comment<%= ' detached-comments__resolved' if thread.closed? %>">
+    <div class="document-comment__header comment__header text-sm text-muted">
+      <% author = comment_author_user(first) %>
+      <% if first.agent? %><%= image_tag comment_agent_icon_source(first), alt: "", class: "comment__agent-avatar" %><% elsif author %><%= user_avatar(author) %><% end %>
+      <strong><%= comment_author_name(first) %></strong>
+      <time datetime="<%= first.created_at.iso8601 %>" title="<%= l(first.created_at, format: :long) %>"><%= time_ago_in_words(first.created_at) %> ago</time>
+      <span class="document-comment__type"><% if review %>Review · <%= review.decision.humanize %> · v<%= review.plan_version.revision %><% elsif detached %>Earlier text<% else %>Plan comment<% end %></span>
+    </div>
+    <% if detached %><blockquote class="document-comment__quote"><%= thread.anchor_preview %></blockquote><% end %>
+    <div class="comment__body"><%= render_markdown(first.body_markdown, footnote_prefix: "preview-#{first.id}", expandable_images: false) %></div>
+    <div class="document-comment__footer"><% if thread.closed? %><span>Resolved</span><% end %><% if comments.size > 1 %><span><%= pluralize(comments.size - 1, "reply") %></span><% end %>
+      <button type="button" class="review-log__link" data-thread-id="<%= dom_id(thread) %>" data-action="coplan--text-selection#openDetachedThread">Open discussion <span aria-hidden="true">↗</span></button>
+    </div>
+  </article>
+<% end %>

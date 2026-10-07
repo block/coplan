@@ -31,6 +31,16 @@ RSpec.describe "CoPlan reviews" do
     expect(request.requested_plan_version).to eq(version)
   end
 
+  it "keeps pending requests on the latest plan and binds only the completed response" do
+    task = request
+    version = create(:plan_version, plan: plan, revision: 2, content_markdown: "Latest plan")
+    plan.update!(current_plan_version: version, current_revision: 2)
+    expect(CoPlan::Reviews::Serialize.call(task)).not_to have_key(:requested_revision)
+    response = respond
+    expect(response.plan_version).to eq(version)
+    expect(CoPlan::Reviews::Serialize.call(task.reload)[:responses].first[:revision]).to eq(2)
+  end
+
   it "creates a public ordinary comment thread for requested changes and notifies the author" do
     response = respond(decision: "changes_requested", note: "Please explain retries")
     expect(response.comment_thread).to have_attributes(plan_id: plan.id, plan_version_id: plan.current_plan_version_id, status: "open")

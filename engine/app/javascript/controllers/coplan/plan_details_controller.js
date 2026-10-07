@@ -20,6 +20,8 @@ export default class extends Controller {
     })
   }
 
+  openSupport(event) { event.currentTarget.closest("section").querySelector("details").open = true }
+
   manageReviews() {
     document.dispatchEvent(new CustomEvent("coplan:manage-reviews"))
   }
@@ -28,6 +30,7 @@ export default class extends Controller {
     event.preventDefault()
     const log = document.getElementById("footnote-approvals")
     if (!log) return
+    log.querySelector("details").open = true
     log.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" })
     log.focus({ preventScroll: true })
   }

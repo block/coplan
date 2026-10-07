@@ -7,6 +7,8 @@ module CoPlan
     belongs_to :plan
     belongs_to :reviewer, class_name: "CoPlan::User"
     belongs_to :requested_by_user, class_name: "CoPlan::User"
+    # Historical context of when the request was sent, never a review target.
+    # Pending requests follow the plan; only responses bind to a version.
     belongs_to :requested_plan_version, class_name: "CoPlan::PlanVersion"
     has_many :review_responses, -> { order(created_at: :desc, id: :desc) }, dependent: :delete_all
     has_many :notifications, dependent: :destroy

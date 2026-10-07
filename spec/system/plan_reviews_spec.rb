@@ -51,7 +51,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     within(".review-tray") { click_button "Request changes" }
     fill_in "Public review comment", with: "Please explain the retry contract.", enable_aria_label: true
     within(".review-tray__discussion") { click_button "Request changes" }
-    expect(page).to have_content("Changes requested. Your feedback is in the plan’s comments.")
+    expect(page).to have_css(".review-tray", text: "Changes requested on v1")
     expect(page).to have_css("#plan-general-comments", text: "Please explain the retry contract.")
     expect(task.reload.status).to eq("changes_requested")
     sign_in_browser(author)
@@ -74,11 +74,28 @@ RSpec.describe "Plan discussion and approval", type: :system do
     within(".review-tray") { click_button "Approve" }
     fill_in "Public note", with: "Satisfied with this version."
     click_button "Approve v1"
-    expect(page).to have_content("Your approval of v1 is recorded.")
+    expect(page).to have_css(".review-tray:popover-open", text: "Approved v1")
     expect(task.reload.status).to eq("approved")
     expect(page).to have_css("#plan-general-comments", text: "Satisfied with this version.")
     expect(page).to have_css("#footnote-approvals .review-history", text: /Plan Reviewer approved\s+v1/)
     expect(page).to have_content("Satisfied with this version.")
+    within(".review-tray") do
+      expect(page).to have_css(".review-result-icon--approved", text: "✓")
+      expect(page).to have_no_content("Required")
+      expect(page).to have_no_content("Satisfied with this version.")
+    end
+    [ "light", "dark" ].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.execute_script("document.getElementById('footnote-approvals').scrollIntoView({block: 'center'})")
+      page.save_screenshot(Rails.root.join("tmp/review-preview/approval-confirmation-#{theme}.png"))
+    end
+    expect(page).to have_no_css(".review-tray:popover-open", wait: 6)
+    visit plan_page_path(plan)
+    expect(page).to have_no_css(".review-tray:popover-open")
+    within("#footnote-approvals") { click_button "Change decision" }
+    expect(page).to have_css(".review-tray:popover-open")
+    within(".review-tray") { click_button "Dismiss review confirmation", enable_aria_label: true }
+    expect(page).to have_no_css(".review-tray:popover-open")
   end
 
   it "refuses sign-off when the viewed version changed and keeps the public note" do
@@ -97,7 +114,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A clarified retry contract.")
     plan.update!(current_plan_version: version, current_revision: 2)
     visit plan_page_path(plan)
-    within(".review-tray") { click_button "Changes since approval" }
+    within("#footnote-approvals") { click_button "Compare", exact: false }
     expect(page).to have_css(".review-comparison[open]", text: "Version 1 → 2")
     expect(page).to have_content("A clarified retry contract.")
     expect(page).to have_content("The earlier approval remains recorded")
@@ -112,7 +129,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     page.execute_script("document.getElementById('plan-review-controls').dispatchEvent(new CustomEvent('coplan:reviews-changed'))")
     expect(page).to have_css("[data-review-status]", text: "Optional")
     expect(page).to have_field("Public review comment", with: "Keep this unsent comment", enable_aria_label: true)
-    expect(page).to have_css('.review-tray__actions button[aria-expanded="true"]', text: "Request changes")
+    expect(page).to have_css(".review-tray__discussion", visible: true)
     page.execute_script <<~JS
       const originalFetch = window.fetch;
       window.fetch = (url, options) => {
@@ -127,7 +144,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_css("#review-discussion-error", text: "Couldn't reach CoPlan. Your draft is still here")
     expect(page).to have_field("Public review comment", with: "Keep this unsent comment", enable_aria_label: true)
     within(".review-tray__discussion") { click_button "Request changes" }
-    expect(page).to have_content("Changes requested. Your feedback is in the plan’s comments.")
+    expect(page).to have_css(".review-tray", text: "Changes requested on v1")
   end
 
   it "lets the author find a person and assign required or optional review" do
@@ -150,6 +167,120 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_css(".review-tray", visible: true)
   end
 
+  it "keeps the manager and assignment stable while search results overlay beneath the field" do
+    create(:coplan_user, name: "Popover Candidate", username: "popover-candidate")
+    sign_in_browser(author)
+    click_button "More actions"
+    click_button "Manage approvals"
+    manager = find(".review-management").rect
+    within(".review-management") { click_button "Add reviewer", exact: true }
+    expect(page).to have_css("#review-assignment:popover-open")
+    find('[popovertarget="review-assignment"]').click
+    expect(page).to have_no_css("#review-assignment:popover-open")
+    within(".review-management") { click_button "Add reviewer", exact: true }
+    expect(page).to have_css("#review-assignment:popover-open")
+    panel = find("#review-assignment").rect
+    expect(find(".review-management").rect).to eq(manager)
+    fill_in "Find a reviewer", with: "Popover Candidate"
+    expect(page).to have_css(".review-search-result", text: "Popover Candidate")
+    expect(find("#review-assignment").rect).to eq(panel)
+    expect(find(".review-management").rect).to eq(manager)
+    field = find("#reviewer-search").rect
+    results = find("#reviewer-results").rect
+    expect(results.y).to be >= field.y + field.height
+    [ "light", "dark" ].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp/review-preview/reviewer-popover-#{theme}.png"))
+    end
+    fill_in "Find a reviewer", with: "NoSuchPerson98765"
+    expect(page).to have_css("#reviewer-results", text: "No people found")
+    expect(find("#review-assignment").rect).to eq(panel)
+    page.send_keys(:escape)
+    expect(page).to have_no_css("#review-assignment:popover-open")
+    expect(page).to have_css(".review-management[open]")
+    expect(page).to have_css('[aria-controls="review-assignment"]:focus')
+    within(".review-management") { click_button "Add reviewer", exact: true }
+    page.current_window.resize_to(360, 760)
+    fill_in "Find a reviewer", with: "Popover Candidate"
+    expect(page).to have_css(".review-search-result", text: "Popover Candidate")
+    [ "#review-assignment", "#reviewer-results" ].each do |selector|
+      rect = find(selector).rect
+      expect(rect.x).to be >= 0
+      expect(rect.x + rect.width).to be <= page.evaluate_script("window.innerWidth")
+      expect(rect.y + rect.height).to be <= page.evaluate_script("window.innerHeight")
+    end
+    find(".review-search-result", text: "Popover Candidate").click
+    expect(page).to have_button("Add reviewer", disabled: false, count: 2)
+    click_button "Close reviews", enable_aria_label: true
+    expect(page).to have_no_css("#review-assignment:popover-open")
+  ensure
+    page.current_window.resize_to(1400, 900)
+  end
+
+  it "shows submitted feedback and lets a reviewer reconsider without erasing history" do
+    general = create(:comment_thread, plan: plan, created_by_user: author)
+    general.comments.create!(author_type: "human", author_id: author.id, body_markdown: "**Whole plan feedback**")
+    general.comments.create!(author_type: "human", author_id: reviewer.id, body_markdown: "A follow-up")
+    displaced = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Some content here.")
+    displaced.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Feedback on earlier text")
+    displaced.update_columns(out_of_date: true)
+    visit plan_page_path(plan)
+    expect(page).to have_css("#plan-general-comments .document-comment", text: "Plan comment")
+    expect(page).to have_css("#plan-general-comments .document-comment", text: "1 reply")
+    expect(page).to have_css("#plan-general-comments .comment__body strong", text: "Whole plan feedback")
+    find("#plan-general-comments summary").click
+    expect(page).to have_no_css("#plan-general-comments .document-comment", visible: true)
+    page.execute_script("document.getElementById('plan-review-controls').dispatchEvent(new CustomEvent('coplan:reviews-changed'))")
+    expect(page).to have_no_css("#plan-general-comments details[open]")
+    within("#footnote-approvals") { expect(page).to have_content("Review requested") }
+    find("#plan-general-comments summary").click
+    expect(page).to have_css("#plan-detached-comments .document-comment", text: "Earlier text")
+    within(".review-tray") { click_button "Request changes" }
+    expect(page).to have_button("Request changes", count: 1)
+    fill_in "Public review comment", with: "Please verify recovery.", enable_aria_label: true
+    within(".review-tray__discussion") { click_button "Request changes" }
+    within(".review-tray") do
+      expect(page).to have_content("Changes requested on v1")
+      expect(page).to have_no_content("Please verify recovery.")
+      expect(page).to have_no_button("Request changes")
+      expect(page).to have_button("View feedback", exact: false)
+      click_button "Change decision"
+      click_button "Approve", exact: true
+    end
+    click_button "Cancel"
+    within(".review-tray") { click_button "Request changes" }
+    within(".review-tray") { click_button "Cancel" }
+    [ "light", "dark" ].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.execute_script("document.getElementById('plan-general-comments').scrollIntoView({block: 'center'})")
+      page.save_screenshot(Rails.root.join("tmp/review-preview/review-receipt-comments-#{theme}.png"))
+    end
+    page.current_window.resize_to(360, 760)
+    expect(page.evaluate_script("document.documentElement.scrollWidth")).to be <= page.evaluate_script("window.innerWidth")
+    page.current_window.resize_to(1400, 900)
+    within("#footnote-approvals") { click_button "Change decision" }
+    within(".review-tray") { click_button "Approve", exact: true }
+    click_button "Approve v1"
+    expect(page).to have_css(".review-tray", text: "Approved v1")
+    expect(task.reload.status).to eq("approved")
+    expect(task.review_responses.count).to eq(2)
+    expect(page).to have_css("#plan-general-comments .document-comment", text: "Review · Changes requested · v1")
+    within(find("#plan-general-comments .document-comment", text: "Please verify recovery.")) { click_button "Open discussion", exact: false }
+    expect(page).to have_css(".thread-popover:popover-open", text: "Please verify recovery.")
+  ensure
+    page.current_window.resize_to(1400, 900)
+  end
+
+  it "collapses the log and opens it again from the header indicator" do
+    find("#footnote-approvals summary").click
+    expect(page).to have_no_css("#footnote-approvals .review-roster", visible: true)
+    find("[data-review-indicator]").click
+    expect(page).to have_css("#footnote-approvals .review-roster", visible: true)
+    expect(page).to have_no_css("[data-review-log-summary] .review-version")
+    expect(page).to have_css(".review-person__meta", text: "Review requested")
+    expect(page).to have_no_css(".review-person__meta", text: "v1")
+  end
+
   it "acknowledges saved feedback even if refreshing its comment fails" do
     within(".review-tray") { click_button "Request changes" }
     fill_in "Public review comment", with: "A saved request", enable_aria_label: true
@@ -165,7 +296,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
       };
     JS
     within(".review-tray__discussion") { click_button "Request changes" }
-    expect(page).to have_content("Changes requested. Your feedback is in the plan’s comments. Refresh the page to see your comment.")
+    expect(page).to have_css(".review-tray__notice", text: "Refresh the page to see your comment.", visible: :all)
     expect(task.reload.review_responses.count).to eq(1)
     visit plan_page_path(plan)
     expect(page).to have_css("#plan-general-comments", text: "A saved request")

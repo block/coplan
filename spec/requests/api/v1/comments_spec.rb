@@ -52,6 +52,8 @@ RSpec.describe "Api::V1::Comments", type: :request do
   end
 
   it "create general comment thread" do
+    expect(CoPlan::Broadcaster).to receive(:replace_to).with(plan,
+      target: "plan-general-comments", partial: "coplan/plans/general_comments", locals: anything)
     expect {
       post api_v1_plan_comments_path(plan),
         params: { body_markdown: "General API feedback" },

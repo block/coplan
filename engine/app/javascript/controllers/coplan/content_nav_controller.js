@@ -353,6 +353,7 @@ export default class extends Controller {
     history.replaceState(null, "", `#${id}`)
 
     this._ignoreScroll = true
+    target.querySelector("details.document-support__disclosure")?.setAttribute("open", "")
     this._revealDeckSlide(target)
     target.scrollIntoView({ behavior: "smooth", block: "start" })
   }

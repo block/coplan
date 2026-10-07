@@ -4,12 +4,12 @@
 <div id="plan-review-controls" data-controller="coplan--review-tray"
      data-coplan--review-tray-url-value="<%= plan_review_requests_path(plan) %>"
      data-coplan--review-tray-search-url-value="<%= search_users_path %>"
-     data-action="coplan:reviews-changed->coplan--review-tray#refresh coplan:manage-reviews@document->coplan--review-tray#openReviews coplan:content-updated@document->coplan--review-tray#refresh coplan:editor-saved@document->coplan--review-tray#refresh keydown.esc@document->coplan--review-tray#escape">
+     data-action="coplan:reviews-changed->coplan--review-tray#refresh coplan:manage-reviews@document->coplan--review-tray#openReviews coplan:content-updated@document->coplan--review-tray#refresh coplan:editor-saved@document->coplan--review-tray#refresh resize@window->coplan--review-tray#positionAssignment keydown.esc@document->coplan--review-tray#escape">
   <span hidden><%= render "coplan/reviews/indicator", plan: plan, update: true %></span>
   <%= render "coplan/reviews/log", plan: plan, requests: requests, active_requests: active_requests %>
   <%= render "coplan/reviews/management", plan: plan, requests: requests, active_requests: active_requests %>
   <% if own_request && plan.current_content.present? %>
-    <section class="review-tray" popover="manual" aria-label="Your review">
+    <section class="review-tray" data-completed="<%= !own_request.pending? %>" popover="manual" aria-label="Your review">
       <div class="review-tray__discussion" data-coplan--review-tray-target="discussion" hidden>
         <div class="review-tray__heading"><strong>What would you like changed?</strong><button type="button" class="btn btn--ghost btn--sm" aria-label="Collapse feedback" data-action="coplan--review-tray#collapse">⌄</button></div>
         <%= form_with url: respond_plan_review_request_path(plan, own_request), data: { action: "submit->coplan--review-tray#post", "coplan--review-tray-target": "commentForm" } do %>
@@ -21,18 +21,20 @@
       </div>
       <div class="review-tray__bar">
         <div class="review-tray__status" data-review-status>
-          <% if own_request %>
-            <% approval = own_request.latest_approval %>
-            <div><% if own_request.pending? %><span class="review-task-dot" aria-hidden="true"></span><% end %><strong><%= own_request.pending? ? "Your review is requested" : own_request.status.humanize %></strong><small><%= own_request.requirement.humanize %><%= " · Waiting for updates" if own_request.status == "changes_requested" %><%= " · Approved v#{approval.plan_version.revision}" if approval %></small></div>
-            <% if approval && approval.plan_version.revision != plan.current_revision %><button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#compare" data-url="<%= compare_plan_review_request_path(plan, own_request, response_id: approval.id) %>">Changes since approval</button><% end %>
-          <% else %><span class="text-sm text-muted">Questions and suggestions welcome</span><% end %>
+          <% response = own_request.review_responses.first %>
+          <% approval = own_request.latest_approval %>
+          <div><% unless own_request.pending? %><span class="review-result-icon<%= ' review-result-icon--approved' if own_request.status == 'approved' %>" aria-hidden="true"><%= own_request.status == "approved" ? "✓" : "↩" %></span><% end %><% if own_request.pending? %><span class="review-task-dot" aria-hidden="true"></span><% end %><strong><%= own_request.pending? ? "Your review is requested" : "#{own_request.status == 'approved' ? 'Approved' : 'Changes requested on'} v#{response&.plan_version&.revision}" %></strong><% if own_request.pending? %><small><%= own_request.requirement.humanize %></small><% end %></div>
+          <% if !own_request.pending? && response&.comment_thread_id %><button type="button" class="review-log__link review-feedback-link" data-action="coplan--review-tray#openThread" data-thread-id="<%= response.comment_thread_id %>">View feedback</button><% end %>
+          <% if approval && approval.plan_version.revision != plan.current_revision %><button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#compare" data-url="<%= compare_plan_review_request_path(plan, own_request, response_id: approval.id) %>">Changes since approval</button><% end %>
         </div>
         <div class="review-tray__actions">
-          <span data-review-decision-actions>
-            <% if own_request %>
+          <span data-review-decision-actions data-recorded="<%= !own_request.pending? %>">
+            <% unless own_request.pending? %><button type="button" class="btn btn--secondary btn--sm review-reconsider" data-action="coplan--review-tray#reconsider">Change decision</button><% end %>
+            <span class="review-decision-choices">
               <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--review-tray#requestChanges" data-url="<%= respond_plan_review_request_path(plan, own_request) %>" aria-expanded="false" data-coplan--review-tray-target="changeButton">Request changes</button>
               <button type="button" class="btn btn--secondary btn--sm" data-action="coplan--review-tray#confirmApproval" data-url="<%= respond_plan_review_request_path(plan, own_request) %>">Approve</button>
-            <% end %>
+            </span>
+            <% unless own_request.pending? %><button type="button" class="review-dismiss" aria-label="Dismiss review confirmation" data-action="coplan--review-tray#dismissRecorded">×</button><% end %>
           </span>
         </div>
       </div>

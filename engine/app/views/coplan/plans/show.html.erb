@@ -123,6 +123,7 @@
         </div>
         <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
 
+        <div class="document-support">
         <%= render partial: "coplan/plans/footnotes",
               locals: { plan: @plan, references: @references, attachments: @attachments } %>
 
@@ -142,6 +143,7 @@
         </aside>
         <%= render partial: "coplan/comment_threads/source_comments", locals: { plan: @plan } %>
         <%= render "coplan/plans/thread_collection", plan: @plan, threads: @threads %>
+        </div>
       </div>
     </div>
   <% else %>
@@ -149,8 +151,8 @@
       <p>This plan has no content yet.</p>
     </div>
     <%# No content, no layout columns — back matter still belongs on the page. %>
-    <%= render partial: "coplan/plans/footnotes",
-          locals: { plan: @plan, references: @references, attachments: @attachments } %>
+    <div class="document-support"><%= render partial: "coplan/plans/footnotes",
+          locals: { plan: @plan, references: @references, attachments: @attachments } %></div>
   <% end %>
 </div>
 

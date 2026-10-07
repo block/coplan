@@ -125,6 +125,7 @@ module CoPlan
             )
           end
 
+          CoPlan::Comments::RefreshPreviews.call(thread: thread)
           render json: { comment_id: comment.id, deleted_at: comment.deleted_at }
         end
 
@@ -206,6 +207,7 @@ module CoPlan
             partial: "coplan/comment_threads/thread_popover",
             locals: { thread: thread, plan: @plan }
           )
+          CoPlan::Comments::RefreshPreviews.call(thread: thread)
         end
 
         def broadcast_thread_update(thread)
@@ -215,6 +217,7 @@ module CoPlan
             partial: "coplan/comment_threads/thread_popover",
             locals: { thread: thread, plan: @plan }
           )
+          CoPlan::Comments::RefreshPreviews.call(thread: thread)
         end
 
         def broadcast_new_comment(thread, comment)
@@ -224,6 +227,7 @@ module CoPlan
             partial: "coplan/comments/comment",
             locals: { comment: comment }
           )
+          CoPlan::Comments::RefreshPreviews.call(thread: thread)
         end
       end
     end

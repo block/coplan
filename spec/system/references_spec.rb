@@ -23,7 +23,7 @@ RSpec.describe "Plan references", type: :system do
   # References live under the document as a footnote section — same page as
   # the content, no tabs.
   def open_add_reference_modal
-    within("#footnote-references .plan-footnote__header") { find(".section-add").click }
+    within("#footnote-references") { click_button "Add a reference", enable_aria_label: true }
   end
 
   describe "footnote section" do
@@ -276,6 +276,7 @@ RSpec.describe "Plan references", type: :system do
   describe "adding references via Turbo Stream" do
     it "closes the add-modal via the X button and via Escape" do
       visit plan_page_path(plan)
+      find("#footnote-references summary").click
 
       open_add_reference_modal
       expect(page).to have_css(".add-modal:popover-open")

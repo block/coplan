@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "approval", "approvalNote", "approvalError", "approvalStatement", "approveButton", "comparison", "diff"]
+  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "assignmentError", "approval", "approvalNote", "approvalError", "approvalStatement", "approveButton", "comparison", "diff"]
   static values = { url: String, searchUrl: String }
 
   connect() {
@@ -12,12 +12,14 @@ export default class extends Controller {
     window.Turbo.StreamActions["coplan-review-changed"] ||= function () {
       document.getElementById(this.getAttribute("target"))?.dispatchEvent(new CustomEvent("coplan:reviews-changed"))
     }
-    document.body.classList.toggle("has-review-tray", this.hasDiscussionTarget)
-    this.element.querySelector(".review-tray")?.showPopover()
+    const tray = this.element.querySelector(".review-tray")
+    if (tray && tray.dataset.completed !== "true") tray.showPopover()
+    document.body.classList.toggle("has-review-tray", !!tray?.matches(":popover-open"))
   }
 
   disconnect() {
     clearTimeout(this.searchTimer)
+    clearTimeout(this.dismissTimer)
     this.searchSequence++
     this.refreshSequence++
     document.body.classList.remove("has-review-tray")
@@ -28,28 +30,98 @@ export default class extends Controller {
   }
 
   openReviews() { this.reviewsTarget.showModal() }
-  closeReviews() { this.reviewsTarget.close() }
+  closeReviews() { this.closeAssignment(); this.reviewsTarget.close() }
   closeComparison() { this.comparisonTarget.close() }
 
-  toggleAssignment() {
-    this.assignmentTarget.hidden = !this.assignmentTarget.hidden
-    this.addReviewerButtonTarget.setAttribute("aria-expanded", String(!this.assignmentTarget.hidden))
-    this.assignButtonTarget.disabled = !this.reviewerIdTarget.value
-    if (!this.assignmentTarget.hidden) this.searchTarget.focus({ preventScroll: true })
+  positionAssignment() {
+    if (!this.hasAssignmentTarget || !this.assignmentTarget.matches(":popover-open")) return
+    const trigger = this.addReviewerButtonTarget.getBoundingClientRect()
+    const panel = this.assignmentTarget
+    panel.style.left = `${Math.max(8, Math.min(trigger.right - panel.offsetWidth, window.innerWidth - panel.offsetWidth - 8))}px`
+    // Leave room beneath the field for an overlay of search results.
+    panel.style.top = `${Math.max(8, Math.min(trigger.bottom + 8, window.innerHeight - Math.max(panel.offsetHeight, 330) - 8))}px`
+    this.resultsTarget.style.maxHeight = `${Math.max(60, Math.min(210, window.innerHeight - this.searchTarget.getBoundingClientRect().bottom - 16))}px`
+  }
+
+  assignmentToggled() {
+    const open = this.assignmentTarget.matches(":popover-open")
+    this.addReviewerButtonTarget.setAttribute("aria-expanded", String(open))
+    if (open) {
+      this.positionAssignment()
+      this.assignButtonTarget.disabled = !this.reviewerIdTarget.value
+      this.searchTarget.focus({ preventScroll: true })
+    } else this.closeAssignment()
+  }
+
+  dismissAssignment(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    this.closeAssignment()
+    this.addReviewerButtonTarget.focus({ preventScroll: true })
+  }
+
+  closeAssignment() {
+    if (!this.hasAssignmentTarget) return
+    this.assignmentTarget.hidePopover()
+    this.addReviewerButtonTarget.setAttribute("aria-expanded", "false")
+    this.hideResults()
+    clearTimeout(this.searchTimer)
+    this.searchSequence++
+  }
+
+  hideResults() {
+    this.resultsTarget.hidden = true
+    this.searchTarget.setAttribute("aria-expanded", "false")
+  }
+
+  focusResults(event) {
+    const first = !this.resultsTarget.hidden && this.resultsTarget.querySelector("button:not(:disabled)")
+    if (first) { event.preventDefault(); first.focus({ preventScroll: true }) }
+  }
+
+  reconsider() {
+    clearTimeout(this.dismissTimer)
+    const tray = this.element.querySelector(".review-tray")
+    tray.showPopover()
+    document.body.classList.add("has-review-tray")
+    tray.dataset.reconsidering = "true"
+    this.changeButtonTarget.focus({ preventScroll: true })
+  }
+
+  scheduleDismiss() {
+    clearTimeout(this.dismissTimer)
+    this.dismissTimer = setTimeout(() => this.dismissRecorded(), 4000)
+  }
+
+  dismissRecorded() {
+    const tray = this.element.querySelector(".review-tray")
+    if (!tray || tray.dataset.completed !== "true") return
+    clearTimeout(this.dismissTimer)
+    const ownsFocus = tray.contains(document.activeElement)
+    tray.hidePopover()
+    delete tray.dataset.reconsidering
+    document.body.classList.remove("has-review-tray")
+    if (ownsFocus) document.querySelector("[data-review-indicator]")?.focus({ preventScroll: true })
   }
 
   expand() {
+    this.element.querySelector(".review-tray").dataset.composing = "true"
     this.discussionTarget.hidden = false
     if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", "true")
     this.commentFormTarget.querySelector("textarea").focus({ preventScroll: true })
   }
 
   collapse() {
+    const tray = this.element.querySelector(".review-tray")
+    delete tray.dataset.composing
+    delete tray.dataset.reconsidering
     this.discussionTarget.hidden = true
     if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", "false")
     this.discussionTarget.dispatchEvent(new CustomEvent("coplan:composer-close", { bubbles: true }))
-    const button = this.hasChangeButtonTarget ? this.changeButtonTarget : this.element.querySelector('.review-log-panel__header button')
+    const reconsider = tray.querySelector(".review-reconsider")
+    const button = reconsider || (this.hasChangeButtonTarget ? this.changeButtonTarget : this.element.querySelector('.review-log-panel__header button'))
     button?.focus({ preventScroll: true })
+    if (tray.dataset.completed === "true") this.scheduleDismiss()
     if (this.reviewWithdrawn) {
       this.element.querySelector(".review-tray")?.remove()
       document.body.classList.remove("has-review-tray")
@@ -90,7 +162,9 @@ export default class extends Controller {
       this.approvalTarget.close()
       this.approvalNoteTarget.value = ""
       this.noticeTarget.textContent = `Your approval of v${this.approvalRevision} is recorded.` + (synced ? "" : " Refresh the page to see your comment.")
+      delete this.element.querySelector(".review-tray").dataset.reconsidering
       await this.refresh()
+      this.scheduleDismiss()
     }, "Recording…")
   }
 
@@ -108,6 +182,7 @@ export default class extends Controller {
       input.value = ""
       this.collapse()
       await this.refresh()
+      this.scheduleDismiss()
     }, "Posting…")
   }
 
@@ -155,10 +230,22 @@ export default class extends Controller {
           this.commentFormTarget.querySelector('[role="alert"]').textContent = "This review request is no longer active. Your unsent feedback is still here."
         }
       }
+      if (tray && existingTray) {
+        const wasCompleted = existingTray.dataset.completed === "true"
+        existingTray.dataset.completed = tray.dataset.completed
+        if (!wasCompleted && tray.dataset.completed === "true" && this.discussionTarget.hidden) this.scheduleDismiss()
+        if (wasCompleted && tray.dataset.completed !== "true") {
+          clearTimeout(this.dismissTimer)
+          existingTray.showPopover()
+          document.body.classList.add("has-review-tray")
+        }
+      }
       if (tray && !this.element.querySelector(".review-tray")) {
         this.element.append(tray)
-        tray.showPopover()
-        document.body.classList.add("has-review-tray")
+        if (tray.dataset.completed !== "true") {
+          tray.showPopover()
+          document.body.classList.add("has-review-tray")
+        }
       }
       if (tray && wasWithdrawn && this.hasCommentFormTarget) {
         this.commentFormTarget.querySelector('[type="submit"]').disabled = false
@@ -167,7 +254,10 @@ export default class extends Controller {
       // Preserve the tray, its open state, dictation and all unsent text.
       for (const selector of ["[data-review-status]", "[data-review-decision-actions]", "[data-review-summary]", "[data-review-log-summary]", "[data-review-assignments]", "[data-review-roster]", "[data-review-history]"]) {
         const from = incoming.querySelector(selector), to = this.element.querySelector(selector)
-        if (from && to) to.replaceChildren(...from.childNodes)
+        if (from && to) {
+          to.replaceChildren(...from.childNodes)
+          if (from.hasAttribute("data-recorded")) to.dataset.recorded = from.dataset.recorded
+        }
       }
       const indicator = incoming.querySelector('[data-review-indicator-update]'), headerIndicator = document.querySelector('[data-review-indicator]')
       if (indicator && headerIndicator) {
@@ -182,12 +272,11 @@ export default class extends Controller {
 
   async assign(event) {
     event.preventDefault()
-    if (!this.reviewerIdTarget.value) { this.managementErrorTarget.textContent = "Choose a person from the results first."; return }
-    await this.withBusy(event.target, this.managementErrorTarget, async () => {
+    if (!this.reviewerIdTarget.value) { this.assignmentErrorTarget.textContent = "Choose a person from the results first."; return }
+    await this.withBusy(event.target, this.assignmentErrorTarget, async () => {
       await this.write(this.urlValue, "POST", { review_request: { reviewer_id: this.reviewerIdTarget.value, requirement: event.target.querySelector('[type="checkbox"]').checked ? "required" : "optional" } })
       this.searchTarget.value = ""; this.reviewerIdTarget.value = ""; this.resultsTarget.replaceChildren()
-      this.assignmentTarget.hidden = true
-      this.addReviewerButtonTarget.setAttribute("aria-expanded", "false")
+      this.closeAssignment()
       event.target.querySelector('[type="checkbox"]').checked = true
       this.addReviewerButtonTarget.focus({ preventScroll: true })
       await this.refresh()
@@ -201,13 +290,18 @@ export default class extends Controller {
     this.assignButtonTarget.disabled = true
     const query = this.searchTarget.value.trim(), sequence = ++this.searchSequence
     this.resultsTarget.replaceChildren()
-    if (!query) return
+    this.assignmentErrorTarget.textContent = ""
+    if (!query) { this.hideResults(); return }
+    this.resultsTarget.hidden = false
+    this.searchTarget.setAttribute("aria-expanded", "true")
+    this.resultsTarget.textContent = "Searching…"
     this.searchTimer = setTimeout(async () => {
       try {
         const response = await fetch(`${this.searchUrlValue}?q=${encodeURIComponent(query)}`, { headers: { Accept: "application/json" }, credentials: "same-origin" })
         if (!response.ok) throw new Error("Search unavailable")
         const users = await response.json()
         if (sequence !== this.searchSequence || !this.element.isConnected) return
+        this.resultsTarget.replaceChildren()
         for (const user of users) {
           const button = document.createElement("button")
           button.type = "button"; button.className = "review-search-result"
@@ -236,6 +330,8 @@ export default class extends Controller {
     this.searchTarget.value = event.currentTarget.dataset.userName
     this.assignButtonTarget.disabled = false
     this.resultsTarget.replaceChildren()
+    this.hideResults()
+    this.searchTarget.focus({ preventScroll: true })
   }
 
   requestAgain(event) { this.manage(event, "PATCH", { review_request: { request_again: true } }) }
@@ -261,6 +357,7 @@ export default class extends Controller {
 
   openThread(event) {
     this.closeReviews()
+    this.dismissRecorded()
     document.dispatchEvent(new CustomEvent("coplan:open-thread", { detail: { threadId: event.currentTarget.dataset.threadId } }))
   }
 

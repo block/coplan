@@ -578,7 +578,7 @@ RSpec.describe "Inline plan editing", type: :system do
     visit plan_page_path(plan)
 
     expect(page).to have_no_css("#plan-content-body mark[data-thread-id='comment_thread_#{thread.id}']")
-    within("#plan-detached-comments") { click_button "Second paragraph." }
+    within("#plan-detached-comments") { click_button "Open discussion", exact: false }
     expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Original placement")
   end
 
@@ -604,7 +604,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(thread.reload).to be_out_of_date
     expect(page).to have_css("#plan-detached-comments", visible: true, wait: 10)
     expect(page).to have_no_css("#plan-detached-comments.detached-comments--all-resolved", visible: :all)
-    within("#plan-detached-comments") { click_button "Second paragraph." }
+    within("#plan-detached-comments") { click_button "Open discussion", exact: false }
     expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Keep this discussion visible")
   end
 
