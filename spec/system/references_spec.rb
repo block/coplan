@@ -33,7 +33,7 @@ RSpec.describe "Plan references", type: :system do
       expect(page).to have_content("Some content here")
       # Empty state is one quiet line, scoped to the section (attachments
       # has its own "None yet").
-      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "No references yet")
+      expect(page).to have_no_css("#footnote-references .plan-footnote__empty")
       expect(page).to have_css("#footnote-references .plan-footnote__title", text: /references/i)
     end
 
@@ -361,8 +361,9 @@ RSpec.describe "Plan references", type: :system do
 
       # Turbo Stream removes the reference and updates count
       expect(page).not_to have_content("Doomed")
-      expect(page).to have_css("#references-count", text: "0")
-      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "No references yet")
+      expect(page).to have_no_css("#references-count", visible: true)
+      expect(page).to have_css("#references-count:empty", visible: :all)
+      expect(page).to have_no_css("#footnote-references .plan-footnote__empty")
     end
   end
 

@@ -89,7 +89,7 @@ module CoPlan
 
     def count_stream(id, count)
       turbo_stream.replace(id,
-        html: helpers.content_tag(:span, count, class: "section-count", id: id))
+        html: helpers.plan_section_count(count, id: id))
     end
   end
 end

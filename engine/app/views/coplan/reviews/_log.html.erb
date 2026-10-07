@@ -1,0 +1,8 @@
+<section class="plan-footnote review-log-panel" id="footnote-approvals" data-plan-section="approvals" tabindex="-1" aria-labelledby="review-log-title">
+  <div class="review-log-panel__header"><h2 id="review-log-title">Approvals</h2><% if allowed_to?(plan, :update?) %><button type="button" class="review-add-button" data-action="coplan--review-tray#openReviews">Manage reviewers</button><% end %></div>
+  <div class="review-log-panel__summary" data-review-log-summary><span class="review-version">v<%= plan.current_revision %></span><span><%= pluralize(active_requests.size, "reviewer") %><%= " · #{active_requests.count(&:pending?)} awaiting review" if active_requests.any?(&:pending?) %></span></div>
+  <div class="review-log-panel__columns">
+    <%= render "coplan/reviews/roster", plan: plan, active_requests: active_requests, manage: false %>
+    <%= render "coplan/reviews/activity", requests: requests %>
+  </div>
+</section>

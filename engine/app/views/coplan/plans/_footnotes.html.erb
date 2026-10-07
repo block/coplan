@@ -14,7 +14,7 @@
         </button>
       <% end %>
       <h2 class="plan-footnote__title" id="footnote-references-title">References</h2>
-      <span class="section-count" id="references-count"><%= back_matter[:count] + listed_references.size %></span>
+      <%= plan_section_count(back_matter[:count] + listed_references.size, id: "references-count") %>
     </div>
     <%= render partial: "coplan/plans/citations", locals: { plan: plan, back_matter: back_matter } %>
     <%= render partial: "coplan/plans/references", locals: {
@@ -32,8 +32,9 @@
         </button>
       <% end %>
       <h2 class="plan-footnote__title" id="footnote-attachments-title">Attachments</h2>
-      <span class="section-count" id="attachments-count"><%= attachments.size %></span>
+      <%= plan_section_count(attachments.size, id: "attachments-count") %>
     </div>
     <%= render partial: "coplan/plans/attachments", locals: { attachments: attachments, plan: plan } %>
   </section>
+  <%= render "coplan/reviews/controls", plan: plan %>
 </div>

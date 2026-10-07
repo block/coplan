@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "managementError", "approval", "approvalNote", "approvalError", "approvalStatement", "approveButton", "comparison", "diff"]
+  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "approval", "approvalNote", "approvalError", "approvalStatement", "approveButton", "comparison", "diff"]
   static values = { url: String, searchUrl: String }
 
   connect() {
@@ -13,6 +13,7 @@ export default class extends Controller {
       document.getElementById(this.getAttribute("target"))?.dispatchEvent(new CustomEvent("coplan:reviews-changed"))
     }
     document.body.classList.toggle("has-review-tray", this.hasDiscussionTarget)
+    this.element.querySelector(".review-tray")?.showPopover()
   }
 
   disconnect() {
@@ -30,6 +31,13 @@ export default class extends Controller {
   closeReviews() { this.reviewsTarget.close() }
   closeComparison() { this.comparisonTarget.close() }
 
+  toggleAssignment() {
+    this.assignmentTarget.hidden = !this.assignmentTarget.hidden
+    this.addReviewerButtonTarget.setAttribute("aria-expanded", String(!this.assignmentTarget.hidden))
+    this.assignButtonTarget.disabled = !this.reviewerIdTarget.value
+    if (!this.assignmentTarget.hidden) this.searchTarget.focus({ preventScroll: true })
+  }
+
   expand() {
     this.discussionTarget.hidden = false
     if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", "true")
@@ -40,7 +48,7 @@ export default class extends Controller {
     this.discussionTarget.hidden = true
     if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", "false")
     this.discussionTarget.dispatchEvent(new CustomEvent("coplan:composer-close", { bubbles: true }))
-    const button = this.hasChangeButtonTarget ? this.changeButtonTarget : this.element.querySelector(".review-chip")
+    const button = this.hasChangeButtonTarget ? this.changeButtonTarget : this.element.querySelector('.review-log-panel__header button')
     button?.focus({ preventScroll: true })
     if (this.reviewWithdrawn) {
       this.element.querySelector(".review-tray")?.remove()
@@ -149,6 +157,7 @@ export default class extends Controller {
       }
       if (tray && !this.element.querySelector(".review-tray")) {
         this.element.append(tray)
+        tray.showPopover()
         document.body.classList.add("has-review-tray")
       }
       if (tray && wasWithdrawn && this.hasCommentFormTarget) {
@@ -156,9 +165,16 @@ export default class extends Controller {
         this.commentFormTarget.querySelector('[role="alert"]').textContent = ""
       }
       // Preserve the tray, its open state, dictation and all unsent text.
-      for (const selector of ["[data-review-status]", "[data-review-decision-actions]", "[data-review-chip-label]", "[data-review-assignments]", "[data-review-history]"]) {
+      for (const selector of ["[data-review-status]", "[data-review-decision-actions]", "[data-review-summary]", "[data-review-log-summary]", "[data-review-assignments]", "[data-review-roster]", "[data-review-history]"]) {
         const from = incoming.querySelector(selector), to = this.element.querySelector(selector)
         if (from && to) to.replaceChildren(...from.childNodes)
+      }
+      const indicator = incoming.querySelector('[data-review-indicator-update]'), headerIndicator = document.querySelector('[data-review-indicator]')
+      if (indicator && headerIndicator) {
+        headerIndicator.replaceChildren(...indicator.childNodes)
+        headerIndicator.hidden = indicator.hidden
+        headerIndicator.title = indicator.title
+        headerIndicator.setAttribute('aria-label', indicator.getAttribute('aria-label'))
       }
       if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", String(!this.discussionTarget.hidden))
     } catch { /* The task and draft remain usable; the next event retries. */ }
@@ -168,15 +184,21 @@ export default class extends Controller {
     event.preventDefault()
     if (!this.reviewerIdTarget.value) { this.managementErrorTarget.textContent = "Choose a person from the results first."; return }
     await this.withBusy(event.target, this.managementErrorTarget, async () => {
-      await this.write(this.urlValue, "POST", { review_request: { reviewer_id: this.reviewerIdTarget.value, requirement: event.target.querySelector("select").value } })
+      await this.write(this.urlValue, "POST", { review_request: { reviewer_id: this.reviewerIdTarget.value, requirement: event.target.querySelector('[type="checkbox"]').checked ? "required" : "optional" } })
       this.searchTarget.value = ""; this.reviewerIdTarget.value = ""; this.resultsTarget.replaceChildren()
+      this.assignmentTarget.hidden = true
+      this.addReviewerButtonTarget.setAttribute("aria-expanded", "false")
+      event.target.querySelector('[type="checkbox"]').checked = true
+      this.addReviewerButtonTarget.focus({ preventScroll: true })
       await this.refresh()
     }, "Requesting…")
+    this.assignButtonTarget.disabled = !this.reviewerIdTarget.value
   }
 
   search() {
     clearTimeout(this.searchTimer)
     this.reviewerIdTarget.value = ""
+    this.assignButtonTarget.disabled = true
     const query = this.searchTarget.value.trim(), sequence = ++this.searchSequence
     this.resultsTarget.replaceChildren()
     if (!query) return
@@ -189,7 +211,16 @@ export default class extends Controller {
         for (const user of users) {
           const button = document.createElement("button")
           button.type = "button"; button.className = "review-search-result"
-          button.textContent = [user.name, user.username && `@${user.username}`, user.team].filter(Boolean).join(" · ")
+          const avatar = document.createElement("span")
+          avatar.className = "review-search-result__avatar"
+          avatar.textContent = user.name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()
+          avatar.setAttribute("aria-hidden", "true")
+          const info = document.createElement("span"), name = document.createElement("strong"), detail = document.createElement("small")
+          name.textContent = user.name
+          const assigned = [...this.element.querySelectorAll('[data-reviewer-id]')].some(row => row.dataset.reviewerId === user.id)
+          detail.textContent = assigned ? "Already a reviewer" : [user.username && `@${user.username}`, user.team].filter(Boolean).join(" · ")
+          button.disabled = assigned
+          info.append(name, detail); button.append(avatar, info)
           button.dataset.action = "coplan--review-tray#chooseReviewer"
           button.dataset.userId = user.id; button.dataset.userName = user.name
           this.resultsTarget.append(button)
@@ -203,6 +234,7 @@ export default class extends Controller {
     this.searchSequence++
     this.reviewerIdTarget.value = event.currentTarget.dataset.userId
     this.searchTarget.value = event.currentTarget.dataset.userName
+    this.assignButtonTarget.disabled = false
     this.resultsTarget.replaceChildren()
   }
 

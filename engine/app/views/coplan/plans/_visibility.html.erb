@@ -1,0 +1,13 @@
+<div class="plan-visibility-panel" popover="auto" role="dialog" tabindex="-1" data-coplan--plan-details-target="visibility" aria-label="Plan visibility">
+  <h2>Visibility</h2>
+  <% [["draft", "Private", "Unlisted. Anyone with the link can read.", hide_plan_path(plan)], ["published", "Shared", "Listed for everyone in the organization.", publish_plan_path(plan)]].each do |state, label, description, path| %>
+    <div data-visibility-option="<%= state %>" class="visibility-option">
+      <% if allowed_to?(plan, :update?) %>
+        <%= button_to path, method: :patch, class: "visibility-option__button", form: { data: { action: "turbo:submit-end->coplan--plan-details#visibilitySubmitted" } }, data: { turbo_submits_with: "Updating…" } do %>
+          <span><strong><%= label %></strong><small><%= description %></small></span><span class="visibility-option__check" aria-hidden="true">✓</span>
+        <% end %>
+      <% else %><div class="visibility-option__button"><span><strong><%= label %></strong><small><%= description %></small></span><span class="visibility-option__check" aria-hidden="true">✓</span></div><% end %>
+    </div>
+  <% end %>
+  <p class="review-error" role="alert" data-coplan--plan-details-target="visibilityError"></p>
+</div>

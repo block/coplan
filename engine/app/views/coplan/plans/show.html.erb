@@ -31,8 +31,8 @@
     between the document and its footnote sections. Cold opens (direct link,
     new tab) have no history — fall back to the folder the plan actually
     lives in, not the workspace root. %>
-<div data-controller="coplan--plan-keys coplan--folder-picker coplan--inline-editor"
-     data-action="coplan:edit-request@document->coplan--inline-editor#open coplan:editor-ready->coplan--inline-editor#ready coplan:editor-closed->coplan--inline-editor#closed coplan:editor-error->coplan--inline-editor#error coplan:editor-saved->coplan--inline-editor#refreshThreads"
+<div data-controller="coplan--plan-keys coplan--folder-picker coplan--inline-editor coplan--plan-details"
+     data-action="coplan:edit-request@document->coplan--inline-editor#open coplan:editor-ready->coplan--inline-editor#ready coplan:editor-closed->coplan--inline-editor#closed coplan:editor-error->coplan--inline-editor#error coplan:editor-saved->coplan--inline-editor#refreshThreads keydown.esc@document->coplan--plan-details#dismissVisibility"
      data-coplan--inline-editor-content-url-value="<%= content_body_plan_path(@plan) %>"
      data-coplan--inline-editor-comments-url-value="<%= comments_body_plan_path(@plan) %>"
      data-coplan--inline-editor-auto-open-value="<%= params[:edit].present? && allowed_to?(@plan, :edit_content?) %>"
@@ -50,7 +50,6 @@
     <%= render partial: "coplan/plans/agent_sessions", locals: { agent_sessions: CoPlan::AgentSession.visible.where(plan_id: @plan.id).order(:created_at) } %>
     <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(@plan), current_user: current_user } %>
     <%= render partial: "coplan/plans/toolbar", locals: { plan: @plan, placement: @placement } %>
-    <%= render "coplan/reviews/controls", plan: @plan %>
   </div>
 </div>
 
@@ -78,8 +77,9 @@
               visit, so the bare anchor refetched and re-rendered the page —
               and on a deck the re-rendered slides settle their heights
               asynchronously, landing the scroll nowhere near the section. %>
-          <li><a href="#footnote-references" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">References <span class="section-count" id="nav-references-count"><%= reference_count %></span></a></li>
-          <li><a href="#footnote-attachments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Attachments <span class="section-count" id="nav-attachments-count"><%= @attachments.size %></span></a></li>
+          <li><a href="#footnote-references" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">References <%= plan_section_count(reference_count, id: "nav-references-count") %></a></li>
+          <li><a href="#footnote-attachments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Attachments <%= plan_section_count(@attachments.size, id: "nav-attachments-count") %></a></li>
+          <li><a href="#footnote-approvals" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Approvals</a></li>
         </ul>
       </nav>
       <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>
@@ -155,6 +155,7 @@
 </div>
 
 <%= render partial: "coplan/shared/folder_picker", locals: { folders: @my_folders } %>
+<%= render "coplan/plans/visibility", plan: @plan %>
 
 <% if current_user && @plan.current_content.present? %>
   <%= render partial: "coplan/plans/voice_control", locals: { plan: @plan } %>

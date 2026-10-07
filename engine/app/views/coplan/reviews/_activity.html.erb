@@ -1,0 +1,22 @@
+  <section class="review-history" aria-label="Review activity">
+    <h3>Activity</h3>
+    <div class="review-log" data-review-history>
+      <% activity = requests.flat_map { |request| [[request.requested_at, :request, request]] + request.review_responses.map { |response| [response.created_at, :response, response] } }.sort_by(&:first).reverse %>
+      <% if activity.empty? %><p class="review-log__empty">No review activity yet.</p><% end %>
+      <% activity.each do |at, kind, item| %>
+        <% actor = kind == :request ? item.requested_by_user : item.user %>
+        <article class="review-log__entry">
+          <div class="review-log__avatar"><%= user_avatar(actor, size: "sm") %></div>
+          <div class="review-log__body">
+            <p class="review-log__event"><strong><%= kind == :response && item.actor_type == "local_agent" ? "#{item.agent_name} (via #{actor.name})" : actor.name %></strong>
+              <% if kind == :request %>requested a review from <strong><%= item.reviewer.name %></strong><% else %><%= item.decision == "approved" ? "approved" : "requested changes on" %><% end %>
+              <span class="review-version">v<%= kind == :request ? item.requested_plan_version.revision : item.plan_version.revision %></span>
+            </p>
+            <time datetime="<%= at.iso8601 %>" title="<%= l(at, format: :long) %>"><%= l(at, format: :short) %></time>
+            <% if kind == :response && item.note.present? %><p class="review-log__note"><%= item.note %></p><% end %>
+            <% if kind == :response && item.comment_thread_id.present? %><button type="button" class="review-log__link" data-action="coplan--review-tray#openThread" data-thread-id="<%= item.comment_thread_id %>">Open discussion <span aria-hidden="true">↗</span></button><% end %>
+          </div>
+        </article>
+      <% end %>
+    </div>
+  </section>

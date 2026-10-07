@@ -1,0 +1,22 @@
+<% requests = plan.review_requests.includes(:review_responses).to_a %>
+<% active = requests.reject { |request| request.status == "withdrawn" } %>
+<% required = active.select { |request| request.requirement == "required" } %>
+<% current_approvals = active.select { |request| request.status == "approved" && request.latest_approval&.plan_version_id == plan.current_plan_version_id } %>
+<% completed = required.count { |request| current_approvals.include?(request) } %>
+<% complete = required.any? && completed == required.size %>
+<% label = if required.any?
+     "#{completed} of #{required.size} required reviewers approved v#{plan.current_revision}"
+   elsif current_approvals.any?
+     "#{pluralize(current_approvals.size, 'approval')} of v#{plan.current_revision}"
+   elsif active.any?
+     "#{pluralize(active.size, 'review')} requested"
+   else
+     "Review history"
+   end %>
+<a href="#footnote-approvals" class="plan-review-indicator" <%= local_assigns[:update] ? "data-review-indicator-update" : "data-review-indicator" %>
+   <%= "hidden" if requests.empty? %> title="<%= label %> · View review log" aria-label="<%= label %> · View review log" data-action="coplan--plan-details#jumpReviews">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M9 3H6a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-3"/><rect x="9" y="1" width="6" height="4" rx="1"/>
+    <% if complete %><path d="m8 13 3 3 5-6"/><% elsif required.any? %><circle cx="12" cy="13" r="4"/><path d="M12 11v2l1.5 1"/><% elsif current_approvals.any? %><path d="m8 13 3 3 5-6"/><% else %><path d="M8 10h8M8 14h6"/><% end %>
+  </svg>
+</a>
