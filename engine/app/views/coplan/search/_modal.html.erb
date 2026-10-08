@@ -1,6 +1,6 @@
 <%# Sitewide search modal, rendered once per page in the global layout.
     Opens via:
-      * Click on the header bar ("Search plans…")
+      * Click the header's magnifying glass
       * The `/` keyboard shortcut from anywhere outside an input
 
     Built on the native HTML Popover API (`popover="auto"`) to match the
@@ -10,6 +10,8 @@
     keyboard navigation, and `/` shortcut wiring. %>
 <div id="search-modal"
      popover="auto"
+     role="dialog"
+     aria-label="Search plans and people"
      class="search-modal"
      data-controller="coplan--search"
      data-coplan--search-url-value="<%= coplan.search_path %>"
@@ -20,8 +22,14 @@
       reliable fallback). The Stimulus controller intercepts Enter when a
       result is selected and clicks the link instead. %>
   <form action="<%= coplan.search_path %>" method="get" class="search-modal__header">
+    <svg class="search-modal__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
     <input type="search"
            name="q"
+           role="combobox"
+           aria-label="Search plans and people"
+           aria-autocomplete="list"
+           aria-controls="search-results-listbox"
+           aria-expanded="false"
            class="search-modal__input"
            placeholder="Search plans and people…"
            autocomplete="off"
@@ -29,7 +37,10 @@
            data-action="input->coplan--search#onInput keydown->coplan--search#onKeydown">
     <kbd class="search-modal__hint">Esc</kbd>
   </form>
-  <div class="search-modal__body" data-coplan--search-target="body">
+  <div class="search-modal__body" data-coplan--search-target="body"
+       data-action="turbo:frame-load->coplan--search#resultsLoaded">
+    <div class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"
+         data-coplan--search-target="announcement"></div>
     <%# Modal is only rendered for signed-in users (see layout), so the
         recent-searches lookup here is always safe. %>
     <%= render partial: "coplan/search/results", locals: {

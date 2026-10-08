@@ -36,6 +36,92 @@ RSpec.describe "Navigation chrome", type: :system do
       find(".site-nav__search").click
       expect(page).to have_css(".search-modal:popover-open")
     end
+
+    [ false, true ].each do |reduced_motion|
+      it "focuses search immediately and reopens cleanly with #{reduced_motion ? 'reduced' : 'normal'} motion" do
+        page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [
+          { name: "prefers-reduced-motion", value: reduced_motion ? "reduce" : "no-preference" }
+        ])
+        visit library_page_path(user)
+        page.execute_script("document.body.style.minHeight = '2000px'; window.scrollTo(0, 600)")
+        scroll = page.evaluate_script("scrollY")
+        expect(scroll).to be > 0
+        page.execute_script <<~JS
+          window.searchAnimations = 0;
+          const animate = Element.prototype.animate;
+          Element.prototype.animate = function(...args) {
+            if (this.id === 'search-modal') window.searchAnimations++;
+            return animate.apply(this, args);
+          };
+        JS
+        find(".site-nav__search").click
+        expect(page).to have_css(".search-modal__input:focus")
+        expect(page).to have_css(".search-modal__icon[aria-hidden='true']")
+        find(".search-modal__input").send_keys(:escape)
+        expect(page).not_to have_css(".search-modal:popover-open")
+        page.driver.browser.action.send_keys("/").perform
+        expect(page).to have_css(".search-modal__input:focus")
+        expect(page.evaluate_script("window.searchAnimations")).to eq(reduced_motion ? 0 : 2)
+        expect(page.evaluate_script("scrollY")).to eq(scroll)
+      ensure
+        page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [])
+      end
+    end
+
+    it "announces the selected result while arrow keys keep focus in the search field" do
+      alpha = create(:coplan_user, name: "Accessible Alpha")
+      beta = create(:coplan_user, name: "Accessible Beta")
+      visit library_page_path(user)
+      find(".site-nav__search").click
+      field = find_field("Search plans and people", enable_aria_label: true)
+      field.fill_in with: "Accessible"
+
+      within("#search-results-listbox[role='listbox']") do
+        expect(page).to have_css("[role='group'][aria-label='People'] [role='option']", count: 2)
+        expect(page).to have_css("[role='option'][aria-selected='true']", text: alpha.name)
+      end
+      expect(find("#search-modal [role='status']", visible: :all).text(:all)).to include("2 results available")
+      expect(field["aria-controls"]).to eq("search-results-listbox")
+      expect(field["aria-expanded"]).to eq("true")
+
+      field.send_keys(:arrow_down)
+      selected = find("#search-results [role='option'][aria-selected='true']")
+      expect(selected).to have_text(beta.name)
+      expect(field["aria-activedescendant"]).to eq(selected[:id])
+      expect(page.evaluate_script("document.activeElement.matches('.search-modal__input')")).to be(true)
+
+      field.send_keys(:arrow_down)
+      expect(page).to have_css("#search-results [aria-selected='true']", text: alpha.name)
+      field.send_keys(:arrow_up, :enter)
+      expect(page).to have_current_path(library_page_path(beta))
+    end
+
+    it "clears the active result for an unmatched query and closes with one Escape" do
+      create(:coplan_user, name: "Accessible Person")
+      visit library_page_path(user)
+      find(".site-nav__search").click
+      field = find_field("Search plans and people", enable_aria_label: true)
+      field.fill_in with: "Accessible"
+      expect(page).to have_css("#search-results [aria-selected='true']")
+
+      field.fill_in with: "nothingmatcheszzz"
+      expect(page).to have_css("#search-results [data-search-summary]", text: "Nothing matches")
+      expect(field["aria-activedescendant"]).to be_nil
+      expect(field["aria-expanded"]).to eq("false")
+      field.send_keys(:arrow_down, :escape)
+      expect(page).not_to have_css(".search-modal:popover-open")
+      expect(field["aria-activedescendant"]).to be_nil
+    end
+
+    it "keeps full-page results reachable as ordinary links with Tab and Enter" do
+      person = create(:coplan_user, name: "Accessible Person")
+      visit search_path(q: "Accessible")
+      expect(page).to have_css("#search-page-results a[data-search-result]", text: person.name)
+      find(".search-page__input").send_keys(:tab)
+      expect(page.evaluate_script("document.activeElement.textContent")).to include(person.name)
+      page.driver.browser.action.send_keys(:enter).perform
+      expect(page).to have_current_path(library_page_path(person))
+    end
   end
 
   describe "keyboard shortcuts modal" do
