@@ -61,6 +61,62 @@ RSpec.describe "Updated section signposts", type: :system do
     expect(page).to have_css(".plan-layout")
   end
 
+  def broadcast_section_update(keys:, revision: 3, rewritten: false, rename: false)
+    page.execute_script(<<~JS)
+      const body = document.getElementById('plan-content-body')
+      const stream = document.createElement('turbo-stream')
+      stream.setAttribute('action', 'coplan-replace-if-clean')
+      stream.setAttribute('target', 'plan-content-body')
+      stream.setAttribute('data-revision', '#{revision}')
+      stream.setAttribute('data-section-update', JSON.stringify({by: 'Live editor', at: new Date().toISOString(), ago: 'just now', revision: #{revision}, keys: #{keys.to_json}, rewritten: #{rewritten}}))
+      const template = document.createElement('template')
+      template.innerHTML = body.innerHTML.replace('comfortable to read', 'a recent live revision')
+      if (#{rename}) {
+        const heading = template.content.querySelector('#design')
+        heading.textContent = 'Approach'
+        heading.removeAttribute('id')
+        template.content.querySelector('.markdown-rendered').insertAdjacentHTML('beforeend', '<h2>New section</h2><p>Fresh material.</p>')
+      }
+      if (#{rewritten}) {
+        template.content.querySelector('.markdown-rendered').innerHTML = ['Design', 'Data', 'Rollout', 'Testing'].map(title => `<h2>${title}</h2><p>Entirely new ${title} body.</p>`).join('')
+      }
+      stream.append(template)
+      document.body.append(stream)
+    JS
+  end
+
+  it "marks new and renamed sections introduced by a live edit and updates the notice count" do
+    broadcast_section_update(keys: %w[approach new-section], rename: true)
+    find("#approach .section-update-marker").hover
+    expect(page).to have_css('#approach .section-update-marker[aria-label*="Live editor"]')
+    expect(page).to have_css("#new-section.section-updated")
+    expect(page).to have_css(".changed-sections-note", text: "3 sections updated since your last visit.")
+    expect(page).to have_no_css("#design")
+  end
+
+  it "keeps dismissal for the same revision but shows new material from a later revision" do
+    click_button "Dismiss"
+    expect(page).to have_no_css(".changed-sections-note")
+    broadcast_section_update(keys: %w[design], revision: 2)
+    expect(page).to have_no_css(".changed-sections-note")
+    expect(page).to have_no_css(".section-update-marker")
+    broadcast_section_update(keys: [])
+    expect(page).to have_no_css(".changed-sections-note")
+
+    broadcast_section_update(keys: %w[design], revision: 4)
+    find("#design .section-update-marker").hover
+    expect(page).to have_css(".changed-sections-note", text: "2 sections updated since your last visit.")
+    expect(page.evaluate_script("document.querySelector('.changed-sections-note').inert")).to be false
+  end
+
+  it "restores only the summary when a live rewrite follows dismissal" do
+    click_button "Dismiss"
+    broadcast_section_update(keys: [], rewritten: true)
+    expect(page).to have_css(".changed-sections-note", text: "Updated throughout since your last visit.")
+    expect(page).to have_no_css(".section-updated, .section-update-marker")
+    expect(page.evaluate_script("document.querySelector('.changed-sections-note').inert")).to be false
+  end
+
   it "marks only section starts and keeps rich content's own surfaces in both themes" do
     %w[light dark].each do |theme|
       page.execute_script("document.documentElement.dataset.theme = '#{theme}'")
@@ -147,10 +203,14 @@ RSpec.describe "Updated section signposts", type: :system do
   end
 
   it "keeps metadata readable on a narrow screen without overflow" do
-    page.driver.browser.manage.window.resize_to(390, 844)
+    window = page.current_window
+    original_size = window.size
+    window.resize_to(390, 844)
     find("#design .section-update-marker").hover
     expect(page.evaluate_script("getComputedStyle(document.querySelector('#design .section-update-marker'), '::after').visibility")).to eq("visible")
     expect(page.evaluate_script("document.documentElement.scrollWidth <= window.innerWidth")).to be true
+  ensure
+    window.resize_to(*original_size) if original_size
   end
 
   it "reapplies signposts after a live content swap and remembers viewed sections" do

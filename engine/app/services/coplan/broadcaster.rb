@@ -74,7 +74,8 @@ module CoPlan
         attrs["data-changed-sections"] = changed_sections.to_json if changed_sections.present?
         if (version = plan.current_plan_version)
           details = ApplicationController.helpers.section_update_details(version)
-          attrs["data-section-update"] = details.merge(keys: section_update_keys(plan, changed_sections)).to_json
+          changes = section_update_changes(plan, changed_sections)
+          attrs["data-section-update"] = details.merge(keys: changes.keys, rewritten: changes.rewritten?).to_json
         end
         custom_action_to(
           plan,
@@ -135,16 +136,12 @@ module CoPlan
       private
 
       # Some write paths do not request a diff flash. Still update attribution
-      # on any existing unread markers, and cover extensive rewrites too.
-      def section_update_keys(plan, changes)
-        return changes.keys if changes.respond_to?(:rewritten?) && !changes.rewritten?
+      # and mark new sections while preserving the extensive-update notice.
+      def section_update_changes(plan, changes)
+        return changes if changes.respond_to?(:rewritten?)
 
         previous = plan.plan_versions.where("revision < ?", plan.current_revision).reorder(revision: :desc).first
-        old_sections = Plans::ChangedSections.sections(previous&.content_markdown)
-        Plans::ChangedSections.sections(plan.current_content).filter_map do |key, body|
-          next if key == Plans::ChangedSections::TOP_KEY && body.strip.empty?
-          key if !old_sections.key?(key) || old_sections[key] != body
-        end
+        Plans::ChangedSections.call(old_content: previous&.content_markdown, new_content: plan.current_content)
       end
 
       def render(partial:, locals:)

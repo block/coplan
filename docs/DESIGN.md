@@ -91,6 +91,8 @@ focus on the dot keeps it visible and shows who last edited that section,
 with relative and exact times. Keyboard focus remains blue. Dismiss clears
 all cues; preserve their footprint so nothing moves under the reader.
 If a section receives another live edit, its dot returns for that new edit.
+New and renamed sections receive dots too. Dismiss acknowledges the current
+updates; later edits can bring attention back, including the rewrite notice.
 Extensive changes get one Updated throughout notice and a history link
 instead of marking every section. These cues are per viewer and disappear
 on the next visit.

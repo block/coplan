@@ -3,7 +3,7 @@
 <aside class="changed-sections-note" aria-label="Updates since your last visit"
        data-coplan--changed-sections-target="note"
        <%= "hidden" unless @changed_sections.rewritten? || @changed_sections.keys.any? %>>
-  <span class="changed-sections-note__summary">
+  <span class="changed-sections-note__summary" data-coplan--changed-sections-target="summary">
     <% if @changed_sections.rewritten? %>
       Updated throughout since your last visit.
     <% else %>

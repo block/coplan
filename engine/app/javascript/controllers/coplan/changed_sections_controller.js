@@ -6,8 +6,8 @@ const TOP_KEY = "__top__"
 const READ_DELAY = 3000
 
 export default class extends Controller {
-  static targets = ["note", "markerTemplate"]
-  static values = { keys: Array, rewritten: Boolean, viewed: Array, updates: Object }
+  static targets = ["note", "summary", "markerTemplate"]
+  static values = { keys: Array, rewritten: Boolean, viewed: Array, updates: Object, revision: Number }
 
   connect() {
     this.disconnect()
@@ -21,7 +21,11 @@ export default class extends Controller {
     this.element.querySelectorAll(".section-updated").forEach(node => {
       node.classList.remove("section-updated", "section-updated--viewed")
     })
-    if (this.rewrittenValue) return
+    if (this.rewrittenValue) {
+      this.noteTarget.hidden = false
+      this.summaryTarget.textContent = "Updated throughout since your last visit."
+      return
+    }
 
     const keys = new Set(this.keysValue)
     const used = new Set()
@@ -36,6 +40,7 @@ export default class extends Controller {
       }
     }
     this.noteTarget.hidden = this.sections.size === 0
+    this.summaryTarget.textContent = `${this.sections.size} section${this.sections.size === 1 ? "" : "s"} updated since your last visit.`
     this.observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         const node = entry.target
@@ -63,7 +68,16 @@ export default class extends Controller {
       // Acknowledging an earlier edit does not acknowledge new material.
       // Compare revisions: separate edits can share the same timestamp.
       const changed = event.detail.keys.filter(key => event.detail.update.revision > (updates[key]?.revision || 0))
+      if (event.detail.update.revision > this.revisionValue) {
+        this.revisionValue = event.detail.update.revision
+        if (changed.length || event.detail.update.rewritten) {
+          this.noteTarget.classList.remove("changed-sections-note--dismissed")
+          this.noteTarget.inert = false
+        }
+      }
       this.viewedValue = this.viewedValue.filter(key => !changed.includes(key))
+      this.keysValue = [...new Set([...this.keysValue, ...changed])]
+      if (event.detail.update.rewritten) this.rewrittenValue = true
       event.detail.keys.forEach(key => { updates[key] = event.detail.update })
       this.updatesValue = updates
     }

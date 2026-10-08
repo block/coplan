@@ -70,6 +70,23 @@ RSpec.describe CoPlan::Broadcaster do
       expect(stream["data-changed-sections"]).to be_nil
     end
 
+    it "preserves extensive rewrite metadata even without a diff flash" do
+      original = %w[Design Data Rollout Testing].map { |title| "## #{title}\n\nOriginal #{title} body.\n" }.join("\n")
+      plan.current_plan_version.update_columns(content_markdown: original)
+      version = create(:plan_version, plan: plan, revision: 2, actor_id: author.id,
+        content_markdown: original.gsub("Original", "Entirely new"))
+      plan.update!(current_plan_version: version, current_revision: 2)
+      payloads = []
+      allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to) do |_streamable, content:|
+        payloads << content.to_s
+      end
+
+      described_class.replace_plan_content(plan)
+
+      update = JSON.parse(Nokogiri::HTML.fragment(payloads.first).at_css("turbo-stream")["data-section-update"])
+      expect(update).to include("keys" => [], "rewritten" => true, "revision" => 2)
+    end
+
     it "batches structured source refreshes without replacing prose threads or leaking session tokens" do
       threads = 3.times.map do
         thread = create(:comment_thread, plan: plan, anchor_text: "Some content")
