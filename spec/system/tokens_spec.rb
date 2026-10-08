@@ -67,23 +67,29 @@ RSpec.describe "Token management", type: :system do
     expect(page).to have_content("Revokable")
   end
 
-  it "keeps narrow settings pages within the viewport and lets the token table scroll by keyboard" do
-    user = CoPlan::User.find_by!(email: "testuser@example.com")
-    create(:api_token, user: user, name: "A long descriptive development agent token name")
-    page.driver.browser.manage.window.resize_to(320, 720)
-    visit settings_root_path
-    expect(page).to have_content("Your Tokens")
-    expect(page.evaluate_script("document.documentElement.scrollWidth <= innerWidth")).to be(true)
+  %i[settings_root_path settings_tokens_path].each do |route|
+    %w[light dark].each do |theme|
+      it "keeps #{route} within a narrow viewport and lets the table scroll by keyboard in #{theme} mode" do
+        user = CoPlan::User.find_by!(email: "testuser@example.com")
+        user.update!(theme_preference: theme)
+        create(:api_token, user: user, name: "A long descriptive development agent token name")
+        page.driver.browser.manage.window.resize_to(320, 720)
+        visit public_send(route)
+        expect(page).to have_content("Your Tokens")
+        expect(page.evaluate_script("document.documentElement.scrollWidth <= innerWidth")).to be(true)
 
-    table_region = find(".data-table-scroll[aria-labelledby='tokens-heading']")
-    expect(page.evaluate_script("document.querySelector('.data-table-scroll').scrollWidth > document.querySelector('.data-table-scroll').clientWidth")).to be(true)
-    table_region.send_keys(*Array.new(10, :arrow_right))
-    Timeout.timeout(Capybara.default_max_wait_time) do
-      sleep 0.01 until page.evaluate_script("document.querySelector('.data-table-scroll').scrollLeft > 0")
+        table_region = find(".data-table-scroll[aria-labelledby='tokens-heading']")
+        expect(page).to have_css("#tokens-card th", text: "Actions", visible: :all)
+        expect(page.evaluate_script("document.querySelector('.data-table-scroll').scrollWidth > document.querySelector('.data-table-scroll').clientWidth")).to be(true)
+        table_region.send_keys(*Array.new(10, :arrow_right))
+        Timeout.timeout(Capybara.default_max_wait_time) do
+          sleep 0.01 until page.evaluate_script("document.querySelector('.data-table-scroll').scrollLeft > 0")
+        end
+        expect(page.evaluate_script("document.querySelector('.data-table-scroll').scrollLeft")).to be > 0
+        expect(page.evaluate_script("scrollX")).to eq(0)
+      ensure
+        page.driver.browser.manage.window.resize_to(1400, 900)
+      end
     end
-    expect(page.evaluate_script("document.querySelector('.data-table-scroll').scrollLeft")).to be > 0
-    expect(page.evaluate_script("scrollX")).to eq(0)
-  ensure
-    page.driver.browser.manage.window.resize_to(1400, 900)
   end
 end
