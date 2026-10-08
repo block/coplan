@@ -60,6 +60,10 @@ export default class extends Controller {
     if (!this.element.querySelector("#plan-content-body")?.contains(event.target)) return
     if (event.detail?.update) {
       const updates = { ...this.updatesValue }
+      // Acknowledging an earlier edit does not acknowledge new material.
+      // Compare revisions: separate edits can share the same timestamp.
+      const changed = event.detail.keys.filter(key => event.detail.update.revision > (updates[key]?.revision || 0))
+      this.viewedValue = this.viewedValue.filter(key => !changed.includes(key))
       event.detail.keys.forEach(key => { updates[key] = event.detail.update })
       this.updatesValue = updates
     }

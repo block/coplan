@@ -165,6 +165,44 @@ RSpec.describe "Updated section signposts", type: :system do
     expect(page).to have_css(".changed-sections-note", count: 1)
   end
 
+  %w[local remote].each do |source|
+    it "shows a fresh dot for a later #{source} edit, but not for the same edit twice" do
+      expect(page).to have_css("#design.section-updated--viewed", wait: 5)
+      page.execute_script(<<~JS)
+        const layout = document.querySelector('.plan-layout')
+        const body = document.getElementById('plan-content-body')
+        const updates = JSON.parse(layout.getAttribute('data-coplan--changed-sections-updates-value'))
+        if ('#{source}' === 'local') body.setAttribute('data-coplan--live-update-revision-value', '3')
+        const stream = document.createElement('turbo-stream')
+        stream.setAttribute('action', 'coplan-replace-if-clean')
+        stream.setAttribute('target', 'plan-content-body')
+        stream.setAttribute('data-revision', '3')
+        // Keep the timestamp identical to the earlier edit to test revision identity.
+        stream.setAttribute('data-section-update', JSON.stringify({...updates.design, by: 'Later editor', revision: 3, keys: ['design']}))
+        const template = document.createElement('template')
+        template.innerHTML = body.innerHTML.replace('comfortable to read', 'a later design')
+        stream.append(template)
+        document.body.append(stream)
+      JS
+      marker = find('#design:not(.section-updated--viewed) .section-update-marker[aria-label*="Later editor"]')
+      marker.hover
+      expect(marker["aria-label"]).to include("Later editor")
+      find_button("Menu").hover
+      expect(page).to have_css("#design.section-updated--viewed", wait: 5)
+
+      # A reconnect or repeat delivery of this revision must preserve its acknowledgement.
+      page.execute_script(<<~JS)
+        const layout = document.querySelector('.plan-layout')
+        const updates = JSON.parse(layout.getAttribute('data-coplan--changed-sections-updates-value'))
+        document.getElementById('plan-content-body').dispatchEvent(new CustomEvent('coplan:section-update', {
+          bubbles: true, detail: {keys: ['design'], update: updates.design}
+        }))
+      JS
+      expect(page).to have_css("#design.section-updated--viewed")
+      expect(page).to have_no_css("#design .section-update-marker")
+    end
+  end
+
   [ 2, 3 ].each do |incoming_revision|
     it "refreshes attribution at revision #{incoming_revision}, including a body already installed by a local save" do
       find("#design .section-update-marker").hover
@@ -175,7 +213,7 @@ RSpec.describe "Updated section signposts", type: :system do
         stream.setAttribute('target', 'plan-content-body')
         stream.setAttribute('data-revision', '#{incoming_revision}')
         stream.setAttribute('data-changed-sections', JSON.stringify({keys: ['design']}))
-        stream.setAttribute('data-section-update', JSON.stringify({by: 'Another editor', at: new Date().toISOString(), ago: 'less than a minute ago', keys: ['design']}))
+        stream.setAttribute('data-section-update', JSON.stringify({by: 'Another editor', at: new Date().toISOString(), ago: 'less than a minute ago', revision: #{incoming_revision}, keys: ['design']}))
         const template = document.createElement('template')
         template.innerHTML = body.innerHTML.replace('comfortable to read', 'newly updated')
         stream.append(template)

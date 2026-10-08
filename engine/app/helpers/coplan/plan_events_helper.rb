@@ -10,7 +10,7 @@ module CoPlan
     end
 
     def section_update_details(version)
-      { by: history_actor_name(version), at: version.created_at.iso8601,
+      { by: history_actor_name(version), at: version.created_at.iso8601, revision: version.revision,
         ago: "#{time_ago_in_words(version.created_at)} ago" }
     end
 

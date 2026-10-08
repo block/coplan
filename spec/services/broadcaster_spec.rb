@@ -47,7 +47,8 @@ RSpec.describe CoPlan::Broadcaster do
 
       stream = Nokogiri::HTML.fragment(payloads.first).at_css("turbo-stream")
       update = JSON.parse(stream["data-section-update"])
-      expect(update).to include("by" => author.name, "at" => plan.current_plan_version.created_at.iso8601)
+      expect(update).to include("by" => author.name, "at" => plan.current_plan_version.created_at.iso8601,
+        "revision" => plan.current_revision)
     end
 
     it "refreshes attribution for writes without a diff flash, without crediting untouched sections" do
