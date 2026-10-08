@@ -1,104 +1,153 @@
 import { Controller } from "@hotwired/stimulus"
 import { renderedBlocks } from "coplan/content_sections"
 
-// One-time "changed since you last looked" highlights. The server passes
-// the slug keys of sections whose content changed since this viewer's
-// last visit (Plans::ChangedSections); we tint those sections — heading
-// through to the next heading — and drop a small note above the content.
-// The server advanced last_seen_at on this same request, so a reload
-// renders clean: the highlight happens exactly once, only for you.
-//
-// When the server says the plan was rewritten there are no keys: banding
-// the whole page tells you nothing, so the note stands alone and points at
-// the history instead.
-//
-// Slugs are computed here with the same algorithm as the TOC
-// (content_nav_controller#slugify) including duplicate -2/-3 suffixes,
-// so both sides agree without coordinating on DOM ids.
+// Quiet dots outside authored content, dismissed after a short reading pause.
 const TOP_KEY = "__top__"
+const READ_DELAY = 3000
 
 export default class extends Controller {
-  static values = { keys: Array, rewritten: Boolean, historyUrl: String }
+  static targets = ["note", "markerTemplate"]
+  static values = { keys: Array, rewritten: Boolean, viewed: Array, updates: Object }
 
   connect() {
+    this.disconnect()
+    this.sections = new Map()
+    this.visible = new Set()
+    this.held = new Map()
+    this.timers = new Map()
     const content = this.element.querySelector("#plan-content-body")
-    const rendered = content?.querySelector(".markdown-rendered")
-    if (!rendered) return
-
-    if (this.rewrittenValue) {
-      this._insertNote(rendered, "Rewritten since you last looked.", true)
-      return
-    }
-    if (this.keysValue.length === 0) return
+    if (!content || !this.hasNoteTarget || this.noteTarget.classList.contains("changed-sections-note--dismissed")) return
+    this.element.querySelectorAll(".section-update-marker").forEach(node => node.remove())
+    this.element.querySelectorAll(".section-updated").forEach(node => {
+      node.classList.remove("section-updated", "section-updated--viewed")
+    })
+    if (this.rewrittenValue) return
 
     const keys = new Set(this.keysValue)
     const used = new Set()
-    let marking = keys.has(TOP_KEY)
-
-    // Adjacent changed blocks are banded as one run rather than one box
-    // apiece — a section of six paragraphs should read as a single tinted
-    // stretch, not six stripes with gaps between them.
-    const runs = []
-    let run = null
-
+    let inIntroduction = true
     for (const node of renderedBlocks(content)) {
       if (/^H[1-3]$/.test(node.tagName)) {
-        // Every heading is slugged, changed or not: the `used` set carries
-        // the -2/-3 duplicate counter and has to stay in step with Ruby's.
-        marking = keys.has(this._slug(node.textContent, used))
+        inIntroduction = false
+        const key = this._slug(node.textContent, used)
+        if (keys.has(key)) this._mark(node, key)
+      } else if (inIntroduction && keys.has(TOP_KEY) && !this.sections.has(TOP_KEY)) {
+        this._mark(node, TOP_KEY)
       }
-      if (!marking) {
-        run = null
-        continue
-      }
-      if (!run) {
-        run = []
-        runs.push(run)
-      }
-      run.push(node)
     }
+    this.noteTarget.hidden = this.sections.size === 0
+    this.observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        const node = entry.target
+        if (entry.isIntersecting && entry.intersectionRatio === 1) {
+          this.visible.add(node)
+          this._schedule(node)
+        } else {
+          this.visible.delete(node)
+          this._cancel(node)
+        }
+      })
+    }, { rootMargin: "-72px 0px -15% 0px", threshold: 1 })
+    this.sections.forEach(node => this.observer.observe(node))
+  }
 
-    for (const nodes of runs) {
-      for (const node of nodes) node.classList.add("section-changed")
-      nodes[0].classList.add("section-changed--start")
-      nodes[nodes.length - 1].classList.add("section-changed--end")
+  disconnect() {
+    this.observer?.disconnect()
+    this.timers?.forEach(timer => clearTimeout(timer))
+  }
+
+  refresh(event) {
+    if (!this.element.querySelector("#plan-content-body")?.contains(event.target)) return
+    if (event.detail?.update) {
+      const updates = { ...this.updatesValue }
+      event.detail.keys.forEach(key => { updates[key] = event.detail.update })
+      this.updatesValue = updates
     }
+    this.connect()
+  }
 
-    if (runs.length > 0) this._insertNote(rendered, "Highlighted sections changed since you last looked.", false)
+  visibilityChanged() {
+    this.visible.forEach(node => {
+      this._cancel(node)
+      if (!document.hidden) this._schedule(node)
+    })
+  }
+
+  hold(event) {
+    const node = event.currentTarget.closest(".section-updated")
+    const reasons = this.held.get(node) || new Set()
+    reasons.add(event.type.startsWith("focus") ? "focus" : "hover")
+    this.held.set(node, reasons)
+    this._cancel(node)
+  }
+
+  release(event) {
+    const node = event.currentTarget.closest(".section-updated")
+    const reasons = this.held.get(node)
+    reasons?.delete(event.type.startsWith("focus") ? "focus" : "hover")
+    if (!reasons?.size) this.held.delete(node)
+    if (this.visible.has(node)) this._schedule(node)
+  }
+
+  dismiss() {
+    this.sections.forEach(node => this._view(node))
+    this.noteTarget.classList.add("changed-sections-note--dismissed")
+    this.noteTarget.inert = true
+    this.disconnect()
+  }
+
+  _mark(node, key) {
+    this.sections.set(key, node)
+    node.dataset.updatedSectionKey = key
+    node.classList.add("section-updated")
+    // Introductions and headings share the same hoverable, focusable dot.
+    const marker = this.markerTemplateTarget.content.firstElementChild.cloneNode(true)
+    const update = this.updatesValue[key]
+    let description = "Updated since your last visit. Open History for details."
+    if (update) {
+      const when = new Date(update.at).toLocaleString(undefined, {
+        month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short"
+      })
+      description = `Updated by ${update.by}\n${update.ago} · ${when}`
+    }
+    marker.dataset.tooltip = description
+    marker.setAttribute("aria-label", description)
+    node.appendChild(marker)
+    if (this.viewedValue.includes(key)) this._view(node)
+  }
+
+  _schedule(node) {
+    if (document.hidden || this.held.has(node) || node.classList.contains("section-updated--viewed") || this.timers.has(node)) return
+    this.timers.set(node, setTimeout(() => {
+      this.timers.delete(node)
+      if (!document.hidden && this.visible.has(node) && !this.held.has(node) && !this.element.closest("[data-editing='true']")) this._view(node)
+    }, READ_DELAY))
+  }
+
+  _cancel(node) {
+    clearTimeout(this.timers.get(node))
+    this.timers.delete(node)
+  }
+
+  _view(node) {
+    this._cancel(node)
+    this.viewedValue = [...new Set([...this.viewedValue, node.dataset.updatedSectionKey])]
+    node.classList.add("section-updated--viewed")
+    const marker = node.querySelector(".section-update-marker")
+    if (marker) {
+      marker.tabIndex = -1
+      marker.setAttribute("aria-hidden", "true")
+    }
   }
 
   _slug(text, used) {
-    let base = text
-      .toLowerCase()
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9-]/g, "")
-      .replace(/-{2,}/g, "-")
-      .replace(/^-|-$/g, "")
+    let base = text.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")
+      .replace(/-{2,}/g, "-").replace(/^-|-$/g, "")
     if (base === "") base = "section"
     let slug = base
     let suffix = 2
     while (used.has(slug)) slug = `${base}-${suffix++}`
     used.add(slug)
     return slug
-  }
-
-  _insertNote(rendered, text, withHistoryLink) {
-    // A Turbo snapshot restore re-runs connect() against cached HTML that
-    // already contains the note — don't stack a second one.
-    if (this.element.querySelector(".changed-sections-note")) return
-
-    const note = document.createElement("p")
-    note.className = "changed-sections-note text-sm text-muted"
-    note.innerHTML =
-      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg> '
-    note.appendChild(document.createTextNode(text))
-
-    if (withHistoryLink && this.hasHistoryUrlValue) {
-      const link = document.createElement("a")
-      link.href = this.historyUrlValue
-      link.textContent = "See what changed"
-      note.appendChild(link)
-    }
-    rendered.parentNode.insertBefore(note, rendered)
   }
 }

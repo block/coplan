@@ -54,9 +54,8 @@ export default class extends Controller {
       // If the local DOM is already at this revision (or newer), skip — this
       // tab is the one that issued the edit, no need to re-render.
       const currentRevision = parseInt(target.getAttribute("data-coplan--live-update-revision-value"), 10) || 0
-      if (incomingRevision && currentRevision >= incomingRevision) return
-
       let changedKeys = []
+      let sectionUpdate = null
       try {
         // ChangedSections::Result serializes as {"keys": [...], "rewritten": bool}.
         // A full rewrite arrives with no keys, so the swap stays flash-free
@@ -64,7 +63,19 @@ export default class extends Controller {
         // too, in case a not-yet-upgraded server is still broadcasting one.
         const parsed = JSON.parse(this.getAttribute("data-changed-sections") || "[]")
         changedKeys = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.keys) ? parsed.keys : [])
+        sectionUpdate = JSON.parse(this.getAttribute("data-section-update") || "null")
       } catch { /* malformed attribute — fall back to a flash-free swap */ }
+
+      if (incomingRevision && currentRevision >= incomingRevision) {
+        // A local save already installed the body. Keep marker attribution
+        // current without swapping it again or disturbing an active editor.
+        if (currentRevision === incomingRevision && sectionUpdate) {
+          target.dispatchEvent(new CustomEvent("coplan:section-update", {
+            bubbles: true, detail: { keys: sectionUpdate.keys || changedKeys, update: sectionUpdate }
+          }))
+        }
+        return
+      }
 
       // `templateContent` is a DocumentFragment — it has no `innerHTML`.
       // Use replaceChildren(fragment) to swap the contents of target in one
@@ -74,21 +85,21 @@ export default class extends Controller {
       if (target.querySelector(".deck--presenting")) {
         // Keep the active deck and its presenter connected. Apply the latest
         // whole-body update as soon as the show ends.
-        target.__pendingDeckUpdate = { fragment: fragment.cloneNode(true), incomingRevision, changedKeys }
+        target.__pendingDeckUpdate = { fragment: fragment.cloneNode(true), incomingRevision, changedKeys, sectionUpdate }
         if (!target.__deckStopListener) {
           target.__deckStopListener = () => {
             const pending = target.__pendingDeckUpdate
             target.__pendingDeckUpdate = null
             if (!pending) return
             if (hasDirtyDrafts()) showStaleBanner(target, pending.incomingRevision)
-            else applyContent(target, pending.fragment, pending.incomingRevision, pending.changedKeys)
+            else applyContent(target, pending.fragment, pending.incomingRevision, pending.changedKeys, pending.sectionUpdate)
           }
           target.addEventListener("coplan:deck-stopped", target.__deckStopListener)
         }
       } else if (hasDirtyDrafts()) {
         showStaleBanner(target, incomingRevision)
       } else {
-        applyContent(target, fragment, incomingRevision, changedKeys)
+        applyContent(target, fragment, incomingRevision, changedKeys, sectionUpdate)
       }
     }
 
@@ -96,14 +107,16 @@ export default class extends Controller {
   }
 }
 
-function applyContent(target, fragment, incomingRevision, changedKeys) {
+function applyContent(target, fragment, incomingRevision, changedKeys, sectionUpdate) {
   const viewport = captureViewport(target)
   const oldSections = snapshotSections(target, changedKeys)
   const deckPositions = captureDeckPositions(target)
   target.replaceChildren(fragment)
   restoreDeckPositions(target, deckPositions)
   if (incomingRevision) target.setAttribute("data-coplan--live-update-revision-value", String(incomingRevision))
-  target.dispatchEvent(new CustomEvent("coplan:content-updated", { bubbles: true }))
+  target.dispatchEvent(new CustomEvent("coplan:content-updated", {
+    bubbles: true, detail: { keys: sectionUpdate?.keys || changedKeys, update: sectionUpdate }
+  }))
   restoreViewport(target, viewport)
   requestAnimationFrame(() => restoreViewport(target, viewport))
   clearStaleBanner()

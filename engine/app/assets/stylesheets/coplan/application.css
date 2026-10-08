@@ -1732,55 +1732,128 @@ img.avatar {
 .mt-md      { margin-top: var(--space-md); }
 .mb-md      { margin-bottom: var(--space-md); }
 
-/* "Changed since you last looked" — one-time, per-viewer section
-   highlights (changed_sections_controller). Quiet left accent + faint
-   tint; gone on the next visit. */
-/* A run of adjacent changed blocks is one band, not one box per block:
-   the gap between blocks in a run becomes padding inside the tint instead
-   of untinted margin showing through, so a changed section reads as a
-   single stretch rather than a stack of stripes. Scoped under
-   .markdown-rendered to outrank its per-element margins. */
-.markdown-rendered .section-changed {
-  box-shadow: inset 3px 0 0 var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
-  border-radius: 0;
-  padding-left: var(--space-sm);
-  margin-left: calc(-1 * var(--space-sm));
-  margin-bottom: 0;
-  padding-bottom: var(--space-md);
+/* Changes since the last visit are small signposts beside section starts.
+   No bands, padding changes, or overrides of prose/code/table surfaces. */
+.markdown-rendered .section-updated {
+  position: relative;
+  scroll-margin-top: 9rem;
 }
 
-/* Headings inside a run keep their breathing room, as padding within the
-   band rather than a gap through it. The run's own first heading is
-   .section-changed--start and keeps its margin — that space separates the
-   band from the unchanged content above it. */
-.markdown-rendered .section-changed:is(h1, h2, h3):not(.section-changed--start) {
-  margin-top: 0;
-  padding-top: var(--space-xl);
+/* Give the small dot a comfortable target without changing heading layout.
+   The empty span keeps update metadata out of copied text and section slugs. */
+.section-update-marker {
+  position: absolute;
+  left: -23px;
+  top: calc(0.65em - 8px);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: help;
 }
 
-.markdown-rendered .section-changed--start {
-  border-top-right-radius: var(--radius);
-  padding-top: var(--space-sm);
+.section-update-marker::before {
+  content: "";
+  position: absolute;
+  left: calc(50% - 2.5px);
+  top: calc(50% - 2.5px);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-warning);
 }
 
-.markdown-rendered .section-changed--end {
-  border-bottom-right-radius: var(--radius);
-  padding-bottom: var(--space-sm);
-  margin-bottom: var(--space-md);
+.section-update-marker::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 23px;
+  top: calc(100% + 2px);
+  z-index: 12;
+  width: max-content;
+  max-width: min(28rem, calc(100vw - 3rem));
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: normal;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.section-update-marker:is(:hover, :focus-visible)::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+.section-update-marker:is(:hover, :focus-visible) {
+  background: var(--color-interaction-hover-bg);
+}
+
+.section-update-marker:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+}
+
+.section-update-marker { transition: opacity 180ms ease; }
+.section-updated--viewed .section-update-marker {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-update-marker { transition: none; }
 }
 
 .changed-sections-note {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-md);
+  gap: var(--space-xs) var(--space-md);
+  padding: var(--space-sm) 0;
+  margin-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
 }
 
+.changed-sections-note[hidden] { display: none; }
+.changed-sections-note--dismissed,
+[data-editing="true"] .changed-sections-note { visibility: hidden; }
+.changed-sections-note__summary { flex: 1 1 16rem; }
+.changed-sections-note__controls { display: flex; align-items: center; gap: var(--space-sm); }
+
+.changed-sections-note button,
 .changed-sections-note a {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  border: 0;
+  border-radius: var(--radius);
+  padding: 4px 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.changed-sections-note button:hover,
+.changed-sections-note a:hover {
+  color: var(--color-primary);
+  background: var(--color-interaction-hover-bg);
+}
+
+.changed-sections-note button:focus-visible,
+.changed-sections-note a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 /* Rendered markdown */

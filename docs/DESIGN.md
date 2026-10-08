@@ -75,3 +75,21 @@ badges describe unresolved discussions; they do not represent per-thread unread
 receipts. Do not color them orange based on `open` status. Any future per-thread
 unread indicator must implement the acknowledgement lifecycle above using
 viewer-specific state rather than a local color toggle.
+
+## Changes since the last visit
+
+Treat updates as reading signposts. Use a small orange dot beside each
+changed heading, leaving paragraphs, code, tables, and diagrams in their
+original surfaces and spacing. An unheaded introduction
+gets one dot at its first block. Do not tint whole sections or draw rails
+down the document.
+
+A compact notice reports the changed section count and offers History and
+Dismiss. A heading that stays fully in view for three seconds loses its
+attention cue. Scrolling past quickly does not count. Hover or keyboard
+focus on the dot keeps it visible and shows who last edited that section,
+with relative and exact times. Keyboard focus remains blue. Dismiss clears
+all cues; preserve their footprint so nothing moves under the reader.
+Extensive changes get one Updated throughout notice and a history link
+instead of marking every section. These cues are per viewer and disappear
+on the next visit.

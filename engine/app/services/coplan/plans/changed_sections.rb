@@ -1,7 +1,7 @@
 module CoPlan
   module Plans
     # Section-level diff between two markdown documents, used by the
-    # "changed since you last looked" one-time highlight on the plan page.
+    # "changed since you last looked" one-time signposts on the plan page.
     #
     # Sections are computed on the *rendered* document, not the raw
     # markdown: the content is run through the same Commonmarker pipeline
@@ -19,11 +19,9 @@ module CoPlan
     # duplicate suffixes as the client. A slug the client can't match
     # just means that section quietly doesn't highlight — the safe failure.
     #
-    # Past a point the highlights stop being worth drawing: if you glanced
-    # at a plan while the agent was still drafting it, or the agent rewrote
-    # the thing, every section differs and the page turns into one big
-    # band. That case comes back as `rewritten?` with no keys — the page
-    # says so in a line of text instead of highlighting everything.
+    # If most of a long plan changed, section signposts tell the reader
+    # little. Return `rewritten?` with no keys so the page can offer one
+    # "Updated throughout" notice and a history link instead.
     class ChangedSections
       TOP_KEY = "__top__".freeze
       HEADING_TAGS = %w[h1 h2 h3].freeze
@@ -32,9 +30,8 @@ module CoPlan
       # swarm of one-line sections changing isn't a rewrite, and neither is
       # one long section getting edited.
       REWRITE_RATIO = 0.5
-      # Below this, highlighting everything is only a few inches of tint —
-      # legible, and more useful than a sentence about it. The notice is
-      # for documents long enough that a full-page band reads as noise.
+      # Short documents still benefit from a handful of section signposts.
+      # Reserve the extensive-update notice for longer documents.
       REWRITE_MIN_SECTIONS = 4
 
       Result = Struct.new(:keys, :rewritten, keyword_init: true) do

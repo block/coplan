@@ -36,6 +36,39 @@ RSpec.describe CoPlan::Broadcaster do
       expect(payloads.first).to include("Hello world")
     end
 
+    it "includes section attribution with a live content update" do
+      payloads = []
+      allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to) do |_streamable, content:|
+        payloads << content.to_s
+      end
+      changes = CoPlan::Plans::ChangedSections::Result.new(keys: [ "plan-content" ], rewritten: false)
+
+      described_class.replace_plan_content(plan, changed_sections: changes)
+
+      stream = Nokogiri::HTML.fragment(payloads.first).at_css("turbo-stream")
+      update = JSON.parse(stream["data-section-update"])
+      expect(update).to include("by" => author.name, "at" => plan.current_plan_version.created_at.iso8601)
+    end
+
+    it "refreshes attribution for writes without a diff flash, without crediting untouched sections" do
+      original = "## Design\n\nKeep the design.\n\n## Rollout\n\nOriginal rollout.\n"
+      plan.current_plan_version.update_columns(content_markdown: original)
+      version = create(:plan_version, plan: plan, revision: 2, actor_id: author.id,
+        content_markdown: original.sub("Original rollout", "New rollout"))
+      plan.update!(current_plan_version: version, current_revision: 2)
+      payloads = []
+      allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to) do |_streamable, content:|
+        payloads << content.to_s
+      end
+
+      described_class.replace_plan_content(plan)
+
+      stream = Nokogiri::HTML.fragment(payloads.first).at_css("turbo-stream")
+      update = JSON.parse(stream["data-section-update"])
+      expect(update["keys"]).to eq([ "rollout" ])
+      expect(stream["data-changed-sections"]).to be_nil
+    end
+
     it "batches structured source refreshes without replacing prose threads or leaking session tokens" do
       threads = 3.times.map do
         thread = create(:comment_thread, plan: plan, anchor_text: "Some content")

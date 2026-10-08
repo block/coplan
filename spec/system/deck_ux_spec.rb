@@ -408,8 +408,9 @@ RSpec.describe "Deck UX", type: :system do
       window.Stimulus.getControllerForElementAndIdentifier(layout, "coplan--changed-sections").connect()
     JS
 
-    expect(page).to have_css(".deck-body h2.section-changed", text: "Results")
-    expect(page).to have_css(".deck-body p.section-changed", text: "Analysis body.")
+    expect(page).to have_css(".deck-body h2.section-updated", text: "Results")
+    expect(page).to have_no_css(".deck-body p.section-updated")
+    expect(page).to have_css(".deck-slide--current h2.section-updated--viewed", text: "Results", wait: 5)
   end
 
   it "keeps the reader's slide when the inline editor closes" do
@@ -596,10 +597,10 @@ RSpec.describe "Deck UX", type: :system do
       const controller = window.Stimulus?.getControllerForElementAndIdentifier(layout, "coplan--changed-sections")
       controller?.connect()
     JS
-    expect(page).to have_css(".markdown-rendered .section-changed", text: "Fresh closing text.")
+    expect(page).to have_css(".markdown-rendered h1.section-updated", text: "Closing")
   end
 
-  it "keeps changed section bands out of discussion bodies" do
+  it "keeps update markers out of discussion bodies" do
     content = "# Closing\n\nFresh closing text."
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
@@ -612,8 +613,8 @@ RSpec.describe "Deck UX", type: :system do
       window.Stimulus.getControllerForElementAndIdentifier(layout, "coplan--changed-sections").connect()
     JS
 
-    expect(page).to have_css("#plan-content-body p.section-changed--end", text: "Fresh closing text.")
-    expect(page).to have_no_css("#plan-threads .section-changed", visible: :all)
+    expect(page).to have_css("#plan-content-body h1.section-updated", text: "Closing")
+    expect(page).to have_no_css("#plan-threads .section-updated", visible: :all)
   end
 
   it "flashes a live change in a later content region" do

@@ -72,6 +72,10 @@ module CoPlan
         html = render(partial: "coplan/plans/content_body", locals: { plan: plan })
         attrs = { "data-revision" => plan.current_revision }
         attrs["data-changed-sections"] = changed_sections.to_json if changed_sections.present?
+        if (version = plan.current_plan_version)
+          details = ApplicationController.helpers.section_update_details(version)
+          attrs["data-section-update"] = details.merge(keys: section_update_keys(plan, changed_sections)).to_json
+        end
         custom_action_to(
           plan,
           action: "coplan-replace-if-clean",
@@ -129,6 +133,19 @@ module CoPlan
       end
 
       private
+
+      # Some write paths do not request a diff flash. Still update attribution
+      # on any existing unread markers, and cover extensive rewrites too.
+      def section_update_keys(plan, changes)
+        return changes.keys if changes.respond_to?(:rewritten?) && !changes.rewritten?
+
+        previous = plan.plan_versions.where("revision < ?", plan.current_revision).reorder(revision: :desc).first
+        old_sections = Plans::ChangedSections.sections(previous&.content_markdown)
+        Plans::ChangedSections.sections(plan.current_content).filter_map do |key, body|
+          next if key == Plans::ChangedSections::TOP_KEY && body.strip.empty?
+          key if !old_sections.key?(key) || old_sections[key] != body
+        end
+      end
 
       def render(partial:, locals:)
         CoPlan::ApplicationController.render(partial: partial, locals: locals)
