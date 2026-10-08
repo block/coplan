@@ -116,7 +116,7 @@
   <div class="document-editor__paper plan-document card"<% if inline_editor %> data-action="mouseup->coplan--text-selection#handleEditorMouseUp"<% end %>>
     <div class="document-editor__raw" data-coplan--editor-target="rawSurface" hidden></div>
     <div class="document-editor__body" data-coplan--editor-target="surface"></div>
-    <%= text_area_tag :content, @draft_content, hidden: true, data: { "coplan--editor-target": "textarea" } %>
+    <%= text_area_tag :content, @draft_content, hidden: true, aria: { label: "Document Markdown" }, data: { "coplan--editor-target": "textarea" } %>
     <%= hidden_field_tag :base_revision, @base_revision %>
   </div>
 <% end %>

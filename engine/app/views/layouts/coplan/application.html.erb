@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html<% if signed_in? && current_user.theme_preference != "system" %> data-theme="<%= current_user.theme_preference %>"<% end %>>
+<html lang="<%= I18n.locale %>"<% if signed_in? && current_user.theme_preference != "system" %> data-theme="<%= current_user.theme_preference %>"<% end %>>
   <head>
     <title><%= content_for(:title) || "CoPlan" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -34,7 +34,7 @@
             lives, so there's no separate "Workspace" link. Signed-out
             visitors land on the public root instead. %>
         <%= link_to(signed_in? ? profile_path_for(current_user) : coplan.root_path, class: "site-nav__brand") do %>
-          <%= image_tag "coplan/coplan-logo-sm.png", alt: "CoPlan",
+          <%= image_tag "coplan/coplan-logo-sm.png", alt: "",
                 class: "site-nav__logo#{coplan_environment_logo_modifier}",
                 title: coplan_environment_logo_title %>
           <span class="site-nav__brand-text">CoPlan</span>
@@ -53,6 +53,7 @@
             <button type="button"
                     class="site-nav__search"
                     aria-label="Search plans and people"
+                    title="Search plans and people (/)"
                     popovertarget="search-modal">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
               <span class="site-nav__search-label">Search plans and people…</span>

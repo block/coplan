@@ -12,19 +12,21 @@
 </div>
 
 <div class="card" id="tokens-card">
-  <h3>Your Tokens</h3>
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Status</th>
-        <th>Last Used</th>
-        <th>Created</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody id="tokens-list">
-      <%= render partial: "coplan/settings/tokens/token_row", collection: api_tokens, as: :token %>
-    </tbody>
-  </table>
+  <h3 id="tokens-heading">Your Tokens</h3>
+  <div class="data-table-scroll" role="region" aria-labelledby="tokens-heading" tabindex="0">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Status</th>
+          <th>Last Used</th>
+          <th>Created</th>
+          <th><span class="visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody id="tokens-list">
+        <%= render partial: "coplan/settings/tokens/token_row", collection: api_tokens, as: :token %>
+      </tbody>
+    </table>
+  </div>
 </div>

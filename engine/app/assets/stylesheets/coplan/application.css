@@ -40,7 +40,7 @@
   --color-surface-muted: #f9fafb;
   --color-input-bg: var(--color-surface);
   --color-text: #1a1a1a;
-  --color-text-muted: #6b7280;
+  --color-text-muted: #646b78;
   --color-text-inverse: #ffffff;
   --color-border: #e5e7eb;
   --color-border-strong: #cbd5e1;
@@ -53,6 +53,7 @@
   --color-interaction-hover-bg: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
   --color-interaction-active-bg: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
   --color-warning: #d97706;
+  --color-warning-text: #92400e;
   --color-warning-soft: #fef3c7;
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;
@@ -182,6 +183,7 @@
     --color-success: #34d399;
     --color-success-soft: rgba(52, 211, 153, 0.15);
     --color-warning: #f59e0b;
+    --color-warning-text: #f59e0b;
     --color-warning-soft: rgba(245, 158, 11, 0.16);
     --color-danger: #f87171;
     --color-danger-hover: #ef4444;
@@ -275,6 +277,7 @@
   --color-success: #34d399;
   --color-success-soft: rgba(52, 211, 153, 0.15);
   --color-warning: #f59e0b;
+  --color-warning-text: #f59e0b;
   --color-warning-soft: rgba(245, 158, 11, 0.16);
   --color-danger: #f87171;
   --color-danger-hover: #ef4444;
@@ -498,8 +501,8 @@ img, svg {
 }
 
 .site-nav__menu-btn:hover {
-  color: var(--color-text);
-  background: var(--color-bg);
+  color: var(--color-primary-hover);
+  background: var(--color-interaction-hover-bg);
 }
 
 /* When the bell has folded into the menu (phone widths), the ☰ carries a
@@ -590,6 +593,18 @@ img, svg {
 }
 
 /* Main content */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .main-content {
   flex: 1;
   max-width: var(--max-width);
@@ -1277,7 +1292,8 @@ del.agent-flash {
 .avatar--xl { width: 4rem; height: 4rem; font-size: 1.3rem; }
 
 .avatar--initials {
-  background: var(--color-primary);
+  /* White initials need a deeper blue than the dark theme's link color. */
+  background: #2563eb;
   color: var(--color-text-inverse);
   font-weight: 600;
 }
@@ -2905,6 +2921,17 @@ img.avatar {
 }
 
 /* Data table */
+.data-table-scroll {
+  position: relative;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.data-table-scroll:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -3394,12 +3421,12 @@ img.avatar {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  color: var(--color-text-inverse);
+  color: var(--color-primary);
   line-height: 1;
 }
 
 .content-nav__badge--open {
-  background: var(--color-status-considering);
+  background: var(--color-primary-light);
 }
 
 /* Toggle button when sidebar is hidden — shown outside the sidebar */
@@ -3545,8 +3572,8 @@ img.avatar {
 }
 
 .site-nav__bell:hover {
-  color: var(--color-text);
-  background: var(--color-bg);
+  color: var(--color-primary-hover);
+  background: var(--color-interaction-hover-bg);
 }
 
 .site-nav__bell .inbox-badge {
@@ -3806,18 +3833,24 @@ img.avatar {
   width: 24px;
   height: 24px;
   padding: 0;
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-edge);
   border-radius: 50%;
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   color: var(--color-text-muted);
   cursor: pointer;
   transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
 }
 
 .section-add:hover {
-  color: var(--color-primary);
-  border-color: var(--color-primary);
-  background: var(--color-bg);
+  color: var(--color-primary-hover);
+  background: var(--color-interaction-hover-bg);
+}
+
+.section-add:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 /* Back-matter links at the bottom of the document outline. */
@@ -5324,10 +5357,10 @@ img.avatar {
   gap: var(--space-sm);
   padding: 6px 10px;
   margin: 0;
-  flex: 0 1 320px;
+  flex: 0 0 auto;
   min-width: 0;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius);
   color: var(--color-text-muted);
   font: inherit;
@@ -5338,22 +5371,27 @@ img.avatar {
 }
 
 .site-nav__search:hover {
-  border-color: var(--color-text-muted);
-  color: var(--color-text);
+  border-color: var(--color-border-strong);
+  background: var(--color-interaction-hover-bg);
+  color: var(--color-primary);
+}
+
+.site-nav__search:focus-visible,
+.site-nav__bell:focus-visible,
+.site-nav__menu-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
 }
 
 .site-nav__search-label {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: none;
 }
 
 .site-nav__search-kbd {
   font-family: ui-monospace, SFMono-Regular, monospace;
   font-size: 11px;
   padding: 1px 6px;
-  background: var(--color-surface);
+  background: transparent;
   border: 1px solid var(--color-border);
   border-radius: 4px;
   color: var(--color-text-muted);
@@ -5402,6 +5440,11 @@ img.avatar {
   border-bottom: 1px solid var(--color-border);
 }
 
+.search-modal__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
 .search-modal__input {
   flex: 1;
   border: 0;
@@ -5411,6 +5454,11 @@ img.avatar {
   font-size: var(--text-md);
   color: var(--color-text);
   padding: 4px 0;
+}
+
+.search-modal__input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
 }
 
 .search-modal__hint {
@@ -6663,7 +6711,7 @@ img.avatar {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 .attention__list {
@@ -6867,14 +6915,14 @@ img.avatar {
   background: var(--glass-bg);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
-  color: var(--color-text);
-  box-shadow: var(--shadow);
+  color: var(--color-text-muted);
+  box-shadow: var(--shadow-glass);
 }
 
 .workspace-add__trigger:hover,
 .workspace-add:has(.workspace-add__menu:popover-open) .workspace-add__trigger {
-  background: var(--glass-bg-strong);
-  border-color: color-mix(in srgb, var(--color-primary) 30%, var(--glass-edge));
+  background: var(--color-interaction-hover-bg);
+  color: var(--color-primary-hover);
 }
 
 .workspace-add__trigger:focus-visible {
@@ -7154,12 +7202,10 @@ img.avatar {
 }
 
 /* ---- Medium screens ----
-   The first thing the nav gives up is the search field's prose: the
-   placeholder and "/" hint fold into a round icon button before anything
-   else is allowed to compress. The name gets a truncation budget so the
-   controls never fight it for room. */
+   The compact search trigger gives up its "/" hint and becomes a round
+   icon button. The name gets a truncation budget so the controls never
+   fight it for room. */
 @media (max-width: 900px) {
-  .site-nav__search-label,
   .site-nav__search-kbd {
     display: none;
   }
