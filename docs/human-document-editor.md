@@ -47,8 +47,8 @@ incoming edits map through both editors without focusing the background pane. So
 select the block's source. The source mode has ordinary text Enter/Tab and
 Cmd/Ctrl+Z/Shift+Z; rich toolbar controls remain visible but disabled there.
 
-Tables render as table previews with **Edit Markdown** above them. Edit table
-cells/rows/alignment in source, then switch back to see the result. There are no
+Tables render as previews with **Edit table** above them. Edit table
+cells/rows/alignment in the table’s Markdown field to see the result. There are no
 visual table insertion or cell-editing controls in this prototype.
 
 Mermaid fences show editable Mermaid source plus a rendered diagram preview.
@@ -57,12 +57,29 @@ the theme. Its expand button opens the existing diagram viewer. **Edit Markdown*
 selects the whole fence for exact source editing. Invalid/offline previews keep
 the source available; they do not discard or replace it.
 
-Other unsupported Markdown (task lists, footnotes, raw HTML, reference-style
+Footnote citations stay inline in editable paragraphs and lists. Click a citation (or **Edit** beside its reference at the bottom)
+to open its definition in a centered dialog. Save stores the definition in Markdown,
+with revision checks and the normal autosave pipeline. Definitions stay hidden in the
+rich body; Raw retains their exact source. Cancel leaves the definition unchanged.
+
+Each presentation region is a single block with a large **Presentation Markdown**
+field and a slide-screen icon. **Preview** uses the normal slideshow renderer;
+**Edit Markdown** returns to the field. Edit slides there; the region's ID and theme remain in its enclosing markers.
+Unknown or unclosed regions stay visible source.
+
+Tables remain separate nodes even inside a list. **Edit table** opens a Markdown
+field for only that table, keeping the surrounding list rich and editable.
+
+**+ → Embed** adds a self-closing iframe block with URL, title, width,
+and height fields. Administrators approve exact HTTPS hosts under **Iframe domains**.
+No domains are allowed by default. See the served `/agent-instructions/embeds`
+guide for syntax, supported sizes, and the fixed sandbox and frame policy.
+
+Other unsupported Markdown (task lists, raw HTML, reference-style
 links, strikethrough and mentions) remains source-preserving. Cards show a
 sanitized reading-style preview when available, with the same source-edit path.
 Untouched blocks retain their exact spelling. A supported block that you edit
 in rich mode is reserialized; Markdown mode gives full control over spelling.
-Slides remain deferred.
 
 ## Code blocks
 
@@ -234,3 +251,5 @@ A reported case where Enter appeared inert inside a code block has not been
 reproduced in Chrome, the in-app browser, or a disposable copy of the saved
 content. Passing caret tests do not establish that report's cause or resolution.
 The original open draft was unavailable for inspection and was left untouched.
+
+An expired sign-in keeps the draft in the current tab and shows **Sign in again · draft retained**. Sign in in another tab, then retry the original editor. Its uncached editor-state response refreshes the security token before the next save. Citation links use matching labels: `[^catalog]` in the text and `[^catalog]: Source text` in the definitions. Editing the source text in the citation dialog preserves that link; renaming a label in Markdown requires changing both places.

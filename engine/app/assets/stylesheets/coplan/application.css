@@ -8220,3 +8220,40 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 .thread-popover__permalink:focus-visible .comment-window__copy-feedback,
 .thread-popover__permalink[data-copied] .comment-window__copy-feedback,
 .thread-popover__permalink[data-copy-failed] .comment-window__copy-feedback { opacity: 1; }
+
+
+.document-editor__footnote { color: var(--color-primary); font-size: 0.7em; white-space: nowrap; }
+.document-editor__footnote button { border: 0; background: transparent; color: inherit; padding: 0 2px; font: inherit; cursor: pointer; border-radius: 3px; }
+.document-editor__footnote button:hover { background: var(--color-interaction-hover-bg); }
+.document-editor__footnote button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.document-editor__block-source { display: block; width: 100%; min-height: 320px; resize: vertical; border: 0; padding: 18px; background: var(--color-surface); color: var(--color-text); font: 14px/1.7 var(--font-mono, monospace); box-sizing: border-box; }
+.document-editor__block-source:focus { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.document-editor__embed-fields { padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font: 13px/1.5 var(--font-sans, sans-serif); }
+.document-editor__embed-fields label { display: flex; flex-direction: column; gap: 4px; }
+.document-editor__embed-fields label:first-child { grid-column: 1 / -1; }
+.document-editor__embed-fields input, .document-editor__citation-dialog textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--color-border); border-radius: 6px; padding: 9px 10px; background: var(--color-surface); color: var(--color-text); font: inherit; }
+.document-editor__citation-dialog { position: fixed; inset: 0; margin: auto; max-height: calc(100dvh - 40px); overflow: auto; width: min(560px, calc(100vw - 40px)); border: 1px solid var(--color-border); border-radius: 16px; padding: 24px; background: var(--color-surface); color: var(--color-text); box-shadow: 0 16px 60px #0004; }
+.document-editor__citation-dialog::backdrop { background: #0005; }
+.document-editor__citation-heading, .document-editor__citation-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.document-editor__citation-heading h2 { margin: 0 0 16px; font-size: 18px; }
+.document-editor__citation-heading button { border: 0; background: transparent; color: var(--color-text-muted); font-size: 24px; cursor: pointer; }
+.document-editor__citation-dialog label { display: block; margin-bottom: 8px; font-size: 13px; }
+.document-editor__citation-dialog textarea { font: 14px/1.6 var(--font-mono, monospace); resize: vertical; }
+.document-editor__citation-actions { justify-content: flex-end; }
+.document-editor__citation-error { color: var(--color-danger); min-height: 1.5em; font-size: 13px; }
+.iframe-content-block { margin: 20px 0; max-width: 100%; }
+.iframe-content-block iframe { display: block; max-width: 100%; border: 1px solid var(--color-border); border-radius: 8px; }
+.iframe-content-block__unavailable { padding: 18px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text-muted); }
+
+.document-editor__embed-hint { margin: 0; padding: 0 16px 10px; font: 12px/1.5 var(--font-sans, sans-serif); color: var(--color-text-muted); }
+
+.citation-edit-control { display: none; }
+[data-editing="true"] .citation-edit-control { display: inline-block; border: 0; background: transparent; color: var(--color-primary); cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+[data-editing="true"] .citation-edit-control:hover { background: var(--color-interaction-hover-bg); }
+
+.document-editor__presentation-label { display: inline-flex; align-items: center; gap: 0.5rem; }
+.document-editor__presentation-label svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+.document-editor__content-picker { width: 200px; }
+.document-editor__content-picker > button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: auto; padding: 10px; text-align: left; font-size: 14px; border-radius: 6px; color: var(--color-text); }
+.document-editor__content-picker > button:hover, .document-editor__content-picker > button:focus-visible { background: var(--color-primary-light); color: var(--color-primary); }

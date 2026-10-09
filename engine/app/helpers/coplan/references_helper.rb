@@ -58,6 +58,18 @@ module CoPlan
       }
     end
 
+    def citation_edit_controls(html)
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      doc.css("section[data-footnotes] > ol > li[id]").each do |entry|
+        label = entry["id"].delete_prefix("fn-")
+        button = tag.button("Edit", type: "button", class: "citation-edit-control",
+          aria: { label: "Edit reference #{label}" },
+          data: { citation_label: label, action: "coplan--inline-editor#editCitation" })
+        entry.add_child(Nokogiri::HTML::DocumentFragment.parse(button))
+      end
+      doc.to_html.html_safe
+    end
+
     def listed_plan_references(references, cited_urls)
       references.reject { |reference| cited_urls.include?(reference.url) }
     end

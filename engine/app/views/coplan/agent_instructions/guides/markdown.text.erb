@@ -31,11 +31,11 @@ Readers see a preview of the section on hover. CoPlan does not link a bare `§3.
 
 ## Footnotes and links
 
-- **To support a claim, use a footnote.** Put the source link and the supporting detail in the definition: `Queue depth peaked at 40k.[^queue-depth]` and `[^queue-depth]: Measured during the 2026-08-12 incident. [Dashboard](https://example.com/d/queues).` Readers can preview the note on hover. Use a descriptive footnote name, not a number.
+- **To support a claim, use a footnote.** Put the source link and the supporting detail in the definition: `Queue depth peaked at 40k.[^queue-depth]` and `[^queue-depth]: Measured during the 2026-08-12 incident. [Dashboard](https://example.com/d/queues).` Readers can preview the note on hover. Use a descriptive footnote name, not a number. In the human inline editor, citations stay inline in editable prose and lists. Click a citation (or Edit beside its reference at the bottom) to edit its definition in a dialog. Save stores it in the Markdown definitions; these definitions stay hidden in the editor body.
 - **To point to a resource, use a descriptive link:** `[implementation PR](https://github.com/org/repo/pull/42)`. Do not put bare URLs in prose.
 - **To give a link a stable name, use a reference-style link:** `See [auth-repo].` with `[auth-repo]: https://github.com/org/auth-service "Auth Service"`. The key and title go to the plan's References.
 
-CoPlan adds every link in the content, including links in footnotes, to the plan's References section. Do not add these links again through the API. See "References" in <<%= @base %>/agent-instructions/creating>.
+CoPlan adds content links, including links in footnotes, to the plan's References section. Iframe src URLs describe embedded content and do not become references. Do not add these links again through the API. See "References" in <<%= @base %>/agent-instructions/creating>.
 
 ## Diagrams
 

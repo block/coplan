@@ -8,6 +8,7 @@
     "coplan--editor-revision-value": @base_revision,
     "coplan--editor-state-url-value": creating ? "" : editor_state_plan_path(@plan),
     "coplan--editor-lease-url-value": creating ? "" : editor_lease_plan_path(@plan),
+    "coplan--editor-embed-domains-value": CoPlan::EmbedDomain.order(:hostname).pluck(:hostname).to_json,
     "coplan--editor-preview-url-value": preview_draft_plans_path } do %>
   <% if creating %>
     <%= hidden_field_tag :plan_type_id, @new_plan_type&.id %>
@@ -75,6 +76,13 @@
           <button type="button" class="document-editor__code-insert" data-action="coplan--editor#insertCode">Insert</button>
         </div>
       </div>
+      <div class="document-editor__insert-code">
+        <button type="button" aria-label="Insert content" aria-expanded="false" title="Insert content" popovertarget="coplan-insert-content"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+        <div id="coplan-insert-content" class="document-editor__code-picker document-editor__content-picker" popover aria-label="Insert content" data-coplan--editor-target="contentPicker" data-action="beforetoggle->coplan--editor#prepareContentPicker toggle->coplan--editor#contentPickerToggled resize@window->coplan--editor#positionContentPicker scroll@document->coplan--editor#positionContentPicker:capture">
+          <button type="button" autofocus data-action="coplan--editor#insertPresentation"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3 3h18v13H3z M12 16v5 M8 21h8 M7 7h10 M7 11h6"/></svg>Presentation</button>
+          <button type="button" data-action="coplan--editor#insertEmbed"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m9 9-3 3 3 3m6-6 3 3-3 3"/></svg>Embed</button>
+        </div>
+      </div>
       <% [["bold", "Bold", "⌘B / Ctrl+B", "B"], ["italic", "Italic", "⌘I / Ctrl+I", "I"], ["code", "Inline code", "", "</>"], ["link", "Link", "⌘K / Ctrl+K", ""]].each do |command, label, shortcut, icon| %>
         <button type="button" data-command="<%= command %>" aria-label="<%= label %>" aria-pressed="false" title="<%= [label, shortcut.presence].compact.join(' · ') %>" data-action="coplan--editor#format"><% if command == "link" %><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><% else %><span aria-hidden="true" class="format-icon format-icon--<%= command %>"><%= icon %></span><% end %></button>
       <% end %>
@@ -112,6 +120,19 @@
       <span id="coplan-inline-save-announcement" class="document-editor__save-text" role="status" aria-live="polite" aria-atomic="true" data-coplan--editor-target="statusAnnouncement">Opening document…</span>
     <% end %>
   </div>
+  <dialog class="document-editor__citation-dialog" data-coplan--editor-target="citationDialog" aria-labelledby="coplan-citation-title">
+    <div class="document-editor__citation-heading">
+      <h2 id="coplan-citation-title" data-coplan--editor-target="citationTitle">Citation</h2>
+      <button type="button" aria-label="Close citation editor" data-action="coplan--editor#closeCitation">×</button>
+    </div>
+    <label for="coplan-citation-body">Citation text and source links</label>
+    <textarea id="coplan-citation-body" rows="8" data-coplan--editor-target="citationBody"></textarea>
+    <p class="document-editor__citation-error" role="alert" data-coplan--editor-target="citationError"></p>
+    <div class="document-editor__citation-actions">
+      <button type="button" class="btn btn--secondary" data-action="coplan--editor#closeCitation">Cancel</button>
+      <button type="button" class="btn btn--primary" data-coplan--editor-target="citationSave" data-action="coplan--editor#saveCitation">Save citation</button>
+    </div>
+  </dialog>
   <datalist id="coplan-code-languages"><% CoPlan.configuration.editor_code_languages.each do |language| %><option value="<%= language %>"><% end %></datalist>
   <div class="document-editor__paper plan-document card"<% if inline_editor %> data-action="mouseup->coplan--text-selection#handleEditorMouseUp"<% end %>>
     <div class="document-editor__raw" data-coplan--editor-target="rawSurface" hidden></div>

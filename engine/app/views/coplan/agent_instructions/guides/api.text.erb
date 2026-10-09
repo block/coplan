@@ -81,3 +81,7 @@ Guides: `<%= @base %>/agent-instructions/<guide>`, for example <<%= @base %>/age
 | `404` | The plan or thread does not exist. |
 | `409` | A stale `base_revision`, a hand edit that you have not read (`"code": "human_edit_pending"`), or someone holds the edit lock (`"code": "edit_locked"`). See the editing guide. |
 | `422` | The request is not valid, or an operation cannot apply. The `error` field says why. |
+
+## Iframe domains
+
+`GET /api/v1/embed_domains` returns `{"hostnames":["embed.example.com"]}`. This is the exact-host allowlist for iframe content blocks. It requires your Bearer token. An empty list means no hosts are approved. Only an administrator can change the list, through CoPlan Admin. See <<%= @base %>/agent-instructions/embeds> for block syntax.

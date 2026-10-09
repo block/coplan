@@ -64,7 +64,7 @@ To reorganize a library, or to move many plans, fetch <<%= @base %>/agent-instru
 
 ## References
 
-References are the list of resources connected to a plan: repositories, pull requests, documents, and other plans. Readers see them in the plan's References section. CoPlan adds every link in the content to this list. Add a reference through the API only for a resource that the content does not link.
+References are the list of resources connected to a plan: repositories, pull requests, documents, and other plans. Readers see them in the plan's References section. CoPlan adds content links to this list. Iframe src URLs describe embedded content and do not become references. Add a reference through the API only for a resource that the content does not link.
 
 ```bash
 <%= @curl %> -X POST \
