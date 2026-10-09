@@ -48,6 +48,17 @@ bin/dev
 
 Sign in with any `@example.com` email (stub OIDC).
 
+For microphone dictation, start `bin/dev` from a shell with `OPENAI_API_KEY`
+set, or configure `openai.api_key` in Rails credentials. Both the plan microphone
+and the composer’s Dictate button then record audio for server transcription.
+If you add the key after starting the server, restart it and reload the plan.
+Without a key, dictation uses the browser’s speech service, which may be unavailable
+in embedded browsers. Check configuration without printing the key:
+
+```bash
+bin/rails runner 'puts CoPlan::Ai.available?'
+```
+
 ## Tests
 
 ```bash
