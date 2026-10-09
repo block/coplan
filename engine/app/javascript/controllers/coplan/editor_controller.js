@@ -379,6 +379,7 @@ export default class extends Controller {
     const command = event.currentTarget.dataset.command
     if (this.editor !== this.richEditor && !["undo", "redo"].includes(command)) return
     const editor = ["undo", "redo"].includes(command) ? this.editor : this.richEditor
+    if (!["undo", "redo"].includes(command)) editor?.captureSelection()
     editor?.command(command, event.currentTarget.value)
   }
   keepSelection(event) { if (event.target.closest("button")) event.preventDefault() }
@@ -652,6 +653,9 @@ export default class extends Controller {
       setTimeout(() => { if (button.isConnected) button.textContent = "Copy" }, 1400)
     } catch { this.setStatus("Could not copy this block", "error") }
   }
+  // A language edit is separate from typing code, even within history's
+  // grouping delay. Undoing code must retain the chosen grammar.
+  languageEditingBoundary() { this.richEditor?.closeHistory() }
   languageInput(event) { this.languageChanged(event) }
   languageChanged(event) {
     event.stopPropagation()

@@ -9,85 +9,89 @@
     `[data-search-result]` items; keep that hook intact when changing markup. %>
 <% frame_id = local_assigns.fetch(:frame_id, "search-results") %>
 <% people = local_assigns.fetch(:people, []) %>
+<% modal = frame_id == "search-results" %>
+<% result_count = query.blank? ? recent_queries.size : people.size + results.size %>
 <%# `target="_top"` so clicks on result anchors inside this frame navigate
     the whole page rather than trying to load the plan page into the frame
     (which would render "Content missing" since no matching frame exists
     on the target page). %>
 <turbo-frame id="<%= frame_id %>" target="_top">
-  <% if query.blank? %>
-    <% if recent_queries.any? %>
-      <div class="search-modal__section-label">Recent searches</div>
-      <ul class="search-modal__list" role="listbox">
-        <% recent_queries.each_with_index do |q, i| %>
-          <li>
-            <a href="<%= coplan.search_path(q: q) %>"
-               class="search-modal__result"
-               data-search-result
-               data-search-recent-query="<%= q %>"
-               data-action="click->coplan--search#selectRecent"
-               role="option"
-               tabindex="-1">
-              <span class="search-modal__result-title"><%= q %></span>
-              <span class="search-modal__result-meta">recent</span>
-            </a>
-          </li>
-        <% end %>
-      </ul>
-    <% else %>
-      <div class="search-modal__empty">Type to search plans.</div>
-    <% end %>
-  <% elsif results.empty? && people.empty? %>
-    <div class="search-modal__empty">Nothing matches “<%= query %>”.</div>
+  <% if result_count.positive? %>
+    <div class="visually-hidden" data-search-summary<% unless modal %> role="status"<% end %>><%= pluralize(result_count, query.blank? ? "recent search" : "result") %> available.</div>
+  <% elsif query.present? %>
+    <div class="search-modal__empty" data-search-summary<% unless modal %> role="status"<% end %>>Nothing matches “<%= query %>”.</div>
   <% else %>
-    <% if people.any? %>
-      <div class="search-modal__section-label">People</div>
-      <ul class="search-modal__list" role="listbox">
-        <% people.each do |person| %>
-          <li>
-            <a href="<%= profile_path_for(person) %>"
-               class="search-modal__result search-modal__result--person"
+    <div class="search-modal__empty" data-search-summary<% unless modal %> role="status"<% end %>>Type to search plans.</div>
+  <% end %>
+  <div id="<%= frame_id %>-listbox" data-search-query="<%= query %>"<% if modal %> role="listbox" aria-label="Search results"<% end %><% if result_count.zero? %> hidden<% end %>>
+    <% if query.blank? %>
+      <% if recent_queries.any? %>
+        <div class="search-modal__section-label"<% if modal %> aria-hidden="true"<% end %>>Recent searches</div>
+        <ul class="search-modal__list"<% if modal %> role="group"<% end %> aria-label="Recent searches">
+          <% recent_queries.each_with_index do |q, i| %>
+            <li<% if modal %> role="none"<% end %>>
+              <a id="<%= frame_id %>-recent-<%= i %>" href="<%= coplan.search_path(q: q) %>"
+                 class="search-modal__result"
+                 data-search-result
+                 data-search-recent-query="<%= q %>"
+                 data-action="click->coplan--search#selectRecent"
+                 <% if modal %>role="option" aria-selected="false" tabindex="-1"<% end %>>
+                <span class="search-modal__result-title"><%= q %></span>
+                <span class="search-modal__result-meta">recent</span>
+              </a>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+    <% else %>
+      <% if people.any? %>
+        <div class="search-modal__section-label"<% if modal %> aria-hidden="true"<% end %>>People</div>
+        <ul class="search-modal__list"<% if modal %> role="group"<% end %> aria-label="People">
+          <% people.each do |person| %>
+            <li<% if modal %> role="none"<% end %>>
+              <a id="<%= frame_id %>-person-<%= person.id %>" href="<%= profile_path_for(person) %>"
+                 class="search-modal__result search-modal__result--person"
+                 data-search-result
+                 <% if modal %>role="option" aria-selected="false" tabindex="-1"<% end %>>
+                <%= user_avatar(person, size: "md") %>
+                <span class="search-modal__result-text">
+                  <span class="search-modal__result-title"><%= person.name %></span>
+                  <span class="search-modal__result-meta">
+                    <%= [person.title, person.team].compact_blank.join(" · ").presence || "profile" %>
+                  </span>
+                </span>
+              </a>
+            </li>
+          <% end %>
+        </ul>
+        <% if results.any? %><div class="search-modal__section-label"<% if modal %> aria-hidden="true"<% end %>>Plans</div><% end %>
+      <% end %>
+      <ul class="search-modal__list"<% if modal %> role="group"<% end %> aria-label="Plans">
+        <% results.each do |plan| %>
+          <li<% if modal %> role="none"<% end %>>
+            <a id="<%= frame_id %>-plan-<%= plan.id %>" href="<%= plan_browse_path(plan) %>"
+               class="search-modal__result search-modal__result--plan"
                data-search-result
-               role="option"
-               tabindex="-1">
-              <%= user_avatar(person, size: "md") %>
+               <% if modal %>role="option" aria-selected="false" tabindex="-1"<% end %>>
+              <%= plan_type_icon(plan, size: :sm) %>
               <span class="search-modal__result-text">
-                <span class="search-modal__result-title"><%= person.name %></span>
+                <span class="search-modal__result-title"><%= plan.title %></span>
                 <span class="search-modal__result-meta">
-                  <%= [person.title, person.team].compact_blank.join(" · ").presence || "profile" %>
+                  <% if plan.draft? %>
+                    <span class="state-flag" title="Not shared — hidden from lists and search for others"><svg class="state-flag__eye" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>Private</span> ·
+                  <% end %>
+                  <% if plan.created_by_user %>
+                    <%= plan.created_by_user.name %>
+                  <% end %>
+                  <% if plan.tags.any? %>
+                    · <%= plan.tags.map(&:name).first(3).join(", ") %>
+                  <% end %>
                 </span>
               </span>
             </a>
           </li>
         <% end %>
       </ul>
-      <% if results.any? %><div class="search-modal__section-label">Plans</div><% end %>
     <% end %>
-    <ul class="search-modal__list" role="listbox">
-      <% results.each do |plan| %>
-        <li>
-          <a href="<%= plan_browse_path(plan) %>"
-             class="search-modal__result search-modal__result--plan"
-             data-search-result
-             role="option"
-             tabindex="-1">
-            <%= plan_type_icon(plan, size: :sm) %>
-            <span class="search-modal__result-text">
-              <span class="search-modal__result-title"><%= plan.title %></span>
-              <span class="search-modal__result-meta">
-                <% if plan.draft? %>
-                  <span class="state-flag" title="Not shared — hidden from lists and search for others"><svg class="state-flag__eye" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>Private</span> ·
-                <% end %>
-                <% if plan.created_by_user %>
-                  <%= plan.created_by_user.name %>
-                <% end %>
-                <% if plan.tags.any? %>
-                  · <%= plan.tags.map(&:name).first(3).join(", ") %>
-                <% end %>
-              </span>
-            </span>
-          </a>
-        </li>
-      <% end %>
-    </ul>
-  <% end %>
+  </div>
 </turbo-frame>

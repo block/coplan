@@ -92,6 +92,7 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     expect(code).to have_css(".hljs-string", text: '"hello"')
     page.driver.browser.action.key_down(mod).send_keys("z").key_up(mod).perform
     expect(code).to have_text("function hi()")
+    expect(language.value).to eq("javascript metadata")
     expect(code).to have_css(".hljs-number", text: "42")
     page.save_screenshot(Rails.root.join("tmp/editor-highlighted-code.png"))
     click_link "Done"
