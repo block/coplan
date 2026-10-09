@@ -7367,7 +7367,27 @@ img.avatar {
   }
 
   .plan-document {
-    padding: var(--space-md);
+    /* Leave room for the update dot's full hit area inside the card. */
+    padding: var(--space-lg);
+  }
+
+  .changed-sections-note {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+    padding: var(--space-sm);
+  }
+
+  .changed-sections-note__summary {
+    flex: none;
+    min-height: 1.5em;
+    line-height: 1.5;
+  }
+
+  .changed-sections-note__controls :is(a, button) {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
   }
 
   .references-section,
@@ -7413,6 +7433,11 @@ img.avatar {
     margin-left: calc(2rem + var(--space-md));
     font-size: 0.75rem;
   }
+}
+
+/* The summary wraps on small phones; reserve the same room for live edits. */
+@media (max-width: 360px) {
+  .changed-sections-note__summary { min-height: 3em; }
 }
 
 /* ═══ Expanded view ═══════════════════════════════════════════════════════

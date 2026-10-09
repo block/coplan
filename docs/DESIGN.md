@@ -83,6 +83,8 @@ changed heading, leaving paragraphs, code, tables, and diagrams in their
 original surfaces and spacing. An unheaded introduction
 gets one dot at its first block. Do not tint whole sections or draw rails
 down the document.
+On phones, keep the dot's full hit area inside the document card. Give the
+notice horizontal padding and put its actions below the summary.
 
 A compact notice reports the changed section count and offers History and
 Dismiss. Reserve its space even when hidden so a live update never pushes

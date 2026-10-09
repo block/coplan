@@ -240,13 +240,33 @@ RSpec.describe "Updated section signposts", type: :system do
     expect(page).to have_current_path(plan_history_page_path(plan))
   end
 
-  it "keeps metadata readable on a narrow screen without overflow" do
+  it "keeps mobile dots inside the card and gives the notice padded, separate rows" do
     window = page.current_window
     original_size = window.size
-    window.resize_to(390, 844)
-    find("#design .section-update-marker").hover
-    expect(page.evaluate_script("getComputedStyle(document.querySelector('#design .section-update-marker'), '::after').visibility")).to eq("visible")
-    expect(page.evaluate_script("document.documentElement.scrollWidth <= window.innerWidth")).to be true
+    [ 320, 390, 481 ].each do |width|
+      %w[light dark].each do |theme|
+        window.resize_to(width, 853)
+        CoPlan::PlanViewer.find_by!(plan: plan, user: viewer).update!(last_seen_at: 1.hour.ago)
+        visit plan_page_path(plan)
+        page.execute_script("document.documentElement.dataset.theme = '#{theme}'")
+        find("#design .section-update-marker").hover
+        expect(page.evaluate_script(<<~JS)).to be true
+          (() => {
+            const card = document.querySelector('.plan-document').getBoundingClientRect()
+            const marker = document.querySelector('#design .section-update-marker')
+            const target = marker.getBoundingClientRect()
+            const note = document.querySelector('.changed-sections-note').getBoundingClientRect()
+            const summary = document.querySelector('.changed-sections-note__summary').getBoundingClientRect()
+            const controls = document.querySelector('.changed-sections-note__controls').getBoundingClientRect()
+            return target.left > card.left && target.right < card.right &&
+              summary.left >= note.left + 8 && summary.right <= note.right - 8 &&
+              controls.top >= summary.bottom && controls.right <= note.right - 8 &&
+              getComputedStyle(marker, '::after').visibility === 'visible' &&
+              document.documentElement.scrollWidth <= window.innerWidth
+          })()
+        JS
+      end
+    end
   ensure
     window.resize_to(*original_size) if original_size
   end
