@@ -75,3 +75,30 @@ badges describe unresolved discussions; they do not represent per-thread unread
 receipts. Do not color them orange based on `open` status. Any future per-thread
 unread indicator must implement the acknowledgement lifecycle above using
 viewer-specific state rather than a local color toggle.
+
+## Changes since the last visit
+
+Treat updates as reading signposts. Use a small orange dot beside each
+changed heading, leaving paragraphs, code, tables, and diagrams in their
+original surfaces and spacing. An unheaded introduction
+gets one dot at its first block. Do not tint whole sections or draw rails
+down the document.
+On phones, keep the dot's full hit area inside the document card. Give the
+notice horizontal padding and put its actions below the summary.
+
+A compact notice reports the changed section count and offers History and
+Dismiss. Reserve its space even when hidden so a live update never pushes
+the document down. A heading that stays fully in view for three seconds
+loses its attention cue. Scrolling past quickly does not count. Hover or keyboard
+focus on the dot keeps it visible and shows who last edited that section,
+with relative and exact times. Keyboard focus remains blue. Dismiss clears
+all cues; preserve their footprint so nothing moves under the reader.
+If a section receives another live edit, its dot returns for that new edit.
+New and renamed sections receive dots too. Dismiss acknowledges the current
+updates; later edits can bring attention back, including the rewrite notice.
+After a rewrite notice is dismissed, ordinary edits get fresh section dots.
+Presentation mode defers the display of changes until the show ends; retain
+every queued section's last editor and any extensive-update notice.
+Extensive changes get one Updated throughout notice and a history link
+instead of marking every section. These cues are per viewer and disappear
+on the next visit.

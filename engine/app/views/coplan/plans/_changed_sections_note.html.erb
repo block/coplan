@@ -1,0 +1,21 @@
+<%# Outside selectable / live-swapped content; server-rendered so connecting
+    Stimulus never pushes the document down. %>
+<aside class="changed-sections-note" aria-label="Updates since your last visit"
+       data-coplan--changed-sections-target="note"
+       <%= "hidden" unless @changed_sections.rewritten? || @changed_sections.keys.any? %>>
+  <span class="changed-sections-note__summary" data-coplan--changed-sections-target="summary">
+    <% if @changed_sections.rewritten? %>
+      Updated throughout since your last visit.
+    <% else %>
+      <%= pluralize(@changed_sections.keys.size, "section") %> updated since your last visit.
+    <% end %>
+  </span>
+  <span class="changed-sections-note__controls">
+    <%= link_to "History", plan_history_browse_path(@plan) %>
+    <button type="button" data-action="coplan--changed-sections#dismiss" aria-label="Dismiss update markers">Dismiss</button>
+  </span>
+</aside>
+<template data-coplan--changed-sections-target="markerTemplate">
+  <span class="section-update-marker" tabindex="0" role="note"
+        data-action="mouseenter->coplan--changed-sections#hold mouseleave->coplan--changed-sections#release focusin->coplan--changed-sections#hold focusout->coplan--changed-sections#release"></span>
+</template>
