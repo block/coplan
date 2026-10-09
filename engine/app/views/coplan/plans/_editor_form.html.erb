@@ -7,6 +7,7 @@
     "coplan--editor-draft-scope-value": (creating ? "#{@new_plan_type&.id || 'general'}-#{@new_folder&.id || 'root'}" : ""),
     "coplan--editor-revision-value": @base_revision,
     "coplan--editor-state-url-value": creating ? "" : editor_state_plan_path(@plan),
+    "coplan--editor-token-url-value": creating ? new_plan_path : "",
     "coplan--editor-lease-url-value": creating ? "" : editor_lease_plan_path(@plan),
     "coplan--editor-embed-domains-value": CoPlan::EmbedDomain.order(:hostname).pluck(:hostname).to_json,
     "coplan--editor-preview-url-value": preview_draft_plans_path } do %>

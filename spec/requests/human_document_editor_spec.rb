@@ -13,6 +13,8 @@ RSpec.describe "Human document editor", type: :request do
 
   it "provides a human-first rich editor and creates a private human version" do
     get new_plan_path
+    expect(response.headers["X-CSRF-Token"]).to be_present
+    expect(response.headers["Cache-Control"]).to include("no-store")
     expect(response).to have_http_status(:ok)
     expect(response.body).to include('aria-label="Text formatting"', 'data-command="bold"')
     post plans_path, params: { plan: { title: "Human document" }, content: "My **draft**" }, as: :json

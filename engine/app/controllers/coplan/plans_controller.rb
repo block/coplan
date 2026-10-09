@@ -213,6 +213,8 @@ module CoPlan
     end
 
     def new
+      response.headers["Cache-Control"] = "no-store"
+      response.headers["X-CSRF-Token"] = form_authenticity_token
       @new_plan_type = PlanType.find_by(id: params[:plan_type_id]) if params[:plan_type_id].present?
       return head :not_found if params[:plan_type_id].present? && !@new_plan_type
       @new_folder = current_user.library.folders.find_by(id: params[:folder_id]) if params[:folder_id].present?

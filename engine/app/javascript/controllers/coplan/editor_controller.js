@@ -6,7 +6,7 @@ import { commandFor } from "coplan/shortcuts"
 // until the server has acknowledged that exact content.
 export default class extends Controller {
   static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave"]
-  static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, previewUrl: String, leaseUrl: String, inline: Boolean, embedDomains: Array }
+  static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, tokenUrl: String, previewUrl: String, leaseUrl: String, inline: Boolean, embedDomains: Array }
 
   async connect() {
     this.active = true
@@ -113,19 +113,23 @@ export default class extends Controller {
     }
   }
 
-  async request(url, method = "GET", body) {
+  async request(url, method = "GET", body, tokenOnly = false) {
     const abort = new AbortController(), timer = setTimeout(() => abort.abort(), 15000)
     try {
       const response = await fetch(url, { method, signal: abort.signal, cache: "no-store",
-        headers: { "Content-Type": "application/json", Accept: "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content },
+        headers: { "Content-Type": "application/json", Accept: tokenOnly ? "text/html" : "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
       if (response.redirected || response.status === 401) throw Object.assign(new Error("Sign in again in another tab, then retry here. Your draft is retained."), { code: "sign_in_required" })
+      const token = response.headers.get("X-CSRF-Token")
+      if (response.ok && token) document.querySelector('meta[name="csrf-token"]')?.setAttribute("content", token)
+      if (tokenOnly) {
+        if (!response.ok || !token) throw new Error("Could not refresh your session. Your draft is retained; retry here after signing in.")
+        return true
+      }
       if (!response.headers.get("content-type")?.includes("application/json")) {
         if (response.status === 422) throw Object.assign(new Error("Your session changed. Sign in again in another tab, then retry here. Your draft is retained."), { code: "sign_in_required" })
         throw new Error("Could not sync. Check your connection or sign in again; your draft is retained.")
       }
-      const token = response.headers.get("X-CSRF-Token")
-      if (response.ok && token) document.querySelector('meta[name="csrf-token"]')?.setAttribute("content", token)
       const data = await response.json()
       if (!response.ok) throw Object.assign(new Error(data.error || "Could not save"), data, { status: response.status })
       return data
@@ -319,6 +323,13 @@ export default class extends Controller {
     if (!this.active) return
     this.retryable = false
     if (this.inlineValue) this.setStatus("Retrying sync…", "saving")
+    if (this.isNew) {
+      try {
+        await this.request(this.tokenUrlValue, "GET", undefined, true)
+        if (this.active) await this.flush(true)
+      } catch (error) { this.fail(error.message, error.code) }
+      return
+    }
     if (!await this.refresh() || !this.active || this.blocked) return
     if (this.dirty()) await this.flush(true)
     else this.setStatus(`All changes saved · v${this.base.revision}`, "saved")
