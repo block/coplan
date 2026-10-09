@@ -379,6 +379,7 @@ export default class extends Controller {
     const command = event.currentTarget.dataset.command
     if (this.editor !== this.richEditor && !["undo", "redo"].includes(command)) return
     const editor = ["undo", "redo"].includes(command) ? this.editor : this.richEditor
+    if (!["undo", "redo"].includes(command)) editor?.captureSelection()
     editor?.command(command, event.currentTarget.value)
   }
   keepSelection(event) { if (event.target.closest("button")) event.preventDefault() }

@@ -46,6 +46,25 @@ RSpec.describe "Human plan editing", type: :system do
     expect(plan.current_plan_version.actor_type).to eq("human")
   end
 
+  it "formats a native selection before the editor observes selectionchange" do
+    visit plan_edit_page_path(plan)
+    editor
+    page.execute_script(<<~'JS')
+      const body = document.querySelector('.ProseMirror[contenteditable="true"]');
+      body.focus();
+      const range = document.createRange();
+      range.selectNodeContents(body.querySelector("p"));
+      const selection = getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.querySelector('[data-command="bold"]').click();
+    JS
+    expect(page).to have_css(".ProseMirror strong", text: "First draft body.")
+    save_now
+    expect(page).to have_content("All changes saved · v2")
+    expect(plan.reload.current_content).to include("**First draft body.**")
+  end
+
   it "edits the title while retaining tags without metadata controls" do
     plan.update!(tag_names: [ "security", "api-design" ])
     visit plan_edit_page_path(plan)
