@@ -85,8 +85,9 @@ gets one dot at its first block. Do not tint whole sections or draw rails
 down the document.
 
 A compact notice reports the changed section count and offers History and
-Dismiss. A heading that stays fully in view for three seconds loses its
-attention cue. Scrolling past quickly does not count. Hover or keyboard
+Dismiss. Reserve its space even when hidden so a live update never pushes
+the document down. A heading that stays fully in view for three seconds
+loses its attention cue. Scrolling past quickly does not count. Hover or keyboard
 focus on the dot keeps it visible and shows who last edited that section,
 with relative and exact times. Keyboard focus remains blue. Dismiss clears
 all cues; preserve their footprint so nothing moves under the reader.

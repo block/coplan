@@ -1825,7 +1825,9 @@ img.avatar {
   font-size: var(--text-sm);
 }
 
-.changed-sections-note[hidden] { display: none; }
+/* Keep the notice's footprint even before the first live update. Override
+   the global [hidden] display rule only for this reserved reading space. */
+.changed-sections-note[hidden] { display: flex !important; visibility: hidden; }
 .changed-sections-note--dismissed,
 [data-editing="true"] .changed-sections-note { visibility: hidden; }
 .changed-sections-note__summary { flex: 1 1 16rem; }

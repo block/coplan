@@ -117,6 +117,29 @@ RSpec.describe "Updated section signposts", type: :system do
     expect(page.evaluate_script("document.querySelector('.changed-sections-note').inert")).to be false
   end
 
+  it "reveals the first live-update notice without shifting headings at the top of the page" do
+    window = page.current_window
+    original_size = window.size
+    [ [ 1400, 900 ], [ 390, 844 ] ].each do |size|
+      %w[light dark].each do |theme|
+        window.resize_to(*size)
+        CoPlan::PlanViewer.find_by!(plan: plan, user: viewer).update!(last_seen_at: Time.current)
+        visit plan_page_path(plan)
+        page.execute_script("document.documentElement.dataset.theme = '#{theme}'; window.scrollTo(0, 0)")
+        expect(page).to have_no_css(".changed-sections-note")
+        top = page.evaluate_script("document.getElementById('design').getBoundingClientRect().top")
+
+        broadcast_section_update(keys: %w[design])
+
+        expect(page).to have_css(".changed-sections-note", text: "1 section updated since your last visit.")
+        expect(page.evaluate_script("document.getElementById('design').getBoundingClientRect().top")).to eq(top)
+        expect(page.evaluate_script("window.scrollY")).to eq(0)
+      end
+    end
+  ensure
+    window.resize_to(*original_size) if original_size
+  end
+
   it "marks only section starts and keeps rich content's own surfaces in both themes" do
     %w[light dark].each do |theme|
       page.execute_script("document.documentElement.dataset.theme = '#{theme}'")
