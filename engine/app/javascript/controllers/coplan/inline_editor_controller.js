@@ -82,6 +82,10 @@ export default class extends Controller {
     if (!this.headerVisible) restoreViewport(this.editorTarget, this.anchor)
   }
 
+  editCitation(event) {
+    if (this.editing) this.controller?.openCitation(event)
+  }
+
   async closed(event) {
     if (!this.editing || this.closing || event.detail.controller !== this.controller) return
     if (this.draftValue) {

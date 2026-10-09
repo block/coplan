@@ -5,8 +5,8 @@ import { commandFor } from "coplan/shortcuts"
 // sent snapshot and edits typed while it was in flight. Nothing clears a draft
 // until the server has acknowledged that exact content.
 export default class extends Controller {
-  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription"]
-  static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, previewUrl: String, leaseUrl: String, inline: Boolean }
+  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave"]
+  static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, tokenUrl: String, previewUrl: String, leaseUrl: String, inline: Boolean, embedDomains: Array }
 
   async connect() {
     this.active = true
@@ -113,13 +113,23 @@ export default class extends Controller {
     }
   }
 
-  async request(url, method = "GET", body) {
+  async request(url, method = "GET", body, tokenOnly = false) {
     const abort = new AbortController(), timer = setTimeout(() => abort.abort(), 15000)
     try {
       const response = await fetch(url, { method, signal: abort.signal, cache: "no-store",
-        headers: { "Content-Type": "application/json", Accept: "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content },
+        headers: { "Content-Type": "application/json", Accept: tokenOnly ? "text/html" : "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
-      if (!response.headers.get("content-type")?.includes("application/json")) throw new Error("Could not sync. Check your connection or sign in again; your draft is retained.")
+      if (response.redirected || response.status === 401) throw Object.assign(new Error("Sign in again in another tab, then retry here. Your draft is retained."), { code: "sign_in_required" })
+      const token = response.headers.get("X-CSRF-Token")
+      if (response.ok && token) document.querySelector('meta[name="csrf-token"]')?.setAttribute("content", token)
+      if (tokenOnly) {
+        if (!response.ok || !token) throw new Error("Could not refresh your session. Your draft is retained; retry here after signing in.")
+        return true
+      }
+      if (!response.headers.get("content-type")?.includes("application/json")) {
+        if (response.status === 422) throw Object.assign(new Error("Your session changed. Sign in again in another tab, then retry here. Your draft is retained."), { code: "sign_in_required" })
+        throw new Error("Could not sync. Check your connection or sign in again; your draft is retained.")
+      }
       const data = await response.json()
       if (!response.ok) throw Object.assign(new Error(data.error || "Could not save"), data, { status: response.status })
       return data
@@ -219,7 +229,7 @@ export default class extends Controller {
       if (this.isNew && error.status === 422) { this.creationSnapshot = null; this.persistDraft() }
       if (error.code === "overlapping_edits" || error instanceof this.merge.MergeConflict) this.showConflict(error.code === "overlapping_edits" ? error : this.pendingRemote, error.message)
       else {
-        this.fail(error.message || "Offline — your draft is retained")
+        this.fail(error.message || "Offline — your draft is retained", error.code)
       }
       return false
     } finally {
@@ -285,7 +295,7 @@ export default class extends Controller {
       return true
     } catch (error) {
       if (error instanceof this.merge.MergeConflict) this.showConflict(this.pendingRemote, error.message)
-      else if (this.dirty()) this.fail("Offline or disconnected · draft retained. We’ll retry when connected.")
+      else if (this.dirty()) this.fail(error.code === "sign_in_required" ? error.message : "Offline or disconnected · draft retained. We’ll retry when connected.", error.code)
       else if (this.inlineValue && this.statusTarget.dataset.state === "saving") this.fail("Could not check the saved version")
       return false
     } finally {
@@ -313,6 +323,13 @@ export default class extends Controller {
     if (!this.active) return
     this.retryable = false
     if (this.inlineValue) this.setStatus("Retrying sync…", "saving")
+    if (this.isNew) {
+      try {
+        await this.request(this.tokenUrlValue, "GET", undefined, true)
+        if (this.active) await this.flush(true)
+      } catch (error) { this.fail(error.message, error.code) }
+      return
+    }
     if (!await this.refresh() || !this.active || this.blocked) return
     if (this.dirty()) await this.flush(true)
     else this.setStatus(`All changes saved · v${this.base.revision}`, "saved")
@@ -362,10 +379,10 @@ export default class extends Controller {
       if (heading) heading.textContent = this.base.title
     }
   }
-  fail(message) {
+  fail(message, code = null) {
     if (!this.active) return
     this.retryable = !this.blocked
-    const status = this.inlineValue ? (this.blocked ? "Conflict — reload document to start over" : "Couldn't save · click to retry") : "Not saved"
+    const status = code === "sign_in_required" ? "Sign in again · draft retained" : this.inlineValue ? (this.blocked ? "Conflict — reload document to start over" : "Couldn't save · click to retry") : "Not saved"
     this.setStatus(status, this.blocked && this.inlineValue ? "conflict" : "error")
     this.errorTarget.textContent = this.blocked ? message : `Couldn't save. Your edits are still here. ${message}`
     this.conflictTarget.dataset.kind = this.blocked ? "conflict" : "save-error"
@@ -383,8 +400,10 @@ export default class extends Controller {
   }
   keepSelection(event) { if (event.target.closest("button")) event.preventDefault() }
   updateToolbar(state) {
-    const rawFocused = this.editor === this.rawEditor && !!this.rawEditor
+    const rawFocused = (this.editor === this.rawEditor && !!this.rawEditor) || !!document.activeElement?.closest(".document-editor__content-block, .document-editor__block-source")
     this.toolbarTarget.querySelector('[popovertarget="coplan-insert-code"]').disabled = rawFocused
+    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-content"]').disabled = rawFocused
+    if (rawFocused && this.contentPickerTarget.matches(":popover-open")) this.contentPickerTarget.hidePopover()
     if (rawFocused && this.codePickerTarget.matches(":popover-open")) this.codePickerTarget.hidePopover()
     this.toolbarTarget.querySelectorAll("[data-command]").forEach(button => {
       const command = button.dataset.command
@@ -634,6 +653,129 @@ export default class extends Controller {
   deleteCode(event) {
     const position = event.currentTarget.closest(".document-editor__block").coplanPosition()
     this.richEditor.deleteCode(position)
+  }
+  blockSourceChanged(event) {
+    const block = event.currentTarget.closest(".document-editor__block")
+    const position = block.coplanPosition(), node = this.richEditor.view.state.doc.nodeAt(position)
+    const input = event.currentTarget, value = input.value, start = input.selectionStart, end = input.selectionEnd
+    const source = node.attrs.kind === "presentation" ? (() => {
+      const parts = this.richModule.presentationContent(node.attrs.source)
+      const content = event.currentTarget.value
+      return parts.before + content + (content.endsWith("\n") ? "" : "\n") + parts.after
+    })() : event.currentTarget.value
+    this.richEditor.setBlockSource(position, source)
+    // Structural separator lines must not alter the field while it is being
+    // typed into (including native select-all replacement).
+    if (node.attrs.kind === "presentation" && input.value !== value) {
+      input.value = value; input.setSelectionRange(start, end)
+    }
+  }
+  togglePresentationPreview(event) {
+    event.currentTarget.closest(".document-editor__block").coplanTogglePreview()
+  }
+  toggleBlockSource(event) {
+    const block = event.currentTarget.closest(".document-editor__block")
+    const input = block.querySelector("textarea")
+    input.hidden = !input.hidden
+    event.currentTarget.textContent = input.hidden ? "Edit table" : "Done"
+    if (!input.hidden) input.focus({ preventScroll: true })
+  }
+  blockKeydown(event) {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+      event.preventDefault(); event.stopPropagation()
+      this.richEditor.command(event.shiftKey ? "redo" : "undo")
+      event.currentTarget.focus({ preventScroll: true })
+    }
+  }
+  embedChanged(event) {
+    const block = event.currentTarget.closest(".document-editor__block")
+    const attrs = Object.fromEntries(Array.from(block.querySelectorAll("[data-embed-attribute]"), input => [input.dataset.embedAttribute, input.value]))
+    this.richEditor.setBlockSource(block.coplanPosition(), this.richModule.iframeSource(attrs))
+  }
+  deleteContentBlock(event) {
+    const position = event.currentTarget.closest(".document-editor__block").coplanPosition()
+    this.richEditor.deleteContentBlock(position)
+  }
+  prepareContentPicker(event) {
+    if (event.newState !== "open") return
+    this.richEditor.captureSelection()
+    this.positionContentPicker(true)
+  }
+  contentPickerToggled(event) {
+    const open = event.newState === "open"
+    this.element.querySelector('[popovertarget="coplan-insert-content"]').setAttribute("aria-expanded", String(open))
+    if (open) {
+      this.positionContentPicker(true)
+      this.contentPickerTarget.querySelector("button").focus({ preventScroll: true })
+    }
+  }
+  positionContentPicker(opening = false) {
+    if (opening !== true && !this.contentPickerTarget.matches(":popover-open")) return
+    const rect = this.element.querySelector('[popovertarget="coplan-insert-content"]').getBoundingClientRect()
+    const picker = this.contentPickerTarget, width = picker.offsetWidth || 200, height = picker.offsetHeight || 104
+    picker.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`
+    picker.style.top = `${window.innerHeight - rect.bottom < height + 16 ? Math.max(8, rect.top - height - 6) : rect.bottom + 6}px`
+  }
+  insertPresentation() {
+    this.insertContentBlock("::: {.presentation}\n\n# Slide title\n\nSlide content.\n\n:::\n", '[aria-label="Presentation Markdown"]')
+  }
+  insertEmbed() {
+    const source = this.richModule.iframeSource({ src: "https://", title: "Embedded content", width: "100%", height: "480" })
+    this.insertContentBlock(source, '[data-embed-attribute="src"]')
+  }
+  insertContentBlock(source, focusSelector) {
+    if (this.editor !== this.richEditor) return
+    this.contentPickerTarget.hidePopover()
+    const view = this.richEditor.view
+    const node = this.richModule.parseDocument(source).firstChild
+    // An atomic content block has no text caret. Add after a selected block
+    // rather than replacing the existing presentation or embed.
+    const transaction = (view.state.selection.node ? view.state.tr.insert(view.state.selection.to, node) : view.state.tr.replaceSelectionWith(node)).scrollIntoView()
+    let position
+    transaction.doc.descendants((candidate, pos) => { if (candidate === node) position = pos })
+    view.dispatch(transaction)
+    view.nodeDOM(position)?.querySelector(focusSelector)?.focus({ preventScroll: true })
+  }
+  openCitation(event) {
+    event.preventDefault(); event.stopPropagation()
+    this.citationTrigger = event.currentTarget
+    this.citationLabel = event.currentTarget.dataset.citationLabel
+    const definition = this.findCitationDefinition(this.textareaTarget.value)
+    this.citationOriginal = definition?.source || null
+    this.citationTitleTarget.textContent = `Citation: ${this.citationLabel}`
+    this.citationBodyTarget.value = definition?.body || ""
+    this.citationErrorTarget.textContent = ""
+    this.citationDialogTarget.showModal()
+    this.citationBodyTarget.focus({ preventScroll: true })
+  }
+  closeCitation() {
+    this.citationDialogTarget.close()
+    if (this.citationTrigger?.isConnected) this.citationTrigger.focus({ preventScroll: true })
+  }
+  findCitationDefinition(content) {
+    const key = this.richModule.citationLabelKey(this.citationLabel)
+    return this.richModule.citationDefinitions(content).find(d => this.richModule.citationLabelKey(d.label) === key)
+  }
+  async saveCitation() {
+    const body = this.citationBodyTarget.value.trim()
+    if (!body) { this.citationErrorTarget.textContent = "Add the citation text or source link."; this.citationBodyTarget.focus(); return }
+    const content = this.textareaTarget.value
+    const definition = this.findCitationDefinition(content)
+    if ((definition?.source || null) !== this.citationOriginal) {
+      this.citationErrorTarget.textContent = "This citation changed while you were editing. Close and reopen it to review the new text."
+      return
+    }
+    const lines = body.split("\n")
+    const source = `[^${definition?.label ?? this.citationLabel}]: ${lines[0]}\n` + lines.slice(1).map(line => `    ${line}\n`).join("")
+    const from = definition?.from ?? content.length, to = definition?.to ?? content.length
+    this.richEditor.replaceSource(from, to, definition ? source : `${content.endsWith("\n\n") ? "" : "\n\n"}${source}`)
+    this.citationOriginal = source
+    this.citationSaveTarget.disabled = true
+    this.citationSaveTarget.textContent = "Saving…"
+    try {
+      if (await this.flush(true)) this.closeCitation()
+      else this.citationErrorTarget.textContent = "The citation is in your draft. Retry Save to sync it."
+    } finally { this.citationSaveTarget.disabled = false; this.citationSaveTarget.textContent = "Save citation" }
   }
   editSource(event) {
     const position = event.currentTarget.closest(".document-editor__block").coplanPosition()

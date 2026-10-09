@@ -213,6 +213,8 @@ module CoPlan
     end
 
     def new
+      response.headers["Cache-Control"] = "no-store"
+      response.headers["X-CSRF-Token"] = form_authenticity_token
       @new_plan_type = PlanType.find_by(id: params[:plan_type_id]) if params[:plan_type_id].present?
       return head :not_found if params[:plan_type_id].present? && !@new_plan_type
       @new_folder = current_user.library.folders.find_by(id: params[:folder_id]) if params[:folder_id].present?
@@ -249,6 +251,7 @@ module CoPlan
     def editor_state
       authorize!(@plan, :edit_content?)
       response.headers["Cache-Control"] = "no-store"
+      response.headers["X-CSRF-Token"] = form_authenticity_token
       render json: editor_snapshot
     end
 
@@ -263,7 +266,7 @@ module CoPlan
     end
 
     def preview_draft
-      render html: helpers.render_markdown(params[:content].to_s, interactive: false), layout: false
+      render html: helpers.render_content_regions(params[:content].to_s, interactive: false), layout: false
     end
 
     # Human whole-document editing goes through the same pipeline as agent
@@ -311,7 +314,7 @@ module CoPlan
     # render: no checkbox wiring, since the content isn't saved yet.
     def preview
       authorize!(@plan, :show?)
-      html = helpers.render_markdown(params[:content].to_s, interactive: false)
+      html = helpers.render_content_regions(params[:content].to_s, interactive: false)
       render html: html, layout: false
     end
 

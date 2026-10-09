@@ -13,6 +13,8 @@ RSpec.describe "Human document editor", type: :request do
 
   it "provides a human-first rich editor and creates a private human version" do
     get new_plan_path
+    expect(response.headers["X-CSRF-Token"]).to be_present
+    expect(response.headers["Cache-Control"]).to include("no-store")
     expect(response).to have_http_status(:ok)
     expect(response.body).to include('aria-label="Text formatting"', 'data-command="bold"')
     post plans_path, params: { plan: { title: "Human document" }, content: "My **draft**" }, as: :json
@@ -158,6 +160,22 @@ RSpec.describe "Human document editor", type: :request do
     expect(response).to have_http_status(:not_found)
     get editor_state_plan_path(plan), as: :json
     expect(response).to have_http_status(:not_found)
+  end
+
+  it "refreshes the editor security token without caching the snapshot" do
+    get editor_state_plan_path(plan), as: :json
+    expect(response).to have_http_status(:ok)
+    expect(response.headers["X-CSRF-Token"]).to be_present
+    expect(response.headers["Cache-Control"]).to include("no-store")
+  end
+
+  it "previews presentations using the slideshow renderer without saving" do
+    expect {
+      post preview_draft_plans_path, params: { content: "::: {.presentation}\n\n# Opening\n\n---\n\n# Decision\n\n:::\n" }
+    }.not_to change(CoPlan::PlanVersion, :count)
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include('deck-region', 'coplan--deck-reader', 'Opening', 'Decision')
+    expect(Nokogiri::HTML.fragment(response.body).css('.deck-slide').size).to eq(2)
   end
 
   it "previews tables and Mermaid without saving or executing raw HTML" do

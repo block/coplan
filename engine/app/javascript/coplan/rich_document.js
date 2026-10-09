@@ -1,10 +1,12 @@
 import { diffArrays } from "diff"
 import { codeHighlight } from "coplan/code_highlight"
 import { textHunks } from "coplan/merge_text"
+import { citationLabelKey } from "coplan/citation_labels"
+export { citationLabelKey } from "coplan/citation_labels"
 import { Schema, Fragment, Slice } from "prosemirror-model"
 import { EditorState, TextSelection, Plugin, PluginKey } from "prosemirror-state"
 import { EditorView, Decoration, DecorationSet } from "prosemirror-view"
-import { defaultMarkdownParser, defaultMarkdownSerializer } from "prosemirror-markdown"
+import { MarkdownParser, MarkdownSerializer, defaultMarkdownParser, defaultMarkdownSerializer as baseMarkdownSerializer } from "prosemirror-markdown"
 import { baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exitCode, selectAll } from "prosemirror-commands"
 import { wrapInList, splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list"
 import { keymap } from "prosemirror-keymap"
@@ -21,11 +23,120 @@ nodes.forEach((name, spec) => {
   if (name !== "text") nodes = nodes.update(name, { ...spec, attrs: { ...spec.attrs, source: { default: null }, snapshot: { default: null } } })
 })
 nodes = nodes.addBefore("paragraph", "preserved", {
-  group: "block", atom: true, attrs: { source: {} },
+  group: "block", atom: true, attrs: { source: {}, kind: { default: null }, label: { default: null } },
   toDOM: node => ["div", { class: "document-editor__preserved", hidden: node.attrs.source.trim() ? null : "hidden", contenteditable: "false" },
     ["small", "Preserved Markdown block"], ["pre", node.attrs.source]]
 })
+nodes = nodes.addBefore("text", "footnote_reference", {
+  inline: true, group: "inline", atom: true, attrs: { label: {} },
+  leafText: node => `[^${node.attrs.label}]`,
+  parseDOM: [{ tag: "sup[data-coplan-footnote]", getAttrs: dom => ({ label: dom.dataset.coplanFootnote }) }],
+  toDOM: node => ["sup", { "data-coplan-footnote": node.attrs.label, class: "document-editor__footnote", title: `Reference: ${node.attrs.label}`, contenteditable: "false" }, ["button", { type: "button", "data-citation-label": node.attrs.label, "data-action": "coplan--editor#openCitation", "aria-label": `Edit citation ${node.attrs.label}` }, `[${node.attrs.label}]`]]
+})
 const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.marks })
+// Run before links, but after escapes and code spans. A citation is inline
+// content, so it must not turn its entire paragraph or list into a source card.
+const tokenizer = defaultMarkdownParser.tokenizer
+tokenizer.inline.ruler.before("link", "coplan_footnote", (state, silent) => {
+  const match = /^\[\^([^\]]+)\]/.exec(state.src.slice(state.pos))
+  if (!match || !citationLabelKey(match[1])) return false
+  if (!silent) state.push("footnote_reference", "", 0).meta = { label: match[1] }
+  state.pos += match[0].length
+  return true
+})
+// Keep a table's own node inside its surrounding list or blockquote. The
+// list remains rich text; only the table uses a source-preserving preview.
+tokenizer.enable("table")
+tokenizer.core.ruler.after("block", "coplan_tables", state => {
+  const lines = state.src.split("\n")
+  for (let index = 0; index < state.tokens.length; index++) {
+    const token = state.tokens[index]
+    if (token.type !== "table_open") continue
+    const end = state.tokens.findIndex((next, at) => at > index && next.type === "table_close")
+    if (end < 0) continue
+    const quoteDepth = state.tokens.slice(0, index).reduce((depth, current) => depth +
+      (current.type === "blockquote_open" ? 1 : current.type === "blockquote_close" ? -1 : 0), 0)
+    const source = lines.slice(...token.map).map(line => {
+      for (let depth = 0; depth < quoteDepth; depth++) line = line.replace(/^ {0,3}> ?/, "")
+      return line
+    }).join("\n")
+    const indentation = source.match(/^[ \t]*/)[0]
+    const normalized = source.split("\n").map(line => line.startsWith(indentation) ? line.slice(indentation.length) : line).join("\n") + "\n"
+    token.type = "preserved_block"; token.nesting = 0
+    token.meta = { source: normalized, kind: "table" }
+    state.tokens.splice(index + 1, end - index)
+  }
+})
+const richMarkdownParser = new MarkdownParser(schema, tokenizer, {
+  ...defaultMarkdownParser.tokens,
+  footnote_reference: { node: "footnote_reference", getAttrs: token => token.meta },
+  preserved_block: { node: "preserved", getAttrs: token => token.meta }
+})
+const defaultMarkdownSerializer = new MarkdownSerializer({
+  ...baseMarkdownSerializer.nodes,
+  footnote_reference: (state, node) => state.text(`[^${node.attrs.label}]`, false),
+  preserved: (state, node) => {
+    for (const line of node.attrs.source.trimEnd().split("\n")) { state.write(line); state.ensureNewLine() }
+    state.closeBlock(node)
+  }
+}, baseMarkdownSerializer.marks)
+
+const presentationOpen = /^::: \{\.presentation(?: #([a-zA-Z][\w-]*))?(?: theme="(coplan|graphite)")?\}$/
+function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false) {
+  const ranges = tokens.filter(t => t.level === 0 && t.map && t.nesting !== -1)
+  const specials = []
+  let opener = null
+  for (const token of ranges) {
+    const [from, to] = token.map
+    if (token.type !== "paragraph_open" || to !== from + 1) continue
+    const line = lines[from].replace(/\r$/, "")
+    if (opener !== null) {
+      if (line !== ":::") continue
+      specials.push({ from: offsets[opener], to: Math.min(offsets[to], markdown.length), kind: "presentation" })
+      opener = null
+    } else if (presentationOpen.test(line)) opener = from
+    if (line.startsWith("::: {.iframe ") && line.endsWith(" /}"))
+      specials.push({ from: offsets[from], to: Math.min(offsets[to], markdown.length), kind: "iframe" })
+  }
+  // Definitions are metadata, not visible body blocks. Keep their exact source,
+  // including indented continuation paragraphs, for citation editing and Raw.
+  const excluded = ranges.filter(t => ["fence", "code_block", "html_block", "blockquote_open", "bullet_list_open", "ordered_list_open"].includes(t.type))
+  for (let line = 0; line < lines.length; line++) {
+    if (excluded.some(t => line >= t.map[0] && line < t.map[1])) continue
+    const match = /^ {0,3}\[\^([^\]]+)\]:[ \t]*(.*)$/.exec(lines[line])
+    if (!match || !citationLabelKey(match[1]) || (!definitionsOnly && specials.some(r => offsets[line] >= r.from && offsets[line] < r.to))) continue
+    let end = line + 1
+    while (end < lines.length) {
+      if (/^(?: {4}|\t)\S?/.test(lines[end]) && lines[end].trim()) { end++; continue }
+      if (!lines[end].trim() && /^(?: {4}|\t)[ \t]*\S/.test(lines[end + 1] || "")) { end += 2; continue }
+      break
+    }
+    specials.push({ from: offsets[line], to: Math.min(offsets[end], markdown.length), kind: "reference", label: match[1] })
+    line = end - 1
+  }
+  return specials.filter(range => !definitionsOnly || range.kind === "reference").sort((a, b) => a.from - b.from)
+}
+export function presentationContent(source) {
+  let first = source.indexOf("\n") + 1
+  // Blank separator lines belong to the wrapper, so replacing all of the
+  // field cannot merge the closing marker into the last slide paragraph.
+  if (source[first] === "\n") first++
+  else if (source.slice(first, first + 2) === "\r\n") first += 2
+  let last = source.lastIndexOf(":::")
+  if (source.slice(last - 2, last) === "\n\n") last--
+  else if (source.slice(last - 4, last) === "\r\n\r\n") last -= 2
+  return { before: source.slice(0, first), content: source.slice(first, last), after: source.slice(last) }
+}
+export function citationDefinitions(source) {
+  const lines = source.split("\n"), offsets = [0]
+  lines.forEach(line => offsets.push(offsets.at(-1) + line.length + 1))
+  return contentRanges(tokenizer.parse(source, {}), lines, offsets, source, true).map(range => {
+    const text = source.slice(range.from, range.to)
+    const match = /^ {0,3}\[\^[^\]]+\]:[ \t]*(.*?)(?:\r?\n|$)/.exec(text)
+    const body = (match?.[1] || "") + "\n" + text.slice(match?.[0].length || 0).replace(/^ {4}|^\t/gm, "")
+    return { label: range.label, body: body.trimEnd(), source: text, from: range.from, to: range.to }
+  })
+}
 function signature(node) {
   const json = node.toJSON()
   if (json.attrs) json.attrs = Object.fromEntries(Object.entries(json.attrs).filter(([key]) => !["source", "snapshot"].includes(key)))
@@ -63,34 +174,49 @@ function moveBelowCode(state, dispatch) {
   }
   return true
 }
-function preserved(source) { return schema.nodes.preserved.create({ source }) }
+function preserved(source, kind = null, label = null) { return schema.nodes.preserved.create({ source, kind, label }) }
 export function parseDocument(markdown) {
   if (!markdown) return schema.topNodeType.createAndFill()
   const lines = markdown.split("\n")
   const offsets = [0]
   lines.forEach(line => offsets.push(offsets.at(-1) + line.length + 1))
   const tokens = defaultMarkdownParser.tokenizer.parse(markdown, {})
-  const ranges = tokens.filter(t => t.level === 0 && t.map && t.nesting !== -1).map(t => t.map)
+  const specials = contentRanges(tokens, lines, offsets, markdown)
   const blocks = []
+  const segments = []
   let cursor = 0
-  for (const [from, to] of ranges) {
-    const start = offsets[from], end = Math.min(offsets[to], markdown.length)
-    if (start < cursor) continue
-    if (start > cursor) blocks.push(preserved(markdown.slice(cursor, start)))
-    const source = markdown.slice(start, end)
-    try {
-      // Raw HTML, tables, task lists, footnotes and reference definitions are
-      // preserved until dedicated rich node views exist for them.
-      const parsed = defaultMarkdownParser.parse(source)
-      if (parsed.firstChild?.type.name !== "code_block" && /~~|\]\s*\[|\]\(mention:|<\/?[a-z!]|^\s*\|.*\||^\s*\|?\s*:?-{3,}.*\||^\s*(?:>\s*)*(?:[-*+]|\d+[.)]) \[[ xX]\]|^\s*\[[^\]]+\]:|\[\^[^\]]+\]|^:::(?: \{\.presentation.*\})?$/im.test(source)) throw new Error("preserve")
-      if (parsed.childCount !== 1) throw new Error("preserve")
-      let node = schema.nodeFromJSON(parsed.firstChild.toJSON())
-      node = node.type.create({ ...node.attrs, source, snapshot: signature(node) }, node.content, node.marks)
-      blocks.push(node)
-    } catch { blocks.push(preserved(source)) }
-    cursor = end
+  for (const special of specials) {
+    if (special.from < cursor) continue
+    if (special.from > cursor) segments.push({ source: markdown.slice(cursor, special.from) })
+    segments.push({ ...special, source: markdown.slice(special.from, special.to) })
+    cursor = special.to
   }
-  if (cursor < markdown.length) blocks.push(preserved(markdown.slice(cursor)))
+  if (cursor < markdown.length) segments.push({ source: markdown.slice(cursor) })
+  for (const segment of segments) {
+    if (segment.kind) { blocks.push(preserved(segment.source, segment.kind, segment.label)); continue }
+    const source = segment.source
+    const segmentLines = source.split("\n"), segmentOffsets = [0]
+    segmentLines.forEach(line => segmentOffsets.push(segmentOffsets.at(-1) + line.length + 1))
+    const ranges = tokenizer.parse(source, {}).filter(t => t.level === 0 && t.map && t.nesting !== -1)
+    let consumed = 0
+    for (const token of ranges) {
+      const [from, to] = token.map
+      const start = segmentOffsets[from], end = Math.min(segmentOffsets[to], source.length)
+      if (start < consumed) continue
+      if (start > consumed) blocks.push(preserved(source.slice(consumed, start)))
+      const text = source.slice(start, end)
+      try {
+        const parsed = richMarkdownParser.parse(text)
+        if (parsed.firstChild?.type.name !== "code_block" && /~~|\]\s*\[|\]\(mention:|<\/?[a-z!]|^\s*(?:>\s*)*(?:[-*+]|\d+[.)]) \[[ xX]\]|^\s*\[[^\]]+\]:|^:::(?: \{\.presentation.*\})?$/im.test(text)) throw new Error("preserve")
+        if (parsed.childCount !== 1) throw new Error("preserve")
+        let node = schema.nodeFromJSON(parsed.firstChild.toJSON())
+        node = node.type.create({ ...node.attrs, source: text, snapshot: signature(node) }, node.content, node.marks)
+        blocks.push(node)
+      } catch { blocks.push(preserved(text, ["bullet_list_open", "ordered_list_open"].includes(token.type) ? "list" : null)) }
+      consumed = end
+    }
+    if (consumed < source.length) blocks.push(preserved(source.slice(consumed)))
+  }
   return ensureTrailing(schema.topNodeType.create(null, blocks.length ? blocks : schema.nodes.paragraph.create()))
 }
 export function serializeDocument(doc, recordRange = null) {
@@ -181,7 +307,15 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       serializeDocument(view.state.doc, (pos, range) => ranges.set(pos, range))
       rangeDoc = view.state.doc
     }
-    return ranges.get(position)
+    if (ranges.has(position)) return ranges.get(position)
+    const node = view.state.doc.nodeAt(position)
+    if (node?.type !== schema.nodes.preserved) return null
+    const source = serializeDocument(view.state.doc)
+    const escaped = node.attrs.source.trim().split("\n").map(line => line.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\n[ \\t]*(?:>[ \\t]*)*")
+    let occurrence = 0
+    view.state.doc.descendants((child, pos) => { if (pos < position && child.type === node.type && child.attrs.source.trim() === node.attrs.source.trim()) occurrence++ })
+    const match = Array.from(source.matchAll(new RegExp(escaped, "g")))[occurrence]
+    return match ? { from: match.index, to: match.index + match[0].length } : null
   }
   const state = EditorState.create({
     doc: parseDocument(markdown),
@@ -333,11 +467,28 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, params: language }))
       return true
     },
-    sourceRange(position) {
-      let result = null
-      serializeDocument(view.state.doc, (pos, range) => { if (pos === position) result = range })
-      return result
+    deleteContentBlock(position) {
+      const node = view.state.doc.nodeAt(position)
+      if (node?.type !== schema.nodes.preserved) return false
+      const tr = closeHistory(view.state.tr.delete(position, position + node.nodeSize))
+      tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(position, tr.doc.content.size))))
+      view.dispatch(tr); view.focus()
+      return true
     },
+    setBlockSource(position, source) {
+      const node = view.state.doc.nodeAt(position)
+      if (node?.type !== schema.nodes.preserved) return false
+      view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, source }))
+      return true
+    },
+    replaceSource(from, to, source) {
+      const current = serializeDocument(view.state.doc)
+      const next = parseDocument(current.slice(0, from) + source + current.slice(to))
+      const tr = view.state.tr
+      patchChildren(tr, view.state.doc, next, 0)
+      view.dispatch(tr)
+    },
+    sourceRange(position) { return sourceRangeAt(view, position) },
     command(name, value) {
       const commands = {
         bold: toggleMark(schema.marks.strong), italic: toggleMark(schema.marks.em),
@@ -597,18 +748,137 @@ function previewSettled(body, view, getPos, sourceRangeAt) {
 
 function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
   let node = initial, generation = 0
-  const { dom, title } = blockChrome(getPos, "Markdown block")
+  const { dom, title, edit, copy } = blockChrome(getPos, "Markdown block")
+  if (node.attrs.kind === "reference") {
+    dom.hidden = true
+    return { dom, update: next => next.type === node.type && next.attrs.kind === "reference",
+      stopEvent: () => true, ignoreMutation: () => true }
+  }
+  if (["presentation", "iframe"].includes(node.attrs.kind)) {
+    dom.classList.add("document-editor__content-block")
+    dom.contentEditable = "false"
+    title.textContent = node.attrs.kind === "presentation" ? "Presentation" : "Embedded page"
+    edit.remove()
+    const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "×"
+    remove.setAttribute("aria-label", node.attrs.kind === "presentation" ? "Remove presentation" : "Remove embedded page")
+    remove.dataset.action = "coplan--editor#deleteContentBlock"
+    dom.querySelector(".document-editor__block-header").append(remove)
+    if (node.attrs.kind === "presentation") {
+      title.className = "document-editor__presentation-label"
+      const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+      icon.setAttribute("viewBox", "0 0 24 24"); icon.setAttribute("aria-hidden", "true")
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path")
+      path.setAttribute("d", "M3 3h18v13H3z M12 16v5 M8 21h8 M7 7h10 M7 11h6")
+      icon.append(path); title.prepend(icon)
+      const toggle = document.createElement("button"); toggle.type = "button"; toggle.textContent = "Preview"
+      toggle.dataset.action = "coplan--editor#togglePresentationPreview"
+      toggle.setAttribute("aria-expanded", "false")
+      dom.querySelector(".document-editor__block-header").insertBefore(toggle, copy)
+      const body = document.createElement("div"); body.className = "document-editor__block-preview"; body.hidden = true
+      const input = document.createElement("textarea")
+      input.className = "document-editor__block-source"
+      input.setAttribute("aria-label", "Presentation Markdown")
+      input.dataset.action = "input->coplan--editor#blockSourceChanged keydown->coplan--editor#blockKeydown"
+      input.value = presentationContent(node.attrs.source).content
+      dom.append(input, body)
+      const renderPreview = async () => {
+        const sequence = ++generation
+        body.textContent = "Loading preview…"; body.setAttribute("aria-busy", "true")
+        try {
+          const definitions = []
+          view.state.doc.descendants(item => {
+            if (item.attrs.kind === "reference") definitions.push(item.attrs.source)
+          })
+          const html = await preview([node.attrs.source, ...definitions].join("\n\n"))
+          if (sequence === generation) body.innerHTML = html
+        } catch {
+          if (sequence === generation) body.textContent = "Preview unavailable. Return to Markdown to keep editing."
+        } finally {
+          if (sequence === generation) body.removeAttribute("aria-busy")
+        }
+      }
+      dom.coplanTogglePreview = () => {
+        const showing = body.hidden
+        toggle.setAttribute("aria-expanded", String(showing))
+        toggle.textContent = showing ? "Edit Markdown" : "Preview"
+        input.hidden = showing; body.hidden = !showing
+        if (showing) return renderPreview()
+        generation++; body.removeAttribute("aria-busy")
+        input.focus({ preventScroll: true })
+      }
+      return { dom, update(next) {
+        if (next.type !== node.type || next.attrs.kind !== "presentation") return false
+        const changed = next.attrs.source !== node.attrs.source
+        node = next
+        const content = presentationContent(node.attrs.source).content
+        if (input.value !== content) {
+          const start = input.selectionStart, end = input.selectionEnd
+          input.value = content
+          input.setSelectionRange(Math.min(start, content.length), Math.min(end, content.length))
+        }
+        if (changed && !body.hidden) renderPreview()
+        return true
+      }, stopEvent: () => true, ignoreMutation: () => true, destroy() { generation++ } }
+    }
+    copy.remove()
+    const fields = document.createElement("div"); fields.className = "document-editor__embed-fields"
+    const attrs = parseIframeSource(node.attrs.source)
+    for (const [name, label, fallback] of [["src", "URL", ""], ["title", "Title", "Embedded content"], ["width", "Width", "100%"], ["height", "Height", "480"]]) {
+      const wrapper = document.createElement("label"); wrapper.textContent = label
+      const input = document.createElement("input"); input.value = attrs[name] || fallback
+      input.dataset.embedAttribute = name
+      input.dataset.action = "input->coplan--editor#embedChanged keydown->coplan--editor#blockKeydown"
+      input.setAttribute("aria-label", `Embedded page ${name === "src" ? "URL" : label.toLowerCase()}`)
+      if (name === "src") input.inputMode = "url"
+      wrapper.append(input); fields.append(wrapper)
+    }
+    const previewBody = document.createElement("div"); previewBody.className = "document-editor__block-preview"
+    const hint = document.createElement("p"); hint.className = "document-editor__embed-hint"
+    const form = view.dom.closest("[data-coplan--editor-embed-domains-value]")
+    const hosts = JSON.parse(form?.dataset.coplanEditorEmbedDomainsValue || form?.getAttribute("data-coplan--editor-embed-domains-value") || "[]")
+    hint.textContent = (hosts.length ? `Approved domains: ${hosts.join(", ")}. HTTPS only.` : "No iframe domains are approved. An administrator can add them in CoPlan Admin.") + " Title describes the page for screen readers; it is not a visible caption."
+    dom.append(fields, hint, previewBody)
+    let previewTimer
+    const render = () => {
+      clearTimeout(previewTimer)
+      const sequence = ++generation, source = node.attrs.source
+      previewTimer = setTimeout(async () => {
+        try { const html = await preview?.(source); if (html && sequence === generation) previewBody.innerHTML = html }
+        catch { if (sequence === generation) previewBody.textContent = "Preview unavailable" }
+      }, 300)
+    }
+    render()
+    return { dom, update(next) {
+      if (next.type !== node.type || next.attrs.kind !== "iframe") return false
+      node = next
+      const attrs = parseIframeSource(node.attrs.source)
+      fields.querySelectorAll("input").forEach(input => { const value = attrs[input.dataset.embedAttribute] || ""; if (input.value !== value) input.value = value })
+      render(); return true
+    }, stopEvent: () => true, ignoreMutation: () => true, destroy() { generation++; clearTimeout(previewTimer) } }
+  }
+
   dom.contentEditable = "false"
+  if (node.attrs.kind === "table") {
+    edit.textContent = "Edit table"
+    edit.dataset.action = "coplan--editor#toggleBlockSource"
+    const input = document.createElement("textarea"); input.className = "document-editor__block-source"
+    input.setAttribute("aria-label", "Table Markdown"); input.hidden = true; input.value = node.attrs.source
+    input.dataset.action = "input->coplan--editor#blockSourceChanged keydown->coplan--editor#blockKeydown"
+    dom.append(input)
+  }
   const body = document.createElement("div"); body.className = "document-editor__block-preview"; dom.append(body)
   const render = async () => {
     const sequence = ++generation, source = node.attrs.source
     dom.hidden = !source.trim()
     if (dom.hidden) return
-    const isTable = /^\s*\|?.*\|.*\n\s*\|?\s*:?-{3,}/m.test(source)
-    title.textContent = isTable ? "Table" : "Markdown block"
+    const isTable = node.attrs.kind !== "list" && /^\s*\|?.*\|.*\n\s*\|?\s*:?-{3,}/m.test(source)
+    const isReferences = /^\s*\[\^[^\]]+\]:/m.test(source)
+    title.textContent = node.attrs.kind === "list" ? "List" : isTable ? "Table" : isReferences ? "References" : "Markdown block"
     body.replaceChildren()
     const fallback = document.createElement("pre"); fallback.textContent = source; body.append(fallback)
-    if (preview) {
+    // Rendering definitions alone drops them as unused footnotes. Keep their
+    // source visible so References cards never become empty previews.
+    if (preview && !isReferences) {
       try {
         const html = await preview(source)
         if (sequence === generation) { body.innerHTML = html; previewSettled(body, view, getPos, sourceRangeAt) }
@@ -616,7 +886,12 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     }
   }
   render()
-  return { dom, update(next) { if (next.type !== node.type) return false; if (next.attrs.source !== node.attrs.source) { node = next; render() } return true },
+  return { dom, update(next) { if (next.type !== node.type || next.attrs.kind !== node.attrs.kind) return false; if (next.attrs.source !== node.attrs.source) {
+      node = next
+      const input = dom.querySelector("textarea")
+      if (input && input.value !== node.attrs.source) input.value = node.attrs.source
+      render()
+    } return true },
     stopEvent: () => true, ignoreMutation: () => true, destroy() { generation++ } }
 }
 function codeNodeView(initial, view, getPos, preview, sourceRangeAt) {
@@ -697,4 +972,17 @@ export function createMarkdownDocument(element, source, changed) {
       if (tr.docChanged) view.dispatch(tr.setMeta("remote", true).setMeta("addToHistory", false))
     }
   }
+}
+
+export function parseIframeSource(source) {
+  const attrs = {}
+  for (const match of source.matchAll(/([a-z]+)="([^"]*)"/g)) {
+    const decoder = document.createElement("textarea"); decoder.innerHTML = match[2]
+    attrs[match[1]] = decoder.value
+  }
+  return attrs
+}
+export function iframeSource(attrs) {
+  const escape = value => String(value).replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;")
+  return `::: {.iframe ${["src", "title", "width", "height"].map(name => `${name}="${escape(attrs[name])}"`).join(" ")} /}\n`
 }

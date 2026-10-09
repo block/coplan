@@ -107,7 +107,7 @@ module CoPlan
           plan,
           action: "coplan-replace-if-clean",
           target: "plan-citations",
-          html: back_matter[:html],
+          html: CoPlan::ApplicationController.helpers.citation_edit_controls(back_matter[:html]),
           attrs: { "data-revision" => plan.current_revision }
         )
         custom_action_to(

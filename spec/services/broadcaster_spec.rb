@@ -85,6 +85,15 @@ RSpec.describe CoPlan::Broadcaster do
   describe ".replace_plan_references" do
     before { plan }
 
+    it "preserves citation edit controls in live replacements" do
+      allow(CoPlan::ApplicationController.helpers).to receive(:plan_citation_back_matter).and_return(
+        { html: '<section data-footnotes><ol><li id="fn-catalog"><p>Catalog source.</p></li></ol></section>', cited_urls: [], count: 1 })
+      payloads = []
+      allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to) { |_streamable, content:| payloads << content.to_s }
+      described_class.replace_plan_references(plan)
+      expect(payloads.first).to include('data-citation-label="catalog"', 'coplan--inline-editor#editCitation')
+    end
+
     it "broadcasts unified back matter after extracted references exist" do
       payloads = []
       allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to) do |_streamable, content:|

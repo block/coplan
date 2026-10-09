@@ -136,6 +136,7 @@ CoPlan::Engine.routes.draw do
       # Plan-type catalog (with templates) — agents read this before
       # creating a plan; see the Create Plan section of /agent-instructions.
       resources :plan_types, only: [ :index ]
+      resources :embed_domains, only: [ :index ]
       resources :folders, only: [ :index, :create, :update, :destroy ]
 
       # The agent organization API: overview (show), bulk read (contents),

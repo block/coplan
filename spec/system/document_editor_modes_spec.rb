@@ -109,10 +109,9 @@ RSpec.describe "Document editor modes", type: :system do
     expect(page).not_to have_button("Save")
     expect(page).to have_link("Done")
     expect(page).not_to have_content("Edit origin")
-    find(".document-editor__block", text: "Table").click_button("Edit Markdown")
-    expect(raw).to have_text("| Draft | Ready |")
+    find(".document-editor__block", text: "Table").click_button("Edit table")
+    expect(find_field("Table Markdown", enable_aria_label: true).value).to include("| Draft | Ready |")
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
-    click_button "Editor"
     click_button "Raw", exact: true
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
     save_now
