@@ -71,6 +71,7 @@ RSpec.describe "Updated section signposts", type: :system do
       stream.setAttribute('data-section-update', JSON.stringify({by: 'Live editor', at: new Date().toISOString(), ago: 'just now', revision: #{revision}, keys: #{keys.to_json}, rewritten: #{rewritten}}))
       const template = document.createElement('template')
       template.innerHTML = body.innerHTML.replace('comfortable to read', 'a recent live revision')
+        .replace('Entirely new Design body.', 'Revised Design body.')
       if (#{rename}) {
         const heading = template.content.querySelector('#design')
         heading.textContent = 'Approach'
@@ -105,7 +106,7 @@ RSpec.describe "Updated section signposts", type: :system do
 
     broadcast_section_update(keys: %w[design], revision: 4)
     find("#design .section-update-marker").hover
-    expect(page).to have_css(".changed-sections-note", text: "2 sections updated since your last visit.")
+    expect(page).to have_css(".changed-sections-note", text: "1 section updated since your last visit.")
     expect(page.evaluate_script("document.querySelector('.changed-sections-note').inert")).to be false
   end
 
@@ -115,6 +116,20 @@ RSpec.describe "Updated section signposts", type: :system do
     expect(page).to have_css(".changed-sections-note", text: "Updated throughout since your last visit.")
     expect(page).to have_no_css(".section-updated, .section-update-marker")
     expect(page.evaluate_script("document.querySelector('.changed-sections-note').inert")).to be false
+  end
+
+  it "marks only fresh edits after an extensive-update notice is dismissed" do
+    broadcast_section_update(keys: [], rewritten: true)
+    expect(page).to have_css(".changed-sections-note", text: "Updated throughout")
+    click_button "Dismiss"
+    broadcast_section_update(keys: [], rewritten: true)
+    expect(page).to have_no_css(".changed-sections-note")
+
+    broadcast_section_update(keys: %w[design], revision: 4)
+    find("#design .section-update-marker").hover
+    expect(page).to have_css(".changed-sections-note", text: "1 section updated since your last visit.")
+    expect(page).to have_css(".section-updated", count: 1)
+    expect(page).to have_no_text("Updated throughout")
   end
 
   it "reveals the first live-update notice without shifting headings at the top of the page" do

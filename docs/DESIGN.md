@@ -94,6 +94,9 @@ all cues; preserve their footprint so nothing moves under the reader.
 If a section receives another live edit, its dot returns for that new edit.
 New and renamed sections receive dots too. Dismiss acknowledges the current
 updates; later edits can bring attention back, including the rewrite notice.
+After a rewrite notice is dismissed, ordinary edits get fresh section dots.
+Presentation mode defers the display of changes until the show ends; retain
+every queued section's last editor and any extensive-update notice.
 Extensive changes get one Updated throughout notice and a history link
 instead of marking every section. These cues are per viewer and disappear
 on the next visit.

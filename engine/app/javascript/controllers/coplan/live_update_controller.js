@@ -84,8 +84,13 @@ export default class extends Controller {
 
       if (target.querySelector(".deck--presenting")) {
         // Keep the active deck and its presenter connected. Apply the latest
-        // whole-body update as soon as the show ends.
-        target.__pendingDeckUpdate = { fragment: fragment.cloneNode(true), incomingRevision, changedKeys, sectionUpdate }
+        // body after the show, retaining every queued section's attribution.
+        const previous = target.__pendingDeckUpdate
+        const latest = previous?.incomingRevision > incomingRevision ? previous :
+          { fragment: fragment.cloneNode(true), incomingRevision }
+        const combined = mergeSectionUpdates(previous?.sectionUpdate, sectionUpdate)
+        const keys = [...new Set([...(previous?.changedKeys || []), ...changedKeys])]
+        target.__pendingDeckUpdate = { ...latest, changedKeys: combined?.rewritten ? [] : keys, sectionUpdate: combined }
         if (!target.__deckStopListener) {
           target.__deckStopListener = () => {
             const pending = target.__pendingDeckUpdate
@@ -104,6 +109,23 @@ export default class extends Controller {
     }
 
     window.__coplanLiveUpdateRegistered = true
+  }
+}
+
+function mergeSectionUpdates(previous, incoming) {
+  if (!previous) return incoming
+  if (!incoming) return previous
+  const updates = {}
+  for (const update of [previous, incoming]) {
+    for (const key of update.keys || []) {
+      const candidate = update.updates?.[key] || update
+      if (!updates[key] || candidate.revision >= updates[key].revision) updates[key] = candidate
+    }
+  }
+  const latest = incoming.revision >= previous.revision ? incoming : previous
+  return {
+    ...latest, updates, keys: Object.keys(updates),
+    rewritten: Boolean(previous.rewritten || incoming.rewritten)
   }
 }
 

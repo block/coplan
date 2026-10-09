@@ -65,12 +65,17 @@ export default class extends Controller {
     if (!this.element.querySelector("#plan-content-body")?.contains(event.target)) return
     if (event.detail?.update) {
       const updates = { ...this.updatesValue }
+      const incoming = key => event.detail.update.updates?.[key] || event.detail.update
       // Acknowledging an earlier edit does not acknowledge new material.
       // Compare revisions: separate edits can share the same timestamp.
-      const changed = event.detail.keys.filter(key => event.detail.update.revision > (updates[key]?.revision || 0))
+      const changed = event.detail.keys.filter(key => incoming(key).revision > (updates[key]?.revision || 0))
       if (event.detail.update.revision > this.revisionValue) {
         this.revisionValue = event.detail.update.revision
         if (changed.length || event.detail.update.rewritten) {
+          if (this.noteTarget.classList.contains("changed-sections-note--dismissed")) {
+            this.keysValue = []
+            this.rewrittenValue = Boolean(event.detail.update.rewritten)
+          }
           this.noteTarget.classList.remove("changed-sections-note--dismissed")
           this.noteTarget.inert = false
         }
@@ -78,7 +83,7 @@ export default class extends Controller {
       this.viewedValue = this.viewedValue.filter(key => !changed.includes(key))
       this.keysValue = [...new Set([...this.keysValue, ...changed])]
       if (event.detail.update.rewritten) this.rewrittenValue = true
-      event.detail.keys.forEach(key => { updates[key] = event.detail.update })
+      event.detail.keys.forEach(key => { updates[key] = incoming(key) })
       this.updatesValue = updates
     }
     this.connect()
