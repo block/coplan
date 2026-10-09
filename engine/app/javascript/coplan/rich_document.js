@@ -269,6 +269,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
     },
     toolbarState: () => toolbarState(view.state),
     historyState: () => ({ undo: undo(view.state), redo: redo(view.state) }),
+    closeHistory() { view.dispatch(closeHistory(view.state.tr)) },
     update(markdown) {
       if (serializeDocument(view.state.doc) === markdown) return
       const next = parseDocument(markdown)
@@ -634,7 +635,7 @@ function codeNodeView(initial, view, getPos, preview, sourceRangeAt) {
   }
   const language = document.createElement("input"); language.type = "text"; language.className = "document-editor__code-language"
   language.setAttribute("aria-label", "Code language"); language.placeholder = "Plain text"; language.setAttribute("list", "coplan-code-languages")
-  language.dataset.action = "input->coplan--editor#languageInput change->coplan--editor#languageChanged"
+  language.dataset.action = "focus->coplan--editor#languageEditingBoundary input->coplan--editor#languageInput change->coplan--editor#languageChanged blur->coplan--editor#languageEditingBoundary"
   title.replaceWith(controls, language)
   const pre = document.createElement("pre"), contentDOM = document.createElement("code"); pre.append(contentDOM); dom.append(pre)
   const diagram = document.createElement("div"); diagram.className = "document-editor__block-preview"; diagram.contentEditable = "false"; dom.append(diagram)
