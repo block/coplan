@@ -1,6 +1,8 @@
 import { diffArrays } from "diff"
 import { codeHighlight } from "coplan/code_highlight"
 import { textHunks } from "coplan/merge_text"
+import { citationLabelKey } from "coplan/citation_labels"
+export { citationLabelKey } from "coplan/citation_labels"
 import { Schema, Fragment, Slice } from "prosemirror-model"
 import { EditorState, TextSelection, Plugin, PluginKey } from "prosemirror-state"
 import { EditorView, Decoration, DecorationSet } from "prosemirror-view"
@@ -36,8 +38,8 @@ const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.mark
 // content, so it must not turn its entire paragraph or list into a source card.
 const tokenizer = defaultMarkdownParser.tokenizer
 tokenizer.inline.ruler.before("link", "coplan_footnote", (state, silent) => {
-  const match = /^\[\^([^\]\s]+)\]/.exec(state.src.slice(state.pos))
-  if (!match) return false
+  const match = /^\[\^([^\]]+)\]/.exec(state.src.slice(state.pos))
+  if (!match || !citationLabelKey(match[1])) return false
   if (!silent) state.push("footnote_reference", "", 0).meta = { label: match[1] }
   state.pos += match[0].length
   return true
@@ -101,8 +103,8 @@ function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false
   const excluded = ranges.filter(t => ["fence", "code_block", "html_block", "blockquote_open", "bullet_list_open", "ordered_list_open"].includes(t.type))
   for (let line = 0; line < lines.length; line++) {
     if (excluded.some(t => line >= t.map[0] && line < t.map[1])) continue
-    const match = /^ {0,3}\[\^([^\]\s]+)\]:[ \t]*(.*)$/.exec(lines[line])
-    if (!match || (!definitionsOnly && specials.some(r => offsets[line] >= r.from && offsets[line] < r.to))) continue
+    const match = /^ {0,3}\[\^([^\]]+)\]:[ \t]*(.*)$/.exec(lines[line])
+    if (!match || !citationLabelKey(match[1]) || (!definitionsOnly && specials.some(r => offsets[line] >= r.from && offsets[line] < r.to))) continue
     let end = line + 1
     while (end < lines.length) {
       if (/^(?: {4}|\t)\S?/.test(lines[end]) && lines[end].trim()) { end++; continue }
@@ -779,13 +781,8 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
       input.dataset.action = "input->coplan--editor#blockSourceChanged keydown->coplan--editor#blockKeydown"
       input.value = presentationContent(node.attrs.source).content
       dom.append(input, body)
-      dom.coplanTogglePreview = async () => {
-        const showing = body.hidden
-        toggle.setAttribute("aria-expanded", String(showing))
-        toggle.textContent = showing ? "Edit Markdown" : "Preview"
-        input.hidden = showing; body.hidden = !showing
+      const renderPreview = async () => {
         const sequence = ++generation
-        if (!showing) { input.focus({ preventScroll: true }); return }
         body.textContent = "Loading preview…"; body.setAttribute("aria-busy", "true")
         try {
           const definitions = []
@@ -800,8 +797,18 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
           if (sequence === generation) body.removeAttribute("aria-busy")
         }
       }
+      dom.coplanTogglePreview = () => {
+        const showing = body.hidden
+        toggle.setAttribute("aria-expanded", String(showing))
+        toggle.textContent = showing ? "Edit Markdown" : "Preview"
+        input.hidden = showing; body.hidden = !showing
+        if (showing) return renderPreview()
+        generation++; body.removeAttribute("aria-busy")
+        input.focus({ preventScroll: true })
+      }
       return { dom, update(next) {
         if (next.type !== node.type || next.attrs.kind !== "presentation") return false
+        const changed = next.attrs.source !== node.attrs.source
         node = next
         const content = presentationContent(node.attrs.source).content
         if (input.value !== content) {
@@ -809,6 +816,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
           input.value = content
           input.setSelectionRange(Math.min(start, content.length), Math.min(end, content.length))
         }
+        if (changed && !body.hidden) renderPreview()
         return true
       }, stopEvent: () => true, ignoreMutation: () => true, destroy() { generation++ } }
     }

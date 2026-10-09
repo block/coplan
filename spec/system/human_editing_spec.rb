@@ -173,6 +173,60 @@ RSpec.describe "Human plan editing", type: :system do
       "citation" => "Cited prose.[^catalog]", "plain" => "Cited prose.[^catalog]")
   end
 
+  it "refreshes a visible presentation preview and discards older responses" do
+    visit plan_edit_page_path(plan)
+    editor
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      import("coplan/rich_document").then(async m => {
+        const host = document.createElement("div"), requests = [];
+        const source = title => `::: {.presentation}\n\n# ${title}\n\n:::\n`;
+        const rich = m.createRichDocument(host, source("Original"), () => {}, () => {}, markdown =>
+          new Promise(resolve => requests.push({ markdown, resolve })));
+        const block = host.querySelector('.document-editor__content-block');
+        const first = block.coplanTogglePreview();
+        rich.update(source("Updated"));
+        requests[1].resolve('<p>Updated preview</p>');
+        await Promise.resolve();
+        requests[0].resolve('<p>Original preview</p>');
+        await first;
+        const visible = host.querySelector('.document-editor__block-preview').textContent;
+        const markdown = requests.map(request => request.markdown);
+        rich.destroy();
+        done({ visible, markdown });
+      }).catch(error => done({ error: error.message }));
+    JS
+    expect(result.fetch("visible")).to eq("Updated preview")
+    expect(result.fetch("markdown")).to eq([
+      "::: {.presentation}\n\n# Original\n\n:::\n", "::: {.presentation}\n\n# Updated\n\n:::\n"
+    ])
+  end
+
+  it "matches folded and whitespace citation labels while retaining their source spelling" do
+    source = "Road.[^STRASSE] Context.[^ Catalog  shape ]\n\n[^straße]: Street details.\n[^catalog shape]: Shape details.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    click_button "Edit citation STRASSE", enable_aria_label: true
+    expect(find('#coplan-citation-body').value).to eq("Street details.")
+    fill_in "Citation text and source links", with: "Updated street."
+    click_button "Save citation"
+    expect(page).to have_no_css('dialog[open]')
+    find('button[data-citation-label=" Catalog  shape "]').click
+    expect(find('#coplan-citation-body').value).to eq("Shape details.")
+    fill_in "Citation text and source links", with: "Updated shape."
+    click_button "Save citation"
+    expect(page).to have_no_css('dialog[open]')
+    expect(plan.reload.current_content).to eq(source.sub("Street details.", "Updated street.").sub("Shape details.", "Updated shape."))
+    pairs = [ [ "straße", "STRASSE" ], [ "ς", "Σ" ], [ "ﬃ", "FFI" ], [ "Ꭰ", "ꭰ" ], [ "ı", "I" ] ]
+    result = page.evaluate_async_script(<<~'JS', pairs)
+      const pairs = arguments[0], done = arguments[1];
+      import("coplan/rich_document").then(m => done(pairs.map(([a, b]) => m.citationLabelKey(a) === m.citationLabelKey(b))));
+    JS
+    expect(result).to eq(pairs.map { |a, b| a.downcase(:fold) == b.downcase(:fold) })
+  end
+
   it "edits citations in a dialog while keeping definitions out of the body" do
     source = "A catalog price.[^catalog] More context.[^other]\n\n[^catalog]: Catalog details.\n    A second line.\n\n    A second paragraph.\n[^other]: Keep this definition.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,

@@ -740,7 +740,7 @@ export default class extends Controller {
     event.preventDefault(); event.stopPropagation()
     this.citationTrigger = event.currentTarget
     this.citationLabel = event.currentTarget.dataset.citationLabel
-    const definition = this.richModule.citationDefinitions(this.textareaTarget.value).find(d => d.label === this.citationLabel)
+    const definition = this.findCitationDefinition(this.textareaTarget.value)
     this.citationOriginal = definition?.source || null
     this.citationTitleTarget.textContent = `Citation: ${this.citationLabel}`
     this.citationBodyTarget.value = definition?.body || ""
@@ -752,17 +752,21 @@ export default class extends Controller {
     this.citationDialogTarget.close()
     if (this.citationTrigger?.isConnected) this.citationTrigger.focus({ preventScroll: true })
   }
+  findCitationDefinition(content) {
+    const key = this.richModule.citationLabelKey(this.citationLabel)
+    return this.richModule.citationDefinitions(content).find(d => this.richModule.citationLabelKey(d.label) === key)
+  }
   async saveCitation() {
     const body = this.citationBodyTarget.value.trim()
     if (!body) { this.citationErrorTarget.textContent = "Add the citation text or source link."; this.citationBodyTarget.focus(); return }
     const content = this.textareaTarget.value
-    const definition = this.richModule.citationDefinitions(content).find(d => d.label === this.citationLabel)
+    const definition = this.findCitationDefinition(content)
     if ((definition?.source || null) !== this.citationOriginal) {
       this.citationErrorTarget.textContent = "This citation changed while you were editing. Close and reopen it to review the new text."
       return
     }
     const lines = body.split("\n")
-    const source = `[^${this.citationLabel}]: ${lines[0]}\n` + lines.slice(1).map(line => `    ${line}\n`).join("")
+    const source = `[^${definition?.label ?? this.citationLabel}]: ${lines[0]}\n` + lines.slice(1).map(line => `    ${line}\n`).join("")
     const from = definition?.from ?? content.length, to = definition?.to ?? content.length
     this.richEditor.replaceSource(from, to, definition ? source : `${content.endsWith("\n\n") ? "" : "\n\n"}${source}`)
     this.citationOriginal = source

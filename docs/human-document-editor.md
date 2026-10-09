@@ -255,3 +255,5 @@ The original open draft was unavailable for inspection and was left untouched.
 An expired sign-in keeps the draft in the current tab and shows **Sign in again · draft retained**. Sign in in another tab, then retry the original editor. Its uncached editor-state response refreshes the security token before the next save. Citation links use matching labels: `[^catalog]` in the text and `[^catalog]: Source text` in the definitions. Editing the source text in the citation dialog preserves that link; renaming a label in Markdown requires changing both places.
 
 Unsaved new plans refresh their security token from the uncached new-plan form and retry with the same creation key. Live citation replacements include the same dialog controls as the initial page.
+
+Citation labels match using Unicode case folding and collapsed whitespace; dialog edits preserve the original spelling of both the marker and definition. An open presentation preview refreshes when Undo, Redo, or a live update changes its source, and ignores older preview responses.
