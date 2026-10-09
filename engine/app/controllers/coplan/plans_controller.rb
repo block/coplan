@@ -747,7 +747,7 @@ module CoPlan
       current = @plan.current_plan_version
       return Plans::ChangedSections::NONE if current.nil? || current.created_at <= seen_at
 
-      base = @plan.plan_versions.where(created_at: ..seen_at).order(revision: :desc).first
+      base = @plan.plan_versions.where(created_at: ..seen_at).reorder(revision: :desc).first
       return Plans::ChangedSections::NONE if base.nil?
 
       result = Plans::ChangedSections.call(
