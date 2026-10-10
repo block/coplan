@@ -38,7 +38,7 @@ Every endpoint, with the guide that explains it. All paths start with `<%= @base
 | `GET /api/v1/plans/:id/comments/:thread_id` | Get one thread. | comments |
 | `POST /api/v1/plans/:id/comments/:thread_id/reply` | Reply: `body_markdown`. | comments |
 | `PATCH /api/v1/plans/:id/comments/:thread_id/resolve` | Resolve a thread. | comments |
-| `DELETE /api/v1/plans/:id/comments/:comment_id/delete` | Delete one of your principal's own comments. Comments that an agent posted cannot be deleted. | comments |
+| `DELETE /api/v1/plans/:id/comments/:comment_id/delete` | Delete a human or local-agent comment attributed to your principal's account. | comments |
 
 ## References and attachments
 

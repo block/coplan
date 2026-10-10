@@ -1,7 +1,7 @@
 <%# Per-viewer affordances (Edit/Delete) are hidden client-side by the
     comment_actions Stimulus controller — one broadcast is shared with every
-    `current_user`, so we ship the button on every human comment and let
-    the browser remove it for non-authors. Server still enforces auth. %>
+    `current_user`, so we ship actions on human and local_agent comments and
+    let the browser reveal them for their owner. Server still enforces auth. %>
 <div class="comment <%= 'comment--deleted' if comment.deleted? %> <%= 'comment--agent' if comment.agent? %>"
      id="<%= dom_id(comment) %>"
      data-controller="coplan--comment-actions"
@@ -47,8 +47,12 @@
                 cancel_action: "coplan--comment-actions#cancelEdit" %>
         <% end %>
       </div>
+    <% end %>
+    <% if comment.author_type.in?(%w[human local_agent]) %>
       <div class="comment__actions" data-coplan--comment-actions-target="delete" hidden>
-        <button type="button" class="comment-window__action" data-action="coplan--comment-actions#edit">Edit</button>
+        <% if comment.author_type == "human" %>
+          <button type="button" class="comment-window__action" data-action="coplan--comment-actions#edit">Edit</button>
+        <% end %>
         <%= button_to "Delete",
               plan_comment_thread_comment_path(comment.comment_thread.plan, comment.comment_thread, comment),
               method: :delete,
