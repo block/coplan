@@ -738,8 +738,8 @@ module CoPlan
     end
 
     # What changed after the viewer's last visit (see Plans::ChangedSections):
-    # section keys to highlight, or a rewrite to mention. Nothing on a first
-    # visit — highlighting the whole document would say nothing.
+    # section keys to mark, or extensive updates to mention. Nothing on a
+    # first visit — there is no earlier read to compare.
     def changed_sections_since_last_visit
       seen_at = PlanViewer.where(plan: @plan, user: current_user).pick(:last_seen_at)
       return Plans::ChangedSections::NONE if seen_at.nil?
@@ -747,13 +747,15 @@ module CoPlan
       current = @plan.current_plan_version
       return Plans::ChangedSections::NONE if current.nil? || current.created_at <= seen_at
 
-      base = @plan.plan_versions.where(created_at: ..seen_at).order(revision: :desc).first
+      base = @plan.plan_versions.where(created_at: ..seen_at).reorder(revision: :desc).first
       return Plans::ChangedSections::NONE if base.nil?
 
-      Plans::ChangedSections.call(
+      result = Plans::ChangedSections.call(
         old_content: base.content_markdown,
         new_content: current.content_markdown
       )
+      @section_updates = Plans::SectionUpdates.call(plan: @plan, keys: result.keys, since_revision: base.revision)
+      result
     end
 
     # Looking at a plan advances your last-seen mark (so the "changed since
