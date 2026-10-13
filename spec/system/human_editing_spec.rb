@@ -202,6 +202,39 @@ RSpec.describe "Human plan editing", type: :system do
     ])
   end
 
+  it "refreshes presentation previews when only their citation definitions change" do
+    visit plan_edit_page_path(plan)
+    editor
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      import("coplan/rich_document").then(async m => {
+        const host = document.createElement("div"), requests = [];
+        const deck = "::: {.presentation}\n\n# Review\n\nDecision.[^catalog]\n\n:::\n";
+        const definitions = ["[^catalog]: Original.\n", "[^catalog]: Updated.\n", "[^renamed]: Updated.\n",
+          "[^other]: Other.\n[^catalog]: Updated.\n", "[^catalog]: Updated.\n[^other]: Other.\n", ""];
+        const rich = m.createRichDocument(host, deck + "\n" + definitions[0], () => {}, () => {}, async markdown => {
+          requests.push(markdown);
+          return `<p>Preview ${requests.length}</p>`;
+        });
+        await host.querySelector('.document-editor__content-block').coplanTogglePreview();
+        for (const definition of definitions.slice(1)) {
+          rich.update(deck + "\n" + definition);
+          await Promise.resolve();
+        }
+        const visible = host.querySelector('.document-editor__block-preview').textContent;
+        rich.destroy();
+        done({ requests, visible });
+      }).catch(error => done({ error: error.message }));
+    JS
+    expect(result.fetch("requests").size).to eq(6)
+    expect(result.fetch("requests")[1]).to include("[^catalog]: Updated.")
+    expect(result.fetch("requests")[2]).to include("[^renamed]: Updated.")
+    expect(result.fetch("requests")[3].index("[^other]:")).to be < result.fetch("requests")[3].index("[^catalog]:")
+    expect(result.fetch("requests")[4].index("[^catalog]:")).to be < result.fetch("requests")[4].index("[^other]:")
+    expect(result.fetch("requests").last).not_to include("[^catalog]:")
+    expect(result.fetch("visible")).to eq("Preview 6")
+  end
+
   it "matches folded and whitespace citation labels while retaining their source spelling" do
     source = "Road.[^STRASSE] Context.[^ Catalog  shape ]\n\n[^straße]: Street details.\n[^catalog shape]: Shape details.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,

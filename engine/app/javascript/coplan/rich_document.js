@@ -377,6 +377,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       }
       view.updateState(view.state.apply(transaction))
       if (transaction.docChanged) {
+        for (const block of view.dom.querySelectorAll(".document-editor__content-block")) block.coplanRefreshPreview?.()
         clearTimeout(previewOffsetTimer)
         previewOffsetTimer = setTimeout(() => {
           for (const body of view.dom.querySelectorAll(".document-editor__block-preview[data-source-from]")) {
@@ -781,21 +782,32 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
       input.dataset.action = "input->coplan--editor#blockSourceChanged keydown->coplan--editor#blockKeydown"
       input.value = presentationContent(node.attrs.source).content
       dom.append(input, body)
+      let renderedSource = null
+      const previewSource = () => {
+        const definitions = []
+        view.state.doc.descendants(item => {
+          if (item.attrs.kind === "reference") definitions.push(item.attrs.source)
+        })
+        return [node.attrs.source, ...definitions].join("\n\n")
+      }
       const renderPreview = async () => {
         const sequence = ++generation
+        const source = previewSource()
+        renderedSource = source
         body.textContent = "Loading preview…"; body.setAttribute("aria-busy", "true")
         try {
-          const definitions = []
-          view.state.doc.descendants(item => {
-            if (item.attrs.kind === "reference") definitions.push(item.attrs.source)
-          })
-          const html = await preview([node.attrs.source, ...definitions].join("\n\n"))
+          const html = await preview(source)
           if (sequence === generation) body.innerHTML = html
         } catch {
           if (sequence === generation) body.textContent = "Preview unavailable. Return to Markdown to keep editing."
         } finally {
           if (sequence === generation) body.removeAttribute("aria-busy")
         }
+      }
+      // Definition nodes can change without updating the presentation node.
+      // Check dependencies after the complete document transaction is applied.
+      dom.coplanRefreshPreview = () => {
+        if (!body.hidden && renderedSource !== previewSource()) renderPreview()
       }
       dom.coplanTogglePreview = () => {
         const showing = body.hidden
@@ -816,7 +828,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
           input.value = content
           input.setSelectionRange(Math.min(start, content.length), Math.min(end, content.length))
         }
-        if (changed && !body.hidden) renderPreview()
+        if (changed && !body.hidden) generation++
         return true
       }, stopEvent: () => true, ignoreMutation: () => true, destroy() { generation++ } }
     }
