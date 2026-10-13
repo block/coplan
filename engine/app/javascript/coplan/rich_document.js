@@ -174,7 +174,13 @@ function moveBelowCode(state, dispatch) {
   }
   return true
 }
-function preserved(source, kind = null, label = null) { return schema.nodes.preserved.create({ source, kind, label }) }
+function preserved(source, kind = null, label = null) {
+  if (!kind && source.trimStart().startsWith("[")) {
+    const environment = {}
+    if (!tokenizer.parse(source, environment).length && Object.keys(environment.references || {}).length) kind = "link_reference"
+  }
+  return schema.nodes.preserved.create({ source, kind, label })
+}
 export function parseDocument(markdown) {
   if (!markdown) return schema.topNodeType.createAndFill()
   const lines = markdown.split("\n")
@@ -750,9 +756,9 @@ function previewSettled(body, view, getPos, sourceRangeAt) {
 function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
   let node = initial, generation = 0
   const { dom, title, edit, copy } = blockChrome(getPos, "Markdown block")
-  if (node.attrs.kind === "reference") {
+  if (["reference", "link_reference"].includes(node.attrs.kind)) {
     dom.hidden = true
-    return { dom, update: next => next.type === node.type && next.attrs.kind === "reference",
+    return { dom, update: next => next.type === node.type && next.attrs.kind === node.attrs.kind,
       stopEvent: () => true, ignoreMutation: () => true }
   }
   if (["presentation", "iframe"].includes(node.attrs.kind)) {
@@ -786,7 +792,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
       const previewSource = () => {
         const definitions = []
         view.state.doc.descendants(item => {
-          if (item.attrs.kind === "reference") definitions.push(item.attrs.source)
+          if (["reference", "link_reference"].includes(item.attrs.kind)) definitions.push(item.attrs.source)
         })
         return [node.attrs.source, ...definitions].join("\n\n")
       }

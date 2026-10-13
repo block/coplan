@@ -118,7 +118,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "edits a whole presentation in one Markdown field, preserving its wrapping region" do
-    source = "Before the deck.\n\n::: {.presentation #review theme=\"graphite\"}\n\n# Review\n\nOpening slide.\n\n---\n\n## Decision\n\n- Ship it.\n\n:::\n\nAfter the deck.\n"
+    source = "Before the deck.\n\n::: {.presentation #review theme=\"graphite\"}\n\n# Review\n\nOpening slide. [API][api]\n\n---\n\n## Decision\n\n- Ship it.\n\n:::\n\nAfter the deck.\n\n[api]: https://example.com/api\n  \"API reference\"\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -132,6 +132,7 @@ RSpec.describe "Human plan editing", type: :system do
       expect(page).to have_css(".document-editor__presentation-label svg")
       click_button "Preview", exact: true
       expect(page).to have_css(".deck-slide", text: "Updated slide.")
+      expect(page).to have_link("API", href: "https://example.com/api")
       expect(page).to have_no_field("Presentation Markdown", enable_aria_label: true)
       find('button[aria-label="Next slide"]').click
       expect(page).to have_css(".deck-slide", text: "Decision")
@@ -209,9 +210,10 @@ RSpec.describe "Human plan editing", type: :system do
       const done = arguments[0];
       import("coplan/rich_document").then(async m => {
         const host = document.createElement("div"), requests = [];
-        const deck = "::: {.presentation}\n\n# Review\n\nDecision.[^catalog]\n\n:::\n";
+        const deck = "::: {.presentation}\n\n# Review\n\nDecision.[^catalog] [API][api]\n\n:::\n";
         const definitions = ["[^catalog]: Original.\n", "[^catalog]: Updated.\n", "[^renamed]: Updated.\n",
-          "[^other]: Other.\n[^catalog]: Updated.\n", "[^catalog]: Updated.\n[^other]: Other.\n", ""];
+          "[^other]: Other.\n[^catalog]: Updated.\n", "[^catalog]: Updated.\n[^other]: Other.\n", "",
+          '[api]: https://example.com/first "API reference"\n', '[api]: https://example.com/updated\n', ""];
         const rich = m.createRichDocument(host, deck + "\n" + definitions[0], () => {}, () => {}, async markdown => {
           requests.push(markdown);
           return `<p>Preview ${requests.length}</p>`;
@@ -226,13 +228,16 @@ RSpec.describe "Human plan editing", type: :system do
         done({ requests, visible });
       }).catch(error => done({ error: error.message }));
     JS
-    expect(result.fetch("requests").size).to eq(6)
+    expect(result.fetch("requests").size).to eq(9)
     expect(result.fetch("requests")[1]).to include("[^catalog]: Updated.")
     expect(result.fetch("requests")[2]).to include("[^renamed]: Updated.")
     expect(result.fetch("requests")[3].index("[^other]:")).to be < result.fetch("requests")[3].index("[^catalog]:")
     expect(result.fetch("requests")[4].index("[^catalog]:")).to be < result.fetch("requests")[4].index("[^other]:")
     expect(result.fetch("requests").last).not_to include("[^catalog]:")
-    expect(result.fetch("visible")).to eq("Preview 6")
+    expect(result.fetch("requests")[6]).to include('[api]: https://example.com/first "API reference"')
+    expect(result.fetch("requests")[7]).to include("[api]: https://example.com/updated")
+    expect(result.fetch("requests").last).not_to include("[api]:")
+    expect(result.fetch("visible")).to eq("Preview 9")
   end
 
   it "matches folded and whitespace citation labels while retaining their source spelling" do
