@@ -446,17 +446,6 @@ img, svg {
   border-radius: 6px;
 }
 
-/* Non-production environment marker: a colored ring on the logo (favicon
-   palette) — layout-neutral, so dev and staging reproduce production's
-   nav spacing exactly. */
-.site-nav__logo--development {
-  box-shadow: 0 0 0 2px #10b981;
-}
-
-.site-nav__logo--staging {
-  box-shadow: 0 0 0 2px #f59e0b;
-}
-
 .site-nav__brand:hover {
   text-decoration: none;
   color: var(--color-primary);

@@ -8,7 +8,6 @@ module CoPlan
     SW_PATH     = CoPlan::Engine.root.join("app/javascript/coplan_service_worker.js")
     SW_TEMPLATE = SW_PATH.read.freeze
     ICON_TOKEN  = "__COPLAN_NOTIFICATION_ICON__"
-    ICON_ASSET  = "coplan/coplan-logo-sm.png"
 
     def show
       # No Service-Worker-Allowed header on purpose: default scope is the
@@ -20,7 +19,8 @@ module CoPlan
       # reach it. The file is small and cached in memory at boot, then we
       # substitute the digested icon URL per request.
       response.headers["Cache-Control"] = "no-cache"
-      render plain: SW_TEMPLATE.gsub(ICON_TOKEN, view_context.asset_path(ICON_ASSET)),
+      icon = view_context.asset_path(view_context.coplan_logo_asset(format: :png))
+      render plain: SW_TEMPLATE.gsub(ICON_TOKEN, icon),
              content_type: "application/javascript"
     end
   end
