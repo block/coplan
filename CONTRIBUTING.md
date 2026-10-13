@@ -11,6 +11,14 @@ Thanks for helping improve CoPlan. Keep pull requests focused and make it easy f
 - For every feature, test the affected UI in both **light and dark themes**. Check the complete interaction, including loading, success, error, and empty states that apply. For a feature without a UI, explain in the PR why theme testing does not apply.
 - Include **a video or images** in feature PRs and UI bug fixes so reviewers can see the result. Show both themes for UI changes; a short video or labeled screenshots are both fine. For features without a UI, include images of the relevant API or command output, or a short video demonstrating it. Include before-and-after evidence for visual fixes when useful.
 
+## Shared development examples
+
+Run `bin/setup --skip-server`, then `bin/dev`. Sign in as **hampton@example.com**
+and open `/hampton/demo-library`. Use these named examples for feature tryouts
+and screenshots instead of building a separate dataset. When a new feature
+needs a new state or content shape, add it to the engine's shared examples
+and cover the state in a seed spec. See [the demo library guide](docs/DEMO_LIBRARY.md).
+
 ## Make the change easy to try
 
 Give reviewers a short, reproducible path through each feature or bug fix:

@@ -1,7 +1,15 @@
+require "coplan/development_seed"
+
 class SessionsController < ApplicationController
   skip_before_action :authenticate_user!, only: [ :new, :create ]
 
   def new
+    return unless Rails.env.development?
+
+    definitions = CoPlan::DevelopmentSeed::USERS
+    users = CoPlan::User.where(external_id: definitions.map { |entry| "seed:#{entry.fetch(:key)}" }).index_by(&:external_id)
+    @demo_users = definitions.filter_map { |entry| users["seed:#{entry.fetch(:key)}"] }
+    @demo_user = @demo_users.find { |user| user.email == CoPlan::DevelopmentSeed::DEFAULT_EMAIL }
   end
 
   def create

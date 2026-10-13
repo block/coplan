@@ -12,4 +12,12 @@ namespace :coplan do
   task seed: :environment do
     CoPlan::Engine.load_seed
   end
+
+  namespace :demo do
+    desc "Install the shared demo library (development/test only; preserves local edits)"
+    task seed: :environment do
+      require "coplan/development_seed"
+      CoPlan::DevelopmentSeed.call
+    end
+  end
 end
