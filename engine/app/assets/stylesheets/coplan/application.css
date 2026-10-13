@@ -7942,6 +7942,7 @@ svg .source-thread-badge text { fill: var(--color-primary) !important; font: 600
 .document-editor__block-header { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding: 8px 12px; background: var(--color-surface-muted); font: 12px/1.5 var(--font-sans, sans-serif); color: var(--color-text-muted); }
 .document-editor__block-header > span:first-child { margin-right: auto; }
 .document-editor__block-header button { border: 0; padding: 3px 6px; background: transparent; color: var(--color-primary); font: inherit; cursor: pointer; }
+.document-editor__presentation-preview { min-width: 8em; }
 .document-editor__code-window > .document-editor__block-header { justify-content: flex-start; flex-wrap: nowrap; background: var(--code-header-bg); color: var(--code-header-text); gap: 14px; padding: 7px 12px; border-bottom: 1px solid var(--color-border); }
 .document-editor__window-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .document-editor__window-dot, .document-editor__block-header .document-editor__window-close { width: 12px; height: 12px; border-radius: 50%; display: block; padding: 0; }

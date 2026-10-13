@@ -778,17 +778,19 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
       path.setAttribute("d", "M3 3h18v13H3z M12 16v5 M8 21h8 M7 7h10 M7 11h6")
       icon.append(path); title.prepend(icon)
       const toggle = document.createElement("button"); toggle.type = "button"; toggle.textContent = "Preview"
+      toggle.className = "document-editor__presentation-preview"
       toggle.dataset.action = "coplan--editor#togglePresentationPreview"
       toggle.setAttribute("aria-expanded", "false")
       dom.querySelector(".document-editor__block-header").insertBefore(toggle, copy)
       const body = document.createElement("div"); body.className = "document-editor__block-preview"; body.hidden = true
+      const status = document.createElement("small"); status.setAttribute("role", "status"); status.hidden = true; title.after(status)
       const input = document.createElement("textarea")
       input.className = "document-editor__block-source"
       input.setAttribute("aria-label", "Presentation Markdown")
       input.dataset.action = "input->coplan--editor#blockSourceChanged keydown->coplan--editor#blockKeydown"
       input.value = presentationContent(node.attrs.source).content
       dom.append(input, body)
-      let renderedSource = null
+      let renderedSource = null, renderedDeck = null, previewTimer
       const previewSource = () => serializeDocument(view.state.doc)
       const renderPreview = async () => {
         const sequence = ++generation
@@ -799,33 +801,50 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
           if (before && item.attrs.kind === "presentation") deckIndex++
         })
         renderedSource = source
-        body.textContent = "Loading preview…"; body.setAttribute("aria-busy", "true")
+        if (!renderedDeck) body.textContent = "Loading preview…"
+        status.hidden = true
+        if (renderedDeck) toggle.textContent = "Refreshing…"
+        body.setAttribute("aria-busy", "true")
         try {
           const html = await preview(source)
           if (sequence === generation) {
             const template = document.createElement("template"); template.innerHTML = html
             const deck = template.content.querySelectorAll(".deck-region")[deckIndex]
             if (!deck) throw new Error("Presentation unavailable")
-            body.replaceChildren(deck)
+            if (renderedDeck !== deck.outerHTML) {
+              renderedDeck = deck.outerHTML
+              body.replaceChildren(deck)
+            }
+            status.textContent = ""
           }
         } catch {
-          if (sequence === generation) body.textContent = "Preview unavailable. Return to Markdown to keep editing."
+          if (sequence === generation) {
+            if (renderedDeck) { status.textContent = "Could not refresh preview. Toggle Preview to retry."; status.hidden = false }
+            else body.textContent = "Preview unavailable. Return to Markdown to keep editing."
+          }
         } finally {
-          if (sequence === generation) body.removeAttribute("aria-busy")
+          if (sequence === generation) {
+            body.removeAttribute("aria-busy")
+            if (!body.hidden) toggle.textContent = "Edit Markdown"
+          }
         }
       }
       // Definition nodes can change without updating the presentation node.
       // Check dependencies after the complete document transaction is applied.
       dom.coplanRefreshPreview = () => {
-        if (!body.hidden && renderedSource !== previewSource()) renderPreview()
+        if (!body.hidden && renderedSource !== previewSource()) {
+          generation++; clearTimeout(previewTimer)
+          previewTimer = setTimeout(() => { if (!body.hidden) renderPreview() }, 300)
+        }
       }
       dom.coplanTogglePreview = () => {
         const showing = body.hidden
         toggle.setAttribute("aria-expanded", String(showing))
         toggle.textContent = showing ? "Edit Markdown" : "Preview"
         input.hidden = showing; body.hidden = !showing
+        clearTimeout(previewTimer)
         if (showing) return renderPreview()
-        generation++; body.removeAttribute("aria-busy")
+        generation++; body.removeAttribute("aria-busy"); status.hidden = true
         input.focus({ preventScroll: true })
       }
       return { dom, update(next) {
@@ -840,7 +859,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
         }
         if (changed && !body.hidden) generation++
         return true
-      }, stopEvent: () => true, ignoreMutation: () => true, destroy() { generation++ } }
+      }, stopEvent: () => true, ignoreMutation: () => true, destroy() { generation++; clearTimeout(previewTimer) } }
     }
     copy.remove()
     const fields = document.createElement("div"); fields.className = "document-editor__embed-fields"

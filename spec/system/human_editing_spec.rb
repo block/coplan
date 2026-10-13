@@ -151,8 +151,28 @@ RSpec.describe "Human plan editing", type: :system do
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
     editor
+    requests = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0], original = window.fetch;
+      let requests = 0;
+      window.fetch = async (...args) => {
+        if (String(args[0]).endsWith('/preview_draft')) {
+          requests++;
+          await new Promise(resolve => setTimeout(resolve, 100));
+          if (requests === 1) return new Response('Unavailable', { status: 503 });
+        }
+        return original(...args);
+      };
+      const blocks = [...document.querySelectorAll('.document-editor__content-block')];
+      Promise.all(blocks.map(block => block.coplanTogglePreview()))
+        .then(async () => {
+          blocks.forEach(block => block.coplanTogglePreview());
+          await Promise.all(blocks.map(block => block.coplanTogglePreview()));
+          window.fetch = original; done(requests);
+        })
+        .catch(error => { window.fetch = original; done({ error: error.message }); });
+    JS
+    expect(requests).to eq(2)
     within(all(".document-editor__content-block").last) do
-      click_button "Preview", exact: true
       expect(page).to have_css(".deck-slide", text: "Second deck")
       expect(page).to have_no_css(".deck-slide", text: "First deck")
       expect(page).to have_css('a[data-footnote-ref]', text: "2")
@@ -202,6 +222,7 @@ RSpec.describe "Human plan editing", type: :system do
         const block = host.querySelector('.document-editor__content-block');
         const first = block.coplanTogglePreview();
         rich.update(source("Updated"));
+        await new Promise(resolve => setTimeout(resolve, 350));
         requests[1].resolve('<div class="deck-region"><p>Updated preview</p></div>');
         await Promise.resolve();
         requests[0].resolve('<div class="deck-region"><p>Original preview</p></div>');
@@ -236,7 +257,7 @@ RSpec.describe "Human plan editing", type: :system do
         await host.querySelector('.document-editor__content-block').coplanTogglePreview();
         for (const definition of definitions.slice(1)) {
           rich.update(deck + "\n" + definition);
-          await Promise.resolve();
+          await new Promise(resolve => setTimeout(resolve, 350));
         }
         const visible = host.querySelector('.document-editor__block-preview').textContent;
         rich.destroy();
@@ -253,6 +274,42 @@ RSpec.describe "Human plan editing", type: :system do
     expect(result.fetch("requests")[7]).to include("[api]: https://example.com/updated")
     expect(result.fetch("requests").last).not_to include("[api]:")
     expect(result.fetch("visible")).to eq("Preview 9")
+  end
+
+  it "coalesces rapid preview refreshes and retains unchanged slides" do
+    visit plan_edit_page_path(plan)
+    editor
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      import("coplan/rich_document").then(async m => {
+        const host = document.createElement("div"), requests = [];
+        const source = prose => `::: {.presentation}\n\n# Stable deck\n\n:::\n\n${prose}\n`;
+        const rich = m.createRichDocument(host, source("Before"), () => {}, () => {}, async markdown => {
+          requests.push(markdown);
+          if (requests.length === 3) throw new Error('Offline');
+          return '<div class="deck-region"><p>Stable preview</p></div>';
+        });
+        await host.querySelector('.document-editor__content-block').coplanTogglePreview();
+        const original = host.querySelector('.deck-region');
+        for (let index = 0; index < 10; index++) rich.update(source(`Typing ${index}`));
+        const retainedDuring = original === host.querySelector('.deck-region');
+        await new Promise(resolve => setTimeout(resolve, 350));
+        const retainedAfter = original === host.querySelector('.deck-region');
+        rich.update(source('Fail refresh'));
+        await new Promise(resolve => setTimeout(resolve, 350));
+        const retainedOnError = original === host.querySelector('.deck-region');
+        const failureMessage = host.querySelector('[role="status"]').textContent;
+        const block = host.querySelector('.document-editor__content-block');
+        block.coplanTogglePreview();
+        await block.coplanTogglePreview();
+        rich.destroy();
+        done({ requests, retainedDuring, retainedAfter, retainedOnError, failureMessage });
+      }).catch(error => done({ error: error.message }));
+    JS
+    expect(result.fetch("requests").size).to eq(4)
+    expect(result.fetch("requests")[1]).to include("Typing 9")
+    expect(result).to include("retainedDuring" => true, "retainedAfter" => true, "retainedOnError" => true)
+    expect(result.fetch("failureMessage")).to include("Could not refresh preview")
   end
 
   it "matches folded and whitespace citation labels while retaining their source spelling" do

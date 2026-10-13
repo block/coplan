@@ -807,13 +807,19 @@ export default class extends Controller {
   async preview(content) {
     this.previews ||= new Map()
     if (this.previews.has(content)) return this.previews.get(content)
-    const response = await fetch(this.previewUrlValue, { method: "POST", signal: AbortSignal.timeout(15000),
-      headers: { "Content-Type": "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content }, body: JSON.stringify({ content }) })
-    if (!response.ok || response.redirected) throw new Error("Preview unavailable")
-    const html = await response.text()
     if (this.previews.size > 40) this.previews.clear()
-    this.previews.set(content, html)
-    return html
+    const request = (async () => {
+      const response = await fetch(this.previewUrlValue, { method: "POST", signal: AbortSignal.timeout(15000),
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content }, body: JSON.stringify({ content }) })
+      if (!response.ok || response.redirected) throw new Error("Preview unavailable")
+      return response.text()
+    })()
+    this.previews.set(content, request)
+    try { return await request }
+    catch (error) {
+      if (this.previews.get(content) === request) this.previews.delete(content)
+      throw error
+    }
   }
 
   draftPrefix() { return `coplan-rich-draft-${this.userIdValue}-${this.isNew ? `new-${this.draftScopeValue}` : this.planIdValue}-` }
