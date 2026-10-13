@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="coplan-orchid-title coplan-orchid-description">
+  <title id="coplan-orchid-title">CoPlan — Orchid Mesh</title>
+  <desc id="coplan-orchid-description">A folded page shaped like a comment bubble, with two white writing lines and a flowing blue, violet, and pink gradient.</desc>
+  <defs>
+    <clipPath id="coplan-orchid-silhouette" clipPathUnits="userSpaceOnUse">
+      <path d="M64 12H164Q170 12 170 18V54Q170 74 190 74H236Q244 74 244 82V174Q244 218 200 218H74L38 242Q30 248 30 238V213Q12 202 12 174V64Q12 12 64 12Z"/>
+      <path d="M190 14Q184 9 184 17V54Q184 60 190 60H235Q242 60 237 55Z"/>
+    </clipPath>
+    <linearGradient id="coplan-orchid-base" gradientUnits="userSpaceOnUse" x1="48" y1="20" x2="224" y2="228">
+      <stop offset="0" stop-color="#3478ff"/>
+      <stop offset="0.48" stop-color="#8234f5"/>
+      <stop offset="1" stop-color="#f52a9a"/>
+    </linearGradient>
+    <radialGradient id="coplan-orchid-blue" gradientUnits="userSpaceOnUse" cx="38" cy="25" r="204">
+      <stop offset="0" stop-color="#139dff"/>
+      <stop offset="0.32" stop-color="#188aff" stop-opacity="0.98"/>
+      <stop offset="0.7" stop-color="#3462ff" stop-opacity="0.72"/>
+      <stop offset="1" stop-color="#3462ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="coplan-orchid-pink" gradientUnits="userSpaceOnUse" cx="247" cy="210" r="185">
+      <stop offset="0" stop-color="#ff278c"/>
+      <stop offset="0.33" stop-color="#fc269b" stop-opacity="0.98"/>
+      <stop offset="0.7" stop-color="#e52aba" stop-opacity="0.66"/>
+      <stop offset="1" stop-color="#e52aba" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="coplan-orchid-violet" gradientUnits="userSpaceOnUse" cx="36" cy="247" r="154">
+      <stop offset="0" stop-color="#b12bff" stop-opacity="0.95"/>
+      <stop offset="0.4" stop-color="#a02aff" stop-opacity="0.78"/>
+      <stop offset="1" stop-color="#a02aff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="coplan-orchid-fold" gradientUnits="userSpaceOnUse" x1="184" y1="12" x2="240" y2="64">
+      <stop offset="0" stop-color="#189cff"/>
+      <stop offset="0.55" stop-color="#3285ff"/>
+      <stop offset="1" stop-color="#6656ff"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#coplan-orchid-silhouette)">
+    <path fill="url(#coplan-orchid-base)" d="M0 0H256V256H0Z"/>
+    <path fill="url(#coplan-orchid-blue)" d="M0 0H256V256H0Z"/>
+    <path fill="url(#coplan-orchid-pink)" d="M0 0H256V256H0Z"/>
+    <path fill="url(#coplan-orchid-violet)" d="M0 0H256V256H0Z"/>
+  </g>
+  <path fill="url(#coplan-orchid-fold)" d="M190 14Q184 9 184 17V54Q184 60 190 60H235Q242 60 237 55Z"/>
+  <g fill="#fff">
+    <rect x="56" y="94" width="148" height="30" rx="15"/>
+    <rect x="56" y="142" width="108" height="30" rx="15"/>
+  </g>
+</svg>

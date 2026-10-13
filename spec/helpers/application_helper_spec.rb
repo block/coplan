@@ -1,6 +1,39 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::ApplicationHelper, type: :helper do
+  describe "environment logo treatments" do
+    it "uses green artwork and matching favicons in development" do
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("development"))
+
+      expect(helper.coplan_logo_asset).to eq("coplan/coplan-logo-development.svg")
+      expect(helper.coplan_logo_asset(format: :png)).to eq("coplan/coplan-logo-development.png")
+      expect(helper.coplan_environment_logo_title).to eq("Development environment")
+      icons = Nokogiri::HTML.fragment(helper.coplan_favicon_tag)
+      expect(icons.at_css("link[type='image/svg+xml']")["href"]).to eq(helper.asset_path(helper.coplan_logo_asset))
+      expect(icons.at_css("link[type='image/png']")["href"]).to eq(helper.asset_path(helper.coplan_logo_asset(format: :png)))
+    end
+
+    it "keeps Orchid Mesh unmarked in production" do
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
+
+      expect(helper.coplan_logo_asset).to eq("coplan/coplan-logo.svg")
+      expect(helper.coplan_logo_asset(format: :png)).to eq("coplan/coplan-logo.png")
+      expect(helper.coplan_environment_logo_title).to be_nil
+    end
+
+    it "uses amber artwork in staging" do
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("staging"))
+
+      expect(helper.coplan_logo_asset).to eq("coplan/coplan-logo-staging.svg")
+      expect(helper.coplan_logo_asset(format: :png)).to eq("coplan/coplan-logo-staging.png")
+      expect(helper.coplan_environment_logo_title).to eq("Staging environment")
+    end
+
+    it "uses production artwork in other environments" do
+      expect(helper.coplan_logo_asset).to eq("coplan/coplan-logo.svg")
+    end
+  end
+
   describe "#user_avatar" do
     it "renders accessible initials without an image when no photo is set" do
       user = build(:coplan_user, name: "Ada Marie Lovelace", avatar_url: nil)
