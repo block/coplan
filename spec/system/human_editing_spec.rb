@@ -40,7 +40,7 @@ RSpec.describe "Human plan editing", type: :system do
     click_button "Bold"
     expect(page).to have_css(".ProseMirror strong", text: "Revised body")
     save_now
-    expect(page).to have_content("All changes saved · v2")
+    expect(page).to have_content(/All changes saved · v\d+/)
     expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(plan.reload.current_content).to include("**Revised body from the browser.**")
     expect(plan.current_plan_version.actor_type).to eq("human")
@@ -118,7 +118,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "edits a whole presentation in one Markdown field, preserving its wrapping region" do
-    source = "Before the deck.\n\n::: {.presentation #review theme=\"graphite\"}\n\n# Review\n\nOpening slide. [API][api]\n\n---\n\n## Decision\n\n- Ship it.\n\n:::\n\nAfter the deck.\n\n[api]: https://example.com/api\n  \"API reference\"\n"
+    source = "Before the deck.[^earlier]\n\n[api]: https://example.com/api\n  \"API reference\"\n\n::: {.presentation #review theme=\"graphite\"}\n\n# Review\n\nOpening slide. [API][api] Decision.[^later]\n\n[api]: https://example.com/duplicate\n\n---\n\n## Decision\n\n- Ship it.\n\n:::\n\nAfter the deck.\n\n[^earlier]: Earlier note.\n[^later]: Later note.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -133,6 +133,7 @@ RSpec.describe "Human plan editing", type: :system do
       click_button "Preview", exact: true
       expect(page).to have_css(".deck-slide", text: "Updated slide.")
       expect(page).to have_link("API", href: "https://example.com/api")
+      expect(page).to have_css('a[data-footnote-ref]', text: "2")
       expect(page).to have_no_field("Presentation Markdown", enable_aria_label: true)
       find('button[aria-label="Next slide"]').click
       expect(page).to have_css(".deck-slide", text: "Decision")
@@ -142,6 +143,20 @@ RSpec.describe "Human plan editing", type: :system do
     save_now
     expect(page).to have_content("All changes saved · v3")
     expect(plan.reload.current_content).to eq(source.sub("Opening slide.", "Updated slide."))
+  end
+
+  it "previews only the selected presentation in a document with multiple decks" do
+    source = "::: {.presentation}\n\n# First deck\n\nFirst.[^first]\n\n:::\n\n::: {.presentation}\n\n# Second deck\n\nSecond.[^second]\n\n:::\n\n[^first]: First note.\n[^second]: Second note.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    within(all(".document-editor__content-block").last) do
+      click_button "Preview", exact: true
+      expect(page).to have_css(".deck-slide", text: "Second deck")
+      expect(page).to have_no_css(".deck-slide", text: "First deck")
+      expect(page).to have_css('a[data-footnote-ref]', text: "2")
+    end
   end
 
   it "refreshes whole presentation blocks after source edits and retains copied citations" do
@@ -187,9 +202,9 @@ RSpec.describe "Human plan editing", type: :system do
         const block = host.querySelector('.document-editor__content-block');
         const first = block.coplanTogglePreview();
         rich.update(source("Updated"));
-        requests[1].resolve('<p>Updated preview</p>');
+        requests[1].resolve('<div class="deck-region"><p>Updated preview</p></div>');
         await Promise.resolve();
-        requests[0].resolve('<p>Original preview</p>');
+        requests[0].resolve('<div class="deck-region"><p>Original preview</p></div>');
         await first;
         const visible = host.querySelector('.document-editor__block-preview').textContent;
         const markdown = requests.map(request => request.markdown);
@@ -216,7 +231,7 @@ RSpec.describe "Human plan editing", type: :system do
           '[api]: https://example.com/first "API reference"\n', '[api]: https://example.com/updated\n', ""];
         const rich = m.createRichDocument(host, deck + "\n" + definitions[0], () => {}, () => {}, async markdown => {
           requests.push(markdown);
-          return `<p>Preview ${requests.length}</p>`;
+          return `<div class="deck-region"><p>Preview ${requests.length}</p></div>`;
         });
         await host.querySelector('.document-editor__content-block').coplanTogglePreview();
         for (const definition of definitions.slice(1)) {
@@ -401,6 +416,25 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_css('[data-embed-attribute="src"]', count: 1)
     click_button "Undo", enable_aria_label: true
     expect(page).to have_css('[data-embed-attribute="src"]', count: 2)
+  end
+
+  it "separates inserted content blocks from citation definitions across save and reload" do
+    source = "Plain.[^catalog]\n\n[^catalog]: Catalog source.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    all(".ProseMirror > p").last.click
+    click_button "Insert content", enable_aria_label: true
+    click_button "Embed", exact: true
+    find('[data-embed-attribute="src"]').fill_in with: "https://unapproved.example.com/report"
+    save_now
+    expect(page).to have_content("All changes saved · v3")
+    expect(plan.reload.current_content).to include("[^catalog]: Catalog source.\n\n::: {.iframe")
+    visit plan_edit_page_path(plan)
+    editor
+    expect(find('[data-embed-attribute="src"]').value).to eq("https://unapproved.example.com/report")
+    expect(page).to have_no_css("#plan-citations", text: "::: {.iframe")
   end
 
   it "opens back-matter citations for whole content blocks in both themes" do

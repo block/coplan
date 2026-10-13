@@ -23,7 +23,7 @@ nodes.forEach((name, spec) => {
   if (name !== "text") nodes = nodes.update(name, { ...spec, attrs: { ...spec.attrs, source: { default: null }, snapshot: { default: null } } })
 })
 nodes = nodes.addBefore("paragraph", "preserved", {
-  group: "block", atom: true, attrs: { source: {}, kind: { default: null }, label: { default: null } },
+  group: "block", atom: true, attrs: { source: {}, kind: { default: null }, label: { default: null }, inserted: { default: false } },
   toDOM: node => ["div", { class: "document-editor__preserved", hidden: node.attrs.source.trim() ? null : "hidden", contenteditable: "false" },
     ["small", "Preserved Markdown block"], ["pre", node.attrs.source]]
 })
@@ -228,7 +228,7 @@ export function parseDocument(markdown) {
 export function serializeDocument(doc, recordRange = null) {
   let output = "", previousChanged = false
   doc.forEach((node, position) => {
-    const unchanged = node.type.name === "preserved" || (node.attrs.source !== null && node.attrs.snapshot === signature(node))
+    const unchanged = node.type.name === "preserved" ? !node.attrs.inserted : (node.attrs.source !== null && node.attrs.snapshot === signature(node))
     const source = unchanged ? node.attrs.source : defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node))
     // New/changed blocks need a block separator, including after an original
     // final paragraph with no trailing newline. Untouched boundaries stay exact.
@@ -789,21 +789,25 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
       input.value = presentationContent(node.attrs.source).content
       dom.append(input, body)
       let renderedSource = null
-      const previewSource = () => {
-        const definitions = []
-        view.state.doc.descendants(item => {
-          if (["reference", "link_reference"].includes(item.attrs.kind)) definitions.push(item.attrs.source)
-        })
-        return [node.attrs.source, ...definitions].join("\n\n")
-      }
+      const previewSource = () => serializeDocument(view.state.doc)
       const renderPreview = async () => {
         const sequence = ++generation
         const source = previewSource()
+        let deckIndex = 0, before = true
+        view.state.doc.descendants((item, position) => {
+          if (position === getPos()) before = false
+          if (before && item.attrs.kind === "presentation") deckIndex++
+        })
         renderedSource = source
         body.textContent = "Loading preview…"; body.setAttribute("aria-busy", "true")
         try {
           const html = await preview(source)
-          if (sequence === generation) body.innerHTML = html
+          if (sequence === generation) {
+            const template = document.createElement("template"); template.innerHTML = html
+            const deck = template.content.querySelectorAll(".deck-region")[deckIndex]
+            if (!deck) throw new Error("Presentation unavailable")
+            body.replaceChildren(deck)
+          }
         } catch {
           if (sequence === generation) body.textContent = "Preview unavailable. Return to Markdown to keep editing."
         } finally {

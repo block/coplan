@@ -727,7 +727,8 @@ export default class extends Controller {
     if (this.editor !== this.richEditor) return
     this.contentPickerTarget.hidePopover()
     const view = this.richEditor.view
-    const node = this.richModule.parseDocument(source).firstChild
+    const parsed = this.richModule.parseDocument(source).firstChild
+    const node = parsed.type.create({ ...parsed.attrs, inserted: true })
     // An atomic content block has no text caret. Add after a selected block
     // rather than replacing the existing presentation or embed.
     const transaction = (view.state.selection.node ? view.state.tr.insert(view.state.selection.to, node) : view.state.tr.replaceSelectionWith(node)).scrollIntoView()

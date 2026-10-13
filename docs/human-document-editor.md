@@ -257,3 +257,5 @@ An expired sign-in keeps the draft in the current tab and shows **Sign in again 
 Unsaved new plans refresh their security token from the uncached new-plan form and retry with the same creation key. Live citation replacements include the same dialog controls as the initial page.
 
 Citation labels match using Unicode case folding and collapsed whitespace; dialog edits preserve the original spelling of both the marker and definition. An open presentation preview refreshes when Undo, Redo, or a live update changes its source, and ignores older preview responses.
+
+Presentation previews use the existing full-document renderer and display only the selected deck. Shared link definitions, duplicate-label precedence, and citation numbers match the saved document. Newly inserted content blocks have blank-line separators, including beside citation definitions.

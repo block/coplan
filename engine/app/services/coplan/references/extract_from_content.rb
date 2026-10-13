@@ -60,7 +60,10 @@ module CoPlan
         urls = {}  # url => { title:, key: }
 
         # Match markdown reference-style link definitions: [key]: url "optional title"
+        seen_labels = Set.new
         content.scan(/^\[([^\]]+)\]:\s+(https?:\/\/\S+)(?:\s+"([^"]*)")?/m) do |key, url, title|
+          next unless seen_labels.add?(key.squish.downcase(:fold))
+
           url = url.strip
           k = key.strip.downcase.gsub(/[^a-z0-9_-]/, "-").gsub(/-+/, "-").truncate(64, omission: "")
           urls[url] ||= { title: title&.strip, key: k }
