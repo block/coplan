@@ -34,7 +34,7 @@
         <%# The logo goes to your library — that's where signed-in work
             lives, so there's no separate "Workspace" link. Signed-out
             visitors land on the public root instead. %>
-        <%= link_to(signed_in? ? profile_path_for(current_user) : coplan.root_path, class: "site-nav__brand") do %>
+        <%= link_to(signed_in? ? profile_path_for(current_user) : coplan.root_path, class: "site-nav__brand", aria: { label: "CoPlan" }, title: coplan_environment_logo_title) do %>
           <%= image_tag coplan_logo_asset, alt: "",
                 class: "site-nav__logo",
                 title: coplan_environment_logo_title %>

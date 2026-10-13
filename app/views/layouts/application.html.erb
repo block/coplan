@@ -28,7 +28,7 @@
   <body>
     <nav class="site-nav">
       <div class="site-nav__inner">
-        <%= link_to coplan.root_path, class: "site-nav__brand" do %>
+        <%= link_to coplan.root_path, class: "site-nav__brand", aria: { label: "CoPlan" }, title: coplan_environment_logo_title do %>
           <%= image_tag coplan_logo_asset, alt: "", class: "site-nav__logo",
                 title: coplan_environment_logo_title %>
           CoPlan
