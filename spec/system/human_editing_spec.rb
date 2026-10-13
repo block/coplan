@@ -242,7 +242,8 @@ RSpec.describe "Human plan editing", type: :system do
   it "refreshes presentation previews when only their citation definitions change" do
     visit plan_edit_page_path(plan)
     editor
-    result = page.evaluate_async_script(<<~'JS')
+    # Eight debounced updates exceed the driver's default two-second script timeout.
+    result = Capybara.using_wait_time(6) { page.evaluate_async_script(<<~'JS') }
       const done = arguments[0];
       import("coplan/rich_document").then(async m => {
         const host = document.createElement("div"), requests = [];
