@@ -1,0 +1,7 @@
+<% general_threads = threads.reject(&:anchored?).reject(&:out_of_date?) %>
+<div id="plan-general-comment-list" data-coplan--document-comments-target="list">
+    <% reviews = CoPlan::ReviewResponse.where(comment_thread_id: general_threads.map(&:id)).includes(:plan_version).index_by(&:comment_thread_id) %>
+    <% general_threads.each do |thread| %>
+      <%= render "coplan/plans/document_comment", thread: thread, review: reviews[thread.id], detached: false %>
+    <% end %>
+</div>

@@ -1,5 +1,4 @@
   <section class="review-history" aria-label="Review activity">
-    <h3>Activity</h3>
     <div class="review-log" data-review-history>
       <% activity = requests.flat_map { |request| [[request.requested_at, :request, request]] + request.review_responses.map { |response| [response.created_at, :response, response] } }.sort_by(&:first).reverse %>
       <% if activity.empty? %><p class="review-log__empty">No review activity yet.</p><% end %>

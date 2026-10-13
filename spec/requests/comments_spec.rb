@@ -63,11 +63,11 @@ RSpec.describe "Comments", type: :request do
 
   it "refreshes public comment previews after a reply without sharing request HTML" do
     expect(CoPlan::Broadcaster).to receive(:replace_to).with(plan,
-      target: "plan-general-comments", partial: "coplan/plans/general_comments", locals: anything)
+      target: "plan-general-comment-list", partial: "coplan/plans/general_comment_list", locals: anything)
     post plan_comment_thread_comments_path(plan, thread_record),
       params: { comment: { body_markdown: "New public reply" } },
       headers: { "Accept" => "text/vnd.turbo-stream.html" }
-    expect(response.body).to include('target="plan-general-comments"', "New public reply")
+    expect(response.body).to include('target="plan-general-comment-list"', "New public reply")
   end
 
   describe "PATCH update" do

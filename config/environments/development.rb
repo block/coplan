@@ -3,6 +3,10 @@ require "active_support/core_ext/integer/time"
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
+  # Cookies are shared across localhost ports. Keep parallel checkouts from
+  # signing each other out when they use different development databases.
+  config.session_store :cookie_store, key: "_coplan_dev_#{Digest::SHA256.hexdigest(Rails.root.to_s).first(12)}"
+
   # Make code changes take effect immediately without server restart.
   config.enable_reloading = true
 

@@ -1,7 +1,7 @@
 <% comments = thread.comments.reject(&:deleted?) %>
 <% first = comments.first %>
 <% if first %>
-  <article class="document-comment<%= ' detached-comments__resolved' if thread.closed? %>">
+  <article data-thread-id="<%= dom_id(thread) %>" data-action="click->coplan--text-selection#openDocumentThread" data-comment-status="<%= thread.closed? ? 'resolved' : 'open' %>" class="document-comment<%= ' detached-comments__resolved' if thread.closed? %>">
     <div class="document-comment__header comment__header text-sm text-muted">
       <% author = comment_author_user(first) %>
       <% if first.agent? %><%= image_tag comment_agent_icon_source(first), alt: "", class: "comment__agent-avatar" %><% elsif author %><%= user_avatar(author) %><% end %>
@@ -11,8 +11,8 @@
     </div>
     <% if detached %><blockquote class="document-comment__quote"><%= thread.anchor_preview %></blockquote><% end %>
     <div class="comment__body"><%= render_markdown(first.body_markdown, footnote_prefix: "preview-#{first.id}", expandable_images: false) %></div>
-    <div class="document-comment__footer"><% if thread.closed? %><span>Resolved</span><% end %><% if comments.size > 1 %><span><%= pluralize(comments.size - 1, "reply") %></span><% end %>
-      <button type="button" class="review-log__link" data-thread-id="<%= dom_id(thread) %>" data-action="coplan--text-selection#openDetachedThread">Open discussion <span aria-hidden="true">↗</span></button>
+    <div class="document-comment__footer"><% if thread.closed? %><span>Resolved</span><% end %>
+      <button type="button" class="review-log__link document-comment__open" aria-label="Open discussion" title="<%= pluralize(comments.size - 1, 'reply') %>" data-thread-id="<%= dom_id(thread) %>" data-action="coplan--text-selection#openDetachedThread"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-1 2V11.5a8.5 8.5 0 0 1 18 0Z"/></svg><% if comments.size > 1 %><span><%= comments.size - 1 %></span><% end %></button>
     </div>
   </article>
 <% end %>

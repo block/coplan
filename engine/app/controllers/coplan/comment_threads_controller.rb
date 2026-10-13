@@ -87,7 +87,7 @@ module CoPlan
     def render_comment_error(message)
       respond_to do |format|
         format.turbo_stream do
-          render turbo_stream: [ turbo_stream.update("new-comment-form-error", message), turbo_stream.update("source-comment-error", message) ],
+          render turbo_stream: [ turbo_stream.update("new-comment-form-error", message), turbo_stream.update("source-comment-error", message), turbo_stream.update("document-comment-error", message) ],
             status: :unprocessable_content
         end
         format.html { redirect_to helpers.plan_browse_path(@plan), alert: message }
@@ -128,9 +128,9 @@ module CoPlan
 
     def general_comments_stream
       locals = { threads: @plan.comment_threads.with_kept_comments.includes(:comments).order(:created_at) }
-      Broadcaster.replace_to(@plan, target: "plan-general-comments", partial: "coplan/plans/general_comments", locals: locals)
-      html = render_to_string(partial: "coplan/plans/general_comments", locals: locals, formats: [ :html ])
-      turbo_stream.replace("plan-general-comments", html)
+      Broadcaster.replace_to(@plan, target: "plan-general-comment-list", partial: "coplan/plans/general_comment_list", locals: locals)
+      html = render_to_string(partial: "coplan/plans/general_comment_list", locals: locals, formats: [ :html ])
+      turbo_stream.replace("plan-general-comment-list", html)
     end
 
     def comment_list_streams(thread)

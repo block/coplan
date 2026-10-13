@@ -313,6 +313,11 @@ export default class extends Controller {
     this._showThreadPopoverFor(event.currentTarget)
   }
 
+  openDocumentThread(event) {
+    if (event.target.closest("a, button, input, textarea, select") || window.getSelection()?.toString()) return
+    this._showThreadPopoverFor(event.currentTarget)
+  }
+
   openDetachedThread(event) {
     this._showThreadPopoverFor(event.currentTarget)
   }
@@ -796,6 +801,7 @@ export default class extends Controller {
     }
 
     if (mark) {
+      mark.closest("#plan-general-comments")?.dispatchEvent(new CustomEvent("coplan:show-document-thread", { detail: { threadId: domId } }))
       // A direct link is an explicit request to see this resolved discussion.
       // Reveal its list before scrolling to a button hidden by the default view.
       if (mark.closest(".detached-comments") && threadData?.dataset.threadStatus === "resolved") {

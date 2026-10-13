@@ -1,12 +1,15 @@
-<% general_threads = threads.reject(&:anchored?).reject(&:out_of_date?) %>
-<aside id="plan-general-comments" class="detached-comments general-comments<%= ' detached-comments--all-resolved' if general_threads.any? && general_threads.all?(&:closed?) %>" aria-label="Document comments"<%= " hidden" if general_threads.empty? %>>
-  <% if general_threads.any? %>
-    <details class="document-support__disclosure" data-controller="coplan--support-disclosure" data-action="toggle->coplan--support-disclosure#remember" open><summary class="document-support__heading"><span class="document-support__chevron" aria-hidden="true">›</span><h2 class="plan-footnote__title">Comments</h2><span class="document-support__count"><%= general_threads.size %></span></summary>
+<aside id="plan-general-comments" class="detached-comments general-comments" aria-label="Document comments" data-controller="coplan--document-comments" data-action="coplan:show-document-thread->coplan--document-comments#revealThread coplan:document-comments-changed->coplan--document-comments#applyFilter">
+  <details class="document-support__disclosure" data-controller="coplan--support-disclosure" data-action="toggle->coplan--support-disclosure#remember" open>
+    <summary class="document-support__heading"><span class="document-support__chevron" aria-hidden="true">›</span><h2 class="plan-footnote__title">Comments</h2><span class="document-support__count" data-coplan--document-comments-target="count"></span></summary>
     <div class="document-support__content">
-    <% reviews = CoPlan::ReviewResponse.where(comment_thread_id: general_threads.map(&:id)).includes(:plan_version).index_by(&:comment_thread_id) %>
-    <% general_threads.each do |thread| %>
-      <%= render "coplan/plans/document_comment", thread: thread, review: reviews[thread.id], detached: false %>
-    <% end %>
-    </div></details>
-  <% end %>
+      <div class="document-comments__filters"><label for="document-comment-filter">Show</label><select id="document-comment-filter" data-coplan--document-comments-target="filter" data-action="coplan--document-comments#filterChanged"><option value="open">Open</option><option value="resolved">Resolved</option><option value="all">All comments</option></select></div>
+      <%= render "coplan/plans/general_comment_list", threads: threads %>
+      <p class="document-comments__empty text-sm text-muted" data-coplan--document-comments-target="empty" hidden></p>
+      <% if current_user %>
+        <%= form_with url: plan_comment_threads_path(plan), class: "document-comments__composer", data: { controller: "coplan--comment-submit", action: "turbo:submit-start->coplan--comment-submit#started turbo:before-fetch-response->coplan--comment-submit#response turbo:fetch-request-error->coplan--comment-submit#failed turbo:submit-end->coplan--comment-submit#finished turbo:submit-end->coplan--document-comments#posted" } do %>
+          <%= render "coplan/comment_threads/composer_fields", plan: plan, label: "Comment on this plan", field_id: "document-comment-body", error_id: "document-comment-error", cancel_action: nil, submit_class: "btn--secondary", placeholder: "Start a discussion about this plan…" %>
+        <% end %>
+      <% end %>
+    </div>
+  </details>
 </aside>

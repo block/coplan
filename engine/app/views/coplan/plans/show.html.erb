@@ -79,7 +79,8 @@
               asynchronously, landing the scroll nowhere near the section. %>
           <li><a href="#footnote-references" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">References <%= plan_section_count(reference_count, id: "nav-references-count") %></a></li>
           <li><a href="#footnote-attachments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Attachments <%= plan_section_count(@attachments.size, id: "nav-attachments-count") %></a></li>
-          <li><a href="#footnote-approvals" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Approvals</a></li>
+          <li><a href="#footnote-approvals" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Reviews <%= plan_section_count(@plan.review_requests.count, id: "nav-approvals-count") %></a></li>
+          <li><a href="#plan-general-comments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Comments <%= plan_section_count(@threads.count { |thread| !thread.anchored? && !thread.out_of_date? }, id: "nav-comments-count") %></a></li>
         </ul>
       </nav>
       <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>

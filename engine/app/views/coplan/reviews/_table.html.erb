@@ -1,0 +1,22 @@
+<div class="review-table-scroll" tabindex="0" role="region" aria-label="Reviewer decisions">
+  <table class="review-table" aria-label="Reviewers">
+    <thead><tr><th scope="col">Reviewer</th><th scope="col">Review</th><th scope="col">Decision</th><th scope="col">Version</th><th scope="col">Actions</th></tr></thead>
+    <tbody>
+      <% active_requests.sort_by { |request| [CoPlan::ReviewRequest::REQUIREMENTS.index(request.requirement), request.reviewer.name.downcase, request.id] }.each do |request| %>
+        <% response = request.review_responses.first %>
+        <% approval = request.latest_approval %>
+        <tr class="review-person" data-reviewer-id="<%= request.reviewer_id %>">
+          <td><div class="review-table__person"><%= user_avatar(request.reviewer) %><strong><%= request.reviewer.name %></strong></div></td>
+          <td><span class="review-table__requirement"><%= request.requirement.humanize %></span></td>
+          <td><span class="review-state<%= ' review-state--approved' if request.status == 'approved' %><%= ' review-state--attention' if request.pending? && request.reviewer_id == current_user.id %>"><span aria-hidden="true"><%= request.pending? ? "◷" : request.status == "approved" ? "✓" : "↩" %></span><span class="review-person__meta"><%= request.pending? ? "Review requested" : request.status.humanize %></span></span></td>
+          <td><% if !request.pending? && response %><span class="review-version">v<%= response.plan_version.revision %></span><% else %><span class="text-muted" aria-label="Not reviewed yet">—</span><% end %></td>
+          <td class="review-table__actions">
+            <% if !request.pending? && request.reviewer_id == current_user.id %><button type="button" class="review-log__link review-reopen" aria-label="Change decision" title="Change decision" data-action="coplan--review-tray#reconsider"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17"/></svg></button><% end %>
+            <% if approval && approval.plan_version.revision != plan.current_revision %><button type="button" class="review-log__link" data-action="coplan--review-tray#compare" data-url="<%= compare_plan_review_request_path(plan, request, response_id: approval.id) %>">Compare</button><% end %>
+          </td>
+        </tr>
+      <% end %>
+      <% if active_requests.empty? %><tr><td colspan="5" class="text-muted">No reviewers yet</td></tr><% end %>
+    </tbody>
+  </table>
+</div>

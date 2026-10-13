@@ -48,7 +48,7 @@ module CoPlan
           CreateNotificationsJob.perform_later(comment_thread_id: thread.id, actor_id: @actor.id,
             comment_id: thread.comments.first.id, reason: "new_comment")
           Broadcaster.append_to(plan, target: "plan-threads", partial: "coplan/comment_threads/thread_popover", locals: { plan: plan, thread: thread })
-          Broadcaster.replace_to(plan, target: "plan-general-comments", partial: "coplan/plans/general_comments",
+          Broadcaster.replace_to(plan, target: "plan-general-comment-list", partial: "coplan/plans/general_comment_list",
             locals: { threads: plan.comment_threads.with_kept_comments.includes(:comments).order(:created_at) })
         end
         Changed.call(request: @request, event_type: "review.responded", actor_token_id: @api_token&.id,

@@ -356,6 +356,7 @@ export default class extends Controller {
     target.querySelector("details.document-support__disclosure")?.setAttribute("open", "")
     this._revealDeckSlide(target)
     target.scrollIntoView({ behavior: "smooth", block: "start" })
+    target.focus({ preventScroll: true })
   }
 
   _revealDeckSlide(element) {

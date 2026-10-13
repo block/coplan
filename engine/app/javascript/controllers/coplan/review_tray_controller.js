@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "assignmentError", "approval", "approvalNote", "approvalError", "approvalStatement", "approveButton", "comparison", "diff"]
+  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "assignmentError", "approval", "approvalNote", "approvalError", "approvalTitle", "approveButton", "comparison", "diff", "activity"]
   static values = { url: String, searchUrl: String }
 
   connect() {
@@ -13,13 +13,12 @@ export default class extends Controller {
       document.getElementById(this.getAttribute("target"))?.dispatchEvent(new CustomEvent("coplan:reviews-changed"))
     }
     const tray = this.element.querySelector(".review-tray")
-    if (tray && tray.dataset.completed !== "true") tray.showPopover()
+    if (tray) tray.showPopover()
     document.body.classList.toggle("has-review-tray", !!tray?.matches(":popover-open"))
   }
 
   disconnect() {
     clearTimeout(this.searchTimer)
-    clearTimeout(this.dismissTimer)
     this.searchSequence++
     this.refreshSequence++
     document.body.classList.remove("has-review-tray")
@@ -32,6 +31,8 @@ export default class extends Controller {
   openReviews() { this.reviewsTarget.showModal() }
   closeReviews() { this.closeAssignment(); this.reviewsTarget.close() }
   closeComparison() { this.comparisonTarget.close() }
+  openActivity() { this.activityTarget.showModal() }
+  closeActivity() { this.activityTarget.close() }
 
   positionAssignment() {
     if (!this.hasAssignmentTarget || !this.assignmentTarget.matches(":popover-open")) return
@@ -80,28 +81,11 @@ export default class extends Controller {
   }
 
   reconsider() {
-    clearTimeout(this.dismissTimer)
     const tray = this.element.querySelector(".review-tray")
     tray.showPopover()
     document.body.classList.add("has-review-tray")
     tray.dataset.reconsidering = "true"
     this.changeButtonTarget.focus({ preventScroll: true })
-  }
-
-  scheduleDismiss() {
-    clearTimeout(this.dismissTimer)
-    this.dismissTimer = setTimeout(() => this.dismissRecorded(), 4000)
-  }
-
-  dismissRecorded() {
-    const tray = this.element.querySelector(".review-tray")
-    if (!tray || tray.dataset.completed !== "true") return
-    clearTimeout(this.dismissTimer)
-    const ownsFocus = tray.contains(document.activeElement)
-    tray.hidePopover()
-    delete tray.dataset.reconsidering
-    document.body.classList.remove("has-review-tray")
-    if (ownsFocus) document.querySelector("[data-review-indicator]")?.focus({ preventScroll: true })
   }
 
   expand() {
@@ -121,7 +105,6 @@ export default class extends Controller {
     const reconsider = tray.querySelector(".review-reconsider")
     const button = reconsider || (this.hasChangeButtonTarget ? this.changeButtonTarget : this.element.querySelector('.review-log-panel__header button'))
     button?.focus({ preventScroll: true })
-    if (tray.dataset.completed === "true") this.scheduleDismiss()
     if (this.reviewWithdrawn) {
       this.element.querySelector(".review-tray")?.remove()
       document.body.classList.remove("has-review-tray")
@@ -129,7 +112,7 @@ export default class extends Controller {
   }
 
   escape(event) {
-    if (this.reviewsTarget.open || this.approvalTarget.open || this.comparisonTarget.open) return
+    if (this.reviewsTarget.open || this.approvalTarget.open || this.comparisonTarget.open || this.activityTarget.open) return
     if (this.hasDiscussionTarget && !this.discussionTarget.hidden) {
       event.preventDefault()
       this.collapse()
@@ -146,7 +129,7 @@ export default class extends Controller {
     this.approvalRevision = this.viewedRevision()
     this.approvalErrorTarget.textContent = ""
     this.approveButtonTarget.textContent = `Approve v${this.approvalRevision}`
-    this.approvalStatementTarget.textContent = `I have read v${this.approvalRevision} and agree with all of its content.`
+    this.approvalTitleTarget.textContent = `Approve v${this.approvalRevision}?`
     this.approvalTarget.showModal()
   }
 
@@ -164,7 +147,6 @@ export default class extends Controller {
       this.noticeTarget.textContent = `Your approval of v${this.approvalRevision} is recorded.` + (synced ? "" : " Refresh the page to see your comment.")
       delete this.element.querySelector(".review-tray").dataset.reconsidering
       await this.refresh()
-      this.scheduleDismiss()
     }, "Recording…")
   }
 
@@ -175,14 +157,13 @@ export default class extends Controller {
     if (form.closest('[data-dictation-busy="true"]') || form.querySelector('[data-dictation-busy="true"]')) return
     const error = form.querySelector('[role="alert"]')
     await this.withBusy(form, error, async () => {
-      const result = await this.write(this.responseUrl, "POST", { review_response: { revision: this.viewedRevision(), decision: "changes_requested", note: input.value } })
+      const result = await this.write(form.action, "POST", { review_response: { revision: this.viewedRevision(), decision: "changes_requested", note: input.value } })
       // Feedback lives in the ordinary discussion collection.
       const synced = await this.refreshThreads(result.comment_thread_id)
       this.noticeTarget.textContent = "Changes requested. Your feedback is in the plan’s comments." + (synced ? "" : " Refresh the page to see your comment.")
       input.value = ""
       this.collapse()
       await this.refresh()
-      this.scheduleDismiss()
     }, "Posting…")
   }
 
@@ -196,7 +177,7 @@ export default class extends Controller {
         const id = `comment_thread_${threadId}`
         const thread = incoming.getElementById(id)
         if (thread && !document.getElementById(id)) document.getElementById("plan-threads")?.append(thread)
-        for (const id of ["plan-general-comments", "plan-detached-comments"]) {
+        for (const id of ["plan-general-comment-list", "plan-detached-comments"]) {
           const from = incoming.getElementById(id), to = document.getElementById(id)
           if (from && to) to.replaceWith(from)
         }
@@ -230,27 +211,19 @@ export default class extends Controller {
           this.commentFormTarget.querySelector('[role="alert"]').textContent = "This review request is no longer active. Your unsent feedback is still here."
         }
       }
-      if (tray && existingTray) {
-        const wasCompleted = existingTray.dataset.completed === "true"
-        existingTray.dataset.completed = tray.dataset.completed
-        if (!wasCompleted && tray.dataset.completed === "true" && this.discussionTarget.hidden) this.scheduleDismiss()
-        if (wasCompleted && tray.dataset.completed !== "true") {
-          clearTimeout(this.dismissTimer)
-          existingTray.showPopover()
-          document.body.classList.add("has-review-tray")
-        }
-      }
-      if (tray && !this.element.querySelector(".review-tray")) {
-        this.element.append(tray)
-        if (tray.dataset.completed !== "true") {
-          tray.showPopover()
-          document.body.classList.add("has-review-tray")
-        }
+      if (tray && existingTray) existingTray.dataset.completed = tray.dataset.completed
+      if (tray && !this.element.querySelector(".review-tray")) this.element.append(tray)
+      const currentTray = this.element.querySelector(".review-tray")
+      if (tray && currentTray) {
+        currentTray.showPopover()
+        document.body.classList.add("has-review-tray")
       }
       if (tray && wasWithdrawn && this.hasCommentFormTarget) {
         this.commentFormTarget.querySelector('[type="submit"]').disabled = false
         this.commentFormTarget.querySelector('[role="alert"]').textContent = ""
       }
+      const table = this.element.querySelector(".review-table-scroll")
+      const tableScroll = table && { top: table.scrollTop, left: table.scrollLeft }
       // Preserve the tray, its open state, dictation and all unsent text.
       for (const selector of ["[data-review-status]", "[data-review-decision-actions]", "[data-review-summary]", "[data-review-log-summary]", "[data-review-assignments]", "[data-review-roster]", "[data-review-history]"]) {
         const from = incoming.querySelector(selector), to = this.element.querySelector(selector)
@@ -259,13 +232,10 @@ export default class extends Controller {
           if (from.hasAttribute("data-recorded")) to.dataset.recorded = from.dataset.recorded
         }
       }
-      const indicator = incoming.querySelector('[data-review-indicator-update]'), headerIndicator = document.querySelector('[data-review-indicator]')
-      if (indicator && headerIndicator) {
-        headerIndicator.replaceChildren(...indicator.childNodes)
-        headerIndicator.hidden = indicator.hidden
-        headerIndicator.title = indicator.title
-        headerIndicator.setAttribute('aria-label', indicator.getAttribute('aria-label'))
-      }
+      const refreshedTable = this.element.querySelector(".review-table-scroll")
+      if (tableScroll && refreshedTable) { refreshedTable.scrollTop = tableScroll.top; refreshedTable.scrollLeft = tableScroll.left }
+      const navCount = document.getElementById("nav-approvals-count")
+      if (navCount) navCount.textContent = Number(incoming.getElementById("plan-review-controls")?.dataset.reviewRecordCount) || ""
       if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", String(!this.discussionTarget.hidden))
     } catch { /* The task and draft remain usable; the next event retries. */ }
   }
@@ -357,7 +327,9 @@ export default class extends Controller {
 
   openThread(event) {
     this.closeReviews()
-    this.dismissRecorded()
+    this.closeActivity()
+    const tray = this.element.querySelector(".review-tray")
+    if (tray) delete tray.dataset.reconsidering
     document.dispatchEvent(new CustomEvent("coplan:open-thread", { detail: { threadId: event.currentTarget.dataset.threadId } }))
   }
 
@@ -373,7 +345,11 @@ export default class extends Controller {
     if (response.status === 204) return {}
     let result
     try { result = await response.json() } catch { throw new Error("Couldn't save your response. Your draft is still here. Please try again.") }
-    if (!response.ok) throw new Error(result.error || "Couldn't save. Please try again.")
+    if (!response.ok) {
+      const error = new Error(result.error || "Couldn't save. Please try again.")
+      if (result.code === "authentication_required") error.signInPath = result.sign_in_path
+      throw error
+    }
     return result
   }
 
@@ -384,7 +360,15 @@ export default class extends Controller {
     errorTarget.textContent = ""
     container.setAttribute("aria-busy", "true")
     buttons.forEach(button => { button.disabled = true; button.textContent = label })
-    try { await action() } catch (error) { errorTarget.textContent = error.message }
+    try { await action() } catch (error) {
+      errorTarget.textContent = error.message
+      if (error.signInPath) {
+        const link = document.createElement("a")
+        link.href = error.signInPath; link.target = "_blank"; link.rel = "noopener"
+        link.textContent = "Sign in in a new tab"
+        errorTarget.append(" ", link)
+      }
+    }
     finally { container.removeAttribute("aria-busy"); saved.forEach(({ button, html, disabled }) => { button.innerHTML = html; button.disabled = disabled }) }
   }
 }

@@ -6,6 +6,13 @@ RSpec.describe "Review requests", type: :request do
   let(:plan) { create(:plan, :published, created_by_user: author) }
   let(:task) { create(:review_request, plan: plan, reviewer: reviewer) }
 
+  it "returns an actionable JSON response when the reviewer session has expired" do
+    post respond_plan_review_request_path(plan, task), params: { review_response: { revision: 1, decision: "changes_requested", note: "Keep my draft" } }, as: :json
+    expect(response).to have_http_status(:unauthorized)
+    expect(response.parsed_body).to include("code" => "authentication_required", "sign_in_path" => "/sign_in")
+    expect(task.review_responses).to be_empty
+  end
+
   it "lets the author assign, make optional, request again and withdraw" do
     sign_in_as(author)
     post plan_review_requests_path(plan), params: { review_request: { reviewer_id: reviewer.id, requirement: "required" } }, as: :json

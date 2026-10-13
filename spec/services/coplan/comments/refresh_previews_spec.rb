@@ -5,8 +5,8 @@ RSpec.describe CoPlan::Comments::RefreshPreviews do
 
   it "refreshes general previews with a requestless partial" do
     expect(CoPlan::Broadcaster).to receive(:replace_to).with(thread.plan,
-      target: "plan-general-comments", partial: "coplan/plans/general_comments", locals: anything)
-    expect(described_class.call(thread: thread).map { |preview| preview[:target] }).to eq([ "plan-general-comments" ])
+      target: "plan-general-comment-list", partial: "coplan/plans/general_comment_list", locals: anything)
+    expect(described_class.call(thread: thread).map { |preview| preview[:target] }).to eq([ "plan-general-comment-list" ])
   end
 
   it "refreshes displaced text previews after their comments change" do

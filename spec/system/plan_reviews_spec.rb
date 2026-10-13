@@ -51,12 +51,12 @@ RSpec.describe "Plan discussion and approval", type: :system do
     within(".review-tray") { click_button "Request changes" }
     fill_in "Public review comment", with: "Please explain the retry contract.", enable_aria_label: true
     within(".review-tray__discussion") { click_button "Request changes" }
-    expect(page).to have_css(".review-tray", text: "Changes requested on v1")
+    expect(page).to have_css(".review-tray", text: "You requested changes to v1")
     expect(page).to have_css("#plan-general-comments", text: "Please explain the retry contract.")
     expect(task.reload.status).to eq("changes_requested")
     sign_in_browser(author)
     click_button "More actions"
-    click_button "Manage approvals"
+    within("#plan-menu") { click_button "Manage reviewers" }
     click_button "Actions for Plan Reviewer"
     click_button "Ready for another look"
     expect(page).to have_css(".review-person", text: "Review requested")
@@ -64,20 +64,37 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(task.review_responses.count).to eq(1)
   end
 
-  it "requires deliberate agreement with the whole version before approval" do
+  it "confirms approval with simple wording and a top-left close control" do
     within(".review-tray") { click_button "Approve" }
-    expect(page).to have_css(".review-confirmation[open]", text: "I have read v1 and agree with all of its content.")
-    expect(page.evaluate_script("document.activeElement.textContent")).to eq("Cancel")
-    click_button "Cancel"
+    expect(page).to have_css(".review-confirmation[open]", text: "I’ve reviewed this version and approve it.")
+    expect(page).to have_css(".review-confirmation__close:focus")
+    expect(page).to have_css("#approval-title", text: "Approve v1?")
+    expect(page).to have_no_content("AI agents can see this sign-off")
+    expect(page).to have_no_button("Cancel")
+    click_button "Close approval", enable_aria_label: true
     expect(task.review_responses).to be_empty
     expect(page).to have_no_css(".review-tray__discussion", visible: true)
     within(".review-tray") { click_button "Approve" }
     fill_in "Public note", with: "Satisfied with this version."
+    [ "light", "dark" ].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp/review-preview/approval-dialog-clean-#{theme}.png"))
+    end
+    close = find(".review-confirmation__close").rect
+    title = find("#approval-title").rect
+    expect(close.x).to be < title.x
+    expect(close.y).to be < title.y
+    click_button "Close approval", enable_aria_label: true
+    within(".review-tray") { click_button "Approve" }
+    expect(page).to have_field("Public note", with: "Satisfied with this version.")
+    page.send_keys(:escape)
+    expect(page).to have_no_css(".review-confirmation[open]")
+    within(".review-tray") { click_button "Approve" }
     click_button "Approve v1"
-    expect(page).to have_css(".review-tray:popover-open", text: "Approved v1")
+    expect(page).to have_css(".review-tray:popover-open", text: "You approved v1")
     expect(task.reload.status).to eq("approved")
     expect(page).to have_css("#plan-general-comments", text: "Satisfied with this version.")
-    expect(page).to have_css("#footnote-approvals .review-history", text: /Plan Reviewer approved\s+v1/)
+    expect(page).to have_css(".review-activity-dialog .review-history", text: /Plan Reviewer approved\s+v1/, visible: :all)
     expect(page).to have_content("Satisfied with this version.")
     within(".review-tray") do
       expect(page).to have_css(".review-result-icon--approved", text: "✓")
@@ -89,13 +106,17 @@ RSpec.describe "Plan discussion and approval", type: :system do
       page.execute_script("document.getElementById('footnote-approvals').scrollIntoView({block: 'center'})")
       page.save_screenshot(Rails.root.join("tmp/review-preview/approval-confirmation-#{theme}.png"))
     end
-    expect(page).to have_no_css(".review-tray:popover-open", wait: 6)
+    expect(page).to have_css(".review-tray time", text: task.review_responses.first.created_at.strftime("%b %-d, %Y"))
+    expect(page).to have_link("Reviews", href: "#footnote-approvals")
+    expect(page).to have_css("#nav-approvals-count", text: "1", exact_text: true)
+    # The receipt survives the former four-second timeout and return visits.
+    using_wait_time(6) { page.evaluate_async_script("setTimeout(arguments[0], 4500)") }
+    expect(page).to have_css(".review-tray:popover-open", text: "You approved v1")
     visit plan_page_path(plan)
-    expect(page).to have_no_css(".review-tray:popover-open")
-    within("#footnote-approvals") { click_button "Change decision" }
-    expect(page).to have_css(".review-tray:popover-open")
-    within(".review-tray") { click_button "Dismiss review confirmation", enable_aria_label: true }
-    expect(page).to have_no_css(".review-tray:popover-open")
+    expect(page).to have_css(".review-tray:popover-open", text: "You approved v1")
+    within(".review-tray") { click_button "View feedback" }
+    expect(page).to have_css(".thread-popover:popover-open", text: "Satisfied with this version.")
+    expect(page).to have_css(".review-tray:popover-open", text: "You approved v1")
   end
 
   it "refuses sign-off when the viewed version changed and keeps the public note" do
@@ -144,7 +165,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_css("#review-discussion-error", text: "Couldn't reach CoPlan. Your draft is still here")
     expect(page).to have_field("Public review comment", with: "Keep this unsent comment", enable_aria_label: true)
     within(".review-tray__discussion") { click_button "Request changes" }
-    expect(page).to have_css(".review-tray", text: "Changes requested on v1")
+    expect(page).to have_css(".review-tray", text: "You requested changes to v1")
   end
 
   it "lets the author find a person and assign required or optional review" do
@@ -153,7 +174,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     sign_in_browser(author)
     expect(page).to have_no_css(".review-tray", visible: :all)
     click_button "More actions"
-    click_button "Manage approvals"
+    within("#plan-menu") { click_button "Manage reviewers" }
     within(".review-management") { click_button "Add reviewer", exact: true }
     fill_in "Find a reviewer", with: "Another Reviewer"
     expect(page).to have_css(".review-search-result", text: "Another Reviewer")
@@ -171,7 +192,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     create(:coplan_user, name: "Popover Candidate", username: "popover-candidate")
     sign_in_browser(author)
     click_button "More actions"
-    click_button "Manage approvals"
+    within("#plan-menu") { click_button "Manage reviewers" }
     manager = find(".review-management").rect
     within(".review-management") { click_button "Add reviewer", exact: true }
     expect(page).to have_css("#review-assignment:popover-open")
@@ -226,7 +247,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     displaced.update_columns(out_of_date: true)
     visit plan_page_path(plan)
     expect(page).to have_css("#plan-general-comments .document-comment", text: "Plan comment")
-    expect(page).to have_css("#plan-general-comments .document-comment", text: "1 reply")
+    expect(page).to have_css("#plan-general-comments .document-comment__open[title='1 reply']")
     expect(page).to have_css("#plan-general-comments .comment__body strong", text: "Whole plan feedback")
     find("#plan-general-comments summary").click
     expect(page).to have_no_css("#plan-general-comments .document-comment", visible: true)
@@ -240,14 +261,14 @@ RSpec.describe "Plan discussion and approval", type: :system do
     fill_in "Public review comment", with: "Please verify recovery.", enable_aria_label: true
     within(".review-tray__discussion") { click_button "Request changes" }
     within(".review-tray") do
-      expect(page).to have_content("Changes requested on v1")
+      expect(page).to have_content("You requested changes to v1")
       expect(page).to have_no_content("Please verify recovery.")
       expect(page).to have_no_button("Request changes")
       expect(page).to have_button("View feedback", exact: false)
       click_button "Change decision"
       click_button "Approve", exact: true
     end
-    click_button "Cancel"
+    click_button "Close approval", enable_aria_label: true
     within(".review-tray") { click_button "Request changes" }
     within(".review-tray") { click_button "Cancel" }
     [ "light", "dark" ].each do |theme|
@@ -258,23 +279,193 @@ RSpec.describe "Plan discussion and approval", type: :system do
     page.current_window.resize_to(360, 760)
     expect(page.evaluate_script("document.documentElement.scrollWidth")).to be <= page.evaluate_script("window.innerWidth")
     page.current_window.resize_to(1400, 900)
-    within("#footnote-approvals") { click_button "Change decision" }
+    within("#footnote-approvals") { click_button "Change decision", enable_aria_label: true }
     within(".review-tray") { click_button "Approve", exact: true }
     click_button "Approve v1"
-    expect(page).to have_css(".review-tray", text: "Approved v1")
+    expect(page).to have_css(".review-tray", text: "You approved v1")
     expect(task.reload.status).to eq("approved")
     expect(task.review_responses.count).to eq(2)
     expect(page).to have_css("#plan-general-comments .document-comment", text: "Review · Changes requested · v1")
-    within(find("#plan-general-comments .document-comment", text: "Please verify recovery.")) { click_button "Open discussion", exact: false }
+    within(find("#plan-general-comments .document-comment", text: "Please verify recovery.")) { click_button "Open discussion", exact: false, enable_aria_label: true }
     expect(page).to have_css(".thread-popover:popover-open", text: "Please verify recovery.")
   ensure
     page.current_window.resize_to(1400, 900)
   end
 
-  it "collapses the log and opens it again from the header indicator" do
+  it "shows aligned approval columns and versions only for recorded decisions" do
+    other = create(:coplan_user, name: "Another Reviewer")
+    create(:review_request, plan: plan, reviewer: other, requirement: "optional")
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+    visit plan_page_path(plan)
+    within(".review-table") do
+      expect(all("th").map(&:text)).to eq([ "Reviewer", "Review", "Decision", "Version", "Actions" ])
+      rows = all("tbody tr")
+      expect(rows.map { |row| row.find("strong").text }).to eq([ "Plan Reviewer", "Another Reviewer" ])
+      expect(rows.first.all("td").map { |cell| cell.text.gsub(/\s+/, " ") }.first(4)).to eq([ "PR Plan Reviewer", "Required", "✓ Approved", "v1" ])
+      expect(rows.last.all("td")[3].text).to eq("—")
+      expect(rows.first).to have_button("Change decision", enable_aria_label: true)
+      expect(rows.first.find(".review-reopen").text).to be_empty
+    end
+    expect(page).to have_no_link("Attachments", href: "#footnote-attachments")
+  end
+
+  it "keeps reviews navigation available for historical review records" do
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+    task.update!(status: "withdrawn")
+    visit plan_page_path(plan)
+    expect(page).to have_link("Reviews", href: "#footnote-approvals")
+    expect(page).to have_css("#nav-approvals-count", text: "1", exact_text: true)
+    page.execute_script("document.getElementById('plan-review-controls').dispatchEvent(new CustomEvent('coplan:reviews-changed'))")
+    expect(page).to have_link("Reviews", href: "#footnote-approvals")
+    expect(page).to have_css("#nav-approvals-count", text: "1", exact_text: true)
+    within("#footnote-approvals") { click_button "View activity" }
+    expect(page).to have_css(".review-activity-dialog[open]", text: "Plan Reviewer approved")
+  end
+
+  it "preserves the long roster position during live review updates" do
+    12.times { create(:review_request, plan: plan, reviewer: create(:coplan_user)) }
+    visit plan_page_path(plan)
+    page.execute_script("document.querySelector('.review-table-scroll').scrollTop = 180")
+    expect(page.evaluate_script("document.querySelector('.review-table-scroll').scrollTop")).to eq(180)
+    task.update!(requirement: "optional")
+    page.execute_script("document.getElementById('plan-review-controls').dispatchEvent(new CustomEvent('coplan:reviews-changed'))")
+    expect(page).to have_css(".review-table tr[data-reviewer-id='#{reviewer.id}']", text: "Optional")
+    expect(page.evaluate_script("document.querySelector('.review-table-scroll').scrollTop")).to eq(180)
+    expect(page).to have_link("Reviews", href: "#footnote-approvals")
+    expect(page).to have_css("#nav-approvals-count", text: "13", exact_text: true)
+  end
+
+  it "extends comment hover backgrounds to the section edges with padded content" do
+    thread = create(:comment_thread, plan: plan, created_by_user: author)
+    thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "A document-wide discussion")
+    visit plan_page_path(plan)
+    [ [ 1400, 900 ], [ 360, 760 ] ].each do |width, height|
+      page.current_window.resize_to(width, height)
+      comment = find("#plan-general-comments .document-comment")
+      page.execute_script("arguments[0].scrollIntoView({block: 'center'})", comment)
+      comment.hover
+      geometry = page.evaluate_script <<~JS
+        (() => {
+        const row = document.querySelector('#plan-general-comments .document-comment');
+        const section = document.getElementById('plan-general-comments').getBoundingClientRect();
+        const rect = row.getBoundingClientRect();
+        const header = row.querySelector('.document-comment__header').getBoundingClientRect();
+        return {left: rect.left - section.left, right: section.right - rect.right, padding: header.left - rect.left, overflow: document.documentElement.scrollWidth > innerWidth};
+        })()
+      JS
+      expect(geometry["left"].abs).to be <= 1
+      expect(geometry["right"].abs).to be <= 1
+      expect(geometry["padding"]).to be >= 12
+      expect(geometry["overflow"]).to be(false)
+      [ "light", "dark" ].each do |theme|
+        page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+        comment.hover
+        page.save_screenshot(Rails.root.join("tmp/review-preview/comment-hover-#{width}-#{theme}.png"))
+      end
+      within(".review-tray") { click_button "Approve" }
+      expect(find(".review-confirmation").rect.width).to be <= page.evaluate_script("innerWidth")
+      click_button "Close approval", enable_aria_label: true
+    end
+  ensure
+    page.current_window.resize_to(1400, 900)
+  end
+
+  it "opens comment rows and reveals filtered resolved feedback from activity" do
+    result = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "changes_requested", note: "Please clarify recovery")
+    thread = result.comment_thread
+    thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "I added the recovery detail")
+    visit plan_page_path(plan)
+    comment = find("#plan-general-comments .document-comment", text: "Please clarify recovery")
+    expect(comment).to have_button("Open discussion", enable_aria_label: true)
+    expect(comment.find(".document-comment__open")[:title]).to eq("1 reply")
+    comment.find(".comment__body").click
+    expect(page).to have_css(".thread-popover:popover-open", text: "I added the recovery detail")
+    page.send_keys(:escape)
+    thread.resolve!(reviewer)
+    visit plan_page_path(plan)
+    expect(page).to have_no_css("#plan-general-comments .document-comment", text: "Please clarify recovery")
+    within("#footnote-approvals") { click_button "View activity", exact: false }
+    within(".review-activity-dialog") { click_button "Open discussion", exact: false }
+    expect(page).to have_no_css(".review-activity-dialog[open]")
+    expect(page).to have_css(".thread-popover:popover-open", text: "Please clarify recovery")
+    expect(page).to have_select("Show", selected: "Resolved")
+  end
+
+  it "starts document-wide discussions and filters open and resolved comments without losing drafts" do
+    resolved = create(:comment_thread, plan: plan, created_by_user: author, status: "resolved")
+    resolved.comments.create!(author_type: "human", author_id: author.id, body_markdown: "An earlier discussion")
+    visit plan_page_path(plan)
+    expect(page).to have_link("Comments", href: "#plan-general-comments")
+    within("#plan-general-comments") do
+      expect(page).to have_no_content("An earlier discussion")
+      select "Resolved", from: "Show"
+      expect(page).to have_content("An earlier discussion")
+      fill_in "Comment on this plan", with: "A new document discussion", enable_aria_label: true
+      click_button "Comment", exact: true
+      expect(page).to have_css(".document-comment", text: "A new document discussion")
+      expect(page).to have_field("Comment on this plan", with: "", enable_aria_label: true)
+      expect(page).to have_select("Show", selected: "Open")
+      fill_in "Comment on this plan", with: "Keep this draft during updates", enable_aria_label: true
+    end
+    thread = plan.comment_threads.joins(:comments).find_by!(coplan_comments: { body_markdown: "A new document discussion" })
+    expect(thread.anchor_text).to be_blank
+    expect(thread.created_by_user).to eq(reviewer)
+    thread.resolve!(reviewer)
+    CoPlan::Comments::RefreshPreviews.call(thread: thread)
+    expect(page).to have_no_css("#plan-general-comments .document-comment", text: "A new document discussion")
+    page.execute_script("document.getElementById('plan-review-controls').dispatchEvent(new CustomEvent('coplan:reviews-changed'))")
+    within("#plan-general-comments") do
+      expect(page).to have_field("Comment on this plan", with: "Keep this draft during updates", enable_aria_label: true)
+      select "All comments", from: "Show"
+      expect(page).to have_content("An earlier discussion")
+      expect(page).to have_content("A new document discussion")
+    end
+  end
+
+  it "records a changed decision after reopening the plan and preserves both decisions" do
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+    visit plan_page_path(plan)
+    within("#footnote-approvals") { click_button "Change decision", enable_aria_label: true }
+    within(".review-tray") { click_button "Request changes" }
+    fill_in "Public review comment", with: "I reconsidered the recovery step", enable_aria_label: true
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_css(".review-tray", text: "You requested changes to v1")
+    expect(task.reload.status).to eq("changes_requested")
+    expect(task.review_responses.count).to eq(2)
+    within("#footnote-approvals") { click_button "View activity", exact: false }
+    expect(page).to have_css(".review-activity-dialog[open]", text: "I reconsidered the recovery step")
+    within(".review-activity-dialog") { click_button "Open discussion", exact: false, enable_aria_label: true }
+    expect(page).to have_no_css(".review-activity-dialog[open]")
+    expect(page).to have_css(".thread-popover:popover-open", text: "I reconsidered the recovery step")
+  end
+
+  it "explains an expired login and keeps review feedback available for retry" do
+    within(".review-tray") { click_button "Request changes" }
+    fill_in "Public review comment", with: "Don't lose this feedback", enable_aria_label: true
+    page.execute_script <<~JS
+      const originalFetch = window.fetch;
+      window.fetch = (url, options) => {
+        if (options?.method === 'POST') {
+          window.fetch = originalFetch;
+          return Promise.resolve(new Response(JSON.stringify({error: 'Your session ended. Sign in, then retry; your draft is still here.', code: 'authentication_required', sign_in_path: '/sign_in'}), {status: 401, headers: {'Content-Type': 'application/json'}}));
+        }
+        return originalFetch(url, options);
+      };
+    JS
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_content("Your session ended")
+    expect(page).to have_link("Sign in in a new tab", href: "/sign_in")
+    expect(page).to have_field("Public review comment", with: "Don't lose this feedback", enable_aria_label: true)
+    expect(task.review_responses).to be_empty
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_css(".review-tray", text: "You requested changes to v1")
+    expect(task.reload.status).to eq("changes_requested")
+  end
+
+  it "collapses the log and opens it again from the Reviews sidebar" do
     find("#footnote-approvals summary").click
     expect(page).to have_no_css("#footnote-approvals .review-roster", visible: true)
-    find("[data-review-indicator]").click
+    click_link "Reviews", href: "#footnote-approvals"
     expect(page).to have_css("#footnote-approvals .review-roster", visible: true)
     expect(page).to have_no_css("[data-review-log-summary] .review-version")
     expect(page).to have_css(".review-person__meta", text: "Review requested")
@@ -307,7 +498,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     optional = create(:review_request, plan: plan, reviewer: other, requirement: "optional", requested_at: 1.day.ago)
     sign_in_browser(author)
     click_button "More actions"
-    click_button "Manage approvals"
+    within("#plan-menu") { click_button "Manage reviewers" }
     within(".review-management") do
       expect(all(".review-group h3").map { |heading| heading.text.gsub(/\s+/, " ") }).to eq([ "Required 1", "Optional 1" ])
       expect(page).to have_no_button("Make required")
@@ -322,35 +513,35 @@ RSpec.describe "Plan discussion and approval", type: :system do
       page.save_screenshot(Rails.root.join("tmp/review-preview/review-manager-#{theme}.png"))
     end
     click_button "Close reviews", enable_aria_label: true
-    within("#footnote-approvals") { expect(page).to have_css(".review-group h3", text: /Required\s+2/) }
+    within("#footnote-approvals") { expect(page).to have_css(".review-table__requirement", text: "Required", count: 2) }
     [ "light", "dark" ].each do |theme|
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
       page.save_screenshot(Rails.root.join("tmp/review-preview/review-log-#{theme}.png"))
     end
   end
 
-  it "jumps to a visible review log and counts only approvals of the current version" do
-    indicator = find("[data-review-indicator]")
-    expect(indicator[:title]).to include("0 of 1 required reviewers approved v1")
-    indicator.click
+  it "uses the Reviews sidebar and keeps completed decisions attached to their version" do
+    expect(page).to have_no_css("#plan-header [data-review-indicator]", visible: :all)
+    click_link "Reviews", href: "#footnote-approvals"
     expect(page.evaluate_script("document.activeElement.id")).to eq("footnote-approvals")
-    within("#footnote-approvals") do
-      expect(page).to have_content("Activity")
-      expect(page).to have_content("requested a review from Plan Reviewer")
-    end
+    within("#footnote-approvals") { click_button "View activity", exact: false }
+    expect(page).to have_css(".review-activity-dialog[open]", text: "requested a review from Plan Reviewer")
+    click_button "Close review activity", enable_aria_label: true
     CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
-    visit plan_page_path(plan)
-    expect(find("[data-review-indicator]")[:title]).to include("1 of 1 required reviewers approved v1")
-    version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A revised contract")
+    version = create(:plan_version, plan: plan, revision: 2, content_markdown: "# Revised contract\n\nMore detail")
     plan.update!(current_plan_version: version, current_revision: 2)
     visit plan_page_path(plan)
-    expect(find("[data-review-indicator]")[:title]).to include("0 of 1 required reviewers approved v2")
-    expect(page).to have_css("#footnote-approvals .review-history", text: /Plan Reviewer approved\s+v1/)
+    expect(page).to have_no_css("#plan-header [data-review-indicator]", visible: :all)
+    within(".review-table") do
+      expect(page).to have_css(".review-version", text: "v1")
+      expect(page).to have_button("Compare")
+    end
+    expect(page).to have_css(".review-activity-dialog .review-history", text: /Plan Reviewer approved\s+v1/, visible: :all)
   end
 
   it "changes visibility through the byline without navigation or scroll jumps" do
     sign_in_browser(author)
-    page.execute_script("window.scrollTo(0, 120)")
+    page.execute_script("window.scrollTo(0, 40)")
     scroll = page.evaluate_script("window.scrollY")
     click_button "Shared", exact: true
     within(".plan-visibility-panel") { click_button "Private", exact: false }

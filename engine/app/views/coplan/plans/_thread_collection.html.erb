@@ -5,5 +5,5 @@
     <%= render partial: "coplan/comment_threads/thread_popover", locals: { thread: thread, plan: plan } %>
   <% end %>
 </div>
-<%= render "coplan/plans/general_comments", threads: threads %>
+<%= render "coplan/plans/general_comments", plan: plan, threads: threads %>
 <%= render "coplan/plans/detached_comments", threads: threads %>

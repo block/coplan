@@ -26,15 +26,6 @@ export default class extends Controller {
     document.dispatchEvent(new CustomEvent("coplan:manage-reviews"))
   }
 
-  jumpReviews(event) {
-    event.preventDefault()
-    const log = document.getElementById("footnote-approvals")
-    if (!log) return
-    log.querySelector("details").open = true
-    log.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" })
-    log.focus({ preventScroll: true })
-  }
-
   openVisibility(event) {
     const state = event.currentTarget.dataset.visibility
     this.visibilityErrorTarget.textContent = ""

@@ -18,7 +18,9 @@ module CoPlan
         plan = @thread.plan
         locals = { threads: plan.comment_threads.with_kept_comments.includes(:comments).order(:created_at) }
         kinds.map do |kind|
-          preview = { target: "plan-#{kind}-comments", partial: "coplan/plans/#{kind}_comments", locals: locals }
+          partial = kind == "general" ? "general_comment_list" : "detached_comments"
+          target = kind == "general" ? "plan-general-comment-list" : "plan-detached-comments"
+          preview = { target: target, partial: "coplan/plans/#{partial}", locals: locals }
           Broadcaster.replace_to(plan, **preview)
           preview
         end

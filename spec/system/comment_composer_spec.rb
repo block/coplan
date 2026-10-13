@@ -13,7 +13,7 @@ RSpec.describe "Glass comment composer", type: :system do
     click_button "Sign In"
     expect(page).to have_current_path("/composer")
     visit plan_page_path(plan)
-    find("#plan-general-comments button").click
+    within("#plan-general-comments") { click_button "Open discussion", enable_aria_label: true }
     expect(page).to have_css(".thread-popover", visible: true)
   end
 
@@ -123,7 +123,7 @@ RSpec.describe "Glass comment composer", type: :system do
   it "shows the newly posted reply and returns the empty draft to its compact height" do
     comment.update!(body_markdown: ("Earlier discussion.\n\n" * 30))
     page.refresh
-    find("#plan-general-comments button").click
+    within("#plan-general-comments") { click_button "Open discussion", enable_aria_label: true }
     panel = find(".comment-window:popover-open")
     input = panel.find("textarea")
     page.execute_script <<~JS
@@ -202,7 +202,7 @@ RSpec.describe "Glass comment composer", type: :system do
   it "keeps the header, reply controls and corner grip inside a shrunken discussion" do
     comment.update!(body_markdown: ("A longer discussion still needs room for a reply.\n\n" * 12))
     page.refresh
-    find("#plan-general-comments button").click
+    within("#plan-general-comments") { click_button "Open discussion", enable_aria_label: true }
     panel = find(".comment-window:popover-open")
     panel.find("textarea").fill_in with: "A draft that survives resizing"
     grip = panel.find("[aria-label='Resize comment window']")
