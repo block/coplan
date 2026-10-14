@@ -50,6 +50,9 @@ jobs:
       - name: Run tests
         run: bundle exec rspec --seed "$((GITHUB_RUN_ID % 65536))" --format progress --format json --out tmp/rspec-results.json
 
+      - name: Check browser voice environment cleanup
+        run: bundle exec rspec spec/system/voice_commenting_spec.rb spec/system/comment_composer_spec.rb --tag voice_environment --order defined --format progress --format json --out tmp/rspec-voice-environment.json
+
       - name: Stress regression specs with fresh processes and test orders
         run: bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
 
@@ -60,6 +63,7 @@ jobs:
           name: rspec-mysql-${{ github.run_attempt }}
           path: |
             tmp/rspec-results.json
+            tmp/rspec-voice-environment.json
             tmp/rspec-stress/
             tmp/capybara/
             tmp/screenshots/
@@ -106,6 +110,9 @@ jobs:
       - name: Run tests
         run: bundle exec rspec --seed "$((GITHUB_RUN_ID % 65536))" --format progress --format json --out tmp/rspec-results.json
 
+      - name: Check browser voice environment cleanup
+        run: bundle exec rspec spec/system/voice_commenting_spec.rb spec/system/comment_composer_spec.rb --tag voice_environment --order defined --format progress --format json --out tmp/rspec-voice-environment.json
+
       - name: Stress regression specs with fresh processes and test orders
         run: bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
 
@@ -116,6 +123,7 @@ jobs:
           name: rspec-postgres-${{ github.run_attempt }}
           path: |
             tmp/rspec-results.json
+            tmp/rspec-voice-environment.json
             tmp/rspec-stress/
             tmp/capybara/
             tmp/screenshots/
