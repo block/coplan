@@ -158,6 +158,24 @@ RSpec.describe "Expanding an image", type: :system do
     end
   end
 
+  it "reports the final fit before the first resize callback" do
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      import("coplan/expander").then(m => {
+        const expander = m.openExpander({title: "Fit setup", variant: "image", status: true});
+        const {viewport, panZoom} = m.mountPanZoom(expander, document.createElement("img"), {width: 1600, height: 900});
+        const box = viewport.getBoundingClientRect();
+        const expected = Math.min(2, (box.width - 48) / 1600, (box.height - 48) / 900);
+        const initial = panZoom.scale;
+        const readout = expander.dialog.querySelector(".expander__readout").textContent;
+        expander.close();
+        done({initial, expected, readout});
+      }).catch(error => done({error: error.message}));
+    JS
+    expect(result.fetch("initial")).to be_within(0.0001).of(result.fetch("expected"))
+    expect(result.fetch("readout")).to eq("#{(result.fetch('expected') * 100).round}%")
+  end
+
   describe "expanded" do
     before do
       screenshot_frame.hover

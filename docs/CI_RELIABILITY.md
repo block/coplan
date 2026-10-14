@@ -16,6 +16,7 @@ does not prove that a race is fixed.
 | Formatting the document | [main](https://github.com/block/coplan/actions/runs/38434727874), [accessibility PR](https://github.com/block/coplan/actions/runs/37959284861) | Removing the last heading collapses the outline and moves the toolbar 244 pixels while Selenium clicks Bold, sometimes hitting Block quote. Keep the outline column fixed during editing. Check its geometry after the outline updates. Also wait for completed editor mounting before typing. |
 | Code loses its highlighting after Undo | [demo library PR](https://github.com/block/coplan/actions/runs/38602496501), [accessibility PR](https://github.com/block/coplan/actions/runs/37853049975) | Language changes and code edits can join one history group within 500 ms. Fence the first content edit after language edits. A fixed-clock regression checks Undo and Redo without depending on browser speed. |
 | Rapid caret movement escapes code | Found during the local stress runs, including seed 3118 | ArrowDown used the model's old end-of-code caret before native selectionchange caught up. Read the visible caret before deciding to leave code. A same-turn key-event regression forces the lag deterministically. |
+| Fit-to-screen changes after zooming | [reliability PR](https://github.com/block/coplan/actions/runs/38632117302) | The initial fit ran before the toolbar and gesture hint reduced the canvas height. Fit again synchronously after mounting those controls. The regression compares the initial scale and readout with the final canvas geometry before any resize callback can run. |
 | Admin filter inspects an outgoing document | [review PR](https://github.com/block/coplan/actions/runs/38455835339), [accessibility PR](https://github.com/block/coplan/actions/runs/37968935251) | The filtered page still contains the matching row before navigation completes. Wait for each destination URL before querying its DOM. |
 | Concurrent plans share a URL | [demo library PR](https://github.com/block/coplan/actions/runs/38455672055), [main](https://github.com/block/coplan/actions/runs/37646742848) | The test shared a mutable user and its lazy library cache across connections. Commit the namespace fixture first and load an independent user per request. Start both connections together and bound thread cleanup. Retain assertions for unique addresses and resolution to each plan. |
 | Reading position changes during a remote update | [agent comments PR](https://github.com/block/coplan/actions/runs/37672510420) | Wait for the initial comment anchor to render before recording the reading position. Retain the 24-pixel maximum displacement assertion after the update. |
@@ -36,7 +37,8 @@ that `SCHEMA` value set for subsequent spec commands.
 ```sh
 RAILS_ENV=test bin/rspec-stress --runs 20 --seed 3100 \
   spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb \
-  spec/system/human_editing_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
+  spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb \
+  spec/services/coplan/plans/segment_claims_spec.rb
 ```
 
 Each run starts a fresh Ruby process and uses the next random-order seed.

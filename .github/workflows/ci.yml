@@ -51,7 +51,7 @@ jobs:
         run: bundle exec rspec --seed "$((GITHUB_RUN_ID % 65536))" --format progress --format json --out tmp/rspec-results.json
 
       - name: Stress regression specs with fresh processes and test orders
-        run: bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
+        run: bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
 
       - name: Preserve test reports and browser failure screenshots
         if: ${{ !cancelled() }}
@@ -106,7 +106,7 @@ jobs:
         run: bundle exec rspec --seed "$((GITHUB_RUN_ID % 65536))" --format progress --format json --out tmp/rspec-results.json
 
       - name: Stress regression specs with fresh processes and test orders
-        run: bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
+        run: bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
 
       - name: Preserve test reports and browser failure screenshots
         if: ${{ !cancelled() }}
