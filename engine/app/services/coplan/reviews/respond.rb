@@ -1,7 +1,14 @@
 module CoPlan
   module Reviews
     class Respond
-      class Conflict < StandardError; end
+      class Conflict < StandardError
+        attr_reader :code
+
+        def initialize(message, code: "review_version_changed")
+          super(message)
+          @code = code
+        end
+      end
 
       def self.call(request:, actor:, revision:, decision:, note: nil, api_token: nil)
         new(request:, actor:, revision:, decision:, note:, api_token:).call
@@ -15,7 +22,7 @@ module CoPlan
         plan = @request.plan
         response = plan.with_lock do
           @request.reload
-          raise Conflict, "This review request was withdrawn." if @request.status == "withdrawn"
+          raise Conflict.new("This review request was withdrawn.", code: "review_request_withdrawn") if @request.status == "withdrawn"
           raise Conflict, "The plan has changed. Review the latest version before recording your response." unless @revision.to_s == plan.current_revision.to_s
 
           response = @request.review_responses.build(user: @actor, plan_version: plan.current_plan_version,

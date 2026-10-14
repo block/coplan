@@ -60,6 +60,8 @@ Every endpoint, with the guide that explains it. All paths start with `<%= @base
 | `DELETE /api/v1/plans/:id/review_requests/:request_id` | Withdraw a request and preserve its history. Plan author only. | comments |
 | `POST /api/v1/plans/:id/review_requests/:request_id/respond` | Approve a version or request changes. Requested reviewer only. | comments |
 
+A review response returns 409 with `code: review_version_changed` for a stale revision. Re-read before responding. A withdrawn request returns 409 with `code: review_request_withdrawn`; stop responding unless the author requests another look.
+
 ## Libraries and folders
 
 | Method and path | Purpose | Guide |

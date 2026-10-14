@@ -7,7 +7,7 @@ module CoPlan
         before_action :authorize_plan_write!, only: [ :create, :update, :destroy ]
         before_action :set_review_request, only: [ :update, :destroy, :respond ]
         rescue_from Reviews::Respond::Conflict do |error|
-          render json: { error: error.message, code: "review_version_changed" }, status: :conflict
+          render json: { error: error.message, code: error.code }, status: :conflict
         end
         rescue_from ActiveRecord::RecordInvalid do |error|
           render json: { error: error.record.errors.full_messages.to_sentence }, status: :unprocessable_content

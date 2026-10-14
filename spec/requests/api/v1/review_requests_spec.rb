@@ -48,11 +48,24 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
     expect(response).to have_http_status(:no_content)
   end
 
+  it "distinguishes a withdrawn task from a stale revision without recording a response" do
+    task.update!(status: "withdrawn")
+    post respond_api_v1_plan_review_request_path(plan, task),
+      params: { revision: plan.current_revision, decision: "approved", note: "Must not create feedback" },
+      headers: headers("reviews-reviewer"), as: :json
+    expect(response).to have_http_status(:conflict)
+    expect(JSON.parse(response.body).fetch("code")).to eq("review_request_withdrawn")
+    expect(task.reload.status).to eq("withdrawn")
+    expect(task.review_responses).to be_empty
+    expect(plan.comment_threads).to be_empty
+  end
+
   it "requires a token, rejects stale revisions and returns useful validation errors" do
     get api_v1_plan_review_requests_path(plan)
     expect(response).to have_http_status(:unauthorized)
     post respond_api_v1_plan_review_request_path(plan, task), params: { revision: 0, decision: "approved" }, headers: headers("reviews-reviewer"), as: :json
     expect(response).to have_http_status(:conflict)
+    expect(JSON.parse(response.body).fetch("code")).to eq("review_version_changed")
     post api_v1_plan_review_requests_path(plan), params: { reviewer_id: reviewer.id, requirement: "all" }, headers: headers("reviews-owner"), as: :json
     expect(response).to have_http_status(:unprocessable_content)
   end
