@@ -196,10 +196,15 @@ RSpec.describe "Plan discussion and approval", type: :system do
     manager = find(".review-management").rect
     within(".review-management") { click_button "Add reviewer", exact: true }
     expect(page).to have_css("#review-assignment:popover-open")
+    expect(page).to have_css('[aria-controls="review-assignment"][aria-expanded="true"]')
     find('[popovertarget="review-assignment"]').click
     expect(page).to have_no_css("#review-assignment:popover-open")
     within(".review-management") { click_button "Add reviewer", exact: true }
     expect(page).to have_css("#review-assignment:popover-open")
+    # Native toggle is queued after opening. Record geometry only after the
+    # handler has positioned the picker and focused its search field.
+    expect(page).to have_css('[aria-controls="review-assignment"][aria-expanded="true"]')
+    expect(page).to have_css("#reviewer-search:focus")
     panel = find("#review-assignment").rect
     expect(find(".review-management").rect).to eq(manager)
     fill_in "Find a reviewer", with: "Popover Candidate"
