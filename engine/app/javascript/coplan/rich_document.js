@@ -896,10 +896,13 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
       // A preview above the active field/button must not move it mid-action.
       const focused = document.activeElement
       const control = view.dom.contains(focused) && focused.matches("input, textarea, button, select") && !previewBody.contains(focused) ? focused : null
-      const top = control?.getBoundingClientRect().top
+      const bounds = control?.getBoundingClientRect()
+      // Focus can remain in a field after someone scrolls away to read.
+      // That offscreen field must not pull the page when a preview finishes.
+      const visible = bounds && bounds.bottom > 0 && bounds.top < window.innerHeight
       if (asText) previewBody.textContent = content
       else previewBody.innerHTML = content
-      if (control?.isConnected) window.scrollBy(0, control.getBoundingClientRect().top - top)
+      if (control?.isConnected && visible) window.scrollBy(0, control.getBoundingClientRect().top - bounds.top)
     }
     let previewTimer
     const render = () => {

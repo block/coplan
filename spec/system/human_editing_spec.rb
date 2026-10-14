@@ -565,6 +565,43 @@ RSpec.describe "Human plan editing", type: :system do
     page.driver.browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: script.fetch("identifier")) if script
   end
 
+  it "keeps reading position when an iframe field is focused offscreen" do
+    source = "# Long document\n\n" + ("Reading paragraph.\n\n" * 35) + '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' + "\n\n" + '::: {.iframe src="https://unapproved.example.com/second" title="Second" /}' + "\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    script = page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~'JS')
+      const originalFetch = window.fetch.bind(window), waiting = [];
+      document.addEventListener("DOMContentLoaded", () => { document.body.style.overflowAnchor = "none"; });
+      window.releaseIframePreviews = () => waiting.splice(0).forEach(release => release());
+      window.fetch = async (...args) => {
+        const result = await originalFetch(...args);
+        if (String(args[0]).endsWith("/preview_draft") && args[1]?.body?.includes("unapproved.example.com/first")) {
+          const html = await result.text();
+          return new Promise(resolve => {
+            waiting.push(() => resolve({ok: result.ok, redirected: result.redirected, text: () => Promise.resolve(html)}));
+            if (args[1].body.includes("first-delayed")) document.documentElement.dataset.delayedIframeHeld = "true";
+          });
+        }
+        return result;
+      };
+    JS
+    visit plan_edit_page_path(plan)
+    editor
+    fields = all('[data-embed-attribute="src"]')
+    fields.first.fill_in with: "https://unapproved.example.com/first-delayed"
+    fields.last.click
+    expect(page).to have_css('html[data-delayed-iframe-held="true"]')
+    page.execute_script("window.scrollTo(0, 0)")
+    expect(page.evaluate_script("document.activeElement.getBoundingClientRect().top > innerHeight")).to eq(true)
+    expect(page.evaluate_script("scrollY")).to eq(0)
+    page.execute_script("window.releaseIframePreviews()")
+    first_block = fields.first.find(:xpath, 'ancestor::div[contains(@class,"document-editor__block")]', match: :first)
+    expect(first_block.find(".document-editor__block-preview")).to have_css("*")
+    expect(page.evaluate_script("scrollY")).to be <= 1
+  ensure
+    page.driver.browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: script.fetch("identifier")) if script
+  end
+
   it "separates inserted content blocks from citation definitions across save and reload" do
     source = "Plain.[^catalog]\n\n[^catalog]: Catalog source.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
