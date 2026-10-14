@@ -61,8 +61,33 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_css(".ProseMirror h1", text: "New heading")
     expect(page).to have_css(".content-nav__link", text: "New heading", visible: :all)
     expect(editor.rect.x).to be_within(1).of(paper_x)
-    find_button("More actions", exact: true).send_keys("t")
+    click_button "More actions", exact: true
+    within("#plan-menu") { click_button "Show outline" }
     expect(page).to have_css(".content-nav", text: "New heading", visible: true)
+  end
+
+  it "reveals the new outline on a touch screen without moving the paper" do
+    page.current_window.resize_to(390, 760)
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: true, maxTouchPoints: 1)
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Opening paragraph.\n",
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    paper_x = editor.rect.x
+    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "New heading")
+    select "Heading 1", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror h1", text: "New heading")
+    expect(page).to have_css(".content-nav__link", text: "New heading", visible: :all)
+    expect(editor.rect.x).to be_within(1).of(paper_x)
+    click_button "More actions", exact: true
+    within("#plan-menu") { click_button "Show outline" }
+    expect(page).to have_css(".content-nav:popover-open", text: "New heading", visible: true)
+    expect(editor.rect.x).to be_within(1).of(paper_x)
+    click_button "Hide table of contents", enable_aria_label: true
+    expect(page).to have_no_css(".content-nav:popover-open")
+    expect(page).to have_css("[aria-label='More actions']:focus")
+  ensure
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: false)
+    page.current_window.resize_to(1400, 900)
   end
 
   it "edits the title while retaining tags without metadata controls" do
