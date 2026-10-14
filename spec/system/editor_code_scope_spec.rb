@@ -40,9 +40,9 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
       page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
       expect(page).to have_css(".document-editor__block > pre > code") { |element| page.evaluate_script("getSelection().toString()") == element.text }
       page.driver.browser.action.send_keys(:arrow_right).perform
-      Selenium::WebDriver::Wait.new(timeout: 3).until do
-        page.evaluate_script('(() => { const s = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").richEditor.view.state.selection; return s.empty && s.$head.parent.type.name === "code_block" && s.$head.parentOffset === s.$head.parent.content.size })()')
-      end
+      expect(page).to have_css(".document-editor__block > pre > code") { |element|
+        code_prefix == element.evaluate_script("this.textContent") && page.evaluate_script("getSelection().isCollapsed")
+      }
       page.driver.browser.action.send_keys(:arrow_down).perform
       expect(all('[aria-label="Document body"] p').count).to eq(paragraphs)
       expect(page.evaluate_script('getSelection().anchorNode.parentElement.closest("p")?.textContent')).to eq("After prose.")
