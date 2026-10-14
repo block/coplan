@@ -13,7 +13,7 @@
             </p>
             <time datetime="<%= at.iso8601 %>" title="<%= l(at, format: :long) %>"><%= l(at, format: :short) %></time>
             <% if kind == :response && item.note.present? %><p class="review-log__note"><%= item.note %></p><% end %>
-            <% if kind == :response && item.comment_thread_id.present? %><button type="button" class="review-log__link" data-action="coplan--review-tray#openThread" data-thread-id="<%= item.comment_thread_id %>">Open discussion <span aria-hidden="true">↗</span></button><% end %>
+            <% if kind == :response && feedback_thread_ids.include?(item.comment_thread_id) %><button type="button" class="review-log__link" data-action="coplan--review-tray#openThread" data-thread-id="<%= item.comment_thread_id %>">Open discussion <span aria-hidden="true">↗</span></button><% end %>
           </div>
         </article>
       <% end %>

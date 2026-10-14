@@ -47,6 +47,27 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_field("Public review comment", with: "Can we clarify this boundary?", enable_aria_label: true)
   end
 
+  it "removes feedback links in place when the last review comment is deleted" do
+    within(".review-tray") { click_button "Request changes" }
+    fill_in "Public review comment", with: "Remove this feedback comment", enable_aria_label: true
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_css(".review-tray", text: "You requested changes")
+    within(".review-tray") { click_button "View feedback" }
+    expect(page).to have_css(".thread-popover", text: "Remove this feedback comment", visible: true)
+    accept_confirm do
+      within(".thread-popover", visible: true) { click_button "Delete", exact: true }
+    end
+    expect(page).to have_no_css(".thread-popover", visible: true)
+    within(".review-tray") { expect(page).to have_no_button("View feedback") }
+    click_button "View activity", exact: false
+    expect(page).to have_css(".review-activity-dialog[open]")
+    within(".review-activity-dialog") do
+      expect(page).to have_no_button("Open discussion", exact: false)
+      expect(page).to have_text("Remove this feedback comment")
+    end
+    expect(task.reload.status).to eq("changes_requested")
+  end
+
   it "uses existing comments for change requests and supports another look without erasing the response" do
     within(".review-tray") { click_button "Request changes" }
     fill_in "Public review comment", with: "Please explain the retry contract.", enable_aria_label: true

@@ -15,6 +15,7 @@ export default class extends Controller {
     const tray = this.element.querySelector(".review-tray")
     if (tray) tray.showPopover()
     document.body.classList.toggle("has-review-tray", !!tray?.matches(":popover-open"))
+    this.syncFeedbackLinks()
   }
 
   disconnect() {
@@ -237,6 +238,7 @@ export default class extends Controller {
       const navCount = document.getElementById("nav-approvals-count")
       if (navCount) navCount.textContent = Number(incoming.getElementById("plan-review-controls")?.dataset.reviewRecordCount) || ""
       if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", String(!this.discussionTarget.hidden))
+      this.syncFeedbackLinks()
     } catch { /* The task and draft remain usable; the next event retries. */ }
   }
 
@@ -323,6 +325,18 @@ export default class extends Controller {
       if (!response.ok) throw new Error("Couldn't load the comparison. Please try again.")
       this.diffTarget.innerHTML = await response.text()
     } catch (error) { this.diffTarget.textContent = error.message }
+  }
+
+  syncFeedbackLinks() {
+    // Thread removal already updates the document through Turbo. Keep both
+    // review surfaces consistent without waiting for another review response.
+    this.feedbackThreadsSeen ||= new Set()
+    this.element.querySelectorAll("button[data-thread-id]").forEach(button => {
+      const id = button.dataset.threadId
+      if (document.getElementById(`comment_thread_${id}`)) this.feedbackThreadsSeen.add(id)
+      // New thread data may still be arriving on another Turbo stream.
+      else if (this.feedbackThreadsSeen.has(id)) button.remove()
+    })
   }
 
   openThread(event) {

@@ -1,14 +1,16 @@
 <% requests = plan.review_requests.includes(:reviewer, :requested_by_user, :requested_plan_version, review_responses: [ :plan_version, :user ]).order(:requested_at).to_a %>
 <% active_requests = requests.reject { |request| request.status == "withdrawn" } %>
 <% own_request = active_requests.find { |request| request.reviewer_id == current_user.id } %>
+<% response_thread_ids = requests.flat_map { |request| request.review_responses.map(&:comment_thread_id) }.compact %>
+<% feedback_thread_ids = plan.comment_threads.with_kept_comments.where(id: response_thread_ids).pluck(:id) %>
 <div id="plan-review-controls" data-review-record-count="<%= requests.size %>" data-controller="coplan--review-tray"
      data-coplan--review-tray-url-value="<%= plan_review_requests_path(plan) %>"
      data-coplan--review-tray-search-url-value="<%= search_users_path %>"
-     data-action="coplan:reviews-changed->coplan--review-tray#refresh coplan:manage-reviews@document->coplan--review-tray#openReviews coplan:content-updated@document->coplan--review-tray#refresh coplan:editor-saved@document->coplan--review-tray#refresh resize@window->coplan--review-tray#positionAssignment keydown.esc@document->coplan--review-tray#escape">
+     data-action="coplan:anchors-updated@document->coplan--review-tray#syncFeedbackLinks coplan:reviews-changed->coplan--review-tray#refresh coplan:manage-reviews@document->coplan--review-tray#openReviews coplan:content-updated@document->coplan--review-tray#refresh coplan:editor-saved@document->coplan--review-tray#refresh resize@window->coplan--review-tray#positionAssignment keydown.esc@document->coplan--review-tray#escape">
   <%= render "coplan/reviews/log", plan: plan, requests: requests, active_requests: active_requests %>
   <dialog class="review-dialog review-activity-dialog" data-coplan--review-tray-target="activity" aria-labelledby="review-activity-title">
     <div class="review-dialog__heading"><h2 id="review-activity-title">Review activity</h2><button type="button" class="review-management__close" aria-label="Close review activity" data-action="coplan--review-tray#closeActivity" autofocus>×</button></div>
-    <%= render "coplan/reviews/activity", requests: requests %>
+    <%= render "coplan/reviews/activity", requests: requests, feedback_thread_ids: feedback_thread_ids %>
   </dialog>
   <%= render "coplan/reviews/management", plan: plan, requests: requests, active_requests: active_requests %>
   <% if own_request && plan.current_content.present? %>
@@ -34,7 +36,7 @@
               <span><strong><%= own_request.status == "approved" ? "You approved" : "You requested changes to" %> v<%= response.plan_version.revision %></strong> <span class="review-tray__date">on <time datetime="<%= response.created_at.iso8601 %>" title="<%= response.created_at.strftime('%B %-d, %Y at %H:%M %Z') %>"><%= response.created_at.strftime("%b %-d, %Y") %></time></span></span>
             <% end %>
           </div>
-          <% if !own_request.pending? && response&.comment_thread_id %><button type="button" class="review-log__link review-feedback-link" data-action="coplan--review-tray#openThread" data-thread-id="<%= response.comment_thread_id %>">View feedback</button><% end %>
+          <% if !own_request.pending? && feedback_thread_ids.include?(response&.comment_thread_id) %><button type="button" class="review-log__link review-feedback-link" data-action="coplan--review-tray#openThread" data-thread-id="<%= response.comment_thread_id %>">View feedback</button><% end %>
           <% if approval && approval.plan_version.revision != plan.current_revision %><button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#compare" data-url="<%= compare_plan_review_request_path(plan, own_request, response_id: approval.id) %>">Changes since approval</button><% end %>
         </div>
         <div class="review-tray__actions">

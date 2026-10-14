@@ -6,6 +6,22 @@ RSpec.describe "Review requests", type: :request do
   let(:plan) { create(:plan, :published, created_by_user: author) }
   let(:task) { create(:review_request, plan: plan, reviewer: reviewer) }
 
+  it "shows feedback links only while the discussion has a kept comment" do
+    decision = CoPlan::Reviews::Respond.call(request: task, actor: reviewer,
+      revision: plan.current_revision, decision: "approved", note: "Immutable review note")
+    thread = decision.comment_thread
+    reply = thread.comments.create!(author_type: "human", author_id: reviewer.id, body_markdown: "A remaining reply")
+    sign_in_as(reviewer)
+    CoPlan::Comments::SoftDelete.call(comment: thread.comments.order(:created_at).first, actor: reviewer)
+    get plan_review_requests_path(plan)
+    expect(response.body).to include("View feedback", "Open discussion")
+    CoPlan::Comments::SoftDelete.call(comment: reply, actor: reviewer)
+    get plan_review_requests_path(plan)
+    expect(response.body).not_to include("View feedback", "Open discussion")
+    expect(response.body).to include("Immutable review note", "You approved")
+    expect(task.reload.status).to eq("approved")
+  end
+
   it "returns an actionable JSON response when the reviewer session has expired" do
     post respond_plan_review_request_path(plan, task), params: { review_response: { revision: 1, decision: "changes_requested", note: "Keep my draft" } }, as: :json
     expect(response).to have_http_status(:unauthorized)
