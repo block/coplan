@@ -1,6 +1,8 @@
 require "rails_helper"
 
 RSpec.describe "CoPlan reviews" do
+  include ActiveJob::TestHelper
+
   let(:plan) { create(:plan, :published) }
   let(:reviewer) { create(:coplan_user) }
   let(:request) { create(:review_request, plan: plan, reviewer: reviewer) }
@@ -47,6 +49,32 @@ RSpec.describe "CoPlan reviews" do
     expect(response.comment_thread.comments.last).to have_attributes(author_type: "human", author_id: reviewer.id, body_markdown: "Please explain retries")
     expect(request.reload.status).to eq("changes_requested")
     expect(plan.notifications.where(user: plan.created_by_user, reason: "review_response")).to exist
+  end
+
+  %w[approved changes_requested].each do |decision|
+    it "notifies the author once for #{decision} notes while preserving comment subscribers and agent events" do
+      co_author = create(:coplan_user)
+      create(:plan_collaborator, plan: plan, user: co_author, role: "author")
+      token = create(:api_token, user: plan.created_by_user)
+      CoPlan::AgentSession.create!(plan: plan, api_token: token, state: "watching", agent_name: "Authorbot")
+
+      response = nil
+      perform_enqueued_jobs(only: CoPlan::CreateNotificationsJob) do
+        response = respond(decision: decision, note: "Please verify retries")
+      end
+
+      notifications = plan.notifications.where(comment_thread: response.comment_thread)
+      expect(notifications.where(user: plan.created_by_user).pluck(:reason)).to eq([ "review_response" ])
+      expect(notifications.where(user: co_author).pluck(:reason)).to eq([ "new_comment" ])
+      expect(notifications.where(user: reviewer)).to be_empty
+      expect(CoPlan::AgentEvent.pluck(:event_type)).to contain_exactly("comment.created", "review.responded")
+
+      reply = response.comment_thread.comments.create!(body_markdown: "Updated the example", author_type: "human", author_id: co_author.id)
+      CoPlan::CreateNotificationsJob.perform_now(comment_thread_id: response.comment_thread.id,
+        actor_id: co_author.id, comment_id: reply.id, reason: "reply")
+      expect(notifications.where(user: plan.created_by_user).pluck(:reason)).to contain_exactly("review_response", "reply")
+      expect(notifications.where(user: reviewer).pluck(:reason)).to eq([ "reply" ])
+    end
   end
 
   it "rejects empty changes, stale responses and withdrawn requests without leaving orphan comments" do

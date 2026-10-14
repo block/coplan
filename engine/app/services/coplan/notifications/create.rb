@@ -8,16 +8,17 @@ module CoPlan
       # somebody deliberately reopening a settled conversation is news.
       SILENT_ON_CLOSED_THREAD = %w[agent_response status_change].freeze
 
-      def self.call(comment_thread:, actor_id:, comment: nil, reason:, actor_api_token_id: nil)
-        new(comment_thread:, actor_id:, comment:, reason:, actor_api_token_id:).call
+      def self.call(comment_thread:, actor_id:, comment: nil, reason:, actor_api_token_id: nil, excluded_user_ids: [])
+        new(comment_thread:, actor_id:, comment:, reason:, actor_api_token_id:, excluded_user_ids:).call
       end
 
-      def initialize(comment_thread:, actor_id:, comment: nil, reason:, actor_api_token_id: nil)
+      def initialize(comment_thread:, actor_id:, comment: nil, reason:, actor_api_token_id: nil, excluded_user_ids: [])
         @comment_thread = comment_thread
         @actor_id = actor_id
         @comment = comment
         @reason = reason
         @actor_api_token_id = actor_api_token_id
+        @excluded_user_ids = excluded_user_ids
       end
 
       def call
@@ -45,6 +46,9 @@ module CoPlan
       def insert_notifications
         subscriber_ids = compute_subscribers
         subscriber_ids.delete(@actor_id)
+        # Review notes already notify the plan author through their decision.
+        # Keep the comment event and the remaining subscribers' notifications.
+        subscriber_ids -= @excluded_user_ids
         return [] if subscriber_ids.empty?
 
         subscriber_ids.each do |user_id|

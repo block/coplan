@@ -46,7 +46,7 @@ module CoPlan
         if @new_response && response.comment_thread
           thread = response.comment_thread
           CreateNotificationsJob.perform_later(comment_thread_id: thread.id, actor_id: @actor.id,
-            comment_id: thread.comments.first.id, reason: "new_comment")
+            comment_id: thread.comments.first.id, reason: "new_comment", excluded_user_ids: [ plan.created_by_user_id ])
           Broadcaster.append_to(plan, target: "plan-threads", partial: "coplan/comment_threads/thread_popover", locals: { plan: plan, thread: thread })
           Broadcaster.replace_to(plan, target: "plan-general-comment-list", partial: "coplan/plans/general_comment_list",
             locals: { threads: plan.comment_threads.with_kept_comments.includes(:comments).order(:created_at) })
