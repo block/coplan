@@ -98,6 +98,7 @@ export default class extends Controller {
     // first, so a promise that resumes after this teardown bails out
     // through its own cleanup instead of starting a recorder nobody
     // can see or stop.
+    this.recordingTake = (this.recordingTake || 0) + 1
     this.listening = false
     this.discarded = true
     clearTimeout(this.holdTimer)
@@ -289,6 +290,7 @@ export default class extends Controller {
     this.recognitionFailed = false
     this.awaitingAck = false
     this.discarded = false
+    this.recordingTake = (this.recordingTake || 0) + 1
     this.recorder = null
     this.peakLevel = 0
     this.meterLive = false
@@ -344,11 +346,12 @@ export default class extends Controller {
       return
     }
 
-    this.recorder.stop() // → onstop posts
+    if (this.recorder.state !== "inactive") this.recorder.stop() // → onstop posts
   }
 
   // Discards whatever was captured rather than posting it.
   _cancel() {
+    this.recordingTake = (this.recordingTake || 0) + 1
     this.recognitionTake = (this.recognitionTake || 0) + 1
     clearTimeout(this.holdTimer)
     this.pushToTalk = false
@@ -356,8 +359,9 @@ export default class extends Controller {
     if (!this.listening) return
 
     this.discarded = true
-    if (this.mode === "record") this.recorder?.stop()
-    else this.recognition?.abort()
+    if (this.mode === "record") {
+      if (this.recorder && this.recorder.state !== "inactive") this.recorder.stop()
+    } else this.recognition?.abort()
 
     this._stopListening()
     this._releaseMic()
@@ -430,9 +434,11 @@ export default class extends Controller {
   }
 
   async _startRecording() {
+    const take = this.recordingTake
     const ear = this.ear
     this.ear = null
     let chunks = []
+    let stream
 
     if (ear) {
       // Push-to-talk: the ear has been capturing since the keydown.
@@ -443,28 +449,27 @@ export default class extends Controller {
       // holding one open leaves the recording indicator lit while
       // nobody is talking.
       try {
-        this.stream = await navigator.mediaDevices.getUserMedia(audioConstraints())
+        stream = await navigator.mediaDevices.getUserMedia(audioConstraints())
       } catch (error) {
+        if (take !== this.recordingTake) return
         this._stopListening()
         this._reportMiss(microphoneError(error))
         return
       }
     }
 
-    if (ear?.error) {
-      this._stopListening()
-      this._reportMiss(microphoneError(ear.error))
+    // Permission prompts and recorder events can outlive a cancelled take.
+    // Release only that take's input; it must never close a newer microphone.
+    if (take !== this.recordingTake || !this.listening || !this.element.isConnected) {
+      if (ear?.recorder && ear.recorder.state !== "inactive") ear.recorder.stop()
+      const abandonedStream = ear?.stream || stream
+      abandonedStream?.getTracks().forEach((track) => track.stop())
       return
     }
 
-    // Cancelled while the permission prompt was up.
-    if (!this.listening) {
-      if (ear) {
-        ear.closed = true
-        ear.recorder?.stop()
-        ear.stream?.getTracks().forEach((track) => track.stop())
-      }
-      this._releaseMic()
+    if (ear?.error) {
+      this._stopListening()
+      this._reportMiss(microphoneError(ear.error))
       return
     }
 
@@ -474,6 +479,7 @@ export default class extends Controller {
       this.recordingStartedAt = ear.startedAt ?? performance.now()
       chunks = ear.chunks
     } else {
+      this.stream = stream
       this.recorder = new MediaRecorder(this.stream, this._recorderOptions())
       this.recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunks.push(event.data)
@@ -482,7 +488,9 @@ export default class extends Controller {
 
     this._meterLevels()
 
-    this.recorder.onstop = () => {
+    const recorder = this.recorder
+    recorder.onstop = () => {
+      if (take !== this.recordingTake) return
       // The silence verdict is only trustworthy if the meter actually
       // ran. A dead meter reads 0 for a recording full of speech — when
       // in doubt, send it; the server's echo check is the backstop.
@@ -494,7 +502,7 @@ export default class extends Controller {
       this._stopListening()
       if (this.discarded) return
 
-      const blob = new Blob(chunks, { type: this.recorder.mimeType })
+      const blob = new Blob(chunks, { type: recorder.mimeType })
       // Sending silence is worse than sending nothing: the transcriber
       // answers it by repeating the context we gave it, which arrives
       // looking like a real remark. Catch it here, before the round trip.
@@ -554,7 +562,7 @@ export default class extends Controller {
 
         this.peakLevel = Math.max(this.peakLevel, peak)
         this.buttonTarget.style.setProperty("--voice-level", Math.min(peak / 40, 1).toFixed(2))
-        requestAnimationFrame(sample)
+        this.meterFrame = requestAnimationFrame(sample)
       }
       // The first reading happens now, not at the next frame: a take can
       // end before the browser paints again (a loaded CI box between two
@@ -578,6 +586,8 @@ export default class extends Controller {
   }
 
   _releaseMic() {
+    cancelAnimationFrame(this.meterFrame)
+    this.meterFrame = null
     this.stream?.getTracks().forEach((track) => track.stop())
     this.stream = null
     this.audioContext?.close()
@@ -745,8 +755,10 @@ export default class extends Controller {
         .filter((c) => c.body)
         .map((c) => ({ body: c.body, anchor: this._resolveAnchor(c.anchor_text, seen) }))
       return { comments, transcript: data.transcript }
-    } catch {
-      return null
+    } catch (error) {
+      return { comments: [], error: error.name === "AbortError"
+        ? "Transcription timed out. Please try again."
+        : "Couldn't reach the transcriber. Check your connection and try again." }
     } finally {
       clearTimeout(timer)
     }

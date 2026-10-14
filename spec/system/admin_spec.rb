@@ -7,6 +7,7 @@ RSpec.describe "CoPlan administration", type: :system do
     fill_in "Email address", with: user.email
     expect(page).to have_field("Email address", with: user.email)
     click_button "Sign In"
+    expect(page).to have_current_path(root_path)
     expect(page).to have_button("Menu")
 
     click_button "Menu"
@@ -32,6 +33,7 @@ RSpec.describe "CoPlan administration", type: :system do
     visit sign_in_path
     fill_in "Email address", with: user.email
     click_button "Sign In"
+    expect(page).to have_current_path("/#{user.library.handle}")
     expect(page).to have_button("Menu")
 
     visit admin_agent_sessions_path
@@ -40,10 +42,12 @@ RSpec.describe "CoPlan administration", type: :system do
 
     fill_in "State", with: "watching"
     click_button "Filter"
+    expect(page).to have_current_path(/q%5Bstate_cont%5D=watching/)
     expect(page).to have_content(watching.id)
     expect(page).not_to have_content(complete.id)
 
     click_link watching.id
+    expect(page).to have_current_path(admin_agent_session_path(watching))
     expect(page).to have_content("Watching agent")
     expect(page).to have_content(watching.id)
   end

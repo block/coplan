@@ -424,6 +424,109 @@ RSpec.describe "Voice commenting", type: :system do
       JS
     end
 
+    it "records two successive remarks without reloading the plan" do
+      allow(CoPlan::Ai).to receive(:transcribe).and_return("Please clarify the launch timing.", "Please clarify the rollout timing.")
+      allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "unavailable")
+      stub_recorder
+      visit_plan
+
+      2.times do |index|
+        find(".voice-btn").click
+        expect(page).to have_css(".voice-btn--listening")
+        find(".voice-btn").click
+        expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+        expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(index + 1)
+        if index == 1
+          [ "light", "dark" ].each do |theme|
+            page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+            page.save_screenshot(Rails.root.join("tmp/dictation-preview/repeated-#{theme}.png"))
+          end
+        end
+        page.driver.browser.action.send_keys(:escape).perform
+      end
+    end
+
+    it "reports a connection failure and lets the next recording succeed" do
+      allow(CoPlan::Ai).to receive(:transcribe).and_return("Please clarify the rollout timing.")
+      allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "unavailable")
+      stub_recorder
+      visit_plan
+      page.execute_script <<~JS
+        const fetch = window.fetch;
+        window.fetch = (...args) => {
+          if (String(args[0]).includes('/dictations')) {
+            window.fetch = fetch;
+            return Promise.reject(new TypeError('Failed to fetch'));
+          }
+          return fetch(...args);
+        };
+      JS
+      find(".voice-btn").click
+      find(".voice-btn").click
+      expect(page).to have_css(".voice-status--error", text: "Couldn't reach the transcriber")
+      find(".voice-btn").click
+      find(".voice-btn").click
+      expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(1)
+    end
+
+    it "does not let a cancelled microphone request replace the next take's input" do
+      stub_recorder
+      visit_plan
+      page.execute_script <<~JS
+        const el = document.querySelector('.voice-control');
+        const controller = window.Stimulus.getControllerForElementAndIdentifier(el, 'coplan--voice');
+        window.oldMic = { stopped: false, getTracks() { return [{ stop: () => this.stopped = true }]; } };
+        window.newMic = { stopped: false, getTracks() { return [{ stop: () => this.stopped = true }]; } };
+        let resolveOld;
+        const pending = new Promise(resolve => { resolveOld = resolve; });
+        let requests = 0;
+        navigator.mediaDevices.getUserMedia = () => ++requests === 1 ? pending : Promise.resolve(window.newMic);
+        controller.toggle();
+        controller.microphoneChanged();
+        controller.toggle();
+        window.finishOldMicrophoneRequest = () => resolveOld(window.oldMic);
+      JS
+      expect(page).to have_css(".voice-btn--listening")
+      page.execute_script("window.finishOldMicrophoneRequest()")
+      expect(page).to have_css(".voice-btn--listening")
+      expect(page.evaluate_script("window.oldMic.stopped")).to be(true)
+      expect(page.evaluate_script("window.newMic.stopped")).to be(false)
+      expect(page.evaluate_script(<<~JS)).to be(true)
+        window.Stimulus.getControllerForElementAndIdentifier(document.querySelector('.voice-control'), 'coplan--voice').stream === window.newMic
+      JS
+    end
+
+    it "ignores a cancelled recorder's queued stop when another take starts" do
+      allow(CoPlan::Ai).to receive(:transcribe).and_return("Please clarify the rollout timing.")
+      allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "unavailable")
+      stub_recorder
+      visit_plan
+      page.execute_script <<~JS
+        const stop = MediaRecorder.prototype.stop;
+        MediaRecorder.prototype.stop = function() {
+          this.state = "inactive";
+          window.finishOldRecording = () => stop.call(this);
+        };
+      JS
+      find(".voice-btn").click
+      expect(page).to have_css(".voice-btn--listening")
+      page.execute_script <<~JS
+        const el = document.querySelector('.voice-control');
+        const controller = window.Stimulus.getControllerForElementAndIdentifier(el, 'coplan--voice');
+        controller.microphoneChanged();
+        controller.toggle();
+      JS
+      expect(page).to have_css(".voice-btn--listening")
+      page.execute_script("window.finishOldRecording()")
+      expect(page).to have_css(".voice-btn--listening")
+      expect(CoPlan::CommentThread.where(plan_id: plan.id)).to be_empty
+      find(".voice-btn").click
+      page.execute_script("window.finishOldRecording()")
+      expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+      expect(CoPlan::CommentThread.where(plan_id: plan.id).count).to eq(1)
+    end
+
     it "sends the recording and posts what comes back" do
       allow(CoPlan::Ai).to receive(:transcribe).and_return("this bit is like way too like cautious")
       allow(CoPlan::Ai).to receive(:call).and_return({

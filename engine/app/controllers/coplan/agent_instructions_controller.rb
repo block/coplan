@@ -32,6 +32,7 @@ module CoPlan
     GUIDES = {
       "markdown" => "markdown",
       "presentations" => "presentations",
+      "embeds" => "embeds",
       "creating" => "creating",
       "editing" => "editing",
       "comments" => "comments",

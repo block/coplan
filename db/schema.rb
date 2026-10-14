@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_06_135151) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_08_174614) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -184,6 +184,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_135151) do
     t.datetime "updated_at", null: false
     t.index ["plan_id", "status"], name: "index_coplan_edit_sessions_on_plan_id_and_status"
     t.index ["plan_version_id"], name: "fk_rails_14c3f0737b"
+  end
+
+  create_table "coplan_embed_domains", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "hostname", null: false
+    t.datetime "updated_at", null: false
+    t.index ["hostname"], name: "index_coplan_embed_domains_on_hostname", unique: true
   end
 
   create_table "coplan_folders", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|

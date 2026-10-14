@@ -162,6 +162,73 @@ RSpec.describe "Deck UX", type: :system do
     expect(page).to have_css(".deck-slide--current[data-slide='2']", visible: true)
   end
 
+  def queue_section_edits(revisions:, rewritten: false)
+    page.evaluate_async_script(<<~JS)
+      const done = arguments[0]
+      fetch("#{content_body_plan_path(plan)}", { headers: { Accept: "text/html" } })
+        .then(response => response.text())
+        .then(html => {
+          for (const revision of #{revisions.to_json}) {
+            const keys = #{rewritten} && revision === 3 ? [] :
+              (revision === 3 ? ['what-the-classifier-sees'] : ['before-the-readout'])
+            const stream = document.createElement('turbo-stream')
+            stream.setAttribute('action', 'coplan-replace-if-clean')
+            stream.setAttribute('target', 'plan-content-body')
+            stream.setAttribute('data-revision', revision)
+            stream.setAttribute('data-changed-sections', JSON.stringify({keys}))
+            stream.setAttribute('data-section-update', JSON.stringify({
+              by: revision === 3 ? 'First editor' : 'Second editor', at: new Date().toISOString(),
+              ago: 'just now', revision, keys, rewritten: #{rewritten} && revision === 3
+            }))
+            const template = document.createElement('template')
+            template.innerHTML = html.replaceAll('A lone heading becomes a title slide', 'Title slide from the first editor')
+            if (revision === 4) template.innerHTML = template.innerHTML.replaceAll('Send the deck round', 'Checklist from the second editor')
+            stream.append(template)
+            document.body.append(stream)
+          }
+          done(true)
+        })
+    JS
+    expect(page).to have_no_css('turbo-stream[action="coplan-replace-if-clean"]', visible: :all)
+    expect(page.evaluate_script("document.getElementById('plan-content-body').__pendingDeckUpdate?.incomingRevision")).to eq(4)
+  end
+
+  [ [ 3, 4 ], [ 4, 3 ] ].each do |revisions|
+    it "keeps queued changes and their editors when revisions arrive as #{revisions.join(', ')} during a show" do
+      visit plan_page_path(plan)
+      start_show
+      queue_section_edits(revisions: revisions)
+      expect(page).to have_css(".deck--presenting")
+      expect(page).to have_no_text("Checklist from the second editor")
+
+      send_keys(:escape)
+
+      expect(page).to have_no_css(".deck--presenting")
+      expect(page).to have_css(".changed-sections-note", text: "2 sections updated")
+      expect(page).to have_css('#what-the-classifier-sees .section-update-marker[aria-label*="First editor"]', visible: :all)
+      expect(page).to have_css('#before-the-readout .section-update-marker[aria-label*="Second editor"]', visible: :all)
+      find(".deck-toolbar__step--next").click
+      find('#what-the-classifier-sees .section-update-marker').hover
+      expect(page).to have_css('.deck-slide--current', text: "Title slide from the first editor")
+      2.times { find(".deck-toolbar__step--next").click }
+      find('#before-the-readout .section-update-marker').hover
+      expect(page).to have_css('.deck-slide--current', text: "Checklist from the second editor")
+      expect(page.evaluate_script("document.getElementById('plan-content-body').getAttribute('data-coplan--live-update-revision-value')")).to eq("4")
+    end
+  end
+
+  it "keeps an extensive-update notice queued before a later minor edit during a show" do
+    visit plan_page_path(plan)
+    start_show
+    queue_section_edits(revisions: [ 3, 4 ], rewritten: true)
+
+    send_keys(:escape)
+
+    expect(page).to have_no_css(".deck--presenting")
+    expect(page).to have_css(".changed-sections-note", text: "Updated throughout since your last visit.")
+    expect(page).to have_no_css(".section-update-marker", visible: :all)
+  end
+
   it "keeps slide positions with their decks when id-less decks reorder" do
     mixed = <<~MD
       ::: {.presentation}
@@ -408,8 +475,9 @@ RSpec.describe "Deck UX", type: :system do
       window.Stimulus.getControllerForElementAndIdentifier(layout, "coplan--changed-sections").connect()
     JS
 
-    expect(page).to have_css(".deck-body h2.section-changed", text: "Results")
-    expect(page).to have_css(".deck-body p.section-changed", text: "Analysis body.")
+    expect(page).to have_css(".deck-body h2.section-updated", text: "Results")
+    expect(page).to have_no_css(".deck-body p.section-updated")
+    expect(page).to have_css(".deck-slide--current h2.section-updated--viewed", text: "Results", wait: 5)
   end
 
   it "keeps the reader's slide when the inline editor closes" do
@@ -596,10 +664,10 @@ RSpec.describe "Deck UX", type: :system do
       const controller = window.Stimulus?.getControllerForElementAndIdentifier(layout, "coplan--changed-sections")
       controller?.connect()
     JS
-    expect(page).to have_css(".markdown-rendered .section-changed", text: "Fresh closing text.")
+    expect(page).to have_css(".markdown-rendered h1.section-updated", text: "Closing")
   end
 
-  it "keeps changed section bands out of discussion bodies" do
+  it "keeps update markers out of discussion bodies" do
     content = "# Closing\n\nFresh closing text."
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
@@ -612,8 +680,8 @@ RSpec.describe "Deck UX", type: :system do
       window.Stimulus.getControllerForElementAndIdentifier(layout, "coplan--changed-sections").connect()
     JS
 
-    expect(page).to have_css("#plan-content-body p.section-changed--end", text: "Fresh closing text.")
-    expect(page).to have_no_css("#plan-threads .section-changed", visible: :all)
+    expect(page).to have_css("#plan-content-body h1.section-updated", text: "Closing")
+    expect(page).to have_no_css("#plan-threads .section-updated", visible: :all)
   end
 
   it "flashes a live change in a later content region" do

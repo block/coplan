@@ -110,6 +110,15 @@ RSpec.describe "Claiming a URL segment" do
     # Committed up front: two threads both reaching for the default type
     # would race on creating it, which is not what this example is about.
     let!(:plan_type) { CoPlan::PlanType.general }
+    # Commit the namespace before starting requests. Sharing a lazily cached
+    # User#library across threads can expose an uncommitted library to the
+    # other connection. Each request below loads its own user, as Rails does.
+    let!(:library) { author.library }
+
+    before do
+      Rails.application.routes.eager_load!
+      CoPlan::Engine.routes.eager_load!
+    end
 
     # A lock taken outside a transaction is released by the next statement,
     # so it would read as protection while providing none. Louder is safer —
@@ -121,20 +130,30 @@ RSpec.describe "Claiming a URL segment" do
     end
 
     def in_parallel(count, &block)
+      ready = Queue.new
+      start = Queue.new
       threads = count.times.map do |index|
         Thread.new do
-          ActiveRecord::Base.connection_pool.with_connection { block.call(index) }
+          ActiveRecord::Base.connection_pool.with_connection do
+            ready << true
+            start.pop
+            block.call(index)
+          end
         end
       end
+      Timeout.timeout(20) { count.times { ready.pop } }
+      count.times { start << true }
       # Bounded: a lock bug should fail the example, never hang the suite.
       threads.each { |thread| expect(thread.join(20)).to be_present }
       threads.map(&:value)
+    ensure
+      threads&.each { |thread| thread.kill if thread.alive? }
     end
 
     it "gives two same-titled plans two addresses" do
       plans = in_parallel(2) do |index|
         CoPlan::Plans::Create.call(
-          title: "Cart Roadmap", content: "Draft #{index}.", user: author,
+          title: "Cart Roadmap", content: "Draft #{index}.", user: CoPlan::User.find(author.id),
           plan_type_id: plan_type.id
         )
       end
@@ -151,7 +170,7 @@ RSpec.describe "Claiming a URL segment" do
     it "leaves both plans reachable" do
       plans = in_parallel(2) do |index|
         CoPlan::Plans::Create.call(
-          title: "Cart Roadmap", content: "Draft #{index}.", user: author,
+          title: "Cart Roadmap", content: "Draft #{index}.", user: CoPlan::User.find(author.id),
           plan_type_id: plan_type.id
         )
       end

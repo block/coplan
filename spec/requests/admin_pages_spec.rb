@@ -21,6 +21,7 @@ RSpec.describe "Admin pages", type: :request do
     "plan_comments" => -> { create(:comment) },
     "edit_leases" => -> { create(:edit_lease) },
     "edit_sessions" => -> { create(:edit_session) },
+    "embed_domains" => -> { CoPlan::EmbedDomain.create!(hostname: "embed.example.com") },
     "folders" => -> { create(:folder) },
     "library_events" => -> {
       CoPlan::LibraryEvent.create!(

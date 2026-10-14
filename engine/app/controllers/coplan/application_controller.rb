@@ -33,6 +33,7 @@ module CoPlan
     before_action :set_coplan_current
     after_action :set_agent_instructions_header
     after_action :track_page_view
+    after_action :restrict_embedded_frames
 
     helper_method :current_user, :signed_in?, :show_api_tokens?
 
@@ -43,6 +44,27 @@ module CoPlan
     end
 
     private
+
+    # A second CSP composes with any stricter host policy. It also constrains
+    # frame redirects, rather than trusting only the initial iframe URL.
+    def restrict_embedded_frames
+      return unless response.media_type == "text/html"
+
+      hosts = EmbedDomain.order(:hostname).pluck(:hostname).reject { |host| host == request.host.downcase }
+      policy = "frame-src #{hosts.empty? ? "'none'" : hosts.map { |host| "https://#{host}" }.join(' ')}"
+      existing = response.headers["Content-Security-Policy"]
+      # Rails' middleware skips generating its policy when a response already
+      # has a CSP header. Build the host policy first so we do not replace it.
+      if (host_policy = request.content_security_policy)
+        configured = host_policy.build(self, request.content_security_policy_nonce, request.content_security_policy_nonce_directives)
+        if request.content_security_policy_report_only
+          response.headers["Content-Security-Policy-Report-Only"] ||= configured
+        else
+          existing = [ existing.presence, configured.presence ].compact.join(", ")
+        end
+      end
+      response.headers["Content-Security-Policy"] = [ existing.presence, policy ].compact.join(", ")
+    end
 
     def current_user
       @current_coplan_user

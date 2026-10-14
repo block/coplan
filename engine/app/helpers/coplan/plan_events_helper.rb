@@ -9,6 +9,11 @@ module CoPlan
       item.agent_name.present? ? "#{item.agent_name} (via #{name})" : name
     end
 
+    def section_update_details(version)
+      { by: history_actor_name(version), at: version.created_at.iso8601, revision: version.revision,
+        ago: "#{time_ago_in_words(version.created_at)} ago" }
+    end
+
     # Render a one-line, human-readable summary of a PlanEvent for the
     # history feed. Each event type gets a tailored "X → Y" or "added X" /
     # "removed X" phrasing instead of a generic field/before/after dump,

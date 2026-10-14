@@ -213,6 +213,8 @@ module CoPlan
     end
 
     def new
+      response.headers["Cache-Control"] = "no-store"
+      response.headers["X-CSRF-Token"] = form_authenticity_token
       @new_plan_type = PlanType.find_by(id: params[:plan_type_id]) if params[:plan_type_id].present?
       return head :not_found if params[:plan_type_id].present? && !@new_plan_type
       @new_folder = current_user.library.folders.find_by(id: params[:folder_id]) if params[:folder_id].present?
@@ -249,6 +251,7 @@ module CoPlan
     def editor_state
       authorize!(@plan, :edit_content?)
       response.headers["Cache-Control"] = "no-store"
+      response.headers["X-CSRF-Token"] = form_authenticity_token
       render json: editor_snapshot
     end
 
@@ -263,7 +266,7 @@ module CoPlan
     end
 
     def preview_draft
-      render html: helpers.render_markdown(params[:content].to_s, interactive: false), layout: false
+      render html: helpers.render_content_regions(params[:content].to_s, interactive: false), layout: false
     end
 
     # Human whole-document editing goes through the same pipeline as agent
@@ -311,7 +314,7 @@ module CoPlan
     # render: no checkbox wiring, since the content isn't saved yet.
     def preview
       authorize!(@plan, :show?)
-      html = helpers.render_markdown(params[:content].to_s, interactive: false)
+      html = helpers.render_content_regions(params[:content].to_s, interactive: false)
       render html: html, layout: false
     end
 
@@ -738,8 +741,8 @@ module CoPlan
     end
 
     # What changed after the viewer's last visit (see Plans::ChangedSections):
-    # section keys to highlight, or a rewrite to mention. Nothing on a first
-    # visit — highlighting the whole document would say nothing.
+    # section keys to mark, or extensive updates to mention. Nothing on a
+    # first visit — there is no earlier read to compare.
     def changed_sections_since_last_visit
       seen_at = PlanViewer.where(plan: @plan, user: current_user).pick(:last_seen_at)
       return Plans::ChangedSections::NONE if seen_at.nil?
@@ -747,13 +750,15 @@ module CoPlan
       current = @plan.current_plan_version
       return Plans::ChangedSections::NONE if current.nil? || current.created_at <= seen_at
 
-      base = @plan.plan_versions.where(created_at: ..seen_at).order(revision: :desc).first
+      base = @plan.plan_versions.where(created_at: ..seen_at).reorder(revision: :desc).first
       return Plans::ChangedSections::NONE if base.nil?
 
-      Plans::ChangedSections.call(
+      result = Plans::ChangedSections.call(
         old_content: base.content_markdown,
         new_content: current.content_markdown
       )
+      @section_updates = Plans::SectionUpdates.call(plan: @plan, keys: result.keys, since_revision: base.revision)
+      result
     end
 
     # Looking at a plan advances your last-seen mark (so the "changed since
