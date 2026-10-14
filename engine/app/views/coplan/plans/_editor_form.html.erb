@@ -59,12 +59,12 @@
     <details data-coplan--editor-target="review"><summary>Review the saved version</summary><pre data-coplan--editor-target="latest"></pre></details>
   </div>
   <div data-coplan--editor-target="toolbar" class="document-editor__toolbar" role="toolbar" aria-label="Text formatting" data-action="mousedown->coplan--editor#keepSelection">
+    <% if inline_editor %>
+      <button type="button" class="document-editor__outline-toggle" aria-label="Toggle table of contents" aria-expanded="false" title="Toggle table of contents (t)" data-coplan--content-nav-target="editorToggleBtn" data-action="coplan--content-nav#toggle" disabled>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>
+      </button>
+    <% end %>
     <div class="document-editor__format-controls" data-coplan--editor-target="formatControls" data-action="scroll->coplan--editor#updateToolOverflow">
-      <% if inline_editor %>
-        <button type="button" class="document-editor__outline-toggle" aria-label="Toggle table of contents" aria-expanded="false" title="Toggle table of contents (t)" data-coplan--content-nav-target="editorToggleBtn" data-action="coplan--content-nav#toggle" disabled>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>
-        </button>
-      <% end %>
       <select aria-label="Paragraph style" data-command="heading" data-coplan--editor-target="style" data-action="change->coplan--editor#style">
         <option value="0">Normal text</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option><option value="code">Code block</option>
       </select>
