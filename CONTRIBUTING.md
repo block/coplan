@@ -15,9 +15,12 @@ Thanks for helping improve CoPlan. Keep pull requests focused and make it easy f
 
 Run `bin/setup --skip-server`, then `bin/dev`. Sign in as **hampton@example.com**
 and open `/hampton/demo-library`. Use these named examples for feature tryouts
-and screenshots instead of building a separate dataset. When a new feature
-needs a new state or content shape, add it to the engine's shared examples
-and cover the state in a seed spec. See [the demo library guide](docs/DEMO_LIBRARY.md).
+and screenshots instead of building a separate dataset. A feature that adds
+a content type, diagram variant, reference type, presentation layout, or other
+demoable content or workflow state must add or update a named example in the
+shared library in the same PR. Make it browsable from the demo index and cover
+its initial state and re-seeding behavior in a seed spec. See
+[the demo library guide](docs/DEMO_LIBRARY.md).
 
 ## Make the change easy to try
 

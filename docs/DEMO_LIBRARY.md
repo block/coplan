@@ -164,6 +164,11 @@ test, including when invoked directly from Ruby.
 
 ## Add an example
 
+When a feature adds a content type, diagram variant, reference type,
+presentation layout, or other demoable content or workflow state, add or
+update a named example in the same PR. The feature is complete when someone
+can open that example from the demo index and try the new behavior.
+
 1. Add a Markdown file in `engine/db/demo/content/`.
 2. Add a definition with a stable key to `DevelopmentSeed::DOCUMENTS`.
 3. Seed the real relationships or versions needed by the feature.
