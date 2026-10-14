@@ -2,8 +2,10 @@
 
 Audited on October 14, 2026. Scope: all 248 pull requests returned by GitHub
 (237 merged, 6 closed, 5 open) and all 843 available CI run records, from
-February 20 through October 14. There were 139 failed runs. One failed-run
-log was unavailable, so its cause cannot be verified from GitHub.
+February 20 through October 14. There were 139 failed runs. GitHub retained
+logs for 116 of them. Twenty-two older logs returned HTTP 410 (expired),
+and one log was missing. The causes of those 23 runs cannot be verified
+from the retained logs.
 
 A red build is not automatically a flaky test. Historical logs include
 real regressions, lint errors, and stale gem lockfiles. A green rebuild alone
