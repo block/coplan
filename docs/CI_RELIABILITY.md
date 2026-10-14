@@ -17,6 +17,7 @@ does not prove that a race is fixed.
 | Code loses its highlighting after Undo | [demo library PR](https://github.com/block/coplan/actions/runs/38602496501), [accessibility PR](https://github.com/block/coplan/actions/runs/37853049975) | Language changes and code edits can join one history group within 500 ms. Fence the first content edit after language edits. A fixed-clock regression checks Undo and Redo without depending on browser speed. |
 | Rapid caret movement escapes code | Found during the local stress runs, including seed 3118 | ArrowDown used the model's old end-of-code caret before native selectionchange caught up. Read the visible caret before deciding to leave code. A same-turn key-event regression forces the lag deterministically. |
 | Fit-to-screen changes after zooming | [reliability PR](https://github.com/block/coplan/actions/runs/38632117302) | The initial fit ran before the toolbar and gesture hint reduced the canvas height. Fit again synchronously after mounting those controls. The regression compares the initial scale and readout with the final canvas geometry before any resize callback can run. |
+| Dictate disappears after a recording test | [review PR](https://github.com/block/coplan/actions/runs/38639424746), seed 54506 | Chrome retained scripts installed by voice tests across later examples. A recording stub disabled speech recognition in comment composers. Remove every installed script after its example. CI also runs a tagged recording-then-dictation pair in that exact order, without a random seed overriding it. |
 | Admin filter inspects an outgoing document | [review PR](https://github.com/block/coplan/actions/runs/38455835339), [accessibility PR](https://github.com/block/coplan/actions/runs/37968935251) | The filtered page still contains the matching row before navigation completes. Wait for each destination URL before querying its DOM. |
 | Concurrent plans share a URL | [demo library PR](https://github.com/block/coplan/actions/runs/38455672055), [main](https://github.com/block/coplan/actions/runs/37646742848) | The test shared a mutable user and its lazy library cache across connections. Commit the namespace fixture first and load an independent user per request. Start both connections together and bound thread cleanup. Retain assertions for unique addresses and resolution to each plan. |
 | Reading position changes during a remote update | [agent comments PR](https://github.com/block/coplan/actions/runs/37672510420) | Wait for the initial comment anchor to render before recording the reading position. Retain the 24-pixel maximum displacement assertion after the update. |
@@ -49,6 +50,16 @@ Logs, RSpec JSON reports, and `summary.json` are saved under
 Every PR runs the full suite with a recorded seed on MySQL and PostgreSQL,
 then repeats the regression files five times. CI uploads JSON reports, stress
 logs, and browser failure screenshots for 30 days, including on failure.
+
+The voice environment check deliberately runs recording before dictation:
+
+```sh
+bundle exec rspec spec/system/voice_commenting_spec.rb \
+  spec/system/comment_composer_spec.rb --tag voice_environment --order defined
+```
+
+Both examples also remain in the full suite. This order failed before script
+cleanup; dictation must still work after the recording example finishes.
 
 ## Validation record
 

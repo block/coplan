@@ -467,7 +467,7 @@ RSpec.describe "Glass comment composer", type: :system do
     expect(page).to have_field("Your reply", enable_aria_label: true, with: "Keep this typed draft")
   end
 
-  it "inserts dictated words into the draft without posting them" do
+  it "inserts dictated words into the draft without posting them", :voice_environment do
     page.execute_script <<~JS
       window.SpeechRecognition = class {
         start() {}
