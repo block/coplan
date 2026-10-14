@@ -51,6 +51,20 @@ RSpec.describe "Human plan editing", type: :system do
     expect(plan.current_plan_version.actor_type).to eq("human")
   end
 
+  it "keeps the paper in place when adding its first heading and opens the outline on request" do
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Opening paragraph.\n",
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    paper_x = editor.rect.x
+    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "New heading")
+    select "Heading 1", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror h1", text: "New heading")
+    expect(page).to have_css(".content-nav__link", text: "New heading", visible: :all)
+    expect(editor.rect.x).to be_within(1).of(paper_x)
+    find_button("More actions", exact: true).send_keys("t")
+    expect(page).to have_css(".content-nav", text: "New heading", visible: true)
+  end
+
   it "edits the title while retaining tags without metadata controls" do
     plan.update!(tag_names: [ "security", "api-design" ])
     visit plan_edit_page_path(plan)

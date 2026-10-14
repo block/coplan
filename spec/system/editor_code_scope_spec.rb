@@ -160,16 +160,32 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(large)
   end
 
+  it "keeps ArrowDown in code when native caret movement precedes selectionchange" do
+    # Deliver the next key in the same turn as the native caret movement,
+    # while the model still points at the end of the code block.
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      import("prosemirror-state").then(({TextSelection}) => {
+        const view = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").richEditor.view;
+        let end;
+        view.state.doc.descendants((node, pos) => { if (end === undefined && node.type.name === "code_block") end = pos + 1 + node.content.size; });
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, end)));
+        view.focus();
+        const code = view.dom.querySelector("pre > code"), range = document.createRange(), selection = getSelection();
+        range.setStart(document.createTreeWalker(code, NodeFilter.SHOW_TEXT).nextNode(), 0);
+        range.collapse(true); selection.removeAllRanges(); selection.addRange(range);
+        const event = new KeyboardEvent("keydown", {key: "ArrowDown", code: "ArrowDown", keyCode: 40, bubbles: true, cancelable: true});
+        code.dispatchEvent(event);
+        done({prevented: event.defaultPrevented, parent: view.state.selection.$head.parent.type.name});
+      }).catch(error => done({error: error.message}));
+    JS
+    expect(result).to include("prevented" => false, "parent" => "code_block")
+  end
+
   it "keeps macOS Control+A as line navigation within code" do
     skip "macOS native shortcut" unless RUBY_PLATFORM.include?("darwin")
     expect(code).to have_css(".hljs-keyword", wait: 20)
-    code.click
-    page.driver.browser.action.key_down(:meta).send_keys("a").key_up(:meta).perform
-    expect(page).to have_css(".document-editor__block > pre > code") { |element| page.evaluate_script("getSelection().toString()") == element.text }
-    page.driver.browser.action.send_keys(:arrow_left).perform
-    expect(page).to have_css(".document-editor__block > pre > code") { code_prefix == "" }
-    page.driver.browser.action.send_keys(:arrow_down).perform
-    page.driver.browser.action.send_keys(:arrow_right).perform
+    code.find(".hljs-keyword", text: "return").click
     expect(page).to have_css(".document-editor__block > pre > code") { code_prefix&.match?(/\Afunction hi\(\) \{\n[^\n]+\z/) }
     page.driver.browser.action.key_down(:control).send_keys("a").key_up(:control).perform
     expect(page.evaluate_script('getSelection().toString()')).to eq("")

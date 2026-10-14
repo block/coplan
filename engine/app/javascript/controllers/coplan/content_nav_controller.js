@@ -370,7 +370,14 @@ export default class extends Controller {
   }
 
   toggle() {
-    this.visibleValue = !this.visibleValue
+    if (this._editorRoot && !this._editorSidebarDisplayed && this._headings.length) {
+      // The first heading does not open a column mid-typing. An explicit
+      // outline request can still reveal it during the edit session.
+      this._editorSidebarDisplayed = true
+      this.sidebarTarget.style.display = ""
+      if (this.hasShowBtnTarget) this.showBtnTarget.style.display = ""
+      this.visibleValue = true
+    } else this.visibleValue = !this.visibleValue
     localStorage.setItem(STORAGE_KEY, this.visibleValue)
   }
 
