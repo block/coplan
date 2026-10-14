@@ -4,7 +4,7 @@ import { registerShortcuts, commandFor } from "coplan/shortcuts"
 const STORAGE_KEY = "coplan:content-nav-visible"
 
 export default class extends Controller {
-  static targets = ["sidebar", "list", "content", "toggleBtn", "showBtn"]
+  static targets = ["sidebar", "list", "content", "toggleBtn", "showBtn", "editorToggleBtn"]
   static values = { visible: { type: Boolean, default: true } }
 
   connect() {
@@ -152,6 +152,7 @@ export default class extends Controller {
     this.listTarget.replaceChildren()
     this.sidebarTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
     if (this.hasShowBtnTarget) this.showBtnTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
+    this.updateEditorToggle()
 
     const used = new Set()
     this._headings.forEach((heading, index) => {
@@ -382,6 +383,7 @@ export default class extends Controller {
       // outline request can still reveal it during the edit session.
       this.showOutline()
     } else this.visibleValue = !this.visibleValue
+    this.updateEditorToggle()
     localStorage.setItem(STORAGE_KEY, this.visibleValue)
   }
 
@@ -432,6 +434,13 @@ export default class extends Controller {
     if (this.hasToggleBtnTarget) {
       this.toggleBtnTarget.setAttribute("aria-expanded", String(this.visibleValue))
     }
+    this.updateEditorToggle()
+  }
+
+  updateEditorToggle() {
+    if (!this.hasEditorToggleBtnTarget) return
+    this.editorToggleBtnTarget.disabled = !this._headings?.length
+    this.editorToggleBtnTarget.setAttribute("aria-expanded", String(Boolean(this._editorSidebarDisplayed && this.visibleValue)))
   }
 
   handleKeydown(event) {

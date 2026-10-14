@@ -4674,7 +4674,7 @@ img.avatar {
     display: block;
     opacity: 1;
   }
-  .content-nav-show-btn {
+  .content-nav-show-btn, .document-editor__outline-toggle {
     display: none !important;
   }
 }
