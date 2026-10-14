@@ -54,10 +54,16 @@ module CoPlan
       end
 
       def extract_urls(content)
+        # Embedded URLs describe a content block, not a citation. In particular,
+        # a quoted src must not create a bare-URL reference ending in a quote.
+        content = content.lines.reject { |line| ContentRegions::Iframe.call(line.chomp) }.join
         urls = {}  # url => { title:, key: }
 
         # Match markdown reference-style link definitions: [key]: url "optional title"
+        seen_labels = Set.new
         content.scan(/^\[([^\]]+)\]:\s+(https?:\/\/\S+)(?:\s+"([^"]*)")?/m) do |key, url, title|
+          next unless seen_labels.add?(key.squish.downcase(:fold))
+
           url = url.strip
           k = key.strip.downcase.gsub(/[^a-z0-9_-]/, "-").gsub(/-+/, "-").truncate(64, omission: "")
           urls[url] ||= { title: title&.strip, key: k }

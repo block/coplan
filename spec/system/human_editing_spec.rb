@@ -40,7 +40,7 @@ RSpec.describe "Human plan editing", type: :system do
     click_button "Bold"
     expect(page).to have_css(".ProseMirror strong", text: "Revised body")
     save_now
-    expect(page).to have_content("All changes saved · v2")
+    expect(page).to have_content(/All changes saved · v\d+/)
     expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(plan.reload.current_content).to include("**Revised body from the browser.**")
     expect(plan.current_plan_version.actor_type).to eq("human")
@@ -80,6 +80,460 @@ RSpec.describe "Human plan editing", type: :system do
       import("coplan/rich_document").then(m => done(fixtures.map(source => m.serializeDocument(m.parseDocument(source)))));
     JS
     expect(results).to eq(fixtures)
+  end
+
+  it "edits cited prose and lists without Markdown cards, retaining citations on save" do
+    source = "A catalog price.[^catalog-shape] Inline `[^literal]` stays code.\n\n" \
+      "- A client rule.[^client]\n- Another rule.\n\n[^catalog-shape]: Catalog details.\n[^client]: Client details.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    expect(page).to have_css(".ProseMirror p", text: "A catalog price.")
+    expect(page).to have_css(".ProseMirror li .document-editor__footnote", text: "[client]")
+    expect(page).to have_css(".ProseMirror code", text: "[^literal]")
+    expect(page).to have_no_css(".document-editor__block-header", text: "Markdown block")
+    expect(page).to have_no_css(".document-editor__block-header", text: "References", visible: true)
+    expect(page).to have_no_css(".document-editor__block-preview pre", text: "[^catalog-shape]: Catalog details.", visible: true)
+    original = page.evaluate_async_script(<<~'JS', source)
+      const [source, done] = arguments;
+      import("coplan/rich_document").then(m => done(m.serializeDocument(m.parseDocument(source))));
+    JS
+    expect(original).to eq(source)
+    page.execute_script(<<~JS)
+      const form = document.querySelector('form.document-editor')
+      const view = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor.view
+      let paragraph, item
+      view.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text.includes('A catalog price.')) paragraph = pos
+        if (node.isText && node.text === 'A client rule.') item = pos
+      })
+      view.dispatch(view.state.tr.insertText('Resolved client rule.', item, item + 'A client rule.'.length))
+      view.dispatch(view.state.tr.insertText('Resolved catalog price.', paragraph, paragraph + 'A catalog price.'.length))
+    JS
+    save_now
+    expect(page).to have_content("All changes saved · v3")
+    expect(plan.reload.current_content).to include("Resolved catalog price.[^catalog-shape]", "Resolved client rule.[^client]", "`[^literal]`")
+    expect(plan.current_content).to end_with("[^catalog-shape]: Catalog details.\n[^client]: Client details.\n")
+  end
+
+  it "edits a whole presentation in one Markdown field, preserving its wrapping region" do
+    source = "Before the deck.[^earlier]\n\n[api]: https://example.com/api\n  \"API reference\"\n\n::: {.presentation #review theme=\"graphite\"}\n\n# Review\n\nOpening slide. [API][api] Decision.[^later]\n\n[api]: https://example.com/duplicate\n\n---\n\n## Decision\n\n- Ship it.\n\n:::\n\nAfter the deck.\n\n[^earlier]: Earlier note.\n[^later]: Later note.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    expect(page).to have_field("Presentation Markdown", enable_aria_label: true)
+    expect(page).to have_no_button("Edit boundary")
+    expect(page).to have_no_css(".document-editor__block-header", text: "Markdown block", visible: true)
+    field = find('[aria-label="Presentation Markdown"]')
+    field.fill_in with: field.value.sub("Opening slide.", "Updated slide.")
+    within(".document-editor__content-block") do
+      expect(page).to have_css(".document-editor__presentation-label svg")
+      click_button "Preview", exact: true
+      expect(page).to have_css(".deck-slide", text: "Updated slide.")
+      expect(page).to have_link("API", href: "https://example.com/api")
+      expect(page).to have_css('a[data-footnote-ref]', text: "2")
+      expect(page).to have_no_field("Presentation Markdown", enable_aria_label: true)
+      find('button[aria-label="Next slide"]').click
+      expect(page).to have_css(".deck-slide", text: "Decision")
+      click_button "Edit Markdown"
+      expect(page).to have_field("Presentation Markdown", enable_aria_label: true, with: /Updated slide/)
+    end
+    save_now
+    expect(page).to have_content("All changes saved · v3")
+    expect(plan.reload.current_content).to eq(source.sub("Opening slide.", "Updated slide."))
+  end
+
+  it "previews only the selected presentation in a document with multiple decks" do
+    source = "::: {.presentation}\n\n# First deck\n\nFirst.[^first]\n\n:::\n\n::: {.presentation}\n\n# Second deck\n\nSecond.[^second]\n\n:::\n\n[^first]: First note.\n[^second]: Second note.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    requests = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0], original = window.fetch;
+      let requests = 0;
+      window.fetch = async (...args) => {
+        if (String(args[0]).endsWith('/preview_draft')) {
+          requests++;
+          await new Promise(resolve => setTimeout(resolve, 100));
+          if (requests === 1) return new Response('Unavailable', { status: 503 });
+        }
+        return original(...args);
+      };
+      const blocks = [...document.querySelectorAll('.document-editor__content-block')];
+      Promise.all(blocks.map(block => block.coplanTogglePreview()))
+        .then(async () => {
+          blocks.forEach(block => block.coplanTogglePreview());
+          await Promise.all(blocks.map(block => block.coplanTogglePreview()));
+          window.fetch = original; done(requests);
+        })
+        .catch(error => { window.fetch = original; done({ error: error.message }); });
+    JS
+    expect(requests).to eq(2)
+    within(all(".document-editor__content-block").last) do
+      expect(page).to have_css(".deck-slide", text: "Second deck")
+      expect(page).to have_no_css(".deck-slide", text: "First deck")
+      expect(page).to have_css('a[data-footnote-ref]', text: "2")
+    end
+  end
+
+  it "refreshes whole presentation blocks after source edits and retains copied citations" do
+    visit plan_edit_page_path(plan)
+    editor
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      Promise.all([import("coplan/rich_document"), import("prosemirror-model")]).then(([m, model]) => {
+        const host = document.createElement("div");
+        const open = "::: {.presentation}\n\n# Review\n";
+        const closed = open + "\n:::\n";
+        const rich = m.createRichDocument(host, open, () => {});
+        rich.update(closed);
+        const presentations = host.querySelectorAll('[aria-label="Presentation Markdown"]').length;
+        rich.update(open);
+        const unclosed = host.querySelectorAll('[aria-label="Presentation Markdown"]').length;
+        const windows = m.serializeDocument(m.parseDocument(closed.replaceAll('\n', '\r\n')));
+        rich.update('Cited prose.[^catalog]');
+        const copy = document.createElement('div');
+        copy.append(host.querySelector('p').cloneNode(true));
+        const pasted = model.DOMParser.fromSchema(rich.view.state.schema).parse(copy);
+        const citation = m.serializeDocument(pasted);
+        const plain = pasted.textBetween(0, pasted.content.size);
+        rich.destroy();
+        done({ presentations, unclosed, windows, citation, plain });
+      });
+    JS
+    expect(result).to include("presentations" => 1, "unclosed" => 0,
+      "windows" => "::: {.presentation}\r\n\r\n# Review\r\n\r\n:::\r\n",
+      "citation" => "Cited prose.[^catalog]", "plain" => "Cited prose.[^catalog]")
+  end
+
+  it "refreshes a visible presentation preview and discards older responses" do
+    visit plan_edit_page_path(plan)
+    editor
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      import("coplan/rich_document").then(async m => {
+        const host = document.createElement("div"), requests = [];
+        const source = title => `::: {.presentation}\n\n# ${title}\n\n:::\n`;
+        const rich = m.createRichDocument(host, source("Original"), () => {}, () => {}, markdown =>
+          new Promise(resolve => requests.push({ markdown, resolve })));
+        const block = host.querySelector('.document-editor__content-block');
+        const first = block.coplanTogglePreview();
+        rich.update(source("Updated"));
+        await new Promise(resolve => setTimeout(resolve, 350));
+        requests[1].resolve('<div class="deck-region"><p>Updated preview</p></div>');
+        await Promise.resolve();
+        requests[0].resolve('<div class="deck-region"><p>Original preview</p></div>');
+        await first;
+        const visible = host.querySelector('.document-editor__block-preview').textContent;
+        const markdown = requests.map(request => request.markdown);
+        rich.destroy();
+        done({ visible, markdown });
+      }).catch(error => done({ error: error.message }));
+    JS
+    expect(result.fetch("visible")).to eq("Updated preview")
+    expect(result.fetch("markdown")).to eq([
+      "::: {.presentation}\n\n# Original\n\n:::\n", "::: {.presentation}\n\n# Updated\n\n:::\n"
+    ])
+  end
+
+  it "refreshes presentation previews when only their citation definitions change" do
+    visit plan_edit_page_path(plan)
+    editor
+    # Eight debounced updates exceed the driver's default two-second script timeout.
+    result = Capybara.using_wait_time(6) { page.evaluate_async_script(<<~'JS') }
+      const done = arguments[0];
+      import("coplan/rich_document").then(async m => {
+        const host = document.createElement("div"), requests = [];
+        const deck = "::: {.presentation}\n\n# Review\n\nDecision.[^catalog] [API][api]\n\n:::\n";
+        const definitions = ["[^catalog]: Original.\n", "[^catalog]: Updated.\n", "[^renamed]: Updated.\n",
+          "[^other]: Other.\n[^catalog]: Updated.\n", "[^catalog]: Updated.\n[^other]: Other.\n", "",
+          '[api]: https://example.com/first "API reference"\n', '[api]: https://example.com/updated\n', ""];
+        const rich = m.createRichDocument(host, deck + "\n" + definitions[0], () => {}, () => {}, async markdown => {
+          requests.push(markdown);
+          return `<div class="deck-region"><p>Preview ${requests.length}</p></div>`;
+        });
+        await host.querySelector('.document-editor__content-block').coplanTogglePreview();
+        for (const definition of definitions.slice(1)) {
+          rich.update(deck + "\n" + definition);
+          await new Promise(resolve => setTimeout(resolve, 350));
+        }
+        const visible = host.querySelector('.document-editor__block-preview').textContent;
+        rich.destroy();
+        done({ requests, visible });
+      }).catch(error => done({ error: error.message }));
+    JS
+    expect(result.fetch("requests").size).to eq(9)
+    expect(result.fetch("requests")[1]).to include("[^catalog]: Updated.")
+    expect(result.fetch("requests")[2]).to include("[^renamed]: Updated.")
+    expect(result.fetch("requests")[3].index("[^other]:")).to be < result.fetch("requests")[3].index("[^catalog]:")
+    expect(result.fetch("requests")[4].index("[^catalog]:")).to be < result.fetch("requests")[4].index("[^other]:")
+    expect(result.fetch("requests").last).not_to include("[^catalog]:")
+    expect(result.fetch("requests")[6]).to include('[api]: https://example.com/first "API reference"')
+    expect(result.fetch("requests")[7]).to include("[api]: https://example.com/updated")
+    expect(result.fetch("requests").last).not_to include("[api]:")
+    expect(result.fetch("visible")).to eq("Preview 9")
+  end
+
+  it "coalesces rapid preview refreshes and retains unchanged slides" do
+    visit plan_edit_page_path(plan)
+    editor
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      import("coplan/rich_document").then(async m => {
+        const host = document.createElement("div"), requests = [];
+        const source = prose => `::: {.presentation}\n\n# Stable deck\n\n:::\n\n${prose}\n`;
+        const rich = m.createRichDocument(host, source("Before"), () => {}, () => {}, async markdown => {
+          requests.push(markdown);
+          if (requests.length === 3) throw new Error('Offline');
+          return '<div class="deck-region"><p>Stable preview</p></div>';
+        });
+        await host.querySelector('.document-editor__content-block').coplanTogglePreview();
+        const original = host.querySelector('.deck-region');
+        for (let index = 0; index < 10; index++) rich.update(source(`Typing ${index}`));
+        const retainedDuring = original === host.querySelector('.deck-region');
+        await new Promise(resolve => setTimeout(resolve, 350));
+        const retainedAfter = original === host.querySelector('.deck-region');
+        rich.update(source('Fail refresh'));
+        await new Promise(resolve => setTimeout(resolve, 350));
+        const retainedOnError = original === host.querySelector('.deck-region');
+        const failureMessage = host.querySelector('[role="status"]').textContent;
+        const block = host.querySelector('.document-editor__content-block');
+        block.coplanTogglePreview();
+        await block.coplanTogglePreview();
+        rich.destroy();
+        done({ requests, retainedDuring, retainedAfter, retainedOnError, failureMessage });
+      }).catch(error => done({ error: error.message }));
+    JS
+    expect(result.fetch("requests").size).to eq(4)
+    expect(result.fetch("requests")[1]).to include("Typing 9")
+    expect(result).to include("retainedDuring" => true, "retainedAfter" => true, "retainedOnError" => true)
+    expect(result.fetch("failureMessage")).to include("Could not refresh preview")
+  end
+
+  it "matches folded and whitespace citation labels while retaining their source spelling" do
+    source = "Road.[^STRASSE] Context.[^ Catalog  shape ]\n\n[^straße]: Street details.\n[^catalog shape]: Shape details.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    click_button "Edit citation STRASSE", enable_aria_label: true
+    expect(find('#coplan-citation-body').value).to eq("Street details.")
+    fill_in "Citation text and source links", with: "Updated street."
+    click_button "Save citation"
+    expect(page).to have_no_css('dialog[open]')
+    find('button[data-citation-label=" Catalog  shape "]').click
+    expect(find('#coplan-citation-body').value).to eq("Shape details.")
+    fill_in "Citation text and source links", with: "Updated shape."
+    click_button "Save citation"
+    expect(page).to have_no_css('dialog[open]')
+    expect(plan.reload.current_content).to eq(source.sub("Street details.", "Updated street.").sub("Shape details.", "Updated shape."))
+    pairs = [ [ "straße", "STRASSE" ], [ "ς", "Σ" ], [ "ﬃ", "FFI" ], [ "Ꭰ", "ꭰ" ], [ "ı", "I" ] ]
+    result = page.evaluate_async_script(<<~'JS', pairs)
+      const pairs = arguments[0], done = arguments[1];
+      import("coplan/rich_document").then(m => done(pairs.map(([a, b]) => m.citationLabelKey(a) === m.citationLabelKey(b))));
+    JS
+    expect(result).to eq(pairs.map { |a, b| a.downcase(:fold) == b.downcase(:fold) })
+  end
+
+  it "edits citations in a dialog while keeping definitions out of the body" do
+    source = "A catalog price.[^catalog] More context.[^other]\n\n[^catalog]: Catalog details.\n    A second line.\n\n    A second paragraph.\n[^other]: Keep this definition.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    click_button "Edit citation catalog", enable_aria_label: true
+    expect(page).to have_css('dialog[open]', text: 'Citation: catalog')
+    expect(find('#coplan-citation-body').value).to eq("Catalog details.\nA second line.\n\nA second paragraph.")
+    fill_in "Citation text and source links", with: "Updated [Catalog source](https://example.com/catalog).\nMore detail."
+    click_button "Save citation"
+    expect(page).to have_no_css('dialog[open]')
+    expect(plan.reload.current_content).to include("[^catalog]: Updated [Catalog source](https://example.com/catalog).\n    More detail.", "[^other]: Keep this definition.")
+    expect(page).to have_no_css('.ProseMirror pre', text: '[^catalog]:', visible: true)
+    click_button "Edit citation catalog", enable_aria_label: true
+    expect(find('#coplan-citation-body').value).to include('Updated [Catalog source]')
+    click_button "Cancel"
+  end
+
+  it "keeps a list rich when it contains a table and edits just that table" do
+    source = "- First item.\n\n  | Name | State |\n  | --- | --- |\n  | Alpha | Ready |\n\n- Second item.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    expect(page).to have_css('.ProseMirror > ul > li', count: 2)
+    expect(page).to have_css('.ProseMirror li .document-editor__block-preview table td', text: 'Ready')
+    click_button "Edit table"
+    field = find('[aria-label="Table Markdown"]')
+    expect(field.value).not_to include('First item')
+    field.fill_in with: field.value.sub('Ready', 'Done')
+    save_now
+    expect(page).to have_content('All changes saved · v3')
+    expect(plan.reload.current_content).to include('First item.', 'Second item.', '| Alpha | Done |')
+    expect(plan.current_content).not_to include('Ready')
+  end
+
+  it "keeps quoted tables in their quote and exposes their own source range" do
+    source = "> Explanation.\n>\n> | Name | Status |\n> | --- | --- |\n> | Alpha | Ready |\n\nAfter.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    expect(page).to have_css('.ProseMirror blockquote table', text: 'Ready')
+    click_button 'Edit table'
+    field = find_field('Table Markdown', enable_aria_label: true)
+    expect(field.value).not_to include('>')
+    field.fill_in with: field.value.sub('Ready', 'Done')
+    save_now
+    expect(page).to have_content('All changes saved · v3')
+    expect(plan.reload.current_content).to include('> | Alpha | Done |', '> Explanation.', 'After.')
+    expect(plan.current_content).not_to include('> >')
+    range_source = page.evaluate_script(<<~'JS')
+      (() => {
+        const editor = Stimulus.getControllerForElementAndIdentifier(document.querySelector('form.document-editor'), 'coplan--editor').richEditor;
+        let position; editor.view.state.doc.descendants((node, pos) => { if (node.attrs.kind === 'table') position = pos; });
+        const range = editor.sourceRange(position);
+        return range ? editor.content().slice(range.from, range.to) : null;
+      })()
+    JS
+    expect(range_source).to include('| Alpha | Done |')
+  end
+
+  it "edits iframe settings and keeps disallowed URLs from loading" do
+    source = '::: {.iframe src="https://unapproved.example.com/report" title="Report" width="100%" height="480" /}' + "\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    expect(page).to have_field('Embedded page URL', enable_aria_label: true, with: 'https://unapproved.example.com/report')
+    expect(page).to have_content('Embedded page unavailable')
+    expect(page).to have_no_css('.document-editor__block-preview iframe')
+    fill_in 'Embedded page height', enable_aria_label: true, with: '600'
+    fill_in 'Embedded page title', enable_aria_label: true, with: 'Updated report'
+    save_now
+    expect(page).to have_content('All changes saved · v3')
+    expect(plan.reload.current_content).to include('height="600"', 'title="Updated report"')
+  end
+
+  it "inserts an editable presentation from the content menu at the caret" do
+    visit plan_edit_page_path(plan)
+    editor
+    find(".ProseMirror > p", match: :first).click
+    click_button "Insert content", enable_aria_label: true
+    expect(page).to have_button("Presentation", exact: true)
+    expect(page).to have_button("Embed", exact: true)
+    click_button "Presentation", exact: true
+    expect(page).to have_no_css("#coplan-insert-content:popover-open")
+    field = find('[aria-label="Presentation Markdown"]:focus')
+    field.fill_in with: "# New presentation\n\nA useful slide."
+    save_now
+    expect(page).to have_content("All changes saved · v2")
+    expect(plan.reload.current_content).to include("::: {.presentation}", "# New presentation", "A useful slide.", ":::")
+    find('[aria-label="Remove presentation"]').click
+    page.execute_script("window.Stimulus.getControllerForElementAndIdentifier(document.querySelector('[data-controller~=\"coplan--editor\"]'), 'coplan--editor').richEditor.command('undo')")
+    expect(page).to have_field("Presentation Markdown", enable_aria_label: true, with: /A useful slide/)
+  end
+
+  it "adds content after a selected presentation without replacing it" do
+    source = "::: {.presentation}\n\n# Existing deck\n\n:::\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      import('prosemirror-state').then(({NodeSelection}) => {
+        const view = window.Stimulus.getControllerForElementAndIdentifier(document.querySelector('[data-controller~="coplan--editor"]'), 'coplan--editor').richEditor.view;
+        view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, 0)));
+        done();
+      });
+    JS
+    click_button "Insert content", enable_aria_label: true
+    click_button "Embed", exact: true
+    expect(page).to have_field("Presentation Markdown", enable_aria_label: true, with: /Existing deck/)
+    expect(page).to have_css('[data-embed-attribute="src"]:focus')
+  end
+
+  it "focuses a newly inserted iframe and lets removal be undone" do
+    source = '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' + "\n\nEnd.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    find(".ProseMirror > p", text: "End.").click
+    click_button "Insert content", enable_aria_label: true
+    click_button "Embed", exact: true
+    expect(page).to have_css('[data-embed-attribute="src"]', count: 2)
+    expect(page.evaluate_script('document.activeElement.value')).to eq('https://')
+    focused = find('[data-embed-attribute="src"]:focus')
+    focused.fill_in with: 'https://unapproved.example.com/second'
+    block = focused.find(:xpath, 'ancestor::div[contains(@class,"document-editor__block")]', match: :first)
+    block.click_button "Remove embedded page", enable_aria_label: true
+    expect(page).to have_css('[data-embed-attribute="src"]', count: 1)
+    click_button "Undo", enable_aria_label: true
+    expect(page).to have_css('[data-embed-attribute="src"]', count: 2)
+  end
+
+  it "separates inserted content blocks from citation definitions across save and reload" do
+    source = "Plain.[^catalog]\n\n[^catalog]: Catalog source.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    all(".ProseMirror > p").last.click
+    click_button "Insert content", enable_aria_label: true
+    click_button "Embed", exact: true
+    find('[data-embed-attribute="src"]').fill_in with: "https://unapproved.example.com/report"
+    save_now
+    expect(page).to have_content("All changes saved · v3")
+    expect(plan.reload.current_content).to include("[^catalog]: Catalog source.\n\n::: {.iframe")
+    visit plan_edit_page_path(plan)
+    editor
+    expect(find('[data-embed-attribute="src"]').value).to eq("https://unapproved.example.com/report")
+    expect(page).to have_no_css("#plan-citations", text: "::: {.iframe")
+  end
+
+  it "opens back-matter citations for whole content blocks in both themes" do
+    source = "::: {.presentation}\n\n# Review\n\nDecision.[^catalog]\n\n:::\n\n" +
+      '::: {.iframe src="https://unapproved.example.com/report" title="Report" /}' + "\n\n[^catalog]: Catalog details.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    %w[light dark].each do |theme|
+      page.execute_script('document.documentElement.dataset.theme = arguments[0]', theme)
+      expect(page).to have_field("Presentation Markdown", enable_aria_label: true)
+      expect(page).to have_field("Embedded page URL", enable_aria_label: true)
+      page.save_screenshot(Rails.root.join("tmp/editor-tryout/content-blocks-#{theme}.png"))
+      click_button "Edit reference catalog", enable_aria_label: true
+      expect(page).to have_css('dialog[open]', text: 'Citation: catalog')
+      expect(find('#coplan-citation-body').value).to eq('Catalog details.')
+      page.save_screenshot(Rails.root.join("tmp/editor-tryout/citation-#{theme}.png"))
+      click_button "Cancel"
+    end
+  end
+
+  it "leaves unclosed or unknown presentation markers visible and code examples literal" do
+    visit plan_edit_page_path(plan)
+    editor
+    fixtures = [
+      "::: {.presentation}\n\n# Unclosed\n",
+      "::: {.unknown}\n\nText\n\n:::\n",
+      "```markdown\n::: {.presentation}\n\n# Example\n\n:::\n```\n",
+      "> ::: {.presentation}\n>\n> quoted\n>\n> :::\n"
+    ]
+    results = page.evaluate_async_script(<<~'JS', fixtures)
+      const [fixtures, done] = arguments;
+      import("coplan/rich_document").then(m => done(fixtures.map(source => {
+        const doc = m.parseDocument(source);
+        let boundaries = 0;
+        doc.forEach(node => { if (node.attrs.kind === "presentation") boundaries++; });
+        return { source: m.serializeDocument(doc), boundaries };
+      })));
+    JS
+    expect(results).to eq(fixtures.map { |source| { "source" => source, "boundaries" => 0 } })
   end
 
   it "keeps untouched blocks exact when editing beside tables and Mermaid" do
@@ -278,6 +732,30 @@ RSpec.describe "Human plan editing", type: :system do
     expect(plan.reload.current_content).to include("First edit plus in-flight typing")
     page.refresh
     expect(editor).to have_text("First edit plus in-flight typing")
+  end
+
+  it "retains the draft across an expired sign-in and refreshes the token on retry" do
+    visit plan_edit_page_path(plan)
+    editor
+    page.execute_script(<<~'JS')
+      const original = window.fetch;
+      window.signedOut = true;
+      const meta = document.querySelector('meta[name="csrf-token"]') || document.head.appendChild(document.createElement('meta'));
+      meta.name = 'csrf-token'; meta.content = 'expired';
+      window.fetch = async (url, options) => {
+        if (window.signedOut && (url.includes('editor_state') || options?.method === 'PATCH')) return new Response('{}', {status: 401, headers: {'Content-Type': 'application/json'}});
+        if (options?.method === 'PATCH' && options.headers['X-CSRF-Token'] === 'expired') return new Response('Old session token', {status: 422, headers: {'Content-Type': 'text/html'}});
+        return original(url, options);
+      };
+    JS
+    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Draft after expired sign-in")
+    save_now
+    expect(page).to have_content("Sign in again · draft retained")
+    expect(editor).to have_text("Draft after expired sign-in")
+    page.execute_script('window.signedOut = false')
+    click_button "Retry sync", enable_aria_label: true
+    expect(page).to have_content("All changes saved · v2")
+    expect(plan.reload.current_content).to include("Draft after expired sign-in")
   end
 
   it "reconciles a committed save whose response was lost without making another version" do

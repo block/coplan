@@ -1,0 +1,24 @@
+# Embedded pages
+
+A plan can contain embedded pages. Use one self-closing block on its own line, with a blank line before and after:
+
+```markdown
+::: {.iframe src="https://www.openstreetmap.org/export/embed.html" title="Area map" width="100%" height="480" /}
+```
+
+This block has no body or closing fence. Do not write raw HTML iframe tags; CoPlan removes them.
+
+- `src` is required. It must be HTTPS, with no credentials, backslashes, whitespace, or nonstandard port.
+- Check allowed hosts with `GET /api/v1/embed_domains`, using your Bearer token. The response is `{"hostnames":["embed.example.com"]}`.
+- An administrator must approve the exact hostname in **CoPlan Admin → Iframe domains**. Subdomains need separate approval. No domains are approved by default.
+- `title` describes the embedded page for assistive technology. Default: `Embedded content`. Maximum: 200 characters.
+- `width` is a percentage from `1%` to `100%`, or pixels from `240` to `2400`. Default: `100%`. The frame never grows wider than the document.
+- `height` is pixels from `160` to `1600`. Default: `480`.
+- Quote all values. Encode a quote as `&quot;` and an ampersand as `&amp;`.
+- Unknown or duplicate attributes make the block invalid. Authors cannot set sandbox privileges, permissions, HTML, or scripts.
+
+Readers see an unavailable block for unapproved domains or invalid settings. Revoking a domain stops embeds on the next page render. Reload a page after adding an approved domain so its frame policy updates. Redirects are constrained to approved hosts. The app's own host is excluded. A site can still refuse embedding through its own browser policy.
+
+Frames use a sandbox with scripts, forms, and the embedded site’s own origin enabled. The app’s own host cannot be embedded. Top-level navigation, camera, microphone, and location are disabled. Cross-origin HTTPS requests send only the referring origin, not the plan path. CoPlan does not fetch the page on the server.
+
+In the human editor, **+ → Embed** adds a settings block. Change its URL, title, width, and height in place. These edits autosave and create normal plan versions. Presentation blocks instead contain one large Markdown field for their slide content.

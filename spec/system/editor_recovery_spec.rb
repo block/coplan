@@ -89,6 +89,31 @@ RSpec.describe "Editor draft recovery", type: :system do
     expect(plan.reload.title).to eq("Recovery")
   end
 
+  it "recovers an unsaved new plan after signing in again without reloading" do
+    visit new_plan_path
+    rich
+    page.execute_script(<<~'JS')
+      const original = window.fetch;
+      const meta = document.querySelector('meta[name="csrf-token"]') || document.head.appendChild(document.createElement('meta'));
+      meta.name = 'csrf-token'; meta.content = 'expired';
+      window.signedOut = true;
+      window.fetch = async (url, options) => {
+        if (window.signedOut && options?.method === 'POST' && JSON.parse(options.body || '{}').creation_key) return new Response('{}', {status: 401, headers: {'Content-Type': 'application/json'}});
+        if (options?.method === 'POST' && JSON.parse(options.body || '{}').creation_key && options.headers['X-CSRF-Token'] === 'expired') return new Response('Old token', {status: 422, headers: {'Content-Type': 'text/html'}});
+        return original(url, options);
+      };
+    JS
+    find("#plan-header .inline-editor__title").send_keys("Recovered new plan")
+    rich.send_keys("Retained creation draft")
+    expect(page).to have_content("Sign in again · draft retained", wait: 10)
+    expect(author.created_plans.where(title: "Recovered new plan")).to be_empty
+    page.execute_script('window.signedOut = false')
+    click_button "Retry sync", enable_aria_label: true
+    expect(page).to have_content("All changes saved · v1", wait: 15)
+    expect(author.created_plans.where(title: "Recovered new plan").count).to eq(1)
+    expect(author.created_plans.find_by!(title: "Recovered new plan").current_content).to include("Retained creation draft")
+  end
+
   it "retries a lost creation response after reload without duplication or losing newer typing" do
     visit new_plan_path
     rich

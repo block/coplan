@@ -22,6 +22,21 @@ RSpec.describe CoPlan::References::ExtractFromContent do
       expect(ref.source).to eq("extracted")
     end
 
+    it "uses the first fold-equivalent link definition without creating colliding reference keys" do
+      update_content(plan, "[API][api] and [Street][STRASSE].\n\n[api]: https://example.com/first\n[API]: https://example.com/ignored\n[STRASSE]: https://example.com/street\n[straße]: https://example.com/ignored-street\n")
+      described_class.call(plan: plan)
+      expect(plan.references.reload.pluck(:url)).to match_array([ "https://example.com/first", "https://example.com/street" ])
+      expect(plan.references.pluck(:key)).to match_array([ "api", "strasse" ])
+    end
+
+    it "keeps iframe URLs out of references while extracting normal citations" do
+      source = '::: {.iframe src="https://embed.example.com/view?a=1&amp;b=2" title="Report" /}' +
+        "\n\nClaim.[^source]\n\n[^source]: [Study](https://example.com/study).\n"
+      update_content(plan, source)
+      described_class.call(plan: plan)
+      expect(plan.references.reload.pluck(:url)).to eq([ 'https://example.com/study' ])
+    end
+
     it "classifies GitHub repo URLs" do
       update_content(plan, "See [repo](https://github.com/org/my-repo) for code.")
       described_class.call(plan: plan)
