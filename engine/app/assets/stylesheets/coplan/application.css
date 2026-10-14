@@ -4621,6 +4621,26 @@ img.avatar {
   .content-nav {
     display: none;
   }
+  .content-nav[popover] {
+    position: fixed;
+    inset: calc(var(--nav-height) + 8px) auto auto 8px;
+    width: min(320px, calc(100vw - 16px));
+    max-height: calc(100dvh - var(--nav-height) - 24px);
+    margin: 0;
+    padding: var(--space-md);
+    border: 1px solid var(--glass-edge);
+    border-radius: var(--radius);
+    background: var(--glass-bg-strong);
+    color: var(--color-text);
+    box-shadow: var(--shadow-glass);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    transition: none;
+  }
+  .content-nav[popover]:popover-open {
+    display: block;
+    opacity: 1;
+  }
   .content-nav-show-btn {
     display: none !important;
   }
@@ -8113,6 +8133,8 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 .site-nav__edit[data-editing="true"] { display: none; }
 .plan-done-icon { display: none; }
 .plan-done-label { display: none; }
+.plan-outline-action { display: none; }
+[data-editing="true"] .plan-outline-action { display: flex; }
 [data-editing="true"] .plan-done-icon { display: inline; }
 [data-editing="true"] .plan-edit-icon { display: none; }
 [data-editing="true"] .plan-edit-label { display: none; }

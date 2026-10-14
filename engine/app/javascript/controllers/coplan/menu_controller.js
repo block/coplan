@@ -28,6 +28,11 @@ export default class extends Controller {
     try { this.menuTarget.hidePopover() } catch {}
   }
 
+  showOutline() {
+    this.close()
+    this.dispatch("show-outline", { prefix: "coplan", detail: { trigger: this.triggerTarget } })
+  }
+
   disconnect() {
     this.#stopWatchingScroll()
   }

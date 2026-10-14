@@ -37,6 +37,10 @@
         <span>History</span>
       <% end %>
       <% if can_edit %>
+        <button type="button" class="menu__item plan-outline-action" role="menuitem" data-action="coplan--menu#showOutline">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg>
+          <span>Show outline</span>
+        </button>
         <button type="button" class="menu__item" role="menuitem"
                 data-action="coplan--menu#close coplan--folder-picker#open"
                 data-move-url="<%= move_to_folder_plan_path(plan) %>"
