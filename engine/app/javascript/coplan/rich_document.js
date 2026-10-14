@@ -155,9 +155,15 @@ function needsTrailing(doc) {
 function ensureTrailing(doc) {
   return needsTrailing(doc) ? doc.copy(doc.content.append(Fragment.from(trailingParagraph()))) : doc
 }
-function moveBelowCode(state, dispatch) {
-  const { $head, empty } = state.selection
-  if (!empty || $head.parent.type !== schema.nodes.code_block || $head.parentOffset !== $head.parent.content.size) return false
+function moveBelowCode(state, dispatch, view) {
+  // A native ArrowLeft can move the caret before selectionchange updates
+  // the model. Do not escape code using its previous end-of-block position.
+  const { $from, $to: $head } = visibleSelection(state, view)
+  if ($from.pos === $head.pos && $head.parent.type === schema.nodes.code_block && dispatch) {
+    const selection = TextSelection.create(state.doc, $head.pos)
+    if (!selection.eq(state.selection)) dispatch(state.tr.setSelection(selection))
+  }
+  if ($from.pos !== $head.pos || $head.parent.type !== schema.nodes.code_block || $head.parentOffset !== $head.parent.content.size) return false
   const position = $head.after()
   if (dispatch) {
     const tr = state.tr
