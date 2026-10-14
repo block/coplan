@@ -179,7 +179,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
     end
 
     it "retires old demo-only types while preserving their existing documents" do
-      old_type = create(:plan_type, name: "RFC")
+      old_type = create(:plan_type, name: "RFC", metadata: { "development_seed" => true })
       existing = create(:plan, plan_type: old_type)
 
       described_class.call
@@ -187,6 +187,37 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(old_type.reload).to be_retired_from_creation
       expect(existing.reload.plan_type).to eq(old_type)
       expect(CoPlan::PlanType.creation_order(CoPlan::PlanType.all).size).to eq(12)
+    end
+
+    it "preserves an unmarked host-owned legacy type" do
+      custom = create(:plan_type, name: "RFC", description: "Our host review format")
+      metadata = custom.metadata.deep_dup
+      described_class.call
+      expect(custom.reload.metadata).to eq(metadata)
+      expect(CoPlan::PlanType.creation_order(CoPlan::PlanType.all)).to include(custom)
+    end
+
+    %w[text general source].each do |kind|
+      it "preserves an edited and resolved #{kind} seed discussion" do
+        described_class.call
+        plan = seeded_plan(kind == "source" ? "diagram-comments" : "collab-showcase")
+        scope = plan.comment_threads
+        thread = case kind
+        when "source" then scope.where.not(anchor_kind: nil).first!
+        when "general" then scope.where(anchor_kind: nil, anchor_text: nil).first!
+        else scope.where(anchor_kind: nil).where.not(anchor_text: [ nil, "" ]).first!
+        end
+        comment = thread.comments.first!
+        comment.update!(body_markdown: "My edited #{kind} discussion")
+        thread.resolve!(plan.created_by_user) unless thread.status == "resolved"
+        ids = plan.comment_threads.pluck(:id).sort
+        notification_count = CoPlan::Notification.count
+        described_class.call
+        expect(plan.comment_threads.pluck(:id).sort).to eq(ids)
+        expect(thread.reload.status).to eq("resolved")
+        expect(comment.reload.body_markdown).to eq("My edited #{kind} discussion")
+        expect(CoPlan::Notification.count).to eq(notification_count)
+      end
     end
 
     it "creates a varied, idempotent development dataset" do

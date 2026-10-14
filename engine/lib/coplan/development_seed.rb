@@ -304,6 +304,8 @@ module CoPlan
 
         legacy_type = PlanType.find_by_name(legacy_name)
         next unless legacy_type && !legacy_type.retired_from_creation?
+        # A name does not establish ownership of a host's custom type.
+        next unless legacy_type.metadata.to_h["development_seed"] == true
 
         legacy_type.update!(metadata: legacy_type.metadata.to_h.merge("retired_from_creation" => true))
       end
@@ -530,7 +532,7 @@ module CoPlan
 
     def seed_thread(plan:, user:, body:, anchor: nil, source_token: nil, author_type: "human",
       agent_name: nil, api_token: nil, resolved_by: nil)
-      return if seeded_thread?(plan, body)
+      return if seeded_thread?(plan, user: user, anchor: anchor, source_token: source_token)
 
       thread = plan.comment_threads.new(
         plan_version: plan.current_plan_version,
@@ -557,9 +559,17 @@ module CoPlan
       thread
     end
 
-    def seeded_thread?(plan, body)
-      Comment.where(comment_thread_id: plan.comment_threads.select(:id))
-        .exists?(body_markdown: body)
+    def seeded_thread?(plan, user:, anchor:, source_token:)
+      attributes = { created_by_user_id: user.id, anchor_kind: nil, anchor_text: anchor.presence }
+      if source_token
+        data = Plans::SourceTargets.resolve(source_token, plan.current_content.to_s)
+        return false unless data
+
+        attributes = { created_by_user_id: user.id, anchor_kind: data.fetch("kind"), anchor_context: data.fetch("label") }
+      end
+      # Comment text and resolution are editable. The author and anchor
+      # identify the existing discussion even after a local edit or deletion.
+      plan.comment_threads.exists?(attributes)
     end
 
     # A bulk organize run attributed to an agent: three of Alex's loose
@@ -661,8 +671,6 @@ module CoPlan
       ]
       selections.each do |key, kind, fragment, label, body|
         plan = plans.fetch(key)
-        next if seeded_thread?(plan, body)
-
         content = plan.current_content
         range = Plans::SourceTargets.new(content).ranges.find do |target_kind, start, finish|
           target_kind == kind && content[start...finish].include?(fragment)
