@@ -10,12 +10,13 @@ module CoPlan
         end
       end
 
-      def self.call(request:, actor:, revision:, decision:, note: nil, api_token: nil)
-        new(request:, actor:, revision:, decision:, note:, api_token:).call
+      def self.call(request:, actor:, revision:, decision:, note: nil, api_token: nil, idempotency_key: nil)
+        new(request:, actor:, revision:, decision:, note:, api_token:, idempotency_key:).call
       end
 
-      def initialize(request:, actor:, revision:, decision:, note:, api_token:)
+      def initialize(request:, actor:, revision:, decision:, note:, api_token:, idempotency_key:)
         @request, @actor, @revision, @decision, @note, @api_token = request, actor, revision, decision, note, api_token
+        @idempotency_key = idempotency_key.presence
       end
 
       def call
@@ -28,11 +29,30 @@ module CoPlan
           response = @request.review_responses.build(user: @actor, plan_version: plan.current_plan_version,
             decision: @decision, note: @note.to_s.strip.presence, actor_type: @api_token ? "local_agent" : "human",
             agent_name: @api_token && ApiToken.normalized_agent_name(@api_token.agent_name.presence || @api_token.name), api_token: @api_token)
+          if @idempotency_key && (!@idempotency_key.is_a?(String) || !@idempotency_key.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i))
+            response.errors.add(:base, "Idempotency key must be a UUID")
+            raise ActiveRecord::RecordInvalid, response
+          end
+          @idempotency_key = @idempotency_key.downcase if @idempotency_key
           response.validate!
-          # A double click/retry must not duplicate an immutable sign-off.
+          # A stable response UUID separates transport retries from a new
+          # review of the same version, including after another look is asked.
+          if @idempotency_key
+            existing = ReviewResponse.find_by(id: @idempotency_key)
+            if existing
+              fields = %w[review_request_id user_id plan_version_id decision note api_token_id]
+              next existing if fields.all? { |field| existing.public_send(field) == response.public_send(field) }
+
+              response.errors.add(:base, "This response was already recorded with different details. Start a new review decision to record your changes.")
+              raise ActiveRecord::RecordInvalid, response
+            end
+            response.id = @idempotency_key
+          end
+          # Legacy clients cannot distinguish two identical intentions. Keep
+          # the old response and preserve any newly re-requested pending task.
           existing = @request.review_responses.find_by(user: @actor, plan_version: plan.current_plan_version,
             decision: @decision, note: response.note, api_token_id: @api_token&.id)
-          next existing if existing && @request.status == @decision
+          next existing if existing && !@idempotency_key
 
           if response.note.present?
             thread = plan.comment_threads.create!(plan_version: plan.current_plan_version, created_by_user: @actor)

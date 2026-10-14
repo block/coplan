@@ -54,7 +54,7 @@ module CoPlan
             return render json: { error: "Only the requested reviewer can respond" }, status: :forbidden
           end
           response = Reviews::Respond.call(request: @review_request, actor: current_user,
-            revision: params.require(:revision), decision: params.require(:decision), note: params[:note], api_token: @api_token)
+            revision: params.require(:revision), decision: params.require(:decision), note: params[:note], api_token: @api_token, idempotency_key: params[:idempotency_key])
           render json: { id: response.id, decision: response.decision, revision: response.plan_version.revision,
                          actor_type: response.actor_type, agent_name: response.agent_name,
                          comment_thread_id: response.comment_thread_id }, status: :created

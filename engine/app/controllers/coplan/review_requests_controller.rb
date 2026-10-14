@@ -44,9 +44,9 @@ module CoPlan
 
     def respond
       raise NotAuthorizedError unless @review_request.reviewer_id == current_user.id
-      attributes = params.expect(review_response: [ :revision, :decision, :note ])
+      attributes = params.expect(review_response: [ :revision, :decision, :note, :idempotency_key ])
       response = Reviews::Respond.call(request: @review_request, actor: current_user,
-        revision: attributes[:revision], decision: attributes[:decision], note: attributes[:note])
+        revision: attributes[:revision], decision: attributes[:decision], note: attributes[:note], idempotency_key: attributes[:idempotency_key])
       render json: { id: response.id, decision: response.decision, revision: response.plan_version.revision,
                      comment_thread_id: response.comment_thread_id }, status: :created
     end

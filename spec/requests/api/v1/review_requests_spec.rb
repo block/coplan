@@ -48,6 +48,24 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
     expect(response).to have_http_status(:no_content)
   end
 
+  it "replays a keyed API response without completing a new request for the same version" do
+    key = SecureRandom.uuid
+    payload = { revision: plan.current_revision, decision: "approved", note: "Reviewed", idempotency_key: key }
+    post respond_api_v1_plan_review_request_path(plan, task), params: payload, headers: headers("reviews-reviewer"), as: :json
+    expect(response).to have_http_status(:created)
+    expect(JSON.parse(response.body).fetch("id")).to eq(key)
+    patch api_v1_plan_review_request_path(plan, task), params: { request_again: true }, headers: headers("reviews-owner"), as: :json
+    post respond_api_v1_plan_review_request_path(plan, task), params: payload, headers: headers("reviews-reviewer"), as: :json
+    expect(response).to have_http_status(:created)
+    expect(JSON.parse(response.body).fetch("id")).to eq(key)
+    expect(task.reload.status).to eq("pending")
+    expect(task.review_responses.count).to eq(1)
+    post respond_api_v1_plan_review_request_path(plan, task), params: payload.merge(idempotency_key: SecureRandom.uuid), headers: headers("reviews-reviewer"), as: :json
+    expect(response).to have_http_status(:created)
+    expect(task.reload.status).to eq("approved")
+    expect(task.review_responses.count).to eq(2)
+  end
+
   it "distinguishes a withdrawn task from a stale revision without recording a response" do
     task.update!(status: "withdrawn")
     post respond_api_v1_plan_review_request_path(plan, task),

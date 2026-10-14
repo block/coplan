@@ -92,6 +92,56 @@ RSpec.describe "CoPlan reviews" do
     expect { expect(respond(note: "Reviewed").id).to eq(first.id) }.not_to change(CoPlan::ReviewResponse, :count)
   end
 
+  it "returns an old keyed response without completing a re-requested task" do
+    key = SecureRandom.uuid
+    first = respond(note: "Reviewed", idempotency_key: key)
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
+    counts = [ CoPlan::ReviewResponse.count, CoPlan::CommentThread.count, CoPlan::Notification.count, CoPlan::AgentEvent.count ]
+    expect(respond(note: "Reviewed", idempotency_key: key).id).to eq(first.id)
+    expect(request.reload.status).to eq("pending")
+    expect([ CoPlan::ReviewResponse.count, CoPlan::CommentThread.count, CoPlan::Notification.count, CoPlan::AgentEvent.count ]).to eq(counts)
+  end
+
+  it "records an intentional identical review with a fresh response key" do
+    first = respond(note: "Reviewed", idempotency_key: SecureRandom.uuid)
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
+    second = respond(note: "Reviewed", idempotency_key: SecureRandom.uuid)
+    expect(second.id).not_to eq(first.id)
+    expect(request.reload.status).to eq("approved")
+    expect(request.review_responses.size).to eq(2)
+  end
+
+  it "rejects reusing a response key for a different decision" do
+    key = SecureRandom.uuid
+    respond(note: "Reviewed", idempotency_key: key)
+    expect { respond(decision: "changes_requested", note: "Different feedback", idempotency_key: key) }.to raise_error(ActiveRecord::RecordInvalid)
+    expect(request.reload.status).to eq("approved")
+    expect(request.review_responses.size).to eq(1)
+  end
+
+  it "rejects a response key owned by another request" do
+    key = SecureRandom.uuid
+    other_task = create(:review_request)
+    CoPlan::Reviews::Respond.call(request: other_task, actor: other_task.reviewer,
+      revision: other_task.plan.current_revision, decision: "approved", idempotency_key: key)
+    expect { respond(idempotency_key: key) }.to raise_error(ActiveRecord::RecordInvalid)
+    expect(request.reload.status).to eq("pending")
+    expect(request.review_responses).to be_empty
+  end
+
+  it "rejects malformed response keys without recording a response" do
+    expect { respond(idempotency_key: "not-a-uuid") }.to raise_error(ActiveRecord::RecordInvalid)
+    expect(request.reload.review_responses).to be_empty
+  end
+
+  it "keeps a re-requested task pending on a legacy identical retry" do
+    first = respond(note: "Reviewed")
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
+    expect(respond(note: "Reviewed").id).to eq(first.id)
+    expect(request.reload.status).to eq("pending")
+    expect(request.review_responses.size).to eq(1)
+  end
+
   it "attributes agent decisions explicitly to the agent and human principal" do
     token = create(:api_token, user: reviewer, agent_name: "Reviewbot")
     response = respond(api_token: token)

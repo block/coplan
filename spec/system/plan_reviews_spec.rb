@@ -47,6 +47,36 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_field("Public review comment", with: "Can we clarify this boundary?", enable_aria_label: true)
   end
 
+  it "retries a lost approval response without completing a newly requested review" do
+    page.execute_script(<<~JS)
+      const originalFetch = window.fetch.bind(window);
+      let loseResponse = true;
+      window.fetch = async (...args) => {
+        const result = await originalFetch(...args);
+        if (loseResponse && args[1]?.method === "POST" && String(args[0]).endsWith("/respond")) {
+          loseResponse = false;
+          throw new TypeError("Simulated lost HTTP result after the server saved it");
+        }
+        return result;
+      };
+    JS
+    within(".review-tray") { click_button "Approve", exact: true }
+    within(".review-confirmation") { click_button "Approve v1", exact: true }
+    expect(page).to have_css(".review-confirmation [role='alert']", text: "try again")
+    first = task.review_responses.last!
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+    expect(page).to have_css(".review-tray", text: "Your review is requested")
+    within(".review-confirmation") { click_button "Approve v1", exact: true }
+    expect(page).to have_no_css(".review-confirmation[open]")
+    expect(task.reload.status).to eq("pending")
+    expect(task.review_responses.pluck(:id)).to eq([ first.id ])
+    within(".review-tray") { click_button "Approve", exact: true }
+    within(".review-confirmation") { click_button "Approve v1", exact: true }
+    expect(page).to have_css(".review-tray", text: "You approved")
+    expect(task.reload.status).to eq("approved")
+    expect(task.review_responses.count).to eq(2)
+  end
+
   it "removes feedback links in place when the last review comment is deleted" do
     within(".review-tray") { click_button "Request changes" }
     fill_in "Public review comment", with: "Remove this feedback comment", enable_aria_label: true
