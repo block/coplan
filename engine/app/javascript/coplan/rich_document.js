@@ -892,13 +892,22 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     const hosts = JSON.parse(form?.dataset.coplanEditorEmbedDomainsValue || form?.getAttribute("data-coplan--editor-embed-domains-value") || "[]")
     hint.textContent = (hosts.length ? `Approved domains: ${hosts.join(", ")}. HTTPS only.` : "No iframe domains are approved. An administrator can add them in CoPlan Admin.") + " Title describes the page for screen readers; it is not a visible caption."
     dom.append(fields, hint, previewBody)
+    const settlePreview = (content, asText = false) => {
+      // A preview above the active field/button must not move it mid-action.
+      const focused = document.activeElement
+      const control = view.dom.contains(focused) && focused.matches("input, textarea, button, select") && !previewBody.contains(focused) ? focused : null
+      const top = control?.getBoundingClientRect().top
+      if (asText) previewBody.textContent = content
+      else previewBody.innerHTML = content
+      if (control?.isConnected) window.scrollBy(0, control.getBoundingClientRect().top - top)
+    }
     let previewTimer
     const render = () => {
       clearTimeout(previewTimer)
       const sequence = ++generation, source = node.attrs.source
       previewTimer = setTimeout(async () => {
-        try { const html = await preview?.(source); if (html && sequence === generation) previewBody.innerHTML = html }
-        catch { if (sequence === generation) previewBody.textContent = "Preview unavailable" }
+        try { const html = await preview?.(source); if (html && sequence === generation) settlePreview(html) }
+        catch { if (sequence === generation) settlePreview("Preview unavailable", true) }
       }, 300)
     }
     render()
