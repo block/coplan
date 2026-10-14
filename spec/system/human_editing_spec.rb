@@ -520,6 +520,51 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_css('[data-embed-attribute="src"]', count: 2)
   end
 
+  it "removes an iframe when an earlier preview finishes during its pointer click" do
+    source = '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' + "\n\nEnd.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    script = page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~'JS')
+      const originalFetch = window.fetch.bind(window);
+      let releasePreview;
+      document.addEventListener("DOMContentLoaded", () => { document.body.style.overflowAnchor = "none"; });
+      window.fetch = async (...args) => {
+        const result = await originalFetch(...args);
+        if (String(args[0]).endsWith("/preview_draft") && args[1]?.body?.includes("unapproved.example.com/first")) {
+          const html = await result.text();
+          return new Promise(resolve => {
+            window.firstIframePreviewHeld = true;
+            document.documentElement.dataset.firstIframePreviewHeld = "true";
+            releasePreview = () => { window.firstIframePreviewHeld = false; resolve({ ok: result.ok, redirected: result.redirected, text: () => Promise.resolve(html) }); };
+          });
+        }
+        return result;
+      };
+      document.addEventListener("mousedown", event => {
+        if (event.target.closest('[aria-label="Remove embedded page"]') && releasePreview) {
+          const release = releasePreview;
+          releasePreview = null;
+          release();
+        }
+      }, true);
+    JS
+    visit plan_edit_page_path(plan)
+    editor
+    find(".ProseMirror > p", text: "End.").click
+    click_button "Insert content", enable_aria_label: true
+    click_button "Embed", exact: true
+    expect(page).to have_css('[data-embed-attribute="src"]:focus')
+    find('[data-embed-attribute="src"]:focus').fill_in with: "https://unapproved.example.com/second"
+    expect(page).to have_css('html[data-first-iframe-preview-held="true"]')
+    remove = all(".document-editor__block").last.find_button("Remove embedded page", enable_aria_label: true)
+    page.driver.browser.action.move_to(remove.native).click_and_hold.pause(duration: 0.2).release.perform
+    expect(page).to have_css('[data-embed-attribute="src"]', count: 1)
+    click_button "Undo", enable_aria_label: true
+    expect(page).to have_css('[data-embed-attribute="src"]', count: 2)
+  ensure
+    page.driver.browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: script.fetch("identifier")) if script
+  end
+
   it "separates inserted content blocks from citation definitions across save and reload" do
     source = "Plain.[^catalog]\n\n[^catalog]: Catalog source.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
