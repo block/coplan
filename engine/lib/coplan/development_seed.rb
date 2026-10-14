@@ -303,13 +303,24 @@ module CoPlan
         next if legacy_name == shipped_name
 
         legacy_type = PlanType.find_by_name(legacy_name)
-        next unless legacy_type && !legacy_type.retired_from_creation?
-        # A name does not establish ownership of a host's custom type.
-        next unless legacy_type.metadata.to_h["development_seed"] == true
+        next unless legacy_type && legacy_seed_type?(legacy_type) && !legacy_type.retired_from_creation?
 
         legacy_type.update!(metadata: legacy_type.metadata.to_h.merge("retired_from_creation" => true))
       end
       DEMO_TYPE_TO_DEFAULT.transform_values { |name| PlanType.find_by_name(name) }
+    end
+
+    def legacy_seed_type?(type)
+      return true if type.metadata.to_h["development_seed"] == true
+
+      # The original seed had no type marker. Only infer ownership when all
+      # documents using it are known fixtures with their expected demo owner.
+      plans = type.plans.includes(:created_by_user).to_a
+      definitions = DOCUMENTS.index_by { |definition| definition.fetch(:key) }
+      plans.any? && plans.all? do |plan|
+        definition = definitions[plan.metadata.to_h["development_seed_key"]]
+        definition && plan.created_by_user.external_id == "seed:#{definition.fetch(:author)}"
+      end
     end
 
     def seed_documents(users, plan_types)
@@ -532,7 +543,22 @@ module CoPlan
 
     def seed_thread(plan:, user:, body:, anchor: nil, source_token: nil, author_type: "human",
       agent_name: nil, api_token: nil, resolved_by: nil)
-      return if seeded_thread?(plan, user: user, anchor: anchor, source_token: source_token)
+      return if seeded_thread?(plan, body)
+
+      # Legacy seeds had no stored UUIDs. Match their author and anchor when
+      # the original comment was already edited before this upgrade.
+      candidates = plan.comment_threads.where(created_by_user_id: user.id)
+      if source_token
+        target = Plans::SourceTargets.verifier.verified(source_token, purpose: "comment")
+        candidates = candidates.where(anchor_kind: target.fetch("kind"),
+          anchor_start: target.fetch("start"), anchor_end: target.fetch("end"))
+      else
+        candidates = candidates.where(anchor_kind: nil, anchor_text: anchor)
+      end
+      if (existing = candidates.first)
+        remember_seed_thread(plan, body, existing)
+        return
+      end
 
       thread = plan.comment_threads.new(
         plan_version: plan.current_plan_version,
@@ -556,20 +582,29 @@ module CoPlan
         api_token_id: api_token&.id
       )
       thread.resolve!(resolved_by) if resolved_by
+      remember_seed_thread(plan, body, thread)
       thread
     end
 
-    def seeded_thread?(plan, user:, anchor:, source_token:)
-      attributes = { created_by_user_id: user.id, anchor_kind: nil, anchor_text: anchor.presence }
-      if source_token
-        data = Plans::SourceTargets.resolve(source_token, plan.current_content.to_s)
-        return false unless data
+    def seeded_thread?(plan, body)
+      key = Digest::SHA256.hexdigest(body)
+      ids = plan.metadata.to_h.fetch("development_seed_threads", {})
+      return true if ids[key] && plan.comment_threads.exists?(id: ids[key])
 
-        attributes = { created_by_user_id: user.id, anchor_kind: data.fetch("kind"), anchor_context: data.fetch("label") }
-      end
-      # Comment text and resolution are editable. The author and anchor
-      # identify the existing discussion even after a local edit or deletion.
-      plan.comment_threads.exists?(attributes)
+      # Upgrade older fixtures once, then identify them by thread UUID even
+      # after a person edits or deletes the original comment.
+      comment = Comment.where(comment_thread_id: plan.comment_threads.select(:id))
+        .find_by(body_markdown: body)
+      return false unless comment
+
+      remember_seed_thread(plan, body, comment.comment_thread)
+      true
+    end
+
+    def remember_seed_thread(plan, body, thread)
+      ids = plan.metadata.to_h.fetch("development_seed_threads", {})
+      plan.update!(metadata: plan.metadata.to_h.merge("development_seed_threads" =>
+        ids.merge(Digest::SHA256.hexdigest(body) => thread.id)))
     end
 
     # A bulk organize run attributed to an agent: three of Alex's loose
@@ -671,6 +706,8 @@ module CoPlan
       ]
       selections.each do |key, kind, fragment, label, body|
         plan = plans.fetch(key)
+        next if seeded_thread?(plan, body)
+
         content = plan.current_content
         range = Plans::SourceTargets.new(content).ranges.find do |target_kind, start, finish|
           target_kind == kind && content[start...finish].include?(fragment)

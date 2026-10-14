@@ -189,12 +189,54 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(CoPlan::PlanType.creation_order(CoPlan::PlanType.all).size).to eq(12)
     end
 
-    it "preserves an unmarked host-owned legacy type" do
-      custom = create(:plan_type, name: "RFC", description: "Our host review format")
-      metadata = custom.metadata.deep_dup
+    it "preserves host-owned types whose names match legacy demos" do
+      custom = create(:plan_type, name: "RFC")
       described_class.call
-      expect(custom.reload.metadata).to eq(metadata)
+      expect(custom.reload).not_to be_retired_from_creation
       expect(CoPlan::PlanType.creation_order(CoPlan::PlanType.all)).to include(custom)
+    end
+
+    it "recognizes unmarked legacy types through their seeded documents" do
+      owner = create(:coplan_user, external_id: "seed:alex", email: "alex@example.com")
+      legacy = create(:plan_type, name: "RFC")
+      plan = create(:plan, created_by_user: owner, plan_type: legacy,
+        metadata: { "development_seed_key" => "api-gateway" })
+      described_class.call
+      expect(legacy.reload).to be_retired_from_creation
+      expect(plan.reload.plan_type.name).to eq("Exploration")
+    end
+
+    it "keeps a legacy-named type active when host documents also use it" do
+      owner = create(:coplan_user, external_id: "seed:alex", email: "alex@example.com")
+      custom = create(:plan_type, name: "RFC")
+      create(:plan, created_by_user: owner, plan_type: custom,
+        metadata: { "development_seed_key" => "api-gateway" })
+      host_plan = create(:plan, plan_type: custom)
+      described_class.call
+      expect(custom.reload).not_to be_retired_from_creation
+      expect(host_plan.reload.plan_type).to eq(custom)
+    end
+
+    it "preserves edited and resolved seeded discussions on re-seeding" do
+      described_class.call
+      %w[collab-showcase diagram-comments table-gallery].each do |key|
+        plan = seeded_plan(key)
+        plan.comment_threads.each do |thread|
+          thread.comments.first.update!(body_markdown: "My revised feedback")
+          thread.resolve!(plan.created_by_user) if thread.status == "open"
+        end
+      end
+      count = CoPlan::CommentThread.count
+      # Simulate a pre-upgrade dataset with edited comments but no UUID map.
+      %w[collab-showcase diagram-comments table-gallery].each do |key|
+        plan = seeded_plan(key)
+        plan.update!(metadata: plan.metadata.except("development_seed_threads"))
+      end
+      described_class.call
+      expect(CoPlan::CommentThread.count).to eq(count)
+      %w[collab-showcase diagram-comments table-gallery].each do |key|
+        expect(seeded_plan(key).comment_threads.pluck(:status)).to all(eq("resolved"))
+      end
     end
 
     %w[text general source].each do |kind|
