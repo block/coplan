@@ -22,6 +22,21 @@ RSpec.describe "Review requests", type: :request do
     expect(task.reload.status).to eq("approved")
   end
 
+  it "does not attribute a surviving reply to the original review decision" do
+    decision = CoPlan::Reviews::Respond.call(request: task, actor: reviewer,
+      revision: plan.current_revision, decision: "approved", note: "Original review note")
+    thread = decision.comment_thread
+    original = thread.comments.first!
+    thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Author follow-up")
+    CoPlan::Comments::SoftDelete.call(comment: original, actor: reviewer)
+    sign_in_as(author)
+    get plan_page_path(plan)
+    row = Nokogiri::HTML(response.body).at_css(".document-comment[data-thread-id='comment_thread_#{thread.id}']")
+    expect(row.at_css(".document-comment__type").text).to eq("Plan comment")
+    expect(row.text).to include(author.name, "Author follow-up")
+    expect(decision.reload).to have_attributes(decision: "approved", note: "Original review note", user_id: reviewer.id)
+  end
+
   it "returns an actionable JSON response when the reviewer session has expired" do
     post respond_plan_review_request_path(plan, task), params: { review_response: { revision: 1, decision: "changes_requested", note: "Keep my draft" } }, as: :json
     expect(response).to have_http_status(:unauthorized)

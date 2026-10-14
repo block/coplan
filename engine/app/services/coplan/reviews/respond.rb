@@ -23,10 +23,7 @@ module CoPlan
         plan = @request.plan
         response = plan.with_lock do
           @request.reload
-          raise Conflict.new("This review request was withdrawn.", code: "review_request_withdrawn") if @request.status == "withdrawn"
-          raise Conflict, "The plan has changed. Review the latest version before recording your response." unless @revision.to_s == plan.current_revision.to_s
-
-          response = @request.review_responses.build(user: @actor, plan_version: plan.current_plan_version,
+          response = ReviewResponse.new(review_request: @request, user: @actor, plan_version: plan.current_plan_version,
             decision: @decision, note: @note.to_s.strip.presence, actor_type: @api_token ? "local_agent" : "human",
             agent_name: @api_token && ApiToken.normalized_agent_name(@api_token.agent_name.presence || @api_token.name), api_token: @api_token)
           if @idempotency_key && (!@idempotency_key.is_a?(String) || !@idempotency_key.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i))
@@ -40,14 +37,17 @@ module CoPlan
           if @idempotency_key
             existing = ReviewResponse.find_by(id: @idempotency_key)
             if existing
-              fields = %w[review_request_id user_id plan_version_id decision note api_token_id]
-              next existing if fields.all? { |field| existing.public_send(field) == response.public_send(field) }
+              fields = %w[review_request_id user_id decision note api_token_id]
+              next existing if existing.plan_version.revision.to_s == @revision.to_s && fields.all? { |field| existing.public_send(field) == response.public_send(field) }
 
               response.errors.add(:base, "This response was already recorded with different details. Start a new review decision to record your changes.")
               raise ActiveRecord::RecordInvalid, response
             end
             response.id = @idempotency_key
           end
+          raise Conflict.new("This review request was withdrawn.", code: "review_request_withdrawn") if @request.status == "withdrawn"
+          raise Conflict, "The plan has changed. Review the latest version before recording your response." unless @revision.to_s == plan.current_revision.to_s
+
           # Legacy clients cannot distinguish two identical intentions. Keep
           # the old response and preserve any newly re-requested pending task.
           existing = @request.review_responses.find_by(user: @actor, plan_version: plan.current_plan_version,

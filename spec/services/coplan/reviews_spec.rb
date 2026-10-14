@@ -102,6 +102,29 @@ RSpec.describe "CoPlan reviews" do
     expect([ CoPlan::ReviewResponse.count, CoPlan::CommentThread.count, CoPlan::Notification.count, CoPlan::AgentEvent.count ]).to eq(counts)
   end
 
+  it "replays a keyed response after the plan changes without signing off the new task" do
+    key = SecureRandom.uuid
+    first = respond(note: "Reviewed", idempotency_key: key)
+    version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A newer plan")
+    plan.update!(current_plan_version: version, current_revision: 2)
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
+    replay = CoPlan::Reviews::Respond.call(request: request, actor: reviewer,
+      revision: 1, decision: "approved", note: "Reviewed", idempotency_key: key)
+    expect(replay.id).to eq(first.id)
+    expect(replay.plan_version.revision).to eq(1)
+    expect(request.reload.status).to eq("pending")
+    expect(request.review_responses.count).to eq(1)
+  end
+
+  it "replays a recorded keyed response after withdrawal without reopening the task" do
+    key = SecureRandom.uuid
+    first = respond(note: "Reviewed", idempotency_key: key)
+    request.update!(status: "withdrawn")
+    expect(respond(note: "Reviewed", idempotency_key: key).id).to eq(first.id)
+    expect(request.reload.status).to eq("withdrawn")
+    expect(request.review_responses.count).to eq(1)
+  end
+
   it "records an intentional identical review with a fresh response key" do
     first = respond(note: "Reviewed", idempotency_key: SecureRandom.uuid)
     CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)

@@ -60,9 +60,9 @@ Every endpoint, with the guide that explains it. All paths start with `<%= @base
 | `DELETE /api/v1/plans/:id/review_requests/:request_id` | Withdraw a request and preserve its history. Plan author only. | comments |
 | `POST /api/v1/plans/:id/review_requests/:request_id/respond` | Approve a version or request changes. Requested reviewer only. | comments |
 
-Include `idempotency_key` (a fresh UUID) for each intended review response. Reuse that UUID and identical fields when retrying a lost response; its returned `id` is the UUID. Use a new UUID for a new decision, including another review of the same version. A retry preserves any newly pending review task. Without a key, an identical response is treated as a retry. A key reused for different fields returns 422.
+Include `idempotency_key` (a fresh UUID) for each intended review response. Reuse that UUID and identical fields when retrying a lost response; its returned `id` is the UUID. Use a new UUID for a new decision, including another review of the same version. A keyed retry returns the original recorded result even after the plan changes or the task is withdrawn. It preserves any newly pending review task. Without a key, an identical response is treated as a retry. A key reused for different fields returns 422.
 
-A review response returns 409 with `code: review_version_changed` for a stale revision. Re-read before responding. A withdrawn request returns 409 with `code: review_request_withdrawn`; stop responding unless the author requests another look.
+A review response returns 409 with `code: review_version_changed` for a stale revision. Re-read before responding. A new response to a withdrawn request returns 409 with `code: review_request_withdrawn`; stop responding unless the author requests another look.
 
 ## Libraries and folders
 
