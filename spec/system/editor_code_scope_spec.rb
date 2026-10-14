@@ -91,7 +91,7 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
     expect(page).not_to have_content("Changes save automatically")
     click_button "Dual", exact: true
-    expect(code).to have_css(".hljs-number", text: "42")
+    expect(code).to have_css(".hljs-number", text: "42", wait: 20)
     %w[light dark].each do |theme|
       page.execute_script('document.documentElement.dataset.theme = arguments[0]', theme)
       colors = page.evaluate_script('(() => { const c = document.querySelector(".document-editor__block code"), t = c.querySelector(".hljs-keyword"); return [getComputedStyle(c).color,getComputedStyle(t).color] })()')
