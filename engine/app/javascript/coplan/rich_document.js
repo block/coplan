@@ -306,7 +306,7 @@ function richPositionForSource(doc, offset) {
 }
 
 export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = []) {
-  let rangeDoc, ranges, previewOffsetTimer
+  let rangeDoc, ranges, previewOffsetTimer, editingLanguage = false
   const sourceRangeAt = (view, position) => {
     if (rangeDoc !== view.state.doc) {
       ranges = new Map()
@@ -372,6 +372,13 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       return true
     },
     dispatchTransaction(transaction) {
+      if (transaction.docChanged) {
+        // Keep successive keystrokes together, but fence transitions between
+        // language and content even inside history's grouping delay.
+        const languageEdit = Boolean(transaction.getMeta("coplan-language-edit"))
+        if (languageEdit !== editingLanguage) closeHistory(transaction)
+        editingLanguage = languageEdit
+      }
       // Async decorations can redraw before selectionchange reaches the view.
       // Preserve the native caret instead of restoring a stale model selection.
       if (!transaction.docChanged && !transaction.selectionSet && view.hasFocus() && !view.composing) {
@@ -471,7 +478,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
     setLanguage(position, language) {
       const node = view.state.doc.nodeAt(position)
       if (node?.type !== schema.nodes.code_block || /[\r\n`]/.test(language)) return false
-      view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, params: language }))
+      view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, params: language }).setMeta("coplan-language-edit", true))
       return true
     },
     deleteContentBlock(position) {

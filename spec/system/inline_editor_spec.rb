@@ -696,6 +696,7 @@ RSpec.describe "Inline plan editing", type: :system do
     thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Keep this anchored")
     visit plan_page_path(plan)
     expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all, wait: 10)
+    expect(page).to have_css("#plan-content-body mark[data-thread-id='comment_thread_#{thread.id}']", text: "Main paragraph 40", wait: 10)
     page.execute_script("document.querySelectorAll('#plan-content-body p')[40].scrollIntoView({block: 'start'})")
     before = page.evaluate_script("document.querySelectorAll('#plan-content-body p')[40].getBoundingClientRect().top")
 

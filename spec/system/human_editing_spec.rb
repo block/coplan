@@ -25,6 +25,7 @@ RSpec.describe "Human plan editing", type: :system do
   before { sign_in(author) }
 
   def editor
+    expect(page).to have_css('[data-editing="true"]', wait: 20)
     find('.ProseMirror[contenteditable="true"]', wait: 20)
   end
 
@@ -35,7 +36,11 @@ RSpec.describe "Human plan editing", type: :system do
 
   it "edits and formats the actual document, saving without navigation" do
     visit plan_edit_page_path(plan)
+    editor
+    bold_x = find_button("Bold").rect.x
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Revised body from the browser.")
+    expect(page).to have_no_css(".content-nav__list:not(.content-nav__list--footnotes) li")
+    expect(find_button("Bold").rect.x).to be_within(1).of(bold_x)
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ])
     click_button "Bold"
     expect(page).to have_css(".ProseMirror strong", text: "Revised body")

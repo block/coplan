@@ -141,14 +141,17 @@ export default class extends Controller {
   // reconciliation would discard them and could move the caret. Keep the
   // outline as a read-only projection of the editor document instead.
   buildEditorToc(root) {
+    // Keep the column fixed for this edit session. Removing or adding the
+    // last heading must not move the caret or a toolbar button mid-click.
+    if (this._editorRoot !== root) this._editorSidebarDisplayed = this.sidebarTarget.style.display !== "none"
     this._editorRoot = root
     this._headings = this.editorHeadings()
     this._editorHeadingSignature = this.editorHeadingSignature(this._headings)
     this._outlineIds = []
     this._itemsById = new Map()
     this.listTarget.replaceChildren()
-    this.sidebarTarget.style.display = this._headings.length ? "" : "none"
-    if (this.hasShowBtnTarget) this.showBtnTarget.style.display = this._headings.length ? "" : "none"
+    this.sidebarTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
+    if (this.hasShowBtnTarget) this.showBtnTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
 
     const used = new Set()
     this._headings.forEach((heading, index) => {

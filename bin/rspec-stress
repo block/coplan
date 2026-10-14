@@ -1,0 +1,39 @@
+#!/usr/bin/env ruby
+require "json"
+require "fileutils"
+require "optparse"
+
+options = { runs: 10, seed: 1, output: "tmp/rspec-stress" }
+parser = OptionParser.new do |args|
+  args.banner = "Usage: bin/rspec-stress [options] [spec files]"
+  args.on("--runs N", Integer) { |value| options[:runs] = value }
+  args.on("--seed N", Integer) { |value| options[:seed] = value }
+  args.on("--output DIR") { |value| options[:output] = value }
+end
+parser.parse!
+abort "--runs must be positive" unless options[:runs].positive?
+FileUtils.mkdir_p(options[:output])
+
+results = []
+options[:runs].times do |index|
+  seed = options[:seed] + index
+  report = File.join(options[:output], "seed-#{seed}.json")
+  log = File.join(options[:output], "seed-#{seed}.log")
+  puts "Stress run #{index + 1}/#{options[:runs]}, seed #{seed} (#{log})"
+  FileUtils.rm_f(report)
+  passed = system("bundle", "exec", "rspec", *ARGV, "--seed", seed.to_s,
+    "--format", "progress", "--format", "json", "--out", report, out: log, err: [ :child, :out ])
+  summary = begin
+    File.exist?(report) ? JSON.parse(File.read(report)).fetch("summary", {}) : {}
+  rescue JSON::ParserError
+    {} # Boot errors can leave an empty report; keep the log and fail the run.
+  end
+  passed &&= summary.fetch("example_count", 0).positive? && summary.fetch("failure_count", 1).zero?
+  results << { seed: seed, passed: passed, summary: summary, report: report, log: log }
+  File.write(File.join(options[:output], "summary.json"), JSON.pretty_generate(results) + "\n")
+  unless passed
+    warn File.read(log)
+    abort "Stress run failed at seed #{seed}; no retry was attempted."
+  end
+  puts "#{summary.fetch('example_count')} examples, 0 failures (#{summary.fetch('pending_count')} pending)"
+end
