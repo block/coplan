@@ -87,6 +87,14 @@ Upload a file to the plan, then paste the `markdown` value from the response int
   "<%= @base %>/api/v1/plans/$PLAN_ID/attachments" | jq -r .markdown
 ```
 
+To set an image's display width, use an HTML image tag with a `width` in pixels:
+
+```xml
+<img src="/path/to/architecture.png" alt="System architecture" width="320">
+```
+
+Use the uploaded image's URL for `src`. CoPlan keeps images within the reading column. Expanding an image uses its original dimensions.
+
 - The maximum size is 25 MB per file. Allowed types are PNG, JPEG, GIF, WebP, PDF, TXT, MD, CSV, JSON, and ZIP. CoPlan returns `422` for other files.
 - Only the plan author can upload or delete attachments. Any reader can list and download them.
 - List the attachments: `GET <%= @base %>/api/v1/plans/$PLAN_ID/attachments`. Delete one: `DELETE <%= @base %>/api/v1/plans/$PLAN_ID/attachments/$ATTACHMENT_ID`.

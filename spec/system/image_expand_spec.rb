@@ -4,6 +4,7 @@ require "rails_helper"
 # Storage, the way agents embed screenshots and mockups in plans.
 RSpec.describe "Expanding an image", type: :system do
   let(:author) { create(:coplan_user, email: "author@example.com") }
+  let(:image_width) { 320 }
 
   let(:plan) do
     p = CoPlan::Plan.create!(title: "Mockup Plan", created_by_user: author)
@@ -14,7 +15,7 @@ RSpec.describe "Expanding an image", type: :system do
 
       ## Console view
 
-      ![Console mockup](#{blob_path(screenshot)})
+      <img src="#{blob_path(screenshot)}" alt="Console mockup" width="#{image_width}">
 
       A status icon ![icon](#{blob_path(icon)}) is too small to expand.
 
@@ -112,6 +113,56 @@ RSpec.describe "Expanding an image", type: :system do
     JS
     expect(layout["display"]).to eq("block")
     expect(layout["gap"]).to be <= 1
+  end
+
+  %w[light dark].each do |theme|
+    describe "an authored image width in #{theme} mode" do
+      before do
+        page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      end
+
+      it "uses the authored width inline and natural dimensions when expanded" do
+        image = find("img[alt='Console mockup']")
+        expect(image.evaluate_script("this.getBoundingClientRect().width")).to be_within(1).of(320)
+        expect(image.evaluate_script("this.getBoundingClientRect().height")).to be_within(1).of(180)
+        page.save_screenshot(Rails.root.join("tmp/screenshots/image-width/inline-#{theme}.png"))
+
+        image.double_click
+        expect(page).to have_css(".expander--image .expander__title", text: "Console mockup")
+        click_button "Actual size"
+        expanded = find(".expander__canvas > img")
+        expect(expanded.evaluate_script("this.getBoundingClientRect().width")).to be_within(1).of(1600)
+        expect(expanded.evaluate_script("this.getBoundingClientRect().height")).to be_within(1).of(900)
+
+        find(".expander__canvas").send_keys(:escape)
+        expect(page).to have_no_css(".expander--image")
+        expect(image.evaluate_script("this.getBoundingClientRect().width")).to be_within(1).of(320)
+      end
+
+      context "when the authored width exceeds the reading column" do
+        let(:image_width) { 2000 }
+
+        it "fits the image within a narrow reading column and keeps its aspect ratio" do
+          original_size = page.current_window.size
+          page.current_window.resize_to(390, 844)
+          image = find("img[alt='Console mockup']")
+          dimensions = image.evaluate_script(<<~JS)
+            (() => {
+              const rect = this.getBoundingClientRect();
+              return { width: rect.width, height: rect.height, right: rect.right,
+                       viewport: document.documentElement.clientWidth };
+            })()
+          JS
+
+          expect(dimensions["width"]).to be < 390
+          expect(dimensions["right"]).to be <= dimensions["viewport"]
+          expect(dimensions["width"] / dimensions["height"]).to be_within(0.01).of(1600.0 / 900)
+          page.save_screenshot(Rails.root.join("tmp/screenshots/image-width/narrow-#{theme}.png"))
+        ensure
+          page.current_window.resize_to(*original_size) if original_size
+        end
+      end
+    end
   end
 
   describe "an icon-sized image" do
