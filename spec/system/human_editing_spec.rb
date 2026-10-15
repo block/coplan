@@ -45,7 +45,7 @@ RSpec.describe "Human plan editing", type: :system do
     click_button "Bold"
     expect(page).to have_css(".ProseMirror strong", text: "Revised body")
     save_now
-    expect(page).to have_content(/All changes saved · v\d+/)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved · v\d+/, visible: :all)
     expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(plan.reload.current_content).to include("**Revised body from the browser.**")
     expect(plan.current_plan_version.actor_type).to eq("human")
@@ -102,7 +102,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).not_to have_field("plan_tag_names")
     expect(page).not_to have_field("change_summary", visible: :all)
     save_now
-    expect(page).to have_content("All changes saved · v1")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", visible: :all)
     expect(plan.reload.title).to eq("Renamed In Editor")
     expect(plan.tag_names).to contain_exactly("security", "api-design")
   end
@@ -156,7 +156,7 @@ RSpec.describe "Human plan editing", type: :system do
       view.dispatch(view.state.tr.insertText('Resolved catalog price.', paragraph, paragraph + 'A catalog price.'.length))
     JS
     save_now
-    expect(page).to have_content("All changes saved · v3")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", visible: :all)
     expect(plan.reload.current_content).to include("Resolved catalog price.[^catalog-shape]", "Resolved client rule.[^client]", "`[^literal]`")
     expect(plan.current_content).to end_with("[^catalog-shape]: Catalog details.\n[^client]: Client details.\n")
   end
@@ -185,7 +185,7 @@ RSpec.describe "Human plan editing", type: :system do
       expect(page).to have_field("Presentation Markdown", enable_aria_label: true, with: /Updated slide/)
     end
     save_now
-    expect(page).to have_content("All changes saved · v3")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", visible: :all)
     expect(plan.reload.current_content).to eq(source.sub("Opening slide.", "Updated slide."))
   end
 
@@ -414,7 +414,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(field.value).not_to include('First item')
     field.fill_in with: field.value.sub('Ready', 'Done')
     save_now
-    expect(page).to have_content('All changes saved · v3')
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: 'All changes saved · v3', visible: :all)
     expect(plan.reload.current_content).to include('First item.', 'Second item.', '| Alpha | Done |')
     expect(plan.current_content).not_to include('Ready')
   end
@@ -431,7 +431,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(field.value).not_to include('>')
     field.fill_in with: field.value.sub('Ready', 'Done')
     save_now
-    expect(page).to have_content('All changes saved · v3')
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: 'All changes saved · v3', visible: :all)
     expect(plan.reload.current_content).to include('> | Alpha | Done |', '> Explanation.', 'After.')
     expect(plan.current_content).not_to include('> >')
     range_source = page.evaluate_script(<<~'JS')
@@ -457,7 +457,7 @@ RSpec.describe "Human plan editing", type: :system do
     fill_in 'Embedded page height', enable_aria_label: true, with: '600'
     fill_in 'Embedded page title', enable_aria_label: true, with: 'Updated report'
     save_now
-    expect(page).to have_content('All changes saved · v3')
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: 'All changes saved · v3', visible: :all)
     expect(plan.reload.current_content).to include('height="600"', 'title="Updated report"')
   end
 
@@ -473,7 +473,7 @@ RSpec.describe "Human plan editing", type: :system do
     field = find('[aria-label="Presentation Markdown"]:focus')
     field.fill_in with: "# New presentation\n\nA useful slide."
     save_now
-    expect(page).to have_content("All changes saved · v2")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", visible: :all)
     expect(plan.reload.current_content).to include("::: {.presentation}", "# New presentation", "A useful slide.", ":::")
     find('[aria-label="Remove presentation"]').click
     page.execute_script("window.Stimulus.getControllerForElementAndIdentifier(document.querySelector('[data-controller~=\"coplan--editor\"]'), 'coplan--editor').richEditor.command('undo')")
@@ -615,7 +615,7 @@ RSpec.describe "Human plan editing", type: :system do
     click_button "Embed", exact: true
     find('[data-embed-attribute="src"]').fill_in with: "https://unapproved.example.com/report"
     save_now
-    expect(page).to have_content("All changes saved · v3")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", visible: :all)
     expect(plan.reload.current_content).to include("[^catalog]: Catalog source.\n\n::: {.iframe")
     visit plan_edit_page_path(plan)
     editor
@@ -688,7 +688,7 @@ RSpec.describe "Human plan editing", type: :system do
     visit plan_edit_page_path(plan)
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Saved edit")
     save_now
-    expect(page).to have_content("All changes saved · v2")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", visible: :all)
     page.execute_script('window.originalFetch = window.fetch; window.fetch = (url, options) => options?.method === "PATCH" ? Promise.reject(new TypeError("Offline")) : window.originalFetch(url, options)')
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Unsaved edit")
     save_now
@@ -744,7 +744,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(writing).to eq(reading)
     expect(writing.last).not_to eq("0px")
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Autosaved from typing")
-    expect(page).to have_content("All changes saved · v2", wait: 10)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", wait: 10, visible: :all)
     expect(plan.reload.current_content).to include("Autosaved from typing")
     expect(plan.edit_lease).to be_nil
     click_link "Done"
@@ -856,7 +856,7 @@ RSpec.describe "Human plan editing", type: :system do
     save_now
     expect(page).to have_content("Saving…")
     editor.send_keys(:end, " plus in-flight typing")
-    expect(page).to have_content("All changes saved · v3", wait: 12)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", wait: 12, visible: :all)
     expect(plan.reload.current_content).to include("First edit plus in-flight typing")
     page.refresh
     expect(editor).to have_text("First edit plus in-flight typing")
@@ -878,11 +878,11 @@ RSpec.describe "Human plan editing", type: :system do
     JS
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Draft after expired sign-in")
     save_now
-    expect(page).to have_content("Sign in again · draft retained")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "Sign in again · draft retained", visible: :all)
     expect(editor).to have_text("Draft after expired sign-in")
     page.execute_script('window.signedOut = false')
     click_button "Retry sync", enable_aria_label: true
-    expect(page).to have_content("All changes saved · v2")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", visible: :all)
     expect(plan.reload.current_content).to include("Draft after expired sign-in")
   end
 
@@ -923,7 +923,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(editor).to have_text("Agent heading", wait: 10)
     expect(editor).to have_text("Human addition.")
     page.execute_script('window.fetch = window.originalFetch; window.dispatchEvent(new Event("online"))')
-    expect(page).to have_content("All changes saved · v3", wait: 10)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", wait: 10, visible: :all)
     expect(plan.reload.current_content).to include("Agent heading", "Human addition.")
   end
 

@@ -18,7 +18,7 @@ RSpec.describe "Document editor modes", type: :system do
   def open_editor
     visit plan_edit_page_path(plan)
     expect(page).to have_css('.document-editor__body .ProseMirror[contenteditable="true"]', wait: 20)
-    expect(page).to have_content("All changes saved")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", visible: :all)
   end
 
   def raw
@@ -115,7 +115,7 @@ RSpec.describe "Document editor modes", type: :system do
     click_button "Raw", exact: true
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
     save_now
-    expect(page).to have_content("All changes saved · v1")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", visible: :all)
     expect(plan.reload.current_revision).to eq(1)
     expect(plan.current_content).to eq(source)
   end
@@ -312,7 +312,7 @@ RSpec.describe "Document editor modes", type: :system do
     expect(raw).to have_text("Original prose.")
     expect(find("#plan-header .inline-editor__title").text).to eq("Mode test")
     expect(page).to have_css('[data-mode="markdown"][aria-pressed="true"]')
-    expect(page).to have_content("All changes saved", wait: 10)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", wait: 10, visible: :all)
     expect(plan.reload.current_content).to eq(source)
     expect(page.evaluate_script("localStorage.getItem(arguments[0])", other_tab_key)).to be_present
     expect(page.evaluate_script("localStorage.getItem(arguments[0])", older_tab_key)).to be_nil
@@ -353,7 +353,7 @@ RSpec.describe "Document editor modes", type: :system do
     click_button "Raw", exact: true
     raw.send_keys("# New source\n\nUntouched **Markdown**.")
     find("#plan-header .inline-editor__title", wait: 10).send_keys("Autosaved new source")
-    expect(page).to have_content("All changes saved · v1", wait: 15)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", wait: 15, visible: :all)
     expect(raw).to have_text("Untouched **Markdown**.")
     created = CoPlan::Plan.find_by!(title: "Autosaved new source")
     expect(page).to have_current_path(plan_page_path(created, edit: "continue"))
@@ -440,7 +440,7 @@ RSpec.describe "Document editor modes", type: :system do
     expect(raw).to have_text("Original prose.")
     expect(find('[aria-label="Document body"]')).to have_text("Original prose.")
     expect(page).to have_css('[data-mode="dual"][aria-pressed="true"]')
-    expect(page).to have_content("All changes saved", wait: 10)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", wait: 10, visible: :all)
     expect(plan.reload.current_content).to eq(source)
   end
 
