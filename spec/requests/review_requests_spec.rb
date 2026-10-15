@@ -22,6 +22,23 @@ RSpec.describe "Review requests", type: :request do
     expect(task.reload.status).to eq("approved")
   end
 
+  it "uses the opening comment when a preloaded association returns replies first" do
+    decision = CoPlan::Reviews::Respond.call(request: task, actor: reviewer,
+      revision: plan.current_revision, decision: "approved", note: "Original opener")
+    thread = decision.comment_thread
+    opener = thread.comments.first!
+    reply = thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Later reply")
+    opener.update!(body_markdown: "Edited opener")
+    thread.association(:comments).target = [ reply, opener ]
+    thread.association(:comments).loaded!
+    html = CoPlan::PlansController.render(partial: "coplan/plans/document_comment",
+      locals: { thread: thread, review: decision, detached: false })
+    row = Nokogiri::HTML(html).at_css(".document-comment")
+    expect(row.at_css(".comment__body").text.strip).to eq("Edited opener")
+    expect(row.at_css(".document-comment__header strong").text).to eq(reviewer.name)
+    expect(row.at_css(".document-comment__open")["title"]).to eq("1 reply")
+  end
+
   it "does not attribute a surviving reply to the original review decision" do
     decision = CoPlan::Reviews::Respond.call(request: task, actor: reviewer,
       revision: plan.current_revision, decision: "approved", note: "Original review note")

@@ -1,4 +1,4 @@
-<% comments = thread.comments.reject(&:deleted?) %>
+<% comments = thread.comments.reject(&:deleted?).sort_by { |comment| [ comment.created_at, comment.id ] } %>
 <% first = comments.first %>
 <% review_origins = review ? thread.comments.select { |comment| comment.author_id == review.user_id && comment.created_at < review.created_at } : [] %>
 <% original_review_comment = review_origins.one? && review_origins.first.id == first&.id %>
