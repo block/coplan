@@ -91,6 +91,16 @@ Or stream with Server-Sent Events. The server sends a heartbeat every 15 seconds
 
 Each event has `id`, `type`, `plan_id`, `comment_thread_id`, `comment_id`, and `payload`. The types are `comment.created`, `comment.replied`, `thread.status_changed`, `plan.content_changed`, `review.requested`, and `review.responded`. Review events identify the request and reviewer; responses identify the decision and version. A review event may have no `comment_thread_id`.
 
+For `review.requested`, inspect `payload.action`:
+
+| Action | Meaning |
+|---|---|
+| `requested` | A new request or another look. `requirement` is `required` or `optional`. |
+| `requirement_changed` | Only `requirement` changed. This does not reopen the task or start another review cycle. Do not treat it as a request for another look. |
+| `withdrawn` | The request was withdrawn. Stop working on that request; its earlier decisions remain. The payload also has `withdrawn: true`. |
+
+The attach and bridge tools show this review data and point to the review guide. Review events do not authorize content edits or execution.
+
 The payload usually has enough information for you to decide what to do: `plan_title`, `plan_revision`, `thread_status`, `anchor_text`, `comment_body`, and `comment_author`. Comment events also tell you whose comment it is:
 
 | Field | Meaning |

@@ -14,6 +14,35 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
 
   before { author_token; reviewer_token }
 
+  it "preserves the author's unread response when withdrawing a review" do
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
+    response_notice = author.notifications.find_by!(review_request: task, reason: "review_response")
+    request_notice = CoPlan::Notification.create!(user: reviewer, plan: plan, review_request: task, reason: "review_requested")
+    watcher = reviewer_token
+    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
+    delete api_v1_plan_review_request_path(plan, task), headers: headers("reviews-owner")
+    expect(response).to have_http_status(:no_content)
+    expect(task.reload.status).to eq("withdrawn")
+    expect(request_notice.reload).to be_read
+    expect(response_notice.reload).not_to be_read
+    expect(watcher.agent_events.last!.payload).to include("action" => "withdrawn", "withdrawn" => true)
+    expect(task.review_responses.count).to eq(1)
+  end
+
+  it "distinguishes requirement updates from new requests in live events" do
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
+    requested_at = task.requested_at
+    watcher = reviewer_token
+    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
+    patch api_v1_plan_review_request_path(plan, task), params: { requirement: "optional" }, headers: headers("reviews-owner"), as: :json
+    expect(response).to have_http_status(:ok)
+    expect(task.reload).to have_attributes(requirement: "optional", status: "approved", requested_at: requested_at)
+    event = watcher.agent_events.last!
+    expect(event.event_type).to eq("review.requested")
+    expect(event.payload).to include("action" => "requirement_changed", "requirement" => "optional", "review_request_id" => task.id)
+    expect(task.review_responses.count).to eq(1)
+  end
+
   it "allows delegated author assignment and lists immutable response history in snapshots" do
     post api_v1_plan_review_requests_path(plan), params: { reviewer_id: reviewer.id, requirement: "optional" }, headers: headers("reviews-owner"), as: :json
     expect(response).to have_http_status(:created)

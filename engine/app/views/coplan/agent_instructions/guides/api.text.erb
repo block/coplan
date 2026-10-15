@@ -56,7 +56,7 @@ Every endpoint, with the guide that explains it. All paths start with `<%= @base
 |---|---|---|
 | `GET /api/v1/plans/:id/review_requests` | List reviewers and their recorded decisions. | comments |
 | `POST /api/v1/plans/:id/review_requests` | Request required or optional review. Plan author only. | comments |
-| `PATCH /api/v1/plans/:id/review_requests/:request_id` | Change the requirement or request another look. Plan author only. | comments |
+| `PATCH /api/v1/plans/:id/review_requests/:request_id` | Change the requirement without reopening, or request another look. Plan author only. | comments |
 | `DELETE /api/v1/plans/:id/review_requests/:request_id` | Withdraw a request and preserve its history. Plan author only. | comments |
 | `POST /api/v1/plans/:id/review_requests/:request_id/respond` | Approve a version or request changes. Requested reviewer only. | comments |
 

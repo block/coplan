@@ -27,7 +27,8 @@ module CoPlan
           requirement: attributes[:requirement].presence || @review_request.requirement)
       else
         @plan.with_lock { @review_request.update!(requirement: attributes.fetch(:requirement)) }
-        Reviews::Changed.call(request: @review_request, event_type: "review.requested")
+        Reviews::Changed.call(request: @review_request, event_type: "review.requested",
+          payload: { "action" => "requirement_changed", "requirement" => @review_request.requirement })
       end
       render json: Reviews::Serialize.call(@review_request.reload)
     end
@@ -36,9 +37,9 @@ module CoPlan
       authorize!(@plan, :update?)
       @plan.with_lock do
         @review_request.update!(status: "withdrawn")
-        @review_request.notifications.unread.update_all(read_at: Time.current)
+        @review_request.notifications.unread.where(user_id: @review_request.reviewer_id, reason: "review_requested").update_all(read_at: Time.current)
       end
-      Reviews::Changed.call(request: @review_request, event_type: "review.requested", payload: { "withdrawn" => true })
+      Reviews::Changed.call(request: @review_request, event_type: "review.requested", payload: { "action" => "withdrawn", "withdrawn" => true })
       head :no_content
     end
 

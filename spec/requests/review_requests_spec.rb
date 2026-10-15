@@ -6,6 +6,37 @@ RSpec.describe "Review requests", type: :request do
   let(:plan) { create(:plan, :published, created_by_user: author) }
   let(:task) { create(:review_request, plan: plan, reviewer: reviewer) }
 
+  it "preserves the author's unread response when withdrawing a review" do
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
+    response_notice = author.notifications.find_by!(review_request: task, reason: "review_response")
+    request_notice = CoPlan::Notification.create!(user: reviewer, plan: plan, review_request: task, reason: "review_requested")
+    watcher = create(:api_token, user: reviewer)
+    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
+    sign_in_as(author)
+    delete plan_review_request_path(plan, task)
+    expect(response).to have_http_status(:no_content)
+    expect(task.reload.status).to eq("withdrawn")
+    expect(request_notice.reload).to be_read
+    expect(response_notice.reload).not_to be_read
+    expect(watcher.agent_events.last!.payload).to include("action" => "withdrawn", "withdrawn" => true)
+    expect(task.review_responses.count).to eq(1)
+  end
+
+  it "distinguishes requirement updates from new requests in live events" do
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
+    requested_at = task.requested_at
+    watcher = create(:api_token, user: reviewer)
+    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
+    sign_in_as(author)
+    patch plan_review_request_path(plan, task), params: { review_request: { requirement: "optional" } }, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(task.reload).to have_attributes(requirement: "optional", status: "approved", requested_at: requested_at)
+    event = watcher.agent_events.last!
+    expect(event.event_type).to eq("review.requested")
+    expect(event.payload).to include("action" => "requirement_changed", "requirement" => "optional", "review_request_id" => task.id)
+    expect(task.review_responses.count).to eq(1)
+  end
+
   it "keeps pending review tasks separate from unread comment rows" do
     CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
     sign_in_as(reviewer)

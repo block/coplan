@@ -13,8 +13,11 @@ RSpec.describe "CoPlan reviews" do
   end
 
   it "requests optional review and sends a notification without granting permissions" do
+    watcher = create(:api_token, user: reviewer)
+    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
     task = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user, requirement: "optional")
     expect(task.requirement).to eq("optional")
+    expect(watcher.agent_events.last!.payload).to include("action" => "requested", "requirement" => "optional")
     expect(task.notifications.last).to have_attributes(user_id: reviewer.id, reason: "review_requested", comment_thread_id: nil)
     expect(CoPlan::PlanPolicy.new(reviewer, plan).update?).to be(false)
     expect(plan.plan_collaborators).to be_empty

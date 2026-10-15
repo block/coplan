@@ -26,7 +26,8 @@ module CoPlan
           Notification.create!(plan: @plan, user: @reviewer, review_request: request, reason: "review_requested")
           request
         end
-        Changed.call(request: request, event_type: "review.requested", actor_token_id: @api_token&.id)
+        Changed.call(request: request, event_type: "review.requested", actor_token_id: @api_token&.id,
+          payload: { "action" => "requested", "requirement" => request.requirement })
         request
       end
 
