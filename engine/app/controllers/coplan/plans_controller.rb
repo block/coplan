@@ -831,6 +831,7 @@ module CoPlan
       [
         turbo_stream.replace("plan-header", partial: "coplan/plans/header", locals: { plan: @plan }),
         turbo_stream.replace("plan-toolbar", partial: "coplan/plans/toolbar", locals: { plan: @plan }),
+        turbo_stream.update("plan-visibility-options", partial: "coplan/plans/visibility_options", locals: { plan: @plan }),
         toast_stream(message, "notice")
       ]
     end
@@ -843,6 +844,7 @@ module CoPlan
         turbo_stream.replace("plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: @plan }),
         turbo_stream.replace("plan-banner-slot", partial: "coplan/plans/banner", locals: { plan: @plan }),
         turbo_stream.replace("plan-toolbar", partial: "coplan/plans/toolbar", locals: { plan: @plan }),
+        turbo_stream.update("plan-visibility-options", partial: "coplan/plans/visibility_options", locals: { plan: @plan }),
         toast_stream(message, "notice")
       ]
     end

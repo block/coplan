@@ -652,6 +652,29 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(plan.reload).to be_published
   end
 
+  it "offers only permitted visibility actions and restores them after unarchiving" do
+    plan.update!(archived_at: Time.current)
+    sign_in_browser(author)
+    click_button "Shared", exact: true
+    within(".plan-visibility-panel") do
+      expect(page).to have_content("Unlisted. Anyone with the link can read.")
+      expect(page).to have_no_button
+    end
+    page.send_keys(:escape)
+    within(".plan-banner--archived") { click_button "Restore" }
+    expect(page).to have_no_css(".plan-banner--archived")
+    click_button "Shared", exact: true
+    within(".plan-visibility-panel") { click_button "Private", exact: false }
+    expect(page).to have_button("Private", exact: true)
+    expect(page).to have_no_css(".plan-visibility-panel:popover-open")
+    expect(plan.reload).to be_draft
+    click_button "Private", exact: true
+    within(".plan-visibility-panel") { click_button "Shared", exact: false }
+    expect(page).to have_button("Shared", exact: true)
+    expect(page).to have_no_css(".plan-visibility-panel:popover-open")
+    expect(plan.reload).to be_published
+  end
+
   it "shows visibility to readers without exposing author controls" do
     click_button "Shared", exact: true
     within(".plan-visibility-panel") do
