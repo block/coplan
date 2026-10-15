@@ -41,12 +41,7 @@ module CoPlan
         end
 
         def destroy
-          @plan.with_lock do
-            @review_request.update!(status: "withdrawn")
-            @review_request.notifications.unread.where(user_id: @review_request.reviewer_id, reason: "review_requested").update_all(read_at: Time.current)
-          end
-          Reviews::Changed.call(request: @review_request, event_type: "review.requested", actor_token_id: api_token_id,
-            payload: { "action" => "withdrawn", "withdrawn" => true })
+          Reviews::Withdraw.call(request: @review_request, actor: current_user, api_token: @api_token)
           head :no_content
         end
 

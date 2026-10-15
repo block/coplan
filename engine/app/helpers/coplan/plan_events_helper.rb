@@ -75,6 +75,8 @@ module CoPlan
       when "review_requested"
         safe_join([ "Requested a review from ", content_tag(:strong, event.metadata["reviewer_name"]),
                     " · v#{event.metadata["revision"]}" ])
+      when "review_withdrawn"
+        safe_join([ "Withdrew the review request for ", content_tag(:strong, event.metadata["reviewer_name"]) ])
       when "comment_deleted"
         preview = event.metadata.is_a?(Hash) ? event.metadata["body_preview"].to_s.presence : nil
         if preview

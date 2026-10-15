@@ -14,6 +14,29 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
 
   before { author_token; reviewer_token }
 
+  it "records the withdrawing agent once and retains the event after a new request", :review_withdrawals do
+    task
+    withdrawn_at = 1.minute.from_now.change(usec: 0)
+    travel_to(withdrawn_at) { delete api_v1_plan_review_request_path(plan, task), headers: headers("reviews-owner") }
+    expect(response).to have_http_status(:no_content)
+    event = plan.plan_events.find_by!(event_type: "review_withdrawn")
+    expect(event).to have_attributes(actor_id: author.id, actor_type: "local_agent", agent_name: "Authorbot",
+      api_token_id: author_token.id, created_at: withdrawn_at, after_value: task.id)
+    expect(event.metadata).to include("reviewer_name" => reviewer.name, "revision" => 1, "requirement" => "required")
+    delete api_v1_plan_review_request_path(plan, task), headers: headers("reviews-owner")
+    expect(plan.plan_events.where(event_type: "review_withdrawn").count).to eq(1)
+    travel_to(2.minutes.from_now) do
+      patch api_v1_plan_review_request_path(plan, task), params: { request_again: true }, headers: headers("reviews-owner"), as: :json
+    end
+    expect(response).to have_http_status(:ok)
+    expect(task.reload.status).to eq("pending")
+    expect(event.reload.created_at).to eq(withdrawn_at)
+    expect(plan.plan_events.where(event_type: "review_requested").count).to eq(2)
+    sign_in_as(author)
+    get plan_review_requests_path(plan)
+    expect(Nokogiri::HTML(response.body).css(".review-log__event").text.squish).to include("Authorbot (via #{author.name}) withdrew the review request for #{reviewer.name}")
+  end
+
   it "preserves the author's unread response when withdrawing a review" do
     CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
     response_notice = author.notifications.find_by!(review_request: task, reason: "review_response")

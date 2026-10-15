@@ -21,6 +21,32 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   before { sign_in_browser(reviewer) }
 
+  it "keeps a withdrawn request between its two request cycles", :review_withdrawals do
+    sign_in_browser(author)
+    click_button "More actions"
+    within("#plan-menu") { click_button "Manage reviewers" }
+    within(".review-management[open]") do
+      click_button "Actions for Plan Reviewer", enable_aria_label: true
+      click_button "Remove request"
+      expect(page).to have_no_css("[data-review-assignments] .review-person")
+    end
+    expect(task.reload.status).to eq("withdrawn")
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+    visit plan_page_path(plan)
+    within("#footnote-approvals") { click_button "View activity", exact: false }
+    within(".review-activity-dialog[open]") do
+      expect(all(".review-log__event").map { |entry| entry.text.squish }).to eq([
+        "Plan Author requested a review from Plan Reviewer",
+        "Plan Author withdrew the review request for Plan Reviewer",
+        "Plan Author requested a review from Plan Reviewer"
+      ])
+    end
+    [ "light", "dark" ].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp/review-preview/review-withdrawal-history-#{theme}.png"))
+    end
+  end
+
   it "offers equal review choices and preserves cancelled feedback without moving the reader" do
     within(".review-tray__actions") do
       expect(page).to have_button("Request changes")

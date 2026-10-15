@@ -1,6 +1,6 @@
   <section class="review-history" aria-label="Review activity">
     <div class="review-log" data-review-history>
-      <% logged_request_ids = request_events.map(&:after_value) %>
+      <% logged_request_ids = request_events.select { |event| event.event_type == "review_requested" }.map(&:after_value) %>
       <% activity = request_events.map { |event| [event.created_at, :request_event, event] } %>
       <% activity += requests.flat_map { |request| (logged_request_ids.include?(request.id) ? [] : [[request.requested_at, :request, request]]) + request.review_responses.map { |response| [response.created_at, :response, response] } } %>
       <% activity.sort_by!(&:first).reverse! %>
@@ -11,7 +11,7 @@
           <div class="review-log__avatar"><%= user_avatar(actor, size: "sm") %></div>
           <div class="review-log__body">
             <p class="review-log__event"><strong><%= kind != :request && item.actor_type == "local_agent" ? "#{item.agent_name} (via #{actor.name})" : actor.name %></strong>
-              <% if kind != :response %>requested a review from <strong><%= kind == :request_event ? item.metadata["reviewer_name"] : item.reviewer.name %></strong><% else %><%= item.decision == "approved" ? "approved" : "requested changes on" %><% end %>
+              <% if kind != :response %><%= kind == :request_event && item.event_type == "review_withdrawn" ? "withdrew the review request for" : "requested a review from" %> <strong><%= kind == :request_event ? item.metadata["reviewer_name"] : item.reviewer.name %></strong><% else %><%= item.decision == "approved" ? "approved" : "requested changes on" %><% end %>
               <% if kind == :response %><span class="review-version">v<%= item.plan_version.revision %></span><% end %>
             </p>
             <time datetime="<%= at.iso8601 %>" title="<%= l(at, format: :long) %>"><%= l(at, format: :short) %></time>

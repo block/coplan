@@ -33,6 +33,7 @@ module CoPlan
       attachment_removed
       comment_deleted
       review_requested
+      review_withdrawn
       moved_to_folder
     ].freeze
 

@@ -57,7 +57,7 @@ Every endpoint, with the guide that explains it. All paths start with `<%= @base
 | `GET /api/v1/plans/:id/review_requests` | List reviewers and their recorded decisions. | comments |
 | `POST /api/v1/plans/:id/review_requests` | Request required or optional review. Plan author only. | comments |
 | `PATCH /api/v1/plans/:id/review_requests/:request_id` | Change the requirement without reopening, or request another look. Plan author only. | comments |
-| `DELETE /api/v1/plans/:id/review_requests/:request_id` | Withdraw a request and preserve its history. Plan author only. | comments |
+| `DELETE /api/v1/plans/:id/review_requests/:request_id` | Withdraw a request; record its actor and time while preserving earlier history. Plan author only. | comments |
 | `POST /api/v1/plans/:id/review_requests/:request_id/respond` | Approve a version or request changes. Requested reviewer only. | comments |
 
 Include `idempotency_key` (a fresh UUID) for each intended review response. Reuse that UUID and identical fields when retrying a lost response; its returned `id` is the UUID. Use a new UUID for a new decision, including another review of the same version. A keyed retry returns the original recorded result even after the plan changes or the task is withdrawn. It preserves any newly pending review task. Without a key, an identical response is treated as a retry. A key reused for different fields returns 422.

@@ -6,6 +6,33 @@ RSpec.describe "Review requests", type: :request do
   let(:plan) { create(:plan, :published, created_by_user: author) }
   let(:task) { create(:review_request, plan: plan, reviewer: reviewer) }
 
+  it "retains withdrawal provenance after another request", :review_withdrawals do
+    task
+    first_at = task.requested_at
+    withdrawn_at = 1.minute.from_now.change(usec: 0)
+    sign_in_as(author)
+    travel_to(withdrawn_at) { delete plan_review_request_path(plan, task) }
+    expect(response).to have_http_status(:no_content)
+    event = plan.plan_events.find_by!(event_type: "review_withdrawn")
+    expect(event).to have_attributes(actor_id: author.id, actor_type: "human", created_at: withdrawn_at, after_value: task.id)
+    expect(event.metadata).to include("reviewer_name" => reviewer.name, "revision" => 1, "requirement" => "required")
+    travel_to(2.minutes.from_now) { delete plan_review_request_path(plan, task) }
+    expect(plan.plan_events.where(event_type: "review_withdrawn").count).to eq(1)
+    travel_to(3.minutes.from_now) do
+      patch plan_review_request_path(plan, task), params: { review_request: { request_again: true } }, as: :json
+    end
+    expect(response).to have_http_status(:ok)
+    get plan_review_requests_path(plan)
+    entries = Nokogiri::HTML(response.body).css(".review-activity-dialog .review-log__entry")
+    expect(entries.map { |entry| entry.at_css(".review-log__event").text.squish }).to eq([
+      "#{author.name} requested a review from #{reviewer.name}",
+      "#{author.name} withdrew the review request for #{reviewer.name}",
+      "#{author.name} requested a review from #{reviewer.name}"
+    ])
+    expect(Time.iso8601(entries[1].at_css("time")["datetime"])).to eq(withdrawn_at)
+    expect(Time.iso8601(entries.last.at_css("time")["datetime"]).to_i).to eq(first_at.to_i)
+  end
+
   it "preserves the author's unread response when withdrawing a review" do
     CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
     response_notice = author.notifications.find_by!(review_request: task, reason: "review_response")
