@@ -41,12 +41,28 @@ See the [Host App Integration Guide](./docs/HOST_APP_GUIDE.md) for full setup in
 ## Development Setup
 
 ```bash
-bin/setup
-bin/rails db:seed
+bin/setup --skip-server
 bin/dev
 ```
 
-Sign in with any `@example.com` email (stub OIDC).
+Setup installs the shared, idempotent demo library. Sign in as
+**hampton@example.com** (no password in this example host), then open
+**[Demo library](http://localhost:3000/hampton/demo-library)**. It links to
+presentations, architecture diagrams, tables, code, and named review scenarios.
+Use **alex@example.com** for an approver/admin or **noura@example.com** for a
+security approver.
+
+To add missing examples to an existing development database:
+
+```bash
+bin/rails coplan:demo:seed
+```
+
+The demo ships with the engine gem. It is separate from `coplan:seed`, which
+installs only required reference data and is safe in production. See the
+[demo library guide](docs/DEMO_LIBRARY.md) for scenarios, custom ports, and how
+to add examples. Re-seeding preserves document content, titles, approvals,
+and discussion state; use a fresh database when you need the initial states.
 
 For microphone dictation, start `bin/dev` from a shell with `OPENAI_API_KEY`
 set, or configure `openai.api_key` in Rails credentials. Both the plan microphone

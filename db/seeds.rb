@@ -4,7 +4,7 @@
 CoPlan::Engine.load_seed
 
 if Rails.env.local?
-  require_relative "seeds/development"
+  require "coplan/development_seed"
   CoPlan::DevelopmentSeed.call
 else
   warn "Development seed data is only available in development and test environments."

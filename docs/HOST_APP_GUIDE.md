@@ -82,6 +82,25 @@ new reference rows are installed. Alternatively, call
 `CoPlan::Engine.load_seed` from your own `db/seeds.rb` so `db:setup` and
 `db:seed` cover it automatically.
 
+### Optional development demo library
+
+The engine packages a curated demo library independently of required reference
+data. In a development or test database, run:
+
+```bash
+COPLAN_DEMO_BASE_URL=http://localhost:3000/coplan bin/rails coplan:demo:seed
+```
+
+Use your actual host URL and engine mount path. This creates fixed example
+users, presentations, design documents, version history, and approval states.
+It refuses to run outside development and test. It needs no Faker dependency.
+The engine does not install a login flow: your development authentication
+callback must map to the seeded identities such as `seed:hampton`. Email-only
+login as `hampton@example.com` is provided by this repository's example host.
+
+See [the demo library guide](DEMO_LIBRARY.md) for the scenario list and how to
+extend it. Keep demo seeding separate from production reference-data setup.
+
 ### 5. Configure authentication
 
 Provide an `authenticate` callback that receives a Rack request and returns user identity attributes (or `nil` if unauthenticated):
