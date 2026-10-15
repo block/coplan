@@ -401,6 +401,27 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_css(".review-tray", visible: true)
   end
 
+  it "assigns a directory result using the matching local identity", :review_directory do
+    other = create(:coplan_user, username: "directory-reviewer", name: "Local Reviewer")
+    previous_search = CoPlan.configuration.user_search
+    CoPlan.configuration.user_search = ->(_query) {
+      [ { "id" => "external-directory-id", "username" => other.username, "name" => "Directory Reviewer", "team" => "Directory Team" } ]
+    }
+    sign_in_browser(author)
+    click_button "More actions"
+    within("#plan-menu") { click_button "Manage reviewers" }
+    within(".review-management") { click_button "Add reviewer", exact: true }
+    fill_in "Find a reviewer", with: "Directory Reviewer"
+    result = find(".review-search-result", text: "Directory Reviewer")
+    expect(result["data-user-id"]).to eq(other.id)
+    result.click
+    within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+    expect(page).to have_css(".review-person", text: "Local Reviewer")
+    expect(plan.review_requests.find_by!(reviewer: other).requirement).to eq("required")
+  ensure
+    CoPlan.configuration.user_search = previous_search
+  end
+
   it "keeps the manager and assignment stable while search results overlay beneath the field" do
     create(:coplan_user, name: "Popover Candidate", username: "popover-candidate")
     sign_in_browser(author)
