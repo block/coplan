@@ -886,6 +886,41 @@ RSpec.describe "Human plan editing", type: :system do
     expect(plan.reload.current_content).to include("Draft after expired sign-in")
   end
 
+  it "keeps Retry sync open when a background snapshot recovers first", :sync_recovery do
+    visit plan_edit_page_path(plan)
+    editor
+    page.execute_script(<<~'JS')
+      const original = window.fetch;
+      window.signedOut = true;
+      const meta = document.querySelector('meta[name="csrf-token"]') || document.head.appendChild(document.createElement('meta'));
+      meta.name = 'csrf-token'; meta.content = 'expired';
+      window.fetch = async (url, options) => {
+        if (window.signedOut && (url.includes('editor_state') || options?.method === 'PATCH')) return new Response('{}', {status: 401, headers: {'Content-Type': 'application/json'}});
+        if (options?.method === 'PATCH' && options.headers['X-CSRF-Token'] === 'expired') return new Response('Old session token', {status: 422, headers: {'Content-Type': 'text/html'}});
+        return original(url, options);
+      };
+    JS
+    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Draft after expired sign-in")
+    save_now
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "Sign in again · draft retained", visible: :all)
+    expect(editor).to have_text("Draft after expired sign-in")
+    page.evaluate_async_script(<<~'JS')
+      const done = arguments[0]
+      window.signedOut = false
+      const form = document.querySelector('form.document-editor')
+      const controller = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor')
+      // A poll can accept a snapshot while the visible control still says
+      // Retry sync, before its scheduled save has started.
+      controller.whenIdle().then(() => controller.refresh()).then(() => {
+        form.querySelector('.document-editor__close-inline').click()
+        done()
+      })
+    JS
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", visible: :all)
+    expect(page).to have_css('.inline-editor:not([inert]) .ProseMirror[contenteditable="true"]', text: "Draft after expired sign-in")
+    expect(plan.reload.current_content).to include("Draft after expired sign-in")
+  end
+
   it "reconciles a committed save whose response was lost without making another version" do
     visit plan_edit_page_path(plan)
     editor

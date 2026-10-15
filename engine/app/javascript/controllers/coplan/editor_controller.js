@@ -319,7 +319,7 @@ export default class extends Controller {
   }
   async reconnect(event) {
     event?.preventDefault()
-    if (!this.active || this.blocked || (this.inlineValue && !this.retryable)) return
+    if (!this.active || this.blocked || (this.inlineValue && !this.retryable && this.statusTarget.dataset.state !== "error")) return
     await this.whenIdle()
     if (!this.active) return
     this.retryable = false
@@ -444,7 +444,9 @@ export default class extends Controller {
   back(event) {
     event.preventDefault()
     if (this.inlineValue && this.blocked) window.location.reload()
-    else if (this.inlineValue && this.retryable) this.reconnect()
+    // A recovered snapshot clears retryable before its scheduled save starts.
+    // Keep the action consistent with the Retry sync control still on screen.
+    else if (this.inlineValue && this.statusTarget.dataset.state === "error") this.reconnect()
     else if (this.inlineValue) this.closeInline()
     else this.navigate(() => this.backTarget.href)
   }
