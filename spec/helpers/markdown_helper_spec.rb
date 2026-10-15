@@ -14,6 +14,28 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).not_to match(/<script>/)
     end
 
+    it "preserves an HTML image width with and without image expansion" do
+      markdown = '<img src="/images/mockup.png" alt="Console mockup" width="320">'
+
+      [ true, false ].each do |expandable_images|
+        doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown, expandable_images:))
+
+        expect(doc.at_css("img")["width"]).to eq("320")
+      end
+    end
+
+    it "preserves image width while removing unsafe image attributes and URLs" do
+      markdown = '<img src="javascript:alert(1)" alt="Console mockup" width="320" height="180" style="position:fixed" onerror="alert(1)">'
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))
+      image = doc.at_css("img")
+
+      expect(image["width"]).to eq("320")
+      expect(image["src"]).to be_nil
+      expect(image["height"]).to be_nil
+      expect(image["style"]).to be_nil
+      expect(image["onerror"]).to be_nil
+    end
+
     it "allows details/summary collapse elements" do
       html = helper.render_markdown('<details><summary>Click me</summary>Hidden content</details>')
       expect(html).to include("<details>")
