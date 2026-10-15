@@ -365,6 +365,11 @@ RSpec.describe "Inline plan editing", type: :system do
       page.evaluate_async_script("const done = arguments[0]; window.formatToolsScrolled.then(() => done())")
     end
     expect(page).to have_css('.document-editor__more-tools[aria-label="Earlier formatting tools"]', wait: 5)
+    click_button "Toggle table of contents", enable_aria_label: true
+    expect(page).to have_no_css(".content-nav", visible: true)
+    expect(page).to have_css('.document-editor__more-tools[aria-label="Earlier formatting tools"]')
+    click_button "Toggle table of contents", enable_aria_label: true
+    expect(page).to have_css(".content-nav", visible: true)
   end
 
   it "keeps the visible title within the saved title limit" do

@@ -2,32 +2,4 @@
   <h1>Settings</h1>
 </div>
 
-<p class="settings-section-subtitle">Manage API tokens for agent access</p>
-
-  <div id="token-reveal">
-    <% if flash[:raw_token].present? %>
-      <%= render "token_reveal", raw_token: flash[:raw_token] %>
-    <% end %>
-  </div>
-
-  <div class="card" id="create-token-form">
-    <%= render "form" %>
-  </div>
-
-  <div class="card" id="tokens-card">
-    <h2>Your Tokens</h2>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Status</th>
-          <th>Last Used</th>
-          <th>Created</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="tokens-list">
-        <%= render partial: "token_row", collection: @api_tokens, as: :token %>
-      </tbody>
-    </table>
-  </div>
+<%= render "coplan/settings/tokens/tokens", api_tokens: @api_tokens %>
