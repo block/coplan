@@ -14,11 +14,15 @@ RSpec.describe "Review requests", type: :request do
     get notifications_path(filter: "all")
     row = Nokogiri::HTML(response.body).at_css(".notifications-list a[href='#{notification_path(notice)}']")
     expect(row["class"].split).to include("inbox-row--unread")
+    expect(row.at_css(".review-task-dot")).to be_present
+    expect(row.text).to include("Unread:")
     get notification_path(notice)
     expect(notice.reload).to be_read
     get notifications_path(filter: "all")
     row = Nokogiri::HTML(response.body).at_css(".notifications-list a[href='#{notification_path(notice)}']")
     expect(row["class"].split).not_to include("inbox-row--unread")
+    expect(row.at_css(".review-task-dot")).to be_nil
+    expect(row.text).not_to include("Unread:")
     expect(task.reload.status).to eq("approved")
   end
 
