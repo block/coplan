@@ -557,6 +557,8 @@ RSpec.describe "Human plan editing", type: :system do
     find('[data-embed-attribute="src"]:focus').fill_in with: "https://unapproved.example.com/second"
     expect(page).to have_css('html[data-first-iframe-preview-held="true"]')
     remove = all(".document-editor__block").last.find_button("Remove embedded page", enable_aria_label: true)
+    page.execute_script("window.scrollBy(0, arguments[0].getBoundingClientRect().top - (innerHeight - 25))", remove.native)
+    expect(page.evaluate_script("document.activeElement.getBoundingClientRect().top > innerHeight")).to eq(true)
     page.driver.browser.action.move_to(remove.native).click_and_hold.pause(duration: 0.2).release.perform
     expect(page).to have_css('[data-embed-attribute="src"]', count: 1)
     click_button "Undo", enable_aria_label: true

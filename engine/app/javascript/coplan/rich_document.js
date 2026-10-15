@@ -894,7 +894,9 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     dom.append(fields, hint, previewBody)
     const settlePreview = (content, asText = false) => {
       // A preview above the active field/button must not move it mid-action.
-      const focused = document.activeElement
+      // Pointer-down can precede the browser moving focus to its button.
+      const pressed = view.dom.querySelector("input:active, textarea:active, button:active, select:active")
+      const focused = pressed || document.activeElement
       const control = view.dom.contains(focused) && focused.matches("input, textarea, button, select") && !previewBody.contains(focused) ? focused : null
       const bounds = control?.getBoundingClientRect()
       // Focus can remain in a field after someone scrolls away to read.
