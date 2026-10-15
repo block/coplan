@@ -98,6 +98,7 @@ export default class extends Controller {
 
   collapse() {
     this.changesKey = null
+    this.changesRevision = null
     const tray = this.element.querySelector(".review-tray")
     delete tray.dataset.composing
     delete tray.dataset.reconsidering
@@ -123,6 +124,7 @@ export default class extends Controller {
 
   requestChanges(event) {
     this.responseUrl = event.currentTarget.dataset.url
+    if (this.discussionTarget.hidden) this.changesRevision = this.viewedRevision()
     this.expand()
   }
 
@@ -162,7 +164,7 @@ export default class extends Controller {
     const error = form.querySelector('[role="alert"]')
     this.changesKey ||= crypto.randomUUID()
     await this.withBusy(form, error, async () => {
-      const result = await this.write(form.action, "POST", { review_response: { revision: this.viewedRevision(), decision: "changes_requested", note: input.value, idempotency_key: this.changesKey } })
+      const result = await this.write(form.action, "POST", { review_response: { revision: this.changesRevision, decision: "changes_requested", note: input.value, idempotency_key: this.changesKey } })
       // Feedback lives in the ordinary discussion collection.
       const synced = await this.refreshThreads(result.comment_thread_id)
       this.noticeTarget.textContent = "Changes requested. Your feedback is in the plan’s comments." + (synced ? "" : " Refresh the page to see your comment.")

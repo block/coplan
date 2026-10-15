@@ -203,6 +203,24 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(task.review_responses).to be_empty
   end
 
+  it "keeps feedback tied to the version shown when composition began" do
+    within(".review-tray") { click_button "Request changes" }
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Changed while composing feedback",
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    expect(page).to have_css('#plan-content-body[data-coplan--live-update-revision-value="2"]', text: "Changed while composing feedback")
+    fill_in "Public review comment", with: "My feedback on the earlier version", enable_aria_label: true
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_content("The plan has changed. Review the latest version")
+    expect(page).to have_field("Public review comment", with: "My feedback on the earlier version", enable_aria_label: true)
+    expect(task.review_responses).to be_empty
+    expect(task.reload.status).to eq("pending")
+    within(".review-tray__discussion") { click_button "Cancel" }
+    within(".review-tray") { click_button "Request changes" }
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_css(".review-tray", text: "You requested changes to v2")
+    expect(task.review_responses.last!.plan_version.revision).to eq(2)
+  end
+
   it "compares later edits while preserving the approval of the earlier version" do
     CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A clarified retry contract.")
