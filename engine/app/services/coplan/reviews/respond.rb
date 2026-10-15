@@ -50,8 +50,10 @@ module CoPlan
 
           # Legacy clients cannot distinguish two identical intentions. Keep
           # the old response and preserve any newly re-requested pending task.
+          # Token renewal changes the credential, not the human's intention;
+          # returning the saved record preserves its original attribution.
           existing = @request.review_responses.find_by(user: @actor, plan_version: plan.current_plan_version,
-            decision: @decision, note: response.note, api_token_id: @api_token&.id)
+            decision: @decision, note: response.note)
           next existing if existing && !@idempotency_key
 
           if response.note.present?
