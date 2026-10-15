@@ -696,11 +696,15 @@ module CoPlan
         plan = plans.fetch(key)
         %w[alex noura].each do |reviewer|
           collaborator = plan.plan_collaborators.find_or_initialize_by(user: users.fetch(reviewer))
-          next if collaborator.persisted?
+          unless collaborator.persisted?
+            collaborator.assign_attributes(role: "approver", added_by_user: users.fetch("hampton"))
+            collaborator.approved_at = Time.current if approved
+            collaborator.save!
+          end
+          next if plan.review_requests.where(reviewer: users.fetch(reviewer)).exists?
 
-          collaborator.assign_attributes(role: "approver", added_by_user: users.fetch("hampton"))
-          collaborator.approved_at = Time.current if approved
-          collaborator.save!
+          request = Reviews::Request.call(plan: plan, reviewer: users.fetch(reviewer), actor: plan.created_by_user)
+          Reviews::Respond.call(request: request, actor: request.reviewer, revision: plan.current_revision, decision: "approved") if approved
         end
       end
     end

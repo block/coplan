@@ -154,10 +154,21 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(approved.count).to eq(2)
       expect(approved.pluck(:approved_at)).to all(be_present)
 
+      pending_requests = seeded_plan("pending-review").review_requests
+      approved_requests = seeded_plan("approved-review").review_requests
+      expect(pending_requests.pluck(:status)).to eq(%w[pending pending])
+      expect(approved_requests.pluck(:status)).to eq(%w[approved approved])
+      expect(approved_requests.map(&:latest_approval)).to all(be_present)
+      requested = pending_requests.first
+      response = CoPlan::Reviews::Respond.call(request: requested, actor: requested.reviewer,
+        revision: requested.plan.current_revision, decision: "approved")
+
       pending.first.approve!
       thread = seeded_plan("collab-showcase").comment_threads.find_by!(status: "open")
       thread.resolve!(seeded_plan("collab-showcase").created_by_user)
       described_class.call
+      expect(requested.reload.latest_approval).to eq(response)
+      expect(requested.review_responses.count).to eq(1)
 
       expect(pending.reload.where(approved_at: nil).count).to eq(1)
       expect(thread.reload.status).to eq("resolved")
