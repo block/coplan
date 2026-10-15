@@ -19,6 +19,21 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_css("#plan-review-controls")
   end
 
+  def lose_next_review_result
+    page.execute_script(<<~JS)
+      const originalFetch = window.fetch.bind(window);
+      let loseResponse = true;
+      window.fetch = async (...args) => {
+        const result = await originalFetch(...args);
+        if (loseResponse && args[1]?.method === "POST" && String(args[0]).endsWith("/respond")) {
+          loseResponse = false;
+          throw new TypeError("Simulated lost HTTP result after the server saved it");
+        }
+        return result;
+      };
+    JS
+  end
+
   before { sign_in_browser(reviewer) }
 
   it "keeps a withdrawn request between its two request cycles", :review_withdrawals do
@@ -154,25 +169,16 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(task.reload.status).to eq("changes_requested")
   end
 
-  it "retries a lost approval response without completing a newly requested review" do
-    page.execute_script(<<~JS)
-      const originalFetch = window.fetch.bind(window);
-      let loseResponse = true;
-      window.fetch = async (...args) => {
-        const result = await originalFetch(...args);
-        if (loseResponse && args[1]?.method === "POST" && String(args[0]).endsWith("/respond")) {
-          loseResponse = false;
-          throw new TypeError("Simulated lost HTTP result after the server saved it");
-        }
-        return result;
-      };
-    JS
+  it "retries a lost approval after reopening without completing a newly requested review", :review_retries do
+    lose_next_review_result
     within(".review-tray") { click_button "Approve", exact: true }
     within(".review-confirmation") { click_button "Approve v1", exact: true }
     expect(page).to have_css(".review-confirmation [role='alert']", text: "try again")
     first = task.review_responses.last!
     CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
     expect(page).to have_css(".review-tray", text: "Your review is requested")
+    click_button "Close approval", enable_aria_label: true
+    within(".review-tray") { click_button "Approve", exact: true }
     within(".review-confirmation") { click_button "Approve v1", exact: true }
     expect(page).to have_no_css(".review-confirmation[open]")
     expect(task.reload.status).to eq("pending")
@@ -182,6 +188,37 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_css(".review-tray", text: "You approved")
     expect(task.reload.status).to eq("approved")
     expect(task.review_responses.count).to eq(2)
+  end
+
+  it "records changed approval fields as a new intent after an ambiguous failure", :review_retries do
+    lose_next_review_result
+    within(".review-tray") { click_button "Approve", exact: true }
+    fill_in "Public note", with: "First wording"
+    within(".review-confirmation") { click_button "Approve v1", exact: true }
+    expect(page).to have_css(".review-confirmation [role='alert']", text: "try again")
+    fill_in "Public note", with: "Revised wording"
+    within(".review-confirmation") { click_button "Approve v1", exact: true }
+    expect(page).to have_no_css(".review-confirmation[open]")
+    expect(task.review_responses.pluck(:note)).to contain_exactly("First wording", "Revised wording")
+    expect(task.reload.status).to eq("approved")
+  end
+
+  it "replays lost change feedback after cancelling and reopening its composer", :review_retries do
+    lose_next_review_result
+    within(".review-tray") { click_button "Request changes" }
+    fill_in "Public review comment", with: "Keep one copy of this feedback", enable_aria_label: true
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_css(".review-tray__discussion [role='alert']", text: "try again")
+    first = task.review_responses.last!
+    within(".review-tray__discussion") { click_button "Cancel" }
+    within("#footnote-approvals") { click_button "Change decision", enable_aria_label: true }
+    within(".review-tray") { click_button "Request changes" }
+    expect(page).to have_field("Public review comment", with: "Keep one copy of this feedback", enable_aria_label: true)
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_no_css(".review-tray__discussion", visible: true)
+    expect(task.review_responses.pluck(:id)).to eq([ first.id ])
+    expect(plan.comment_threads.count).to eq(1)
+    expect(plan.notifications.where(reason: "review_response").count).to eq(1)
   end
 
   it "removes feedback links in place when the last review comment is deleted" do

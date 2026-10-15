@@ -97,7 +97,6 @@ export default class extends Controller {
   }
 
   collapse() {
-    this.changesKey = null
     this.changesRevision = null
     const tray = this.element.querySelector(".review-tray")
     delete tray.dataset.composing
@@ -131,7 +130,6 @@ export default class extends Controller {
   confirmApproval(event) {
     this.responseUrl = event.currentTarget.dataset.url
     this.approvalRevision = this.viewedRevision()
-    this.approvalKey = crypto.randomUUID()
     this.approvalErrorTarget.textContent = ""
     this.approveButtonTarget.textContent = `Approve v${this.approvalRevision}`
     this.approvalTitleTarget.textContent = `Approve v${this.approvalRevision}?`
@@ -142,10 +140,24 @@ export default class extends Controller {
     this.approvalTarget.close()
   }
 
+  responseIntent(url, revision, decision, note) {
+    this.responseIntents ||= {}
+    const fields = JSON.stringify([url, String(revision), note.trim()])
+    const previous = this.responseIntents[decision]
+    if (previous?.fields === fields) return previous
+    return this.responseIntents[decision] = { fields, key: crypto.randomUUID() }
+  }
+
+  confirmIntent(decision, intent) {
+    if (this.responseIntents[decision] === intent) delete this.responseIntents[decision]
+  }
+
   async approve(event) {
     event.preventDefault()
     await this.withBusy(event.target, this.approvalErrorTarget, async () => {
-      const result = await this.write(this.responseUrl, "POST", { review_response: { revision: this.approvalRevision, decision: "approved", note: this.approvalNoteTarget.value, idempotency_key: this.approvalKey } })
+      const intent = this.responseIntent(this.responseUrl, this.approvalRevision, "approved", this.approvalNoteTarget.value)
+      const result = await this.write(this.responseUrl, "POST", { review_response: { revision: this.approvalRevision, decision: "approved", note: this.approvalNoteTarget.value, idempotency_key: intent.key } })
+      this.confirmIntent("approved", intent)
       const synced = !result.comment_thread_id || await this.refreshThreads(result.comment_thread_id)
       this.approvalTarget.close()
       this.approvalNoteTarget.value = ""
@@ -162,9 +174,10 @@ export default class extends Controller {
     const input = form.querySelector("textarea")
     if (form.closest('[data-dictation-busy="true"]') || form.querySelector('[data-dictation-busy="true"]')) return
     const error = form.querySelector('[role="alert"]')
-    this.changesKey ||= crypto.randomUUID()
     await this.withBusy(form, error, async () => {
-      const result = await this.write(form.action, "POST", { review_response: { revision: this.changesRevision, decision: "changes_requested", note: input.value, idempotency_key: this.changesKey } })
+      const intent = this.responseIntent(form.action, this.changesRevision, "changes_requested", input.value)
+      const result = await this.write(form.action, "POST", { review_response: { revision: this.changesRevision, decision: "changes_requested", note: input.value, idempotency_key: intent.key } })
+      this.confirmIntent("changes_requested", intent)
       // Feedback lives in the ordinary discussion collection.
       const synced = await this.refreshThreads(result.comment_thread_id)
       this.noticeTarget.textContent = "Changes requested. Your feedback is in the plan’s comments." + (synced ? "" : " Refresh the page to see your comment.")

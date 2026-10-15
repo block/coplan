@@ -37,7 +37,7 @@ module CoPlan
           if @idempotency_key
             existing = ReviewResponse.find_by(id: @idempotency_key)
             if existing
-              fields = %w[review_request_id user_id decision note api_token_id]
+              fields = %w[review_request_id user_id decision note]
               next existing if existing.plan_version.revision.to_s == @revision.to_s && fields.all? { |field| existing.public_send(field) == response.public_send(field) }
 
               response.errors.add(:base, "This response was already recorded with different details. Start a new review decision to record your changes.")

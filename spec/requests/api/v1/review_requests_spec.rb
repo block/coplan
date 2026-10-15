@@ -14,6 +14,28 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
 
   before { author_token; reviewer_token }
 
+  it "replays a response through a renewed session token without changing its attribution", :review_retries do
+    first_token, first_secret = reviewer_token.mint_session_token!(agent_name: "Originalbot")
+    key = SecureRandom.uuid
+    payload = { revision: 1, decision: "approved", note: "Recorded before renewal", idempotency_key: key }
+    post respond_api_v1_plan_review_request_path(plan, task), params: payload, headers: headers(first_secret), as: :json
+    expect(response).to have_http_status(:created)
+    first = task.review_responses.find(key)
+    first_token.update!(expires_at: 1.second.ago)
+    post respond_api_v1_plan_review_request_path(plan, task), params: payload, headers: headers(first_secret), as: :json
+    expect(response).to have_http_status(:unauthorized)
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+    renewed_token, renewed_secret = reviewer_token.mint_session_token!(agent_name: "Renewedbot")
+    expect(renewed_token.id).not_to eq(first_token.id)
+    counts = [ CoPlan::ReviewResponse.count, CoPlan::CommentThread.count, CoPlan::Notification.count ]
+    post respond_api_v1_plan_review_request_path(plan, task), params: payload, headers: headers(renewed_secret), as: :json
+    expect(response).to have_http_status(:created)
+    expect(response.parsed_body).to include("id" => key, "agent_name" => "Originalbot")
+    expect(first.reload).to have_attributes(api_token_id: first_token.id, agent_name: "Originalbot")
+    expect(task.reload.status).to eq("pending")
+    expect([ CoPlan::ReviewResponse.count, CoPlan::CommentThread.count, CoPlan::Notification.count ]).to eq(counts)
+  end
+
   it "records the withdrawing agent once and retains the event after a new request", :review_withdrawals do
     task
     withdrawn_at = 1.minute.from_now.change(usec: 0)
