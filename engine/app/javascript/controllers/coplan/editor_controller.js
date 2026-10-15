@@ -34,7 +34,7 @@ export default class extends Controller {
         const threads = document.getElementById("plan-threads")
         if (threads) {
           this.commentsObserver = new MutationObserver(() => {
-            this.richEditor?.updateComments(this.comments(), { preserveRanges: this.dirty() })
+            this.richEditor?.updateComments(this.comments(), { preserveRanges: this.contentDirty() })
             this.element.dispatchEvent(new CustomEvent("coplan:anchors-updated", { bubbles: true }))
           })
           this.commentsObserver.observe(threads, { childList: true })
@@ -92,6 +92,7 @@ export default class extends Controller {
       tags: this.element.querySelector('[name="plan[tag_names]"]').value }
   }
   dirty() { return JSON.stringify(this.snapshot()) !== JSON.stringify({ content: this.base.content, title: this.base.title, tags: this.base.tags }) }
+  contentDirty() { return this.textareaTarget.value !== this.base.content }
   setStatus(message, state = "idle") {
     if (!this.active) return
     // Typing during a request must not hide its spinner or an unresolved error.

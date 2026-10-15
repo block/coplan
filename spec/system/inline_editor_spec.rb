@@ -515,6 +515,30 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css("#plan-content-body mark[data-thread-id='comment_thread_#{thread.id}']", text: "Second paragraph.", wait: 15)
   end
 
+  it "refreshes an authoritative quote while only the title has unsaved changes", :anchor_refresh do
+    thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Second paragraph.")
+    thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Keep this note")
+    visit plan_page_path(plan)
+    within("#plan-toolbar") { click_link "Edit" }
+    selector = ".inline-editor mark[data-thread-id='comment_thread_#{thread.id}']"
+    expect(page).to have_css(selector, text: "Second paragraph.")
+
+    page.execute_script(<<~JS)
+      const form = document.querySelector('.inline-editor form.document-editor')
+      const controller = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor')
+      const title = form.querySelector('[name="plan[title]"]')
+      title.value = 'My unsaved title'
+      controller.accept({ ...controller.base, revision: 2,
+        content: controller.base.content.replace('Second paragraph.', 'A completely different reviewed passage.') })
+      const thread = document.getElementById('comment_thread_#{thread.id}')
+      thread.dataset.anchorText = 'A completely different reviewed passage.'
+      thread.replaceWith(thread.cloneNode(true))
+    JS
+
+    expect(page).to have_css(selector, text: "A completely different reviewed passage.", wait: 0)
+    expect(find('.inline-editor [name="plan[title]"]', visible: :all).value).to eq("My unsaved title")
+  end
+
   it "shows an out-of-date comment without moving it to another matching passage" do
     thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Second paragraph.")
     thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Original placement")
