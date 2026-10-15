@@ -38,6 +38,7 @@ export default class extends Controller {
     const editorRoot = editing?.querySelector(".inline-editor .ProseMirror")
     if (editorRoot) { this.buildEditorToc(editorRoot); return }
     this._editorRoot = null
+    if (this.hasShowBtnTarget) this.showBtnTarget.classList.remove("content-nav-show-btn--floating")
     const documentRoot = this.contentTarget
     if (!documentRoot.querySelector(".markdown-rendered") && !documentRoot.classList.contains("markdown-rendered")) return
 
@@ -54,6 +55,7 @@ export default class extends Controller {
       return
     }
     this.sidebarTarget.style.display = ""
+    if (this.hasShowBtnTarget) this.showBtnTarget.classList.remove("content-nav-show-btn--floating")
     if (this.hasShowBtnTarget) this.showBtnTarget.style.display = ""
 
     // Commonmarker supplies an empty self-link inside each heading. Promote
@@ -151,7 +153,10 @@ export default class extends Controller {
     this._itemsById = new Map()
     this.listTarget.replaceChildren()
     this.sidebarTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
-    if (this.hasShowBtnTarget) this.showBtnTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
+    if (this.hasShowBtnTarget) {
+      this.showBtnTarget.classList.toggle("content-nav-show-btn--floating", !this._editorSidebarDisplayed)
+      this.showBtnTarget.style.display = this._editorSidebarDisplayed ? "" : (this._headings.length ? "block" : "none")
+    }
     this.updateEditorToggle()
 
     const used = new Set()
@@ -390,6 +395,7 @@ export default class extends Controller {
   showOutline(event) {
     if (this._editorRoot) this._editorSidebarDisplayed = true
     this.sidebarTarget.style.display = ""
+    if (this.hasShowBtnTarget) this.showBtnTarget.classList.remove("content-nav-show-btn--floating")
     if (this.hasShowBtnTarget) this.showBtnTarget.style.display = ""
     this.visibleValue = true
     this.visibleValueChanged()

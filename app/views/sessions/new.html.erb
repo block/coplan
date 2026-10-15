@@ -6,16 +6,37 @@
     <p class="text-muted text-sm">Sign in with your work email</p>
 
     <div class="sign-in-warning">
-      ⚠️ During initial development, login is a trust system. Use your <strong>ldap@squareup.com</strong> to sign in.
+      This example host uses email-only sign in. No password is required.
     </div>
+
+    <% if @demo_user %>
+      <p class="text-muted text-sm">Try the demo as <strong><%= @demo_user.email %></strong>. Open “Demo library” for presentations, architecture, and review examples.</p>
+    <% end %>
 
     <%= form_with url: sign_in_path, method: :post, class: "sign-in-form" do |f| %>
       <div class="form-group">
         <%= f.label :email, "Email address" %>
-        <%= f.email_field :email, autofocus: true, required: true, placeholder: "you@company.com" %>
+        <%= f.email_field :email, value: @demo_user&.email, autofocus: true, required: true, placeholder: "you@company.com" %>
       </div>
 
       <%= f.submit "Sign In", class: "btn btn--primary sign-in-submit" %>
+    <% end %>
+
+    <% if @demo_users.present? %>
+      <section class="demo-accounts" aria-labelledby="demo-accounts-heading">
+        <h2 id="demo-accounts-heading" class="text-sm">Demo accounts</h2>
+        <p class="text-muted text-sm">Choose an account to sign in.</p>
+        <ul class="demo-account-list">
+          <% @demo_users.each do |user| %>
+            <li>
+              <%= button_to sign_in_path, method: :post, params: { email: user.email }, class: "btn btn--secondary demo-account-button", data: { turbo_submits_with: "Signing in…" } do %>
+                <span><%= user.email %></span>
+                <span class="text-muted text-sm"><%= user == @demo_user ? "Default owner" : user.title %><%= " · Admin" if user.admin? %></span>
+              <% end %>
+            </li>
+          <% end %>
+        </ul>
+      </section>
     <% end %>
   </div>
 </div>

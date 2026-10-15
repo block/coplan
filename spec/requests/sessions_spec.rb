@@ -9,6 +9,20 @@ RSpec.describe "Sessions", type: :request do
     expect(response.body).to include("email")
   end
 
+  it "prefills the seeded demo author only in development" do
+    create(:coplan_user, external_id: "seed:hampton", email: "hampton@example.com", name: "Hampton")
+    create(:coplan_user, external_id: "seed:alex", email: "alex@example.com", name: "Alex Morgan")
+    allow(Rails.env).to receive(:development?).and_return(true)
+
+    get sign_in_path
+    expect(response.body).to include('value="hampton@example.com"', "Demo library", "Demo accounts", "alex@example.com")
+    expect(response.body).not_to include("alice@acme.com")
+
+    allow(Rails.env).to receive(:development?).and_return(false)
+    get sign_in_path
+    expect(response.body).not_to include('value="hampton@example.com"', "Try the demo as", "Demo accounts", "alex@example.com")
+  end
+
   it "sign in with valid email creates session" do
     post sign_in_path, params: { email: "alice@acme.com" }
     expect(response).to redirect_to(root_path)

@@ -156,6 +156,14 @@ every open source contributor run or host a server for a reviewer.
 
 - `db/seeds.rb` must be **idempotent** — use `find_or_create_by!` or guard with count checks
 - Seeds should provide enough data to demo features from a fresh checkout
+- A feature that adds a content type, diagram variant, reference type, presentation layout, or other demoable content or workflow state must add or update a named example in the shared demo library in the same PR. Cover its initial state and re-seeding behavior in `spec/lib/development_seed_spec.rb`; feature work is not complete until the example is browsable from the demo index.
+- Use the shared demo library: `bin/rails coplan:demo:seed` (or `bin/rails db:seed` in this host). Do not invent a replacement dataset for each feature.
+- Default example-host login: **hampton@example.com**, no password. Start at `/hampton/demo-library`. Use `alex@example.com` for an approver/admin or `noura@example.com` for a security approver.
+- Demo definitions live in `engine/lib/coplan/development_seed.rb`; readable content lives in `engine/db/demo/content/`. The engine gem packages both. Add named scenarios and assertions in `spec/lib/development_seed_spec.rb` as features grow.
+- Start with the content galleries in the demo index: diagram variants, single/multiple/mixed decks, table cells, rich text, references, and every shipped plan type. Keep comment-target capability labels accurate when adding examples.
+- Read [docs/DEMO_LIBRARY.md](docs/DEMO_LIBRARY.md) for scenario coverage and database isolation. Set `COPLAN_DEMO_BASE_URL` before the first seed when using a different port or engine mount path.
+- Before setting up a separate worktree, select dedicated development and test databases with `DATABASE_URL`. Different ports still share the default database; do not seed or reset another chat's database.
+- Re-seeding preserves existing content, titles, approvals, and discussion state. For pristine scenarios use a fresh, isolated development database; never reset a shared database without being asked.
 
 ## Agent Instructions Stay Current
 
