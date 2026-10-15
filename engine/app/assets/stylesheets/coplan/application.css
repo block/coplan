@@ -3539,12 +3539,6 @@ img.avatar {
   box-shadow: var(--shadow-pop);
 }
 
-.content-nav-show-btn--floating {
-  position: absolute;
-  top: var(--space-sm);
-  z-index: 1;
-}
-
 .content-nav-show-btn kbd {
   font-family: var(--font-mono);
   font-size: 0.7rem;
