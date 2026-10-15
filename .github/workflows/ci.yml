@@ -54,7 +54,9 @@ jobs:
         run: bundle exec rspec spec/system/voice_commenting_spec.rb spec/system/comment_composer_spec.rb --tag voice_environment --order defined --format progress --format json --out tmp/rspec-voice-environment.json
 
       - name: Stress regression specs with fresh processes and test orders
-        run: bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
+        run: |
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 2000))" --output tmp/rspec-anchor-stress -- spec/system/inline_editor_spec.rb --tag anchor_refresh
 
       - name: Preserve test reports and browser failure screenshots
         if: ${{ !cancelled() }}
@@ -65,6 +67,7 @@ jobs:
             tmp/rspec-results.json
             tmp/rspec-voice-environment.json
             tmp/rspec-stress/
+            tmp/rspec-anchor-stress/
             tmp/capybara/
             tmp/screenshots/
           retention-days: 30
@@ -114,7 +117,9 @@ jobs:
         run: bundle exec rspec spec/system/voice_commenting_spec.rb spec/system/comment_composer_spec.rb --tag voice_environment --order defined --format progress --format json --out tmp/rspec-voice-environment.json
 
       - name: Stress regression specs with fresh processes and test orders
-        run: bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
+        run: |
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 2000))" --output tmp/rspec-anchor-stress -- spec/system/inline_editor_spec.rb --tag anchor_refresh
 
       - name: Preserve test reports and browser failure screenshots
         if: ${{ !cancelled() }}
@@ -125,6 +130,7 @@ jobs:
             tmp/rspec-results.json
             tmp/rspec-voice-environment.json
             tmp/rspec-stress/
+            tmp/rspec-anchor-stress/
             tmp/capybara/
             tmp/screenshots/
           retention-days: 30

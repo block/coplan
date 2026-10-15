@@ -467,7 +467,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css("#plan-content-body mark[data-thread-id='comment_thread_#{thread.id}']", text: "Second pxragraph.", wait: 15)
   end
 
-  it "keeps a quote highlighted when more than eight characters are inserted inside it" do
+  it "keeps a quote highlighted when more than eight characters are inserted inside it", :anchor_refresh do
     thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Second paragraph.")
     thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Keep this note")
     visit plan_page_path(plan)
@@ -489,6 +489,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css(".document-editor__save-status[data-state='saved']", visible: :all, wait: 15)
     expect(thread.reload).not_to be_out_of_date
     expect(thread.anchor_text).to eq(expected_text)
+    expect(page).to have_css("#comment_thread_#{thread.id}[data-anchor-text='#{expected_text}']", visible: :all, wait: 10)
 
     page.execute_script(<<~JS)
       const form = document.querySelector('.inline-editor form.document-editor')
@@ -498,8 +499,11 @@ RSpec.describe "Inline plan editing", type: :system do
         if (node.isText && node.text.includes('asdfdsaasdf')) position = pos + node.text.indexOf('asdfdsaasdf')
       })
       view.dispatch(view.state.tr.delete(position, position + 11))
+      // A delayed saved-thread response can arrive after this newer edit.
+      const thread = document.getElementById('comment_thread_#{thread.id}')
+      thread.replaceWith(thread.cloneNode(true))
     JS
-    expect(page).to have_css(".inline-editor mark[data-thread-id='comment_thread_#{thread.id}']", text: "Second paragraph.", wait: 2)
+    expect(page).to have_css(".inline-editor mark[data-thread-id='comment_thread_#{thread.id}']", text: "Second paragraph.", wait: 0)
     expect(page).to have_css(".document-editor__save-status[data-state='saved']", visible: :all, wait: 15)
     expect(thread.reload).not_to be_out_of_date
     expect(thread.anchor_text).to eq("Second paragraph.")

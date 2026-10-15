@@ -433,8 +433,8 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       view.dispatch(transaction.setMeta("addToHistory", false).setMeta("remote", true))
     },
     destroy() { clearTimeout(previewOffsetTimer); view.destroy() },
-    updateComments(next) {
-      view.dispatch(view.state.tr.setMeta(commentKey, next).setMeta("addToHistory", false))
+    updateComments(next, { preserveRanges = false } = {}) {
+      view.dispatch(view.state.tr.setMeta(commentKey, { comments: next, preserveRanges }).setMeta("addToHistory", false))
     },
     focusText(text, occurrence = 0) {
       const wanted = text?.replace(/\s+/g, " ").trim()
@@ -534,8 +534,27 @@ function commentPlugin(initial) {
       init: (_, state) => commentDecorations(state.doc, comments),
       apply(transaction, previous, _, state) {
         const incoming = transaction.getMeta(commentKey)
-        if (incoming) comments = incoming
-        if (incoming) return commentDecorations(state.doc, comments)
+        if (incoming) {
+          const known = new Set(comments.map(comment => comment.id))
+          comments = incoming.comments
+          if (!incoming.preserveRanges) return commentDecorations(state.doc, comments)
+          // A saved-thread refresh may describe the last acknowledged text
+          // while a newer local edit has already mapped its highlight. Keep
+          // those provisional ranges until that edit is acknowledged. Status
+          // changes and deleted threads still apply immediately.
+          const byId = new Map(comments.map(comment => [comment.id, comment]))
+          const kept = previous.find().flatMap(mark => {
+            const comment = byId.get(mark.type.attrs["data-thread-id"])
+            if (!comment || state.doc.textBetween(mark.from, mark.to) !== mark.spec.expected) return []
+            return [Decoration.inline(mark.from, mark.to, {
+              ...mark.type.attrs, class: `anchor-highlight anchor-highlight--${comment.status}`
+            }, mark.spec)]
+          })
+          // A quote invalidated by a broad local rewrite must stay detached;
+          // looking up its old text could attach it to another occurrence.
+          const added = commentDecorations(state.doc, comments.filter(comment => !known.has(comment.id))).find()
+          return DecorationSet.create(state.doc, [...kept, ...added])
+        }
         if (!transaction.docChanged) return previous
         // Mapping the existing ranges is cheap even in a long document and
         // keeps a thread on its passage when text is inserted above it.

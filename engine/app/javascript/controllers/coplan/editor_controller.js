@@ -34,7 +34,7 @@ export default class extends Controller {
         const threads = document.getElementById("plan-threads")
         if (threads) {
           this.commentsObserver = new MutationObserver(() => {
-            this.richEditor?.updateComments(this.comments())
+            this.richEditor?.updateComments(this.comments(), { preserveRanges: this.dirty() })
             this.element.dispatchEvent(new CustomEvent("coplan:anchors-updated", { bubbles: true }))
           })
           this.commentsObserver.observe(threads, { childList: true })
