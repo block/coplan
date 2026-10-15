@@ -339,7 +339,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page.current_url).to end_with("?from=review#context")
   end
 
-  it "wraps long titles and offers hidden formatting controls without a visible scrollbar" do
+  it "wraps long titles and offers hidden formatting controls without a visible scrollbar", :ci_boundary do
     plan.update!(title: "A long working title about collaborative planning and rich editing that needs to stay fully visible while someone changes it")
     visit plan_page_path(plan)
     within("#plan-toolbar") { click_link "Edit" }
@@ -349,9 +349,21 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page.evaluate_script("document.querySelector('.inline-editor__title').getBoundingClientRect().height > parseFloat(getComputedStyle(document.querySelector('.inline-editor__title')).lineHeight) * 1.5")).to eq(true)
     expect(page.evaluate_script("document.querySelector('.inline-editor__title').scrollWidth <= document.querySelector('.inline-editor__title').clientWidth")).to eq(true)
     expect(page.evaluate_script("getComputedStyle(document.querySelector('.document-editor__format-controls')).scrollbarWidth")).to eq("none")
-    page.execute_script("document.querySelector('.document-editor__format-controls').style.maxWidth = '360px'")
+    page.execute_script("document.querySelector('.document-editor__format-controls').style.maxWidth = '200px'")
     expect(page).to have_css(".document-editor__more-tools", visible: true)
-    find(".document-editor__more-tools").click
+    # One activation advances a partial page, not necessarily the whole strip.
+    # Font metrics and host controls determine how many pages are needed.
+    max_clicks = page.evaluate_script("(() => { const c = document.querySelector('.document-editor__format-controls'); return Math.ceil(c.scrollWidth / (c.clientWidth * 0.7)) + 1 })()")
+    max_clicks.times do
+      break if page.has_css?('.document-editor__more-tools[aria-label="Earlier formatting tools"]', wait: 0)
+      page.execute_script <<~JS
+        window.formatToolsScrolled = new Promise(resolve => {
+          document.querySelector('.document-editor__format-controls').addEventListener('scrollend', () => resolve(), {once: true})
+        })
+      JS
+      find(".document-editor__more-tools").click
+      page.evaluate_async_script("const done = arguments[0]; window.formatToolsScrolled.then(() => done())")
+    end
     expect(page).to have_css('.document-editor__more-tools[aria-label="Earlier formatting tools"]', wait: 5)
   end
 
@@ -516,11 +528,25 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css("#plan-content-body mark[data-thread-id='comment_thread_#{thread.id}']", text: "Second paragraph.", wait: 15)
   end
 
-  it "refreshes an authoritative quote while only the title has unsaved changes", :anchor_refresh do
+  it "refreshes an authoritative quote while only the title has unsaved changes", :anchor_refresh, :ci_boundary do
     thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Second paragraph.")
     thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Keep this note")
     visit plan_page_path(plan)
+    # Force a cold-open state response to outlast the default two-second
+    # matcher timeout. The editor remains hidden until that response arrives.
+    page.execute_script <<~JS
+      const original = window.fetch.bind(window)
+      window.fetch = async (...args) => {
+        const response = await original(...args)
+        if (String(args[0]).includes('/editor_state')) {
+          window.fetch = original
+          await new Promise(resolve => setTimeout(resolve, 3000))
+        }
+        return response
+      }
+    JS
     within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     selector = ".inline-editor mark[data-thread-id='comment_thread_#{thread.id}']"
     expect(page).to have_css(selector, text: "Second paragraph.")
 

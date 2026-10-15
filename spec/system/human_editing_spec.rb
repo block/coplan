@@ -520,7 +520,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_css('[data-embed-attribute="src"]', count: 2)
   end
 
-  it "removes an iframe when an earlier preview finishes during its pointer click" do
+  it "removes an iframe when an earlier preview finishes during its pointer click", :ci_boundary do
     source = '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' + "\n\nEnd.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
@@ -567,7 +567,48 @@ RSpec.describe "Human plan editing", type: :system do
     page.driver.browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: script.fetch("identifier")) if script
   end
 
-  it "keeps reading position when an iframe field is focused offscreen" do
+  it "opens a citation when an iframe preview finishes during its pointer click", :citation_preview_boundary, :ci_boundary do
+    source = ("Reading paragraph.\n\n" * 25) + "Decision.[^catalog]\n\n" +
+      '::: {.iframe src="https://unapproved.example.com/citation-delay" title="Report" /}' + "\n\n[^catalog]: Catalog details.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    script = page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~'JS')
+      const originalFetch = window.fetch.bind(window);
+      let releasePreview;
+      document.addEventListener("DOMContentLoaded", () => { document.body.style.overflowAnchor = "none"; });
+      window.fetch = async (...args) => {
+        const result = await originalFetch(...args);
+        if (String(args[0]).endsWith("/preview_draft") && args[1]?.body?.includes("unapproved.example.com/citation-delay")) {
+          const html = await result.text();
+          return new Promise(resolve => {
+            document.documentElement.dataset.citationPreviewHeld = "true";
+            releasePreview = () => resolve({ok: result.ok, redirected: result.redirected, text: () => Promise.resolve(html)});
+          });
+        }
+        return result;
+      };
+      document.addEventListener("mousedown", event => {
+        if (event.target.closest('[aria-label="Edit reference catalog"]') && releasePreview) {
+          const release = releasePreview;
+          releasePreview = null;
+          release();
+        }
+      }, true);
+    JS
+    visit plan_edit_page_path(plan)
+    editor
+    expect(page).to have_css('html[data-citation-preview-held="true"]')
+    citation = find_button("Edit reference catalog", enable_aria_label: true)
+    expect(page.evaluate_script("document.querySelector('.ProseMirror').contains(arguments[0])", citation.native)).to eq(false)
+    page.execute_script("window.scrollBy(0, arguments[0].getBoundingClientRect().top - (innerHeight - 25))", citation.native)
+    page.driver.browser.action.move_to(citation.native).click_and_hold.pause(duration: 0.2).release.perform
+    expect(page).to have_css('dialog[open]', text: 'Citation: catalog')
+    expect(find('#coplan-citation-body').value).to eq('Catalog details.')
+  ensure
+    page.driver.browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: script.fetch("identifier")) if script
+  end
+
+  it "keeps reading position when an iframe field is focused offscreen", :ci_boundary do
     source = "# Long document\n\n" + ("Reading paragraph.\n\n" * 35) + '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' + "\n\n" + '::: {.iframe src="https://unapproved.example.com/second" title="Second" /}' + "\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)

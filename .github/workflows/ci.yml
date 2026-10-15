@@ -58,6 +58,7 @@ jobs:
           bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
           bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 2000))" --output tmp/rspec-anchor-stress -- spec/system/inline_editor_spec.rb --tag anchor_refresh
           bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 3000))" --output tmp/rspec-dense-stress -- spec/system/rich_view_stress_spec.rb --tag dense_cell
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 4000))" --output tmp/rspec-boundary-stress -- spec/system/human_editing_spec.rb spec/system/inline_editor_spec.rb --tag ci_boundary
 
       - name: Preserve test reports and browser failure screenshots
         if: ${{ !cancelled() }}
@@ -70,6 +71,7 @@ jobs:
             tmp/rspec-stress/
             tmp/rspec-anchor-stress/
             tmp/rspec-dense-stress/
+            tmp/rspec-boundary-stress/
             tmp/capybara/
             tmp/screenshots/
           retention-days: 30
@@ -123,6 +125,7 @@ jobs:
           bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
           bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 2000))" --output tmp/rspec-anchor-stress -- spec/system/inline_editor_spec.rb --tag anchor_refresh
           bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 3000))" --output tmp/rspec-dense-stress -- spec/system/rich_view_stress_spec.rb --tag dense_cell
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 4000))" --output tmp/rspec-boundary-stress -- spec/system/human_editing_spec.rb spec/system/inline_editor_spec.rb --tag ci_boundary
 
       - name: Preserve test reports and browser failure screenshots
         if: ${{ !cancelled() }}
@@ -135,6 +138,7 @@ jobs:
             tmp/rspec-stress/
             tmp/rspec-anchor-stress/
             tmp/rspec-dense-stress/
+            tmp/rspec-boundary-stress/
             tmp/capybara/
             tmp/screenshots/
           retention-days: 30

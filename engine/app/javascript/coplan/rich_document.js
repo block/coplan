@@ -914,9 +914,11 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     const settlePreview = (content, asText = false) => {
       // A preview above the active field/button must not move it mid-action.
       // Pointer-down can precede the browser moving focus to its button.
-      const pressed = view.dom.querySelector("input:active, textarea:active, button:active, select:active")
+      // Citation controls share the plan's editor but sit outside ProseMirror.
+      const interactionRoot = view.dom.closest('[data-controller~="coplan--inline-editor"]') || form || view.dom
+      const pressed = interactionRoot.querySelector("input:active, textarea:active, button:active, select:active")
       const focused = pressed || document.activeElement
-      const control = view.dom.contains(focused) && focused.matches("input, textarea, button, select") && !previewBody.contains(focused) ? focused : null
+      const control = interactionRoot.contains(focused) && focused.matches("input, textarea, button, select") && !previewBody.contains(focused) ? focused : null
       const bounds = control?.getBoundingClientRect()
       // Focus can remain in a field after someone scrolls away to read.
       // That offscreen field must not pull the page when a preview finishes.
