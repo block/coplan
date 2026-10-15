@@ -108,8 +108,20 @@ RSpec.describe "Plan discussion and approval", type: :system do
           return original(url, options)
         }
       JS
+      # A native popover is visible before its queued toggle event runs.
+      # Hold that event back so positioning must happen before it opens.
+      page.execute_script <<~JS
+        document.querySelector('.review-person__menu').addEventListener('toggle', event => {
+          if (event.newState === 'open') event.stopImmediatePropagation()
+        }, {capture: true})
+      JS
       within(dialog) do
-        click_button "Actions for Plan Reviewer", enable_aria_label: true
+        trigger = find_button("Actions for Plan Reviewer", enable_aria_label: true)
+        trigger_rect = trigger.rect
+        trigger.click
+        menu = find(".review-person__menu:popover-open")
+        expect((menu.rect.y - trigger_rect.y - trigger_rect.height - 6).abs).to be <= 1
+        expect((menu.rect.x + menu.rect.width - trigger_rect.x - trigger_rect.width).abs).to be <= 1
         click_button action
         expect(page).to have_no_css(".review-person__menu:popover-open")
         expect(page).to have_text("Updating…")
