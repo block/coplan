@@ -89,7 +89,6 @@
           anchored to diagram labels get their marks (and pending ?thread=
           deep links can resolve). %>
       <div class="plan-layout__content">
-        <%= render "coplan/plans/changed_sections_note" %>
         <%# Each presentation region owns its own reader controls and
             presenter. Live updates wait until an active show ends before
             replacing the content target below. %>
@@ -126,6 +125,7 @@
         </div>
         <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
 
+        <%= render "coplan/plans/changed_sections_note" %>
         <div class="document-support">
         <%= render partial: "coplan/plans/footnotes",
               locals: { plan: @plan, references: @references, attachments: @attachments } %>
