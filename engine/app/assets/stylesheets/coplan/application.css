@@ -8455,6 +8455,9 @@ button.visibility-option__button:hover:not(:disabled) { background: var(--color-
 .review-management__close:hover, .review-person__menu-button:hover { background: var(--color-interaction-hover-bg); color: var(--color-primary); }
 .review-management__overview { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 22px; }
 .review-management__overview > div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--color-text-muted); }
+.review-management__overview > .review-management__status { display: grid; gap: 0; }
+.review-management__status > * { grid-area: 1 / 1; }
+.review-management[data-managing] [data-review-summary] { visibility: hidden; }
 .review-version { display: inline-flex; align-items: center; padding: 2px 7px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 11px; font-weight: 500; color: var(--color-text-muted); white-space: nowrap; }
 .review-add-button {
   display: inline-flex; justify-content: center; align-items: center; gap: 6px; min-height: 34px; padding: 6px 12px;

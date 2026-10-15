@@ -43,6 +43,7 @@ export default class extends Controller {
       this._threadsObserver.observe(this.threadsTarget, { childList: true })
     }
 
+    this._pendingThreadFocusReply = false
     // Auto-open a specific thread if linked via ?thread=ID (set as a Stimulus value)
     if (this.focusThreadValue) {
       this._pendingThreadId = this.focusThreadValue
@@ -381,6 +382,7 @@ export default class extends Controller {
   openThread(event) {
     this._pendingThreadId = event.detail.threadId
     this._pendingThreadOrigin = event.detail.origin
+    this._pendingThreadFocusReply = event.detail.focusReply === true
     this._openLinkedThread()
   }
 
@@ -780,10 +782,12 @@ export default class extends Controller {
     const domId = `comment_thread_${threadId}`
     const threadData = document.getElementById(domId)
     if (threadData?.dataset.anchorKind) {
-      const event = new CustomEvent("coplan:source-thread", { bubbles: true, cancelable: true, detail: { threadId } })
+      const event = new CustomEvent("coplan:source-thread", { bubbles: true, cancelable: true, detail: { threadId, focusReply: this._pendingThreadFocusReply } })
       this.element.dispatchEvent(event)
       if (event.defaultPrevented) {
         this._pendingThreadId = null
+        this._pendingThreadOrigin = null
+        this._pendingThreadFocusReply = false
         return
       }
     }
@@ -824,6 +828,11 @@ export default class extends Controller {
             currentMark.scrollIntoView({ behavior: "instant", block: "center" })
           }
           if (this._showThreadPopoverFor(trigger)) {
+            if (this._pendingThreadFocusReply) {
+              const input = this._activePopover.querySelector(".thread-popover__reply textarea") || this._activePopover.querySelector(".comment-window__move")
+              input?.focus({ preventScroll: true })
+            }
+            this._pendingThreadFocusReply = false
             this._pendingThreadId = null
             this._pendingThreadOrigin = null
             return

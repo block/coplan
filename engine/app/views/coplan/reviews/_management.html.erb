@@ -4,7 +4,10 @@
     <button type="button" class="review-management__close" aria-label="Close reviews" data-action="coplan--review-tray#closeReviews"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
   </header>
   <div class="review-management__overview">
-    <div data-review-summary><span><%= pluralize(active_requests.size, "reviewer") %><%= " · #{active_requests.count(&:pending?)} awaiting review" if active_requests.any?(&:pending?) %></span></div>
+    <div class="review-management__status">
+      <div data-review-summary><span><%= pluralize(active_requests.size, "reviewer") %><%= " · #{active_requests.count(&:pending?)} awaiting review" if active_requests.any?(&:pending?) %></span></div>
+      <span role="status" aria-live="polite" data-coplan--review-tray-target="managementStatus"></span>
+    </div>
     <% if allowed_to?(plan, :update?) %>
       <button type="button" class="review-add-button" title="Add reviewer" aria-expanded="false" aria-haspopup="dialog" aria-controls="review-assignment" popovertarget="review-assignment" data-coplan--review-tray-target="addReviewerButton"><span aria-hidden="true">+</span> Add reviewer</button>
     <% end %>

@@ -47,6 +47,65 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_field("Public review comment", with: "Can we clarify this boundary?", enable_aria_label: true)
   end
 
+  [ [ "Request another review", false ], [ "Remove request", true ] ].each do |action, failed|
+    it "keeps reviewer-update progress visible for #{action}", :review_interactions do
+      sign_in_browser(author)
+      click_button "More actions"
+      within("#plan-menu") { click_button "Manage reviewers" }
+      dialog = find(".review-management[open]")
+      before = dialog.rect
+      page.execute_script(<<~JS, failed)
+        const original = window.fetch.bind(window)
+        const gate = new Promise(resolve => { window.releaseReviewUpdate = resolve })
+        window.reviewUpdateFailed = arguments[0]
+        window.fetch = (url, options) => {
+          if (['PATCH', 'DELETE'].includes(options?.method) && String(url).includes('/review_requests/')) {
+            return gate.then(() => window.reviewUpdateFailed
+              ? new Response(JSON.stringify({error: 'The update was rejected'}), {status: 422, headers: {'Content-Type': 'application/json'}})
+              : original(url, options))
+          }
+          return original(url, options)
+        }
+      JS
+      within(dialog) do
+        click_button "Actions for Plan Reviewer", enable_aria_label: true
+        click_button action
+        expect(page).to have_no_css(".review-person__menu:popover-open")
+        expect(page).to have_text("Updating…")
+        expect(page).to have_css("[data-review-assignments][aria-busy='true'][inert]")
+      end
+      expect(dialog.rect).to eq(before)
+      [ "light", "dark" ].each do |theme|
+        page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+        page.save_screenshot(Rails.root.join("tmp/review-preview/review-management-busy-#{theme}.png"))
+      end
+      page.execute_script("window.releaseReviewUpdate()")
+      expect(page).to have_no_css(".review-management[data-managing]", wait: 15)
+      expect(page).to have_no_css("[data-review-assignments][inert]")
+      if failed
+        expect(dialog).to have_css("[role='alert']", text: "The update was rejected")
+        expect(task.reload.status).to eq("pending")
+      else
+        expect(dialog).to have_no_text("Updating…")
+        expect(task.reload).to be_pending
+      end
+    ensure
+      page.execute_script("window.reviewUpdateFailed = true; window.releaseReviewUpdate?.()")
+    end
+  end
+
+  it "focuses the reply when opening review feedback from the tray and activity", :review_interactions do
+    result = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1,
+      decision: "changes_requested", note: "Please clarify recovery")
+    visit plan_page_path(plan)
+    within(".review-tray") { click_button "View feedback" }
+    expect(page).to have_css("#comment_thread_#{result.comment_thread_id}_popover:popover-open .thread-popover__reply textarea:focus")
+    page.send_keys(:escape)
+    within("#footnote-approvals") { click_button "View activity", exact: false }
+    within(".review-activity-dialog") { click_button "Open discussion", exact: false }
+    expect(page).to have_css("#comment_thread_#{result.comment_thread_id}_popover:popover-open .thread-popover__reply textarea:focus")
+  end
+
   it "records approvals and public change requests on an empty version" do
     # Older hosts can have a persisted empty version, as in plans_spec.
     plan.current_plan_version.update_columns(content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
@@ -466,7 +525,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     page.current_window.resize_to(1400, 900)
   end
 
-  it "opens comment rows and reveals filtered resolved feedback from activity" do
+  it "opens comment rows and reveals filtered resolved feedback from activity", :review_interactions do
     result = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "changes_requested", note: "Please clarify recovery")
     thread = result.comment_thread
     thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "I added the recovery detail")
@@ -485,6 +544,8 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_no_css(".review-activity-dialog[open]")
     expect(page).to have_css(".thread-popover:popover-open", text: "Please clarify recovery")
     expect(page).to have_select("Show", selected: "Resolved")
+    expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open .comment-window__move:focus")
+    expect(thread.reload.status).to eq("resolved")
   end
 
   it "starts document-wide discussions and filters open and resolved comments without losing drafts" do

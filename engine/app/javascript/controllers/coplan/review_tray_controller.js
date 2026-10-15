@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "assignmentError", "approval", "approvalNote", "approvalError", "approvalTitle", "approveButton", "comparison", "diff", "activity"]
+  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "managementStatus", "assignmentError", "approval", "approvalNote", "approvalError", "approvalTitle", "approveButton", "comparison", "diff", "activity"]
   static values = { url: String, searchUrl: String }
 
   connect() {
@@ -317,10 +317,35 @@ export default class extends Controller {
   withdraw(event) { this.manage(event, "DELETE") }
 
   async manage(event, method, body) {
-    await this.withBusy(event.currentTarget, this.managementErrorTarget, async () => {
-      await this.write(event.currentTarget.dataset.url, method, body)
-      await this.refresh()
-    }, "Updating…")
+    if (this.managing) return
+    const button = event.currentTarget
+    const reviewerId = button.closest("[data-reviewer-id]").dataset.reviewerId
+    const roster = this.element.querySelector("[data-review-assignments]")
+    const add = this.hasAddReviewerButtonTarget ? this.addReviewerButtonTarget : null
+    const wasDisabled = add?.disabled
+    this.managing = true
+    this.reviewsTarget.setAttribute("data-managing", "")
+    this.managementStatusTarget.textContent = "Updating…"
+    roster.inert = true
+    roster.setAttribute("aria-busy", "true")
+    if (add) add.disabled = true
+    try {
+      await this.withBusy(button, this.managementErrorTarget, async () => {
+        await this.write(button.dataset.url, method, body)
+        await this.refresh()
+      }, "Updating…")
+    } finally {
+      this.managing = false
+      this.reviewsTarget.removeAttribute("data-managing")
+      this.managementStatusTarget.textContent = ""
+      roster.inert = false
+      roster.removeAttribute("aria-busy")
+      if (add) add.disabled = wasDisabled
+      if (this.reviewsTarget.open && [document.body, this.reviewsTarget].includes(document.activeElement)) {
+        const trigger = roster.querySelector(`[data-reviewer-id="${CSS.escape(reviewerId)}"] .review-person__menu-button`) || add
+        trigger?.focus({ preventScroll: true })
+      }
+    }
   }
 
   async compare(event) {
@@ -350,7 +375,7 @@ export default class extends Controller {
     this.closeActivity()
     const tray = this.element.querySelector(".review-tray")
     if (tray) delete tray.dataset.reconsidering
-    document.dispatchEvent(new CustomEvent("coplan:open-thread", { detail: { threadId: event.currentTarget.dataset.threadId } }))
+    document.dispatchEvent(new CustomEvent("coplan:open-thread", { detail: { threadId: event.currentTarget.dataset.threadId, focusReply: true } }))
   }
 
   csrfToken() { return document.querySelector('meta[name="csrf-token"]')?.content || "" }
