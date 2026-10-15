@@ -192,6 +192,30 @@ RSpec.describe "Review requests", type: :request do
     expect(task.review_responses).to be_empty
   end
 
+  %w[pending approved changes_requested withdrawn].each do |state|
+    it "preserves a #{state} review when create is retried", :review_create_retries do
+      sign_in_as(author)
+      payload = { review_request: { reviewer_id: reviewer.id, requirement: "optional" } }
+      post plan_review_requests_path(plan), params: payload, as: :json
+      expect(response).to have_http_status(:created)
+      request = plan.review_requests.find(response.parsed_body.fetch("id"))
+      if state == "withdrawn"
+        CoPlan::Reviews::Withdraw.call(request: request, actor: author)
+      elsif state != "pending"
+        CoPlan::Reviews::Respond.call(request: request, actor: reviewer,
+          revision: plan.current_revision, decision: state, note: "Recorded decision")
+      end
+      original = request.reload.attributes
+      counts = [ CoPlan::Notification.count, CoPlan::PlanEvent.count, CoPlan::ReviewResponse.count, CoPlan::CommentThread.count ]
+      post plan_review_requests_path(plan), params: payload, as: :json
+      expect(response).to have_http_status(:created)
+      expect(response.parsed_body).to include("id" => request.id, "status" => state)
+      expect(plan.review_requests.count).to eq(1)
+      expect(request.reload.attributes).to eq(original)
+      expect([ CoPlan::Notification.count, CoPlan::PlanEvent.count, CoPlan::ReviewResponse.count, CoPlan::CommentThread.count ]).to eq(counts)
+    end
+  end
+
   it "lets the author assign, make optional, request again and withdraw" do
     sign_in_as(author)
     post plan_review_requests_path(plan), params: { review_request: { reviewer_id: reviewer.id, requirement: "required" } }, as: :json

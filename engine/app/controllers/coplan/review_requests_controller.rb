@@ -15,7 +15,7 @@ module CoPlan
       attributes = params.expect(review_request: [ :reviewer_id, :requirement ])
       reviewer = User.find(attributes[:reviewer_id])
       request = Reviews::Request.call(plan: @plan, reviewer: reviewer, actor: current_user,
-        requirement: attributes[:requirement].presence || "required")
+        requirement: attributes[:requirement].presence || "required", create_only: true)
       render json: Reviews::Serialize.call(request), status: :created
     end
 

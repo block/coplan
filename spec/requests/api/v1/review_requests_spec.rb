@@ -38,6 +38,29 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
     end
   end
 
+  %w[pending approved changes_requested withdrawn].each do |state|
+    it "preserves a #{state} review when create is retried", :review_create_retries do
+      payload = { reviewer_id: reviewer.id, requirement: "optional" }
+      post api_v1_plan_review_requests_path(plan), params: payload, headers: headers("reviews-owner"), as: :json
+      expect(response).to have_http_status(:created)
+      request = plan.review_requests.find(response.parsed_body.fetch("id"))
+      if state == "withdrawn"
+        CoPlan::Reviews::Withdraw.call(request: request, actor: author)
+      elsif state != "pending"
+        CoPlan::Reviews::Respond.call(request: request, actor: reviewer,
+          revision: plan.current_revision, decision: state, note: "Recorded decision")
+      end
+      original = request.reload.attributes
+      counts = [ CoPlan::Notification.count, CoPlan::PlanEvent.count, CoPlan::ReviewResponse.count, CoPlan::CommentThread.count ]
+      post api_v1_plan_review_requests_path(plan), params: payload, headers: headers("reviews-owner"), as: :json
+      expect(response).to have_http_status(:created)
+      expect(response.parsed_body).to include("id" => request.id, "status" => state)
+      expect(plan.review_requests.count).to eq(1)
+      expect(request.reload.attributes).to eq(original)
+      expect([ CoPlan::Notification.count, CoPlan::PlanEvent.count, CoPlan::ReviewResponse.count, CoPlan::CommentThread.count ]).to eq(counts)
+    end
+  end
+
   it "records the withdrawing agent once and retains the event after a new request", :review_withdrawals do
     task
     withdrawn_at = 1.minute.from_now.change(usec: 0)

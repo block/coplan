@@ -24,7 +24,7 @@ module CoPlan
 
         def create
           request = Reviews::Request.call(plan: @plan, reviewer: User.find(params.require(:reviewer_id)), actor: current_user,
-            requirement: params[:requirement].presence || "required", api_token: @api_token)
+            requirement: params[:requirement].presence || "required", api_token: @api_token, create_only: true)
           render json: Reviews::Serialize.call(request), status: :created
         end
 
