@@ -5,7 +5,7 @@ module CoPlan
     INDEX_LIMIT = 100
 
     def index
-      @review_tasks = current_user.review_requests.pending.joins(:plan).merge(Plan.active)
+      @review_tasks = current_user.review_requests.pending
         .includes(:plan, :requested_by_user).order(requested_at: :desc)
       @filter = params[:filter] == "all" ? "all" : "unread"
       @notifications = current_user.notifications
@@ -48,7 +48,7 @@ module CoPlan
     end
 
     def mark_all_read
-      @review_tasks = current_user.review_requests.pending.joins(:plan).merge(Plan.active).includes(:plan, :requested_by_user)
+      @review_tasks = current_user.review_requests.pending.includes(:plan, :requested_by_user)
       current_user.notifications.unread.update_all(read_at: Time.current)
 
       broadcast_badge_update

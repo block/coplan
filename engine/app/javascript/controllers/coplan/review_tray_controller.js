@@ -147,8 +147,9 @@ export default class extends Controller {
       const synced = !result.comment_thread_id || await this.refreshThreads(result.comment_thread_id)
       this.approvalTarget.close()
       this.approvalNoteTarget.value = ""
-      this.noticeTarget.textContent = `Your approval of v${this.approvalRevision} is recorded.` + (synced ? "" : " Refresh the page to see your comment.")
-      delete this.element.querySelector(".review-tray").dataset.reconsidering
+      if (this.hasNoticeTarget) this.noticeTarget.textContent = `Your approval of v${this.approvalRevision} is recorded.` + (synced ? "" : " Refresh the page to see your comment.")
+      const tray = this.element.querySelector(".review-tray")
+      if (tray) delete tray.dataset.reconsidering
       await this.refresh()
     }, "Recording…")
   }

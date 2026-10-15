@@ -13,7 +13,7 @@
     <%= render "coplan/reviews/activity", requests: requests, feedback_thread_ids: feedback_thread_ids %>
   </dialog>
   <%= render "coplan/reviews/management", plan: plan, requests: requests, active_requests: active_requests %>
-  <% if own_request && plan.current_content.present? %>
+  <% if own_request %>
     <section class="review-tray" data-completed="<%= !own_request.pending? %>" popover="manual" aria-label="Your review">
       <div class="review-tray__discussion" data-coplan--review-tray-target="discussion" hidden>
         <div class="review-tray__heading"><strong>What would you like changed?</strong><button type="button" class="btn btn--ghost btn--sm" aria-label="Collapse feedback" data-action="coplan--review-tray#collapse">⌄</button></div>

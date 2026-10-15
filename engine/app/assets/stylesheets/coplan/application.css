@@ -8755,3 +8755,6 @@ body:has(.review-tray[data-completed="true"]:not([data-reconsidering="true"]):no
 .document-editor__content-picker { width: 200px; }
 .document-editor__content-picker > button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: auto; padding: 10px; text-align: left; font-size: 14px; border-radius: 6px; color: var(--color-text); }
 .document-editor__content-picker > button:hover, .document-editor__content-picker > button:focus-visible { background: var(--color-primary-light); color: var(--color-primary); }
+
+/* Live content and the inline editor share this reader, including empty plans. */
+.plan-reader:has(.markdown-rendered > *) > .empty-state { display: none; }

@@ -47,6 +47,28 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_field("Public review comment", with: "Can we clarify this boundary?", enable_aria_label: true)
   end
 
+  it "records approvals and public change requests on an empty version" do
+    # Older hosts can have a persisted empty version, as in plans_spec.
+    plan.current_plan_version.update_columns(content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
+    visit plan_page_path(plan)
+    expect(page).to have_content("This plan has no content yet.")
+    within(".review-tray") { click_button "Approve", exact: true }
+    within(".review-confirmation") { click_button "Approve v1", exact: true }
+    expect(page).to have_css(".review-tray", text: "You approved v1")
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+    expect(page).to have_css(".review-tray", text: "Your review is requested")
+    within(".review-tray") { click_button "Request changes" }
+    fill_in "Public review comment", with: "This plan needs content.", enable_aria_label: true
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_css(".review-tray", text: "You requested changes to v1")
+    expect(page).to have_css("#plan-general-comments .document-comment", text: "This plan needs content.")
+    within(find("#plan-general-comments .document-comment", text: "This plan needs content.")) do
+      click_button "Open discussion", exact: true, enable_aria_label: true
+    end
+    expect(page).to have_css(".thread-popover:popover-open", text: "This plan needs content.")
+    expect(task.reload.status).to eq("changes_requested")
+  end
+
   it "retries a lost approval response without completing a newly requested review" do
     page.execute_script(<<~JS)
       const originalFetch = window.fetch.bind(window);

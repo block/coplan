@@ -22,6 +22,20 @@ RSpec.describe "Review requests", type: :request do
     expect(task.reload.status).to eq("approved")
   end
 
+  it "keeps archived pending tasks in inbox and workspace after notification acknowledgement" do
+    task
+    plan.update!(archived_at: Time.current)
+    CoPlan::Notification.where(user: reviewer).update_all(read_at: Time.current)
+    sign_in_as(reviewer)
+    get notifications_path
+    expect(Nokogiri::HTML(response.body).css(".review-tasks__item").text).to include(plan.title)
+    get library_page_path(reviewer)
+    expect(Nokogiri::HTML(response.body).css(".review-tasks__item").text).to include(plan.title)
+    task.update!(status: "withdrawn")
+    get notifications_path
+    expect(Nokogiri::HTML(response.body).css(".review-tasks__item").text).not_to include(plan.title)
+  end
+
   it "uses the opening comment when a preloaded association returns replies first" do
     decision = CoPlan::Reviews::Respond.call(request: task, actor: reviewer,
       revision: plan.current_revision, decision: "approved", note: "Original opener")
