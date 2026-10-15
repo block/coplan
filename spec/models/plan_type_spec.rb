@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::PlanType, type: :model do
+  # These examples configure their own catalog. Seeded reference data must
+  # not determine their fixtures or the order in which they pass.
+  before { CoPlan::PlanType.delete_all }
+
   it "is valid with valid attributes" do
     plan_type = create(:plan_type)
     expect(plan_type).to be_valid

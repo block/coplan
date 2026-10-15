@@ -61,9 +61,7 @@ RSpec.describe "Voice commenting", type: :system do
   # A fake that always emits on start() would make "cancel" look like it
   # posted, because the post would have happened before the cancel.
   def stub_speech_recognition(transcript, emit_on_stop: false)
-    page.driver.browser.execute_cdp(
-      "Page.addScriptToEvaluateOnNewDocument",
-      source: <<~JS
+    install_voice_script(<<~JS)
         window.SpeechRecognition = class {
           _emit() {
             if (this._done) return
@@ -84,7 +82,19 @@ RSpec.describe "Voice commenting", type: :system do
           abort() { this._done = true }
         }
       JS
-    )
+  end
+
+  def install_voice_script(source)
+    identifier = page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: source).fetch("identifier")
+    (@voice_scripts ||= []) << identifier
+  end
+
+  # Capybara resets pages, but Chrome retains these scripts across examples.
+  # In particular, a recorder stub must not disable recognition in later specs.
+  after do
+    (@voice_scripts || []).each do |identifier|
+      page.driver.browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: identifier)
+    end
   end
 
   # Recording + server transcription is the better path and the default
@@ -386,7 +396,7 @@ RSpec.describe "Voice commenting", type: :system do
     # keydown as a user gesture, so the meter never produces a sample and
     # its all-zero reading must not be mistaken for a silent room.
     def stub_recorder(peak: 30, context_state: "running")
-      page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~JS)
+      install_voice_script(<<~JS)
         delete window.SpeechRecognition
         delete window.webkitSpeechRecognition
         Object.defineProperty(navigator, "mediaDevices", {
@@ -424,7 +434,7 @@ RSpec.describe "Voice commenting", type: :system do
       JS
     end
 
-    it "records two successive remarks without reloading the plan" do
+    it "records two successive remarks without reloading the plan", :voice_environment do
       allow(CoPlan::Ai).to receive(:transcribe).and_return("Please clarify the launch timing.", "Please clarify the rollout timing.")
       allow(CoPlan::Ai).to receive(:call).and_raise(CoPlan::Ai::Error, "unavailable")
       stub_recorder

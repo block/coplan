@@ -141,14 +141,17 @@ export default class extends Controller {
   // reconciliation would discard them and could move the caret. Keep the
   // outline as a read-only projection of the editor document instead.
   buildEditorToc(root) {
+    // Keep the column fixed for this edit session. Removing or adding the
+    // last heading must not move the caret or a toolbar button mid-click.
+    if (this._editorRoot !== root) this._editorSidebarDisplayed = this.sidebarTarget.style.display !== "none"
     this._editorRoot = root
     this._headings = this.editorHeadings()
     this._editorHeadingSignature = this.editorHeadingSignature(this._headings)
     this._outlineIds = []
     this._itemsById = new Map()
     this.listTarget.replaceChildren()
-    this.sidebarTarget.style.display = this._headings.length ? "" : "none"
-    if (this.hasShowBtnTarget) this.showBtnTarget.style.display = this._headings.length ? "" : "none"
+    this.sidebarTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
+    if (this.hasShowBtnTarget) this.showBtnTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
 
     const used = new Set()
     this._headings.forEach((heading, index) => {
@@ -288,6 +291,7 @@ export default class extends Controller {
   handleLinkClick(event, heading, outlineId = heading?.id) {
     event.preventDefault()
     if (!heading) return
+    this.closeOutlinePopover()
     history.replaceState(null, "", `#${outlineId}`)
 
     this._ignoreScroll = true
@@ -339,6 +343,7 @@ export default class extends Controller {
     if (!target) return
 
     event.preventDefault()
+    this.closeOutlinePopover()
     history.replaceState(null, "", `#${id}`)
 
     this._ignoreScroll = true
@@ -367,8 +372,49 @@ export default class extends Controller {
   }
 
   toggle() {
-    this.visibleValue = !this.visibleValue
+    if (this.sidebarTarget.hasAttribute("popover")) {
+      if (this.sidebarTarget.matches(":popover-open")) this.closeOutlinePopover()
+      else this.showOutline()
+      return
+    }
+    if (this._editorRoot && !this._editorSidebarDisplayed && this._headings.length) {
+      // The first heading does not open a column mid-typing. An explicit
+      // outline request can still reveal it during the edit session.
+      this.showOutline()
+    } else this.visibleValue = !this.visibleValue
     localStorage.setItem(STORAGE_KEY, this.visibleValue)
+  }
+
+  showOutline(event) {
+    if (this._editorRoot) this._editorSidebarDisplayed = true
+    this.sidebarTarget.style.display = ""
+    if (this.hasShowBtnTarget) this.showBtnTarget.style.display = ""
+    this.visibleValue = true
+    this.visibleValueChanged()
+    localStorage.setItem(STORAGE_KEY, true)
+    if (window.matchMedia("(max-width: 1024px)").matches) {
+      this._outlineTrigger = event?.detail?.trigger || document.activeElement
+      this.sidebarTarget.setAttribute("popover", "auto")
+      this.sidebarTarget.showPopover()
+      this.toggleBtnTarget.focus({ preventScroll: true })
+    }
+  }
+
+  closeOutlinePopover() {
+    if (this.sidebarTarget.hasAttribute("popover") && this.sidebarTarget.matches(":popover-open")) this.sidebarTarget.hidePopover()
+  }
+
+  outlineClosing(event) {
+    if (event.newState === "closed" && this.sidebarTarget.contains(document.activeElement)) {
+      this._outlineTrigger?.focus({ preventScroll: true })
+    }
+  }
+
+  outlineResized() {
+    if (!window.matchMedia("(max-width: 1024px)").matches && this.sidebarTarget.hasAttribute("popover")) {
+      this.closeOutlinePopover()
+      this.sidebarTarget.removeAttribute("popover")
+    }
   }
 
   visibleValueChanged() {

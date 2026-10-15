@@ -86,6 +86,8 @@ RSpec.describe "Editor draft recovery", type: :system do
     rich
     expect(find("#plan-header .inline-editor__title").text).to eq("")
     expect(page).to have_content("Add a document title to save")
+    click_button "Add a document title to save", enable_aria_label: true
+    expect(page).to have_css("#plan-header .inline-editor__title:focus", wait: 0)
     expect(plan.reload.title).to eq("Recovery")
   end
 
@@ -105,11 +107,11 @@ RSpec.describe "Editor draft recovery", type: :system do
     JS
     find("#plan-header .inline-editor__title").send_keys("Recovered new plan")
     rich.send_keys("Retained creation draft")
-    expect(page).to have_content("Sign in again · draft retained", wait: 10)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "Sign in again · draft retained", wait: 10, visible: :all)
     expect(author.created_plans.where(title: "Recovered new plan")).to be_empty
     page.execute_script('window.signedOut = false')
     click_button "Retry sync", enable_aria_label: true
-    expect(page).to have_content("All changes saved · v1", wait: 15)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", wait: 15, visible: :all)
     expect(author.created_plans.where(title: "Recovered new plan").count).to eq(1)
     expect(author.created_plans.find_by!(title: "Recovered new plan").current_content).to include("Retained creation draft")
   end
@@ -137,7 +139,7 @@ RSpec.describe "Editor draft recovery", type: :system do
     expect(raw).to have_text("First draft and newer typing")
     raw.click
     page.driver.browser.action.key_down(mod).send_keys("s").key_up(mod).perform
-    expect(page).to have_content("All changes saved · v2", wait: 15)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", wait: 15, visible: :all)
     expect(author.created_plans.where(title: "One document").count).to eq(1)
     expect(created.reload.current_content).to eq("First draft and newer typing")
   end

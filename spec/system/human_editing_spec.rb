@@ -25,6 +25,7 @@ RSpec.describe "Human plan editing", type: :system do
   before { sign_in(author) }
 
   def editor
+    expect(page).to have_css('[data-editing="true"]', wait: 20)
     find('.ProseMirror[contenteditable="true"]', wait: 20)
   end
 
@@ -35,15 +36,58 @@ RSpec.describe "Human plan editing", type: :system do
 
   it "edits and formats the actual document, saving without navigation" do
     visit plan_edit_page_path(plan)
+    editor
+    bold_x = find_button("Bold").rect.x
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Revised body from the browser.")
+    expect(page).to have_no_css(".content-nav__list:not(.content-nav__list--footnotes) li")
+    expect(find_button("Bold").rect.x).to be_within(1).of(bold_x)
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ])
     click_button "Bold"
     expect(page).to have_css(".ProseMirror strong", text: "Revised body")
     save_now
-    expect(page).to have_content(/All changes saved · v\d+/)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved · v\d+/, visible: :all, wait: 15)
     expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(plan.reload.current_content).to include("**Revised body from the browser.**")
     expect(plan.current_plan_version.actor_type).to eq("human")
+  end
+
+  it "keeps the paper in place when adding its first heading and opens the outline on request" do
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Opening paragraph.\n",
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    paper_x = editor.rect.x
+    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "New heading")
+    select "Heading 1", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror h1", text: "New heading")
+    expect(page).to have_css(".content-nav__link", text: "New heading", visible: :all)
+    expect(editor.rect.x).to be_within(1).of(paper_x)
+    click_button "More actions", exact: true
+    within("#plan-menu") { click_button "Show outline" }
+    expect(page).to have_css(".content-nav", text: "New heading", visible: true)
+  end
+
+  it "reveals the new outline on a touch screen without moving the paper" do
+    page.current_window.resize_to(390, 760)
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: true, maxTouchPoints: 1)
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Opening paragraph.\n",
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    paper_x = editor.rect.x
+    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "New heading")
+    select "Heading 1", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror h1", text: "New heading")
+    expect(page).to have_css(".content-nav__link", text: "New heading", visible: :all)
+    expect(editor.rect.x).to be_within(1).of(paper_x)
+    click_button "More actions", exact: true
+    within("#plan-menu") { click_button "Show outline" }
+    expect(page).to have_css(".content-nav:popover-open", text: "New heading", visible: true)
+    expect(editor.rect.x).to be_within(1).of(paper_x)
+    click_button "Hide table of contents", enable_aria_label: true
+    expect(page).to have_no_css(".content-nav:popover-open")
+    expect(page).to have_css("[aria-label='More actions']:focus")
+  ensure
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: false)
+    page.current_window.resize_to(1400, 900)
   end
 
   it "edits the title while retaining tags without metadata controls" do
@@ -58,7 +102,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).not_to have_field("plan_tag_names")
     expect(page).not_to have_field("change_summary", visible: :all)
     save_now
-    expect(page).to have_content("All changes saved · v1")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", visible: :all, wait: 15)
     expect(plan.reload.title).to eq("Renamed In Editor")
     expect(plan.tag_names).to contain_exactly("security", "api-design")
   end
@@ -112,7 +156,7 @@ RSpec.describe "Human plan editing", type: :system do
       view.dispatch(view.state.tr.insertText('Resolved catalog price.', paragraph, paragraph + 'A catalog price.'.length))
     JS
     save_now
-    expect(page).to have_content("All changes saved · v3")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", visible: :all, wait: 15)
     expect(plan.reload.current_content).to include("Resolved catalog price.[^catalog-shape]", "Resolved client rule.[^client]", "`[^literal]`")
     expect(plan.current_content).to end_with("[^catalog-shape]: Catalog details.\n[^client]: Client details.\n")
   end
@@ -141,7 +185,7 @@ RSpec.describe "Human plan editing", type: :system do
       expect(page).to have_field("Presentation Markdown", enable_aria_label: true, with: /Updated slide/)
     end
     save_now
-    expect(page).to have_content("All changes saved · v3")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", visible: :all, wait: 15)
     expect(plan.reload.current_content).to eq(source.sub("Opening slide.", "Updated slide."))
   end
 
@@ -370,7 +414,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(field.value).not_to include('First item')
     field.fill_in with: field.value.sub('Ready', 'Done')
     save_now
-    expect(page).to have_content('All changes saved · v3')
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: 'All changes saved · v3', visible: :all, wait: 15)
     expect(plan.reload.current_content).to include('First item.', 'Second item.', '| Alpha | Done |')
     expect(plan.current_content).not_to include('Ready')
   end
@@ -387,7 +431,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(field.value).not_to include('>')
     field.fill_in with: field.value.sub('Ready', 'Done')
     save_now
-    expect(page).to have_content('All changes saved · v3')
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: 'All changes saved · v3', visible: :all, wait: 15)
     expect(plan.reload.current_content).to include('> | Alpha | Done |', '> Explanation.', 'After.')
     expect(plan.current_content).not_to include('> >')
     range_source = page.evaluate_script(<<~'JS')
@@ -413,7 +457,7 @@ RSpec.describe "Human plan editing", type: :system do
     fill_in 'Embedded page height', enable_aria_label: true, with: '600'
     fill_in 'Embedded page title', enable_aria_label: true, with: 'Updated report'
     save_now
-    expect(page).to have_content('All changes saved · v3')
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: 'All changes saved · v3', visible: :all, wait: 15)
     expect(plan.reload.current_content).to include('height="600"', 'title="Updated report"')
   end
 
@@ -429,7 +473,7 @@ RSpec.describe "Human plan editing", type: :system do
     field = find('[aria-label="Presentation Markdown"]:focus')
     field.fill_in with: "# New presentation\n\nA useful slide."
     save_now
-    expect(page).to have_content("All changes saved · v2")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", visible: :all, wait: 15)
     expect(plan.reload.current_content).to include("::: {.presentation}", "# New presentation", "A useful slide.", ":::")
     find('[aria-label="Remove presentation"]').click
     page.execute_script("window.Stimulus.getControllerForElementAndIdentifier(document.querySelector('[data-controller~=\"coplan--editor\"]'), 'coplan--editor').richEditor.command('undo')")
@@ -476,6 +520,131 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_css('[data-embed-attribute="src"]', count: 2)
   end
 
+  it "removes an iframe when an earlier preview finishes during its pointer click", :ci_boundary do
+    source = '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' + "\n\nEnd.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    script = page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~'JS')
+      const originalFetch = window.fetch.bind(window);
+      let releasePreview;
+      document.addEventListener("DOMContentLoaded", () => { document.body.style.overflowAnchor = "none"; });
+      window.fetch = async (...args) => {
+        const result = await originalFetch(...args);
+        if (String(args[0]).endsWith("/preview_draft") && args[1]?.body?.includes("unapproved.example.com/first")) {
+          const html = await result.text();
+          return new Promise(resolve => {
+            window.firstIframePreviewHeld = true;
+            document.documentElement.dataset.firstIframePreviewHeld = "true";
+            releasePreview = () => { window.firstIframePreviewHeld = false; resolve({ ok: result.ok, redirected: result.redirected, text: () => Promise.resolve(html) }); };
+          });
+        }
+        return result;
+      };
+      document.addEventListener("mousedown", event => {
+        if (event.target.closest('[aria-label="Remove embedded page"]') && releasePreview) {
+          const release = releasePreview;
+          releasePreview = null;
+          release();
+        }
+      }, true);
+    JS
+    visit plan_edit_page_path(plan)
+    editor
+    find(".ProseMirror > p", text: "End.").click
+    click_button "Insert content", enable_aria_label: true
+    click_button "Embed", exact: true
+    expect(page).to have_css('[data-embed-attribute="src"]:focus')
+    find('[data-embed-attribute="src"]:focus').fill_in with: "https://unapproved.example.com/second"
+    expect(page).to have_css('html[data-first-iframe-preview-held="true"]')
+    remove = all(".document-editor__block").last.find_button("Remove embedded page", enable_aria_label: true)
+    page.execute_script("window.scrollBy(0, arguments[0].getBoundingClientRect().top - (innerHeight - 25))", remove.native)
+    expect(page.evaluate_script("document.activeElement.getBoundingClientRect().top > innerHeight")).to eq(true)
+    page.driver.browser.action.move_to(remove.native).click_and_hold.pause(duration: 0.2).release.perform
+    expect(page).to have_css('[data-embed-attribute="src"]', count: 1)
+    click_button "Undo", enable_aria_label: true
+    expect(page).to have_css('[data-embed-attribute="src"]', count: 2)
+  ensure
+    page.driver.browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: script.fetch("identifier")) if script
+  end
+
+  it "opens a citation when an iframe preview finishes during its pointer click", :citation_preview_boundary, :ci_boundary do
+    source = ("Reading paragraph.\n\n" * 25) + "Decision.[^catalog]\n\n" +
+      '::: {.iframe src="https://unapproved.example.com/citation-delay" title="Report" /}' + "\n\n[^catalog]: Catalog details.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    script = page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~'JS')
+      const originalFetch = window.fetch.bind(window);
+      let releasePreview;
+      document.addEventListener("DOMContentLoaded", () => { document.body.style.overflowAnchor = "none"; });
+      window.fetch = async (...args) => {
+        const result = await originalFetch(...args);
+        if (String(args[0]).endsWith("/preview_draft") && args[1]?.body?.includes("unapproved.example.com/citation-delay")) {
+          const html = await result.text();
+          return new Promise(resolve => {
+            document.documentElement.dataset.citationPreviewHeld = "true";
+            releasePreview = () => resolve({ok: result.ok, redirected: result.redirected, text: () => Promise.resolve(html)});
+          });
+        }
+        return result;
+      };
+      document.addEventListener("mousedown", event => {
+        if (event.target.closest('[aria-label="Edit reference catalog"]') && releasePreview) {
+          const release = releasePreview;
+          releasePreview = null;
+          release();
+        }
+      }, true);
+    JS
+    visit plan_edit_page_path(plan)
+    editor
+    expect(page).to have_css('html[data-citation-preview-held="true"]')
+    citation = find_button("Edit reference catalog", enable_aria_label: true)
+    expect(page.evaluate_script("document.querySelector('.ProseMirror').contains(arguments[0])", citation.native)).to eq(false)
+    page.execute_script("window.scrollBy(0, arguments[0].getBoundingClientRect().top - (innerHeight - 25))", citation.native)
+    page.driver.browser.action.move_to(citation.native).click_and_hold.pause(duration: 0.2).release.perform
+    expect(page).to have_css('dialog[open]', text: 'Citation: catalog')
+    expect(find('#coplan-citation-body').value).to eq('Catalog details.')
+  ensure
+    page.driver.browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: script.fetch("identifier")) if script
+  end
+
+  it "keeps reading position when an iframe field is focused offscreen", :ci_boundary do
+    source = "# Long document\n\n" + ("Reading paragraph.\n\n" * 35) + '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' + "\n\n" + '::: {.iframe src="https://unapproved.example.com/second" title="Second" /}' + "\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    script = page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~'JS')
+      const originalFetch = window.fetch.bind(window), waiting = [];
+      document.addEventListener("DOMContentLoaded", () => { document.body.style.overflowAnchor = "none"; });
+      window.releaseIframePreviews = () => waiting.splice(0).forEach(release => release());
+      window.fetch = async (...args) => {
+        const result = await originalFetch(...args);
+        if (String(args[0]).endsWith("/preview_draft") && args[1]?.body?.includes("unapproved.example.com/first")) {
+          const html = await result.text();
+          return new Promise(resolve => {
+            waiting.push(() => resolve({ok: result.ok, redirected: result.redirected, text: () => Promise.resolve(html)}));
+            if (args[1].body.includes("first-delayed")) document.documentElement.dataset.delayedIframeHeld = "true";
+          });
+        }
+        return result;
+      };
+    JS
+    visit plan_edit_page_path(plan)
+    editor
+    fields = all('[data-embed-attribute="src"]')
+    fields.first.fill_in with: "https://unapproved.example.com/first-delayed"
+    fields.last.click
+    expect(page).to have_css('html[data-delayed-iframe-held="true"]')
+    page.execute_script("window.scrollTo(0, 0)")
+    expect(page.evaluate_script("document.activeElement.getBoundingClientRect().top > innerHeight")).to eq(true)
+    expect(page.evaluate_script("scrollY")).to eq(0)
+    page.execute_script("window.releaseIframePreviews()")
+    first_block = fields.first.find(:xpath, 'ancestor::div[contains(@class,"document-editor__block")]', match: :first)
+    expect(first_block.find(".document-editor__block-preview")).to have_css("*")
+    expect(page.evaluate_script("scrollY")).to be <= 1
+  ensure
+    page.driver.browser.execute_cdp("Page.removeScriptToEvaluateOnNewDocument", identifier: script.fetch("identifier")) if script
+  end
+
   it "separates inserted content blocks from citation definitions across save and reload" do
     source = "Plain.[^catalog]\n\n[^catalog]: Catalog source.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
@@ -487,7 +656,7 @@ RSpec.describe "Human plan editing", type: :system do
     click_button "Embed", exact: true
     find('[data-embed-attribute="src"]').fill_in with: "https://unapproved.example.com/report"
     save_now
-    expect(page).to have_content("All changes saved · v3")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", visible: :all, wait: 15)
     expect(plan.reload.current_content).to include("[^catalog]: Catalog source.\n\n::: {.iframe")
     visit plan_edit_page_path(plan)
     editor
@@ -560,7 +729,7 @@ RSpec.describe "Human plan editing", type: :system do
     visit plan_edit_page_path(plan)
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Saved edit")
     save_now
-    expect(page).to have_content("All changes saved · v2")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", visible: :all, wait: 15)
     page.execute_script('window.originalFetch = window.fetch; window.fetch = (url, options) => options?.method === "PATCH" ? Promise.reject(new TypeError("Offline")) : window.originalFetch(url, options)')
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Unsaved edit")
     save_now
@@ -616,7 +785,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(writing).to eq(reading)
     expect(writing.last).not_to eq("0px")
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Autosaved from typing")
-    expect(page).to have_content("All changes saved · v2", wait: 10)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", wait: 10, visible: :all)
     expect(plan.reload.current_content).to include("Autosaved from typing")
     expect(plan.edit_lease).to be_nil
     click_link "Done"
@@ -728,7 +897,7 @@ RSpec.describe "Human plan editing", type: :system do
     save_now
     expect(page).to have_content("Saving…")
     editor.send_keys(:end, " plus in-flight typing")
-    expect(page).to have_content("All changes saved · v3", wait: 12)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", wait: 12, visible: :all)
     expect(plan.reload.current_content).to include("First edit plus in-flight typing")
     page.refresh
     expect(editor).to have_text("First edit plus in-flight typing")
@@ -750,11 +919,46 @@ RSpec.describe "Human plan editing", type: :system do
     JS
     editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Draft after expired sign-in")
     save_now
-    expect(page).to have_content("Sign in again · draft retained")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "Sign in again · draft retained", visible: :all, wait: 15)
     expect(editor).to have_text("Draft after expired sign-in")
     page.execute_script('window.signedOut = false')
     click_button "Retry sync", enable_aria_label: true
-    expect(page).to have_content("All changes saved · v2")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", visible: :all, wait: 15)
+    expect(plan.reload.current_content).to include("Draft after expired sign-in")
+  end
+
+  it "keeps Retry sync open when a background snapshot recovers first", :sync_recovery do
+    visit plan_edit_page_path(plan)
+    editor
+    page.execute_script(<<~'JS')
+      const original = window.fetch;
+      window.signedOut = true;
+      const meta = document.querySelector('meta[name="csrf-token"]') || document.head.appendChild(document.createElement('meta'));
+      meta.name = 'csrf-token'; meta.content = 'expired';
+      window.fetch = async (url, options) => {
+        if (window.signedOut && (url.includes('editor_state') || options?.method === 'PATCH')) return new Response('{}', {status: 401, headers: {'Content-Type': 'application/json'}});
+        if (options?.method === 'PATCH' && options.headers['X-CSRF-Token'] === 'expired') return new Response('Old session token', {status: 422, headers: {'Content-Type': 'text/html'}});
+        return original(url, options);
+      };
+    JS
+    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Draft after expired sign-in")
+    save_now
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "Sign in again · draft retained", visible: :all, wait: 15)
+    expect(editor).to have_text("Draft after expired sign-in")
+    page.evaluate_async_script(<<~'JS')
+      const done = arguments[0]
+      window.signedOut = false
+      const form = document.querySelector('form.document-editor')
+      const controller = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor')
+      // A poll can accept a snapshot while the visible control still says
+      // Retry sync, before its scheduled save has started.
+      controller.whenIdle().then(() => controller.refresh()).then(() => {
+        form.querySelector('.document-editor__close-inline').click()
+        done()
+      })
+    JS
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", visible: :all, wait: 15)
+    expect(page).to have_css('.inline-editor:not([inert]) .ProseMirror[contenteditable="true"]', text: "Draft after expired sign-in")
     expect(plan.reload.current_content).to include("Draft after expired sign-in")
   end
 
@@ -795,7 +999,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(editor).to have_text("Agent heading", wait: 10)
     expect(editor).to have_text("Human addition.")
     page.execute_script('window.fetch = window.originalFetch; window.dispatchEvent(new Event("online"))')
-    expect(page).to have_content("All changes saved · v3", wait: 10)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", wait: 10, visible: :all)
     expect(plan.reload.current_content).to include("Agent heading", "Human addition.")
   end
 

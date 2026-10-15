@@ -115,8 +115,10 @@ RSpec.describe "Rich views with dense content", type: :system do
       "# Wide inventory\n\n| #{header.join(' | ')} |\n|#{([ '---' ] * 24).join('|')}|\n" + rows.map { |row| "| #{row.join(' | ')} |" }.join("\n")
     end
 
-    it "keeps a double-clicked far cell selected and visible after expansion" do
-      cell = find(".data-grid td", text: "Value 110.22 with details", exact_text: true)
+    it "keeps a double-clicked far cell selected and visible after expansion", :dense_cell do
+      # Avoid asking WebDriver to compute rendered text for every cell in
+      # the 120 × 24 fixture before filtering down to this one.
+      cell = find(".data-grid tbody tr:nth-child(110) td:nth-child(23)", text: "Value 110.22 with details", exact_text: true)
       cell.scroll_to(:center)
       cell.double_click
       expect(page).to have_css("dialog td.is-cursor:focus", text: "Value 110.22 with details", exact_text: true)

@@ -107,7 +107,7 @@ RSpec.describe "New document live delivery", type: :system do
     click_button "Dual", exact: true
     raw = find('[aria-label="Markdown source"]')
     raw.send_keys(source)
-    expect(page).to have_content("All changes saved · v1", wait: 10)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", wait: 10, visible: :all)
     created = CoPlan::Plan.find_by!(title: "Created live")
     expect(page).to have_current_path(plan_page_path(created, edit: "continue"))
     page.execute_script(<<~'JS')
@@ -133,7 +133,7 @@ RSpec.describe "New document live delivery", type: :system do
     expect(page.evaluate_script('window.deliveredStreams')).to include("plan-content-body", "plan-history-list")
     page.execute_script('window.fetch = window.originalFetch')
     page.driver.browser.action.key_down(mod).send_keys("s").key_up(mod).perform
-    expect(page).to have_content("All changes saved", wait: 10)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", wait: 10, visible: :all)
 
     page.execute_script('window.createdConsumer.disconnect()')
     expect(page).not_to have_css('form.document-editor turbo-cable-stream-source[connected]', visible: :all)

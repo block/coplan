@@ -155,9 +155,15 @@ function needsTrailing(doc) {
 function ensureTrailing(doc) {
   return needsTrailing(doc) ? doc.copy(doc.content.append(Fragment.from(trailingParagraph()))) : doc
 }
-function moveBelowCode(state, dispatch) {
-  const { $head, empty } = state.selection
-  if (!empty || $head.parent.type !== schema.nodes.code_block || $head.parentOffset !== $head.parent.content.size) return false
+function moveBelowCode(state, dispatch, view) {
+  // A native ArrowLeft can move the caret before selectionchange updates
+  // the model. Do not escape code using its previous end-of-block position.
+  const { $from, $to: $head } = visibleSelection(state, view)
+  if ($from.pos === $head.pos && $head.parent.type === schema.nodes.code_block && dispatch) {
+    const selection = TextSelection.create(state.doc, $head.pos)
+    if (!selection.eq(state.selection)) dispatch(state.tr.setSelection(selection))
+  }
+  if ($from.pos !== $head.pos || $head.parent.type !== schema.nodes.code_block || $head.parentOffset !== $head.parent.content.size) return false
   const position = $head.after()
   if (dispatch) {
     const tr = state.tr
@@ -306,7 +312,7 @@ function richPositionForSource(doc, offset) {
 }
 
 export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = []) {
-  let rangeDoc, ranges, previewOffsetTimer
+  let rangeDoc, ranges, previewOffsetTimer, editingLanguage = false
   const sourceRangeAt = (view, position) => {
     if (rangeDoc !== view.state.doc) {
       ranges = new Map()
@@ -372,6 +378,13 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       return true
     },
     dispatchTransaction(transaction) {
+      if (transaction.docChanged) {
+        // Keep successive keystrokes together, but fence transitions between
+        // language and content even inside history's grouping delay.
+        const languageEdit = Boolean(transaction.getMeta("coplan-language-edit"))
+        if (languageEdit !== editingLanguage) closeHistory(transaction)
+        editingLanguage = languageEdit
+      }
       // Async decorations can redraw before selectionchange reaches the view.
       // Preserve the native caret instead of restoring a stale model selection.
       if (!transaction.docChanged && !transaction.selectionSet && view.hasFocus() && !view.composing) {
@@ -420,8 +433,8 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       view.dispatch(transaction.setMeta("addToHistory", false).setMeta("remote", true))
     },
     destroy() { clearTimeout(previewOffsetTimer); view.destroy() },
-    updateComments(next) {
-      view.dispatch(view.state.tr.setMeta(commentKey, next).setMeta("addToHistory", false))
+    updateComments(next, { preserveRanges = false } = {}) {
+      view.dispatch(view.state.tr.setMeta(commentKey, { comments: next, preserveRanges }).setMeta("addToHistory", false))
     },
     focusText(text, occurrence = 0) {
       const wanted = text?.replace(/\s+/g, " ").trim()
@@ -471,7 +484,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
     setLanguage(position, language) {
       const node = view.state.doc.nodeAt(position)
       if (node?.type !== schema.nodes.code_block || /[\r\n`]/.test(language)) return false
-      view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, params: language }))
+      view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, params: language }).setMeta("coplan-language-edit", true))
       return true
     },
     deleteContentBlock(position) {
@@ -521,8 +534,27 @@ function commentPlugin(initial) {
       init: (_, state) => commentDecorations(state.doc, comments),
       apply(transaction, previous, _, state) {
         const incoming = transaction.getMeta(commentKey)
-        if (incoming) comments = incoming
-        if (incoming) return commentDecorations(state.doc, comments)
+        if (incoming) {
+          const known = new Set(comments.map(comment => comment.id))
+          comments = incoming.comments
+          if (!incoming.preserveRanges) return commentDecorations(state.doc, comments)
+          // A saved-thread refresh may describe the last acknowledged text
+          // while a newer local edit has already mapped its highlight. Keep
+          // those provisional ranges until that edit is acknowledged. Status
+          // changes and deleted threads still apply immediately.
+          const byId = new Map(comments.map(comment => [comment.id, comment]))
+          const kept = previous.find().flatMap(mark => {
+            const comment = byId.get(mark.type.attrs["data-thread-id"])
+            if (!comment || state.doc.textBetween(mark.from, mark.to) !== mark.spec.expected) return []
+            return [Decoration.inline(mark.from, mark.to, {
+              ...mark.type.attrs, class: `anchor-highlight anchor-highlight--${comment.status}`
+            }, mark.spec)]
+          })
+          // A quote invalidated by a broad local rewrite must stay detached;
+          // looking up its old text could attach it to another occurrence.
+          const added = commentDecorations(state.doc, comments.filter(comment => !known.has(comment.id))).find()
+          return DecorationSet.create(state.doc, [...kept, ...added])
+        }
         if (!transaction.docChanged) return previous
         // Mapping the existing ranges is cheap even in a long document and
         // keeps a thread on its passage when text is inserted above it.
@@ -879,13 +911,29 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     const hosts = JSON.parse(form?.dataset.coplanEditorEmbedDomainsValue || form?.getAttribute("data-coplan--editor-embed-domains-value") || "[]")
     hint.textContent = (hosts.length ? `Approved domains: ${hosts.join(", ")}. HTTPS only.` : "No iframe domains are approved. An administrator can add them in CoPlan Admin.") + " Title describes the page for screen readers; it is not a visible caption."
     dom.append(fields, hint, previewBody)
+    const settlePreview = (content, asText = false) => {
+      // A preview above the active field/button must not move it mid-action.
+      // Pointer-down can precede the browser moving focus to its button.
+      // Citation controls share the plan's editor but sit outside ProseMirror.
+      const interactionRoot = view.dom.closest('[data-controller~="coplan--inline-editor"]') || form || view.dom
+      const pressed = interactionRoot.querySelector("input:active, textarea:active, button:active, select:active")
+      const focused = pressed || document.activeElement
+      const control = interactionRoot.contains(focused) && focused.matches("input, textarea, button, select") && !previewBody.contains(focused) ? focused : null
+      const bounds = control?.getBoundingClientRect()
+      // Focus can remain in a field after someone scrolls away to read.
+      // That offscreen field must not pull the page when a preview finishes.
+      const visible = bounds && bounds.bottom > 0 && bounds.top < window.innerHeight
+      if (asText) previewBody.textContent = content
+      else previewBody.innerHTML = content
+      if (control?.isConnected && visible) window.scrollBy(0, control.getBoundingClientRect().top - bounds.top)
+    }
     let previewTimer
     const render = () => {
       clearTimeout(previewTimer)
       const sequence = ++generation, source = node.attrs.source
       previewTimer = setTimeout(async () => {
-        try { const html = await preview?.(source); if (html && sequence === generation) previewBody.innerHTML = html }
-        catch { if (sequence === generation) previewBody.textContent = "Preview unavailable" }
+        try { const html = await preview?.(source); if (html && sequence === generation) settlePreview(html) }
+        catch { if (sequence === generation) settlePreview("Preview unavailable", true) }
       }, 300)
     }
     render()

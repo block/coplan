@@ -12,22 +12,37 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     click_button "Sign In"
     expect(page).to have_current_path(root_path)
     visit plan_edit_page_path(plan)
-    expect(page).to have_css('[aria-label="Document body"]', wait: 20)
+    expect(page).to have_css('[data-editing="true"] [aria-label="Document body"]', wait: 20)
   end
 
   def code
     all(".document-editor__block > pre > code").first
   end
 
+  def code_prefix
+    page.evaluate_script(<<~'JS')
+      (() => {
+        const code = document.querySelector(".document-editor__block > pre > code"), s = getSelection();
+        if (!code.contains(s.anchorNode)) return null;
+        const range = document.createRange();
+        range.setStart(code, 0); range.setEnd(s.anchorNode, s.anchorOffset);
+        return range.toString();
+      })()
+    JS
+  end
+
   it "moves ArrowDown into existing prose after code without inserting a paragraph" do
     [ "Editor", "Dual" ].each do |mode|
       click_button mode, exact: true
       paragraphs = all('[aria-label="Document body"] p').count
+      expect(code).to have_css(".hljs-keyword", text: "function", wait: 20)
       code.click
-      page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).send_keys(:arrow_right).perform
-      Selenium::WebDriver::Wait.new(timeout: 3).until do
-        page.evaluate_script('(() => { const s = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").richEditor.view.state.selection; return s.empty && s.$head.parent.type.name === "code_block" && s.$head.parentOffset === s.$head.parent.content.size })()')
-      end
+      page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
+      expect(page).to have_css(".document-editor__block > pre > code") { |element| page.evaluate_script("getSelection().toString()") == element.text }
+      page.driver.browser.action.send_keys(:arrow_right).perform
+      expect(page).to have_css(".document-editor__block > pre > code") { |element|
+        code_prefix == element.evaluate_script("this.textContent") && page.evaluate_script("getSelection().isCollapsed")
+      }
       page.driver.browser.action.send_keys(:arrow_down).perform
       expect(all('[aria-label="Document body"] p').count).to eq(paragraphs)
       expect(page.evaluate_script('getSelection().anchorNode.parentElement.closest("p")?.textContent')).to eq("After prose.")
@@ -100,6 +115,41 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     expect(page).to have_css(".hljs-keyword", text: "function", wait: 20)
   end
 
+  it "undoes a fast code edit separately from language edits" do
+    # Force all three transactions into the same history interval. Browser
+    # speed must not decide whether Undo also removes the selected grammar.
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      import("coplan/rich_document").then(m => {
+        const host = document.createElement("div");
+        const rich = m.createRichDocument(host, "```js\nreturn 42;\n```\n", () => {});
+        const clock = Date.now;
+        Date.now = () => 10000;
+        try {
+          rich.setLanguage(0, "unknown-language");
+          rich.setLanguage(0, "javascript metadata");
+          rich.view.dispatch(rich.view.state.tr.insertText('const greeting = "hello";', 1, 11));
+          rich.command("undo");
+          const codeUndo = rich.content();
+          rich.command("undo");
+          const languageUndo = rich.content();
+          rich.command("redo");
+          rich.command("redo");
+          const redone = rich.content();
+          rich.setLanguage(0, "ruby");
+          rich.command("undo");
+          done({ codeUndo, languageUndo, redone, afterLanguageUndo: rich.content() });
+        } finally { Date.now = clock; rich.destroy(); }
+      }).catch(error => done({ error: error.message }));
+    JS
+    expect(result.transform_values(&:chomp)).to include(
+      "codeUndo" => "```javascript metadata\nreturn 42;\n```",
+      "languageUndo" => "```js\nreturn 42;\n```",
+      "redone" => "```javascript metadata\nconst greeting = \"hello\";\n```",
+      "afterLanguageUndo" => "```javascript metadata\nconst greeting = \"hello\";\n```"
+    )
+  end
+
   it "falls back to plain text for large blocks without rewriting their source" do
     large = "```javascript\n" + ("const number = 42;\n" * 1200) + "```\n"
     large_plan = CoPlan::Plans::Create.call(title: "Large code", content: large, user: author, visibility: "draft", actor_type: "human")
@@ -110,21 +160,35 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(large)
   end
 
+  it "keeps ArrowDown in code when native caret movement precedes selectionchange" do
+    # Deliver the next key in the same turn as the native caret movement,
+    # while the model still points at the end of the code block.
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      import("prosemirror-state").then(({TextSelection}) => {
+        const view = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").richEditor.view;
+        let end;
+        view.state.doc.descendants((node, pos) => { if (end === undefined && node.type.name === "code_block") end = pos + 1 + node.content.size; });
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, end)));
+        view.focus();
+        const code = view.dom.querySelector("pre > code"), range = document.createRange(), selection = getSelection();
+        range.setStart(document.createTreeWalker(code, NodeFilter.SHOW_TEXT).nextNode(), 0);
+        range.collapse(true); selection.removeAllRanges(); selection.addRange(range);
+        const event = new KeyboardEvent("keydown", {key: "ArrowDown", code: "ArrowDown", keyCode: 40, bubbles: true, cancelable: true});
+        code.dispatchEvent(event);
+        done({prevented: event.defaultPrevented, parent: view.state.selection.$head.parent.type.name});
+      }).catch(error => done({error: error.message}));
+    JS
+    expect(result).to include("prevented" => false, "parent" => "code_block")
+  end
+
   it "keeps macOS Control+A as line navigation within code" do
     skip "macOS native shortcut" unless RUBY_PLATFORM.include?("darwin")
     expect(code).to have_css(".hljs-keyword", wait: 20)
-    code.click
-    page.driver.browser.action.key_down(:meta).send_keys("a").key_up(:meta).send_keys(:arrow_left, :arrow_down, :arrow_right).perform
+    code.find(".hljs-keyword", text: "return").click
+    expect(page).to have_css(".document-editor__block > pre > code") { code_prefix&.match?(/\Afunction hi\(\) \{\n[^\n]+\z/) }
     page.driver.browser.action.key_down(:control).send_keys("a").key_up(:control).perform
     expect(page.evaluate_script('getSelection().toString()')).to eq("")
-    prefix = page.evaluate_script(<<~'JS')
-      (() => {
-        const s = getSelection(), range = document.createRange();
-        range.setStart(document.querySelector(".document-editor__block > pre > code"), 0);
-        range.setEnd(s.anchorNode, s.anchorOffset);
-        return range.toString();
-      })()
-    JS
-    expect(prefix).to eq("function hi() {\n")
+    expect(page).to have_css(".document-editor__block > pre > code") { code_prefix == "function hi() {\n" }
   end
 end

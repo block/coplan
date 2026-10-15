@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe "Folders workspace", type: :system do
+  # These examples configure their own catalog. Seeded reference data must
+  # not determine their fixtures or the order in which they pass.
+  before { CoPlan::PlanType.delete_all }
+
   let(:author) { create(:coplan_user, email: "author@example.com") }
   let(:other) { create(:coplan_user, email: "other@example.com") }
 

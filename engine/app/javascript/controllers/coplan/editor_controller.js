@@ -34,7 +34,7 @@ export default class extends Controller {
         const threads = document.getElementById("plan-threads")
         if (threads) {
           this.commentsObserver = new MutationObserver(() => {
-            this.richEditor?.updateComments(this.comments())
+            this.richEditor?.updateComments(this.comments(), { preserveRanges: this.contentDirty() })
             this.element.dispatchEvent(new CustomEvent("coplan:anchors-updated", { bubbles: true }))
           })
           this.commentsObserver.observe(threads, { childList: true })
@@ -92,6 +92,7 @@ export default class extends Controller {
       tags: this.element.querySelector('[name="plan[tag_names]"]').value }
   }
   dirty() { return JSON.stringify(this.snapshot()) !== JSON.stringify({ content: this.base.content, title: this.base.title, tags: this.base.tags }) }
+  contentDirty() { return this.textareaTarget.value !== this.base.content }
   setStatus(message, state = "idle") {
     if (!this.active) return
     // Typing during a request must not hide its spinner or an unresolved error.
@@ -106,9 +107,10 @@ export default class extends Controller {
     this.statusTarget.title = state === "saved" ? `${message} · ${new Date().toLocaleTimeString()}` : message
     if (this.inlineValue) {
       const close = this.statusTarget.closest(".document-editor__close-inline")
+      this.retryOffered = state === "error" && this.retryable
       close.dataset.state = state === "saved" ? "idle" : state
       close.disabled = ["loading", "saving"].includes(state)
-      close.setAttribute("aria-label", { loading: "Opening document", queued: "Done editing and save changes", saving: "Saving document", error: this.retryable ? "Retry sync" : message, conflict: "Conflict — reload document" }[state] || "Done editing")
+      close.setAttribute("aria-label", { loading: "Opening document", queued: "Done editing and save changes", saving: "Saving document", error: this.retryOffered ? "Retry sync" : message, conflict: "Conflict — reload document" }[state] || "Done editing")
       close.title = ["error", "conflict", "loading", "saving"].includes(state) ? message : `Done editing · ${message}`
     }
   }
@@ -318,7 +320,7 @@ export default class extends Controller {
   }
   async reconnect(event) {
     event?.preventDefault()
-    if (!this.active || this.blocked || (this.inlineValue && !this.retryable)) return
+    if (!this.active || this.blocked || (this.inlineValue && !this.retryable && !this.retryOffered)) return
     await this.whenIdle()
     if (!this.active) return
     this.retryable = false
@@ -443,7 +445,9 @@ export default class extends Controller {
   back(event) {
     event.preventDefault()
     if (this.inlineValue && this.blocked) window.location.reload()
-    else if (this.inlineValue && this.retryable) this.reconnect()
+    // A recovered snapshot clears retryable before its scheduled save starts.
+    // Keep the action consistent with the Retry sync control still on screen.
+    else if (this.inlineValue && this.retryOffered) this.reconnect()
     else if (this.inlineValue) this.closeInline()
     else this.navigate(() => this.backTarget.href)
   }

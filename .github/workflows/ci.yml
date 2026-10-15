@@ -48,7 +48,33 @@ jobs:
         run: bin/rails db:create db:schema:load
 
       - name: Run tests
-        run: bundle exec rspec
+        run: bundle exec rspec --seed "$((GITHUB_RUN_ID % 65536))" --format progress --format json --out tmp/rspec-results.json
+
+      - name: Check browser voice environment cleanup
+        run: bundle exec rspec spec/system/voice_commenting_spec.rb spec/system/comment_composer_spec.rb --tag voice_environment --order defined --format progress --format json --out tmp/rspec-voice-environment.json
+
+      - name: Stress regression specs with fresh processes and test orders
+        run: |
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 2000))" --output tmp/rspec-anchor-stress -- spec/system/inline_editor_spec.rb --tag anchor_refresh
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 3000))" --output tmp/rspec-dense-stress -- spec/system/rich_view_stress_spec.rb --tag dense_cell
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 4000))" --output tmp/rspec-boundary-stress -- spec/system/human_editing_spec.rb spec/system/inline_editor_spec.rb --tag ci_boundary
+
+      - name: Preserve test reports and browser failure screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rspec-mysql-${{ github.run_attempt }}
+          path: |
+            tmp/rspec-results.json
+            tmp/rspec-voice-environment.json
+            tmp/rspec-stress/
+            tmp/rspec-anchor-stress/
+            tmp/rspec-dense-stress/
+            tmp/rspec-boundary-stress/
+            tmp/capybara/
+            tmp/screenshots/
+          retention-days: 30
 
   # Hosts may run the engine on PostgreSQL, so the suite must stay green
   # there too. Deliberately initializes via db:migrate (not schema:load,
@@ -61,7 +87,8 @@ jobs:
       RAILS_ENV: test
       # encoding=unicode overrides database.yml's MySQL-only utf8mb4;
       # SCHEMA keeps the post-migrate dump away from the checked-in schema.rb.
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/planning_department_test?encoding=unicode
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/planning_department_test?encoding=unicode
+      PGPASSWORD: test-password-do-not-use
       SCHEMA: tmp/pg_schema.rb
 
     steps:
@@ -70,7 +97,7 @@ jobs:
       - name: Start PostgreSQL
         run: |
           sudo systemctl start postgresql.service
-          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'test-password-do-not-use';"
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
@@ -88,4 +115,30 @@ jobs:
         run: bin/rails coplan:seed && bin/rails coplan:seed
 
       - name: Run tests
-        run: bundle exec rspec
+        run: bundle exec rspec --seed "$((GITHUB_RUN_ID % 65536))" --format progress --format json --out tmp/rspec-results.json
+
+      - name: Check browser voice environment cleanup
+        run: bundle exec rspec spec/system/voice_commenting_spec.rb spec/system/comment_composer_spec.rb --tag voice_environment --order defined --format progress --format json --out tmp/rspec-voice-environment.json
+
+      - name: Stress regression specs with fresh processes and test orders
+        run: |
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 2000))" --output tmp/rspec-anchor-stress -- spec/system/inline_editor_spec.rb --tag anchor_refresh
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 3000))" --output tmp/rspec-dense-stress -- spec/system/rich_view_stress_spec.rb --tag dense_cell
+          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 4000))" --output tmp/rspec-boundary-stress -- spec/system/human_editing_spec.rb spec/system/inline_editor_spec.rb --tag ci_boundary
+
+      - name: Preserve test reports and browser failure screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rspec-postgres-${{ github.run_attempt }}
+          path: |
+            tmp/rspec-results.json
+            tmp/rspec-voice-environment.json
+            tmp/rspec-stress/
+            tmp/rspec-anchor-stress/
+            tmp/rspec-dense-stress/
+            tmp/rspec-boundary-stress/
+            tmp/capybara/
+            tmp/screenshots/
+          retention-days: 30

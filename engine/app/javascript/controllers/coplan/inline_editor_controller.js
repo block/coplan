@@ -195,7 +195,7 @@ export default class extends Controller {
         general.className = nextGeneral.className
         general.hidden = nextGeneral.hidden
       }
-      this.controller?.richEditor?.updateComments(this.controller.comments())
+      this.controller?.richEditor?.updateComments(this.controller.comments(), { preserveRanges: this.controller.contentDirty() })
       if (!this.editing) {
         const layout = this.readerTarget.closest(".plan-layout")
         window.Stimulus?.getControllerForElementAndIdentifier(layout, "coplan--text-selection")?.highlightAnchors()

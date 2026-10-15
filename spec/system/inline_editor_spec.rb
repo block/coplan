@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe "Inline plan editing", type: :system do
+  # These examples configure their own catalog. Seeded reference data must
+  # not determine their fixtures or the order in which they pass.
+  before { CoPlan::PlanType.delete_all }
+
   let(:author) { create(:coplan_user, email: "inline-editor@example.com") }
   let(:content) { "# A plan\n\nFirst paragraph.\n\nSecond paragraph.\n" }
   let(:plan) do
@@ -335,7 +339,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page.current_url).to end_with("?from=review#context")
   end
 
-  it "wraps long titles and offers hidden formatting controls without a visible scrollbar" do
+  it "wraps long titles and offers hidden formatting controls without a visible scrollbar", :ci_boundary do
     plan.update!(title: "A long working title about collaborative planning and rich editing that needs to stay fully visible while someone changes it")
     visit plan_page_path(plan)
     within("#plan-toolbar") { click_link "Edit" }
@@ -345,9 +349,21 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page.evaluate_script("document.querySelector('.inline-editor__title').getBoundingClientRect().height > parseFloat(getComputedStyle(document.querySelector('.inline-editor__title')).lineHeight) * 1.5")).to eq(true)
     expect(page.evaluate_script("document.querySelector('.inline-editor__title').scrollWidth <= document.querySelector('.inline-editor__title').clientWidth")).to eq(true)
     expect(page.evaluate_script("getComputedStyle(document.querySelector('.document-editor__format-controls')).scrollbarWidth")).to eq("none")
-    page.execute_script("document.querySelector('.document-editor__format-controls').style.maxWidth = '360px'")
+    page.execute_script("document.querySelector('.document-editor__format-controls').style.maxWidth = '200px'")
     expect(page).to have_css(".document-editor__more-tools", visible: true)
-    find(".document-editor__more-tools").click
+    # One activation advances a partial page, not necessarily the whole strip.
+    # Font metrics and host controls determine how many pages are needed.
+    max_clicks = page.evaluate_script("(() => { const c = document.querySelector('.document-editor__format-controls'); return Math.ceil(c.scrollWidth / (c.clientWidth * 0.7)) + 1 })()")
+    max_clicks.times do
+      break if page.has_css?('.document-editor__more-tools[aria-label="Earlier formatting tools"]', wait: 0)
+      page.execute_script <<~JS
+        window.formatToolsScrolled = new Promise(resolve => {
+          document.querySelector('.document-editor__format-controls').addEventListener('scrollend', () => resolve(), {once: true})
+        })
+      JS
+      find(".document-editor__more-tools").click
+      page.evaluate_async_script("const done = arguments[0]; window.formatToolsScrolled.then(() => done())")
+    end
     expect(page).to have_css('.document-editor__more-tools[aria-label="Earlier formatting tools"]', wait: 5)
   end
 
@@ -360,6 +376,7 @@ RSpec.describe "Inline plan editing", type: :system do
     title.send_keys("A" * 280)
 
     expect(title.text.length).to eq(255)
+    expect(page).to have_css('.document-editor__save-status[data-state="saved"]', visible: :all, wait: 15)
     find(".inline-editor").click_button "Done editing"
     expect(page).to have_no_css(".inline-editor form.document-editor", wait: 10)
     expect(plan.reload.title.length).to eq(255)
@@ -467,7 +484,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css("#plan-content-body mark[data-thread-id='comment_thread_#{thread.id}']", text: "Second pxragraph.", wait: 15)
   end
 
-  it "keeps a quote highlighted when more than eight characters are inserted inside it" do
+  it "keeps a quote highlighted when more than eight characters are inserted inside it", :anchor_refresh do
     thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Second paragraph.")
     thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Keep this note")
     visit plan_page_path(plan)
@@ -489,6 +506,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css(".document-editor__save-status[data-state='saved']", visible: :all, wait: 15)
     expect(thread.reload).not_to be_out_of_date
     expect(thread.anchor_text).to eq(expected_text)
+    expect(page).to have_css("#comment_thread_#{thread.id}[data-anchor-text='#{expected_text}']", visible: :all, wait: 10)
 
     page.execute_script(<<~JS)
       const form = document.querySelector('.inline-editor form.document-editor')
@@ -498,13 +516,54 @@ RSpec.describe "Inline plan editing", type: :system do
         if (node.isText && node.text.includes('asdfdsaasdf')) position = pos + node.text.indexOf('asdfdsaasdf')
       })
       view.dispatch(view.state.tr.delete(position, position + 11))
+      // A delayed saved-thread response can arrive after this newer edit.
+      const thread = document.getElementById('comment_thread_#{thread.id}')
+      thread.replaceWith(thread.cloneNode(true))
     JS
-    expect(page).to have_css(".inline-editor mark[data-thread-id='comment_thread_#{thread.id}']", text: "Second paragraph.", wait: 2)
+    expect(page).to have_css(".inline-editor mark[data-thread-id='comment_thread_#{thread.id}']", text: "Second paragraph.", wait: 0)
     expect(page).to have_css(".document-editor__save-status[data-state='saved']", visible: :all, wait: 15)
     expect(thread.reload).not_to be_out_of_date
     expect(thread.anchor_text).to eq("Second paragraph.")
     find(".inline-editor").click_button "Done editing"
     expect(page).to have_css("#plan-content-body mark[data-thread-id='comment_thread_#{thread.id}']", text: "Second paragraph.", wait: 15)
+  end
+
+  it "refreshes an authoritative quote while only the title has unsaved changes", :anchor_refresh, :ci_boundary do
+    thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Second paragraph.")
+    thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Keep this note")
+    visit plan_page_path(plan)
+    # Force a cold-open state response to outlast the default two-second
+    # matcher timeout. The editor remains hidden until that response arrives.
+    page.execute_script <<~JS
+      const original = window.fetch.bind(window)
+      window.fetch = async (...args) => {
+        const response = await original(...args)
+        if (String(args[0]).includes('/editor_state')) {
+          window.fetch = original
+          await new Promise(resolve => setTimeout(resolve, 3000))
+        }
+        return response
+      }
+    JS
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+    selector = ".inline-editor mark[data-thread-id='comment_thread_#{thread.id}']"
+    expect(page).to have_css(selector, text: "Second paragraph.")
+
+    page.execute_script(<<~JS)
+      const form = document.querySelector('.inline-editor form.document-editor')
+      const controller = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor')
+      const title = form.querySelector('[name="plan[title]"]')
+      title.value = 'My unsaved title'
+      controller.accept({ ...controller.base, revision: 2,
+        content: controller.base.content.replace('Second paragraph.', 'A completely different reviewed passage.') })
+      const thread = document.getElementById('comment_thread_#{thread.id}')
+      thread.dataset.anchorText = 'A completely different reviewed passage.'
+      thread.replaceWith(thread.cloneNode(true))
+    JS
+
+    expect(page).to have_css(selector, text: "A completely different reviewed passage.", wait: 0)
+    expect(find('.inline-editor [name="plan[title]"]', visible: :all).value).to eq("My unsaved title")
   end
 
   it "shows an out-of-date comment without moving it to another matching passage" do
@@ -696,6 +755,7 @@ RSpec.describe "Inline plan editing", type: :system do
     thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Keep this anchored")
     visit plan_page_path(plan)
     expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all, wait: 10)
+    expect(page).to have_css("#plan-content-body mark[data-thread-id='comment_thread_#{thread.id}']", text: "Main paragraph 40", wait: 10)
     page.execute_script("document.querySelectorAll('#plan-content-body p')[40].scrollIntoView({block: 'start'})")
     before = page.evaluate_script("document.querySelectorAll('#plan-content-body p')[40].getBoundingClientRect().top")
 

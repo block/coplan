@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::Plans::CreateHumanDraft do
+  # These examples configure their own catalog. Seeded reference data must
+  # not determine their fixtures or the order in which they pass.
+  before { CoPlan::PlanType.delete_all }
+
   let(:user) { create(:coplan_user) }
   let(:key) { SecureRandom.uuid }
 

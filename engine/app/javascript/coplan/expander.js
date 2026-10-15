@@ -172,6 +172,9 @@ export function mountPanZoom(expander, content, { width, height, onChange = null
     ? "Drag to pan · pinch to zoom · double-tap to fit"
     : "Drag to pan · scroll or pinch to zoom · double-click to fit · 0 fit · 1 actual size"
   expander.setStatus(hint)
+  // The toolbar and hint change the available canvas height. Finish the
+  // initial fit synchronously, before someone can zoom or read its scale.
+  panZoom.fit()
 
   return { viewport, panZoom }
 }

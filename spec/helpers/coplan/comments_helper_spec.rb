@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::CommentsHelper, type: :helper do
+  # The seed smoke test can install the same built-in harness keys.
+  # Each helper example owns its configured registry within its transaction.
+  before { CoPlan::AgentHarness.delete_all }
+
   describe "#comment_author_name" do
     it "renders 'Agent (via User)' for a local_agent comment" do
       user = create(:coplan_user, name: "Alice")
