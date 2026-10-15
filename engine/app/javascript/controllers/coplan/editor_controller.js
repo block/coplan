@@ -107,9 +107,10 @@ export default class extends Controller {
     this.statusTarget.title = state === "saved" ? `${message} · ${new Date().toLocaleTimeString()}` : message
     if (this.inlineValue) {
       const close = this.statusTarget.closest(".document-editor__close-inline")
+      this.retryOffered = state === "error" && this.retryable
       close.dataset.state = state === "saved" ? "idle" : state
       close.disabled = ["loading", "saving"].includes(state)
-      close.setAttribute("aria-label", { loading: "Opening document", queued: "Done editing and save changes", saving: "Saving document", error: this.retryable ? "Retry sync" : message, conflict: "Conflict — reload document" }[state] || "Done editing")
+      close.setAttribute("aria-label", { loading: "Opening document", queued: "Done editing and save changes", saving: "Saving document", error: this.retryOffered ? "Retry sync" : message, conflict: "Conflict — reload document" }[state] || "Done editing")
       close.title = ["error", "conflict", "loading", "saving"].includes(state) ? message : `Done editing · ${message}`
     }
   }
@@ -319,7 +320,7 @@ export default class extends Controller {
   }
   async reconnect(event) {
     event?.preventDefault()
-    if (!this.active || this.blocked || (this.inlineValue && !this.retryable && this.statusTarget.dataset.state !== "error")) return
+    if (!this.active || this.blocked || (this.inlineValue && !this.retryable && !this.retryOffered)) return
     await this.whenIdle()
     if (!this.active) return
     this.retryable = false
@@ -446,7 +447,7 @@ export default class extends Controller {
     if (this.inlineValue && this.blocked) window.location.reload()
     // A recovered snapshot clears retryable before its scheduled save starts.
     // Keep the action consistent with the Retry sync control still on screen.
-    else if (this.inlineValue && this.statusTarget.dataset.state === "error") this.reconnect()
+    else if (this.inlineValue && this.retryOffered) this.reconnect()
     else if (this.inlineValue) this.closeInline()
     else this.navigate(() => this.backTarget.href)
   }

@@ -364,6 +364,7 @@ RSpec.describe "Inline plan editing", type: :system do
     title.send_keys("A" * 280)
 
     expect(title.text.length).to eq(255)
+    expect(page).to have_css('.document-editor__save-status[data-state="saved"]', visible: :all, wait: 15)
     find(".inline-editor").click_button "Done editing"
     expect(page).to have_no_css(".inline-editor form.document-editor", wait: 10)
     expect(plan.reload.title.length).to eq(255)

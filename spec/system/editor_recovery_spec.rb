@@ -86,6 +86,8 @@ RSpec.describe "Editor draft recovery", type: :system do
     rich
     expect(find("#plan-header .inline-editor__title").text).to eq("")
     expect(page).to have_content("Add a document title to save")
+    click_button "Add a document title to save", enable_aria_label: true
+    expect(page).to have_css("#plan-header .inline-editor__title:focus", wait: 0)
     expect(plan.reload.title).to eq("Recovery")
   end
 

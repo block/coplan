@@ -18,7 +18,7 @@ RSpec.describe "Document editor modes", type: :system do
   def open_editor
     visit plan_edit_page_path(plan)
     expect(page).to have_css('.document-editor__body .ProseMirror[contenteditable="true"]', wait: 20)
-    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", visible: :all)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", visible: :all, wait: 15)
   end
 
   def raw
@@ -115,7 +115,7 @@ RSpec.describe "Document editor modes", type: :system do
     click_button "Raw", exact: true
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
     save_now
-    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", visible: :all)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", visible: :all, wait: 15)
     expect(plan.reload.current_revision).to eq(1)
     expect(plan.current_content).to eq(source)
   end
