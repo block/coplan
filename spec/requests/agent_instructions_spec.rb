@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe "Agent Instructions", type: :request do
+  # These examples configure their own catalog. Seeded reference data must
+  # not determine their fixtures or the order in which they pass.
+  before { CoPlan::PlanType.delete_all }
+
   describe "GET /agent-instructions" do
     it "returns markdown content" do
       get agent_instructions_path
