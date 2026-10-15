@@ -1,5 +1,5 @@
 <%= content_tag :div, id: dom_id(notification), class: "notifications-list__item #{'notifications-list__item--read' if notification.read?}" do %>
-  <%= link_to notification_path(notification), class: "inbox-row" do %>
+  <%= link_to notification_path(notification), class: "inbox-row #{'inbox-row--unread' unless notification.read?}" do %>
     <div class="inbox-row__main">
       <strong><%= notification.reason == "review_requested" ? "Your review was requested" : "A review response was recorded" %></strong>
       <div><%= notification.plan.title %></div>

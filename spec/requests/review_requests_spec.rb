@@ -6,6 +6,22 @@ RSpec.describe "Review requests", type: :request do
   let(:plan) { create(:plan, :published, created_by_user: author) }
   let(:task) { create(:review_request, plan: plan, reviewer: reviewer) }
 
+  it "marks an unread note-less review decision as attention until its owner reads it", :review_attention do
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
+    notice = author.notifications.find_by!(review_request: task, reason: "review_response")
+    expect(notice.comment_thread_id).to be_nil
+    sign_in_as(author)
+    get notifications_path(filter: "all")
+    row = Nokogiri::HTML(response.body).at_css(".notifications-list a[href='#{notification_path(notice)}']")
+    expect(row["class"].split).to include("inbox-row--unread")
+    get notification_path(notice)
+    expect(notice.reload).to be_read
+    get notifications_path(filter: "all")
+    row = Nokogiri::HTML(response.body).at_css(".notifications-list a[href='#{notification_path(notice)}']")
+    expect(row["class"].split).not_to include("inbox-row--unread")
+    expect(task.reload.status).to eq("approved")
+  end
+
   it "retains withdrawal provenance after another request", :review_withdrawals do
     task
     first_at = task.requested_at
