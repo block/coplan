@@ -6,6 +6,45 @@ RSpec.describe "Review requests", type: :request do
   let(:plan) { create(:plan, :published, created_by_user: author) }
   let(:task) { create(:review_request, plan: plan, reviewer: reviewer) }
 
+  it "keeps pending review tasks separate from unread comment rows" do
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+    sign_in_as(reviewer)
+    get library_page_path(reviewer)
+    html = Nokogiri::HTML(response.body)
+    expect(html.css(".review-tasks__item").text).to include(plan.title)
+    expect(html.css(".attention__item")).to be_empty
+    CoPlan::Notifications::MarkPlanRead.call(plan_id: plan.id, user: reviewer)
+    get library_page_path(reviewer)
+    expect(Nokogiri::HTML(response.body).css(".review-tasks__item").text).to include(plan.title)
+    CoPlan::Reviews::Respond.call(request: plan.review_requests.find_by!(reviewer: reviewer), actor: reviewer,
+      revision: plan.current_revision, decision: "approved")
+    sign_in_as(author)
+    get library_page_path(author)
+    expect(Nokogiri::HTML(response.body).css(".attention__item")).to be_empty
+    expect(author.notifications.unread.where(reason: "review_response")).to exist
+  end
+
+  it "renders original request, response and re-request in chronological order" do
+    task
+    first_at = task.requested_at
+    travel_to(1.minute.from_now) do
+      CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
+    end
+    travel_to(2.minutes.from_now) do
+      CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+    end
+    sign_in_as(reviewer)
+    get plan_review_requests_path(plan)
+    entries = Nokogiri::HTML(response.body).css(".review-activity-dialog .review-log__entry")
+    expect(entries.size).to eq(3)
+    expect(entries.map { |entry| entry.at_css(".review-log__event").text.squish }).to eq([
+      "#{author.name} requested a review from #{reviewer.name}",
+      "#{reviewer.name} approved v1",
+      "#{author.name} requested a review from #{reviewer.name}"
+    ])
+    expect(Time.iso8601(entries.last.at_css("time")["datetime"]).to_i).to eq(first_at.to_i)
+  end
+
   it "shows feedback links only while the discussion has a kept comment" do
     decision = CoPlan::Reviews::Respond.call(request: task, actor: reviewer,
       revision: plan.current_revision, decision: "approved", note: "Immutable review note")

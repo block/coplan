@@ -33,6 +33,28 @@ RSpec.describe "CoPlan reviews" do
     expect(request.requested_plan_version).to eq(version)
   end
 
+  it "records each request cycle without rewriting its earlier actor, version or time" do
+    original = request
+    original_at = original.requested_at
+    original_actor = original.requested_by_user
+    respond
+    version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A revised plan")
+    plan.update!(current_plan_version: version, current_revision: 2)
+    next_actor = create(:coplan_user)
+    travel_to(1.hour.from_now) do
+      CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: next_actor, requirement: "optional")
+    end
+    events = plan.plan_events.where(event_type: "review_requested").order(:created_at).to_a
+    expect(events.size).to eq(2)
+    expect(events.first).to have_attributes(actor_id: original_actor.id, created_at: original_at, after_value: original.id)
+    expect(events.first.metadata).to include("revision" => 1, "requirement" => "required")
+    expect(events.last).to have_attributes(actor_id: next_actor.id, after_value: original.id)
+    expect(events.last.metadata).to include("revision" => 2, "requirement" => "optional")
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: next_actor)
+    expect(plan.plan_events.where(event_type: "review_requested").count).to eq(3)
+    expect(events.first.reload.created_at).to eq(original_at)
+  end
+
   it "keeps pending requests on the latest plan and binds only the completed response" do
     task = request
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "Latest plan")

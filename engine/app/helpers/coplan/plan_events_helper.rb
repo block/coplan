@@ -72,6 +72,9 @@ module CoPlan
         else
           safe_join([ "Removed from folder ", content_tag(:strong, event.before_value.to_s) ])
         end
+      when "review_requested"
+        safe_join([ "Requested a review from ", content_tag(:strong, event.metadata["reviewer_name"]),
+                    " · v#{event.metadata["revision"]}" ])
       when "comment_deleted"
         preview = event.metadata.is_a?(Hash) ? event.metadata["body_preview"].to_s.presence : nil
         if preview

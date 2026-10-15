@@ -1,4 +1,5 @@
 <% requests = plan.review_requests.includes(:reviewer, :requested_by_user, :requested_plan_version, review_responses: [ :plan_version, :user ]).order(:requested_at).to_a %>
+<% request_events = plan.plan_events.where(event_type: "review_requested").includes(:actor_user).to_a %>
 <% active_requests = requests.reject { |request| request.status == "withdrawn" } %>
 <% own_request = active_requests.find { |request| request.reviewer_id == current_user.id } %>
 <% response_thread_ids = requests.flat_map { |request| request.review_responses.map(&:comment_thread_id) }.compact %>
@@ -10,7 +11,7 @@
   <%= render "coplan/reviews/log", plan: plan, requests: requests, active_requests: active_requests %>
   <dialog class="review-dialog review-activity-dialog" data-coplan--review-tray-target="activity" aria-labelledby="review-activity-title">
     <div class="review-dialog__heading"><h2 id="review-activity-title">Review activity</h2><button type="button" class="review-management__close" aria-label="Close review activity" data-action="coplan--review-tray#closeActivity" autofocus>×</button></div>
-    <%= render "coplan/reviews/activity", requests: requests, feedback_thread_ids: feedback_thread_ids %>
+    <%= render "coplan/reviews/activity", requests: requests, request_events: request_events, feedback_thread_ids: feedback_thread_ids %>
   </dialog>
   <%= render "coplan/reviews/management", plan: plan, requests: requests, active_requests: active_requests %>
   <% if own_request %>

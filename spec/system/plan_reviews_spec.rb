@@ -616,7 +616,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
-  it "uses the Reviews sidebar and keeps completed decisions attached to their version" do
+  it "uses the Reviews sidebar and keeps completed decisions attached to their version", :review_history do
     expect(page).to have_no_css("#plan-header [data-review-indicator]", visible: :all)
     click_link "Reviews", href: "#footnote-approvals"
     expect(page.evaluate_script("document.activeElement.id")).to eq("footnote-approvals")
@@ -633,6 +633,18 @@ RSpec.describe "Plan discussion and approval", type: :system do
       expect(page).to have_button("Compare")
     end
     expect(page).to have_css(".review-activity-dialog .review-history", text: /Plan Reviewer approved\s+v1/, visible: :all)
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+    visit plan_page_path(plan)
+    within("#footnote-approvals") { click_button "View activity", exact: false }
+    within(".review-activity-dialog[open]") do
+      expect(page).to have_css(".review-log__entry", count: 3)
+      expect(page).to have_css(".review-log__event", text: "requested a review from Plan Reviewer", count: 2)
+      expect(page).to have_css(".review-log__event", text: /Plan Reviewer approved\s+v1/, count: 1)
+    end
+    [ "light", "dark" ].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp/review-preview/review-request-history-#{theme}.png"))
+    end
   end
 
   it "changes visibility through the byline without navigation or scroll jumps" do
