@@ -363,6 +363,22 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(CoPlan::Folder.where.not(description: nil).count).to be >= 4
     end
 
+    it "keeps review tasks and their responses when the reusable demo is reseeded" do
+      described_class.call
+      plan = seeded_plan("collab-showcase")
+      requests = plan.review_requests.includes(:reviewer).index_by { |request| request.reviewer.username }
+      expect(requests.transform_values(&:requirement)).to eq("alex" => "required", "sam" => "optional")
+      request = requests.fetch("alex")
+      response = CoPlan::Reviews::Respond.call(request: request, actor: request.reviewer,
+        revision: plan.current_revision, decision: "approved")
+
+      described_class.call
+
+      expect(plan.review_requests.pluck(:id)).to match_array(requests.values.map(&:id))
+      expect(request.reload.latest_approval).to eq(response)
+      expect(request.review_responses.count).to eq(1)
+    end
+
     it "preserves edits to existing seed document content and titles" do
       described_class.call
       plan = CoPlan::Plan.find { |candidate| candidate.metadata.to_h["development_seed_key"] == "api-gateway" }
