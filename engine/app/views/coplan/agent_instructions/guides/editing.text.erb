@@ -12,6 +12,7 @@ Identified agent writes are AI written. Observed human input is Human written. E
 AI contributions can report `agent_name`, `harness`, `harness_name`, `harness_version`, and `model`. Missing model information stays an AI contribution. Identity is reported by the tool and captured with its write.
 With `?ranges=1`, the response also includes `runs`, `sources`, and `offset_unit: "unicode_codepoints"`.
 Each run is `[length, source_key]`. Start at character zero and add lengths in order. `sources[source_key]` describes that run's origin. Ranges refer to the response's saved revision and SHA.
+Each source can include `user_name`, `origin_revision`, and `origin_at` for the edit that introduced its retained text.
 On an Unknown source, `user_id` records who added the text when known; it does not claim that person wrote it.
 For an older plan, the endpoint queues reconstruction and returns `202` with `status: "pending"` and `revision`. Retry after a short delay. Reading provenance does not create a plan-read receipt.
 Do not send origin claims with agent edits. Your token identifies agent writes. Set its harness and model when known; do not guess a model.

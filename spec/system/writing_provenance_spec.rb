@@ -4,11 +4,13 @@ RSpec.describe "Writing provenance", type: :system do
   let(:user) { create(:coplan_user, email: "writing@example.com") }
   let(:plan) { CoPlan::Plans::Create.call(title: "Writing sources", content: "# Delivery\n\nExisting agent proposal.\n", user: user, actor_type: "local_agent", agent_name: "Claude") }
 
+  after { page.current_window.resize_to(1400, 900) }
+
   def open_editor
     visit sign_in_path
     fill_in "Email", with: user.email
     click_button "Sign In"
-    expect(page).to have_current_path(root_path)
+    expect(page).to have_button("Menu", wait: 20)
     visit plan_edit_page_path(plan)
     expect(page).to have_css(".inline-editor [contenteditable=true]")
     expect(page).to have_text("All changes saved")
@@ -18,20 +20,75 @@ RSpec.describe "Writing provenance", type: :system do
     visit sign_in_path
     fill_in "Email", with: user.email
     click_button "Sign In"
-    expect(page).to have_current_path(root_path)
+    expect(page).to have_button("Menu", wait: 20)
     visit plan_page_path(plan)
     top = page.evaluate_script("document.getElementById('plan-content-body').getBoundingClientRect().top")
     find(".writing-provenance__trigger").click
     expect(page).to have_text("Human written")
     expect(page).to have_text("AI written")
-    click_button "Highlight sources"
-    expect(page).to have_button("Hide source highlights")
+    click_button "Inspect writing"
+    expect(page).to have_button("Done inspecting")
     expect(page.evaluate_script("CSS.highlights.get('coplan-writing-ai').size")).to be_positive
     expect(page.evaluate_script("document.getElementById('plan-content-body').getBoundingClientRect().top")).to eq(top)
-    click_button "Hide source highlights"
+    click_button "Done inspecting"
     expect(page.evaluate_script("CSS.highlights.has('coplan-writing-ai')")).to be(false)
+    find(".writing-provenance__trigger").click
     page.current_window.resize_to(390, 844)
     expect(page.evaluate_script("document.querySelector('.writing-provenance__panel').getBoundingClientRect().right <= document.documentElement.clientWidth - 8")).to be(true)
+  end
+
+
+  it "updates the provenance through streams while saving and after closing the editor" do
+    open_editor
+    surface = find('[aria-label="Document body"]')
+    surface.click
+    surface.send_keys([ :control, :end ], :end, " fresh human words")
+    expect(page).to have_text("All changes saved", wait: 20)
+    expect(page).to have_css('#writing-provenance[data-coplan--writing-provenance-revision-value="2"]', wait: 15)
+    expect(page).to have_css("#plan-version-label", text: "v2")
+    find(".writing-provenance__trigger").click
+    expect(page).to have_button("Finish editing to inspect", disabled: true)
+    within("#plan-toolbar") { click_link "Done" }
+    expect(page).to have_no_css('.inline-editor form.document-editor', wait: 20)
+    find(".writing-provenance__trigger").click
+    expect(page).to have_text("Human written")
+    expect(page).to have_no_text("Current text")
+    expect(page).to have_button("Inspect writing", disabled: false)
+  end
+
+  it "shows the actor and version for a one-word edit, and blocks editing until inspection ends" do
+    original = plan.current_content
+    changed = original.sub("Existing", "Existing not")
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: changed, base_revision: 1, actor_type: "human", actor_id: user.id,
+      input_sources: { "runs" => [ [ changed.length, "human" ] ] })
+    visit sign_in_path
+    fill_in "Email", with: user.email
+    click_button "Sign In"
+    expect(page).to have_button("Menu", wait: 20)
+    visit plan_page_path(plan)
+    find(".writing-provenance__trigger").click
+    click_button "Inspect writing"
+    expect(page).to have_button("Done inspecting")
+    point = page.evaluate_script(<<~JS)
+      (() => {
+      const root = document.querySelector('#plan-content-body p')
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+      let node; while(node = walker.nextNode()) {
+        const at = node.textContent.indexOf('not')
+        if (at < 0) continue
+        const range = document.createRange(); range.setStart(node, at); range.setEnd(node, at + 3)
+        const rect = range.getBoundingClientRect(); return {x:rect.x + rect.width / 2, y:rect.y + rect.height / 2}
+      }
+      })()
+    JS
+    page.driver.browser.execute_cdp("Input.dispatchMouseEvent", type: "mouseMoved", x: point.fetch("x"), y: point.fetch("y"))
+    expect(page).to have_css('.writing-inspection__tooltip:popover-open', text: "Added in v2")
+    expect(find('.writing-inspection__tooltip')).to have_text(user.name)
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_no_css('.inline-editor form.document-editor', wait: 20)
+    click_button "Done inspecting"
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css('.inline-editor [contenteditable=true]')
   end
 
   %w[rich markdown].each do |mode|

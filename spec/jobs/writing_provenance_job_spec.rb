@@ -14,4 +14,15 @@ RSpec.describe CoPlan::WritingProvenanceJob do
     described_class.perform_now(plan_id: plan.id)
     expect(plan.current_plan_version.reload.writing_provenance).to eq(snapshot)
   end
+
+  it "uses the recorded fixture identity when upgrading an older human-saved demo" do
+    user = create(:coplan_user)
+    plan = CoPlan::Plans::Create.call(title: "Old demo", content: "Generated demo", user: user, actor_type: "human")
+    version = plan.current_plan_version
+    snapshot = version.writing_provenance.merge("write_source" => { "kind" => "ai", "agent_name" => "Demo agent" })
+    version.update_columns(writing_provenance: snapshot)
+    described_class.perform_now(plan_id: plan.id)
+    expect(plan.reload.writing_provenance_summary.dig("counts", "ai")).to eq(13)
+    expect(plan.writing_provenance_summary.dig("counts", "unknown")).to eq(0)
+  end
 end

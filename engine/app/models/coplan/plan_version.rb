@@ -45,6 +45,7 @@ module CoPlan
     after_create_commit :broadcast_history_update
     after_create_commit :enqueue_summary_regeneration
     after_create_commit :backfill_writing_provenance
+    after_create_commit :broadcast_writing_provenance
 
     private
 
@@ -60,6 +61,13 @@ module CoPlan
 
     def backfill_writing_provenance
       WritingProvenanceJob.request(plan) if @writing_backfill_needed
+    end
+
+    def broadcast_writing_provenance
+      plan.reload
+      Broadcaster.replace_to(plan, target: "writing-provenance", partial: "coplan/plans/writing_provenance", locals: { plan: plan })
+      Broadcaster.replace_to(plan, target: "plan-version-label",
+        html: ApplicationController.helpers.content_tag(:span, "· v#{plan.current_revision}", id: "plan-version-label"))
     end
 
     def enforce_edit_lease

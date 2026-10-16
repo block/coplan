@@ -13,6 +13,12 @@ RSpec.describe CoPlan::DevelopmentSeed do
       mixed = seeded_plan("writing-mixed")
       expect(mixed.writing_provenance_summary.fetch("counts").values).to all(be_positive)
       expect(mixed.current_revision).to eq(2)
+      edited = seeded_plan("writing-word-edit")
+      expect(edited.current_content).to include("may not retry")
+      expect(edited.writing_provenance_summary.dig("counts", "human")).to eq(3)
+      expect(edited.current_plan_version.writing_provenance.fetch("sources").values).to include(include("kind" => "human", "origin_revision" => 2, "user_name" => "Hampton"))
+      expect(seeded_plan("demo-library").writing_provenance_summary.dig("counts", "ai")).to be_positive
+      expect(seeded_plan("mixed-slides").writing_provenance_summary.dig("counts", "ai")).to be_positive
       counts = mixed.writing_provenance_summary.deep_dup
       described_class.call
       expect(mixed.reload.writing_provenance_summary).to eq(counts)
@@ -204,9 +210,10 @@ RSpec.describe CoPlan::DevelopmentSeed do
 
       edited = seeded_plan("many-small-edits")
       expect(edited.current_revision).to eq(8)
-      expect(edited.plan_versions.where(actor_type: "local_agent").count).to eq(7)
-      expect(edited.plan_versions.where(actor_type: "local_agent").pluck(:api_token_id)).to all(be_present)
-      expect(edited.plan_versions.where(actor_type: "local_agent").pluck(:operations_json)).to all(have_attributes(size: 1))
+      agent_edits = edited.plan_versions.where(actor_type: "local_agent").where("revision > 1")
+      expect(agent_edits.count).to eq(7)
+      expect(agent_edits.pluck(:api_token_id)).to all(be_present)
+      expect(agent_edits.pluck(:operations_json)).to all(have_attributes(size: 1))
 
       pending = seeded_plan("pending-review").plan_collaborators.approvers
       approved = seeded_plan("approved-review").plan_collaborators.approvers

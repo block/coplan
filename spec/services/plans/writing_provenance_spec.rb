@@ -108,7 +108,25 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     plan = make_plan(text, input_sources: sources(text))
     rendered = described_class.rendered_sources(plan.current_plan_version)
     expect(rendered.fetch(:text)).to eq("Héllo😀Humanwordsandcode.")
-    expect(rendered.fetch(:runs).map(&:last).uniq).to eq([ "human" ])
+    expect(rendered.fetch(:runs).map { |_, key| rendered.fetch(:sources).fetch(key).fetch("kind") }.uniq).to eq([ "human" ])
     expect(rendered.fetch(:runs).sum(&:first)).to eq(rendered.fetch(:text).encode(Encoding::UTF_16LE).bytesize / 2)
+  end
+  it "retains the exact author and introduction revision of a one-word edit" do
+    plan = make_plan("The worker may retry.", kind: "local_agent")
+    edit(plan, "The worker may not retry.", kind: "human", input_sources: sources("The worker may not retry."))
+    snapshot = plan.current_plan_version.writing_provenance
+    human_key = snapshot.fetch("sources").find { |_, source| source["kind"] == "human" }.first
+    expect(snapshot.fetch("runs").select { |_, key| key == human_key }.sum(&:first)).to eq(4)
+    expect(snapshot.fetch("sources").fetch(human_key)).to include("origin_revision" => 2, "user_name" => user.name)
+    edit(plan, "The worker may not retry. More context.")
+    expect(plan.current_plan_version.writing_provenance.fetch("sources").fetch(human_key)).to include("origin_revision" => 2)
+  end
+
+  it "maps both prose and slide text without changing presentation offsets" do
+    content = "Intro\n\n::: {.presentation #example}\n\n# Slide title\n\nSlide words.\n\n:::\n\nAfter deck."
+    plan = make_plan(content, kind: "local_agent")
+    data = described_class.rendered_sources(plan.current_plan_version)
+    expect(data.fetch(:text)).to include("Slidetitle", "Slidewords.", "Afterdeck.")
+    expect(data.fetch(:runs).map { |_, key| data.fetch(:sources).fetch(key).fetch("kind") }.uniq).to eq([ "ai" ])
   end
 end

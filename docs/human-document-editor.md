@@ -215,10 +215,16 @@ for a legacy plan; historical human saves without input evidence remain Unknown.
 Agent identity is captured with each write so later token changes do not rename
 old contributions. Bound pathological diffs conservatively rather than stalling.
 
-Highlight sources loads source data on demand and uses CSS custom highlights,
-without wrapping or replacing the document DOM. It highlights matching prose
-and code; rendered diagrams, presentation documents, and embeds keep their
-original appearance. Live header replacement clears the old revision's highlights.
+Inspect writing loads source data on demand and uses CSS custom highlights,
+without wrapping or replacing the document DOM. It covers prose, code, and slide
+text; rendered diagrams and embeds keep their original appearance. Green marks
+human input, purple marks agent input, and gray marks unknown input. Hover a span
+for its recorded actor, introduction version, and time. Editing and document
+actions pause until Escape or Done inspecting returns to normal reading.
+
+Writing percentages and the byline version update through independent Turbo
+Stream targets, including while editing. Closing the editor re-enables inspection.
+A document or provenance replacement clears the old revision's highlights.
 
 Unsaved source, title, tags and original base snapshot live in browser-local
 storage separated by user, document and editor instance. Reload can recover the
