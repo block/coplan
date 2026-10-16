@@ -74,6 +74,8 @@ look up this key rather than copying generated UUIDs.
 | --- | --- |
 | untouched-document | One version, no comments or collaborators |
 | many-small-edits | Eight versions: initial draft plus seven small agent edits with token provenance |
+| writing-human / writing-ai / writing-unknown | Person, robot, and unknown icons; lazy source breakdown and reported harness identity |
+| writing-mixed | Human input, unknown imported context, and an agent proposal; opt-in prose/code source highlights |
 | pending-review | Two approvers, neither approved |
 | approved-review | Two approvers, both approved |
 | collab-showcase | Agent edit, human and agent comments, open/resolved and overlapping anchors, general thread, citations and references |

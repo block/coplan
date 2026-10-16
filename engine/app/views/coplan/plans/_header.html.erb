@@ -13,6 +13,7 @@
       <%= user_avatar(plan.created_by_user) %> <%= profile_link(plan.created_by_user) %> · v<%= plan.current_revision %>
       <button type="button" class="plan-visibility-button" data-visibility="<%= plan.visibility %>" data-coplan--plan-details-target="visibilityButton" data-action="coplan--plan-details#openVisibility focus->coplan--plan-details#visibilityFocused blur->coplan--plan-details#visibilityBlurred" aria-haspopup="dialog" title="View or change plan visibility"><%= plan.draft? ? "Private" : "Shared" %><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button>
       <% if plan.archived? %><%= hidden_state_flag("Archived", "Hidden from lists unless filtered for") %><% end %>
+      <%= render "coplan/plans/writing_provenance", plan: plan %>
       <%= render "coplan/plans/location_link", plan: plan, placement: placement, location: :masthead %>
     </div>
   </div>

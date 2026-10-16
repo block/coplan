@@ -27,6 +27,7 @@ pin "coplan/content_sections", to: "coplan/content_sections.js", preload: false
 pin "coplan/deck_state", to: "coplan/deck_state.js", preload: false
 pin "diff", to: "https://esm.sh/diff@8.0.2?bundle", preload: false
 pin "coplan/merge_text", to: "coplan/merge_text.js", preload: false
+pin "coplan/input_origins", to: "coplan/input_origins.js", preload: false
 
 pin "coplan/syntax_highlight", to: "coplan/syntax_highlight.js", preload: false
 pin "coplan/code_highlight", to: "coplan/code_highlight.js", preload: false

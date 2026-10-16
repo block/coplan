@@ -18,6 +18,12 @@ const mac = /Mac|iP(hone|ad|od)/.test(navigator.platform)
 const lineNavigation = mac ? { "Ctrl-a": codeLineStart } : {}
 const commentKey = new PluginKey("coplan-comments")
 
+function inputOrigin(transaction) {
+  if (Object.keys(transaction.meta).some(key => key.startsWith("history$"))) return "history"
+  if (["paste", "drop"].includes(transaction.getMeta("uiEvent"))) return "unknown"
+  return transaction.getMeta("coplan-input-origin") || "human"
+}
+
 // Preserve the exact source of untouched top-level blocks. Constructs outside
 // the rich schema are atomic source cards, never silently parsed away.
 let nodes = defaultMarkdownParser.schema.spec.nodes
@@ -467,7 +473,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       const source = event.clipboardData?.getData("application/x-coplan-markdown") || event.clipboardData?.getData("text/plain")
       if (!source || !/(^|\n)```[^\n]*\n|^\s*\|[^\n]+\|\s*\n\s*\|?\s*:?-{3,}/m.test(source)) return false
       const parsed = parseDocument(source)
-      view.dispatch(view.state.tr.replaceSelection(new Slice(parsed.content, 0, 0)).scrollIntoView())
+      view.dispatch(view.state.tr.replaceSelection(new Slice(parsed.content, 0, 0)).setMeta("coplan-input-origin", "unknown").scrollIntoView())
       return true
     },
     dispatchTransaction(transaction) {
@@ -496,7 +502,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
             body._coplanRefreshSourceRange?.()
           }
         }, 150)
-        if (!transaction.getMeta("remote")) changed(serializeDocument(view.state.doc))
+        if (!transaction.getMeta("remote")) changed(serializeDocument(view.state.doc), inputOrigin(transaction))
       }
       selectionChanged(toolbarState(view.state))
     }
@@ -589,10 +595,10 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       view.dispatch(tr); view.focus()
       return true
     },
-    setBlockSource(position, source) {
+    setBlockSource(position, source, origin = "unknown") {
       const node = view.state.doc.nodeAt(position)
       if (node?.type !== schema.nodes.preserved) return false
-      view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, source }))
+      view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, source }).setMeta("coplan-input-origin", origin))
       return true
     },
     replaceSource(from, to, source) {
@@ -1187,10 +1193,10 @@ export function createMarkdownDocument(element, source, changed) {
     handlePaste(view, event) {
       const text = event.clipboardData?.getData("text/plain")
       if (text === undefined) return false
-      view.dispatch(view.state.tr.insertText(text)); return true
+      view.dispatch(view.state.tr.insertText(text).setMeta("coplan-input-origin", "unknown")); return true
     },
     clipboardTextSerializer: slice => slice.content.textBetween(0, slice.content.size, "\n"),
-    dispatchTransaction(tr) { view.updateState(view.state.apply(tr)); if (tr.docChanged && !tr.getMeta("remote")) changed(view.state.doc.textContent) }
+    dispatchTransaction(tr) { view.updateState(view.state.apply(tr)); if (tr.docChanged && !tr.getMeta("remote")) changed(view.state.doc.textContent, inputOrigin(tr)) }
   })
   return { view, content: () => view.state.doc.textContent, destroy: () => view.destroy(),
     sourceSelection() {

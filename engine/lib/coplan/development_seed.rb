@@ -48,6 +48,18 @@ module CoPlan
     AGENT_ORGANIZED_KEYS = %w[agent-pick-metrics agent-pick-postmortem agent-pick-vendors].freeze
 
     DOCUMENTS = [
+      { key: "writing-human", author: "hampton", type: "General", title: "Writing sources: human written",
+        tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "human",
+        showcase: "Person icon; recorded human input throughout" },
+      { key: "writing-ai", author: "hampton", type: "General", title: "Writing sources: AI written",
+        tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "ai",
+        showcase: "Robot icon; Claude Code attribution; expand AI agents and models" },
+      { key: "writing-unknown", author: "hampton", type: "General", title: "Writing sources: pasted or unknown",
+        tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources",
+        showcase: "Unknown origin with a known human contributor" },
+      { key: "writing-mixed", author: "hampton", type: "General", title: "Writing sources: people, agents, and paste",
+        tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "mixed",
+        showcase: "All three categories; source highlights and a subsequent agent contribution" },
       { key: "diagram-comments", author: "hampton", type: "Design Doc", title: "Flowchart: comment on nodes and connections",
         tags: %w[demo diagrams], visibility: "published", folder: "Demo content/Diagrams", group: "Diagrams",
         showcase: "Flowchart with seeded node and edge discussions; press C to select an element" },
@@ -257,6 +269,7 @@ module CoPlan
         seed_collaboration_showcase(users, plans, base_url: base_url)
         seed_agent_organization_run(users, plans)
         seed_small_edits(users, plans)
+        seed_writing_sources(users, plans)
         seed_reviews(users, plans)
         seed_review_requests(users, plans)
         seed_agent_access(users)
@@ -335,9 +348,20 @@ module CoPlan
         plan = find_seed_document(definition.fetch(:key), author)
 
         unless plan
+          content = document_content(definition)
+          origin = definition[:writing_source]
+          token = seed_agent_token(author) if origin == "ai"
+          input_sources = case origin
+          when "human" then { "runs" => [ [ content.encode(Encoding::UTF_16LE).bytesize / 2, "human" ] ] }
+          when "mixed"
+            boundary = content.index("## Imported context")
+            { "runs" => [ [ content[0...boundary].encode(Encoding::UTF_16LE).bytesize / 2, "human" ],
+              [ content[boundary..].encode(Encoding::UTF_16LE).bytesize / 2, "unknown" ] ] }
+          end
           plan = Plans::Create.call(
             title: definition.fetch(:title),
-            content: document_content(definition),
+            content: content, input_sources: input_sources,
+            actor_type: origin == "ai" ? "local_agent" : "human", agent_name: token&.agent_name, api_token_id: token&.id,
             user: author,
             plan_type_id: plan_types.fetch(definition.fetch(:type)).id,
             visibility: definition.fetch(:visibility)
@@ -742,6 +766,16 @@ module CoPlan
       end
     end
 
+    def seed_writing_sources(users, plans)
+      plan = plans.fetch("writing-mixed")
+      definition = DOCUMENTS.find { |item| item[:key] == "writing-mixed" }
+      return unless plan.current_revision == 1 && plan.current_content == document_content(definition)
+      token = seed_agent_token(users.fetch("hampton"))
+      Plans::ReplaceContent.call(plan: plan, new_content: plan.current_content + "\n\n## Agent proposal\n\nRetry transient failures with exponential backoff. Retain event IDs so consumers can safely deduplicate deliveries.\n",
+        base_revision: 1, actor_type: "local_agent", actor_id: users.fetch("hampton").id,
+        agent_name: token.agent_name, api_token_id: token.id, change_summary: "Add the agent's retry proposal")
+    end
+
     def seed_reviews(users, plans)
       REVIEW_SCENARIOS.each do |key, approved|
         plan = plans.fetch(key)
@@ -841,7 +875,7 @@ module CoPlan
           "More documents"
         end
       end
-      order = [ "Diagrams", "Presentations", "Tables and rich text", "References",
+      order = [ "Diagrams", "Presentations", "Tables and rich text", "References", "Writing sources",
         "Plan type examples", "More documents", "Libraries and visibility", "Review scenarios" ]
       sections = order.filter_map do |heading|
         definitions = groups[heading]

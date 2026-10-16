@@ -5,14 +5,14 @@ module CoPlan
       # caller explicitly asks for an unlisted draft.
       def self.call(
         title:, content:, user:, plan_type_id: nil, visibility: "published",
-        actor_type: "human", actor_id: nil, agent_name: nil, api_token_id: nil, creation_key: nil
+        actor_type: "human", actor_id: nil, agent_name: nil, api_token_id: nil, creation_key: nil, input_sources: nil
       )
-        new(title:, content:, user:, plan_type_id:, visibility:, actor_type:, actor_id:, agent_name:, api_token_id:, creation_key:).call
+        new(title:, content:, user:, plan_type_id:, visibility:, actor_type:, actor_id:, agent_name:, api_token_id:, creation_key:, input_sources:).call
       end
 
       def initialize(
         title:, content:, user:, plan_type_id: nil, visibility: "published",
-        actor_type: "human", actor_id: nil, agent_name: nil, api_token_id: nil, creation_key: nil
+        actor_type: "human", actor_id: nil, agent_name: nil, api_token_id: nil, creation_key: nil, input_sources: nil
       )
         @title = title
         @content = content
@@ -24,6 +24,7 @@ module CoPlan
         @agent_name = agent_name
         @api_token_id = api_token_id
         @creation_key = creation_key
+        @input_sources = input_sources
       end
 
       def call
@@ -32,6 +33,7 @@ module CoPlan
           version = PlanVersion.create!(
             plan: plan,
             revision: 1,
+            input_sources: @input_sources,
             # Normalize line endings on the way in (ReplaceContent does the
             # same) — otherwise a CRLF-created document diffs against its
             # LF-edited successor on every line.
