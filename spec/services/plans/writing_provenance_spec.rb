@@ -139,4 +139,32 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     expect(data.fetch(:text)).to eq("Foo")
     expect(data.fetch(:runs).map { |_, key| data.fetch(:sources).fetch(key).fetch("kind") }.uniq).to eq([ "human" ])
   end
+
+  %w[human local_agent].each do |kind|
+    it "retains #{kind} attribution through escaped punctuation and decoded entities" do
+      content = 'Typed \*literal\* &amp; café &copy; &#x1F600; after.'
+      plan = make_plan(content, kind: kind, input_sources: sources(content))
+      data = described_class.rendered_sources(plan.current_plan_version)
+      expect(data.fetch(:text)).to eq("Typed*literal*&café©😀after.")
+      expected_kind = kind == "human" ? "human" : "ai"
+      expect(data.fetch(:runs).map { |_, key| data.fetch(:sources).fetch(key).fetch("kind") }.uniq).to eq([ expected_kind ])
+      expect(data.fetch(:runs).sum(&:first)).to eq(data.fetch(:text).encode(Encoding::UTF_16LE).bytesize / 2)
+    end
+  end
+
+  it "does not assign a mixed-source entity to the author of its leading ampersand" do
+    plan = make_plan("&lt;", kind: "local_agent")
+    edit(plan, "&gt;", kind: "human", input_sources: sources("&gt;"))
+    data = described_class.rendered_sources(plan.current_plan_version)
+    expect(data.fetch(:text)).to eq(">")
+    expect(data.fetch(:runs)).to eq([ [ 1, nil ] ])
+  end
+
+  it "preserves known sources in padded inline code and indented code blocks" do
+    content = "` padded `\n\n    indented\n    café\n\n  ```ruby\n  fenced\n  ```\n\n    ```literal\n    remains code\n"
+    plan = make_plan(content, input_sources: sources(content))
+    data = described_class.rendered_sources(plan.current_plan_version)
+    expect(data.fetch(:text)).to eq("paddedindentedcaféfenced```literalremainscode")
+    expect(data.fetch(:runs).map { |_, key| data.fetch(:sources).fetch(key).fetch("kind") }.uniq).to eq([ "human" ])
+  end
 end
