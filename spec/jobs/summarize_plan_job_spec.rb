@@ -141,6 +141,29 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
       }.not_to raise_error
     end
 
+    it "discards a provider connection failure, preserving the summary and its sha claim" do
+      generated_at = 1.hour.ago.change(usec: 0)
+      plan.update!(summary: "Existing summary.", summary_generated_at: generated_at)
+      allow(CoPlan::Ai).to receive(:call).and_call_original
+      mock_client = instance_double(OpenAI::Client)
+      allow(CoPlan::AiProviders::OpenAi).to receive(:client).and_return(mock_client)
+      allow(mock_client).to receive(:chat).and_raise(Faraday::ConnectionFailed, '503 "Service Unavailable"')
+
+      expect {
+        expect {
+          described_class.perform_now(plan_id: plan.id)
+        }.not_to raise_error
+      }.not_to have_enqueued_job(described_class)
+
+      expect(plan.reload.summary).to eq("Existing summary.")
+      expect(plan.summary_generated_at).to eq(generated_at)
+      expect(plan.summary_content_sha256).to eq(current_sha)
+      expect {
+        described_class.perform_now(plan_id: plan.id)
+      }.not_to have_enqueued_job(described_class)
+      expect(mock_client).to have_received(:chat).once
+    end
+
     it "enqueues on the default queue" do
       existing_plan_id = plan.id
       expect {
