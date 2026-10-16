@@ -176,4 +176,21 @@ RSpec.describe "Writing provenance", type: :system do
     expect(page.evaluate_script("[...CSS.highlights.get('coplan-writing-ai')].map(range => range.toString()).join('').replace(/\\s/g, '')")).to eq("Typed*literal*&café©😀after.")
     expect(page.evaluate_script("CSS.highlights.get('coplan-writing-unknown').size")).to eq(0)
   end
+
+  it "inspects a document made entirely of supported raw HTML" do
+    content = '<details><summary>Note</summary>raw <b>HTML</b> &amp; café</details>'
+    html = CoPlan::Plans::Create.call(title: "HTML writing", content: content, user: user, actor_type: "local_agent", agent_name: "Claude")
+    visit sign_in_path
+    fill_in "Email", with: user.email
+    click_button "Sign In"
+    expect(page).to have_button("Menu", wait: 20)
+    visit plan_page_path(html)
+    find("#plan-content-body summary", text: "Note").click
+    expect(page).to have_text("raw HTML & café")
+    find(".writing-provenance__trigger").click
+    click_button "Inspect writing"
+    expect(page).to have_button("Done inspecting")
+    expect(page.evaluate_script("[...CSS.highlights.get('coplan-writing-ai')].map(range => range.toString()).join('').replace(/\\s/g, '')")).to eq("NoterawHTML&café")
+    expect(page.evaluate_script("CSS.highlights.get('coplan-writing-unknown').size")).to eq(0)
+  end
 end

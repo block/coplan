@@ -167,4 +167,12 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     expect(data.fetch(:text)).to eq("paddedindentedcaféfenced```literalremainscode")
     expect(data.fetch(:runs).map { |_, key| data.fetch(:sources).fetch(key).fetch("kind") }.uniq).to eq([ "human" ])
   end
+
+  it "maps supported raw HTML text while excluding attributes and comments" do
+    content = '<details open title="Ignore"><summary>Note &amp; café</summary>raw <b>HTML</b> \*literal\*<!-- hidden --></details>'
+    plan = make_plan(content, input_sources: sources(content))
+    data = described_class.rendered_sources(plan.current_plan_version)
+    expect(data.fetch(:text)).to eq('Note&caférawHTML\*literal\*')
+    expect(data.fetch(:runs).map { |_, key| data.fetch(:sources).fetch(key).fetch("kind") }.uniq).to eq([ "human" ])
+  end
 end

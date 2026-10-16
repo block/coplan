@@ -179,8 +179,7 @@ export default class extends Controller {
     let cursor = 0, node
     while ((node = walker.nextNode())) {
       const parent = node.parentElement
-      if (!parent.closest("p, h1, h2, h3, h4, h5, h6, li, td, th, pre") ||
-          parent.closest("button, script, style, svg, .deck-toolbar, .deck-notes, .mermaid-container, .mermaid, .code-header, [data-source-badge], [contenteditable]")) continue
+      if (parent.closest("button, script, style, svg, .deck-toolbar, .deck-notes, .mermaid-diagram, .mermaid-container, .mermaid, .code-header, .iframe-content-block, .iframe-content-block__unavailable, [data-source-badge], [contenteditable]")) continue
       const offsets = [], chars = []
       let offset = 0
       for (const char of node.textContent) {

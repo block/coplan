@@ -95,6 +95,8 @@ module CoPlan
           end
 
           case child.type
+          when :html_block
+            append_html_block(child, stripped, pos_map) if @source_spans
           when :text
             pos = @source_spans && node.type == :escaped ? node.source_position : child.source_position
             start_byte = line_byte_offsets[pos[:start_line]] + pos[:start_column] - 1
@@ -176,12 +178,17 @@ module CoPlan
       # &amp;). Preserve that entire span so later text cannot drift, and a
       # mixed-origin entity cannot falsely inherit only its leading '&'.
       def append_decoded_text(text, first, last, stripped, pos_map)
+        decoded, spans = decoded_source(first, last)
+        append_span_text(text, decoded == text ? spans : nil, stripped, pos_map)
+      end
+
+      def decoded_source(first, last, markdown_escapes: true)
         raw = @content[first..last].to_s.chars
         decoded, spans, cursor = +"", [], 0
         while cursor < raw.length
           length, value = 1, raw[cursor]
           following = raw[cursor + 1]
-          if value == "\\" && following&.ascii_only? && following.match?(/[[:punct:]]/)
+          if markdown_escapes && value == "\\" && following&.ascii_only? && following.match?(/[[:punct:]]/)
             length, value = 2, following
           elsif value == "&" && (entity = ENTITY.match(raw[cursor, 34].join))
             length = entity[0].length
@@ -193,13 +200,48 @@ module CoPlan
           value.each_char { spans << [ first + cursor, first + cursor + length ] }
           cursor += length
         end
-        valid = decoded == text
+        [ decoded, spans ]
+      end
+
+      def append_span_text(text, spans, stripped, pos_map)
         text.each_char.with_index do |char, index|
-          span = valid ? spans.fetch(index) : [ -1, -1 ]
+          span = spans ? spans.fetch(index) : [ -1, -1 ]
           stripped << char
           pos_map << span.first
           @source_spans << span
         end
+      end
+
+      HTML_TAG = /<!--.*?(?:-->|\z)|<\/?[A-Za-z][\w:-]*(?:[^>"']|"[^"]*"|'[^']*')*>|<![^>]*>|<\?[^>]*\?>/m.freeze
+
+      def append_html_block(node, stripped, positions)
+        pos = node.source_position
+        first = @source_line_offsets.fetch(pos[:start_line] - 1) +
+          @source_lines.fetch(pos[:start_line] - 1).byteslice(0, pos[:start_column] - 1).length
+        last = @source_line_offsets.fetch(pos[:end_line] - 1) +
+          @source_lines.fetch(pos[:end_line] - 1).byteslice(0, pos[:end_column]).length
+        raw = @content[first...last]
+        safe = ApplicationController.helpers.sanitize(raw, tags: MarkdownHelper::ALLOWED_TAGS, attributes: MarkdownHelper::ALLOWED_ATTRIBUTES)
+        visible = Nokogiri::HTML5.fragment(safe.to_s).text
+        return if visible.empty?
+
+        candidate, spans, cursor = +"", [], 0
+        append_text = lambda do |stop|
+          if stop > cursor
+            text, source = decoded_source(first + cursor, first + stop - 1, markdown_escapes: false)
+            candidate << text
+            spans.concat(source)
+          end
+        end
+        raw.to_enum(:scan, HTML_TAG).each do
+          match = Regexp.last_match
+          append_text.call(match.begin(0))
+          cursor = match.end(0)
+        end
+        append_text.call(raw.length)
+        # Sanitization can remove or repair markup. Only attribute an exact
+        # match; never search past removed text for an identical later word.
+        append_span_text(visible, candidate == visible ? spans : nil, stripped, positions)
       end
 
       def append_source_span(char, position)
