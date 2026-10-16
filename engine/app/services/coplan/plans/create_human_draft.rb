@@ -25,7 +25,7 @@ module CoPlan
           existing = @user.created_plans.find_by(creation_key: @creation_key) if @creation_key
           next existing if existing
           plan = Create.call(title: @title, content: @content, user: @user, plan_type_id: @plan_type&.id,
-            visibility: "draft", actor_type: "human", creation_key: @creation_key)
+            actor_type: "human", creation_key: @creation_key)
           plan.tag_names = @plan_type&.default_tags.to_a | @tags.to_s.split(",").map(&:strip).reject(&:blank?)
           plan.save!
           if @folder

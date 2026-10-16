@@ -17,6 +17,7 @@ RSpec.describe "Plans", type: :request do
         get new_plan_path(plan_type_id: type.id, folder_id: folder.id)
       }.not_to change(CoPlan::Plan, :count)
       expect(response.body).to include("## Problem")
+      expect(response.body).to include("Shared on first save")
       expect(response.body).to include("name=\"plan_type_id\"")
       expect(response.body).to include("name=\"folder_id\"")
 
@@ -26,7 +27,7 @@ RSpec.describe "Plans", type: :request do
       }.to change(CoPlan::Plan, :count).by(1)
 
       draft = CoPlan::Plan.order(:created_at).last
-      expect(draft).to have_attributes(title: "Checkout redesign", visibility: "draft", plan_type: type)
+      expect(draft).to have_attributes(title: "Checkout redesign", visibility: "published", plan_type: type)
       expect(draft.current_content).to eq("## Problem\n\nSlow checkout")
       expect(draft.tag_names).to contain_exactly("design", "payments")
       expect(draft.placement.folder).to eq(folder)
