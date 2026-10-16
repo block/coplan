@@ -16,7 +16,7 @@ module CoPlan
       end
 
       def self.rendered_sources(version)
-        text, positions = MarkdownTextExtractor.call(version.content_markdown)
+        text, positions = MarkdownTextExtractor.call(version.content_markdown, exclude_nonprose: true)
         source_chars = version.content_markdown.chars
         snapshot = version.writing_provenance
         offset = 0

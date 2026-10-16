@@ -129,4 +129,14 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     expect(data.fetch(:text)).to include("Slidetitle", "Slidewords.", "Afterdeck.")
     expect(data.fetch(:runs).map { |_, key| data.fetch(:sources).fetch(key).fetch("kind") }.uniq).to eq([ "ai" ])
   end
+
+  it "excludes diagram source and image alt text without moving later prose origins" do
+    initial = "```mermaid\nflowchart LR\n A[Foo]\n```\n\n![Foo](https://example.com/foo.png)\n\n<!-- notes Foo -->\n"
+    plan = make_plan(initial, kind: "local_agent")
+    changed = initial + "\nFoo\n"
+    edit(plan, changed, kind: "human", input_sources: sources(changed))
+    data = described_class.rendered_sources(plan.current_plan_version)
+    expect(data.fetch(:text)).to eq("Foo")
+    expect(data.fetch(:runs).map { |_, key| data.fetch(:sources).fetch(key).fetch("kind") }.uniq).to eq([ "human" ])
+  end
 end

@@ -138,4 +138,26 @@ RSpec.describe "Writing provenance", type: :system do
     expect(result.fetch("first").fetch("runs").sum(&:first)).to eq(result.fetch("length"))
     expect(result.fetch("first").fetch("runs").map(&:last)).to include("human", "unknown")
   end
+
+  it "attributes repeated prose to its writer rather than an earlier diagram label" do
+    source = "```mermaid\nflowchart LR\n A[Foo]\n```\n"
+    diagram = CoPlan::Plans::Create.call(title: "Repeated sources", content: source, user: user, actor_type: "local_agent", agent_name: "Claude")
+    changed = source + "\n**Foo**\n"
+    CoPlan::Plans::ReplaceContent.call(plan: diagram, new_content: changed, base_revision: 1, actor_type: "human", actor_id: user.id,
+      input_sources: { "runs" => [ [ changed.length, "human" ] ] })
+    visit sign_in_path
+    fill_in "Email", with: user.email
+    click_button "Sign In"
+    expect(page).to have_button("Menu", wait: 20)
+    visit plan_page_path(diagram)
+    expect(page).to have_css(".mermaid-diagram svg", wait: 20)
+    find(".writing-provenance__trigger").click
+    click_button "Inspect writing"
+    expect(page).to have_button("Done inspecting")
+    expect(page.evaluate_script("[...CSS.highlights.get('coplan-writing-human')].map(range => range.toString()).join('')")).to eq("Foo")
+    expect(page.evaluate_script("CSS.highlights.get('coplan-writing-ai').size")).to eq(0)
+    find("#plan-content-body p strong", text: "Foo", exact_text: true).hover
+    expect(page).to have_css('.writing-inspection__tooltip:popover-open', text: user.name)
+    expect(find('.writing-inspection__tooltip')).to have_text("Added in v2")
+  end
 end

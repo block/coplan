@@ -12,12 +12,14 @@ module CoPlan
     #   # stripped  => "Hello world"
     #   # pos_map   => [0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12]
     class MarkdownTextExtractor
-      def self.call(content)
-        new(content).call
+      def self.call(content, exclude_nonprose: false)
+        new(content, exclude_nonprose:).call
       end
 
-      def initialize(content)
+      def initialize(content, exclude_nonprose: false)
         @content = content.to_s.include?("::: {.presentation") ? ContentRegions::Split.call(content).canonical_source : content
+        @exclude_nonprose = exclude_nonprose
+        @source_lines = @content.lines if exclude_nonprose
       end
 
       def call
@@ -74,6 +76,8 @@ module CoPlan
         prev_was_block = false
 
         node.each do |child|
+          next if @exclude_nonprose && nonprose?(child)
+
           # Insert a space between adjacent table cells, and a newline
           # between block-level siblings (paragraphs, rows, items, etc.).
           if child.type == :table_cell
@@ -142,6 +146,19 @@ module CoPlan
             extract_text_nodes(child, line_byte_offsets, byte_to_char, stripped, pos_map)
           end
         end
+      end
+
+      # Match the writing inspector's DOM exclusions. Keeping diagram source,
+      # image alt text, or hidden definitions in its search stream can assign
+      # their authors to an identical paragraph later in the document. Source
+      # positions still refer to the original Markdown, including skipped text.
+      def nonprose?(node)
+        return true if %i[image footnote_definition].include?(node.type)
+        return true if node.type == :code_block && node.fence_info.to_s.split.first == "mermaid"
+        return false unless node.type == :paragraph
+
+        pos = node.source_position
+        pos[:start_line] == pos[:end_line] && ContentRegions::Iframe.call(@source_lines[pos[:start_line] - 1].to_s.chomp)
       end
 
       # Appends a synthetic separator character to the stripped text.
