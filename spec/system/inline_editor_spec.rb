@@ -616,6 +616,7 @@ RSpec.describe "Inline plan editing", type: :system do
     displaced.update_columns(out_of_date: true)
     visit plan_page_path(plan)
 
+    expand_plan_section("plan-general-comments")
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     widths = page.evaluate_script(<<~JS)
@@ -643,6 +644,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_no_css("#plan-general-comments .document-comment", visible: true)
     expect(page).to have_no_css("#plan-detached-comments", visible: true)
     find("body").send_keys("s")
+    expand_plan_section("plan-general-comments")
     within("#plan-general-comments") { select "Resolved", from: "Show" }
     expect(page).to have_css("#plan-general-comments .document-comment", visible: true)
     expect(page).to have_css("#plan-detached-comments", visible: true)
@@ -735,6 +737,7 @@ RSpec.describe "Inline plan editing", type: :system do
       create(:comment, comment_thread: thread, author_id: author.id, body_markdown: "Original comment")
       visit plan_page_path(plan)
       expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all, wait: 10)
+      expand_plan_section("plan-general-comments")
       within("#plan-general-comments") { click_button "Open discussion", exact: false, enable_aria_label: true }
       within(".thread-popover:popover-open") do
         click_button "Edit", exact: true

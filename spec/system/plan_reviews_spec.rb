@@ -6,7 +6,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
   let(:plan) { create(:plan, :published, created_by_user: author, title: "Review tray playground") }
   let!(:task) { create(:review_request, plan: plan, reviewer: reviewer) }
 
-  def sign_in_browser(user)
+  def sign_in_browser(user, open_sections: true)
     visit sign_in_path
     fill_in "Email address", with: user.email
     click_button "Sign In"
@@ -17,6 +17,10 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
     visit plan_page_path(plan)
     expect(page).to have_css("#plan-review-controls")
+    if open_sections
+      expand_plan_section("footnote-approvals")
+      expand_plan_section("plan-general-comments")
+    end
   end
 
   def lose_next_review_result
@@ -34,7 +38,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     JS
   end
 
-  before { sign_in_browser(reviewer) }
+  before { sign_in_browser(reviewer, open_sections: !RSpec.current_example.metadata[:collapsed_support]) }
 
   it "keeps a withdrawn request between its two request cycles", :review_withdrawals do
     sign_in_browser(author)
@@ -644,35 +648,56 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(thread.reload.status).to eq("resolved")
   end
 
-  it "starts document-wide discussions and filters open and resolved comments without losing drafts" do
+  it "starts collapsed and uses the normal comment window without losing drafts", :collapsed_support do
     resolved = create(:comment_thread, plan: plan, created_by_user: author, status: "resolved")
     resolved.comments.create!(author_type: "human", author_id: author.id, body_markdown: "An earlier discussion")
+    page.execute_script <<~JS
+      for (const id of ['footnote-approvals', 'plan-general-comments']) {
+        sessionStorage.setItem(`coplan-support:${location.pathname}:${id}`, 'true');
+      }
+    JS
     visit plan_page_path(plan)
     expect(page).to have_link("Comments", href: "#plan-general-comments")
+    expect(page).to have_no_css("#plan-general-comments details[open]")
+    expect(page).to have_no_css("#footnote-approvals details[open]")
+    expect(page).to have_no_css("#plan-general-comments textarea", visible: :all)
+    scroll = page.evaluate_script("window.scrollY")
+    within("#plan-general-comments") { click_button "Add comment" }
+    expect(page).to have_css("#new-comment-form.comment-window:popover-open textarea:focus")
+    expect(page.evaluate_script("window.scrollY")).to eq(scroll)
+    expect(page).to have_no_css("#plan-general-comments details[open]")
+    within("#new-comment-form") do
+      fill_in "New comment", with: "A new document discussion", enable_aria_label: true
+      click_button "Comment", exact: true
+    end
+    expect(page).to have_no_css("#new-comment-form:popover-open")
+    expect(page.evaluate_script("window.scrollY")).to eq(scroll)
     within("#plan-general-comments") do
+      expect(page).to have_css("details[open]")
+      expect(page).to have_css(".document-comment", text: "A new document discussion")
+      expect(page).to have_select("Show", selected: "Open")
       expect(page).to have_no_content("An earlier discussion")
       select "Resolved", from: "Show"
       expect(page).to have_content("An earlier discussion")
-      fill_in "Comment on this plan", with: "A new document discussion", enable_aria_label: true
-      click_button "Comment", exact: true
-      expect(page).to have_css(".document-comment", text: "A new document discussion")
-      expect(page).to have_field("Comment on this plan", with: "", enable_aria_label: true)
-      expect(page).to have_select("Show", selected: "Open")
-      fill_in "Comment on this plan", with: "Keep this draft during updates", enable_aria_label: true
+      click_button "Add comment"
     end
+    within("#new-comment-form") { fill_in "New comment", with: "Keep this draft during updates", enable_aria_label: true }
     thread = plan.comment_threads.joins(:comments).find_by!(coplan_comments: { body_markdown: "A new document discussion" })
     expect(thread.anchor_text).to be_blank
     expect(thread.created_by_user).to eq(reviewer)
     thread.resolve!(reviewer)
     CoPlan::Comments::RefreshPreviews.call(thread: thread)
-    expect(page).to have_no_css("#plan-general-comments .document-comment", text: "A new document discussion")
     page.execute_script("document.getElementById('plan-review-controls').dispatchEvent(new CustomEvent('coplan:reviews-changed'))")
+    expect(page).to have_field("New comment", with: "Keep this draft during updates", enable_aria_label: true)
     within("#plan-general-comments") do
-      expect(page).to have_field("Comment on this plan", with: "Keep this draft during updates", enable_aria_label: true)
       select "All comments", from: "Show"
       expect(page).to have_content("An earlier discussion")
       expect(page).to have_content("A new document discussion")
+      click_button "Add comment"
     end
+    expect(page).to have_field("New comment", with: "Keep this draft during updates", enable_aria_label: true)
+    within("#new-comment-form") { click_button "Cancel" }
+    expect(page).to have_css('#plan-general-comments [aria-label="Add comment"]:focus')
   end
 
   it "records a changed decision after reopening the plan and preserves both decisions" do
@@ -753,12 +778,14 @@ RSpec.describe "Plan discussion and approval", type: :system do
     click_button "More actions"
     within("#plan-menu") { click_button "Manage reviewers" }
     within(".review-management") do
-      expect(all(".review-group h3").map { |heading| heading.text.gsub(/\s+/, " ") }).to eq([ "Required 1", "Optional 1" ])
+      expect(page).to have_no_css("h3, .review-management__eyebrow")
+      expect(all(".review-person strong").map(&:text)).to eq([ "Plan Reviewer", "Another Reviewer" ])
+      expect(all(".review-person__requirement").map(&:text)).to eq([ "Required", "Optional" ])
       expect(page).to have_no_button("Make required")
       click_button "Actions for Another Reviewer", enable_aria_label: true
       click_button "Make required"
-      expect(page).to have_css(".review-group h3", text: /Required\s+2/)
-      expect(page).to have_no_css(".review-group h3", text: "Optional")
+      expect(page).to have_css(".review-person__requirement", text: "Required", count: 2)
+      expect(page).to have_no_css(".review-person__requirement", text: "Optional")
     end
     expect(optional.reload.requirement).to eq("required")
     [ "light", "dark" ].each do |theme|

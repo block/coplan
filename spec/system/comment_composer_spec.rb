@@ -13,6 +13,7 @@ RSpec.describe "Glass comment composer", type: :system do
     click_button "Sign In"
     expect(page).to have_current_path("/composer")
     visit plan_page_path(plan)
+    expand_plan_section("plan-general-comments")
     within("#plan-general-comments") { click_button "Open discussion", enable_aria_label: true }
     expect(page).to have_css(".thread-popover", visible: true)
   end

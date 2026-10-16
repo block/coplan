@@ -213,8 +213,26 @@ export default class extends Controller {
     this.anchorPreviewTarget.style.display = "block"
     this.formTarget.querySelector("textarea").value = this.commentDrafts?.get(this.commentDraftKey()) || ""
 
+    this.showCommentForm(this.popoverTarget.getBoundingClientRect())
+  }
+
+  openPlanComment(event) {
+    event.preventDefault()
+    this.planCommentTrigger = event.currentTarget
+    this.selectedText = null
+    this.selectedContext = null
+    this.selectedOccurrence = null
+    this.selectionInEditor = false
+    this.anchorInputTarget.value = ""
+    this.contextInputTarget.value = ""
+    this.occurrenceInputTarget.value = ""
+    this.anchorPreviewTarget.style.display = "none"
+    this.formTarget.querySelector("textarea").value = this.commentDrafts?.get(this.commentDraftKey()) || ""
+    this.showCommentForm(event.currentTarget.getBoundingClientRect())
+  }
+
+  showCommentForm(anchor) {
     // Move the whole window in viewport coordinates, including the quote.
-    const anchor = this.popoverTarget.getBoundingClientRect()
     this.formTarget.classList.toggle("comment-form--sheet", this._isMobile())
     this.formTarget.style.display = "flex"
     this.formTarget.setAttribute("popover", "manual")
@@ -242,6 +260,9 @@ export default class extends Controller {
 
   resetCommentForm(event) {
     if (event.detail.success) {
+      if (!this.anchorInputTarget.value) {
+        this.element.querySelector("#plan-general-comments")?.dispatchEvent(new CustomEvent("coplan:plan-comment-posted", { detail: { success: true } }))
+      }
       this.hideAndResetForm()
     }
   }
@@ -279,6 +300,8 @@ export default class extends Controller {
     this.selectedContext = null
     this.selectedOccurrence = null
     this.selectionInEditor = false
+    this.planCommentTrigger?.focus({ preventScroll: true })
+    this.planCommentTrigger = null
   }
 
   scrollToAnchor(event) {

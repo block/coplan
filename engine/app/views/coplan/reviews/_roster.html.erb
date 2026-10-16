@@ -3,18 +3,14 @@
       <%= render "coplan/reviews/table", plan: plan, active_requests: active_requests %>
     <% else %>
     <% if active_requests.empty? %><div class="review-empty"><span class="review-empty__icon" aria-hidden="true">◎</span><p>No reviewers yet</p></div><% end %>
-    <% CoPlan::ReviewRequest::REQUIREMENTS.each do |requirement| %>
-      <% group = active_requests.select { |request| request.requirement == requirement }.sort_by { |request| [request.reviewer.name.downcase, request.id] } %>
-      <% next if group.empty? %>
-      <div class="review-group">
-        <h3><%= requirement.humanize %><span><%= group.size %></span></h3>
-        <% group.each do |request| %>
+        <% active_requests.sort_by { |request| [CoPlan::ReviewRequest::REQUIREMENTS.index(request.requirement), request.reviewer.name.downcase, request.id] }.each do |request| %>
+          <% requirement = request.requirement %>
           <% approval = request.latest_approval %>
           <div class="review-person" data-reviewer-id="<%= request.reviewer_id %>">
             <%= user_avatar(request.reviewer, size: "md") %>
             <div class="review-person__info">
               <strong><%= request.reviewer.name %></strong>
-              <span class="review-person__meta"><% if request.pending? %>Review requested<% elsif request.status == "changes_requested" %>Changes requested on v<%= request.review_responses.first&.plan_version&.revision %><% else %>Approved v<%= approval&.plan_version&.revision %><% end %></span>
+              <span class="review-person__meta"><span class="review-person__requirement"><%= requirement.humanize %></span> · <% if request.pending? %>Review requested<% elsif request.status == "changes_requested" %>Changes requested on v<%= request.review_responses.first&.plan_version&.revision %><% else %>Approved v<%= approval&.plan_version&.revision %><% end %></span>
             </div>
             <span class="review-state<%= ' review-state--approved' if request.status == 'approved' %><%= ' review-state--attention' if request.pending? && request.reviewer_id == current_user.id %>"><span aria-hidden="true"><%= request.pending? ? "◷" : request.status == "approved" ? "✓" : "↩" %></span> <%= request.pending? ? "Pending" : request.status.humanize %></span>
             <% if manage && allowed_to?(plan, :update?) %>
@@ -33,7 +29,5 @@
             <% end %>
           </div>
         <% end %>
-      </div>
-    <% end %>
     <% end %>
   </section>

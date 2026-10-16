@@ -38,11 +38,8 @@ export default class extends Controller {
 
   posted(event) {
     if (!event.detail.success) return
-    const input = event.target.querySelector("textarea")
-    input.value = ""
-    input.dispatchEvent(new Event("input", { bubbles: true }))
     this.filterTarget.value = "open"
     this.filterChanged()
-    input.focus({ preventScroll: true })
+    this.element.querySelector("details").open = true
   }
 }
