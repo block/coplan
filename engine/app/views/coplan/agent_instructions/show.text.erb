@@ -33,6 +33,7 @@ This command sends the long-lived token and **replaces `$TOKEN` with the new ses
 - `agent_name` is a short label for this run, such as "Claude" or "Amp". CoPlan truncates it after 20 characters.
 - `metadata` is optional. Report only identity facts you know; do not guess a model or version. Set `harness` (for example `amp`, `claude-code`, `codex`, `cursor`, `gemini-cli`, `goose`, or `opencode`), `harness_version`, and `model`. People see the harness on your comments and in the history.
 - Do not send `agent_name` or other attribution fields on later calls, and do not sign your comments or edits. The token supplies your identity.
+- Writing provenance tracks Human written, AI written, and Unknown text. Your edits retain the token's reported harness and model. The [editing guide](<%= @base %>/agent-instructions/editing) explains counts and source ranges.
 - The response shows `token` only once. Keep it in `$TOKEN` for the whole run.
 - Your principal can inspect and revoke sessions at **Settings → Agent access → Manage agent sessions**. Expired and revoked sessions remain in history.
 - Mint one token per run and reuse it. Each new token is a new identity.

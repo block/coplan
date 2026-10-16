@@ -1,0 +1,23 @@
+<h3 class="writing-provenance__title">Writing provenance</h3>
+<p class="writing-provenance__subtitle">Current text · v<%= summary.fetch("revision") %></p>
+<dl class="writing-provenance__counts">
+  <% { "human" => "Human written", "ai" => "AI written", "unknown" => "Unknown" }.each do |kind, label| %>
+    <div><dt><span class="writing-provenance__swatch writing-provenance__swatch--<%= kind %>"></span><%= label %></dt><dd><%= writing_provenance_percent(summary.fetch("counts").fetch(kind), summary.fetch("total")) %></dd></div>
+  <% end %>
+</dl>
+<% agents = summary.fetch("contributors").select { |source| source["kind"] == "ai" } %>
+<% if agents.any? %>
+  <details class="writing-provenance__agents">
+    <summary>AI agents and models</summary>
+    <% agents.each do |source| %>
+      <div class="writing-provenance__agent">
+        <span><%= source["harness_name"].presence || source["agent_name"].presence || "AI agent" %></span>
+        <span><%= writing_provenance_percent(source.fetch("characters"), summary.fetch("total")) %></span>
+        <small><%= source["model"].presence || "Model unspecified" %><% if source["harness_version"].present? %> · harness <%= source["harness_version"] %><% end %></small>
+      </div>
+    <% end %>
+  </details>
+<% end %>
+<p class="writing-provenance__note">Based on non-whitespace Markdown characters still in this version. External paste and unrecorded input are Unknown. Human review is separate. Agent identities are reported by their tools.</p>
+<button type="button" class="btn btn--ghost btn--sm" data-action="coplan--writing-provenance#highlight" data-coplan--writing-provenance-target="highlight">Highlight sources</button>
+<p class="writing-provenance__note">Highlights cover matching prose and code. Diagrams, slides, and embeds keep their original appearance.</p>

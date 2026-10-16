@@ -28,6 +28,31 @@
   font-display: swap;
 }
 
+.writing-provenance { display: inline-flex; align-items: center; }
+.writing-provenance__trigger { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 4px; border: 0; border-radius: 5px; background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.writing-provenance__trigger:hover { color: var(--color-primary); background: var(--color-interaction-hover-bg); }
+.writing-provenance__trigger:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.writing-provenance__panel { position: fixed; inset: auto; margin: 0; padding: 18px; width: min(320px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; box-sizing: border-box; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text); box-shadow: 0 12px 32px #0002; font-size: .8125rem; }
+.writing-provenance__panel::backdrop { background: transparent; }
+.writing-provenance__title { font-size: .9375rem; margin: 0; }
+.writing-provenance__subtitle, .writing-provenance__note { color: var(--color-text-muted); font-size: .75rem; margin: 6px 0 14px; }
+.writing-provenance__counts { margin: 16px 0; }
+.writing-provenance__counts > div { display: flex; justify-content: space-between; gap: 16px; margin: 9px 0; }
+.writing-provenance__counts dt { display: flex; align-items: center; gap: 7px; }
+.writing-provenance__counts dd { margin: 0; font-variant-numeric: tabular-nums; }
+.writing-provenance__swatch { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.writing-provenance__swatch--human { background: var(--color-text-muted); opacity: .55; }
+.writing-provenance__swatch--ai { background: var(--color-agent); }
+.writing-provenance__swatch--unknown { background: var(--color-border-strong); }
+.writing-provenance__agents { border-top: 1px solid var(--color-border); padding: 12px 0; }
+.writing-provenance__agents summary { cursor: pointer; }
+.writing-provenance__agent { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; margin-top: 12px; }
+.writing-provenance__agent small { grid-column: 1 / -1; color: var(--color-text-muted); overflow-wrap: anywhere; }
+::highlight(coplan-writing-human) { background: color-mix(in srgb, var(--color-text-muted) 13%, transparent); text-decoration: underline; text-decoration-color: var(--color-text-muted); }
+::highlight(coplan-writing-ai) { background: color-mix(in srgb, var(--color-agent) 13%, transparent); text-decoration: underline; text-decoration-color: var(--color-agent); }
+::highlight(coplan-writing-unknown) { background: color-mix(in srgb, var(--color-border-strong) 30%, transparent); text-decoration: underline dotted; text-decoration-color: var(--color-text-muted); }
+@media (pointer: coarse) { .writing-provenance__trigger { min-width: 44px; min-height: 44px; } }
+
 :root {
   color-scheme: light;
 

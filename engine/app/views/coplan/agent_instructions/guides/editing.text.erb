@@ -1,5 +1,21 @@
 # Editing Plans
 
+## Writing provenance
+
+Plan JSON includes `writing_provenance`, a cached summary for the current revision, or `null` when it is not available.
+`GET /api/v1/plans/:id/writing_provenance` returns `revision`, `content_sha256`, and `summary`.
+The summary has `counts`, `shares`, `total`, and `contributors`. Categories are `human`, `ai`, and `unknown`.
+The UI calls these Human written, AI written, and Unknown. These describe recorded input, not human review or intellectual ownership.
+The method is `retained_markdown_v1`. Counts use non-whitespace Markdown characters, including code and diagram source. They are not edit counts or word counts.
+Unchanged characters retain their origin. A small edit does not take credit for a whole line. Very large replacement diffs may remain Unknown when exact matching exceeds the processing budget.
+Identified agent writes are AI written. Observed human input is Human written. External paste, imports, and older human saves without input evidence are Unknown.
+AI contributions can report `agent_name`, `harness`, `harness_name`, `harness_version`, and `model`. Missing model information stays an AI contribution. Identity is reported by the tool and captured with its write.
+With `?ranges=1`, the response also includes `runs`, `sources`, and `offset_unit: "unicode_codepoints"`.
+Each run is `[length, source_key]`. Start at character zero and add lengths in order. `sources[source_key]` describes that run's origin. Ranges refer to the response's saved revision and SHA.
+On an Unknown source, `user_id` records who added the text when known; it does not claim that person wrote it.
+For an older plan, the endpoint queues reconstruction and returns `202` with `status: "pending"` and `revision`. Retry after a short delay. Reading provenance does not create a plan-read receipt.
+Do not send origin claims with agent edits. Your token identifies agent writes. Set its harness and model when known; do not guess a model.
+
 This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>. The primer shows the usual edit: read the snapshot, change the full document, and send it back. This guide covers the responses, conflicts, targeted edits, and plan settings.
 
 ## Replace the content

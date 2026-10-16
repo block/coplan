@@ -3,6 +3,26 @@ require "coplan/development_seed"
 
 RSpec.describe CoPlan::DevelopmentSeed do
   describe ".call" do
+    it "provides human, AI, unknown, and mixed writing examples and preserves edits when re-seeded" do
+      described_class.call
+      expect(seeded_plan("writing-human").writing_provenance_summary.dig("shares", "human")).to eq(1.0)
+      ai = seeded_plan("writing-ai")
+      expect(ai.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
+      expect(ai.writing_provenance_summary.fetch("contributors").first).to include("harness" => "claude-code")
+      expect(seeded_plan("writing-unknown").writing_provenance_summary.dig("shares", "unknown")).to eq(1.0)
+      mixed = seeded_plan("writing-mixed")
+      expect(mixed.writing_provenance_summary.fetch("counts").values).to all(be_positive)
+      expect(mixed.current_revision).to eq(2)
+      counts = mixed.writing_provenance_summary.deep_dup
+      described_class.call
+      expect(mixed.reload.writing_provenance_summary).to eq(counts)
+      CoPlan::Plans::ReplaceContent.call(plan: mixed, new_content: "My local revision", base_revision: mixed.current_revision,
+        actor_type: "human", actor_id: mixed.created_by_user_id)
+      described_class.call
+      expect(mixed.reload.current_content).to eq("My local revision")
+      expect(seeded_plan("demo-library").current_content).to include("Writing sources", mixed.url_path)
+    end
+
     def seeded_plan(key)
       CoPlan::Plan.all.detect { |plan| plan.metadata.to_h["development_seed_key"] == key }
     end

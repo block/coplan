@@ -1,0 +1,220 @@
+require "diff/lcs"
+
+module CoPlan
+  module Plans
+    # Immutable, run-length encoded source attribution. Historical human saves
+    # have no typing/paste evidence and remain unknown. Actor identity is separate.
+    class WritingProvenance
+      FORMAT = 1
+      KINDS = %w[human ai unknown].freeze
+      MAX_DIFF_CELLS = 1_000_000
+      MAX_INPUT_RUNS = 4096
+      UNKNOWN = "unknown".freeze
+
+      def self.call(version:, previous: nil)
+        new(version:, previous:).call
+      end
+
+      def self.rendered_sources(version)
+        return { text: "", runs: [] } if version.content_markdown.include?("::: {.presentation")
+        text, positions = MarkdownTextExtractor.call(version.content_markdown)
+        source_chars = version.content_markdown.chars
+        snapshot = version.writing_provenance
+        offset = 0
+        intervals = snapshot.fetch("runs").map { |length, key| offset += length; [ offset, snapshot.fetch("sources").fetch(key).fetch("kind") ] }
+        result, runs = +"", []
+        text.each_char.with_index do |char, index|
+          next if char.match?(/[[:space:]]/)
+          position = positions[index]
+          kind = if position && position >= 0 && source_chars[position] == char
+            intervals.bsearch { |stop, _| stop > position }&.last
+          end
+          result << char
+          append(runs, char.encode(Encoding::UTF_16LE).bytesize / 2, kind)
+        end
+        { text: result, runs: runs }
+      end
+
+      def initialize(version:, previous:)
+        @version, @previous = version, previous
+      end
+
+      def call
+        content = @version.content_markdown
+        old = @previous&.content_markdown.to_s
+        snapshot = @previous&.writing_provenance.to_h
+        valid = snapshot["format"] == FORMAT && snapshot["sha256"] == Digest::SHA256.hexdigest(old)
+        sources = valid ? snapshot.fetch("sources").deep_dup : {}
+        sources[UNKNOWN] = { "kind" => UNKNOWN }
+        prior_runs = valid ? snapshot.fetch("runs") : [ [ old.length, UNKNOWN ] ]
+        identity = source_identity
+        source_key = Digest::SHA256.hexdigest(identity.to_json).first(24)
+        sources[source_key] = identity
+        unknown_identity = { "kind" => UNKNOWN, "user_id" => @version.actor_id }.compact
+        unknown_key = Digest::SHA256.hexdigest(unknown_identity.to_json).first(24)
+        sources[unknown_key] = unknown_identity
+        input = self.class.input_runs(@version.input_sources, content)
+        insertions = if @version.actor_type == "human" && input
+          input.map { |length, kind| [ length, kind == "human" ? source_key : unknown_key ] }
+        else
+          [ [ content.length, identity["kind"] == "ai" ? source_key : unknown_key ] ]
+        end
+        runs = self.class.remap(old, content, prior_runs, insertions)
+        sources.select! { |key, _| runs.any? { |_, source| source == key } }
+        summary = summarize(content, runs, sources)
+        { "format" => FORMAT, "sha256" => Digest::SHA256.hexdigest(content), "write_source" => identity,
+          "runs" => runs, "sources" => sources, "summary" => summary }
+      end
+
+      # The editor uses UTF-16 offsets; Ruby uses Unicode codepoints. Reject
+      # malformed evidence, including boundaries inside surrogate pairs.
+      def self.input_runs(payload, content)
+        return unless payload.is_a?(Hash)
+        raw = payload["runs"] || payload[:runs]
+        return unless raw.is_a?(Array) && raw.length <= MAX_INPUT_RUNS
+        return unless raw.all? { |run| run.is_a?(Array) && run.length == 2 && run[0].is_a?(Integer) && run[0].positive? && %w[human unknown].include?(run[1]) }
+        wanted = raw.map(&:first).each_with_object([ 0 ]) { |length, bounds| bounds << bounds.last + length }
+        positions = { 0 => 0 }
+        units = 0
+        boundaries = wanted.to_set
+        content.each_codepoint.with_index do |codepoint, index|
+          units += codepoint > 0xffff ? 2 : 1
+          positions[units] = index + 1 if boundaries.include?(units)
+        end
+        return unless wanted.last == units && wanted.all? { |offset| positions.key?(offset) }
+        raw.each_with_index.map { |(_, kind), i| [ positions.fetch(wanted[i + 1]) - positions.fetch(wanted[i]), kind ] }
+      end
+
+      def self.append(runs, length, source)
+        return if length <= 0
+        if runs.last&.last == source
+          runs.last[0] += length
+        else
+          runs << [ length, source ]
+        end
+      end
+
+      def self.slice(runs, from, to)
+        result, cursor = [], 0
+        runs.each do |length, source|
+          stop = cursor + length
+          append(result, [ stop, to ].min - [ cursor, from ].max, source)
+          cursor = stop
+          break if cursor >= to
+        end
+        result
+      end
+
+      # Diff lines first, then refine changed hunks. A typo must not transfer
+      # an entire paragraph. Bound pathological diffs and fail toward unknown.
+      def self.remap(before, after, prior_runs, insertion_runs)
+        return prior_runs.map(&:dup) if before == after
+        return insertion_runs.map(&:dup) if before.empty?
+        old_lines, new_lines = before.lines, after.lines
+        prefix = 0
+        prefix += 1 while prefix < old_lines.length && prefix < new_lines.length && old_lines[prefix] == new_lines[prefix]
+        suffix = 0
+        suffix += 1 while suffix < old_lines.length - prefix && suffix < new_lines.length - prefix && old_lines[-suffix - 1] == new_lines[-suffix - 1]
+        if prefix.positive? || suffix.positive?
+          start = old_lines.first(prefix).sum(&:length)
+          tail = old_lines.last(suffix).sum(&:length)
+          middle = remap(old_lines[prefix...old_lines.length - suffix].join, new_lines[prefix...new_lines.length - suffix].join,
+            slice(prior_runs, start, before.length - tail), slice(insertion_runs, start, after.length - tail))
+          result = []
+          (slice(prior_runs, 0, start) + middle + slice(prior_runs, before.length - tail, before.length)).each { |n, key| append(result, n, key) }
+          return result
+        end
+        if old_lines.length * new_lines.length > MAX_DIFF_CELLS
+          return [ [ after.length, UNKNOWN ] ].reject { |length, _| length.zero? }
+        end
+        result, old_offset, new_offset = [], 0, 0
+        old_chunk, new_chunk = +"", +""
+        flush = lambda do
+          refined = refine(old_chunk, new_chunk, slice(prior_runs, old_offset, old_offset + old_chunk.length),
+            slice(insertion_runs, new_offset, new_offset + new_chunk.length))
+          refined.each { |n, key| append(result, n, key) }
+          old_offset += old_chunk.length
+          new_offset += new_chunk.length
+          old_chunk.clear
+          new_chunk.clear
+        end
+        Diff::LCS.sdiff(old_lines, new_lines).each do |change|
+          if change.action == "="
+            flush.call
+            slice(prior_runs, old_offset, old_offset + change.old_element.length).each { |n, key| append(result, n, key) }
+            old_offset += change.old_element.length
+            new_offset += change.new_element.length
+          else
+            old_chunk << change.old_element unless change.action == "+"
+            new_chunk << change.new_element unless change.action == "-"
+          end
+        end
+        flush.call
+        result
+      end
+
+      def self.refine(before, after, prior_runs, insertion_runs)
+        return [] if after.empty?
+        return insertion_runs if before.empty?
+        old, fresh = before.chars, after.chars
+        prefix = 0
+        prefix += 1 while prefix < old.length && prefix < fresh.length && old[prefix] == fresh[prefix]
+        suffix = 0
+        suffix += 1 while suffix < old.length - prefix && suffix < fresh.length - prefix && old[-suffix - 1] == fresh[-suffix - 1]
+        old_middle = old[prefix...old.length - suffix]
+        new_middle = fresh[prefix...fresh.length - suffix]
+        result = slice(prior_runs, 0, prefix)
+        if old_middle.empty?
+          slice(insertion_runs, prefix, fresh.length - suffix).each { |n, key| append(result, n, key) }
+        elsif old_middle.length * new_middle.length > MAX_DIFF_CELLS
+          append(result, new_middle.length, UNKNOWN)
+        elsif new_middle.any?
+          old_sources = slice(prior_runs, prefix, old.length - suffix).flat_map { |n, key| Array.new(n, key) }
+          new_sources = slice(insertion_runs, prefix, fresh.length - suffix).flat_map { |n, key| Array.new(n, key) }
+          Diff::LCS.sdiff(old_middle, new_middle).each do |change|
+            if change.action == "="
+              append(result, 1, old_sources.fetch(change.old_position))
+            elsif change.action != "-"
+              append(result, 1, new_sources.fetch(change.new_position))
+            end
+          end
+        end
+        slice(prior_runs, old.length - suffix, old.length).each { |n, key| append(result, n, key) }
+        result
+      end
+
+      private
+
+      def source_identity
+        return @version.writing_identity if @version.writing_identity.is_a?(Hash)
+        return { "kind" => UNKNOWN } unless @version.actor_type.in?(%w[human local_agent cloud_persona])
+        return { "kind" => "human", "user_id" => @version.actor_id } if @version.actor_type == "human"
+        metadata = @version.api_token&.metadata.to_h
+        harness = metadata["harness"].presence
+        key = harness && AgentHarness.canonical_key(harness)
+        { "kind" => "ai", "user_id" => @version.actor_id,
+          "agent_name" => @version.agent_name, "harness" => key,
+          "harness_name" => key && AgentHarness.default_display_name(key, harness),
+          "harness_version" => metadata["harness_version"], "model" => metadata["model"].presence || @version.ai_model }.compact
+      end
+
+      def summarize(content, runs, sources)
+        counts = KINDS.index_with { 0 }
+        contributions, offset = Hash.new(0), 0
+        runs.each do |length, source|
+          count = content[offset, length].gsub(/[[:space:]]/, "").length
+          counts[sources.fetch(source).fetch("kind")] += count
+          contributions[source] += count
+          offset += length
+        end
+        total = counts.values.sum
+        { "revision" => @version.revision, "method" => "retained_markdown_v1",
+          "unit" => "non_whitespace_markdown_characters", "total" => total,
+          "counts" => counts, "shares" => counts.transform_values { |count| total.zero? ? 0 : count.fdiv(total) },
+          "contributors" => contributions.filter_map { |key, count|
+            sources.fetch(key).merge("characters" => count, "share" => total.zero? ? 0 : count.fdiv(total)) if count.positive?
+          }.sort_by { |source| -source["characters"] } }
+      end
+    end
+  end
+end

@@ -1,0 +1,18 @@
+<% summary = writing_provenance_summary(plan) %>
+<% label = writing_provenance_label(summary) %>
+<span class="writing-provenance" data-controller="coplan--writing-provenance"
+      data-coplan--writing-provenance-url-value="<%= writing_provenance_plan_path(plan) %>"
+      data-coplan--writing-provenance-revision-value="<%= plan.current_revision %>"
+      data-action="resize@window->coplan--writing-provenance#position scroll@window->coplan--writing-provenance#dismiss">
+  <button type="button" class="writing-provenance__trigger" popovertarget="writing-provenance-panel"
+          aria-label="<%= label %>. Show writing provenance" title="<%= label %>"
+          data-coplan--writing-provenance-target="trigger">
+    <%= writing_provenance_icon(summary) %>
+  </button>
+  <div id="writing-provenance-panel" class="writing-provenance__panel" popover="auto"
+       data-coplan--writing-provenance-target="panel" data-action="toggle->coplan--writing-provenance#toggle">
+    <div data-coplan--writing-provenance-target="details" aria-live="polite">
+      <p class="text-muted" role="status">Loading writing provenance…</p>
+    </div>
+  </div>
+</span>
