@@ -317,6 +317,8 @@ function sourceOffsetForRich(doc, position) {
   })
   if (!selected) return position <= 0 ? 0 : source.length
   const { node, blockPosition, range } = selected
+  if (node.type === schema.nodes.template_note)
+    return range.from + node.attrs.opening.length + Math.max(0, Math.min(node.content.size, position - blockPosition - 1))
   const { positions, sourcePositions } = blockSourceMap(node, blockPosition, source.slice(range.from, range.to))
   if (!positions.length) return range.from
   const next = positions.findIndex(textPosition => textPosition >= position)
@@ -336,6 +338,8 @@ function richPositionForSource(doc, offset) {
   const block = blocks.find(({ range }) => offset >= range.from && offset < range.to) ||
     blocks.find(({ range }) => range.from >= offset) || blocks.at(-1)
   const node = doc.nodeAt(block.position)
+  if (node.type === schema.nodes.template_note)
+    return block.position + 1 + Math.max(0, Math.min(node.content.size, offset - block.range.from - node.attrs.opening.length))
   const { positions, sourcePositions } = blockSourceMap(node, block.position, source.slice(block.range.from, block.range.to))
   if (!positions.length) return Math.min(doc.content.size, block.position + node.nodeSize)
   const within = Math.max(0, offset - block.range.from)

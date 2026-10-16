@@ -167,6 +167,38 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).not_to have_content("-->")
   end
 
+  [ "<!---->", "<!-- \n  -->" ].each do |comment|
+    it "keeps the caret inside #{comment.inspect} when switching either editor mode" do
+      initial = "#{comment}\n\nVisible prose."
+      %w[rich_to_raw raw_to_rich].each do |direction|
+        visit plan_edit_page_path(plan)
+        click_button "Raw", exact: true
+        find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], initial)
+        click_button "Editor", exact: true
+        note = find(".document-editor__template-note")
+        expect(page).to have_no_css(".inline-editor--preparing", wait: 20)
+        if direction == "rich_to_raw"
+          note.click
+          click_button "Raw", exact: true
+          find('[aria-label="Markdown source"]').send_keys("Added guidance.")
+        else
+          click_button "Raw", exact: true
+          page.execute_script(<<~'JS', initial.index("-->"))
+            const form = document.querySelector('form.document-editor');
+            window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').rawEditor.select(arguments[0]);
+          JS
+          click_button "Editor", exact: true
+          find(".document-editor__template-note").send_keys("Added guidance.")
+        end
+        click_link "Done"
+        expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+        expect(plan.reload.current_content).to eq(initial.sub("-->", "Added guidance.-->"))
+        expect(page).to have_content("Visible prose.")
+        expect(page).not_to have_content("Added guidance.")
+      end
+    end
+  end
+
   it "keeps formatting commands and boundary deletion from turning notes into visible prose" do
     note = all(".document-editor__template-note").first
     note.click
