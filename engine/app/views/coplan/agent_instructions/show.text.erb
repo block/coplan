@@ -31,9 +31,10 @@ This command sends the long-lived token and **replaces `$TOKEN` with the new ses
 <% end %>
 
 - `agent_name` is a short label for this run, such as "Claude" or "Amp". CoPlan truncates it after 20 characters.
-- `metadata` is optional. Set `harness` (for example `amp`, `claude-code`, `codex`, `cursor`, `gemini-cli`, `goose`, or `opencode`), `harness_version`, and `model`. People see the harness on your comments and in the history.
+- `metadata` is optional. Report only identity facts you know; do not guess a model or version. Set `harness` (for example `amp`, `claude-code`, `codex`, `cursor`, `gemini-cli`, `goose`, or `opencode`), `harness_version`, and `model`. People see the harness on your comments and in the history.
 - Do not send `agent_name` or other attribution fields on later calls, and do not sign your comments or edits. The token supplies your identity.
 - The response shows `token` only once. Keep it in `$TOKEN` for the whole run.
+- Your principal can inspect and revoke sessions at **Settings → Agent access → Manage agent sessions**. Expired and revoked sessions remain in history.
 - Mint one token per run and reuse it. Each new token is a new identity.
 - Tokens expire after 7 days by default. To change this, set `ttl_seconds` (maximum 30 days). If a later call returns `401`, <% if @request_auth_available %>run the mint command again<% else %>load the long-lived token into `$TOKEN` again and mint a new session token<% end %>. A session token cannot mint more tokens.
 - When you finish, revoke the session token: `<%= @curl %> -X DELETE "<%= @base %>/api/v1/tokens/current"`.
@@ -145,6 +146,7 @@ Fetch a guide when your task needs it. Each guide is Markdown, like this page.
 
 | Task | Guide |
 |---|---|
+| Connecting a computer without a credential | <<%= @base %>/agent-instructions/connecting> |
 | Diagrams, tables, code blocks, footnotes, section links, task lists, images | <<%= @base %>/agent-instructions/markdown> |
 | Slide decks inside a plan (`::: {.presentation}` regions) | <<%= @base %>/agent-instructions/presentations> |
 - Embedded pages: <<%= @base %>/agent-instructions/embeds>

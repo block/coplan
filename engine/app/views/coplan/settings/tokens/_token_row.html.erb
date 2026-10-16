@@ -1,24 +1,13 @@
-<tr id="<%= dom_id(token) %>" class="<%= 'data-table__row--muted' if token.revoked? %>">
+<tr id="<%= dom_id(token) %>">
   <td>
     <strong><%= token.name %></strong>
-    <% if token.token_prefix.present? %>
-      <br><code><%= token.token_prefix %>…</code>
-    <% end %>
+    <span class="access-detail"><code><%= token.token_prefix %>…</code> · Created <%= token.created_at.strftime("%b %d, %Y") %></span>
   </td>
-  <td>
-    <% if token.revoked? %>
-      <span class="badge badge--danger">Revoked</span>
-    <% elsif token.expired? %>
-      <span class="badge badge--warning">Expired</span>
-    <% else %>
-      <span class="badge badge--success">Active</span>
-    <% end %>
-  </td>
-  <td><%= token.last_used_at ? time_ago_in_words(token.last_used_at) + " ago" : "Never" %></td>
-  <td><%= token.created_at.strftime("%b %d, %Y") %></td>
+  <td><span class="badge <%= token.revoked? ? 'badge--neutral' : 'badge--success' %>"><%= token.revoked? ? "Revoked" : "Valid" %></span></td>
+  <td><%= render "last_used", token: token %></td>
   <td>
     <% unless token.revoked? %>
-      <%= button_to "Revoke", settings_token_path(token), method: :delete, class: "btn btn--danger btn--sm" %>
+      <%= button_to "Revoke", settings_token_path(token), method: :delete, params: { page: @page }, class: "btn btn--danger btn--sm", aria: { label: "Revoke #{token.name}" }, data: { turbo_submits_with: "Revoking…" } %>
     <% end %>
   </td>
 </tr>

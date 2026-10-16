@@ -2,7 +2,8 @@ module CoPlan
   module Settings
     class SettingsController < ApplicationController
       def index
-        @api_tokens = current_user.api_tokens.order(created_at: :desc)
+        @agent_session_count = current_user.api_tokens.sessions.usable.count
+        @personal_token_count = current_user.api_tokens.personal.active.count
         @web_push_subscriptions = current_user.web_push_subscriptions.order(created_at: :desc)
       end
 

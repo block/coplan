@@ -10,6 +10,13 @@ In a live session, you get comments on a plan as soon as people post them, and t
 
 This guide assumes that you have read the primer at <<%= @base %>/agent-instructions> and that you have a session token.
 
+## Identity in the session helper
+
+When `coplan-attach` mints a session, its session helper reads optional
+`COPLAN_HARNESS`, `COPLAN_HARNESS_VERSION`, and `COPLAN_MODEL` environment variables.
+Set only values you know. These describe the agent using the token and appear in
+session details. They do not change the identity of an already cached token.
+
 ## The loop
 
 1. **Claim** a session on the plan. This subscribes your token to the plan's events.

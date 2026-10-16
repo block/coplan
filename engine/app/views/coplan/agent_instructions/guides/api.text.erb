@@ -1,6 +1,24 @@
 # API Reference
 
-Every endpoint, with the guide that explains it. All paths start with `<%= @base %>`. <% if @request_auth_available %>Mint a session token through the host's request authentication (`<%= @mint_curl %>`). Every other call needs `Authorization: Bearer $TOKEN` with that session token.<% else %>Every call needs `Authorization: Bearer $TOKEN`. To mint a session token, send your principal's long-lived token. For every other call, send the session token.<% end %> See the primer at <<%= @base %>/agent-instructions>. Request bodies are JSON.
+Every endpoint, with the guide that explains it. All paths start with `<%= @base %>`. <% if @request_auth_available %>Mint a session token through the host's request authentication (`<%= @mint_curl %>`). Every other call needs `Authorization: Bearer $TOKEN` with that session token.<% else %>Connection setup below works without a Bearer token. Other calls need `Authorization: Bearer $TOKEN`. To mint a session token, send your principal's long-lived token. For every other call, send the session token.<% end %> See the primer at <<%= @base %>/agent-instructions>. Request bodies are JSON.
+
+## Connection setup
+
+<% if @request_auth_available %>
+This host handles initial authentication. Browser connection endpoints are disabled (404).
+<% else %>
+These endpoints do not require a Bearer token. See <<%= @base %>/agent-instructions/connecting>.
+
+| Method and path | Purpose |
+|---|---|
+| `POST /api/v1/agent_connections` | Start browser approval: `name` (1–100 characters). Returns `device_code`, `user_code`, `verification_uri`, `verification_uri_complete`, `expires_in`, and `interval` (201). |
+| `POST /api/v1/agent_connections/token` | Poll with the private `device_code` in the JSON body. After approval, returns a personal `token`, `token_type`, `id`, and `name` once (200). |
+
+Pending/error responses are 400 with `error`: `authorization_pending`, `slow_down`,
+`access_denied`, `expired_token`, or `invalid_grant`. Increase the polling interval
+by 5 seconds after `slow_down`. Requests expire after 10 minutes. Rate limits
+return 429. Invalid names return 422 with `invalid_request`.
+<% end %>
 
 ## Tokens
 

@@ -1,0 +1,163 @@
+#!/usr/bin/env ruby
+# Browser approval bootstrap. Only the public approval code is displayed;
+# credentials move directly from the HTTPS response into a private local file.
+require "json"
+require "net/http"
+require "uri"
+require "optparse"
+require "fileutils"
+require "tempfile"
+require "rbconfig"
+
+module CoPlanConnect
+  class Error < StandardError; end
+
+  class Client
+    def initialize(base:, name:, credentials:, open_browser: true, replace: false)
+      @base = normalize_base(base)
+      @name = name
+      @credentials = File.expand_path(credentials)
+      @open_browser = open_browser
+      @replace = replace
+    end
+
+    def run
+      directory = File.dirname(@credentials)
+      FileUtils.mkdir_p(directory, mode: 0o700)
+      raise Error, "The credentials path must not be a symbolic link." if File.symlink?(@credentials) || File.symlink?("#{@credentials}.lock")
+      File.open("#{@credentials}.lock", File::RDWR | File::CREAT, 0o600) do |lock|
+        raise Error, "Another CoPlan setup is already running for this credentials file." unless lock.flock(File::LOCK_EX | File::LOCK_NB)
+        return if already_connected?
+        connection, status = post("/api/v1/agent_connections", { name: @name })
+        raise Error, "This host uses its own authentication. Follow its /agent-instructions instead." if status == 404
+        raise Error, "Could not start connection setup (HTTP #{status})." unless status == 201
+        verification = URI(connection.fetch("verification_uri_complete"))
+        base_uri = URI(@base)
+        unless [ verification.scheme, verification.host, verification.port ] == [ base_uri.scheme, base_uri.host, base_uri.port ] && !verification.userinfo
+          raise Error, "The approval URL must belong to the CoPlan host."
+        end
+        puts "Approve this connection to #{@base}:"
+        puts verification
+        puts "Match this code in your browser: #{connection.fetch('user_code')}"
+        puts "Waiting for your approval. No credential will be printed."
+        open_url(verification.to_s) if @open_browser
+        result = await_approval(connection)
+        unless result["token"].to_s.match?(/\A[0-9a-f]{64}\z/)
+          raise Error, "The server returned an invalid credential."
+        end
+        save_credentials(result)
+        puts "Connected. Credential saved privately to #{@credentials}."
+        puts "Your agent can now mint its own short-lived session tokens."
+      end
+    end
+
+    private
+
+    def normalize_base(base)
+      uri = URI(base.to_s)
+      loopback = %w[localhost 127.0.0.1 ::1].include?(uri.hostname)
+      unless uri.is_a?(URI::HTTP) && uri.host && (uri.scheme == "https" || (uri.scheme == "http" && loopback)) && !uri.userinfo && !uri.query && !uri.fragment
+        raise Error, "Use an HTTPS CoPlan URL (HTTP is allowed only on localhost)."
+      end
+      uri.to_s.delete_suffix("/")
+    end
+
+    def already_connected?
+      return false unless File.exist?(@credentials)
+      raise Error, "The credentials path must be a regular file." unless File.file?(@credentials)
+      existing = JSON.parse(File.read(@credentials))
+      unless existing.is_a?(Hash) && existing["base_url"] == @base
+        raise Error, "This file belongs to another host or format. Use --credentials with a different path."
+      end
+      return false if @replace
+      raise Error, "This file has no credential. Run setup with --replace." if existing["token"].to_s.empty?
+      File.chmod(0o600, @credentials)
+      puts "Already connected to #{@base}. Use --replace if this credential has been revoked."
+      true
+    end
+
+    def post(path, body)
+      uri = URI("#{@base}#{path}")
+      request = Net::HTTP::Post.new(uri)
+      request["Content-Type"] = "application/json"
+      request["User-Agent"] = "coplan-connect"
+      request.body = JSON.generate(body)
+      response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https", open_timeout: 10, read_timeout: 15) { |http| http.request(request) }
+      return [ {}, response.code.to_i ] if response.code == "404"
+      raise Error, "Unexpected response from the CoPlan host." if response.body.to_s.bytesize > 32_768
+      [ JSON.parse(response.body), response.code.to_i ]
+    end
+
+    def await_approval(connection)
+      interval = connection.fetch("interval").to_i.clamp(5, 30)
+      deadline = monotonic_time + connection.fetch("expires_in").to_i.clamp(1, 600)
+      while monotonic_time < deadline
+        sleep [ interval, deadline - monotonic_time ].min
+        break if monotonic_time >= deadline
+        result, status = post("/api/v1/agent_connections/token", { device_code: connection.fetch("device_code") })
+        return result if status == 200 && result["token"]
+        case result["error"]
+        when "authorization_pending" then next
+        when "slow_down", "rate_limited" then interval = [ interval + 5, 60 ].min
+        when "access_denied" then raise Error, "Connection declined. No credential was saved."
+        when "expired_token" then break
+        else raise Error, "Connection could not be redeemed. Start setup again."
+        end
+      end
+      raise Error, "Connection request expired. Start setup again."
+    end
+
+    def monotonic_time
+      Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    end
+
+    def save_credentials(result)
+      Tempfile.create([ ".coplan-credential", ".json" ], File.dirname(@credentials)) do |file|
+        file.chmod(0o600)
+        file.write(JSON.pretty_generate(base_url: @base, token: result.fetch("token")))
+        file.flush
+        file.fsync
+        File.rename(file.path, @credentials)
+      end
+    end
+
+    def open_url(url)
+      command = case RbConfig::CONFIG["host_os"]
+      when /darwin/ then "open"
+      when /mswin|mingw/ then "rundll32.exe"
+      else "xdg-open"
+      end
+      arguments = command == "rundll32.exe" ? [ "url.dll,FileProtocolHandler", url ] : [ url ]
+      system(command, *arguments, out: File::NULL, err: File::NULL)
+    end
+  end
+
+  def self.run(argv)
+    options = { name: "Local computer", credentials: File.join(Dir.home, ".config/coplan/credentials.json") }
+    parser = OptionParser.new do |opts|
+      opts.banner = "Usage: ruby coplan-connect --base https://coplan.example.com [--name 'Work laptop']"
+      opts.on("--base URL", "CoPlan host, including its mount path") { |v| options[:base] = v }
+      opts.on("--name NAME", "Name of this computer's connection") { |v| options[:name] = v }
+      opts.on("--credentials PATH", "Private credentials file") { |v| options[:credentials] = v }
+      opts.on("--no-open", "Print the approval link without opening a browser") { options[:open_browser] = false }
+      opts.on("--replace", "Replace a saved credential for this same host") { options[:replace] = true }
+      opts.on("--help", "Show help") { puts opts; return 0 }
+    end
+    parser.parse!(argv)
+    raise Error, "--base is required." unless options[:base]
+    Client.new(**options).run
+    0
+  rescue Error, OptionParser::ParseError => e
+    warn e.message
+    1
+  rescue StandardError => e
+    # Exception messages from HTTP/JSON/filesystem libraries may contain input.
+    warn "Connection setup failed (#{e.class}). No credential was printed."
+    1
+  end
+end
+
+if $PROGRAM_NAME == __FILE__
+  $stdout.sync = true
+  exit(CoPlanConnect.run(ARGV))
+end

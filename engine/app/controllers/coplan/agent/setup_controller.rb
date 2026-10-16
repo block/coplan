@@ -6,6 +6,9 @@ module CoPlan
       def show
         @setup_url = coplan.agent_setup_url(format: :md)
         @instructions_url = coplan.agent_instructions_url
+        @connection_enabled = CoPlan.configuration.agent_connection_enabled?
+        @connect_tool_url = coplan.agent_tool_url(tool: "coplan-connect")
+        @base = "#{request.base_url}#{coplan.root_path.chomp("/")}"
         @install_command = CoPlan.configuration.agent_setup_install_command
 
         if prefers_html?

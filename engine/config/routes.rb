@@ -41,6 +41,8 @@ CoPlan::Engine.routes.draw do
     # Setup guidance is an app page, not a person's library. Keep its helper
     # unprefixed while reserving the URL outside the handle namespace.
     get "agent/setup", to: "agent/setup#show", as: :agent_setup
+    get "agent/connect", to: "agent/connections#show", as: :agent_connect
+    post "agent/connect", to: "agent/connections#update"
     get "agent/instructions", to: "agent_instructions#reference", as: :agent_instructions_reference
 
     # Id-based mutations, and nothing else. A document's pages all hang off
@@ -86,6 +88,7 @@ CoPlan::Engine.routes.draw do
     namespace :settings do
       root "settings#index"
       resources :tokens, only: [ :index, :create, :destroy ]
+      get "agent_sessions", to: "tokens#sessions"
       patch "theme", to: "settings#update_theme"
       patch "voice_hotkey", to: "settings#update_voice_hotkey"
     end
@@ -201,6 +204,8 @@ CoPlan::Engine.routes.draw do
       # Bearer token every other call requires. DELETE revokes whichever
       # token authenticated the request.
       resources :tokens, only: [ :create ]
+      post "agent_connections", to: "agent_connections#create"
+      post "agent_connections/token", to: "agent_connections#token"
       delete "tokens/current", to: "tokens#destroy", as: :revoke_current_token
     end
   end

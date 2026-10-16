@@ -304,3 +304,32 @@ Each level uses `config.ai_models` when configured and otherwise falls back to
 `config.ai_model`. Plan summaries request `:low`; dictated comment cleanup and
 anchoring request `:medium`. Audio transcription uses its own model, configured
 with `COPLAN_TRANSCRIBE_MODEL`.
+
+## Connecting local agents without network authentication
+
+When `config.api_authenticate` is unset, CoPlan offers a browser approval flow
+at `/_/agent/setup`. Local tools request a short-lived connection code, a person
+approves using the host's existing browser login, and the local helper redeems
+and stores one durable personal credential. Agents mint child session tokens
+from it. GitHub/OIDC login stays in the host; CoPlan does not need an OAuth
+callback or webhook on the person's computer.
+
+A configured `api_authenticate` hook disables these bootstrap endpoints and
+hides the browser-connection prompt. Hosts supplying implicit network identity,
+including Square, continue to mint sessions directly through that hook.
+
+Serve the public setup guide, `agent-tools/coplan-connect`, and
+`POST /api/v1/agent_connections{,/token}` to unauthenticated callers; they cannot
+grant account access. `/_/agent/connect` displays the request, but approval is a
+CSRF-protected POST using the host's human authentication. For signed-out people,
+the approval page opens `config.sign_in_path` in a separate tab, then lets them
+continue in the original tab. No return-URL contract is required from the host.
+
+Use HTTPS and a shared Rails cache with atomic increments (such as Solid Cache)
+for the per-IP start, polling, and verification rate limits across app workers.
+Expired approval requests are pruned in batches on later starts. Tokens remain
+in the normal personal-token and session history. Engine-owned parameter filters
+redact both connection codes, and approval/token responses disable caching.
+The helper stores the credential with mode 0600 without printing it. A second
+host needs its own credentials file; the helper never overwrites another host's
+configuration.

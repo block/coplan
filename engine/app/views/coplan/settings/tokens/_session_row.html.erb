@@ -1,0 +1,38 @@
+<% metadata = token.metadata.is_a?(Hash) ? token.metadata : {} %>
+<tr id="<%= dom_id(token) %>">
+  <td>
+    <strong><%= token.agent_name.presence || "Agent not reported" %></strong>
+    <span class="access-detail"><%= metadata["harness"].presence || "Harness not reported" %> · <%= metadata["model"].presence || "Model not reported" %></span>
+    <span class="access-purpose"><%= token.name %></span>
+    <details class="access-details">
+      <summary>Details</summary>
+      <dl>
+        <dt>Acting for</dt><dd><%= current_user.name %></dd>
+        <dt>Authenticated through</dt><dd><%= token.parent ? "Personal token: #{token.parent.name}" : "Host authentication" %></dd>
+        <dt>Harness version</dt><dd><%= metadata["harness_version"].presence || "Not reported" %></dd>
+        <dt>Created</dt><dd><time datetime="<%= token.created_at.iso8601 %>"><%= token.created_at.utc.iso8601 %></time></dd>
+        <dt>Session ID</dt><dd><code><%= token.id %></code></dd>
+      </dl>
+    </details>
+  </td>
+  <td>
+    <% if token.revoked? %>
+      <span class="badge badge--neutral">Revoked</span>
+    <% elsif token.expired? %>
+      <span class="badge badge--neutral">Expired</span>
+    <% elsif token.parent_disabled? %>
+      <span class="badge badge--neutral">Parent access ended</span>
+    <% else %>
+      <span class="badge badge--success">Valid</span>
+    <% end %>
+    <% if token.expires_at %>
+      <span class="access-detail"><time datetime="<%= token.expires_at.iso8601 %>" title="<%= token.expires_at.utc.iso8601 %>"><%= token.expired? ? "Expired #{time_ago_in_words(token.expires_at)} ago" : "Expires in #{time_ago_in_words(token.expires_at)}" %></time></span>
+    <% end %>
+  </td>
+  <td><%= render "last_used", token: token %></td>
+  <td>
+    <% if token.active? && !token.parent_disabled? %>
+      <%= button_to "Revoke", settings_token_path(token), method: :delete, params: { surface: "sessions", filter: @filter, q: @query, page: @page }, class: "btn btn--danger btn--sm", aria: { label: "Revoke #{token.name}" }, data: { turbo_submits_with: "Revoking…" } %>
+    <% end %>
+  </td>
+</tr>
