@@ -14,7 +14,7 @@ RSpec.describe "Writing provenance", type: :request do
     expect(response.body).not_to include("AI agents and models")
     get writing_provenance_plan_path(plan)
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include("Human written", "AI written", "Unknown", "Claude", "Model unspecified", "Highlight sources")
+    expect(response.body).to include("Human written", "AI written", "Unknown", "Claude", "Inspect writing")
   end
 
   it "exposes cached API summaries and optional compact Unicode ranges" do
@@ -42,7 +42,8 @@ RSpec.describe "Writing provenance", type: :request do
     data = response.parsed_body
     expect(data.fetch("revision")).to eq(1)
     expect(data.dig("rendered", "text")).to eq("AIbody")
-    expect(data.dig("rendered", "runs")).to eq([ [ 6, "ai" ] ])
+    key = data.dig("rendered", "runs").first.last
+    expect(data.dig("rendered", "sources", key)).to include("kind" => "ai", "origin_revision" => 1)
   end
 
   it "queues legacy reconstruction only when details are requested" do

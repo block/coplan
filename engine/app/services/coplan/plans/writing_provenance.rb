@@ -16,23 +16,22 @@ module CoPlan
       end
 
       def self.rendered_sources(version)
-        return { text: "", runs: [] } if version.content_markdown.include?("::: {.presentation")
         text, positions = MarkdownTextExtractor.call(version.content_markdown)
         source_chars = version.content_markdown.chars
         snapshot = version.writing_provenance
         offset = 0
-        intervals = snapshot.fetch("runs").map { |length, key| offset += length; [ offset, snapshot.fetch("sources").fetch(key).fetch("kind") ] }
+        intervals = snapshot.fetch("runs").map { |length, key| offset += length; [ offset, key ] }
         result, runs = +"", []
         text.each_char.with_index do |char, index|
           next if char.match?(/[[:space:]]/)
           position = positions[index]
-          kind = if position && position >= 0 && source_chars[position] == char
+          key = if position && position >= 0 && source_chars[position] == char
             intervals.bsearch { |stop, _| stop > position }&.last
           end
           result << char
-          append(runs, char.encode(Encoding::UTF_16LE).bytesize / 2, kind)
+          append(runs, char.encode(Encoding::UTF_16LE).bytesize / 2, key)
         end
-        { text: result, runs: runs }
+        { text: result, runs: runs, sources: snapshot.fetch("sources") }
       end
 
       def initialize(version:, previous:)
@@ -47,11 +46,13 @@ module CoPlan
         sources = valid ? snapshot.fetch("sources").deep_dup : {}
         sources[UNKNOWN] = { "kind" => UNKNOWN }
         prior_runs = valid ? snapshot.fetch("runs") : [ [ old.length, UNKNOWN ] ]
-        identity = source_identity
-        source_key = Digest::SHA256.hexdigest(identity.to_json).first(24)
+        origin = { "origin_revision" => @version.revision, "origin_at" => (@version.created_at || Time.current).iso8601,
+          "user_name" => @version.actor_user&.name }.compact
+        identity = source_identity.merge(origin)
+        source_key = Digest::SHA256.hexdigest(identity.sort.to_h.to_json).first(24)
         sources[source_key] = identity
-        unknown_identity = { "kind" => UNKNOWN, "user_id" => @version.actor_id }.compact
-        unknown_key = Digest::SHA256.hexdigest(unknown_identity.to_json).first(24)
+        unknown_identity = { "kind" => UNKNOWN, "user_id" => @version.actor_id }.compact.merge(origin)
+        unknown_key = Digest::SHA256.hexdigest(unknown_identity.sort.to_h.to_json).first(24)
         sources[unknown_key] = unknown_identity
         input = self.class.input_runs(@version.input_sources, content)
         insertions = if @version.actor_type == "human" && input
@@ -207,12 +208,19 @@ module CoPlan
           contributions[source] += count
           offset += length
         end
+        grouped = {}
+        contributions.each do |key, count|
+          next unless count.positive?
+          identity = sources.fetch(key).except("origin_revision", "origin_at")
+          group = (grouped[identity] ||= identity.merge("characters" => 0))
+          group["characters"] += count
+        end
         total = counts.values.sum
         { "revision" => @version.revision, "method" => "retained_markdown_v1",
           "unit" => "non_whitespace_markdown_characters", "total" => total,
           "counts" => counts, "shares" => counts.transform_values { |count| total.zero? ? 0 : count.fdiv(total) },
-          "contributors" => contributions.filter_map { |key, count|
-            sources.fetch(key).merge("characters" => count, "share" => total.zero? ? 0 : count.fdiv(total)) if count.positive?
+          "contributors" => grouped.values.map { |source|
+            source.merge("share" => total.zero? ? 0 : source["characters"].fdiv(total))
           }.sort_by { |source| -source["characters"] } }
       end
     end

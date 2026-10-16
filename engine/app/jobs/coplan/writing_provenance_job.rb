@@ -21,7 +21,7 @@ module CoPlan
         versions.each do |version|
           existing = version.writing_provenance.to_h
           version.writing_identity = existing["write_source"]
-          if version.actor_type == "human" && existing["format"] == Plans::WritingProvenance::FORMAT
+          if version.actor_type == "human" && existing.dig("write_source", "kind") != "ai" && existing["format"] == Plans::WritingProvenance::FORMAT
             offset = 0
             version.input_sources = { "runs" => existing.fetch("runs").map { |length, key|
               text = version.content_markdown[offset, length]
@@ -39,7 +39,7 @@ module CoPlan
       updated = Plan.where(id: plan.id, current_plan_version_id: previous.id)
         .update_all(writing_provenance_summary: previous.writing_provenance.fetch("summary"))
       return unless updated.positive?
-      Broadcaster.replace_to(plan.reload, target: "plan-header", partial: "coplan/plans/header", locals: { plan: plan })
+      Broadcaster.replace_to(plan.reload, target: "writing-provenance", partial: "coplan/plans/writing_provenance", locals: { plan: plan })
     end
   end
 end

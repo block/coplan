@@ -53,13 +53,16 @@ module CoPlan
         showcase: "Person icon; recorded human input throughout" },
       { key: "writing-ai", author: "hampton", type: "General", title: "Writing sources: AI written",
         tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "ai",
-        showcase: "Robot icon; Claude Code attribution; expand AI agents and models" },
+        showcase: "Robot icon; Claude Code attribution; inspect the source of each word" },
       { key: "writing-unknown", author: "hampton", type: "General", title: "Writing sources: pasted or unknown",
-        tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources",
+        tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "unknown",
         showcase: "Unknown origin with a known human contributor" },
       { key: "writing-mixed", author: "hampton", type: "General", title: "Writing sources: people, agents, and paste",
         tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "mixed",
         showcase: "All three categories; source highlights and a subsequent agent contribution" },
+      { key: "writing-word-edit", author: "hampton", type: "General", title: "Writing sources: one word changes the meaning",
+        tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "ai",
+        showcase: "Hover the human-added word not to see Hampton, version, and time" },
       { key: "diagram-comments", author: "hampton", type: "Design Doc", title: "Flowchart: comment on nodes and connections",
         tags: %w[demo diagrams], visibility: "published", folder: "Demo content/Diagrams", group: "Diagrams",
         showcase: "Flowchart with seeded node and edge discussions; press C to select an element" },
@@ -270,13 +273,16 @@ module CoPlan
         seed_agent_organization_run(users, plans)
         seed_small_edits(users, plans)
         seed_writing_sources(users, plans)
+        seed_writing_word_edit(users, plans)
         seed_reviews(users, plans)
         seed_review_requests(users, plans)
         seed_agent_access(users)
         seed_agent_connections(users) if CoPlan.configuration.agent_connection_enabled?
         seed_content_discussions(users, plans)
         seed_reference_gallery(plans, base_url: base_url)
-        seed_catalog(users, plans, plan_types, base_url: base_url)
+        catalog = seed_catalog(users, plans, plan_types, base_url: base_url)
+        seed_writing_history(users, plans, catalog)
+        catalog
       end
 
       puts "Done! #{User.count} users, #{Plan.count} documents, #{Folder.count} folders, #{Tag.count} tags, " \
@@ -349,7 +355,7 @@ module CoPlan
 
         unless plan
           content = document_content(definition)
-          origin = definition[:writing_source]
+          origin = definition.fetch(:writing_source, "ai")
           token = seed_agent_token(author) if origin == "ai"
           input_sources = case origin
           when "human" then { "runs" => [ [ content.encode(Encoding::UTF_16LE).bytesize / 2, "human" ] ] }
@@ -513,9 +519,9 @@ module CoPlan
     end
 
     def seed_agent_edit(plan, author, token, related_plan:, base_url:)
-      # One agent-attributed version is the fixture; local edits after it
-      # are the user's business.
-      return if plan.plan_versions.exists?(actor_type: "local_agent")
+      # Add one agent edit to the pristine fixture. Initial demo text also
+      # has agent attribution; later local edits are the user's business.
+      return unless plan.current_revision == 1
 
       content = plan.current_content
       updated = content.sub(
@@ -776,6 +782,37 @@ module CoPlan
         agent_name: token.agent_name, api_token_id: token.id, change_summary: "Add the agent's retry proposal")
     end
 
+    def seed_writing_word_edit(users, plans)
+      plan = plans.fetch("writing-word-edit")
+      content = document_content(DOCUMENTS.find { |item| item[:key] == "writing-word-edit" })
+      return unless plan.current_revision == 1 && plan.current_content == content
+      changed = content.sub("may retry", "may not retry")
+      Plans::ReplaceContent.call(plan: plan, new_content: changed, base_revision: 1,
+        actor_type: "human", actor_id: users.fetch("hampton").id, change_summary: "Change retry policy with one word",
+        input_sources: { "runs" => [ [ changed.encode(Encoding::UTF_16LE).bytesize / 2, "human" ] ] })
+    end
+
+    # Demo fixture origin is explicit simulation data. Reconstruct only seed-owned
+    # initial versions; never replace the input evidence from a person's later edit.
+    def seed_writing_history(users, plans, catalog)
+      definitions = DOCUMENTS.index_by { |item| item[:key] }
+      plans.merge("demo-library" => catalog).each do |key, plan|
+        first = plan.plan_versions.find_by!(revision: 1)
+        origin = definitions[key]&.fetch(:writing_source, "ai") || "ai"
+        existing = first.writing_provenance.to_h
+        ready = existing.dig("write_source", "origin_revision") && (origin != "ai" || existing.dig("summary", "counts", "ai") == existing.dig("summary", "total"))
+        next if ready
+        if origin == "ai"
+          token = seed_agent_token(users.fetch("hampton"))
+          first.writing_provenance = first.writing_provenance.to_h.merge("write_source" => {
+            "kind" => "ai", "user_id" => first.actor_id, "agent_name" => token.agent_name,
+            "harness" => "claude-code", "harness_name" => "Claude" })
+          first.update_columns(writing_provenance: first.writing_provenance)
+        end
+        WritingProvenanceJob.perform_now(plan_id: plan.id)
+      end
+    end
+
     def seed_reviews(users, plans)
       REVIEW_SCENARIOS.each do |key, approved|
         plan = plans.fetch(key)
@@ -954,13 +991,15 @@ module CoPlan
         return existing unless existing.current_plan_version.content_sha256 == existing.metadata["development_catalog_sha"]
 
         Plans::ReplaceContent.call(plan: existing, new_content: content,
-          base_revision: existing.current_revision, actor_type: "system", actor_id: author.id,
+          base_revision: existing.current_revision, actor_type: "local_agent", actor_id: author.id,
+          agent_name: seed_agent_token(author).agent_name, api_token_id: seed_agent_token(author).id,
           change_summary: "Refresh the demo library index")
         existing.update!(metadata: existing.metadata.merge("development_catalog_sha" => existing.current_plan_version.content_sha256))
         return existing
       end
 
       plan = Plans::Create.call(title: "Demo library", content: content, user: author,
+        actor_type: "local_agent", agent_name: seed_agent_token(author).agent_name, api_token_id: seed_agent_token(author).id,
         plan_type_id: plan_types.fetch("General").id, visibility: "published")
       plan.update!(metadata: plan.metadata.to_h.merge("development_seed_key" => "demo-library",
         "development_catalog_sha" => plan.current_plan_version.content_sha256))
