@@ -130,6 +130,28 @@ RSpec.describe "Comments", type: :request do
       expect(response).to redirect_to(plan_page_path(plan))
     end
 
+    it "soft-deletes the user's agent comment and returns the replacement inline" do
+      comment.update!(author_type: "local_agent", agent_name: "Agent")
+      create(:comment, comment_thread: thread_record, author_id: alice.id, body_markdown: "Keep this reply")
+
+      delete plan_comment_thread_comment_path(plan, thread_record, comment),
+        headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+      expect(response).to have_http_status(:ok)
+      expect(comment.reload).to be_deleted
+      expect(response.body).to include('action="replace"', "Comment deleted")
+    end
+
+    it "protects another account's agent comment from the plan author and admin" do
+      comment.update!(author_type: "local_agent", author_id: create(:coplan_user).id, agent_name: "Agent")
+
+      delete plan_comment_thread_comment_path(plan, thread_record, comment)
+
+      expect(response).to redirect_to(plan_page_path(plan))
+      expect(comment.reload).not_to be_deleted
+      expect(flash[:alert]).to be_present
+    end
+
     it "redirects with alert when the user is not the comment author" do
       bob = create(:coplan_user)
       bobs_comment = create(:comment, comment_thread: thread_record, author_type: "human", author_id: bob.id, body_markdown: "alice can't touch this")

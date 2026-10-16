@@ -1,11 +1,11 @@
 module CoPlan
   class CommentPolicy < ApplicationPolicy
     def update?
-      delete? && !record.deleted?
+      record.author_type == "human" && delete? && !record.deleted?
     end
 
     def delete?
-      record.author_type == "human" && record.author_id == user&.id
+      user.present? && record.author_type.in?(%w[human local_agent]) && record.author_id == user.id
     end
   end
 end

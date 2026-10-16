@@ -164,17 +164,30 @@ RSpec.describe "Api::V1::Comments", type: :request do
       )
     end
 
-    it "forbids agent (token auth) callers from deleting their own agent comment" do
-      agent_comment = create(:comment,
-        comment_thread: thread_record,
-        author_type: "local_agent",
-        author_id: alice_token.id,
-        agent_name: "Amp",
-        body_markdown: "agent output")
+    it "soft-deletes an API-created agent comment using another token for the same account" do
+      post reply_api_v1_plan_comment_path(plan, thread_record),
+        params: { body_markdown: "Agent output" }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      agent_comment = CoPlan::Comment.find(JSON.parse(response.body)["comment_id"])
+      create(:api_token, user: alice, raw_token: "test-token-alice-other")
 
       delete api_v1_plan_destroy_comment_path(plan, id: agent_comment.id),
-        headers: headers,
-        as: :json
+        headers: { "Authorization" => "Bearer test-token-alice-other" }, as: :json
+      expect(response).to have_http_status(:ok)
+      expect(agent_comment.reload.deleted_at).to be_present
+      expect(JSON.parse(response.body)).to include("comment_id" => agent_comment.id)
+
+      expect {
+        delete api_v1_plan_destroy_comment_path(plan, id: agent_comment.id), headers: headers, as: :json
+      }.not_to change { plan.plan_events.where(event_type: "comment_deleted").count }
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "forbids deleting another account's agent comment even as the plan author and admin" do
+      agent_comment = create(:comment, comment_thread: thread_record,
+        author_type: "local_agent", author_id: create(:coplan_user).id, agent_name: "Agent")
+
+      delete api_v1_plan_destroy_comment_path(plan, id: agent_comment.id), headers: headers, as: :json
       expect(response).to have_http_status(:forbidden)
       expect(agent_comment.reload.deleted_at).to be_nil
     end

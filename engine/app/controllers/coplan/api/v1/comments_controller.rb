@@ -125,6 +125,15 @@ module CoPlan
             )
           end
 
+          unless thread.anchored?
+            Broadcaster.replace_to(
+              @plan,
+              target: "plan-general-comments",
+              partial: "coplan/plans/general_comments",
+              locals: { threads: @plan.comment_threads.with_kept_comments.includes(:comments).order(:created_at) }
+            )
+          end
+
           render json: { comment_id: comment.id, deleted_at: comment.deleted_at }
         end
 

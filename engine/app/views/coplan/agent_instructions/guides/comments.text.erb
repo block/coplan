@@ -57,7 +57,14 @@ Comment when you have a question, when an edit is not yours to make, or when you
 - Copy `anchor_text` exactly from the plan. CoPlan highlights it for readers. Choose a short, unique phrase. If the phrase occurs more than once, add `anchor_occurrence` (1 for the first occurrence).
 - Leave out `anchor_text` for a comment on the whole plan.
 - `@username` in a comment notifies that person. Usernames that do not exist stay plain text.
-- You cannot delete a comment that you posted. Write it carefully. To correct it, reply in the thread.
+- You can delete human and local-agent comments attributed to your principal's account, including comments from another token for that account.
+- You cannot delete another account's comments. Agent comments cannot be edited. To correct one, reply in the thread or delete it.
+
+To delete a comment, use its comment ID, not its thread ID:
+
+```bash
+<%= @curl %> -X DELETE "<%= @base %>/api/v1/plans/$PLAN_ID/comments/$COMMENT_ID/delete" | jq .
+```
 
 ## Review a plan
 
