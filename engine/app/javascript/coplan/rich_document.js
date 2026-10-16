@@ -787,8 +787,8 @@ function patchChildren(tr, before, after, offset) {
   }
 }
 
-// A code box is its own text selection scope. ProseMirror's selectAll
-// selects the entire document, including every other code/prose block.
+// Code boxes and template notes are their own text selection scope.
+// ProseMirror's selectAll includes every other code/prose block.
 function visibleSelection(state, view) {
   let { $from, $to } = state.selection
   // A native click can precede ProseMirror's asynchronous selectionchange.
@@ -802,7 +802,7 @@ function visibleSelection(state, view) {
 }
 function selectFocusedText(state, dispatch, view) {
   const { $from, $to } = visibleSelection(state, view)
-  if ($from.sameParent($to) && $from.parent.type === schema.nodes.code_block) {
+  if ($from.sameParent($to) && [schema.nodes.code_block, schema.nodes.template_note].includes($from.parent.type)) {
     if (dispatch) dispatch(state.tr.setSelection(TextSelection.create(state.doc, $from.start(), $from.end())))
     return true
   }

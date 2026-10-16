@@ -47,6 +47,7 @@ The rich editor rejects text that would close a note's HTML comment and shows
 an explanation. Use spaced text such as `-- >` to write a closing marker.
 Notes stay plain text: formatting controls and shortcuts do not convert them
 to visible document blocks. Review highlights and caret restoration skip notes.
+Cmd/Ctrl+A inside a note selects only that note's text.
 
 Raw mode edits the exact Markdown source in a plain, unformatted editor. Switching
 modes alone does not serialize, save or normalize the text, including unsupported

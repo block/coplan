@@ -135,6 +135,22 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).to have_css(".document-editor__template-note", text: "Explain the decision here. --!", wait: 20)
   end
 
+  it "scopes Select All to the current note when replacing guidance" do
+    note = all(".document-editor__template-note").first
+    note.click
+    page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).send_keys("Revised guidance.").perform
+    expect(note.text).to eq("Revised guidance.")
+    expect(page).to have_css(".ProseMirror > h1", text: "Decision")
+    expect(page).to have_css(".ProseMirror > p", text: "Visible prose.")
+    expect(page).to have_css(".document-editor__template-note", count: 2)
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to eq(source.sub("Explain the decision here.", "Revised guidance."))
+    expect(page).not_to have_content("Revised guidance.")
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css(".document-editor__template-note", text: "Revised guidance.", wait: 20)
+  end
+
   it "keeps an empty comment hidden when its first character would abruptly close it" do
     click_button "Raw", exact: true
     find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "<!---->\n\nVisible prose.")
