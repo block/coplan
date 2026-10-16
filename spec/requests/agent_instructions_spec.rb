@@ -183,6 +183,13 @@ RSpec.describe "Agent Instructions", type: :request do
     end
 
     describe "editing" do
+      it "describes section dots without the removed banner or Dismiss action" do
+        get agent_instructions_guide_path(guide: "editing")
+
+        expect(response.body).to include("Dots clear after a short reading pause", "There is no update banner.")
+        expect(response.body).not_to match(/dismiss/i)
+      end
+
       it "explains the edit lock that blocks every write" do
         get agent_instructions_guide_path(guide: "editing")
         expect(response.body).to include(%("code": "edit_locked"))

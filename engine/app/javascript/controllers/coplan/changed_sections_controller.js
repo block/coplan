@@ -6,7 +6,7 @@ const TOP_KEY = "__top__"
 const READ_DELAY = 3000
 
 export default class extends Controller {
-  static targets = ["note", "summary", "markerTemplate"]
+  static targets = ["markerTemplate"]
   static values = { keys: Array, rewritten: Boolean, viewed: Array, updates: Object, revision: Number }
 
   connect() {
@@ -16,16 +16,12 @@ export default class extends Controller {
     this.held = new Map()
     this.timers = new Map()
     const content = this.element.querySelector("#plan-content-body")
-    if (!content || !this.hasNoteTarget || this.noteTarget.classList.contains("changed-sections-note--dismissed")) return
+    if (!content || !this.hasMarkerTemplateTarget) return
     this.element.querySelectorAll(".section-update-marker").forEach(node => node.remove())
     this.element.querySelectorAll(".section-updated").forEach(node => {
       node.classList.remove("section-updated", "section-updated--viewed")
     })
-    if (this.rewrittenValue) {
-      this.noteTarget.hidden = false
-      this.summaryTarget.textContent = "Updated throughout since your last visit."
-      return
-    }
+    if (this.rewrittenValue) return
 
     const keys = new Set(this.keysValue)
     const used = new Set()
@@ -39,8 +35,6 @@ export default class extends Controller {
         this._mark(node, TOP_KEY)
       }
     }
-    this.noteTarget.hidden = this.sections.size === 0
-    this.summaryTarget.textContent = `${this.sections.size} section${this.sections.size === 1 ? "" : "s"} updated since your last visit.`
     this.observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         const node = entry.target
@@ -71,13 +65,9 @@ export default class extends Controller {
       const changed = event.detail.keys.filter(key => incoming(key).revision > (updates[key]?.revision || 0))
       if (event.detail.update.revision > this.revisionValue) {
         this.revisionValue = event.detail.update.revision
-        if (changed.length || event.detail.update.rewritten) {
-          if (this.noteTarget.classList.contains("changed-sections-note--dismissed")) {
-            this.keysValue = []
-            this.rewrittenValue = Boolean(event.detail.update.rewritten)
-          }
-          this.noteTarget.classList.remove("changed-sections-note--dismissed")
-          this.noteTarget.inert = false
+        if (this.rewrittenValue && !event.detail.update.rewritten && changed.length) {
+          this.keysValue = []
+          this.rewrittenValue = false
         }
       }
       this.viewedValue = this.viewedValue.filter(key => !changed.includes(key))
@@ -110,13 +100,6 @@ export default class extends Controller {
     reasons?.delete(event.type.startsWith("focus") ? "focus" : "hover")
     if (!reasons?.size) this.held.delete(node)
     if (this.visible.has(node)) this._schedule(node)
-  }
-
-  dismiss() {
-    this.sections.forEach(node => this._view(node))
-    this.noteTarget.classList.add("changed-sections-note--dismissed")
-    this.noteTarget.inert = true
-    this.disconnect()
   }
 
   _mark(node, key) {

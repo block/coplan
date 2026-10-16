@@ -204,7 +204,7 @@ RSpec.describe "Deck UX", type: :system do
       send_keys(:escape)
 
       expect(page).to have_no_css(".deck--presenting")
-      expect(page).to have_css(".changed-sections-note", text: "2 sections updated")
+      expect(page).to have_no_css(".changed-sections-note", visible: :all)
       expect(page).to have_css('#what-the-classifier-sees .section-update-marker[aria-label*="First editor"]', visible: :all)
       expect(page).to have_css('#before-the-readout .section-update-marker[aria-label*="Second editor"]', visible: :all)
       find(".deck-toolbar__step--next").click
@@ -225,7 +225,7 @@ RSpec.describe "Deck UX", type: :system do
     send_keys(:escape)
 
     expect(page).to have_no_css(".deck--presenting")
-    expect(page).to have_css(".changed-sections-note", text: "Updated throughout since your last visit.")
+    expect(page).to have_no_css(".changed-sections-note", visible: :all)
     expect(page).to have_no_css(".section-update-marker", visible: :all)
   end
 

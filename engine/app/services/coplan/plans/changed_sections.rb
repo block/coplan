@@ -20,8 +20,8 @@ module CoPlan
     # just means that section quietly doesn't highlight — the safe failure.
     #
     # If most of a long plan changed, section signposts tell the reader
-    # little. Return `rewritten?` with no keys so the page can offer one
-    # "Updated throughout" notice and a history link instead.
+    # little. Return `rewritten?` with no keys instead of marking the
+    # whole document. Readers can open History for the full diff.
     class ChangedSections
       TOP_KEY = "__top__".freeze
       HEADING_TAGS = %w[h1 h2 h3].freeze

@@ -62,7 +62,7 @@ RSpec.describe "Changed-section highlights", type: :request do
     expect(updates["rollout"]["revision"]).to eq(3)
   end
 
-  it "embeds the last section editor and time safely, with simple history and dismiss controls" do
+  it "embeds the last section editor and time safely, without a summary banner" do
     author.update!(name: 'Editor "<design>"')
     original = "## Design\n\nOriginal design.\n\n## Rollout\n\nOriginal rollout.\n"
     plan.current_plan_version.update_columns(content_markdown: original, created_at: 2.hours.ago)
@@ -79,9 +79,8 @@ RSpec.describe "Changed-section highlights", type: :request do
     html = Nokogiri::HTML(response.body)
     updates = JSON.parse(html.at_css(".plan-layout")["data-coplan--changed-sections-updates-value"])
     expect(updates["design"]).to include("by" => 'Codex (via Editor "<design>")', "at" => edited.created_at.iso8601)
+    expect(html.at_css(".changed-sections-note")).to be_nil
     expect(updates["rollout"]).to include("by" => viewer.name, "at" => latest.created_at.iso8601)
-    expect(html.at_css(".changed-sections-note").text).to include("History", "Dismiss")
-    expect(html.at_css(".changed-sections-note").text).not_to include("Review updates", "Next", "Previous")
   end
 
   it "sends no keys when nothing changed since the last visit" do
