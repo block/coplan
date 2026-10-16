@@ -82,11 +82,22 @@ export default class extends Controller {
     this.persistDraft()
     this.richEditor?.destroy()
     this.rawEditor?.destroy()
+    this.noteToast?.remove()
     this.releaseIdle()
     this.releaseComposition()
   }
 
   get isNew() { return this.planIdValue === "new" }
+  templateNoteRejected() {
+    this.noteToast?.remove()
+    const toast = document.createElement("div")
+    toast.className = "flash flash--alert toasts__toast"
+    toast.dataset.controller = "coplan--toast"
+    toast.setAttribute("role", "alert")
+    toast.textContent = "We couldn't add that text because it would end the template note. Use -- > to show a closing marker."
+    document.getElementById("coplan-toasts").append(toast)
+    this.noteToast = toast
+  }
   snapshot() {
     return { content: this.textareaTarget.value, title: this.element.querySelector('[name="plan[title]"]').value,
       tags: this.element.querySelector('[name="plan[tag_names]"]').value }

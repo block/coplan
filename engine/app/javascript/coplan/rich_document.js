@@ -232,6 +232,7 @@ export function parseDocument(markdown) {
     if (segment.kind === "template_note") {
       const [, opening, body, closing] = /^(\s*<!--\s*)([\s\S]*?)(\s*-->[ \t]*(?:\r?\n)?)$/.exec(segment.source)
       const node = schema.nodes.template_note.create({ opening, closing }, body ? schema.text(body) : null)
+      if (templateNoteClosesEarly(node)) { blocks.push(preserved(segment.source)); continue }
       blocks.push(node.type.create({ ...node.attrs, source: segment.source, snapshot: signature(node) }, node.content))
       continue
     }
@@ -342,6 +343,20 @@ function richPositionForSource(doc, offset) {
   return next < 0 ? positions.at(-1) + 1 : positions[next]
 }
 
+function templateNoteClosesEarly(node) {
+  return /--!?>/.test(node.textContent) ||
+    (node.attrs.opening.endsWith("<!--") && /^(?:>|->)/.test(node.textContent))
+}
+function hasInvalidTemplateNote(doc) {
+  let invalid = false
+  doc.descendants(node => {
+    if (node.type !== schema.nodes.template_note) return
+    invalid ||= templateNoteClosesEarly(node)
+    return false
+  })
+  return invalid
+}
+
 export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = []) {
   let rangeDoc, ranges, previewOffsetTimer, editingLanguage = false
   const sourceRangeAt = (view, position) => {
@@ -409,6 +424,13 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       return true
     },
     dispatchTransaction(transaction) {
+      // Check every rich transaction, including paste, composition and undo.
+      // A note must never serialize text outside its HTML comment wrapper.
+      if (transaction.docChanged && hasInvalidTemplateNote(transaction.doc)) {
+        view.updateState(view.state)
+        element.dispatchEvent(new CustomEvent("coplan:template-note-rejected", { bubbles: true }))
+        return
+      }
       if (transaction.docChanged) {
         // Keep successive keystrokes together, but fence transitions between
         // language and content even inside history's grouping delay.

@@ -30,7 +30,8 @@ RSpec.describe "Template notes in the document editor", type: :system do
           "    <!-- indented code -->\n",
           "<details><summary>Details</summary>\n\nBody\n\n</details>\n",
           "<details>\n<!-- Keep this HTML block together. -->\n</details>\n",
-          "::: {.presentation}\n\n# Slide\n\n<!-- notes: speaker guidance -->\n\n:::\n"
+          "::: {.presentation}\n\n# Slide\n\n<!-- notes: speaker guidance -->\n\n:::\n",
+          "<!-->Visible text-->", "<!--->Visible text-->", "<!-- Hint --!>Visible text-->"
         ];
         done(examples.map(source => {
           const doc = m.parseDocument(source), kinds = [];
@@ -40,7 +41,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
       }).catch(error => done({ error: error.message }));
     JS
     expect(result).to all(include("exact" => true))
-    expect(result.map { |entry| entry.fetch("notes") }).to eq([ 2, 1, 1, 1, 0, 0, 0, 0, 0, 0 ])
+    expect(result.map { |entry| entry.fetch("notes") }).to eq([ 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 ])
     templates = Dir[CoPlan::Engine.root.join("db/default_plan_types/*.md")].map do |path|
       content = File.read(path)
       notes = CoPlan::ContentRegions::Split.call(content).regions
@@ -100,5 +101,52 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).not_to have_content("More guidance")
     visit plan_edit_page_path(plan)
     expect(page).to have_css(".document-editor__template-note", text: "Next line.", wait: 20)
+  end
+
+  it "rejects typed and pasted closing markers without exposing note text to readers" do
+    note = all(".document-editor__template-note").first
+    note.click
+    note.send_keys(:end, " --")
+    %w[light dark].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      note.send_keys(">")
+      expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the template note")
+      expect(note.text).to eq("Explain the decision here. --")
+      page.save_screenshot(Rails.root.join("tmp", "template-notes-rejected-#{theme}.png"))
+    end
+    note.send_keys("!", ">")
+    expect(note.text).to eq("Explain the decision here. --!")
+
+    page.execute_script(<<~'JS')
+      const clipboard = new DataTransfer();
+      clipboard.setData("text/plain", " -->Text that must stay hidden");
+      document.querySelector('.document-editor__body .ProseMirror').dispatchEvent(
+        new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+    JS
+    expect(note.text).to eq("Explain the decision here. --!")
+    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the template note")
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to include("<!-- Explain the decision here. --! -->")
+    expect(page).not_to have_content("Explain the decision here.")
+    expect(page).not_to have_content("Text that must stay hidden")
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css(".document-editor__template-note", text: "Explain the decision here. --!", wait: 20)
+  end
+
+  it "keeps an empty comment hidden when its first character would abruptly close it" do
+    click_button "Raw", exact: true
+    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "<!---->\n\nVisible prose.")
+    click_button "Editor", exact: true
+    note = find(".document-editor__template-note")
+    note.click
+    note.send_keys(">")
+    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the template note")
+    expect(note.text).to eq("")
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to eq("<!---->\n\nVisible prose.")
+    expect(page).to have_content("Visible prose.")
+    expect(page).not_to have_content("-->")
   end
 end

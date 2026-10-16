@@ -43,6 +43,8 @@ new draft can simply close the editor. Comments remain available in reading view
 Standalone HTML comments (`<!-- … -->`) appear as muted, directly editable
 template notes in Editor and Dual modes. The delimiters stay in Raw mode;
 notes remain hidden in reading view. Untouched notes keep their exact source.
+The rich editor rejects text that would close a note's HTML comment and shows
+an explanation. Use spaced text such as `-- >` to write a closing marker.
 
 Raw mode edits the exact Markdown source in a plain, unformatted editor. Switching
 modes alone does not serialize, save or normalize the text, including unsupported
