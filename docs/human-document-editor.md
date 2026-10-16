@@ -40,6 +40,10 @@ new draft can simply close the editor. Comments remain available in reading view
 
 ## Markdown, tables and diagrams
 
+Standalone HTML comments (`<!-- … -->`) appear as muted, directly editable
+template notes in Editor and Dual modes. The delimiters stay in Raw mode;
+notes remain hidden in reading view. Untouched notes keep their exact source.
+
 Raw mode edits the exact Markdown source in a plain, unformatted editor. Switching
 modes alone does not serialize, save or normalize the text, including unsupported
 syntax. Each mode keeps its selection and undo history for the current visit;

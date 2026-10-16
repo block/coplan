@@ -71,7 +71,7 @@ module CoPlan
         showcase: "Cell discussion, repeated labels, empty cells, links, and a wide expandable table" },
       { key: "formatting-gallery", author: "hampton", type: "General", title: "Rich text: headings, tasks, code, quotes, and footnotes",
         tags: %w[demo markdown], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
-        showcase: "Markdown formatting, task toggles, code languages, image, mention, and footnotes" },
+        showcase: "Markdown formatting, editable template notes hidden while reading, task toggles, code languages, image, mention, and footnotes" },
       { key: "type-scratchpad", author: "hampton", type: "Scratchpad", title: "Scratchpad: workspace naming ideas",
         tags: %w[demo types], visibility: "published", folder: "Demo content/Plan types", group: "Plan type examples" },
       { key: "type-prd", author: "hampton", type: "PRD", title: "PRD: workspace invitations",

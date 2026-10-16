@@ -1,5 +1,8 @@
 ## Readable inline formatting
 
+<!-- Template guidance: summarize the decision before adding supporting detail.
+This note is editable in the editor and hidden when reading. -->
+
 Use **bold** for a decision, *italics* for emphasis, ~~strikethrough~~ for an abandoned option, and `receipt_id` for code. Ask [@alex](mention:alex) about the rollout boundary.
 
 ### A smaller heading

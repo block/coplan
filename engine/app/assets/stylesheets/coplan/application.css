@@ -8095,6 +8095,7 @@ svg .source-thread-badge text { fill: var(--color-primary) !important; font: 600
 .format-icon--code { font-family: monospace; font-size: 15px; }
 .document-editor__paper { color: var(--color-text); min-height: 65vh; }
 .document-editor__body .ProseMirror { min-height: 420px; outline: none; white-space: pre-wrap; overflow-wrap: break-word; }
+.document-editor__template-note { margin: 12px 0; color: var(--color-text-muted); font-size: .9em; line-height: 1.6; white-space: pre-wrap; }
 .ProseMirror li { position: relative; }
 .ProseMirror-selectednode { outline: 2px solid var(--color-primary); }
 .ProseMirror-hideselection *::selection { background: transparent; }

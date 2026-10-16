@@ -4,6 +4,13 @@ Plans use CommonMark with the GitHub extensions: tables, task lists, strikethrou
 
 This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>.
 
+## Template notes
+
+Put author guidance in a standalone HTML comment: `<!-- Explain the decision here. -->`.
+The human editor shows the text as a muted, editable note, without the delimiters.
+Reading view hides it. Raw mode and the API retain the comment in the Markdown.
+Comments inside code fences stay literal code. These notes are separate from review discussions.
+
 ## Tables
 
 Use a standard pipe table when each item has two or more attributes:

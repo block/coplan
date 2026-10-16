@@ -33,6 +33,11 @@ nodes = nodes.addBefore("text", "footnote_reference", {
   parseDOM: [{ tag: "sup[data-coplan-footnote]", getAttrs: dom => ({ label: dom.dataset.coplanFootnote }) }],
   toDOM: node => ["sup", { "data-coplan-footnote": node.attrs.label, class: "document-editor__footnote", title: `Reference: ${node.attrs.label}`, contenteditable: "false" }, ["button", { type: "button", "data-citation-label": node.attrs.label, "data-action": "coplan--editor#openCitation", "aria-label": `Edit citation ${node.attrs.label}` }, `[${node.attrs.label}]`]]
 })
+nodes = nodes.addBefore("paragraph", "template_note", {
+  group: "block", content: "text*", marks: "", code: true, defining: true,
+  attrs: { source: { default: null }, snapshot: { default: null }, opening: {}, closing: {} },
+  toDOM: () => ["div", { class: "document-editor__template-note", "aria-label": "Template note" }, 0]
+})
 const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.marks })
 // Run before links, but after escapes and code spans. A citation is inline
 // content, so it must not turn its entire paragraph or list into a source card.
@@ -75,6 +80,10 @@ const richMarkdownParser = new MarkdownParser(schema, tokenizer, {
 const defaultMarkdownSerializer = new MarkdownSerializer({
   ...baseMarkdownSerializer.nodes,
   footnote_reference: (state, node) => state.text(`[^${node.attrs.label}]`, false),
+  template_note: (state, node) => {
+    state.write(node.attrs.opening + node.textContent + node.attrs.closing.trimEnd())
+    state.closeBlock(node)
+  },
   preserved: (state, node) => {
     for (const line of node.attrs.source.trimEnd().split("\n")) { state.write(line); state.ensureNewLine() }
     state.closeBlock(node)
@@ -101,6 +110,21 @@ function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false
   // Definitions are metadata, not visible body blocks. Keep their exact source,
   // including indented continuation paragraphs, for citation editing and Raw.
   const excluded = ranges.filter(t => ["fence", "code_block", "html_block", "blockquote_open", "bullet_list_open", "ordered_list_open"].includes(t.type))
+  // Standalone HTML comments are editable guidance, hidden in reading view.
+  // Scan complete comments so blank lines and Markdown-looking note text stay
+  // together. Code, lists, quotes and presentation wrappers keep their source.
+  if (!definitionsOnly) for (let line = 0; line < lines.length; line++) {
+    if (!/^ {0,3}<!--/.test(lines[line]) || excluded.some(t => line >= t.map[0] && line < t.map[1]) ||
+      specials.some(range => offsets[line] >= range.from && offsets[line] < range.to)) continue
+    if (!ranges.some(token => token.map[0] === line) &&
+      !specials.some(range => range.kind === "template_note" && range.to === offsets[line])) continue
+    const end = markdown.indexOf("-->", offsets[line] + lines[line].indexOf("<!--") + 4)
+    if (end < 0) continue
+    const endLine = lines.findIndex((_, index) => offsets[index] <= end && offsets[index + 1] > end)
+    if (!/^[ \t]*\r?$/.test(markdown.slice(end + 3, Math.min(offsets[endLine + 1] - 1, markdown.length)))) continue
+    specials.push({ from: offsets[line], to: Math.min(offsets[endLine + 1], markdown.length), kind: "template_note" })
+    line = endLine
+  }
   for (let line = 0; line < lines.length; line++) {
     if (excluded.some(t => line >= t.map[0] && line < t.map[1])) continue
     const match = /^ {0,3}\[\^([^\]]+)\]:[ \t]*(.*)$/.exec(lines[line])
@@ -150,7 +174,7 @@ function needsTrailing(doc) {
   if (doc.lastChild?.type === schema.nodes.paragraph) return false
   let last
   doc.forEach(node => { if (node.type !== schema.nodes.preserved || node.attrs.source.trim()) last = node })
-  return last?.type === schema.nodes.code_block || last?.type === schema.nodes.preserved
+  return last?.type === schema.nodes.code_block || last?.type === schema.nodes.preserved || last?.type === schema.nodes.template_note
 }
 function ensureTrailing(doc) {
   return needsTrailing(doc) ? doc.copy(doc.content.append(Fragment.from(trailingParagraph()))) : doc
@@ -205,6 +229,12 @@ export function parseDocument(markdown) {
   }
   if (cursor < markdown.length) segments.push({ source: markdown.slice(cursor) })
   for (const segment of segments) {
+    if (segment.kind === "template_note") {
+      const [, opening, body, closing] = /^(\s*<!--\s*)([\s\S]*?)(\s*-->[ \t]*(?:\r?\n)?)$/.exec(segment.source)
+      const node = schema.nodes.template_note.create({ opening, closing }, body ? schema.text(body) : null)
+      blocks.push(node.type.create({ ...node.attrs, source: segment.source, snapshot: signature(node) }, node.content))
+      continue
+    }
     if (segment.kind) { blocks.push(preserved(segment.source, segment.kind, segment.label)); continue }
     const source = segment.source
     const segmentLines = source.split("\n"), segmentOffsets = [0]
@@ -235,7 +265,8 @@ export function serializeDocument(doc, recordRange = null) {
   let output = "", previousChanged = false
   doc.forEach((node, position) => {
     const unchanged = node.type.name === "preserved" ? !node.attrs.inserted : (node.attrs.source !== null && node.attrs.snapshot === signature(node))
-    const source = unchanged ? node.attrs.source : defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node))
+    const source = unchanged ? node.attrs.source : node.type.name === "template_note" ?
+      node.attrs.opening + node.textContent + node.attrs.closing : defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node))
     // New/changed blocks need a block separator, including after an original
     // final paragraph with no trailing newline. Untouched boundaries stay exact.
     if (output && source.trim() && (!unchanged || previousChanged) && !output.endsWith("\n\n")) output += output.endsWith("\n") ? "\n" : "\n\n"
@@ -360,7 +391,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       copy(view, event) {
         const slice = view.state.selection.content()
         let hasSourceBlock = false
-        slice.content.forEach(node => { if (node.type === schema.nodes.preserved || node.type === schema.nodes.code_block) hasSourceBlock = true })
+        slice.content.forEach(node => { if (["preserved", "code_block", "template_note"].includes(node.type.name)) hasSourceBlock = true })
         if (!hasSourceBlock || slice.openStart || slice.openEnd || !event.clipboardData) return false
         const source = serializeDocument(schema.topNodeType.create(null, slice.content))
         event.clipboardData.setData("text/plain", source)
@@ -370,9 +401,9 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       }
     },
     handlePaste(view, event) {
-      if (view.state.selection.$from.parent.type === schema.nodes.code_block) return false
+      if (view.state.selection.$from.parent.type.spec.code) return false
       const source = event.clipboardData?.getData("application/x-coplan-markdown") || event.clipboardData?.getData("text/plain")
-      if (!source || !/(^|\n)```[^\n]*\n|^\s*\|[^\n]+\|\s*\n\s*\|?\s*:?-{3,}/m.test(source)) return false
+      if (!source || !/(^|\n)```[^\n]*\n|^\s*\|[^\n]+\|\s*\n\s*\|?\s*:?-{3,}|^ {0,3}<!--[\s\S]*?-->/m.test(source)) return false
       const parsed = parseDocument(source)
       view.dispatch(view.state.tr.replaceSelection(new Slice(parsed.content, 0, 0)).scrollIntoView())
       return true
