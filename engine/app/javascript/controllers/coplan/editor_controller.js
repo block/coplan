@@ -415,16 +415,17 @@ export default class extends Controller {
   keepSelection(event) { if (event.target.closest("button")) event.preventDefault() }
   updateToolbar(state) {
     const rawFocused = (this.editor === this.rawEditor && !!this.rawEditor) || !!document.activeElement?.closest(".document-editor__content-block, .document-editor__block-source")
-    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-code"]').disabled = rawFocused
-    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-content"]').disabled = rawFocused
-    if (rawFocused && this.contentPickerTarget.matches(":popover-open")) this.contentPickerTarget.hidePopover()
-    if (rawFocused && this.codePickerTarget.matches(":popover-open")) this.codePickerTarget.hidePopover()
+    const formattingDisabled = rawFocused || state.templateNote
+    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-code"]').disabled = formattingDisabled
+    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-content"]').disabled = formattingDisabled
+    if (formattingDisabled && this.contentPickerTarget.matches(":popover-open")) this.contentPickerTarget.hidePopover()
+    if (formattingDisabled && this.codePickerTarget.matches(":popover-open")) this.codePickerTarget.hidePopover()
     this.toolbarTarget.querySelectorAll("[data-command]").forEach(button => {
       const command = button.dataset.command
-      button.disabled = rawFocused
+      button.disabled = formattingDisabled
       if (button.tagName === "SELECT") { button.value = rawFocused ? "0" : state.heading || "0"; return }
       if (["undo", "redo"].includes(command)) button.disabled = !(this.editor?.historyState() || state)[command]
-      else button.setAttribute("aria-pressed", String(!rawFocused && !!state[command]))
+      else button.setAttribute("aria-pressed", String(!formattingDisabled && !!state[command]))
     })
   }
   style(event) { if (this.editor !== this.richEditor) return; this.richEditor?.command(event.currentTarget.value === "0" ? "paragraph" : event.currentTarget.value === "code" ? "code_block" : "heading", event.currentTarget.value) }

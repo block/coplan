@@ -45,6 +45,8 @@ template notes in Editor and Dual modes. The delimiters stay in Raw mode;
 notes remain hidden in reading view. Untouched notes keep their exact source.
 The rich editor rejects text that would close a note's HTML comment and shows
 an explanation. Use spaced text such as `-- >` to write a closing marker.
+Notes stay plain text: formatting controls and shortcuts do not convert them
+to visible document blocks. Review highlights and caret restoration skip notes.
 
 Raw mode edits the exact Markdown source in a plain, unformatted editor. Switching
 modes alone does not serialize, save or normalize the text, including unsupported

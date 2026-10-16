@@ -6,7 +6,7 @@ import { Controller } from "@hotwired/stimulus"
 // wrapping a <mark> inside a <style> re-parents part of the CSS out of the
 // sheet (a <style> only parses its direct child text), which strips the
 // diagram's styling and renders it as unstyled black shapes.
-const NON_RENDERED_TEXT_SELECTOR = "style, script, noscript, [data-source-badge]"
+const NON_RENDERED_TEXT_SELECTOR = "style, script, noscript, [data-source-badge], .document-editor__template-note"
 
 export default class extends Controller {
   static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote", "threads"]
@@ -107,6 +107,12 @@ export default class extends Controller {
 
     if (!selection.rangeCount) return
     const range = selection.getRangeAt(0)
+    const inNote = node => (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement)?.closest(".document-editor__template-note")
+    if (inNote(range.startContainer) || inNote(range.endContainer)) {
+      this.selectedText = null
+      this.popoverTarget.style.display = "none"
+      return
+    }
 
     // Make sure at least part of the selection is within the content area.
     // Whole-line selections (e.g. triple-click) can set commonAncestorContainer

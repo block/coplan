@@ -34,7 +34,7 @@ nodes = nodes.addBefore("text", "footnote_reference", {
   toDOM: node => ["sup", { "data-coplan-footnote": node.attrs.label, class: "document-editor__footnote", title: `Reference: ${node.attrs.label}`, contenteditable: "false" }, ["button", { type: "button", "data-citation-label": node.attrs.label, "data-action": "coplan--editor#openCitation", "aria-label": `Edit citation ${node.attrs.label}` }, `[${node.attrs.label}]`]]
 })
 nodes = nodes.addBefore("paragraph", "template_note", {
-  group: "block", content: "text*", marks: "", code: true, defining: true,
+  group: "block", content: "text*", marks: "", code: true, defining: true, isolating: true,
   attrs: { source: { default: null }, snapshot: { default: null }, opening: {}, closing: {} },
   toDOM: () => ["div", { class: "document-editor__template-note", "aria-label": "Template note" }, 0]
 })
@@ -356,6 +356,20 @@ function hasInvalidTemplateNote(doc) {
   })
   return invalid
 }
+function rangeTouchesTemplateNote(doc, from, to) {
+  let touches = false
+  doc.nodesBetween(from, to, node => {
+    if (node.type === schema.nodes.template_note) touches = true
+    return !touches
+  })
+  return touches
+}
+function selectionTouchesTemplateNote(state) {
+  return rangeTouchesTemplateNote(state.doc, state.selection.from, state.selection.to)
+}
+function proseCommand(command) {
+  return (state, dispatch, view) => selectionTouchesTemplateNote(state) || command(state, dispatch, view)
+}
 
 export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = []) {
   let rangeDoc, ranges, previewOffsetTimer, editingLanguage = false
@@ -382,17 +396,17 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
         return state.tr.insert(state.doc.content.size, trailingParagraph()).setMeta("addToHistory", false)
     } }), keymap({
       "Mod-a": selectFocusedText, ...lineNavigation,
-      "Mod-b": toggleMark(schema.marks.strong), "Mod-i": toggleMark(schema.marks.em),
+      "Mod-b": proseCommand(toggleMark(schema.marks.strong)), "Mod-i": proseCommand(toggleMark(schema.marks.em)),
       "Mod-z": undo, "Mod-Shift-z": redo, "Mod-y": redo,
-      "Ctrl-b": toggleMark(schema.marks.strong), "Meta-b": toggleMark(schema.marks.strong),
-      "Ctrl-i": toggleMark(schema.marks.em), "Meta-i": toggleMark(schema.marks.em),
+      "Ctrl-b": proseCommand(toggleMark(schema.marks.strong)), "Meta-b": proseCommand(toggleMark(schema.marks.strong)),
+      "Ctrl-i": proseCommand(toggleMark(schema.marks.em)), "Meta-i": proseCommand(toggleMark(schema.marks.em)),
       "Ctrl-z": undo, "Meta-z": undo, "Ctrl-Shift-z": redo, "Meta-Shift-z": redo, "Ctrl-y": redo,
       "Shift-Enter": chainCommands(codeNewline, (state, dispatch) => { if (dispatch) dispatch(state.tr.replaceSelectionWith(schema.nodes.hard_break.create()).scrollIntoView()); return true }),
       "Mod-Enter": exitCode, ArrowDown: moveBelowCode,
-      "Mod-k": linkCommand, "Ctrl-k": linkCommand, "Meta-k": linkCommand,
-      "Mod-Shift-7": wrapInList(schema.nodes.ordered_list), "Mod-Shift-8": wrapInList(schema.nodes.bullet_list),
-      "Mod-Alt-0": setBlockType(schema.nodes.paragraph), "Mod-Alt-1": setBlockType(schema.nodes.heading, { level: 1 }),
-      "Mod-Alt-2": setBlockType(schema.nodes.heading, { level: 2 }), "Mod-Alt-3": setBlockType(schema.nodes.heading, { level: 3 }),
+      "Mod-k": proseCommand(linkCommand), "Ctrl-k": proseCommand(linkCommand), "Meta-k": proseCommand(linkCommand),
+      "Mod-Shift-7": proseCommand(wrapInList(schema.nodes.ordered_list)), "Mod-Shift-8": proseCommand(wrapInList(schema.nodes.bullet_list)),
+      "Mod-Alt-0": proseCommand(setBlockType(schema.nodes.paragraph)), "Mod-Alt-1": proseCommand(setBlockType(schema.nodes.heading, { level: 1 })),
+      "Mod-Alt-2": proseCommand(setBlockType(schema.nodes.heading, { level: 2 })), "Mod-Alt-3": proseCommand(setBlockType(schema.nodes.heading, { level: 3 })),
       Enter: chainCommands(codeNewline, splitListItem(schema.nodes.list_item)), Tab: chainCommands(indentCode, sinkListItem(schema.nodes.list_item)),
       "Shift-Tab": liftListItem(schema.nodes.list_item)
     }), keymap(baseKeymap)]
@@ -494,7 +508,8 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       const wanted = text?.replace(/\s+/g, " ").trim()
       let match = 0, position = null
       if (wanted) view.state.doc.descendants((node, pos) => {
-        if (!node.isTextblock || node.type === schema.nodes.code_block) return
+        if ([schema.nodes.code_block, schema.nodes.template_note].includes(node.type)) return false
+        if (!node.isTextblock) return
         if (node.textContent.replace(/\s+/g, " ").trim() !== wanted) return
         if (match++ === occurrence) { position = pos + 1; return false }
       })
@@ -518,6 +533,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection))
     },
     insertCode(language = "") {
+      if (selectionTouchesTemplateNote(view.state)) return false
       const block = schema.nodes.code_block.create({ params: language })
       const tr = view.state.tr.replaceSelectionWith(block)
       // The default insertion selection may land in following prose. Locate
@@ -564,6 +580,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
     },
     sourceRange(position) { return sourceRangeAt(view, position) },
     command(name, value) {
+      if (selectionTouchesTemplateNote(view.state) && !["undo", "redo"].includes(name)) { view.focus(); return false }
       const commands = {
         bold: toggleMark(schema.marks.strong), italic: toggleMark(schema.marks.em),
         heading: setBlockType(schema.nodes.heading, { level: Number(value || 2) }), paragraph: setBlockType(schema.nodes.paragraph), code_block: setBlockType(schema.nodes.code_block),
@@ -599,7 +616,7 @@ function commentPlugin(initial) {
           const byId = new Map(comments.map(comment => [comment.id, comment]))
           const kept = previous.find().flatMap(mark => {
             const comment = byId.get(mark.type.attrs["data-thread-id"])
-            if (!comment || state.doc.textBetween(mark.from, mark.to) !== mark.spec.expected) return []
+            if (!comment || rangeTouchesTemplateNote(state.doc, mark.from, mark.to) || state.doc.textBetween(mark.from, mark.to) !== mark.spec.expected) return []
             return [Decoration.inline(mark.from, mark.to, {
               ...mark.type.attrs, class: `anchor-highlight anchor-highlight--${comment.status}`
             }, mark.spec)]
@@ -619,6 +636,7 @@ function commentPlugin(initial) {
         // copy of the same text elsewhere in the document.
         const mapped = previous.map(transaction.mapping, state.doc)
         const valid = mapped.find().flatMap(mark => {
+          if (rangeTouchesTemplateNote(state.doc, mark.from, mark.to)) return []
           const before = mark.spec.expected
           const after = state.doc.textBetween(mark.from, mark.to)
           if (after === before) return [mark]
@@ -651,6 +669,7 @@ function commentDecorations(doc, comments) {
     }
   }
   doc.descendants((node, position) => {
+    if (node.type === schema.nodes.template_note) return false
     if (node.isTextblock && chars.length) add(" ")
     if (node.isText) add(node.text, position)
     else if (node.type.name === "preserved") add(node.attrs.source.replace(/^\s*\|?\s*:?-{3,}.*$/gm, "").replace(/\|/g, " "))
@@ -698,7 +717,8 @@ function toolbarState(state) {
   const ancestor = name => { for (let depth = $from.depth; depth > 0; depth--) if ($from.node(depth).type.name === name) return $from.node(depth); return null }
   return { bold: markActive("strong"), italic: markActive("em"), code: markActive("code"), link: markActive("link"),
     bullet: !!ancestor("bullet_list"), ordered: !!ancestor("ordered_list"), quote: !!ancestor("blockquote"),
-    heading: ancestor("code_block") ? "code" : ancestor("heading")?.attrs.level || 0, undo: undo(state), redo: redo(state) }
+    heading: ancestor("code_block") ? "code" : ancestor("heading")?.attrs.level || 0,
+    templateNote: selectionTouchesTemplateNote(state), undo: undo(state), redo: redo(state) }
 }
 
 // Compare semantic content without the lossless-serialization bookkeeping.

@@ -149,4 +149,76 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).to have_content("Visible prose.")
     expect(page).not_to have_content("-->")
   end
+
+  it "keeps formatting commands and boundary deletion from turning notes into visible prose" do
+    note = all(".document-editor__template-note").first
+    note.click
+    expect(page).to have_css('select[aria-label="Paragraph style"][disabled]')
+    expect(page).to have_button("Insert code block", disabled: true)
+    %w[0 1 2 3].each { |key| note.send_keys([ mod, :alt, key ]) }
+    page.execute_script(<<~'JS', note)
+      const range = document.createRange(); range.setStart(arguments[0].firstChild, 0); range.collapse(true);
+      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+    JS
+    page.driver.browser.action.send_keys(:backspace).perform
+    expect(note.text).to eq("Explain the decision here.")
+    expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
+
+    paragraph = find(".document-editor__body .ProseMirror > p", text: "Visible prose.")
+    page.execute_script(<<~'JS', note, paragraph)
+      const range = document.createRange();
+      range.setStart(arguments[0].firstChild, 0);
+      range.setEnd(arguments[1].firstChild, 3);
+      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+    JS
+    expect(page).to have_css('select[aria-label="Paragraph style"][disabled]')
+    paragraph.click
+    expect(page).to have_css('select[aria-label="Paragraph style"]:enabled')
+    select "Heading 2", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror > h2", text: "Visible prose.")
+    expect(note.text).to eq("Explain the decision here.")
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to include("<!-- Explain the decision here. -->", "## Visible prose.")
+    expect(page).not_to have_content("Explain the decision here.")
+  end
+
+  it "matches comment highlights, caret focus and new selections against visible prose only" do
+    content = "# Decision\n\n<!-- Shared phrase. -->\n\n" +
+      (1..20).map { |index| "Intro paragraph #{index}.\n\n" }.join +
+      "Shared phrase.\n\nShared phrase.\n\n" +
+      (1..20).map { |index| "Later paragraph #{index}.\n\n" }.join + "<!-- Another hint. -->\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    thread = create(:comment_thread, plan: plan, created_by_user: author,
+      anchor_text: "Shared phrase.", anchor_occurrence: 2)
+    create(:comment, comment_thread: thread, author_id: author.id, body_markdown: "Review the visible paragraph")
+    expect(thread.anchor_occurrence_index).to eq(0)
+    visit plan_page_path(plan)
+    paragraph = all("#plan-content-body p", text: "Shared phrase.").first
+    page.execute_script("window.scrollBy(0, arguments[0].getBoundingClientRect().top - 160)", paragraph)
+    find(".site-nav__plan-context--visible .site-nav__edit").click
+    expect(page).to have_css(".document-editor__template-note", count: 2, wait: 20)
+    expect(page).to have_css(".ProseMirror > p mark[data-thread-id='comment_thread_#{thread.id}']", text: "Shared phrase.")
+    expect(page).not_to have_css(".document-editor__template-note mark")
+    expect(page.evaluate_script('window.getSelection().anchorNode.parentElement.closest(".document-editor__template-note")')).to be_nil
+    expect(page.evaluate_script('window.getSelection().anchorNode.parentElement.closest("p")?.textContent')).to eq("Shared phrase.")
+
+    note = all(".document-editor__template-note").first
+    page.execute_script(<<~'JS', note)
+      const range = document.createRange(); range.selectNodeContents(arguments[0]);
+      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+      arguments[0].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    JS
+    expect(page).not_to have_css(".comment-popover", visible: true)
+    paragraph = all(".ProseMirror > p", text: "Shared phrase.").last
+    page.execute_script(<<~'JS', paragraph)
+      const range = document.createRange(); range.selectNodeContents(arguments[0]);
+      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+      arguments[0].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    JS
+    find(".comment-popover button", text: "Comment").click
+    expect(page).to have_css("#new-comment-form", visible: true)
+    expect(find('#new-comment-form input[name="comment_thread[anchor_occurrence]"]', visible: :all).value).to eq("2")
+  end
 end
