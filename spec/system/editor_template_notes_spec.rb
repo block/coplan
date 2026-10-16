@@ -205,13 +205,29 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).to have_css('select[aria-label="Paragraph style"][disabled]')
     expect(page).to have_button("Insert code block", disabled: true)
     %w[0 1 2 3].each { |key| note.send_keys([ mod, :alt, key ]) }
-    page.execute_script(<<~'JS', note)
-      const range = document.createRange(); range.setStart(arguments[0].firstChild, 0); range.collapse(true);
-      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
-    JS
-    page.driver.browser.action.send_keys(:backspace).perform
-    expect(note.text).to eq("Explain the decision here.")
-    expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
+    %w[backspace delete].each do |key|
+      page.execute_script(<<~'JS', note, key, source.index("Explain the decision here."))
+        const backward = arguments[1] === 'backspace';
+        const form = document.querySelector('form.document-editor');
+        const editor = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor;
+        editor.selectSource(arguments[2] + (backward ? arguments[0].textContent.length : 0));
+        // Hold the model at the opposite end while the browser caret moves.
+        window.delayTemplateNoteSelection = event => event.stopImmediatePropagation();
+        document.addEventListener('selectionchange', window.delayTemplateNoteSelection, true);
+        const range = document.createRange(); range.selectNodeContents(arguments[0]); range.collapse(backward);
+        const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+      JS
+      expect(page.evaluate_script(<<~'JS', key)).to be(false)
+        document.querySelector('.document-editor__body .ProseMirror').dispatchEvent(new InputEvent('beforeinput', {
+          inputType: arguments[0] === 'backspace' ? 'deleteContentBackward' : 'deleteContentForward',
+          bubbles: true, cancelable: true
+        }));
+      JS
+      page.driver.browser.action.send_keys(key.to_sym).perform
+      page.execute_script("document.removeEventListener('selectionchange', window.delayTemplateNoteSelection, true)")
+      expect(page).to have_css(".document-editor__template-note", text: "Explain the decision here.")
+      expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
+    end
 
     paragraph = find(".document-editor__body .ProseMirror > p", text: "Visible prose.")
     page.execute_script(<<~'JS', note, paragraph)

@@ -381,6 +381,16 @@ function selectionTouchesTemplateNote(state) {
 function proseCommand(command) {
   return (state, dispatch, view) => selectionTouchesTemplateNote(state) || command(state, dispatch, view)
 }
+function preventTemplateNoteJoin(view, event, backward) {
+  if (!event.cancelable || !event.target?.isContentEditable) return false
+  // Native deletion can precede selectionchange. Keep the browser from
+  // joining hidden guidance to adjacent document text using a stale caret.
+  const { $from, $to } = visibleSelection(view.state, view)
+  if ($from.pos !== $to.pos || $from.parent.type !== schema.nodes.template_note ||
+      $from.parentOffset !== (backward ? 0 : $from.parent.content.size)) return false
+  event.preventDefault()
+  return true
+}
 
 export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = []) {
   let rangeDoc, ranges, previewOffsetTimer, editingLanguage = false
@@ -430,6 +440,12 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       code_block: (node, view, getPos) => codeNodeView(node, view, getPos, preview, sourceRangeAt)
     }, attributes: { class: "markdown-rendered", role: "textbox", "aria-label": "Document body", "aria-multiline": "true" },
     handleDOMEvents: {
+      keydown(view, event) {
+        return ["Backspace", "Delete"].includes(event.key) && preventTemplateNoteJoin(view, event, event.key === "Backspace")
+      },
+      beforeinput(view, event) {
+        return /^delete.*(?:Backward|Forward)$/.test(event.inputType) && preventTemplateNoteJoin(view, event, event.inputType.endsWith("Backward"))
+      },
       copy(view, event) {
         const slice = view.state.selection.content()
         let hasSourceBlock = false
