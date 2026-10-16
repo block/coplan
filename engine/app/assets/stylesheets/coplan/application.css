@@ -36,16 +36,12 @@
 .writing-provenance__panel::backdrop { background: transparent; }
 .writing-provenance__counts { margin: 0 0 16px; }
 .writing-provenance__counts > div { display: flex; justify-content: space-between; gap: 16px; margin: 9px 0; }
-.writing-provenance__counts dt { display: flex; align-items: center; gap: 7px; }
+.writing-provenance__counts dt { display: flex; align-items: center; gap: 7px; min-width: 0; overflow-wrap: anywhere; }
 .writing-provenance__counts dd { margin: 0; font-variant-numeric: tabular-nums; }
-.writing-provenance__swatch { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.writing-provenance__swatch { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 .writing-provenance__swatch--human { background: #22c55e; }
 .writing-provenance__swatch--ai { background: #a78bfa; }
 .writing-provenance__swatch--unknown { background: #94a3b8; }
-.writing-provenance__agents { border-top: 1px solid var(--color-border); padding: 12px 0; }
-.writing-provenance__agents summary { cursor: pointer; }
-.writing-provenance__agent { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; margin-top: 12px; }
-.writing-provenance__agent small { grid-column: 1 / -1; color: var(--color-text-muted); overflow-wrap: anywhere; }
 ::highlight(coplan-writing-human) { background: #22c55e55; text-decoration: underline; text-decoration-color: #16a34a; }
 ::highlight(coplan-writing-ai) { background: #a78bfa66; text-decoration: underline; text-decoration-color: #8b5cf6; }
 ::highlight(coplan-writing-unknown) { background: #94a3b84d; text-decoration: underline dotted; text-decoration-color: #64748b; }

@@ -25,4 +25,25 @@ RSpec.describe CoPlan::WritingProvenanceHelper, type: :helper do
     expect(helper.writing_provenance_label(summary(human: 40, ai: 40, unknown: 20))).to eq("Mixed writing origins")
     expect(helper.writing_provenance_label(nil)).to eq("Writing origin unknown")
   end
+
+  it "combines each person and agent into one row across versions and models" do
+    sources = [
+      { "kind" => "human", "user_id" => "person", "user_name" => "Hampton", "characters" => 30 },
+      { "kind" => "human", "user_id" => "person", "user_name" => "Hampton", "characters" => 10 },
+      { "kind" => "ai", "agent_name" => "Claude", "harness" => "claude-code", "model" => "model-a", "characters" => 25 },
+      { "kind" => "ai", "agent_name" => "Claude", "harness" => "claude-code", "model" => "model-b", "characters" => 15 },
+      { "kind" => "unknown", "user_name" => "Hampton", "characters" => 20 }
+    ]
+    rows = helper.writing_provenance_rows(summary(human: 40, ai: 40, unknown: 20, contributors: sources))
+    expect(rows.map { |row| row.values_at(:label, :characters) }).to eq([ [ "Hampton", 40 ], [ "Claude", 40 ], [ "Unknown", 20 ] ])
+    expect(rows[1][:details]).to contain_exactly("model-a", "model-b")
+  end
+
+  it "uses known people for older summaries and generic labels only when identity is unavailable" do
+    person = create(:coplan_user, name: "Hampton")
+    sources = [ { "kind" => "human", "user_id" => person.id, "characters" => 5 },
+      { "kind" => "ai", "characters" => 4 } ]
+    rows = helper.writing_provenance_rows(summary(human: 5, ai: 4, unknown: 1, contributors: sources))
+    expect(rows.map { |row| row[:label] }).to eq([ "Hampton", "AI written", "Unknown" ])
+  end
 end

@@ -5,7 +5,7 @@
 Plan JSON includes `writing_provenance`, a cached summary for the current revision, or `null` when it is not available.
 `GET /api/v1/plans/:id/writing_provenance` returns `revision`, `content_sha256`, and `summary`.
 The summary has `counts`, `shares`, `total`, and `contributors`. Categories are `human`, `ai`, and `unknown`.
-The UI calls these Human written, AI written, and Unknown. These describe recorded input, not human review or intellectual ownership.
+The UI groups known human and AI contributors by name, with a separate Unknown row. The API categories remain `human`, `ai`, and `unknown`. These describe recorded input, not human review or intellectual ownership.
 The method is `retained_markdown_v1`. Counts use non-whitespace Markdown characters, including code and diagram source. They are not edit counts or word counts.
 Unchanged characters retain their origin. A small edit does not take credit for a whole line. Very large replacement diffs may remain Unknown when exact matching exceeds the processing budget.
 Identified agent writes are AI written. Observed human input is Human written. External paste, imports, and older human saves without input evidence are Unknown.

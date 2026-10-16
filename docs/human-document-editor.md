@@ -196,8 +196,9 @@ New-document requests retain a creation key and the first submitted snapshot.
 Retrying after a lost response returns the same document; newer local typing is
 merged and saved afterward, including after reload.
 Writing provenance is recorded separately from the saving actor. The byline's
-person, robot, or unknown icon opens a lazy breakdown: Human written, AI written,
-and Unknown. AI details include the harness and model when reported. Counts use
+person, robot, or unknown icon opens a lazy breakdown by contributor: names such
+as Hampton and Claude, plus Unknown. Models from the same agent share a row;
+reported harness and model details are available on that row’s tooltip. Counts use
 non-whitespace Markdown characters remaining in the saved revision, including
 code and diagram source. They measure input provenance, not review or ownership.
 
