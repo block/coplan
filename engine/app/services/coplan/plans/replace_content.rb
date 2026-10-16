@@ -30,7 +30,7 @@ module CoPlan
       # Surfaces as a 500 (rather than silently persisting wrong content).
       class RoundtripFailureError < StandardError; end
 
-      def self.call(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil, lease_token: nil, granularity: :line)
+      def self.call(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil, lease_token: nil, granularity: :line, input_sources: nil)
         new(
           plan: plan,
           new_content: new_content,
@@ -44,14 +44,15 @@ module CoPlan
           reader_type: reader_type,
           reader_id: reader_id,
           lease_token: lease_token,
-          granularity: granularity
+          granularity: granularity, input_sources: input_sources
         ).call
       end
 
-      def initialize(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil, lease_token: nil, granularity: :line)
+      def initialize(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil, lease_token: nil, granularity: :line, input_sources: nil)
         @plan = plan
         @lease_token = lease_token
         @granularity = granularity
+        @input_sources = input_sources
         # Normalize line endings to LF before diffing. Browser textareas, agents
         # running on Windows, and copy-paste from various sources commonly emit
         # CRLF (`\r\n`). If the stored current_content is LF and the inbound
@@ -123,6 +124,7 @@ module CoPlan
             edit_lease_token: @lease_token,
             revision: new_revision,
             content_markdown: @new_content,
+            input_sources: @input_sources,
             actor_type: @actor_type,
             actor_id: @actor_id,
             agent_name: @agent_name,

@@ -195,7 +195,37 @@ Every content commit remains an immutable version with its normal actor identity
 New-document requests retain a creation key and the first submitted snapshot.
 Retrying after a lost response returns the same document; newer local typing is
 merged and saved afterward, including after reload.
-The prototype's contribution percentages/UI/endpoints have been removed.
+Writing provenance is recorded separately from the saving actor. The byline's
+person, robot, or unknown icon opens a lazy breakdown by contributor: names such
+as Hampton and Claude, plus Unknown. Models from the same agent share a row;
+reported harness and model details are available on that row’s tooltip. Counts use
+non-whitespace Markdown characters remaining in the saved revision, including
+code and diagram source. They measure input provenance, not review or ownership.
+
+Both editor modes record paste as Unknown and ordinary human input as Human
+written. Input-source runs survive scoped draft recovery and concurrent merge;
+unrecorded input and history restored without a recorded checkpoint stay Unknown.
+External paste never claims human authorship just because a human added it.
+Unchanged source keeps its existing origin through later saves. The browser
+coalesces input runs and diffs only on save or input-source transitions, not on
+every keystroke. It converts UTF-16 offsets to Unicode codepoints on the server.
+
+Compact version snapshots and a revision-bound summary avoid history scans on
+document and library navigation. Opening details can queue background backfill
+for a legacy plan; historical human saves without input evidence remain Unknown.
+Agent identity is captured with each write so later token changes do not rename
+old contributions. Bound pathological diffs conservatively rather than stalling.
+
+Inspect writing loads source data on demand and uses CSS custom highlights,
+without wrapping or replacing the document DOM. It covers prose, code, and slide
+text; rendered diagrams and embeds keep their original appearance. Green marks
+human input, purple marks agent input, and gray marks unknown input. Hover a span
+for its recorded actor, introduction version, and time. Editing and document
+actions pause until Escape or Done inspecting returns to normal reading.
+
+Writing percentages and the byline version update through independent Turbo
+Stream targets, including while editing. Closing the editor re-enables inspection.
+A document or provenance replacement clears the old revision's highlights.
 
 Unsaved source, title, tags and original base snapshot live in browser-local
 storage separated by user, document and editor instance. Reload can recover the

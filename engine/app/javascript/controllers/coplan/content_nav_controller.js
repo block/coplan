@@ -155,7 +155,10 @@ export default class extends Controller {
     this.sidebarTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
     if (this.hasShowBtnTarget) {
       this.showBtnTarget.classList.toggle("content-nav-show-btn--floating", !this._editorSidebarDisplayed)
-      this.showBtnTarget.style.display = this._editorSidebarDisplayed ? "" : (this._headings.length ? "block" : "none")
+      // The editor toolbar owns the outline control. A floating reader
+      // control here would sit underneath that toolbar on a compact page.
+      this.showBtnTarget.style.display = this.hasEditorToggleBtnTarget ? "none" :
+        (this._editorSidebarDisplayed ? "" : (this._headings.length ? "block" : "none"))
     }
     this.updateEditorToggle()
 

@@ -56,6 +56,35 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_current_path(plan_page_path(plan))
   end
 
+  it "keeps the reader and editor at the top of the document in both themes" do
+    window = page.current_window
+    original_size = window.size
+    [ [ 1400, 900 ], [ 860, 900 ] ].each do |size|
+      window.resize_to(*size)
+      %w[light dark].each do |theme|
+        page.execute_script("document.documentElement.dataset.theme = arguments[0]; window.scrollTo(0, 0)", theme)
+        reader_top = find("#plan-content-body").rect.y
+        expect(page.evaluate_script(<<~JS)).to be <= 1
+          document.querySelector('#plan-content-body').getBoundingClientRect().top -
+            document.querySelector('.plan-layout__content').getBoundingClientRect().top
+        JS
+
+        within("#plan-toolbar") { click_link "Edit" }
+        expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+        expect(page.evaluate_script(<<~JS)).to be <= 1
+          document.querySelector('.document-editor__toolbar').getBoundingClientRect().top -
+            document.querySelector('.plan-layout__content').getBoundingClientRect().top
+        JS
+
+        within("#plan-toolbar") { click_link "Done" }
+        expect(page).to have_no_css(".inline-editor form.document-editor", wait: 10)
+        expect(find("#plan-content-body").rect.y).to eq(reader_top)
+      end
+    end
+  ensure
+    window.resize_to(*original_size) if original_size
+  end
+
   it "opens legacy edit links inline and keeps all three editing modes" do
     visit plan_legacy_edit_page_path(plan)
 

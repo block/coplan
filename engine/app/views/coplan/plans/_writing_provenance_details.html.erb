@@ -1,0 +1,15 @@
+<dl class="writing-provenance__counts">
+  <% writing_provenance_rows(summary).each do |row| %>
+    <% category = { "human" => "Human written", "ai" => "AI written", "unknown" => "Unknown" }.fetch(row.fetch(:kind)) %>
+    <div>
+      <dt aria-label="<%= [row.fetch(:label), category].uniq.join(", ") %>" title="<%= row.fetch(:details).join(" · ") %>"><span class="writing-provenance__swatch writing-provenance__swatch--<%= row.fetch(:kind) %>"></span><%= row.fetch(:label) %></dt>
+      <dd><%= writing_provenance_percent(row.fetch(:characters), summary.fetch("total")) %></dd>
+    </div>
+  <% end %>
+</dl>
+<div class="writing-provenance__actions">
+  <button type="button" class="writing-provenance__inspect" data-action="coplan--writing-provenance#highlight" data-coplan--writing-provenance-target="highlight">Inspect writing</button>
+  <details class="writing-provenance__info"><summary aria-label="About writing sources">ⓘ</summary>
+    <p>Shares count the non-whitespace Markdown characters still in this document. Paste and unrecorded input are Unknown. Reported agent identities are separate from human review. Inspect text to see who added it and when; diagrams and images keep their appearance.</p>
+  </details>
+</div>

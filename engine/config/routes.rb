@@ -55,6 +55,7 @@ CoPlan::Engine.routes.draw do
     resources :plans, only: [ :new, :create, :update ] do
       post :preview_draft, on: :collection
       get :editor_state, on: :member
+      get :writing_provenance, on: :member
       get :content_body, on: :member
       get :comments_body, on: :member
       post :editor_lease, on: :member
@@ -169,6 +170,7 @@ CoPlan::Engine.routes.draw do
         get :locations, on: :member
         get :comments, on: :member
         get :snapshot, on: :member
+        get :writing_provenance, on: :member
         resource :content, only: [ :update ], controller: "content"
         resource :lease, only: [ :create, :update, :destroy ], controller: "leases"
         resources :operations, only: [ :create ]

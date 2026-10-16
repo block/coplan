@@ -35,6 +35,7 @@ return 429. Invalid names return 422 with `invalid_request`.
 | `POST /api/v1/plans` | Create a plan. | creating |
 | `GET /api/v1/plans/:id` | Get a plan with its content and references. | primer |
 | `GET /api/v1/plans/:id/snapshot` | Get a plan with content, threads, references, collaborators, and review requests. | primer |
+| `GET /api/v1/plans/:id/writing_provenance` | Get writing-origin counts and reported agent identities. `?ranges=1` includes compact source ranges. Older plans can return `202` while history is reconstructed. | editing |
 | `PATCH /api/v1/plans/:id` | Change the title, type, tags, folder, visibility, archive state, or references. Plan author only. | editing |
 | `PUT /api/v1/plans/:id/content` | Replace the content. | editing |
 | `POST /api/v1/plans/:id/operations` | Apply targeted edits. | editing |

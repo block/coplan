@@ -2,8 +2,8 @@ module CoPlan
   module Api
     module V1
       class PlansController < BaseController
-        before_action :set_plan, only: [ :show, :update, :versions, :comments, :snapshot, :locations ]
-        before_action :authorize_plan_access!, only: [ :show, :update, :versions, :comments, :snapshot, :locations ]
+        before_action :set_plan, only: [ :show, :update, :versions, :comments, :snapshot, :locations, :writing_provenance ]
+        before_action :authorize_plan_access!, only: [ :show, :update, :versions, :comments, :snapshot, :locations, :writing_provenance ]
 
         def index
           plans = Plan
@@ -37,6 +37,18 @@ module CoPlan
             current_revision: @plan.current_revision,
             references: @plan.references.map { |r| reference_json(r) }
           )
+        end
+
+        def writing_provenance
+          version = @plan.current_plan_version
+          snapshot = version&.writing_provenance
+          unless snapshot && snapshot["sha256"] == version.content_sha256
+            WritingProvenanceJob.request(@plan)
+            return render json: { status: "pending", revision: @plan.current_revision }, status: :accepted
+          end
+          data = { revision: version.revision, content_sha256: version.content_sha256, summary: snapshot.fetch("summary") }
+          data.merge!(runs: snapshot.fetch("runs"), sources: snapshot.fetch("sources"), offset_unit: "unicode_codepoints") if params[:ranges] == "1"
+          render json: data
         end
 
         def create
@@ -434,6 +446,7 @@ module CoPlan
             # Legacy five-state field, kept for the deprecation window.
             status: plan.legacy_status,
             current_revision: plan.current_revision,
+            writing_provenance: plan.writing_provenance_summary&.then { |summary| summary if summary["revision"] == plan.current_revision },
             tags: plan.tag_names,
             folder_id: placement&.folder_id,
             folder_path: placement&.folder&.path,
