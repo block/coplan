@@ -16,17 +16,25 @@ module CoPlan
       end
 
       def self.rendered_sources(version)
-        text, positions = MarkdownTextExtractor.call(version.content_markdown, exclude_nonprose: true)
-        source_chars = version.content_markdown.chars
+        text, _, spans = MarkdownTextExtractor.call(version.content_markdown, exclude_nonprose: true, source_spans: true)
         snapshot = version.writing_provenance
         offset = 0
         intervals = snapshot.fetch("runs").map { |length, key| offset += length; [ offset, key ] }
         result, runs = +"", []
         text.each_char.with_index do |char, index|
           next if char.match?(/[[:space:]]/)
-          position = positions[index]
-          key = if position && position >= 0 && source_chars[position] == char
-            intervals.bsearch { |stop, _| stop > position }&.last
+          from, to = spans.fetch(index)
+          key = if from >= 0 && to > from
+            first = intervals.bsearch_index { |stop, _| stop > from }
+            if first
+              keys = []
+              first.upto(intervals.length - 1) do |i|
+                stop, source = intervals[i]
+                keys << source
+                break if stop >= to
+              end
+              keys.uniq.one? ? keys.first : nil
+            end
           end
           result << char
           append(runs, char.encode(Encoding::UTF_16LE).bytesize / 2, key)
@@ -88,7 +96,7 @@ module CoPlan
 
       def self.append(runs, length, source)
         return if length <= 0
-        if runs.last&.last == source
+        if runs.any? && runs.last.last == source
           runs.last[0] += length
         else
           runs << [ length, source ]

@@ -160,4 +160,20 @@ RSpec.describe "Writing provenance", type: :system do
     expect(page).to have_css('.writing-inspection__tooltip:popover-open', text: user.name)
     expect(find('.writing-inspection__tooltip')).to have_text("Added in v2")
   end
+
+  it "keeps escaped punctuation, entities, and following text in their known source highlight" do
+    content = 'Typed \*literal\* &amp; café &copy; &#x1F600; after.'
+    escaped = CoPlan::Plans::Create.call(title: "Escaped writing", content: content, user: user, actor_type: "local_agent", agent_name: "Claude")
+    visit sign_in_path
+    fill_in "Email", with: user.email
+    click_button "Sign In"
+    expect(page).to have_button("Menu", wait: 20)
+    visit plan_page_path(escaped)
+    expect(page).to have_text("Typed *literal* & café © 😀 after.")
+    find(".writing-provenance__trigger").click
+    click_button "Inspect writing"
+    expect(page).to have_button("Done inspecting")
+    expect(page.evaluate_script("[...CSS.highlights.get('coplan-writing-ai')].map(range => range.toString()).join('').replace(/\\s/g, '')")).to eq("Typed*literal*&café©😀after.")
+    expect(page.evaluate_script("CSS.highlights.get('coplan-writing-unknown').size")).to eq(0)
+  end
 end

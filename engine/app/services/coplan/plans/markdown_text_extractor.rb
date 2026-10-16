@@ -12,14 +12,19 @@ module CoPlan
     #   # stripped  => "Hello world"
     #   # pos_map   => [0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12]
     class MarkdownTextExtractor
-      def self.call(content, exclude_nonprose: false)
-        new(content, exclude_nonprose:).call
+      def self.call(content, exclude_nonprose: false, source_spans: false)
+        new(content, exclude_nonprose:, source_spans:).call
       end
 
-      def initialize(content, exclude_nonprose: false)
+      def initialize(content, exclude_nonprose: false, source_spans: false)
         @content = content.to_s.include?("::: {.presentation") ? ContentRegions::Split.call(content).canonical_source : content
         @exclude_nonprose = exclude_nonprose
-        @source_lines = @content.lines if exclude_nonprose
+        @source_lines = @content.lines if exclude_nonprose || source_spans
+        @source_spans = [] if source_spans
+        if source_spans
+          @source_line_offsets = [ 0 ]
+          @source_lines.each { |line| @source_line_offsets << @source_line_offsets.last + line.length }
+        end
       end
 
       def call
@@ -36,7 +41,7 @@ module CoPlan
 
         extract_text_nodes(doc, line_byte_offsets, byte_to_char, stripped, pos_map)
 
-        [ stripped, pos_map ]
+        @source_spans ? [ stripped, pos_map, @source_spans ] : [ stripped, pos_map ]
       end
 
       private
@@ -49,6 +54,7 @@ module CoPlan
         byte_offset = 0
         @content.each_char.with_index do |char, char_idx|
           map[byte_offset] = char_idx
+          map[byte_offset + char.bytesize - 1] = char_idx if @source_spans
           byte_offset += char.bytesize
         end
         map
@@ -90,14 +96,23 @@ module CoPlan
 
           case child.type
           when :text
-            pos = child.source_position
+            pos = @source_spans && node.type == :escaped ? node.source_position : child.source_position
             start_byte = line_byte_offsets[pos[:start_line]] + pos[:start_column] - 1
             char_idx = byte_to_char[start_byte]
-            child.string_content.each_char.with_index do |char, i|
-              stripped << char
-              pos_map << (char_idx + i)
+            if @source_spans
+              end_byte = line_byte_offsets[pos[:end_line]] + pos[:end_column] - 1
+              append_decoded_text(child.string_content, char_idx, byte_to_char[end_byte], stripped, pos_map)
+            else
+              child.string_content.each_char.with_index do |char, i|
+                stripped << char
+                pos_map << (char_idx + i)
+              end
             end
           when :code
+            if @source_spans
+              append_inline_code(child, line_byte_offsets, byte_to_char, stripped, pos_map)
+              next
+            end
             # source_position includes backtick delimiters; find the inner
             # content start by scanning past them in the raw string.
             pos = child.source_position
@@ -112,8 +127,13 @@ module CoPlan
             text.each_char.with_index do |char, i|
               stripped << char
               pos_map << (content_char_start + i)
+              append_source_span(char, content_char_start + i)
             end
           when :code_block
+            if @source_spans
+              append_code_block(child, stripped, pos_map)
+              next
+            end
             # Fenced code blocks: source_position spans from the opening
             # fence to the closing fence. The string_content is the inner
             # text (excluding fences). Content starts on the line after
@@ -127,6 +147,7 @@ module CoPlan
               text.each_char.with_index do |char, i|
                 stripped << char
                 pos_map << (char_idx + i)
+                append_source_span(char, char_idx + i)
               end
             end
           when :footnote_reference
@@ -142,8 +163,91 @@ module CoPlan
             start_byte = line_byte_offsets[pos[:start_line]] + pos[:start_column] - 1
             stripped << "\n"
             pos_map << byte_to_char[start_byte]
+            append_source_span("\n", byte_to_char[start_byte])
           else
             extract_text_nodes(child, line_byte_offsets, byte_to_char, stripped, pos_map)
+          end
+        end
+      end
+
+      ENTITY = /\A&(?:\#[0-9]{1,7}|\#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});/.freeze
+
+      # A rendered character can consume multiple raw characters (\* or
+      # &amp;). Preserve that entire span so later text cannot drift, and a
+      # mixed-origin entity cannot falsely inherit only its leading '&'.
+      def append_decoded_text(text, first, last, stripped, pos_map)
+        raw = @content[first..last].to_s.chars
+        decoded, spans, cursor = +"", [], 0
+        while cursor < raw.length
+          length, value = 1, raw[cursor]
+          following = raw[cursor + 1]
+          if value == "\\" && following&.ascii_only? && following.match?(/[[:punct:]]/)
+            length, value = 2, following
+          elsif value == "&" && (entity = ENTITY.match(raw[cursor, 34].join))
+            length = entity[0].length
+            @entities ||= {}
+            value = (@entities[entity[0]] ||= Commonmarker.parse(entity[0]).first_child.first_child.string_content)
+            length, value = 1, "&" if value == entity[0]
+          end
+          decoded << value
+          value.each_char { spans << [ first + cursor, first + cursor + length ] }
+          cursor += length
+        end
+        valid = decoded == text
+        text.each_char.with_index do |char, index|
+          span = valid ? spans.fetch(index) : [ -1, -1 ]
+          stripped << char
+          pos_map << span.first
+          @source_spans << span
+        end
+      end
+
+      def append_source_span(char, position)
+        return unless @source_spans
+
+        @source_spans << (position && @content[position] == char ? [ position, position + 1 ] : [ -1, -1 ])
+      end
+
+      def append_inline_code(node, lines, bytes, stripped, positions)
+        pos = node.source_position
+        first = bytes[lines[pos[:start_line]] + pos[:start_column] - 1]
+        last = bytes[lines[pos[:end_line]] + pos[:end_column] - 1]
+        chars = @content[first..last].chars.each_with_index.to_a
+        left, right = 0, chars.length
+        left += 1 while chars[left]&.first == "`"
+        right -= 1 while right > left && chars[right - 1]&.first == "`"
+        chars = chars[left...right]
+        chars.map! { |char, index| [ char == "\n" ? " " : char, index ] }
+        if chars.first&.first == " " && chars.last&.first == " " && chars.any? { |char, _| char != " " }
+          chars.shift
+          chars.pop
+        end
+        valid = chars.map(&:first).join == node.string_content
+        node.string_content.each_char.with_index do |char, index|
+          position = valid ? first + chars.fetch(index).last : -1
+          stripped << char
+          positions << position
+          append_source_span(char, position >= 0 ? position : nil)
+        end
+      end
+
+      def append_code_block(node, stripped, positions)
+        pos = node.source_position
+        first_line = pos[:start_line] - 1
+        opening = @source_lines[first_line].to_s[(pos[:start_column] - 1)..]
+        # Indented code can itself start with literal fence characters.
+        fenced = opening&.match?(/\A(?:`{3,}|~{3,})/) &&
+          (node.fence_info.present? || node.string_content.lines.first.to_s.chomp != opening.chomp)
+        first_line += 1 if fenced
+        node.string_content.lines.each_with_index do |text, index|
+          line = @source_lines[first_line + index].to_s.chomp
+          body = text.chomp
+          first = line.end_with?(body) ? @source_line_offsets[first_line + index] + line.length - body.length : nil
+          text.each_char.with_index do |char, offset|
+            position = first && first + offset
+            stripped << char
+            positions << (position || -1)
+            append_source_span(char, position)
           end
         end
       end
@@ -166,6 +270,7 @@ module CoPlan
       def append_separator(stripped, pos_map, char)
         stripped << char
         pos_map << -1
+        @source_spans << [ -1, -1 ] if @source_spans
       end
 
       # The number the renderer prints for this citation. Commonmarker counts
