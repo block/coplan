@@ -31,6 +31,7 @@ module CoPlan
     belongs_to :plan_type
     # At most one: a plan is filed in a single folder of a single library.
     has_one :placement, class_name: "CoPlan::PlanPlacement", inverse_of: :plan, dependent: :destroy
+    has_many :review_requests, dependent: :destroy
     has_many :plan_versions, -> { order(revision: :asc) }, dependent: :destroy
     has_many :plan_events, dependent: :destroy
     has_many :plan_collaborators, dependent: :destroy

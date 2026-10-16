@@ -578,7 +578,7 @@ RSpec.describe "Inline plan editing", type: :system do
     visit plan_page_path(plan)
 
     expect(page).to have_no_css("#plan-content-body mark[data-thread-id='comment_thread_#{thread.id}']")
-    within("#plan-detached-comments") { click_button "Second paragraph." }
+    within("#plan-detached-comments") { click_button "Open discussion", exact: false, enable_aria_label: true }
     expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Original placement")
   end
 
@@ -604,7 +604,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(thread.reload).to be_out_of_date
     expect(page).to have_css("#plan-detached-comments", visible: true, wait: 10)
     expect(page).to have_no_css("#plan-detached-comments.detached-comments--all-resolved", visible: :all)
-    within("#plan-detached-comments") { click_button "Second paragraph." }
+    within("#plan-detached-comments") { click_button "Open discussion", exact: false, enable_aria_label: true }
     expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Keep this discussion visible")
   end
 
@@ -616,6 +616,7 @@ RSpec.describe "Inline plan editing", type: :system do
     displaced.update_columns(out_of_date: true)
     visit plan_page_path(plan)
 
+    expand_plan_section("plan-general-comments")
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     widths = page.evaluate_script(<<~JS)
@@ -640,10 +641,12 @@ RSpec.describe "Inline plan editing", type: :system do
     displaced.resolve!(author)
     visit plan_page_path(plan)
 
-    expect(page).to have_no_css("#plan-general-comments", visible: true)
+    expect(page).to have_no_css("#plan-general-comments .document-comment", visible: true)
     expect(page).to have_no_css("#plan-detached-comments", visible: true)
     find("body").send_keys("s")
-    expect(page).to have_css("#plan-general-comments", visible: true)
+    expand_plan_section("plan-general-comments")
+    within("#plan-general-comments") { select "Resolved", from: "Show" }
+    expect(page).to have_css("#plan-general-comments .document-comment", visible: true)
     expect(page).to have_css("#plan-detached-comments", visible: true)
 
     visit plan_page_path(plan, thread: displaced.id)
@@ -734,7 +737,8 @@ RSpec.describe "Inline plan editing", type: :system do
       create(:comment, comment_thread: thread, author_id: author.id, body_markdown: "Original comment")
       visit plan_page_path(plan)
       expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all, wait: 10)
-      find("#plan-general-comments button").click
+      expand_plan_section("plan-general-comments")
+      within("#plan-general-comments") { click_button "Open discussion", exact: false, enable_aria_label: true }
       within(".thread-popover:popover-open") do
         click_button "Edit", exact: true
         find("textarea[aria-label='Edit comment']").fill_in with: draft

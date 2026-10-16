@@ -145,9 +145,16 @@ def brief(event)
     lines << "sections changed: #{Array(p["changed_sections"]).join(", ")} (revision #{p["revision"]})"
   end
   lines << ""
-  lines << "You are the agent attached to this plan. Reply on the thread first"
-  lines << "(POST /api/v1/plans/#{event["plan_id"]}/comments/#{event["comment_thread_id"]}/reply)," if event["comment_thread_id"]
-  lines << "then apply any edit with PUT /api/v1/plans/#{event["plan_id"]}/content."
+  if event["type"].start_with?("review.")
+    lines << "Review data: #{p.to_json}"
+    lines << "Read #{BASE}/agent-instructions/comments and the current snapshot."
+    lines << "A requirement change or withdrawal is not a request for another look."
+    lines << "A sign-off grants no implementation authority. Follow your principal before responding; never manufacture a human approval."
+  else
+    lines << "You are the agent attached to this plan. Reply on the thread first"
+    lines << "(POST /api/v1/plans/#{event["plan_id"]}/comments/#{event["comment_thread_id"]}/reply)," if event["comment_thread_id"]
+    lines << "then apply any edit with PUT /api/v1/plans/#{event["plan_id"]}/content."
+  end
   lines << authority_note(p) if p.key?("authority")
   lines << "Full API: #{BASE}/agent-instructions"
   lines.join("\n")

@@ -94,13 +94,13 @@ module CoPlan
         ),
         turbo_stream.replace(
           "references-count",
-          html: helpers.content_tag(:span, reference_count, class: "section-count", id: "references-count")
+          html: helpers.plan_section_count(reference_count, id: "references-count")
         ),
         # The document outline shows the same count; without this it goes
         # stale the moment a reference is added or removed.
         turbo_stream.replace(
           "nav-references-count",
-          html: helpers.content_tag(:span, reference_count, class: "section-count", id: "nav-references-count")
+          html: helpers.plan_section_count(reference_count, id: "nav-references-count")
         )
       ]
     end

@@ -27,6 +27,8 @@ module CoPlan
       # request-rendered HTML must not be sent to other viewers.
       Broadcaster.append_to(@plan, target: target, partial: "coplan/comments/comment", locals: locals)
 
+      previews = comment_preview_streams
+
       # The author's tab gets the append inline in the HTTP response — no
       # cable round-trip between submit and seeing the comment. The broadcast
       # above still updates every other viewer; Turbo removes same-id children
@@ -35,7 +37,7 @@ module CoPlan
       respond_to do |format|
         format.turbo_stream do
           html = render_to_string(partial: "coplan/comments/comment", locals: locals, formats: [ :html ])
-          render turbo_stream: turbo_stream.append(target, html)
+          render turbo_stream: [ turbo_stream.append(target, html), *previews ]
         end
         format.html { redirect_to helpers.plan_browse_path(@plan), notice: "Reply added." }
       end
@@ -60,12 +62,7 @@ module CoPlan
       html = render_to_string(partial: "coplan/comments/comment", locals: locals, formats: [ :html ])
       streams = [ turbo_stream.replace(target, html) ]
 
-      unless @thread.anchored?
-        locals = { threads: @plan.comment_threads.with_kept_comments.includes(:comments).order(:created_at) }
-        Broadcaster.replace_to(@plan, target: "plan-general-comments", partial: "coplan/plans/general_comments", locals: locals)
-        html = render_to_string(partial: "coplan/plans/general_comments", locals: locals, formats: [ :html ])
-        streams << turbo_stream.replace("plan-general-comments", html)
-      end
+      streams.concat(comment_preview_streams)
 
       respond_to do |format|
         format.turbo_stream { render turbo_stream: streams }
@@ -95,12 +92,7 @@ module CoPlan
         inline_stream = turbo_stream.replace(target, html)
       end
 
-      unless @thread.anchored?
-        locals = { threads: @plan.comment_threads.with_kept_comments.includes(:comments).order(:created_at) }
-        Broadcaster.replace_to(@plan, target: "plan-general-comments", partial: "coplan/plans/general_comments", locals: locals)
-        html = render_to_string(partial: "coplan/plans/general_comments", locals: locals, formats: [ :html ])
-        inline_stream = [ inline_stream, turbo_stream.replace("plan-general-comments", html) ]
-      end
+      inline_stream = [ inline_stream, *comment_preview_streams ]
 
       # Inline response updates the actor immediately; the broadcast handles
       # other viewers (remove/replace are idempotent on echo).
@@ -111,6 +103,13 @@ module CoPlan
     end
 
     private
+
+    def comment_preview_streams
+      Comments::RefreshPreviews.call(thread: @thread).map do |preview|
+        html = render_to_string(partial: preview[:partial], locals: preview[:locals], formats: [ :html ])
+        turbo_stream.replace(preview[:target], html)
+      end
+    end
 
     def set_plan
       @plan = Plan.find(params[:plan_id])

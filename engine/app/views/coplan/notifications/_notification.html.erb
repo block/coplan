@@ -1,3 +1,6 @@
+<% if notification.review_notification? %>
+  <%= render "coplan/reviews/notification", notification: notification %>
+<% else %>
 <%= content_tag :div, id: dom_id(notification), class: "card notifications-list__item #{'notifications-list__item--read' if notification.read?}" do %>
   <div class="notifications-list__header">
     <%= link_to notification.plan.title, notification_path(notification), class: "notifications-list__plan-title" %>
@@ -20,4 +23,5 @@
     <%= time_ago_in_words(notification.created_at) %> ago
     · by <%= thread.created_by_user&.name || "Unknown" %>
   </div>
+<% end %>
 <% end %>

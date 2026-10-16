@@ -32,6 +32,8 @@ module CoPlan
       attachment_added
       attachment_removed
       comment_deleted
+      review_requested
+      review_withdrawn
       moved_to_folder
     ].freeze
 

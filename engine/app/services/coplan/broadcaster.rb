@@ -127,7 +127,7 @@ module CoPlan
             plan,
             action: "coplan-replace-if-clean",
             target: target,
-            html: reference_count,
+            html: reference_count.positive? ? reference_count : "",
             attrs: { "data-revision" => plan.current_revision }
           )
         end

@@ -28,6 +28,14 @@ RSpec.describe CoPlan::WebPush::PayloadForNotification do
   end
 
   describe ".call" do
+    it "links review tasks without requiring a comment thread" do
+      task = create(:review_request, plan: plan, reviewer: recipient)
+      notification = CoPlan::Notification.create!(plan: plan, user: recipient, review_request: task, reason: "review_requested")
+      payload = described_class.call(notification)
+      expect(payload).to include(title: "Your review was requested on My Plan", tag: "review-request-#{task.id}", url: CoPlan::Urls::Canonical.plan_path(plan))
+      expect(payload[:body]).to include("Discussion is welcome")
+    end
+
     it "returns title/body/url/tag for a reply" do
       payload = described_class.call(notification_for("reply"))
 

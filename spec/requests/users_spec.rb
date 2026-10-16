@@ -53,6 +53,16 @@ RSpec.describe "Users", type: :request do
 
         after { CoPlan.configuration.user_search = nil }
 
+        [ false, true ].each do |string_keys|
+          it "returns local IDs for directory candidates with #{string_keys ? 'string' : 'symbol'} keys", :review_directory do
+            candidate = { id: "directory-identity", name: "Directory Person", email: "directory@example.com", username: local_user.username, team: "Directory Team" }
+            candidate = candidate.stringify_keys if string_keys
+            CoPlan.configuration.user_search = ->(_query) { [ candidate ] }
+            get search_users_path, params: { q: "Directory" }
+            expect(response.parsed_body).to contain_exactly(include("id" => local_user.id, "name" => "Directory Person", "username" => local_user.username, "team" => "Directory Team"))
+          end
+        end
+
         it "filters out hook results whose username doesn't exist locally" do
           get search_users_path, params: { q: "anything" }
           results = JSON.parse(response.body)

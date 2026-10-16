@@ -169,7 +169,7 @@ export default class extends Controller {
       if (sequence !== this.commentsRequest) return true
       const nextThreads = document.querySelector("#plan-threads")
       const nextDetached = document.querySelector("#plan-detached-comments")
-      const nextGeneral = document.querySelector("#plan-general-comments")
+      const nextGeneral = document.querySelector("#plan-general-comment-list")
       if (!nextThreads || !nextDetached || !nextGeneral) return false
       const oldThreads = new Map(Array.from(existing.children, node => [node.id, node]))
       for (const next of Array.from(nextThreads.children)) {
@@ -189,10 +189,11 @@ export default class extends Controller {
         detached.className = nextDetached.className
         detached.hidden = nextDetached.hidden
       }
-      const general = this.element.querySelector("#plan-general-comments")
+      const general = this.element.querySelector("#plan-general-comment-list")
       if (general) {
         general.innerHTML = nextGeneral.innerHTML
         general.className = nextGeneral.className
+        general.dispatchEvent(new CustomEvent("coplan:document-comments-changed", { bubbles: true }))
         general.hidden = nextGeneral.hidden
       }
       this.controller?.richEditor?.updateComments(this.controller.comments(), { preserveRanges: this.controller.contentDirty() })

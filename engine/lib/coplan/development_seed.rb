@@ -255,6 +255,7 @@ module CoPlan
         seed_agent_organization_run(users, plans)
         seed_small_edits(users, plans)
         seed_reviews(users, plans)
+        seed_review_requests(users, plans)
         seed_content_discussions(users, plans)
         seed_reference_gallery(plans, base_url: base_url)
         seed_catalog(users, plans, plan_types, base_url: base_url)
@@ -680,16 +681,30 @@ module CoPlan
       end
     end
 
+    # A fresh checkout includes one required and one optional task. Never
+    # reset a response somebody recorded while trying the feature.
+    def seed_review_requests(users, plans)
+      plan = plans.fetch("collab-showcase")
+      [ [ "alex", "required" ], [ "sam", "optional" ] ].each do |key, requirement|
+        next if plan.review_requests.where(reviewer: users.fetch(key)).exists?
+        Reviews::Request.call(plan: plan, reviewer: users.fetch(key), actor: plan.created_by_user, requirement: requirement)
+      end
+    end
+
     def seed_reviews(users, plans)
       REVIEW_SCENARIOS.each do |key, approved|
         plan = plans.fetch(key)
         %w[alex noura].each do |reviewer|
           collaborator = plan.plan_collaborators.find_or_initialize_by(user: users.fetch(reviewer))
-          next if collaborator.persisted?
+          unless collaborator.persisted?
+            collaborator.assign_attributes(role: "approver", added_by_user: users.fetch("hampton"))
+            collaborator.approved_at = Time.current if approved
+            collaborator.save!
+          end
+          next if plan.review_requests.where(reviewer: users.fetch(reviewer)).exists?
 
-          collaborator.assign_attributes(role: "approver", added_by_user: users.fetch("hampton"))
-          collaborator.approved_at = Time.current if approved
-          collaborator.save!
+          request = Reviews::Request.call(plan: plan, reviewer: users.fetch(reviewer), actor: plan.created_by_user)
+          Reviews::Respond.call(request: request, actor: request.reviewer, revision: plan.current_revision, decision: "approved") if approved
         end
       end
     end

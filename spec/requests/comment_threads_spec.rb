@@ -81,7 +81,7 @@ RSpec.describe "CommentThreads", type: :request do
     end
 
     patch resolve_plan_comment_thread_path(plan, thread)
-    expect(partials).to contain_exactly("coplan/comment_threads/thread_popover", "coplan/plans/general_comments")
+    expect(partials).to contain_exactly("coplan/comment_threads/thread_popover", "coplan/plans/general_comment_list")
   end
 
   it "updates the earlier-text list when its last open discussion is resolved or reopened" do
@@ -106,10 +106,10 @@ RSpec.describe "CommentThreads", type: :request do
     }.to change(CoPlan::CommentThread, :count).by(1)
     thread = CoPlan::CommentThread.last
     expect(thread.anchor_text).to be_nil
-    expect(response.body).to include("plan-general-comments", "General feedback.", "comment_thread_#{thread.id}_popover")
+    expect(response.body).to include("plan-general-comment-list", "General feedback.", "comment_thread_#{thread.id}_popover")
 
     get plan_page_path(plan)
-    expect(response.body).to include("plan-general-comments", "General feedback.", "comment_thread_#{thread.id}_popover")
+    expect(response.body).to include("plan-general-comment-list", "General feedback.", "comment_thread_#{thread.id}_popover")
   end
 
   it "resolve thread" do

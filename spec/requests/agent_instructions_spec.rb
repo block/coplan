@@ -174,10 +174,11 @@ RSpec.describe "Agent Instructions", type: :request do
     describe "comments" do
       it "uses the open/resolved lifecycle" do
         get agent_instructions_guide_path(guide: "comments")
-        body = response.body
+        threads, reviews = response.body.split("## Review requests and decisions", 2)
 
-        expect(body).to include("A thread is `open` until someone resolves it.")
-        expect(body).not_to match(/pending|todo|discard|dismiss/)
+        expect(threads).to include("A thread is `open` until someone resolves it.")
+        expect(threads).not_to match(/pending|todo|discard|dismiss/)
+        expect(reviews).to include("does not withdraw pending reviews")
       end
     end
 

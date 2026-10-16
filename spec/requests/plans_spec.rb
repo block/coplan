@@ -235,13 +235,15 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).not_to include("deck-toolbar")
   end
 
-  it "show plan without content does not render content nav sidebar" do
+  it "show plan without content hides the outline and keeps discussion controls" do
     empty_plan = create(:plan, :considering, created_by_user: alice)
     empty_plan.current_plan_version.update_columns(content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
     get plan_page_path(empty_plan)
     expect(response).to have_http_status(:success)
     expect(response.body).to include("empty-state")
-    expect(response.body).not_to include('class="content-nav"')
+    document = Nokogiri::HTML(response.body)
+    expect(document.at_css(".content-nav")["style"]).to eq("display:none")
+    expect(document.at_css("#plan-threads")).to be_present
   end
 
   it "show plan includes Open Graph meta tags" do

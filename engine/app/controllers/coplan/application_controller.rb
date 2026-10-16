@@ -86,7 +86,10 @@ module CoPlan
         # CoPlan request creates the person's own library.
         @current_coplan_user.library
       else
-        if CoPlan.configuration.sign_in_path
+        if request.format.json?
+          render json: { error: "Your session ended. Sign in, then retry; your draft is still here.",
+                         code: "authentication_required", sign_in_path: CoPlan.configuration.sign_in_path }, status: :unauthorized
+        elsif CoPlan.configuration.sign_in_path
           redirect_to CoPlan.configuration.sign_in_path, alert: "Please sign in."
         else
           head :unauthorized

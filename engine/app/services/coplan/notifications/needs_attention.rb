@@ -31,20 +31,19 @@ module CoPlan
         end
       end
 
-      def self.call(user:, unread_counts: nil)
-        new(user: user, unread_counts: unread_counts).call
+      def self.call(user:)
+        new(user: user).call
       end
 
-      # unread_counts: a caller that already grouped this person's unread
-      # rows by plan (the workspace does, for its per-row badges) can pass
-      # the hash in rather than pay for the same query twice.
-      def initialize(user:, unread_counts: nil)
+      def initialize(user:)
         @user = user
-        @unread_counts = unread_counts
       end
 
       def call
-        unread_counts = @unread_counts || @user.notifications.unread.group(:plan_id).count
+        # Review nudges live in the inbox; pending reviews have their own
+        # persistent task rows. This strip counts unread comments only.
+        notifications = @user.notifications.unread.where.not(reason: %w[review_requested review_response])
+        unread_counts = notifications.group(:plan_id).count
         top_ids = unread_counts.sort_by { |_id, count| -count }.first(LIMIT).map(&:first)
 
         # The plan view hides resolved threads by default. Route each row
@@ -55,7 +54,7 @@ module CoPlan
         # between the count and this lookup — drop the row rather than
         # render a link to a notification that no longer exists.
         notification_ids = top_ids.index_with do |plan_id|
-          @user.notifications.unread.where(plan_id: plan_id).newest_first.pick(:id)
+          notifications.where(plan_id: plan_id).newest_first.pick(:id)
         end.compact
 
         # Even an inbox routes through the discovery predicate — a stale

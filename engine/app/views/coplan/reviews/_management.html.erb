@@ -1,0 +1,34 @@
+<dialog class="review-dialog review-management" data-coplan--review-tray-target="reviews" aria-labelledby="review-management-title" data-action="close->coplan--review-tray#closeAssignment">
+  <header class="review-management__header">
+    <h2 id="review-management-title">Manage reviewers</h2>
+    <button type="button" class="review-management__close" aria-label="Close reviews" data-action="coplan--review-tray#closeReviews"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+  </header>
+  <div class="review-management__overview">
+    <div class="review-management__status">
+      <div data-review-summary><span><%= pluralize(active_requests.size, "reviewer") %><%= " · #{active_requests.count(&:pending?)} awaiting review" if active_requests.any?(&:pending?) %></span></div>
+      <span role="status" aria-live="polite" data-coplan--review-tray-target="managementStatus"></span>
+    </div>
+    <% if allowed_to?(plan, :update?) %>
+      <button type="button" class="review-add-button" title="Add reviewer" aria-expanded="false" aria-haspopup="dialog" aria-controls="review-assignment" popovertarget="review-assignment" data-coplan--review-tray-target="addReviewerButton"><span aria-hidden="true">+</span> Add reviewer</button>
+    <% end %>
+  </div>
+  <% if allowed_to?(plan, :update?) %>
+    <div id="review-assignment" class="review-assignment" popover="auto" role="dialog" aria-label="Add reviewer" data-coplan--review-tray-target="assignment" data-action="toggle->coplan--review-tray#assignmentToggled keydown.esc->coplan--review-tray#dismissAssignment">
+      <%= form_with url: plan_review_requests_path(plan), class: "review-assignment-form", data: { action: "submit->coplan--review-tray#assign" } do %>
+        <label for="reviewer-search">Find a reviewer</label>
+        <div class="review-search-field">
+          <input id="reviewer-search" type="search" placeholder="Search by name or username…" autocomplete="off" data-coplan--review-tray-target="search" data-action="input->coplan--review-tray#search keydown.down->coplan--review-tray#focusResults" aria-controls="reviewer-results" aria-expanded="false">
+          <input type="hidden" name="review_request[reviewer_id]" data-coplan--review-tray-target="reviewerId">
+          <div id="reviewer-results" class="review-search-results" data-coplan--review-tray-target="results" aria-live="polite" hidden></div>
+        </div>
+        <div class="review-assignment-form__footer">
+          <label class="review-required"><input type="checkbox" name="review_request[required]" checked> Required</label>
+          <button type="submit" class="review-add-button" data-coplan--review-tray-target="assignButton" disabled>Add reviewer</button>
+        </div>
+        <p class="review-error" role="alert" data-coplan--review-tray-target="assignmentError"></p>
+      <% end %>
+    </div>
+  <% end %>
+  <p class="review-error" role="alert" data-coplan--review-tray-target="managementError"></p>
+  <%= render "coplan/reviews/roster", plan: plan, active_requests: active_requests, manage: true %>
+</dialog>

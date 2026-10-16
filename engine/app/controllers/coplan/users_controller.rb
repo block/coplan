@@ -15,10 +15,14 @@ module CoPlan
         # whose username also exists in coplan_users, since RewriteMentions
         # and ProcessMentions can only resolve local usernames. Surfacing
         # external-only users would let the picker offer mentions that
-        # silently fall through to plain text on save.
+        # silently fall through to plain text on save. Return local IDs so
+        # reviewer assignment resolves the same person as the mention picker.
         candidates = CoPlan.configuration.user_search.call(query)
-        local_usernames = CoPlan::User.where(username: candidates.filter_map { |c| c[:username] || c["username"] }).pluck(:username).to_set
-        candidates.select { |c| local_usernames.include?(c[:username] || c["username"]) }
+        local_ids = CoPlan::User.where(username: candidates.filter_map { |c| c[:username] || c["username"] }).pluck(:username, :id).to_h
+        candidates.filter_map do |candidate|
+          id = local_ids[candidate[:username] || candidate["username"]]
+          user_json(candidate).merge(id: id) if id
+        end
       else
         sanitized = CoPlan::User.sanitize_sql_like(query)
         CoPlan::User
@@ -35,7 +39,7 @@ module CoPlan
       if user.respond_to?(:id)
         ALLOWED_FIELDS.to_h { |f| [ f, user.public_send(f) ] }
       else
-        ALLOWED_FIELDS.to_h { |f| [ f, user[f] ] }
+        ALLOWED_FIELDS.to_h { |f| [ f, user[f] || user[f.to_s] ] }
       end
     end
   end

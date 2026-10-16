@@ -61,6 +61,15 @@ RSpec.describe "Comments", type: :request do
     ActionController::Base.perform_caching = original_perform_caching
   end
 
+  it "refreshes public comment previews after a reply without sharing request HTML" do
+    expect(CoPlan::Broadcaster).to receive(:replace_to).with(plan,
+      target: "plan-general-comment-list", partial: "coplan/plans/general_comment_list", locals: anything)
+    post plan_comment_thread_comments_path(plan, thread_record),
+      params: { comment: { body_markdown: "New public reply" } },
+      headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    expect(response.body).to include('target="plan-general-comment-list"', "New public reply")
+  end
+
   describe "PATCH update" do
     let!(:comment) { create(:comment, comment_thread: thread_record, author_id: alice.id, body_markdown: "Original") }
 

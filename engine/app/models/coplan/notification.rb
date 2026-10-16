@@ -1,14 +1,21 @@
 module CoPlan
   class Notification < ApplicationRecord
-    REASONS = %w[new_comment reply agent_response status_change mention].freeze
+    REASONS = %w[new_comment reply agent_response status_change mention review_requested review_response].freeze
 
     belongs_to :user, class_name: "CoPlan::User"
     belongs_to :plan, class_name: "CoPlan::Plan"
-    belongs_to :comment_thread, class_name: "CoPlan::CommentThread"
+    belongs_to :comment_thread, class_name: "CoPlan::CommentThread", optional: true
+    belongs_to :review_request, optional: true
     belongs_to :comment, class_name: "CoPlan::Comment", optional: true
     has_many :notification_deliveries, dependent: :delete_all
 
     validates :reason, presence: true, inclusion: { in: REASONS }
+    validates :comment_thread, presence: true, unless: -> { review_notification? }
+    validates :review_request, presence: true, if: :review_notification?
+
+    def review_notification?
+      reason.in?(%w[review_requested review_response])
+    end
 
     scope :unread, -> { where(read_at: nil) }
     scope :read, -> { where.not(read_at: nil) }

@@ -1072,7 +1072,7 @@ RSpec.describe "Human plan editing", type: :system do
     visit plan_page_path(plan)
 
     # Private is the rare state — the byline flags it.
-    expect(page).to have_css("#plan-header .state-flag", text: "Private")
+    expect(page).to have_css("#plan-header .plan-visibility-button", text: "Private")
 
     open_plan_menu
     within("#plan-menu") { click_button "Share with everyone" }
@@ -1080,14 +1080,14 @@ RSpec.describe "Human plan editing", type: :system do
     # The Turbo Stream re-renders the header in place: the Private flag
     # drops without a navigation, and a toast confirms.
     expect(page).to have_content("Shared with everyone in the org.")
-    expect(page).not_to have_css("#plan-header .state-flag", text: "Private")
+    expect(page).not_to have_css("#plan-header .plan-visibility-button", text: "Private")
     expect(plan.reload.visibility).to eq("published")
 
     # The menu tracks state: it now offers the opposite direction.
     open_plan_menu
     within("#plan-menu") { click_button "Make private" }
     expect(page).to have_content("Private again — hidden from lists and search.")
-    expect(page).to have_css("#plan-header .state-flag", text: "Private")
+    expect(page).to have_css("#plan-header .plan-visibility-button", text: "Private")
     expect(plan.reload.visibility).to eq("draft")
   end
 

@@ -70,6 +70,10 @@ CoPlan::Engine.routes.draw do
       # Cleans up a spoken remark and works out which passage it was about;
       # see DictationsController.
       resources :dictations, only: [ :create ]
+      resources :review_requests, only: [ :index, :create, :update, :destroy ] do
+        post :respond, on: :member
+        get :compare, on: :member
+      end
       resources :comment_threads, only: [ :create ] do
         member do
           patch :resolve
@@ -155,6 +159,9 @@ CoPlan::Engine.routes.draw do
       post "library/organize", to: "libraries#organize", as: :own_library_organize
 
       resources :plans, only: [ :index, :show, :create, :update ] do
+        resources :review_requests, only: [ :index, :create, :update, :destroy ] do
+          post :respond, on: :member
+        end
         get :versions, on: :member
         get :locations, on: :member
         get :comments, on: :member

@@ -31,8 +31,8 @@
     between the document and its footnote sections. Cold opens (direct link,
     new tab) have no history — fall back to the folder the plan actually
     lives in, not the workspace root. %>
-<div data-controller="coplan--plan-keys coplan--folder-picker coplan--inline-editor"
-     data-action="coplan:edit-request@document->coplan--inline-editor#open coplan:editor-ready->coplan--inline-editor#ready coplan:editor-closed->coplan--inline-editor#closed coplan:editor-error->coplan--inline-editor#error coplan:editor-saved->coplan--inline-editor#refreshThreads"
+<div data-controller="coplan--plan-keys coplan--folder-picker coplan--inline-editor coplan--plan-details"
+     data-action="coplan:edit-request@document->coplan--inline-editor#open coplan:editor-ready->coplan--inline-editor#ready coplan:editor-closed->coplan--inline-editor#closed coplan:editor-error->coplan--inline-editor#error coplan:editor-saved->coplan--inline-editor#refreshThreads keydown.esc@document->coplan--plan-details#dismissVisibility"
      data-coplan--inline-editor-content-url-value="<%= content_body_plan_path(@plan) %>"
      data-coplan--inline-editor-comments-url-value="<%= comments_body_plan_path(@plan) %>"
      data-coplan--inline-editor-auto-open-value="<%= params[:edit].present? && allowed_to?(@plan, :edit_content?) %>"
@@ -57,9 +57,8 @@
 
 <% update_details = (@section_updates || {}).transform_values { |version| section_update_details(version) } %>
 <div class="plan-document card">
-  <% if @plan.current_content.present? || params[:edit].present? && allowed_to?(@plan, :edit_content?) %>
     <div class="plan-layout plan-layout--hide-resolved" data-controller="coplan--source-comments coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="coplan:source-thread->coplan--source-comments#openThread coplan:resolved-visibility->coplan--source-comments#resolvedVisibilityChanged coplan:diagram-moved->coplan--source-comments#positionPanel keydown.esc@document->coplan--source-comments#dismiss:capture turbo:before-cache@document->coplan--source-comments#beforeCache coplan:mermaid-settled->coplan--source-comments#refresh coplan:content-updated->coplan--source-comments#refresh coplan:expander-opened->coplan--source-comments#refresh coplan:expander-closing->coplan--source-comments#expanderClosing resize@window->coplan--text-selection#reposition keydown@document->coplan--text-selection#selectionKey keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread resize@window->coplan--content-nav#outlineResized coplan:show-outline@document->coplan--content-nav#showOutline coplan:content-updated->coplan--content-nav#contentUpdated coplan:content-updated->coplan--changed-sections#refresh coplan:section-update->coplan--changed-sections#refresh visibilitychange@document->coplan--changed-sections#visibilityChanged coplan:remote-change->coplan--content-nav#remoteChange coplan:deck-slide-changed->coplan--content-nav#slideChanged coplan:editor-content-changed->coplan--content-nav#editorContentChanged coplan:editor-preview-settled->coplan--text-selection#editorPreviewSettled coplan:mermaid-settled->coplan--text-selection#editorPreviewSettled" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-revision-value="<%= @plan.current_revision %>" data-coplan--changed-sections-keys-value="<%= @changed_sections.keys.to_json %>" data-coplan--changed-sections-updates-value="<%= update_details.to_json %>" data-coplan--changed-sections-rewritten-value="<%= @changed_sections.rewritten? %>">
-      <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline" data-action="beforetoggle->coplan--content-nav#outlineClosing">
+      <nav class="content-nav"<%= ' style="display:none"'.html_safe if @plan.current_content.blank? %> data-coplan--content-nav-target="sidebar" aria-label="Document outline" data-action="beforetoggle->coplan--content-nav#outlineClosing">
         <%# No "Contents" label — the outline speaks for itself, and the plan
             title now lives in the sticky nav. Just the collapse control. %>
         <div class="content-nav__header">
@@ -77,11 +76,13 @@
               visit, so the bare anchor refetched and re-rendered the page —
               and on a deck the re-rendered slides settle their heights
               asynchronously, landing the scroll nowhere near the section. %>
-          <li><a href="#footnote-references" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">References <span class="section-count" id="nav-references-count"><%= reference_count %></span></a></li>
-          <li><a href="#footnote-attachments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Attachments <span class="section-count" id="nav-attachments-count"><%= @attachments.size %></span></a></li>
+          <li><a href="#footnote-references" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">References <%= plan_section_count(reference_count, id: "nav-references-count") %></a></li>
+          <li><a href="#footnote-attachments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Attachments <%= plan_section_count(@attachments.size, id: "nav-attachments-count") %></a></li>
+          <li><a href="#footnote-approvals" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Reviews <%= plan_section_count(@plan.review_requests.count, id: "nav-approvals-count") %></a></li>
+          <li><a href="#plan-general-comments" class="content-nav__footnote-link" data-action="coplan--content-nav#jumpToSection">Comments <%= plan_section_count(@threads.count { |thread| !thread.anchored? && !thread.out_of_date? }, id: "nav-comments-count") %></a></li>
         </ul>
       </nav>
-      <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>
+      <button type="button" class="content-nav-show-btn"<%= ' style="display:none"'.html_safe if @plan.current_content.blank? %> data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>
 
       <%# Mermaid swaps its source block for rendered SVG asynchronously —
           re-run anchor highlighting once each diagram settles so comments
@@ -95,7 +96,9 @@
         <%# Selection-to-comment is scoped to this inner wrapper: the back
             matter below shares the column but must not offer comment
             anchors — they'd never resolve against the document body. %>
-        <div data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-coplan--inline-editor-target="reader" data-action="coplan:mermaid-settled->coplan--text-selection#handleContentSettled coplan:highlight-settled->coplan--text-selection#handleContentSettled">
+        <div class="plan-reader" data-coplan--inline-editor-target="reader">
+          <% if @plan.current_content.blank? %><div class="empty-state"><p>This plan has no content yet.</p></div><% end %>
+        <div data-coplan--text-selection-target="content" data-coplan--content-nav-target="content" data-action="coplan:mermaid-settled->coplan--text-selection#handleContentSettled coplan:highlight-settled->coplan--text-selection#handleContentSettled">
           <div id="plan-content-body"
                data-controller="coplan--live-update"
                data-coplan--live-update-revision-value="<%= @plan.current_revision %>">
@@ -103,6 +106,7 @@
           </div>
 
 
+        </div>
         </div>
         <% if allowed_to?(@plan, :edit_content?) %>
           <div class="inline-editor" data-coplan--inline-editor-target="editor" hidden>
@@ -122,6 +126,7 @@
         </div>
         <%= render partial: "coplan/comment_threads/new_comment_form", locals: { plan: @plan } %>
 
+        <div class="document-support">
         <%= render partial: "coplan/plans/footnotes",
               locals: { plan: @plan, references: @references, attachments: @attachments } %>
 
@@ -141,19 +146,13 @@
         </aside>
         <%= render partial: "coplan/comment_threads/source_comments", locals: { plan: @plan } %>
         <%= render "coplan/plans/thread_collection", plan: @plan, threads: @threads %>
+        </div>
       </div>
     </div>
-  <% else %>
-    <div class="empty-state">
-      <p>This plan has no content yet.</p>
-    </div>
-    <%# No content, no layout columns — back matter still belongs on the page. %>
-    <%= render partial: "coplan/plans/footnotes",
-          locals: { plan: @plan, references: @references, attachments: @attachments } %>
-  <% end %>
 </div>
 
 <%= render partial: "coplan/shared/folder_picker", locals: { folders: @my_folders } %>
+<%= render "coplan/plans/visibility", plan: @plan %>
 
 <% if current_user && @plan.current_content.present? %>
   <%= render partial: "coplan/plans/voice_control", locals: { plan: @plan } %>

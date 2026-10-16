@@ -75,6 +75,10 @@ module CoPlan
       safe_join([ " ", safe_join(flags, " ") ])
     end
 
+    def plan_section_count(count, id:)
+      content_tag(:span, count.positive? ? count : nil, class: "section-count", id: id)
+    end
+
     def hidden_state_flag(label, title)
       content_tag(:span, safe_join([ HIDDEN_EYE_ICON, label ]), class: "state-flag", title: title)
     end

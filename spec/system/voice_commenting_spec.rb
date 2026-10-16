@@ -193,7 +193,8 @@ RSpec.describe "Voice commenting", type: :system do
     expect(page).to have_css(".voice-status", text: /Comment added to document/, wait: 10)
     thread = CoPlan::CommentThread.where(plan_id: plan.id).last
     expect(thread.anchor_text).to be_nil
-    expect(page).to have_css("#plan-general-comments", text: "The whole document needs another pass.", wait: 10)
+    expect(page).to have_css("#plan-general-comments .document-comment", text: "The whole document needs another pass.", visible: :all, wait: 10)
+    expect(page).to have_no_css("#plan-general-comments details[open]")
     expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "The whole document needs another pass.", wait: 10)
     expect(page.evaluate_script("window.scrollY")).to be_within(24).of(scroll_before)
   end

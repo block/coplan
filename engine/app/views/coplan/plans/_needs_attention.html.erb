@@ -2,6 +2,7 @@
     always rendered — an empty container still gives the Turbo Stream
     something to target. %>
 <div id="needs-attention">
+  <%= render "coplan/reviews/tasks", tasks: current_user.review_requests.pending.includes(:plan, :requested_by_user).order(requested_at: :desc) %>
   <% if attention.any? %>
     <section class="attention" aria-label="Plans that need your attention">
       <h2 class="attention__heading">

@@ -42,6 +42,8 @@ RSpec.describe "Admin pages", type: :request do
     "plan_versions" => -> { create(:plan).current_plan_version },
     "plans" => -> { create(:plan) },
     "references" => -> { create(:reference) },
+    "review_requests" => -> { create(:review_request) },
+    "review_responses" => -> { create(:review_response) },
     "tags" => -> { create(:tag) },
     "users" => -> { create(:coplan_user) }
   }

@@ -16,7 +16,7 @@ Every endpoint, with the guide that explains it. All paths start with `<%= @base
 | `GET /api/v1/plans` | List the plans that you can see. Filters: `?visibility=draft\|published`, `?archived=true`, `?folder_id=`. | primer |
 | `POST /api/v1/plans` | Create a plan. | creating |
 | `GET /api/v1/plans/:id` | Get a plan with its content and references. | primer |
-| `GET /api/v1/plans/:id/snapshot` | Get a plan with content, threads, references, and collaborators. | primer |
+| `GET /api/v1/plans/:id/snapshot` | Get a plan with content, threads, references, collaborators, and review requests. | primer |
 | `PATCH /api/v1/plans/:id` | Change the title, type, tags, folder, visibility, archive state, or references. Plan author only. | editing |
 | `PUT /api/v1/plans/:id/content` | Replace the content. | editing |
 | `POST /api/v1/plans/:id/operations` | Apply targeted edits. | editing |
@@ -49,6 +49,22 @@ Every endpoint, with the guide that explains it. All paths start with `<%= @base
 | `GET /api/v1/references/search?url=` | Find the plans that refer to a URL. | creating |
 | `GET`, `POST /api/v1/plans/:id/attachments` | List or upload files (multipart `file`). Uploading is for the plan author only. | markdown |
 | `DELETE /api/v1/plans/:id/attachments/:attachment_id` | Delete a file. Plan author only. | markdown |
+
+## Review requests and decisions
+
+| Method and path | Purpose | Guide |
+|---|---|---|
+| `GET /api/v1/plans/:id/review_requests` | List reviewers and their recorded decisions. | comments |
+| `POST /api/v1/plans/:id/review_requests` | Request required or optional review. Plan author only. | comments |
+| `PATCH /api/v1/plans/:id/review_requests/:request_id` | Change the requirement without reopening, or request another look. Plan author only. | comments |
+| `DELETE /api/v1/plans/:id/review_requests/:request_id` | Withdraw a request; record its actor and time while preserving earlier history. Plan author only. | comments |
+| `POST /api/v1/plans/:id/review_requests/:request_id/respond` | Approve a version or request changes. Requested reviewer only. | comments |
+
+Creating a review request for an existing reviewer returns the current task with status 201. It leaves the requirement, decision, history, and notifications unchanged. Use `PATCH` to change the requirement or `request_again: true` to request another look.
+
+Include `idempotency_key` (a fresh UUID) for each intended review response. Reuse that UUID and identical fields when retrying a lost response; its returned `id` is the UUID. Use a new UUID for a new decision, including another review of the same version. A keyed retry returns the original recorded result even after the plan changes or the task is withdrawn. It preserves any newly pending review task. Without a key, an identical response is treated as a retry. Retries may use a renewed token for the same human principal. The original response keeps its original agent and token attribution. A key reused for different fields returns 422.
+
+A review response returns 409 with `code: review_version_changed` for a stale revision. Re-read before responding. A new response to a withdrawn request returns 409 with `code: review_request_withdrawn`; stop responding unless the author requests another look.
 
 ## Libraries and folders
 

@@ -23,7 +23,7 @@ RSpec.describe "Plan references", type: :system do
   # References live under the document as a footnote section — same page as
   # the content, no tabs.
   def open_add_reference_modal
-    within("#footnote-references .plan-footnote__header") { find(".section-add").click }
+    within("#footnote-references") { click_button "Add a reference", enable_aria_label: true }
   end
 
   describe "footnote section" do
@@ -33,7 +33,7 @@ RSpec.describe "Plan references", type: :system do
       expect(page).to have_content("Some content here")
       # Empty state is one quiet line, scoped to the section (attachments
       # has its own "None yet").
-      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "No references yet")
+      expect(page).to have_no_css("#footnote-references .plan-footnote__empty")
       expect(page).to have_css("#footnote-references .plan-footnote__title", text: /references/i)
     end
 
@@ -276,6 +276,7 @@ RSpec.describe "Plan references", type: :system do
   describe "adding references via Turbo Stream" do
     it "closes the add-modal via the X button and via Escape" do
       visit plan_page_path(plan)
+      find("#footnote-references summary").click
 
       open_add_reference_modal
       expect(page).to have_css(".add-modal:popover-open")
@@ -361,8 +362,9 @@ RSpec.describe "Plan references", type: :system do
 
       # Turbo Stream removes the reference and updates count
       expect(page).not_to have_content("Doomed")
-      expect(page).to have_css("#references-count", text: "0")
-      expect(page).to have_css("#footnote-references .plan-footnote__empty", text: "No references yet")
+      expect(page).to have_no_css("#references-count", visible: true)
+      expect(page).to have_css("#references-count:empty", visible: :all)
+      expect(page).to have_no_css("#footnote-references .plan-footnote__empty")
     end
   end
 

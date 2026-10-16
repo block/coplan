@@ -1,11 +1,11 @@
-<% general_threads = threads.reject(&:anchored?).reject(&:out_of_date?) %>
-<aside id="plan-general-comments" class="detached-comments general-comments<%= ' detached-comments--all-resolved' if general_threads.any? && general_threads.all?(&:closed?) %>" aria-label="Document comments"<%= " hidden" if general_threads.empty? %>>
-  <% if general_threads.any? %>
-    <strong>Document comments</strong>
-    <% general_threads.each do |thread| %>
-      <button type="button" class="<%= 'detached-comments__resolved' if thread.closed? %>" data-thread-id="<%= dom_id(thread) %>" data-action="coplan--text-selection#openDetachedThread">
-        <%= truncate(thread.comments.find { |comment| !comment.deleted? }&.body_markdown.to_s.delete_prefix("🎙️ "), length: 110) %><% if thread.closed? %> · resolved<% end %>
-      </button>
-    <% end %>
-  <% end %>
+<aside id="plan-general-comments" class="detached-comments general-comments" aria-label="Document comments" data-controller="coplan--document-comments" data-action="coplan:show-document-thread->coplan--document-comments#revealThread coplan:document-comments-changed->coplan--document-comments#applyFilter coplan:plan-comment-posted->coplan--document-comments#posted">
+  <details class="document-support__disclosure" data-controller="coplan--support-disclosure" data-action="toggle->coplan--support-disclosure#remember">
+    <summary class="document-support__heading"><span class="document-support__chevron" aria-hidden="true">›</span><h2 class="plan-footnote__title">Comments</h2><span class="document-support__count" data-coplan--document-comments-target="count"></span></summary>
+    <div class="document-support__content">
+      <div class="document-comments__filters"><label for="document-comment-filter">Show</label><select id="document-comment-filter" data-coplan--document-comments-target="filter" data-action="coplan--document-comments#filterChanged"><option value="open">Open</option><option value="resolved">Resolved</option><option value="all">All comments</option></select></div>
+      <%= render "coplan/plans/general_comment_list", threads: threads %>
+      <p class="document-comments__empty text-sm text-muted" data-coplan--document-comments-target="empty" hidden></p>
+    </div>
+  </details>
+  <% if current_user %><button type="button" class="section-add document-support__add" aria-label="Add comment" title="Add comment" data-action="coplan--text-selection#openPlanComment">+</button><% end %>
 </aside>

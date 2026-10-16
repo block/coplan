@@ -1,0 +1,9 @@
+  <% [["draft", "Private", "Unlisted. Anyone with the link can read.", hide_plan_path(plan), :hide?], ["published", "Shared", "Listed for everyone in the organization.", publish_plan_path(plan), :publish?]].each do |state, label, description, path, permission| %>
+    <div data-visibility-option="<%= state %>" class="visibility-option">
+      <% if allowed_to?(plan, permission) %>
+        <%= button_to path, method: :patch, class: "visibility-option__button", form: { data: { action: "turbo:submit-end->coplan--plan-details#visibilitySubmitted" } }, data: { turbo_submits_with: "Updating…" } do %>
+          <span><strong><%= label %></strong><small><%= description %></small></span><span class="visibility-option__check" aria-hidden="true">✓</span>
+        <% end %>
+      <% else %><div class="visibility-option__button"><span><strong><%= label %></strong><small><%= description %></small></span><span class="visibility-option__check" aria-hidden="true">✓</span></div><% end %>
+    </div>
+  <% end %>

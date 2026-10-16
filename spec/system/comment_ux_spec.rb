@@ -1224,14 +1224,14 @@ RSpec.describe "Comment UX", type: :system do
 
       visit plan_page_path(table_plan)
 
-      data_rows = all("table tbody tr")
+      data_rows = all("#plan-content-body table tbody tr")
       expect(data_rows.length).to eq(3)
       data_rows.each do |row|
         cells = row.all("td")
         expect(cells.length).to eq(4), "expected 4 cells per row, got #{cells.length} in row '#{row.text}'"
       end
 
-      header_cells = all("table thead tr th")
+      header_cells = all("#plan-content-body table thead tr th")
       expect(header_cells.length).to eq(4)
 
       expect(page).to have_css("td mark.anchor-highlight", minimum: 1)
@@ -1254,7 +1254,7 @@ RSpec.describe "Comment UX", type: :system do
 
       expect(page).to have_css("td mark.anchor-highlight", text: "Phase 1")
 
-      all("table tbody tr").each do |row|
+      all("#plan-content-body table tbody tr").each do |row|
         expect(row.all("td").length).to eq(4)
       end
     end
@@ -1295,7 +1295,7 @@ RSpec.describe "Comment UX", type: :system do
       expect(thread.anchor_text).to eq(cell_text)
       expect(page).to have_css("td mark.anchor-highlight", text: cell_text)
 
-      all("table tbody tr").each do |row|
+      all("#plan-content-body table tbody tr").each do |row|
         expect(row.all("td").length).to eq(4)
       end
     end

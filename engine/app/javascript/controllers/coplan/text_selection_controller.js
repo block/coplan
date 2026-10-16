@@ -43,6 +43,7 @@ export default class extends Controller {
       this._threadsObserver.observe(this.threadsTarget, { childList: true })
     }
 
+    this._pendingThreadFocusReply = false
     // Auto-open a specific thread if linked via ?thread=ID (set as a Stimulus value)
     if (this.focusThreadValue) {
       this._pendingThreadId = this.focusThreadValue
@@ -212,8 +213,26 @@ export default class extends Controller {
     this.anchorPreviewTarget.style.display = "block"
     this.formTarget.querySelector("textarea").value = this.commentDrafts?.get(this.commentDraftKey()) || ""
 
+    this.showCommentForm(this.popoverTarget.getBoundingClientRect())
+  }
+
+  openPlanComment(event) {
+    event.preventDefault()
+    this.planCommentTrigger = event.currentTarget
+    this.selectedText = null
+    this.selectedContext = null
+    this.selectedOccurrence = null
+    this.selectionInEditor = false
+    this.anchorInputTarget.value = ""
+    this.contextInputTarget.value = ""
+    this.occurrenceInputTarget.value = ""
+    this.anchorPreviewTarget.style.display = "none"
+    this.formTarget.querySelector("textarea").value = this.commentDrafts?.get(this.commentDraftKey()) || ""
+    this.showCommentForm(event.currentTarget.getBoundingClientRect())
+  }
+
+  showCommentForm(anchor) {
     // Move the whole window in viewport coordinates, including the quote.
-    const anchor = this.popoverTarget.getBoundingClientRect()
     this.formTarget.classList.toggle("comment-form--sheet", this._isMobile())
     this.formTarget.style.display = "flex"
     this.formTarget.setAttribute("popover", "manual")
@@ -241,6 +260,9 @@ export default class extends Controller {
 
   resetCommentForm(event) {
     if (event.detail.success) {
+      if (!this.anchorInputTarget.value) {
+        this.element.querySelector("#plan-general-comments")?.dispatchEvent(new CustomEvent("coplan:plan-comment-posted", { detail: { success: true } }))
+      }
       this.hideAndResetForm()
     }
   }
@@ -278,6 +300,8 @@ export default class extends Controller {
     this.selectedContext = null
     this.selectedOccurrence = null
     this.selectionInEditor = false
+    this.planCommentTrigger?.focus({ preventScroll: true })
+    this.planCommentTrigger = null
   }
 
   scrollToAnchor(event) {
@@ -310,6 +334,11 @@ export default class extends Controller {
   openEditorThread(event) {
     event.preventDefault()
     event.stopPropagation()
+    this._showThreadPopoverFor(event.currentTarget)
+  }
+
+  openDocumentThread(event) {
+    if (event.target.closest("a, button, input, textarea, select") || window.getSelection()?.toString()) return
     this._showThreadPopoverFor(event.currentTarget)
   }
 
@@ -376,6 +405,7 @@ export default class extends Controller {
   openThread(event) {
     this._pendingThreadId = event.detail.threadId
     this._pendingThreadOrigin = event.detail.origin
+    this._pendingThreadFocusReply = event.detail.focusReply === true
     this._openLinkedThread()
   }
 
@@ -775,10 +805,12 @@ export default class extends Controller {
     const domId = `comment_thread_${threadId}`
     const threadData = document.getElementById(domId)
     if (threadData?.dataset.anchorKind) {
-      const event = new CustomEvent("coplan:source-thread", { bubbles: true, cancelable: true, detail: { threadId } })
+      const event = new CustomEvent("coplan:source-thread", { bubbles: true, cancelable: true, detail: { threadId, focusReply: this._pendingThreadFocusReply } })
       this.element.dispatchEvent(event)
       if (event.defaultPrevented) {
         this._pendingThreadId = null
+        this._pendingThreadOrigin = null
+        this._pendingThreadFocusReply = false
         return
       }
     }
@@ -796,6 +828,7 @@ export default class extends Controller {
     }
 
     if (mark) {
+      mark.closest("#plan-general-comments")?.dispatchEvent(new CustomEvent("coplan:show-document-thread", { detail: { threadId: domId } }))
       // A direct link is an explicit request to see this resolved discussion.
       // Reveal its list before scrolling to a button hidden by the default view.
       if (mark.closest(".detached-comments") && threadData?.dataset.threadStatus === "resolved") {
@@ -812,10 +845,17 @@ export default class extends Controller {
           const trigger = generalVoiceComment ? document.querySelector(".voice-btn") || currentMark : currentMark
           if (generalVoiceComment) trigger.dataset.threadId = domId
           else {
+            const disclosure = currentMark.closest("details.document-support__disclosure")
+            if (disclosure) disclosure.open = true
             this._revealDeckSlide(currentMark)
             currentMark.scrollIntoView({ behavior: "instant", block: "center" })
           }
           if (this._showThreadPopoverFor(trigger)) {
+            if (this._pendingThreadFocusReply) {
+              const input = this._activePopover.querySelector(".thread-popover__reply textarea") || this._activePopover.querySelector(".comment-window__move")
+              input?.focus({ preventScroll: true })
+            }
+            this._pendingThreadFocusReply = false
             this._pendingThreadId = null
             this._pendingThreadOrigin = null
             return
