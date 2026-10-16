@@ -92,12 +92,12 @@ module CoPlanSession
   # Falls back to the parent token when minting isn't available (the
   # server predates it, or the caller already holds a session token) so
   # this is always safe to call.
-  def ensure_token(base:, parent:, agent_name: nil, ttl: nil, key: nil, force: false)
+  def ensure_token(base:, parent:, agent_name: nil, ttl: nil, key: nil, force: false, metadata: nil)
     key = session_key(key)
     existing = read(key)
     return existing["token"] if !force && fresh?(existing, base)
 
-    minted = mint(base: base, parent: parent, agent_name: agent_name, ttl: ttl)
+    minted = mint(base: base, parent: parent, agent_name: agent_name, ttl: ttl, metadata: metadata)
     return parent unless minted
 
     write(key, {
@@ -110,7 +110,7 @@ module CoPlanSession
     })["token"]
   end
 
-  def mint(base:, parent:, agent_name: nil, ttl: nil)
+  def mint(base:, parent:, agent_name: nil, ttl: nil, metadata: nil)
     # Concatenation, not URI.join: an absolute path in URI.join discards
     # the base's mount prefix, and CoPlan engines may be mounted under one.
     uri = URI("#{base.to_s.chomp("/")}/api/v1/tokens")
@@ -120,7 +120,12 @@ module CoPlanSession
     req.body = {
       agent_name: agent_name,
       name: [ agent_name, "session" ].compact.join(" "),
-      ttl_seconds: ttl
+      ttl_seconds: ttl,
+      metadata: metadata || {
+        harness: ENV["COPLAN_HARNESS"],
+        harness_version: ENV["COPLAN_HARNESS_VERSION"],
+        model: ENV["COPLAN_MODEL"]
+      }.compact
     }.compact.to_json
 
     res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") { |http| http.request(req) }

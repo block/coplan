@@ -1,3 +1,5 @@
+require "shellwords"
+
 module CoPlan
   # Serves the agent instructions: a short primer at /agent-instructions,
   # plus topic guides at /agent-instructions/<guide> that agents fetch only
@@ -30,6 +32,7 @@ module CoPlan
     # URL segment => template under agent_instructions/guides/. The primer
     # links every entry; a spec holds it to that.
     GUIDES = {
+      "connecting" => "connecting",
       "markdown" => "markdown",
       "presentations" => "presentations",
       "embeds" => "embeds",

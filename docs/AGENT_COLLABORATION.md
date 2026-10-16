@@ -171,7 +171,7 @@ steers a flags-only run:
 ```json
 {
   "base_url": "http://localhost:3222",
-  "token": "<api token from Settings → API Tokens>",
+  "token": "<api token from Settings → Agent access → Personal API tokens>",
   "agent_name": "Claude",
   "plans": ["<plan-id>"],
   "adapter": "claude",
@@ -222,7 +222,7 @@ path.
 
 ```bash
 bin/rails server -p 3222
-# Make a token (Settings → API Tokens) for the user who authors the plan.
+# Make a token (Settings → Agent access → Personal API tokens) for the user who authors the plan.
 
 # Terminal 2 — the "agent":
 script/coplan-bridge --config bridge.json    # adapter: "demo" for zero-cost

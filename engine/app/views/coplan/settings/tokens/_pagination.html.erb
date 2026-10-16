@@ -1,0 +1,8 @@
+<% if @page > 1 || @has_next %>
+  <% path_for = ->(page) { @sessions_view ? settings_agent_sessions_path(filter: @filter, q: @query, page: page) : settings_tokens_path(page: page) } %>
+  <nav class="access-pagination" aria-label="Pagination">
+    <% if @page > 1 %><%= link_to "← Previous", path_for.call(@page - 1), rel: "prev" %><% end %>
+    <span class="access-muted">Page <%= @page %></span>
+    <% if @has_next %><%= link_to "Next →", path_for.call(@page + 1), rel: "next" %><% end %>
+  </nav>
+<% end %>

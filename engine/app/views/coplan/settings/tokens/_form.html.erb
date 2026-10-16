@@ -1,8 +1,10 @@
-<h2>Create New Token</h2>
+<h2>Create a personal token</h2>
+<p class="settings-row__hint">Name the machine or integration that will store it, such as “Work laptop”. You usually only need one per machine.</p>
+<p id="token-errors" role="alert" class="access-error"></p>
 <%= form_with url: settings_tokens_path, method: :post, class: "form-inline" do |f| %>
   <div class="form-group">
     <%= f.label :name, "Token Name" %>
-    <%= f.text_field :name, name: "api_token[name]", placeholder: "e.g. My Agent", required: true, class: "form-control" %>
+    <%= f.text_field :name, name: "api_token[name]", placeholder: "e.g. Work laptop", required: true, class: "form-control" %>
   </div>
-  <%= f.submit "Create Token", class: "btn btn--primary" %>
+  <%= f.submit "Create Token", class: "btn btn--primary", data: { turbo_submits_with: "Creating…" } %>
 <% end %>

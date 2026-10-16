@@ -1,5 +1,14 @@
-<div class="page-header">
-  <h1>Settings</h1>
+<% content_for :title, "Personal API tokens · CoPlan" %>
+<%= link_to "← Settings", settings_root_path, class: "access-back" %>
+<div class="page-header"><h1>Personal API tokens</h1></div>
+<p class="settings-section-subtitle">Create one token for your local machine and store it securely. Agents use it to mint their own short-lived sessions. Revoking it also revokes the sessions minted from it.</p>
+<p id="access-feedback" role="status" class="access-feedback"></p>
+<div id="token-reveal">
+  <% if flash[:raw_token].present? %>
+    <%= render "token_reveal", raw_token: flash[:raw_token] %>
+  <% end %>
 </div>
-
-<%= render "coplan/settings/tokens/tokens", api_tokens: @api_tokens %>
+<div class="card" id="create-token-form"><%= render "form" %></div>
+<%= turbo_frame_tag "personal-tokens", data: { turbo_action: "advance" } do %>
+  <%= render "personal_list" %>
+<% end %>

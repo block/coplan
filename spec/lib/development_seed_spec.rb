@@ -32,6 +32,44 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(seeded_plan("collab-showcase").references.find_by(reference_type: "plan").url).to start_with("http://localhost:3100/")
     end
 
+    it "seeds agent access with paginated history and preserves user revocations" do
+      described_class.call
+      user = CoPlan::User.find_by!(email: "hampton@example.com")
+      tokens = user.api_tokens.where("name LIKE ?", "Demo: %")
+      expect(tokens.count).to eq(32)
+      expect(tokens.personal.count).to eq(1)
+      expect(tokens.sessions.usable.count).to eq(3)
+      expect(tokens.sessions.where.not(id: tokens.usable.select(:id)).count).to eq(28)
+      expect(seeded_plan("demo-library").current_content).to include("agent-access", "(/_/settings)")
+      parent = tokens.personal.first
+      child = tokens.find_by!(name: "Demo: Design review")
+      expect(child.parent).to eq(parent)
+      expect(child.metadata).to include("harness" => "claude-code", "model" => "Demo model")
+      expiry = child.expires_at
+      parent.revoke!
+      described_class.call
+      expect(tokens.count).to eq(32)
+      expect(child.reload).to be_revoked
+      expect(child.expires_at).to eq(expiry)
+      expect(parent.reload).to be_revoked
+    end
+
+    it "seeds browser connection previews without redeemable secrets and preserves decisions" do
+      described_class.call
+      request = CoPlan::AgentConnectionRequest.for_user_code("C0DEC-0FFEE")
+      expect(request).to be_pending
+      expect(CoPlan::AgentConnectionRequest.for_user_code("DEAD0-BEEF0")).to be_expired
+      expect(CoPlan::AgentConnectionRequest.for_user_code("DEC11-0ED00").status).to eq("denied")
+      expect(seeded_plan("demo-library").current_content).to include("agent-connection", "user_code=C0DEC-0FFEE")
+      user = CoPlan::User.find_by!(email: "hampton@example.com")
+      request.decide!(user: user, approve: false)
+      expiry = request.expires_at
+      described_class.call
+      expect(CoPlan::AgentConnectionRequest.count).to eq(3)
+      expect(request.reload.status).to eq("denied")
+      expect(request.expires_at).to eq(expiry)
+    end
+
     it "ships every demo content file and the installer inside the engine gem" do
       specification = Gem::Specification.load(CoPlan::Engine.root.join("coplan.gemspec").to_s)
       expect(specification.files).to include("lib/coplan/development_seed.rb")

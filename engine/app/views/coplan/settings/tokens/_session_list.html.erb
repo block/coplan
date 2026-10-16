@@ -1,0 +1,25 @@
+<div class="card access-sessions">
+  <nav class="access-tabs" aria-label="Session access">
+    <%= link_to "Valid access (#{@valid_count})", settings_agent_sessions_path(q: @query), aria: { current: ("page" if @filter == "valid") } %>
+    <%= link_to "History (#{@history_count})", settings_agent_sessions_path(filter: "history", q: @query), aria: { current: ("page" if @filter == "history") } %>
+  </nav>
+  <%= form_with url: settings_agent_sessions_path, method: :get, class: "form-inline access-search" do |f| %>
+    <%= f.hidden_field :filter, value: @filter %>
+    <div class="form-group">
+      <%= f.label :q, "Search sessions" %>
+      <%= f.search_field :q, value: @query, placeholder: "Agent, harness, model, or purpose", class: "form-control", maxlength: 200 %>
+    </div>
+    <%= f.submit "Search", class: "btn btn--secondary", data: { turbo_submits_with: "Searching…" } %>
+  <% end %>
+  <% if @api_tokens.empty? %>
+    <p class="access-empty"><%= @query.present? ? "No sessions match your search." : (@filter == "history" ? "No past sessions." : "No agent sessions have valid access. New sessions will appear here automatically.") %></p>
+  <% else %>
+    <div class="data-table-scroll access-table-scroll" role="region" aria-label="Agent sessions" tabindex="0">
+      <table class="data-table access-table">
+        <thead><tr><th scope="col">Agent / purpose</th><th scope="col">Access</th><th scope="col">Last used</th><th scope="col">Actions</th></tr></thead>
+        <tbody id="sessions-list"><%= render partial: "session_row", collection: @api_tokens, as: :token %></tbody>
+      </table>
+    </div>
+  <% end %>
+  <%= render "pagination" %>
+</div>

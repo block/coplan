@@ -13,7 +13,7 @@ module CoPlan
     TOOLS_DIR = CoPlan::Engine.root.join("agent_tools")
 
     # Whitelist rather than glob: params must never pick a path.
-    TOOLS = %w[coplan-attach coplan-bridge coplan_session.rb].freeze
+    TOOLS = %w[coplan-connect coplan-attach coplan-bridge coplan_session.rb].freeze
 
     def show
       return head :not_found unless TOOLS.include?(params[:tool])

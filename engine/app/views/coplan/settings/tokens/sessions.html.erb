@@ -1,0 +1,8 @@
+<% content_for :title, "Agent sessions · CoPlan" %>
+<%= link_to "← Settings", settings_root_path, class: "access-back" %>
+<div class="page-header"><h1>Agent sessions</h1></div>
+<p class="settings-section-subtitle">Each agent run gets its own short-lived access. Sessions expire automatically; you can revoke access sooner. Valid access does not mean an agent is online.</p>
+<p id="access-feedback" role="status" class="access-feedback"></p>
+<%= turbo_frame_tag "agent-sessions", data: { turbo_action: "advance" } do %>
+  <%= render "session_list" %>
+<% end %>

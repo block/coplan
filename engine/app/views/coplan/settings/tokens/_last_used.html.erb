@@ -1,0 +1,5 @@
+<% if token.last_used_at %>
+  <time datetime="<%= token.last_used_at.iso8601 %>" title="<%= token.last_used_at.utc.iso8601 %>"><%= time_ago_in_words(token.last_used_at) %> ago</time>
+<% else %>
+  Never
+<% end %>

@@ -1,0 +1,54 @@
+<div class="card connection-approval" role="region" aria-label="Connection approval">
+  <% if @connection.nil? %>
+    <% if @user_code.present? %><p role="alert">That connection code is not valid. Ask your local agent to start setup again.</p><% end %>
+    <h2>Enter your connection code</h2>
+    <p>Start setup in your local agent, then enter the code it shows you.</p>
+    <%= form_with url: agent_connect_path, method: :get do |f| %>
+      <div class="form-group">
+        <%= f.label :user_code, "Connection code" %>
+        <%= f.text_field :user_code, value: @user_code, required: true, maxlength: 20, autocomplete: "off", spellcheck: false %>
+      </div>
+      <%= f.submit "Continue", class: "btn btn--primary", data: { turbo_submits_with: "Checking…" } %>
+    <% end %>
+  <% elsif @connection.expired? %>
+    <h2>Connection request expired</h2>
+    <p>No new access can be granted from this request. Ask your local agent to start setup again.</p>
+  <% elsif @connection.status != "pending" %>
+    <div role="status">
+      <% if @connection.user_id != current_user&.id %>
+        <h2>This request is no longer available</h2>
+      <% elsif @connection.status == "denied" %>
+        <h2>Connection declined</h2>
+        <p>Your local agent will receive the decision. No credential was created.</p>
+      <% else %>
+        <h2>Connection approved</h2>
+        <p>Return to your local agent. It will save the credential on your computer. You can revoke its personal token in Settings at any time.</p>
+        <%= link_to "Agent access settings", settings_root_path, data: { turbo_frame: "_top" } %>
+      <% end %>
+    </div>
+  <% elsif !signed_in? %>
+    <h2>Sign in to approve this connection</h2>
+    <p>Sign in in a new tab, then return here and continue. Opening this page does not grant access.</p>
+    <% if CoPlan.configuration.sign_in_path.present? %>
+      <%= link_to "Sign in", CoPlan.configuration.sign_in_path, target: "_blank", rel: "noopener noreferrer", class: "btn btn--primary" %>
+    <% end %>
+    <%= link_to "Continue after signing in", agent_connect_path(user_code: @user_code), class: "btn btn--secondary" %>
+  <% else %>
+    <h2>Allow this computer to use CoPlan?</h2>
+    <p>Signed in as <strong><%= current_user.name %></strong><% if current_user.email.present? %> (<%= current_user.email %>)<% end %>.</p>
+    <p>Connection name reported by your local helper: <strong><%= @connection.name %></strong></p>
+    <p class="connection-code"><code><%= @user_code %></code></p>
+    <p>This lets local tools read and change plans and post comments under your account’s permissions. They can mint their own session tokens. Access lasts until you revoke this computer’s personal token in Settings.</p>
+    <p>Only approve a request you started. The code must match the one shown by your local agent.</p>
+    <% if @confirmation_error %><p role="alert" class="access-error"><%= @confirmation_error %></p><% end %>
+    <%= form_with url: agent_connect_path, method: :post do |f| %>
+      <%= f.hidden_field :user_code, value: @user_code %>
+      <label class="connection-confirm"><%= f.check_box :confirm_code, required: true %> This matches the code shown by my local agent.</label>
+      <%= f.button "Connect this computer", name: "decision", value: "approve", class: "btn btn--primary", data: { turbo_submits_with: "Connecting…" } %>
+    <% end %>
+    <%= form_with url: agent_connect_path, method: :post, class: "connection-deny" do |f| %>
+      <%= f.hidden_field :user_code, value: @user_code %>
+      <%= f.button "Decline", name: "decision", value: "deny", class: "btn btn--secondary", data: { turbo_submits_with: "Declining…" } %>
+    <% end %>
+  <% end %>
+</div>

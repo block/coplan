@@ -256,6 +256,8 @@ module CoPlan
         seed_small_edits(users, plans)
         seed_reviews(users, plans)
         seed_review_requests(users, plans)
+        seed_agent_access(users)
+        seed_agent_connections(users) if CoPlan.configuration.agent_connection_enabled?
         seed_content_discussions(users, plans)
         seed_reference_gallery(plans, base_url: base_url)
         seed_catalog(users, plans, plan_types, base_url: base_url)
@@ -422,6 +424,52 @@ module CoPlan
       seed_agent_edit(plan, author, token, related_plan: plans.fetch("code-walkthrough"), base_url: base_url)
       seed_explicit_reference(plan)
       seed_comment_threads(users, plans, token)
+    end
+
+    # Named settings scenario: durable bootstrap, host-minted and child sessions,
+    # missing identity, and enough history to exercise pagination. Never reset
+    # a session someone has revoked or extend its lifetime on a later seed.
+    def seed_agent_access(users)
+      user = users.fetch("hampton")
+      personal = seed_access_token(user, "Demo: Work laptop")
+      seed_access_token(user, "Demo: Design review", parent_id: personal.id,
+        agent_name: "Claude", expires_at: 7.days.from_now, last_used_at: 10.minutes.ago,
+        metadata: { "harness" => "claude-code", "harness_version" => "demo", "model" => "Demo model" })
+      seed_access_token(user, "Demo: Architecture research", agent_name: "Amp",
+        expires_at: 2.days.from_now, last_used_at: 1.hour.ago,
+        metadata: { "harness" => "amp", "model" => "Demo model" })
+      seed_access_token(user, "Demo: Identity not reported", expires_at: 1.day.from_now)
+      28.times do |i|
+        seed_access_token(user, "Demo: Past session #{i + 1}", agent_name: "Claude",
+          expires_at: (i + 1).days.ago, created_at: (i + 8).days.ago,
+          revoked_at: (i.even? ? (i + 2).days.ago : nil),
+          metadata: { "harness" => "claude-code" })
+      end
+    end
+
+    CONNECTION_DEMOS = {
+      "C0DEC-0FFEE" => [ "Demo: Browser approval", "pending" ],
+      "DEAD0-BEEF0" => [ "Demo: Expired connection", "pending" ],
+      "DEC11-0ED00" => [ "Demo: Declined connection", "denied" ]
+    }.freeze
+
+    def seed_agent_connections(users)
+      CONNECTION_DEMOS.each do |code, (name, status)|
+        digest = AgentConnectionRequest.digest(AgentConnectionRequest.normalize_code(code))
+        next if AgentConnectionRequest.exists?(user_code_digest: digest)
+        AgentConnectionRequest.create!(name: name, status: status,
+          user: (users.fetch("hampton") if status == "denied"),
+          user_code_digest: digest,
+          # The redemption secret is discarded. Demo approval can never
+          # hand a credential to anyone; use the helper for a real tryout.
+          device_code_digest: AgentConnectionRequest.digest(SecureRandom.hex(32)),
+          expires_at: code == "DEAD0-BEEF0" ? 1.minute.ago : 10.minutes.from_now)
+      end
+    end
+
+    def seed_access_token(user, name, **attributes)
+      ApiToken.find_by(user_id: user.id, name: name) ||
+        ApiToken.create_with_raw_token(user: user, name: name, **attributes).first
     end
 
     def seed_agent_token(user)
@@ -753,6 +801,20 @@ module CoPlan
       References::ExtractFromContent.call(plan: plan)
     end
 
+    def connection_demo_links(base_url)
+      return "" unless CoPlan.configuration.agent_connection_enabled?
+      prefix = URI.parse(base_url).path
+      <<~MARKDOWN
+        The **agent-connection** scenario previews browser approval. These requests
+        have no redeemable secret; run the helper from [Agent setup](#{prefix}/_/agent/setup)
+        to try a real local connection. Re-seeding preserves decisions and expiry.
+
+        - [Pending approval](#{prefix}/_/agent/connect?user_code=C0DEC-0FFEE) — match code `C0DEC-0FFEE`.
+        - [Expired request](#{prefix}/_/agent/connect?user_code=DEAD0-BEEF0).
+        - [Declined request](#{prefix}/_/agent/connect?user_code=DEC11-0ED00).
+      MARKDOWN
+    end
+
     def seed_catalog(users, plans, plan_types, base_url:)
       author = users.fetch("hampton")
       existing = find_seed_document("demo-library", author)
@@ -825,6 +887,15 @@ module CoPlan
         approvals, and resolved discussions. Use a fresh database for the initial states.
 
         #{sections.join("\n\n")}
+
+        ## Agent access
+
+        [Open agent access settings](#{URI.parse(base_url).path}/_/settings) as Hampton.
+        The **agent-access** scenario includes a personal token for a work laptop,
+        child and host-authenticated sessions, missing identity, and paginated history.
+        Search by agent or harness, inspect session details, or revoke access.
+        Re-seeding preserves revocations and expiry dates.
+        #{connection_demo_links(base_url)}
 
         ## Every plan type
 
