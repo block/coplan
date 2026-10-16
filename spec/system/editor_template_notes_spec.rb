@@ -16,6 +16,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).to have_current_path(root_path)
     visit plan_edit_page_path(plan)
     expect(page).to have_css(".document-editor__template-note", count: 2, wait: 20)
+    expect(page).to have_no_css(".inline-editor--preparing", wait: 20)
   end
 
   it "preserves comments, fenced examples and other HTML without changing source on mode switches" do
@@ -254,12 +255,14 @@ RSpec.describe "Template notes in the document editor", type: :system do
       expect(page).to have_current_path(plan_page_path(plan), wait: 15)
       expect(plan.reload.current_content).to eq("Existing prose.")
       visit plan_edit_page_path(plan)
-      paragraph = find(".document-editor__body .ProseMirror > p", text: "Existing prose.", wait: 20)
-      paragraph.click
-      page.execute_script(<<~'JS', paragraph, pasted)
-        const range = document.createRange(); range.selectNodeContents(arguments[0]); range.collapse(false);
-        const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
-        const clipboard = new DataTransfer(); clipboard.setData("text/plain", arguments[1]);
+      expect(page).to have_css(".document-editor__body .ProseMirror > p", text: "Existing prose.", wait: 20)
+      expect(page).to have_no_css(".inline-editor--preparing", wait: 20)
+      page.execute_script(<<~'JS', pasted)
+        const form = document.querySelector('form.document-editor');
+        const editor = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor;
+        // A synthetic paste has no keydown to synchronize the native selection.
+        editor.selectSource("Existing prose.".length, "Existing prose.".length);
+        const clipboard = new DataTransfer(); clipboard.setData("text/plain", arguments[0]);
         document.querySelector('.document-editor__body .ProseMirror').dispatchEvent(
           new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
       JS
