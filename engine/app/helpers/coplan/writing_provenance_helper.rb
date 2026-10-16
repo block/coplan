@@ -37,6 +37,33 @@ module CoPlan
       content_tag(:svg, paths.html_safe, width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": 1.6, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": true)
     end
 
+    def writing_provenance_rows(summary)
+      contributors = summary.fetch("contributors")
+      missing_names = contributors.select { |source| source["kind"] == "human" && source["user_name"].blank? }.filter_map { |source| source["user_id"] }
+      names = missing_names.empty? ? {} : CoPlan::User.where(id: missing_names).pluck(:id, :name).to_h
+      rows, accounted = {}, Hash.new(0)
+      contributors.each do |source|
+        kind, count = source.values_at("kind", "characters")
+        next unless %w[human ai].include?(kind) && count.positive?
+        label = if kind == "human"
+          source["user_name"].presence || names[source["user_id"]].presence || "Human written"
+        else
+          source["agent_name"].presence || source["harness_name"].presence || "AI written"
+        end
+        identity = kind == "human" ? source["user_id"].presence || label : [ source["harness"], label ]
+        row = (rows[[ kind, identity ]] ||= { kind: kind, label: label, characters: 0, details: [] })
+        row[:characters] += count
+        row[:details] |= [ source["harness_name"], source["model"], source["harness_version"] ].compact_blank if kind == "ai"
+        accounted[kind] += count
+      end
+      result = rows.values.sort_by { |row| [ row[:kind] == "human" ? 0 : 1, -row[:characters], row[:label] ] }
+      { "human" => "Human written", "ai" => "AI written" }.each do |kind, label|
+        remaining = summary.fetch("counts").fetch(kind) - accounted[kind]
+        result << { kind: kind, label: label, characters: remaining, details: [] } if remaining.positive?
+      end
+      result << { kind: "unknown", label: "Unknown", characters: summary.fetch("counts").fetch("unknown"), details: [] }
+    end
+
     def writing_provenance_percent(count, total)
       return "0%" if total.zero? || count.zero?
       return "100%" if count == total

@@ -24,8 +24,8 @@ RSpec.describe "Writing provenance", type: :system do
     visit plan_page_path(plan)
     top = page.evaluate_script("document.getElementById('plan-content-body').getBoundingClientRect().top")
     find(".writing-provenance__trigger").click
-    expect(page).to have_text("Human written")
-    expect(page).to have_text("AI written")
+    expect(page).to have_css(".writing-provenance__counts", text: "Claude")
+    expect(page).to have_no_text("AI agents and models")
     click_button "Inspect writing"
     expect(page).to have_button("Done inspecting")
     expect(page.evaluate_script("CSS.highlights.get('coplan-writing-ai').size")).to be_positive
@@ -51,7 +51,7 @@ RSpec.describe "Writing provenance", type: :system do
     within("#plan-toolbar") { click_link "Done" }
     expect(page).to have_no_css('.inline-editor form.document-editor', wait: 20)
     find(".writing-provenance__trigger").click
-    expect(page).to have_text("Human written")
+    expect(page).to have_css(".writing-provenance__counts", text: user.name)
     expect(page).to have_no_text("Current text")
     expect(page).to have_button("Inspect writing", disabled: false)
   end

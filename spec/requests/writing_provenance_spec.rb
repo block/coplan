@@ -6,7 +6,7 @@ RSpec.describe "Writing provenance", type: :request do
 
   before { sign_in_as(user) }
 
-  it "serves its details lazily with accessible labels and all three categories" do
+  it "serves named contributors lazily without a separate agent section" do
     plan
     expect(CoPlan::Plans::WritingProvenance).not_to receive(:call)
     get plan_page_path(plan)
@@ -14,7 +14,8 @@ RSpec.describe "Writing provenance", type: :request do
     expect(response.body).not_to include("AI agents and models")
     get writing_provenance_plan_path(plan)
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include("Human written", "AI written", "Unknown", "Claude", "Inspect writing")
+    expect(response.body).to include("Unknown", "Claude", "Inspect writing")
+    expect(response.body).not_to include("AI agents and models", "<summary>AI")
   end
 
   it "exposes cached API summaries and optional compact Unicode ranges" do

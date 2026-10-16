@@ -1,21 +1,12 @@
 <dl class="writing-provenance__counts">
-  <% { "human" => "Human written", "ai" => "AI written", "unknown" => "Unknown" }.each do |kind, label| %>
-    <div><dt><span class="writing-provenance__swatch writing-provenance__swatch--<%= kind %>"></span><%= label %></dt><dd><%= writing_provenance_percent(summary.fetch("counts").fetch(kind), summary.fetch("total")) %></dd></div>
+  <% writing_provenance_rows(summary).each do |row| %>
+    <% category = { "human" => "Human written", "ai" => "AI written", "unknown" => "Unknown" }.fetch(row.fetch(:kind)) %>
+    <div>
+      <dt aria-label="<%= [row.fetch(:label), category].uniq.join(", ") %>" title="<%= row.fetch(:details).join(" · ") %>"><span class="writing-provenance__swatch writing-provenance__swatch--<%= row.fetch(:kind) %>"></span><%= row.fetch(:label) %></dt>
+      <dd><%= writing_provenance_percent(row.fetch(:characters), summary.fetch("total")) %></dd>
+    </div>
   <% end %>
 </dl>
-<% agents = summary.fetch("contributors").select { |source| source["kind"] == "ai" } %>
-<% if agents.any? %>
-  <details class="writing-provenance__agents">
-    <summary>AI agents and models</summary>
-    <% agents.each do |source| %>
-      <div class="writing-provenance__agent">
-        <span><%= source["harness_name"].presence || source["agent_name"].presence || "AI agent" %></span>
-        <span><%= writing_provenance_percent(source.fetch("characters"), summary.fetch("total")) %></span>
-        <% if source["model"].present? || source["harness_version"].present? %><small><%= source["model"] %><% if source["harness_version"].present? %> · harness <%= source["harness_version"] %><% end %></small><% end %>
-      </div>
-    <% end %>
-  </details>
-<% end %>
 <div class="writing-provenance__actions">
   <button type="button" class="writing-provenance__inspect" data-action="coplan--writing-provenance#highlight" data-coplan--writing-provenance-target="highlight">Inspect writing</button>
   <details class="writing-provenance__info"><summary aria-label="About writing sources">ⓘ</summary>
