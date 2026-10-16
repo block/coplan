@@ -221,4 +221,24 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).to have_css("#new-comment-form", visible: true)
     expect(find('#new-comment-form input[name="comment_thread[anchor_occurrence]"]', visible: :all).value).to eq("2")
   end
+
+  it "keeps authored HTML commentable when it shares the note CSS class" do
+    content = "# Visible HTML\n\n<div class=\"document-editor__template-note\" data-coplan-template-note>Visible HTML guidance.</div>\n\nVisible prose.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Visible HTML guidance.")
+    create(:comment, comment_thread: thread, author_id: author.id, body_markdown: "Review the visible HTML")
+    visit plan_page_path(plan)
+    expect(page).to have_css("#plan-content-body .document-editor__template-note mark[data-thread-id='comment_thread_#{thread.id}']", text: "Visible HTML guidance.")
+    expect(page).not_to have_css("#plan-content-body [data-coplan-template-note]")
+    html = find("#plan-content-body .document-editor__template-note")
+    page.execute_script(<<~'JS', html)
+      const range = document.createRange(); range.selectNodeContents(arguments[0]);
+      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+      arguments[0].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    JS
+    find(".comment-popover button", text: "Comment").click
+    expect(page).to have_css("#new-comment-form", visible: true)
+    expect(find('#new-comment-form input[name="comment_thread[anchor_text]"]', visible: :all).value).to eq("Visible HTML guidance.")
+  end
 end

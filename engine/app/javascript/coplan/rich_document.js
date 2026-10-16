@@ -36,7 +36,7 @@ nodes = nodes.addBefore("text", "footnote_reference", {
 nodes = nodes.addBefore("paragraph", "template_note", {
   group: "block", content: "text*", marks: "", code: true, defining: true, isolating: true,
   attrs: { source: { default: null }, snapshot: { default: null }, opening: {}, closing: {} },
-  toDOM: () => ["div", { class: "document-editor__template-note", "aria-label": "Template note" }, 0]
+  toDOM: () => ["div", { class: "document-editor__template-note", "data-coplan-template-note": "", "aria-label": "Template note" }, 0]
 })
 const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.marks })
 // Run before links, but after escapes and code spans. A citation is inline
