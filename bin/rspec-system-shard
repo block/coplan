@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+
+# File-level sharding keeps each browser suite in a separate runner/database.
+# --list previews the selection without loading Rails or starting a browser.
+shard = Integer(ARGV.shift, exception: false)
+total = Integer(ARGV.shift, exception: false)
+unless shard && total && total.positive? && shard.between?(1, total)
+  abort "Usage: bin/rspec-system-shard SHARD TOTAL [--list | RSpec options] (1 <= SHARD <= TOTAL)"
+end
+
+files = Dir["spec/system/**/*_spec.rb"].sort.each_with_index.filter_map do |file, index|
+  file if index % total == shard - 1
+end
+abort "No system specs found for shard #{shard}/#{total}" if files.empty?
+
+if ARGV == [ "--list" ]
+  puts files
+else
+  warn "Browser shard #{shard}/#{total}: #{files.length} spec files"
+  exec("bundle", "exec", "rspec", *files, *ARGV)
+end
