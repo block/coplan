@@ -32,7 +32,14 @@ RSpec.describe "Template notes in the document editor", type: :system do
           "<details><summary>Details</summary>\n\nBody\n\n</details>\n",
           "<details>\n<!-- Keep this HTML block together. -->\n</details>\n",
           "::: {.presentation}\n\n# Slide\n\n<!-- notes: speaker guidance -->\n\n:::\n",
-          "<!-->Visible text-->", "<!--->Visible text-->", "<!-- Hint --!>Visible text-->"
+          "<!-->Visible text-->", "<!--->Visible text-->", "<!-- Hint --!>Visible text-->",
+          "Visible prose.\n<!-- guidance -->\nFollowing prose.\n",
+          "Visible prose.\r\n  <!--\r\n guidance.\r\n -->\r\n",
+          "Visible prose.\n<!-- one -->\n<!-- two -->\n",
+          "Visible <em>prose</em>.\n<!-- guidance -->\n",
+          "- Item\n  <!-- nested note -->\n",
+          "> <!-- quoted note -->\n",
+          "<script>\n<!-- script comment -->\n</script>\n"
         ];
         done(examples.map(source => {
           const doc = m.parseDocument(source), kinds = [];
@@ -42,7 +49,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
       }).catch(error => done({ error: error.message }));
     JS
     expect(result).to all(include("exact" => true))
-    expect(result.map { |entry| entry.fetch("notes") }).to eq([ 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 ])
+    expect(result.map { |entry| entry.fetch("notes") }).to eq([ 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 1, 0, 0, 0 ])
     templates = Dir[CoPlan::Engine.root.join("db/default_plan_types/*.md")].map do |path|
       content = File.read(path)
       notes = CoPlan::ContentRegions::Split.call(content).regions
@@ -102,6 +109,27 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).not_to have_content("More guidance")
     visit plan_edit_page_path(plan)
     expect(page).to have_css(".document-editor__template-note", text: "Next line.", wait: 20)
+  end
+
+  it "edits a standalone note immediately after prose without a blank line" do
+    initial = "Visible prose.\n<!-- Guidance after prose. -->\nMore prose.\n"
+    click_button "Raw", exact: true
+    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], initial)
+    click_button "Editor", exact: true
+    note = find(".document-editor__template-note", text: "Guidance after prose.")
+    expect(page).to have_css(".ProseMirror > p", text: "Visible prose.")
+    expect(page).not_to have_content("Markdown block")
+    expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(initial)
+    note.click
+    note.send_keys(:end, " Revised.")
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to eq("Visible prose.\n\n<!-- Guidance after prose. Revised. -->\n\nMore prose.\n")
+    expect(page).to have_content("Visible prose.")
+    expect(page).to have_content("More prose.")
+    expect(page).not_to have_content("Guidance after prose.")
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css(".document-editor__template-note", text: "Guidance after prose. Revised.", wait: 20)
   end
 
   it "rejects typed and pasted closing markers without exposing note text to readers" do

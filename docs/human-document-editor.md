@@ -47,6 +47,7 @@ new draft can simply close the editor. Comments remain available in reading view
 Standalone HTML comments (`<!-- … -->`) appear as muted, directly editable
 template notes in Editor and Dual modes. The delimiters stay in Raw mode;
 notes remain hidden in reading view. Untouched notes keep their exact source.
+A standalone note does not need a blank line after the preceding prose.
 The rich editor rejects text that would close a note's HTML comment and shows
 an explanation. Use spaced text such as `-- >` to write a closing marker.
 Notes stay plain text: formatting controls and shortcuts do not convert them

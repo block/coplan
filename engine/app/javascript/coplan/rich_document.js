@@ -43,6 +43,9 @@ const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.mark
 // Run before links, but after escapes and code spans. A citation is inline
 // content, so it must not turn its entire paragraph or list into a source card.
 const tokenizer = defaultMarkdownParser.tokenizer
+// The rich parser disables HTML. Use HTML-aware block boundaries to recognize
+// standalone comments even when they interrupt an ordinary paragraph.
+const htmlBlockTokenizer = new tokenizer.constructor("commonmark", { html: true })
 tokenizer.inline.ruler.before("link", "coplan_footnote", (state, silent) => {
   const match = /^\[\^([^\]]+)\]/.exec(state.src.slice(state.pos))
   if (!match || !citationLabelKey(match[1])) return false
@@ -114,11 +117,12 @@ function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false
   // Standalone HTML comments are editable guidance, hidden in reading view.
   // Scan complete comments so blank lines and Markdown-looking note text stay
   // together. Code, lists, quotes and presentation wrappers keep their source.
+  const noteStarts = new Set(definitionsOnly ? [] : htmlBlockTokenizer.parse(markdown, {})
+    .filter(token => token.type === "html_block" && token.level === 0 && /^ {0,3}<!--/.test(token.content))
+    .map(token => token.map[0]))
   if (!definitionsOnly) for (let line = 0; line < lines.length; line++) {
-    if (!/^ {0,3}<!--/.test(lines[line]) || excluded.some(t => line >= t.map[0] && line < t.map[1]) ||
+    if (!noteStarts.has(line) || !/^ {0,3}<!--/.test(lines[line]) ||
       specials.some(range => offsets[line] >= range.from && offsets[line] < range.to)) continue
-    if (!ranges.some(token => token.map[0] === line) &&
-      !specials.some(range => range.kind === "template_note" && range.to === offsets[line])) continue
     const end = markdown.indexOf("-->", offsets[line] + lines[line].indexOf("<!--") + 4)
     if (end < 0) continue
     const endLine = lines.findIndex((_, index) => offsets[index] <= end && offsets[index + 1] > end)

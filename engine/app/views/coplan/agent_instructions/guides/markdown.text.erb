@@ -1,12 +1,13 @@
 # Writing Plan Markdown
 
-Plans use CommonMark with the GitHub extensions: tables, task lists, strikethrough, and autolinks. CoPlan also supports the features on this page, and slide decks inside a plan (see <<%= @base %>/agent-instructions/presentations>). CoPlan removes all other raw HTML when it shows the plan, but keeps it in the source.
+Plans use CommonMark with the GitHub extensions: tables, task lists, strikethrough, and autolinks. CoPlan also supports the features on this page, and slide decks inside a plan (see <<%= @base %>/agent-instructions/presentations>). CoPlan sanitizes raw HTML when it shows the plan, but keeps the original source.
 
 This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>.
 
 ## Template notes
 
 Put author guidance in a standalone HTML comment: `<!-- Explain the decision here. -->`.
+A note can follow a line of prose without a blank line.
 The human editor shows the text as a muted, editable note, without the delimiters.
 Reading view hides it. Raw mode and the API retain the comment in the Markdown.
 Comments inside code fences stay literal code. These notes are separate from review discussions.
