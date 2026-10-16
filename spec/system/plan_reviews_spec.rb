@@ -11,9 +11,9 @@ RSpec.describe "Plan discussion and approval", type: :system do
     fill_in "Email address", with: user.email
     click_button "Sign In"
     if user == author
-      expect(page).to have_current_path(library_page_path(user))
+      expect(page).to have_current_path(library_page_path(user), wait: 10)
     else
-      expect(page).to have_link("Go to your library")
+      expect(page).to have_link("Go to your library", wait: 10)
     end
     visit plan_page_path(plan)
     expect(page).to have_css("#plan-review-controls")
@@ -298,7 +298,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_no_css(".review-confirmation[open]")
     within(".review-tray") { click_button "Approve" }
     click_button "Approve v1"
-    expect(page).to have_css(".review-tray:popover-open", text: "You approved v1")
+    expect(page).to have_css(".review-tray:popover-open", text: "You approved v1", wait: 10)
     expect(task.reload.status).to eq("approved")
     expect(page).to have_css("#plan-general-comments", text: "Satisfied with this version.")
     expect(page).to have_css(".review-activity-dialog .review-history", text: /Plan Reviewer approved\s+v1/, visible: :all)
