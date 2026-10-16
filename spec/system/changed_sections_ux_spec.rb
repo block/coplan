@@ -86,53 +86,16 @@ RSpec.describe "Updated section signposts", type: :system do
     JS
   end
 
-  it "marks new and renamed sections introduced by a live edit and updates the notice count" do
+  it "marks new and renamed sections introduced by a live edit without a summary banner" do
     broadcast_section_update(keys: %w[approach new-section], rename: true)
     find("#approach .section-update-marker").hover
     expect(page).to have_css('#approach .section-update-marker[aria-label*="Live editor"]')
     expect(page).to have_css("#new-section.section-updated")
-    expect(page).to have_css(".changed-sections-note", text: "3 sections updated since your last visit.")
+    expect(page).to have_no_css(".changed-sections-note", visible: :all)
     expect(page).to have_no_css("#design")
   end
 
-  it "keeps dismissal for the same revision but shows new material from a later revision" do
-    click_button "Dismiss"
-    expect(page).to have_no_css(".changed-sections-note")
-    broadcast_section_update(keys: %w[design], revision: 2)
-    expect(page).to have_no_css(".changed-sections-note")
-    expect(page).to have_no_css(".section-update-marker")
-    broadcast_section_update(keys: [])
-    expect(page).to have_no_css(".changed-sections-note")
-
-    broadcast_section_update(keys: %w[design], revision: 4)
-    find("#design .section-update-marker").hover
-    expect(page).to have_css(".changed-sections-note", text: "1 section updated since your last visit.")
-    expect(page.evaluate_script("document.querySelector('.changed-sections-note').inert")).to be false
-  end
-
-  it "restores only the summary when a live rewrite follows dismissal" do
-    click_button "Dismiss"
-    broadcast_section_update(keys: [], rewritten: true)
-    expect(page).to have_css(".changed-sections-note", text: "Updated throughout since your last visit.")
-    expect(page).to have_no_css(".section-updated, .section-update-marker")
-    expect(page.evaluate_script("document.querySelector('.changed-sections-note').inert")).to be false
-  end
-
-  it "marks only fresh edits after an extensive-update notice is dismissed" do
-    broadcast_section_update(keys: [], rewritten: true)
-    expect(page).to have_css(".changed-sections-note", text: "Updated throughout")
-    click_button "Dismiss"
-    broadcast_section_update(keys: [], rewritten: true)
-    expect(page).to have_no_css(".changed-sections-note")
-
-    broadcast_section_update(keys: %w[design], revision: 4)
-    find("#design .section-update-marker").hover
-    expect(page).to have_css(".changed-sections-note", text: "1 section updated since your last visit.")
-    expect(page).to have_css(".section-updated", count: 1)
-    expect(page).to have_no_text("Updated throughout")
-  end
-
-  it "reveals the first live-update notice without shifting headings at the top of the page" do
+  it "receives live update dots without a banner, gap, or shifted headings" do
     window = page.current_window
     original_size = window.size
     [ [ 1400, 900 ], [ 390, 844 ] ].each do |size|
@@ -146,7 +109,8 @@ RSpec.describe "Updated section signposts", type: :system do
 
         broadcast_section_update(keys: %w[design])
 
-        expect(page).to have_css(".changed-sections-note", text: "1 section updated since your last visit.")
+        expect(page).to have_css('#design .section-update-marker[aria-label*="Live editor"]')
+        expect(page).to have_no_css(".changed-sections-note", visible: :all)
         expect(page.evaluate_script("document.getElementById('design').getBoundingClientRect().top")).to eq(top)
         expect(page.evaluate_script("window.scrollY")).to eq(0)
       end
@@ -155,10 +119,18 @@ RSpec.describe "Updated section signposts", type: :system do
     window.resize_to(*original_size) if original_size
   end
 
+  it "shows fresh dots for a later edit after an extensive rewrite without a banner" do
+    broadcast_section_update(keys: [], rewritten: true)
+    expect(page).to have_no_css(".section-update-marker", visible: :all)
+    broadcast_section_update(keys: %w[design], revision: 4)
+    expect(page).to have_css('#design .section-update-marker[aria-label*="Live editor"]')
+    expect(page).to have_no_css(".changed-sections-note", visible: :all)
+  end
+
   it "marks only section starts and keeps rich content's own surfaces in both themes" do
     %w[light dark].each do |theme|
       page.execute_script("document.documentElement.dataset.theme = '#{theme}'")
-      expect(page).to have_css(".changed-sections-note", text: "2 sections updated since your last visit.")
+      expect(page).to have_no_css(".changed-sections-note", visible: :all)
       expect(page).to have_css("h2.section-updated", count: 2)
       expect(page).to have_no_css("p.section-updated, pre.section-updated, .table-wrapper.section-updated, .mermaid.section-updated")
       expect(page.evaluate_script(<<~JS)).to be true
@@ -178,7 +150,7 @@ RSpec.describe "Updated section signposts", type: :system do
     end
   end
 
-  it "clears a viewed marker without shifting headings, and dismisses without moving content" do
+  it "clears viewed markers without shifting headings or moving content" do
     expect(page).to have_no_button("Review updates ↓")
     expect(page).to have_no_button("Next ↓")
     marker = find("#design .section-update-marker")
@@ -190,14 +162,11 @@ RSpec.describe "Updated section signposts", type: :system do
     expect(page).to have_no_css("#design .section-update-marker")
     expect(find("#design").native.rect.height).to eq(height)
 
-    click_button "Dismiss"
-    expect(page).to have_no_css(".section-update-marker")
-    expect(page).to have_no_css(".changed-sections-note")
     page.execute_script(<<~JS)
       const layout = document.querySelector('.plan-layout')
       window.Stimulus.getControllerForElementAndIdentifier(layout, 'coplan--changed-sections').connect()
     JS
-    expect(page).to have_no_css(".section-update-marker")
+    expect(page).to have_no_css("#design .section-update-marker")
     expect(page).to have_no_css(".changed-sections-note")
     expect(page.evaluate_script("document.getElementById('plan-content-body').getBoundingClientRect().top + window.scrollY")).to eq(top)
   end
@@ -228,19 +197,17 @@ RSpec.describe "Updated section signposts", type: :system do
     expect(page).to have_css("#design.section-updated--viewed", wait: 5)
   end
 
-  it "summarizes widespread changes once and offers history instead of marking the whole page" do
+  it "avoids marking the whole page or showing a banner for widespread changes" do
     rewritten = content.scan(/^## (.+)$/).map { |heading| "## #{heading.first}\n\nEntirely new section body.\n" }.join("\n")
     version = create(:plan_version, plan: plan, revision: 3, actor_id: author.id, content_markdown: rewritten)
     plan.update!(current_plan_version: version, current_revision: 3)
     CoPlan::PlanViewer.find_by!(plan: plan, user: viewer).update!(last_seen_at: 1.hour.ago)
     visit plan_page_path(plan)
-    expect(page).to have_css(".changed-sections-note", text: "Updated throughout since your last visit.")
+    expect(page).to have_no_css(".changed-sections-note", visible: :all)
     expect(page).to have_no_css(".section-updated")
-    within(".changed-sections-note") { click_link "History" }
-    expect(page).to have_current_path(plan_history_page_path(plan))
   end
 
-  it "keeps mobile dots inside the card and gives the notice padded, separate rows" do
+  it "keeps mobile dots inside the card without a summary banner" do
     window = page.current_window
     original_size = window.size
     [ 320, 390, 481 ].each do |width|
@@ -255,12 +222,7 @@ RSpec.describe "Updated section signposts", type: :system do
             const card = document.querySelector('.plan-document').getBoundingClientRect()
             const marker = document.querySelector('#design .section-update-marker')
             const target = marker.getBoundingClientRect()
-            const note = document.querySelector('.changed-sections-note').getBoundingClientRect()
-            const summary = document.querySelector('.changed-sections-note__summary').getBoundingClientRect()
-            const controls = document.querySelector('.changed-sections-note__controls').getBoundingClientRect()
             return target.left > card.left && target.right < card.right &&
-              summary.left >= note.left + 8 && summary.right <= note.right - 8 &&
-              controls.top >= summary.bottom && controls.right <= note.right - 8 &&
               getComputedStyle(marker, '::after').visibility === 'visible' &&
               document.documentElement.scrollWidth <= window.innerWidth
           })()
@@ -280,7 +242,7 @@ RSpec.describe "Updated section signposts", type: :system do
     JS
     expect(page).to have_css("h2.section-updated", count: 2)
     expect(page).to have_css("#design.section-updated--viewed")
-    expect(page).to have_css(".changed-sections-note", count: 1)
+    expect(page).to have_no_css(".changed-sections-note", visible: :all)
   end
 
   %w[local remote].each do |source|
@@ -352,7 +314,7 @@ RSpec.describe "Updated section signposts", type: :system do
       controller.connect()
     JS
     expect(page).to have_css("p.section-updated", text: "An introduction", count: 1)
-    expect(page).to have_css(".changed-sections-note", count: 1)
+    expect(page).to have_no_css(".changed-sections-note", visible: :all)
     expect(page).to have_css("p.section-updated--viewed", wait: 5)
   end
 end

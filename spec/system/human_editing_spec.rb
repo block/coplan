@@ -34,6 +34,20 @@ RSpec.describe "Human plan editing", type: :system do
     page.driver.browser.action.key_down(modifier).send_keys("s").key_up(modifier).perform
   end
 
+  %w[light dark].each do |theme|
+    it "leaves no blank notice row above the editor toolbar in #{theme} mode" do
+      visit plan_page_path(plan)
+      page.execute_script("document.documentElement.dataset.theme = '#{theme}'")
+      expect(page).to have_no_css(".changed-sections-note", visible: :all)
+      find('a[title="Edit this document"]').click
+      editor
+      expect(page.evaluate_script(<<~JS)).to be_within(1).of(0)
+        document.querySelector('.document-editor__toolbar').getBoundingClientRect().top -
+          document.querySelector('.plan-layout__content').getBoundingClientRect().top
+      JS
+    end
+  end
+
   it "edits and formats the actual document, saving without navigation" do
     visit plan_edit_page_path(plan)
     editor
