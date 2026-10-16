@@ -4,6 +4,13 @@ Plans use CommonMark with the GitHub extensions: tables, task lists, strikethrou
 
 This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>.
 
+## Human editor lists
+
+In the rich editor, typing `* ` at the start of a paragraph creates a bullet.
+Immediate Backspace restores the literal asterisk and space. After Enter creates
+an empty list item, Backspace lifts it out to a normal paragraph. In a nested
+list, it moves out one level. Raw mode keeps the characters as Markdown.
+
 ## Tables
 
 Use a standard pipe table when each item has two or more attributes:
