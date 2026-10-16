@@ -241,4 +241,35 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).to have_css("#new-comment-form", visible: true)
     expect(find('#new-comment-form input[name="comment_thread[anchor_text]"]', visible: :all).value).to eq("Visible HTML guidance.")
   end
+
+  {
+    "a note" => "<!-- Pasted guidance. -->",
+    "a document containing a note" => "# Pasted heading\n\nNew prose.\n\n<!-- Pasted guidance. -->\n"
+  }.each do |label, pasted|
+    it "keeps #{label} standalone when pasted after an unchanged paragraph without a final newline" do
+      click_button "Raw", exact: true
+      find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "Existing prose.")
+      click_button "Editor", exact: true
+      click_link "Done"
+      expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+      expect(plan.reload.current_content).to eq("Existing prose.")
+      visit plan_edit_page_path(plan)
+      paragraph = find(".document-editor__body .ProseMirror > p", text: "Existing prose.", wait: 20)
+      paragraph.click
+      page.execute_script(<<~'JS', paragraph, pasted)
+        const range = document.createRange(); range.selectNodeContents(arguments[0]); range.collapse(false);
+        const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+        const clipboard = new DataTransfer(); clipboard.setData("text/plain", arguments[1]);
+        document.querySelector('.document-editor__body .ProseMirror').dispatchEvent(
+          new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+      JS
+      expect(page).to have_css(".document-editor__template-note", text: "Pasted guidance.")
+      click_link "Done"
+      expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+      expect(plan.reload.current_content).to eq("Existing prose.\n\n#{pasted}")
+      expect(page).not_to have_content("Pasted guidance.")
+      visit plan_edit_page_path(plan)
+      expect(page).to have_css(".document-editor__template-note", text: "Pasted guidance.", wait: 20)
+    end
+  end
 end

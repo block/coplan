@@ -434,7 +434,14 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       const source = event.clipboardData?.getData("application/x-coplan-markdown") || event.clipboardData?.getData("text/plain")
       if (!source || !/(^|\n)```[^\n]*\n|^\s*\|[^\n]+\|\s*\n\s*\|?\s*:?-{3,}|^ {0,3}<!--[\s\S]*?-->/m.test(source)) return false
       const parsed = parseDocument(source)
-      view.dispatch(view.state.tr.replaceSelection(new Slice(parsed.content, 0, 0)).scrollIntoView())
+      // These blocks have no existing boundary in the destination document.
+      // Treat them as inserted so lossless source attrs cannot join them to
+      // unchanged prose when either side has no trailing newline.
+      const inserted = []
+      parsed.forEach(node => inserted.push(node.type.create({ ...node.attrs,
+        ...(node.type === schema.nodes.preserved ? { inserted: true } : { source: null, snapshot: null })
+      }, node.content, node.marks)))
+      view.dispatch(view.state.tr.replaceSelection(new Slice(Fragment.fromArray(inserted), 0, 0)).scrollIntoView())
       return true
     },
     dispatchTransaction(transaction) {
