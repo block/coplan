@@ -703,7 +703,8 @@ export default class extends Controller {
   embedChanged(event) {
     const block = event.currentTarget.closest(".document-editor__block")
     const attrs = Object.fromEntries(Array.from(block.querySelectorAll("[data-embed-attribute]"), input => [input.dataset.embedAttribute, input.value]))
-    this.richEditor.setBlockSource(block.coplanPosition(), this.richModule.iframeSource(attrs))
+    const inputKind = /paste|drop|history/i.test(event.inputType || "") ? "unknown" : "human"
+    this.richEditor.setBlockSource(block.coplanPosition(), this.richModule.iframeSource(attrs), inputKind)
   }
   deleteContentBlock(event) {
     const position = event.currentTarget.closest(".document-editor__block").coplanPosition()

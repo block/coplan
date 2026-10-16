@@ -193,4 +193,27 @@ RSpec.describe "Writing provenance", type: :system do
     expect(page.evaluate_script("[...CSS.highlights.get('coplan-writing-ai')].map(range => range.toString()).join('').replace(/\\s/g, '')")).to eq("NoterawHTML&café")
     expect(page.evaluate_script("CSS.highlights.get('coplan-writing-unknown').size")).to eq(0)
   end
+
+  it "distinguishes typing from pasted input in embed fields" do
+    source = '::: {.iframe src="https://example.com/frame" title="Original" /}'
+    embedded = CoPlan::Plans::Create.call(title: "Embed writing", content: source, user: user, actor_type: "local_agent", agent_name: "Claude")
+    visit sign_in_path
+    fill_in "Email", with: user.email
+    click_button "Sign In"
+    expect(page).to have_button("Menu", wait: 20)
+    visit plan_edit_page_path(embedded)
+    expect(page).to have_css('.inline-editor [data-embed-attribute="title"]')
+    field = find('[data-embed-attribute="title"]')
+    field.send_keys(:end, " humaninput")
+    expect(page).to have_text("All changes saved", wait: 20)
+    expect(embedded.reload.writing_provenance_summary.fetch("counts").fetch("human")).to be >= 10
+    unknown = embedded.writing_provenance_summary.fetch("counts").fetch("unknown")
+    page.execute_script(<<~JS, field)
+      arguments[0].value += ' pastedunknown';
+      arguments[0].dispatchEvent(new InputEvent('input', {inputType:'insertFromPaste', data:' pastedunknown', bubbles:true}));
+    JS
+    expect(page).to have_text("All changes saved", wait: 20)
+    expect(embedded.reload.current_content).to include("pastedunknown")
+    expect(embedded.writing_provenance_summary.fetch("counts").fetch("unknown")).to be >= unknown + 13
+  end
 end
