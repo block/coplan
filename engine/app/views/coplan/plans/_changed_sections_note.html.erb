@@ -1,5 +1,5 @@
-<%# Outside selectable / live-swapped content; server-rendered so connecting
-    Stimulus never pushes the document down. %>
+<%# Below selectable / live-swapped content so a new summary cannot push
+    the document down, without reserving an empty row above it. %>
 <aside class="changed-sections-note" aria-label="Updates since your last visit"
        data-coplan--changed-sections-target="note"
        <%= "hidden" unless @changed_sections.rewritten? || @changed_sections.keys.any? %>>

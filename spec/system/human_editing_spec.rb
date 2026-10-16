@@ -58,12 +58,15 @@ RSpec.describe "Human plan editing", type: :system do
         base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
       visit plan_edit_page_path(plan)
       paper_x = editor.rect.x
+      bold_x = find_button("Bold").rect.x
+      expect(page).to have_button("Toggle table of contents", disabled: true, enable_aria_label: true)
       editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "New heading")
       select "Heading 1", from: "Paragraph style", enable_aria_label: true
       expect(page).to have_css(".ProseMirror h1", text: "New heading")
       expect(page).to have_css(".content-nav__link", text: "New heading", visible: :all)
       expect(editor.rect.x).to be_within(1).of(paper_x)
-      find(".content-nav-show-btn").click
+      expect(find_button("Bold").rect.x).to be_within(1).of(bold_x)
+      click_button "Toggle table of contents", exact: true, enable_aria_label: true
       expect(page).to have_css(".content-nav", text: "New heading", visible: true)
       page.save_screenshot(Rails.root.join("tmp/demo-library/first-heading-outline-#{theme}.png"))
     end
@@ -580,7 +583,11 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "removes an iframe when an earlier preview finishes during its pointer click", :ci_boundary do
-    source = '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' + "\n\nEnd.\n"
+    # Reading content gives scrolling room independent of the editor chrome.
+    # Keep the focused URL below the viewport while Remove sits at its bottom.
+    source = ("Opening reading paragraph.\n\n" * 4) +
+      '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' +
+      "\n\nEnd.\n\n" + ("Trailing reading paragraph.\n\n" * 12)
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     script = page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~'JS')

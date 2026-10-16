@@ -1853,11 +1853,11 @@ img.avatar {
   font-size: var(--text-sm);
 }
 
-/* Keep the notice's footprint even before the first live update. Override
-   the global [hidden] display rule only for this reserved reading space. */
-.changed-sections-note[hidden] { display: flex !important; visibility: hidden; }
+/* The summary follows the document, so live updates never move its headings.
+   Empty, dismissed, and editing states must not reserve reading space. */
+.changed-sections-note[hidden],
 .changed-sections-note--dismissed,
-[data-editing="true"] .changed-sections-note { visibility: hidden; }
+[data-editing="true"] .changed-sections-note { display: none !important; }
 .changed-sections-note__summary { flex: 1 1 16rem; }
 .changed-sections-note__controls { display: flex; align-items: center; gap: var(--space-sm); }
 
@@ -3537,12 +3537,6 @@ img.avatar {
 .content-nav-show-btn:hover {
   color: var(--color-text);
   box-shadow: var(--shadow-pop);
-}
-
-.content-nav-show-btn--floating {
-  position: absolute;
-  top: var(--space-sm);
-  z-index: 1;
 }
 
 .content-nav-show-btn kbd {
