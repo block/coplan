@@ -11,6 +11,7 @@ import { baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exit
 import { wrapInList, splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list"
 import { keymap } from "prosemirror-keymap"
 import { history, undo, redo, closeHistory } from "prosemirror-history"
+import { inputRules, wrappingInputRule, undoInputRule } from "prosemirror-inputrules"
 
 const mac = /Mac|iP(hone|ad|od)/.test(navigator.platform)
 const lineNavigation = mac ? { "Ctrl-a": codeLineStart } : {}
@@ -180,6 +181,12 @@ function moveBelowCode(state, dispatch, view) {
   }
   return true
 }
+function liftEmptyListItem(state, dispatch) {
+  const { empty, $from } = state.selection
+  if (!empty || $from.parent.type !== schema.nodes.paragraph || $from.parent.content.size ||
+      $from.depth < 2 || $from.node(-1).type !== schema.nodes.list_item || $from.node(-1).childCount !== 1) return false
+  return liftListItem(schema.nodes.list_item)(state, dispatch)
+}
 function preserved(source, kind = null, label = null) {
   if (!kind && source.trimStart().startsWith("[")) {
     const environment = {}
@@ -331,7 +338,8 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
   }
   const state = EditorState.create({
     doc: parseDocument(markdown),
-    plugins: [history(), codeHighlight(), commentPlugin(comments), new Plugin({ appendTransaction(transactions, oldState, state) {
+    plugins: [history(), inputRules({ rules: [wrappingInputRule(/^\* $/, schema.nodes.bullet_list)] }),
+      codeHighlight(), commentPlugin(comments), new Plugin({ appendTransaction(transactions, oldState, state) {
       if (transactions.some(tr => tr.docChanged) && needsTrailing(state.doc))
         return state.tr.insert(state.doc.content.size, trailingParagraph()).setMeta("addToHistory", false)
     } }), keymap({
@@ -348,6 +356,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       "Mod-Alt-0": setBlockType(schema.nodes.paragraph), "Mod-Alt-1": setBlockType(schema.nodes.heading, { level: 1 }),
       "Mod-Alt-2": setBlockType(schema.nodes.heading, { level: 2 }), "Mod-Alt-3": setBlockType(schema.nodes.heading, { level: 3 }),
       Enter: chainCommands(codeNewline, splitListItem(schema.nodes.list_item)), Tab: chainCommands(indentCode, sinkListItem(schema.nodes.list_item)),
+      Backspace: chainCommands(undoInputRule, liftEmptyListItem),
       "Shift-Tab": liftListItem(schema.nodes.list_item)
     }), keymap(baseKeymap)]
   })
