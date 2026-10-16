@@ -14,6 +14,13 @@ The rich editor rejects closing markers inside a note. Use spaced text such as `
 In the human editor, notes stay plain text. Cmd/Ctrl+A selects only the current note.
 Review highlights and comment selections skip their text.
 
+## Human editor lists
+
+In the rich editor, typing `* ` at the start of a paragraph creates a bullet.
+Immediate Backspace restores the literal asterisk and space. After Enter creates
+an empty list item, Backspace lifts it out to a normal paragraph. In a nested
+list, it moves out one level. Raw mode keeps the characters as Markdown.
+
 ## Tables
 
 Use a standard pipe table when each item has two or more attributes:

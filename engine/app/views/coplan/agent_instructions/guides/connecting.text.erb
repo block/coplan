@@ -1,0 +1,48 @@
+# Connecting a computer
+
+<% if @request_auth_available %>
+This host authenticates the initial request automatically. Do not run browser
+connection setup or create a personal token. Follow the primer's mint command.
+<% else %>
+A browser login does not authenticate your local tools. Connect the computer
+once, then reuse its private credential to mint a session token for each run.
+
+## First connection
+
+Download the helper from this CoPlan host and run it with Ruby:
+
+```bash
+mkdir -p ~/.config/coplan
+curl -fsS <%= Shellwords.escape("#{@base}/agent-tools/coplan-connect") %> -o ~/.config/coplan/coplan-connect
+ruby ~/.config/coplan/coplan-connect --base <%= Shellwords.escape(@base) %> --name 'Local computer'
+```
+
+The helper prints a short-lived approval link and a matching code. It opens the
+browser when it can. Otherwise, give your principal the link and code. Let them
+sign in, check the code, and choose **Connect this computer**. Do not approve
+for them. Opening the link does not grant access. No webhook is needed.
+
+The helper polls for at most 10 minutes. When approved, it saves the personal
+credential directly to `~/.config/coplan/credentials.json` with file mode 0600.
+It never prints the credential. The browser never receives it. Do not read that
+file into a tool response, chat, skill, source repository, or command argument.
+Load its `token` into a process variable without printing it, as in the primer.
+Keep this helper installed so you can reconnect after revocation.
+
+Use `--no-open` when a local browser is unavailable. Use `--replace` when this
+host's saved credential is revoked. Reconnection still needs human approval.
+The helper refuses to overwrite another host's file. For another host, choose
+`--credentials /path/to/a/separate/private/credentials.json`, and load that file
+for that host's mint command. HTTPS is required except on loopback addresses.
+
+## After connection
+
+Fetch <<%= @base %>/agent-instructions> and mint your own session token. Use
+that session for your run. Do not create a new personal credential for each
+agent or turn. The personal credential represents the computer's access;
+its child sessions represent individual agent runs.
+
+Your principal can revoke the personal token at **Settings → Personal API
+tokens**. That also revokes every child session. For manual setup, they can
+still create a personal token there and store it in the same JSON format.
+<% end %>

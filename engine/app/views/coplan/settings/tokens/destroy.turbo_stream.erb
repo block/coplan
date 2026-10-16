@@ -1,5 +1,5 @@
-<%= turbo_stream.replace @token do %>
-  <%= render "token_row", token: @token %>
+<%= turbo_stream.update(@sessions_view ? "agent-sessions" : "personal-tokens") do %>
+  <%= render(@sessions_view ? "session_list" : "personal_list") %>
 <% end %>
-
 <%= turbo_stream.update "token-reveal", "" %>
+<%= turbo_stream.update "access-feedback", (@sessions_view ? "Session access revoked." : "Personal token and its sessions revoked.") %>

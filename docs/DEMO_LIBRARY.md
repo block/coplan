@@ -94,6 +94,19 @@ Approval states are real `PlanCollaborator` approvers with or without
 notification state. The untouched and approved documents have no pending
 discussions.
 
+## Agent access
+
+The named `agent-access` scenario is linked from the demo index to Settings.
+Sign in as Hampton to inspect a work laptop personal token, child and
+host-authenticated sessions, missing identity fields, and 28 past sessions
+for pagination. Re-seeding preserves revocations and expiry dates.
+
+The `agent-connection` scenario previews pending, expired, and declined browser
+approval requests on hosts without implicit API authentication. Their private
+redemption secrets are discarded, so previews cannot issue credentials. Start
+the helper from Agent setup for a real connection. Re-seeding preserves the
+decision and expiry of each preview.
+
 ## Re-seeding and isolation
 
 ```sh

@@ -40,6 +40,13 @@ module CoPlan
 
     scope :active, -> { where(revoked_at: nil).where("expires_at IS NULL OR expires_at > ?", Time.current) }
     scope :roots, -> { where(parent_id: nil) }
+    scope :personal, -> { roots.where(expires_at: nil) }
+    scope :sessions, -> { where.not(parent_id: nil).or(where.not(expires_at: nil)) }
+    # Include the parent's lifetime when showing which credentials still work.
+    # Host-authenticated sessions have no parent, but always have an expiry.
+    scope :usable, -> {
+      active.where(parent_id: nil).or(active.where(parent_id: unscoped.active.select(:id)))
+    }
 
     def self.authenticate(raw_token)
       return nil if raw_token.blank?

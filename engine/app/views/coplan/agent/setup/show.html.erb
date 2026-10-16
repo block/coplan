@@ -28,6 +28,7 @@
       <div class="agent-setup__step-body">
         <h2>Let it set up the skill</h2>
         <p>Your agent saves the CoPlan skill and fetches current instructions when it needs them.</p>
+        <% if @connection_enabled %><p>On first use, it opens a browser approval page. Check the matching code and choose <strong>Connect this computer</strong>. The credential is saved locally; you do not need to copy a token.</p><% end %>
       </div>
     </li>
   </ol>

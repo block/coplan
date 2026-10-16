@@ -23,6 +23,15 @@ Use **bold** for a decision, *italics* for emphasis, ~~strikethrough~~ for an ab
    - Stop after expiration.
 3. Confirm membership.
 
+## Try bullet editing
+
+Open Edit and start a new paragraph. Type an asterisk followed by a space to
+create a bullet. Press Backspace immediately to restore the literal asterisk
+and space. Create a bullet again, type an item, and press Enter. Press Backspace
+on that empty final bullet to continue in a normal paragraph at the left margin.
+
+- Try continuing this list with Enter, then leave its empty final item with Backspace.
+
 ## Two code languages
 
 ```ruby

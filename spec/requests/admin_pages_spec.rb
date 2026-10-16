@@ -5,6 +5,7 @@ RSpec.describe "Admin pages", type: :request do
   # their record-dependent content. Keep this list in sync with the registry;
   # the coverage example below fails when a new admin page is registered.
   records = {
+    "agent_connection_requests" => -> { CoPlan::AgentConnectionRequest.issue!(name: "Work laptop").first },
     "agent_events" => -> {
       CoPlan::AgentEvent.create!(
         plan: create(:plan), api_token: create(:api_token), event_type: "comment.created"

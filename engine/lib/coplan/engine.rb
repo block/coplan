@@ -19,6 +19,10 @@ module CoPlan
       app.config.assets.paths << Engine.root.join("app/javascript")
     end
 
+    initializer "coplan.credential_filters" do |app|
+      app.config.filter_parameters += [ :device_code, :user_code ]
+    end
+
     initializer "coplan.factories", after: "factory_bot.set_factory_paths" do
       if defined?(FactoryBot)
         FactoryBot.definition_file_paths << Engine.root.join("spec", "factories")

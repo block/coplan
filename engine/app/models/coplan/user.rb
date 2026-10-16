@@ -22,6 +22,7 @@ module CoPlan
     }.freeze
 
     has_many :api_tokens, dependent: :destroy
+    has_many :agent_connection_requests, dependent: :delete_all
     has_many :created_plans, class_name: "CoPlan::Plan", foreign_key: :created_by_user_id, dependent: :nullify, inverse_of: :created_by_user
     has_many :created_folders, class_name: "CoPlan::Folder", foreign_key: :created_by_user_id, dependent: :nullify, inverse_of: :created_by_user
     has_many :plan_collaborators, dependent: :destroy

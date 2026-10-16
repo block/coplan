@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# A new push supersedes older checks on the same PR, but not main builds.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # Style only, so it needs no database and no RAILS_ENV. Runs alongside the
   # test jobs rather than gating them: a bracket-spacing nit should not hide
@@ -25,8 +30,11 @@ jobs:
       - name: Run RuboCop
         run: bin/rubocop
 
+  # Database, request, service, and other non-browser coverage on both adapters.
   test:
-    runs-on: ubuntu-latest
+    name: MySQL non-browser
+    runs-on:
+      group: ubuntu-x86-runners
 
     env:
       RAILS_ENV: test
@@ -47,41 +55,25 @@ jobs:
       - name: Create database
         run: bin/rails db:create db:schema:load
 
-      - name: Run tests
-        run: bundle exec rspec --seed "$((GITHUB_RUN_ID % 65536))" --format progress --format json --out tmp/rspec-results.json
+      - name: Run non-browser tests
+        run: bundle exec rspec --exclude-pattern 'spec/system/**/*_spec.rb' --seed "$((GITHUB_RUN_ID % 65536))" --format progress --format json --out tmp/rspec-results.json
 
-      - name: Check browser voice environment cleanup
-        run: bundle exec rspec spec/system/voice_commenting_spec.rb spec/system/comment_composer_spec.rb --tag voice_environment --order defined --format progress --format json --out tmp/rspec-voice-environment.json
-
-      - name: Stress regression specs with fresh processes and test orders
-        run: |
-          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/system/plan_reviews_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
-          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 2000))" --output tmp/rspec-anchor-stress -- spec/system/inline_editor_spec.rb --tag anchor_refresh
-          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 3000))" --output tmp/rspec-dense-stress -- spec/system/rich_view_stress_spec.rb --tag dense_cell
-          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 4000))" --output tmp/rspec-boundary-stress -- spec/system/human_editing_spec.rb spec/system/inline_editor_spec.rb --tag ci_boundary
-
-      - name: Preserve test reports and browser failure screenshots
+      - name: Preserve test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: rspec-mysql-${{ github.run_attempt }}
-          path: |
-            tmp/rspec-results.json
-            tmp/rspec-voice-environment.json
-            tmp/rspec-stress/
-            tmp/rspec-anchor-stress/
-            tmp/rspec-dense-stress/
-            tmp/rspec-boundary-stress/
-            tmp/capybara/
-            tmp/screenshots/
+          path: tmp/rspec-results.json
           retention-days: 30
 
-  # Hosts may run the engine on PostgreSQL, so the suite must stay green
-  # there too. Deliberately initializes via db:migrate (not schema:load,
-  # which the MySQL job covers): replaying every migration on PG is exactly
-  # the fresh-host installation path, and schema.rb is MySQL-flavored.
+  # Hosts may run the engine on PostgreSQL, so non-browser specs run there too.
+  # Browser behavior is covered on MySQL below. Initialize via db:migrate
+  # (not schema:load, which MySQL covers) to exercise fresh-host installation;
+  # schema.rb is MySQL-flavored.
   test-postgres:
-    runs-on: ubuntu-latest
+    name: PostgreSQL non-browser
+    runs-on:
+      group: ubuntu-x86-runners
 
     env:
       RAILS_ENV: test
@@ -114,26 +106,110 @@ jobs:
       - name: Install required reference data (idempotency smoke test)
         run: bin/rails coplan:seed && bin/rails coplan:seed
 
-      - name: Run tests
-        run: bundle exec rspec --seed "$((GITHUB_RUN_ID % 65536))" --format progress --format json --out tmp/rspec-results.json
+      - name: Run non-browser tests
+        run: bundle exec rspec --exclude-pattern 'spec/system/**/*_spec.rb' --seed "$((GITHUB_RUN_ID % 65536))" --format progress --format json --out tmp/rspec-results.json
 
-      - name: Check browser voice environment cleanup
-        run: bundle exec rspec spec/system/voice_commenting_spec.rb spec/system/comment_composer_spec.rb --tag voice_environment --order defined --format progress --format json --out tmp/rspec-voice-environment.json
+      - name: Preserve test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rspec-postgres-${{ github.run_attempt }}
+          path: tmp/rspec-results.json
+          retention-days: 30
 
-      - name: Stress regression specs with fresh processes and test orders
-        run: |
-          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 1000))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/system/plan_reviews_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
-          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 2000))" --output tmp/rspec-anchor-stress -- spec/system/inline_editor_spec.rb --tag anchor_refresh
-          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 3000))" --output tmp/rspec-dense-stress -- spec/system/rich_view_stress_spec.rb --tag dense_cell
-          bin/rspec-stress --runs 5 --seed "$((GITHUB_RUN_ID % 65536 + 4000))" --output tmp/rspec-boundary-stress -- spec/system/human_editing_spec.rb spec/system/inline_editor_spec.rb --tag ci_boundary
+  # Each shard gets its own runner/database/browser. Discover files at runtime
+  # so new system specs are included automatically, exactly once.
+  browser:
+    name: MySQL browser (${{ matrix.shard }}/4)
+    runs-on:
+      group: ubuntu-x86-runners
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [1, 2, 3, 4]
+
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: mysql2://root:root@127.0.0.1:3306/planning_department_test
+      SHARD: ${{ matrix.shard }}
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Start MySQL
+        run: sudo systemctl start mysql
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      - name: Create database
+        run: bin/rails db:create db:schema:load
+
+      - name: Run browser shard
+        run: bin/rspec-system-shard "$SHARD" 4 --seed "$((GITHUB_RUN_ID % 65536))" --format progress --format json --out tmp/rspec-results.json
 
       - name: Preserve test reports and browser failure screenshots
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: rspec-postgres-${{ github.run_attempt }}
+          name: rspec-mysql-browser-${{ matrix.shard }}-${{ github.run_attempt }}
           path: |
             tmp/rspec-results.json
+            tmp/capybara/
+            tmp/screenshots/
+          retention-days: 30
+
+  # Keep all five randomized repetitions, with each repetition in an isolated
+  # job. Keep the regression files together to catch cross-file state leaks.
+  browser-stress:
+    name: MySQL browser stress (${{ matrix.repetition }})
+    runs-on:
+      group: ubuntu-x86-runners
+    strategy:
+      fail-fast: true
+      matrix:
+        repetition: [0, 1, 2, 3, 4]
+
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: mysql2://root:root@127.0.0.1:3306/planning_department_test
+      REPETITION: ${{ matrix.repetition }}
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Start MySQL
+        run: sudo systemctl start mysql
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      - name: Create database
+        run: bin/rails db:create db:schema:load
+
+      - name: Check browser voice environment cleanup
+        if: matrix.repetition == 0
+        run: bundle exec rspec spec/system/voice_commenting_spec.rb spec/system/comment_composer_spec.rb --tag voice_environment --order defined --format progress --format json --out tmp/rspec-voice-environment.json
+
+      - name: Stress regression specs with fresh processes and test orders
+        run: |
+          bin/rspec-stress --runs 1 --seed "$((GITHUB_RUN_ID % 65536 + 1000 + REPETITION))" spec/system/admin_spec.rb spec/system/editor_code_scope_spec.rb spec/system/human_editing_spec.rb spec/system/image_expand_spec.rb spec/system/plan_reviews_spec.rb spec/services/coplan/plans/segment_claims_spec.rb
+          bin/rspec-stress --runs 1 --seed "$((GITHUB_RUN_ID % 65536 + 2000 + REPETITION))" --output tmp/rspec-anchor-stress -- spec/system/inline_editor_spec.rb --tag anchor_refresh
+          bin/rspec-stress --runs 1 --seed "$((GITHUB_RUN_ID % 65536 + 3000 + REPETITION))" --output tmp/rspec-dense-stress -- spec/system/rich_view_stress_spec.rb --tag dense_cell
+          bin/rspec-stress --runs 1 --seed "$((GITHUB_RUN_ID % 65536 + 4000 + REPETITION))" --output tmp/rspec-boundary-stress -- spec/system/human_editing_spec.rb spec/system/inline_editor_spec.rb --tag ci_boundary
+
+      - name: Preserve test reports and browser failure screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rspec-mysql-stress-${{ matrix.repetition }}-${{ github.run_attempt }}
+          path: |
             tmp/rspec-voice-environment.json
             tmp/rspec-stress/
             tmp/rspec-anchor-stress/
