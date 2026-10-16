@@ -63,7 +63,8 @@ RSpec.describe "Human plan editing", type: :system do
       expect(page).to have_css(".ProseMirror h1", text: "New heading")
       expect(page).to have_css(".content-nav__link", text: "New heading", visible: :all)
       expect(editor.rect.x).to be_within(1).of(paper_x)
-      find(".content-nav-show-btn").click
+      expect(page).to have_no_css(".content-nav-show-btn", visible: true)
+      click_button "Toggle table of contents", exact: true, enable_aria_label: true
       expect(page).to have_css(".content-nav", text: "New heading", visible: true)
       page.save_screenshot(Rails.root.join("tmp/demo-library/first-heading-outline-#{theme}.png"))
     end
@@ -580,7 +581,9 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "removes an iframe when an earlier preview finishes during its pointer click", :ci_boundary do
-    source = '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' + "\n\nEnd.\n"
+    # Keep room below the inserted iframe so scrolling its remove button to
+    # the viewport edge can place the focused URL field offscreen.
+    source = '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' + "\n\n" + ("Reading content.\n\n" * 20) + "End.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     script = page.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: <<~'JS')
