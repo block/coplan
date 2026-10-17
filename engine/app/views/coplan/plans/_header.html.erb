@@ -10,7 +10,7 @@
   <div class="page-header__text">
     <h1 class="page-header__title"><%= plan.title %></h1>
     <div class="page-header__byline text-sm text-muted">
-      <%= user_avatar(plan.created_by_user) %> <%= profile_link(plan.created_by_user) %> · v<%= plan.current_revision %>
+      <%= user_avatar(plan.created_by_user) %> <%= profile_link(plan.created_by_user) %> · <span data-coplan--inline-editor-target="revision" data-revision="<%= plan.current_revision %>">v<%= plan.current_revision %></span>
       <button type="button" class="plan-visibility-button" data-visibility="<%= plan.visibility %>" data-coplan--plan-details-target="visibilityButton" data-action="coplan--plan-details#openVisibility focus->coplan--plan-details#visibilityFocused blur->coplan--plan-details#visibilityBlurred" aria-haspopup="dialog" title="View or change plan visibility"><%= plan.draft? ? "Private" : "Shared" %><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button>
       <% if plan.archived? %><%= hidden_state_flag("Archived", "Hidden from lists unless filtered for") %><% end %>
       <%= render "coplan/plans/location_link", plan: plan, placement: placement, location: :masthead %>

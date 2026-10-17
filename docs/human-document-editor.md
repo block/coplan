@@ -31,6 +31,8 @@ Save feedback sits at the far right: a muted clock while autosave is queued,
 a spinner during the request, then a muted
 check that fades after acknowledgement. Hover for the saved version and time.
 Errors stay visible and successful saves are announced to assistive technology.
+The header version follows acknowledged saves and live updates without replacing
+the editable title, and stays current when returning to reading mode.
 The editor has no Details menu, tag editing, or change-summary field; existing tags
 and incoming tag updates are retained.
 

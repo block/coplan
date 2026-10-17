@@ -1057,9 +1057,11 @@ RSpec.describe "Human plan editing", type: :system do
       actor_type: "local_agent", actor_id: author.id)
     expect(editor).to have_text("Agent heading", wait: 10)
     expect(editor).to have_text("Human addition.")
+    expect(page).to have_css("#plan-header .page-header__byline", text: /\bv2\b/)
     page.execute_script('window.fetch = window.originalFetch; window.dispatchEvent(new Event("online"))')
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", wait: 10, visible: :all)
     expect(plan.reload.current_content).to include("Agent heading", "Human addition.")
+    expect(page).to have_css("#plan-header .page-header__byline", text: /\bv3\b/)
   end
 
   def open_plan_menu

@@ -6,7 +6,7 @@ import { captureDeckPositions, restoreDeckPositions } from "coplan/deck_state"
 // The server-rendered body stays available behind the editor and is refreshed
 // before returning to read mode, so closing never navigates or shows old text.
 export default class extends Controller {
-  static targets = ["reader", "editor", "template", "trigger", "error", "draftState"]
+  static targets = ["reader", "editor", "template", "trigger", "error", "draftState", "revision"]
   static values = { contentUrl: String, commentsUrl: String, autoOpen: Boolean, focusTitle: Boolean, draft: Boolean }
 
   connect() {
@@ -109,6 +109,7 @@ export default class extends Controller {
       body.innerHTML = html
       restoreDeckPositions(body, deckPositions)
       body.setAttribute("data-coplan--live-update-revision-value", revision)
+      this.updateRevision(Number(revision))
       this.latestSnapshot = event.detail.snapshot
       this.headerObserver?.disconnect()
       this.headerObserver = null
@@ -156,6 +157,19 @@ export default class extends Controller {
     if (!this.draftValue || !this.hasDraftStateTarget) return
     this.draftStateTarget.textContent = `Private · v${event.detail.revision}`
     document.title = `${this.controller.snapshot().title} — CoPlan`
+  }
+
+  revisionChanged(event) {
+    if (this.editorTarget.contains(event.target)) this.updateRevision(event.detail.revision)
+  }
+
+  updateRevision(revision) {
+    if (!Number.isInteger(revision) || revision < 1) return
+    for (const target of this.revisionTargets) {
+      if (revision < Number(target.dataset.revision)) continue
+      target.dataset.revision = revision
+      target.textContent = `v${revision}`
+    }
   }
 
   async refreshThreads() {

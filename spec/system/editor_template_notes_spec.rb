@@ -104,11 +104,18 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(find('[aria-label="Markdown source"]')).to have_text("<!-- Explain the decision here. More guidance\nNext line. -->")
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", visible: :all, wait: 15)
     expect(plan.reload.current_content).to include("<!-- Explain the decision here. More guidance\nNext line. -->", "Visible prose.")
+    expect(page).to have_css("#plan-header .page-header__byline", text: /\bv#{plan.current_revision}\b/)
+    %w[light dark].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp", "template-notes-saved-version-#{theme}.png"))
+    end
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
     expect(page).not_to have_content("More guidance")
+    expect(page).to have_css("#plan-header .page-header__byline", text: /\bv#{plan.current_revision}\b/)
     visit plan_edit_page_path(plan)
     expect(page).to have_css(".document-editor__template-note", text: "Next line.", wait: 20)
+    expect(page).to have_css("#plan-header .page-header__byline", text: /\bv#{plan.current_revision}\b/)
   end
 
   it "edits a standalone note immediately after prose without a blank line" do

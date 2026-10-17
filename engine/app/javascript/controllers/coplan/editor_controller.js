@@ -8,6 +8,10 @@ export default class extends Controller {
   static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave"]
   static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, tokenUrl: String, previewUrl: String, leaseUrl: String, inline: Boolean, embedDomains: Array }
 
+  revisionValueChanged(revision) {
+    if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-revision", { bubbles: true, detail: { revision } }))
+  }
+
   async connect() {
     this.active = true
     this.inlineVisible = !this.inlineValue
