@@ -34,10 +34,18 @@ nodes = nodes.addBefore("text", "footnote_reference", {
   parseDOM: [{ tag: "sup[data-coplan-footnote]", getAttrs: dom => ({ label: dom.dataset.coplanFootnote }) }],
   toDOM: node => ["sup", { "data-coplan-footnote": node.attrs.label, class: "document-editor__footnote", title: `Reference: ${node.attrs.label}`, contenteditable: "false" }, ["button", { type: "button", "data-citation-label": node.attrs.label, "data-action": "coplan--editor#openCitation", "aria-label": `Edit citation ${node.attrs.label}` }, `[${node.attrs.label}]`]]
 })
+nodes = nodes.addBefore("paragraph", "template_note", {
+  group: "block", content: "text*", marks: "", code: true, defining: true, isolating: true,
+  attrs: { source: { default: null }, snapshot: { default: null }, opening: {}, closing: {} },
+  toDOM: () => ["div", { class: "document-editor__template-note", "data-coplan-template-note": "", "aria-label": "Template note" }, 0]
+})
 const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.marks })
 // Run before links, but after escapes and code spans. A citation is inline
 // content, so it must not turn its entire paragraph or list into a source card.
 const tokenizer = defaultMarkdownParser.tokenizer
+// The rich parser disables HTML. Use HTML-aware block boundaries to recognize
+// standalone comments even when they interrupt an ordinary paragraph.
+const htmlBlockTokenizer = new tokenizer.constructor("commonmark", { html: true })
 tokenizer.inline.ruler.before("link", "coplan_footnote", (state, silent) => {
   const match = /^\[\^([^\]]+)\]/.exec(state.src.slice(state.pos))
   if (!match || !citationLabelKey(match[1])) return false
@@ -76,6 +84,10 @@ const richMarkdownParser = new MarkdownParser(schema, tokenizer, {
 const defaultMarkdownSerializer = new MarkdownSerializer({
   ...baseMarkdownSerializer.nodes,
   footnote_reference: (state, node) => state.text(`[^${node.attrs.label}]`, false),
+  template_note: (state, node) => {
+    state.write(node.attrs.opening + node.textContent + node.attrs.closing.trimEnd())
+    state.closeBlock(node)
+  },
   preserved: (state, node) => {
     for (const line of node.attrs.source.trimEnd().split("\n")) { state.write(line); state.ensureNewLine() }
     state.closeBlock(node)
@@ -102,6 +114,22 @@ function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false
   // Definitions are metadata, not visible body blocks. Keep their exact source,
   // including indented continuation paragraphs, for citation editing and Raw.
   const excluded = ranges.filter(t => ["fence", "code_block", "html_block", "blockquote_open", "bullet_list_open", "ordered_list_open"].includes(t.type))
+  // Standalone HTML comments are editable guidance, hidden in reading view.
+  // Scan complete comments so blank lines and Markdown-looking note text stay
+  // together. Code, lists, quotes and presentation wrappers keep their source.
+  const noteStarts = new Set(definitionsOnly ? [] : htmlBlockTokenizer.parse(markdown, {})
+    .filter(token => token.type === "html_block" && token.level === 0 && /^ {0,3}<!--/.test(token.content))
+    .map(token => token.map[0]))
+  if (!definitionsOnly) for (let line = 0; line < lines.length; line++) {
+    if (!noteStarts.has(line) || !/^ {0,3}<!--/.test(lines[line]) ||
+      specials.some(range => offsets[line] >= range.from && offsets[line] < range.to)) continue
+    const end = markdown.indexOf("-->", offsets[line] + lines[line].indexOf("<!--") + 4)
+    if (end < 0) continue
+    const endLine = lines.findIndex((_, index) => offsets[index] <= end && offsets[index + 1] > end)
+    if (!/^[ \t]*\r?$/.test(markdown.slice(end + 3, Math.min(offsets[endLine + 1] - 1, markdown.length)))) continue
+    specials.push({ from: offsets[line], to: Math.min(offsets[endLine + 1], markdown.length), kind: "template_note" })
+    line = endLine
+  }
   for (let line = 0; line < lines.length; line++) {
     if (excluded.some(t => line >= t.map[0] && line < t.map[1])) continue
     const match = /^ {0,3}\[\^([^\]]+)\]:[ \t]*(.*)$/.exec(lines[line])
@@ -151,7 +179,7 @@ function needsTrailing(doc) {
   if (doc.lastChild?.type === schema.nodes.paragraph) return false
   let last
   doc.forEach(node => { if (node.type !== schema.nodes.preserved || node.attrs.source.trim()) last = node })
-  return last?.type === schema.nodes.code_block || last?.type === schema.nodes.preserved
+  return last?.type === schema.nodes.code_block || last?.type === schema.nodes.preserved || last?.type === schema.nodes.template_note
 }
 function ensureTrailing(doc) {
   return needsTrailing(doc) ? doc.copy(doc.content.append(Fragment.from(trailingParagraph()))) : doc
@@ -212,6 +240,13 @@ export function parseDocument(markdown) {
   }
   if (cursor < markdown.length) segments.push({ source: markdown.slice(cursor) })
   for (const segment of segments) {
+    if (segment.kind === "template_note") {
+      const [, opening, body, closing] = /^(\s*<!--\s*)([\s\S]*?)(\s*-->[ \t]*(?:\r?\n)?)$/.exec(segment.source)
+      const node = schema.nodes.template_note.create({ opening, closing }, body ? schema.text(body) : null)
+      if (templateNoteClosesEarly(node)) { blocks.push(preserved(segment.source)); continue }
+      blocks.push(node.type.create({ ...node.attrs, source: segment.source, snapshot: signature(node) }, node.content))
+      continue
+    }
     if (segment.kind) { blocks.push(preserved(segment.source, segment.kind, segment.label)); continue }
     const source = segment.source
     const segmentLines = source.split("\n"), segmentOffsets = [0]
@@ -242,7 +277,8 @@ export function serializeDocument(doc, recordRange = null) {
   let output = "", previousChanged = false
   doc.forEach((node, position) => {
     const unchanged = node.type.name === "preserved" ? !node.attrs.inserted : (node.attrs.source !== null && node.attrs.snapshot === signature(node))
-    const source = unchanged ? node.attrs.source : defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node))
+    const source = unchanged ? node.attrs.source : node.type.name === "template_note" ?
+      node.attrs.opening + node.textContent + node.attrs.closing : defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node))
     // New/changed blocks need a block separator, including after an original
     // final paragraph with no trailing newline. Untouched boundaries stay exact.
     if (output && source.trim() && (!unchanged || previousChanged) && !output.endsWith("\n\n")) output += output.endsWith("\n") ? "\n" : "\n\n"
@@ -292,6 +328,8 @@ function sourceOffsetForRich(doc, position) {
   })
   if (!selected) return position <= 0 ? 0 : source.length
   const { node, blockPosition, range } = selected
+  if (node.type === schema.nodes.template_note)
+    return range.from + node.attrs.opening.length + Math.max(0, Math.min(node.content.size, position - blockPosition - 1))
   const { positions, sourcePositions } = blockSourceMap(node, blockPosition, source.slice(range.from, range.to))
   if (!positions.length) return range.from
   const next = positions.findIndex(textPosition => textPosition >= position)
@@ -311,11 +349,51 @@ function richPositionForSource(doc, offset) {
   const block = blocks.find(({ range }) => offset >= range.from && offset < range.to) ||
     blocks.find(({ range }) => range.from >= offset) || blocks.at(-1)
   const node = doc.nodeAt(block.position)
+  if (node.type === schema.nodes.template_note)
+    return block.position + 1 + Math.max(0, Math.min(node.content.size, offset - block.range.from - node.attrs.opening.length))
   const { positions, sourcePositions } = blockSourceMap(node, block.position, source.slice(block.range.from, block.range.to))
   if (!positions.length) return Math.min(doc.content.size, block.position + node.nodeSize)
   const within = Math.max(0, offset - block.range.from)
   const next = sourcePositions.findIndex(sourcePosition => sourcePosition !== null && sourcePosition >= within)
   return next < 0 ? positions.at(-1) + 1 : positions[next]
+}
+
+function templateNoteClosesEarly(node) {
+  return /--!?>/.test(node.textContent) ||
+    (node.attrs.opening.endsWith("<!--") && /^(?:>|->)/.test(node.textContent))
+}
+function hasInvalidTemplateNote(doc) {
+  let invalid = false
+  doc.descendants(node => {
+    if (node.type !== schema.nodes.template_note) return
+    invalid ||= templateNoteClosesEarly(node)
+    return false
+  })
+  return invalid
+}
+function rangeTouchesTemplateNote(doc, from, to) {
+  let touches = false
+  doc.nodesBetween(from, to, node => {
+    if (node.type === schema.nodes.template_note) touches = true
+    return !touches
+  })
+  return touches
+}
+function selectionTouchesTemplateNote(state) {
+  return rangeTouchesTemplateNote(state.doc, state.selection.from, state.selection.to)
+}
+function proseCommand(command) {
+  return (state, dispatch, view) => selectionTouchesTemplateNote(state) || command(state, dispatch, view)
+}
+function preventTemplateNoteJoin(view, event, backward) {
+  if (!event.cancelable || !event.target?.isContentEditable) return false
+  // Native deletion can precede selectionchange. Keep the browser from
+  // joining hidden guidance to adjacent document text using a stale caret.
+  const { $from, $to } = visibleSelection(view.state, view)
+  if ($from.pos !== $to.pos || $from.parent.type !== schema.nodes.template_note ||
+      $from.parentOffset !== (backward ? 0 : $from.parent.content.size)) return false
+  event.preventDefault()
+  return true
 }
 
 export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = []) {
@@ -344,17 +422,17 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
         return state.tr.insert(state.doc.content.size, trailingParagraph()).setMeta("addToHistory", false)
     } }), keymap({
       "Mod-a": selectFocusedText, ...lineNavigation,
-      "Mod-b": toggleMark(schema.marks.strong), "Mod-i": toggleMark(schema.marks.em),
+      "Mod-b": proseCommand(toggleMark(schema.marks.strong)), "Mod-i": proseCommand(toggleMark(schema.marks.em)),
       "Mod-z": undo, "Mod-Shift-z": redo, "Mod-y": redo,
-      "Ctrl-b": toggleMark(schema.marks.strong), "Meta-b": toggleMark(schema.marks.strong),
-      "Ctrl-i": toggleMark(schema.marks.em), "Meta-i": toggleMark(schema.marks.em),
+      "Ctrl-b": proseCommand(toggleMark(schema.marks.strong)), "Meta-b": proseCommand(toggleMark(schema.marks.strong)),
+      "Ctrl-i": proseCommand(toggleMark(schema.marks.em)), "Meta-i": proseCommand(toggleMark(schema.marks.em)),
       "Ctrl-z": undo, "Meta-z": undo, "Ctrl-Shift-z": redo, "Meta-Shift-z": redo, "Ctrl-y": redo,
       "Shift-Enter": chainCommands(codeNewline, (state, dispatch) => { if (dispatch) dispatch(state.tr.replaceSelectionWith(schema.nodes.hard_break.create()).scrollIntoView()); return true }),
       "Mod-Enter": exitCode, ArrowDown: moveBelowCode,
-      "Mod-k": linkCommand, "Ctrl-k": linkCommand, "Meta-k": linkCommand,
-      "Mod-Shift-7": wrapInList(schema.nodes.ordered_list), "Mod-Shift-8": wrapInList(schema.nodes.bullet_list),
-      "Mod-Alt-0": setBlockType(schema.nodes.paragraph), "Mod-Alt-1": setBlockType(schema.nodes.heading, { level: 1 }),
-      "Mod-Alt-2": setBlockType(schema.nodes.heading, { level: 2 }), "Mod-Alt-3": setBlockType(schema.nodes.heading, { level: 3 }),
+      "Mod-k": proseCommand(linkCommand), "Ctrl-k": proseCommand(linkCommand), "Meta-k": proseCommand(linkCommand),
+      "Mod-Shift-7": proseCommand(wrapInList(schema.nodes.ordered_list)), "Mod-Shift-8": proseCommand(wrapInList(schema.nodes.bullet_list)),
+      "Mod-Alt-0": proseCommand(setBlockType(schema.nodes.paragraph)), "Mod-Alt-1": proseCommand(setBlockType(schema.nodes.heading, { level: 1 })),
+      "Mod-Alt-2": proseCommand(setBlockType(schema.nodes.heading, { level: 2 })), "Mod-Alt-3": proseCommand(setBlockType(schema.nodes.heading, { level: 3 })),
       Enter: chainCommands(codeNewline, splitListItem(schema.nodes.list_item)), Tab: chainCommands(indentCode, sinkListItem(schema.nodes.list_item)),
       Backspace: chainCommands(undoInputRule, liftEmptyListItem),
       "Shift-Tab": liftListItem(schema.nodes.list_item)
@@ -366,10 +444,16 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       code_block: (node, view, getPos) => codeNodeView(node, view, getPos, preview, sourceRangeAt)
     }, attributes: { class: "markdown-rendered", role: "textbox", "aria-label": "Document body", "aria-multiline": "true" },
     handleDOMEvents: {
+      keydown(view, event) {
+        return ["Backspace", "Delete"].includes(event.key) && preventTemplateNoteJoin(view, event, event.key === "Backspace")
+      },
+      beforeinput(view, event) {
+        return /^delete.*(?:Backward|Forward)$/.test(event.inputType) && preventTemplateNoteJoin(view, event, event.inputType.endsWith("Backward"))
+      },
       copy(view, event) {
         const slice = view.state.selection.content()
         let hasSourceBlock = false
-        slice.content.forEach(node => { if (node.type === schema.nodes.preserved || node.type === schema.nodes.code_block) hasSourceBlock = true })
+        slice.content.forEach(node => { if (["preserved", "code_block", "template_note"].includes(node.type.name)) hasSourceBlock = true })
         if (!hasSourceBlock || slice.openStart || slice.openEnd || !event.clipboardData) return false
         const source = serializeDocument(schema.topNodeType.create(null, slice.content))
         event.clipboardData.setData("text/plain", source)
@@ -379,14 +463,28 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       }
     },
     handlePaste(view, event) {
-      if (view.state.selection.$from.parent.type === schema.nodes.code_block) return false
+      if (view.state.selection.$from.parent.type.spec.code) return false
       const source = event.clipboardData?.getData("application/x-coplan-markdown") || event.clipboardData?.getData("text/plain")
-      if (!source || !/(^|\n)```[^\n]*\n|^\s*\|[^\n]+\|\s*\n\s*\|?\s*:?-{3,}/m.test(source)) return false
+      if (!source || !/(^|\n)```[^\n]*\n|^\s*\|[^\n]+\|\s*\n\s*\|?\s*:?-{3,}|^ {0,3}<!--[\s\S]*?-->/m.test(source)) return false
       const parsed = parseDocument(source)
-      view.dispatch(view.state.tr.replaceSelection(new Slice(parsed.content, 0, 0)).scrollIntoView())
+      // These blocks have no existing boundary in the destination document.
+      // Treat them as inserted so lossless source attrs cannot join them to
+      // unchanged prose when either side has no trailing newline.
+      const inserted = []
+      parsed.forEach(node => inserted.push(node.type.create({ ...node.attrs,
+        ...(node.type === schema.nodes.preserved ? { inserted: true } : { source: null, snapshot: null })
+      }, node.content, node.marks)))
+      view.dispatch(view.state.tr.replaceSelection(new Slice(Fragment.fromArray(inserted), 0, 0)).scrollIntoView())
       return true
     },
     dispatchTransaction(transaction) {
+      // Check every rich transaction, including paste, composition and undo.
+      // A note must never serialize text outside its HTML comment wrapper.
+      if (transaction.docChanged && hasInvalidTemplateNote(transaction.doc)) {
+        view.updateState(view.state)
+        element.dispatchEvent(new CustomEvent("coplan:template-note-rejected", { bubbles: true }))
+        return
+      }
       if (transaction.docChanged) {
         // Keep successive keystrokes together, but fence transitions between
         // language and content even inside history's grouping delay.
@@ -450,7 +548,8 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       const wanted = text?.replace(/\s+/g, " ").trim()
       let match = 0, position = null
       if (wanted) view.state.doc.descendants((node, pos) => {
-        if (!node.isTextblock || node.type === schema.nodes.code_block) return
+        if ([schema.nodes.code_block, schema.nodes.template_note].includes(node.type)) return false
+        if (!node.isTextblock) return
         if (node.textContent.replace(/\s+/g, " ").trim() !== wanted) return
         if (match++ === occurrence) { position = pos + 1; return false }
       })
@@ -474,6 +573,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection))
     },
     insertCode(language = "") {
+      if (selectionTouchesTemplateNote(view.state)) return false
       const block = schema.nodes.code_block.create({ params: language })
       const tr = view.state.tr.replaceSelectionWith(block)
       // The default insertion selection may land in following prose. Locate
@@ -520,6 +620,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
     },
     sourceRange(position) { return sourceRangeAt(view, position) },
     command(name, value) {
+      if (selectionTouchesTemplateNote(view.state) && !["undo", "redo"].includes(name)) { view.focus(); return false }
       const commands = {
         bold: toggleMark(schema.marks.strong), italic: toggleMark(schema.marks.em),
         heading: setBlockType(schema.nodes.heading, { level: Number(value || 2) }), paragraph: setBlockType(schema.nodes.paragraph), code_block: setBlockType(schema.nodes.code_block),
@@ -555,7 +656,7 @@ function commentPlugin(initial) {
           const byId = new Map(comments.map(comment => [comment.id, comment]))
           const kept = previous.find().flatMap(mark => {
             const comment = byId.get(mark.type.attrs["data-thread-id"])
-            if (!comment || state.doc.textBetween(mark.from, mark.to) !== mark.spec.expected) return []
+            if (!comment || rangeTouchesTemplateNote(state.doc, mark.from, mark.to) || state.doc.textBetween(mark.from, mark.to) !== mark.spec.expected) return []
             return [Decoration.inline(mark.from, mark.to, {
               ...mark.type.attrs, class: `anchor-highlight anchor-highlight--${comment.status}`
             }, mark.spec)]
@@ -575,6 +676,7 @@ function commentPlugin(initial) {
         // copy of the same text elsewhere in the document.
         const mapped = previous.map(transaction.mapping, state.doc)
         const valid = mapped.find().flatMap(mark => {
+          if (rangeTouchesTemplateNote(state.doc, mark.from, mark.to)) return []
           const before = mark.spec.expected
           const after = state.doc.textBetween(mark.from, mark.to)
           if (after === before) return [mark]
@@ -607,6 +709,7 @@ function commentDecorations(doc, comments) {
     }
   }
   doc.descendants((node, position) => {
+    if (node.type === schema.nodes.template_note) return false
     if (node.isTextblock && chars.length) add(" ")
     if (node.isText) add(node.text, position)
     else if (node.type.name === "preserved") add(node.attrs.source.replace(/^\s*\|?\s*:?-{3,}.*$/gm, "").replace(/\|/g, " "))
@@ -654,7 +757,8 @@ function toolbarState(state) {
   const ancestor = name => { for (let depth = $from.depth; depth > 0; depth--) if ($from.node(depth).type.name === name) return $from.node(depth); return null }
   return { bold: markActive("strong"), italic: markActive("em"), code: markActive("code"), link: markActive("link"),
     bullet: !!ancestor("bullet_list"), ordered: !!ancestor("ordered_list"), quote: !!ancestor("blockquote"),
-    heading: ancestor("code_block") ? "code" : ancestor("heading")?.attrs.level || 0, undo: undo(state), redo: redo(state) }
+    heading: ancestor("code_block") ? "code" : ancestor("heading")?.attrs.level || 0,
+    templateNote: selectionTouchesTemplateNote(state), undo: undo(state), redo: redo(state) }
 }
 
 // Compare semantic content without the lossless-serialization bookkeeping.
@@ -716,8 +820,8 @@ function patchChildren(tr, before, after, offset) {
   }
 }
 
-// A code box is its own text selection scope. ProseMirror's selectAll
-// selects the entire document, including every other code/prose block.
+// Code boxes and template notes are their own text selection scope.
+// ProseMirror's selectAll includes every other code/prose block.
 function visibleSelection(state, view) {
   let { $from, $to } = state.selection
   // A native click can precede ProseMirror's asynchronous selectionchange.
@@ -731,7 +835,7 @@ function visibleSelection(state, view) {
 }
 function selectFocusedText(state, dispatch, view) {
   const { $from, $to } = visibleSelection(state, view)
-  if ($from.sameParent($to) && $from.parent.type === schema.nodes.code_block) {
+  if ($from.sameParent($to) && [schema.nodes.code_block, schema.nodes.template_note].includes($from.parent.type)) {
     if (dispatch) dispatch(state.tr.setSelection(TextSelection.create(state.doc, $from.start(), $from.end())))
     return true
   }

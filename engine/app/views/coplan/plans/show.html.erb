@@ -32,7 +32,7 @@
     new tab) have no history — fall back to the folder the plan actually
     lives in, not the workspace root. %>
 <div data-controller="coplan--plan-keys coplan--folder-picker coplan--inline-editor coplan--plan-details"
-     data-action="coplan:edit-request@document->coplan--inline-editor#open coplan:editor-ready->coplan--inline-editor#ready coplan:editor-closed->coplan--inline-editor#closed coplan:editor-error->coplan--inline-editor#error coplan:editor-saved->coplan--inline-editor#refreshThreads keydown.esc@document->coplan--plan-details#dismissVisibility"
+     data-action="coplan:edit-request@document->coplan--inline-editor#open coplan:editor-ready->coplan--inline-editor#ready coplan:editor-closed->coplan--inline-editor#closed coplan:editor-error->coplan--inline-editor#error coplan:editor-revision->coplan--inline-editor#revisionChanged coplan:editor-saved->coplan--inline-editor#refreshThreads keydown.esc@document->coplan--plan-details#dismissVisibility"
      data-coplan--inline-editor-content-url-value="<%= content_body_plan_path(@plan) %>"
      data-coplan--inline-editor-comments-url-value="<%= comments_body_plan_path(@plan) %>"
      data-coplan--inline-editor-auto-open-value="<%= params[:edit].present? && allowed_to?(@plan, :edit_content?) %>"

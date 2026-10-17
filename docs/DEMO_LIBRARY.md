@@ -53,7 +53,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | pattern-showcase | Title, columns, stage, quote, code, image, and table slide layouts |
 | reference-gallery | All five reference types, a resolved CoPlan target, explicit/extracted references, named citations, repeated URLs, footnotes |
 | table-gallery | Precise cell discussion, repeated labels, empty values, links, wide expandable data |
-| formatting-gallery | Headings, emphasis, quotes, nested lists, tasks, two code languages, image, mention, footnote |
+| formatting-gallery | Headings, editable template notes hidden while reading, emphasis, quotes, nested lists, tasks, two code languages, image, mention, footnote |
 
 Flowcharts currently support source-backed node and edge comments. Other
 Mermaid types support whole-diagram comments. The demos label this boundary;

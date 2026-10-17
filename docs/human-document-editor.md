@@ -31,6 +31,8 @@ Save feedback sits at the far right: a muted clock while autosave is queued,
 a spinner during the request, then a muted
 check that fades after acknowledgement. Hover for the saved version and time.
 Errors stay visible and successful saves are announced to assistive technology.
+The header version follows acknowledged saves and live updates without replacing
+the editable title, and stays current when returning to reading mode.
 The editor has no Details menu, tag editing, or change-summary field; existing tags
 and incoming tag updates are retained.
 
@@ -43,6 +45,16 @@ unresolved conflicts keep you in the editor with your draft. An untouched empty
 new draft can simply close the editor. Comments remain available in reading view.
 
 ## Markdown, tables and diagrams
+
+Standalone HTML comments (`<!-- … -->`) appear as muted, directly editable
+template notes in Editor and Dual modes. The delimiters stay in Raw mode;
+notes remain hidden in reading view. Untouched notes keep their exact source.
+A standalone note does not need a blank line after the preceding prose.
+The rich editor rejects text that would close a note's HTML comment and shows
+an explanation. Use spaced text such as `-- >` to write a closing marker.
+Notes stay plain text: formatting controls and shortcuts do not convert them
+to visible document blocks. Review highlights and caret restoration skip notes.
+Cmd/Ctrl+A inside a note selects only that note's text.
 
 Raw mode edits the exact Markdown source in a plain, unformatted editor. Switching
 modes alone does not serialize, save or normalize the text, including unsupported

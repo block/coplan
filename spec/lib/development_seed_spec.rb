@@ -111,15 +111,18 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(gallery.current_content).not_to include("{{demo_document_url}}")
       expect(seeded_plan("mixed-slides").current_content).to include(described_class.demo_logo_url)
       expect(seeded_plan("formatting-gallery").current_content).not_to include("{{demo_logo_url}}", "/coplan-logo.png")
-      formatting = seeded_plan("formatting-gallery").current_content
-      expect(formatting).to include("## Try bullet editing", "Press Backspace", "- Try continuing this list with Enter")
+      formatting = seeded_plan("formatting-gallery")
+      formatting_content = formatting.current_content
+      expect(formatting_content).to include("<!-- Template guidance:", "hidden when reading. -->")
+      expect(formatting_content).to include("## Try bullet editing", "Press Backspace", "- Try continuing this list with Enter")
 
       thread_count = CoPlan::CommentThread.count
       reference_count = gallery.references.count
       described_class.call
       expect(CoPlan::CommentThread.count).to eq(thread_count)
       expect(gallery.references.count).to eq(reference_count)
-      expect(seeded_plan("formatting-gallery").current_content).to eq(formatting)
+      expect(formatting.reload.current_revision).to eq(1)
+      expect(formatting.current_content).to eq(formatting_content)
     end
 
     it "refuses to take over an existing login and rolls back the seed" do
@@ -437,11 +440,16 @@ RSpec.describe CoPlan::DevelopmentSeed do
       plan.update!(title: "Locally edited title")
       CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "# Locally edited content",
         base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
+      formatting = seeded_plan("formatting-gallery")
+      edited_notes = formatting.current_content.sub("Template guidance:", "My edited template guidance:")
+      CoPlan::Plans::ReplaceContent.call(plan: formatting, new_content: edited_notes,
+        base_revision: formatting.current_revision, actor_type: "human", actor_id: formatting.created_by_user_id)
 
       described_class.call
 
       expect(plan.reload.title).to eq("Locally edited title")
       expect(plan.current_content).to eq("# Locally edited content")
+      expect(formatting.reload.current_content).to eq(edited_notes)
     end
   end
 end
