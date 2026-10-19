@@ -63,8 +63,9 @@ notes remain hidden in reading view. Untouched notes keep their exact source.
 A standalone note does not need a blank line after the preceding prose.
 The rich editor rejects text that would close a note's HTML comment and shows
 an explanation. Use spaced text such as `-- >` to write a closing marker.
-Notes stay plain text: formatting controls and shortcuts do not convert them
-to visible document blocks. Review highlights and caret restoration skip notes.
+Notes stay plain text while their style is Comment. Inline formatting controls
+and shortcuts are disabled. Choosing Normal text or a heading intentionally
+makes the text visible. Review highlights and caret restoration skip notes.
 Cmd/Ctrl+A inside a note selects only that note's text.
 
 Raw mode edits the exact Markdown source in a plain, unformatted editor. Switching
