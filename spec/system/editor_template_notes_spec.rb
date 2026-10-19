@@ -146,7 +146,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     %w[light dark].each do |theme|
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
       note.send_keys(">")
-      expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the hidden comment")
+      expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the comment")
       expect(note.text).to eq("Explain the decision here. --")
       page.save_screenshot(Rails.root.join("tmp", "template-notes-rejected-#{theme}.png"))
     end
@@ -160,7 +160,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
         new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
     JS
     expect(note.text).to eq("Explain the decision here. --!")
-    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the hidden comment")
+    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the comment")
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
     expect(plan.reload.current_content).to include("<!-- Explain the decision here. --! -->")
@@ -186,12 +186,12 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).to have_css(".document-editor__template-note", text: "Revised guidance.", wait: 20)
   end
 
-  it "creates hidden comments from the text style menu and converts them back to prose or headings" do
+  it "creates comments from the text style menu and converts them back to prose or headings" do
     paragraph = find(".ProseMirror > p", text: "Visible prose.")
     paragraph.click
-    select "Hidden comment", from: "Paragraph style", enable_aria_label: true
+    select "Comment", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".document-editor__template-note", text: "Visible prose.")
-    expect(page).to have_select("Paragraph style", selected: "Hidden comment", enable_aria_label: true)
+    expect(page).to have_select("Paragraph style", selected: "Comment", enable_aria_label: true)
     expect(page).to have_button("Bold", disabled: true)
     click_button "Undo", enable_aria_label: true
     expect(page).to have_css(".ProseMirror > p", text: "Visible prose.")
@@ -220,7 +220,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).to have_css(".ProseMirror > h1", text: "Decision")
     select "Heading 2", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".ProseMirror > h2", text: "Visible prose.")
-    select "Hidden comment", from: "Paragraph style", enable_aria_label: true
+    select "Comment", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".document-editor__template-note", text: "Visible prose.")
     select "Heading 3", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".ProseMirror > h3", text: "Visible prose.")
@@ -231,17 +231,17 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).not_to have_content("Explain the decision here.")
   end
 
-  it "creates an empty hidden comment without typing Markdown and preserves line breaks in converted text" do
+  it "creates an empty comment without typing Markdown and preserves line breaks in converted text" do
     paragraph = find(".ProseMirror > p", text: "Visible prose.")
     paragraph.click
     paragraph.send_keys([ mod, :right ], :enter)
-    select "Hidden comment", from: "Paragraph style", enable_aria_label: true
+    select "Comment", from: "Paragraph style", enable_aria_label: true
     note = all(".document-editor__template-note").find { |entry| entry.text.empty? }
     note.send_keys("New guidance.", :enter, "Second line.")
-    expect(page).to have_select("Paragraph style", selected: "Hidden comment", enable_aria_label: true)
+    expect(page).to have_select("Paragraph style", selected: "Comment", enable_aria_label: true)
     select "Normal text", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".ProseMirror > p", text: "New guidance.")
-    select "Hidden comment", from: "Paragraph style", enable_aria_label: true
+    select "Comment", from: "Paragraph style", enable_aria_label: true
     expect(find(".document-editor__template-note", text: "New guidance.").text).to eq("New guidance.\nSecond line.")
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
@@ -254,7 +254,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "## Heading\n\n**Bold** guidance.\n")
     click_button "Editor", exact: true
     find(".ProseMirror > p", text: "Bold guidance.").send_keys([ mod, "a" ])
-    select "Hidden comment", from: "Paragraph style", enable_aria_label: true
+    select "Comment", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".document-editor__template-note", count: 2)
     expect(page).to have_css(".document-editor__template-note", text: "Heading")
     expect(page).to have_css(".document-editor__template-note", text: "Bold guidance.")
@@ -266,10 +266,10 @@ RSpec.describe "Template notes in the document editor", type: :system do
     find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "Visible --> text.\n")
     click_button "Editor", exact: true
     find(".ProseMirror > p", text: "Visible --> text.").click
-    select "Hidden comment", from: "Paragraph style", enable_aria_label: true
+    select "Comment", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".ProseMirror > p", text: "Visible --> text.")
     expect(page).to have_no_css(".document-editor__template-note")
-    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the hidden comment")
+    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the comment")
     expect(page).to have_select("Paragraph style", selected: "Normal text", enable_aria_label: true)
   end
 
@@ -280,7 +280,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     note = find(".document-editor__template-note")
     note.click
     note.send_keys(">")
-    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the hidden comment")
+    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the comment")
     expect(note.text).to eq("")
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)

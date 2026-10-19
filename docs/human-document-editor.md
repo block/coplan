@@ -93,7 +93,7 @@ guide for syntax, supported sizes, and the fixed sandbox and frame policy.
 
 Formatted prose, strikethrough, mentions, and ordinary or task lists stay directly
 editable. Task checkboxes toggle in place; Enter continues with an unchecked task.
-Choose **Hidden comment** in the text-style menu beside Normal text and the
+Choose **Comment** in the text-style menu beside Normal text and the
 headings to hide a paragraph or heading while reading. Its text stays gray and
 editable in the editor. Choose Normal text or a heading to make it visible again.
 

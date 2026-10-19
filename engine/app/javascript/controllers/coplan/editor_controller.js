@@ -98,7 +98,7 @@ export default class extends Controller {
     toast.className = "flash flash--alert toasts__toast"
     toast.dataset.controller = "coplan--toast"
     toast.setAttribute("role", "alert")
-    toast.textContent = "We couldn't add that text because it would end the hidden comment. Use -- > to show a closing marker."
+    toast.textContent = "We couldn't add that text because it would end the comment. Use -- > to show a closing marker."
     document.getElementById("coplan-toasts").append(toast)
     this.noteToast = toast
   }

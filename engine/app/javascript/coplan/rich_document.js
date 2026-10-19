@@ -48,7 +48,7 @@ nodes = nodes.addBefore("text", "footnote_reference", {
 nodes = nodes.addBefore("paragraph", "template_note", {
   group: "block", content: "text*", marks: "", code: true, defining: true, isolating: true,
   attrs: { source: { default: null }, snapshot: { default: null }, opening: {}, closing: {} },
-  toDOM: () => ["div", { class: "document-editor__template-note", "data-coplan-template-note": "", "aria-label": "Hidden comment" }, 0]
+  toDOM: () => ["div", { class: "document-editor__template-note", "data-coplan-template-note": "", "aria-label": "Comment" }, 0]
 })
 const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.marks.addToEnd("strikethrough", {
   parseDOM: [{ tag: "s" }, { tag: "del" }], toDOM: () => ["s", 0]
