@@ -58,8 +58,8 @@ module CoPlan
     def cache_writing_provenance_summary
       updates = { writing_provenance_summary: writing_provenance.fetch("summary") }
       state = plan.writing_provenance_backfill
-      if state && !state["token"] && !@writing_backfill_needed && state["revision"] == revision - 1
-        updates[:writing_provenance_backfill] = state.merge("revision" => revision)
+      if state && !state["token"] && !@writing_backfill_needed && state["revision"] == revision - 1 && state.fetch("finalized_revision", 0) == revision - 1
+        updates[:writing_provenance_backfill] = state.merge("revision" => revision, "finalized_revision" => revision)
       end
       plan.update_columns(updates)
     end

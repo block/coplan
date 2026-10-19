@@ -171,7 +171,7 @@ RSpec.describe "Writing provenance", type: :system do
     JS
     expect(page).to have_css('#writing-provenance[data-coplan--writing-provenance-revision-value="2"]', wait: 20)
     expect(plan.reload.writing_provenance_summary.dig("counts", "unknown")).to eq(13)
-    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2)
+    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2)
   end
 
   it "attributes repeated prose to its writer rather than an earlier diagram label" do

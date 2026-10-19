@@ -9,17 +9,19 @@ module CoPlan
 
       def self.claim(plan, restart: false)
         plan.with_lock do
+          return unless plan.current_revision.positive?
           state = plan.writing_provenance_backfill.to_h.deep_dup
           state = state.slice("legacy_revision").merge("revision" => 0) if restart
           state["legacy_revision"] ||= 0
           state["revision"] ||= 0
+          state["finalized_revision"] ||= 0
           return if state["token"] && Time.iso8601(state.fetch("expires_at")) > Time.current
           if state["revision"].positive?
             checkpoint = plan.plan_versions.find_by(revision: state["revision"])
             snapshot = checkpoint&.writing_provenance.to_h
             state["revision"] = 0 unless snapshot && snapshot["format"] == WritingProvenance::FORMAT && snapshot["sha256"] == checkpoint.content_sha256
           end
-          return if !restart && state["revision"] >= plan.current_revision && plan.writing_provenance_summary&.dig("revision") == plan.current_revision
+          return if !restart && !state["token"] && state["revision"] >= plan.current_revision && state["finalized_revision"] >= plan.current_revision && plan.writing_provenance_summary&.dig("revision") == plan.current_revision
           token = SecureRandom.uuid
           state.merge!("token" => token, "expires_at" => LEASE.from_now.iso8601)
           plan.update_columns(writing_provenance_backfill: state)
@@ -35,8 +37,11 @@ module CoPlan
       end
 
       def self.pending?(plan)
+        return false unless plan.current_revision.positive?
         state = plan.writing_provenance_backfill
-        state ? state.fetch("revision", 0) < plan.current_revision : plan.writing_provenance_summary.nil?
+        return plan.writing_provenance_summary.nil? unless state
+        state["token"].present? || state.fetch("revision", 0) < plan.current_revision ||
+          state.fetch("finalized_revision", 0) < plan.current_revision || plan.writing_provenance_summary&.dig("revision") != plan.current_revision
       end
 
       def self.call(plan:, token:)
@@ -101,7 +106,7 @@ module CoPlan
           next :continue if @plan.current_revision > revision
           version = @plan.current_plan_version
           @plan.update_columns(writing_provenance_summary: version&.writing_provenance&.fetch("summary"),
-            writing_provenance_backfill: state.except("token", "expires_at"))
+            writing_provenance_backfill: state.except("token", "expires_at").merge("finalized_revision" => revision))
           true
         end
         return true if updated == :continue

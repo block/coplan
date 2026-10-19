@@ -8,7 +8,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(seeded_plan("writing-human").writing_provenance_summary.dig("shares", "human")).to eq(1.0)
       legacy = seeded_plan("writing-legacy")
       expect(legacy.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
-      expect(legacy.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 1)
+      expect(legacy.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1)
       ai = seeded_plan("writing-ai")
       expect(ai.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
       expect(ai.writing_provenance_summary.fetch("contributors").first).to include("harness" => "claude-code")

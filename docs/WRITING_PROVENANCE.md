@@ -20,7 +20,7 @@ Reconstruction changes attribution metadata only. It does not change document te
 
 `CoPlan::WritingProvenanceBackfillJob` scans 100 document records at a time without loading version content. `CoPlan::WritingProvenanceJob` works for up to 20 versions or three seconds before yielding. Each processed version commits a durable revision checkpoint.
 
-A database-backed claim prevents separate workers from claiming the same document for five minutes; each committed checkpoint renews it. Computation occurs outside the document lock. A worker must still own the claim and checkpoint before saving its result. Older workers cannot overwrite a replacement worker's progress.
+A database-backed claim prevents separate workers from claiming the same document for five minutes; each committed checkpoint renews it. Computation occurs outside the document lock. A worker must still own the claim and checkpoint before saving its result. Older workers cannot overwrite a replacement worker's progress. A separate finalized revision advances only when the current summary is published, so a crash after the last version checkpoint still leaves recoverable work.
 
 The coordinator revisits pending documents after the lease horizon, recovering a worker that died before scheduling its continuation. Jobs also retry transient failures. Both jobs use priority 20 so normal work with default priority can run first. Startup, document claims, and progress do not depend on the cache database. Multiple boot scans can run safely: only one can claim a particular document.
 

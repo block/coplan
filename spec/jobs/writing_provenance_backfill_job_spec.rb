@@ -17,7 +17,14 @@ RSpec.describe CoPlan::WritingProvenanceBackfillJob do
 
   it "does not rebuild completed documents" do
     plan = CoPlan::Plans::Create.call(title: "Ready", content: "Editor", user: create(:coplan_user), actor_type: "human")
-    plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 1 })
+    plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1 })
+    expect(CoPlan::WritingProvenanceJob).not_to receive(:request)
+    expect { described_class.perform_now }.not_to have_enqueued_job(described_class)
+  end
+
+  it "does not keep versionless documents in the recovery scan" do
+    plan = CoPlan::Plan.create!(title: "No version yet", created_by_user: create(:coplan_user))
+    plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 0, "revision" => 0 })
     expect(CoPlan::WritingProvenanceJob).not_to receive(:request)
     expect { described_class.perform_now }.not_to have_enqueued_job(described_class)
   end

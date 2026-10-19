@@ -19,7 +19,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
       input_sources: { "runs" => [ [ 10, "unknown" ], [ 6, "unknown" ] ] })
     run_batch(plan)
     expect(plan.reload.writing_provenance_summary.fetch("counts")).to eq("human" => 9, "ai" => 0, "unknown" => 5)
-    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2)
+    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2)
   end
 
   it "keeps retained agent writing when a historical human adds text" do
@@ -67,7 +67,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     expect(run_batch(plan, token)).to be(false)
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor typed", base_revision: 1, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ 16, "human" ] ] })
-    expect(plan.reload.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2)
+    expect(plan.reload.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2)
     expect(described_class.pending?(plan)).to be(false)
   end
 
@@ -90,5 +90,33 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     end
     expect(run_batch(plan, token)).to be(false)
     expect(plan.reload.writing_provenance_backfill.fetch("revision")).to eq(0)
+  end
+
+  it "recovers a worker lost after the last checkpoint even when the old summary has the current revision" do
+    rollout(plan)
+    stub_const("#{described_class}::BATCH_SIZE", 1)
+    token = described_class.claim(plan)
+    expect(run_batch(plan, token)).to be(true)
+    expect(plan.reload.writing_provenance_summary.dig("shares", "unknown")).to eq(1.0)
+    expect(described_class.pending?(plan)).to be(true)
+    travel described_class::LEASE + 1.second
+    replacement = described_class.claim(CoPlan::Plan.find(plan.id))
+    expect(replacement).to be_present
+    expect(run_batch(plan, replacement)).to be(false)
+    expect(plan.reload.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
+    expect(described_class.pending?(plan)).to be(false)
+  end
+
+  it "keeps finalization pending when an enqueue failure releases the final checkpoint claim" do
+    rollout(plan)
+    stub_const("#{described_class}::BATCH_SIZE", 1)
+    token = described_class.claim(plan)
+    run_batch(plan, token)
+    described_class.release(plan, token)
+    expect(described_class.pending?(plan.reload)).to be(true)
+    replacement = described_class.claim(plan)
+    expect(replacement).to be_present
+    run_batch(plan, replacement)
+    expect(described_class.pending?(plan.reload)).to be(false)
   end
 end
