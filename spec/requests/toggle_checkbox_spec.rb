@@ -53,6 +53,38 @@ RSpec.describe "Toggle Checkbox", type: :request do
       expect(version.change_summary).to eq("Toggle checkbox")
     end
 
+    it "attributes repeated checkbox selections to the person while retaining the agent's task text" do
+      agent_plan = CoPlan::Plans::Create.call(title: "Agent tasks", content: "- [ ] Ship 😀\n", user: user, actor_type: "local_agent")
+      5.times do |index|
+        checked = index.even?
+        patch toggle_checkbox_plan_path(agent_plan), params: {
+          old_text: checked ? "- [ ] Ship 😀" : "- [x] Ship 😀",
+          new_text: checked ? "- [x] Ship 😀" : "- [ ] Ship 😀",
+          base_revision: agent_plan.reload.current_revision
+        }, as: :json
+        expect(response).to have_http_status(:ok)
+        snapshot = agent_plan.reload.current_plan_version.writing_provenance
+        expect(snapshot.dig("summary", "counts", "unknown")).to eq(0)
+        expect(snapshot.dig("summary", "counts", "ai")).to eq(8)
+        if checked
+          source = snapshot.fetch("sources").values.find { |entry| entry["kind"] == "human" }
+          expect(source).to include("user_id" => user.id, "origin_revision" => agent_plan.current_revision)
+          expect(snapshot.dig("summary", "counts", "human")).to eq(1)
+        end
+      end
+    end
+
+    it "does not infer human typing when a task replacement changes more than its checkbox" do
+      agent_plan = CoPlan::Plans::Create.call(title: "Agent task", content: "- [ ] Original\n", user: user, actor_type: "local_agent")
+      patch toggle_checkbox_plan_path(agent_plan), params: {
+        old_text: "- [ ] Original", new_text: "- [x] Pasted task", base_revision: 1
+      }, as: :json
+      expect(response).to have_http_status(:ok)
+      counts = agent_plan.reload.writing_provenance_summary.fetch("counts")
+      expect(counts.fetch("human")).to eq(0)
+      expect(counts.fetch("unknown")).to be_positive
+    end
+
     it "returns 409 on stale base_revision" do
       stale_revision = plan.current_revision
       # Simulate a concurrent edit by bumping the revision
