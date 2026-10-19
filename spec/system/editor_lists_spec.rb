@@ -288,6 +288,19 @@ RSpec.describe "Editor lists", type: :system do
     expect(editor.text).to include("B) Second literal")
   end
 
+  it "preserves lettered task lists when editing nearby text" do
+    source = "A) [ ] Keep this task\n\nOutside\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css('.ProseMirror .document-editor__block-preview input[type="checkbox"]', wait: 20)
+    find(".ProseMirror > p").click
+    page.driver.browser.action.send_keys(:end, " continued").perform
+    editor.send_keys([ modifier, "s" ])
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+    expect(plan.reload.current_content).to include("A) [ ] Keep this task", "Outside continued")
+  end
+
   it "keeps letter-like markers literal inside a nested pipe-less table after saving" do
     source = "AA) Parent\n\n    A) Name | State\n    --- | ---\n    B) Label | Ready\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,

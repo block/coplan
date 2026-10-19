@@ -66,6 +66,15 @@ RSpec.describe CoPlan::Markdown do
     expect(doc.at_css("td").text).to eq("B) Label")
   end
 
+  it "does not rewrite authored ordered lists with custom source positions" do
+    source = "A) Lettered\n\n<ol class=\"authored\" start=\"9\" data-sourcepos=\"custom\"><li>Authored item</li></ol>\n"
+    doc = Nokogiri::HTML.fragment(described_class.to_html(source, options: { render: { unsafe: true, sourcepos: true } }))
+    expect(doc.at_css('ol[type="A"] li').text).to eq("Lettered")
+    expect(doc.at_css("ol.authored")["start"]).to eq("9")
+    expect(doc.at_css("ol.authored")["data-sourcepos"]).to eq("custom")
+    expect(doc.at_css("ol.authored li").text).to eq("Authored item")
+  end
+
   it "keeps nested table comment targets bound to their original source" do
     source = "AA) Item\n\n    | Name | State |\n    | --- | --- |\n    | 同 | Ready |\n"
     doc = Nokogiri::HTML.fragment(described_class.to_html(source, options: { render: { sourcepos: true } }))

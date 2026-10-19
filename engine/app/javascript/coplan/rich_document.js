@@ -301,7 +301,7 @@ export function parseDocument(markdown) {
       try {
         const parsed = richMarkdownParser.parse(text)
         const unsupported = text.replace(imageTag, tag => htmlImage(tag) ? "" : tag)
-        if (parsed.firstChild?.type.name !== "code_block" && /~~|\]\s*\[|\]\(mention:|<\/?[a-z!]|^\s*(?:>\s*)*(?:[-*+]|\d+[.)]) \[[ xX]\]|^\s*\[[^\]]+\]:|^:::(?: \{\.presentation.*\})?$/im.test(unsupported)) throw new Error("preserve")
+        if (parsed.firstChild?.type.name !== "code_block" && /~~|\]\s*\[|\]\(mention:|<\/?[a-z!]|^\s*(?:>\s*)*(?:[-*+]|\d+[.)]|[a-z]{1,9}\)) \[[ xX]\]|^\s*\[[^\]]+\]:|^:::(?: \{\.presentation.*\})?$/im.test(unsupported)) throw new Error("preserve")
         if (parsed.childCount !== 1) throw new Error("preserve")
         let node = schema.nodeFromJSON(parsed.firstChild.toJSON())
         node = node.type.create({ ...node.attrs, source: text, snapshot: signature(node) }, node.content, node.marks)

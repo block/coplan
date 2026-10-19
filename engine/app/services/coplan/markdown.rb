@@ -5,6 +5,7 @@ module CoPlan
     LETTERED_MARKER = /\A((?:[ \t]*>[ \t]?)*[ \t]*)([A-Z]{1,9}|[a-z]{1,9})\)(?=[ \t\r\n]|\z)/
     NUMBERED_MARKER = /\A(?:[ \t]*>[ \t]?)*[ \t]*(\d{1,9})[.)](?=[ \t\r\n]|\z)/
     TABLE_DELIMITER = /\A(?:[ \t]*>[ \t]?)*[ \t]*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t\r\n]*\z/
+    SOURCE_POSITION = /\A[1-9]\d*:[1-9]\d*-[1-9]\d*:\d+\z/
 
     def self.parse(source, **options)
       normalized, = normalize(source, options: options[:options])
@@ -21,7 +22,11 @@ module CoPlan
       doc = Nokogiri::HTML.fragment(Commonmarker.to_html(normalized, **options))
       lines = source.to_s.lines
       doc.css("ol[data-sourcepos]").reverse_each do |list|
-        groups = list.element_children.chunk do |item|
+        items = list.element_children
+        next unless SOURCE_POSITION.match?(list["data-sourcepos"].to_s) && items.any? &&
+          items.all? { |item| item.name == "li" && SOURCE_POSITION.match?(item["data-sourcepos"].to_s) }
+
+        groups = items.chunk do |item|
           markers[item["data-sourcepos"].to_i]&.fetch(:type) || "decimal"
         end
         groups.each do |type, items|
