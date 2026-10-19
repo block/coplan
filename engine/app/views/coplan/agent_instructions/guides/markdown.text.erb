@@ -22,7 +22,11 @@ Review highlights and comment selections skip their text.
 In the rich editor, typing `* ` at the start of a paragraph creates a bullet.
 Immediate Backspace restores the literal asterisk and space. After Enter creates
 an empty list item, Backspace lifts it out to a normal paragraph. In a nested
-list, it moves out one level. Raw mode keeps the characters as Markdown.
+list, it moves out one level. Backspace from the empty paragraph after a list
+returns to the end of the previous item's text without adding a bullet.
+Extra empty paragraphs disappear one at a time. If the previous item ends in
+a table, the caret moves to the nearest preceding editable text. The table
+stays unchanged. Raw mode keeps the characters as Markdown.
 
 ## Tables
 
@@ -117,6 +121,8 @@ To set an image's display width, use an HTML image tag with a `width` in pixels:
 ```
 
 Use the uploaded image's URL for `src`. CoPlan keeps images within the reading column. Expanding an image uses its original dimensions.
+
+The web editor writes this form when a person resizes an image. Snapping back to natural full width removes the width setting.
 
 - The maximum size is 25 MB per file. Allowed types are PNG, JPEG, GIF, WebP, PDF, TXT, MD, CSV, JSON, and ZIP. CoPlan returns `422` for other files.
 - Only the plan author can upload or delete attachments. Any reader can list and download them.

@@ -2381,6 +2381,32 @@ img.avatar {
   border-radius: var(--radius);
 }
 
+/* Image editor chrome hugs the picture without adding a card or changing
+   its reading layout. Only the corner affordance appears on hover/focus. */
+.document-editor__image { position: relative; display: inline-block; max-width: 100%; vertical-align: bottom; line-height: 0; }
+.document-editor__image img { display: block; height: auto; }
+.document-editor__image-handle { --image-handle-opacity: 0; position: absolute; right: 0; bottom: 0; display: grid; place-items: end; width: 36px; height: 36px; padding: 2px; border: 0; border-radius: 0 0 var(--radius) 0; background: transparent; color: rgb(51 65 85 / .65); cursor: nwse-resize; touch-action: none; transition: color .18s ease; }
+/* Clear glass picks up the image beneath it, including in dark mode. Keep
+   the triangular paint separate from the larger rectangular grab area.
+   Fade the painted layers, never their parent: parent opacity below 1
+   blocks the glass from sampling the image until the fade ends. */
+.document-editor__image-handle::before { content: ""; position: absolute; inset: 0; border-radius: inherit; clip-path: polygon(100% 0, 100% 100%, 0 100%); background: linear-gradient(135deg, rgb(255 255 255 / .42), rgb(255 255 255 / .18)); -webkit-backdrop-filter: blur(7px) saturate(1.2) brightness(1.12); backdrop-filter: blur(7px) saturate(1.2) brightness(1.12); opacity: var(--image-handle-opacity); transition: opacity .26s ease; pointer-events: none; }
+.document-editor__image-handle svg { position: relative; width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; filter: drop-shadow(0 1px 0 rgb(255 255 255 / .45)); opacity: var(--image-handle-opacity); transition: opacity .26s ease; pointer-events: none; }
+.document-editor__image:hover .document-editor__image-handle,
+.document-editor__image-handle:focus-visible,
+.document-editor__image.is-resizing .document-editor__image-handle { --image-handle-opacity: 1; }
+.document-editor__image-handle:hover,
+.document-editor__image-handle:focus-visible,
+.document-editor__image.is-resizing .document-editor__image-handle { color: var(--color-primary); }
+.document-editor__image-handle:focus-visible { outline: none; }
+.document-editor__image-handle:focus-visible svg { filter: drop-shadow(0 0 3px var(--color-focus-ring)); }
+.document-editor__image.is-resizing { user-select: none; }
+.document-editor__image-size { position: absolute; right: 10px; bottom: 10px; padding: 5px 7px; border-radius: 5px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); font: 12px/1.2 var(--font-sans); pointer-events: none; }
+.document-editor__image-size:empty { display: none; }
+.document-editor__image:not(.is-resizing):not(:focus-within) .document-editor__image-size { display: none; }
+@media (hover: none) { .document-editor__image-handle { --image-handle-opacity: 1; width: 44px; height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .document-editor__image-handle, .document-editor__image-handle::before, .document-editor__image-handle svg { transition: none; } }
+
 .markdown-rendered abbr[title] {
   text-decoration: underline dotted;
   text-underline-offset: 2px;

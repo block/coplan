@@ -114,8 +114,9 @@ RSpec.describe CoPlan::DevelopmentSeed do
       formatting = seeded_plan("formatting-gallery")
       formatting_content = formatting.current_content
       expect(formatting_content).to include("<!-- Template guidance:", "hidden when reading. -->")
-      expect(formatting_content).to include("## Try bullet editing", "Press Backspace", "- Try continuing this list with Enter")
+      expect(formatting_content).to include("## Try bullet editing", "Press Backspace", "Press Backspace again", "- Try continuing this list with Enter")
       expect(formatting_content).to include("## Try comments", "choose Comment", "~~strikethrough~~", "[@alex](mention:alex)", "- [x] Define a receipt", "- [ ] Inspect retry metrics")
+      expect(formatting_content).to include("- Item with a table.", "  | Alpha | Ready |", "blank item after this table")
 
       thread_count = CoPlan::CommentThread.count
       reference_count = gallery.references.count
@@ -132,6 +133,22 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(existing.reload.name).to eq("Existing person")
       expect(CoPlan::User.count).to eq(1)
       expect(CoPlan::Plan.count).to eq(0)
+    end
+
+    it "seeds image resizing once and preserves a person's saved image width" do
+      described_class.call
+      plan = seeded_plan("image-resizing")
+      expect(plan.current_content).to include(described_class.demo_logo_url, 'width="320"', "![CoPlan logo at natural width]")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+      revision = plan.current_revision
+      described_class.call
+      expect(plan.reload.current_revision).to eq(revision)
+
+      resized = plan.current_content.sub('width="320"', 'width="240"')
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: resized,
+        base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
+      described_class.call
+      expect(plan.reload.current_content).to eq(resized)
     end
 
     it "upgrades only untouched host image URLs and preserves edited image examples" do

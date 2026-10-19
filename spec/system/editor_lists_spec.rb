@@ -9,8 +9,8 @@ RSpec.describe "Editor lists", type: :system do
     visit sign_in_path
     fill_in "Email address", with: author.email
     click_button "Sign In"
-    expect(page).to have_current_path(root_path)
-    expect(page).to have_button("Menu")
+    expect(page).to have_current_path(root_path, wait: 20)
+    expect(page).to have_button("Menu", wait: 20)
     visit plan_edit_page_path(plan)
     expect(page).to have_css('.ProseMirror[contenteditable="true"]', wait: 20)
   end
@@ -29,7 +29,7 @@ RSpec.describe "Editor lists", type: :system do
         const form = document.querySelector("form.document-editor")
         const view = Stimulus.getControllerForElementAndIdentifier(form, "coplan--editor").richEditor.view
         const { $head } = view.state.selection
-        return { depth: $head.depth, parent: $head.parent.type.name,
+        return { depth: $head.depth, parent: $head.parent.type.name, text: $head.parent.textContent, offset: $head.parentOffset,
           left: view.coordsAtPos($head.pos).left, top: view.coordsAtPos($head.pos).top }
       })()
     JS
@@ -54,10 +54,13 @@ RSpec.describe "Editor lists", type: :system do
       click_button button, exact: true, enable_aria_label: true
       editor.send_keys(:enter)
       expect(page).to have_css(".ProseMirror li", count: 2)
-      editor.send_keys(:backspace, "Outside the list")
+      editor.send_keys(:backspace)
       expect(page).to have_css(".ProseMirror li", count: 1)
-      expect(page).to have_css(".ProseMirror > p", text: "Outside the list")
       expect(caret).to include("depth" => 1)
+      editor.send_keys(:backspace, " continued")
+      expect(page).to have_css(".ProseMirror li", count: 1)
+      expect(page).to have_css(".ProseMirror li", text: "First item continued")
+      expect(page).to have_no_css(".ProseMirror > p")
     end
   end
 
@@ -71,6 +74,128 @@ RSpec.describe "Editor lists", type: :system do
     editor.send_keys(:backspace, "Outside")
     expect(page).to have_css(".ProseMirror > p", text: "Outside")
     expect(caret).to include("depth" => 1)
+  end
+
+  %w[light dark].each do |theme|
+    it "returns to the previous item's content on the second Backspace without creating another bullet in #{theme}" do
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      replace_body("*")
+      editor.send_keys(:space, "hi", :enter, "hello", :enter)
+      expect(page).to have_css(".ProseMirror li", count: 3)
+      editor.send_keys(:backspace)
+      expect(page).to have_css(".ProseMirror li", count: 2)
+      expect(caret).to include("depth" => 1, "parent" => "paragraph")
+      editor.send_keys(:backspace)
+      expect(page).to have_css(".ProseMirror li", count: 2)
+      expect(page).to have_no_css(".ProseMirror > p")
+      expect(caret).to include("depth" => 3, "parent" => "paragraph")
+      editor.send_keys(" again")
+      expect(page).to have_css(".ProseMirror li:last-child", text: "hello again")
+      page.save_screenshot(Rails.root.join("tmp/editor-list-boundary-#{theme}.png"))
+      editor.send_keys([ modifier, "s" ])
+      expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+      expect(plan.reload.current_content.scan(/^\* /).length).to eq(2)
+      visit plan_edit_page_path(plan)
+      expect(page).to have_css(".ProseMirror li", count: 2, wait: 20)
+      expect(page).to have_no_css(".ProseMirror > p")
+    end
+  end
+
+  it "exits an empty bullet with Enter without leaving empty items or extra paragraphs" do
+    replace_body("*")
+    editor.send_keys(:space, "hi", :enter, "hello", :enter, :enter)
+    expect(page).to have_css(".ProseMirror li", count: 2)
+    expect(page).to have_css(".ProseMirror > p", count: 1)
+    expect(caret).to include("depth" => 1, "parent" => "paragraph")
+    editor.send_keys(:backspace)
+    expect(page).to have_css(".ProseMirror li", count: 2)
+    expect(page).to have_no_css(".ProseMirror > p")
+    editor.send_keys(" again")
+    expect(page).to have_css(".ProseMirror li:last-child", text: "hello again")
+  end
+
+  it "deletes successive empty lines below a list without adding bullets" do
+    replace_body("*")
+    editor.send_keys(:space, "hi", :enter, "hello", :enter, :backspace, :enter, :enter)
+    expect(page).to have_css(".ProseMirror li", count: 2)
+    expect(page).to have_css(".ProseMirror > p", count: 3)
+    3.times do |index|
+      editor.send_keys(:backspace)
+      expect(page).to have_css(".ProseMirror li", count: 2)
+      expect(page).to have_css(".ProseMirror > p", count: 2 - index)
+    end
+    editor.send_keys(" again")
+    expect(page).to have_css(".ProseMirror li:last-child", text: "hello again")
+  end
+
+  it "keeps a non-empty paragraph separate when Backspace brings it into the list" do
+    replace_body("*")
+    editor.send_keys(:space, "One", :enter, :enter, "Outside")
+    7.times { page.driver.browser.action.send_keys(:arrow_left).perform }
+    # The browser's selectionchange reaches the editor after the key event.
+    expect(page).to have_css(".ProseMirror > p", text: "Outside", exact_text: true) {
+      caret.values_at("depth", "offset") == [ 1, 0 ]
+    }
+    page.driver.browser.action.send_keys(:backspace).perform
+    expect(page).to have_css(".ProseMirror li", count: 2)
+    expect(editor.find("li:first-child").text).to eq("One")
+    expect(editor.find("li:last-child").text).to eq("Outside")
+  end
+
+  [ [ "-", "ul", "light" ], [ "1.", "ol", "dark" ] ].each do |marker, tag, theme|
+    it "does not recreate an empty #{tag} item after an item ending in a preserved table in #{theme}" do
+      indentation = " " * (marker.length + 1)
+      source = "#{marker} Item with table\n\n#{indentation}| Name | State |\n#{indentation}| --- | --- |\n#{indentation}| Alpha | Ready |\n\n#{marker} \n"
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+        base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+      visit plan_edit_page_path(plan)
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      expect(page).to have_css(".ProseMirror > #{tag} > li", count: 2, wait: 20)
+      expect(page).to have_css(".ProseMirror li table td", text: "Ready")
+      find(".ProseMirror > #{tag} > li:last-child > p").click
+      expect(page).to have_css(".ProseMirror > #{tag} > li:last-child > p") {
+        caret.values_at("depth", "text") == [ 3, "" ]
+      }
+      page.driver.browser.action.send_keys(:backspace).perform
+      expect(page).to have_css(".ProseMirror > #{tag} > li", count: 1)
+      expect(page).to have_css(".ProseMirror > p", count: 1)
+      page.driver.browser.action.send_keys(:backspace).perform
+      expect(page).to have_css(".ProseMirror > #{tag} > li", count: 1)
+      expect(page).to have_no_css(".ProseMirror > p")
+      expect(caret).to include("depth" => 3, "offset" => "Item with table".length)
+      page.driver.browser.action.send_keys(" continued").perform
+      expect(page).to have_css(".ProseMirror li > p", text: "Item with table continued", exact_text: true)
+      expect(page).to have_css(".ProseMirror li table td", text: "Ready")
+      page.save_screenshot(Rails.root.join("tmp/editor-table-boundary-#{theme}.png"))
+      editor.send_keys([ modifier, "s" ])
+      expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+      expect(plan.reload.current_content).to include("Item with table continued", "| Alpha | Ready |")
+      visit plan_edit_page_path(plan)
+      expect(page).to have_css(".ProseMirror > #{tag} > li", count: 1, wait: 20)
+      expect(page).to have_css(".ProseMirror li table td", text: "Ready")
+    end
+  end
+
+  it "keeps citation metadata intact when editing and leaving a list at the document's end" do
+    cited = CoPlan::Plans::Create.call(title: "List after citation", content: "Opening.[^note]\n\n[^note]: Keep this reference.\n",
+      user: author, visibility: "draft", actor_type: "human")
+    visit plan_edit_page_path(cited)
+    expect(page).to have_css(".ProseMirror > p:last-child", wait: 20)
+    find(".ProseMirror > p:last-child").click
+    page.driver.browser.action.send_keys("*", :space, "hi", :enter, "hello", :enter).perform
+    expect(page).to have_css(".ProseMirror li", count: 3)
+    page.driver.browser.action.send_keys(:backspace).perform
+    expect(page).to have_css(".ProseMirror li", count: 2)
+    expect(page).to have_css(".ProseMirror > p", count: 2)
+    page.driver.browser.action.send_keys(:backspace).perform
+    expect(page).to have_css(".ProseMirror li", count: 2)
+    expect(page).to have_css(".ProseMirror > p", count: 1)
+    expect(caret).to include("depth" => 3)
+    page.driver.browser.action.send_keys(" again").perform
+    expect(page).to have_css(".ProseMirror li:last-child", text: "hello again")
+    editor.send_keys([ modifier, "s" ])
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+    expect(cited.reload.current_content).to include("[^note]: Keep this reference.", "hello again")
   end
 
   %w[light dark].each do |theme|

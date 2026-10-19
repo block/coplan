@@ -24,6 +24,11 @@ At the start of a paragraph, typing `* ` creates a bullet. Immediate Backspace
 restores the literal asterisk and space. After typing an item and pressing Enter,
 Backspace on the empty item leaves the list at the normal paragraph margin.
 Inside a nested list it moves out one level. Raw mode keeps literal Markdown.
+From the empty paragraph after a list, Backspace returns to the end of the
+previous item's text. It does not create another bullet. Additional empty
+paragraphs below a list disappear one at a time. If the previous item ends in
+a table, Backspace moves to the nearest preceding editable text and preserves
+the table.
 
 The toolbar stays visible in all modes. Formatting and code insertion are disabled
 while Raw has focus, including in Dual; Undo and Redo still act on the focused pane.
@@ -85,6 +90,8 @@ Unknown or unclosed regions stay visible source.
 
 Tables remain separate nodes even inside a list. **Edit table** opens a Markdown
 field for only that table, keeping the surrounding list rich and editable.
+
+Images have a bottom-right resize handle that appears on hover or keyboard focus in Editor and Dual. Drag inward to preview a smaller image; releasing saves an HTML image `width` in Markdown as one undoable edit. Drag near the image's natural full width to snap back to **100%** and remove the width attribute. Escape cancels a drag. Arrow keys resize a focused handle (Shift for one pixel); Home chooses the minimum width and End restores full width. Existing HTML images with a width use the same control.
 
 **+ → Embed** adds a self-closing iframe block with URL, title, width,
 and height fields. Administrators approve exact HTTPS hosts under **Iframe domains**.
@@ -236,7 +243,8 @@ large structural rewrites can move the selection to the changed range.
 Run `bundle exec rspec`. Concurrent worktrees need distinct test databases via
 `DATABASE_URL`, so one suite cannot reset another suite’s schema or data.
 `spec/system/editor_lists_spec.rb` covers bullet typing, immediate reversal,
-empty-item exit and caret alignment in both themes, and saved/reopened lists.
+empty-item exit and caret alignment in both themes, repeated Backspace without
+new bullets, blank lines after lists, citation metadata, and saved/reopened lists.
 `spec/system/document_editor_modes_spec.rb` covers mode
 fidelity, table/Mermaid previews, Close editor success/error/conflict/in-flight behavior,
 raw live merging and undo, code exit/language, themes and new-document autosave.
