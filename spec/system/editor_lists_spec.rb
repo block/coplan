@@ -35,6 +35,15 @@ RSpec.describe "Editor lists", type: :system do
     JS
   end
 
+  def place_at_paragraph_end(selector, text, depth: 1)
+    find(selector).click
+    expect(page).to have_css(selector, text:, exact_text: true) {
+      caret.values_at("depth", "text") == [ depth, text ]
+    }
+    page.driver.browser.action.send_keys(:end).perform
+    expect(page).to have_css(selector, text:, exact_text: true) { caret["offset"] == text.length }
+  end
+
   it "turns a leading asterisk and space into a bullet and immediately restores the literal marker with Backspace" do
     replace_body("*")
     expect(page).to have_no_css(".ProseMirror ul")
@@ -294,8 +303,8 @@ RSpec.describe "Editor lists", type: :system do
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
     expect(page).to have_css('.ProseMirror .document-editor__block-preview input[type="checkbox"]', wait: 20)
-    find(".ProseMirror > p").click
-    page.driver.browser.action.send_keys(:end, " continued").perform
+    place_at_paragraph_end(".ProseMirror > p", "Outside")
+    page.driver.browser.action.send_keys(" continued").perform
     editor.send_keys([ modifier, "s" ])
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
     expect(plan.reload.current_content).to include("A) [ ] Keep this task", "Outside continued")
@@ -309,8 +318,8 @@ RSpec.describe "Editor lists", type: :system do
     expect(page).to have_css(".ProseMirror > ol > li", count: 1, wait: 20)
     expect(page).to have_css(".ProseMirror li table th", text: "A) Name")
     expect(page).to have_css(".ProseMirror li table td", text: "B) Label")
-    find(".ProseMirror > ol > li > p").click
-    page.driver.browser.action.send_keys(:end, " continued").perform
+    place_at_paragraph_end(".ProseMirror > ol > li > p", "Parent", depth: 3)
+    page.driver.browser.action.send_keys(" continued").perform
     expect(page).to have_css(".ProseMirror > ol > li > p", text: "Parent continued", exact_text: true)
     editor.send_keys([ modifier, "s" ])
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
