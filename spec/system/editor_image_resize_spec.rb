@@ -12,7 +12,7 @@ RSpec.describe "Resizing editor images", type: :system do
     visit sign_in_path
     fill_in "Email address", with: author.email
     click_button "Sign In"
-    expect(page).to have_current_path(root_path)
+    expect(page).to have_current_path(root_path, wait: 15)
     visit plan_edit_page_path(plan)
     expect(page).to have_css(".document-editor__image img", wait: 20)
     expect(page).to have_css(".document-editor__image img") { |el| el.evaluate_script("this.complete && this.naturalWidth > 0") }
@@ -49,7 +49,7 @@ RSpec.describe "Resizing editor images", type: :system do
       expect(content).to include("Before image.", "After image.")
       expect(image.rect.width / image.rect.height).to be_within(0.02).of(image.evaluate_script("this.naturalWidth / this.naturalHeight"))
       page.save_screenshot(Rails.root.join("tmp/screenshots/image-resize/#{theme}.png"))
-      click_link "Done"
+      find(".document-editor__close-inline:not(:disabled)").click
       expect(page).to have_current_path(plan_page_path(plan), wait: 15)
       expect(plan.reload.current_content).to include(%(width="#{width}"))
       visit plan_edit_page_path(plan)
@@ -61,7 +61,7 @@ RSpec.describe "Resizing editor images", type: :system do
       page.driver.browser.action.release.perform
       expect(content).not_to include("width=")
       expect(image.evaluate_script("this.getAttribute('width')")).to be_nil
-      click_link "Done"
+      find(".document-editor__close-inline:not(:disabled)").click
       expect(page).to have_current_path(plan_page_path(plan), wait: 15)
       expect(plan.reload.current_content).not_to include("width=")
       expect(page).not_to have_css(".document-editor__image-handle", visible: :all)
@@ -99,8 +99,10 @@ RSpec.describe "Resizing editor images", type: :system do
     image.hover
     handle.send_keys(:home)
     expect(image["width"]).to eq("64")
+    expect(page).to have_css(".document-editor__image-size", text: "64 px")
     handle.send_keys(:arrow_right)
     expect(image["width"]).to eq("74")
+    expect(page).to have_css(".document-editor__image-size", text: "74 px")
     handle.send_keys(:end)
     expect(content).not_to include("width=")
     handle.send_keys(:arrow_left)
@@ -108,6 +110,16 @@ RSpec.describe "Resizing editor images", type: :system do
     mod = RUBY_PLATFORM.include?("darwin") ? :meta : :control
     handle.send_keys([ mod, "z" ])
     expect(content).not_to include("width=")
+    expect(page).to have_css(".document-editor__image-size", text: /\A\z/, visible: :all)
+    expect(page).not_to have_css(".document-editor__image-size")
+    page.execute_script("arguments[0].scrollIntoView({ block: 'center' })", handle)
+    %w[light dark].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp/screenshots/image-resize/undo-status-#{theme}.png"))
+    end
+    handle.send_keys([ mod, :shift, "z" ])
+    expect(content).to include('width="')
+    expect(page).not_to have_css(".document-editor__image-size")
   end
 
   context "with linked images in a list" do
@@ -122,7 +134,7 @@ RSpec.describe "Resizing editor images", type: :system do
       control.send_keys(:home)
       expect(content.scan('width="64"').length).to eq(1)
       expect(content).to include("](https://example.com/full)", "Another item.", image_source)
-      click_link "Done"
+      find(".document-editor__close-inline:not(:disabled)").click
       expect(page).to have_current_path(plan_page_path(plan), wait: 15)
       visit plan_edit_page_path(plan)
       expect(page).to have_css(".document-editor__image", count: 2, wait: 20)

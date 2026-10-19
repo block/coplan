@@ -38,10 +38,11 @@ export default class extends Controller {
   }
 
   cancel() {
-    if (!this.drag) return
-    const original = this.drag.original
-    if (original === null) this.imageTarget.removeAttribute("width")
-    else this.imageTarget.setAttribute("width", original)
+    if (this.drag) {
+      const original = this.drag.original
+      if (original === null) this.imageTarget.removeAttribute("width")
+      else this.imageTarget.setAttribute("width", original)
+    }
     this.clear()
   }
 
@@ -69,8 +70,10 @@ export default class extends Controller {
     if (this.width === null) this.imageTarget.removeAttribute("width")
     else this.imageTarget.setAttribute("width", this.width)
     this.element.classList.toggle("is-snapped", this.width === null)
-    this.statusTarget.textContent = this.width === null ? "100%" : `${this.width} px`
+    this.showSize()
   }
+
+  showSize() { this.statusTarget.textContent = this.width === null ? "100%" : `${this.width} px` }
 
   keydown(event) {
     if (event.key === "Escape" && this.drag) { event.preventDefault(); this.cancel(); return }
@@ -82,6 +85,7 @@ export default class extends Controller {
     const direction = ["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 1
     this.preview(event.key === "End" ? full : event.key === "Home" ? min : this.imageTarget.getBoundingClientRect().width + direction * (event.shiftKey ? 1 : 10), false)
     this.element.coplanCommitWidth?.(this.width)
+    this.showSize()
     this.element.classList.remove("is-snapped")
   }
 }
