@@ -29,7 +29,7 @@ RSpec.describe "Editor lists", type: :system do
         const form = document.querySelector("form.document-editor")
         const view = Stimulus.getControllerForElementAndIdentifier(form, "coplan--editor").richEditor.view
         const { $head } = view.state.selection
-        return { depth: $head.depth, parent: $head.parent.type.name,
+        return { depth: $head.depth, parent: $head.parent.type.name, offset: $head.parentOffset,
           left: view.coordsAtPos($head.pos).left, top: view.coordsAtPos($head.pos).top }
       })()
     JS
@@ -126,6 +126,17 @@ RSpec.describe "Editor lists", type: :system do
     end
     editor.send_keys(" again")
     expect(page).to have_css(".ProseMirror li:last-child", text: "hello again")
+  end
+
+  it "keeps a non-empty paragraph separate when Backspace brings it into the list" do
+    replace_body("*")
+    editor.send_keys(:space, "One", :enter, :enter, "Outside")
+    7.times { page.driver.browser.action.send_keys(:arrow_left).perform }
+    expect(caret).to include("depth" => 1, "offset" => 0)
+    page.driver.browser.action.send_keys(:backspace).perform
+    expect(page).to have_css(".ProseMirror li", count: 2)
+    expect(editor.find("li:first-child").text).to eq("One")
+    expect(editor.find("li:last-child").text).to eq("Outside")
   end
 
   it "keeps citation metadata intact when editing and leaving a list at the document's end" do

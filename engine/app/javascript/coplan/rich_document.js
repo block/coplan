@@ -189,7 +189,7 @@ function liftEmptyListItem(state, dispatch) {
 }
 function joinParagraphToPreviousList(state, dispatch, view) {
   const { empty, $from } = state.selection
-  if (!empty || $from.parent.type !== schema.nodes.paragraph || $from.parentOffset) return false
+  if (!empty || $from.parent.type !== schema.nodes.paragraph || $from.parent.content.size || $from.parentOffset) return false
   const previous = state.doc.resolve($from.before()).nodeBefore
   if (![schema.nodes.bullet_list, schema.nodes.ordered_list].includes(previous?.type)) return false
   // Generic joinBackward wraps this paragraph in a new list item. Join the
