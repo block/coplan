@@ -202,9 +202,22 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(plan.reload.current_content).to include("<!-- Visible prose. -->")
     expect(page).not_to have_content("Visible prose.")
     visit plan_edit_page_path(plan)
-    find(".document-editor__template-note", text: "Visible prose.").click
+    expect(page).to have_no_css(".inline-editor--preparing", wait: 20)
+    note = find(".document-editor__template-note", text: "Visible prose.")
+    page.execute_script(<<~'JS', note)
+      const form = document.querySelector('form.document-editor')
+      const rich = Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor
+      rich.selectSource(2) // Keep the model in the heading while the native caret moves.
+      window.holdStyleSelection = event => event.stopImmediatePropagation()
+      document.addEventListener('selectionchange', window.holdStyleSelection, true)
+      const range = document.createRange(); range.selectNodeContents(arguments[0]); range.collapse(false)
+      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range)
+      arguments[0].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    JS
     select "Normal text", from: "Paragraph style", enable_aria_label: true
+    page.execute_script("document.removeEventListener('selectionchange', window.holdStyleSelection, true)")
     expect(page).to have_css(".ProseMirror > p", text: "Visible prose.")
+    expect(page).to have_css(".ProseMirror > h1", text: "Decision")
     select "Heading 2", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".ProseMirror > h2", text: "Visible prose.")
     select "Hidden comment", from: "Paragraph style", enable_aria_label: true

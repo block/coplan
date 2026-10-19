@@ -416,7 +416,10 @@ export default class extends Controller {
     if (!["undo", "redo"].includes(command)) editor?.captureSelection()
     editor?.command(command, event.currentTarget.value)
   }
-  keepSelection(event) { if (event.target.closest("button")) event.preventDefault() }
+  keepSelection(event) {
+    if (event.target.closest("select")) this.richEditor?.captureSelection()
+    if (event.target.closest("button")) event.preventDefault()
+  }
   updateToolbar(state) {
     const rawFocused = (this.editor === this.rawEditor && !!this.rawEditor) || !!document.activeElement?.closest(".document-editor__content-block, .document-editor__block-source")
     const formattingDisabled = rawFocused || state.templateNote
@@ -439,6 +442,7 @@ export default class extends Controller {
   }
   style(event) {
     if (this.editor !== this.richEditor) return
+    this.richEditor.captureSelection()
     const value = event.currentTarget.value
     this.richEditor?.command({ "0": "paragraph", code: "code_block", comment: "hidden_comment" }[value] || "heading", value)
     this.updateToolbar(this.richEditor.toolbarState())

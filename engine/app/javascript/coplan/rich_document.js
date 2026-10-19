@@ -246,6 +246,20 @@ function liftEmptyListItem(state, dispatch) {
       $from.depth < 2 || $from.node(-1).type !== schema.nodes.list_item || $from.node(-1).childCount !== 1) return false
   return liftListItem(schema.nodes.list_item)(state, dispatch)
 }
+function splitRichListItem(state, dispatch) {
+  const { $from } = state.selection
+  const task = $from.depth >= 2 && $from.node(-1).type === schema.nodes.list_item && $from.node(-1).attrs.checked !== null
+  return splitListItem(schema.nodes.list_item, task ? { checked: false } : null)(state, dispatch && (tr => {
+    // The base command inherits item attrs when splitting mid-paragraph.
+    // A newly continued task always starts unchecked, wherever it was split.
+    const { $from: next } = tr.selection
+    if (task && next.depth >= 2 && next.node(-1).type === schema.nodes.list_item) {
+      const item = next.node(-1)
+      tr.setNodeMarkup(next.before(-1), null, { ...item.attrs, checked: false })
+    }
+    dispatch(tr)
+  }))
+}
 function preserved(source, kind = null, label = null) {
   if (!kind && source.trimStart().startsWith("[")) {
     const environment = {}
@@ -534,11 +548,10 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       "Mod-Shift-7": proseCommand(wrapInList(schema.nodes.ordered_list)), "Mod-Shift-8": proseCommand(wrapInList(schema.nodes.bullet_list)),
       "Mod-Alt-0": proseCommand(setBlockType(schema.nodes.paragraph)), "Mod-Alt-1": proseCommand(setBlockType(schema.nodes.heading, { level: 1 })),
       "Mod-Alt-2": proseCommand(setBlockType(schema.nodes.heading, { level: 2 })), "Mod-Alt-3": proseCommand(setBlockType(schema.nodes.heading, { level: 3 })),
-      Enter: chainCommands(codeNewline, (state, dispatch) => {
-        const { $from } = state.selection
-        const task = $from.depth >= 2 && $from.node(-1).type === schema.nodes.list_item && $from.node(-1).attrs.checked !== null
-        return splitListItem(schema.nodes.list_item, task ? { checked: false } : null)(state, dispatch)
-      }), Tab: chainCommands(indentCode, sinkListItem(schema.nodes.list_item)),
+      Enter: (state, dispatch, view) => {
+        if (dispatch && view) state = synchronizeSelection(view)
+        return chainCommands(codeNewline, splitRichListItem)(state, dispatch, view)
+      }, Tab: chainCommands(indentCode, sinkListItem(schema.nodes.list_item)),
       Backspace: chainCommands(undoInputRule, liftEmptyListItem),
       "Shift-Tab": liftListItem(schema.nodes.list_item)
     }), keymap(baseKeymap)]
@@ -550,6 +563,10 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       code_block: (node, view, getPos) => codeNodeView(node, view, getPos, preview, sourceRangeAt)
     }, attributes: { class: "markdown-rendered", role: "textbox", "aria-label": "Document body", "aria-multiline": "true" },
     handleDOMEvents: {
+      mouseup(view) {
+        synchronizeSelection(view)
+        return false
+      },
       change(view, event) {
         if (!event.target.matches("input[data-coplan-task-checkbox]")) return false
         const position = view.posAtDOM(event.target.closest("li"), 0) - 1
@@ -682,10 +699,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
     captureSelection() {
       // Read the native caret before a toolbar popover moves focus away. A
       // click's selectionchange may not have reached ProseMirror yet.
-      const { $from, $to } = visibleSelection(view.state, view)
-      if (!$from.parent.inlineContent || !$to.parent.inlineContent) return
-      const selection = TextSelection.create(view.state.doc, $from.pos, $to.pos)
-      if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection))
+      synchronizeSelection(view)
     },
     insertCode(language = "") {
       if (selectionTouchesTemplateNote(view.state)) return false
@@ -949,6 +963,14 @@ function visibleSelection(state, view) {
     $to = state.doc.resolve(view.posAtDOM(selection.focusNode, selection.focusOffset))
   }
   return { $from, $to }
+}
+function synchronizeSelection(view) {
+  const { $from, $to } = visibleSelection(view.state, view)
+  if ($from.parent.inlineContent && $to.parent.inlineContent) {
+    const selection = TextSelection.create(view.state.doc, $from.pos, $to.pos)
+    if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection))
+  }
+  return view.state
 }
 function selectFocusedText(state, dispatch, view) {
   const { $from, $to } = visibleSelection(state, view)

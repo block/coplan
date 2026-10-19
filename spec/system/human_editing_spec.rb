@@ -299,9 +299,14 @@ RSpec.describe "Human plan editing", type: :system do
       const form = document.querySelector('form.document-editor')
       const rich = Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor
       rich.selectSource(arguments[0])
+      window.holdTaskSelection = event => event.stopImmediatePropagation()
+      document.addEventListener('selectionchange', window.holdTaskSelection, true)
     JS
     editor.send_keys(:right)
-    editor.send_keys(:enter, "Follow-up task")
+    editor.send_keys(:enter)
+    page.execute_script("document.removeEventListener('selectionchange', window.holdTaskSelection, true)")
+    expect(page).to have_css('.document-editor__task input:not(:checked)', count: 1)
+    editor.send_keys("Follow-up task")
     expect(page).to have_checked_field("Task: Completed task", enable_aria_label: true)
     expect(page).to have_unchecked_field("Task: Follow-up task", enable_aria_label: true)
     editor.send_keys(:tab)
@@ -320,6 +325,24 @@ RSpec.describe "Human plan editing", type: :system do
     save_now
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
     expect(plan.reload.current_content).to include("[x] Completed task", "[ ] Follow-up task", "Outside the list")
+  end
+
+  it "starts a new task unchecked when splitting the middle of a completed task" do
+    source = "- [x] Finish review\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    page.execute_script(<<~JS, source.index("review"))
+      const form = document.querySelector('form.document-editor')
+      Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor.selectSource(arguments[0])
+    JS
+    editor.send_keys(:enter)
+    expect(page).to have_css('input[aria-label^="Task: Finish"]:checked')
+    expect(page).to have_unchecked_field("Task: review", enable_aria_label: true)
+    save_now
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+    expect(plan.reload.current_content).to include("[x] Finish", "[ ] review")
   end
 
   it "edits a whole presentation in one Markdown field, preserving its wrapping region" do
