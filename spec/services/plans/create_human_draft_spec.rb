@@ -8,6 +8,16 @@ RSpec.describe CoPlan::Plans::CreateHumanDraft do
   let(:user) { create(:coplan_user) }
   let(:key) { SecureRandom.uuid }
 
+  it "names the author of initially typed content in the retained sources" do
+    draft = described_class.call(user: user, creation_key: key, title: "Typed draft", content: "Typed words", tags: "",
+      input_sources: { "runs" => [ [ 11, "human" ] ] })
+    expect(draft.current_plan_version.actor_id).to eq(user.id)
+    contributor = draft.writing_provenance_summary.fetch("contributors").find { |source| source["kind"] == "human" }
+    expect(contributor).to include("user_id" => user.id, "user_name" => user.name, "share" => 1.0)
+    source = CoPlan::Plans::WritingProvenance.rendered_sources(draft.current_plan_version).fetch(:sources).values.first
+    expect(source).to include("user_name" => user.name, "origin_revision" => 1)
+  end
+
   def create_draft(user: self.user, creation_key: key, content: "First draft")
     described_class.call(user: user, creation_key: creation_key, title: "New plan", content: content, tags: "kept")
   end
