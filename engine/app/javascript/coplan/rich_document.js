@@ -2,6 +2,7 @@ import { diffArrays } from "diff"
 import { codeHighlight } from "coplan/code_highlight"
 import { textHunks } from "coplan/merge_text"
 import { citationLabelKey } from "coplan/citation_labels"
+import { enableLetteredLists, letterOrder, letterMarker } from "coplan/lettered_lists"
 export { citationLabelKey } from "coplan/citation_labels"
 import { Schema, Fragment, Slice } from "prosemirror-model"
 import { EditorState, TextSelection, Plugin, PluginKey } from "prosemirror-state"
@@ -22,6 +23,14 @@ const commentKey = new PluginKey("coplan-comments")
 let nodes = defaultMarkdownParser.schema.spec.nodes
 nodes.forEach((name, spec) => {
   if (name !== "text") nodes = nodes.update(name, { ...spec, attrs: { ...spec.attrs, source: { default: null }, snapshot: { default: null } } })
+})
+nodes = nodes.update("ordered_list", {
+  ...nodes.get("ordered_list"),
+  attrs: { ...nodes.get("ordered_list").attrs, listStyle: { default: null } },
+  parseDOM: [{ tag: "ol", getAttrs: dom => ({ order: +(dom.getAttribute("start") || 1),
+    listStyle: dom.getAttribute("type") === "A" ? "upper-alpha" : dom.getAttribute("type") === "a" ? "lower-alpha" : null }) }],
+  toDOM: node => ["ol", { start: node.attrs.order === 1 ? null : node.attrs.order,
+    type: node.attrs.listStyle === "upper-alpha" ? "A" : node.attrs.listStyle === "lower-alpha" ? "a" : null }, 0]
 })
 nodes = nodes.addBefore("paragraph", "preserved", {
   group: "block", atom: true, attrs: { source: {}, kind: { default: null }, label: { default: null }, inserted: { default: false } },
@@ -101,14 +110,25 @@ tokenizer.core.ruler.after("block", "coplan_tables", state => {
     state.tokens.splice(index + 1, end - index)
   }
 })
+enableLetteredLists(tokenizer)
 const richMarkdownParser = new MarkdownParser(schema, tokenizer, {
   ...defaultMarkdownParser.tokens,
+  ordered_list: { ...defaultMarkdownParser.tokens.ordered_list, getAttrs: (token, tokens, index) => ({
+    ...defaultMarkdownParser.tokens.ordered_list.getAttrs(token, tokens, index), listStyle: token.meta?.listStyle || null
+  }) },
   image: { node: "image", getAttrs: token => ({ ...(token.meta?.coplanImage || defaultMarkdownParser.tokens.image.getAttrs(token)), width: imageWidth(token.attrGet("width")) }) },
   footnote_reference: { node: "footnote_reference", getAttrs: token => token.meta },
   preserved_block: { node: "preserved", getAttrs: token => token.meta }
 })
 const defaultMarkdownSerializer = new MarkdownSerializer({
   ...baseMarkdownSerializer.nodes,
+  ordered_list: (state, node) => {
+    if (!node.attrs.listStyle) return baseMarkdownSerializer.nodes.ordered_list(state, node)
+    const start = node.attrs.order || 1
+    const width = letterMarker(start + node.childCount - 1, node.attrs.listStyle).length
+    state.renderList(node, " ".repeat(width + 2), index =>
+      letterMarker(start + index, node.attrs.listStyle).padStart(width, " ") + ") ")
+  },
   image: (state, node) => {
     if (!node.attrs.width) return baseMarkdownSerializer.nodes.image(state, node)
     const image = document.createElement("img")
@@ -393,7 +413,15 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
   }
   const state = EditorState.create({
     doc: parseDocument(markdown),
-    plugins: [history(), inputRules({ rules: [wrappingInputRule(/^\* $/, schema.nodes.bullet_list)] }),
+    plugins: [history(), inputRules({ rules: [
+      wrappingInputRule(/^\* $/, schema.nodes.bullet_list),
+      wrappingInputRule(/^([1-9]\d{0,8})[.)] $/, schema.nodes.ordered_list, match => ({ order: +match[1] }),
+        (match, node) => !node.attrs.listStyle && node.childCount + node.attrs.order === +match[1]),
+      wrappingInputRule(/^([A-Za-z])\) $/, schema.nodes.ordered_list,
+        match => ({ order: letterOrder(match[1]), listStyle: match[1] === match[1].toUpperCase() ? "upper-alpha" : "lower-alpha" }),
+        (match, node) => node.attrs.listStyle === (match[1] === match[1].toUpperCase() ? "upper-alpha" : "lower-alpha") &&
+          node.childCount + node.attrs.order === letterOrder(match[1]))
+    ] }),
       codeHighlight(), commentPlugin(comments), new Plugin({ appendTransaction(transactions, oldState, state) {
       if (transactions.some(tr => tr.docChanged) && needsTrailing(state.doc))
         return state.tr.insert(state.doc.content.size, trailingParagraph()).setMeta("addToHistory", false)
