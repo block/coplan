@@ -312,10 +312,11 @@ RSpec.describe "Folders workspace", type: :system do
       page.execute_script("window.draftEditorForm = document.querySelector('.inline-editor form.document-editor')")
       find(".inline-editor .ProseMirror").click
       page.driver.browser.action.send_keys("Details to write.").perform
-      expect(page).to have_css("[data-coplan--inline-editor-target='draftState']", text: "Private · v1", wait: 20)
+      expect(page).to have_css("[data-coplan--inline-editor-target='draftState']", text: "Saved · v1", wait: 20)
       expect(page.evaluate_script("window.draftEditorForm === document.querySelector('.inline-editor form.document-editor')")).to eq(true)
       expect(page.evaluate_script("document.querySelector('.inline-editor .ProseMirror').contains(document.activeElement)")).to eq(true)
       draft = CoPlan::Plan.find_by!(title: "My design")
+      expect(draft).to be_published
       expect(draft.plan_type).to eq(type)
       expect(draft.placement.folder).to eq(team)
       expect(draft.slug).to eq("my-design")

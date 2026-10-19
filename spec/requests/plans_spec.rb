@@ -17,7 +17,7 @@ RSpec.describe "Plans", type: :request do
         get new_plan_path(plan_type_id: type.id, folder_id: folder.id)
       }.not_to change(CoPlan::Plan, :count)
       expect(response.body).to include("## Problem")
-      expect(response.body).to include("Shared on first save")
+      expect(response.body).to include("Not saved")
       expect(response.body).to include("name=\"plan_type_id\"")
       expect(response.body).to include("name=\"folder_id\"")
 
@@ -26,12 +26,12 @@ RSpec.describe "Plans", type: :request do
           plan: { title: "Checkout redesign", tag_names: "payments" }, content: "## Problem\n\nSlow checkout" }
       }.to change(CoPlan::Plan, :count).by(1)
 
-      draft = CoPlan::Plan.order(:created_at).last
-      expect(draft).to have_attributes(title: "Checkout redesign", visibility: "published", plan_type: type)
-      expect(draft.current_content).to eq("## Problem\n\nSlow checkout")
-      expect(draft.tag_names).to contain_exactly("design", "payments")
-      expect(draft.placement.folder).to eq(folder)
-      expect(draft.slug).to eq("checkout-redesign")
+      created_plan = CoPlan::Plan.order(:created_at).last
+      expect(created_plan).to have_attributes(title: "Checkout redesign", visibility: "published", plan_type: type)
+      expect(created_plan.current_content).to eq("## Problem\n\nSlow checkout")
+      expect(created_plan.tag_names).to contain_exactly("design", "payments")
+      expect(created_plan.placement.folder).to eq(folder)
+      expect(created_plan.slug).to eq("checkout-redesign")
     end
 
     it "rejects a folder outside the author's library without creating a plan" do

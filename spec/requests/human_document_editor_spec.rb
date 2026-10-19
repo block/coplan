@@ -11,7 +11,7 @@ RSpec.describe "Human document editor", type: :request do
     expect(response).to have_http_status(:ok)
   end
 
-  it "provides a human-first rich editor and creates a private human version" do
+  it "provides a human-first rich editor and creates a shared human version" do
     get new_plan_path
     expect(response.headers["X-CSRF-Token"]).to be_present
     expect(response.headers["Cache-Control"]).to include("no-store")
@@ -20,7 +20,7 @@ RSpec.describe "Human document editor", type: :request do
     post plans_path, params: { plan: { title: "Human document" }, content: "My **draft**" }, as: :json
     expect(response).to have_http_status(:ok)
     created = CoPlan::Plan.find(response.parsed_body["id"])
-    expect(created).to be_draft
+    expect(created).to be_published
     expect(created.current_plan_version.actor_type).to eq("human")
     expect(response.parsed_body["edit_url"]).to end_with("?edit=continue")
     expect(response.parsed_body["inline_after_create"]).to be(true)

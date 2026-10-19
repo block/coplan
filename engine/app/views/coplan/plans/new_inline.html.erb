@@ -14,7 +14,7 @@
         <h1 class="page-header__title"></h1>
         <div class="page-header__byline text-sm text-muted">
           <%= user_avatar(current_user) %> <%= profile_link(current_user) %> ·
-          <span data-coplan--inline-editor-target="draftState">Shared on first save · Not saved</span>
+          <span data-coplan--inline-editor-target="draftState">Not saved</span>
           <span aria-hidden="true">·</span> <%= link_to @new_folder ? @new_folder.name : "My Plans", back_path, class: "plan-location-link" %>
         </div>
       </div>
