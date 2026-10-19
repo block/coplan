@@ -66,6 +66,8 @@ an explanation. Use spaced text such as `-- >` to write a closing marker.
 Notes stay plain text while their style is Comment. Inline formatting controls
 and shortcuts are disabled. Choosing Normal text or a heading intentionally
 makes the text visible. Review highlights and caret restoration skip notes.
+Press Enter to continue in Normal text. Shift-Enter adds a line inside the comment.
+Enter in an empty comment turns it into a normal paragraph.
 Cmd/Ctrl+A inside a note selects only that note's text.
 
 Raw mode edits the exact Markdown source in a plain, unformatted editor. Switching

@@ -96,7 +96,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     end
     note = all(".document-editor__template-note").first
     note.click
-    note.send_keys(:end, " More guidance", :enter, "Next line.")
+    note.send_keys(:end, " More guidance", [ :shift, :enter ], "Next line.")
     expect(note).to have_text("Next line.")
     note.send_keys([ mod, "z" ])
     expect(note).not_to have_text("Next line.")
@@ -239,7 +239,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     paragraph.send_keys([ mod, :right ], :enter)
     select "Comment", from: "Paragraph style", enable_aria_label: true
     note = all(".document-editor__template-note").find { |entry| entry.text.empty? }
-    note.send_keys("New guidance.", :enter, "Second line.")
+    note.send_keys("New guidance.", [ :shift, :enter ], "Second line.")
     expect(page).to have_select("Paragraph style", selected: "Comment", enable_aria_label: true)
     select "Normal text", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".ProseMirror > p", text: "New guidance.")
@@ -249,6 +249,78 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
     expect(plan.reload.current_content).to include("<!-- New guidance.\nSecond line. -->")
     expect(page).not_to have_content("New guidance.")
+  end
+
+  it "starts normal text after Enter without changing the comment above" do
+    note = all(".document-editor__template-note").first
+    note.click
+    note.send_keys(:end, :enter)
+    expect(page).to have_select("Paragraph style", selected: "Normal text", enable_aria_label: true)
+    page.driver.browser.action.send_keys("Public paragraph.").perform
+    paragraph = find(".ProseMirror > p", text: "Public paragraph.")
+    paragraph.click
+    select "Normal text", from: "Paragraph style", enable_aria_label: true
+    expect(note.text).to eq("Explain the decision here.")
+    expect(page).to have_css(".document-editor__template-note", count: 2)
+    %w[light dark].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp", "comment-enter-normal-#{theme}.png"))
+    end
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to include("<!-- Explain the decision here. -->", "Public paragraph.")
+    expect(page).to have_content("Public paragraph.")
+    expect(page).not_to have_content("Explain the decision here.")
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css(".ProseMirror > p", text: "Public paragraph.", wait: 20)
+    expect(page).to have_css(".document-editor__template-note", text: "Explain the decision here.")
+  end
+
+  it "splits a comment at the visible caret even before selectionchange reaches the editor" do
+    initial = "# Decision\n\n<!-- FirstSecond -->\n\nVisible prose.\n"
+    click_button "Raw", exact: true
+    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], initial)
+    click_button "Editor", exact: true
+    note = find(".document-editor__template-note", text: "FirstSecond")
+    page.execute_script(<<~'JS', note, initial.index("Decision"))
+      const form = document.querySelector('form.document-editor')
+      const rich = Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor
+      rich.selectSource(arguments[1])
+      window.holdCommentEnterSelection = event => event.stopImmediatePropagation()
+      document.addEventListener('selectionchange', window.holdCommentEnterSelection, true)
+      const range = document.createRange(); range.setStart(arguments[0].firstChild, 5); range.collapse(true)
+      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range)
+    JS
+    page.driver.browser.action.send_keys(:enter).perform
+    page.execute_script("document.removeEventListener('selectionchange', window.holdCommentEnterSelection, true)")
+    expect(note.text).to eq("First")
+    expect(page).to have_css(".ProseMirror > p", text: "Second", exact_text: true)
+    expect(page).to have_select("Paragraph style", selected: "Normal text", enable_aria_label: true)
+    page.driver.browser.action.key_down(mod).send_keys("z").key_up(mod).perform
+    expect(page).to have_css(".document-editor__template-note", text: "FirstSecond")
+    expect(page).to have_no_css(".ProseMirror > p", text: "Second", exact_text: true)
+    page.driver.browser.action.key_down(mod).key_down(:shift).send_keys("z").key_up(:shift).key_up(mod).perform
+    expect(page).to have_css(".document-editor__template-note", text: "First", exact_text: true)
+    expect(page).to have_css(".ProseMirror > p", text: "Second", exact_text: true)
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to include("<!-- First -->", "Second")
+    expect(page).not_to have_content("First")
+    expect(page).to have_content("Second")
+  end
+
+  it "turns an empty comment into a normal paragraph on Enter" do
+    note = all(".document-editor__template-note").first
+    note.click
+    note.send_keys([ mod, "a" ], :backspace, :enter)
+    expect(page).to have_css(".document-editor__template-note", count: 1)
+    expect(page).to have_select("Paragraph style", selected: "Normal text", enable_aria_label: true)
+    page.driver.browser.action.send_keys("Ordinary text.").perform
+    expect(page).to have_css(".ProseMirror > p", text: "Ordinary text.")
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).not_to include("<!-- -->", "Explain the decision here.")
+    expect(page).to have_content("Ordinary text.")
   end
 
   it "keeps every line a heading when a multiline comment is saved and reopened" do

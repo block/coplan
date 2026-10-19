@@ -301,6 +301,26 @@ function moveBelowCode(state, dispatch, view) {
   }
   return true
 }
+function exitTemplateNote(state, dispatch) {
+  const { $from, $to } = state.selection
+  if (!$from.sameParent($to) || $from.parent.type !== schema.nodes.template_note) return false
+  if (dispatch) {
+    const note = $from.parent
+    const before = note.copy(note.content.cut(0, $from.parentOffset))
+    const content = []
+    note.textContent.slice($to.parentOffset).split("\n").forEach((line, index) => {
+      if (index) content.push(schema.nodes.hard_break.create())
+      if (line) content.push(schema.text(line))
+    })
+    const paragraph = schema.nodes.paragraph.create(null, content)
+    const blocks = before.content.size ? [before, paragraph] : [paragraph]
+    const position = $from.before()
+    const tr = state.tr.replaceWith(position, $from.after(), blocks)
+    tr.setSelection(TextSelection.create(tr.doc, position + (before.content.size ? before.nodeSize : 0) + 1))
+    dispatch(closeHistory(tr).scrollIntoView())
+  }
+  return true
+}
 function liftEmptyListItem(state, dispatch) {
   const { empty, $from } = state.selection
   if (!empty || $from.parent.type !== schema.nodes.paragraph || $from.parent.content.size ||
@@ -650,7 +670,10 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       "Ctrl-b": proseCommand(toggleMark(schema.marks.strong)), "Meta-b": proseCommand(toggleMark(schema.marks.strong)),
       "Ctrl-i": proseCommand(toggleMark(schema.marks.em)), "Meta-i": proseCommand(toggleMark(schema.marks.em)),
       "Ctrl-z": undo, "Meta-z": undo, "Ctrl-Shift-z": redo, "Meta-Shift-z": redo, "Ctrl-y": redo,
-      "Shift-Enter": chainCommands(codeNewline, (state, dispatch) => { if (dispatch) dispatch(state.tr.replaceSelectionWith(schema.nodes.hard_break.create()).scrollIntoView()); return true }),
+      "Shift-Enter": (state, dispatch, view) => {
+        if (dispatch && view) state = synchronizeSelection(view)
+        return chainCommands(codeNewline, (state, dispatch) => { if (dispatch) dispatch(state.tr.replaceSelectionWith(schema.nodes.hard_break.create()).scrollIntoView()); return true })(state, dispatch, view)
+      },
       "Mod-Enter": exitCode, ArrowDown: moveBelowCode,
       "Mod-k": proseCommand(linkCommand), "Ctrl-k": proseCommand(linkCommand), "Meta-k": proseCommand(linkCommand),
       "Mod-Shift-7": proseCommand(wrapInList(schema.nodes.ordered_list)), "Mod-Shift-8": proseCommand(wrapInList(schema.nodes.bullet_list)),
@@ -658,7 +681,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       "Mod-Alt-2": proseCommand(setBlockType(schema.nodes.heading, { level: 2 })), "Mod-Alt-3": proseCommand(setBlockType(schema.nodes.heading, { level: 3 })),
       Enter: (state, dispatch, view) => {
         if (dispatch && view) state = synchronizeSelection(view)
-        return chainCommands(codeNewline, splitRichListItem)(state, dispatch, view)
+        return chainCommands(exitTemplateNote, codeNewline, splitRichListItem)(state, dispatch, view)
       }, Tab: chainCommands(indentCode, sinkListItem(schema.nodes.list_item)),
       Backspace: chainCommands(undoInputRule, liftEmptyListItem, joinParagraphToPreviousList),
       "Shift-Tab": liftListItem(schema.nodes.list_item)

@@ -67,6 +67,7 @@ b) Second lowercase lettered step.
 
 Open Edit, click this paragraph, and choose Comment from the text-style
 menu beside Normal text and the headings. The text turns gray and stays editable.
+Press Enter to start normal text after the comment. Use Shift-Enter to add another line inside it.
 Choose Done to hide it while reading, or choose Normal text to make it visible again.
 To remove the comment, clear its text and press Backspace again. The caret moves to the content above.
 
