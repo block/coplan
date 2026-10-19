@@ -24,7 +24,7 @@ module CoPlan
           raise InspectionLimit, "This document is too large to inspect. Writing percentages are still available."
         end
         fingerprint = Digest::SHA256.hexdigest(version.writing_provenance.to_json)
-        Rails.cache.fetch([ "coplan/rendered-writing-v2", version.id, fingerprint ], expires_in: 12.hours) do
+        Rails.cache.fetch([ "coplan/rendered-writing-v3", version.id, fingerprint ], expires_in: 12.hours) do
           build_rendered_sources(version)
         end
       end

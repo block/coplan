@@ -129,6 +129,31 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     expect(rendered.fetch(:runs).map { |_, key| rendered.fetch(:sources).fetch(key).fetch("kind") }.uniq).to eq([ "human" ])
     expect(rendered.fetch(:runs).sum(&:first)).to eq(rendered.fetch(:text).encode(Encoding::UTF_16LE).bytesize / 2)
   end
+
+  %w[human local_agent].each do |kind|
+    it "retains #{kind} attribution for repeated and multi-digit citation markers" do
+      content = "Café 😀 " + (1..12).map { |i| "[^r#{i}]" }.join(" ") + " again[^r1].\n\n" +
+        (1..12).map { |i| "[^r#{i}]: Source #{i}.\n" }.join
+      plan = make_plan(content, kind: kind, input_sources: sources(content))
+      data = described_class.rendered_sources(plan.current_plan_version)
+      expect(data.fetch(:text)).to eq("Café😀123456789101112again1.")
+      expect(data.fetch(:runs).map { |_, key| data.fetch(:sources).fetch(key).fetch("kind") }.uniq).to eq([ kind == "human" ? "human" : "ai" ])
+      stripped, positions, spans = CoPlan::Plans::MarkdownTextExtractor.call(content, exclude_nonprose: true, source_spans: true)
+      digit = stripped.index("10")
+      expect(positions[digit, 2]).to eq([ -1, -1 ])
+      expect(spans[digit, 2].map { |from, to| content[from...to] }).to eq([ "[^r10]", "[^r10]" ])
+    end
+  end
+
+  it "keeps a citation marker ambiguous when its raw reference has mixed authors" do
+    content = "Read[^ref].\n\n[^ref]: Source.\n"
+    plan = make_plan(content, kind: "local_agent")
+    updated = content.gsub("ref", "ren")
+    edit(plan, updated, kind: "human", input_sources: sources(updated))
+    data = described_class.rendered_sources(plan.current_plan_version)
+    expect(data.fetch(:text)).to eq("Read1.")
+    expect(data.fetch(:runs)).to include([ 1, nil ])
+  end
   it "retains the exact author and introduction revision of a one-word edit" do
     plan = make_plan("The worker may retry.", kind: "local_agent")
     edit(plan, "The worker may not retry.", kind: "human", input_sources: sources("The worker may not retry."))

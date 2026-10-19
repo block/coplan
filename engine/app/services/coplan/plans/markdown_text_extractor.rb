@@ -158,8 +158,8 @@ module CoPlan
             # digits are sentinels: no character of "[^note]" spells "1", and
             # a selection that merely ends on the marker should resolve back
             # to the prose before it rather than to half a citation.
-            marker = footnote_number(child, line_byte_offsets, byte_to_char).to_s
-            marker.each_char { |char| append_separator(stripped, pos_map, char) }
+            marker, span = footnote_marker(child, line_byte_offsets, byte_to_char)
+            marker.each_char { |char| append_separator(stripped, pos_map, char, source_span: span) }
           when :softbreak, :linebreak
             pos = child.source_position
             start_byte = line_byte_offsets[pos[:start_line]] + pos[:start_column] - 1
@@ -308,25 +308,27 @@ module CoPlan
       end
 
       # Appends a synthetic separator character to the stripped text.
-      # Maps it to -1 since it doesn't correspond to any raw source position.
-      def append_separator(stripped, pos_map, char)
+      # Comment anchors retain a -1 sentinel. Generated citation digits can
+      # still carry their whole reference span for writing attribution.
+      def append_separator(stripped, pos_map, char, source_span: nil)
         stripped << char
         pos_map << -1
-        @source_spans << [ -1, -1 ] if @source_spans
+        @source_spans << (source_span || [ -1, -1 ]) if @source_spans
       end
 
       # The number the renderer prints for this citation. Commonmarker counts
       # by first reference rather than by definition order, and a label cited
       # twice keeps its original number, so the count is keyed on the label —
       # which the node itself won't hand over, but its source span will.
-      def footnote_number(node, line_byte_offsets, byte_to_char)
+      def footnote_marker(node, line_byte_offsets, byte_to_char)
         pos = node.source_position
         start_char = byte_to_char[line_byte_offsets[pos[:start_line]] + pos[:start_column] - 1]
         end_char = byte_to_char[line_byte_offsets[pos[:end_line]] + pos[:end_column] - 1]
-        return "" unless start_char && end_char
+        return [ "", nil ] unless start_char && end_char
 
         label = @content[start_char..end_char].to_s.delete_prefix("[^").delete_suffix("]")
-        @footnote_numbers[label] ||= @footnote_numbers.size + 1
+        number = (@footnote_numbers[label] ||= @footnote_numbers.size + 1)
+        [ number.to_s, [ start_char, end_char + 1 ] ]
       end
     end
   end

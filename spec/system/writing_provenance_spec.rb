@@ -108,6 +108,23 @@ RSpec.describe "Writing provenance", type: :system do
     expect(page.evaluate_script("document.querySelector('.writing-provenance__panel').getBoundingClientRect().right <= document.documentElement.clientWidth - 8")).to be(true)
   end
 
+  it "inspects citation numbers with the reference's author and version" do
+    content = "Read source[^ref].\n\n[^ref]: Evidence.\n"
+    cited = CoPlan::Plans::Create.call(title: "Cited writing", content: content, user: user, actor_type: "local_agent", agent_name: "Claude")
+    visit sign_in_path
+    fill_in "Email", with: user.email
+    click_button "Sign In"
+    expect(page).to have_button("Menu", wait: 20)
+    visit plan_page_path(cited)
+    find(".writing-provenance__trigger").click
+    click_button "Inspect writing"
+    expect(page).to have_button("Done inspecting")
+    expect(page.evaluate_script("CSS.highlights.get('coplan-writing-unknown').size")).to eq(0)
+    find('#plan-content-body sup a').hover
+    expect(page).to have_css('.writing-inspection__tooltip:popover-open', text: "Added in v1")
+    expect(find('.writing-inspection__tooltip')).to have_text("Claude")
+  end
+
 
   it "updates the provenance through streams while saving and after closing the editor" do
     open_editor
