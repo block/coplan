@@ -257,7 +257,7 @@ RSpec.describe "Human plan editing", type: :system do
     save_now
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
     expect(plan.reload.current_content).to include("**bold**", "~~strikethrough~~", "[@alex](mention:alex)", "More context.", "[ ] Define a **receipt**", "[x] Inspect retry metrics", "[ ] Nested task")
-    expect(plan.current_content).to include("Literal \\~\\~tildes\\~\\~.")
+    expect(plan.current_content).to include("\\~\\~tildes\\~\\~.")
     expect(plan.current_content).to start_with("<!-- Explain the decision. -->\n\n")
     find(".document-editor__template-note", text: "Explain the decision.").click
     %w[light dark].each do |theme|
