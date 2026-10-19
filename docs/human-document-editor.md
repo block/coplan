@@ -103,6 +103,7 @@ editable. Task checkboxes toggle in place; Enter continues with an unchecked tas
 Choose **Comment** in the text-style menu beside Normal text and the
 headings to hide a paragraph or heading while reading. Its text stays gray and
 editable in the editor. Choose Normal text or a heading to make it visible again.
+Converting a multiline comment to a heading creates a separate heading for each line.
 
 Other unsupported Markdown (raw HTML and reference-style links) remains source-preserving. Cards show a
 sanitized reading-style preview when available, with the same source-edit path.

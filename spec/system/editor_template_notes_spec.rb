@@ -249,6 +249,24 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).not_to have_content("New guidance.")
   end
 
+  it "keeps every line a heading when a multiline comment is saved and reopened" do
+    note = find(".document-editor__template-note", text: "First hint.")
+    note.click
+    select "Heading 2", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror > h2", count: 3)
+    expect(page).to have_css(".ProseMirror > h2", text: "First hint.")
+    expect(page).to have_css(".ProseMirror > h2", text: "Second hint with **literal Markdown**.")
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to include("## First hint.", "## Second hint with \\*\\*literal Markdown\\*\\*.")
+    visit plan_edit_page_path(plan)
+    expect(page).to have_no_css(".inline-editor--preparing", wait: 20)
+    expect(page).to have_css(".ProseMirror > h2", count: 3)
+    expect(page).to have_css(".ProseMirror > h2", text: "First hint.")
+    expect(page).to have_css(".ProseMirror > h2", text: "Second hint with **literal Markdown**.")
+    expect(page).to have_css(".document-editor__template-note", text: "Explain the decision here.")
+  end
+
   it "converts selected paragraphs together and rejects text that would close the comment" do
     click_button "Raw", exact: true
     find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "## Heading\n\n**Bold** guidance.\n")

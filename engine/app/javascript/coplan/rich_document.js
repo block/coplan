@@ -535,15 +535,30 @@ function setTextStyle(type, attrs = null) {
     if (dispatch) {
       const tr = state.tr
       for (const { node, position } of notes.toReversed()) {
-        const content = []
-        node.textContent.split("\n").forEach((line, index) => {
-          if (index) content.push(type === schema.nodes.code_block ? schema.text("\n") : schema.nodes.hard_break.create())
-          if (line) content.push(schema.text(line))
-        })
-        tr.replaceWith(position, position + node.nodeSize, type.create(attrs, content))
+        const lines = node.textContent.split("\n")
+        if (type === schema.nodes.heading) {
+          // Markdown headings end at the source newline. Each line needs its
+          // own block so saving and reopening preserves the chosen style.
+          tr.replaceWith(position, position + node.nodeSize, lines.map(line => type.create(attrs, line ? schema.text(line) : null)))
+        } else {
+          const content = []
+          lines.forEach((line, index) => {
+            if (index) content.push(type === schema.nodes.code_block ? schema.text("\n") : schema.nodes.hard_break.create())
+            if (line) content.push(schema.text(line))
+          })
+          tr.replaceWith(position, position + node.nodeSize, type.create(attrs, content))
+        }
       }
-      tr.setSelection(TextSelection.between(tr.doc.resolve(from), tr.doc.resolve(to)))
-      tr.setBlockType(from, to, type, attrs)
+      const mapPosition = position => {
+        const note = notes.find(entry => position > entry.position && position < entry.position + entry.node.nodeSize)
+        if (!note) return tr.mapping.map(position)
+        const offset = position - note.position - 1
+        const extra = type === schema.nodes.heading ? note.node.textContent.slice(0, offset).split("\n").length - 1 : 0
+        return tr.mapping.map(note.position, -1) + 1 + offset + extra
+      }
+      const mappedFrom = mapPosition(from), mappedTo = mapPosition(to)
+      tr.setSelection(TextSelection.between(tr.doc.resolve(mappedFrom), tr.doc.resolve(mappedTo)))
+      tr.setBlockType(mappedFrom, mappedTo, type, attrs)
       dispatch(closeHistory(tr))
     }
     return true
