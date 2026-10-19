@@ -130,6 +130,22 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(CoPlan::Plan.count).to eq(0)
     end
 
+    it "seeds image resizing once and preserves a person's saved image width" do
+      described_class.call
+      plan = seeded_plan("image-resizing")
+      expect(plan.current_content).to include(described_class.demo_logo_url, 'width="320"', "![CoPlan logo at natural width]")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+      revision = plan.current_revision
+      described_class.call
+      expect(plan.reload.current_revision).to eq(revision)
+
+      resized = plan.current_content.sub('width="320"', 'width="240"')
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: resized,
+        base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
+      described_class.call
+      expect(plan.reload.current_content).to eq(resized)
+    end
+
     it "upgrades only untouched host image URLs and preserves edited image examples" do
       described_class.call
       plan = seeded_plan("pattern-showcase")
