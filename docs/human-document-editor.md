@@ -26,7 +26,9 @@ Backspace on the empty item leaves the list at the normal paragraph margin.
 Inside a nested list it moves out one level. Raw mode keeps literal Markdown.
 From the empty paragraph after a list, Backspace returns to the end of the
 previous item's text. It does not create another bullet. Additional empty
-paragraphs below a list disappear one at a time.
+paragraphs below a list disappear one at a time. If the previous item ends in
+a table, Backspace moves to the nearest preceding editable text and preserves
+the table.
 
 The toolbar stays visible in all modes. Formatting and code insertion are disabled
 while Raw has focus, including in Dual; Undo and Redo still act on the focused pane.

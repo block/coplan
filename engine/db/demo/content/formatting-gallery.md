@@ -32,6 +32,17 @@ one at a time to try the same boundary.
 
 - Try continuing this list with Enter, then leave its empty final item with Backspace.
 
+Try the same two Backspaces on the blank item after this table. The caret should
+return to the editable text above the table, and the table should stay unchanged.
+
+- Item with a table.
+
+  | Name | State |
+  | --- | --- |
+  | Alpha | Ready |
+
+-
+
 ## Two code languages
 
 ```ruby

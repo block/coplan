@@ -11,8 +11,9 @@ Immediate Backspace restores the literal asterisk and space. After Enter creates
 an empty list item, Backspace lifts it out to a normal paragraph. In a nested
 list, it moves out one level. Backspace from the empty paragraph after a list
 returns to the end of the previous item's text without adding a bullet.
-Extra empty paragraphs disappear one at a time. Raw mode keeps the characters
-as Markdown.
+Extra empty paragraphs disappear one at a time. If the previous item ends in
+a table, the caret moves to the nearest preceding editable text. The table
+stays unchanged. Raw mode keeps the characters as Markdown.
 
 ## Tables
 

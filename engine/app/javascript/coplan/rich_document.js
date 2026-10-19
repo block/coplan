@@ -7,7 +7,7 @@ import { Schema, Fragment, Slice } from "prosemirror-model"
 import { EditorState, TextSelection, Plugin, PluginKey } from "prosemirror-state"
 import { EditorView, Decoration, DecorationSet } from "prosemirror-view"
 import { MarkdownParser, MarkdownSerializer, defaultMarkdownParser, defaultMarkdownSerializer as baseMarkdownSerializer } from "prosemirror-markdown"
-import { baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exitCode, selectAll, joinTextblockBackward } from "prosemirror-commands"
+import { baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exitCode, selectAll } from "prosemirror-commands"
 import { wrapInList, splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list"
 import { keymap } from "prosemirror-keymap"
 import { history, undo, redo, closeHistory } from "prosemirror-history"
@@ -187,14 +187,19 @@ function liftEmptyListItem(state, dispatch) {
       $from.depth < 2 || $from.node(-1).type !== schema.nodes.list_item || $from.node(-1).childCount !== 1) return false
   return liftListItem(schema.nodes.list_item)(state, dispatch)
 }
-function joinParagraphToPreviousList(state, dispatch, view) {
+function joinParagraphToPreviousList(state, dispatch) {
   const { empty, $from } = state.selection
   if (!empty || $from.parent.type !== schema.nodes.paragraph || $from.parent.content.size || $from.parentOffset) return false
   const previous = state.doc.resolve($from.before()).nodeBefore
   if (![schema.nodes.bullet_list, schema.nodes.ordered_list].includes(previous?.type)) return false
-  // Generic joinBackward wraps this paragraph in a new list item. Join the
-  // text blocks instead, so repeated Backspace cannot recreate an empty bullet.
-  return joinTextblockBackward(state, dispatch, view)
+  // A textblock join cannot cross a preserved table at the end of a list.
+  // Remove only the empty paragraph, then skip atoms to the preceding text.
+  const position = $from.before()
+  const tr = state.tr.delete(position, $from.after())
+  const selection = TextSelection.findFrom(tr.doc.resolve(position), -1, true)
+  if (!selection) return false
+  if (dispatch) dispatch(tr.setSelection(selection).scrollIntoView())
+  return true
 }
 function preserved(source, kind = null, label = null) {
   if (!kind && source.trimStart().startsWith("[")) {
