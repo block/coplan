@@ -288,6 +288,26 @@ RSpec.describe "Editor lists", type: :system do
     expect(editor.text).to include("B) Second literal")
   end
 
+  it "keeps letter-like markers literal inside a nested pipe-less table after saving" do
+    source = "AA) Parent\n\n    A) Name | State\n    --- | ---\n    B) Label | Ready\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css(".ProseMirror > ol > li", count: 1, wait: 20)
+    expect(page).to have_css(".ProseMirror li table th", text: "A) Name")
+    expect(page).to have_css(".ProseMirror li table td", text: "B) Label")
+    find(".ProseMirror > ol > li > p").click
+    page.driver.browser.action.send_keys(:end, " continued").perform
+    expect(page).to have_css(".ProseMirror > ol > li > p", text: "Parent continued", exact_text: true)
+    editor.send_keys([ modifier, "s" ])
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+    expect(plan.reload.current_content).to include("A) Name | State", "B) Label | Ready")
+    visit plan_page_path(plan)
+    expect(page).to have_css("#plan-content-body li table td", text: "B) Label", wait: 20)
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css(".ProseMirror li table th", text: "A) Name", wait: 20)
+  end
+
   it "does not convert list markers inside prose or code" do
     [ "*", "1)", "A)" ].each do |marker|
       replace_body("Literal #{marker} ")

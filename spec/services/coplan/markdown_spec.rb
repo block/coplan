@@ -56,6 +56,16 @@ RSpec.describe CoPlan::Markdown do
     expect(doc.css("ol").map { |list| list["start"] }).to eq([ nil, "0", "9" ])
   end
 
+  it "keeps letter-like markers literal inside a nested pipe-less table" do
+    source = "AA) Parent\n\n    A) Name | State\n    --- | ---\n    B) Label | Ready\n"
+    normalized, = described_class.normalize(source)
+    expect(normalized).to include("    A) Name | State", "    B) Label | Ready")
+    doc = html(source)
+    expect(doc.css('ol[type="A"] > li').length).to eq(1)
+    expect(doc.at_css("th").text).to eq("A) Name")
+    expect(doc.at_css("td").text).to eq("B) Label")
+  end
+
   it "keeps nested table comment targets bound to their original source" do
     source = "AA) Item\n\n    | Name | State |\n    | --- | --- |\n    | 同 | Ready |\n"
     doc = Nokogiri::HTML.fragment(described_class.to_html(source, options: { render: { sourcepos: true } }))

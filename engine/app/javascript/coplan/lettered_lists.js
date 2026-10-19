@@ -1,5 +1,6 @@
 const letteredMarker = /^((?:[ \t]*>[ \t]?)*[ \t]*)([A-Z]{1,9}|[a-z]{1,9})\)(?=[ \t\r]|$)/
 const numberedMarker = /^(?:[ \t]*>[ \t]?)*[ \t]*(\d{1,9})[.)](?=[ \t\r]|$)/
+const tableDelimiter = /^(?:[ \t]*>[ \t]?)*[ \t]*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t\r]*$/
 
 export function letterOrder(letters) {
   return [...letters.toUpperCase()].reduce((value, char) => value * 26 + char.charCodeAt(0) - 64, 0)
@@ -52,7 +53,7 @@ export function enableLetteredLists(tokenizer) {
   const parse = tokenizer.parse.bind(tokenizer)
   // The editor disables HTML, but its contents must still keep their literal
   // source. Recognize complete HTML blocks before converting any markers.
-  const protectionParser = new tokenizer.constructor("commonmark", { html: true })
+  const protectionParser = new tokenizer.constructor("commonmark", { html: true }).enable("table")
   tokenizer.parse = (source, environment = {}) => {
     const initial = parse(source, environment)
     const lines = source.split("\n")
@@ -62,11 +63,21 @@ export function enableLetteredLists(tokenizer) {
       if (token.type === "preserved_block" && token.meta?.kind === "table")
         for (let line = token.map[0]; line < token.map[1]; line++) protectedLines.add(line)
     }
-    const candidate = lines.map(line => line.replace(letteredMarker,
-      (_, prefix, letters) => `${prefix}${"1".padStart(letters.length, "0")})`)).join("\n")
+    const tableCandidates = new Set()
+    lines.forEach((line, index) => {
+      if (!line.includes("|") || !tableDelimiter.test(lines[index + 1] || "")) return
+      const prefix = line.match(/^(?:[ \t]*>[ \t]?)*[ \t]*/)[0]
+      for (let row = index; row < lines.length && lines[row].startsWith(prefix) && lines[row].slice(prefix.length).trim(); row++)
+        tableCandidates.add(row)
+    })
+    const candidate = lines.map((line, index) => {
+      // Keep headers and body rows recognizable while opening outer lists.
+      if (tableCandidates.has(index)) return line
+      return line.replace(letteredMarker, (_, prefix, letters) => `${prefix}${"1".padStart(letters.length, "0")})`)
+    }).join("\n")
     for (const token of protectionParser.parse(candidate, {})) {
       if (!token.map) continue
-      if (!["fence", "code_block", "html_block"].includes(token.type)) continue
+      if (!["table_open", "fence", "code_block", "html_block"].includes(token.type)) continue
       for (let line = token.map[0]; line < token.map[1]; line++) protectedLines.add(line)
     }
     const markers = new Map()

@@ -4,6 +4,7 @@ module CoPlan
   module Markdown
     LETTERED_MARKER = /\A((?:[ \t]*>[ \t]?)*[ \t]*)([A-Z]{1,9}|[a-z]{1,9})\)(?=[ \t\r\n]|\z)/
     NUMBERED_MARKER = /\A(?:[ \t]*>[ \t]?)*[ \t]*(\d{1,9})[.)](?=[ \t\r\n]|\z)/
+    TABLE_DELIMITER = /\A(?:[ \t]*>[ \t]?)*[ \t]*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t\r\n]*\z/
 
     def self.parse(source, **options)
       normalized, = normalize(source, options: options[:options])
@@ -47,11 +48,25 @@ module CoPlan
       return [ source, {} ] unless lines.any? { |line| LETTERED_MARKER.match?(line) }
 
       protected_lines = Set.new
-      candidate = lines.map do |line|
+      table_candidates = Set.new
+      lines.each_with_index do |line, index|
+        next unless line.include?("|") && TABLE_DELIMITER.match?(lines[index + 1].to_s)
+
+        prefix = line[/\A(?:[ \t]*>[ \t]?)*[ \t]*/]
+        index.upto(lines.length - 1) do |row|
+          break if !lines[row].start_with?(prefix) || lines[row].delete_prefix(prefix).strip.empty?
+          table_candidates.add(row)
+        end
+      end
+      candidate = lines.each_with_index.map do |line, index|
+        # A numeric marker can hide a pipe-less header or end a table's body.
+        # Let the parser confirm these rows after opening their containers.
+        next line if table_candidates.include?(index)
+
         line.sub(LETTERED_MARKER) { "#{Regexp.last_match(1)}#{'1'.rjust(Regexp.last_match(2).length, '0')})" }
       end.join
       collect_protected(Commonmarker.parse(source, options: options || {}), protected_lines, types: [ :table ])
-      collect_protected(Commonmarker.parse(candidate, options: options || {}), protected_lines, types: %i[code_block html_block])
+      collect_protected(Commonmarker.parse(candidate, options: options || {}), protected_lines, types: %i[table code_block html_block])
       markers = {}
       normalized = lines.each_with_index.map do |line, index|
         match = LETTERED_MARKER.match(line)
