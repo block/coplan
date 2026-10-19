@@ -8098,6 +8098,10 @@ svg .source-thread-badge text { fill: var(--color-primary) !important; font: 600
 .document-editor__body .ProseMirror { min-height: 420px; outline: none; white-space: pre-wrap; overflow-wrap: break-word; }
 .document-editor__template-note { margin: 12px 0; color: var(--color-text-muted); font-size: .9em; line-height: 1.6; white-space: pre-wrap; }
 .ProseMirror li { position: relative; }
+.ProseMirror li.document-editor__task { list-style: none; }
+.document-editor__task > span { position: absolute; left: -1.5em; top: 0; }
+.document-editor__task input { cursor: pointer; accent-color: var(--color-primary); }
+.document-editor__task input:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .ProseMirror-selectednode { outline: 2px solid var(--color-primary); }
 .ProseMirror-hideselection *::selection { background: transparent; }
 .document-editor__preserved { padding: 12px; border: 1px dashed var(--color-border-strong); border-radius: 8px; margin: 12px 0; color: var(--color-text-muted); }

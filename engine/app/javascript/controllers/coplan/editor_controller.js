@@ -98,7 +98,7 @@ export default class extends Controller {
     toast.className = "flash flash--alert toasts__toast"
     toast.dataset.controller = "coplan--toast"
     toast.setAttribute("role", "alert")
-    toast.textContent = "We couldn't add that text because it would end the template note. Use -- > to show a closing marker."
+    toast.textContent = "We couldn't add that text because it would end the hidden comment. Use -- > to show a closing marker."
     document.getElementById("coplan-toasts").append(toast)
     this.noteToast = toast
   }
@@ -427,12 +427,22 @@ export default class extends Controller {
     this.toolbarTarget.querySelectorAll("[data-command]").forEach(button => {
       const command = button.dataset.command
       button.disabled = formattingDisabled
-      if (button.tagName === "SELECT") { button.value = rawFocused ? "0" : state.heading || "0"; return }
+      if (button.tagName === "SELECT") {
+        button.disabled = rawFocused
+        button.value = rawFocused ? "0" : state.heading || "0"
+        button.querySelector('option[value="comment"]').disabled = !state.canHideComment
+        return
+      }
       if (["undo", "redo"].includes(command)) button.disabled = !(this.editor?.historyState() || state)[command]
       else button.setAttribute("aria-pressed", String(!formattingDisabled && !!state[command]))
     })
   }
-  style(event) { if (this.editor !== this.richEditor) return; this.richEditor?.command(event.currentTarget.value === "0" ? "paragraph" : event.currentTarget.value === "code" ? "code_block" : "heading", event.currentTarget.value) }
+  style(event) {
+    if (this.editor !== this.richEditor) return
+    const value = event.currentTarget.value
+    this.richEditor?.command({ "0": "paragraph", code: "code_block", comment: "hidden_comment" }[value] || "heading", value)
+    this.updateToolbar(this.richEditor.toolbarState())
+  }
   updateToolOverflow() {
     if (!this.active || !this.hasMoreToolsTarget || !this.hasFormatControlsTarget) return
     const controls = this.formatControlsTarget

@@ -32,6 +32,12 @@ on that empty final bullet to continue in a normal paragraph at the left margin.
 
 - Try continuing this list with Enter, then leave its empty final item with Backspace.
 
+## Try hidden comments
+
+Open Edit, click this paragraph, and choose Hidden comment from the text-style
+menu beside Normal text and the headings. The text turns gray and stays editable.
+Choose Done to hide it while reading, or choose Normal text to make it visible again.
+
 ## Two code languages
 
 ```ruby

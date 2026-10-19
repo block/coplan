@@ -146,7 +146,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     %w[light dark].each do |theme|
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
       note.send_keys(">")
-      expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the template note")
+      expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the hidden comment")
       expect(note.text).to eq("Explain the decision here. --")
       page.save_screenshot(Rails.root.join("tmp", "template-notes-rejected-#{theme}.png"))
     end
@@ -160,7 +160,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
         new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
     JS
     expect(note.text).to eq("Explain the decision here. --!")
-    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the template note")
+    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the hidden comment")
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
     expect(plan.reload.current_content).to include("<!-- Explain the decision here. --! -->")
@@ -186,6 +186,80 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).to have_css(".document-editor__template-note", text: "Revised guidance.", wait: 20)
   end
 
+  it "creates hidden comments from the text style menu and converts them back to prose or headings" do
+    paragraph = find(".ProseMirror > p", text: "Visible prose.")
+    paragraph.click
+    select "Hidden comment", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".document-editor__template-note", text: "Visible prose.")
+    expect(page).to have_select("Paragraph style", selected: "Hidden comment", enable_aria_label: true)
+    expect(page).to have_button("Bold", disabled: true)
+    click_button "Undo", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror > p", text: "Visible prose.")
+    click_button "Redo", enable_aria_label: true
+    expect(page).to have_css(".document-editor__template-note", text: "Visible prose.")
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to include("<!-- Visible prose. -->")
+    expect(page).not_to have_content("Visible prose.")
+    visit plan_edit_page_path(plan)
+    find(".document-editor__template-note", text: "Visible prose.").click
+    select "Normal text", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror > p", text: "Visible prose.")
+    select "Heading 2", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror > h2", text: "Visible prose.")
+    select "Hidden comment", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".document-editor__template-note", text: "Visible prose.")
+    select "Heading 3", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror > h3", text: "Visible prose.")
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to include("### Visible prose.")
+    expect(page).to have_content("Visible prose.")
+    expect(page).not_to have_content("Explain the decision here.")
+  end
+
+  it "creates an empty hidden comment without typing Markdown and preserves line breaks in converted text" do
+    paragraph = find(".ProseMirror > p", text: "Visible prose.")
+    paragraph.click
+    paragraph.send_keys([ mod, :right ], :enter)
+    select "Hidden comment", from: "Paragraph style", enable_aria_label: true
+    note = all(".document-editor__template-note").find { |entry| entry.text.empty? }
+    note.send_keys("New guidance.", :enter, "Second line.")
+    expect(page).to have_select("Paragraph style", selected: "Hidden comment", enable_aria_label: true)
+    select "Normal text", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror > p", text: "New guidance.")
+    select "Hidden comment", from: "Paragraph style", enable_aria_label: true
+    expect(find(".document-editor__template-note", text: "New guidance.").text).to eq("New guidance.\nSecond line.")
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to include("<!-- New guidance.\nSecond line. -->")
+    expect(page).not_to have_content("New guidance.")
+  end
+
+  it "converts selected paragraphs together and rejects text that would close the comment" do
+    click_button "Raw", exact: true
+    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "## Heading\n\n**Bold** guidance.\n")
+    click_button "Editor", exact: true
+    find(".ProseMirror > p", text: "Bold guidance.").send_keys([ mod, "a" ])
+    select "Hidden comment", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".document-editor__template-note", count: 2)
+    expect(page).to have_css(".document-editor__template-note", text: "Heading")
+    expect(page).to have_css(".document-editor__template-note", text: "Bold guidance.")
+    expect(page).to have_no_css(".document-editor__template-note strong")
+    click_button "Undo", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror > h2", text: "Heading")
+    expect(page).to have_css(".ProseMirror > p strong", text: "Bold")
+    click_button "Raw", exact: true
+    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "Visible --> text.\n")
+    click_button "Editor", exact: true
+    find(".ProseMirror > p", text: "Visible --> text.").click
+    select "Hidden comment", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_css(".ProseMirror > p", text: "Visible --> text.")
+    expect(page).to have_no_css(".document-editor__template-note")
+    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the hidden comment")
+    expect(page).to have_select("Paragraph style", selected: "Normal text", enable_aria_label: true)
+  end
+
   it "keeps an empty comment hidden when its first character would abruptly close it" do
     click_button "Raw", exact: true
     find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "<!---->\n\nVisible prose.")
@@ -193,7 +267,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     note = find(".document-editor__template-note")
     note.click
     note.send_keys(">")
-    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the template note")
+    expect(page).to have_css('#coplan-toasts [role="alert"]', text: "would end the hidden comment")
     expect(note.text).to eq("")
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
@@ -234,10 +308,10 @@ RSpec.describe "Template notes in the document editor", type: :system do
     end
   end
 
-  it "keeps formatting commands and boundary deletion from turning notes into visible prose" do
+  it "keeps formatting shortcuts and boundary deletion from turning notes into visible prose" do
     note = all(".document-editor__template-note").first
     note.click
-    expect(page).to have_css('select[aria-label="Paragraph style"][disabled]')
+    expect(page).to have_css('select[aria-label="Paragraph style"]:enabled')
     expect(page).to have_button("Insert code block", disabled: true)
     %w[0 1 2 3].each { |key| note.send_keys([ mod, :alt, key ]) }
     %w[backspace delete].each do |key|
@@ -271,7 +345,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
       range.setEnd(arguments[1].firstChild, 3);
       const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
     JS
-    expect(page).to have_css('select[aria-label="Paragraph style"][disabled]')
+    expect(page).to have_css('select[aria-label="Paragraph style"]:enabled')
     paragraph.click
     expect(page).to have_css('select[aria-label="Paragraph style"]:enabled')
     select "Heading 2", from: "Paragraph style", enable_aria_label: true

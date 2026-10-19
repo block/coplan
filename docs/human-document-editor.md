@@ -91,8 +91,13 @@ and height fields. Administrators approve exact HTTPS hosts under **Iframe domai
 No domains are allowed by default. See the served `/agent-instructions/embeds`
 guide for syntax, supported sizes, and the fixed sandbox and frame policy.
 
-Other unsupported Markdown (task lists, raw HTML, reference-style
-links, strikethrough and mentions) remains source-preserving. Cards show a
+Formatted prose, strikethrough, mentions, and ordinary or task lists stay directly
+editable. Task checkboxes toggle in place; Enter continues with an unchecked task.
+Choose **Hidden comment** in the text-style menu beside Normal text and the
+headings to hide a paragraph or heading while reading. Its text stays gray and
+editable in the editor. Choose Normal text or a heading to make it visible again.
+
+Other unsupported Markdown (raw HTML and reference-style links) remains source-preserving. Cards show a
 sanitized reading-style preview when available, with the same source-edit path.
 Untouched blocks retain their exact spelling. A supported block that you edit
 in rich mode is reserialized; Markdown mode gives full control over spelling.

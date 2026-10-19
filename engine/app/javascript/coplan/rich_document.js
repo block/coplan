@@ -3,7 +3,7 @@ import { codeHighlight } from "coplan/code_highlight"
 import { textHunks } from "coplan/merge_text"
 import { citationLabelKey } from "coplan/citation_labels"
 export { citationLabelKey } from "coplan/citation_labels"
-import { Schema, Fragment, Slice } from "prosemirror-model"
+import { Schema, Fragment, Slice, DOMSerializer } from "prosemirror-model"
 import { EditorState, TextSelection, Plugin, PluginKey } from "prosemirror-state"
 import { EditorView, Decoration, DecorationSet } from "prosemirror-view"
 import { MarkdownParser, MarkdownSerializer, defaultMarkdownParser, defaultMarkdownSerializer as baseMarkdownSerializer } from "prosemirror-markdown"
@@ -23,6 +23,17 @@ let nodes = defaultMarkdownParser.schema.spec.nodes
 nodes.forEach((name, spec) => {
   if (name !== "text") nodes = nodes.update(name, { ...spec, attrs: { ...spec.attrs, source: { default: null }, snapshot: { default: null } } })
 })
+const listItemSpec = nodes.get("list_item")
+nodes = nodes.update("list_item", {
+  ...listItemSpec,
+  attrs: { ...listItemSpec.attrs, checked: { default: null } },
+  parseDOM: [{ tag: "li[data-coplan-task]", getAttrs: dom => ({ checked: dom.dataset.coplanTask === "true" }) }, ...listItemSpec.parseDOM],
+  toDOM: node => node.attrs.checked === null ? listItemSpec.toDOM(node) :
+    ["li", { class: "document-editor__task", "data-coplan-task": String(node.attrs.checked) },
+      ["span", { contenteditable: "false" }, ["input", { type: "checkbox", checked: node.attrs.checked ? "checked" : null,
+        "data-coplan-task-checkbox": "", "aria-label": `Task: ${node.firstChild.textContent}` }]],
+      ["div", { class: "document-editor__task-content" }, 0]]
+})
 nodes = nodes.addBefore("paragraph", "preserved", {
   group: "block", atom: true, attrs: { source: {}, kind: { default: null }, label: { default: null }, inserted: { default: false } },
   toDOM: node => ["div", { class: "document-editor__preserved", hidden: node.attrs.source.trim() ? null : "hidden", contenteditable: "false" },
@@ -37,9 +48,11 @@ nodes = nodes.addBefore("text", "footnote_reference", {
 nodes = nodes.addBefore("paragraph", "template_note", {
   group: "block", content: "text*", marks: "", code: true, defining: true, isolating: true,
   attrs: { source: { default: null }, snapshot: { default: null }, opening: {}, closing: {} },
-  toDOM: () => ["div", { class: "document-editor__template-note", "data-coplan-template-note": "", "aria-label": "Template note" }, 0]
+  toDOM: () => ["div", { class: "document-editor__template-note", "data-coplan-template-note": "", "aria-label": "Hidden comment" }, 0]
 })
-const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.marks })
+const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.marks.addToEnd("strikethrough", {
+  parseDOM: [{ tag: "s" }, { tag: "del" }], toDOM: () => ["s", 0]
+}) })
 // Run before links, but after escapes and code spans. A citation is inline
 // content, so it must not turn its entire paragraph or list into a source card.
 const tokenizer = defaultMarkdownParser.tokenizer
@@ -55,7 +68,19 @@ tokenizer.inline.ruler.before("link", "coplan_footnote", (state, silent) => {
 })
 // Keep a table's own node inside its surrounding list or blockquote. The
 // list remains rich text; only the table uses a source-preserving preview.
-tokenizer.enable("table")
+tokenizer.enable(["table", "strikethrough"])
+// Task markers belong to their list item, not the editable paragraph text.
+// Remove them before inline parsing so marks, links and nested lists stay rich.
+tokenizer.core.ruler.after("block", "coplan_tasks", state => {
+  state.tokens.forEach((token, index) => {
+    if (token.type !== "list_item_open" || state.tokens[index + 1]?.type !== "paragraph_open") return
+    const inline = state.tokens[index + 2]
+    const match = inline?.type === "inline" && /^\[([ xX])\](?:[ \t]+|$)/.exec(inline.content)
+    if (!match) return
+    token.meta = { checked: match[1] !== " " }
+    inline.content = inline.content.slice(match[0].length)
+  })
+})
 tokenizer.core.ruler.after("block", "coplan_tables", state => {
   const lines = state.src.split("\n")
   for (let index = 0; index < state.tokens.length; index++) {
@@ -78,11 +103,17 @@ tokenizer.core.ruler.after("block", "coplan_tables", state => {
 })
 const richMarkdownParser = new MarkdownParser(schema, tokenizer, {
   ...defaultMarkdownParser.tokens,
+  s: { mark: "strikethrough" },
+  list_item: { block: "list_item", getAttrs: token => ({ checked: token.meta?.checked ?? null }) },
   footnote_reference: { node: "footnote_reference", getAttrs: token => token.meta },
   preserved_block: { node: "preserved", getAttrs: token => token.meta }
 })
 const defaultMarkdownSerializer = new MarkdownSerializer({
   ...baseMarkdownSerializer.nodes,
+  list_item: (state, node) => {
+    if (node.attrs.checked !== null) state.write(`[${node.attrs.checked ? "x" : " "}] `)
+    state.renderContent(node)
+  },
   footnote_reference: (state, node) => state.text(`[^${node.attrs.label}]`, false),
   template_note: (state, node) => {
     state.write(node.attrs.opening + node.textContent + node.attrs.closing.trimEnd())
@@ -92,7 +123,7 @@ const defaultMarkdownSerializer = new MarkdownSerializer({
     for (const line of node.attrs.source.trimEnd().split("\n")) { state.write(line); state.ensureNewLine() }
     state.closeBlock(node)
   }
-}, baseMarkdownSerializer.marks)
+}, { ...baseMarkdownSerializer.marks, strikethrough: { open: "~~", close: "~~", mixable: true, expelEnclosingWhitespace: true } }, { escapeExtraCharacters: /~/g })
 
 const presentationOpen = /^::: \{\.presentation(?: #([a-zA-Z][\w-]*))?(?: theme="(coplan|graphite)")?\}$/
 function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false) {
@@ -261,7 +292,7 @@ export function parseDocument(markdown) {
       const text = source.slice(start, end)
       try {
         const parsed = richMarkdownParser.parse(text)
-        if (parsed.firstChild?.type.name !== "code_block" && /~~|\]\s*\[|\]\(mention:|<\/?[a-z!]|^\s*(?:>\s*)*(?:[-*+]|\d+[.)]) \[[ xX]\]|^\s*\[[^\]]+\]:|^:::(?: \{\.presentation.*\})?$/im.test(text)) throw new Error("preserve")
+        if (parsed.firstChild?.type.name !== "code_block" && /\]\s*\[|<\/?[a-z!]|^\s*\[[^\]]+\]:|^:::(?: \{\.presentation.*\})?$/im.test(text)) throw new Error("preserve")
         if (parsed.childCount !== 1) throw new Error("preserve")
         let node = schema.nodeFromJSON(parsed.firstChild.toJSON())
         node = node.type.create({ ...node.attrs, source: text, snapshot: signature(node) }, node.content, node.marks)
@@ -396,6 +427,76 @@ function preventTemplateNoteJoin(view, event, backward) {
   return true
 }
 
+function taskItemNodeView(node) {
+  if (node.attrs.checked === null) return null
+  const { dom, contentDOM } = DOMSerializer.renderSpec(document, node.type.spec.toDOM(node))
+  const checkbox = dom.querySelector("input")
+  return { dom, contentDOM, update(next) {
+    if (next.type !== node.type || next.attrs.checked === null) return false
+    // Keep the checkbox DOM stable for keyboard focus while text or state changes.
+    checkbox.checked = next.attrs.checked
+    checkbox.setAttribute("aria-label", `Task: ${next.firstChild.textContent}`)
+    dom.dataset.coplanTask = String(next.attrs.checked)
+    node = next
+    return true
+  } }
+}
+
+function hiddenCommentBlocks(state) {
+  const blocks = []
+  let supported = true
+  state.doc.nodesBetween(state.selection.from, state.selection.to, (node, position, parent) => {
+    if (parent !== state.doc) return false
+    if (node.type === schema.nodes.preserved && !node.attrs.source.trim()) return false
+    if (!["paragraph", "heading", "code_block", "template_note"].includes(node.type.name)) { supported = false; return false }
+    node.forEach(child => { if (!child.isText && child.type.name !== "hard_break") supported = false })
+    blocks.push({ node, position })
+    return false
+  })
+  return supported ? blocks : []
+}
+function setTextStyle(type, attrs = null) {
+  return (state, dispatch) => {
+    const { from, to } = state.selection
+    const notes = []
+    state.doc.nodesBetween(from, to, (node, position) => {
+      if (node.type === schema.nodes.template_note) { notes.push({ node, position }); return false }
+    })
+    if (!notes.length) return setBlockType(type, attrs)(state, dispatch)
+    if (dispatch) {
+      const tr = state.tr
+      for (const { node, position } of notes.toReversed()) {
+        const content = []
+        node.textContent.split("\n").forEach((line, index) => {
+          if (index) content.push(type === schema.nodes.code_block ? schema.text("\n") : schema.nodes.hard_break.create())
+          if (line) content.push(schema.text(line))
+        })
+        tr.replaceWith(position, position + node.nodeSize, type.create(attrs, content))
+      }
+      tr.setSelection(TextSelection.between(tr.doc.resolve(from), tr.doc.resolve(to)))
+      tr.setBlockType(from, to, type, attrs)
+      dispatch(closeHistory(tr))
+    }
+    return true
+  }
+}
+function setHiddenComment(state, dispatch) {
+  const blocks = hiddenCommentBlocks(state)
+  if (!blocks.length) return false
+  if (dispatch) {
+    const tr = state.tr
+    for (const { node, position } of blocks.toReversed()) {
+      if (node.type === schema.nodes.template_note) continue
+      const text = node.textBetween(0, node.content.size, "", "\n")
+      tr.replaceWith(position, position + node.nodeSize, schema.nodes.template_note.create(
+        { opening: "<!-- ", closing: " -->" }, text ? schema.text(text) : null))
+    }
+    tr.setSelection(TextSelection.between(tr.doc.resolve(state.selection.from), tr.doc.resolve(state.selection.to)))
+    dispatch(closeHistory(tr))
+  }
+  return true
+}
+
 export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = []) {
   let rangeDoc, ranges, previewOffsetTimer, editingLanguage = false
   const sourceRangeAt = (view, position) => {
@@ -433,17 +534,30 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       "Mod-Shift-7": proseCommand(wrapInList(schema.nodes.ordered_list)), "Mod-Shift-8": proseCommand(wrapInList(schema.nodes.bullet_list)),
       "Mod-Alt-0": proseCommand(setBlockType(schema.nodes.paragraph)), "Mod-Alt-1": proseCommand(setBlockType(schema.nodes.heading, { level: 1 })),
       "Mod-Alt-2": proseCommand(setBlockType(schema.nodes.heading, { level: 2 })), "Mod-Alt-3": proseCommand(setBlockType(schema.nodes.heading, { level: 3 })),
-      Enter: chainCommands(codeNewline, splitListItem(schema.nodes.list_item)), Tab: chainCommands(indentCode, sinkListItem(schema.nodes.list_item)),
+      Enter: chainCommands(codeNewline, (state, dispatch) => {
+        const { $from } = state.selection
+        const task = $from.depth >= 2 && $from.node(-1).type === schema.nodes.list_item && $from.node(-1).attrs.checked !== null
+        return splitListItem(schema.nodes.list_item, task ? { checked: false } : null)(state, dispatch)
+      }), Tab: chainCommands(indentCode, sinkListItem(schema.nodes.list_item)),
       Backspace: chainCommands(undoInputRule, liftEmptyListItem),
       "Shift-Tab": liftListItem(schema.nodes.list_item)
     }), keymap(baseKeymap)]
   })
   const view = new EditorView(element, {
     state, nodeViews: {
+      list_item: taskItemNodeView,
       preserved: (node, view, getPos) => sourceNodeView(node, view, getPos, preview, sourceRangeAt),
       code_block: (node, view, getPos) => codeNodeView(node, view, getPos, preview, sourceRangeAt)
     }, attributes: { class: "markdown-rendered", role: "textbox", "aria-label": "Document body", "aria-multiline": "true" },
     handleDOMEvents: {
+      change(view, event) {
+        if (!event.target.matches("input[data-coplan-task-checkbox]")) return false
+        const position = view.posAtDOM(event.target.closest("li"), 0) - 1
+        const node = view.state.doc.nodeAt(position)
+        if (node?.type !== schema.nodes.list_item || node.attrs.checked === null) return false
+        view.dispatch(closeHistory(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, checked: event.target.checked })))
+        return true
+      },
       keydown(view, event) {
         return ["Backspace", "Delete"].includes(event.key) && preventTemplateNoteJoin(view, event, event.key === "Backspace")
       },
@@ -482,6 +596,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       // A note must never serialize text outside its HTML comment wrapper.
       if (transaction.docChanged && hasInvalidTemplateNote(transaction.doc)) {
         view.updateState(view.state)
+        selectionChanged(toolbarState(view.state))
         element.dispatchEvent(new CustomEvent("coplan:template-note-rejected", { bubbles: true }))
         return
       }
@@ -620,10 +735,11 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
     },
     sourceRange(position) { return sourceRangeAt(view, position) },
     command(name, value) {
-      if (selectionTouchesTemplateNote(view.state) && !["undo", "redo"].includes(name)) { view.focus(); return false }
+      if (selectionTouchesTemplateNote(view.state) && !["undo", "redo", "paragraph", "heading", "code_block", "hidden_comment"].includes(name)) { view.focus(); return false }
       const commands = {
         bold: toggleMark(schema.marks.strong), italic: toggleMark(schema.marks.em),
-        heading: setBlockType(schema.nodes.heading, { level: Number(value || 2) }), paragraph: setBlockType(schema.nodes.paragraph), code_block: setBlockType(schema.nodes.code_block),
+        heading: setTextStyle(schema.nodes.heading, { level: Number(value || 2) }), paragraph: setTextStyle(schema.nodes.paragraph), code_block: setTextStyle(schema.nodes.code_block),
+        hidden_comment: setHiddenComment,
         bullet: chainCommands(liftListItem(schema.nodes.list_item), wrapInList(schema.nodes.bullet_list)), ordered: chainCommands(liftListItem(schema.nodes.list_item), wrapInList(schema.nodes.ordered_list)),
         quote: chainCommands(lift, wrapIn(schema.nodes.blockquote)), code: toggleMark(schema.marks.code), undo, redo
       }
@@ -757,7 +873,8 @@ function toolbarState(state) {
   const ancestor = name => { for (let depth = $from.depth; depth > 0; depth--) if ($from.node(depth).type.name === name) return $from.node(depth); return null }
   return { bold: markActive("strong"), italic: markActive("em"), code: markActive("code"), link: markActive("link"),
     bullet: !!ancestor("bullet_list"), ordered: !!ancestor("ordered_list"), quote: !!ancestor("blockquote"),
-    heading: ancestor("code_block") ? "code" : ancestor("heading")?.attrs.level || 0,
+    heading: ancestor("template_note") ? "comment" : ancestor("code_block") ? "code" : ancestor("heading")?.attrs.level || 0,
+    canHideComment: hiddenCommentBlocks(state).length > 0,
     templateNote: selectionTouchesTemplateNote(state), undo: undo(state), redo: redo(state) }
 }
 
