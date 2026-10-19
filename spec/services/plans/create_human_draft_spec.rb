@@ -14,6 +14,7 @@ RSpec.describe CoPlan::Plans::CreateHumanDraft do
 
   it "returns one document for retries and does not overwrite subsequent edits" do
     first = create_draft
+    expect(first).to be_published
     CoPlan::Plans::ReplaceContent.call(plan: first, new_content: "Later edit", base_revision: 1, actor_type: "human", actor_id: user.id)
     expect { expect(create_draft(creation_key: key.upcase).id).to eq(first.id) }.not_to change(CoPlan::Plan, :count)
     expect(first.reload.current_content).to eq("Later edit")
@@ -27,7 +28,15 @@ RSpec.describe CoPlan::Plans::CreateHumanDraft do
     expect(create_draft(user: other).id).not_to eq(first.id)
   end
 
-  it "creates a typed folder draft once without an alias for an untitled path" do
+  it "preserves an existing private plan's visibility on a retried save" do
+    first = create_draft
+    first.update!(visibility: "draft")
+
+    expect(create_draft.id).to eq(first.id)
+    expect(first.reload).to be_draft
+  end
+
+  it "creates a typed shared plan once with an alias from its titled root path" do
     folder = create(:folder, created_by_user: user)
     type = create(:plan_type, name: "Research", default_tags: [ "research" ])
     aliases_before = CoPlan::UrlAlias.count
@@ -42,7 +51,9 @@ RSpec.describe CoPlan::Plans::CreateHumanDraft do
     expect(first.slug).to eq("latency-findings")
     expect(first.placement.folder).to eq(folder)
     expect(first.tag_names).to contain_exactly("research", "metrics")
-    expect(CoPlan::UrlAlias.count).to eq(aliases_before)
+    expect(CoPlan::UrlAlias.count).to eq(aliases_before + 1)
+    expect(CoPlan::UrlAlias.last).to have_attributes(
+      path: "#{user.library.handle}/latency-findings", target_path: first.url_path)
   end
 
   it "allows a corrected retry after validation fails" do
