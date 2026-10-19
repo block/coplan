@@ -302,7 +302,9 @@ RSpec.describe "Editor lists", type: :system do
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
-    expect(page).to have_css('.ProseMirror .document-editor__block-preview input[type="checkbox"]', wait: 20)
+    expect(page).to have_unchecked_field("Task: Keep this task", type: "checkbox", enable_aria_label: true, wait: 20)
+    expect(page).to have_css('.ProseMirror > ol[type="A"] > li .document-editor__task-content', text: "Keep this task")
+    expect(page).to have_no_css(".document-editor__block-header", text: "List")
     place_at_paragraph_end(".ProseMirror > p", "Outside")
     page.driver.browser.action.send_keys(" continued").perform
     editor.send_keys([ modifier, "s" ])
