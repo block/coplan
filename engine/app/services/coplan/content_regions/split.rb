@@ -21,7 +21,7 @@ module CoPlan
       def call
         lines = @source.split("\n", -1)
         markers = {}
-        Commonmarker.parse(@source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }).each do |node|
+        CoPlan::Markdown.parse(@source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }).each do |node|
           next unless node.type == :paragraph
           pos = node.source_position
           next unless pos[:start_line] == pos[:end_line]

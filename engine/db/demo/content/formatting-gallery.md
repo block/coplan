@@ -43,6 +43,23 @@ return to the editable text above the table, and the table should stay unchanged
 
 -
 
+## Try numbered and lettered lists
+
+In Edit, start a new paragraph and type `1)` followed by Space for a numbered
+list, or `A)` followed by Space for a lettered list. `1.` and lowercase `a)`
+also work. Enter continues the sequence. Backspace immediately after conversion
+restores the literal marker and space. On an empty final item, Backspace leaves
+the list; a second Backspace returns to the preceding item's text.
+
+1) First numbered step.
+2) Second numbered step.
+
+A) First uppercase lettered step.
+B) Second uppercase lettered step.
+
+a) First lowercase lettered step.
+b) Second lowercase lettered step.
+
 ## Two code languages
 
 ```ruby

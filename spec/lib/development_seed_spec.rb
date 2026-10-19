@@ -114,6 +114,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       formatting = seeded_plan("formatting-gallery").current_content
       expect(formatting).to include("## Try bullet editing", "Press Backspace", "Press Backspace again", "- Try continuing this list with Enter")
       expect(formatting).to include("- Item with a table.", "  | Alpha | Ready |", "blank item after this table")
+      expect(formatting).to include("## Try numbered and lettered lists", "1) First numbered step.", "A) First uppercase lettered step.", "a) First lowercase lettered step.")
 
       thread_count = CoPlan::CommentThread.count
       reference_count = gallery.references.count

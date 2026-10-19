@@ -35,6 +35,15 @@ RSpec.describe "Editor lists", type: :system do
     JS
   end
 
+  def place_at_paragraph_end(selector, text, depth: 1)
+    find(selector).click
+    expect(page).to have_css(selector, text:, exact_text: true) {
+      caret.values_at("depth", "text") == [ depth, text ]
+    }
+    page.driver.browser.action.send_keys(:end).perform
+    expect(page).to have_css(selector, text:, exact_text: true) { caret["offset"] == text.length }
+  end
+
   it "turns a leading asterisk and space into a bullet and immediately restores the literal marker with Backspace" do
     replace_body("*")
     expect(page).to have_no_css(".ProseMirror ul")
@@ -46,6 +55,60 @@ RSpec.describe "Editor lists", type: :system do
     expect(caret).to include("depth" => 1, "parent" => "paragraph")
     editor.send_keys("literal text")
     expect(editor.find("p").text).to eq("* literal text")
+  end
+
+  [ [ "1)", nil ], [ "1.", nil ], [ "A)", "A" ], [ "a)", "a" ], [ "Z)", "A" ] ].each do |marker, type|
+    it "creates a list with #{marker} and Space, restores its marker, and saves its style" do
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", type == "a" ? "dark" : "light")
+      replace_body(marker)
+      editor.send_keys(:space)
+      expect(page).to have_css(".ProseMirror > ol > li", count: 1)
+      expect(editor.find("ol")["type"].presence).to eq(type)
+      editor.send_keys(:backspace)
+      expect(page).to have_no_css(".ProseMirror ol")
+      expect(editor.find("p").text).to eq("#{marker} ")
+      replace_body(marker)
+      editor.send_keys(:space, "One", :enter, "Two", :enter)
+      expect(page).to have_css(".ProseMirror ol > li", count: 3)
+      editor.send_keys(:backspace)
+      expect(page).to have_css(".ProseMirror > p", count: 1)
+      expect(caret).to include("depth" => 1)
+      editor.send_keys(:backspace, " continued")
+      expect(page).to have_css(".ProseMirror > ol > li", count: 2)
+      expect(page).to have_no_css(".ProseMirror > p")
+      expect(editor.find("li:last-child").text).to eq("Two continued")
+      style = type == "A" ? "upper-alpha" : type == "a" ? "lower-alpha" : "decimal"
+      expect(page.evaluate_script('getComputedStyle(document.querySelector(".ProseMirror > ol")).listStyleType')).to eq(style)
+      snapshot = type ? "#{type == 'A' ? 'upper' : 'lower'}-#{marker[0].downcase}" : "number"
+      page.save_screenshot(Rails.root.join("tmp/editor-ordered-shortcut-#{snapshot}.png"))
+      editor.send_keys([ modifier, "s" ])
+      expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+      expect(plan.reload.current_content).to include(type ? "#{marker} One" : "1. One")
+      expect(plan.current_content).to include("AA) Two continued") if marker == "Z)"
+      visit plan_page_path(plan)
+      expect(page).to have_css("#plan-content-body ol > li", count: 2, wait: 20)
+      expect(find("#plan-content-body ol")["type"].presence).to eq(type)
+      visit plan_edit_page_path(plan)
+      expect(page).to have_css(".ProseMirror > ol > li", count: 2, wait: 20)
+      expect(editor.find("ol")["type"].presence).to eq(type)
+    end
+  end
+
+  [ [ "1)", "A)", [ nil, "A" ] ], [ "A)", "a)", [ "A", "a" ] ] ].each do |first, second, types|
+    it "keeps #{first} and #{second} in separate lists after saving" do
+      replace_body(first)
+      editor.send_keys(:space, "First", :enter, :enter, second, :space, "Second")
+      expect(page).to have_css(".ProseMirror > ol", count: 2)
+      expect(editor.all("ol").map { |list| list["type"].presence }).to eq(types)
+      editor.send_keys([ modifier, "s" ])
+      expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+      visit plan_page_path(plan)
+      expect(page).to have_css("#plan-content-body ol", count: 2, wait: 20)
+      expect(all("#plan-content-body ol").map { |list| list["type"].presence }).to eq(types)
+      visit plan_edit_page_path(plan)
+      expect(page).to have_css(".ProseMirror > ol", count: 2, wait: 20)
+      expect(editor.all("ol").map { |list| list["type"].presence }).to eq(types)
+    end
   end
 
   [ "Bullet list", "Numbered list" ].each do |button|
@@ -224,17 +287,63 @@ RSpec.describe "Editor lists", type: :system do
     end
   end
 
-  it "does not convert an asterisk inside prose or code" do
-    replace_body("Literal * ")
-    expect(page).to have_no_css(".ProseMirror ul")
+  it "keeps multiple lettered markers literal inside an HTML block" do
+    source = "<div>\nA) First literal\nB) Second literal\n</div>\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css(".ProseMirror .document-editor__block-preview", text: "A) First literal", wait: 20)
+    expect(page).to have_no_css(".ProseMirror ol")
+    expect(editor.text).to include("B) Second literal")
+  end
+
+  it "preserves lettered task lists when editing nearby text" do
+    source = "A) [ ] Keep this task\n\nOutside\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css('.ProseMirror .document-editor__block-preview input[type="checkbox"]', wait: 20)
+    place_at_paragraph_end(".ProseMirror > p", "Outside")
+    page.driver.browser.action.send_keys(" continued").perform
+    editor.send_keys([ modifier, "s" ])
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+    expect(plan.reload.current_content).to include("A) [ ] Keep this task", "Outside continued")
+  end
+
+  it "keeps letter-like markers literal inside a nested pipe-less table after saving" do
+    source = "AA) Parent\n\n    A) Name | State\n    --- | ---\n    B) Label | Ready\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css(".ProseMirror > ol > li", count: 1, wait: 20)
+    expect(page).to have_css(".ProseMirror li table th", text: "A) Name")
+    expect(page).to have_css(".ProseMirror li table td", text: "B) Label")
+    place_at_paragraph_end(".ProseMirror > ol > li > p", "Parent", depth: 3)
+    page.driver.browser.action.send_keys(" continued").perform
+    expect(page).to have_css(".ProseMirror > ol > li > p", text: "Parent continued", exact_text: true)
+    editor.send_keys([ modifier, "s" ])
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+    expect(plan.reload.current_content).to include("A) Name | State", "B) Label | Ready")
+    visit plan_page_path(plan)
+    expect(page).to have_css("#plan-content-body li table td", text: "B) Label", wait: 20)
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css(".ProseMirror li table th", text: "A) Name", wait: 20)
+  end
+
+  it "does not convert list markers inside prose or code" do
+    [ "*", "1)", "A)" ].each do |marker|
+      replace_body("Literal #{marker} ")
+      expect(page).to have_no_css(".ProseMirror ul, .ProseMirror ol")
+    end
     replace_body("code placeholder")
     select "Code block", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".ProseMirror pre")
     find(".ProseMirror pre > code").click
     page.driver.browser.action.key_down(modifier).send_keys("a").key_up(modifier).perform
     expect(caret).to include("parent" => "code_block")
-    page.driver.browser.action.send_keys("*", :space).perform
-    expect(page).to have_css(".ProseMirror pre", text: "*")
-    expect(page).to have_no_css(".ProseMirror ul")
+    page.driver.browser.action.send_keys("*", :space, :enter, "1)", :space, :enter, "A)", :space).perform
+    expect(page).to have_css(".ProseMirror pre", text: "1)")
+    expect(page).to have_css(".ProseMirror pre", text: "A)")
+    expect(page).to have_no_css(".ProseMirror ul, .ProseMirror ol")
   end
 end

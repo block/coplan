@@ -20,6 +20,7 @@ pin "prosemirror-inputrules", to: "https://esm.sh/prosemirror-inputrules@1.5.1?b
 pin "prosemirror-schema-list", to: "https://esm.sh/prosemirror-schema-list@1.5.1?bundle&external=prosemirror-model,prosemirror-state,prosemirror-view,prosemirror-transform,prosemirror-commands,prosemirror-keymap,prosemirror-history,prosemirror-schema-list,prosemirror-markdown", preload: false
 pin "prosemirror-markdown", to: "https://esm.sh/prosemirror-markdown@1.13.2?bundle&external=prosemirror-model,prosemirror-state,prosemirror-view,prosemirror-transform,prosemirror-commands,prosemirror-keymap,prosemirror-history,prosemirror-schema-list,prosemirror-markdown", preload: false
 pin "coplan/rich_document", to: "coplan/rich_document.js", preload: false
+pin "coplan/lettered_lists", to: "coplan/lettered_lists.js", preload: false
 pin "coplan/citation_labels", to: "coplan/citation_labels.js", preload: false
 pin "coplan/viewport_anchor", to: "coplan/viewport_anchor.js", preload: false
 pin "coplan/content_sections", to: "coplan/content_sections.js", preload: false
