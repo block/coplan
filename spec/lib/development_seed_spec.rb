@@ -112,7 +112,8 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(seeded_plan("mixed-slides").current_content).to include(described_class.demo_logo_url)
       expect(seeded_plan("formatting-gallery").current_content).not_to include("{{demo_logo_url}}", "/coplan-logo.png")
       formatting = seeded_plan("formatting-gallery").current_content
-      expect(formatting).to include("## Try bullet editing", "Press Backspace", "- Try continuing this list with Enter")
+      expect(formatting).to include("## Try bullet editing", "Press Backspace", "Press Backspace again", "- Try continuing this list with Enter")
+      expect(formatting).to include("- Item with a table.", "  | Alpha | Ready |", "blank item after this table")
 
       thread_count = CoPlan::CommentThread.count
       reference_count = gallery.references.count

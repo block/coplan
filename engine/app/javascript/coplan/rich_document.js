@@ -227,6 +227,20 @@ function liftEmptyListItem(state, dispatch) {
       $from.depth < 2 || $from.node(-1).type !== schema.nodes.list_item || $from.node(-1).childCount !== 1) return false
   return liftListItem(schema.nodes.list_item)(state, dispatch)
 }
+function joinParagraphToPreviousList(state, dispatch) {
+  const { empty, $from } = state.selection
+  if (!empty || $from.parent.type !== schema.nodes.paragraph || $from.parent.content.size || $from.parentOffset) return false
+  const previous = state.doc.resolve($from.before()).nodeBefore
+  if (![schema.nodes.bullet_list, schema.nodes.ordered_list].includes(previous?.type)) return false
+  // A textblock join cannot cross a preserved table at the end of a list.
+  // Remove only the empty paragraph, then skip atoms to the preceding text.
+  const position = $from.before()
+  const tr = state.tr.delete(position, $from.after())
+  const selection = TextSelection.findFrom(tr.doc.resolve(position), -1, true)
+  if (!selection) return false
+  if (dispatch) dispatch(tr.setSelection(selection).scrollIntoView())
+  return true
+}
 function preserved(source, kind = null, label = null) {
   if (!kind && source.trimStart().startsWith("[")) {
     const environment = {}
@@ -397,7 +411,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       "Mod-Alt-0": setBlockType(schema.nodes.paragraph), "Mod-Alt-1": setBlockType(schema.nodes.heading, { level: 1 }),
       "Mod-Alt-2": setBlockType(schema.nodes.heading, { level: 2 }), "Mod-Alt-3": setBlockType(schema.nodes.heading, { level: 3 }),
       Enter: chainCommands(codeNewline, splitListItem(schema.nodes.list_item)), Tab: chainCommands(indentCode, sinkListItem(schema.nodes.list_item)),
-      Backspace: chainCommands(undoInputRule, liftEmptyListItem),
+      Backspace: chainCommands(undoInputRule, liftEmptyListItem, joinParagraphToPreviousList),
       "Shift-Tab": liftListItem(schema.nodes.list_item)
     }), keymap(baseKeymap)]
   })
