@@ -22,7 +22,7 @@ Reconstruction changes attribution metadata only. It does not change document te
 
 A database-backed claim prevents separate workers from claiming the same document for five minutes; each committed checkpoint renews it. Computation occurs outside the document lock. A worker must still own the claim and checkpoint before saving its result. Older workers cannot overwrite a replacement worker's progress.
 
-The coordinator revisits pending documents after the lease horizon, recovering a worker that died before scheduling its continuation. Jobs also retry transient failures. Both jobs use priority 20 so normal work with default priority can run first. Startup coalescing uses the cache; document claims and progress do not depend on the cache.
+The coordinator revisits pending documents after the lease horizon, recovering a worker that died before scheduling its continuation. Jobs also retry transient failures. Both jobs use priority 20 so normal work with default priority can run first. Startup, document claims, and progress do not depend on the cache database. Multiple boot scans can run safely: only one can claim a particular document.
 
 Watch the normal job failure/retry dashboard and the pending document count. In a Rails console:
 

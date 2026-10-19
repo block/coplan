@@ -1,13 +1,12 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::WritingProvenanceBackfillJob do
-  it "coalesces startup scans and tolerates an unavailable queue database" do
-    cache = ActiveSupport::Cache::MemoryStore.new
-    allow(Rails).to receive(:cache).and_return(cache)
+  it "starts independently of the cache and tolerates an unavailable queue database" do
+    expect(Rails).not_to receive(:cache)
     allow(described_class).to receive(:perform_later).and_raise(StandardError, "queue unavailable")
     expect { described_class.start }.not_to raise_error
     allow(described_class).to receive(:perform_later).and_call_original
-    expect { 2.times { described_class.start } }.to have_enqueued_job(described_class).exactly(:once)
+    expect { described_class.start }.to have_enqueued_job(described_class).exactly(:once)
   end
   it "automatically requests existing histories and schedules crash recovery" do
     plan = CoPlan::Plans::Create.call(title: "Old", content: "Editor", user: create(:coplan_user), actor_type: "human")

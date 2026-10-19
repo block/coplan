@@ -7,13 +7,8 @@ module CoPlan
 
     def self.start
       return unless Plan.table_exists? && Plan.column_names.include?("writing_provenance_backfill")
-      key = "coplan/writing-provenance-coordinator-start"
-      return unless Rails.cache.write(key, true, unless_exist: true, expires_in: Plans::WritingProvenanceBackfill::LEASE)
-      job = perform_later
-      Rails.cache.delete(key) unless job&.successfully_enqueued?
-      job
+      perform_later
     rescue StandardError => error
-      Rails.cache.delete(key) if key
       Rails.logger.warn("Writing provenance backfill will start on the next boot: #{error.class}")
     end
 
