@@ -30,6 +30,12 @@ paragraphs below a list disappear one at a time. If the previous item ends in
 a table, Backspace moves to the nearest preceding editable text and preserves
 the table.
 
+Typing `1) ` or `1. ` at the start of a paragraph creates a numbered list.
+Typing `A) ` creates an uppercase lettered list; `a) ` creates a lowercase one.
+Enter continues the sequence. Immediate Backspace restores the typed marker
+and space. Empty items use the same two-Backspace exit as bullets. Lettered
+lists keep their markers in Raw mode, reading mode, and after reopening.
+
 The toolbar stays visible in all modes. Formatting and code insertion are disabled
 while Raw has focus, including in Dual; Undo and Redo still act on the focused pane.
 Save feedback sits at the far right: a muted clock while autosave is queued,

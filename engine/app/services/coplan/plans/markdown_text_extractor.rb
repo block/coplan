@@ -25,7 +25,7 @@ module CoPlan
         # different grammar than we wrote it with is how `[^note]` ended up
         # here verbatim while the reader saw a superscript number — and a
         # comment selected across that citation could never be placed.
-        doc = Commonmarker.parse(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS })
+        doc = CoPlan::Markdown.parse(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS })
         byte_to_char = build_byte_to_char_map
         line_byte_offsets = build_line_byte_offsets
         stripped = +""

@@ -38,6 +38,8 @@ RSpec.describe "Template notes in the document editor", type: :system do
           "Visible prose.\n<!-- one -->\n<!-- two -->\n",
           "Visible <em>prose</em>.\n<!-- guidance -->\n",
           "- Item\n  <!-- nested note -->\n",
+          "A) Item\n   <!-- nested note -->\n",
+          "a) [ ] Task\n   <!-- nested note -->\n",
           "> <!-- quoted note -->\n",
           "<script>\n<!-- script comment -->\n</script>\n"
         ];
@@ -49,7 +51,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
       }).catch(error => done({ error: error.message }));
     JS
     expect(result).to all(include("exact" => true))
-    expect(result.map { |entry| entry.fetch("notes") }).to eq([ 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 1, 0, 0, 0 ])
+    expect(result.map { |entry| entry.fetch("notes") }).to eq([ 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 1, 0, 0, 0, 0, 0 ])
     templates = Dir[CoPlan::Engine.root.join("db/default_plan_types/*.md")].map do |path|
       content = File.read(path)
       notes = CoPlan::ContentRegions::Split.call(content).regions

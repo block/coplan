@@ -62,7 +62,7 @@ module CoPlan
       # comment-only HTML blocks (speaker notes, the renderer's preamble
       # sentinel) and footnote definitions (back matter, not slide content).
       def content_sequence
-        doc = Commonmarker.parse(@source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS })
+        doc = CoPlan::Markdown.parse(@source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS })
         doc.each.reject do |node|
           node.type == :footnote_definition ||
             (node.type == :html_block && comment_only?(node))

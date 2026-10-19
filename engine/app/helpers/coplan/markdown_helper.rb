@@ -17,7 +17,7 @@ module CoPlan
       section
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title width target rel type checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-reference-type data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
+    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title width target rel type start checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-reference-type data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
 
     # Commonmarker extensions beyond the gem defaults (tables, tasklist,
     # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
@@ -35,7 +35,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 21
+    RENDER_CACHE_VERSION = 22
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -66,7 +66,7 @@ module CoPlan
       # Sourcepos wires checkboxes and structural comment targets to source;
       # it is stripped after generating trusted interaction metadata.
       render_options[:sourcepos] = true if interactive || content.to_s.include?(ContentRegions::Iframe::PREFIX)
-      html = Commonmarker.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
+      html = CoPlan::Markdown.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
@@ -168,7 +168,7 @@ module CoPlan
     def markdown_to_plain_text(content)
       source = content.to_s.encode("UTF-8")
       source = ContentRegions::Split.call(source).canonical_source if source.include?("::: {.presentation")
-      html = Commonmarker.to_html(source, options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
+      html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
       Nokogiri::HTML::DocumentFragment.parse(html).text.squish
     end
 

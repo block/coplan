@@ -31,6 +31,13 @@ Extra empty paragraphs disappear one at a time. If the previous item ends in
 a table, the caret moves to the nearest preceding editable text. The table
 stays unchanged. Raw mode keeps the characters as Markdown.
 
+Typing `1) ` or `1. ` creates a numbered list. Typing `A) ` creates an uppercase
+lettered list; `a) ` creates a lowercase one. Enter continues the sequence.
+Immediate Backspace restores the typed marker and space. Empty items exit
+with the same Backspace behavior as bullets. Write lettered lists as `A)`,
+`B)`, and so on (or lowercase). They stay editable and keep their lettering
+when saved, rendered, or reopened. Markers inside code and tables stay literal.
+
 ## Tables
 
 Use a standard pipe table when each item has two or more attributes:

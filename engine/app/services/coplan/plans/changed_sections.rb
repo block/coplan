@@ -91,7 +91,7 @@ module CoPlan
       end
 
       def self.sections(markdown)
-        html = Commonmarker.to_html(
+        html = CoPlan::Markdown.to_html(
           markdown.to_s.encode("UTF-8"),
           options: { extension: MarkdownHelper::EXTENSION_OPTIONS, render: { unsafe: true } },
           plugins: { syntax_highlighter: nil }
