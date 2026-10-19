@@ -132,7 +132,10 @@ RSpec.describe "Editor lists", type: :system do
     replace_body("*")
     editor.send_keys(:space, "One", :enter, :enter, "Outside")
     7.times { page.driver.browser.action.send_keys(:arrow_left).perform }
-    expect(caret).to include("depth" => 1, "offset" => 0)
+    # The browser's selectionchange reaches the editor after the key event.
+    expect(page).to have_css(".ProseMirror > p", text: "Outside", exact_text: true) {
+      caret.values_at("depth", "offset") == [ 1, 0 ]
+    }
     page.driver.browser.action.send_keys(:backspace).perform
     expect(page).to have_css(".ProseMirror li", count: 2)
     expect(editor.find("li:first-child").text).to eq("One")
