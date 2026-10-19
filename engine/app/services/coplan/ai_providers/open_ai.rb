@@ -91,6 +91,8 @@ module CoPlan
         raise Error, "No response content from OpenAI" if content.blank?
 
         content
+      rescue Faraday::Error => e
+        raise Error, "Chat request failed: #{e.message}"
       end
 
       class Error < StandardError; end

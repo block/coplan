@@ -1841,52 +1841,6 @@ img.avatar {
   .section-update-marker { transition: none; }
 }
 
-.changed-sections-note {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs) var(--space-md);
-  padding: var(--space-sm) 0;
-  margin-bottom: var(--space-lg);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-}
-
-/* Keep the notice's footprint even before the first live update. Override
-   the global [hidden] display rule only for this reserved reading space. */
-.changed-sections-note[hidden] { display: flex !important; visibility: hidden; }
-.changed-sections-note--dismissed,
-[data-editing="true"] .changed-sections-note { visibility: hidden; }
-.changed-sections-note__summary { flex: 1 1 16rem; }
-.changed-sections-note__controls { display: flex; align-items: center; gap: var(--space-sm); }
-
-.changed-sections-note button,
-.changed-sections-note a {
-  border: 0;
-  border-radius: var(--radius);
-  padding: 4px 6px;
-  background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  white-space: nowrap;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.changed-sections-note button:hover,
-.changed-sections-note a:hover {
-  color: var(--color-primary);
-  background: var(--color-interaction-hover-bg);
-}
-
-.changed-sections-note button:focus-visible,
-.changed-sections-note a:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
 /* Rendered markdown */
 .markdown-rendered h1,
 .markdown-rendered h2,
@@ -3538,12 +3492,6 @@ img.avatar {
 .content-nav-show-btn:hover {
   color: var(--color-text);
   box-shadow: var(--shadow-pop);
-}
-
-.content-nav-show-btn--floating {
-  position: absolute;
-  top: var(--space-sm);
-  z-index: 1;
 }
 
 .content-nav-show-btn kbd {
@@ -7457,24 +7405,8 @@ img.avatar {
     padding: var(--space-lg);
   }
 
-  .changed-sections-note {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-xs);
-    padding: var(--space-sm);
-  }
 
-  .changed-sections-note__summary {
-    flex: none;
-    min-height: 1.5em;
-    line-height: 1.5;
-  }
 
-  .changed-sections-note__controls :is(a, button) {
-    min-height: 36px;
-    display: inline-flex;
-    align-items: center;
-  }
 
   .references-section,
   .attachments-section {
@@ -7521,10 +7453,6 @@ img.avatar {
   }
 }
 
-/* The summary wraps on small phones; reserve the same room for live edits. */
-@media (max-width: 360px) {
-  .changed-sections-note__summary { min-height: 3em; }
-}
 
 /* ═══ Expanded view ═══════════════════════════════════════════════════════
    The shared takeover surface (coplan/expander.js) behind an expanded

@@ -137,6 +137,21 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       }.to raise_error(CoPlan::AiProviders::OpenAi::Error, "No response content from OpenAI")
     end
 
+    [ Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::ServerError ].each do |error_class|
+      it "wraps #{error_class} as a provider error and preserves the cause" do
+        failure = error_class.new('503 "Service Unavailable"')
+        mock_client = instance_double(OpenAI::Client)
+        allow(OpenAI::Client).to receive(:new).and_return(mock_client)
+        allow(mock_client).to receive(:chat).and_raise(failure)
+
+        expect {
+          described_class.call(system_prompt: system_prompt, user_content: user_content)
+        }.to raise_error(described_class::Error, 'Chat request failed: 503 "Service Unavailable"') { |error|
+          expect(error.cause).to equal(failure)
+        }
+      end
+    end
+
     it "raises an error when API key is not configured" do
       allow(CoPlan.configuration).to receive(:ai_api_key).and_return(nil)
       allow(ENV).to receive(:[]).with("OPENAI_API_KEY").and_return(nil)
