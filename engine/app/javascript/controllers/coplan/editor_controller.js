@@ -26,6 +26,7 @@ export default class extends Controller {
       if (!this.active) return
       this.merge = merge
       this.richModule = rich
+      this.InputOrigins = origins.InputOrigins
       this.inputOrigins = new origins.InputOrigins(this.textareaTarget.value, this.recoveredDraft?.data?.inputOrigins)
       this.mode = "rich"
       this.richEditor = rich.createRichDocument(this.surfaceTarget, this.textareaTarget.value,
@@ -595,6 +596,7 @@ export default class extends Controller {
     if (event.newState !== "open") return
     this.richEditor.captureSelection()
     this.newLanguageTarget.value = ""
+    this.customLanguageOrigin = "human"
     this.filterCodeLanguages()
     this.positionCodePicker(true)
   }
@@ -616,7 +618,8 @@ export default class extends Controller {
     picker.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`
     picker.style.top = `${above ? Math.max(8, rect.top - picker.offsetHeight - 6) : rect.bottom + 6}px`
   }
-  filterCodeLanguages() {
+  filterCodeLanguages(event) {
+    if (event?.type === "input" && !/^(insertText|insertCompositionText|delete)/.test(event.inputType || "")) this.customLanguageOrigin = "unknown"
     const query = this.newLanguageTarget.value.trim().toLowerCase()
     for (const option of this.codeOptionTargets) {
       option.hidden = !`${option.textContent} ${option.dataset.language}`.toLowerCase().includes(query)
@@ -648,9 +651,9 @@ export default class extends Controller {
   }
   insertCode() {
     const selected = this.codeOptionTargets.find(option => !option.hidden && option.getAttribute("aria-selected") === "true")
-    this.insertCodeLanguage(selected?.dataset.language ?? this.newLanguageTarget.value.trim())
+    this.insertCodeLanguage(selected?.dataset.language ?? this.newLanguageTarget.value.trim(), selected ? "human" : this.customLanguageOrigin || "unknown")
   }
-  insertCodeLanguage(language) {
+  insertCodeLanguage(language, origin = "human") {
     if (this.editor !== this.richEditor) return
     if (/[\r\n`]/.test(language)) {
       this.newLanguageTarget.setCustomValidity("Use a language without backticks or line breaks.")
@@ -660,7 +663,7 @@ export default class extends Controller {
     }
     this.newLanguageTarget.setCustomValidity("")
     this.newLanguageTarget.closest("[popover]").hidePopover()
-    this.richEditor.insertCode(language)
+    this.richEditor.insertCode(language, origin)
   }
   deleteCode(event) {
     const position = event.currentTarget.closest(".document-editor__block").coplanPosition()
@@ -675,7 +678,7 @@ export default class extends Controller {
       const content = event.currentTarget.value
       return parts.before + content + (content.endsWith("\n") ? "" : "\n") + parts.after
     })() : event.currentTarget.value
-    const inputKind = /paste|drop|history/i.test(event.inputType || "") ? "unknown" : "human"
+    const inputKind = /^(insertText|insertCompositionText|insertLineBreak|delete)/.test(event.inputType || "") ? "human" : "unknown"
     this.richEditor.setBlockSource(position, source, inputKind)
     // Structural separator lines must not alter the field while it is being
     // typed into (including native select-all replacement).
@@ -703,7 +706,7 @@ export default class extends Controller {
   embedChanged(event) {
     const block = event.currentTarget.closest(".document-editor__block")
     const attrs = Object.fromEntries(Array.from(block.querySelectorAll("[data-embed-attribute]"), input => [input.dataset.embedAttribute, input.value]))
-    const inputKind = /paste|drop|history/i.test(event.inputType || "") ? "unknown" : "human"
+    const inputKind = /^(insertText|insertCompositionText|delete)/.test(event.inputType || "") ? "human" : "unknown"
     this.richEditor.setBlockSource(block.coplanPosition(), this.richModule.iframeSource(attrs), inputKind)
   }
   deleteContentBlock(event) {
@@ -759,6 +762,7 @@ export default class extends Controller {
     this.citationOriginal = definition?.source || null
     this.citationTitleTarget.textContent = `Citation: ${this.citationLabel}`
     this.citationBodyTarget.value = definition?.body || ""
+    this.citationOrigins = new this.InputOrigins(this.citationBodyTarget.value)
     this.citationErrorTarget.textContent = ""
     this.citationDialogTarget.showModal()
     this.citationBodyTarget.focus({ preventScroll: true })
@@ -770,6 +774,11 @@ export default class extends Controller {
   findCitationDefinition(content) {
     const key = this.richModule.citationLabelKey(this.citationLabel)
     return this.richModule.citationDefinitions(content).find(d => this.richModule.citationLabelKey(d.label) === key)
+  }
+  citationInput(event) {
+    const type = event.inputType || ""
+    const kind = type.startsWith("history") ? "history" : /^(insertText|insertCompositionText|insertLineBreak|delete)/.test(type) ? "human" : "unknown"
+    this.citationOrigins?.record(event.target.value, kind)
   }
   async saveCitation() {
     const body = this.citationBodyTarget.value.trim()
@@ -783,7 +792,20 @@ export default class extends Controller {
     const lines = body.split("\n")
     const source = `[^${definition?.label ?? this.citationLabel}]: ${lines[0]}\n` + lines.slice(1).map(line => `    ${line}\n`).join("")
     const from = definition?.from ?? content.length, to = definition?.to ?? content.length
-    this.richEditor.replaceSource(from, to, definition ? source : `${content.endsWith("\n\n") ? "" : "\n\n"}${source}`)
+    this.citationOrigins.record(this.citationBodyTarget.value, "unknown")
+    this.citationOrigins.record(body, "unknown")
+    const bodyRuns = this.citationOrigins.payload().runs
+    const lead = definition || content.endsWith("\n\n") ? "" : "\n\n"
+    const runs = [[from, "unknown"], [lead.length, "human"]]
+    let offset = 0
+    lines.forEach((line, index) => {
+      const prefix = index ? "    " : `[^${definition?.label ?? this.citationLabel}]: `
+      runs.push([prefix.length, "human"], ...this.InputOrigins.slice(bodyRuns, offset, offset + line.length), [1, "human"])
+      offset += line.length + 1
+    })
+    runs.push([content.length - to, "unknown"])
+    const replacement = lead + source
+    this.richEditor.replaceSource(from, to, replacement, {source: content.slice(0, from) + replacement + content.slice(to), runs: runs.filter(([length]) => length > 0)})
     this.citationOriginal = source
     this.citationSaveTarget.disabled = true
     this.citationSaveTarget.textContent = "Saving…"
@@ -816,7 +838,8 @@ export default class extends Controller {
   languageChanged(event) {
     event.stopPropagation()
     const position = event.currentTarget.closest(".document-editor__block").coplanPosition()
-    if (!this.richEditor.setLanguage(position, event.currentTarget.value)) {
+    const kind = /^(insertText|insertCompositionText|delete)/.test(event.inputType || "") ? "human" : "unknown"
+    if (!this.richEditor.setLanguage(position, event.currentTarget.value, kind)) {
       event.currentTarget.setCustomValidity("Use a language or fence info string without backticks or line breaks.")
       event.currentTarget.reportValidity()
     } else event.currentTarget.setCustomValidity("")

@@ -16,6 +16,17 @@ export class InputOrigins {
 
   record(content, kind = "unknown") {
     if (content === this.content) return
+    if (kind && typeof kind === "object") {
+      this.flush()
+      const runs = kind.runs
+      const valid = kind.source === content && Array.isArray(runs) && runs.length <= 4096 &&
+        runs.every(run => Array.isArray(run) && Number.isInteger(run[0]) && run[0] > 0 && ["human", "unknown"].includes(run[1])) &&
+        runs.reduce((sum, run) => sum + run[0], 0) === content.length
+      this.content = content
+      this.kind = "unknown"
+      this.flush(valid ? runs : null)
+      return
+    }
     const history = kind === "history"
     kind = kind === "human" ? "human" : "unknown"
     if (kind !== this.kind || history) this.flush()
@@ -27,7 +38,9 @@ export class InputOrigins {
     this.content = content
   }
 
-  flush() {
+  static slice(runs, from, to) { return slice(runs, from, to) }
+
+  flush(evidence = null) {
     if (this.source === this.content) return
     const before = this.source, after = this.content
     let prefix = 0, suffix = 0
@@ -39,8 +52,13 @@ export class InputOrigins {
     const edits = oldMiddle.length * newMiddle.length > 1_000_000 ?
       [{from: prefix, to: before.length - suffix, text: newMiddle, kind: "unknown"}] :
       textHunks(oldMiddle, newMiddle).map(edit => ({...edit, from: edit.from + prefix, to: edit.to + prefix, kind: this.kind}))
+    let delta = 0
+    for (const edit of edits) {
+      edit.runs = evidence ? slice(evidence, edit.from + delta, edit.from + delta + edit.text.length) : [[edit.text.length, edit.kind]]
+      delta += edit.text.length - (edit.to - edit.from)
+    }
     for (const edit of edits.reverse()) {
-      this.runs = coalesce([...slice(this.runs, 0, edit.from), [edit.text.length, edit.kind], ...slice(this.runs, edit.to, this.runs.reduce((sum, run) => sum + run[0], 0))])
+      this.runs = coalesce([...slice(this.runs, 0, edit.from), ...edit.runs, ...slice(this.runs, edit.to, this.runs.reduce((sum, run) => sum + run[0], 0))])
     }
     if (this.runs.length > 4096) this.runs = [[after.length, "unknown"]]
     this.source = after

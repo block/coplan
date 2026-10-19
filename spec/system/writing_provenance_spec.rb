@@ -16,6 +16,61 @@ RSpec.describe "Writing provenance", type: :system do
     expect(page).to have_text("All changes saved")
   end
 
+  def writing_kind(text)
+    snapshot = plan.reload.current_plan_version.writing_provenance
+    offset = plan.current_content.index(text)
+    raise "Missing #{text}" unless offset
+    cursor = 0
+    run = snapshot.fetch("runs").find { |length, _| cursor += length; cursor > offset }
+    snapshot.fetch("sources").fetch(run.last).fetch("kind")
+  end
+
+  it "keeps mixed typed and pasted citation text separate from retained agent writing" do
+    content = "Read source[^ref].\n\n[^ref]: Original evidence.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "local_agent", actor_id: user.id)
+    open_editor
+    click_button "Edit citation ref", enable_aria_label: true
+    body = find('#coplan-citation-body')
+    body.send_keys([ :control, "a" ], "typedcitation ")
+    page.execute_script(<<~JS, body)
+      const field = arguments[0]
+      const pasted = 'pastedcitation😀\\nhttps://pasted.example.com'
+      field.setRangeText(pasted, field.selectionStart, field.selectionEnd, 'end')
+      field.dispatchEvent(new InputEvent('input', {inputType:'insertFromPaste', data:pasted, bubbles:true}))
+    JS
+    body.send_keys(" humanending")
+    click_button "Save citation"
+    expect(page).to have_no_css('dialog[open]', wait: 20)
+    expect(writing_kind("Read source")).to eq("ai")
+    expect(writing_kind("typedcitation")).to eq("human")
+    expect(writing_kind("pastedcitation")).to eq("unknown")
+    expect(writing_kind("😀")).to eq("unknown")
+    expect(writing_kind("https://pasted.example.com")).to eq("unknown")
+    expect(writing_kind("humanending")).to eq("human")
+  end
+
+  it "leaves native link-prompt input unknown and distinguishes pasted code-language fields" do
+    content = "# Delivery\n\nLink label\n\n```ruby\nputs 'hello'\n```\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "local_agent", actor_id: user.id)
+    open_editor
+    page.execute_script(<<~JS)
+      const node = document.querySelector('[aria-label="Document body"] p').firstChild
+      const range = document.createRange(); range.selectNodeContents(node)
+      const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range)
+      document.querySelector('[aria-label="Document body"]').focus()
+    JS
+    accept_prompt(with: "https://pasted.example.com") { click_button "Link", exact: true, enable_aria_label: true }
+    expect(page).to have_css('#writing-provenance[data-coplan--writing-provenance-revision-value="3"]', wait: 20)
+    expect(writing_kind("pasted.example.com")).to eq("unknown")
+    language = find('[aria-label="Code language"]')
+    page.execute_script(<<~JS, language)
+      arguments[0].value = 'pasted-language'
+      arguments[0].dispatchEvent(new InputEvent('input', {inputType:'insertFromPaste', bubbles:true}))
+    JS
+    expect(page).to have_css('#writing-provenance[data-coplan--writing-provenance-revision-value="4"]', wait: 20)
+    expect(writing_kind("pasted-language")).to eq("unknown")
+  end
+
   it "explains the inspection limit while keeping named percentages usable" do
     plan
     stub_const("CoPlan::Plans::WritingProvenance::MAX_INSPECTION_CHARACTERS", 4)

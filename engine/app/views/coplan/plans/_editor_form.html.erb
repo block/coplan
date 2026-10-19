@@ -132,7 +132,7 @@
       <button type="button" aria-label="Close citation editor" data-action="coplan--editor#closeCitation">×</button>
     </div>
     <label for="coplan-citation-body">Citation text and source links</label>
-    <textarea id="coplan-citation-body" rows="8" data-coplan--editor-target="citationBody"></textarea>
+    <textarea id="coplan-citation-body" rows="8" data-coplan--editor-target="citationBody" data-action="input->coplan--editor#citationInput"></textarea>
     <p class="document-editor__citation-error" role="alert" data-coplan--editor-target="citationError"></p>
     <div class="document-editor__citation-actions">
       <button type="button" class="btn btn--secondary" data-action="coplan--editor#closeCitation">Cancel</button>
