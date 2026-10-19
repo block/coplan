@@ -30,6 +30,32 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     expect(agent.reload.writing_provenance_summary.fetch("counts")).to eq("human" => 5, "ai" => 5, "unknown" => 0)
   end
 
+  it "includes old writers after the cutoff without treating interleaved instrumented paste as human" do
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor oldworker", base_revision: 1, actor_type: "human", actor_id: user.id)
+    pasted = "Old editor oldworker paste"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: pasted, base_revision: 2, actor_type: "human", actor_id: user.id,
+      input_sources: { "runs" => [ [ pasted.length, "unknown" ] ] })
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "#{pasted} moreold", base_revision: 3, actor_type: "human", actor_id: user.id)
+    plan.plan_versions.where(revision: [ 2, 4 ]).update_all(writing_provenance: nil)
+    rollout(plan, revision: 1)
+    run_batch(plan)
+    expect(plan.reload.writing_provenance_summary.fetch("counts")).to eq("human" => 25, "ai" => 0, "unknown" => 5)
+    expect(plan.plan_versions.find_by!(revision: 2).writing_provenance["historical_human"]).to be(true)
+    expect(plan.plan_versions.find_by!(revision: 3).writing_provenance["historical_human"]).to be_nil
+  end
+
+  it "rebuilds new plans from old writers without a cutoff and preserves that assumption on replay" do
+    late = CoPlan::Plans::Create.call(title: "During deployment", content: "a" * 2000, user: user, actor_type: "human")
+    CoPlan::Plans::ReplaceContent.call(plan: late, new_content: "b" * 2000, base_revision: 1, actor_type: "human", actor_id: user.id)
+    late.plan_versions.update_all(writing_provenance: nil)
+    late.update_columns(writing_provenance_summary: nil)
+    run_batch(late)
+    expect(late.reload.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
+    expect(late.writing_provenance_backfill.fetch("legacy_revision")).to eq(0)
+    run_batch(late, described_class.claim(late, restart: true))
+    expect(late.reload.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
+  end
+
   it "uses a database claim across instances and rejects an expired worker's checkpoint" do
     rollout(plan)
     original = described_class.claim(plan)

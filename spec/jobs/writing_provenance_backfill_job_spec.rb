@@ -22,6 +22,14 @@ RSpec.describe CoPlan::WritingProvenanceBackfillJob do
     expect { described_class.perform_now }.not_to have_enqueued_job(described_class)
   end
 
+  it "discovers plans created by old instances after the migration scan" do
+    plan = CoPlan::Plans::Create.call(title: "During cutover", content: "Editor", user: create(:coplan_user), actor_type: "human")
+    plan.plan_versions.update_all(writing_provenance: nil)
+    plan.update_columns(writing_provenance_summary: nil)
+    expect(CoPlan::WritingProvenanceJob).to receive(:request).with(have_attributes(id: plan.id))
+    described_class.perform_now
+  end
+
   it "does not keep versionless documents in the recovery scan" do
     plan = CoPlan::Plan.create!(title: "No version yet", created_by_user: create(:coplan_user))
     plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 0, "revision" => 0 })

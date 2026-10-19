@@ -63,8 +63,10 @@ module CoPlan
           version = @plan.plan_versions.where("revision > ?", revision).reorder(:revision).includes(:api_token, :actor_user).first
           return complete(revision) unless version
           previous = @plan.plan_versions.find_by(revision: revision) if revision.positive?
-          restore_input(version, state.fetch("legacy_revision"))
-          legacy = version.revision <= state.fetch("legacy_revision") && version.actor_type == "human" && version.writing_identity&.dig("kind") != "ai"
+          existing = version.writing_provenance.to_h
+          legacy = version.actor_type == "human" && existing.dig("write_source", "kind") != "ai" &&
+            (version.revision <= state.fetch("legacy_revision") || existing.empty? || existing["historical_human"] == true)
+          restore_input(version, historical_human: legacy)
           snapshot = WritingProvenance.call(version: version, previous: previous, historical_human: legacy)
           persisted = @plan.with_lock do
             current = @plan.writing_provenance_backfill.to_h
@@ -81,11 +83,11 @@ module CoPlan
 
       private
 
-      def restore_input(version, legacy_revision)
+      def restore_input(version, historical_human:)
         existing = version.writing_provenance.to_h
         version.writing_identity = existing["write_source"]
         return unless version.actor_type == "human" && existing.dig("write_source", "kind") != "ai"
-        if version.revision <= legacy_revision
+        if historical_human
           version.input_sources = { "runs" => [ [ version.content_markdown.encode(Encoding::UTF_16LE).bytesize / 2, "human" ] ] }
         elsif existing["format"] == WritingProvenance::FORMAT
           offset = 0

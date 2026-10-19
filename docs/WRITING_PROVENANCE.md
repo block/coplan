@@ -12,7 +12,7 @@ The schema migrations add version snapshots, the cached document summary, and a 
 
 ## Historical attribution
 
-Editor additions through that cutoff are assumed human-written. This is a one-time product assumption: old versions did not record typing versus paste. Retained text from an agent keeps its AI source when a human changes another part of the document. Existing explicitly simulated demo agent/unknown identities are preserved. Later editor versions use recorded typing and paste evidence; missing evidence remains Unknown. New documents have no historical cutoff.
+Editor additions through that cutoff are assumed human-written. This is a one-time product assumption: old versions did not record typing versus paste. Uninstrumented editor versions from old instances during a rolling deployment use the same assumption, including new plans created after the migration scan. A marker on each rebuilt historical snapshot preserves that assumption on later reconstruction without moving the cutoff across interleaved new writes. Retained text from an agent keeps its AI source when a human changes another part of the document. Existing explicitly simulated demo agent/unknown identities are preserved. Instrumented editor versions always store a snapshot and use recorded typing and paste evidence; missing input evidence remains Unknown. New documents have no historical cutoff.
 
 Reconstruction changes attribution metadata only. It does not change document text, create content revisions, or change who made an edit.
 

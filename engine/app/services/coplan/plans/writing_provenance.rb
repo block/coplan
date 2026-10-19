@@ -3,7 +3,7 @@ require "diff/lcs"
 module CoPlan
   module Plans
     # Immutable, run-length encoded source attribution. Historical human saves
-    # before the deployment cutoff use the rollout's human-input assumption.
+    # from uninstrumented writers use the rollout's human-input assumption.
     # Actor identity is separate from input evidence on subsequent writes.
     class WritingProvenance
       FORMAT = 1
@@ -87,8 +87,13 @@ module CoPlan
         retained = runs.map(&:last).to_set
         sources.select! { |key, _| retained.include?(key) }
         summary = summarize(content, runs, sources)
-        { "format" => FORMAT, "sha256" => Digest::SHA256.hexdigest(content), "write_source" => identity,
+        result = { "format" => FORMAT, "sha256" => Digest::SHA256.hexdigest(content), "write_source" => identity,
           "runs" => runs, "sources" => sources, "summary" => summary }
+        # Preserve the cutover assumption on replay, including bounded large
+        # rewrites. Instrumented writes always have a snapshot, even when their
+        # input evidence is missing and therefore Unknown.
+        result["historical_human"] = true if @historical_human
+        result
       end
 
       # The editor uses UTF-16 offsets; Ruby uses Unicode codepoints. Reject
