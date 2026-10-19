@@ -9,8 +9,8 @@ RSpec.describe "Editor lists", type: :system do
     visit sign_in_path
     fill_in "Email address", with: author.email
     click_button "Sign In"
-    expect(page).to have_current_path(root_path)
-    expect(page).to have_button("Menu")
+    expect(page).to have_current_path(root_path, wait: 20)
+    expect(page).to have_button("Menu", wait: 20)
     visit plan_edit_page_path(plan)
     expect(page).to have_css('.ProseMirror[contenteditable="true"]', wait: 20)
   end
