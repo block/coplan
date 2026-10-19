@@ -34,10 +34,43 @@ nodes = nodes.addBefore("text", "footnote_reference", {
   parseDOM: [{ tag: "sup[data-coplan-footnote]", getAttrs: dom => ({ label: dom.dataset.coplanFootnote }) }],
   toDOM: node => ["sup", { "data-coplan-footnote": node.attrs.label, class: "document-editor__footnote", title: `Reference: ${node.attrs.label}`, contenteditable: "false" }, ["button", { type: "button", "data-citation-label": node.attrs.label, "data-action": "coplan--editor#openCitation", "aria-label": `Edit citation ${node.attrs.label}` }, `[${node.attrs.label}]`]]
 })
+const imageSpec = nodes.get("image")
+nodes = nodes.update("image", { ...imageSpec,
+  attrs: { ...imageSpec.attrs, width: { default: null } },
+  parseDOM: [{ tag: "img[src]", getAttrs: dom => ({ src: dom.getAttribute("src"), alt: dom.getAttribute("alt"), title: dom.getAttribute("title"), width: imageWidth(dom.getAttribute("width")) }) }],
+  toDOM: node => ["img", { src: node.attrs.src, alt: node.attrs.alt, title: node.attrs.title, width: node.attrs.width }]
+})
 const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.marks })
+const tokenizer = defaultMarkdownParser.tokenizer
+// The width syntax is an HTML image in otherwise ordinary Markdown. Parse
+// only this tag; all other authored HTML keeps its source-card protection.
+const imageTag = /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi
+function imageWidth(value) { const width = Number(value); return /^\d+$/.test(value) && Number.isSafeInteger(width) && width > 0 ? width : null }
+function htmlImage(source) {
+  const template = document.createElement("template"); template.innerHTML = source
+  const image = template.content.firstElementChild
+  if (image?.tagName !== "IMG" || !image.hasAttribute("src") || !tokenizer.validateLink(image.getAttribute("src"))) return null
+  // Unknown attributes must remain exact, including when nearby prose changes.
+  if ([...image.attributes].some(attr => !["src", "alt", "title", "width"].includes(attr.name))) return null
+  if (image.hasAttribute("width") && !imageWidth(image.getAttribute("width"))) return null
+  return { src: image.getAttribute("src"), alt: image.getAttribute("alt") || "", title: image.getAttribute("title"), width: imageWidth(image.getAttribute("width")) }
+}
+tokenizer.inline.ruler.before("autolink", "coplan_image", (state, silent) => {
+  if (state.src[state.pos] !== "<") return false
+  const match = state.src.slice(state.pos).match(/^<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/i)
+  const attrs = match && htmlImage(match[0])
+  if (!attrs) return false
+  if (!silent) {
+    const token = state.push("image", "img", 0)
+    token.attrs = Object.entries(attrs)
+    token.meta = { coplanImage: attrs }
+    token.children = []; token.content = attrs.alt
+  }
+  state.pos += match[0].length
+  return true
+})
 // Run before links, but after escapes and code spans. A citation is inline
 // content, so it must not turn its entire paragraph or list into a source card.
-const tokenizer = defaultMarkdownParser.tokenizer
 tokenizer.inline.ruler.before("link", "coplan_footnote", (state, silent) => {
   const match = /^\[\^([^\]]+)\]/.exec(state.src.slice(state.pos))
   if (!match || !citationLabelKey(match[1])) return false
@@ -70,11 +103,18 @@ tokenizer.core.ruler.after("block", "coplan_tables", state => {
 })
 const richMarkdownParser = new MarkdownParser(schema, tokenizer, {
   ...defaultMarkdownParser.tokens,
+  image: { node: "image", getAttrs: token => ({ ...(token.meta?.coplanImage || defaultMarkdownParser.tokens.image.getAttrs(token)), width: imageWidth(token.attrGet("width")) }) },
   footnote_reference: { node: "footnote_reference", getAttrs: token => token.meta },
   preserved_block: { node: "preserved", getAttrs: token => token.meta }
 })
 const defaultMarkdownSerializer = new MarkdownSerializer({
   ...baseMarkdownSerializer.nodes,
+  image: (state, node) => {
+    if (!node.attrs.width) return baseMarkdownSerializer.nodes.image(state, node)
+    const image = document.createElement("img")
+    for (const name of ["src", "alt", "title", "width"]) if (node.attrs[name] != null) image.setAttribute(name, node.attrs[name])
+    state.text(image.outerHTML, false)
+  },
   footnote_reference: (state, node) => state.text(`[^${node.attrs.label}]`, false),
   preserved: (state, node) => {
     for (const line of node.attrs.source.trimEnd().split("\n")) { state.write(line); state.ensureNewLine() }
@@ -226,7 +266,8 @@ export function parseDocument(markdown) {
       const text = source.slice(start, end)
       try {
         const parsed = richMarkdownParser.parse(text)
-        if (parsed.firstChild?.type.name !== "code_block" && /~~|\]\s*\[|\]\(mention:|<\/?[a-z!]|^\s*(?:>\s*)*(?:[-*+]|\d+[.)]) \[[ xX]\]|^\s*\[[^\]]+\]:|^:::(?: \{\.presentation.*\})?$/im.test(text)) throw new Error("preserve")
+        const unsupported = text.replace(imageTag, tag => htmlImage(tag) ? "" : tag)
+        if (parsed.firstChild?.type.name !== "code_block" && /~~|\]\s*\[|\]\(mention:|<\/?[a-z!]|^\s*(?:>\s*)*(?:[-*+]|\d+[.)]) \[[ xX]\]|^\s*\[[^\]]+\]:|^:::(?: \{\.presentation.*\})?$/im.test(unsupported)) throw new Error("preserve")
         if (parsed.childCount !== 1) throw new Error("preserve")
         let node = schema.nodeFromJSON(parsed.firstChild.toJSON())
         node = node.type.create({ ...node.attrs, source: text, snapshot: signature(node) }, node.content, node.marks)
@@ -363,6 +404,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
   const view = new EditorView(element, {
     state, nodeViews: {
       preserved: (node, view, getPos) => sourceNodeView(node, view, getPos, preview, sourceRangeAt),
+      image: (node, view, getPos) => imageNodeView(node, view, getPos),
       code_block: (node, view, getPos) => codeNodeView(node, view, getPos, preview, sourceRangeAt)
     }, attributes: { class: "markdown-rendered", role: "textbox", "aria-label": "Document body", "aria-multiline": "true" },
     handleDOMEvents: {
@@ -765,6 +807,57 @@ function linkCommand(state, dispatch) {
   const href = window.prompt("Link URL (https://…)")
   if (href && /^(https?:\/\/|mailto:)/i.test(href)) toggleMark(schema.marks.link, { href })(state, dispatch)
   return true
+}
+
+// ProseMirror owns image identity/history; Stimulus owns the resize gesture.
+// Preview dimensions never enter the document until the gesture is committed.
+function imageNodeView(initial, view, getPos) {
+  let node = initial
+  const dom = document.createElement("span")
+  dom.className = "document-editor__image"
+  dom.contentEditable = "false"
+  dom.dataset.controller = "coplan--image-resize"
+  dom.dataset.action = "coplan:image-updated->coplan--image-resize#cancel blur@window->coplan--image-resize#cancel"
+  const image = document.createElement("img")
+  image.setAttribute("data-coplan--image-resize-target", "image")
+  image.draggable = false
+  const handle = document.createElement("button")
+  handle.type = "button"; handle.className = "document-editor__image-handle"
+  handle.setAttribute("aria-label", "Resize image")
+  handle.title = "Drag to resize · drag to full width to reset. Arrow keys resize; End resets."
+  handle.setAttribute("data-coplan--image-resize-target", "handle")
+  handle.dataset.action = "click->coplan--image-resize#focus:prevent:stop pointerdown->coplan--image-resize#start pointermove->coplan--image-resize#move pointerup->coplan--image-resize#finish pointercancel->coplan--image-resize#cancel lostpointercapture->coplan--image-resize#cancel keydown->coplan--image-resize#keydown"
+  const corner = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+  corner.setAttribute("viewBox", "0 0 24 24"); corner.setAttribute("aria-hidden", "true")
+  const grip = document.createElementNS("http://www.w3.org/2000/svg", "path")
+  grip.setAttribute("d", "M8 19 19 8 M13 19 19 13 M18 19 19 18")
+  corner.append(grip); handle.append(corner)
+  const status = document.createElement("output")
+  status.className = "document-editor__image-size"
+  status.setAttribute("data-coplan--image-resize-target", "status")
+  status.setAttribute("aria-live", "polite")
+  dom.append(image, handle, status)
+  const render = () => {
+    for (const name of ["src", "alt", "title", "width"]) {
+      if (node.attrs[name] == null) image.removeAttribute(name)
+      else image.setAttribute(name, node.attrs[name])
+    }
+  }
+  dom.coplanCommitWidth = width => {
+    const position = getPos()
+    if (position == null || view.state.doc.nodeAt(position) !== node || width === node.attrs.width) return
+    const tr = closeHistory(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, width }))
+    view.dispatch(tr)
+    // Do not merge later typing or a second gesture into this undo step.
+    view.dispatch(closeHistory(view.state.tr))
+  }
+  render()
+  return { dom, update(next) {
+    if (next.type !== node.type) return false
+    dom.dispatchEvent(new CustomEvent("coplan:image-updated"))
+    node = next; render(); return true
+  }, stopEvent: event => !(event.type === "keydown" && (event.metaKey || event.ctrlKey) && ["z", "y"].includes(event.key.toLowerCase())), ignoreMutation: () => true,
+  destroy() { dom.dispatchEvent(new CustomEvent("coplan:image-updated")); delete dom.coplanCommitWidth } }
 }
 
 // Node-view chrome uses the form's Stimulus actions. The editable code content

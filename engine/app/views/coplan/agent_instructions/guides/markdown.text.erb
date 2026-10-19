@@ -102,6 +102,8 @@ To set an image's display width, use an HTML image tag with a `width` in pixels:
 
 Use the uploaded image's URL for `src`. CoPlan keeps images within the reading column. Expanding an image uses its original dimensions.
 
+The web editor writes this form when a person resizes an image. Snapping back to natural full width removes the width setting.
+
 - The maximum size is 25 MB per file. Allowed types are PNG, JPEG, GIF, WebP, PDF, TXT, MD, CSV, JSON, and ZIP. CoPlan returns `422` for other files.
 - Only the plan author can upload or delete attachments. Any reader can list and download them.
 - List the attachments: `GET <%= @base %>/api/v1/plans/$PLAN_ID/attachments`. Delete one: `DELETE <%= @base %>/api/v1/plans/$PLAN_ID/attachments/$ATTACHMENT_ID`.

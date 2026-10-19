@@ -74,6 +74,8 @@ Unknown or unclosed regions stay visible source.
 Tables remain separate nodes even inside a list. **Edit table** opens a Markdown
 field for only that table, keeping the surrounding list rich and editable.
 
+Images have a bottom-right resize handle that appears on hover or keyboard focus in Editor and Dual. Drag inward to preview a smaller image; releasing saves an HTML image `width` in Markdown as one undoable edit. Drag near the image's natural full width to snap back to **100%** and remove the width attribute. Escape cancels a drag. Arrow keys resize a focused handle (Shift for one pixel); Home chooses the minimum width and End restores full width. Existing HTML images with a width use the same control.
+
 **+ → Embed** adds a self-closing iframe block with URL, title, width,
 and height fields. Administrators approve exact HTTPS hosts under **Iframe domains**.
 No domains are allowed by default. See the served `/agent-instructions/embeds`
