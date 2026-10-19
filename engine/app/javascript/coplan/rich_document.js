@@ -123,7 +123,7 @@ const defaultMarkdownSerializer = new MarkdownSerializer({
     for (const line of node.attrs.source.trimEnd().split("\n")) { state.write(line); state.ensureNewLine() }
     state.closeBlock(node)
   }
-}, { ...baseMarkdownSerializer.marks, strikethrough: { open: "~~", close: "~~", mixable: true, expelEnclosingWhitespace: true } }, { escapeExtraCharacters: /~/g })
+}, { ...baseMarkdownSerializer.marks, strikethrough: { open: "~~", close: "~~", mixable: true, expelEnclosingWhitespace: true } })
 
 const presentationOpen = /^::: \{\.presentation(?: #([a-zA-Z][\w-]*))?(?: theme="(coplan|graphite)")?\}$/
 function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false) {
