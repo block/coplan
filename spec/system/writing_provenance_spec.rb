@@ -16,6 +16,22 @@ RSpec.describe "Writing provenance", type: :system do
     expect(page).to have_text("All changes saved")
   end
 
+  it "explains the inspection limit while keeping named percentages usable" do
+    plan
+    stub_const("CoPlan::Plans::WritingProvenance::MAX_INSPECTION_CHARACTERS", 4)
+    visit sign_in_path
+    fill_in "Email", with: user.email
+    click_button "Sign In"
+    expect(page).to have_button("Menu", wait: 20)
+    visit plan_page_path(plan)
+    find(".writing-provenance__trigger").click
+    expect(page).to have_css(".writing-provenance__counts", text: "Claude")
+    click_button "Inspect writing"
+    expect(page).to have_css('[role="status"]', text: "Writing percentages are still available")
+    expect(page).to have_button("Inspect writing", disabled: false)
+    expect(page).to have_no_button("Done inspecting")
+  end
+
   it "opens details and toggles source highlights without changing document layout" do
     visit sign_in_path
     fill_in "Email", with: user.email
@@ -137,6 +153,25 @@ RSpec.describe "Writing provenance", type: :system do
     expect(result.fetch("first")).to eq(result.fetch("undone"))
     expect(result.fetch("first").fetch("runs").sum(&:first)).to eq(result.fetch("length"))
     expect(result.fetch("first").fetch("runs").map(&:last)).to include("human", "unknown")
+  end
+
+  it "keeps new pasted text unknown after the historical editor backfill" do
+    plan.current_plan_version.update_columns(actor_type: "human", agent_name: nil, writing_provenance: nil)
+    plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 0 })
+    CoPlan::WritingProvenanceJob.perform_now(plan_id: plan.id, restart: true)
+    expect(plan.reload.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
+    open_editor
+    surface = find('[aria-label="Document body"]')
+    surface.click
+    surface.send_keys([ :control, :end ], :end)
+    page.execute_script(<<~JS, surface)
+      const clipboard = new DataTransfer()
+      clipboard.setData('text/plain', ' pastedunknown')
+      arguments[0].dispatchEvent(new ClipboardEvent('paste', {clipboardData: clipboard, bubbles: true, cancelable: true}))
+    JS
+    expect(page).to have_css('#writing-provenance[data-coplan--writing-provenance-revision-value="2"]', wait: 20)
+    expect(plan.reload.writing_provenance_summary.dig("counts", "unknown")).to eq(13)
+    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2)
   end
 
   it "attributes repeated prose to its writer rather than an earlier diagram label" do

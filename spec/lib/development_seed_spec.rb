@@ -6,6 +6,9 @@ RSpec.describe CoPlan::DevelopmentSeed do
     it "provides human, AI, unknown, and mixed writing examples and preserves edits when re-seeded" do
       described_class.call
       expect(seeded_plan("writing-human").writing_provenance_summary.dig("shares", "human")).to eq(1.0)
+      legacy = seeded_plan("writing-legacy")
+      expect(legacy.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
+      expect(legacy.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 1)
       ai = seeded_plan("writing-ai")
       expect(ai.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
       expect(ai.writing_provenance_summary.fetch("contributors").first).to include("harness" => "claude-code")
@@ -22,6 +25,8 @@ RSpec.describe CoPlan::DevelopmentSeed do
       counts = mixed.writing_provenance_summary.deep_dup
       described_class.call
       expect(mixed.reload.writing_provenance_summary).to eq(counts)
+      legacy_summary = legacy.writing_provenance_summary.deep_dup
+      expect(legacy.reload.writing_provenance_summary).to eq(legacy_summary)
       CoPlan::Plans::ReplaceContent.call(plan: mixed, new_content: "My local revision", base_revision: mixed.current_revision,
         actor_type: "human", actor_id: mixed.created_by_user_id)
       described_class.call

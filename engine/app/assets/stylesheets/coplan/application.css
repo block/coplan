@@ -52,6 +52,7 @@
 .writing-provenance__info { color: var(--color-text-muted); }
 .writing-provenance__info summary { cursor: pointer; list-style: none; font-size: 16px; }
 .writing-provenance__info p { font-size: 12px; line-height: 1.5; }
+.writing-provenance__error { color: var(--color-text-muted); font-size: 12px; line-height: 1.5; margin: 12px 0 0; }
 .writing-provenance__actions:has(details[open]) { flex-wrap: wrap; }
 .writing-provenance__info[open] { flex-basis: 100%; }
 .writing-inspection { position: fixed; z-index: 110; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 9px 12px; border: 1px solid var(--color-border-strong); border-radius: 12px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); font-size: 12px; white-space: nowrap; max-width: calc(100vw - 24px); box-sizing: border-box; }

@@ -3,19 +3,33 @@ require "diff/lcs"
 module CoPlan
   module Plans
     # Immutable, run-length encoded source attribution. Historical human saves
-    # have no typing/paste evidence and remain unknown. Actor identity is separate.
+    # before the deployment cutoff use the rollout's human-input assumption.
+    # Actor identity is separate from input evidence on subsequent writes.
     class WritingProvenance
       FORMAT = 1
       KINDS = %w[human ai unknown].freeze
       MAX_DIFF_CELLS = 1_000_000
       MAX_INPUT_RUNS = 4096
       UNKNOWN = "unknown".freeze
+      MAX_INSPECTION_CHARACTERS = 250_000
+      MAX_INSPECTION_RUNS = 10_000
+      class InspectionLimit < StandardError; end
 
-      def self.call(version:, previous: nil)
-        new(version:, previous:).call
+      def self.call(version:, previous: nil, historical_human: false)
+        new(version:, previous:, historical_human:).call
       end
 
       def self.rendered_sources(version)
+        if version.content_markdown.length > MAX_INSPECTION_CHARACTERS || version.writing_provenance.fetch("runs").length > MAX_INSPECTION_RUNS
+          raise InspectionLimit, "This document is too large to inspect. Writing percentages are still available."
+        end
+        fingerprint = Digest::SHA256.hexdigest(version.writing_provenance.to_json)
+        Rails.cache.fetch([ "coplan/rendered-writing-v2", version.id, fingerprint ], expires_in: 12.hours) do
+          build_rendered_sources(version)
+        end
+      end
+
+      def self.build_rendered_sources(version)
         text, _, spans = MarkdownTextExtractor.call(version.content_markdown, exclude_nonprose: true, source_spans: true)
         snapshot = version.writing_provenance
         offset = 0
@@ -42,8 +56,9 @@ module CoPlan
         { text: result, runs: runs, sources: snapshot.fetch("sources") }
       end
 
-      def initialize(version:, previous:)
+      def initialize(version:, previous:, historical_human: false)
         @version, @previous = version, previous
+        @historical_human = historical_human
       end
 
       def call
@@ -68,8 +83,9 @@ module CoPlan
         else
           [ [ content.length, identity["kind"] == "ai" ? source_key : unknown_key ] ]
         end
-        runs = self.class.remap(old, content, prior_runs, insertions)
-        sources.select! { |key, _| runs.any? { |_, source| source == key } }
+        runs = self.class.remap(old, content, prior_runs, insertions, fallback_source: @historical_human ? source_key : UNKNOWN)
+        retained = runs.map(&:last).to_set
+        sources.select! { |key, _| retained.include?(key) }
         summary = summarize(content, runs, sources)
         { "format" => FORMAT, "sha256" => Digest::SHA256.hexdigest(content), "write_source" => identity,
           "runs" => runs, "sources" => sources, "summary" => summary }
@@ -116,7 +132,7 @@ module CoPlan
 
       # Diff lines first, then refine changed hunks. A typo must not transfer
       # an entire paragraph. Bound pathological diffs and fail toward unknown.
-      def self.remap(before, after, prior_runs, insertion_runs)
+      def self.remap(before, after, prior_runs, insertion_runs, fallback_source: UNKNOWN)
         return prior_runs.map(&:dup) if before == after
         return insertion_runs.map(&:dup) if before.empty?
         old_lines, new_lines = before.lines, after.lines
@@ -128,19 +144,19 @@ module CoPlan
           start = old_lines.first(prefix).sum(&:length)
           tail = old_lines.last(suffix).sum(&:length)
           middle = remap(old_lines[prefix...old_lines.length - suffix].join, new_lines[prefix...new_lines.length - suffix].join,
-            slice(prior_runs, start, before.length - tail), slice(insertion_runs, start, after.length - tail))
+            slice(prior_runs, start, before.length - tail), slice(insertion_runs, start, after.length - tail), fallback_source: fallback_source)
           result = []
           (slice(prior_runs, 0, start) + middle + slice(prior_runs, before.length - tail, before.length)).each { |n, key| append(result, n, key) }
           return result
         end
         if old_lines.length * new_lines.length > MAX_DIFF_CELLS
-          return [ [ after.length, UNKNOWN ] ].reject { |length, _| length.zero? }
+          return [ [ after.length, fallback_source ] ].reject { |length, _| length.zero? }
         end
         result, old_offset, new_offset = [], 0, 0
         old_chunk, new_chunk = +"", +""
         flush = lambda do
           refined = refine(old_chunk, new_chunk, slice(prior_runs, old_offset, old_offset + old_chunk.length),
-            slice(insertion_runs, new_offset, new_offset + new_chunk.length))
+            slice(insertion_runs, new_offset, new_offset + new_chunk.length), fallback_source: fallback_source)
           refined.each { |n, key| append(result, n, key) }
           old_offset += old_chunk.length
           new_offset += new_chunk.length
@@ -162,7 +178,7 @@ module CoPlan
         result
       end
 
-      def self.refine(before, after, prior_runs, insertion_runs)
+      def self.refine(before, after, prior_runs, insertion_runs, fallback_source: UNKNOWN)
         return [] if after.empty?
         return insertion_runs if before.empty?
         old, fresh = before.chars, after.chars
@@ -176,7 +192,7 @@ module CoPlan
         if old_middle.empty?
           slice(insertion_runs, prefix, fresh.length - suffix).each { |n, key| append(result, n, key) }
         elsif old_middle.length * new_middle.length > MAX_DIFF_CELLS
-          append(result, new_middle.length, UNKNOWN)
+          append(result, new_middle.length, fallback_source)
         elsif new_middle.any?
           old_sources = slice(prior_runs, prefix, old.length - suffix).flat_map { |n, key| Array.new(n, key) }
           new_sources = slice(insertion_runs, prefix, fresh.length - suffix).flat_map { |n, key| Array.new(n, key) }

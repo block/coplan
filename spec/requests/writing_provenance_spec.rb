@@ -51,7 +51,7 @@ RSpec.describe "Writing provenance", type: :request do
     plan.current_plan_version.update_columns(writing_provenance: nil)
     plan.update_columns(writing_provenance_summary: nil)
     expect { get plan_page_path(plan) }.not_to have_enqueued_job(CoPlan::WritingProvenanceJob)
-    expect { get writing_provenance_plan_path(plan) }.to have_enqueued_job(CoPlan::WritingProvenanceJob).with(plan_id: plan.id)
+    expect { get writing_provenance_plan_path(plan) }.to have_enqueued_job(CoPlan::WritingProvenanceJob).with(plan_id: plan.id, token: kind_of(String))
     expect(response).to have_http_status(:accepted)
   end
 
@@ -62,5 +62,16 @@ RSpec.describe "Writing provenance", type: :request do
     created = CoPlan::Plan.find(response.parsed_body.fetch("id"))
     expect(created.current_plan_version.actor_type).to eq("human")
     expect(created.writing_provenance_summary.fetch("counts")).to eq("human" => 5, "ai" => 0, "unknown" => 6)
+  end
+
+  it "keeps percentages and API ranges available when inspection exceeds its size budget" do
+    plan
+    stub_const("CoPlan::Plans::WritingProvenance::MAX_INSPECTION_CHARACTERS", 4)
+    get writing_provenance_plan_path(plan)
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("Claude")
+    get writing_provenance_plan_path(plan), headers: { "Accept" => "application/json" }
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(response.parsed_body.fetch("error")).to include("Writing percentages are still available")
   end
 end

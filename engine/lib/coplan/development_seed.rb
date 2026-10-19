@@ -48,6 +48,9 @@ module CoPlan
     AGENT_ORGANIZED_KEYS = %w[agent-pick-metrics agent-pick-postmortem agent-pick-vendors].freeze
 
     DOCUMENTS = [
+      { key: "writing-legacy", author: "hampton", type: "General", title: "Writing sources: rebuilt editor history",
+        tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "legacy",
+        showcase: "Historical editor input rebuilt as human written; later pasted input stays Unknown" },
       { key: "writing-human", author: "hampton", type: "General", title: "Writing sources: human written",
         tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "human",
         showcase: "Person icon; recorded human input throughout" },
@@ -800,7 +803,13 @@ module CoPlan
         first = plan.plan_versions.find_by!(revision: 1)
         origin = definitions[key]&.fetch(:writing_source, "ai") || "ai"
         existing = first.writing_provenance.to_h
-        ready = existing.dig("write_source", "origin_revision") && (origin != "ai" || existing.dig("summary", "counts", "ai") == existing.dig("summary", "total"))
+        if origin == "legacy" && plan.writing_provenance_backfill.nil?
+          plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 0 })
+          WritingProvenanceJob.perform_now(plan_id: plan.id, restart: true)
+          next
+        end
+        expected_kind = { "ai" => "ai", "unknown" => "unknown" }[origin]
+        ready = existing.dig("write_source", "origin_revision") && (!expected_kind || existing.dig("summary", "counts", expected_kind) == existing.dig("summary", "total"))
         next if ready
         if origin == "ai"
           token = seed_agent_token(users.fetch("hampton"))
@@ -808,8 +817,10 @@ module CoPlan
             "kind" => "ai", "user_id" => first.actor_id, "agent_name" => token.agent_name,
             "harness" => "claude-code", "harness_name" => "Claude" })
           first.update_columns(writing_provenance: first.writing_provenance)
+        elsif origin == "unknown"
+          first.update_columns(writing_provenance: first.writing_provenance.to_h.merge("write_source" => { "kind" => "unknown", "user_id" => first.actor_id }))
         end
-        WritingProvenanceJob.perform_now(plan_id: plan.id)
+        WritingProvenanceJob.perform_now(plan_id: plan.id, restart: true)
       end
     end
 

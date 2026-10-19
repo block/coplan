@@ -270,6 +270,8 @@ module CoPlan
       else
         render partial: "coplan/plans/writing_provenance_details", locals: { summary: snapshot.fetch("summary") }
       end
+    rescue Plans::WritingProvenance::InspectionLimit => error
+      render json: { error: error.message }, status: :unprocessable_content
     end
 
     # Compatibility for already-open prototype tabs. Editing no longer acquires

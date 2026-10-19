@@ -37,9 +37,27 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     expect(unknown.fetch("user_id")).to eq(user.id)
   end
 
-  it "keeps historical or missing human input evidence unknown" do
+  it "keeps new missing human input evidence unknown" do
     plan = make_plan("Unknown source")
     expect(plan.writing_provenance_summary.fetch("counts")).to eq("human" => 0, "ai" => 0, "unknown" => 13)
+  end
+
+  it "caches inspection mappings and invalidates them when a backfill changes sources" do
+    plan = make_plan("Agent", kind: "local_agent")
+    allow(Rails).to receive(:cache).and_return(ActiveSupport::Cache::MemoryStore.new)
+    expect(described_class).to receive(:build_rendered_sources).once.and_call_original
+    2.times { described_class.rendered_sources(plan.current_plan_version) }
+    snapshot = plan.current_plan_version.writing_provenance
+    snapshot.fetch("sources").values.first["user_name"] = "Updated name"
+    expect(described_class).to receive(:build_rendered_sources).once.and_call_original
+    described_class.rendered_sources(plan.current_plan_version)
+  end
+
+  it "rejects excessively fragmented inspection without parsing the document" do
+    plan = make_plan("Agent", kind: "local_agent")
+    stub_const("#{described_class}::MAX_INSPECTION_RUNS", 0)
+    expect(CoPlan::Plans::MarkdownTextExtractor).not_to receive(:call)
+    expect { described_class.rendered_sources(plan.current_plan_version) }.to raise_error(described_class::InspectionLimit)
   end
 
   it "attributes only changed characters in a line and removes deleted text" do

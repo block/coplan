@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["trigger", "panel", "details", "highlight", "inspection", "tooltip"]
+  static targets = ["trigger", "panel", "details", "highlight", "inspection", "tooltip", "error"]
   static values = { url: String, revision: Number }
 
   connect() {
@@ -148,8 +148,10 @@ export default class extends Controller {
     }
     this.highlightTarget.disabled = true
     this.highlightTarget.textContent = "Loading sources…"
+    if (this.hasErrorTarget) this.errorTarget.hidden = true
     try {
       const response = await fetch(this.urlValue, { headers: { Accept: "application/json" }, signal: this.abort.signal })
+      if (response.status === 422) throw new Error((await response.json()).error)
       if (!response.ok || response.redirected || response.status === 202) throw new Error("Sources unavailable. Try again.")
       const data = await response.json()
       if (this.abort.signal.aborted) return
@@ -166,7 +168,11 @@ export default class extends Controller {
       this.highlightTarget.textContent = "Inspect writing"
       this.highlightTarget.setAttribute("aria-pressed", "true")
     } catch (error) {
-      if (error.name !== "AbortError") this.highlightTarget.textContent = error.message
+      if (error.name !== "AbortError") {
+        this.highlightTarget.textContent = "Inspect writing"
+        if (this.hasErrorTarget) { this.errorTarget.textContent = error.message; this.errorTarget.hidden = false }
+        this.position()
+      }
     } finally { if (!this.abort.signal.aborted) this.highlightTarget.disabled = Boolean(this.editing || document.querySelector('[data-editing="true"]')) }
   }
 
@@ -176,7 +182,7 @@ export default class extends Controller {
     let end = 0
     const spans = rendered.runs.map(([length, key]) => { const from = end; end += length; const source = rendered.sources[key]; return { from, to: end, source, kind: source?.kind || "unknown" } })
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-    let cursor = 0, node
+    let cursor = 0, spanIndex = 0, rangeCount = 0, node
     while ((node = walker.nextNode())) {
       const parent = node.parentElement
       if (parent.closest("button, script, style, svg, .deck-toolbar, .deck-notes, .mermaid-diagram, .mermaid-container, .mermaid, .code-header, .iframe-content-block, .iframe-content-block__unavailable, [data-source-badge], [contenteditable]")) continue
@@ -190,9 +196,12 @@ export default class extends Controller {
       if (!text) continue
       const start = rendered.text.indexOf(text, cursor)
       if (start < 0) continue
-      for (const span of spans) {
+      while (spanIndex < spans.length && spans[spanIndex].to <= start) spanIndex++
+      for (let index = spanIndex; index < spans.length && spans[index].from < start + text.length; index++) {
+        const span = spans[index]
         if (!ranges[span.kind] || span.to <= start || span.from >= start + text.length) continue
         const from = Math.max(start, span.from) - start, to = Math.min(start + text.length, span.to) - start
+        if (++rangeCount > 10000) throw new Error("This document is too large to inspect. Writing percentages are still available.")
         const range = document.createRange()
         range.setStart(node, offsets[from]); range.setEnd(node, offsets[to - 1] + 1)
         ranges[span.kind].push(range)
