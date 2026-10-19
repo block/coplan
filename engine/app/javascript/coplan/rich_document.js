@@ -493,6 +493,15 @@ function preventTemplateNoteJoin(view, event, backward) {
   if ($from.pos !== $to.pos || $from.parent.type !== schema.nodes.template_note ||
       $from.parentOffset !== (backward ? 0 : $from.parent.content.size)) return false
   event.preventDefault()
+  if (!$from.parent.content.size) {
+    const position = $from.before()
+    const tr = view.state.tr.delete(position, $from.after())
+    const $position = tr.doc.resolve(position)
+    const direction = backward ? -1 : 1
+    const selection = TextSelection.findFrom($position, direction, true) || TextSelection.findFrom($position, -direction, true)
+    if (selection) tr.setSelection(selection)
+    view.dispatch(closeHistory(tr).scrollIntoView())
+  }
   return true
 }
 

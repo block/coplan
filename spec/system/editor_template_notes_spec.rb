@@ -339,6 +339,51 @@ RSpec.describe "Template notes in the document editor", type: :system do
     end
   end
 
+  it "removes an emptied comment with Backspace and places the caret in the preceding content" do
+    note = all(".document-editor__template-note").first
+    note.click
+    note.send_keys([ mod, "a" ], :backspace)
+    expect(note.text).to eq("")
+    note.send_keys(:backspace)
+    expect(page).to have_css(".document-editor__template-note", count: 1)
+    expect(page.evaluate_script(<<~'JS')).to eq([ "Decision", "Decision".length ])
+      (() => {
+        const selection = window.getSelection()
+        return [selection.anchorNode.parentElement.closest("h1")?.textContent, selection.anchorOffset]
+      })()
+    JS
+    find(".ProseMirror > h1").send_keys([ mod, "z" ])
+    expect(page).to have_css(".document-editor__template-note", count: 2)
+    expect(all(".document-editor__template-note").first.text).to eq("")
+    all(".document-editor__template-note").first.send_keys([ mod, :shift, "z" ])
+    expect(page).to have_css(".document-editor__template-note", count: 1)
+    %w[light dark].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp", "empty-comment-deleted-#{theme}.png"))
+    end
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).not_to include("<!-- -->", "Explain the decision here.")
+    expect(plan.current_content).to include("# Decision", "Visible prose.", "<!--\nFirst hint.")
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css(".document-editor__template-note", count: 1, wait: 20)
+  end
+
+  it "removes an empty leading comment through native backward deletion and moves to the next paragraph" do
+    click_button "Raw", exact: true
+    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "<!-- -->\n\nFollowing prose.\n")
+    click_button "Editor", exact: true
+    note = find(".document-editor__template-note")
+    note.click
+    expect(page.evaluate_script(<<~'JS')).to be(false)
+      document.querySelector('.document-editor__body .ProseMirror').dispatchEvent(new InputEvent('beforeinput', {
+        inputType: 'deleteContentBackward', bubbles: true, cancelable: true
+      }))
+    JS
+    expect(page).to have_no_css(".document-editor__template-note")
+    expect(page.evaluate_script('window.getSelection().anchorNode.parentElement.closest("p")?.textContent')).to eq("Following prose.")
+  end
+
   it "keeps formatting shortcuts and boundary deletion from turning notes into visible prose" do
     note = all(".document-editor__template-note").first
     note.click

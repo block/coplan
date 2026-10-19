@@ -51,6 +51,7 @@ return to the editable text above the table, and the table should stay unchanged
 Open Edit, click this paragraph, and choose Comment from the text-style
 menu beside Normal text and the headings. The text turns gray and stays editable.
 Choose Done to hide it while reading, or choose Normal text to make it visible again.
+To remove the comment, clear its text and press Backspace again. The caret moves to the content above.
 
 ## Two code languages
 

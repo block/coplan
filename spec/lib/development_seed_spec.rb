@@ -115,7 +115,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       formatting_content = formatting.current_content
       expect(formatting_content).to include("<!-- Template guidance:", "hidden when reading. -->")
       expect(formatting_content).to include("## Try bullet editing", "Press Backspace", "Press Backspace again", "- Try continuing this list with Enter")
-      expect(formatting_content).to include("## Try comments", "choose Comment", "~~strikethrough~~", "[@alex](mention:alex)", "- [x] Define a receipt", "- [ ] Inspect retry metrics")
+      expect(formatting_content).to include("## Try comments", "choose Comment", "clear its text and press Backspace again", "~~strikethrough~~", "[@alex](mention:alex)", "- [x] Define a receipt", "- [ ] Inspect retry metrics")
       expect(formatting_content).to include("- Item with a table.", "  | Alpha | Ready |", "blank item after this table")
 
       thread_count = CoPlan::CommentThread.count
