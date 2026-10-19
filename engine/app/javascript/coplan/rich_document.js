@@ -7,7 +7,7 @@ import { Schema, Fragment, Slice } from "prosemirror-model"
 import { EditorState, TextSelection, Plugin, PluginKey } from "prosemirror-state"
 import { EditorView, Decoration, DecorationSet } from "prosemirror-view"
 import { MarkdownParser, MarkdownSerializer, defaultMarkdownParser, defaultMarkdownSerializer as baseMarkdownSerializer } from "prosemirror-markdown"
-import { baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exitCode, selectAll } from "prosemirror-commands"
+import { baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exitCode, selectAll, joinTextblockBackward } from "prosemirror-commands"
 import { wrapInList, splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list"
 import { keymap } from "prosemirror-keymap"
 import { history, undo, redo, closeHistory } from "prosemirror-history"
@@ -187,6 +187,15 @@ function liftEmptyListItem(state, dispatch) {
       $from.depth < 2 || $from.node(-1).type !== schema.nodes.list_item || $from.node(-1).childCount !== 1) return false
   return liftListItem(schema.nodes.list_item)(state, dispatch)
 }
+function joinParagraphToPreviousList(state, dispatch, view) {
+  const { empty, $from } = state.selection
+  if (!empty || $from.parent.type !== schema.nodes.paragraph || $from.parentOffset) return false
+  const previous = state.doc.resolve($from.before()).nodeBefore
+  if (![schema.nodes.bullet_list, schema.nodes.ordered_list].includes(previous?.type)) return false
+  // Generic joinBackward wraps this paragraph in a new list item. Join the
+  // text blocks instead, so repeated Backspace cannot recreate an empty bullet.
+  return joinTextblockBackward(state, dispatch, view)
+}
 function preserved(source, kind = null, label = null) {
   if (!kind && source.trimStart().startsWith("[")) {
     const environment = {}
@@ -356,7 +365,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       "Mod-Alt-0": setBlockType(schema.nodes.paragraph), "Mod-Alt-1": setBlockType(schema.nodes.heading, { level: 1 }),
       "Mod-Alt-2": setBlockType(schema.nodes.heading, { level: 2 }), "Mod-Alt-3": setBlockType(schema.nodes.heading, { level: 3 }),
       Enter: chainCommands(codeNewline, splitListItem(schema.nodes.list_item)), Tab: chainCommands(indentCode, sinkListItem(schema.nodes.list_item)),
-      Backspace: chainCommands(undoInputRule, liftEmptyListItem),
+      Backspace: chainCommands(undoInputRule, liftEmptyListItem, joinParagraphToPreviousList),
       "Shift-Tab": liftListItem(schema.nodes.list_item)
     }), keymap(baseKeymap)]
   })

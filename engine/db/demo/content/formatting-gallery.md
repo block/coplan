@@ -26,6 +26,9 @@ Open Edit and start a new paragraph. Type an asterisk followed by a space to
 create a bullet. Press Backspace immediately to restore the literal asterisk
 and space. Create a bullet again, type an item, and press Enter. Press Backspace
 on that empty final bullet to continue in a normal paragraph at the left margin.
+Press Backspace again to return to the end of the previous item's text. No new
+bullet should appear. Add a few empty paragraphs below the list and delete them
+one at a time to try the same boundary.
 
 - Try continuing this list with Enter, then leave its empty final item with Backspace.
 
