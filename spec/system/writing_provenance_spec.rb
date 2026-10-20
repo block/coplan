@@ -6,6 +6,24 @@ RSpec.describe "Writing provenance", type: :system do
 
   after { page.current_window.resize_to(1400, 900) }
 
+  it "shows early human-labeled history as unknown after automatic repair" do
+    plan.current_plan_version.update_columns(actor_type: "human", agent_name: nil, created_at: Time.utc(2026, 7, 9), writing_provenance: nil)
+    plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 0 })
+    CoPlan::WritingProvenanceJob.perform_now(plan_id: plan.id)
+    visit sign_in_path
+    fill_in "Email", with: user.email
+    click_button "Sign In"
+    expect(page).to have_button("Menu", wait: 20)
+    visit plan_page_path(plan)
+    find(".writing-provenance__trigger").click
+    expect(page).to have_css(".writing-provenance__counts dt", text: "Unknown")
+    expect(page).to have_css(".writing-provenance__counts dd", text: "100%")
+    expect(page).to have_no_css(".writing-provenance__counts dt", text: user.name)
+    click_button "Inspect writing"
+    expect(page).to have_button("Done inspecting")
+    expect(page.evaluate_script("CSS.highlights.get('coplan-writing-unknown').size")).to be_positive
+  end
+
   def open_editor
     visit sign_in_path
     fill_in "Email", with: user.email
@@ -243,7 +261,7 @@ RSpec.describe "Writing provenance", type: :system do
     JS
     expect(page).to have_css('#writing-provenance[data-coplan--writing-provenance-revision-value="2"]', wait: 20)
     expect(plan.reload.writing_provenance_summary.dig("counts", "unknown")).to eq(13)
-    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2)
+    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => 2)
   end
 
   it "attributes repeated prose to its writer rather than an earlier diagram label" do

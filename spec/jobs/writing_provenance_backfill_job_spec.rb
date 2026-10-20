@@ -17,9 +17,16 @@ RSpec.describe CoPlan::WritingProvenanceBackfillJob do
 
   it "does not rebuild completed documents" do
     plan = CoPlan::Plans::Create.call(title: "Ready", content: "Editor", user: create(:coplan_user), actor_type: "human")
-    plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1 })
+    plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1, "policy_version" => 2 })
     expect(CoPlan::WritingProvenanceJob).not_to receive(:request)
     expect { described_class.perform_now }.not_to have_enqueued_job(described_class)
+  end
+
+  it "automatically revisits summaries completed under the old attribution policy" do
+    plan = CoPlan::Plans::Create.call(title: "Previously rebuilt", content: "Old API input", user: create(:coplan_user), actor_type: "human")
+    plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1 })
+    expect(CoPlan::WritingProvenanceJob).to receive(:request).with(have_attributes(id: plan.id))
+    described_class.perform_now
   end
 
   it "discovers plans created by old instances after the migration scan" do

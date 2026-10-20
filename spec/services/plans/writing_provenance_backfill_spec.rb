@@ -13,13 +13,97 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     described_class.call(plan: plan, token: token)
   end
 
+  it "repairs completed pre-identity history without changing content or actor records" do
+    old = plan.current_plan_version
+    old.update_columns(created_at: Time.utc(2026, 7, 9), writing_provenance: old.writing_provenance.except("history_policy"))
+    rollout(plan)
+    old.input_sources = { "runs" => [ [ old.content_markdown.length, "human" ] ] }
+    old_snapshot = CoPlan::Plans::WritingProvenance.call(version: old, historical_human: true)
+    old.update_columns(writing_provenance: old_snapshot.except("history_policy"))
+    plan.update_columns(writing_provenance_summary: old_snapshot.fetch("summary"),
+      writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1 })
+    expect(plan.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
+    expect(described_class.pending?(plan)).to be(true)
+
+    run_batch(plan)
+
+    expect(plan.reload.writing_provenance_summary.dig("shares", "unknown")).to eq(1.0)
+    expect(plan.plan_versions.count).to eq(1)
+    expect(old.reload).to have_attributes(actor_type: "human", content_markdown: "Old editor")
+    expect(old.writing_provenance["historical_human"]).to be_nil
+    expect(described_class.pending?(plan)).to be(false)
+    expect(described_class.claim(plan)).to be_nil
+    run_batch(plan, described_class.claim(plan, restart: true))
+    expect(plan.reload.writing_provenance_summary.dig("shares", "unknown")).to eq(1.0)
+  end
+
+  it "keeps the early unknown text when later historical editor input is human" do
+    plan.current_plan_version.update_columns(created_at: Time.utc(2026, 7, 9))
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor typed", base_revision: 1, actor_type: "human", actor_id: user.id)
+    plan.current_plan_version.update_columns(created_at: Time.utc(2026, 8, 18))
+    rollout(plan)
+    run_batch(plan)
+    expect(plan.reload.writing_provenance_summary.fetch("counts")).to eq("human" => 5, "ai" => 0, "unknown" => 9)
+  end
+
+  it "uses surviving revoked token evidence ahead of an incorrect human snapshot" do
+    token, = CoPlan::ApiToken.create_with_raw_token(user: user, name: "Claude", agent_name: "Claude",
+      revoked_at: Time.current, metadata: { "harness" => "claude-code", "model" => "recorded-model" })
+    version = plan.current_plan_version
+    version.update_columns(created_at: Time.utc(2026, 7, 9), api_token_id: token.id,
+      writing_provenance: version.writing_provenance.merge("write_source" => { "kind" => "human", "user_id" => user.id }))
+    rollout(plan)
+    run_batch(plan)
+    expect(plan.reload.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
+    expect(plan.writing_provenance_summary.fetch("contributors").first).to include("agent_name" => "Claude", "model" => "recorded-model")
+  end
+
+  it "preserves explicit agent snapshots and legacy agent names before the boundary" do
+    version = plan.current_plan_version
+    version.update_columns(created_at: Time.utc(2026, 7, 9), agent_name: "Claude")
+    rollout(plan)
+    run_batch(plan)
+    expect(plan.reload.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
+    version.update_columns(agent_name: nil)
+    run_batch(plan, described_class.claim(plan, restart: true))
+    expect(plan.reload.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
+  end
+
+  it "restarts an old worker's checkpoint before publishing a repaired summary" do
+    plan.current_plan_version.update_columns(created_at: Time.utc(2026, 7, 9))
+    rollout(plan)
+    token = described_class.claim(plan)
+    plan.update_columns(writing_provenance_backfill: plan.writing_provenance_backfill.merge("revision" => 1))
+    version = plan.current_plan_version
+    version.update_columns(writing_provenance: version.writing_provenance.except("history_policy"))
+    run_batch(plan, token)
+    expect(plan.reload.writing_provenance_summary.dig("shares", "unknown")).to eq(1.0)
+    expect(described_class.pending?(plan)).to be(false)
+  end
+
+  it "repairs old retained text even when a new editor save advanced the completed checkpoint" do
+    old = plan.current_plan_version
+    old.input_sources = { "runs" => [ [ old.content_markdown.length, "human" ] ] }
+    old.update_columns(created_at: Time.utc(2026, 7, 9))
+    snapshot = CoPlan::Plans::WritingProvenance.call(version: old, historical_human: true).except("history_policy")
+    old.update_columns(writing_provenance: snapshot)
+    plan.update_columns(writing_provenance_summary: snapshot.fetch("summary"),
+      writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1 })
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor typed", base_revision: 1, actor_type: "human", actor_id: user.id,
+      input_sources: { "runs" => [ [ 16, "human" ] ] })
+    expect(plan.reload.writing_provenance_backfill.fetch("revision")).to eq(2)
+    expect(plan.current_plan_version.writing_provenance["history_policy"]).to be_nil
+    run_batch(plan)
+    expect(plan.reload.writing_provenance_summary.fetch("counts")).to eq("human" => 5, "ai" => 0, "unknown" => 9)
+  end
+
   it "assumes legacy editor additions are human and preserves later pasted input" do
     rollout(plan)
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor paste", base_revision: 1, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ 10, "unknown" ], [ 6, "unknown" ] ] })
     run_batch(plan)
     expect(plan.reload.writing_provenance_summary.fetch("counts")).to eq("human" => 9, "ai" => 0, "unknown" => 5)
-    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2)
+    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => 2)
   end
 
   it "keeps retained agent writing when a historical human adds text" do
@@ -93,7 +177,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     expect(run_batch(plan, token)).to be(false)
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor typed", base_revision: 1, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ 16, "human" ] ] })
-    expect(plan.reload.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2)
+    expect(plan.reload.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => 2)
     expect(described_class.pending?(plan)).to be(false)
   end
 

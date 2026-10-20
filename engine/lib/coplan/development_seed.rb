@@ -48,6 +48,9 @@ module CoPlan
     AGENT_ORGANIZED_KEYS = %w[agent-pick-metrics agent-pick-postmortem agent-pick-vendors].freeze
 
     DOCUMENTS = [
+      { key: "writing-legacy-unknown", author: "hampton", type: "General", title: "Writing sources: early history is unknown",
+        tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "legacy_unknown",
+        showcase: "Early human-labeled API history repaired as Unknown; no agent identity is invented" },
       { key: "writing-legacy", author: "hampton", type: "General", title: "Writing sources: rebuilt editor history",
         tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "legacy",
         showcase: "Historical editor input rebuilt as human written; later pasted input stays Unknown" },
@@ -803,6 +806,12 @@ module CoPlan
         first = plan.plan_versions.find_by!(revision: 1)
         origin = definitions[key]&.fetch(:writing_source, "ai") || "ai"
         existing = first.writing_provenance.to_h
+        if origin == "legacy_unknown" && plan.writing_provenance_backfill.nil?
+          first.update_columns(created_at: Time.utc(2026, 7, 9))
+          plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 0 })
+          WritingProvenanceJob.perform_now(plan_id: plan.id, restart: true)
+          next
+        end
         if origin == "legacy" && plan.writing_provenance_backfill.nil?
           plan.update_columns(writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 0 })
           WritingProvenanceJob.perform_now(plan_id: plan.id, restart: true)

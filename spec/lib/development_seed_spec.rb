@@ -8,7 +8,10 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(seeded_plan("writing-human").writing_provenance_summary.dig("shares", "human")).to eq(1.0)
       legacy = seeded_plan("writing-legacy")
       expect(legacy.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
-      expect(legacy.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1)
+      expect(legacy.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1, "policy_version" => 2)
+      early = seeded_plan("writing-legacy-unknown")
+      expect(early.writing_provenance_summary.dig("shares", "unknown")).to eq(1.0)
+      expect(early.current_plan_version.created_at).to eq(Time.utc(2026, 7, 9))
       ai = seeded_plan("writing-ai")
       expect(ai.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
       expect(ai.writing_provenance_summary.fetch("contributors").first).to include("harness" => "claude-code")
@@ -27,6 +30,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(mixed.reload.writing_provenance_summary).to eq(counts)
       legacy_summary = legacy.writing_provenance_summary.deep_dup
       expect(legacy.reload.writing_provenance_summary).to eq(legacy_summary)
+      expect(early.reload.writing_provenance_summary.dig("shares", "unknown")).to eq(1.0)
       CoPlan::Plans::ReplaceContent.call(plan: mixed, new_content: "My local revision", base_revision: mixed.current_revision,
         actor_type: "human", actor_id: mixed.created_by_user_id)
       described_class.call
