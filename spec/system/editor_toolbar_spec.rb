@@ -2,7 +2,8 @@ require "rails_helper"
 
 RSpec.describe "Editor toolbar", type: :system do
   let(:author) { create(:coplan_user, email: "editor-toolbar@example.com") }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Toolbar test", content: "Original prose.\n", user: author, visibility: "draft", actor_type: "human") }
+  let(:content) { "Original prose.\n" }
+  let(:plan) { CoPlan::Plans::Create.call(title: "Toolbar test", content: content, user: author, visibility: "draft", actor_type: "human") }
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
 
   before do
@@ -21,6 +22,157 @@ RSpec.describe "Editor toolbar", type: :system do
 
   def status
     find(".document-editor__save-status", visible: :all)
+  end
+
+  context "after scrolling a long document" do
+    let(:content) { (1..60).map { |n| "Paragraph #{n} to format while scrolled." }.join("\n\n") + "\n" }
+    let(:long_thread) do
+      thread = create(:comment_thread, plan: plan, created_by_user: author,
+        anchor_text: "Paragraph 30 to format while scrolled.")
+      create(:comment, comment_thread: thread, author_id: author.id,
+        body_markdown: (1..25).map { |n| "Discussion paragraph #{n} with detailed review feedback." }.join("\n\n"))
+      create(:review_request, plan: plan)
+      thread
+    end
+
+    before do
+      paragraph = find('[aria-label="Document body"] p', text: "Paragraph 30 to format while scrolled.", exact_text: true)
+      page.execute_script("arguments[0].scrollIntoView({ block: 'center' })", paragraph)
+      bounds = page.evaluate_script(<<~'JS', paragraph)
+        (() => { const range = document.createRange(); range.selectNodeContents(arguments[0]);
+        const rect = range.getBoundingClientRect(); return { left: rect.left, right: rect.right, y: (rect.top + rect.bottom) / 2 }; })()
+      JS
+      page.driver.browser.action.move_to_location(bounds["left"].round, bounds["y"].round)
+        .click_and_hold.move_to_location(bounds["right"].ceil, bounds["y"].round).release.perform
+      expect(page.evaluate_script("window.scrollY")).to be > 500
+      expect(page.evaluate_script("window.getSelection().toString()")).to eq("Paragraph 30 to format while scrolled.")
+    end
+
+    it "bolds the selected passage using the sticky toolbar" do
+      page.driver.browser.action.move_to(find_button("Bold").native).click.perform
+
+      expect(page).to have_css('[aria-label="Document body"] p strong', text: "Paragraph 30 to format while scrolled.")
+      expect(page).to have_css('.document-editor__save-status[data-state="saved"]', visible: :all, wait: 10)
+      expect(plan.reload.current_content).to include("**Paragraph 30 to format while scrolled.**")
+    end
+
+    it "links the selected passage using the sticky toolbar" do
+      accept_prompt("Link URL", with: "https://example.com/scrolled") do
+        page.driver.browser.action.move_to(find_button("Link").native).click.perform
+      end
+
+      expect(page).to have_css('[aria-label="Document body"] a[href="https://example.com/scrolled"]', text: "Paragraph 30 to format while scrolled.")
+      expect(page).to have_css('.document-editor__save-status[data-state="saved"]', visible: :all, wait: 10)
+      expect(plan.reload.current_content).to include("[Paragraph 30 to format while scrolled.](https://example.com/scrolled)")
+    end
+
+    it "keeps the sticky formatting toolbar clickable beside a long discussion" do
+      thread = long_thread
+      visit plan_edit_page_path(plan)
+      mark = find(".inline-editor mark[data-thread-id='comment_thread_#{thread.id}']", wait: 20)
+      mark.click
+      expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open")
+      expect(page.evaluate_script("window.scrollY")).to be > 500
+
+      %w[light dark].each do |theme|
+        page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+        page.save_screenshot(Rails.root.join("tmp/editor-long-discussion-#{theme}.png"))
+      end
+      # A native pointer click must reach the visible toolbar, rather than
+      # the discussion's top layer. Do not bypass hit testing with JS click().
+      dismiss_prompt("Link URL") do
+        page.driver.browser.action.move_to(find_button("Link").native).click.perform
+      end
+    end
+
+    [ :open, :dismissed ].each do |discussion_state|
+      it "keeps the sticky header Edit link clickable after linking to a #{discussion_state} long discussion" do
+        thread = long_thread
+        plan.update!(title: "A long document title with assigned reviewers and a detailed discussion")
+        visit plan_page_path(plan, thread: thread.id)
+        expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open")
+        if discussion_state == :dismissed
+          page.driver.browser.action.send_keys(:escape).perform
+          expect(page).to have_no_css("#comment_thread_#{thread.id}_popover:popover-open")
+          page.execute_script("window.scrollBy(0, 200)")
+        end
+        edit = find(".site-nav__plan-context--visible .site-nav__edit")
+        # Wait for the title's entrance animation before aiming the mouse.
+        expect(page).to have_css(".site-nav__plan-context--visible") do |context|
+          context.evaluate_script("getComputedStyle(this).opacity === '1' && this.getAnimations().length === 0")
+        end
+        bounds = edit.evaluate_script("this.getBoundingClientRect().toJSON()")
+        expect(edit.evaluate_script("(() => { const r = this.getBoundingClientRect(); return this.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); })()")).to eq(true)
+        page.driver.browser.action.move_to_location((bounds["left"] + bounds["width"] / 2).round,
+          (bounds["top"] + bounds["height"] / 2).round).click.perform
+
+        expect(page).to have_css('.inline-editor [aria-label="Document body"]', wait: 20)
+        expect(page.evaluate_script("window.scrollY")).to be > 500
+        dismiss_prompt("Link URL") do
+          page.driver.browser.action.move_to(find_button("Link").native).click.perform
+        end
+      end
+    end
+
+    it "bolds selected text while its long discussion is open" do
+      thread = long_thread
+      visit plan_edit_page_path(plan)
+      mark = find(".inline-editor mark[data-thread-id='comment_thread_#{thread.id}']", wait: 20)
+      mark.click
+      expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open")
+      page.execute_script(<<~'JS', mark)
+        const range = document.createRange(); range.selectNodeContents(arguments[0]);
+        const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+      JS
+      selected = page.evaluate_script("window.getSelection().toString()")
+      expect(selected).not_to be_empty
+
+      page.driver.browser.action.move_to(find_button("Bold").native).click.perform
+
+      expect(page).to have_css('[aria-label="Document body"] p strong', text: selected)
+      expect(page).to have_css('.document-editor__save-status[data-state="saved"]', visible: :all, wait: 10)
+      expect(plan.reload.current_content).to include("**#{selected}**")
+    end
+
+    [ :escape, :outside_click ].each do |dismissal|
+      it "keeps a dismissed discussion out of toolbar hit testing after #{dismissal}" do
+        thread = long_thread
+        visit plan_edit_page_path(plan)
+        mark = find(".inline-editor mark[data-thread-id='comment_thread_#{thread.id}']", wait: 20)
+        mark.click
+        popover = "#comment_thread_#{thread.id}_popover"
+        expect(page).to have_css("#{popover}:popover-open")
+        if dismissal == :escape
+          # Dismiss from the discussion; ProseMirror consumes Escape while
+          # its document selection has focus.
+          find("#{popover} textarea").click
+          page.driver.browser.action.send_keys(:escape).perform
+        else
+          page.driver.browser.action.move_to_location(1200, 600).click.perform
+        end
+        expect(page).to have_no_css("#{popover}:popover-open")
+        page.execute_script("window.scrollBy(0, 200)")
+
+        expect(page.evaluate_script(<<~'JS', popover)).to eq({ "open" => false, "display" => "none", "area" => 0, "hits" => [ "bold", "link" ] })
+          (() => {
+            const panel = document.querySelector(arguments[0]), rect = panel.getBoundingClientRect();
+            const hits = ['bold', 'link'].map(command => {
+              const button = document.querySelector(`[data-command="${command}"]`), bounds = button.getBoundingClientRect();
+              return document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)?.closest('button')?.dataset.command;
+            });
+            return { open: panel.matches(':popover-open'), display: getComputedStyle(panel).display, area: rect.width * rect.height, hits };
+          })()
+        JS
+        paragraph = find('[aria-label="Document body"] p', text: "Paragraph 30 to format while scrolled.", exact_text: true)
+        page.execute_script(<<~'JS', paragraph)
+          const range = document.createRange(); range.selectNodeContents(arguments[0]);
+          const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+        JS
+        page.driver.browser.action.move_to(find_button("Bold").native).click.perform
+        expect(page).to have_css('[aria-label="Document body"] strong', text: "Paragraph 30 to format while scrolled.")
+        dismiss_prompt("Link URL") { page.driver.browser.action.move_to(find_button("Link").native).click.perform }
+      end
+    end
   end
 
   it "shows saving through in-flight typing, then fades the acknowledged autosave without moving the toolbar" do

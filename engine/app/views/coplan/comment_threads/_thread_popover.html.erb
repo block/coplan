@@ -15,7 +15,7 @@
      data-plan-author-id="<%= plan.created_by_user_id %>"
      data-thread-author-id="<%= thread.created_by_user_id %>">
 
-  <div popover="auto" id="<%= dom_id(thread) %>_popover" class="thread-popover comment-window" data-controller="coplan--composer" data-action="input->coplan--composer#fitDraft focusin->coplan--composer#fitDraft resize@window->coplan--composer#constrain toggle->coplan--composer#toggled coplan:composer-close->coplan--composer#closed">
+  <div popover="auto" id="<%= dom_id(thread) %>_popover" class="thread-popover comment-window" data-controller="coplan--composer" data-action="input->coplan--composer#fitDraft focusin->coplan--composer#fitDraft resize@window->coplan--composer#constrain scroll@window->coplan--composer#constrain coplan:editor-ready@document->coplan--composer#constrain coplan:editor-closed@document->coplan--composer#constrain toggle->coplan--composer#toggled coplan:composer-close->coplan--composer#closed">
     <%= render "coplan/comment_threads/window_controls", thread: thread, plan: plan %>
     <% if thread.closed? || thread.out_of_date? %>
     <div class="thread-popover__header">

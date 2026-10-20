@@ -8230,7 +8230,7 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
   margin: 0;
   width: 360px;
   max-width: calc(100vw - 24px);
-  max-height: calc(100dvh - 24px);
+  max-height: calc(100dvh - var(--comment-window-top, 12px) - 12px);
   padding: 10px 14px 28px;
   border-radius: 16px;
   border: 1px solid light-dark(#ffffffb3, #ffffff30);
