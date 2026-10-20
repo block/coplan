@@ -215,4 +215,40 @@ RSpec.describe "CoPlan reviews" do
     expect { request.destroy! }.not_to raise_error
     expect(CoPlan::ReviewResponse.where(review_request_id: request.id)).to be_empty
   end
+
+  describe CoPlan::Reviews::Suggest do
+    let(:withdrawn) { create(:coplan_user) }
+    let(:owner) { create(:coplan_user) }
+    let(:helper) { create(:coplan_user) }
+
+    def suggest_with(hook)
+      allow(CoPlan.configuration).to receive(:suggest_reviewers).and_return(hook)
+      described_class.call(plan: plan)
+    end
+
+    it "offers the host's people once each, minus the author and active reviewers" do
+      request
+      CoPlan::Reviews::Withdraw.call(request: create(:review_request, plan: plan, reviewer: withdrawn), actor: plan.created_by_user)
+      suggestions = suggest_with(->(given) {
+        expect(given).to eq(plan)
+        [ plan.created_by_user, reviewer, nil, build(:coplan_user),
+          { "user" => owner, "reason" => "Owns app/models", "requirement" => "optional" },
+          { user: owner, reason: "Owns app/views", requirement: "required" },
+          { user: helper, requirement: "maybe" }, withdrawn ]
+      })
+      expect(suggestions.map { |s| [ s.user, s.reason, s.requirement ] }).to eq([
+        [ owner, "Owns app/models", "optional" ], [ helper, nil, "required" ], [ withdrawn, nil, "required" ]
+      ])
+      expect(suggestions.first.as_json).to eq(reviewer: { id: owner.id, name: owner.name, username: owner.username,
+        avatar_url: owner.avatar_url, team: owner.team }, reason: "Owns app/models", requirement: "optional")
+    end
+
+    it "suggests nobody without a hook, and reports a failing hook instead of raising" do
+      expect(suggest_with(nil)).to eq([])
+      reported = []
+      allow(CoPlan.configuration).to receive(:error_reporter).and_return(->(error, context) { reported << [ error.message, context ] })
+      expect(suggest_with(->(_plan) { raise "Ownership API down" })).to eq([])
+      expect(reported).to eq([ [ "Ownership API down", { source: "suggest_reviewers", plan_id: plan.id } ] ])
+    end
+  end
 end

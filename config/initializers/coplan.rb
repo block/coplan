@@ -41,6 +41,15 @@ CoPlan.configure do |config|
   #   }
   # }
 
+  # Suggest the authors of the plans a plan links to. A deployment with code
+  # ownership data would look up the owners of linked files instead.
+  config.suggest_reviewers = ->(plan) {
+    plan.references.includes(target_plan: :created_by_user).filter_map do |reference|
+      author = reference.target_plan&.created_by_user
+      author && { user: author, reason: "Wrote a linked plan", requirement: "optional" }
+    end
+  }
+
   # Wake webhook egress: the engine default refuses URLs whose hosts
   # resolve to private/loopback/link-local space (SSRF). Locally that's
   # exactly where agents live, and specs use non-resolving example hosts,

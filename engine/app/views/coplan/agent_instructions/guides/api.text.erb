@@ -74,6 +74,7 @@ return 429. Invalid names return 422 with `invalid_request`.
 | Method and path | Purpose | Guide |
 |---|---|---|
 | `GET /api/v1/plans/:id/review_requests` | List reviewers and their recorded decisions. | comments |
+| `GET /api/v1/plans/:id/review_requests/suggestions` | List reviewers this CoPlan deployment suggests, such as owners of linked code. Plan author only. | comments |
 | `POST /api/v1/plans/:id/review_requests` | Request required or optional review. Plan author only. | comments |
 | `PATCH /api/v1/plans/:id/review_requests/:request_id` | Change the requirement without reopening, or request another look. Plan author only. | comments |
 | `DELETE /api/v1/plans/:id/review_requests/:request_id` | Withdraw a request; record its actor and time while preserving earlier history. Plan author only. | comments |

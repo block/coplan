@@ -38,6 +38,18 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
     end
   end
 
+  it "lists suggested reviewers for the author's agent only" do
+    allow(CoPlan.configuration).to receive(:suggest_reviewers).and_return(->(_plan) { [ { user: reviewer, reason: "Owns app/models" } ] })
+    get suggestions_api_v1_plan_review_requests_path(plan), headers: headers("reviews-owner")
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to eq("suggestions" => [ {
+      "reviewer" => { "id" => reviewer.id, "name" => reviewer.name, "username" => reviewer.username, "avatar_url" => reviewer.avatar_url, "team" => reviewer.team },
+      "reason" => "Owns app/models", "requirement" => "required"
+    } ])
+    get suggestions_api_v1_plan_review_requests_path(plan), headers: headers("reviews-reviewer")
+    expect(response).to have_http_status(:forbidden)
+  end
+
   %w[pending approved changes_requested withdrawn].each do |state|
     it "preserves a #{state} review when create is retried", :review_create_retries do
       payload = { reviewer_id: reviewer.id, requirement: "optional" }

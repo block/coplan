@@ -4,7 +4,7 @@ module CoPlan
       class ReviewRequestsController < BaseController
         before_action :set_plan
         before_action :authorize_plan_access!
-        before_action :authorize_plan_write!, only: [ :create, :update, :destroy ]
+        before_action :authorize_plan_write!, only: [ :suggestions, :create, :update, :destroy ]
         before_action :set_review_request, only: [ :update, :destroy, :respond ]
         rescue_from Reviews::Respond::Conflict do |error|
           render json: { error: error.message, code: error.code }, status: :conflict
@@ -20,6 +20,10 @@ module CoPlan
           requests = @plan.review_requests.includes(:reviewer, :requested_plan_version, review_responses: :plan_version)
           render json: { review_requests: requests.map { |request| Reviews::Serialize.call(request) },
                          approval_meaning: "Satisfied with a specific version; grants no execution authority or permissions." }
+        end
+
+        def suggestions
+          render json: { suggestions: Reviews::Suggest.call(plan: @plan) }
         end
 
         def create

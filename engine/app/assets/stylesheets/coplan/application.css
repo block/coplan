@@ -8476,6 +8476,10 @@ button.visibility-option__button:hover:not(:disabled) { background: var(--color-
 .review-search-result strong, .review-search-result small { display: block; }
 .review-search-result strong { font-size: 12px; font-weight: 500; }
 .review-search-result small { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
+.review-suggestions { margin-top: 12px; }
+.review-suggestions[hidden] { display: none; }
+.review-suggestions__label { display: block; margin-bottom: 4px; font-size: 11px; font-weight: 500; color: var(--color-text-muted); }
+.review-suggestions__list { max-height: 180px; overflow: auto; margin: 0 -8px; }
 .review-search-result__avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--color-interaction-hover-bg); color: var(--color-primary); font-size: 10px; flex-shrink: 0; }
 .review-person { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--color-border); border-radius: 12px; background: light-dark(#ffffff66, #ffffff03); }
 .review-person + .review-person { margin-top: 7px; }

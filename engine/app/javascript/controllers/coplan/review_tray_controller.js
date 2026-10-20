@@ -1,11 +1,12 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "managementStatus", "assignmentError", "approval", "approvalNote", "approvalError", "approvalTitle", "approveButton", "comparison", "diff", "activity"]
-  static values = { url: String, searchUrl: String }
+  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "managementStatus", "assignmentError", "approval", "approvalNote", "approvalError", "approvalTitle", "approveButton", "comparison", "diff", "activity", "suggestions"]
+  static values = { url: String, searchUrl: String, suggestionsUrl: String }
 
   connect() {
     this.searchSequence = 0
+    this.suggestionSequence = 0
     this.refreshSequence = 0
     // Shared streams carry an invalidation signal, never another viewer's
     // forms, tokens or personal task status.
@@ -52,6 +53,7 @@ export default class extends Controller {
       this.positionAssignment()
       this.assignButtonTarget.disabled = !this.reviewerIdTarget.value
       this.searchTarget.focus({ preventScroll: true })
+      this.loadSuggestions()
     } else this.closeAssignment()
   }
 
@@ -294,31 +296,56 @@ export default class extends Controller {
         if (sequence !== this.searchSequence || !this.element.isConnected) return
         this.resultsTarget.replaceChildren()
         for (const user of users) {
-          const button = document.createElement("button")
-          button.type = "button"; button.className = "review-search-result"
-          const avatar = document.createElement("span")
-          avatar.className = "review-search-result__avatar"
-          avatar.textContent = user.name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()
-          avatar.setAttribute("aria-hidden", "true")
-          const info = document.createElement("span"), name = document.createElement("strong"), detail = document.createElement("small")
-          name.textContent = user.name
-          const assigned = [...this.element.querySelectorAll('[data-reviewer-id]')].some(row => row.dataset.reviewerId === user.id)
-          detail.textContent = assigned ? "Already a reviewer" : [user.username && `@${user.username}`, user.team].filter(Boolean).join(" · ")
-          button.disabled = assigned
-          info.append(name, detail); button.append(avatar, info)
-          button.dataset.action = "coplan--review-tray#chooseReviewer"
-          button.dataset.userId = user.id; button.dataset.userName = user.name
-          this.resultsTarget.append(button)
+          this.resultsTarget.append(this.personButton(user, [user.username && `@${user.username}`, user.team].filter(Boolean).join(" · ")))
         }
         if (!users.length) this.resultsTarget.textContent = "No people found."
       } catch { if (sequence === this.searchSequence) this.resultsTarget.textContent = "Search unavailable. Please try again." }
     }, 150)
   }
 
+  personButton(user, detailText) {
+    const button = document.createElement("button")
+    button.type = "button"; button.className = "review-search-result"
+    const avatar = document.createElement("span")
+    avatar.className = "review-search-result__avatar"
+    avatar.textContent = user.name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()
+    avatar.setAttribute("aria-hidden", "true")
+    const info = document.createElement("span"), name = document.createElement("strong"), detail = document.createElement("small")
+    name.textContent = user.name
+    const assigned = [...this.element.querySelectorAll('[data-reviewer-id]')].some(row => row.dataset.reviewerId === user.id)
+    detail.textContent = assigned ? "Already a reviewer" : detailText
+    button.disabled = assigned
+    info.append(name, detail); button.append(avatar, info)
+    button.dataset.action = "coplan--review-tray#chooseReviewer"
+    button.dataset.userId = user.id; button.dataset.userName = user.name
+    return button
+  }
+
+  async loadSuggestions() {
+    if (!this.hasSuggestionsTarget) return
+    const list = this.suggestionsTarget.querySelector("[data-review-suggestion-list]"), sequence = ++this.suggestionSequence
+    try {
+      const response = await fetch(this.suggestionsUrlValue, { headers: { Accept: "application/json" }, credentials: "same-origin" })
+      if (!response.ok) throw new Error("Suggestions unavailable")
+      const suggestions = await response.json()
+      if (sequence !== this.suggestionSequence || !this.element.isConnected) return
+      list.replaceChildren(...suggestions.map(({ reviewer, reason, requirement }) => {
+        const button = this.personButton(reviewer, [reason, requirement === "optional" && "Optional"].filter(Boolean).join(" · "))
+        button.dataset.requirement = requirement
+        return button
+      }))
+      this.suggestionsTarget.hidden = !suggestions.length
+    } catch { if (sequence === this.suggestionSequence) this.suggestionsTarget.hidden = true }
+    this.positionAssignment()
+  }
+
   chooseReviewer(event) {
     this.searchSequence++
     this.reviewerIdTarget.value = event.currentTarget.dataset.userId
     this.searchTarget.value = event.currentTarget.dataset.userName
+    if (event.currentTarget.dataset.requirement) {
+      this.assignmentTarget.querySelector('[type="checkbox"]').checked = event.currentTarget.dataset.requirement === "required"
+    }
     this.assignButtonTarget.disabled = false
     this.resultsTarget.replaceChildren()
     this.hideResults()

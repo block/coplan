@@ -21,6 +21,12 @@
           <input type="hidden" name="review_request[reviewer_id]" data-coplan--review-tray-target="reviewerId">
           <div id="reviewer-results" class="review-search-results" data-coplan--review-tray-target="results" aria-live="polite" hidden></div>
         </div>
+        <% if CoPlan.configuration.suggest_reviewers %>
+          <div class="review-suggestions" data-coplan--review-tray-target="suggestions" hidden>
+            <span id="review-suggestions-label" class="review-suggestions__label">Suggested</span>
+            <div class="review-suggestions__list" role="group" aria-labelledby="review-suggestions-label" data-review-suggestion-list></div>
+          </div>
+        <% end %>
         <div class="review-assignment-form__footer">
           <label class="review-required"><input type="checkbox" name="review_request[required]" checked> Required</label>
           <button type="submit" class="review-add-button" data-coplan--review-tray-target="assignButton" disabled>Add reviewer</button>

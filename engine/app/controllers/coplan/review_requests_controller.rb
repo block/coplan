@@ -10,6 +10,11 @@ module CoPlan
       render partial: "coplan/reviews/controls", locals: { plan: @plan }
     end
 
+    def suggestions
+      authorize!(@plan, :update?)
+      render json: Reviews::Suggest.call(plan: @plan)
+    end
+
     def create
       authorize!(@plan, :update?)
       attributes = params.expect(review_request: [ :reviewer_id, :requirement ])
