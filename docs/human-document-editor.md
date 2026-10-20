@@ -42,6 +42,8 @@ Save feedback sits at the far right: a muted clock while autosave is queued,
 a spinner during the request, then a muted
 check that fades after acknowledgement. Hover for the saved version and time.
 Errors stay visible and successful saves are announced to assistive technology.
+The header version follows acknowledged saves and live updates without replacing
+the editable title, and stays current when returning to reading mode.
 The editor has no Details menu, tag editing, or change-summary field; existing tags
 and incoming tag updates are retained.
 
@@ -54,6 +56,19 @@ unresolved conflicts keep you in the editor with your draft. An untouched empty
 new draft can simply close the editor. Comments remain available in reading view.
 
 ## Markdown, tables and diagrams
+
+Standalone HTML comments (`<!-- … -->`) appear as muted, italic text in a subtle
+gray box in Editor and Dual modes. The text is directly editable. The delimiters stay in Raw mode;
+notes remain hidden in reading view. Untouched notes keep their exact source.
+A standalone note does not need a blank line after the preceding prose.
+The rich editor rejects text that would close a note's HTML comment and shows
+an explanation. Use spaced text such as `-- >` to write a closing marker.
+Notes stay plain text while their style is Comment. Inline formatting controls
+and shortcuts are disabled. Choosing Normal text or a heading intentionally
+makes the text visible. Review highlights and caret restoration skip notes.
+Press Enter to continue in Normal text. Shift-Enter adds a line inside the comment.
+Enter in an empty comment turns it into a normal paragraph.
+Cmd/Ctrl+A inside a note selects only that note's text.
 
 Raw mode edits the exact Markdown source in a plain, unformatted editor. Switching
 modes alone does not serialize, save or normalize the text, including unsupported
@@ -92,8 +107,16 @@ and height fields. Administrators approve exact HTTPS hosts under **Iframe domai
 No domains are allowed by default. See the served `/agent-instructions/embeds`
 guide for syntax, supported sizes, and the fixed sandbox and frame policy.
 
-Other unsupported Markdown (task lists, raw HTML, reference-style
-links, strikethrough and mentions) remains source-preserving. Cards show a
+Formatted prose, strikethrough, mentions, and ordinary or task lists stay directly
+editable. Task checkboxes toggle in place; Enter continues with an unchecked task.
+Choose **Comment** in the text-style menu beside Normal text and the
+headings to hide a paragraph or heading while reading. Its text stays gray and
+editable in the editor. Choose Normal text or a heading to make it visible again.
+Converting a multiline comment to a heading creates a separate heading for each line.
+To remove a comment, clear its text and press Backspace again. The caret moves to
+the preceding editable content, or the following content if the comment is first.
+
+Other unsupported Markdown (raw HTML and reference-style links) remains source-preserving. Cards show a
 sanitized reading-style preview when available, with the same source-edit path.
 Untouched blocks retain their exact spelling. A supported block that you edit
 in rich mode is reserialized; Markdown mode gives full control over spelling.

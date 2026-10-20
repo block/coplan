@@ -2,7 +2,7 @@
 <% inline_editor = local_assigns.fetch(:inline_editor, false) %>
 <%= form_with url: creating ? plans_path : update_content_plan_path(@plan), method: creating ? :post : :patch,
     class: "document-editor", id: (inline_editor ? "coplan-inline-editor-form" : nil), data: { controller: "coplan--editor", turbo: false, "coplan--editor-inline-value": inline_editor,
-    action: "submit->coplan--editor#submit input->coplan--editor#input keydown->coplan--editor#keydown focusin->coplan--editor#focusPane compositionend->coplan--editor#compositionEnded beforeunload@window->coplan--editor#beforeUnload turbo:before-visit@document->coplan--editor#beforeVisit turbo:before-stream-render@document->coplan--editor#stream online@window->coplan--editor#reconnect focus@window->coplan--editor#refresh",
+    action: "submit->coplan--editor#submit input->coplan--editor#input keydown->coplan--editor#keydown focusin->coplan--editor#focusPane compositionend->coplan--editor#compositionEnded coplan:template-note-rejected->coplan--editor#templateNoteRejected beforeunload@window->coplan--editor#beforeUnload turbo:before-visit@document->coplan--editor#beforeVisit turbo:before-stream-render@document->coplan--editor#stream online@window->coplan--editor#reconnect focus@window->coplan--editor#refresh",
     "coplan--editor-plan-id-value": @plan.id || "new", "coplan--editor-user-id-value": current_user.id,
     "coplan--editor-draft-scope-value": (creating ? "#{@new_plan_type&.id || 'general'}-#{@new_folder&.id || 'root'}" : ""),
     "coplan--editor-revision-value": @base_revision,
@@ -66,7 +66,7 @@
     <% end %>
     <div class="document-editor__format-controls" data-coplan--editor-target="formatControls" data-action="scroll->coplan--editor#updateToolOverflow">
       <select aria-label="Paragraph style" data-command="heading" data-coplan--editor-target="style" data-action="change->coplan--editor#style">
-        <option value="0">Normal text</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option><option value="code">Code block</option>
+        <option value="0">Normal text</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option><option value="comment">Comment</option><option value="code">Code block</option>
       </select>
       <span class="document-editor__tool-divider" aria-hidden="true"></span>
       <div class="document-editor__insert-code">

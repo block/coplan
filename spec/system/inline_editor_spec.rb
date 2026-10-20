@@ -28,6 +28,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_no_button("Revert unsaved changes")
     expect(page).to have_no_button("Discard changes and close")
     expect(page).to have_css("[data-coplan--inline-editor-target='reader'][hidden]", visible: :all)
+    page.execute_script('window.inlineTitleBeforeSave = document.querySelector("#plan-header .inline-editor__title")')
     expect(page).to have_css(".inline-editor button.document-editor__close-inline > .document-editor__save-status", count: 1, visible: :all)
     expect(page).to have_css("#coplan-inline-save-announcement[role='status'][aria-live='polite']", visible: :all)
     close_width = find(".inline-editor button.document-editor__close-inline").rect.width
@@ -37,6 +38,8 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css(".inline-editor .ProseMirror", text: "Added inline.")
     expect(page).to have_css(".document-editor__save-status[data-state='saved']", visible: :all, wait: 15)
     expect(find(".inline-editor button.document-editor__close-inline")["title"]).to include("All changes saved")
+    expect(page).to have_css("#plan-header .page-header__byline", text: /\bv2\b/)
+    expect(page.evaluate_script('window.inlineTitleBeforeSave === document.querySelector("#plan-header .inline-editor__title")')).to be(true)
     expect(find(".inline-editor button.document-editor__close-inline").rect.width).to eq(close_width)
     find(".inline-editor").click_button "Done editing"
 
@@ -44,6 +47,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_current_path(original_path)
     expect(plan.reload.current_content).to include("Added inline.")
     expect(page).to have_no_css(".inline-editor form.document-editor", wait: 10)
+    expect(page).to have_css("#plan-header .page-header__byline", text: /\bv2\b/)
   end
 
   it "uses the toolbar Done control to leave inline editing without a blank page" do
@@ -164,6 +168,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css("#plan-content-body", text: "Remote revision.")
     expect(page).to have_no_css("#plan-content-body", text: "First paragraph.")
     expect(page).to have_css("#plan-content-body[data-coplan--live-update-revision-value='2']")
+    expect(page).to have_css("#plan-header .page-header__byline", text: /\bv2\b/)
   end
 
   it "allows a page reload after an inline save fails" do

@@ -8,6 +8,10 @@ export default class extends Controller {
   static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave"]
   static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, tokenUrl: String, previewUrl: String, leaseUrl: String, inline: Boolean, embedDomains: Array }
 
+  revisionValueChanged(revision) {
+    if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-revision", { bubbles: true, detail: { revision } }))
+  }
+
   async connect() {
     this.active = true
     this.inlineVisible = !this.inlineValue
@@ -84,11 +88,22 @@ export default class extends Controller {
     this.persistDraft()
     this.richEditor?.destroy()
     this.rawEditor?.destroy()
+    this.noteToast?.remove()
     this.releaseIdle()
     this.releaseComposition()
   }
 
   get isNew() { return this.planIdValue === "new" }
+  templateNoteRejected() {
+    this.noteToast?.remove()
+    const toast = document.createElement("div")
+    toast.className = "flash flash--alert toasts__toast"
+    toast.dataset.controller = "coplan--toast"
+    toast.setAttribute("role", "alert")
+    toast.textContent = "We couldn't add that text because it would end the comment. Use -- > to show a closing marker."
+    document.getElementById("coplan-toasts").append(toast)
+    this.noteToast = toast
+  }
   snapshot() {
     return { content: this.textareaTarget.value, title: this.element.querySelector('[name="plan[title]"]').value,
       tags: this.element.querySelector('[name="plan[tag_names]"]').value }
@@ -408,22 +423,37 @@ export default class extends Controller {
     if (!["undo", "redo"].includes(command)) editor?.captureSelection()
     editor?.command(command, event.currentTarget.value)
   }
-  keepSelection(event) { if (event.target.closest("button")) event.preventDefault() }
+  keepSelection(event) {
+    if (event.target.closest("select")) this.richEditor?.captureSelection()
+    if (event.target.closest("button")) event.preventDefault()
+  }
   updateToolbar(state) {
     const rawFocused = (this.editor === this.rawEditor && !!this.rawEditor) || !!document.activeElement?.closest(".document-editor__content-block, .document-editor__block-source")
-    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-code"]').disabled = rawFocused
-    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-content"]').disabled = rawFocused
-    if (rawFocused && this.contentPickerTarget.matches(":popover-open")) this.contentPickerTarget.hidePopover()
-    if (rawFocused && this.codePickerTarget.matches(":popover-open")) this.codePickerTarget.hidePopover()
+    const formattingDisabled = rawFocused || state.templateNote
+    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-code"]').disabled = formattingDisabled
+    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-content"]').disabled = formattingDisabled
+    if (formattingDisabled && this.contentPickerTarget.matches(":popover-open")) this.contentPickerTarget.hidePopover()
+    if (formattingDisabled && this.codePickerTarget.matches(":popover-open")) this.codePickerTarget.hidePopover()
     this.toolbarTarget.querySelectorAll("[data-command]").forEach(button => {
       const command = button.dataset.command
-      button.disabled = rawFocused
-      if (button.tagName === "SELECT") { button.value = rawFocused ? "0" : state.heading || "0"; return }
+      button.disabled = formattingDisabled
+      if (button.tagName === "SELECT") {
+        button.disabled = rawFocused
+        button.value = rawFocused ? "0" : state.heading || "0"
+        button.querySelector('option[value="comment"]').disabled = !state.canHideComment
+        return
+      }
       if (["undo", "redo"].includes(command)) button.disabled = !(this.editor?.historyState() || state)[command]
-      else button.setAttribute("aria-pressed", String(!rawFocused && !!state[command]))
+      else button.setAttribute("aria-pressed", String(!formattingDisabled && !!state[command]))
     })
   }
-  style(event) { if (this.editor !== this.richEditor) return; this.richEditor?.command(event.currentTarget.value === "0" ? "paragraph" : event.currentTarget.value === "code" ? "code_block" : "heading", event.currentTarget.value) }
+  style(event) {
+    if (this.editor !== this.richEditor) return
+    this.richEditor.captureSelection()
+    const value = event.currentTarget.value
+    this.richEditor?.command({ "0": "paragraph", code: "code_block", comment: "hidden_comment" }[value] || "heading", value)
+    this.updateToolbar(this.richEditor.toolbarState())
+  }
   updateToolOverflow() {
     if (!this.active || !this.hasMoreToolsTarget || !this.hasFormatControlsTarget) return
     const controls = this.formatControlsTarget

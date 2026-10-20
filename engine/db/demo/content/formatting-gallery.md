@@ -1,5 +1,8 @@
 ## Readable inline formatting
 
+<!-- Template guidance: summarize the decision before adding supporting detail.
+This note is editable in the editor and hidden when reading. -->
+
 Use **bold** for a decision, *italics* for emphasis, ~~strikethrough~~ for an abandoned option, and `receipt_id` for code. Ask [@alex](mention:alex) about the rollout boundary.
 
 ### A smaller heading
@@ -59,6 +62,14 @@ B) Second uppercase lettered step.
 
 a) First lowercase lettered step.
 b) Second lowercase lettered step.
+
+## Try comments
+
+Open Edit, click this paragraph, and choose Comment from the text-style
+menu beside Normal text and the headings. The text turns gray and stays editable.
+Press Enter to start normal text after the comment. Use Shift-Enter to add another line inside it.
+Choose Done to hide it while reading, or choose Normal text to make it visible again.
+To remove the comment, clear its text and press Backspace again. The caret moves to the content above.
 
 ## Two code languages
 

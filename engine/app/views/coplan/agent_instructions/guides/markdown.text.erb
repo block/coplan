@@ -1,8 +1,27 @@
 # Writing Plan Markdown
 
-Plans use CommonMark with the GitHub extensions: tables, task lists, strikethrough, and autolinks. CoPlan also supports the features on this page, and slide decks inside a plan (see <<%= @base %>/agent-instructions/presentations>). CoPlan removes all other raw HTML when it shows the plan, but keeps it in the source.
+Plans use CommonMark with the GitHub extensions: tables, task lists, strikethrough, and autolinks. CoPlan also supports the features on this page, and slide decks inside a plan (see <<%= @base %>/agent-instructions/presentations>). CoPlan sanitizes raw HTML when it shows the plan, but keeps the original source.
 
 This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>.
+
+## Template notes
+
+Put author guidance in a standalone HTML comment: `<!-- Explain the decision here. -->`.
+A note can follow a line of prose without a blank line.
+The human editor shows muted, italic text in a subtle gray box, without the delimiters.
+The text stays directly editable; this appearance does not change its Markdown source.
+People can also choose Comment from the text-style menu beside Normal text
+and the headings. Choosing Normal text or a heading makes the text visible again.
+Press Enter to continue in Normal text. Shift-Enter adds a line inside the comment.
+Enter in an empty comment turns it into a normal paragraph.
+Multiline comments become a separate heading for each line when converted to headings.
+To remove a comment, clear its text and press Backspace again. The caret moves to
+the preceding editable content, or the following content if the comment is first.
+Reading view hides it. Raw mode and the API retain the comment in the Markdown.
+Comments inside code fences stay literal code. These notes are separate from review discussions.
+The rich editor rejects closing markers inside a note. Use spaced text such as `-- >` to show that syntax.
+In the human editor, notes stay plain text. Cmd/Ctrl+A selects only the current note.
+Review highlights and comment selections skip their text.
 
 ## Human editor lists
 
@@ -77,6 +96,9 @@ Always put a language tag on a code fence. CoPlan highlights the syntax with hig
 ## Task lists
 
 `- [ ] Item` and `- [x] Done item` render as checkboxes. Readers can select a checkbox in the web UI. **Each selection is a hand edit.** After a person selects a checkbox, CoPlan refuses your next write until you read the plan again.
+In the rich editor, task text stays directly editable. Checkboxes toggle in place,
+and Enter continues with an unchecked task. Strikethrough and mentions also stay
+inline in editable prose and lists.
 
 ## Collapsible sections
 

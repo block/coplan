@@ -71,8 +71,7 @@ module CoPlan
     def broadcast_writing_provenance
       plan.reload
       Broadcaster.replace_to(plan, target: "writing-provenance", partial: "coplan/plans/writing_provenance", locals: { plan: plan })
-      Broadcaster.replace_to(plan, target: "plan-version-label",
-        html: ApplicationController.helpers.content_tag(:span, "· v#{plan.current_revision}", id: "plan-version-label"))
+      Broadcaster.replace_to(plan, target: "plan-version-label", partial: "coplan/plans/version_label", locals: { plan: plan })
     end
 
     def enforce_edit_lease

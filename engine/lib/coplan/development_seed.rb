@@ -89,7 +89,7 @@ module CoPlan
         showcase: "Cell discussion, repeated labels, empty cells, links, and a wide expandable table" },
       { key: "formatting-gallery", author: "hampton", type: "General", title: "Rich text: headings, tasks, code, quotes, and footnotes",
         tags: %w[demo markdown], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
-        showcase: "Markdown formatting, reversible bullet typing, list exit, task toggles, code languages, image, mention, and footnotes" },
+        showcase: "Markdown formatting, editable template notes hidden while reading, reversible bullet typing, list exit, task toggles, code languages, image, mention, and footnotes" },
       { key: "image-resizing", author: "hampton", type: "General", title: "Images: resize and snap to full width",
         tags: %w[demo images editor], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "Editor corner resizing, saved Markdown width, undo, and snap to natural full width" },

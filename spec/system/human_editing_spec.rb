@@ -237,6 +237,114 @@ RSpec.describe "Human plan editing", type: :system do
     expect(plan.current_content).to end_with("[^catalog-shape]: Catalog details.\n[^client]: Client details.\n")
   end
 
+  it "keeps formatted prose, mentions and task lists editable beside template notes" do
+    source = "<!-- Explain the decision. -->\n\n" \
+      "Use **bold** for a decision, *italics* for emphasis, ~~strikethrough~~ for an abandoned option, and `receipt_id` for code. Ask [@alex](mention:alex). Literal \\~\\~tildes\\~\\~.\n\n" \
+      "- [x] Define a **receipt**\n- [ ] Inspect retry metrics\n  - [X] Nested task\n  - Ordinary nested item\n- Ordinary item\n\n" \
+      "1. Ordered item\n2. Another item\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    expect(page).to have_css(".document-editor__template-note", text: "Explain the decision.")
+    expect(page).to have_css(".ProseMirror > p strong", text: "bold")
+    expect(page).to have_css(".ProseMirror > p em", text: "italics")
+    expect(page).to have_css(".ProseMirror > p s", text: "strikethrough")
+    expect(page).to have_css('.ProseMirror > p a[href="mention:alex"]', text: "@alex")
+    expect(page).to have_css(".ProseMirror > p code", text: "receipt_id")
+    expect(page).to have_css(".ProseMirror > ul > li", count: 3)
+    expect(page).to have_css(".ProseMirror li li", count: 2)
+    expect(page).to have_css(".ProseMirror > ol > li", count: 2)
+    expect(page).to have_no_css(".document-editor__block-header", text: /Markdown block|List/)
+    expect(page).to have_checked_field("Task: Define a receipt", type: "checkbox", enable_aria_label: true)
+    expect(page).to have_unchecked_field("Task: Inspect retry metrics", type: "checkbox", enable_aria_label: true)
+
+    # Untouched source stays byte-for-byte, including the uppercase task marker.
+    click_button "Raw", exact: true
+    expect(find('[aria-label="Markdown source"]').text).to eq(source.strip)
+    click_button "Editor", exact: true
+    paragraph = find(".ProseMirror > p", text: "Use bold")
+    paragraph.click
+    paragraph.send_keys(:end, " More context.")
+    uncheck "Task: Define a receipt", enable_aria_label: true
+    check "Task: Inspect retry metrics", enable_aria_label: true
+    uncheck "Task: Nested task", enable_aria_label: true
+    expect(page).to have_unchecked_field("Task: Define a receipt", type: "checkbox", enable_aria_label: true)
+    expect(page).to have_checked_field("Task: Inspect retry metrics", type: "checkbox", enable_aria_label: true)
+    save_now
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+    expect(plan.reload.current_content).to include("**bold**", "~~strikethrough~~", "[@alex](mention:alex)", "More context.", "[ ] Define a **receipt**", "[x] Inspect retry metrics", "[ ] Nested task")
+    expect(plan.current_content).to include("\\~\\~tildes\\~\\~.")
+    expect(plan.current_content).to start_with("<!-- Explain the decision. -->\n\n")
+    find(".document-editor__template-note", text: "Explain the decision.").click
+    %w[light dark].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp", "template-notes-rich-text-#{theme}.png"))
+    end
+    visit plan_edit_page_path(plan)
+    editor
+    expect(page).to have_css(".ProseMirror > p", text: "More context.")
+    expect(page).to have_unchecked_field("Task: Define a receipt", type: "checkbox", enable_aria_label: true)
+    expect(page).to have_css(".ProseMirror s", text: "strikethrough")
+    expect(page).to have_no_css(".document-editor__block-header", text: /Markdown block|List/)
+  end
+
+  it "continues task lists with unchecked items and supports nesting, exit and undo" do
+    source = "- [x] Completed task\n- Ordinary item\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    page.execute_script(<<~JS, source.index("Completed task") + "Completed task".length - 1)
+      const form = document.querySelector('form.document-editor')
+      const rich = Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor
+      rich.selectSource(arguments[0])
+      window.holdTaskSelection = event => event.stopImmediatePropagation()
+      document.addEventListener('selectionchange', window.holdTaskSelection, true)
+    JS
+    editor.send_keys(:right)
+    editor.send_keys(:enter)
+    page.execute_script("document.removeEventListener('selectionchange', window.holdTaskSelection, true)")
+    expect(page).to have_css('.document-editor__task input:not(:checked)', count: 1)
+    editor.send_keys("Follow-up task")
+    expect(page).to have_checked_field("Task: Completed task", enable_aria_label: true)
+    expect(page).to have_unchecked_field("Task: Follow-up task", enable_aria_label: true)
+    editor.send_keys(:tab)
+    expect(page).to have_css(".ProseMirror > ul > li li", text: "Follow-up task")
+    editor.send_keys(:enter, :backspace, :backspace, "Outside the list")
+    expect(page).to have_css(".ProseMirror > p", text: "Outside the list")
+    find('input[aria-label="Task: Completed task"]').click
+    expect(page).to have_unchecked_field("Task: Completed task", enable_aria_label: true)
+    expect(page.evaluate_script("document.activeElement.getAttribute('aria-label')")).to eq("Task: Completed task")
+    find('input[aria-label="Task: Completed task"]').send_keys(:space)
+    expect(page).to have_checked_field("Task: Completed task", enable_aria_label: true)
+    find('input[aria-label="Task: Completed task"]').send_keys(:space)
+    expect(page).to have_unchecked_field("Task: Completed task", enable_aria_label: true)
+    click_button "Undo", enable_aria_label: true
+    expect(page).to have_checked_field("Task: Completed task", enable_aria_label: true)
+    save_now
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+    expect(plan.reload.current_content).to include("[x] Completed task", "[ ] Follow-up task", "Outside the list")
+  end
+
+  it "starts a new task unchecked when splitting the middle of a completed task" do
+    source = "- [x] Finish review\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    visit plan_edit_page_path(plan)
+    editor
+    page.execute_script(<<~JS, source.index("review"))
+      const form = document.querySelector('form.document-editor')
+      Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor.selectSource(arguments[0])
+    JS
+    editor.send_keys(:enter)
+    expect(page).to have_css('input[aria-label^="Task: Finish"]:checked')
+    expect(page).to have_unchecked_field("Task: review", enable_aria_label: true)
+    save_now
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
+    expect(plan.reload.current_content).to include("[x] Finish", "[ ] review")
+  end
+
   it "edits a whole presentation in one Markdown field, preserving its wrapping region" do
     source = "Before the deck.[^earlier]\n\n[api]: https://example.com/api\n  \"API reference\"\n\n::: {.presentation #review theme=\"graphite\"}\n\n# Review\n\nOpening slide. [API][api] Decision.[^later]\n\n[api]: https://example.com/duplicate\n\n---\n\n## Decision\n\n- Ship it.\n\n:::\n\nAfter the deck.\n\n[^earlier]: Earlier note.\n[^later]: Later note.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
@@ -1078,9 +1186,11 @@ RSpec.describe "Human plan editing", type: :system do
       actor_type: "local_agent", actor_id: author.id)
     expect(editor).to have_text("Agent heading", wait: 10)
     expect(editor).to have_text("Human addition.")
+    expect(page).to have_css("#plan-header .page-header__byline", text: /\bv2\b/)
     page.execute_script('window.fetch = window.originalFetch; window.dispatchEvent(new Event("online"))')
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", wait: 10, visible: :all)
     expect(plan.reload.current_content).to include("Agent heading", "Human addition.")
+    expect(page).to have_css("#plan-header .page-header__byline", text: /\bv3\b/)
   end
 
   def open_plan_menu
