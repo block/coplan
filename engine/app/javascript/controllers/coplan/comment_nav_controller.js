@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import { registerShortcuts, commandFor } from "coplan/shortcuts"
+import { commentWindowTop } from "coplan/comment_window"
 
 export default class extends Controller {
 
@@ -194,6 +195,7 @@ export default class extends Controller {
     }
     popover.classList.remove("thread-popover--sheet")
 
+    const minimumTop = commentWindowTop(popover)
     const markRect = mark.getBoundingClientRect()
     const popoverRect = popover.getBoundingClientRect()
     const viewportWidth = window.innerWidth
@@ -208,7 +210,7 @@ export default class extends Controller {
     if (top + popoverRect.height > viewportHeight - 16) {
       top = viewportHeight - popoverRect.height - 16
     }
-    if (top < 16) top = 16
+    if (top < minimumTop) top = minimumTop
     if (left < 16) left = 16
 
     popover.style.top = `${top}px`
