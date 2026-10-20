@@ -1,6 +1,6 @@
 module CoPlan
   class PlansController < ApplicationController
-    before_action :set_plan, only: [ :show, :content_body, :comments_body, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :update_content, :preview, :editor_lease, :editor_state ]
+    before_action :set_plan, only: [ :show, :content_body, :comments_body, :update, :publish, :hide, :archive, :unarchive, :move_to_folder, :toggle_checkbox, :update_content, :preview, :editor_lease, :editor_state, :writing_provenance ]
     # /plans/<uuid> is the legacy address; the readable one is canonical.
     # `only: [ :show ]` matters twice over — it's also why BrowseController,
     # which calls `show` as a method from its own action, doesn't bounce
@@ -234,7 +234,8 @@ module CoPlan
       return render json: { error: "That folder no longer exists." }, status: :unprocessable_content if params[:folder_id].present? && !folder
 
       plan = Plans::CreateHumanDraft.call(user: current_user, title: params.dig(:plan, :title), content: params[:content],
-        tags: params.dig(:plan, :tag_names), creation_key: params[:creation_key], plan_type: plan_type, folder: folder)
+        tags: params.dig(:plan, :tag_names), creation_key: params[:creation_key], plan_type: plan_type, folder: folder,
+        input_sources: params[:input_sources].is_a?(ActionController::Parameters) ? params[:input_sources].to_unsafe_h : nil)
       @plan = plan
       edit_url = helpers.plan_browse_path(plan, edit: "continue")
       render json: editor_snapshot.merge(edit_url: edit_url, inline_after_create: true, id: plan.id,
@@ -253,6 +254,24 @@ module CoPlan
       response.headers["Cache-Control"] = "no-store"
       response.headers["X-CSRF-Token"] = form_authenticity_token
       render json: editor_snapshot
+    end
+
+    def writing_provenance
+      authorize!(@plan, :show?)
+      response.headers["Cache-Control"] = "no-store"
+      version = @plan.current_plan_version
+      snapshot = version&.writing_provenance
+      unless snapshot && snapshot["sha256"] == version.content_sha256
+        WritingProvenanceJob.request(@plan)
+        return render json: { status: "pending", revision: @plan.current_revision }, status: :accepted
+      end
+      if request.format.json?
+        render json: { revision: version.revision, summary: snapshot.fetch("summary"), rendered: Plans::WritingProvenance.rendered_sources(version) }
+      else
+        render partial: "coplan/plans/writing_provenance_details", locals: { summary: snapshot.fetch("summary") }
+      end
+    rescue Plans::WritingProvenance::InspectionLimit => error
+      render json: { error: error.message }, status: :unprocessable_content
     end
 
     # Compatibility for already-open prototype tabs. Editing no longer acquires
@@ -285,7 +304,8 @@ module CoPlan
       result = Plans::SaveHumanDraft.call(plan: @plan, content: params[:content].to_s.delete("\r"),
         base_revision: params[:base_revision].to_i, actor: current_user,
         metadata: metadata, base_metadata: baseline, overwrite_revision: params[:overwrite_revision],
-        change_summary: params[:change_summary]) do |updates|
+        change_summary: params[:change_summary],
+        input_sources: params[:input_sources].is_a?(ActionController::Parameters) ? params[:input_sources].to_unsafe_h : nil) do |updates|
         changed = apply_metadata_changes!(title: updates[:title], tag_names: updates[:tag_names])
       end
       broadcast_plan_update(@plan) if changed

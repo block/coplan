@@ -28,6 +28,44 @@
   font-display: swap;
 }
 
+.writing-provenance { display: inline-flex; align-items: center; }
+.writing-provenance__trigger { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 4px; border: 0; border-radius: 5px; background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.writing-provenance__trigger:hover { color: var(--color-primary); background: var(--color-interaction-hover-bg); }
+.writing-provenance__trigger:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.writing-provenance__panel { position: fixed; inset: auto; margin: 0; padding: 18px; width: min(320px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; box-sizing: border-box; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text); box-shadow: 0 12px 32px #0002; font-size: .8125rem; }
+.writing-provenance__panel::backdrop { background: transparent; }
+.writing-provenance__counts { margin: 0 0 16px; }
+.writing-provenance__counts > div { display: flex; justify-content: space-between; gap: 16px; margin: 9px 0; }
+.writing-provenance__counts dt { display: flex; align-items: center; gap: 7px; min-width: 0; overflow-wrap: anywhere; }
+.writing-provenance__counts dd { margin: 0; font-variant-numeric: tabular-nums; }
+.writing-provenance__swatch { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.writing-provenance__swatch--human { background: #22c55e; }
+.writing-provenance__swatch--ai { background: #a78bfa; }
+.writing-provenance__swatch--unknown { background: #94a3b8; }
+::highlight(coplan-writing-human) { background: #22c55e55; text-decoration: underline; text-decoration-color: #16a34a; }
+::highlight(coplan-writing-ai) { background: #a78bfa66; text-decoration: underline; text-decoration-color: #8b5cf6; }
+::highlight(coplan-writing-unknown) { background: #94a3b84d; text-decoration: underline dotted; text-decoration-color: #64748b; }
+.writing-provenance__actions { display: flex; align-items: center; gap: 12px; }
+.writing-provenance__inspect, .writing-inspection button { padding: 7px 12px; border: 1px solid var(--color-border-strong); border-radius: 7px; background: var(--color-surface-muted); color: var(--color-text); font: inherit; cursor: pointer; }
+.writing-provenance__inspect:hover, .writing-inspection button:hover { background: var(--color-interaction-hover-bg); border-color: var(--color-primary); }
+.writing-provenance__inspect:disabled { opacity: .55; cursor: default; }
+.writing-provenance__info { color: var(--color-text-muted); }
+.writing-provenance__info summary { cursor: pointer; list-style: none; font-size: 16px; }
+.writing-provenance__info p { font-size: 12px; line-height: 1.5; }
+.writing-provenance__error { color: var(--color-text-muted); font-size: 12px; line-height: 1.5; margin: 12px 0 0; }
+.writing-provenance__actions:has(details[open]) { flex-wrap: wrap; }
+.writing-provenance__info[open] { flex-basis: 100%; }
+.writing-inspection { position: fixed; z-index: 110; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 9px 12px; border: 1px solid var(--color-border-strong); border-radius: 12px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); font-size: 12px; white-space: nowrap; max-width: calc(100vw - 24px); box-sizing: border-box; }
+.writing-inspection > span { display: flex; gap: 5px; align-items: center; }
+.writing-inspection__tooltip { box-sizing: border-box; overflow-wrap: anywhere; position: fixed; inset: auto; margin: 0; padding: 10px 13px; max-width: min(330px, calc(100vw - 24px)); border: 1px solid var(--color-border-strong); border-radius: 8px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); pointer-events: none; font-size: 12px; }
+.writing-inspection__tooltip > * { display: block; }
+.writing-inspection__tooltip small { color: var(--color-text-muted); margin-top: 4px; }
+body[data-writing-inspection] #plan-content-body { cursor: help; user-select: none; }
+body[data-writing-inspection] #plan-content-body :is(a, iframe, video, audio) { pointer-events: none; }
+body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .4; cursor: default; }
+@media (max-width: 420px) { .writing-inspection { gap: 9px; padding: 8px; bottom: 16px; } .writing-inspection button { padding: 7px 8px; } }
+@media (pointer: coarse) { .writing-provenance__trigger { min-width: 44px; min-height: 44px; } }
+
 :root {
   color-scheme: light;
 

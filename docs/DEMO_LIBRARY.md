@@ -67,6 +67,9 @@ The demo image is packaged in the engine assets. `{{demo_logo_url}}` in a
 fixture resolves through the host's asset helper. Untouched older image
 examples upgrade from the example-host image URL; edited content is preserved.
 
+Demo fixture attribution is simulated; re-seeding preserves subsequent human edits.
+Inspect prose, code, and slide text; diagrams and images retain their rendering.
+
 Each plan has `metadata["development_seed_key"]`. Specs and scripts should
 look up this key rather than copying generated UUIDs.
 
@@ -74,6 +77,9 @@ look up this key rather than copying generated UUIDs.
 | --- | --- |
 | untouched-document | One version, no comments or collaborators |
 | many-small-edits | Eight versions: initial draft plus seven small agent edits with token provenance |
+| writing-human / writing-ai / writing-unknown | Person, robot, and unknown icons; lazy source breakdown and reported harness identity |
+| writing-mixed | Human input, unknown imported context, and an agent proposal; opt-in source inspection |
+| writing-word-edit | Agent text with a human-added “not” in v2; hover for Hampton, version, and time |
 | pending-review | Two approvers, neither approved |
 | approved-review | Two approvers, both approved |
 | collab-showcase | Agent edit, human and agent comments, open/resolved and overlapping anchors, general thread, citations and references |

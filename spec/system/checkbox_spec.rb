@@ -91,6 +91,9 @@ RSpec.describe "Interactive checkboxes", type: :system do
     version = plan.current_plan_version
     expect(version.actor_id).to eq(author.id)
     expect(version.change_summary).to eq("Toggle checkbox")
+    snapshot = version.writing_provenance
+    expect(snapshot.dig("summary", "counts", "human")).to eq(1)
+    expect(snapshot.fetch("sources").values).to include(a_hash_including("kind" => "human", "user_id" => author.id, "origin_revision" => 2))
   end
 
   it "unchecks a checked checkbox" do

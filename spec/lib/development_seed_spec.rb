@@ -3,6 +3,37 @@ require "coplan/development_seed"
 
 RSpec.describe CoPlan::DevelopmentSeed do
   describe ".call" do
+    it "provides human, AI, unknown, and mixed writing examples and preserves edits when re-seeded" do
+      described_class.call
+      expect(seeded_plan("writing-human").writing_provenance_summary.dig("shares", "human")).to eq(1.0)
+      legacy = seeded_plan("writing-legacy")
+      expect(legacy.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
+      expect(legacy.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1)
+      ai = seeded_plan("writing-ai")
+      expect(ai.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
+      expect(ai.writing_provenance_summary.fetch("contributors").first).to include("harness" => "claude-code")
+      expect(seeded_plan("writing-unknown").writing_provenance_summary.dig("shares", "unknown")).to eq(1.0)
+      mixed = seeded_plan("writing-mixed")
+      expect(mixed.writing_provenance_summary.fetch("counts").values).to all(be_positive)
+      expect(mixed.current_revision).to eq(2)
+      edited = seeded_plan("writing-word-edit")
+      expect(edited.current_content).to include("may not retry")
+      expect(edited.writing_provenance_summary.dig("counts", "human")).to eq(3)
+      expect(edited.current_plan_version.writing_provenance.fetch("sources").values).to include(include("kind" => "human", "origin_revision" => 2, "user_name" => "Hampton"))
+      expect(seeded_plan("demo-library").writing_provenance_summary.dig("counts", "ai")).to be_positive
+      expect(seeded_plan("mixed-slides").writing_provenance_summary.dig("counts", "ai")).to be_positive
+      counts = mixed.writing_provenance_summary.deep_dup
+      described_class.call
+      expect(mixed.reload.writing_provenance_summary).to eq(counts)
+      legacy_summary = legacy.writing_provenance_summary.deep_dup
+      expect(legacy.reload.writing_provenance_summary).to eq(legacy_summary)
+      CoPlan::Plans::ReplaceContent.call(plan: mixed, new_content: "My local revision", base_revision: mixed.current_revision,
+        actor_type: "human", actor_id: mixed.created_by_user_id)
+      described_class.call
+      expect(mixed.reload.current_content).to eq("My local revision")
+      expect(seeded_plan("demo-library").current_content).to include("Writing sources", mixed.url_path)
+    end
+
     def seeded_plan(key)
       CoPlan::Plan.all.detect { |plan| plan.metadata.to_h["development_seed_key"] == key }
     end
@@ -206,9 +237,10 @@ RSpec.describe CoPlan::DevelopmentSeed do
 
       edited = seeded_plan("many-small-edits")
       expect(edited.current_revision).to eq(8)
-      expect(edited.plan_versions.where(actor_type: "local_agent").count).to eq(7)
-      expect(edited.plan_versions.where(actor_type: "local_agent").pluck(:api_token_id)).to all(be_present)
-      expect(edited.plan_versions.where(actor_type: "local_agent").pluck(:operations_json)).to all(have_attributes(size: 1))
+      agent_edits = edited.plan_versions.where(actor_type: "local_agent").where("revision > 1")
+      expect(agent_edits.count).to eq(7)
+      expect(agent_edits.pluck(:api_token_id)).to all(be_present)
+      expect(agent_edits.pluck(:operations_json)).to all(have_attributes(size: 1))
 
       pending = seeded_plan("pending-review").plan_collaborators.approvers
       approved = seeded_plan("approved-review").plan_collaborators.approvers

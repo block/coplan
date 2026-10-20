@@ -1,0 +1,25 @@
+<% summary = writing_provenance_summary(plan) %>
+<% label = writing_provenance_label(summary) %>
+<span id="writing-provenance" class="writing-provenance" data-controller="coplan--writing-provenance"
+      data-coplan--writing-provenance-url-value="<%= writing_provenance_plan_path(plan) %>"
+      data-coplan--writing-provenance-revision-value="<%= plan.current_revision %>"
+      data-action="resize@window->coplan--writing-provenance#position scroll@window->coplan--writing-provenance#dismiss keydown@document->coplan--writing-provenance#inspectionKey:capture pointermove@document->coplan--writing-provenance#hover click@document->coplan--writing-provenance#inspectClick:capture keydown.esc@document->coplan--writing-provenance#finish coplan:edit-request@document->coplan--writing-provenance#preventEdit:capture coplan:editor-ready@document->coplan--writing-provenance#editorReady coplan:editor-closed@document->coplan--writing-provenance#editorClosed coplan:content-updated@document->coplan--writing-provenance#readerUpdated coplan:deck-slide-changed@document->coplan--writing-provenance#hideTooltip">
+  <button type="button" class="writing-provenance__trigger" popovertarget="writing-provenance-panel"
+          aria-label="<%= label %>. Show writing provenance" title="<%= label %>"
+          data-coplan--writing-provenance-target="trigger">
+    <%= writing_provenance_icon(summary) %>
+  </button>
+  <div id="writing-provenance-panel" class="writing-provenance__panel" popover="auto"
+       data-coplan--writing-provenance-target="panel" data-action="toggle->coplan--writing-provenance#toggle">
+    <div data-coplan--writing-provenance-target="details" aria-live="polite">
+      <p class="text-muted" role="status">Loading writing provenance…</p>
+    </div>
+  </div>
+  <div class="writing-inspection" data-coplan--writing-provenance-target="inspection" role="toolbar" aria-label="Writing sources" hidden>
+    <span><i class="writing-provenance__swatch writing-provenance__swatch--human"></i>Human</span>
+    <span><i class="writing-provenance__swatch writing-provenance__swatch--ai"></i>AI</span>
+    <span><i class="writing-provenance__swatch writing-provenance__swatch--unknown"></i>Unknown</span>
+    <button type="button" data-action="coplan--writing-provenance#finish">Done inspecting</button>
+  </div>
+  <div class="writing-inspection__tooltip" popover="manual" role="tooltip" data-coplan--writing-provenance-target="tooltip"></div>
+</span>

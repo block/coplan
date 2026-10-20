@@ -18,6 +18,12 @@ const mac = /Mac|iP(hone|ad|od)/.test(navigator.platform)
 const lineNavigation = mac ? { "Ctrl-a": codeLineStart } : {}
 const commentKey = new PluginKey("coplan-comments")
 
+function inputOrigin(transaction) {
+  if (Object.keys(transaction.meta).some(key => key.startsWith("history$"))) return "history"
+  if (["paste", "drop"].includes(transaction.getMeta("uiEvent"))) return "unknown"
+  return transaction.getMeta("coplan-input-origin") || "human"
+}
+
 // Preserve the exact source of untouched top-level blocks. Constructs outside
 // the rich schema are atomic source cards, never silently parsed away.
 let nodes = defaultMarkdownParser.schema.spec.nodes
@@ -737,7 +743,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       parsed.forEach(node => inserted.push(node.type.create({ ...node.attrs,
         ...(node.type === schema.nodes.preserved ? { inserted: true } : { source: null, snapshot: null })
       }, node.content, node.marks)))
-      view.dispatch(view.state.tr.replaceSelection(new Slice(Fragment.fromArray(inserted), 0, 0)).scrollIntoView())
+      view.dispatch(view.state.tr.replaceSelection(new Slice(Fragment.fromArray(inserted), 0, 0)).setMeta("coplan-input-origin", "unknown").scrollIntoView())
       return true
     },
     dispatchTransaction(transaction) {
@@ -774,7 +780,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
             body._coplanRefreshSourceRange?.()
           }
         }, 150)
-        if (!transaction.getMeta("remote")) changed(serializeDocument(view.state.doc))
+        if (!transaction.getMeta("remote")) changed(serializeDocument(view.state.doc), inputOrigin(transaction))
       }
       selectionChanged(toolbarState(view.state))
     }
@@ -833,7 +839,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       // click's selectionchange may not have reached ProseMirror yet.
       synchronizeSelection(view)
     },
-    insertCode(language = "") {
+    insertCode(language = "", origin = "unknown") {
       if (selectionTouchesTemplateNote(view.state)) return false
       const block = schema.nodes.code_block.create({ params: language })
       const tr = view.state.tr.replaceSelectionWith(block)
@@ -842,7 +848,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       tr.doc.descendants((node, position) => {
         if (node.attrs === block.attrs) tr.setSelection(TextSelection.create(tr.doc, position + 1))
       })
-      view.dispatch(tr.scrollIntoView()); view.focus()
+      view.dispatch(tr.setMeta("coplan-input-origin", origin).scrollIntoView()); view.focus()
     },
     deleteCode(position) {
       const node = view.state.doc.nodeAt(position)
@@ -852,10 +858,10 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       view.dispatch(tr.scrollIntoView()); view.focus()
       return true
     },
-    setLanguage(position, language) {
+    setLanguage(position, language, origin = "unknown") {
       const node = view.state.doc.nodeAt(position)
       if (node?.type !== schema.nodes.code_block || /[\r\n`]/.test(language)) return false
-      view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, params: language }).setMeta("coplan-language-edit", true))
+      view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, params: language }).setMeta("coplan-language-edit", true).setMeta("coplan-input-origin", origin))
       return true
     },
     deleteContentBlock(position) {
@@ -866,18 +872,18 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       view.dispatch(tr); view.focus()
       return true
     },
-    setBlockSource(position, source) {
+    setBlockSource(position, source, origin = "unknown") {
       const node = view.state.doc.nodeAt(position)
       if (node?.type !== schema.nodes.preserved) return false
-      view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, source }))
+      view.dispatch(view.state.tr.setNodeMarkup(position, null, { ...node.attrs, source }).setMeta("coplan-input-origin", origin))
       return true
     },
-    replaceSource(from, to, source) {
+    replaceSource(from, to, source, origin = "unknown") {
       const current = serializeDocument(view.state.doc)
       const next = parseDocument(current.slice(0, from) + source + current.slice(to))
       const tr = view.state.tr
       patchChildren(tr, view.state.doc, next, 0)
-      view.dispatch(tr)
+      view.dispatch(tr.setMeta("coplan-input-origin", origin))
     },
     sourceRange(position) { return sourceRangeAt(view, position) },
     command(name, value) {
@@ -1138,7 +1144,8 @@ function indentCode(state, dispatch) {
 
 function linkCommand(state, dispatch) {
   const href = window.prompt("Link URL (https://…)")
-  if (href && /^(https?:\/\/|mailto:)/i.test(href)) toggleMark(schema.marks.link, { href })(state, dispatch)
+  // Native prompts do not expose typing versus paste evidence.
+  if (href && /^(https?:\/\/|mailto:)/i.test(href)) toggleMark(schema.marks.link, { href })(state, dispatch && (tr => dispatch(tr.setMeta("coplan-input-origin", "unknown"))))
   return true
 }
 
@@ -1478,10 +1485,10 @@ export function createMarkdownDocument(element, source, changed) {
     handlePaste(view, event) {
       const text = event.clipboardData?.getData("text/plain")
       if (text === undefined) return false
-      view.dispatch(view.state.tr.insertText(text)); return true
+      view.dispatch(view.state.tr.insertText(text).setMeta("coplan-input-origin", "unknown")); return true
     },
     clipboardTextSerializer: slice => slice.content.textBetween(0, slice.content.size, "\n"),
-    dispatchTransaction(tr) { view.updateState(view.state.apply(tr)); if (tr.docChanged && !tr.getMeta("remote")) changed(view.state.doc.textContent) }
+    dispatchTransaction(tr) { view.updateState(view.state.apply(tr)); if (tr.docChanged && !tr.getMeta("remote")) changed(view.state.doc.textContent, inputOrigin(tr)) }
   })
   return { view, content: () => view.state.doc.textContent, destroy: () => view.destroy(),
     sourceSelection() {
