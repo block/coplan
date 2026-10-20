@@ -19,9 +19,12 @@ module CoPlan
           if state["revision"].positive?
             checkpoint = plan.plan_versions.find_by(revision: state["revision"])
             snapshot = checkpoint&.writing_provenance.to_h
-            state["revision"] = 0 unless snapshot && snapshot["format"] == WritingProvenance::FORMAT && snapshot["sha256"] == checkpoint.content_sha256
+            unless snapshot && snapshot["format"] == WritingProvenance::FORMAT && snapshot["history_policy"] == WritingProvenance::HISTORY_POLICY && snapshot["sha256"] == checkpoint.content_sha256
+              state.merge!("revision" => 0, "finalized_revision" => 0)
+              state.delete("policy_version")
+            end
           end
-          return if !restart && !state["token"] && state["revision"] >= plan.current_revision && state["finalized_revision"] >= plan.current_revision && plan.writing_provenance_summary&.dig("revision") == plan.current_revision
+          return if !restart && !state["token"] && state["policy_version"] == WritingProvenance::HISTORY_POLICY && state["revision"] >= plan.current_revision && state["finalized_revision"] >= plan.current_revision && plan.writing_provenance_summary&.dig("revision") == plan.current_revision
           token = SecureRandom.uuid
           state.merge!("token" => token, "expires_at" => LEASE.from_now.iso8601)
           plan.update_columns(writing_provenance_backfill: state)
@@ -40,7 +43,7 @@ module CoPlan
         return false unless plan.current_revision.positive?
         state = plan.writing_provenance_backfill
         return plan.writing_provenance_summary.nil? unless state
-        state["token"].present? || state.fetch("revision", 0) < plan.current_revision ||
+        state["policy_version"] != WritingProvenance::HISTORY_POLICY || state["token"].present? || state.fetch("revision", 0) < plan.current_revision ||
           state.fetch("finalized_revision", 0) < plan.current_revision || plan.writing_provenance_summary&.dig("revision") != plan.current_revision
       end
 
@@ -60,11 +63,20 @@ module CoPlan
           state = @plan.reload.writing_provenance_backfill.to_h
           return false unless state["token"] == @token
           revision = state.fetch("revision")
+          previous = revision.positive? ? @plan.plan_versions.find_by(revision: revision) : nil
+          if revision.positive? && previous&.writing_provenance.to_h["history_policy"] != WritingProvenance::HISTORY_POLICY
+            @plan.with_lock do
+              current = @plan.writing_provenance_backfill.to_h
+              if current["token"] == @token && current["revision"] == revision
+                @plan.update_columns(writing_provenance_backfill: current.except("policy_version").merge("revision" => 0, "finalized_revision" => 0))
+              end
+            end
+            next
+          end
           version = @plan.plan_versions.where("revision > ?", revision).reorder(:revision).includes(:api_token, :actor_user).first
           return complete(revision) unless version
-          previous = @plan.plan_versions.find_by(revision: revision) if revision.positive?
           existing = version.writing_provenance.to_h
-          legacy = version.actor_type == "human" && existing.dig("write_source", "kind") != "ai" &&
+          legacy = version.actor_type == "human" && !WritingProvenance.agent_write?(version) && !WritingProvenance.ambiguous_legacy?(version) && existing.dig("write_source", "kind") != "ai" &&
             (version.revision <= state.fetch("legacy_revision") || existing.empty? || existing["historical_human"] == true)
           restore_input(version, historical_human: legacy)
           snapshot = WritingProvenance.call(version: version, previous: previous, historical_human: legacy)
@@ -86,6 +98,14 @@ module CoPlan
       def restore_input(version, historical_human:)
         existing = version.writing_provenance.to_h
         version.writing_identity = existing["write_source"]
+        if WritingProvenance.ambiguous_legacy?(version)
+          version.writing_identity = { "kind" => "unknown", "user_id" => version.actor_id }
+          return
+        end
+        if WritingProvenance.agent_write?(version)
+          version.writing_identity = nil unless existing.dig("write_source", "kind") == "ai"
+          return
+        end
         return unless version.actor_type == "human" && existing.dig("write_source", "kind") != "ai"
         if historical_human
           version.input_sources = { "runs" => [ [ version.content_markdown.encode(Encoding::UTF_16LE).bytesize / 2, "human" ] ] }
@@ -108,7 +128,7 @@ module CoPlan
           next :continue if @plan.current_revision > revision
           version = @plan.current_plan_version
           @plan.update_columns(writing_provenance_summary: version&.writing_provenance&.fetch("summary"),
-            writing_provenance_backfill: state.except("token", "expires_at").merge("finalized_revision" => revision))
+            writing_provenance_backfill: state.except("token", "expires_at").merge("finalized_revision" => revision, "policy_version" => WritingProvenance::HISTORY_POLICY))
           true
         end
         return true if updated == :continue

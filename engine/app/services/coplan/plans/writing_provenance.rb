@@ -7,6 +7,10 @@ module CoPlan
     # Actor identity is separate from input evidence on subsequent writes.
     class WritingProvenance
       FORMAT = 1
+      HISTORY_POLICY = 2
+      # Bearer-only agent identity landed in #178 on August 17. Before then,
+      # host-authenticated API agents were also saved with actor_type "human".
+      RELIABLE_HUMAN_ATTRIBUTION_FROM = Time.utc(2026, 8, 18).freeze
       KINDS = %w[human ai unknown].freeze
       MAX_DIFF_CELLS = 1_000_000
       MAX_INPUT_RUNS = 4096
@@ -14,6 +18,16 @@ module CoPlan
       MAX_INSPECTION_CHARACTERS = 250_000
       MAX_INSPECTION_RUNS = 10_000
       class InspectionLimit < StandardError; end
+
+      def self.agent_write?(version)
+        version.actor_type.in?(%w[local_agent cloud_persona]) ||
+          (version.actor_type == "human" && (version.api_token_id.present? || version.agent_name.present?))
+      end
+
+      def self.ambiguous_legacy?(version)
+        version.actor_type == "human" && version.created_at && version.created_at < RELIABLE_HUMAN_ATTRIBUTION_FROM &&
+          !agent_write?(version) && version.writing_provenance.to_h.dig("write_source", "kind") != "ai"
+      end
 
       def self.call(version:, previous: nil, historical_human: false)
         new(version:, previous:, historical_human:).call
@@ -78,7 +92,7 @@ module CoPlan
         unknown_key = Digest::SHA256.hexdigest(unknown_identity.sort.to_h.to_json).first(24)
         sources[unknown_key] = unknown_identity
         input = self.class.input_runs(@version.input_sources, content)
-        insertions = if @version.actor_type == "human" && input
+        insertions = if identity["kind"] == "human" && input
           input.map { |length, kind| [ length, kind == "human" ? source_key : unknown_key ] }
         else
           [ [ content.length, identity["kind"] == "ai" ? source_key : unknown_key ] ]
@@ -89,6 +103,8 @@ module CoPlan
         summary = summarize(content, runs, sources)
         result = { "format" => FORMAT, "sha256" => Digest::SHA256.hexdigest(content), "write_source" => identity,
           "runs" => runs, "sources" => sources, "summary" => summary }
+        # A new save cannot certify old attribution that it merely retained.
+        result["history_policy"] = HISTORY_POLICY if @previous.nil? || snapshot["history_policy"] == HISTORY_POLICY
         # Preserve the cutover assumption on replay, including bounded large
         # rewrites. Instrumented writes always have a snapshot, even when their
         # input evidence is missing and therefore Unknown.
@@ -218,12 +234,12 @@ module CoPlan
       def source_identity
         return @version.writing_identity if @version.writing_identity.is_a?(Hash)
         return { "kind" => UNKNOWN } unless @version.actor_type.in?(%w[human local_agent cloud_persona])
-        return { "kind" => "human", "user_id" => @version.actor_id } if @version.actor_type == "human"
+        return { "kind" => "human", "user_id" => @version.actor_id } unless self.class.agent_write?(@version)
         metadata = @version.api_token&.metadata.to_h
         harness = metadata["harness"].presence
         key = harness && AgentHarness.canonical_key(harness)
         { "kind" => "ai", "user_id" => @version.actor_id,
-          "agent_name" => @version.agent_name, "harness" => key,
+          "agent_name" => @version.agent_name.presence || @version.api_token&.agent_name, "harness" => key,
           "harness_name" => key && AgentHarness.default_display_name(key, harness),
           "harness_version" => metadata["harness_version"], "model" => metadata["model"].presence || @version.ai_model }.compact
       end

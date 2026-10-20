@@ -12,7 +12,7 @@ The schema migrations add version snapshots, the cached document summary, and a 
 
 ## Historical attribution
 
-Editor additions through that cutoff are assumed human-written. This is a one-time product assumption: old versions did not record typing versus paste. Uninstrumented editor versions from old instances during a rolling deployment use the same assumption, including new plans created after the migration scan. A marker on each rebuilt historical snapshot preserves that assumption on later reconstruction without moving the cutoff across interleaved new writes. Retained text from an agent keeps its AI source when a human changes another part of the document. Existing explicitly simulated demo agent/unknown identities are preserved. Instrumented editor versions always store a snapshot and use recorded typing and paste evidence; missing input evidence remains Unknown. New documents have no historical cutoff.
+Human-labeled versions before August 18, 2026 are Unknown unless saved agent evidence identifies their writer. Before the Bearer-only identity fix (#178, August 17), API agents using host authentication were also recorded as human. A saved agent actor, token link, agent name, or explicit AI source takes priority, including revoked tokens. Do not infer a model or harness from prose. Later editor additions through the deployment cutoff are assumed human-written. This is a one-time product assumption: old versions did not record typing versus paste. Uninstrumented editor versions from old instances during a rolling deployment use the same assumption, including new plans created after the migration scan. A marker on each rebuilt historical snapshot preserves that assumption on later reconstruction without moving the cutoff across interleaved new writes. Retained text from an agent keeps its AI source when a human changes another part of the document. Existing explicitly simulated demo agent/unknown identities are preserved. Instrumented editor versions always store a snapshot and use recorded typing and paste evidence; missing input evidence remains Unknown. New documents have no historical cutoff.
 
 Reconstruction changes attribution metadata only. It does not change document text, create content revisions, or change who made an edit.
 
@@ -30,7 +30,7 @@ Watch the normal job failure/retry dashboard and the pending document count. In 
 CoPlan::Plan.find_each.count { |plan| CoPlan::Plans::WritingProvenanceBackfill.pending?(plan) }
 ```
 
-A restart scans pending work again; it does not erase checkpoints or move the historical cutoff. A completed document advances its checkpoint with normal subsequent saves.
+A restart scans pending work again; it does not erase checkpoints or move the historical cutoff. A completed document advances its checkpoint with normal subsequent saves. History policy 2 automatically revisits documents completed under the original policy. Checkpoints from older workers are replayed from the start; checkpoints from the current policy remain resumable. New saves cannot certify unrepaired retained history. The corrected summary and source ranges replace the old attribution in the background without changing content or creating versions. This repair needs no new schema migration or manual per-document task.
 
 ## Reading and inspection
 
