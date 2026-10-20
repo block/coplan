@@ -1,0 +1,532 @@
+
+
+/* ═══ Expanded view ═══════════════════════════════════════════════════════
+   The shared takeover surface (coplan/expander.js) behind an expanded
+   Mermaid diagram and an expanded data table. The chrome — title bar,
+   toolbar, status line, dismissal — is identical for both; only the body
+   differs. */
+
+/* showModal() dims the page but doesn't stop it scrolling behind the
+   overlay. */
+.expander-open {
+  overflow: hidden;
+}
+
+.expander {
+  display: flex;
+  flex-direction: column;
+  width: 94vw;
+  height: 92vh;
+  max-width: 94vw;
+  max-height: 92vh;
+  padding: 0;
+  margin: auto;
+  overflow: hidden;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.expander::backdrop {
+  background: rgba(8, 12, 24, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.expander__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: none;
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+  background: var(--color-surface-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.expander__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.expander__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.expander__tool,
+.expander__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 var(--space-xs);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.expander__tool:hover,
+.expander__close:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+.expander__tool.is-active {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.expander__tool--hidden {
+  display: none;
+}
+
+.expander__close {
+  margin-left: var(--space-xs);
+}
+
+.expander__readout {
+  min-width: 3.5rem;
+  text-align: center;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.expander__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.expander__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: none;
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-surface-muted);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.expander__hint {
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Diagram body: the pan/zoom viewport ──────────────────────────────── */
+
+.expander__canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  /* The browser's own pan and pinch would fight the controller's. */
+  touch-action: none;
+  cursor: grab;
+}
+
+.expander__canvas.is-grabbing {
+  cursor: grabbing;
+}
+
+.expander__canvas:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.expander__canvas > svg,
+.expander__canvas > img {
+  display: block;
+}
+
+/* Pan by dragging the picture, not the browser's image drag or a text
+   selection. */
+.expander__canvas > img {
+  border-radius: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ── Table body: the spreadsheet ──────────────────────────────────────── */
+
+.data-sheet {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.data-sheet__frame {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.data-sheet__frame:focus {
+  outline: none;
+}
+
+.data-sheet__table {
+  width: max-content;
+  min-width: 100%;
+  background: var(--color-surface);
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
+}
+
+/* Body cells are transparent on purpose: it lets a background on the
+   column's <col> paint the crosshair band for free, however many rows the
+   table has. */
+.data-sheet__table th,
+.data-sheet__table td {
+  position: relative;
+  max-width: 40ch;
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.data-sheet__frame.is-wrapped th,
+.data-sheet__frame.is-wrapped td {
+  width: clamp(14rem, 28vw, 28rem);
+  min-width: min(14rem, 45vw);
+  max-width: 28rem;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+
+.data-sheet__table tr > :first-child { max-width: min(32ch, 35vw); }
+.data-sheet__frame.is-wrapped tr > :first-child { width: min(22rem, 35vw); min-width: min(10rem, 35vw); max-width: min(22rem, 35vw); }
+.data-sheet__table code { font-family: var(--font-mono); font-size: 0.9em; }
+.data-sheet__frame.is-wrapped code { white-space: normal; overflow-wrap: anywhere; }
+.data-sheet__frame.is-wrapped pre { white-space: pre-wrap; }
+.data-sheet__table :is(p, ul, ol, pre) { margin: 0 0 var(--space-sm); }
+.data-sheet__table :is(p, ul, ol, pre):last-child { margin-bottom: 0; }
+
+.data-sheet__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding-right: calc(var(--space-md) + 0.75rem);
+  background: var(--color-surface-muted);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: inset 0 -1px 0 var(--color-border);
+}
+
+.data-sheet__table thead th:first-child {
+  left: 0;
+  z-index: 4;
+}
+
+/* The row-label column pins too — the header alone doesn't tell you which
+   row you're reading once you've scrolled sideways. Opaque, so the cells
+   it slides over disappear under it cleanly. */
+.data-sheet__table tbody tr > *:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--color-surface);
+  font-weight: 500;
+  box-shadow: inset -1px 0 0 var(--color-border);
+}
+
+/* The crosshair. Mixed from --color-primary rather than using
+   --color-primary-light, which is near-white in light mode and would make
+   the bands invisible on exactly the theme that needs them most.
+   Translucent on purpose: the row band paints over the column band, so
+   the cell where they cross deepens on its own. */
+.data-sheet__table col.is-cursor-column,
+.data-sheet__table tbody tr.is-cursor-row > * {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+/* The pinned cells can't be translucent — rows scrolling underneath would
+   show through them — so they take the same tint, mixed solid. */
+.data-sheet__table tbody tr.is-cursor-row > *:first-child {
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+}
+
+.data-sheet__table thead th.is-cursor-column {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-muted));
+}
+
+/* Written the long way round so it outranks the pinned first column's own
+   box-shadow — the cursor has to be visible in column A too. */
+.data-sheet__table tbody tr > td.is-cursor,
+.data-sheet__table tbody tr > th.is-cursor,
+.data-sheet__table thead tr > th.is-cursor {
+  z-index: 5;
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+  outline: none;
+}
+
+/* Sort state: a triangle in the header's reserved right-hand gutter. */
+.data-sheet__table thead th::after {
+  content: "";
+  position: absolute;
+  right: var(--space-sm);
+  top: calc(50% - 2px);
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.data-sheet__table thead th:hover::after {
+  border-top: 5px solid currentColor;
+  opacity: 0.4;
+}
+
+.data-sheet__table thead th.is-sorted-asc::after {
+  border-top: none;
+  border-bottom: 5px solid var(--color-primary);
+  opacity: 1;
+}
+
+.data-sheet__table thead th.is-sorted-desc::after {
+  border-bottom: none;
+  border-top: 5px solid var(--color-primary);
+  opacity: 1;
+}
+
+/* A comment anchor inside a cell still shows, but as a mark, not as
+   something you can open — the sheet is a copy, and its threads live back
+   in the document. */
+.data-sheet mark {
+  background: transparent;
+  color: inherit;
+  text-decoration: underline wavy var(--color-highlight-open-border);
+  text-decoration-skip-ink: none;
+  pointer-events: none;
+}
+
+.data-sheet__address {
+  min-width: 3.25rem;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.data-sheet__address.is-copied {
+  color: var(--color-success);
+}
+
+.data-sheet__address.is-copied::after {
+  content: " copied";
+  font-family: var(--font-sans);
+  font-weight: 400;
+}
+
+.data-sheet__column {
+  min-width: 0;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.expander--grid .expander__status { flex-wrap: wrap; padding-block: var(--space-sm); }
+.data-sheet__hint { display: flex; align-items: center; gap: 4px; color: var(--color-text); }
+.expander--grid kbd { border: 1px solid var(--color-border-strong); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; font: 500 0.8rem var(--font-mono); color: var(--color-text); background: var(--color-surface); }
+.data-sheet__comment { flex: none; }
+.data-sheet__comment[hidden] { display: none; }
+
+@media (max-width: 640px) {
+  /* A phone has no room for a framed dialog: the takeover takes the screen.
+     Sized by `inset` rather than 100vw/100dvh — a modal dialog's default
+     `margin: auto` centres it, so any disagreement between the viewport units
+     and the actual layout width leaves a sliver of backdrop down one edge. */
+  .expander {
+    inset: 0;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+  }
+
+  /* No room for keyboard instructions beside the cell address — but the
+     diagram's hint is the only place the pan/zoom gestures are named, and
+     it's short enough to keep. */
+  .expander__hint {
+    display: none;
+  }
+
+  .expander--diagram .expander__hint,
+  .expander--image .expander__hint {
+    display: block;
+  }
+
+  .data-sheet__column { max-width: 6rem; }
+  .data-sheet__dimensions { margin-right: auto; }
+}
+
+/* Source-backed element commenting: steady document geometry, a floating
+   inspector on desktop, and a reachable bottom sheet on touch screens. */
+[data-source-target] { cursor: pointer; }
+th[data-source-target], td[data-source-target] { position: relative; }
+.markdown-rendered .data-grid tr > :is(th, td):hover,
+.data-sheet .data-sheet__table tr > :is(th, td):hover {
+  background-color: var(--color-interaction-hover-bg);
+}
+th[data-source-target]:focus-visible, td[data-source-target]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+.markdown-rendered .data-grid :is(th, td)[data-source-target].is-source-browsing,
+.markdown-rendered .data-grid :is(th, td)[data-source-target].is-source-selected,
+.data-sheet__table tr > :is(th, td)[data-source-target].is-source-selected {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  background-color: var(--color-interaction-active-bg);
+}
+/* Focus follows the actual SVG shape, not the group box enlarged by badges. */
+svg .node[data-source-target], svg path.flowchart-link[data-source-target] { outline: none; }
+svg .node[data-source-target]:focus-visible .source-node-shape {
+  stroke: var(--color-primary) !important;
+  stroke-width: 3px !important;
+}
+svg .node.is-source-selected .source-node-shape {
+  stroke: var(--color-primary) !important;
+  stroke-width: 3px !important;
+}
+svg path.flowchart-link[data-source-target]:not(.source-edge-hit):focus-visible {
+  stroke: var(--color-primary) !important;
+  stroke-width: 4px !important;
+}
+svg path.flowchart-link.is-source-selected:not(.source-edge-hit) {
+  stroke: var(--color-primary) !important;
+  stroke-width: 4px !important;
+}
+svg path.source-edge-hit {
+  stroke: transparent !important;
+  stroke-width: 24px !important;
+  fill: none !important;
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+.source-thread-badge.anchor-highlight {
+  display: inline-block;
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface));
+  color: var(--color-primary);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 55%, var(--color-surface));
+  border-radius: 999px;
+  font: 600 11px/18px var(--font-sans);
+  min-width: 20px;
+  text-align: center;
+  padding: 0;
+  margin-inline-start: 6px;
+  cursor: pointer;
+}
+td > .source-thread-badge, th > .source-thread-badge { position: absolute; top: 6px; margin: 0; }
+/* Mermaid's diagram-ID selectors otherwise recolor these as node shapes. */
+svg .source-thread-badge circle { fill: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface)) !important; stroke: color-mix(in srgb, var(--color-primary) 55%, var(--color-surface)) !important; stroke-width: 1px !important; }
+svg .source-thread-badge text { fill: var(--color-primary) !important; font: 600 10px var(--font-sans); text-anchor: middle; }
+.plan-layout--hide-resolved .source-thread-badge.anchor-highlight--resolved { display: none; }
+/* Source selections use the same composer and thread chrome as text selections.
+   Only their top-layer positioning and multiple-thread container differ. */
+.source-comments { position: fixed; margin: 0; max-width: calc(100vw - 32px); color: var(--color-text); }
+.source-comments:not(.comment-form--sheet):not(.thread-popover--sheet) { inset: auto; }
+.source-comments__discussion + .source-comments__discussion { border-top: 1px solid var(--color-border); margin-top: var(--space-md); padding-top: var(--space-md); }
+.source-comments > .comment-form__actions { margin-top: var(--space-sm); }
+.source-comments .comment-form__actions[hidden] { display: none; }
+.data-sheet__sort { margin-left: 8px; border: 0; background: transparent; color: inherit; cursor: pointer; min-width: 32px; min-height: 32px; }
+@media (max-width: 640px) {
+  .comment-form.comment-form--sheet, .thread-popover.thread-popover--sheet { width: 100%; max-width: 100%; }
+}
+@media (hover: none) {
+  .markdown-rendered .mermaid-diagram__expand,
+  .markdown-rendered .image-frame__expand { opacity: 1; min-width: 44px; min-height: 44px; }
+}
+
+.source-comments-outdated { grid-column: 1 / -1; justify-self: start; margin-top: var(--space-md); }
+
+.is-comment-mode svg path.source-edge-hit { pointer-events: stroke; }
+.diagram-comments { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); }
+.mermaid-diagram > .diagram-comments { padding: var(--space-sm); border-top: 1px solid var(--color-border); }
+.diagram-comments__hint { color: var(--color-text-muted); font-size: var(--text-sm); }
+.diagram-comments [hidden] { display: none; }
+.diagram-comments:not(:has(> :not([hidden]))) { display: none; }
+.is-comment-mode svg { user-select: none; -webkit-user-select: none; }
+.diagram-comments kbd { font: inherit; border: 1px solid var(--color-border-strong); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; }
+.diagram-comments__toggle[aria-pressed="true"] { color: var(--color-primary); border-color: var(--color-primary); background: var(--color-interaction-active-bg); }
+.expander--diagram .expander__status { flex-wrap: wrap; }
+.expander--diagram.is-comment-mode .expander__hint { display: none; }
+.diagram-comments__whole { position: relative; }
+
+/* Reading a compact row is deliberate; moving the cursor never adds a pane. */
+.data-sheet__table tr.is-expanded > td {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+.data-sheet__table tr.is-expanded code { white-space: normal; overflow-wrap: anywhere; }
+.data-sheet__row-toggle { flex: none; }
+.data-sheet__row-toggle[hidden] { display: none; }
+/* Keep browsing cursors stable across shapes, labels and connection paths.
+   Only actual comment targets receive the speech-bubble pointer. */
+:root {
+  --cursor-comment: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M3 2v22l5-6 4 9 4-2-4-9h8Z' fill='white' stroke='%230f172a' stroke-width='1.5' stroke-linejoin='round'/%3E%3Cpath d='M19 8h9a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3l-4 4v-4h-2a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z' fill='%2360a5fa' stroke='%230f172a' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 3 2, pointer;
+}
+:is(.mermaid-diagram__canvas, .expander__canvas) svg,
+:is(.mermaid-diagram__canvas, .expander__canvas) svg :is([data-source-target], .node *, .source-edge-label *) {
+  cursor: inherit;
+}
+:is(.mermaid-diagram__canvas, .expander__canvas) svg .source-thread-badge,
+.is-comment-mode svg :is(.node[data-source-target], path[data-source-target], .source-edge-label) {
+  cursor: var(--cursor-comment);
+}
+/* Hover and keyboard focus provide the same affordance, without repainting
+   every target or changing authored line styles when comment mode opens. */
+.is-comment-mode:not(:has(.is-grabbing)) svg .node[data-source-target]:is(:hover, :focus-visible) .source-node-shape,
+.is-comment-mode:not(:has(.is-grabbing)) svg path.flowchart-link[data-source-target]:not(.source-edge-hit):is(:hover, :focus-visible),
+.is-comment-mode:not(:has(.is-grabbing)) svg path.flowchart-link:has(+ .source-edge-hit:hover),
+.is-comment-mode:not(:has(.is-grabbing)) svg .source-edge-label:hover {
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--color-primary) 40%, transparent));
+}
+.is-whole-diagram-comment :is(.mermaid-diagram__canvas, .expander__canvas):not(.is-grabbing) {
+  cursor: var(--cursor-comment);
+}
+.is-whole-diagram-comment :is(.mermaid-diagram__canvas, .expander__canvas):not(.is-grabbing):hover {
+  box-shadow: inset 0 0 4px color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+.expander__canvas.is-grabbing,
+.expander__canvas.is-grabbing svg * { cursor: grabbing !important; }
+
+.source-edge-badges { pointer-events: none; }
+.source-edge-badges [data-source-badge] { pointer-events: all; }

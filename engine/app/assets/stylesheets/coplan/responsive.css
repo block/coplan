@@ -1,0 +1,222 @@
+
+/* Narrow viewports: stack the sidebar above the list */
+@media (max-width: 56rem) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-md);
+  }
+
+  /* The sidebar collapses into a "Filters & folders" bar at the top —
+     tap to expand, out of the way otherwise. */
+  .workspace__sidebar {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .workspace__sidebar-toggle {
+    display: flex;
+  }
+
+  .workspace__sidebar-sections {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-sm) var(--space-sm);
+  }
+
+  .workspace__sidebar-sections--closed {
+    display: none;
+  }
+}
+
+/* ---- Medium screens ----
+   The compact search trigger gives up its "/" hint and becomes a round
+   icon button. The name gets a truncation budget so the controls never
+   fight it for room. */
+@media (max-width: 900px) {
+  .site-nav__search-kbd {
+    display: none;
+  }
+
+  .site-nav__search {
+    flex: 0 0 auto;
+    gap: 0;
+    padding: 8px;
+    margin: 0;
+    border-radius: 9999px;
+  }
+}
+
+/* ---- Touch devices (any width) ----
+   A finger needs a bigger target than a cursor. On coarse pointers the icon
+   controls and menu rows grow to ~44px regardless of screen width, so a touch
+   tablet with the bell still on the bar is just as tappable. */
+@media (pointer: coarse) {
+  .site-nav__menu-btn,
+  .site-nav__bell {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Preserve a 44px touch target without giving the compact control 44px
+     of layout footprint in the byline or sticky plan context. */
+  .plan-location-link {
+    width: 44px;
+    height: 44px;
+  }
+
+  .plan-location-link--masthead {
+    margin: -12px -10px -12px -8px;
+  }
+
+  .plan-location-link--nav {
+    margin: -9px;
+  }
+
+  .menu__item {
+    min-height: 44px;
+    padding: 10px var(--space-sm);
+    gap: var(--space-md);
+  }
+
+  .menu__item svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* ---- Phone-sized screens ----
+   Reviewing your agents' work from a phone is a first-class flow —
+   reading, commenting, and finding the right doc all have to work at
+   ~390px. Chrome collapses to icons; content goes single-column. */
+@media (max-width: 640px) {
+  .site-nav__inner {
+    padding: 0 var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  /* Icons over labels: the brand wordmark yields to the logo alone, since
+     search and the ☰ menu are what a phone visit reaches for. */
+  .site-nav__brand-text {
+    display: none;
+  }
+
+  .site-nav__right { flex-shrink: 0; gap: var(--space-sm); }
+
+  /* No room for the bell + its peek panel — the whole control folds into the
+     menu (its row is revealed there, linking to the full page), and the
+     unread signal moves to a dot on the ☰. */
+  .inbox-dropdown {
+    display: none;
+  }
+
+  .menu__item--notifications {
+    display: flex;
+  }
+
+  .site-nav--has-unread .site-nav__menu-btn::after {
+    display: block;
+  }
+
+  /* Finger-sized tap targets: the ☰ and the folded search icon each fill a
+     44px hit area, and menu rows get real height + spacing so they're not a
+     pixel-hunt to tap. */
+  .site-nav__menu-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .site-nav__search {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 12px;
+  }
+
+  .menu {
+    min-width: 15rem;
+    padding: var(--space-sm);
+  }
+
+  .menu__item {
+    min-height: 44px;
+    padding: 10px var(--space-sm);
+    gap: var(--space-md);
+  }
+
+  .menu__item svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .main-content {
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .page-header {
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .page-header h1 {
+    font-size: var(--text-xl);
+    overflow-wrap: anywhere;
+  }
+
+  /* At phone widths the byline can wrap under itself freely. */
+  .page-header__byline {
+    flex-wrap: wrap;
+  }
+
+  .plan-document {
+    /* Leave room for the update dot's full hit area inside the card. */
+    padding: var(--space-lg);
+  }
+
+
+
+
+  .references-section,
+  .attachments-section {
+    padding-left: 0;
+  }
+
+  .plan-actions {
+    flex-wrap: wrap;
+  }
+
+  /* Comment surfaces clamp to the viewport instead of overflowing it. */
+  .comment-form {
+    width: min(360px, calc(100vw - 2 * var(--space-md)));
+  }
+
+  .thread-popover {
+    width: min(380px, calc(100vw - 2 * var(--space-md)));
+  }
+
+  /* Strip rows stack their meta under the title instead of squeezing it. */
+  .recent-updates__item,
+  .attention__item {
+    flex-wrap: wrap;
+  }
+
+  .recent-updates__meta {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+
+  /* Narrow screens: the timestamp stops being a side column (it was
+     squeezing titles to a word per line) and tucks under the byline,
+     indented to the body's left edge (2rem avatar + md gap). */
+  .home__item {
+    flex-wrap: wrap;
+  }
+
+  .home__item-time {
+    order: 3;
+    flex-basis: 100%;
+    padding-top: 0;
+    margin-left: calc(2rem + var(--space-md));
+    font-size: 0.75rem;
+  }
+}

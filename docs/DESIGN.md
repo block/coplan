@@ -95,3 +95,20 @@ New and renamed sections receive dots too. Presentation mode defers the
 display of changes until the show ends and retains each section's last editor.
 Extensive changes do not mark every section or show a banner; History
 provides the full diff. These cues are per viewer and disappear on the next visit.
+
+## Stylesheet organization
+
+`engine/app/assets/stylesheets/coplan/application.css` is a native CSS import
+manifest. Edit the corresponding topic file beside it. The imports preserve
+the cascade: responsive rules and later editor/review refinements intentionally
+follow the earlier component styles. Deck styles and themes remain separate
+stylesheet links after the application manifest.
+
+Use `@import url("./filename.css");` for new entries. Propshaft rewrites
+`url(...)` references to fingerprinted asset URLs; a bare quoted import does
+not receive that rewriting. Keep imports at the top of the manifest and keep
+topic files free of further imports to avoid deeper request waterfalls.
+
+Changing a topic file changes its fingerprint and the small manifest's
+fingerprint. Unchanged sibling stylesheets retain their cache keys. Production
+precompilation emits each file separately; no CSS bundler is required.

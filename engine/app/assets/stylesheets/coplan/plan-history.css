@@ -1,0 +1,373 @@
+
+/* Plans list */
+.plans-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.active-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-md);
+}
+
+.active-filter__clear {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.active-filter__clear:hover {
+  color: var(--color-text);
+}
+
+/* Plan form */
+.plan-form__actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+/* Chip-style tag editor: an input-shaped shell holding tag pills plus a
+   borderless inline text field. */
+.tag-input {
+  padding: 6px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-input-bg);
+  cursor: text;
+}
+
+.tag-input:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.tag-input__chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-input__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 10px;
+  border-radius: 9999px;
+  background: var(--color-tag-bg);
+  color: var(--color-tag-text);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.tag-input__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tag-input__remove:hover {
+  background: var(--color-tag-hover-bg);
+  color: var(--color-danger);
+}
+
+.tag-input__field {
+  flex: 1;
+  min-width: 140px;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--text-sm);
+}
+
+.tag-input__field:focus {
+  outline: none;
+}
+
+/* Plan content */
+.plan-content pre {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Version list */
+/* History split view */
+.history-split {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 0;
+  min-height: 400px;
+}
+
+.history-split__list {
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.history-split__item {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  text-decoration: none;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.history-split__item:hover {
+  background: var(--color-bg-muted);
+  text-decoration: none;
+}
+
+.history-split__item--active {
+  background: var(--color-primary-light);
+  border-left: 3px solid var(--color-primary);
+  padding-left: calc(var(--space-md) - 3px);
+}
+
+.history-split__item--active:hover {
+  background: var(--color-primary-light);
+}
+
+.history-split__version {
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+}
+
+.history-split__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-sm);
+  margin-top: 2px;
+}
+
+.history-split__summary {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.history-split__time {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* Metadata events in the history feed (status changes, tag adds, etc.).
+   Reuses .history-split__item layout but is non-interactive — clicking does
+   not load a diff because the event payload *is* the diff. */
+.history-split__item--event {
+  cursor: default;
+}
+
+.history-split__item--event:hover {
+  background: inherit;
+}
+
+.history-split__event-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--radius);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+}
+
+.history-split__event-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.history-split__detail {
+  padding: var(--space-md) var(--space-lg);
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.history-split__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+}
+
+/* On narrow screens the side-by-side split would crush the diff to a
+   word per line — stack instead: a short scrollable version list on
+   top, the detail below it at full width. */
+@media (max-width: 720px) {
+  .history-split {
+    grid-template-columns: 1fr;
+  }
+
+  .history-split__list {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    max-height: 260px;
+  }
+
+  .history-split__detail {
+    padding: var(--space-md);
+    max-height: none;
+  }
+}
+
+/* Version diff preview */
+.version-diff-preview__header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.version-diff-preview__header h3 {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  margin: 0;
+}
+
+/* Diff view */
+.diff-view {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  margin-top: var(--space-md);
+  overflow-x: auto;
+}
+
+.diff-view ul {
+  list-style: none;
+  padding: 0;
+}
+
+.diff-view li {
+  padding: 1px var(--space-sm);
+  white-space: pre-wrap;
+}
+
+.diff-view li.ins {
+  background: var(--color-diff-ins-bg);
+  color: var(--color-diff-ins-text);
+}
+
+.diff-view li.del {
+  background: var(--color-diff-del-bg);
+  color: var(--color-diff-del-text);
+}
+
+/* Utility */
+.text-muted { color: var(--color-text-muted); }
+.text-sm    { font-size: var(--text-sm); }
+.mt-md      { margin-top: var(--space-md); }
+.mb-md      { margin-bottom: var(--space-md); }
+
+/* Changes since the last visit are small signposts beside section starts.
+   No bands, padding changes, or overrides of prose/code/table surfaces. */
+.markdown-rendered .section-updated {
+  position: relative;
+  scroll-margin-top: 9rem;
+}
+
+/* Give the small dot a comfortable target without changing heading layout.
+   The empty span keeps update metadata out of copied text and section slugs. */
+.section-update-marker {
+  position: absolute;
+  left: -23px;
+  top: calc(0.65em - 8px);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: help;
+}
+
+.section-update-marker::before {
+  content: "";
+  position: absolute;
+  left: calc(50% - 2.5px);
+  top: calc(50% - 2.5px);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-warning);
+}
+
+.section-update-marker::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 23px;
+  top: calc(100% + 2px);
+  z-index: 12;
+  width: max-content;
+  max-width: min(28rem, calc(100vw - 3rem));
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: normal;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.section-update-marker:is(:hover, :focus-visible)::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+.section-update-marker:is(:hover, :focus-visible) {
+  background: var(--color-interaction-hover-bg);
+}
+
+.section-update-marker:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+}
+
+.section-update-marker { transition: opacity 180ms ease; }
+.section-updated--viewed .section-update-marker {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-update-marker { transition: none; }
+}

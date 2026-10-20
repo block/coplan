@@ -1,0 +1,385 @@
+
+/* Flash messages */
+.flash {
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius);
+  margin-bottom: var(--space-lg);
+  font-size: var(--text-sm);
+}
+
+.flash--notice {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+
+.flash--alert {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-decoration: none;
+  line-height: 1.4;
+}
+
+.btn:hover {
+  text-decoration: none;
+}
+
+.btn--primary {
+  background: color-mix(in srgb, var(--color-text) 11%, var(--color-surface));
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-text) 20%, var(--color-border));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-surface) 70%, transparent), var(--shadow-pop);
+  font-weight: 600;
+}
+
+.btn--primary:hover {
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+  box-shadow: var(--shadow-pop);
+  transform: translateY(-1px);
+}
+
+.btn--primary:active {
+  transform: translateY(0);
+}
+
+.btn--primary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btn--secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.btn--secondary:hover {
+  background: var(--color-bg);
+}
+
+/* Quiet text-style button for low-emphasis actions (e.g. Archive). */
+.btn--ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  border-color: transparent;
+}
+
+.btn--ghost:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.btn--danger {
+  background: var(--color-danger);
+  color: var(--color-text-inverse);
+}
+
+.btn--danger:hover {
+  background: var(--color-danger-hover);
+  color: var(--color-text-inverse);
+}
+
+/* Cards */
+.card {
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--card-edge);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-glass);
+}
+
+/* Status badges */
+.badge {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+/* Plan state badges. Published-and-active plans get no badge — these mark
+   the exceptional states only. (The --color-status-* tokens are shared
+   with comment-thread badges below.) */
+.badge--archived { background: var(--color-status-abandoned-bg); color: var(--color-status-abandoned); }
+
+/* Hidden-state flag: a quiet crossed-out eye + word, no background. The
+   normal (published) state is deliberately unmarked. */
+.state-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.state-flag__eye {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+.badge--open        { background: var(--color-status-considering-bg); color: var(--color-status-considering); }
+.badge--resolved    { background: var(--color-status-live-bg); color: var(--color-status-live); }
+.badge--success     { background: var(--color-success-soft); color: var(--color-success); }
+.badge--warning     { background: var(--color-warning-soft); color: var(--color-warning); }
+.badge--danger      { background: var(--color-danger-soft); color: var(--color-danger); }
+.badge--agent       { background: var(--color-agent-bg); color: var(--color-agent); font-size: 0.65rem; padding: 1px 6px; vertical-align: middle; }
+.badge--type        { background: var(--color-type-bg); color: var(--color-type-text); }
+.badge--tag         { background: var(--color-tag-bg); color: var(--color-tag-text); text-decoration: none; font-size: 0.7rem; text-transform: none; letter-spacing: normal; }
+.badge--tag:hover   { background: var(--color-tag-hover-bg); color: var(--color-tag-hover-text); }
+.badge--tag-active  { background: var(--color-tag-active-bg); color: var(--color-text-inverse); }
+.badge--tag-active:hover { background: var(--color-tag-active-hover-bg); color: var(--color-text-inverse); }
+
+/* Document-type file icon: a colored rounded square with the type's
+   glyph, like a Drive/Finder file icon. It represents the file — it
+   leads the title and never reads as a tag; the type's name lives in the
+   tooltip. Tint classes are picked per type name (PLAN_TYPE_COLOR_COUNT
+   in PlansHelper must match the number of tints here). */
+.plan-type-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--color-type-bg);
+  color: var(--color-type-text);
+}
+
+.plan-type-icon--sm { width: 22px; height: 22px; border-radius: 5px; }
+.plan-type-icon--sm svg { width: 12px; height: 12px; }
+.plan-type-icon--md { width: 26px; height: 26px; }
+.plan-type-icon--lg { width: 36px; height: 36px; border-radius: 9px; }
+.plan-type-icon--lg svg { width: 19px; height: 19px; }
+
+/* Saturated mid-tones read on both themes (like language dots). */
+.plan-type-icon--0 { background: color-mix(in srgb, #5b8def 16%, transparent); color: #5b8def; }
+.plan-type-icon--1 { background: color-mix(in srgb, #3fa876 16%, transparent); color: #3fa876; }
+.plan-type-icon--2 { background: color-mix(in srgb, #d99a2b 16%, transparent); color: #d99a2b; }
+.plan-type-icon--3 { background: color-mix(in srgb, #9c6fe0 16%, transparent); color: #9c6fe0; }
+.plan-type-icon--4 { background: color-mix(in srgb, #e0637a 16%, transparent); color: #e0637a; }
+.plan-type-icon--5 { background: color-mix(in srgb, #2fa8a0 16%, transparent); color: #2fa8a0; }
+
+/* Avatars */
+.avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.avatar--sm { width: 1.5rem; height: 1.5rem; font-size: 0.6rem; }
+.avatar--md { width: 2rem; height: 2rem; font-size: 0.7rem; }
+.avatar--lg { width: 3rem; height: 3rem; font-size: 1rem; }
+.avatar--xl { width: 4rem; height: 4rem; font-size: 1.3rem; }
+
+.avatar--initials {
+  /* White initials need a deeper blue than the dark theme's link color. */
+  background: #2563eb;
+  color: var(--color-text-inverse);
+  font-weight: 600;
+}
+
+img.avatar {
+  object-fit: cover;
+}
+
+.avatar__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  opacity: 0;
+}
+
+.avatar__image--loaded {
+  opacity: 1;
+}
+
+/* Forms */
+.form-group {
+  margin-bottom: var(--space-lg);
+}
+
+.form-group label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  margin-bottom: var(--space-xs);
+}
+
+.form-group input[type="text"],
+.form-group input[type="search"],
+.form-group input[type="email"],
+.form-group input[type="url"],
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--text-base);
+  font-family: var(--font-sans);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  transition: border-color 0.15s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.form-group textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+/* Onboarding banner */
+.onboarding-banner {
+  background: var(--color-primary-light);
+  border-bottom: 1px solid var(--color-primary);
+  padding: var(--space-sm) var(--space-lg);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  text-align: center;
+}
+
+.onboarding-banner a {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* Empty states */
+.empty-state {
+  text-align: center;
+  padding: var(--space-2xl);
+  color: var(--color-text-muted);
+}
+
+.empty-state p {
+  margin-bottom: var(--space-md);
+}
+
+/* Sign in page */
+.sign-in-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.sign-in-card {
+  width: 100%;
+  max-width: 24rem;
+  text-align: center;
+}
+
+.sign-in-card h1 {
+  font-size: var(--text-2xl);
+  margin-bottom: var(--space-xs);
+}
+
+.sign-in-form {
+  margin-top: var(--space-sm);
+  text-align: left;
+}
+
+.sign-in-submit {
+  width: 100%;
+  justify-content: center;
+}
+
+.demo-accounts {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.demo-account-list {
+  display: grid;
+  gap: var(--space-xs);
+  list-style: none;
+  padding: 0;
+  margin: var(--space-sm) 0 0;
+}
+
+.demo-account-button {
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+}
+
+.sign-in-warning {
+  margin-top: var(--space-md);
+  padding: var(--space-sm) 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-warning);
+  background: var(--color-warning-soft);
+  color: var(--color-text);
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+/* Status filters (used on the notifications index) */
+.status-filters {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xl);
+  flex-wrap: wrap;
+}
+
+.status-filter {
+  padding: 2px var(--space-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: 9999px;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  text-decoration: none;
+  transition: all 0.15s;
+  line-height: 1.5;
+}
+
+.status-filter:hover {
+  text-decoration: none;
+  border-color: var(--color-text-muted);
+}
+
+.status-filter--active {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-color: var(--color-primary);
+}

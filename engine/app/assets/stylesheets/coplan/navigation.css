@@ -1,0 +1,196 @@
+
+/* Navigation */
+.site-nav {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-edge);
+  height: var(--nav-height);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+/* Three zones: brand + primary links cluster on the left (they're one
+   thought — "where am I?"), search floats in the middle, controls hold
+   the right edge. The auto margins on links/right split the free space,
+   so nothing drifts into detached islands at wide widths. */
+.site-nav__inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.site-nav__brand {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-text);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.site-nav__logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.site-nav__brand:hover {
+  text-decoration: none;
+  color: var(--color-primary);
+}
+
+/* The right cluster — search, notifications, menu — pinned to the right so
+   the bar reads left-to-right as identity → context → tools. Nothing here
+   shrinks: a search crushed to a sliver or a ☰ that drifts reads as breakage
+   (search folds to an icon at ≤900px, the bell into the menu at ≤640px). */
+.site-nav__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-left: auto;
+  min-width: 0;
+}
+
+.site-nav__menu,
+.inbox-dropdown {
+  flex-shrink: 0;
+}
+
+.site-nav__menu {
+  position: relative;
+}
+
+.site-nav__menu-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: none;
+  background: none;
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.site-nav__menu-btn:hover {
+  color: var(--color-primary-hover);
+  background: var(--color-interaction-hover-bg);
+}
+
+/* When the bell has folded into the menu (phone widths), the ☰ carries a
+   small unread dot so a waiting notification is still visible at a glance.
+   coplan--inbox-badge toggles .site-nav--has-unread from the live count;
+   the dot itself only shows once the bell is gone (see the phone block). */
+.site-nav__menu-btn::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-danger);
+  display: none;
+}
+
+/* Scroll-aware plan context in the top nav: containing folder + document title.
+   Collapsed to zero width while the masthead is visible, so it steals no
+   space and causes no reflow at the top of a plan. coplan--nav-title reveals
+   the whole context once #plan-header scrolls behind the bar. */
+.site-nav__plan-context {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  /* Barely shrinkable itself; the search box (below) yields first and far
+     faster, down to a usable floor. So a short title shows in full, and a
+     long one only ellipsizes once the search has already given up its
+     slack — never the other way round. */
+  flex: 0 1 auto;
+  min-width: 0;
+  width: 0;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  pointer-events: none;
+  /* Grow a touch slower than the fade, so it reads as sliding in from the
+     links rather than shoving the search box aside. */
+  transition: width 0.28s ease, max-width 0.28s ease, opacity 0.18s ease;
+}
+
+.site-nav__plan-context--visible {
+  width: 25rem;
+  max-width: 25rem;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.site-nav__doc-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.site-nav__doc-title:hover {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.site-nav__doc-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.site-nav__doc-title .plan-type-icon {
+  flex-shrink: 0;
+}
+
+/* The title sits in the left cluster right after the brand; .site-nav__right
+   is pushed away by its own margin-left:auto, so the title simply grows into
+   the free space between them — no margin juggling needed now that the bar
+   holds nothing else on the left. On a phone it's the ONLY plan context (the
+   Contents sidebar is hidden < 1024px), so let it take more of the row. */
+@media (max-width: 640px) {
+  .site-nav__plan-context--visible {
+    max-width: 58vw;
+  }
+}
+
+/* Main content */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.main-content {
+  flex: 1;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-lg);
+  width: 100%;
+}

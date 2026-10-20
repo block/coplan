@@ -1,0 +1,835 @@
+
+/* =====================================================   Plans workspace (sidebar + grouped index)
+   ============================================================ */
+
+.workspace {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+.workspace__sidebar {
+  position: sticky;
+  top: calc(var(--nav-height) + var(--space-md));
+  font-size: var(--text-sm);
+  min-width: 0;
+  /* A sticky sidebar taller than the viewport pins its overflow below the
+     fold forever — page scroll can't reach it. Scroll the sidebar itself. */
+  max-height: calc(100vh - var(--nav-height) - var(--space-md) * 2);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.workspace__sidebar-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* Mobile-only disclosure bar (see the 56rem media block); at desktop the
+   button vanishes and the sections always show. */
+.workspace__sidebar-toggle {
+  display: none;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--surface-translucent);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workspace__sidebar-toggle .workspace__sidebar-chevron {
+  margin-left: auto;
+  transition: transform 0.15s;
+}
+
+.workspace__sidebar-toggle[aria-expanded="true"] .workspace__sidebar-chevron {
+  transform: rotate(180deg);
+}
+
+.workspace__main {
+  min-width: 0;
+}
+
+/* A library identity should orient the reader, then get out of the way. */
+.library-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 24px; }
+.library-header__identity { display: flex; align-items: center; gap: 13px; min-width: 0; }
+.library-header__identity .avatar--lg { width: 42px; height: 42px; flex: none; }
+.library-header__text { min-width: 0; }
+.library-header__name { margin: 0; font-size: clamp(22px, 2.7vw, 29px); line-height: 1.12; letter-spacing: -0.035em; }
+.library-header__meta { margin: 4px 0 0; font-size: 12px; line-height: 1.35; }
+.library-header__badge { padding: 5px 9px; border: 1px solid var(--color-border); border-radius: 999px; color: var(--color-text-muted); font-size: 11px; white-space: nowrap; }
+
+.sidebar__filters { border-top: 1px solid var(--color-border); padding-top: 10px; }
+.sidebar__filters-toggle { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-radius: 8px; color: var(--color-text-muted); font-size: 12px; font-weight: 600; cursor: pointer; list-style: none; }
+.sidebar__filters-toggle::-webkit-details-marker { display: none; }
+.sidebar__filters-toggle::after { content: "⌄"; font-size: 15px; line-height: 1; transition: transform 150ms ease; }
+.sidebar__filters[open] .sidebar__filters-toggle::after { transform: rotate(180deg); }
+.sidebar__filters-toggle:hover { color: var(--color-text); background: var(--color-interaction-hover-bg); }
+.sidebar__filters-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.sidebar__filters-content { display: flex; flex-direction: column; gap: 18px; padding-top: 15px; }
+
+.workspace__filters {
+  flex-wrap: wrap;
+}
+
+.workspace__filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 2px var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  background: var(--color-surface);
+  font-size: 0.8rem;
+}
+
+.workspace__filter-clear {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.75rem;
+}
+
+.workspace__filter-clear:hover {
+  color: var(--color-danger);
+}
+
+/* Sidebar sections */
+.sidebar__heading {
+  margin: 0 0 var(--space-xs);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.sidebar__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sidebar__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: 3px var(--space-sm);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.sidebar__item:hover {
+  background: var(--color-bg-muted);
+  text-decoration: none;
+}
+
+.sidebar__item--active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.sidebar__item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar__count {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.sidebar__hint {
+  margin: var(--space-sm) 0 0;
+  line-height: 1.4;
+}
+
+/* Folder tree */
+.folder-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.folder-tree--nested {
+  padding-left: var(--space-sm);
+}
+
+/* The rooted tree: "My Plans" is the drive root; folders hang off it with
+   the same compact indent as regular nesting. */
+.folder-tree__node--root > .folder-tree--nested {
+  padding-left: var(--space-sm);
+  margin-top: 1px;
+}
+
+.folder-tree__link--root {
+  font-weight: 600;
+}
+
+.folder-tree__branch > .folder-tree__summary {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+}
+
+.folder-tree__summary::-webkit-details-marker {
+  display: none;
+}
+
+.folder-tree__summary::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-right: -0.9rem; /* overlap the link's padding */
+  position: relative;
+  left: -0.15rem;
+  background: currentColor;
+  color: var(--color-text-muted);
+  -webkit-mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>') center / contain no-repeat;
+  mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>') center / contain no-repeat;
+  transition: transform 0.15s;
+}
+
+.folder-tree__branch[open] > .folder-tree__summary::before {
+  transform: rotate(90deg);
+}
+
+.folder-tree__link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: 3px var(--space-sm) 3px 1.1rem;
+  border-radius: var(--radius);
+  color: var(--color-text);
+  text-decoration: none;
+  min-width: 0;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Leaf nodes (no <details>) keep the same left padding so labels align. */
+.folder-tree__node > .folder-tree__link {
+  display: flex;
+}
+
+.folder-tree__link:hover {
+  background: var(--color-bg-muted);
+  text-decoration: none;
+}
+
+.folder-tree__link--active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+/* Live drop target under the cursor — folder links and group headings.
+   Loud on purpose: a solid ring, a glow, and primary-tinted contents, so
+   there's no squinting about where the drop will land. */
+.dnd-drop {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  background: var(--color-primary-light);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 22%, transparent);
+  color: var(--color-primary);
+}
+
+.dnd-drop .folder-row__icon,
+.dnd-drop .folder-row__name,
+.dnd-drop .folder-row__count,
+.dnd-drop .folder-tree__name,
+.dnd-drop .sidebar__count {
+  color: var(--color-primary);
+}
+
+/* Drop accepted, PATCH + refresh in flight — the target pulses until the
+   page re-renders so the move never feels like it silently stalled. */
+.dnd-drop--busy {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  background: var(--color-primary-light);
+  border-radius: var(--radius);
+  animation: dnd-busy-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes dnd-busy-pulse {
+  50% { opacity: 0.45; }
+}
+
+.workspace--moving,
+.workspace--moving * {
+  cursor: progress;
+}
+
+/* The row that was just dropped stays ghosted (dragend strips the
+   --dragging class before the server round-trip finishes). */
+.dnd-source--moving {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Spring-loading, Finder-style: keep the drag hovering on a folder and it
+   pulses twice, then springs open. */
+.dnd-spring {
+  animation: dnd-spring-pulse 0.3s ease-in-out 2;
+}
+
+@keyframes dnd-spring-pulse {
+  50% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-primary) 38%, transparent);
+    transform: scale(1.012);
+  }
+}
+
+/* Tunneled pane: springing a main-pane folder swaps the pane to that
+   folder's real level view mid-drag. A quick slide-in sells the "you just
+   went somewhere" feel each level down. */
+.workspace__main--tunneled {
+  animation: dnd-tunnel-in 0.18s ease-out;
+}
+
+@keyframes dnd-tunnel-in {
+  from {
+    opacity: 0.4;
+    transform: translateY(4px);
+  }
+}
+
+/* The pane itself is the fallback drop target ("file into the folder
+   you're looking at"). Ring it quietly and don't tint its text — the loud
+   treatment belongs to specific rows/crumbs. */
+.workspace__main.dnd-drop {
+  color: inherit;
+  box-shadow: none;
+  outline-style: dashed;
+}
+
+.folder-tree__link--dragging {
+  opacity: 0.5;
+}
+
+.folder-tree__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* While dragging a row, make every folder read as a target — sidebar
+   tree, main-pane folder rows, and breadcrumb segments alike. */
+.workspace--dragging .folder-tree__link,
+.workspace--dragging .folder-row,
+.workspace--dragging .workspace-crumbs__crumb {
+  outline: 1px dashed var(--color-border-strong);
+  outline-offset: -1px;
+}
+
+/* While a drag is live, the pane grows a runway below the level's
+   contents: an empty (or short) folder — especially one just tunneled
+   into — otherwise offers almost nothing to drop on. Padding, not
+   margin: padding is inside the element, so the runway IS the pane's
+   drop target. */
+.workspace--dragging .workspace__main {
+  padding-bottom: 10rem;
+  min-height: 60vh;
+}
+
+/* Needs attention strip */
+.attention {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius);
+  background: var(--color-warning-soft);
+}
+
+.attention__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-xs);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-warning-text);
+}
+
+.attention__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attention__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  font-size: var(--text-sm);
+}
+
+.attention__link {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.attention__unread {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* Dismissal sits at the far right of the row, quiet until hovered — the
+   strip is a nudge, and getting rid of a nudge shouldn't be loud. */
+.attention__clear-form {
+  margin: 0;
+  margin-left: auto;
+}
+
+/* A quiet ✕, matching the filter chips: the row already says what it is,
+   so the dismiss doesn't need a word. Padding buys a real hit area
+   without taking visual weight. */
+.attention__clear {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.attention__clear:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* Clear is instant, not a task with a progress state: Turbo marks the
+   form aria-busy the moment it's pressed, and the row hides on that —
+   gone before the request finishes, with the response replacing the
+   strip a moment later. Turbo clears aria-busy on failure, so a rejected
+   request puts the row back without any JS of ours. */
+.attention__item:has(.attention__clear-form[aria-busy="true"]) {
+  display: none;
+}
+
+/* Clearing the last row empties the strip, so take the whole thing with
+   it rather than flash an empty bordered box with a stale count. */
+.attention:has(.attention__item:only-child .attention__clear-form[aria-busy="true"]) {
+  display: none;
+}
+
+/* "Since you last looked" strip — recency against your own reading
+   history, quieter than the warning-toned attention strip. */
+.recent-updates {
+  margin-bottom: var(--space-lg);
+  padding: 9px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-muted);
+}
+
+.recent-updates__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.recent-updates__heading::-webkit-details-marker { display: none; }
+.recent-updates__heading::after { content: "⌄"; margin-left: auto; font-size: 14px; }
+.recent-updates[open] .recent-updates__heading::after { transform: rotate(180deg); }
+.recent-updates__heading:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.recent-updates__count { margin-left: 3px; font-weight: 400; }
+.recent-updates[open] .recent-updates__list { margin-top: 12px; }
+
+.recent-updates__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  /* Roomy enough to scan — this read as one bunched block at 2px. */
+  gap: var(--space-sm);
+}
+
+.recent-updates__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+
+.recent-updates__link {
+  font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-updates__badge {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0 6px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.recent-updates__badge--new-to-you {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.recent-updates__meta {
+  margin-left: auto;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* Breadcrumbs — where you are in your library (Drive-style). */
+.workspace-crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+  font-size: var(--text-sm);
+  flex-wrap: wrap;
+}
+
+.workspace-crumbs__crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px var(--space-sm);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.workspace-crumbs__crumb:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+  text-decoration: none;
+}
+
+.workspace-crumbs__crumb--current {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.workspace-crumbs__sep {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.workspace-crumbs__spacer {
+  flex: 1;
+}
+
+/* A quiet glass add control that joins its right-aligned menu when open. */
+.workspace-add__trigger {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--glass-edge);
+  border-radius: 50%;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: var(--color-text-muted);
+  box-shadow: var(--shadow-glass);
+}
+
+.workspace-add__trigger:hover,
+.workspace-add:has(.workspace-add__menu:popover-open) .workspace-add__trigger {
+  background: var(--color-interaction-hover-bg);
+  color: var(--color-primary-hover);
+}
+
+.workspace-add__trigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.workspace-add:has(.workspace-add__menu:popover-open) .workspace-add__trigger {
+  border-bottom-right-radius: 8px;
+}
+
+.workspace-add__menu {
+  transform: translateY(-5px);
+  border-top-right-radius: 8px;
+}
+
+/* A folder in the main pane's level view — same surface language as plan
+   rows, but unmistakably a folder. */
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--surface-translucent);
+  border: 1px solid var(--card-edge);
+  border-radius: var(--radius);
+  margin-bottom: var(--space-xs);
+  box-shadow: var(--shadow);
+  color: var(--color-text);
+  text-decoration: none;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.folder-row:hover {
+  background: var(--color-bg);
+  text-decoration: none;
+}
+
+.folder-row__icon {
+  display: inline-flex;
+  color: var(--color-text-muted);
+}
+
+.folder-row__name {
+  font-weight: 600;
+}
+
+.folder-row__count {
+  margin-left: auto;
+  font-size: var(--text-xs);
+}
+
+/* Keyboard cursor (j/k) over folder and plan rows. */
+.workspace-key-selected {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* Compact plan rows */
+.plan-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  /* Translucent without backdrop blur — rows are numerous and per-row
+     blur is a GPU tax; the mesh still glows through faintly. */
+  background: var(--surface-translucent);
+  border: 1px solid var(--card-edge);
+  border-radius: var(--radius);
+  margin-bottom: var(--space-xs);
+  box-shadow: var(--shadow);
+  transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+  /* Selectable text hijacks press-and-drag: the browser starts a text
+     selection instead of the row drag, and the mouseup then *navigates*
+     the title link. Rows are chrome, not prose — don't select. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* The file icon spans both text rows — a Drive/Finder file entry. */
+.plan-row__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.plan-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-row:hover {
+  background: var(--glass-bg-strong);
+  box-shadow: var(--shadow-pop);
+  transform: translateY(-1px);
+  cursor: pointer;
+}
+
+/* Whole-card click target: the title link stretches over the card, so
+   clicking (and hover-prefetching) works anywhere on the row. Every other
+   interactive element in the row rises above the stretch. */
+.plan-row {
+  position: relative;
+}
+
+.plan-row__title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.plan-row a:not(.plan-row__title),
+.plan-row button {
+  position: relative;
+  z-index: 1;
+}
+
+.plan-row--dragging {
+  opacity: 0.5;
+}
+
+.plan-row__line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.plan-row__title {
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.plan-row__title:hover {
+  color: var(--color-primary);
+}
+
+.plan-row__folder {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 16rem;
+}
+
+.plan-row__folder:hover {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+/* Byline pinned to the card's top-right corner: it must not ride along
+   with wrapping titles or drift to a second line mid-card. */
+.plan-row__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+  align-self: flex-start;
+  flex-shrink: 0;
+}
+
+.plan-row__time {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.plan-row__avatar {
+  display: inline-flex;
+}
+
+.plan-row__summary {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Toasts (drag & drop feedback) */
+.toasts {
+  position: fixed;
+  bottom: var(--space-lg);
+  right: var(--space-lg);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.toasts__toast {
+  margin: 0;
+  box-shadow: var(--shadow-lg);
+}
+
+.archive-confirmation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-lg);
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+}
+
+.archive-confirmation__message,
+.archive-confirmation__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.archive-confirmation__message strong {
+  color: var(--color-text);
+}
+
+.archive-confirmation__message span {
+  color: var(--color-text-muted);
+}
+
+.archive-confirmation .btn--primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-bg);
+}
+
+.archive-confirmation .btn--primary:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  color: var(--color-bg);
+}

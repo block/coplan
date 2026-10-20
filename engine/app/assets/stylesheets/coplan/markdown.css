@@ -1,0 +1,777 @@
+
+/* Rendered markdown */
+.markdown-rendered h1,
+.markdown-rendered h2,
+.markdown-rendered h3,
+.markdown-rendered h4,
+.markdown-rendered h5,
+.markdown-rendered h6 {
+  margin-top: var(--space-xl);
+  margin-bottom: var(--space-md);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.markdown-rendered h1 { font-size: var(--text-2xl); }
+.markdown-rendered h2 { font-size: var(--text-xl); }
+.markdown-rendered h3 { font-size: var(--text-lg); }
+.markdown-rendered h1:first-child,
+.markdown-rendered h2:first-child,
+.markdown-rendered h3:first-child { margin-top: 0; }
+
+.section-heading {
+  display: flex;
+  align-items: center;
+}
+
+.section-heading__title {
+  min-width: 0;
+}
+
+.section-permalink {
+  display: flex;
+  flex: 0 0 1.5em;
+  align-items: center;
+  justify-content: center;
+  height: 1.5em;
+  margin-left: var(--space-xs);
+  border: 0;
+  color: var(--color-text-muted);
+  opacity: 0;
+  position: relative;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+
+.markdown-rendered h1:hover > .section-permalink,
+.markdown-rendered h2:hover > .section-permalink,
+.markdown-rendered h3:hover > .section-permalink,
+.section-permalink:focus-visible {
+  opacity: 1;
+}
+
+.section-permalink:hover,
+.section-permalink:focus-visible {
+  color: var(--color-primary);
+}
+
+.section-permalink[data-copy-state="copied"] {
+  color: var(--color-success);
+  opacity: 1;
+}
+
+.section-permalink[data-copy-state="failed"] {
+  color: var(--color-danger);
+  opacity: 1;
+}
+
+.section-permalink[data-copy-state]::after {
+  content: attr(data-copy-message);
+  position: absolute;
+  left: calc(100% + var(--space-xs));
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-pop);
+  color: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+@media (hover: none) {
+  .section-permalink { opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .section-permalink[data-copy-state]::after {
+    left: auto;
+    right: 0;
+  }
+}
+
+.markdown-rendered p {
+  margin-bottom: var(--space-md);
+  line-height: 1.9;
+}
+
+.markdown-rendered ul,
+.markdown-rendered ol {
+  margin-bottom: var(--space-md);
+  padding-left: var(--space-xl);
+}
+
+.markdown-rendered li {
+  margin-bottom: var(--space-xs);
+  line-height: 1.9;
+}
+
+.markdown-rendered .task-list {
+  list-style: none;
+  padding-left: var(--space-md);
+}
+
+.markdown-rendered .task-list-item label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.markdown-rendered .task-list-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.markdown-rendered .task-list-item input[type="checkbox"] {
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 0;
+  position: relative;
+  top: 1px;
+}
+
+.markdown-rendered pre {
+  background: var(--code-block-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-md);
+  overflow-x: auto;
+  margin-bottom: var(--space-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/* Terminal-style header on fenced code blocks that declare a language:
+   traffic-light dots + the language name from the lang attribute. Pure CSS
+   (attr() in a pseudo-element) so it adds no DOM text — comment-anchor
+   matching against textContent never sees it. Mermaid blocks are excluded;
+   they get replaced by rendered diagrams. */
+.markdown-rendered pre[lang]:not([lang="mermaid"])::before {
+  content: attr(lang);
+  display: block;
+  position: sticky; /* stay pinned when the code scrolls horizontally */
+  left: 0;
+  margin: calc(-1 * var(--space-md)) calc(-1 * var(--space-md)) var(--space-md);
+  padding: 0.5em var(--space-md) 0.5em 4.6em;
+  background-color: var(--code-header-bg);
+  background-image:
+    radial-gradient(circle at 1.1em 50%, #ff5f57 0.3em, transparent 0.36em),
+    radial-gradient(circle at 2.2em 50%, #febc2e 0.3em, transparent 0.36em),
+    radial-gradient(circle at 3.3em 50%, #28c840 0.3em, transparent 0.36em);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
+  color: var(--code-header-text);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.markdown-rendered code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.markdown-rendered :not(pre) > code {
+  background: var(--color-code-bg);
+  padding: 0.15em 0.35em;
+  border-radius: 3px;
+}
+
+/* Syntax highlighting — highlight.js token classes mapped onto the
+   --code-* theme variables (GitHub Light/Dark palettes above). Applied by
+   syntax_highlight_controller, which loads grammars on demand. */
+.markdown-rendered .hljs-comment,
+.markdown-rendered .hljs-quote {
+  color: var(--code-comment);
+}
+
+.markdown-rendered .hljs-keyword,
+.markdown-rendered .hljs-doctag,
+.markdown-rendered .hljs-template-tag,
+.markdown-rendered .hljs-type {
+  color: var(--code-keyword);
+}
+
+.markdown-rendered .hljs-title,
+.markdown-rendered .hljs-title.class_,
+.markdown-rendered .hljs-title.function_,
+.markdown-rendered .hljs-section {
+  color: var(--code-entity);
+}
+
+.markdown-rendered .hljs-number,
+.markdown-rendered .hljs-literal,
+.markdown-rendered .hljs-symbol,
+.markdown-rendered .hljs-variable,
+.markdown-rendered .hljs-template-variable,
+.markdown-rendered .hljs-attr,
+.markdown-rendered .hljs-attribute,
+.markdown-rendered .hljs-built_in,
+.markdown-rendered .hljs-operator,
+.markdown-rendered .hljs-meta,
+.markdown-rendered .hljs-selector-attr,
+.markdown-rendered .hljs-selector-pseudo,
+.markdown-rendered .hljs-link {
+  color: var(--code-constant);
+}
+
+.markdown-rendered .hljs-string,
+.markdown-rendered .hljs-regexp,
+.markdown-rendered .hljs-char.escape_ {
+  color: var(--code-string);
+}
+
+.markdown-rendered .hljs-name,
+.markdown-rendered .hljs-tag,
+.markdown-rendered .hljs-selector-tag,
+.markdown-rendered .hljs-selector-id,
+.markdown-rendered .hljs-selector-class,
+.markdown-rendered .hljs-bullet {
+  color: var(--code-tag);
+}
+
+.markdown-rendered .hljs-addition {
+  color: var(--code-addition-fg);
+  background: var(--code-addition-bg);
+}
+
+.markdown-rendered .hljs-deletion {
+  color: var(--code-deletion-fg);
+  background: var(--code-deletion-bg);
+}
+
+.markdown-rendered .hljs-emphasis {
+  font-style: italic;
+}
+
+.markdown-rendered .hljs-strong {
+  font-weight: 600;
+}
+
+.markdown-rendered .mermaid-diagram {
+  position: relative;
+  margin-bottom: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: default;
+}
+
+/* The diagram's scroll box, separate from the frame so the expand control
+   stays pinned to the corner instead of scrolling away with a wide
+   diagram. */
+.markdown-rendered .mermaid-diagram__canvas {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  padding: var(--space-md);
+  border-radius: inherit;
+  scrollbar-width: thin;
+}
+
+.markdown-rendered .mermaid-diagram__expand,
+.markdown-rendered .image-frame__expand {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  cursor: zoom-in;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.markdown-rendered .mermaid-diagram:hover .mermaid-diagram__expand,
+.markdown-rendered .mermaid-diagram__expand:focus-visible,
+.markdown-rendered .image-frame.is-expandable:hover .image-frame__expand,
+.markdown-rendered .image-frame__expand:focus-visible {
+  opacity: 1;
+}
+
+/* An image's frame hugs the image, so the diagram's corner control sits on
+   the image itself. It lifts off the picture with a shadow, and appears
+   only once the image has loaded and is large enough to be worth it. */
+.markdown-rendered .image-frame {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.markdown-rendered .image-frame__expand {
+  display: none;
+  box-shadow: var(--shadow-pop);
+}
+
+.markdown-rendered .image-frame.is-expandable .image-frame__expand {
+  display: flex;
+}
+
+/* The diagram's own SVG only — the expand button's icon is an svg inside
+   the same container, and it must keep its own 16px geometry. */
+.markdown-rendered .mermaid-diagram__canvas > svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Mermaid sizes node boxes assuming its own label line-height (~1.2); the
+   page's inherited line-height (1.6) makes wrapped labels taller than the
+   boxes mermaid measured, clipping the second line. Pin labels back to the
+   height mermaid laid out for. */
+.markdown-rendered .mermaid-diagram foreignObject div,
+.markdown-rendered .mermaid-diagram foreignObject span,
+.markdown-rendered .mermaid-diagram foreignObject p,
+.expander--diagram foreignObject div,
+.expander--diagram foreignObject span,
+.expander--diagram foreignObject p {
+  line-height: 1.2;
+}
+
+.markdown-rendered .mermaid-diagram--error {
+  border-color: var(--color-danger);
+}
+
+.markdown-rendered .mermaid-diagram__error-message {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--color-danger);
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+.markdown-rendered blockquote {
+  border-left: 3px solid var(--color-border);
+  padding-left: var(--space-md);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-md);
+}
+
+.markdown-rendered table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-md);
+}
+
+.markdown-rendered th,
+.markdown-rendered td {
+  border: 1px solid var(--color-border);
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+}
+
+.markdown-rendered th {
+  background: var(--color-bg);
+  font-weight: 600;
+}
+
+/* ── Data grid: a markdown table in the document ──────────────────────────
+   The bare rules above still apply wherever a table isn't wrapped (deck
+   slides own their own tabular typography). Everywhere else the table sits
+   in a frame it can scroll inside, instead of a block it overflows. */
+.markdown-rendered .data-grid {
+  position: relative;
+  margin-bottom: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.markdown-rendered .data-grid__frame {
+  overflow: auto;
+  /* Tall tables scroll inside the frame so the header can pin; short ones
+     never reach this and are unaffected. */
+  max-height: 75vh;
+  border-radius: inherit;
+  scrollbar-width: thin;
+}
+
+.markdown-rendered .data-grid table {
+  /* Columns size to their content and the table still fills a narrow
+     frame. width:100% squeezed columns to nothing instead, which is how a
+     wide table ended up unreadable *and* off the page. */
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  /* Collapsed borders don't travel with a sticky header — the header's own
+     border scrolls out from under it. Separate borders plus inset shadows
+     stay put. */
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
+}
+
+.markdown-rendered .data-grid th,
+.markdown-rendered .data-grid td {
+  border: none;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  vertical-align: top;
+  min-width: 6ch;
+  max-width: 34ch;
+  overflow-wrap: anywhere;
+}
+
+.markdown-rendered .data-grid tr > *:last-child {
+  border-right: none;
+}
+
+.markdown-rendered .data-grid tbody tr:last-child > * {
+  border-bottom: none;
+}
+
+.markdown-rendered .data-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface-muted);
+  white-space: nowrap;
+  font-weight: 600;
+  box-shadow: inset 0 -1px 0 var(--color-border);
+}
+
+.markdown-rendered .data-grid tbody tr:nth-child(even) > * {
+  background: var(--color-surface-muted);
+}
+
+/* Edge fades: the honest signal that the frame is holding more than it's
+   showing. Only lit when there really is more in that direction. */
+.markdown-rendered .data-grid::before,
+.markdown-rendered .data-grid::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 2rem;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.markdown-rendered .data-grid::before {
+  left: 1px;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: linear-gradient(to right, var(--color-surface), transparent);
+}
+
+.markdown-rendered .data-grid::after {
+  right: 1px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: linear-gradient(to left, var(--color-surface), transparent);
+}
+
+.markdown-rendered .data-grid.is-scrolled-start::before,
+.markdown-rendered .data-grid.is-scrolled-end::after {
+  opacity: 1;
+}
+
+.markdown-rendered .data-grid__expand {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  z-index: 3;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  box-shadow: var(--shadow-pop);
+  cursor: zoom-in;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+/* Offered only where it buys something — a four-column, five-row table is
+   already entirely visible. */
+.markdown-rendered .data-grid.is-expandable .data-grid__expand {
+  display: flex;
+}
+
+.markdown-rendered .data-grid.is-expandable:hover .data-grid__expand,
+.markdown-rendered .data-grid.is-expandable:focus-within .data-grid__expand,
+.markdown-rendered .data-grid__expand:focus-visible {
+  opacity: 1;
+}
+
+.markdown-rendered .data-grid__expand:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+/* Nothing hovers on a touch screen, and tap-to-expand isn't available
+   here — selecting table text is how a comment gets anchored. */
+@media (hover: none) {
+  .markdown-rendered .data-grid.is-expandable .data-grid__expand {
+    opacity: 1;
+  }
+}
+
+.markdown-rendered hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-xl) 0;
+}
+
+.markdown-rendered a {
+  color: var(--color-primary);
+}
+
+.markdown-rendered img {
+  max-width: 100%;
+  border-radius: var(--radius);
+}
+
+/* Image editor chrome hugs the picture without adding a card or changing
+   its reading layout. Only the corner affordance appears on hover/focus. */
+.document-editor__image { position: relative; display: inline-block; max-width: 100%; vertical-align: bottom; line-height: 0; }
+.document-editor__image img { display: block; height: auto; }
+.document-editor__image-handle { --image-handle-opacity: 0; position: absolute; right: 0; bottom: 0; display: grid; place-items: end; width: 36px; height: 36px; padding: 2px; border: 0; border-radius: 0 0 var(--radius) 0; background: transparent; color: rgb(51 65 85 / .65); cursor: nwse-resize; touch-action: none; transition: color .18s ease; }
+/* Clear glass picks up the image beneath it, including in dark mode. Keep
+   the triangular paint separate from the larger rectangular grab area.
+   Fade the painted layers, never their parent: parent opacity below 1
+   blocks the glass from sampling the image until the fade ends. */
+.document-editor__image-handle::before { content: ""; position: absolute; inset: 0; border-radius: inherit; clip-path: polygon(100% 0, 100% 100%, 0 100%); background: linear-gradient(135deg, rgb(255 255 255 / .42), rgb(255 255 255 / .18)); -webkit-backdrop-filter: blur(7px) saturate(1.2) brightness(1.12); backdrop-filter: blur(7px) saturate(1.2) brightness(1.12); opacity: var(--image-handle-opacity); transition: opacity .26s ease; pointer-events: none; }
+.document-editor__image-handle svg { position: relative; width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; filter: drop-shadow(0 1px 0 rgb(255 255 255 / .45)); opacity: var(--image-handle-opacity); transition: opacity .26s ease; pointer-events: none; }
+.document-editor__image:hover .document-editor__image-handle,
+.document-editor__image-handle:focus-visible,
+.document-editor__image.is-resizing .document-editor__image-handle { --image-handle-opacity: 1; }
+.document-editor__image-handle:hover,
+.document-editor__image-handle:focus-visible,
+.document-editor__image.is-resizing .document-editor__image-handle { color: var(--color-primary); }
+.document-editor__image-handle:focus-visible { outline: none; }
+.document-editor__image-handle:focus-visible svg { filter: drop-shadow(0 0 3px var(--color-focus-ring)); }
+.document-editor__image.is-resizing { user-select: none; }
+.document-editor__image-size { position: absolute; right: 10px; bottom: 10px; padding: 5px 7px; border-radius: 5px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); font: 12px/1.2 var(--font-sans); pointer-events: none; }
+.document-editor__image-size:empty { display: none; }
+.document-editor__image:not(.is-resizing):not(:focus-within) .document-editor__image-size { display: none; }
+@media (hover: none) { .document-editor__image-handle { --image-handle-opacity: 1; width: 44px; height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .document-editor__image-handle, .document-editor__image-handle::before, .document-editor__image-handle svg { transition: none; } }
+
+.markdown-rendered abbr[title] {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+.markdown-rendered details {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.markdown-rendered details[open] {
+  padding-bottom: var(--space-md);
+}
+
+.markdown-rendered summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin: calc(var(--space-sm) * -1) calc(var(--space-md) * -1);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.markdown-rendered details[open] summary {
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-md);
+}
+
+.markdown-rendered .footnote-ref a,
+.markdown-rendered sup a[data-footnote-ref] {
+  text-decoration: none;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  font-weight: 600;
+}
+
+.markdown-rendered .reference-anchor--section {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.markdown-rendered .reference-anchor:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.markdown-rendered [id^="section-"] {
+  scroll-margin-top: calc(var(--nav-height) + var(--space-lg));
+}
+
+.markdown-rendered section[data-footnotes] {
+  margin-top: var(--space-xl);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-md);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.markdown-rendered section[data-footnotes] .footnotes-title {
+  margin: 0 0 var(--space-md);
+  color: var(--color-text);
+  font-size: var(--text-lg);
+}
+
+.markdown-rendered section[data-footnotes] p {
+  margin-bottom: var(--space-xs);
+}
+
+.markdown-rendered a[data-footnote-backref] {
+  text-decoration: none;
+}
+
+/* Citation and internal-section previews. A single manual popover is filled
+   from the rendered target already on the page, so it opens without a fetch
+   and can coexist with comment popovers. */
+.reference-preview {
+  display: none;
+  position: fixed;
+  inset: auto;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(55vh, 460px);
+  margin: 0;
+  padding: var(--space-md);
+  overflow-y: auto;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 210;
+}
+
+.reference-preview:popover-open {
+  display: block;
+}
+
+/* Fallback for browsers without the Popover API. Kept as its own selector so
+   an older parser rejecting :popover-open does not discard this rule too. */
+.reference-preview--open {
+  display: block;
+}
+
+.reference-preview__close {
+  display: inline-flex;
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  font: inherit;
+  font-size: var(--text-lg);
+  cursor: pointer;
+}
+
+.reference-preview__close:hover {
+  color: var(--color-text);
+  background: var(--color-bg-muted);
+}
+
+.reference-preview__title {
+  display: block;
+  padding-right: calc(24px + var(--space-sm));
+  margin-bottom: var(--space-sm);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.reference-preview__title[hidden] {
+  display: none;
+}
+
+.reference-preview__body {
+  padding-right: calc(24px + var(--space-sm));
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.reference-preview__body p {
+  margin: 0;
+}
+
+.reference-preview__body a {
+  color: var(--color-primary);
+  overflow-wrap: anywhere;
+}
+
+.reference-preview__body .reference-preview__source {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  color: inherit;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+}
+
+.reference-preview__body .reference-preview__source:hover {
+  border-color: var(--color-primary);
+}
+
+.reference-preview__source-title {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.reference-preview__source-meta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.reference-preview__body .citation-source__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reference-preview__body .citation-source__title {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.reference-preview__body .citation-source__meta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.reference-preview--sheet {
+  top: auto !important;
+  left: 0 !important;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-height: 55vh;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: none;
+}
