@@ -97,6 +97,7 @@ RSpec.describe "Writing provenance", type: :system do
     find(".writing-provenance__trigger").click
     expect(page).to have_css(".writing-provenance__counts", text: "Claude")
     expect(page).to have_no_text("AI agents and models")
+    expect(page).to have_no_css(".writing-provenance__counts dt", text: "Unknown")
     click_button "Inspect writing"
     expect(page).to have_button("Done inspecting")
     expect(page.evaluate_script("CSS.highlights.get('coplan-writing-ai').size")).to be_positive
