@@ -22,13 +22,15 @@ export default class extends Controller {
     })
     this.subscriptionObserver.observe(this.subscriptionTarget, { subtree: true, attributes: true, attributeFilter: ["connected"] })
     try {
-      const [rich, merge] = await Promise.all([import("coplan/rich_document"), import("coplan/merge_text")])
+      const [rich, merge, origins] = await Promise.all([import("coplan/rich_document"), import("coplan/merge_text"), import("coplan/input_origins")])
       if (!this.active) return
       this.merge = merge
       this.richModule = rich
+      this.InputOrigins = origins.InputOrigins
+      this.inputOrigins = new origins.InputOrigins(this.textareaTarget.value, this.recoveredDraft?.data?.inputOrigins)
       this.mode = "rich"
       this.richEditor = rich.createRichDocument(this.surfaceTarget, this.textareaTarget.value,
-        content => this.editorChanged("rich", content), state => this.updateToolbar(state), source => this.preview(source),
+        (content, kind) => this.editorChanged("rich", content, kind), state => this.updateToolbar(state), source => this.preview(source),
         this.inlineValue ? this.comments() : [])
       if (this.inlineValue) {
         const threads = document.getElementById("plan-threads")
@@ -177,6 +179,8 @@ export default class extends Controller {
     if (!this.element.checkValidity() && this.inlineValue) this.revealDetails()
     if (!this.element.reportValidity()) { this.setStatus("Add a document title to save", "error"); return }
     const sent = this.isNew ? (this.creationSnapshot ||= this.snapshot()) : this.snapshot(), sentBase = { ...this.base }
+    // Keep attribution tied to the exact snapshot retried after a lost create.
+    const inputSources = this.isNew ? (this.creationInputSources ||= sent.content === this.inputOrigins.content ? this.inputOrigins.payload() : {runs: [[sent.content.length, "unknown"]]}) : this.inputOrigins.payload()
     this.busy = true
     this.setStatus("Saving…", "saving")
     this.persistDraft()
@@ -185,13 +189,14 @@ export default class extends Controller {
         creation_key: this.isNew ? this.creationKey : undefined,
         plan_type_id: this.isNew ? this.element.querySelector('[name="plan_type_id"]')?.value : undefined,
         folder_id: this.isNew ? this.element.querySelector('[name="folder_id"]')?.value : undefined,
-        content: sent.content, plan: { title: sent.title, tag_names: sent.tags },
+        content: sent.content, input_sources: inputSources, plan: { title: sent.title, tag_names: sent.tags },
         base_revision: sentBase.revision, base_metadata: { title: overwriteRevision ? this.pendingRemote.title : sentBase.title, tag_names: overwriteRevision ? this.pendingRemote.tags : sentBase.tags },
         overwrite_revision: overwriteRevision
       })
       if (this.isNew) {
         this.clearDraft()
         this.creationSnapshot = null
+        this.creationInputSources = null
         if (result.inline_after_create && this.inlineValue) {
           window.history.replaceState(window.history.state, "", result.edit_url)
           const canonicalUrl = new URL(result.edit_url, window.location.href)
@@ -228,7 +233,7 @@ export default class extends Controller {
     } catch (error) {
       // A definite validation rejection did not create anything. A lost or
       // uncertain response keeps the original request snapshot for safe retry.
-      if (this.isNew && error.status === 422) { this.creationSnapshot = null; this.persistDraft() }
+      if (this.isNew && error.status === 422) { this.creationSnapshot = null; this.creationInputSources = null; this.persistDraft() }
       if (error.code === "overlapping_edits" || error instanceof this.merge.MergeConflict) this.showConflict(error.code === "overlapping_edits" ? error : this.pendingRemote, error.message)
       else {
         this.fail(error.message || "Offline — your draft is retained", error.code)
@@ -256,6 +261,7 @@ export default class extends Controller {
     // undo history and selection and intentionally do not call input().
     if (this.active) {
       const contentChanged = this.textareaTarget.value !== merged.content
+      this.inputOrigins?.record(merged.content, "unknown")
       this.updateEditors(merged.content)
       this.textareaTarget.value = merged.content
       if (contentChanged && this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-content-changed", { bubbles: true }))
@@ -370,6 +376,7 @@ export default class extends Controller {
     this.refresh()
   }
   applyBase() {
+    this.inputOrigins?.record(this.base.content, "unknown")
     this.updateEditors(this.base.content)
     this.textareaTarget.value = this.base.content
     this.element.querySelector('[name="plan[title]"]').value = this.base.title
@@ -529,7 +536,7 @@ export default class extends Controller {
     if (!this.richEditor || !["rich", "markdown", "dual"].includes(mode) || mode === this.mode || this.composing) return
     const sourceSelection = this.editor?.sourceSelection()
     if (mode !== "rich" && !this.rawEditor) this.rawEditor = this.richModule.createMarkdownDocument(this.rawSurfaceTarget, this.textareaTarget.value,
-      content => this.editorChanged("markdown", content))
+      (content, kind) => this.editorChanged("markdown", content, kind))
     this.mode = mode
     this.element.querySelectorAll(".document-editor__mode [data-mode]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.mode === mode)))
     try { sessionStorage.setItem(`coplan-editor-mode-${this.userIdValue}`, mode) } catch {}
@@ -552,7 +559,8 @@ export default class extends Controller {
     else if (this.surfaceTarget.contains(event.target)) this.editor = this.richEditor
     if (this.richEditor) this.updateToolbar(this.richEditor.toolbarState())
   }
-  editorChanged(origin, content) {
+  editorChanged(origin, content, inputKind = "unknown") {
+    this.inputOrigins?.record(content, inputKind)
     this.textareaTarget.value = content
     const counterpart = origin === "rich" ? this.rawEditor : this.richEditor
     // Never round-trip a composing DOM or the source of the transaction.
@@ -588,6 +596,7 @@ export default class extends Controller {
     if (event.newState !== "open") return
     this.richEditor.captureSelection()
     this.newLanguageTarget.value = ""
+    this.customLanguageOrigin = "human"
     this.filterCodeLanguages()
     this.positionCodePicker(true)
   }
@@ -609,7 +618,8 @@ export default class extends Controller {
     picker.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`
     picker.style.top = `${above ? Math.max(8, rect.top - picker.offsetHeight - 6) : rect.bottom + 6}px`
   }
-  filterCodeLanguages() {
+  filterCodeLanguages(event) {
+    if (event?.type === "input" && !/^(insertText|insertCompositionText|delete)/.test(event.inputType || "")) this.customLanguageOrigin = "unknown"
     const query = this.newLanguageTarget.value.trim().toLowerCase()
     for (const option of this.codeOptionTargets) {
       option.hidden = !`${option.textContent} ${option.dataset.language}`.toLowerCase().includes(query)
@@ -641,9 +651,9 @@ export default class extends Controller {
   }
   insertCode() {
     const selected = this.codeOptionTargets.find(option => !option.hidden && option.getAttribute("aria-selected") === "true")
-    this.insertCodeLanguage(selected?.dataset.language ?? this.newLanguageTarget.value.trim())
+    this.insertCodeLanguage(selected?.dataset.language ?? this.newLanguageTarget.value.trim(), selected ? "human" : this.customLanguageOrigin || "unknown")
   }
-  insertCodeLanguage(language) {
+  insertCodeLanguage(language, origin = "human") {
     if (this.editor !== this.richEditor) return
     if (/[\r\n`]/.test(language)) {
       this.newLanguageTarget.setCustomValidity("Use a language without backticks or line breaks.")
@@ -653,7 +663,7 @@ export default class extends Controller {
     }
     this.newLanguageTarget.setCustomValidity("")
     this.newLanguageTarget.closest("[popover]").hidePopover()
-    this.richEditor.insertCode(language)
+    this.richEditor.insertCode(language, origin)
   }
   deleteCode(event) {
     const position = event.currentTarget.closest(".document-editor__block").coplanPosition()
@@ -668,7 +678,8 @@ export default class extends Controller {
       const content = event.currentTarget.value
       return parts.before + content + (content.endsWith("\n") ? "" : "\n") + parts.after
     })() : event.currentTarget.value
-    this.richEditor.setBlockSource(position, source)
+    const inputKind = /^(insertText|insertCompositionText|insertLineBreak|delete)/.test(event.inputType || "") ? "human" : "unknown"
+    this.richEditor.setBlockSource(position, source, inputKind)
     // Structural separator lines must not alter the field while it is being
     // typed into (including native select-all replacement).
     if (node.attrs.kind === "presentation" && input.value !== value) {
@@ -695,7 +706,8 @@ export default class extends Controller {
   embedChanged(event) {
     const block = event.currentTarget.closest(".document-editor__block")
     const attrs = Object.fromEntries(Array.from(block.querySelectorAll("[data-embed-attribute]"), input => [input.dataset.embedAttribute, input.value]))
-    this.richEditor.setBlockSource(block.coplanPosition(), this.richModule.iframeSource(attrs))
+    const inputKind = /^(insertText|insertCompositionText|delete)/.test(event.inputType || "") ? "human" : "unknown"
+    this.richEditor.setBlockSource(block.coplanPosition(), this.richModule.iframeSource(attrs), inputKind)
   }
   deleteContentBlock(event) {
     const position = event.currentTarget.closest(".document-editor__block").coplanPosition()
@@ -750,6 +762,7 @@ export default class extends Controller {
     this.citationOriginal = definition?.source || null
     this.citationTitleTarget.textContent = `Citation: ${this.citationLabel}`
     this.citationBodyTarget.value = definition?.body || ""
+    this.citationOrigins = new this.InputOrigins(this.citationBodyTarget.value)
     this.citationErrorTarget.textContent = ""
     this.citationDialogTarget.showModal()
     this.citationBodyTarget.focus({ preventScroll: true })
@@ -761,6 +774,11 @@ export default class extends Controller {
   findCitationDefinition(content) {
     const key = this.richModule.citationLabelKey(this.citationLabel)
     return this.richModule.citationDefinitions(content).find(d => this.richModule.citationLabelKey(d.label) === key)
+  }
+  citationInput(event) {
+    const type = event.inputType || ""
+    const kind = type.startsWith("history") ? "history" : /^(insertText|insertCompositionText|insertLineBreak|delete)/.test(type) ? "human" : "unknown"
+    this.citationOrigins?.record(event.target.value, kind)
   }
   async saveCitation() {
     const body = this.citationBodyTarget.value.trim()
@@ -774,7 +792,20 @@ export default class extends Controller {
     const lines = body.split("\n")
     const source = `[^${definition?.label ?? this.citationLabel}]: ${lines[0]}\n` + lines.slice(1).map(line => `    ${line}\n`).join("")
     const from = definition?.from ?? content.length, to = definition?.to ?? content.length
-    this.richEditor.replaceSource(from, to, definition ? source : `${content.endsWith("\n\n") ? "" : "\n\n"}${source}`)
+    this.citationOrigins.record(this.citationBodyTarget.value, "unknown")
+    this.citationOrigins.record(body, "unknown")
+    const bodyRuns = this.citationOrigins.payload().runs
+    const lead = definition || content.endsWith("\n\n") ? "" : "\n\n"
+    const runs = [[from, "unknown"], [lead.length, "human"]]
+    let offset = 0
+    lines.forEach((line, index) => {
+      const prefix = index ? "    " : `[^${definition?.label ?? this.citationLabel}]: `
+      runs.push([prefix.length, "human"], ...this.InputOrigins.slice(bodyRuns, offset, offset + line.length), [1, "human"])
+      offset += line.length + 1
+    })
+    runs.push([content.length - to, "unknown"])
+    const replacement = lead + source
+    this.richEditor.replaceSource(from, to, replacement, {source: content.slice(0, from) + replacement + content.slice(to), runs: runs.filter(([length]) => length > 0)})
     this.citationOriginal = source
     this.citationSaveTarget.disabled = true
     this.citationSaveTarget.textContent = "Saving…"
@@ -807,7 +838,8 @@ export default class extends Controller {
   languageChanged(event) {
     event.stopPropagation()
     const position = event.currentTarget.closest(".document-editor__block").coplanPosition()
-    if (!this.richEditor.setLanguage(position, event.currentTarget.value)) {
+    const kind = /^(insertText|insertCompositionText|delete)/.test(event.inputType || "") ? "human" : "unknown"
+    if (!this.richEditor.setLanguage(position, event.currentTarget.value, kind)) {
       event.currentTarget.setCustomValidity("Use a language or fence info string without backticks or line breaks.")
       event.currentTarget.reportValidity()
     } else event.currentTarget.setCustomValidity("")
@@ -853,7 +885,7 @@ export default class extends Controller {
     if (!this.base) return
     try {
       if (this.dirty() || this.blocked) {
-        localStorage.setItem(this.draftKey(), JSON.stringify({ ...this.snapshot(), revision: this.base.revision, base: this.base, creationKey: this.creationKey, creationSnapshot: this.creationSnapshot, reviewRequired: !!this.blocked, legacySource: this.legacySource, savedAt: Date.now() }))
+        localStorage.setItem(this.draftKey(), JSON.stringify({ ...this.snapshot(), inputOrigins: this.inputOrigins?.draft(), creationInputSources: this.creationInputSources, revision: this.base.revision, base: this.base, creationKey: this.creationKey, creationSnapshot: this.creationSnapshot, reviewRequired: !!this.blocked, legacySource: this.legacySource, savedAt: Date.now() }))
         sessionStorage.setItem(this.tabDraftKey(), JSON.stringify([...new Set([...this.tabDraftKeys(), this.draftKey()])]))
       }
       else this.clearDraft()
@@ -880,6 +912,7 @@ export default class extends Controller {
       const draft = saved.data
       this.creationKey = draft.creationKey ?? this.creationKey
       this.creationSnapshot = draft.creationSnapshot
+      this.creationInputSources = draft.creationInputSources
       if (draft.base) this.base = draft.base
       else if (draft.revision !== this.base.revision) { this.blocked = true; this.fail("An older draft needs review before syncing.") }
       this.textareaTarget.value = draft.content
@@ -911,6 +944,7 @@ export default class extends Controller {
       this.legacySource = { key: this.legacyDraft.key, raw: this.legacyDraft.raw }
       this.recoveredDraft = null
       this.updateEditors(this.legacyDraft.data.content)
+      this.inputOrigins?.record(this.legacyDraft.data.content, "unknown")
       this.textareaTarget.value = this.legacyDraft.data.content
       this.legacyDraftNoticeTarget.hidden = true
       this.showConflict(latest, "Review this older draft before replacing the saved version")

@@ -2,6 +2,10 @@ module CoPlan
   class Engine < ::Rails::Engine
     isolate_namespace CoPlan
 
+    config.after_initialize do
+      CoPlan::WritingProvenanceBackfillJob.start unless Rails.env.test? || ENV["SECRET_KEY_BASE_DUMMY"]
+    end
+
     initializer "coplan.autoloader", before: :set_autoload_paths do
       Rails.autoloaders.each do |autoloader|
         autoloader.inflector.inflect("coplan" => "CoPlan")

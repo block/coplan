@@ -21,3 +21,14 @@ namespace :coplan do
     end
   end
 end
+
+# db:prepare also migrates the host's separate queue database.
+Rake::Task["db:prepare"].enhance do
+  CoPlan::Plan.reset_column_information
+  CoPlan::WritingProvenanceBackfillJob.start
+end
+
+Rake::Task["db:migrate"].enhance do
+  CoPlan::Plan.reset_column_information
+  CoPlan::WritingProvenanceBackfillJob.start
+end

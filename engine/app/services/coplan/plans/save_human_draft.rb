@@ -3,7 +3,7 @@ module CoPlan
     # No browser-session lease. The plan row is locked only while comparing
     # the immutable base, applying the surgical diff and committing a version.
     class SaveHumanDraft
-      def self.call(plan:, content:, base_revision:, actor:, metadata: {}, base_metadata: {}, overwrite_revision: nil, change_summary: nil)
+      def self.call(plan:, content:, base_revision:, actor:, metadata: {}, base_metadata: {}, overwrite_revision: nil, change_summary: nil, input_sources: nil)
         plan.with_lock do
           # Leases from the first editor prototype are obsolete. Old tabs still
           # send revision-guarded saves; retiring a lease never discards a draft.
@@ -37,9 +37,18 @@ module CoPlan
           # Validate and persist metadata before content broadcasts, within the
           # same transaction. A validation failure must never publish a draft.
           yield updates if block_given?
+          if content != merged && (runs = WritingProvenance.input_runs(input_sources, content))
+            runs = WritingProvenance.remap(content, merged, runs, [ [ merged.length, "unknown" ] ])
+            offset = 0
+            input_sources = { "runs" => runs.map { |length, kind|
+              text = merged[offset, length]
+              offset += length
+              [ text.encode(Encoding::UTF_16LE).bytesize / 2, kind ]
+            } }
+          end
           result = ReplaceContent.call(plan: plan, new_content: merged, base_revision: plan.current_revision,
             actor_type: "human", actor_id: actor.id, change_summary: change_summary.presence || "Edited in web UI",
-            granularity: :character)
+            granularity: :character, input_sources: input_sources)
           result
         end
       end

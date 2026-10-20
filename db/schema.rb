@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_16_150734) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_19_185311) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -384,6 +384,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_150734) do
     t.text "prompt_excerpt"
     t.text "reason"
     t.integer "revision", null: false
+    t.json "writing_provenance"
     t.index ["api_token_id"], name: "index_coplan_plan_versions_on_api_token_id"
     t.index ["plan_id", "created_at"], name: "index_coplan_plan_versions_on_plan_id_and_created_at"
     t.index ["plan_id", "revision"], name: "index_coplan_plan_versions_on_plan_id_and_revision", unique: true
@@ -419,6 +420,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_150734) do
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.string "visibility", default: "published", null: false
+    t.json "writing_provenance_backfill"
+    t.json "writing_provenance_summary"
     t.index ["archived_at"], name: "index_coplan_plans_on_archived_at"
     t.index ["created_by_user_id", "creation_key"], name: "index_coplan_plans_on_author_and_creation_key", unique: true
     t.index ["created_by_user_id", "updated_at"], name: "index_coplan_plans_on_author_and_updated_at"

@@ -1,8 +1,10 @@
 module CoPlan
   class PlanVersion < ApplicationRecord
-    attr_accessor :edit_lease_token
+    attr_accessor :edit_lease_token, :input_sources, :writing_identity
 
     before_create :enforce_edit_lease
+    before_create :capture_writing_provenance
+    after_create :cache_writing_provenance_summary
 
     ACTOR_TYPES = %w[human local_agent cloud_persona system].freeze
 
@@ -42,8 +44,36 @@ module CoPlan
     after_create_commit :extract_references
     after_create_commit :broadcast_history_update
     after_create_commit :enqueue_summary_regeneration
+    after_create_commit :backfill_writing_provenance
+    after_create_commit :broadcast_writing_provenance
 
     private
+
+    def capture_writing_provenance
+      previous = plan.current_plan_version
+      @writing_backfill_needed = previous && previous.writing_provenance.to_h["sha256"] != previous.content_sha256
+      self.writing_provenance = Plans::WritingProvenance.call(version: self, previous: previous)
+    end
+
+    def cache_writing_provenance_summary
+      updates = { writing_provenance_summary: writing_provenance.fetch("summary") }
+      state = plan.writing_provenance_backfill
+      if state && !state["token"] && !@writing_backfill_needed && state["revision"] == revision - 1 && state.fetch("finalized_revision", 0) == revision - 1
+        updates[:writing_provenance_backfill] = state.merge("revision" => revision, "finalized_revision" => revision)
+      end
+      plan.update_columns(updates)
+    end
+
+    def backfill_writing_provenance
+      WritingProvenanceJob.request(plan) if @writing_backfill_needed
+    end
+
+    def broadcast_writing_provenance
+      plan.reload
+      Broadcaster.replace_to(plan, target: "writing-provenance", partial: "coplan/plans/writing_provenance", locals: { plan: plan })
+      Broadcaster.replace_to(plan, target: "plan-version-label",
+        html: ApplicationController.helpers.content_tag(:span, "· v#{plan.current_revision}", id: "plan-version-label"))
+    end
 
     def enforce_edit_lease
       plan.lock!

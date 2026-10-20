@@ -73,6 +73,7 @@ module CoPlan
             plan: @plan,
             revision: new_revision,
             content_markdown: result[:content],
+            input_sources: checkbox_input_sources(result[:content]),
             actor_type: "human",
             actor_id: @actor_id,
             change_summary: "Toggle checkbox",
@@ -97,6 +98,17 @@ module CoPlan
       end
 
       private
+
+      def checkbox_input_sources(content)
+        match = @old_text.match(/\A\s*[*+-]\s+\[([ xX])\]\s/)
+        return unless match
+        expected = @old_text.dup
+        expected[match.begin(1)] = match[1] == " " ? "x" : " "
+        return unless @new_text == expected
+        # Only a verified state toggle is observed human input. The normal
+        # provenance remap keeps every unchanged character's prior source.
+        { "runs" => [ [ content.encode(Encoding::UTF_16LE).bytesize / 2, "human" ] ] }
+      end
 
       # Maps a verified (line, old_text) pair to the occurrence ordinal the
       # position resolver will select, keeping the toggle a plain
