@@ -438,6 +438,34 @@ RSpec.describe "Plan discussion and approval", type: :system do
     CoPlan.configuration.user_search = previous_search
   end
 
+  it "offers the host's suggested reviewers with their requirement", :review_suggestions do
+    owner = create(:coplan_user, username: "code-owner", name: "Code Owner")
+    previous_hook = CoPlan.configuration.suggest_reviewers
+    CoPlan.configuration.suggest_reviewers = ->(_plan) {
+      [ reviewer, { user: owner, reason: "Owns app/models/user.rb", requirement: "optional" } ]
+    }
+    sign_in_browser(author)
+    click_button "More actions"
+    within("#plan-menu") { click_button "Manage reviewers" }
+    within(".review-management") { click_button "Add reviewer", exact: true }
+    within(".review-suggestions") do
+      expect(page).to have_css(".review-search-result", count: 1)
+      expect(page).to have_css(".review-search-result", text: "Code Owner\nOwns app/models/user.rb · Optional")
+    end
+    [ "light", "dark" ].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp/review-preview/reviewer-suggestions-#{theme}.png"))
+    end
+    find(".review-suggestions .review-search-result", text: "Code Owner").click
+    expect(page).to have_field("Find a reviewer", with: "Code Owner")
+    expect(page).to have_unchecked_field("Required")
+    within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+    expect(page).to have_css(".review-person", text: "Code Owner")
+    expect(plan.review_requests.find_by!(reviewer: owner).requirement).to eq("optional")
+  ensure
+    CoPlan.configuration.suggest_reviewers = previous_hook
+  end
+
   it "keeps the manager and assignment stable while search results overlay beneath the field" do
     create(:coplan_user, name: "Popover Candidate", username: "popover-candidate")
     sign_in_browser(author)

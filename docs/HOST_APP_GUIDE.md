@@ -305,6 +305,40 @@ Each level uses `config.ai_models` when configured and otherwise falls back to
 anchoring request `:medium`. Audio transcription uses its own model, configured
 with `COPLAN_TRANSCRIBE_MODEL`.
 
+## Suggested reviewers
+
+Hosts can suggest who should review a plan, for example the owners of the code
+it will change. Configure `suggest_reviewers` with a callable that receives a
+`CoPlan::Plan` and returns `CoPlan::User` records, or hashes with `:user`, an
+optional `:reason`, and an optional `:requirement` (`"required"` by default, or
+`"optional"`):
+
+```ruby
+config.suggest_reviewers = ->(plan) {
+  paths = plan.references.where(reference_type: "repository").pluck(:url)
+  CodeOwners.lookup(paths).map do |owner|
+    user = CoPlan::User.find_by(username: owner.username)
+    user && { user: user, reason: "Owns #{owner.path}", requirement: "required" }
+  end.compact
+}
+```
+
+Every link in a plan becomes a reference, so `plan.references` lists the
+files, repositories, pull requests, and documents the plan names. GitHub file
+links such as `https://github.com/org/repo/blob/main/app/models/user.rb` have
+`reference_type` `"repository"`. Map people from your directory to existing
+`CoPlan::User` records; CoPlan does not create users for suggestions.
+
+The plan author sees suggestions under **Add reviewer**. Agents read them from
+`GET /api/v1/plans/:id/review_requests/suggestions`. Suggestions only fill in
+the choice: nobody is requested until the author or their agent requests them
+through the usual review-request flow. CoPlan leaves out the plan author,
+people with an active review request, and duplicates.
+
+The callback runs on the request thread each time the author opens **Add
+reviewer** or an agent asks, so cache slow lookups inside it. Exceptions are
+reported through `error_reporter`, and CoPlan shows no suggestions.
+
 ## Connecting local agents without network authentication
 
 When `config.api_authenticate` is unset, CoPlan offers a browser approval flow

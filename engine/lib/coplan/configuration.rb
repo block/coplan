@@ -108,6 +108,29 @@ module CoPlan
     #   }
     attr_accessor :directory_profile
 
+    # Lambda suggesting who should review a plan. Receives a CoPlan::Plan
+    # and returns an array of CoPlan::User records, or hashes with:
+    #   :user        — a CoPlan::User (required)
+    #   :reason      — short text shown beside the suggestion
+    #   :requirement — "required" (default) or "optional"
+    # The plan's references (plan.references) list every file, repository,
+    # and document its content links to, which makes them a natural input
+    # for ownership lookups.
+    #
+    # Suggestions are offered to the plan author in "Add reviewer" and at
+    # GET /api/v1/plans/:id/review_requests/suggestions; nothing is
+    # requested until someone acts on one. The author and people already
+    # reviewing are left out. Exceptions are swallowed and reported via
+    # `error_reporter`. Hosts should cache inside the lambda if their
+    # source is slow.
+    #
+    # Example:
+    #   config.suggest_reviewers = ->(plan) {
+    #     plan.references.filter_map { |ref| CodeOwners.owner_for(ref.url) }
+    #       .map { |owner| { user: owner, reason: "Owns linked code" } }
+    #   }
+    attr_accessor :suggest_reviewers
+
     # Lambda deciding whether the server may POST wake pings to a given
     # URL. Receives a URI, returns truthy to allow. When nil (default),
     # CoPlan::WakeUrlPolicy applies: the host must resolve entirely to

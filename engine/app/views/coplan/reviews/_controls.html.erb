@@ -7,6 +7,7 @@
 <div id="plan-review-controls" data-review-record-count="<%= requests.size %>" data-controller="coplan--review-tray"
      data-coplan--review-tray-url-value="<%= plan_review_requests_path(plan) %>"
      data-coplan--review-tray-search-url-value="<%= search_users_path %>"
+     <% if CoPlan.configuration.suggest_reviewers %>data-coplan--review-tray-suggestions-url-value="<%= suggestions_plan_review_requests_path(plan) %>"<% end %>
      data-action="coplan:anchors-updated@document->coplan--review-tray#syncFeedbackLinks coplan:reviews-changed->coplan--review-tray#refresh coplan:manage-reviews@document->coplan--review-tray#openReviews coplan:content-updated@document->coplan--review-tray#refresh coplan:editor-saved@document->coplan--review-tray#refresh resize@window->coplan--review-tray#positionAssignment keydown.esc@document->coplan--review-tray#escape">
   <%= render "coplan/reviews/log", plan: plan, requests: requests, active_requests: active_requests %>
   <dialog class="review-dialog review-activity-dialog" data-coplan--review-tray-target="activity" aria-labelledby="review-activity-title">
