@@ -134,6 +134,49 @@ RSpec.describe "Editor toolbar", type: :system do
       expect(plan.reload.current_content).to include("**#{selected}**")
     end
 
+    [ :reader, :editor ].each do |surface|
+      %w[j k].each do |key|
+        it "keeps pinned controls clear after keyboard #{key} navigation in the #{surface}" do
+          thread = long_thread
+          # Turbo reconnects already-loaded controllers in document order.
+          page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
+          expect(page).to have_no_css('[aria-label="Document body"]')
+          expect(page).to have_css("mark[data-thread-id='comment_thread_#{thread.id}']", wait: 20)
+          if surface == :editor
+            find("#plan-toolbar a[title='Edit this document']").click
+            expect(page).to have_css('[aria-label="Document body"]', wait: 20)
+          end
+          find("body").send_keys(key)
+          popover = "#comment_thread_#{thread.id}_popover"
+          expect(page).to have_css("#{popover}:popover-open")
+          # The first scroll can also resize the newly opened window. Scroll
+          # again after observers settle to exercise later position updates.
+          2.times do
+            page.execute_script("window.scrollBy(0, 250)")
+            page.driver.browser.execute_async_script("requestAnimationFrame(() => requestAnimationFrame(arguments[0]))")
+          end
+          panel = find(popover)
+          expect(panel.evaluate_script(<<~'JS')).to eq(true)
+            (() => {
+              const controls = [document.querySelector('.site-nav'), ...document.querySelectorAll('.document-editor__toolbar')]
+                .filter(element => element?.getClientRects().length && getComputedStyle(element).visibility !== 'hidden');
+              return controls.every(element => this.getBoundingClientRect().top >= element.getBoundingClientRect().bottom + 8);
+            })()
+          JS
+          %w[light dark].each do |theme|
+            page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+            page.save_screenshot(Rails.root.join("tmp/comment-keyboard-#{surface}-#{key}-#{theme}.png"))
+          end
+          if surface == :editor
+            dismiss_prompt("Link URL") { page.driver.browser.action.move_to(find_button("Link").native).click.perform }
+          else
+            edit = find(".site-nav__plan-context--visible .site-nav__edit")
+            expect(edit.evaluate_script("(() => { const r = this.getBoundingClientRect(); return this.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); })()")).to eq(true)
+          end
+        end
+      end
+    end
+
     [ :escape, :outside_click ].each do |dismissal|
       it "keeps a dismissed discussion out of toolbar hit testing after #{dismissal}" do
         thread = long_thread
