@@ -8050,7 +8050,18 @@ svg .source-thread-badge text { fill: var(--color-primary) !important; font: 600
 .format-icon--code { font-family: monospace; font-size: 15px; }
 .document-editor__paper { color: var(--color-text); min-height: 65vh; }
 .document-editor__body .ProseMirror { min-height: 420px; outline: none; white-space: pre-wrap; overflow-wrap: break-word; }
-.document-editor__template-note { margin: 12px 0; color: var(--color-text-muted); font-size: .9em; line-height: 1.6; white-space: pre-wrap; }
+.document-editor__template-note {
+  margin: 12px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: .9em;
+  font-style: italic;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
 .ProseMirror li { position: relative; }
 .ProseMirror li.document-editor__task { list-style: none; }
 .document-editor__task > span { position: absolute; left: -1.5em; top: 0; }
