@@ -671,6 +671,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
         return state.tr.insert(state.doc.content.size, trailingParagraph()).setMeta("addToHistory", false)
     } }), keymap({
       "Mod-a": selectFocusedText, ...lineNavigation,
+      ArrowLeft: collapseCodeSelection(-1), ArrowRight: collapseCodeSelection(1),
       "Mod-b": proseCommand(toggleMark(schema.marks.strong)), "Mod-i": proseCommand(toggleMark(schema.marks.em)),
       "Mod-z": undo, "Mod-Shift-z": redo, "Mod-y": redo,
       "Ctrl-b": proseCommand(toggleMark(schema.marks.strong)), "Meta-b": proseCommand(toggleMark(schema.marks.strong)),
@@ -714,6 +715,9 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
         return true
       },
       keydown(view, event) {
+        // Read the caret before ProseMirror flushes pending DOM changes. That
+        // flush can otherwise restore an older selection before key bindings run.
+        if (!view.composing && !event.isComposing && ["Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) synchronizeSelection(view)
         return ["Backspace", "Delete"].includes(event.key) && preventTemplateNoteJoin(view, event, event.key === "Backspace")
       },
       beforeinput(view, event) {
@@ -1117,6 +1121,18 @@ function selectFocusedText(state, dispatch, view) {
     return true
   }
   return selectAll(state, dispatch)
+}
+
+function collapseCodeSelection(direction) {
+  return (state, dispatch, view) => {
+    const { $from, $to } = visibleSelection(state, view)
+    if ($from.pos === $to.pos || !$from.sameParent($to) || $from.parent.type !== schema.nodes.code_block) return false
+    // A scoped code selection must collapse before the next navigation key.
+    // Commit it synchronously rather than waiting for native selectionchange.
+    const position = direction < 0 ? Math.min($from.pos, $to.pos) : Math.max($from.pos, $to.pos)
+    if (dispatch) dispatch(state.tr.setSelection(TextSelection.create(state.doc, position)).scrollIntoView())
+    return true
+  }
 }
 
 // On macOS Control+A means the current line, not the entire multiline block.

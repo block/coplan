@@ -55,6 +55,35 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     expect(plan.reload.current_content).to eq(source.sub("After prose.", "Reached After prose."))
   end
 
+  it "collapses a visible code selection before delayed selectionchange for either arrow" do
+    result = page.evaluate_async_script(<<~'JS')
+      const done = arguments[0];
+      import("prosemirror-state").then(({TextSelection}) => {
+        const rich = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").richEditor;
+        const view = rich.view;
+        let start, end;
+        view.state.doc.descendants((node, pos) => {
+          if (start === undefined && node.type.name === "code_block") { start = pos + 1; end = start + node.content.size; }
+        });
+        const before = rich.content(), results = [];
+        for (const [key, keyCode, expected] of [["ArrowRight", 39, end], ["ArrowLeft", 37, start]]) {
+          view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, start + 1)));
+          view.focus();
+          const code = view.dom.querySelector("pre > code"), range = document.createRange(), selection = getSelection();
+          range.selectNodeContents(code); selection.removeAllRanges(); selection.addRange(range);
+          const event = new KeyboardEvent("keydown", {key, code:key, keyCode, bubbles:true, cancelable:true});
+          code.dispatchEvent(event);
+          results.push({key, prevented:event.defaultPrevented, empty:view.state.selection.empty, position:view.state.selection.head, expected});
+        }
+        done({results, unchanged:rich.content() === before});
+      }).catch(error => done({error:error.message}));
+    JS
+    expect(result.fetch("unchanged")).to be(true)
+    result.fetch("results").each do |arrow|
+      expect(arrow).to include("prevented" => true, "empty" => true, "position" => arrow.fetch("expected"))
+    end
+  end
+
   it "selects and replaces only focused code in Rich and Dual, retaining other blocks and native inputs" do
     [ "Editor", "Dual" ].each do |mode|
       click_button mode, exact: true
