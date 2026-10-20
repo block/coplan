@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { commentWindowTop } from "coplan/comment_window"
 
 // The existing outer window is the only movable surface. Nothing is detached,
 // duplicated or left behind; its form and anchor remain together in the top layer.
@@ -81,35 +82,39 @@ export default class extends Controller {
 
   setRect({ left, top, width, height }, resizing = false) {
     const viewport = window.visualViewport
+    const minimumTop = commentWindowTop(this.element)
     const maxWidth = (viewport?.width || innerWidth) - 24
-    const maxHeight = (viewport?.height || innerHeight) - 24
+    const bottom = (viewport?.height || innerHeight) - 12
+    const maxHeight = bottom - minimumTop
     // Resize towards the pointer without moving the opposite corner. Viewport
     // limits take precedence over minimum sizes when little room remains.
     const availableWidth = resizing ? maxWidth + 12 - left : maxWidth
-    const availableHeight = resizing ? maxHeight + 12 - top : maxHeight
+    const availableHeight = resizing ? bottom - top : maxHeight
     width = Math.min(Math.max(resizing ? 280 : 0, width), availableWidth)
     const minHeight = this.element.classList.contains("thread-popover") ? 320 : 260
     height = Math.min(Math.max(resizing ? minHeight : 0, height), availableHeight)
     left = Math.max(12, Math.min(left, maxWidth + 12 - width))
-    top = Math.max(12, Math.min(top, maxHeight + 12 - height))
+    top = Math.max(minimumTop, Math.min(top, bottom - height))
     Object.assign(this.element.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, right: "auto", bottom: "auto" })
     if (this.element.dataset.resized) this.element.style.height = `${height}px`
   }
 
   constrain() {
     if (!this.element.matches(":popover-open")) return
+    const minimumTop = commentWindowTop(this.element)
     const rect = this.element.getBoundingClientRect()
     if (this.element.dataset.positioned) this.setRect(rect)
     else if (!window.matchMedia("(max-width: 640px)").matches) {
       // Errors and new replies can grow an anchored window after opening.
       // Keep its bottom controls reachable without changing its size.
-      const top = Math.max(12, Math.min(rect.top, (window.visualViewport?.height || innerHeight) - rect.height - 12))
+      const top = Math.max(minimumTop, Math.min(rect.top, (window.visualViewport?.height || innerHeight) - rect.height - 12))
       if (Math.abs(top - rect.top) > 1) this.element.style.top = `${top}px`
     }
   }
 
   toggled(event) {
-    if (event.target !== this.element || event.newState !== "closed") return
+    if (event.target !== this.element) return
+    if (event.newState === "open") { this.constrain(); return }
     this.element.dispatchEvent(new CustomEvent("coplan:composer-close", { bubbles: true }))
   }
 

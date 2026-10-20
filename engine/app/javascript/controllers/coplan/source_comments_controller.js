@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { commentWindowTop } from "coplan/comment_window"
 
 // The panel stays inside this Stimulus scope, even in the modal expander.
 // Only signed source ranges cross the wire; SVG ids are render-time lookup
@@ -360,10 +361,11 @@ export default class extends Controller {
     const anchor = this.showingOutdated ? this.outdatedTarget : this.trigger
     if (!anchor?.isConnected) return
     const rect = anchor.getBoundingClientRect()
+    const minimumTop = commentWindowTop(panel)
     let left = rect.right + 12
     if (left + panel.offsetWidth > window.innerWidth - 16) left = rect.left - panel.offsetWidth - 12
     panel.style.left = `${Math.max(16, Math.min(left, window.innerWidth - panel.offsetWidth - 16))}px`
-    panel.style.top = `${Math.max(16, Math.min(rect.top, window.innerHeight - panel.offsetHeight - 16))}px`
+    panel.style.top = `${Math.max(minimumTop, Math.min(rect.top, window.innerHeight - panel.offsetHeight - 16))}px`
   }
 
   refresh() {

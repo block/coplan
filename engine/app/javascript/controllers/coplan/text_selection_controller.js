@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { commentWindowTop } from "coplan/comment_window"
 
 // Elements whose text is never rendered but still appears in textContent —
 // e.g. the <style> sheet Mermaid embeds inside its SVG. Their text must stay
@@ -551,6 +552,7 @@ export default class extends Controller {
     }
     popover.classList.remove("thread-popover--sheet")
 
+    const minimumTop = commentWindowTop(popover)
     const markRect = mark.getBoundingClientRect()
     const popoverRect = popover.getBoundingClientRect()
     const viewportWidth = window.innerWidth
@@ -565,7 +567,7 @@ export default class extends Controller {
     if (top + popoverRect.height > viewportHeight - 16) {
       top = viewportHeight - popoverRect.height - 16
     }
-    if (top < 16) top = 16
+    if (top < minimumTop) top = minimumTop
     if (left < 16) left = 16
 
     popover.style.top = `${top}px`

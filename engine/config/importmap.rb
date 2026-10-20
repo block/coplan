@@ -2,6 +2,7 @@ pin "@rails/actioncable", to: "actioncable.esm.js"
 pin "coplan/web_push", to: "coplan/web_push.js"
 pin "coplan/deck_ink", to: "coplan/deck_ink.js"
 pin "coplan/shortcuts", to: "coplan/shortcuts.js", preload: true
+pin "coplan/comment_window", to: "coplan/comment_window.js", preload: true
 # Statically imported by the mermaid and data-grid controllers, which are
 # themselves preloaded — preload these too or every page pays a round trip
 # to discover them.
