@@ -137,6 +137,10 @@ Use the uploaded image's URL for `src`. CoPlan keeps images within the reading c
 
 The web editor writes this form when a person resizes an image. Snapping back to natural full width removes the width setting.
 
+Images pasted from other apps default to natural size within the document width, ignoring copied display widths. Copying images within CoPlan's rich editor preserves their saved widths. Existing Markdown widths remain unchanged.
+
+When a paragraph starts with an image, text in that paragraph wraps beside it from the top if there is room. Put a blank line before the next paragraph to start below the image. A hard line break stays beside the image. In the web editor, Enter starts below; Shift+Enter adds a line beside it.
+
 - The maximum size is 25 MB per file. Allowed types are PNG, JPEG, GIF, WebP, PDF, TXT, MD, CSV, JSON, and ZIP. CoPlan returns `422` for other files.
 - Only the plan author can upload or delete attachments. Any reader can list and download them.
 - List the attachments: `GET <%= @base %>/api/v1/plans/$PLAN_ID/attachments`. Delete one: `DELETE <%= @base %>/api/v1/plans/$PLAN_ID/attachments/$ATTACHMENT_ID`.

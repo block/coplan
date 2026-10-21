@@ -319,6 +319,13 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
   describe "expandable images" do
     let(:markdown) { "Before ![Console mockup](/images/console.png) after." }
 
+    it "wraps prose only when the paragraph starts with an image or image-only link" do
+      source = "![Mockup](/images/a.png) Beside the picture.\n\nBelow the picture.\n\n[![Linked](/images/a.png)](https://example.com) Beside the link.\n\n#{markdown}"
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(source))
+      expect(doc.css("p.image-paragraph").map(&:text)).to eq([ " Beside the picture.", " Beside the link." ])
+      expect(doc.css("p:not(.image-paragraph)").map(&:text)).to include("Below the picture.", "Before  after.")
+    end
+
     it "frames an image for the image expander" do
       doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))
 

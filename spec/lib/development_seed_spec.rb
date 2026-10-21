@@ -175,6 +175,8 @@ RSpec.describe CoPlan::DevelopmentSeed do
       described_class.call
       plan = seeded_plan("image-resizing")
       expect(plan.current_content).to include(described_class.demo_logo_url, 'width="320"', "![CoPlan logo at natural width]")
+      expect(plan.current_content).to include("This text starts at the top beside", "This paragraph deliberately starts below", "**Shift+Enter**", "**Enter**")
+      expect(plan.current_content).to include("## Pasting images", "even if the other app displayed a thumbnail")
       expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
       revision = plan.current_revision
       described_class.call

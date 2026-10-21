@@ -35,7 +35,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 22
+    RENDER_CACHE_VERSION = 23
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -324,6 +324,10 @@ module CoPlan
         image["data-action"] = [ image["data-action"], "load->coplan--image-expand#measure" ].compact.join(" ")
         target.add_previous_sibling(frame)
         frame.add_child(target)
+        paragraph = frame.parent
+        if paragraph.name == "p" && frame.xpath("preceding-sibling::node()").all? { |sibling| sibling.text? && sibling.text.strip.empty? }
+          paragraph.add_class("image-paragraph")
+        end
       end
 
       doc.to_html
