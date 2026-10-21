@@ -164,6 +164,162 @@ RSpec.describe "Resizing editor images", type: :system do
     end
   end
 
+  it "pastes external thumbnails at natural size, saves that default, and keeps Undo" do
+    paragraph = all(".ProseMirror p").last
+    paragraph.execute_script(<<~JS)
+      this.closest('[contenteditable="true"]').focus();
+      const range = document.createRange(); range.selectNodeContents(this); range.collapse(false);
+      window.getSelection().removeAllRanges(); window.getSelection().addRange(range);
+    JS
+    page.driver.browser.action.send_keys(:enter).perform
+    find(".ProseMirror").execute_script(<<~JS, image_url)
+      const clipboard = new DataTransfer();
+      clipboard.setData("text/html", `<p data-pm-slice="0 0 []"><img src="${arguments[0]}" alt="Pasted large image" width="293" height="293" style="width:293px;height:293px"></p>`);
+      this.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+    JS
+    pasted = find('.ProseMirror img[alt="Pasted large image"]')
+    expect(pasted.evaluate_script("this.getAttribute('width')")).to be_nil
+    expect(page).to have_css('.ProseMirror img[alt="Pasted large image"]') { |el| el.evaluate_script("this.complete && this.naturalWidth > 293") }
+    expect(pasted.rect.width).to be_within(1).of(pasted.evaluate_script("Math.min(this.naturalWidth, this.closest('p').clientWidth)"))
+    expect(pasted.rect.width / pasted.rect.height).to be_within(0.02).of(pasted.evaluate_script("this.naturalWidth / this.naturalHeight"))
+    %w[light dark].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      pasted.execute_script("this.scrollIntoView({block: 'center'})")
+      page.save_screenshot(Rails.root.join("tmp/screenshots/image-paste/#{theme}.png"))
+    end
+    click_button "Undo"
+    expect(page).not_to have_css('img[alt="Pasted large image"]')
+    click_button "Redo"
+    expect(page).to have_css('.ProseMirror img[alt="Pasted large image"]:not([width])')
+    find(".document-editor__close-inline:not(:disabled)").click
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to include("![Pasted large image]")
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css('.ProseMirror img[alt="Pasted large image"]:not([width])')
+  end
+
+  it "preserves intentional widths when copying images within CoPlan" do
+    result = page.evaluate_async_script(<<~JS, image_url)
+      const [url, done] = arguments;
+      Promise.all([import("coplan/rich_document"), import("prosemirror-state")]).then(([m, state]) => {
+        const first = m.createRichDocument(document.createElement("div"), `<img src="${url}" alt="Copied image" width="240">`, () => {});
+        first.view.dispatch(first.view.state.tr.setSelection(new state.AllSelection(first.view.state.doc)));
+        const clipboard = new DataTransfer();
+        first.view.dom.dispatchEvent(new ClipboardEvent("copy", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+        const second = m.createRichDocument(document.createElement("div"), "", () => {});
+        second.view.dom.dispatchEvent(new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
+        const result = { copied: clipboard.getData("text/html"), pasted: second.content() };
+        first.destroy(); second.destroy(); done(result);
+      }).catch(error => done({ error: error.message }));
+    JS
+    expect(result).not_to have_key("error")
+    expect(result.fetch("copied")).to include("data-coplan-image-width")
+    expect(result.fetch("pasted")).to include('width="240"', "Copied image")
+    expect(result.fetch("pasted")).not_to include("data-coplan-image-width")
+  end
+
+  context "with prose beside a leading image" do
+    let(:image_source) { %(<img src="#{image_url}" alt="Console &amp; mockup" width="240">) }
+    let(:beside) { "These words start beside the image. The paragraph wraps naturally as you keep writing about this picture." }
+    let(:source) { "#{image_source} #{beside}\n\nBelow the image.\n" }
+
+    def expect_wrapping(selector)
+      layout = find(selector).evaluate_script(<<~JS)
+        (() => {
+          const image = this.querySelector("img").getBoundingClientRect();
+          const text = [...this.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+          const range = document.createRange(); range.setStart(text, 1); range.setEnd(text, 6);
+          const first = range.getBoundingClientRect();
+          range.selectNodeContents(text);
+          let below = this.nextElementSibling;
+          while (below && !below.getClientRects().length) below = below.nextElementSibling;
+          return { top: first.top - image.top, beside: first.left >= image.right + 8,
+            lines: range.getClientRects().length, below: below.getBoundingClientRect().top >= image.bottom };
+        })()
+      JS
+      expect(layout["top"]).to be_between(0, 8)
+      expect(layout["beside"]).to be(true)
+      expect(layout["lines"]).to be > 1
+      expect(layout["below"]).to be(true)
+    end
+
+    %w[light dark].each do |theme|
+      it "wraps from the top, keeps Shift+Enter beside, and moves Enter below in #{theme}" do
+        page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+        expect_wrapping(".ProseMirror p.image-paragraph")
+        paragraph = find(".ProseMirror p.image-paragraph")
+        paragraph.execute_script(<<~JS)
+          this.closest('[contenteditable="true"]').focus();
+          const range = document.createRange(); range.selectNodeContents(this); range.collapse(false);
+          window.getSelection().removeAllRanges(); window.getSelection().addRange(range);
+        JS
+        page.driver.browser.action.key_down(:shift).send_keys(:enter).key_up(:shift).send_keys("Still beside.").perform
+        expect(page).to have_css(".ProseMirror p.image-paragraph", text: "Still beside.")
+        page.driver.browser.action.send_keys(:enter).send_keys("Now below.").perform
+        expect(page).to have_css(".ProseMirror p:not(.image-paragraph)", text: "Now below.")
+        expect_wrapping(".ProseMirror p.image-paragraph")
+        page.save_screenshot(Rails.root.join("tmp/screenshots/image-wrap/editor-#{theme}.png"))
+        find(".document-editor__close-inline:not(:disabled)").click
+        expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+        expect(plan.reload.current_content).to include("Still beside.\n\nNow below.")
+        expect_wrapping("#plan-content-body p.image-paragraph")
+        page.save_screenshot(Rails.root.join("tmp/screenshots/image-wrap/reading-#{theme}.png"))
+        visit plan_edit_page_path(plan)
+        expect(page).to have_css(".ProseMirror p.image-paragraph", text: "Still beside.")
+        expect_wrapping(".ProseMirror p.image-paragraph")
+      end
+    end
+
+    it "updates wrapping when the leading image is deleted and restored with Undo" do
+      paragraph = find(".ProseMirror p.image-paragraph")
+      paragraph.execute_script(<<~JS)
+        this.closest('[contenteditable="true"]').focus();
+        const range = document.createRange(); range.setStart(this, 0); range.setEndAfter(this.firstChild);
+        window.getSelection().removeAllRanges(); window.getSelection().addRange(range);
+      JS
+      page.driver.browser.action.send_keys(:backspace).perform
+      expect(page).not_to have_css(".ProseMirror p.image-paragraph")
+      expect(page).to have_css(".ProseMirror p", text: beside)
+      click_button "Undo"
+      expect_wrapping(".ProseMirror p.image-paragraph")
+    end
+
+    it "places text below when the screen has no room beside the image" do
+      image.hover
+      handle.send_keys(:end)
+      page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 390, height: 844, deviceScaleFactor: 1, mobile: false)
+      expect(page).to have_css(".ProseMirror") { |el| el.evaluate_script("innerWidth === 390 && this.getBoundingClientRect().width < 390") }
+      layout = image.evaluate_script(<<~JS)
+        (() => {
+          const image = this.getBoundingClientRect(), paragraph = this.closest("p");
+          const text = [...paragraph.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+          const range = document.createRange(); range.setStart(text, 1); range.setEnd(text, 6);
+          return { textTop: range.getBoundingClientRect().top, bottom: image.bottom, right: image.right, viewport: innerWidth };
+        })()
+      JS
+      expect(layout["textTop"]).to be >= layout["bottom"]
+      expect(layout["right"]).to be <= layout["viewport"]
+    ensure
+      page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+    end
+
+    context "when the image is linked" do
+      let(:image_source) { "[#{super()}](https://example.com/full)" }
+
+      it "wraps beside the link and can grow back to full width" do
+        expect_wrapping(".ProseMirror p.image-paragraph")
+        image.hover
+        handle.send_keys(:end)
+        expect(content).not_to include('width="')
+        expect(image.rect.width).to be > 240
+        expect(content).to include("](https://example.com/full)")
+        find(".document-editor__close-inline:not(:disabled)").click
+        expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+        expect(page).to have_css("p.image-paragraph .image-frame a img")
+      end
+    end
+  end
+
   it "keeps unsafe and unrelated HTML as protected source blocks" do
     result = page.evaluate_async_script(<<~'JS')
       const done = arguments[0];

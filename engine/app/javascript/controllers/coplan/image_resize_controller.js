@@ -55,7 +55,9 @@ export default class extends Controller {
   }
 
   limits() {
-    let parent = this.element.parentElement
+    // A leading image's link can itself float and hug the current width.
+    // Resize against the paragraph, so linked pictures can still grow.
+    let parent = this.element.closest("p") || this.element.parentElement
     while (!parent.clientWidth && parent.parentElement) parent = parent.parentElement
     const style = getComputedStyle(parent)
     const available = parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)

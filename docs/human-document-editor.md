@@ -102,6 +102,10 @@ field for only that table, keeping the surrounding list rich and editable.
 
 Images have a bottom-right resize handle that appears on hover or keyboard focus in Editor and Dual. Drag inward to preview a smaller image; releasing saves an HTML image `width` in Markdown as one undoable edit. Drag near the image's natural full width to snap back to **100%** and remove the width attribute. Escape cancels a drag. Arrow keys resize a focused handle (Shift for one pixel); Home chooses the minimum width and End restores full width. Existing HTML images with a width use the same control.
 
+Images pasted from other apps start at their natural size, capped by the document width. A copied thumbnail's display width is ignored. Copying an image within CoPlan's rich editor preserves its intentional resize. Existing saved widths and widths written in Raw Markdown stay unchanged.
+
+Text after a paragraph's leading image wraps beside it from the top when there is room, in both editing and reading views. Enter starts a paragraph below the image; Shift+Enter keeps a line break beside it. In Raw Markdown, a blank line starts the paragraph below. Images inside a sentence remain inline.
+
 **+ → Embed** adds a self-closing iframe block with URL, title, width,
 and height fields. Administrators approve exact HTTPS hosts under **Iframe domains**.
 No domains are allowed by default. See the served `/agent-instructions/embeds`

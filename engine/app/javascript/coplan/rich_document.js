@@ -666,7 +666,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
         (match, node) => node.attrs.listStyle === (match[1] === match[1].toUpperCase() ? "upper-alpha" : "lower-alpha") &&
           node.childCount + node.attrs.order === letterOrder(match[1]))
     ] }),
-      codeHighlight(), commentPlugin(comments), new Plugin({ appendTransaction(transactions, oldState, state) {
+      codeHighlight(), imageLayout(), commentPlugin(comments), new Plugin({ appendTransaction(transactions, oldState, state) {
       if (transactions.some(tr => tr.docChanged) && needsTrailing(state.doc))
         return state.tr.insert(state.doc.content.size, trailingParagraph()).setMeta("addToHistory", false)
     } }), keymap({
@@ -701,6 +701,21 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       image: (node, view, getPos) => imageNodeView(node, view, getPos),
       code_block: (node, view, getPos) => codeNodeView(node, view, getPos, preview, sourceRangeAt)
     }, attributes: { class: "markdown-rendered", role: "textbox", "aria-label": "Document body", "aria-multiline": "true" },
+    clipboardSerializer: new DOMSerializer({ ...DOMSerializer.nodesFromSchema(schema),
+      image: node => ["img", { src: node.attrs.src, alt: node.attrs.alt, title: node.attrs.title,
+        width: node.attrs.width, "data-coplan-image-width": "" }]
+    }, DOMSerializer.marksFromSchema(schema)),
+    transformPastedHTML(html) {
+      // Other apps copy their thumbnail/display width along with the original
+      // image URL. Default those pastes to natural size; retain CoPlan resizes.
+      const template = document.createElement("template")
+      template.innerHTML = html
+      for (const image of template.content.querySelectorAll("img")) {
+        if (!image.hasAttribute("data-coplan-image-width")) image.removeAttribute("width")
+        image.removeAttribute("data-coplan-image-width")
+      }
+      return template.innerHTML
+    },
     handleDOMEvents: {
       mouseup(view) {
         synchronizeSelection(view)
@@ -1163,6 +1178,24 @@ function linkCommand(state, dispatch) {
   // Native prompts do not expose typing versus paste evidence.
   if (href && /^(https?:\/\/|mailto:)/i.test(href)) toggleMark(schema.marks.link, { href })(state, dispatch && (tr => dispatch(tr.setMeta("coplan-input-origin", "unknown"))))
   return true
+}
+
+// Decorations follow insertions/deletions without storing layout in Markdown.
+function imageLayout() {
+  let doc, decorations
+  return new Plugin({ props: { decorations(state) {
+    if (doc !== state.doc) {
+      doc = state.doc
+      const paragraphs = []
+      doc.descendants((node, pos) => {
+        if (node.type.name !== "paragraph") return
+        if (node.firstChild?.type.name === "image") paragraphs.push(Decoration.node(pos, pos + node.nodeSize, { class: "image-paragraph" }))
+        return false
+      })
+      decorations = DecorationSet.create(doc, paragraphs)
+    }
+    return decorations
+  } } })
 }
 
 // ProseMirror owns image identity/history; Stimulus owns the resize gesture.

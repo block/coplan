@@ -145,6 +145,9 @@ RSpec.describe "Expanding an image", type: :system do
         it "fits the image within a narrow reading column and keeps its aspect ratio" do
           original_size = page.current_window.size
           page.current_window.resize_to(390, 844)
+          # Chrome's native window has a minimum width; emulate the actual
+          # reading viewport so this exercises a 390px screen on macOS too.
+          page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 390, height: 844, deviceScaleFactor: 1, mobile: false)
           image = find("img[alt='Console mockup']")
           dimensions = image.evaluate_script(<<~JS)
             (() => {
@@ -159,6 +162,7 @@ RSpec.describe "Expanding an image", type: :system do
           expect(dimensions["width"] / dimensions["height"]).to be_within(0.01).of(1600.0 / 900)
           page.save_screenshot(Rails.root.join("tmp/screenshots/image-width/narrow-#{theme}.png"))
         ensure
+          page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
           page.current_window.resize_to(*original_size) if original_size
         end
       end

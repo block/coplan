@@ -311,6 +311,22 @@
   max-width: 100%;
 }
 
+.markdown-rendered p .image-frame {
+  display: inline-block;
+  vertical-align: top;
+}
+
+/* A leading picture shares its paragraph with the prose, from the top.
+   Contain its float so Enter (a new paragraph) always continues below it.
+   max-content preserves full-width images instead of shrinking for the gap. */
+.markdown-rendered p.image-paragraph { display: flow-root; }
+.markdown-rendered p.image-paragraph > :first-child {
+  float: inline-start;
+  width: max-content;
+  max-width: 100%;
+  margin-inline-end: 1rem;
+}
+
 .markdown-rendered .image-frame__expand {
   display: none;
   box-shadow: var(--shadow-pop);
@@ -541,7 +557,7 @@
 
 /* Image editor chrome hugs the picture without adding a card or changing
    its reading layout. Only the corner affordance appears on hover/focus. */
-.document-editor__image { position: relative; display: inline-block; max-width: 100%; vertical-align: bottom; line-height: 0; }
+.document-editor__image { position: relative; display: inline-block; max-width: 100%; vertical-align: top; line-height: 0; }
 .document-editor__image img { display: block; height: auto; }
 .document-editor__image-handle { --image-handle-opacity: 0; position: absolute; right: 0; bottom: 0; display: grid; place-items: end; width: 36px; height: 36px; padding: 2px; border: 0; border-radius: 0 0 var(--radius) 0; background: transparent; color: rgb(51 65 85 / .65); cursor: nwse-resize; touch-action: none; transition: color .18s ease; }
 /* Clear glass picks up the image beneath it, including in dark mode. Keep
