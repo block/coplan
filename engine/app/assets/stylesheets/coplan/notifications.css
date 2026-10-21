@@ -1,0 +1,253 @@
+
+/* Inbox badge */
+.inbox-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-text-inverse);
+  background: var(--color-danger);
+  border-radius: 9999px;
+  line-height: 1;
+}
+
+.inbox-badge--hidden {
+  display: none;
+}
+
+/* Inbox dropdown */
+.inbox-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.site-nav__bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: var(--space-xs);
+  border-radius: var(--radius);
+  transition: color 0.15s, background 0.15s;
+}
+
+.site-nav__bell:hover {
+  color: var(--color-primary-hover);
+  background: var(--color-interaction-hover-bg);
+}
+
+.site-nav__bell .inbox-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  font-size: 0.6rem;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+}
+
+/* Floating inbox panel. Solid, not glass: it lives inside the nav,
+   whose own backdrop-filter blocks a descendant's backdrop-filter from
+   sampling the page — translucency here would just let the page bleed
+   through unblurred. */
+.inbox-panel {
+  position: absolute;
+  top: calc(100% + var(--space-sm));
+  right: 0;
+  width: 420px;
+  max-height: 480px;
+  background: var(--color-surface);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.inbox-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.inbox-panel__title {
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.inbox-panel__list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.inbox-panel__empty {
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.inbox-panel__loading {
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Inbox rows */
+.inbox-row {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  text-decoration: none;
+  color: var(--color-text);
+  transition: background 0.1s;
+}
+
+.inbox-row:hover {
+  background: var(--color-bg);
+  text-decoration: none;
+}
+
+.inbox-row--unread {
+  background: var(--color-inbox-unread-bg);
+}
+
+.inbox-row--unread:hover {
+  background: var(--color-inbox-unread-hover-bg);
+}
+
+.inbox-row__indicator {
+  width: 8px;
+  flex-shrink: 0;
+  padding-top: 6px;
+}
+
+.inbox-row__dot {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.inbox-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.inbox-row__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: 2px;
+}
+
+.inbox-row__author {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inbox-row--unread .inbox-row__author {
+  color: var(--color-text);
+}
+
+.inbox-row__time {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.inbox-row__body {
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-row:not(.inbox-row--unread) .inbox-row__body {
+  color: var(--color-text-muted);
+}
+
+.inbox-row__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: 2px;
+}
+
+.inbox-row__plan {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Notifications full page (fallback) */
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.notifications-list__item {
+  transition: opacity 0.15s;
+}
+
+.notifications-list__item--read {
+  opacity: 0.6;
+}
+
+.notifications-list__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.notifications-list__plan-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.notifications-list__plan-title:hover {
+  color: var(--color-primary);
+}
+
+.notifications-list__anchor {
+  font-style: italic;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.notifications-list__comment {
+  margin-top: var(--space-xs);
+  color: var(--color-text);
+}
+
+.notifications-list__meta {
+  margin-top: var(--space-sm);
+}

@@ -1,0 +1,445 @@
+/* CoPlan — Design Tokens + Base Styles */
+
+/* Hack — code font (regular, bold, italic; bold-italic is synthesized).
+   Self-declared instead of the upstream hack.css so we get
+   font-display: swap — code must render immediately in a fallback mono
+   font rather than blocking on the download. */
+@font-face {
+  font-family: "Hack";
+  src: url("https://cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/fonts/hack-regular-subset.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Hack";
+  src: url("https://cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/fonts/hack-bold-subset.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Hack";
+  src: url("https://cdn.jsdelivr.net/npm/hack-font@3.3.0/build/web/fonts/hack-italic-subset.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+.writing-provenance { display: inline-flex; align-items: center; }
+.writing-provenance__trigger { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 4px; border: 0; border-radius: 5px; background: transparent; color: var(--color-text-muted); cursor: pointer; }
+.writing-provenance__trigger:hover { color: var(--color-primary); background: var(--color-interaction-hover-bg); }
+.writing-provenance__trigger:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.writing-provenance__panel { position: fixed; inset: auto; margin: 0; padding: 18px; width: min(320px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; box-sizing: border-box; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text); box-shadow: 0 12px 32px #0002; font-size: .8125rem; }
+.writing-provenance__panel::backdrop { background: transparent; }
+.writing-provenance__counts { margin: 0 0 16px; }
+.writing-provenance__counts > div { display: flex; justify-content: space-between; gap: 16px; margin: 9px 0; }
+.writing-provenance__counts dt { display: flex; align-items: center; gap: 7px; min-width: 0; overflow-wrap: anywhere; }
+.writing-provenance__counts dd { margin: 0; font-variant-numeric: tabular-nums; }
+.writing-provenance__swatch { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.writing-provenance__swatch--human { background: #22c55e; }
+.writing-provenance__swatch--ai { background: #a78bfa; }
+.writing-provenance__swatch--unknown { background: #94a3b8; }
+::highlight(coplan-writing-human) { background: #22c55e55; text-decoration: underline; text-decoration-color: #16a34a; }
+::highlight(coplan-writing-ai) { background: #a78bfa66; text-decoration: underline; text-decoration-color: #8b5cf6; }
+::highlight(coplan-writing-unknown) { background: #94a3b84d; text-decoration: underline dotted; text-decoration-color: #64748b; }
+.writing-provenance__actions { display: flex; align-items: center; gap: 12px; }
+.writing-provenance__inspect, .writing-inspection button { padding: 7px 12px; border: 1px solid var(--color-border-strong); border-radius: 7px; background: var(--color-surface-muted); color: var(--color-text); font: inherit; cursor: pointer; }
+.writing-provenance__inspect:hover, .writing-inspection button:hover { background: var(--color-interaction-hover-bg); border-color: var(--color-primary); }
+.writing-provenance__inspect:disabled { opacity: .55; cursor: default; }
+.writing-provenance__info { color: var(--color-text-muted); }
+.writing-provenance__info summary { cursor: pointer; list-style: none; font-size: 16px; }
+.writing-provenance__info p { font-size: 12px; line-height: 1.5; }
+.writing-provenance__error { color: var(--color-text-muted); font-size: 12px; line-height: 1.5; margin: 12px 0 0; }
+.writing-provenance__actions:has(details[open]) { flex-wrap: wrap; }
+.writing-provenance__info[open] { flex-basis: 100%; }
+.writing-inspection { position: fixed; z-index: 110; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 9px 12px; border: 1px solid var(--color-border-strong); border-radius: 12px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); font-size: 12px; white-space: nowrap; max-width: calc(100vw - 24px); box-sizing: border-box; }
+.writing-inspection > span { display: flex; gap: 5px; align-items: center; }
+.writing-inspection__tooltip { box-sizing: border-box; overflow-wrap: anywhere; position: fixed; inset: auto; margin: 0; padding: 10px 13px; max-width: min(330px, calc(100vw - 24px)); border: 1px solid var(--color-border-strong); border-radius: 8px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); pointer-events: none; font-size: 12px; }
+.writing-inspection__tooltip > * { display: block; }
+.writing-inspection__tooltip small { color: var(--color-text-muted); margin-top: 4px; }
+body[data-writing-inspection] #plan-content-body { cursor: help; user-select: none; }
+body[data-writing-inspection] #plan-content-body :is(a, iframe, video, audio) { pointer-events: none; }
+body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .4; cursor: default; }
+@media (max-width: 420px) { .writing-inspection { gap: 9px; padding: 8px; bottom: 16px; } .writing-inspection button { padding: 7px 8px; } }
+@media (pointer: coarse) { .writing-provenance__trigger { min-width: 44px; min-height: 44px; } }
+
+:root {
+  color-scheme: light;
+
+  /* Colors */
+  /* Slightly cool and dark for a page background: white cards need
+     something to stand out against, or light mode reads as fog. */
+  --color-bg: #eef0f5;
+  --color-bg-muted: #f3f4f6;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f9fafb;
+  --color-input-bg: var(--color-surface);
+  --color-text: #1a1a1a;
+  --color-text-muted: #646b78;
+  --color-text-inverse: #ffffff;
+  --color-border: #e5e7eb;
+  --color-border-strong: #cbd5e1;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: #eff6ff;
+  --color-success: #059669;
+  --color-success-soft: #ecfdf5;
+  /* Orange means a viewer-specific task or unread review item, never interaction. */
+  --color-interaction-hover-bg: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  --color-interaction-active-bg: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  --color-warning: #d97706;
+  --color-warning-text: #92400e;
+  --color-warning-soft: #fef3c7;
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-danger-soft: #fef2f2;
+  --color-agent: #4338ca;
+  --color-agent-bg: #e0e7ff;
+  --color-type-bg: #f0fdf4;
+  --color-type-text: #166534;
+  --color-tag-bg: #f3f4f6;
+  --color-tag-text: #374151;
+  --color-tag-hover-bg: #e5e7eb;
+  --color-tag-hover-text: #111827;
+  --color-tag-active-bg: #374151;
+  --color-tag-active-hover-bg: #1f2937;
+  --color-code-bg: #f6f8fa;
+  /* Code blocks (fenced): block background + the terminal-style language
+     header. Inline code keeps --color-code-bg. */
+  --code-block-bg: #f6f8fa;
+  --code-header-bg: #e9edf3;
+  --code-header-text: #57606a;
+  /* Syntax highlighting tokens (highlight.js classes) — GitHub Light */
+  --code-comment: #6a737d;
+  --code-keyword: #d73a49;
+  --code-entity: #6f42c1;
+  --code-constant: #005cc5;
+  --code-string: #032f62;
+  --code-tag: #22863a;
+  --code-addition-fg: #22863a;
+  --code-addition-bg: #f0fff4;
+  --code-deletion-fg: #b31d28;
+  --code-deletion-bg: #ffeef0;
+  --color-overlay: rgba(0, 0, 0, 0.2);
+  --color-focus-ring: rgba(37, 99, 235, 0.12);
+
+  /* Status colors */
+  --color-status-considering: #f59e0b;
+  --color-status-considering-bg: #fef3c7;
+  --color-status-developing: #3b82f6;
+  --color-status-developing-bg: #dbeafe;
+  --color-status-live: #10b981;
+  --color-status-live-bg: #d1fae5;
+  --color-status-abandoned: #6b7280;
+  --color-status-abandoned-bg: #f3f4f6;
+  --color-diff-ins-bg: #d4edda;
+  --color-diff-ins-text: #155724;
+  --color-diff-del-bg: #f8d7da;
+  --color-diff-del-text: #721c24;
+  --color-quote-warning-bg: rgba(255, 213, 79, 0.1);
+  --color-quote-warning-bg-subtle: rgba(255, 213, 79, 0.08);
+  --color-quote-info-border: rgba(108, 140, 255, 0.6);
+  --color-quote-info-bg: rgba(108, 140, 255, 0.05);
+  --color-highlight-open-bg: rgba(108, 140, 255, 0.12);
+  --color-highlight-open-hover-bg: rgba(108, 140, 255, 0.22);
+  --color-highlight-open-border: rgba(108, 140, 255, 0.6);
+  --color-highlight-pending-bg: rgba(245, 158, 11, 0.12);
+  --color-highlight-pending-hover-bg: rgba(245, 158, 11, 0.22);
+  --color-highlight-pending-border: rgba(245, 158, 11, 0.6);
+  --color-highlight-todo-bg: rgba(59, 130, 246, 0.12);
+  --color-highlight-todo-hover-bg: rgba(59, 130, 246, 0.22);
+  --color-highlight-todo-border: rgba(59, 130, 246, 0.6);
+  --color-highlight-active-bg: rgba(108, 140, 255, 0.25);
+  --color-highlight-active-outline: rgba(108, 140, 255, 0.3);
+  --color-inbox-unread-bg: var(--color-primary-light);
+  --color-inbox-unread-hover-bg: #dbeafe;
+
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+
+  /* Typography */
+  --font-sans: 'Lexend', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "Hack", "SF Mono", SFMono-Regular, ui-monospace, Menlo, monospace;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+
+  /* Layout */
+  --max-width: 72rem;
+  --nav-height: 3.5rem;
+  --radius: 0.625rem;
+  --radius-lg: 0.875rem;
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+  --shadow-top: 0 -2px 8px rgba(15, 23, 42, 0.05);
+  --shadow-pop: 0 2px 6px rgba(15, 23, 42, 0.1);
+
+  /* Liquid glass: a soft gradient mesh behind everything, translucent
+     blurred panels on top. Panels use --glass-*; the mesh spots are
+     --mesh-*. Rows and other high-count elements get the cheaper
+     --surface-translucent (no backdrop blur). */
+  --mesh-1: rgba(59, 130, 246, 0.14);
+  --mesh-2: rgba(168, 85, 247, 0.11);
+  --mesh-3: rgba(20, 184, 166, 0.11);
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.72);
+  --glass-edge: rgba(255, 255, 255, 0.75);
+  --glass-blur: blur(16px) saturate(1.6);
+  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 30px rgba(15, 23, 42, 0.08);
+  --surface-translucent: rgba(255, 255, 255, 0.75);
+  /* Card outline. The white --glass-edge reads as a specular highlight on
+     dark backdrops but disappears white-on-white — cards and rows use this
+     faintly dark line instead so light mode has real definition. */
+  --card-edge: rgba(24, 33, 54, 0.10);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --color-bg: #0b1220;
+    --color-bg-muted: #111a2b;
+    --color-surface: #152033;
+    --color-surface-muted: #111a2b;
+    --color-input-bg: #0f172a;
+    --color-text: #e5eefc;
+    --color-text-muted: #99a7bf;
+    --color-border: #243145;
+    --color-border-strong: #334155;
+    --color-primary: #60a5fa;
+    --color-primary-hover: #3b82f6;
+    --color-primary-light: rgba(96, 165, 250, 0.16);
+    --color-success: #34d399;
+    --color-success-soft: rgba(52, 211, 153, 0.15);
+    --color-warning: #f59e0b;
+    --color-warning-text: #f59e0b;
+    --color-warning-soft: rgba(245, 158, 11, 0.16);
+    --color-danger: #f87171;
+    --color-danger-hover: #ef4444;
+    --color-danger-soft: rgba(248, 113, 113, 0.16);
+    --color-agent: #c7d2fe;
+    --color-agent-bg: rgba(129, 140, 248, 0.18);
+    --color-type-bg: rgba(52, 211, 153, 0.14);
+    --color-type-text: #86efac;
+    --color-tag-bg: #1e293b;
+    --color-tag-text: #cbd5e1;
+    --color-tag-hover-bg: #27364a;
+    --color-tag-hover-text: #f8fafc;
+    --color-tag-active-bg: #475569;
+    --color-tag-active-hover-bg: #64748b;
+    --color-code-bg: #0f172a;
+    --code-block-bg: #0d0d0f;
+    --code-header-bg: #17171a;
+    --code-header-text: #8b8f98;
+    /* Syntax highlighting tokens — One Dark-inspired. Warmer than GitHub
+       Dark (which paints constants and strings in two shades of blue —
+       too much on our already-blue slate background). */
+    --code-comment: #7f848e;
+    --code-keyword: #c678dd;
+    --code-entity: #61afef;
+    --code-constant: #d19a66;
+    --code-string: #98c379;
+    --code-tag: #e06c75;
+    --code-addition-fg: #98c379;
+    --code-addition-bg: rgba(152, 195, 121, 0.14);
+    --code-deletion-fg: #e06c75;
+    --code-deletion-bg: rgba(224, 108, 117, 0.14);
+    --color-overlay: rgba(2, 6, 23, 0.4);
+    --color-focus-ring: rgba(96, 165, 250, 0.24);
+    --color-status-considering-bg: rgba(245, 158, 11, 0.16);
+    --color-status-developing-bg: rgba(59, 130, 246, 0.18);
+    --color-status-live-bg: rgba(16, 185, 129, 0.16);
+    --color-status-abandoned-bg: rgba(148, 163, 184, 0.16);
+    --color-diff-ins-bg: rgba(52, 211, 153, 0.16);
+    --color-diff-ins-text: #a7f3d0;
+    --color-diff-del-bg: rgba(248, 113, 113, 0.16);
+    --color-diff-del-text: #fecaca;
+    --color-quote-warning-bg: rgba(245, 158, 11, 0.16);
+    --color-quote-warning-bg-subtle: rgba(245, 158, 11, 0.12);
+    --color-quote-info-border: rgba(96, 165, 250, 0.8);
+    --color-quote-info-bg: rgba(96, 165, 250, 0.12);
+    --color-highlight-open-bg: rgba(96, 165, 250, 0.18);
+    --color-highlight-open-hover-bg: rgba(96, 165, 250, 0.28);
+    --color-highlight-open-border: rgba(96, 165, 250, 0.85);
+    --color-highlight-pending-bg: rgba(245, 158, 11, 0.18);
+    --color-highlight-pending-hover-bg: rgba(245, 158, 11, 0.28);
+    --color-highlight-pending-border: rgba(245, 158, 11, 0.85);
+    --color-highlight-todo-bg: rgba(59, 130, 246, 0.22);
+    --color-highlight-todo-hover-bg: rgba(59, 130, 246, 0.32);
+    --color-highlight-todo-border: rgba(59, 130, 246, 0.85);
+    --color-highlight-active-bg: rgba(96, 165, 250, 0.28);
+    --color-highlight-active-outline: rgba(96, 165, 250, 0.35);
+    --color-inbox-unread-bg: rgba(96, 165, 250, 0.12);
+    --color-inbox-unread-hover-bg: rgba(96, 165, 250, 0.18);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.45);
+    --shadow-top: 0 -2px 10px rgba(0, 0, 0, 0.3);
+    --shadow-pop: 0 6px 16px rgba(0, 0, 0, 0.35);
+    --mesh-1: rgba(59, 130, 246, 0.2);
+    --mesh-2: rgba(139, 92, 246, 0.16);
+    --mesh-3: rgba(6, 182, 212, 0.13);
+    --glass-bg: rgba(15, 23, 42, 0.45);
+    --glass-bg-strong: rgba(17, 26, 43, 0.66);
+    --glass-edge: rgba(148, 163, 184, 0.18);
+    --glass-blur: blur(16px) saturate(1.4);
+    --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
+    --surface-translucent: rgba(21, 32, 51, 0.55);
+    --card-edge: rgba(148, 163, 184, 0.16);
+  }
+}
+
+/* Forced dark theme — overrides system preference */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #0b1220;
+  --color-bg-muted: #111a2b;
+  --color-surface: #152033;
+  --color-surface-muted: #111a2b;
+  --color-input-bg: #0f172a;
+  --color-text: #e5eefc;
+  --color-text-muted: #99a7bf;
+  --color-border: #243145;
+  --color-border-strong: #334155;
+  --color-primary: #60a5fa;
+  --color-primary-hover: #3b82f6;
+  --color-primary-light: rgba(96, 165, 250, 0.16);
+  --color-success: #34d399;
+  --color-success-soft: rgba(52, 211, 153, 0.15);
+  --color-warning: #f59e0b;
+  --color-warning-text: #f59e0b;
+  --color-warning-soft: rgba(245, 158, 11, 0.16);
+  --color-danger: #f87171;
+  --color-danger-hover: #ef4444;
+  --color-danger-soft: rgba(248, 113, 113, 0.16);
+  --color-agent: #c7d2fe;
+  --color-agent-bg: rgba(129, 140, 248, 0.18);
+  --color-type-bg: rgba(52, 211, 153, 0.14);
+  --color-type-text: #86efac;
+  --color-tag-bg: #1e293b;
+  --color-tag-text: #cbd5e1;
+  --color-tag-hover-bg: #27364a;
+  --color-tag-hover-text: #f8fafc;
+  --color-tag-active-bg: #475569;
+  --color-tag-active-hover-bg: #64748b;
+  --color-code-bg: #0f172a;
+  --code-block-bg: #0d0d0f;
+  --code-header-bg: #17171a;
+  --code-header-text: #8b8f98;
+  /* Syntax highlighting tokens — One Dark-inspired (see the media-query
+     dark block above). */
+  --code-comment: #7f848e;
+  --code-keyword: #c678dd;
+  --code-entity: #61afef;
+  --code-constant: #d19a66;
+  --code-string: #98c379;
+  --code-tag: #e06c75;
+  --code-addition-fg: #98c379;
+  --code-addition-bg: rgba(152, 195, 121, 0.14);
+  --code-deletion-fg: #e06c75;
+  --code-deletion-bg: rgba(224, 108, 117, 0.14);
+  --color-overlay: rgba(2, 6, 23, 0.4);
+  --color-focus-ring: rgba(96, 165, 250, 0.24);
+  --color-status-considering-bg: rgba(245, 158, 11, 0.16);
+  --color-status-developing-bg: rgba(59, 130, 246, 0.18);
+  --color-status-live-bg: rgba(16, 185, 129, 0.16);
+  --color-status-abandoned-bg: rgba(148, 163, 184, 0.16);
+  --color-diff-ins-bg: rgba(52, 211, 153, 0.16);
+  --color-diff-ins-text: #a7f3d0;
+  --color-diff-del-bg: rgba(248, 113, 113, 0.16);
+  --color-diff-del-text: #fecaca;
+  --color-quote-warning-bg: rgba(245, 158, 11, 0.16);
+  --color-quote-warning-bg-subtle: rgba(245, 158, 11, 0.12);
+  --color-quote-info-border: rgba(96, 165, 250, 0.8);
+  --color-quote-info-bg: rgba(96, 165, 250, 0.12);
+  --color-highlight-open-bg: rgba(96, 165, 250, 0.18);
+  --color-highlight-open-hover-bg: rgba(96, 165, 250, 0.28);
+  --color-highlight-open-border: rgba(96, 165, 250, 0.85);
+  --color-highlight-pending-bg: rgba(245, 158, 11, 0.18);
+  --color-highlight-pending-hover-bg: rgba(245, 158, 11, 0.28);
+  --color-highlight-pending-border: rgba(245, 158, 11, 0.85);
+  --color-highlight-todo-bg: rgba(59, 130, 246, 0.22);
+  --color-highlight-todo-hover-bg: rgba(59, 130, 246, 0.32);
+  --color-highlight-todo-border: rgba(59, 130, 246, 0.85);
+  --color-highlight-active-bg: rgba(96, 165, 250, 0.28);
+  --color-highlight-active-outline: rgba(96, 165, 250, 0.35);
+  --color-inbox-unread-bg: rgba(96, 165, 250, 0.12);
+  --color-inbox-unread-hover-bg: rgba(96, 165, 250, 0.18);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.45);
+  --shadow-top: 0 -2px 10px rgba(0, 0, 0, 0.3);
+  --shadow-pop: 0 6px 16px rgba(0, 0, 0, 0.35);
+  --mesh-1: rgba(59, 130, 246, 0.2);
+  --mesh-2: rgba(139, 92, 246, 0.16);
+  --mesh-3: rgba(6, 182, 212, 0.13);
+  --glass-bg: rgba(15, 23, 42, 0.45);
+  --glass-bg-strong: rgba(17, 26, 43, 0.66);
+  --glass-edge: rgba(148, 163, 184, 0.18);
+  --glass-blur: blur(16px) saturate(1.4);
+  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
+  --surface-translucent: rgba(21, 32, 51, 0.55);
+  --card-edge: rgba(148, 163, 184, 0.16);
+}
+
+/* Forced light theme — overrides system dark preference */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  /* Native-feel hard requirement: page width must NOT change between
+     navigations. Without a stable gutter, the scrollbar appearing or
+     disappearing between a long page and a short one re-centers the whole
+     layout — a "jiggle" on every workspace → plan hop. */
+  scrollbar-gutter: stable;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+  /* The liquid-glass backdrop: three soft color spots that panels blur
+     over. Fixed so scrolling glides content across the light. */
+  background-image:
+    radial-gradient(42rem 30rem at 12% -8%, var(--mesh-1), transparent 60%),
+    radial-gradient(38rem 28rem at 88% 10%, var(--mesh-2), transparent 60%),
+    radial-gradient(50rem 38rem at 45% 115%, var(--mesh-3), transparent 65%);
+  background-attachment: fixed;
+  color: var(--color-text);
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+img, svg {
+  max-width: 100%;
+  display: block;
+}

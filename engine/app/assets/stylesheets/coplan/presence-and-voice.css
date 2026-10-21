@@ -1,0 +1,354 @@
+
+/* Plan viewers / presence */
+.plan-viewers {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.plan-viewers__avatars {
+  display: flex;
+  flex-direction: row-reverse;
+}
+
+/* Each avatar is wrapped in a profile link — the link owns the stacking
+   overlap and the tooltip (::after can't render on an <img>). */
+.plan-viewers__avatar-link {
+  display: flex;
+  margin-left: -0.5rem;
+  border-radius: 50%;
+  position: relative;
+}
+
+.plan-viewers__avatar-link:hover {
+  z-index: 1;
+  transform: translateY(-1px);
+}
+
+.plan-viewers__avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 2px solid var(--color-surface);
+  object-fit: cover;
+}
+
+.plan-viewers__avatar--you {
+  background: var(--color-success);
+}
+
+.plan-viewers__avatar-link::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-text);
+  color: var(--color-surface);
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+
+.plan-viewers__avatar-link:hover::after {
+  opacity: 1;
+}
+
+.plan-viewers__avatars > :last-child {
+  margin-left: 0;
+}
+
+.plan-viewers__overflow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 2px solid var(--color-surface);
+  margin-left: -0.5rem;
+}
+
+.plan-viewers__label {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Agent presence pill — live state of an agent session on this plan.
+   Broadcast-replaced; must read at a glance as "the agent is engaged". */
+.plan-agent-sessions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.agent-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  white-space: nowrap;
+}
+
+.agent-pill__icon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.agent-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  animation: agent-pill-pulse 1.4s ease-in-out infinite;
+}
+
+/* Listening: just the agent's name and a green pulse — a mic-live
+   indicator, not a status message. Chrome stays muted so working states
+   still out-rank it visually. */
+.agent-pill--watching {
+  background: color-mix(in srgb, var(--color-text-muted) 6%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-text-muted) 20%, transparent);
+}
+
+.agent-pill--watching .agent-pill__icon {
+  color: var(--color-text-muted);
+}
+
+.agent-pill--watching .agent-pill__dot {
+  background: var(--color-success);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 60%, transparent);
+  animation: agent-pill-listen 2s ease-in-out infinite;
+}
+
+@keyframes agent-pill-listen {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 55%, transparent);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-success) 0%, transparent);
+  }
+}
+
+.agent-pill--awaiting_input {
+  background: color-mix(in srgb, var(--color-warning, #b45309) 10%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-warning, #b45309) 30%, transparent);
+}
+
+.agent-pill--awaiting_input .agent-pill__dot,
+.agent-pill--awaiting_input .agent-pill__icon {
+  color: var(--color-warning, #b45309);
+  background: var(--color-warning, #b45309);
+  animation: none;
+}
+
+.agent-pill--awaiting_input .agent-pill__icon {
+  background: none;
+}
+
+@keyframes agent-pill-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+
+/* Live-edit diff flashes — applied by live_update_controller when a
+   broadcast revision lands: changed blocks tint-and-fade, inline
+   insertions get an <ins> wash, removed text lingers struck-through in a
+   <del> then collapses. Green wash = new words, not "success". */
+.agent-flash-block {
+  animation: agent-flash-bg 2.4s ease-out;
+}
+
+ins.agent-flash {
+  text-decoration: none;
+  border-radius: 2px;
+  animation: agent-flash-ins 2.4s ease-out;
+}
+
+del.agent-flash {
+  text-decoration: line-through;
+  border-radius: 2px;
+  color: var(--color-text-muted);
+  animation: agent-flash-del 2.4s ease-out forwards;
+}
+
+@keyframes agent-flash-bg {
+  0% { background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+  100% { background: transparent; }
+}
+
+@keyframes agent-flash-ins {
+  0% { background: color-mix(in srgb, var(--color-success) 30%, transparent); }
+  100% { background: transparent; }
+}
+
+@keyframes agent-flash-del {
+  0% { background: color-mix(in srgb, var(--color-danger, #b91c1c) 22%, transparent); opacity: 1; }
+  60% { background: transparent; opacity: 0.7; }
+  100% { opacity: 0; font-size: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-pill__dot { animation: none; }
+  .agent-flash-block, ins.agent-flash { animation: none; }
+  del.agent-flash { animation: none; display: none; }
+}
+
+/* Voice push-to-talk — mic button + transient transcript/status text. */
+/* The mic follows the scroll. A dictated comment is pinned to whatever
+   passage is on screen when you speak, so a control that lives in the
+   masthead would make you scroll away from the thing you're talking
+   about in order to say anything about it. */
+.voice-control {
+  position: fixed;
+  right: var(--space-lg);
+  bottom: var(--space-lg);
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  flex-direction: row-reverse;
+  gap: var(--space-sm);
+}
+
+.voice-control .voice-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  color: var(--color-text-muted, currentColor);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 12%);
+  backdrop-filter: blur(8px);
+  transition: transform 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.voice-control .voice-btn:hover {
+  background: var(--color-surface-raised, var(--color-surface));
+  color: var(--color-text, currentColor);
+  transform: scale(1.06);
+}
+
+/* Hovering names the key. Push-to-talk is chosen in Settings and nothing
+   else on the page says what it ended up as — a mic you have to hold the
+   right key for is only discoverable if the mic tells you which one.
+   Written by the controller, which knows the platform: the same
+   preference reads as ⌥ Option on a Mac and Alt everywhere else. */
+.voice-control .voice-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: var(--color-text);
+  color: var(--color-surface);
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+
+.voice-control .voice-btn[data-tooltip]:hover::after {
+  opacity: 1;
+}
+
+/* Mid-take the button is a stop button, and the status text is already
+   saying what's happening — an instruction for starting would contradict
+   both. */
+.voice-control .voice-btn--listening[data-tooltip]::after {
+  content: none;
+}
+
+/* Recording reads as recording: the button fills red, and a ring grows
+   with how loud you are. The fill says "the mic is open"; only the ring
+   says "it can hear you", which is the question you actually have while
+   talking to a button. */
+.voice-control .voice-btn--listening,
+.voice-control .voice-btn--listening:hover {
+  color: #fff;
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  transform: scale(1.06);
+  animation: voice-btn-pulse 1.2s ease-in-out infinite;
+  box-shadow:
+    0 2px 12px rgb(0 0 0 / 18%),
+    0 0 0 calc(var(--voice-level, 0) * 0.55rem) rgb(from var(--color-danger) r g b / 25%);
+  transition: box-shadow 90ms ease-out, transform 120ms ease;
+}
+
+@keyframes voice-btn-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-btn--listening {
+    animation: none;
+  }
+}
+
+/* Status sits to the left of the button, and only takes up room when it
+   has something to say. */
+.voice-status {
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-status:not(:empty) {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 12%);
+}
+
+@media (max-width: 640px) {
+  .voice-control {
+    right: var(--space-md);
+    bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .voice-status {
+    max-width: 10rem;
+  }
+}
+
+.voice-status--error {
+  color: var(--color-danger);
+}

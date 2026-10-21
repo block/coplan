@@ -1,0 +1,116 @@
+
+/* Thread popover data containers (hidden, provide data for JS) */
+.thread-popover-data {
+  display: contents;
+}
+
+/* Thread popover (native HTML Popover API) */
+.thread-popover {
+  position: fixed;
+  margin: 0;
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  width: 380px;
+  max-height: 60vh;
+  overflow-y: auto;
+  z-index: 200;
+}
+
+.thread-popover::backdrop {
+  background: transparent;
+}
+
+/* Thread popovers become a bottom sheet on phones (same treatment as the
+   composer — set by the positioning code, not a media query, because the
+   inline top/left must also be cleared). */
+.thread-popover--sheet {
+  top: auto !important;
+  left: 0 !important;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-height: 60vh;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: none;
+}
+
+.thread-popover__header {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+.thread-popover__permalink {
+  margin-left: auto;
+}
+
+.thread-popover__quote {
+  border-left: 3px solid var(--color-quote-info-border);
+  padding: var(--space-xs) var(--space-sm);
+  margin: 0 0 var(--space-sm) 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  background: var(--color-quote-info-bg);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.thread-popover__comments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.thread-popover__reply {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.thread-popover__reply textarea {
+  width: 100%;
+  padding: var(--space-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  resize: vertical;
+  min-height: 3rem;
+}
+
+.thread-popover__reply textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.thread-popover__reply .form-group {
+  margin-bottom: var(--space-xs);
+}
+
+.thread-popover__actions {
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Viewer-specific thread actions.
+   Broadcasts re-render thread partials for every subscriber with no
+   current_user, so these are rendered unconditionally and hidden by default.
+   The coplan--viewer-role controller tags each thread with the viewer's role
+   (.viewer-is-plan-author / .viewer-is-thread-author) to reveal them. */
+.comment-actions--owner {
+  display: none;
+}
+
+.viewer-is-plan-author .comment-actions--owner,
+.viewer-is-thread-author .comment-actions--owner {
+  display: flex;
+}

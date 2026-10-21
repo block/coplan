@@ -1,0 +1,127 @@
+
+/* Page header */
+.page-header {
+  margin-bottom: var(--space-xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-header h1 {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+}
+
+/* The plan masthead: two visual rows. Row one is the title (wrapping
+   naturally, as wide as it needs). Row two is the byline on the left and
+   the viewer-relative side column (presence + toolbar) on the right —
+   bottom-aligning the side column against the header makes the toolbar
+   sit level with the byline, so the whole block reads as two bands even
+   though it's two DOM subtrees (broadcasts own the left, the request
+   owns the right). */
+.plan-masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-lg);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-md);
+}
+
+.plan-masthead__side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-left: auto;
+  flex-shrink: 0;
+  /* Level the toolbar pill's baseline band with the byline text. */
+  margin-bottom: -2px;
+}
+
+/* Compact "up to containing folder" control. In the masthead it lives in
+   the byline, where it takes no width away from the title; its accessible
+   name and tooltip carry the full folder path. */
+.plan-location-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.plan-location-link:hover,
+.plan-location-link:focus-visible {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  text-decoration: none;
+}
+
+.plan-location-link--masthead {
+  width: 24px;
+  height: 24px;
+  margin: -2px 0 -2px 2px;
+}
+
+.plan-location-link--nav {
+  width: 26px;
+  height: 26px;
+  color: var(--color-text);
+  background: var(--color-surface-muted);
+}
+
+.plan-location-link--nav svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Plan page header: one lockup — the file icon beside a text stack
+   (title over byline) that shares a single left edge. The icon anchors
+   to the title's first line (36px icon inside a ~38px line box), so it
+   reads as the document's mark whether or not the title wraps, and the
+   byline hangs in the title's text column instead of being fake-indented.
+   Everything here is broadcast-safe; viewer-relative chrome (Save, owner
+   toolbar) lives in the masthead's side column, outside this subtree. */
+.page-header--plan {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-sm);
+  margin-bottom: 0;
+  flex: 1;
+  min-width: min(24rem, 100%);
+}
+
+.page-header--plan .plan-type-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Center the back arrow (24px hit area) against the title's first line. */
+.page-header--plan .history-back {
+  margin-top: 7px;
+}
+
+.page-header__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.page-header__title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.page-header__byline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  min-width: 0;
+}
