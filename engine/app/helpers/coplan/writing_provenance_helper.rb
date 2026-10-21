@@ -61,7 +61,9 @@ module CoPlan
         remaining = summary.fetch("counts").fetch(kind) - accounted[kind]
         result << { kind: kind, label: label, characters: remaining, details: [] } if remaining.positive?
       end
-      result << { kind: "unknown", label: "Unknown", characters: summary.fetch("counts").fetch("unknown"), details: [] }
+      unknown = summary.fetch("counts").fetch("unknown")
+      result << { kind: "unknown", label: "Unknown", characters: unknown, details: [] } if unknown.positive?
+      result
     end
 
     def writing_provenance_percent(count, total)

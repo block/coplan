@@ -46,4 +46,19 @@ RSpec.describe CoPlan::WritingProvenanceHelper, type: :helper do
     rows = helper.writing_provenance_rows(summary(human: 5, ai: 4, unknown: 1, contributors: sources))
     expect(rows.map { |row| row[:label] }).to eq([ "Hampton", "AI written", "Unknown" ])
   end
+
+  it "omits zero-value categories for entirely human or AI writing" do
+    human = helper.writing_provenance_rows(summary(human: 100, ai: 0, unknown: 0))
+    ai = helper.writing_provenance_rows(summary(human: 0, ai: 100, unknown: 0))
+
+    expect(human.map { |row| row.values_at(:label, :characters) }).to eq([ [ "Human written", 100 ] ])
+    expect(ai.map { |row| row.values_at(:label, :characters) }).to eq([ [ "AI written", 100 ] ])
+  end
+
+  it "keeps unknown writing visible even below one percent" do
+    rows = helper.writing_provenance_rows(summary(human: 1000, ai: 0, unknown: 1))
+
+    expect(rows.last.values_at(:label, :characters)).to eq([ "Unknown", 1 ])
+    expect(helper.writing_provenance_percent(rows.last[:characters], 1001)).to eq("<1%")
+  end
 end
