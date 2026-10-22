@@ -12,14 +12,19 @@ RSpec.describe "Review requests", type: :request do
     expect(notice.comment_thread_id).to be_nil
     sign_in_as(author)
     get notifications_path(filter: "all")
-    row = Nokogiri::HTML(response.body).at_css(".notifications-list a[href='#{notification_path(notice)}']")
+    row = Nokogiri::HTML(response.body).at_css("#notification_#{notice.id} a")
+    expect(row["href"]).to eq(plan_page_path(plan))
     expect(row["class"].split).to include("inbox-row--unread")
     expect(row.at_css(".review-task-dot")).to be_present
     expect(row.text).to include("Unread:")
-    get notification_path(notice)
+    get row["href"], headers: { "X-Sec-Purpose" => "prefetch" }
+    expect(response).to have_http_status(:ok)
+    expect(notice.reload).not_to be_read
+    get row["href"]
+    expect(response).to have_http_status(:ok)
     expect(notice.reload).to be_read
     get notifications_path(filter: "all")
-    row = Nokogiri::HTML(response.body).at_css(".notifications-list a[href='#{notification_path(notice)}']")
+    row = Nokogiri::HTML(response.body).at_css("#notification_#{notice.id} a")
     expect(row["class"].split).not_to include("inbox-row--unread")
     expect(row.at_css(".review-task-dot")).to be_nil
     expect(row.text).not_to include("Unread:")
