@@ -170,11 +170,14 @@ module CoPlan
         end
 
         # A document's address, absolute, so a caller can hand it straight to
-        # a human. Built from the request rather than from Urls::Canonical
-        # alone: only the request knows the host, and a host that mounted the
-        # engine under a prefix needs that prefix on the front.
+        # a human. The configured public_base_url wins, since agents may call
+        # the API on a host people don't browse. Otherwise it's built from the
+        # request: only the request knows the host, and a host that mounted
+        # the engine under a prefix needs that prefix on the front.
         def plan_web_url(plan)
-          "#{request.base_url}#{root_path.chomp("/")}#{Urls::Canonical.plan_path(plan)}"
+          base = CoPlan.configuration.public_base_url.presence&.chomp("/") ||
+            "#{request.base_url}#{root_path.chomp("/")}"
+          "#{base}#{Urls::Canonical.plan_path(plan)}"
         end
 
         def set_plan
