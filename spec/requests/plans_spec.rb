@@ -1176,4 +1176,44 @@ RSpec.describe "Plans", type: :request do
       expect(q3.reload.parent).to be_nil
     end
   end
+
+  describe "DELETE /folders/:id (web)" do
+    let!(:team) { create(:folder, name: "Team EBT", created_by_user: alice) }
+    let!(:q3) { create(:folder, name: "Q3", parent: team, created_by_user: alice) }
+
+    it "deletes an empty folder and lands on its parent" do
+      delete folder_path(q3)
+      expect(CoPlan::Folder.exists?(q3.id)).to be(false)
+      expect(response).to redirect_to(folder_page_path(team))
+      expect(flash[:notice]).to eq("Folder “Q3” deleted.")
+      expect(alice.library.library_events.last).to have_attributes(event_type: "folder_deleted", before_value: "Team EBT/Q3")
+    end
+
+    it "lands on the library root after deleting a top-level folder" do
+      q3.destroy!
+      delete folder_path(team)
+      expect(CoPlan::Folder.exists?(team.id)).to be(false)
+      expect(response).to redirect_to(library_page_path(alice))
+    end
+
+    it "refuses a folder that still has subfolders" do
+      delete folder_path(team)
+      expect(CoPlan::Folder.exists?(team.id)).to be(true)
+      expect(flash[:alert]).to include("contains subfolders")
+    end
+
+    it "refuses a folder that still has plans" do
+      alice.library.placements.create!(plan: plan, folder: q3)
+      delete folder_path(q3)
+      expect(CoPlan::Folder.exists?(q3.id)).to be(true)
+      expect(flash[:alert]).to include("contains plans")
+    end
+
+    it "cannot delete folders in someone else's library" do
+      sign_in_as(bob)
+      delete folder_path(q3)
+      expect(CoPlan::Folder.exists?(q3.id)).to be(true)
+      expect(flash[:alert]).to eq("That folder no longer exists.")
+    end
+  end
 end

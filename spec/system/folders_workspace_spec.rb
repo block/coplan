@@ -575,6 +575,33 @@ RSpec.describe "Folders workspace", type: :system do
     end
   end
 
+  describe "deleting folders" do
+    it "deletes an empty folder from its own page" do
+      visit folder_page_path(infra)
+
+      accept_confirm("Delete the folder “Infra”?") { click_button "Delete folder" }
+
+      expect(page).to have_css(".flash--notice", text: "Folder “Infra” deleted.")
+      expect(page).to have_css(".workspace-crumbs__crumb--current", text: "My Plans")
+      expect(page).not_to have_css(".folder-row", text: "Infra")
+      expect(CoPlan::Folder.exists?(infra.id)).to be(false)
+    end
+
+    it "offers no delete button on a folder that has contents" do
+      visit folder_page_path(team)
+      expect(page).to have_css(".folder-row", text: "Q3")
+      expect(page).not_to have_button("Delete folder")
+    end
+
+    it "offers no delete button when the folder only holds archived plans" do
+      archived = create(:plan, :archived, created_by_user: author, title: "Old Plan")
+      author.library.placements.create!(plan: archived, folder: infra)
+      visit folder_page_path(infra)
+      expect(page).to have_text("Nothing in Infra yet.")
+      expect(page).not_to have_button("Delete folder")
+    end
+  end
+
   describe "spring-loaded folders" do
     let!(:q3sub) { create(:folder, name: "Q3 Sub", parent: q3, created_by_user: author) }
 

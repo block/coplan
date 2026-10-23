@@ -1,9 +1,9 @@
 module CoPlan
   # Web-side folder management for the plans sidebar: creation ("New
-  # folder" input) and reparenting (dragging one folder onto another).
-  # Folders always land in the current user's own library — there's no
-  # picking someone else's. Rename/delete happen through the API or admin
-  # UI for now.
+  # folder" input), reparenting (dragging one folder onto another), and
+  # deleting an empty folder. Folders always land in the current user's
+  # own library — there's no picking someone else's. Rename happens
+  # through the API or admin UI for now.
   class FoldersController < ApplicationController
     # JSON-only: this sits behind the drag-and-drop in the folder tree.
     # The Folder model owns the interesting rules — cycles, cross-library
@@ -37,6 +37,30 @@ module CoPlan
       else
         render json: { error: "Couldn't move folder: #{folder.errors.full_messages.join(", ")}" },
           status: :unprocessable_content
+      end
+    end
+
+    # Only empty folders go: Folder#ensure_empty refuses the rest.
+    def destroy
+      folder = Folder.find_by(id: params[:id])
+      unless folder && FolderPolicy.new(current_user, folder).destroy?
+        redirect_to helpers.own_library_browse_path(current_user), alert: "That folder no longer exists."
+        return
+      end
+
+      path = folder.path
+      parent = folder.parent
+      if folder.destroy
+        Libraries::LogEvent.call(
+          library: folder.library, actor: current_user,
+          event_type: "folder_deleted", before: path,
+          metadata: { folder_name: folder.name }
+        )
+        redirect_to parent ? helpers.folder_browse_path(parent) : helpers.library_browse_path(folder.library),
+          notice: "Folder “#{folder.name}” deleted."
+      else
+        redirect_to helpers.folder_browse_path(folder),
+          alert: "Couldn't delete folder: #{folder.errors.full_messages.join(", ")}"
       end
     end
 

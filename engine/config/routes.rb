@@ -95,10 +95,10 @@ CoPlan::Engine.routes.draw do
       patch "voice_hotkey", to: "settings#update_voice_hotkey"
     end
 
-    # Web folder creation (sidebar "New folder" input) and reparenting (drag
-    # a folder onto a folder). Rename/delete go through the API or admin for
-    # now.
-    resources :folders, only: [ :create, :update ]
+    # Web folder creation (sidebar "New folder" input), reparenting (drag
+    # a folder onto a folder), and deleting an empty folder. Rename goes
+    # through the API or admin for now.
+    resources :folders, only: [ :create, :update, :destroy ]
 
     # Every library you can see. Id-based library links land here too, and
     # 301 onward to the handle form.
