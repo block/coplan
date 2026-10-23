@@ -282,20 +282,30 @@ RSpec.describe "Template notes in the document editor", type: :system do
     find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], initial)
     click_button "Editor", exact: true
     note = find(".document-editor__template-note", text: "FirstSecond")
-    page.execute_script(<<~'JS', note, initial.index("Decision"))
+    # Create the stale model selection and send Enter in the same browser task.
+    # A WebDriver round trip lets unrelated focus work replace the native caret
+    # before the key arrives, so it no longer tests delayed selectionchange.
+    result = page.evaluate_script(<<~'JS', note, initial.index("Decision"))
+      (() => {
       const form = document.querySelector('form.document-editor')
       const rich = Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor
       rich.selectSource(arguments[1])
-      window.holdCommentEnterSelection = event => event.stopImmediatePropagation()
-      document.addEventListener('selectionchange', window.holdCommentEnterSelection, true)
       const range = document.createRange(); range.setStart(arguments[0].firstChild, 5); range.collapse(true)
       const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range)
+      const modelBefore = rich.view.state.selection.$from.parent.type.name
+      const event = new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true})
+      arguments[0].dispatchEvent(event)
+      return {modelBefore, prevented: event.defaultPrevented}
+      })()
     JS
-    page.driver.browser.action.send_keys(:enter).perform
-    page.execute_script("document.removeEventListener('selectionchange', window.holdCommentEnterSelection, true)")
+    expect(result).to include("modelBefore" => "heading", "prevented" => true)
     expect(note.text).to eq("First")
     expect(page).to have_css(".ProseMirror > p", text: "Second", exact_text: true)
     expect(page).to have_select("Paragraph style", selected: "Normal text", enable_aria_label: true)
+    %w[light dark].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp/bell-navigation/template-note-caret-#{theme}.png"))
+    end
     page.driver.browser.action.key_down(mod).send_keys("z").key_up(mod).perform
     expect(page).to have_css(".document-editor__template-note", text: "FirstSecond")
     expect(page).to have_no_css(".ProseMirror > p", text: "Second", exact_text: true)
@@ -521,12 +531,21 @@ RSpec.describe "Template notes in the document editor", type: :system do
     visit plan_page_path(plan)
     paragraph = all("#plan-content-body p", text: "Shared phrase.").first
     page.execute_script("window.scrollBy(0, arguments[0].getBoundingClientRect().top - 160)", paragraph)
+    # The sticky title grows into place. Wait for its actual animation before
+    # WebDriver chooses a click coordinate, which could otherwise hit the title.
+    expect(page).to have_css(".site-nav__plan-context--visible") do |context|
+      context.evaluate_script("getComputedStyle(this).opacity === '1' && this.getAnimations().length === 0")
+    end
     find(".site-nav__plan-context--visible .site-nav__edit").click
     expect(page).to have_css(".document-editor__template-note", count: 2, wait: 20)
     expect(page).to have_css(".ProseMirror > p mark[data-thread-id='comment_thread_#{thread.id}']", text: "Shared phrase.")
     expect(page).not_to have_css(".document-editor__template-note mark")
     expect(page.evaluate_script('window.getSelection().anchorNode.parentElement.closest(".document-editor__template-note")')).to be_nil
     expect(page.evaluate_script('window.getSelection().anchorNode.parentElement.closest("p")?.textContent')).to eq("Shared phrase.")
+    %w[light dark].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp/bell-navigation/template-note-highlights-#{theme}.png"))
+    end
 
     note = all(".document-editor__template-note").first
     page.execute_script(<<~'JS', note)
