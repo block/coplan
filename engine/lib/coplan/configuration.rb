@@ -154,18 +154,10 @@ module CoPlan
     #   config.reserved_handles = %w[square block official]
     attr_accessor :reserved_handles
 
-    # Absolute address of the web UI, including any mount prefix, for links
-    # the API hands to people (a plan's `url`). Set it when agents reach the
-    # API on a different host from the one people browse — e.g.
-    # "https://coplan.example.com". When nil (default), links use the
-    # request's own host and the engine's mount point.
-    attr_accessor :public_base_url
-
 
     def initialize
       @authenticate = nil
       @reserved_handles = []
-      @public_base_url = nil
       @ai_base_url = "https://api.openai.com/v1"
       @ai_api_key = nil
       @ai_model = "gpt-4o"

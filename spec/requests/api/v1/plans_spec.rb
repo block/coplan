@@ -126,13 +126,6 @@ RSpec.describe "Api::V1::Plans", type: :request do
   end
 
   describe "plan url" do
-    around do |example|
-      original = CoPlan.configuration.public_base_url
-      example.run
-    ensure
-      CoPlan.configuration.public_base_url = original
-    end
-
     it "uses the request's host by default" do
       get api_v1_plan_path(plan), headers: headers
       body = JSON.parse(response.body)
@@ -140,12 +133,16 @@ RSpec.describe "Api::V1::Plans", type: :request do
     end
 
     # Agents call the API on one host while people browse another; the
-    # link they hand over has to be the one people use.
-    it "uses the configured public base url instead of the API host" do
-      CoPlan.configuration.public_base_url = "https://coplan.example.org/"
+    # link they hand over has to be the one people use. Hosts say which
+    # with Rails' own default_url_options.
+    it "uses the host's default_url_options instead of the API host" do
+      original = ActionController::API.default_url_options
+      ActionController::API.default_url_options = { host: "coplan.example.org", protocol: "https" }
       get api_v1_plan_path(plan), headers: headers
       body = JSON.parse(response.body)
       expect(body["url"]).to eq("https://coplan.example.org#{CoPlan::Urls::Canonical.plan_path(plan)}")
+    ensure
+      ActionController::API.default_url_options = original
     end
   end
 
