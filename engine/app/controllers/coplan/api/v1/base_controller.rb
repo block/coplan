@@ -170,11 +170,12 @@ module CoPlan
         end
 
         # A document's address, absolute, so a caller can hand it straight to
-        # a human. Built from the request rather than from Urls::Canonical
-        # alone: only the request knows the host, and a host that mounted the
-        # engine under a prefix needs that prefix on the front.
+        # a human. Built with the route helpers, so it carries the engine's
+        # mount prefix and honors the host's default_url_options — set a
+        # host there when agents reach the API on a host people don't browse.
         def plan_web_url(plan)
-          "#{request.base_url}#{root_path.chomp("/")}#{Urls::Canonical.plan_path(plan)}"
+          handle, slug_path = Urls::Canonical.split(plan.url_path)
+          browse_url(handle: handle, slug_path: slug_path)
         end
 
         def set_plan
