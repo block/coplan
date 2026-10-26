@@ -81,10 +81,12 @@ export default class extends Controller {
     // The move URL and current folder ride along in the drag payload
     // (readable on drop) — the folder so a drop where the plan already
     // lives is a quiet no-op instead of a PATCH + reload + "moved" toast.
-    event.dataTransfer.setData(PLAN_MIME, JSON.stringify({
+    this.dragPayload = {
+      type: PLAN_MIME,
       url: row.dataset.moveUrl,
       folderId: row.dataset.currentFolderId || "",
-    }))
+    }
+    event.dataTransfer.setData(PLAN_MIME, JSON.stringify(this.dragPayload))
     event.dataTransfer.setData("text/plain", row.dataset.planId)
     row.classList.add("plan-row--dragging")
     this.element.classList.add("workspace--dragging")
@@ -107,11 +109,13 @@ export default class extends Controller {
     this.dragActive = true
     this.dragSourceEl = node
     event.dataTransfer.effectAllowed = "move"
-    event.dataTransfer.setData(FOLDER_MIME, JSON.stringify({
+    this.dragPayload = {
+      type: FOLDER_MIME,
       url: node.dataset.reparentUrl,
       id: node.dataset.folderId,
       parentId: node.dataset.parentId || "",
-    }))
+    }
+    event.dataTransfer.setData(FOLDER_MIME, JSON.stringify(this.dragPayload))
     event.dataTransfer.setData("text/plain", node.dataset.folderId)
     node.classList.add("folder-tree__link--dragging")
     this.element.classList.add("workspace--dragging")
@@ -288,6 +292,7 @@ export default class extends Controller {
 
   #dragCleanup() {
     this.dragActive = false
+    this.dragPayload = null
     this.#cancelPendingSpring()
     this.paneCache = null
     // A committed drop keeps the tunneled pane and its pulsing target on
@@ -311,28 +316,33 @@ export default class extends Controller {
 
     const targetFolderId = target.dataset.folderId || ""
 
-    if (event.dataTransfer.types.includes(FOLDER_MIME)) {
-      let payload = {}
-      try { payload = JSON.parse(event.dataTransfer.getData(FOLDER_MIME)) } catch {}
-      if (!payload.url) return
+    const payload = this.dragPayload ?? this.#payloadFromTransfer(event)
+    this.dragPayload = null
+    if (!payload.url) return
+
+    if (payload.type === FOLDER_MIME) {
       // Dropping a folder on itself or where it already sits is a quiet
       // no-op, not a PATCH + reload + toast.
       if (payload.id && payload.id === targetFolderId) return
       if ((payload.parentId || "") === targetFolderId) return
       this.#patch(payload.url, { parent_id: targetFolderId }, "Folder moved.", target)
     } else {
-      let payload = {}
-      try { payload = JSON.parse(event.dataTransfer.getData(PLAN_MIME)) } catch {}
-      if (!payload.url) return
       // Same quiet no-op when the plan is already filed right here.
       if ((payload.folderId || "") === targetFolderId) return
       this.#patch(payload.url, { folder_id: targetFolderId }, "Plan moved.", target)
     }
   }
 
+  // Prefer controller state: browser DLP layers (e.g. Island) re-dispatch
+  // drops with custom MIME types stripped. dataTransfer covers cross-tab drags.
   #accepts(event) {
     const types = event.dataTransfer.types
-    return types.includes(PLAN_MIME) || types.includes(FOLDER_MIME)
+    return !!this.dragPayload || types.includes(PLAN_MIME) || types.includes(FOLDER_MIME)
+  }
+
+  #payloadFromTransfer(event) {
+    const type = event.dataTransfer.types.includes(FOLDER_MIME) ? FOLDER_MIME : PLAN_MIME
+    try { return { type, ...JSON.parse(event.dataTransfer.getData(type)) } } catch { return {} }
   }
 
   #patch(url, body, fallbackMessage, target) {

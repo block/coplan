@@ -521,6 +521,25 @@ RSpec.describe "Folders workspace", type: :system do
       expect(infra.reload.parent).to eq(team)
     end
 
+    it "nests a folder even when the drop arrives with its custom drag types stripped" do
+      visit library_page_path(author)
+
+      # Browser DLP layers re-dispatch the drop carrying only plain text.
+      page.execute_script(<<~JS, find(".folder-row", text: "Infra"), find(".folder-row", text: "Team EBT"))
+        const [source, target] = arguments
+        const fire = (el, type, dataTransfer) =>
+          el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer }))
+        fire(source, "dragstart", new DataTransfer())
+        const stripped = new DataTransfer()
+        stripped.setData("text/plain", "Infra")
+        fire(target, "drop", stripped)
+        fire(source, "dragend", new DataTransfer())
+      JS
+
+      expect(page).to have_css(".flash--notice", text: "Moved “Infra” to Team EBT", wait: 5)
+      expect(infra.reload.parent).to eq(team)
+    end
+
     it "files their own plan via Move to folder… in the plan menu" do
       deepest = CoPlan::Folder.find_or_create_by_path!("Features/Feature/Android/Rollout/Retro", library: author.library)
       visit plan_page_path(developing_plan)
