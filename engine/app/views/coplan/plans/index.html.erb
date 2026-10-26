@@ -210,6 +210,12 @@
             <p>Nothing in <strong><%= @folder.name %></strong> yet.</p>
             <% if @can_write %>
               <p class="text-muted text-sm">Drag a plan here from another folder, or file one from its plan page.</p>
+              <%# Archived and hidden plans still count: ensure_empty would refuse. %>
+              <% if @folder.placements.none? %>
+                <%= button_to "Delete folder", folder_path(@folder), method: :delete,
+                      class: "btn btn--secondary btn--sm",
+                      form: { data: { turbo_confirm: "Delete the folder “#{@folder.name}”?" } } %>
+              <% end %>
             <% end %>
           <% elsif @can_write %>
             <p>You haven't created any plans yet. Use + to add one.</p>
