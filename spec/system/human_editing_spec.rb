@@ -1138,7 +1138,7 @@ RSpec.describe "Human plan editing", type: :system do
       window.signedOut = false
       const form = document.querySelector('form.document-editor')
       const controller = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor')
-      // A poll can accept a snapshot while the visible control still says
+      // A refresh can accept a snapshot while the visible control still says
       // Retry sync, before its scheduled save has started.
       controller.whenIdle().then(() => controller.refresh()).then(() => {
         form.querySelector('.document-editor__close-inline').click()

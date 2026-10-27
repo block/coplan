@@ -66,7 +66,6 @@ export default class extends Controller {
       if (!this.isNew) {
         await this.refresh()
         if (!this.active) return
-        this.poll = setInterval(() => { if (!document.hidden) this.refresh() }, 2500)
         if (this.dirty()) this.scheduleSave()
       }
       if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-ready", { bubbles: true, detail: { controller: this } }))
@@ -81,7 +80,6 @@ export default class extends Controller {
     this.subscriptionObserver?.disconnect()
     this.commentsObserver?.disconnect()
     this.toolResizeObserver?.disconnect()
-    clearInterval(this.poll)
     clearTimeout(this.saveTimer)
     clearTimeout(this.refreshTimer)
     clearTimeout(this.compositionTimer)
@@ -225,7 +223,6 @@ export default class extends Controller {
         if (this.active) {
           if (!result.inline_after_create) window.history.replaceState(window.history.state, "", result.edit_url)
           this.subscriptionTarget.innerHTML = result.subscription_html
-          this.poll = setInterval(() => { if (!document.hidden) this.refresh() }, 2500)
         }
       }
       // The server may have rebased the sent snapshot. Apply only its delta
