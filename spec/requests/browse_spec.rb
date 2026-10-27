@@ -309,6 +309,21 @@ RSpec.describe "Browsable library URLs", type: :request do
       expect(response.headers["Location"]).to end_with("/hampton/basket-roadmap")
     end
 
+    it "preserves a discussion target when its document is renamed and moved" do
+      plan = create(:plan, :published, created_by_user: author, title: "Cart Roadmap")
+      thread = create(:comment_thread, plan: plan)
+      old_path = plan_page_path(plan, thread: thread.id)
+      folder = create(:folder, name: "LiveOrder", created_by_user: author)
+      plan.update!(title: "Basket Roadmap")
+      place(plan, folder)
+
+      get old_path
+
+      expect(response).to redirect_to(plan_page_path(plan, thread: thread.id))
+      follow_redirect!
+      expect(response).to have_http_status(:ok)
+    end
+
     it "keeps shared private links working through retitles, filing, and unfiling" do
       plan = create(:plan, :draft, created_by_user: author, title: "Cart Roadmap")
       folder = create(:folder, name: "LiveOrder", created_by_user: author)
