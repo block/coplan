@@ -18,10 +18,12 @@ RSpec.describe "Missing pages", type: :request do
     expect(response.parsed_body.at_css('.site-nav__brand')["href"]).to eq("/coplan/")
   end
 
-  it "does not send a game to non-HTML clients" do
-    get "/_/not-found", headers: { "Accept" => "application/json" }
-    expect(response).to have_http_status(:not_found)
-    expect(response.body).to be_empty
+  [ "application/json", "text/vnd.turbo-stream.html" ].each do |format|
+    it "does not send a game to #{format} clients" do
+      get "/_/not-found", headers: { "Accept" => format }
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to be_empty
+    end
   end
 
   context "when signed in" do
@@ -49,6 +51,12 @@ RSpec.describe "Missing pages", type: :request do
       expect(response.body).to include("Make a way back.")
     end
 
+    it "keeps missing record Turbo Stream responses empty" do
+      get "/plans/does-not-exist", headers: { "Accept" => "text/vnd.turbo-stream.html" }
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to be_empty
+    end
+
     it "keeps missing Markdown responses empty" do
       get "/nobody-here/missing-document.md"
       expect(response).to have_http_status(:not_found)
@@ -66,6 +74,10 @@ RSpec.describe "Missing pages", type: :request do
     get "/_/not-a-route", headers: { "Accept" => "application/json" }
     expect(response).to have_http_status(:not_found)
     expect(response.parsed_body).to include("status" => 404, "error" => "Not Found")
+
+    get "/_/not-a-route", headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    expect(response).to have_http_status(:not_found)
+    expect(response.body).not_to include("lost-page", "Make a way back.")
   ensure
     Rails.application.env_config["action_dispatch.show_detailed_exceptions"] = previous
   end

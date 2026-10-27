@@ -57,6 +57,10 @@ RSpec.describe "Missing-page puzzle", type: :system do
     screenshot = page.driver.browser.execute_cdp("Page.captureScreenshot", captureBeyondViewport: true,
       clip: { x: 0, y: 0, width: 390, height: page.evaluate_script("document.documentElement.scrollHeight"), scale: 1 })
     File.binwrite(Rails.root.join("tmp/screenshots/404-final-mobile-dark.png"), Base64.decode64(screenshot.fetch("data")))
+  ensure
+    # Capybara reuses Chrome; viewport/media emulation survives session resets.
+    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+    page.driver.browser.execute_cdp("Emulation.setEmulatedMedia", features: [])
   end
 
   it "connects a path, announces success, and resets without navigating" do

@@ -7,7 +7,7 @@ module CoPlan
     before_action :resolve_optional_coplan_user
 
     def not_found
-      if request.format.html?
+      if request.format == Mime[:html]
         render "coplan/errors/not_found", layout: "coplan/application", status: :not_found
       else
         head :not_found
@@ -17,7 +17,7 @@ module CoPlan
     private
 
     def resolve_optional_coplan_user
-      @current_coplan_user = CoPlan::Authentication.user_from_request(request) if request.format.html?
+      @current_coplan_user = CoPlan::Authentication.user_from_request(request) if request.format == Mime[:html]
     end
   end
 end

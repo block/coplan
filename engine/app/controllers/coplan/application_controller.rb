@@ -45,7 +45,8 @@ module CoPlan
     private
 
     def render_not_found
-      if request.format.html? && action_name != "markdown"
+      # Mime#html? also matches Turbo Streams, which need an empty error response.
+      if request.format == Mime[:html] && action_name != "markdown"
         render "coplan/errors/not_found", layout: "coplan/application", status: :not_found
       else
         head :not_found

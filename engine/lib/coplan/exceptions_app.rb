@@ -8,7 +8,7 @@ module CoPlan
 
     def call(env)
       request = ActionDispatch::Request.new(env)
-      if request.path_info == "/404" && request.format.html?
+      if request.path_info == "/404" && request.format == Mime[:html]
         ErrorsController.action(:not_found).call(env)
       else
         @fallback.call(env)
