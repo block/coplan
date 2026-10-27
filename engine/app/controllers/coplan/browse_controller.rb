@@ -46,7 +46,7 @@ module CoPlan
         params.delete(:page)
         result = resolve(slug_path: whole_path)
       end
-      return head :not_found unless result.found?
+      return render_not_found unless result.found?
 
       # A stale-but-recognizable path: 301 so the address bar, and
       # everything copied out of it, converges on the current URL. The

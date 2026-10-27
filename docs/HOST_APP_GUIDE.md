@@ -53,6 +53,24 @@ You can also mount at the root if CoPlan is the primary purpose of your app. Whe
 mount CoPlan::Engine, at: "/", as: "coplan"
 ```
 
+Missing CoPlan documents render a simple 404 page with navigation in the regular header.
+The puzzle-piece icon below the glass panel opens an optional path puzzle. Preview it at `/_/not-found` (include
+your mount prefix). Navigation works without JavaScript.
+
+To use this page for unmatched HTML routes across the host too, add this to
+the host's `config/application.rb`:
+
+```ruby
+config.exceptions_app = CoPlan::ExceptionsApp.new(Rails.root.join("public"))
+```
+
+This page uses the regular application layout, including the signed-in viewer's
+navigation and theme. Visitors without a session can still use it. Other error statuses and
+non-HTML errors retain Rails' public error handling. Development still shows
+Rails' detailed routing exceptions; use the preview URL to try the design.
+Keep a static `public/404.html` as a fallback for web servers serving errors
+without Rails. The example host includes one.
+
 ### 3. Install migrations
 
 ```bash

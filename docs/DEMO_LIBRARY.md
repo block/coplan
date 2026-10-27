@@ -102,6 +102,14 @@ Approval states are real `PlanCollaborator` approvers with or without
 notification state. The untouched and approved documents have no pending
 discussions.
 
+## Missing pages
+
+The **missing-page** scenario links to `/_/not-found` from the demo index.
+Choose the puzzle-piece icon below the glass panel to open the game. The page returns HTTP 404
+and keeps navigation in the regular header, with a
+keyboard- and touch-accessible path puzzle. Rotate tiles to connect IN to OUT;
+Start over restores the initial board. It needs no seeded records of its own.
+
 ## Agent access
 
 The named `agent-access` scenario is linked from the demo index to Settings.

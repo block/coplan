@@ -56,6 +56,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(CoPlan::User.find_by!(email: "hampton@example.com").external_id).to eq("seed:hampton")
       expect(CoPlan::User.find_by!(email: "alex@example.com")).to be_admin
       catalog = seeded_plan("demo-library")
+      expect(catalog.current_content).to include("missing-page", "(/_/not-found)")
       described_class::DOCUMENTS.each do |definition|
         plan = seeded_plan(definition.fetch(:key))
         expect(catalog.current_content).to include("(/#{plan.url_path})")
@@ -65,6 +66,8 @@ RSpec.describe CoPlan::DevelopmentSeed do
           slug_path: decoded_path.split("/").drop(1).join("/")).plan).to eq(plan)
       end
       expect(seeded_plan("collab-showcase").references.find_by(reference_type: "plan").url).to start_with("http://localhost:3100/")
+      described_class.call(base_url: "http://localhost:3100")
+      expect(catalog.reload.current_content).to include("missing-page", "(/_/not-found)")
     end
 
     it "seeds agent access with paginated history and preserves user revocations" do

@@ -1,32 +1,33 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Not Found — CoPlan</title>
+  <meta charset="utf-8">
+  <title>Page not found — CoPlan</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="color-scheme" content="light dark">
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #fafafa;
-      color: #1a1a1a;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      text-align: center;
-    }
-    .error { max-width: 28rem; }
-    h1 { font-size: 4rem; font-weight: 700; margin-bottom: 0.5rem; color: #2563eb; }
-    p { color: #6b7280; margin-bottom: 1.5rem; }
-    a { color: #2563eb; text-decoration: none; font-weight: 500; }
-    a:hover { text-decoration: underline; }
+    /* Static web-server fallback; Rails renders the regular CoPlan layout. */
+    :root { color-scheme: light dark; --bg: #eef0f5; --surface: #fff; --text: #1a1a1a; --muted: #646b78; --blue: #2563eb; --border: #e5e7eb; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0b1020; --surface: #111827; --text: #e5e7eb; --muted: #9ca3af; --blue: #60a5fa; --border: #273244; } }
+    * { box-sizing: border-box; }
+    html { scrollbar-gutter: stable; }
+    body { margin: 0; min-height: 100svh; background: var(--bg); color: var(--text); font: 16px/1.6 Lexend, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    header { height: 56px; padding: 0 24px; display: flex; align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); }
+    header a { font-size: 18px; font-weight: 700; color: var(--text); text-decoration: none; }
+    main { max-width: 448px; margin: clamp(32px, 12vh, 112px) auto; padding: 32px 24px; text-align: center; }
+    h1 { font-size: 24px; font-weight: 600; margin: 8px 0; }
+    .number { color: var(--muted); font-size: 14px; }
+    p { max-width: 430px; font-size: 14px; color: var(--muted); }
+    a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
   </style>
 </head>
 <body>
-  <div class="error">
-    <h1>404</h1>
-    <p>The page you're looking for doesn't exist.</p>
-    <a href="/">Back to dashboard</a>
-  </div>
+  <header><a href="/">CoPlan</a></header>
+  <main>
+    <span class="number">404</span>
+    <h1>Page not found</h1>
+    <p>This page may have moved or been removed.</p>
+  </main>
 </body>
 </html>

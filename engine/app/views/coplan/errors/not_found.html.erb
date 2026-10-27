@@ -1,0 +1,63 @@
+<% content_for :title, "Page not found — CoPlan" %>
+<% content_for :head do %>
+  <meta name="robots" content="noindex">
+<% end %>
+
+<section class="lost-page" aria-labelledby="lost-title">
+  <div class="lost-page__glass">
+    <div class="lost-page__icon" aria-hidden="true">
+      <svg viewBox="0 0 48 48" fill="none" focusable="false">
+        <path d="M28 6H14a4 4 0 0 0-4 4v28a4 4 0 0 0 4 4h20a4 4 0 0 0 4-4V16L28 6Z"/>
+        <path d="M28 6v8a2 2 0 0 0 2 2h8"/>
+        <circle cx="19" cy="25" r="1"/>
+        <circle cx="29" cy="25" r="1"/>
+        <path d="M20 31q4 4 8 0"/>
+      </svg>
+    </div>
+    <p class="lost-page__code">404</p>
+    <h1 id="lost-title">Page not found</h1>
+    <p class="lost-page__description">This page may have moved or been removed.</p>
+  </div>
+  <details class="lost-page__detour">
+    <summary aria-label="Take a puzzle break" title="Take a puzzle break">
+      <svg viewBox="-1 -2 26 26" fill="none" aria-hidden="true" focusable="false">
+        <path d="M9 3H5a2 2 0 0 0-2 2v4h1a3 3 0 1 1 0 6H3v4a2 2 0 0 0 2 2h4v-1a3 3 0 1 1 6 0v1h4a2 2 0 0 0 2-2v-4h-1a3 3 0 1 1 0-6h1V5a2 2 0 0 0-2-2h-4V2a3 3 0 0 0-6 0v1Z"/>
+      </svg>
+    </summary>
+    <section class="lost-game" data-controller="coplan--lost-page" aria-labelledby="game-title">
+      <div class="lost-game__heading">
+        <h2 id="game-title">Make a way back.</h2>
+        <span class="lost-game__moves" data-coplan--lost-page-target="moves">0 turns</span>
+      </div>
+      <p class="lost-game__instructions">Rotate the tiles to connect IN to OUT.</p>
+      <div class="lost-game__map">
+        <span class="lost-game__in" aria-hidden="true">IN<br>→</span>
+        <div class="lost-game__grid" role="group" aria-label="Path puzzle. Connect the left edge of row 1, column 1 to the right edge of row 4, column 4." aria-describedby="game-help">
+          <%# Every tile is a straight or elbow. The intended route is
+              0 → 1 → 5 → 6 → 10 → 9 → 13 → 14 → 15; others are decoys.
+              Masks use up=1, right=2, down=4, left=8. %>
+          <% [5, 6, 3, 10, 9, 12, 3, 5, 10, 12, 6, 9, 3, 6, 5, 5].each_with_index do |mask, index| %>
+            <button type="button" class="lost-game__tile" disabled
+              aria-label="Path tile, row <%= index / 4 + 1 %>, column <%= index % 4 + 1 %>"
+              data-coplan--lost-page-target="tile" data-initial-mask="<%= mask %>"
+              data-action="click->coplan--lost-page#turn keydown->coplan--lost-page#navigate">
+              <svg viewBox="0 0 80 80" fill="none" aria-hidden="true">
+                <% [[1, 'M40 40V0'], [2, 'M40 40H80'], [4, 'M40 40V80'], [8, 'M40 40H0']].each do |bit, path| %>
+                  <% if (mask & bit).positive? %><path d="<%= path %>"/><% end %>
+                <% end %>
+                <circle cx="40" cy="40" r="4"/>
+              </svg>
+            </button>
+          <% end %>
+        </div>
+        <span class="lost-game__out" aria-hidden="true">→<br>OUT</span>
+      </div>
+      <p class="lost-game__status" role="status" data-coplan--lost-page-target="status">Connect IN to OUT. The blue line shows how far you’ve made it.</p>
+      <div class="lost-game__footer">
+        <span id="game-help">Tap to turn · Keyboard: arrows + Enter</span>
+        <button type="button" class="btn btn--secondary btn--sm lost-game__reset" disabled data-coplan--lost-page-target="reset" data-action="coplan--lost-page#reset">Start over <span aria-hidden="true">↺</span></button>
+      </div>
+      <noscript><p class="lost-game__fallback">The puzzle needs JavaScript. Use the CoPlan logo above to head home.</p></noscript>
+    </section>
+  </details>
+</section>

@@ -38,6 +38,7 @@ CoPlan::Engine.routes.draw do
   # Path-only scope: helper names stay unprefixed, so `settings_path`,
   # `publish_plan_path` and the rest read the same at every call site.
   scope "_" do
+    get "not-found", to: "errors#not_found", as: :not_found
     # Setup guidance is an app page, not a person's library. Keep its helper
     # unprefixed while reserving the URL outside the handle namespace.
     get "agent/setup", to: "agent/setup#show", as: :agent_setup
