@@ -22,11 +22,11 @@ module CoPlan
       SUFFIX_ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz".freeze
       SUFFIX_LENGTH = 4
 
-      def self.call(plan:, folder: :unset, previous_path: :unset, record_alias: true)
+      def self.call(plan:, folder: :unset, previous_path: :unset, record_alias: !plan.archived?)
         new(plan:, folder:, previous_path:, record_alias:).call
       end
 
-      def initialize(plan:, folder: :unset, previous_path: :unset, record_alias: true)
+      def initialize(plan:, folder: :unset, previous_path: :unset, record_alias: !plan.archived?)
         @plan = plan
         # Callers mid-move pass the destination folder explicitly, since
         # the placement row may not be written yet.
@@ -191,7 +191,6 @@ module CoPlan
 
       def record_alias
         return unless @record_alias
-        return if @plan.archived?
         return if @previous_path.blank?
 
         current = @plan.url_path

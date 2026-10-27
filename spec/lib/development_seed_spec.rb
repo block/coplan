@@ -90,6 +90,22 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(CoPlan::UrlAlias.rewrite(old_path)).to eq(draft.url_path)
     end
 
+    it "preserves a pre-existing private demo with its original title and edited content" do
+      author = create(:coplan_user, external_id: "seed:hampton", username: "hampton", email: "hampton@example.com")
+      draft = create(:plan, :draft, created_by_user: author,
+        title: described_class::PRIVATE_RETITLED_DOCUMENT_FROM,
+        metadata: { "development_seed_key" => "draft-notes" })
+      CoPlan::Plans::ReplaceContent.call(plan: draft, new_content: "My existing local content",
+        base_revision: draft.current_revision, actor_type: "human", actor_id: author.id)
+
+      2.times { described_class.call }
+
+      expect(draft.reload.title).to eq(described_class::PRIVATE_RETITLED_DOCUMENT_FROM)
+      expect(draft.current_content).to eq("My existing local content")
+      expect(draft).to be_draft
+      expect(CoPlan::UrlAlias.where(path: draft.url_path)).not_to exist
+    end
+
     it "seeds agent access with paginated history and preserves user revocations" do
       described_class.call
       user = CoPlan::User.find_by!(email: "hampton@example.com")

@@ -277,7 +277,6 @@ module CoPlan
         plans = seed_documents(users, plan_types)
         seed_bundled_images(plans)
         seed_retitled_document(plans)
-        seed_retitled_private_document(plans)
         seed_folder_descriptions(users)
         seed_collaboration_showcase(users, plans, base_url: base_url)
         seed_agent_organization_run(users, plans)
@@ -362,6 +361,7 @@ module CoPlan
       DOCUMENTS.index_with do |definition|
         author = users.fetch(definition.fetch(:author))
         plan = find_seed_document(definition.fetch(:key), author)
+        created = plan.nil?
 
         unless plan
           content = document_content(definition)
@@ -399,6 +399,7 @@ module CoPlan
         # because that's the point (root-level documents) or because
         # something later files it (the agent organize run).
         place(plan, definition[:folder], author) if definition[:folder]
+        seed_retitled_private_document(plan) if created && definition[:key] == "draft-notes"
         plan
       end.transform_keys { |definition| definition.fetch(:key) }
     end
@@ -437,8 +438,7 @@ module CoPlan
       document.update!(title: RETITLED_DOCUMENT_TO)
     end
 
-    def seed_retitled_private_document(plans)
-      document = plans.fetch("draft-notes")
+    def seed_retitled_private_document(document)
       return unless document.title == PRIVATE_RETITLED_DOCUMENT_FROM && document.draft? && !document.archived?
 
       document.update!(title: PRIVATE_RETITLED_DOCUMENT_TO)

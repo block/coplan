@@ -154,7 +154,9 @@ module CoPlan
             if params.key?(:folder_id) || params.key?(:folder_path)
               folder = resolve_folder_params
               return if performed? # resolve_folder_params rendered an error
-              result = Plans::Place.call(plan: @plan, folder: folder, actor: current_user, actor_type: api_author_type, agent_name: api_agent_name, api_token_id: api_token_id)
+              result = Plans::Place.call(plan: @plan, folder: folder, actor: current_user,
+                actor_type: api_author_type, agent_name: api_agent_name, api_token_id: api_token_id,
+                record_alias: permitted.fetch(:archived_at, @plan.archived_at).nil?)
               unless result.success?
                 render json: { error: result.error }, status: :unprocessable_content
                 raise ActiveRecord::Rollback

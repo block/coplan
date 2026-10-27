@@ -18,12 +18,12 @@ module CoPlan
       # `run_id` / `event_metadata` flow into the library-side audit event
       # so bulk organize runs stay grouped and attributable (token label).
       def self.call(plan:, folder:, actor:, library: nil, actor_type: nil,
-        agent_name: nil, api_token_id: nil, run_id: nil, event_metadata: {})
-        new(plan:, folder:, actor:, library:, actor_type:, agent_name:, api_token_id:, run_id:, event_metadata:).call
+        agent_name: nil, api_token_id: nil, run_id: nil, event_metadata: {}, record_alias: !plan.archived?)
+        new(plan:, folder:, actor:, library:, actor_type:, agent_name:, api_token_id:, run_id:, event_metadata:, record_alias:).call
       end
 
       def initialize(plan:, folder:, actor:, library: nil, actor_type: nil,
-        agent_name: nil, api_token_id: nil, run_id: nil, event_metadata: {})
+        agent_name: nil, api_token_id: nil, run_id: nil, event_metadata: {}, record_alias: !plan.archived?)
         @plan = plan
         @folder = folder
         @actor = actor
@@ -36,6 +36,9 @@ module CoPlan
         @api_token_id = api_token_id
         @run_id = run_id
         @event_metadata = event_metadata || {}
+        # Compound API updates decide using their final archival state,
+        # before archived_at itself has been persisted.
+        @record_alias = record_alias
       end
 
       def call
@@ -130,7 +133,7 @@ module CoPlan
       # anywhere else — so a move re-derives it and leaves an alias at the
       # old URL.
       def reslug(old_url_path, folder)
-        AssignSlug.call(plan: @plan, folder: folder, previous_path: old_url_path)
+        AssignSlug.call(plan: @plan, folder: folder, previous_path: old_url_path, record_alias: @record_alias)
         @plan.save! if @plan.changed?
       end
 
