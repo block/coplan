@@ -685,6 +685,62 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css("#comment_thread_#{table_thread.id}_popover:popover-open", text: "Check state")
   end
 
+  describe "selection comment action" do
+    before do
+      within("#plan-toolbar") { click_link "Edit" }
+      expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+      page.execute_script(<<~JS)
+        const editor = document.querySelector('.inline-editor .ProseMirror')
+        editor.focus()
+        const paragraph = Array.from(editor.querySelectorAll('p'))
+          .find(p => p.textContent === 'Second paragraph.')
+        const range = document.createRange()
+        range.selectNodeContents(paragraph)
+        const selection = window.getSelection()
+        selection.removeAllRanges()
+        selection.addRange(range)
+        paragraph.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+      JS
+      expect(page).to have_css(".comment-popover", visible: true)
+    end
+
+    { "Backspace" => :backspace, "Delete" => :delete, "replacement typing" => "Replacement paragraph." }.each do |action, keys|
+      it "clears when #{action} changes the selected text" do
+        page.driver.browser.action.send_keys(keys).perform
+
+        expect(page).to have_no_css(".inline-editor .ProseMirror", text: "Second paragraph.")
+        expect(page).to have_no_css(".comment-popover", visible: true)
+        if keys.is_a?(String)
+          expect(page).to have_css(".inline-editor .ProseMirror", text: keys)
+        end
+      end
+    end
+
+    it "clears when the selected text is cut" do
+      modifier = RUBY_PLATFORM.include?("darwin") ? :command : :control
+      page.driver.browser.action.key_down(modifier).send_keys("x").key_up(modifier).perform
+
+      expect(page).to have_no_css(".inline-editor .ProseMirror", text: "Second paragraph.")
+      expect(page).to have_no_css(".comment-popover", visible: true)
+    end
+
+    it "clears when an arrow key collapses the selection without editing" do
+      page.driver.browser.action.send_keys(:arrow_right).perform
+
+      expect(page).to have_css(".inline-editor .ProseMirror", text: "Second paragraph.")
+      expect(page).to have_no_css(".comment-popover", visible: true)
+    end
+
+    it "clears when formatting changes the document while retaining the selection" do
+      modifier = RUBY_PLATFORM.include?("darwin") ? :command : :control
+      page.driver.browser.action.key_down(modifier).send_keys("b").key_up(modifier).perform
+
+      expect(page).to have_css(".inline-editor .ProseMirror strong", text: "Second paragraph.")
+      expect(page.evaluate_script("window.getSelection().isCollapsed")).to be(false)
+      expect(page).to have_no_css(".comment-popover", visible: true)
+    end
+  end
+
   it "anchors a new comment to selected text while editing" do
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)

@@ -55,6 +55,7 @@ export default class extends Controller {
   }
 
   disconnect() {
+    clearTimeout(this._selectionTimer)
     this.contentTarget.removeEventListener("mouseup", this._boundHandleMouseUp)
     document.removeEventListener("mousedown", this._boundHandleDocumentMouseDown)
     document.removeEventListener("turbo:before-cache", this._boundBeforeCache)
@@ -68,17 +69,37 @@ export default class extends Controller {
 
   handleMouseUp(event) {
     // Small delay to let the selection finalize
-    setTimeout(() => this.checkSelection(event), 10)
+    clearTimeout(this._selectionTimer)
+    this._selectionTimer = setTimeout(() => this.checkSelection(event), 10)
   }
 
   handleEditorMouseUp(event) {
+    clearTimeout(this._selectionTimer)
     const editor = event.currentTarget.querySelector(".ProseMirror")
     if (!editor) return
     // The selection is usually complete at mouseup. Read it now so an
     // editor redraw cannot clear it during the delayed fallback.
     const selection = window.getSelection()
     if (selection?.rangeCount && !selection.isCollapsed && editor.contains(selection.getRangeAt(0).startContainer)) this.checkSelection(event, editor)
-    else setTimeout(() => this.checkSelection(event, editor), 10)
+    else this._selectionTimer = setTimeout(() => this.checkSelection(event, editor), 10)
+  }
+
+  selectionChanged() {
+    if (!this.hasPopoverTarget || this.popoverTarget.style.display !== "block") return
+    const selection = window.getSelection()
+    const root = this.selectionInEditor ? this.element.querySelector(".inline-editor .ProseMirror") : this.contentTarget
+    if (!selection?.rangeCount || selection.isCollapsed || !root?.contains(selection.getRangeAt(0).startContainer)) this.clearSelection()
+  }
+
+  clearSelection() {
+    // Editing can leave a selection in place (formatting, for example), but
+    // its old quote and position are no longer a valid comment action.
+    clearTimeout(this._selectionTimer)
+    if (this.hasPopoverTarget) this.popoverTarget.style.display = "none"
+    this.selectedText = null
+    this.selectedContext = null
+    this.selectedOccurrence = null
+    this.selectionInEditor = false
   }
 
   dismiss(event) {
@@ -93,26 +114,28 @@ export default class extends Controller {
     // Close the selection popover if it's visible
     if (this.hasPopoverTarget && this.popoverTarget.style.display === "block") {
       event.preventDefault()
-      this.popoverTarget.style.display = "none"
+      this.clearSelection()
     }
   }
 
   handleDocumentMouseDown(event) {
     // Hide popover if clicking outside it
     if (this.hasPopoverTarget && !this.popoverTarget.contains(event.target)) {
-      this.popoverTarget.style.display = "none"
+      this.clearSelection()
     }
   }
 
   checkSelection(event, root = this.contentTarget) {
     const selection = window.getSelection()
 
-    if (!selection.rangeCount) return
+    if (!selection.rangeCount || selection.isCollapsed) {
+      this.clearSelection()
+      return
+    }
     const range = selection.getRangeAt(0)
     const inNote = node => (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement)?.closest("[data-coplan-template-note]")
     if (inNote(range.startContainer) || inNote(range.endContainer)) {
-      this.selectedText = null
-      this.popoverTarget.style.display = "none"
+      this.clearSelection()
       return
     }
 
@@ -122,6 +145,7 @@ export default class extends Controller {
     const startInContent = root.contains(range.startContainer)
     const endInContent = root.contains(range.endContainer)
     if (!startInContent) {
+      this.clearSelection()
       return
     }
 
@@ -146,7 +170,7 @@ export default class extends Controller {
     const text = this._normalizeWhitespace(fragment.textContent).trim()
 
     if (text.length < 1) {
-      this.popoverTarget.style.display = "none"
+      this.clearSelection()
       return
     }
 
@@ -208,7 +232,7 @@ export default class extends Controller {
     if (this.selectionInEditor) {
       const form = this.element.querySelector(".inline-editor form.document-editor")
       const editor = form && window.Stimulus?.getControllerForElementAndIdentifier(form, "coplan--editor")
-      if (!editor || !await editor.flush(true)) return
+      if (!editor || !await editor.flush(true) || !this.selectedText) return
     }
 
     // Set the anchor text, surrounding context, and occurrence index
