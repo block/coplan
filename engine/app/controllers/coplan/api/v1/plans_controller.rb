@@ -151,26 +151,19 @@ module CoPlan
           # invalid attribute must not leave behind orphaned folders or a
           # placement for an update that never happened.
           ActiveRecord::Base.transaction do
-            moving = params.key?(:folder_id) || params.key?(:folder_path)
-            if moving
+            if params.key?(:folder_id) || params.key?(:folder_path)
               folder = resolve_folder_params
               return if performed? # resolve_folder_params rendered an error
-              # Match Place's namespace-before-plan lock order, then
-              # refresh archived_at before deciding whether to redirect.
-              (folder&.library || @plan.library).lock_namespace!
-            end
-            @plan.lock!
-
-            if moving
               result = Plans::Place.call(plan: @plan, folder: folder, actor: current_user,
                 actor_type: api_author_type, agent_name: api_agent_name, api_token_id: api_token_id,
-                record_alias: permitted.fetch(:archived_at, @plan.archived_at).nil?)
+                record_alias: permitted.key?(:archived_at) ? permitted[:archived_at].nil? : nil)
               unless result.success?
                 render json: { error: result.error }, status: :unprocessable_content
                 raise ActiveRecord::Rollback
               end
             end
 
+            @plan.lock!
             if params.key?(:title) || params.key?(:tags) || params.key?(:plan_type)
               EditLease.enforce!(plan: @plan, lease_token: params[:lease_token])
             end

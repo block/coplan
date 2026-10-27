@@ -38,6 +38,22 @@ RSpec.describe CoPlan::Plans::Place do
     expect(place(plan: draft, folder: folder, actor: author)).to be_success
   end
 
+  [ true, false ].each do |archived|
+    it "uses locked archival state for a stale plan that is now #{archived ? 'archived' : 'active'}" do
+      draft = create(:plan, :draft, created_by_user: author,
+        archived_at: archived ? nil : Time.current)
+      old_path = draft.url_path
+      CoPlan::Plan.where(id: draft.id).update_all(archived_at: archived ? Time.current : nil)
+
+      result = place(plan: draft, folder: folder, actor: author)
+
+      expect(result).to be_success
+      expect(draft.reload.archived?).to eq(archived)
+      expect(draft.folder).to eq(folder)
+      expect(CoPlan::UrlAlias.rewrite(old_path)).to eq(archived ? nil : draft.url_path)
+    end
+  end
+
   it "refuses to write into someone else's library" do
     plan = create(:plan, :considering, created_by_user: other)
     result = described_class.call(plan: plan, folder: folder, actor: other, library: author.library)
