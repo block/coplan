@@ -91,7 +91,7 @@ look up this key rather than copying generated UUIDs.
 | experiment-results | Wide research table with cohort comparisons |
 | code-walkthrough | Dense code, inline discussion, and related-reading target |
 | long-mobile-toc | More than 30 meaningful sections for navigation checks |
-| draft-notes | Unlisted author draft |
+| draft-notes | Unlisted author draft; its original title URL redirects after a retitle |
 | archived-proposal | Archived document available through a direct link |
 | spanish-brief / japanese-roadmap / arabic-research | Multilingual and right-to-left content |
 | liveorder-* / pricing-rules | Folder rename, document retitle, aliases, slug collision |

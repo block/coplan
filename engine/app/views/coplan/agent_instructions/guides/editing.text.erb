@@ -126,7 +126,7 @@ You can take the lock yourself to keep a long series of edits together. Most edi
 
 | Field | Value |
 |---|---|
-| `title` | A string. The plan's URL follows the new title, and the old URL still works. |
+| `title` | A string. The plan's URL follows the new title. For active plans, including private plans, the old URL redirects to the new one. Retitling an archived plan does not create a redirect. |
 | `plan_type` | A type name. CoPlan adds the new type's default tags. Restructure the content to match the new template. |
 | `tags` | An array. It replaces the full tag list. |
 | `folder_path` or `folder_id` | Moves the plan in its library. |

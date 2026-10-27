@@ -18,12 +18,12 @@ module CoPlan
       # `run_id` / `event_metadata` flow into the library-side audit event
       # so bulk organize runs stay grouped and attributable (token label).
       def self.call(plan:, folder:, actor:, library: nil, actor_type: nil,
-        agent_name: nil, api_token_id: nil, run_id: nil, event_metadata: {})
-        new(plan:, folder:, actor:, library:, actor_type:, agent_name:, api_token_id:, run_id:, event_metadata:).call
+        agent_name: nil, api_token_id: nil, run_id: nil, event_metadata: {}, record_alias: nil)
+        new(plan:, folder:, actor:, library:, actor_type:, agent_name:, api_token_id:, run_id:, event_metadata:, record_alias:).call
       end
 
       def initialize(plan:, folder:, actor:, library: nil, actor_type: nil,
-        agent_name: nil, api_token_id: nil, run_id: nil, event_metadata: {})
+        agent_name: nil, api_token_id: nil, run_id: nil, event_metadata: {}, record_alias: nil)
         @plan = plan
         @folder = folder
         @actor = actor
@@ -36,6 +36,9 @@ module CoPlan
         @api_token_id = api_token_id
         @run_id = run_id
         @event_metadata = event_metadata || {}
+        # nil defers the default until the plan has been locked and
+        # refreshed. Compound API updates pass their final archival state.
+        @record_alias = record_alias
       end
 
       def call
@@ -79,6 +82,7 @@ module CoPlan
       # being chosen — see Library#lock_namespace!.
       def move!
         @library.lock_namespace!
+        @plan.lock!
 
         placement = @plan.placement
         old_path = placement&.folder&.path
@@ -130,8 +134,8 @@ module CoPlan
       # anywhere else — so a move re-derives it and leaves an alias at the
       # old URL.
       def reslug(old_url_path, folder)
-        AssignSlug.call(plan: @plan, folder: folder, previous_path: old_url_path,
-          record_alias: @plan.published?)
+        record_alias = @record_alias.nil? ? !@plan.archived? : @record_alias
+        AssignSlug.call(plan: @plan, folder: folder, previous_path: old_url_path, record_alias: record_alias)
         @plan.save! if @plan.changed?
       end
 

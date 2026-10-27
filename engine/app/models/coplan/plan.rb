@@ -63,8 +63,8 @@ module CoPlan
 
     # The URL segment follows the title, so a shared link reads like the
     # document it points at, and the old URL keeps resolving via UrlAlias.
-    # Drafts are exempt from the alias: they get retitled freely while
-    # being written and have no links in the wild worth preserving.
+    # Private documents can be shared by URL too; only archived documents
+    # skip recording new aliases.
     before_save :assign_url_slug, if: :url_slug_stale?
 
     validates :title, presence: true
@@ -330,10 +330,8 @@ module CoPlan
       slug.blank? || will_save_change_to_title?
     end
 
-    # Drafts don't leave an alias behind: they're retitled repeatedly
-    # while being written, and nobody holds those links yet.
     def assign_url_slug
-      Plans::AssignSlug.call(plan: self, record_alias: published?)
+      Plans::AssignSlug.call(plan: self)
     end
 
     # Backstop validation for attachment size/type. The primary check lives in
