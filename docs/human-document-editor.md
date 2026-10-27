@@ -221,9 +221,9 @@ snapshot after an 80ms debounce. The editor also observes the existing
 and header events can precede transaction commit. A queued broadcast during a
 save, fetch or composition is reconciled afterward. Delivery reflects committed
 revisions, with websocket, debounce and snapshot-request latency; it does not
-stream an agent's unsaved keystrokes. A 2.5-second visible-tab poll handles missed
-broadcasts and reconnects. In-place creation returns the same server-rendered,
-signed Turbo subscription as opening an existing editor and installs it as soon
+stream an agent's unsaved keystrokes. There is no periodic snapshot poll. Window
+focus refreshes the snapshot; going online retries interrupted syncing.
+In-place creation returns the same server-rendered, signed Turbo subscription as opening an existing editor and installs it as soon
 as creation succeeds. Turbo manages connection and removal of that element;
 mode changes retain one subscription. A connection/reconnection triggers a
 snapshot refresh to catch revisions committed before subscription confirmation
@@ -314,10 +314,11 @@ window deletion with undo/redo and Dual synchronization.
 The code selection and highlighting specs use real browser keyboard input and
 native selection, with replacement, undo, themes, language aliases and large-block
 fallbacks. The caret spec checks vertical movement after Enter with syntax
-highlighting enabled. The live-delivery specs disable polling, commit through
-the real backend service and observe ActionCable/Turbo updates. They cover
+highlighting enabled. The live-delivery specs assert no idle snapshot requests,
+commit through the real backend service and observe ActionCable/Turbo updates. They cover
 clean/dirty/conflicting drafts, queued snapshots, in-flight saves, immediate
-subscriptions after in-place creation, reconnect catch-up and cleanup on Close editor.
+subscriptions after in-place creation, focus and reconnect catch-up, and cleanup
+on Close editor.
 
 Composition regressions simulate browser composition events. A physical
 non-Latin input-method session is not covered by this automation. Tests run

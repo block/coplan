@@ -1,6 +1,32 @@
 require "rails_helper"
 
+RSpec.shared_context "editor snapshot observation" do
+  def expect_no_snapshot_polling
+    Selenium::WebDriver::Wait.new(timeout: 5).until do
+      page.evaluate_script(<<~'JS')
+        (() => {
+          const c = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor");
+          return c.editor && !c.busy && !c.refreshPending;
+        })()
+      JS
+    end
+    requests = Capybara.using_wait_time(8) do
+      page.evaluate_async_script(<<~'JS')
+        const done = arguments[0], original = window.fetch;
+        let requests = 0;
+        window.fetch = (url, options) => {
+          if (String(url).includes("/editor_state")) requests++;
+          return original(url, options);
+        };
+        setTimeout(() => { window.fetch = original; done(requests); }, 5500);
+      JS
+    end
+    expect(requests).to eq(0)
+  end
+end
+
 RSpec.describe "Editor live cable delivery", type: :system do
+  include_context "editor snapshot observation"
   let(:author) { create(:coplan_user, email: "editor-live@example.com") }
   let(:source) { "# Live\n\nAgent section.\n\nHuman section.\n" }
   let(:plan) { CoPlan::Plans::Create.call(title: "Live delivery", content: source, user: author, visibility: "draft", actor_type: "human") }
@@ -14,12 +40,7 @@ RSpec.describe "Editor live cable delivery", type: :system do
     visit plan_edit_page_path(plan)
     expect(page).to have_css('[aria-label="Document body"]', wait: 20)
     expect(page).to have_css('turbo-cable-stream-source[connected]', visible: :all, minimum: 2, wait: 10)
-    Selenium::WebDriver::Wait.new(timeout: 5).until do
-      page.evaluate_script('!!Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").poll')
-    end
     page.execute_script(<<~'JS')
-      const c = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor");
-      clearInterval(c.poll); c.poll = null;
       window.deliveredStreams=[];
       document.addEventListener("turbo:before-stream-render", event => window.deliveredStreams.push(event.target.getAttribute("target")));
     JS
@@ -31,13 +52,24 @@ RSpec.describe "Editor live cable delivery", type: :system do
   end
 
   [ "Editor", "Raw", "Dual" ].each do |mode|
-    it "receives a real broadcast in #{mode} with polling disabled" do
+    it "receives a real broadcast in #{mode} without polling" do
       click_button mode, exact: true
       agent_write(source.sub("Agent section.", "Committed background edit."))
       expect(page).to have_content("Committed background edit.", wait: 5)
       expect(page.evaluate_script('window.deliveredStreams')).to include("plan-content-body", "plan-history-list")
-      expect(page.evaluate_script('Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").poll')).to be_nil
     end
+  end
+
+  it "makes no idle snapshot requests and catches up on window focus" do
+    expect_no_snapshot_polling
+    page.execute_script(<<~'JS')
+      window.editorSource = document.querySelector("form.document-editor turbo-cable-stream-source");
+      window.editorSource.subscription.consumer.disconnect();
+    JS
+    expect(page).to have_no_css('form.document-editor turbo-cable-stream-source[connected]', visible: :all)
+    agent_write(source.sub("Agent section.", "Agent edit before focus."))
+    page.execute_script('window.dispatchEvent(new Event("focus"))')
+    expect(page).to have_content("Agent edit before focus.", wait: 5)
   end
 
   it "merges a dirty disjoint Dual draft and retains it on the next overlapping broadcast" do
@@ -92,6 +124,7 @@ RSpec.describe "Editor live cable delivery", type: :system do
 end
 
 RSpec.describe "New document live delivery", type: :system do
+  include_context "editor snapshot observation"
   let(:author) { create(:coplan_user, email: "new-editor-live@example.com") }
   let(:source) { "# New live document\n\nAgent section.\n\nHuman section.\n" }
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
@@ -111,14 +144,13 @@ RSpec.describe "New document live delivery", type: :system do
     created = CoPlan::Plan.find_by!(title: "Created live")
     expect(page).to have_current_path(plan_page_path(created, edit: "continue"))
     page.execute_script(<<~'JS')
-      const c = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor");
-      clearInterval(c.poll); c.poll = null;
       window.originalFetch = window.fetch;
       window.fetch = (url,options) => options?.method === "PATCH" ? Promise.reject(new Error("Offline")) : window.originalFetch(url,options);
       window.deliveredStreams = [];
       document.addEventListener("turbo:before-stream-render", event => window.deliveredStreams.push(event.target.getAttribute("target")));
     JS
     expect(page).to have_css('form.document-editor turbo-cable-stream-source[connected]', visible: :all, count: 1, wait: 10)
+    expect_no_snapshot_polling
     page.execute_script(<<~'JS')
       window.createdSource = document.querySelector("form.document-editor turbo-cable-stream-source");
       window.createdSubscription = window.createdSource.subscription;
@@ -144,7 +176,6 @@ RSpec.describe "New document live delivery", type: :system do
     expect(raw).to have_text("Agent edit while disconnected.", wait: 5)
     [ "Editor", "Raw", "Dual" ].each { |mode| click_button mode, exact: true }
     expect(page.evaluate_script('window.createdConsumer.subscriptions.subscriptions.filter(s => s.identifier === window.createdSubscription.identifier).length')).to eq(1)
-    expect(page.evaluate_script('Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor").poll')).to be_nil
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(created), wait: 10)
     expect(page.evaluate_script('window.createdSource.isConnected')).to eq(false)

@@ -105,10 +105,6 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css(".inline-editor .editor__conflict[hidden]", visible: :all)
     expect(page).to have_css(".inline-editor .document-editor__save-error", visible: true)
     expect(page).to have_css(".inline-editor .ProseMirror", text: "Unsaved inline edit.")
-    page.execute_script(<<~JS)
-      const form = document.querySelector('.inline-editor form.document-editor')
-      clearInterval(window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').poll)
-    JS
     failed_before_retry = page.evaluate_script("window.failedFetches")
     find(".inline-editor .document-editor__close-inline[data-state='error']").click
     Selenium::WebDriver::Wait.new(timeout: 5).until do
