@@ -464,6 +464,27 @@ RSpec.describe "Api::V1::Plans", type: :request do
         expect(draft.plan_events.where(event_type: "unarchived")).to exist
       end
 
+      [ true, false ].each do |archived|
+        it "refreshes a stale archival snapshot before moving a now-#{archived ? 'archived' : 'active'} private plan" do
+          draft = create(:plan, :draft, created_by_user: alice, title: "Private roadmap",
+            archived_at: archived ? nil : Time.current)
+          old_path = draft.url_path
+          folder = create(:folder, name: "Destination", created_by_user: alice)
+          # The request loaded this instance before another request
+          # changed archival state. The real row lock must refresh it.
+          CoPlan::Plan.where(id: draft.id).update_all(archived_at: archived ? Time.current : nil)
+          allow(CoPlan::Plan).to receive(:find_by).and_call_original
+          allow(CoPlan::Plan).to receive(:find_by).with(id: draft.id).and_return(draft)
+
+          patch api_v1_plan_path(draft), params: { folder_id: folder.id }, headers: headers, as: :json
+
+          expect(response).to have_http_status(:success)
+          expect(draft.reload.archived?).to eq(archived)
+          expect(draft.folder).to eq(folder)
+          expect(CoPlan::UrlAlias.rewrite(old_path)).to eq(archived ? nil : draft.url_path)
+        end
+      end
+
       it "shelves the plan in a folder by folder_id and logs an event" do
         folder = create(:folder, name: "Infra", created_by_user: alice)
         expect {
