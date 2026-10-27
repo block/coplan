@@ -441,6 +441,24 @@ RSpec.describe "Comment UX", type: :system do
       end
     end
 
+    it "opens the specific discussion linked from a Slack notification" do
+      create_anchored_thread(plan: plan, anchor_text: "Database Layer", body: "Unrelated discussion", user: reviewer)
+      thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
+      allow(SlackClient).to receive(:configured?).and_return(true)
+      allow(SlackClient).to receive(:send_dm)
+
+      SlackNotificationJob.perform_now(comment_thread_id: thread.id)
+
+      notification_url = nil
+      expect(SlackClient).to have_received(:send_dm).with(email: author.email, text: anything) do |**message|
+        notification_url = URI.parse(message.fetch(:text).lines.last.strip)
+      end
+      visit notification_url.request_uri
+
+      expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Why not monolith?")
+      expect(page).to have_no_css(".thread-popover:popover-open", text: "Unrelated discussion")
+    end
+
     it "opens a linked comment anchored to a Mermaid label" do
       plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
         ```mermaid

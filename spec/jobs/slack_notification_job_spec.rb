@@ -50,6 +50,15 @@ RSpec.describe SlackNotificationJob, type: :job do
       )
     end
 
+    it "links directly to the triggering thread at the plan's readable address" do
+      described_class.perform_now(comment_thread_id: thread_record.id)
+
+      expect(SlackClient).to have_received(:send_dm).with(
+        email: plan_author.email,
+        text: a_string_ending_with(plan_page_path(plan, thread: thread_record.id))
+      )
+    end
+
     it "skips notification when first comment author is the plan author" do
       first_comment.update_columns(author_id: plan_author.id)
 
@@ -138,7 +147,8 @@ RSpec.describe SlackNotificationJob, type: :job do
 
       expect(SlackClient).to have_received(:send_dm).with(
         email: plan_author.email,
-        text: a_string_including("3 new comments").and(a_string_including("Third."))
+        text: a_string_including("3 new comments", "Third.")
+          .and(a_string_ending_with(plan_page_path(plan, thread: thread_record.id)))
       ).once
     end
 

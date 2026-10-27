@@ -39,6 +39,17 @@ RSpec.describe CoPlan::Slack::UnfurlJob do
     described_class.perform_now("unfurl_id" => "U1", "source" => "composer", "links" => [ { "url" => exact } ])
   end
 
+  it "keeps the discussion target in the preview's clickable title" do
+    thread = create(:comment_thread, plan: plan)
+    exact = "https://coplan.example.test#{plan_page_path(plan, thread: thread.id)}"
+    expect(client).to receive(:chat_unfurl) do |unfurls:, **|
+      expect(unfurls.fetch(exact).dig(:blocks, 0, :text, :text)).to include("<#{exact}|")
+    end
+
+    described_class.perform_now(
+      "channel" => "C1", "message_ts" => "123.4", "links" => [ { "url" => exact } ])
+  end
+
   it "does not call Slack when every link is unsupported" do
     expect(client).not_to receive(:chat_unfurl)
     described_class.perform_now("links" => [ { "url" => "https://elsewhere.test/x" } ])

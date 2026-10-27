@@ -50,10 +50,24 @@ RSpec.describe CoPlan::Slack::NotificationDeliveryJob, type: :job do
     expect(client).to have_received(:users_lookup_by_email).with(email: recipient.email).once
     expect(client).to have_received(:chat_post_message).with(
       channel: "U123",
-      text: a_string_including("2 new comments", "First comment", "Second comment", "https://coplan.example.test/"),
+      text: a_string_including("2 new comments", "First comment", "Second comment")
+        .and(a_string_ending_with("https://coplan.example.test#{plan_page_path(plan, thread: thread.id)}")),
       mrkdwn: true
     ).once
     expect(CoPlan::NotificationDelivery.where(status: "delivered").count).to eq(2)
+  end
+
+  it "links a single comment to its thread under the configured engine mount" do
+    CoPlan::Slack.configuration.base_url = "https://coplan.example.test/coplan/"
+    notification = notify("A comment")
+
+    described_class.new.perform_batch(key: key, batch_start: notification.created_at)
+
+    expect(client).to have_received(:chat_post_message).with(
+      channel: "U123",
+      text: a_string_ending_with("https://coplan.example.test/coplan#{plan_page_path(plan, thread: thread.id)}"),
+      mrkdwn: true
+    )
   end
 
   it "skips comments the recipient has already cleared" do

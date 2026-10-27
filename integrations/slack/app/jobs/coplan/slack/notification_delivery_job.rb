@@ -77,7 +77,7 @@ module CoPlan
         lines << "> _#{anchor.truncate(120)}_" if anchor.present?
         comments.first(3).each { |comment| lines << "> #{comment.body_markdown.to_s.truncate(300)}" }
         lines << "…and #{comments.size - 3} more" if comments.size > 3
-        lines << "#{base_url.chomp('/')}#{CoPlan::Urls::Canonical.plan_path(plan)}"
+        lines << "#{base_url.chomp('/')}#{CoPlan::Urls::Canonical.plan_path(plan, thread: notification.comment_thread_id)}"
         lines.join("\n")
       end
     end
