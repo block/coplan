@@ -67,6 +67,29 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(seeded_plan("collab-showcase").references.find_by(reference_type: "plan").url).to start_with("http://localhost:3100/")
     end
 
+    it "seeds a private document redirect and preserves subsequent edits on re-seed" do
+      described_class.call
+      draft = seeded_plan("draft-notes")
+      old_path = "hampton/personal-notes/untitled-thoughts-on-activation"
+      expect(draft).to be_draft
+      expect(draft.title).to eq(described_class::PRIVATE_RETITLED_DOCUMENT_TO)
+      expect(CoPlan::UrlAlias.rewrite(old_path)).to eq(draft.url_path)
+      expect(draft.current_content).to include("[original link](./untitled-thoughts-on-activation)")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{draft.url_path})")
+
+      draft.update!(title: "My activation notes")
+      CoPlan::Plans::ReplaceContent.call(plan: draft, new_content: "My local revision",
+        base_revision: draft.current_revision, actor_type: "human", actor_id: draft.created_by_user_id)
+      aliases = CoPlan::UrlAlias.count
+      described_class.call
+
+      expect(draft.reload.title).to eq("My activation notes")
+      expect(draft.current_content).to eq("My local revision")
+      expect(draft).to be_draft
+      expect(CoPlan::UrlAlias.count).to eq(aliases)
+      expect(CoPlan::UrlAlias.rewrite(old_path)).to eq(draft.url_path)
+    end
+
     it "seeds agent access with paginated history and preserves user revocations" do
       described_class.call
       user = CoPlan::User.find_by!(email: "hampton@example.com")

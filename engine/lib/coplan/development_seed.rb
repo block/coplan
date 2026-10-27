@@ -42,6 +42,8 @@ module CoPlan
     RENAMED_FOLDER_TO = "LiveOrder".freeze
     RETITLED_DOCUMENT_FROM = "LiveOrder pricing rules v1".freeze
     RETITLED_DOCUMENT_TO = "LiveOrder pricing rules".freeze
+    PRIVATE_RETITLED_DOCUMENT_FROM = "Untitled thoughts on activation".freeze
+    PRIVATE_RETITLED_DOCUMENT_TO = "Thoughts on activation".freeze
 
     # Left unfiled by DOCUMENTS so the agent organize run below has real
     # work to do. See seed_agent_organization_run.
@@ -159,8 +161,9 @@ module CoPlan
         tags: %w[search experimentation data], visibility: "published", folder: "Research/Experiments", fixture: :table
       },
       {
-        key: "draft-notes", author: "hampton", type: "General", title: "Untitled thoughts on activation",
-        tags: %w[product draft], visibility: "draft", folder: "Personal notes"
+        key: "draft-notes", author: "hampton", type: "General", title: PRIVATE_RETITLED_DOCUMENT_FROM,
+        tags: %w[product draft], visibility: "draft", folder: "Personal notes",
+        showcase: "Private document; its original title URL redirects after a retitle"
       },
       {
         key: "archived-proposal", author: "alex", type: "RFC", title: "Retired proposal: weekly XML exports",
@@ -274,6 +277,7 @@ module CoPlan
         plans = seed_documents(users, plan_types)
         seed_bundled_images(plans)
         seed_retitled_document(plans)
+        seed_retitled_private_document(plans)
         seed_folder_descriptions(users)
         seed_collaboration_showcase(users, plans, base_url: base_url)
         seed_agent_organization_run(users, plans)
@@ -431,6 +435,13 @@ module CoPlan
       return unless document.title == RETITLED_DOCUMENT_FROM
 
       document.update!(title: RETITLED_DOCUMENT_TO)
+    end
+
+    def seed_retitled_private_document(plans)
+      document = plans.fetch("draft-notes")
+      return unless document.title == PRIVATE_RETITLED_DOCUMENT_FROM && document.draft? && !document.archived?
+
+      document.update!(title: PRIVATE_RETITLED_DOCUMENT_TO)
     end
 
     # Folder descriptions give agents (and readers) semantics a bare name

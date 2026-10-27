@@ -7,7 +7,7 @@ This guide assumes that you have read the primer at <<%= @base %>/agent-instruct
 ## The model
 
 - A **library** is a tree of folders, up to <%= CoPlan::Folder::MAX_DEPTH %> levels deep. Each person has one.
-- A plan is filed in **one** place. Filing it somewhere else moves it, also across libraries. A move changes the plan's URL, and the old URL still works.
+- A plan is filed in **one** place. Filing it somewhere else moves it, also across libraries. A move changes the plan's URL. For active plans, including private plans, the old URL redirects to the new one. Moving an archived plan does not create a redirect.
 - To move a plan, your principal must have written it or must have write access to the library where it is now. The destination library must also be writable.
 - Each folder has a one-line `description` of what belongs in it.
 - The library's audit log records each change, and whether a person or an agent made it.

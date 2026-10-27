@@ -309,6 +309,47 @@ RSpec.describe "Browsable library URLs", type: :request do
       expect(response.headers["Location"]).to end_with("/hampton/basket-roadmap")
     end
 
+    it "keeps shared private links working through retitles, filing, and unfiling" do
+      plan = create(:plan, :draft, created_by_user: author, title: "Cart Roadmap")
+      folder = create(:folder, name: "LiveOrder", created_by_user: author)
+      old_paths = [ "/#{plan.url_path}" ]
+      plan.update!(title: "Basket Roadmap")
+      old_paths << "/#{plan.url_path}"
+      place(plan, folder)
+
+      old_paths.each do |path|
+        get path
+        expect(response).to redirect_to("/hampton/liveorder/basket-roadmap")
+        expect(response).to have_http_status(:moved_permanently)
+        follow_redirect!
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("Basket Roadmap")
+      end
+
+      get "#{old_paths.first}.md"
+      expect(response).to redirect_to("/hampton/liveorder/basket-roadmap.md")
+      follow_redirect!
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to eq(plan.current_content)
+
+      place(plan, nil)
+      get "/hampton/liveorder/basket-roadmap"
+      expect(response).to redirect_to("/hampton/basket-roadmap")
+      follow_redirect!
+      expect(response).to have_http_status(:ok)
+      expect(plan.reload).to be_draft
+    end
+
+    it "does not redirect the old URL when an archived document is retitled" do
+      plan = create(:plan, :archived, created_by_user: author, title: "Cart Roadmap")
+      plan.update!(title: "Basket Roadmap")
+
+      get "/hampton/cart-roadmap"
+      expect(response).to have_http_status(:not_found)
+      get "/hampton/basket-roadmap"
+      expect(response).to have_http_status(:ok)
+    end
+
     it "301s after a library handle is renamed" do
       plan = create(:plan, :published, created_by_user: author, title: "Cart Roadmap")
       author.library.update!(handle: "hampton-lc")

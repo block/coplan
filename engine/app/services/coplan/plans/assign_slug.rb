@@ -191,6 +191,7 @@ module CoPlan
 
       def record_alias
         return unless @record_alias
+        return if @plan.archived?
         return if @previous_path.blank?
 
         current = @plan.url_path

@@ -159,12 +159,12 @@ RSpec.describe CoPlan::Plans::AssignSlug do
       expect(CoPlan::UrlAlias.rewrite("hampton/cart-roadmap")).to eq("hampton/basket-roadmap")
     end
 
-    it "does not record aliases for drafts nobody has linked yet" do
+    it "records the old URL when a private plan is retitled" do
       plan = create(:plan, :draft, created_by_user: author, title: "Cart Roadmap")
 
       plan.update!(title: "Basket Roadmap")
 
-      expect(CoPlan::UrlAlias.rewrite("hampton/cart-roadmap")).to be_nil
+      expect(CoPlan::UrlAlias.rewrite("hampton/cart-roadmap")).to eq("hampton/basket-roadmap")
     end
 
     it "records the old URL when a published plan moves" do
@@ -175,6 +175,20 @@ RSpec.describe CoPlan::Plans::AssignSlug do
 
       expect(CoPlan::UrlAlias.rewrite("hampton/basket-roadmap"))
         .to eq("hampton/liveorder/basket-roadmap")
+    end
+
+    %w[draft published].each do |visibility|
+      it "does not record new aliases when an archived #{visibility} plan is retitled or moved" do
+        folder = create(:folder, name: "LiveOrder", created_by_user: author)
+        plan = create(:plan, :archived, visibility: visibility, created_by_user: author, title: "Cart Roadmap")
+
+        expect {
+          plan.update!(title: "Basket Roadmap")
+          place(plan, folder)
+        }.not_to change(CoPlan::UrlAlias, :count)
+
+        expect(plan.url_path).to eq("hampton/liveorder/basket-roadmap")
+      end
     end
   end
 end

@@ -130,8 +130,7 @@ module CoPlan
       # anywhere else — so a move re-derives it and leaves an alias at the
       # old URL.
       def reslug(old_url_path, folder)
-        AssignSlug.call(plan: @plan, folder: folder, previous_path: old_url_path,
-          record_alias: @plan.published?)
+        AssignSlug.call(plan: @plan, folder: folder, previous_path: old_url_path)
         @plan.save! if @plan.changed?
       end
 
