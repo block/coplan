@@ -17,6 +17,15 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
       actor_type: kind, actor_id: user.id, input_sources: input_sources)
   end
 
+  def character_sources(content, snapshot)
+    offset = 0
+    snapshot.fetch("runs").flat_map do |length, key|
+      text = content[offset, length]
+      offset += length
+      text.each_char.filter_map { |char| [ char, key ] unless char.match?(/[[:space:]]/) }
+    end
+  end
+
   it "snapshots harness and model identity without exposing a credential" do
     token, = CoPlan::ApiToken.create_with_raw_token(user: user, name: "Codex", agent_name: "Codex",
       metadata: { "harness" => "codex", "model" => "reported-model", "harness_version" => "1.2" })
@@ -76,6 +85,87 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     plan = make_plan(text, input_sources: sources(text))
     expect(plan.current_plan_version.writing_provenance.fetch("runs").sum(&:first)).to eq(text.length)
     expect(plan.writing_provenance_summary.fetch("counts").fetch("human")).to eq(text.delete(" ").length)
+  end
+
+  it "keeps the exact authors and origin revisions when mixed writing is reordered" do
+    human = "# Current Architecture\n\nDevices connect directly to the cloud. 😀\n\n"
+    agent = "# Proposal\n\nUse certificates to connect devices.\n"
+    plan = make_plan(human, input_sources: sources(human))
+    edit(plan, human + agent)
+    original = plan.current_plan_version.writing_provenance.deep_dup
+
+    edit(plan, agent + "\n" + human, kind: "human", input_sources: sources(agent + "\n" + human, "unknown"))
+
+    snapshot = plan.current_plan_version.writing_provenance
+    expect(snapshot.fetch("summary").fetch("counts")).to eq(original.fetch("summary").fetch("counts"))
+    expected = character_sources(human + agent, original)
+    boundary = human.gsub(/[[:space:]]/, "").length
+    expect(character_sources(plan.current_content, snapshot)).to eq(expected[boundary..] + expected[0...boundary])
+    expect(plan.plan_versions.find_by!(revision: 2).writing_provenance).to eq(original)
+  end
+
+  it "restores authorship after autosave records the cut before the paste" do
+    moved = "# Current Architecture\n\nOriginal architecture written by a person.\n\n"
+    kept = "# Proposal\n\nKeep this proposal in place.\n"
+    plan = make_plan(moved + kept, input_sources: sources(moved + kept))
+    original = plan.current_plan_version.writing_provenance.deep_dup
+    edit(plan, kept, kind: "human", input_sources: sources(kept, "unknown"))
+    edit(plan, kept + "\nA newly typed note.\n", kind: "human", input_sources: sources(kept + "\nA newly typed note.\n"))
+    pasted = plan.current_content + "\n" + moved
+    edit(plan, pasted, kind: "human", input_sources: sources(pasted, "unknown"))
+
+    snapshot = plan.current_plan_version.writing_provenance
+    offset = pasted.index(moved)
+    recovered = { "runs" => described_class.slice(snapshot.fetch("runs"), offset, offset + moved.length) }
+    expect(character_sources(moved, recovered)).to eq(character_sources(moved, { "runs" => described_class.slice(original.fetch("runs"), 0, moved.length) }))
+    expect(snapshot.dig("summary", "counts", "unknown")).to eq(0)
+    expect(snapshot.dig("summary", "contributors")).to all(include("kind" => "human", "user_id" => user.id))
+  end
+
+  it "does not turn moved agent writing into human writing" do
+    moved = "Agent-written architecture.\n"
+    plan = make_plan(moved + "Other agent writing.\n", kind: "local_agent")
+    original = plan.current_plan_version.writing_provenance.deep_dup
+    edit(plan, "Other agent writing.\n", kind: "human", input_sources: sources("Other agent writing.\n"))
+    pasted = "Other agent writing.\n" + moved
+    edit(plan, pasted, kind: "human", input_sources: sources(pasted))
+    expect(plan.writing_provenance_summary.fetch("counts")).to eq(original.fetch("summary").fetch("counts"))
+    expect(character_sources(pasted, plan.current_plan_version.writing_provenance)).to eq(character_sources(moved + "Other agent writing.\n", original).rotate(moved.gsub(/[[:space:]]/, "").length))
+  end
+
+  it "keeps external paste unknown while recovering a moved line" do
+    plan = make_plan("Human paragraph.\nOther paragraph.\n", input_sources: sources("Human paragraph.\nOther paragraph.\n"))
+    pasted = "Other paragraph.\nHuman paragraph.\nExternal evidence.\n"
+    edit(plan, pasted, kind: "human", input_sources: sources(pasted, "unknown"))
+    expect(plan.writing_provenance_summary.fetch("counts")).to eq("human" => 30, "ai" => 0, "unknown" => 17)
+  end
+
+  it "does not choose an author for moved duplicate lines with conflicting origins" do
+    text = "Repeated paragraph.\n"
+    plan = make_plan(text, input_sources: sources(text))
+    # Simulate two identical passages with different recorded authors.
+    version = plan.current_plan_version
+    snapshot = version.writing_provenance.deep_dup
+    key = snapshot.fetch("runs").first.last
+    snapshot["sources"]["other"] = snapshot.fetch("sources").fetch(key).merge("kind" => "ai")
+    snapshot["runs"] += [ [ text.length, "other" ] ]
+    snapshot["sha256"] = Digest::SHA256.hexdigest(text * 2)
+    version.update_columns(content_markdown: text * 2, content_sha256: snapshot["sha256"], writing_provenance: snapshot)
+    edit(plan, "Kept text.\n", kind: "human", input_sources: sources("Kept text.\n"))
+    pasted = "Kept text.\n" + text
+    edit(plan, pasted, kind: "human", input_sources: sources(pasted, "unknown"))
+    snapshot = plan.current_plan_version.writing_provenance
+    expect(described_class.slice(snapshot.fetch("runs"), 11, pasted.length).map { |_, source| snapshot.fetch("sources").fetch(source).fetch("kind") }.uniq).to eq([ "unknown" ])
+  end
+
+  it "bounds deleted-line evidence and excludes it from current contribution counts" do
+    stub_const("CoPlan::Plans::WritingProvenanceMoves::MAX_CHARACTERS", 20)
+    original = "Small passage.\n" + "A much larger deleted passage.\n"
+    plan = make_plan(original, input_sources: sources(original))
+    edit(plan, "Replacement.\n")
+    snapshot = plan.current_plan_version.writing_provenance
+    expect(snapshot.fetch("removed_lines").map(&:first)).to eq([ "Small passage." ])
+    expect(snapshot.fetch("summary").fetch("total")).to eq("Replacement.".length)
   end
 
   it "fails toward unknown for malformed evidence and split surrogate pairs" do

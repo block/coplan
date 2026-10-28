@@ -7,7 +7,7 @@ module CoPlan
     # Actor identity is separate from input evidence on subsequent writes.
     class WritingProvenance
       FORMAT = 1
-      HISTORY_POLICY = 2
+      HISTORY_POLICY = 3
       # Bearer-only agent identity landed in #178 on August 17. Before then,
       # host-authenticated API agents were also saved with actor_type "human".
       RELIABLE_HUMAN_ATTRIBUTION_FROM = Time.utc(2026, 8, 18).freeze
@@ -98,11 +98,14 @@ module CoPlan
           [ [ content.length, identity["kind"] == "ai" ? source_key : unknown_key ] ]
         end
         runs = self.class.remap(old, content, prior_runs, insertions, fallback_source: @historical_human ? source_key : UNKNOWN)
-        retained = runs.map(&:last).to_set
+        runs, removed_lines = WritingProvenanceMoves.call(before: old, after: content, prior_runs: prior_runs, runs: runs,
+          removed_lines: valid ? snapshot.fetch("removed_lines", []) : [])
+        retained = (runs + removed_lines.flat_map { |_, line_runs| line_runs || [] }).map(&:last).to_set
         sources.select! { |key, _| retained.include?(key) }
         summary = summarize(content, runs, sources)
         result = { "format" => FORMAT, "sha256" => Digest::SHA256.hexdigest(content), "write_source" => identity,
           "runs" => runs, "sources" => sources, "summary" => summary }
+        result["removed_lines"] = removed_lines if removed_lines.any?
         # A new save cannot certify old attribution that it merely retained.
         result["history_policy"] = HISTORY_POLICY if @previous.nil? || snapshot["history_policy"] == HISTORY_POLICY
         # Preserve the cutover assumption on replay, including bounded large

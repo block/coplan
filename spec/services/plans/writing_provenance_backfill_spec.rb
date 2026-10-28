@@ -13,6 +13,36 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     described_class.call(plan: plan, token: token)
   end
 
+  it "repairs moved writing from an old completed policy across separate cut and paste saves" do
+    original = "# Current Architecture\n\nDevices connect to the cloud.\n\n"
+    kept = "# Proposal\n\nConnect devices directly.\n"
+    moved = CoPlan::Plans::Create.call(title: "Moved writing", content: original + kept, user: user, actor_type: "human",
+      input_sources: { "runs" => [ [ (original + kept).length, "human" ] ] })
+    allow(CoPlan::Plans::WritingProvenanceMoves).to receive(:call) { |**args| [ args.fetch(:runs), [] ] }
+    CoPlan::Plans::ReplaceContent.call(plan: moved, new_content: kept, base_revision: 1, actor_type: "human", actor_id: user.id)
+    pasted = kept + "\n" + original
+    CoPlan::Plans::ReplaceContent.call(plan: moved, new_content: pasted, base_revision: 2, actor_type: "human", actor_id: user.id,
+      input_sources: { "runs" => [ [ pasted.length, "unknown" ] ] })
+    expect(moved.writing_provenance_summary.dig("counts", "unknown")).to be_positive
+    moved.plan_versions.each do |version|
+      version.update_columns(writing_provenance: version.writing_provenance.merge("history_policy" => 2))
+    end
+    moved.update_columns(writing_provenance_backfill: { "legacy_revision" => 0, "revision" => 3, "finalized_revision" => 3, "policy_version" => 2 })
+    allow(CoPlan::Plans::WritingProvenanceMoves).to receive(:call).and_call_original
+    expect(described_class.pending?(moved)).to be(true)
+
+    run_batch(moved)
+
+    summary = moved.reload.writing_provenance_summary
+    expect(summary.dig("shares", "human")).to eq(1.0)
+    expect(summary.dig("counts", "unknown")).to eq(0)
+    expect(moved.current_content).to eq(pasted)
+    expect(moved.plan_versions.count).to eq(3)
+    expect(moved.current_plan_version.writing_provenance.fetch("sources").values).to include(include("kind" => "human", "origin_revision" => 1, "user_id" => user.id))
+    run_batch(moved, described_class.claim(moved, restart: true))
+    expect(moved.reload.writing_provenance_summary).to eq(summary)
+  end
+
   it "repairs completed pre-identity history without changing content or actor records" do
     old = plan.current_plan_version
     old.update_columns(created_at: Time.utc(2026, 7, 9), writing_provenance: old.writing_provenance.except("history_policy"))
@@ -103,7 +133,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
       input_sources: { "runs" => [ [ 10, "unknown" ], [ 6, "unknown" ] ] })
     run_batch(plan)
     expect(plan.reload.writing_provenance_summary.fetch("counts")).to eq("human" => 9, "ai" => 0, "unknown" => 5)
-    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => 2)
+    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => CoPlan::Plans::WritingProvenance::HISTORY_POLICY)
   end
 
   it "keeps retained agent writing when a historical human adds text" do
@@ -177,7 +207,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     expect(run_batch(plan, token)).to be(false)
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor typed", base_revision: 1, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ 16, "human" ] ] })
-    expect(plan.reload.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => 2)
+    expect(plan.reload.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => CoPlan::Plans::WritingProvenance::HISTORY_POLICY)
     expect(described_class.pending?(plan)).to be(false)
   end
 

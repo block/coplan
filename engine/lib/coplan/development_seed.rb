@@ -59,6 +59,9 @@ module CoPlan
       { key: "writing-human", author: "hampton", type: "General", title: "Writing sources: human written",
         tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "human",
         showcase: "Person icon; recorded human input throughout" },
+      { key: "writing-moved", author: "hampton", type: "General", title: "Writing sources: moved paragraphs keep their author",
+        tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "human",
+        showcase: "Hampton's architecture section keeps its original author after separate cut and paste autosaves; inspect writing and history" },
       { key: "writing-ai", author: "hampton", type: "General", title: "Writing sources: AI written",
         tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "ai",
         showcase: "Robot icon; Claude Code attribution; inspect the source of each word" },
@@ -283,6 +286,7 @@ module CoPlan
         seed_small_edits(users, plans)
         seed_writing_sources(users, plans)
         seed_writing_word_edit(users, plans)
+        seed_moved_writing(users, plans)
         seed_reviews(users, plans)
         seed_review_requests(users, plans)
         seed_agent_access(users)
@@ -807,6 +811,20 @@ module CoPlan
       Plans::ReplaceContent.call(plan: plan, new_content: changed, base_revision: 1,
         actor_type: "human", actor_id: users.fetch("hampton").id, change_summary: "Change retry policy with one word",
         input_sources: { "runs" => [ [ changed.encode(Encoding::UTF_16LE).bytesize / 2, "human" ] ] })
+    end
+
+    def seed_moved_writing(users, plans)
+      plan = plans.fetch("writing-moved")
+      content = document_content(DOCUMENTS.find { |item| item[:key] == "writing-moved" })
+      return unless plan.current_revision == 1 && plan.current_content == content
+      title, sections = content.split("## Current Architecture", 2)
+      moved, kept = ("## Current Architecture" + sections).split("## Proposal", 2)
+      kept = "## Proposal" + kept
+      [ [ title + kept, "Cut architecture before reordering" ], [ title + kept + "\n" + moved, "Paste architecture below the proposal" ] ].each do |text, summary|
+        Plans::ReplaceContent.call(plan: plan, new_content: text, base_revision: plan.current_revision,
+          actor_type: "human", actor_id: users.fetch("hampton").id, change_summary: summary,
+          input_sources: { "runs" => [ [ text.encode(Encoding::UTF_16LE).bytesize / 2, "unknown" ] ] })
+      end
     end
 
     # Demo fixture origin is explicit simulation data. Reconstruct only seed-owned

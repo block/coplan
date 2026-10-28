@@ -8,7 +8,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(seeded_plan("writing-human").writing_provenance_summary.dig("shares", "human")).to eq(1.0)
       legacy = seeded_plan("writing-legacy")
       expect(legacy.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
-      expect(legacy.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1, "policy_version" => 2)
+      expect(legacy.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1, "policy_version" => CoPlan::Plans::WritingProvenance::HISTORY_POLICY)
       early = seeded_plan("writing-legacy-unknown")
       expect(early.writing_provenance_summary.dig("shares", "unknown")).to eq(1.0)
       expect(early.current_plan_version.created_at).to eq(Time.utc(2026, 7, 9))
@@ -40,6 +40,25 @@ RSpec.describe CoPlan::DevelopmentSeed do
 
     def seeded_plan(key)
       CoPlan::Plan.all.detect { |plan| plan.metadata.to_h["development_seed_key"] == key }
+    end
+
+    it "keeps moved writing attributed to its original author and preserves it on re-seed" do
+      described_class.call
+      moved = seeded_plan("writing-moved")
+      expect(moved.current_revision).to eq(3)
+      expect(moved.current_content.index("## Proposal")).to be < moved.current_content.index("## Current Architecture")
+      expect(moved.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
+      expect(moved.writing_provenance_summary.fetch("contributors")).to contain_exactly(include("user_name" => "Hampton", "kind" => "human"))
+      expect(moved.current_plan_version.writing_provenance.fetch("sources").values).to include(include("origin_revision" => 1, "user_name" => "Hampton"))
+      summary = moved.writing_provenance_summary.deep_dup
+      described_class.call
+      expect(moved.reload.current_revision).to eq(3)
+      expect(moved.writing_provenance_summary).to eq(summary)
+      CoPlan::Plans::ReplaceContent.call(plan: moved, new_content: "My own revised arrangement", base_revision: 3,
+        actor_type: "human", actor_id: moved.created_by_user_id)
+      described_class.call
+      expect(moved.reload.current_content).to eq("My own revised arrangement")
+      expect(seeded_plan("demo-library").current_content).to include(moved.url_path)
     end
 
     it "refuses non-local environments before creating data" do

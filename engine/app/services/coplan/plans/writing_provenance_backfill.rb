@@ -42,7 +42,9 @@ module CoPlan
       def self.pending?(plan)
         return false unless plan.current_revision.positive?
         state = plan.writing_provenance_backfill
-        return plan.writing_provenance_summary.nil? unless state
+        # Plans created after the initial rollout can have a cached summary
+        # without a checkpoint. Replay them too when a new policy ships.
+        return true unless state
         state["policy_version"] != WritingProvenance::HISTORY_POLICY || state["token"].present? || state.fetch("revision", 0) < plan.current_revision ||
           state.fetch("finalized_revision", 0) < plan.current_revision || plan.writing_provenance_summary&.dig("revision") != plan.current_revision
       end
