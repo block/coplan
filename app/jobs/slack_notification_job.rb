@@ -110,7 +110,9 @@ class SlackNotificationJob < ApplicationJob
   end
 
   def compose_message(thread, plan, new_comments)
-    plan_url = CoPlan::Engine.routes.url_helpers.plan_url(plan, **default_url_options)
+    handle, slug_path = CoPlan::Urls::Canonical.split(plan.url_path)
+    plan_url = CoPlan::Engine.routes.url_helpers.browse_url(
+      handle: handle, slug_path: slug_path, thread: thread.id, **default_url_options)
     latest_body = (new_comments.last.body_markdown || "").truncate(300)
 
     lines = [

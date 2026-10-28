@@ -39,9 +39,11 @@ link unfurls, add `notifications_enabled = true` to its existing block.
 The adapter uses CoPlan's
 persisted notification recipients, waits two minutes to group comments in the
 same thread for each recipient, and skips DMs when the recipient has already
-cleared the on-site notification. Edits, status changes, and agent responses
-do not send Slack DMs. The Slack app needs `users:read.email` and `chat:write`
-bot scopes. Use a shared Rails cache store to coalesce bursts across workers.
+cleared the on-site notification. Each DM links directly to its comment thread,
+which opens when the recipient follows the link. Edits, status changes, and
+agent responses do not send Slack DMs. The Slack app needs `users:read.email`
+and `chat:write` bot scopes. Use a shared Rails cache store to coalesce bursts
+across workers.
 Each notification gets a durable channel delivery status and, when sent, the
 Slack message timestamp. Message content and a reporting view are not stored
 by this adapter.

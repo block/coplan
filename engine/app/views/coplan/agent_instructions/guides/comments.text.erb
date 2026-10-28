@@ -17,6 +17,8 @@ Each thread in the snapshot (`comment_threads`) includes:
 
 To get one thread: `GET <%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID`. To get all threads: `GET <%= @base %>/api/v1/plans/$PLAN_ID/comments`.
 
+To link a person to a discussion, add `?thread=THREAD_ID` to the plan's web URL. CoPlan opens that thread. Slack comment notifications use this link.
+
 ## Whose comment it is
 
 You act for your principal. That decides what you do with a comment:
