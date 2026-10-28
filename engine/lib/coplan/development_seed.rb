@@ -1002,6 +1002,13 @@ module CoPlan
         Re-seeding preserves revocations and expiry dates.
         #{connection_demo_links(base_url)}
 
+        ## A small detour
+
+        [Open the missing-page puzzle](#{URI.parse(base_url).path}/_/not-found).
+        The **missing-page** scenario returns a real 404 with navigation and a
+        tile-rotation puzzle behind the puzzle-piece icon below the glass panel. Connect IN to OUT using clicks, taps, or arrow keys
+        and Enter. Start over resets the puzzle; re-seeding leaves it available.
+
         ## Every plan type
 
         These are the twelve types shipped with the engine, each with a real document.
