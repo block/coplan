@@ -42,21 +42,8 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   def open_review_settings
     expect(page).to have_no_css("html[aria-busy='true']")
-    # Turbo can paint cached HTML before Stimulus reconnects its actions.
-    expect(page.evaluate_async_script(<<~JS)).to be(true)
-      const done = arguments[arguments.length - 1]
-      const timeout = setTimeout(() => done(false), 5000)
-      const ready = () => {
-        const controls = document.getElementById('plan-review-controls')
-        const details = document.querySelector('[data-controller~="coplan--plan-details"]')
-        if (controls && details && window.Stimulus?.getControllerForElementAndIdentifier(controls, 'coplan--review-tray') && window.Stimulus.getControllerForElementAndIdentifier(details, 'coplan--plan-details')) {
-          clearTimeout(timeout); done(true)
-        } else requestAnimationFrame(ready)
-      }
-      ready()
-    JS
-    click_button "More actions"
-    within("#plan-menu") { click_button "Manage reviewers" }
+    expand_plan_section("footnote-approvals")
+    within("#footnote-approvals") { click_button "Manage reviewers" }
     expect(page).to have_css(".review-management[open]")
   end
 
