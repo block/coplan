@@ -40,12 +40,31 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   before { sign_in_browser(reviewer, open_sections: !RSpec.current_example.metadata[:collapsed_support]) }
 
+  def open_review_settings
+    expect(page).to have_no_css("html[aria-busy='true']")
+    # Turbo can paint cached HTML before Stimulus reconnects its actions.
+    expect(page.evaluate_async_script(<<~JS)).to be(true)
+      const done = arguments[arguments.length - 1]
+      const timeout = setTimeout(() => done(false), 5000)
+      const ready = () => {
+        const controls = document.getElementById('plan-review-controls')
+        const details = document.querySelector('[data-controller~="coplan--plan-details"]')
+        if (controls && details && window.Stimulus?.getControllerForElementAndIdentifier(controls, 'coplan--review-tray') && window.Stimulus.getControllerForElementAndIdentifier(details, 'coplan--plan-details')) {
+          clearTimeout(timeout); done(true)
+        } else requestAnimationFrame(ready)
+      }
+      ready()
+    JS
+    click_button "More actions"
+    within("#plan-menu") { click_button "Manage reviewers" }
+    expect(page).to have_css(".review-management[open]")
+  end
+
   [ "light", "dark" ].each do |theme|
     it "persists the default-on reset policy from the reviewer dialog in #{theme} theme", :review_reset_policy do
       sign_in_browser(author)
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
-      click_button "More actions"
-      within("#plan-menu") { click_button "Manage reviewers" }
+      open_review_settings
       within(".review-management[open]") do
         expect(page).to have_checked_field("Reset approvals when content changes")
         uncheck "Reset approvals when content changes"
@@ -55,8 +74,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
       expect(plan.reload.reset_reviews_on_change).to be(false)
       visit plan_page_path(plan)
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
-      click_button "More actions"
-      within("#plan-menu") { click_button "Manage reviewers" }
+      open_review_settings
       within(".review-management[open]") do
         expect(page).to have_unchecked_field("Reset approvals when content changes")
         check "Reset approvals when content changes"
@@ -69,8 +87,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   it "keeps reviews completed after edits when off, then resets after the next edit when enabled", :review_reset_policy do
     sign_in_browser(author)
-    click_button "More actions"
-    within("#plan-menu") { click_button "Manage reviewers" }
+    open_review_settings
     within(".review-management[open]") do
       uncheck "Reset approvals when content changes"
       expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
@@ -92,8 +109,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
       page.save_screenshot(Rails.root.join("tmp/review-preview/retained-review-#{theme}.png"))
     end
     sign_in_browser(author)
-    click_button "More actions"
-    within("#plan-menu") { click_button "Manage reviewers" }
+    open_review_settings
     within(".review-management[open]") do
       check "Reset approvals when content changes"
       expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
@@ -108,8 +124,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   it "autosaves the latest checkbox choice without save text or blocking more clicks", :review_reset_policy do
     sign_in_browser(author)
-    click_button "More actions"
-    within("#plan-menu") { click_button "Manage reviewers" }
+    open_review_settings
     page.execute_script(<<~JS)
       const originalFetch = window.fetch.bind(window)
       window.policyWrites = []
@@ -145,8 +160,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   it "reconciles a lost save response with the persisted checkbox value", :review_reset_policy do
     sign_in_browser(author)
-    click_button "More actions"
-    within("#plan-menu") { click_button "Manage reviewers" }
+    open_review_settings
     page.execute_script(<<~JS)
       const originalFetch = window.fetch.bind(window)
       let loseResult = true
@@ -166,15 +180,13 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
     expect(plan.reload.reset_reviews_on_change).to be(false)
     visit plan_page_path(plan)
-    click_button "More actions"
-    within("#plan-menu") { click_button "Manage reviewers" }
+    open_review_settings
     expect(page).to have_unchecked_field("Reset approvals when content changes")
   end
 
   it "restores the saved reset preference after a rejected settings update", :review_reset_policy do
     sign_in_browser(author)
-    click_button "More actions"
-    within("#plan-menu") { click_button "Manage reviewers" }
+    open_review_settings
     page.execute_script(<<~JS)
       const originalFetch = window.fetch.bind(window)
       let reject = true
