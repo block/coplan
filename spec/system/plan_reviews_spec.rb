@@ -196,6 +196,123 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(plan.reload.reset_reviews_on_change).to be(false)
   end
 
+  it "replays another tab's policy invalidation after a delayed save response", :review_reset_policy do
+    sign_in_browser(author)
+    open_review_settings
+    page.execute_script(<<~JS)
+      const originalFetch = window.fetch.bind(window)
+      window.fetch = async (url, options) => {
+        const result = await originalFetch(url, options)
+        if (options?.method === 'PATCH' && String(url).endsWith('/settings')) {
+          document.querySelector('[data-review-reset-policy]').dataset.committed = 'true'
+          await new Promise(resolve => { window.releasePolicy = resolve })
+        }
+        return result
+      }
+    JS
+    uncheck "Reset approvals when content changes"
+    expect(page).to have_css("[data-review-reset-policy][data-committed='true']")
+    # Another author tab commits the opposite setting before our response arrives.
+    plan.reload.update!(reset_reviews_on_change: true)
+    page.evaluate_async_script(<<~JS)
+      const done = arguments[arguments.length - 1]
+      const root = document.getElementById('plan-review-controls')
+      window.Stimulus.getControllerForElementAndIdentifier(root, 'coplan--review-tray').refresh().then(done)
+    JS
+    page.execute_script("window.releasePolicy()")
+    expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+    expect(page).to have_checked_field("Reset approvals when content changes")
+    expect(plan.reload.reset_reviews_on_change).to be(true)
+    expect(page).to have_no_css(".review-reset-policy__status[data-state='saved']")
+  end
+
+  it "keeps a newer off choice when the first off request fails", :review_reset_policy do
+    sign_in_browser(author)
+    open_review_settings
+    page.execute_script(<<~JS)
+      const originalFetch = window.fetch.bind(window)
+      window.policyWrites = []
+      window.fetch = async (url, options) => {
+        if (options?.method === 'PATCH' && String(url).endsWith('/settings')) {
+          window.policyWrites.push(JSON.parse(options.body).review_settings.reset_reviews_on_change)
+          if (window.policyWrites.length === 1) {
+            document.querySelector('[data-review-reset-policy]').dataset.inFlight = 'true'
+            return await new Promise(resolve => { window.rejectPolicy = () => resolve(new Response(JSON.stringify({error: 'Rejected'}), {status: 422})) })
+          }
+        }
+        return originalFetch(url, options)
+      }
+    JS
+    uncheck "Reset approvals when content changes"
+    expect(page).to have_css("[data-review-reset-policy][data-in-flight='true']")
+    page.execute_script(<<~JS)
+      const input = document.querySelector('[data-review-reset-policy]')
+      input.click(); input.click(); window.rejectPolicy()
+    JS
+    expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+    expect(page).to have_unchecked_field("Reset approvals when content changes")
+    expect(plan.reload.reset_reviews_on_change).to be(false)
+    expect(page.evaluate_script("window.policyWrites")).to eq([ false, false ])
+  end
+
+  it "keeps a review refresh when policy toggles cancel out", :review_reset_policy do
+    sign_in_browser(author)
+    open_review_settings
+    allow(CoPlan::Broadcaster).to receive(:custom_action_to)
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, generation: task.generation, decision: "approved")
+    page.execute_script(<<~JS)
+      const root = document.getElementById('plan-review-controls')
+      const controller = window.Stimulus.getControllerForElementAndIdentifier(root, 'coplan--review-tray')
+      const originalFetch = window.fetch.bind(window)
+      let hold = true
+      window.fetch = async (url, options) => {
+        const result = await originalFetch(url, options)
+        if (hold && url === controller.urlValue && !options?.method) {
+          hold = false
+          root.dataset.refreshHeld = 'true'
+          await new Promise(resolve => { window.releaseControls = resolve })
+        }
+        return result
+      }
+      controller.refresh()
+    JS
+    expect(page).to have_css("[data-refresh-held='true']")
+    page.execute_script("const input = document.querySelector('[data-review-reset-policy]'); input.click(); input.click(); window.releaseControls()")
+    expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+    expect(page).to have_css(".review-person", text: "Approved")
+    expect(plan.reload.reset_reviews_on_change).to be(true)
+  end
+
+  [ "write body", "readback" ].each do |stall|
+    it "releases autosave after a stalled #{stall} and allows retry", :review_reset_policy do
+      sign_in_browser(author)
+      open_review_settings
+      page.execute_script(<<~JS, stall)
+        const stall = arguments[0]
+        const originalFetch = window.fetch.bind(window)
+        const originalTimeout = window.setTimeout.bind(window)
+        window.setTimeout = (action, delay, ...args) => originalTimeout(action, delay === 10000 ? 100 : delay, ...args)
+        window.fetch = async (url, options) => {
+          if (options?.method === 'PATCH' && String(url).endsWith('/settings')) {
+            if (stall === 'write body') return {ok: true, status: 200, json: () => new Promise(() => {})}
+            throw new TypeError('Lost response')
+          }
+          if (stall === 'readback' && String(url).endsWith('/review_requests')) return new Promise(() => {})
+          return originalFetch(url, options)
+        }
+        window.restorePolicyNetwork = () => { window.fetch = originalFetch; window.setTimeout = originalTimeout }
+      JS
+      uncheck "Reset approvals when content changes"
+      expect(page).to have_text(/Couldn't confirm|Couldn't reach/)
+      expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+      expect(page).to have_checked_field("Reset approvals when content changes", disabled: false)
+      page.execute_script("window.restorePolicyNetwork()")
+      uncheck "Reset approvals when content changes"
+      expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+      expect(plan.reload.reset_reviews_on_change).to be(false)
+    end
+  end
+
   it "dismisses an approval after an edit, preserves its snapshot and accepts a fresh review", :version_parity do
     within(".review-tray") { click_button "Approve", exact: true }
     within(".review-confirmation") do
@@ -239,6 +356,18 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(task.review_responses).to be_empty
     click_button "Close approval", enable_aria_label: true
     within(".review-tray") { click_button "Approve", exact: true }
+    page.execute_script(<<~JS)
+      const originalFetch = window.fetch.bind(window)
+      window.fetch = (url, options) => {
+        if (options?.method === 'POST' && String(url).endsWith('/respond')) {
+          window.fetch = originalFetch
+          return Promise.resolve(new Response(JSON.stringify({error: 'Sign in again', code: 'authentication_required', sign_in_path: '/sign_in'}), {status: 401}))
+        }
+        return originalFetch(url, options)
+      }
+    JS
+    within(".review-confirmation") { click_button "Approve v1", exact: true }
+    expect(page).to have_link("Sign in in a new tab")
     within(".review-confirmation") { click_button "Approve v1", exact: true }
     expect(page).to have_css(".review-tray", text: "You approved v1")
     expect(task.reload.effective_response.request_generation).to eq(2)

@@ -17,14 +17,13 @@ module CoPlan
         # No new review notifications for each edit, and no reset broadcast
         # for a transaction that rolls back.
         ActiveRecord.after_all_transactions_commit do
-          if requests.empty?
-            Broadcaster.custom_action_to(plan, action: "coplan-review-changed", target: "plan-review-controls", html: "")
-          end
           requests.each do |request|
             Reviews::Changed.call(request: request, event_type: "review.requested",
+              actor_token_id: version.api_token_id, broadcast_controls: false,
               payload: { "action" => "content_changed", "revision" => version.revision,
                          "generation" => request.generation })
           end
+          Broadcaster.custom_action_to(plan, action: "coplan-review-changed", target: "plan-review-controls", html: "")
         end
         version
       end

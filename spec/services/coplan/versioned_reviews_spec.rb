@@ -46,6 +46,23 @@ RSpec.describe "Version-bound review evidence" do
     expect(task.reload.effective_response).to be_nil
   end
 
+  it "publishes one controls invalidation per edit and excludes the editing agent from reset events" do
+    task
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: plan.created_by_user)
+    writer = create(:api_token, user: plan.created_by_user)
+    observer = create(:api_token, user: reviewer)
+    [ writer, observer ].each do |token|
+      CoPlan::AgentSession.create!(plan: plan, api_token: token, state: "watching", agent_name: "Watcher")
+    end
+    allow(CoPlan::Broadcaster).to receive(:custom_action_to)
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Edited by agent", base_revision: 1,
+      actor_type: "local_agent", actor_id: writer.user_id, api_token_id: writer.id)
+    expect(CoPlan::AgentEvent.where(api_token: writer, event_type: "review.requested")).to be_empty
+    expect(CoPlan::AgentEvent.where(api_token: observer, event_type: "review.requested").count).to eq(2)
+    expect(CoPlan::Broadcaster).to have_received(:custom_action_to).with(plan,
+      action: "coplan-review-changed", target: "plan-review-controls", html: "").once
+  end
+
   it "dismisses on human drafts and checkbox edits" do
     decide
     CoPlan::Plans::ToggleCheckbox.call(plan: plan, old_text: "- [ ] Ship", new_text: "- [x] Ship", base_revision: 1, actor_id: plan.created_by_user_id)

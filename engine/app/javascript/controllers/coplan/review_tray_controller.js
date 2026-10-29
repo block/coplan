@@ -228,6 +228,7 @@ export default class extends Controller {
   async refresh() {
     const sequence = ++this.refreshSequence
     const policyBusy = this.policySaving || this.policySaveTimer
+    const policyGeneration = this.policyInputGeneration
     try {
       const response = await fetch(this.urlValue, { credentials: "same-origin", headers: { Accept: "text/html" } })
       if (!response.ok) return
@@ -236,9 +237,13 @@ export default class extends Controller {
       this.element.dataset.reviewGeneration = incoming.getElementById("plan-review-controls")?.dataset.reviewGeneration || ""
       const policy = this.element.querySelector("[data-review-reset-policy]")
       const incomingPolicy = incoming.querySelector("[data-review-reset-policy]")
-      if (policy && incomingPolicy && !policyBusy && !this.policySaving && !this.policySaveTimer) {
-        policy.checked = incomingPolicy.checked
-        policy.dataset.savedValue = String(incomingPolicy.checked)
+      if (policy && incomingPolicy) {
+        if (!policyBusy && !this.policySaving && !this.policySaveTimer && policyGeneration === this.policyInputGeneration) {
+          if (policy.checked !== incomingPolicy.checked) this.clearPolicyIcon()
+          policy.checked = incomingPolicy.checked
+          policy.dataset.savedValue = String(incomingPolicy.checked)
+          this.policyRefreshPending = false
+        } else this.policyRefreshPending = true
       }
       const tray = incoming.querySelector(".review-tray")
       const existingTray = this.element.querySelector(".review-tray")
@@ -282,16 +287,15 @@ export default class extends Controller {
       if (navCount) navCount.textContent = Number(incoming.getElementById("plan-review-controls")?.dataset.reviewRecordCount) || ""
       if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", String(!this.discussionTarget.hidden))
       this.syncFeedbackLinks()
+      if (this.policyRefreshPending && !this.policySaving && !this.policySaveTimer) this.refresh()
     } catch { /* The task and draft remain usable; the next event retries. */ }
   }
 
   changeResetPolicy(event) {
     const input = event.currentTarget
     input.setAttribute("aria-busy", "true")
-    this.refreshSequence++
-    this.policyIconTarget.setAttribute("aria-hidden", "true")
-    clearTimeout(this.policyIconTimer)
-    this.policyIconTarget.dataset.state = ""
+    this.policyInputGeneration = (this.policyInputGeneration || 0) + 1
+    this.clearPolicyIcon()
     clearTimeout(this.policySaveTimer)
     this.policySaveTimer = setTimeout(() => {
       this.policySaveTimer = null
@@ -303,38 +307,68 @@ export default class extends Controller {
     if (this.policySaving) return
     const previous = input.dataset.savedValue === "true"
     const enabled = input.checked
-    if (previous === enabled) { input.setAttribute("aria-busy", "false"); return }
+    const generation = this.policyInputGeneration
+    if (previous === enabled) {
+      input.setAttribute("aria-busy", "false")
+      if (this.policyRefreshPending) await this.refresh()
+      return
+    }
     this.policySaving = true
     this.managementErrorTarget.textContent = ""
+    let confirmed = false
     try {
-      await this.write(this.settingsUrlValue, "PATCH", { review_settings: { reset_reviews_on_change: enabled } })
+      await this.withPolicyDeadline(signal => this.write(this.settingsUrlValue, "PATCH", { review_settings: { reset_reviews_on_change: enabled } }, signal))
       input.dataset.savedValue = String(enabled)
-      if (input.checked === enabled) {
-        this.policyIconTarget.dataset.state = "saved"
-        this.policyIconTarget.setAttribute("aria-hidden", "false")
-        this.policyIconTimer = setTimeout(() => {
-          this.policyIconTarget.dataset.state = ""
-          this.policyIconTarget.setAttribute("aria-hidden", "true")
-        }, 1500)
-      }
+      confirmed = true
     } catch (error) {
       // A lost HTTP result may already have saved. Read back before restoring
       // the checkbox, while preserving clicks made during that request.
       let persisted = previous
       try {
-        const response = await fetch(this.urlValue, { credentials: "same-origin", headers: { Accept: "text/html" } })
-        const policy = new DOMParser().parseFromString(await response.text(), "text/html").querySelector("[data-review-reset-policy]")
-        if (response.ok && policy) persisted = policy.checked
+        persisted = await this.withPolicyDeadline(async signal => {
+          const response = await fetch(this.urlValue, { credentials: "same-origin", headers: { Accept: "text/html" }, signal })
+          const policy = new DOMParser().parseFromString(await response.text(), "text/html").querySelector("[data-review-reset-policy]")
+          if (!response.ok || !policy) throw error
+          return policy.checked
+        })
+        confirmed = persisted === enabled
       } catch { /* Keep the last confirmed value and show the error. */ }
       input.dataset.savedValue = String(persisted)
-      if (input.checked === enabled) input.checked = persisted
-      this.managementErrorTarget.textContent = persisted === enabled ? "" : error.message
+      if (generation === this.policyInputGeneration) input.checked = persisted
+      this.managementErrorTarget.textContent = confirmed ? "" : error.message
     } finally {
       this.policySaving = false
       // Serialize saves so a slow older request cannot overwrite a newer click.
       if (input.checked !== (input.dataset.savedValue === "true")) this.saveResetPolicy(input)
-      else input.setAttribute("aria-busy", "false")
+      else {
+        input.setAttribute("aria-busy", "false")
+        if (this.policyRefreshPending) await this.refresh()
+        if (confirmed && !this.policySaving && !this.policySaveTimer && !this.policyRefreshPending && input.checked === enabled) {
+          this.policyIconTarget.dataset.state = "saved"
+          this.policyIconTarget.setAttribute("aria-hidden", "false")
+          this.policyIconTimer = setTimeout(() => this.clearPolicyIcon(), 1500)
+        }
+      }
     }
+  }
+
+  clearPolicyIcon() {
+    clearTimeout(this.policyIconTimer)
+    this.policyIconTarget.dataset.state = ""
+    this.policyIconTarget.setAttribute("aria-hidden", "true")
+  }
+
+  async withPolicyDeadline(action) {
+    const controller = new AbortController()
+    let timer
+    try {
+      return await Promise.race([action(controller.signal), new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort()
+          reject(new Error("Couldn't confirm the setting. Please try again."))
+        }, 10000)
+      })])
+    } finally { clearTimeout(timer) }
   }
 
   async assign(event) {
@@ -494,10 +528,10 @@ export default class extends Controller {
 
   csrfToken() { return document.querySelector('meta[name="csrf-token"]')?.content || "" }
 
-  async write(url, method, body) {
+  async write(url, method, body, signal) {
     let response
     try {
-      response = await fetch(url, { method, headers: { "X-CSRF-Token": this.csrfToken(), "Content-Type": "application/json", Accept: "application/json" }, credentials: "same-origin", body: body ? JSON.stringify(body) : undefined })
+      response = await fetch(url, { method, headers: { "X-CSRF-Token": this.csrfToken(), "Content-Type": "application/json", Accept: "application/json" }, credentials: "same-origin", body: body ? JSON.stringify(body) : undefined, signal })
     } catch {
       throw new Error("Couldn't reach CoPlan. Your draft is still here. Check that the server is running and try again.")
     }
@@ -508,7 +542,7 @@ export default class extends Controller {
       // A definite rejection did not record this intent. Refresh the cycle
       // so closing and deliberately reopening the dialog can start a new one.
       // Network failures and lost results keep their original key/generation.
-      if (String(url).endsWith("/respond") && response.status >= 400 && response.status < 500) {
+      if (String(url).endsWith("/respond") && [409, 422].includes(response.status)) {
         this.responseIntents = {}
         await this.refresh()
       }
