@@ -40,6 +40,162 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   before { sign_in_browser(reviewer, open_sections: !RSpec.current_example.metadata[:collapsed_support]) }
 
+  def open_review_settings
+    expect(page).to have_no_css("html[aria-busy='true']")
+    expand_plan_section("footnote-approvals")
+    within("#footnote-approvals") { click_button "Manage reviewers" }
+    expect(page).to have_css(".review-management[open]")
+  end
+
+  [ "light", "dark" ].each do |theme|
+    it "persists the default-on reset policy from the reviewer dialog in #{theme} theme", :review_reset_policy do
+      sign_in_browser(author)
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      open_review_settings
+      within(".review-management[open]") do
+        expect(page).to have_checked_field("Reset approvals when content changes")
+        uncheck "Reset approvals when content changes"
+        expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+      end
+      expect(page).to have_css(".review-reset-policy__status[data-state='saved']")
+      expect(plan.reload.reset_reviews_on_change).to be(false)
+      visit plan_page_path(plan)
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      open_review_settings
+      within(".review-management[open]") do
+        expect(page).to have_unchecked_field("Reset approvals when content changes")
+        check "Reset approvals when content changes"
+        expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+      end
+      expect(plan.reload.reset_reviews_on_change).to be(true)
+      page.save_screenshot(Rails.root.join("tmp/review-preview/reset-policy-#{theme}.png"))
+    end
+  end
+
+  it "keeps reviews completed after edits when off, then resets after the next edit when enabled", :review_reset_policy do
+    sign_in_browser(author)
+    open_review_settings
+    within(".review-management[open]") do
+      uncheck "Reset approvals when content changes"
+      expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+    end
+    sign_in_browser(reviewer)
+    within(".review-tray") { click_button "Approve", exact: true }
+    within(".review-confirmation") { click_button "Approve v1", exact: true }
+    expect(page).to have_css(".review-tray", text: "You approved v1")
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "# Second version", base_revision: 1, actor_type: "human", actor_id: author.id)
+    visit plan_page_path(plan)
+    expand_plan_section("footnote-approvals")
+    expect(page).to have_css(".review-tray", text: "You approved v1")
+    expect(page).to have_css(".review-tray", text: "no new review required")
+    expect(page).to have_css(".review-person", text: "Content changed since review")
+    expect(page).to have_no_css(".review-tray", text: "Your review is requested")
+    expect(task.reload.effective_human_decision).to be_nil
+    [ "light", "dark" ].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp/review-preview/retained-review-#{theme}.png"))
+    end
+    sign_in_browser(author)
+    open_review_settings
+    within(".review-management[open]") do
+      check "Reset approvals when content changes"
+      expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+    end
+    expect(task.reload.review_status).to eq("approved")
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "# Third version", base_revision: 2, actor_type: "human", actor_id: author.id)
+    visit plan_page_path(plan)
+    expand_plan_section("footnote-approvals")
+    expect(page).to have_css(".review-person__meta", text: "Content changed; review again")
+    expect(task.reload).to be_pending
+  end
+
+  it "autosaves the latest checkbox choice without save text or blocking more clicks", :review_reset_policy do
+    sign_in_browser(author)
+    open_review_settings
+    page.execute_script(<<~JS)
+      const originalFetch = window.fetch.bind(window)
+      window.policyWrites = []
+      window.fetch = async (url, options) => {
+        if (options?.method === 'PATCH' && String(url).endsWith('/settings')) {
+          window.policyWrites.push(JSON.parse(options.body).review_settings.reset_reviews_on_change)
+          document.querySelector("[data-review-reset-policy]").dataset.firstPolicyWrite = "true"
+          const result = await originalFetch(url, options)
+          await new Promise(resolve => setTimeout(resolve, 400))
+          return result
+        }
+        return originalFetch(url, options)
+      }
+    JS
+    within(".review-management[open]") do
+      page.execute_script('const input = document.querySelector("[data-review-reset-policy]"); input.click(); input.click()')
+      expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+      expect(page.evaluate_script("window.policyWrites")).to eq([])
+      uncheck "Reset approvals when content changes"
+      expect(page).to have_css("[data-review-reset-policy][aria-busy='true']")
+      expect(page).to have_no_text("Saving…")
+      expect(page).to have_no_text("Saved")
+      # Wait until the first request is in flight, then change our mind.
+      expect(page).to have_selector("[data-review-reset-policy][data-saved-value='true']")
+      expect(page).to have_css("[data-review-reset-policy][data-first-policy-write='true']")
+      check "Reset approvals when content changes"
+      expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+      expect(page).to have_checked_field("Reset approvals when content changes", disabled: false)
+    end
+    expect(plan.reload.reset_reviews_on_change).to be(true)
+    expect(page.evaluate_script("window.policyWrites")).to eq([ false, true ])
+  end
+
+  it "reconciles a lost save response with the persisted checkbox value", :review_reset_policy do
+    sign_in_browser(author)
+    open_review_settings
+    page.execute_script(<<~JS)
+      const originalFetch = window.fetch.bind(window)
+      let loseResult = true
+      window.fetch = async (url, options) => {
+        const result = await originalFetch(url, options)
+        if (loseResult && options?.method === 'PATCH' && String(url).endsWith('/settings')) {
+          loseResult = false
+          throw new TypeError('Lost saved result')
+        }
+        return result
+      }
+    JS
+    within(".review-management[open]") do
+      uncheck "Reset approvals when content changes"
+      expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+      expect(page).to have_unchecked_field("Reset approvals when content changes")
+    end
+    expect(plan.reload.reset_reviews_on_change).to be(false)
+    visit plan_page_path(plan)
+    open_review_settings
+    expect(page).to have_unchecked_field("Reset approvals when content changes")
+  end
+
+  it "restores the saved reset preference after a rejected settings update", :review_reset_policy do
+    sign_in_browser(author)
+    open_review_settings
+    page.execute_script(<<~JS)
+      const originalFetch = window.fetch.bind(window)
+      let reject = true
+      window.fetch = (url, options) => {
+        if (reject && options?.method === 'PATCH' && String(url).endsWith('/settings')) {
+          reject = false
+          return Promise.resolve(new Response(JSON.stringify({error: 'Unable to save settings'}), {status: 422, headers: {'Content-Type': 'application/json'}}))
+        }
+        return originalFetch(url, options)
+      }
+    JS
+    within(".review-management[open]") do
+      uncheck "Reset approvals when content changes"
+      expect(page).to have_text("Unable to save settings")
+      expect(page).to have_checked_field("Reset approvals when content changes", disabled: false)
+      expect(plan.reload.reset_reviews_on_change).to be(true)
+      uncheck "Reset approvals when content changes"
+      expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+    end
+    expect(plan.reload.reset_reviews_on_change).to be(false)
+  end
+
   it "dismisses an approval after an edit, preserves its snapshot and accepts a fresh review", :version_parity do
     within(".review-tray") { click_button "Approve", exact: true }
     within(".review-confirmation") do

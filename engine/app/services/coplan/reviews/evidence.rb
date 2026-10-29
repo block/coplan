@@ -14,6 +14,7 @@ module CoPlan
           version = plan.current_plan_version
           {
             schema_version: 1, plan_id: plan.id, review_sequence: plan.review_sequence,
+            reset_reviews_on_change: plan.reset_reviews_on_change,
             approval_scope: SCOPE,
             version: { id: version.id, revision: version.revision,
                        content_sha256: version.content_sha256, content_markdown: version.verified_content! },

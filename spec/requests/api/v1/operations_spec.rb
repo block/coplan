@@ -20,6 +20,21 @@ RSpec.describe "Api::V1::Operations", type: :request do
     )
   end
 
+  [ true, false ].each do |reset|
+    it "honors reset_reviews_on_change=#{reset} for direct operations" do
+      plan.update!(reset_reviews_on_change: reset)
+      task = CoPlan::Reviews::Request.call(plan: plan, reviewer: alice, actor: alice)
+      receipt = CoPlan::Reviews::Respond.call(request: task, actor: alice, revision: 1, generation: task.generation, decision: "approved")
+      post api_v1_plan_operations_path(plan), params: { lease_token: lease_token, base_revision: 1,
+        operations: [ { op: "replace_exact", old_text: "Some content here.", new_text: "Updated content.", count: 1 } ] },
+        headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      expect(task.reload.review_status).to eq(reset ? "pending" : "approved")
+      expect(task.recorded_response).to eq(reset ? nil : receipt)
+      expect(task.effective_human_decision).to be_nil
+    end
+  end
+
   it "apply operations creates new version" do
     expect {
       post api_v1_plan_operations_path(plan),
