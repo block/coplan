@@ -66,6 +66,102 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
+  [ "light", "dark" ].each do |theme|
+    it "re-adds a removed reviewer through the assignment pane in #{theme} theme", :review_readdition do
+      approval = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+      sign_in_browser(author)
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      click_button "More actions"
+      within("#plan-menu") { click_button "Manage reviewers" }
+      within(".review-management[open]") do
+        click_button "Actions for Plan Reviewer", enable_aria_label: true
+        click_button "Remove request"
+        expect(page).to have_no_css("[data-review-assignments] .review-person")
+        click_button "Add reviewer", exact: true
+      end
+      expect(task.reload.status).to eq("withdrawn")
+      fill_in "Find a reviewer", with: reviewer.name
+      find(".review-search-result", text: reviewer.name).click
+      uncheck "Required"
+      within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+      within(".review-management[open] [data-review-assignments]") do
+        expect(page).to have_css(".review-person", text: "Plan Reviewer")
+        expect(page).to have_css(".review-person__requirement", text: "Optional")
+        expect(page).to have_css(".review-state", text: "Pending")
+      end
+      expect(task.reload).to have_attributes(status: "pending", requirement: "optional")
+      expect(plan.review_requests.where(reviewer: reviewer).count).to eq(1)
+      expect(task.review_responses.pluck(:id)).to eq([ approval.id ])
+      expect(task.notifications.unread.where(user: reviewer, reason: "review_requested").count).to eq(1)
+      page.save_screenshot(Rails.root.join("tmp/review-preview/readded-reviewer-#{theme}.png"))
+      sign_in_browser(reviewer)
+      expect(page).to have_css(".review-tray", text: "Your review is requested")
+    end
+  end
+
+  [ "lost", "rejected" ].each do |failure|
+    it "keeps re-adding a reviewer retryable after a #{failure} update result", :review_readdition do
+      CoPlan::Reviews::Withdraw.call(request: task, actor: author)
+      sign_in_browser(author)
+      click_button "More actions"
+      within("#plan-menu") { click_button "Manage reviewers" }
+      within(".review-management[open]") { click_button "Add reviewer", exact: true }
+      fill_in "Find a reviewer", with: reviewer.name
+      find(".review-search-result", text: reviewer.name).click
+      page.execute_script(<<~JS, failure)
+        const originalFetch = window.fetch.bind(window)
+        let interrupt = true
+        const failure = arguments[0]
+        window.fetch = async (url, options) => {
+          if (interrupt && options?.method === 'PATCH' && String(url).includes('/review_requests/')) {
+            interrupt = false
+            if (failure === 'rejected') return new Response(JSON.stringify({error: 'Please retry this request'}), {status: 422, headers: {'Content-Type': 'application/json'}})
+            await originalFetch(url, options)
+            throw new TypeError('Lost the result after the server reopened the task')
+          }
+          return originalFetch(url, options)
+        }
+      JS
+      within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+      expect(page).to have_css(".review-assignment [role='alert']", text: failure == "lost" ? "Couldn't reach CoPlan" : "Please retry this request")
+      expect(page).to have_field("Find a reviewer", with: reviewer.name)
+      expect(task.reload.status).to eq(failure == "lost" ? "pending" : "withdrawn")
+      within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+      within(".review-management[open] [data-review-assignments]") do
+        expect(page).to have_css(".review-person", text: reviewer.name)
+        expect(page).to have_css(".review-state", text: "Pending")
+      end
+      expect(task.reload.status).to eq("pending")
+      expect(plan.review_requests.where(reviewer: reviewer).count).to eq(1)
+      expect(plan.plan_events.where(event_type: "review_requested", after_value: task.id).count).to eq(2)
+      expect(task.notifications.unread.where(user: reviewer, reason: "review_requested").count).to eq(1)
+    end
+  end
+
+  it "leaves an already active review unchanged when a selected re-add is submitted", :review_readdition do
+    CoPlan::Reviews::Withdraw.call(request: task, actor: author)
+    sign_in_browser(author)
+    click_button "More actions"
+    within("#plan-menu") { click_button "Manage reviewers" }
+    within(".review-management[open]") { click_button "Add reviewer", exact: true }
+    fill_in "Find a reviewer", with: reviewer.name
+    find(".review-search-result", text: reviewer.name).click
+    # Another tab restores and completes this request after the person was
+    # selected. Submitting the stale add form must not reset that decision.
+    restored = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, requirement: "optional")
+    approval = CoPlan::Reviews::Respond.call(request: restored, actor: reviewer, revision: 1, decision: "approved")
+    counts = [ plan.plan_events.where(event_type: "review_requested").count, CoPlan::Notification.count ]
+    within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+    within(".review-management[open] [data-review-assignments]") do
+      expect(page).to have_css(".review-person", text: reviewer.name)
+      expect(page).to have_css(".review-state", text: "Approved")
+      expect(page).to have_css(".review-person__requirement", text: "Optional")
+    end
+    expect(task.reload).to have_attributes(status: "approved", requirement: "optional")
+    expect(task.review_responses.pluck(:id)).to eq([ approval.id ])
+    expect([ plan.plan_events.where(event_type: "review_requested").count, CoPlan::Notification.count ]).to eq(counts)
+  end
+
   it "offers equal review choices and preserves cancelled feedback without moving the reader" do
     within(".review-tray__actions") do
       expect(page).to have_button("Request changes")
