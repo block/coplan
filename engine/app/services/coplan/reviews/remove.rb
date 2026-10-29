@@ -5,7 +5,12 @@ module CoPlan
       def self.call(plan:, request_id:)
         request = plan.with_lock do
           request = plan.review_requests.find_by(id: request_id)
-          request&.destroy!
+          if request
+            unless plan.plan_events.where(event_type: "review_requested", after_value: request.id).exists?
+              RecordRequest.call(request: request)
+            end
+            request.destroy!
+          end
           request
         end
         Changed.call(request: request, event_type: "review.requested",

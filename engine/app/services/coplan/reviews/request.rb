@@ -14,6 +14,7 @@ module CoPlan
 
       def call
         changed = false
+        removed = nil
         request = @plan.with_lock do
           request = if @request_id
             @plan.review_requests.where(reviewer: @reviewer).find(@request_id)
@@ -29,7 +30,11 @@ module CoPlan
             end
             next request unless @replace_withdrawn && request.status == "withdrawn"
 
+            unless @plan.plan_events.where(event_type: "review_requested", after_value: request.id).exists?
+              RecordRequest.call(request: request)
+            end
             request.destroy!
+            removed = request
             request = @plan.review_requests.new(reviewer: @reviewer)
           end
 
@@ -48,6 +53,8 @@ module CoPlan
           changed = true
           request
         end
+        Changed.call(request: removed, event_type: "review.requested", actor_token_id: @api_token&.id,
+          payload: { "action" => "removed", "removed" => true }) if removed
         Changed.call(request: request, event_type: "review.requested", actor_token_id: @api_token&.id,
           payload: { "action" => "requested", "requirement" => request.requirement }) if changed
         request

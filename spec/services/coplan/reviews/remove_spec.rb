@@ -37,6 +37,30 @@ RSpec.describe CoPlan::Reviews::Remove do
     expect(fresh.review_responses).to eq([ approval ])
   end
 
+  it "preserves a legacy request's audit before deleting the task" do
+    legacy = create(:review_request, plan: plan, reviewer: reviewer)
+    expect(plan.plan_events.where(event_type: "review_requested")).to be_empty
+    described_class.call(plan: plan, request_id: legacy.id)
+    event = plan.plan_events.find_by!(event_type: "review_requested", after_value: legacy.id)
+    expect(event).to have_attributes(actor_id: legacy.requested_by_user_id, created_at: legacy.requested_at)
+    expect(event.metadata).to include("reviewer_name" => reviewer.name, "revision" => 1)
+    expect(CoPlan::ReviewRequest.exists?(legacy.id)).to be(false)
+  end
+
+  it "announces the old identity's removal when replacing a withdrawn legacy request" do
+    legacy = create(:review_request, plan: plan, reviewer: reviewer, status: "withdrawn")
+    watcher = create(:api_token, user: reviewer)
+    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Watcher")
+    fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user,
+      create_only: true, replace_withdrawn: true)
+    payloads = watcher.agent_events.where(event_type: "review.requested").order(:created_at).map(&:payload)
+    expect(payloads.size).to eq(2)
+    expect(payloads.first).to include("action" => "removed", "removed" => true, "review_request_id" => legacy.id)
+    expect(payloads.last).to include("action" => "requested", "review_request_id" => fresh.id)
+    expect(plan.plan_events.where(event_type: "review_requested").pluck(:after_value)).to contain_exactly(legacy.id, fresh.id)
+    expect(fresh.status).to eq("pending")
+  end
+
   it "keeps the old review if a replacement request is invalid" do
     previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
     CoPlan::Reviews::Withdraw.call(request: task, actor: plan.created_by_user)
