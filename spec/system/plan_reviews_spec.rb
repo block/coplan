@@ -62,7 +62,9 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   [ [ "light", "approved" ], [ "dark", "changes_requested" ] ].each do |theme, decision|
     it "starts fresh after removing a #{decision} reviewer in #{theme} theme", :review_readdition do
-      previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: decision,
+      task.destroy!
+      requested = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+      previous = CoPlan::Reviews::Respond.call(request: requested, actor: reviewer, revision: 1, decision: decision,
         note: decision == "changes_requested" ? "Earlier review feedback" : nil)
       sign_in_browser(author)
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
@@ -74,7 +76,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
         expect(page).to have_no_css("[data-review-assignments] .review-person")
         click_button "Add reviewer", exact: true
       end
-      expect(CoPlan::ReviewRequest.exists?(task.id)).to be(false)
+      expect(CoPlan::ReviewRequest.exists?(requested.id)).to be(false)
       expect(CoPlan::ReviewResponse.exists?(previous.id)).to be(false)
       fill_in "Find a reviewer", with: reviewer.name
       find(".review-search-result", text: reviewer.name).click
@@ -86,7 +88,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
         expect(page).to have_css(".review-state", text: "Pending")
       end
       fresh = plan.review_requests.find_by!(reviewer: reviewer)
-      expect(fresh.id).not_to eq(task.id)
+      expect(fresh.id).not_to eq(requested.id)
       expect(fresh).to have_attributes(status: "pending", requirement: "optional")
       expect(plan.review_requests.where(reviewer: reviewer).count).to eq(1)
       expect(fresh.review_responses).to be_empty
@@ -95,8 +97,9 @@ RSpec.describe "Plan discussion and approval", type: :system do
       within(".review-management[open]") { click_button "Close reviews", enable_aria_label: true }
       within("#footnote-approvals") { click_button "View activity", exact: false }
       within(".review-activity-dialog[open]") do
-        expect(all(".review-log__event").map { |entry| entry.text.squish }).to eq([ "Plan Author requested a review from Plan Reviewer" ])
+        expect(all(".review-log__event").map { |entry| entry.text.squish }).to eq([ "Plan Author requested a review from Plan Reviewer" ] * 2)
         expect(page).to have_no_text("Earlier review feedback")
+        expect(plan.plan_events.where(event_type: "review_requested").pluck(:after_value)).to contain_exactly(requested.id, fresh.id)
       end
       page.save_screenshot(Rails.root.join("tmp/review-preview/fresh-review-history-#{theme}.png"))
       sign_in_browser(reviewer)
