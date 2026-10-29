@@ -21,7 +21,7 @@
                   <button type="button" class="menu__item" data-action="coplan--review-tray#changeRequirement coplan--menu#close" data-url="<%= plan_review_request_path(plan, request) %>" data-requirement="<%= requirement == 'required' ? 'optional' : 'required' %>">Make <%= requirement == 'required' ? 'optional' : 'required' %></button>
                   <% if approval && approval.plan_version.revision != plan.current_revision %><button type="button" class="menu__item" data-action="coplan--review-tray#compare coplan--menu#close" data-url="<%= compare_plan_review_request_path(plan, request, response_id: approval.id) %>">Changes since approval</button><% end %>
                   <div class="menu__separator" role="separator"></div>
-                  <button type="button" class="menu__item" data-action="coplan--review-tray#withdraw coplan--menu#close" data-url="<%= plan_review_request_path(plan, request) %>">Remove request</button>
+                  <button type="button" class="menu__item" data-action="coplan--review-tray#withdraw coplan--menu#close" data-url="<%= plan_review_request_path(plan, request) %>">Remove reviewer</button>
                 </div>
               </span>
             <% elsif approval && approval.plan_version.revision != plan.current_revision %>

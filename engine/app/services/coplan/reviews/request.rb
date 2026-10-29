@@ -1,27 +1,41 @@
 module CoPlan
   module Reviews
     class Request
-      def self.call(plan:, reviewer:, actor:, requirement: "required", api_token: nil, create_only: false)
-        new(plan:, reviewer:, actor:, requirement:, api_token:, create_only:).call
+      def self.call(plan:, reviewer:, actor:, requirement: "required", api_token: nil, create_only: false, request_id: nil, replace_withdrawn: false)
+        new(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, request_id:, replace_withdrawn:).call
       end
 
-      def initialize(plan:, reviewer:, actor:, requirement:, api_token:, create_only:)
+      def initialize(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, request_id:, replace_withdrawn:)
         @plan, @reviewer, @actor, @requirement, @api_token = plan, reviewer, actor, requirement, api_token
         @create_only = create_only
+        @request_id = request_id
+        @replace_withdrawn = replace_withdrawn
       end
 
       def call
         changed = false
+        removed = nil
         request = @plan.with_lock do
-          request = @plan.review_requests.find_or_initialize_by(reviewer: @reviewer)
-          # Retrying a create cannot change a decision, reopen a withdrawal,
-          # or send another nudge. Only an explicit re-request starts a cycle.
+          request = if @request_id
+            @plan.review_requests.where(reviewer: @reviewer).find(@request_id)
+          else
+            @plan.review_requests.find_or_initialize_by(reviewer: @reviewer)
+          end
+          # API create retries preserve every existing task. The web add form
+          # deliberately replaces withdrawn tasks left by earlier removals.
           if @create_only && request.persisted?
             unless ReviewRequest::REQUIREMENTS.include?(@requirement)
               request.errors.add(:requirement, :inclusion)
               raise ActiveRecord::RecordInvalid, request
             end
-            next request
+            next request unless @replace_withdrawn && request.status == "withdrawn"
+
+            unless @plan.plan_events.where(event_type: "review_requested", after_value: request.id).exists?
+              RecordRequest.call(request: request)
+            end
+            request.destroy!
+            removed = request
+            request = @plan.review_requests.new(reviewer: @reviewer)
           end
 
           # Preserve the original request for tasks created before request
@@ -39,6 +53,8 @@ module CoPlan
           changed = true
           request
         end
+        Changed.call(request: removed, event_type: "review.requested", actor_token_id: @api_token&.id,
+          payload: { "action" => "removed", "removed" => true }) if removed
         Changed.call(request: request, event_type: "review.requested", actor_token_id: @api_token&.id,
           payload: { "action" => "requested", "requirement" => request.requirement }) if changed
         request

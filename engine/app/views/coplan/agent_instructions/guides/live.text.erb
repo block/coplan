@@ -105,6 +105,7 @@ For `review.requested`, inspect `payload.action`:
 | `requested` | A new request or another look. `requirement` is `required` or `optional`. |
 | `requirement_changed` | Only `requirement` changed. This does not reopen the task or start another review cycle. Do not treat it as a request for another look. |
 | `withdrawn` | The request was withdrawn. Stop working on that request; its earlier decisions remain. The payload also has `withdrawn: true`. |
+| `removed` | The web management pane deleted this request and its review decisions. Stop using its ID. Reassignment creates a new pending request. The payload also has `removed: true`. |
 
 The attach and bridge tools show this review data and point to the review guide. Review events do not authorize content edits or execution.
 

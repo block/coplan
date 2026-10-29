@@ -35,9 +35,9 @@ module CoPlan
         def update
           if ActiveModel::Type::Boolean.new.cast(params[:request_again])
             Reviews::Request.call(plan: @plan, reviewer: @review_request.reviewer, actor: current_user,
-              requirement: params[:requirement].presence || @review_request.requirement, api_token: @api_token)
+              requirement: params[:requirement].presence || @review_request.requirement, api_token: @api_token, request_id: @review_request.id)
           else
-            @plan.with_lock { @review_request.update!(requirement: params.require(:requirement)) }
+            @plan.with_lock { @review_request.reload.update!(requirement: params.require(:requirement)) }
             Reviews::Changed.call(request: @review_request, event_type: "review.requested", actor_token_id: api_token_id,
               payload: { "action" => "requirement_changed", "requirement" => @review_request.requirement })
           end

@@ -267,7 +267,7 @@ export default class extends Controller {
     event.preventDefault()
     if (!this.reviewerIdTarget.value) { this.assignmentErrorTarget.textContent = "Choose a person from the results first."; return }
     await this.withBusy(event.target, this.assignmentErrorTarget, async () => {
-      await this.write(this.urlValue, "POST", { review_request: { reviewer_id: this.reviewerIdTarget.value, requirement: event.target.querySelector('[type="checkbox"]').checked ? "required" : "optional" } })
+      await this.write(this.urlValue, "POST", { review_request: { reviewer_id: this.reviewerIdTarget.value, requirement: event.target.querySelector('[type="checkbox"]').checked ? "required" : "optional", replace_withdrawn: true } })
       this.searchTarget.value = ""; this.reviewerIdTarget.value = ""; this.resultsTarget.replaceChildren()
       this.closeAssignment()
       event.target.querySelector('[type="checkbox"]').checked = true
@@ -354,7 +354,7 @@ export default class extends Controller {
 
   requestAgain(event) { this.manage(event, "PATCH", { review_request: { request_again: true } }) }
   changeRequirement(event) { this.manage(event, "PATCH", { review_request: { requirement: event.currentTarget.dataset.requirement } }) }
-  withdraw(event) { this.manage(event, "DELETE") }
+  withdraw(event) { this.manage(event, "DELETE", { review_request: { remove: true } }) }
 
   async manage(event, method, body) {
     if (this.managing) return
