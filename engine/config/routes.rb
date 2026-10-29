@@ -75,6 +75,7 @@ CoPlan::Engine.routes.draw do
       # see DictationsController.
       resources :dictations, only: [ :create ]
       resources :review_requests, only: [ :index, :create, :update, :destroy ] do
+        patch :settings, on: :collection
         get :suggestions, on: :collection
         post :respond, on: :member
         get :compare, on: :member

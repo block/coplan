@@ -103,7 +103,7 @@ For `review.requested`, inspect `payload.action`:
 | Action | Meaning |
 |---|---|
 | `requested` | A new request or another look. `requirement` is `required` or `optional`. |
-| `content_changed` | A new Markdown version reset active tasks and advanced their generations. Earlier responses remain history. Read the current version and request before responding. No new inbox nudge is sent for each edit. |
+| `content_changed` | A new Markdown version reset active tasks and advanced their generations under the default-on reset policy. No reset event is emitted when the document’s automatic resets are off. Earlier responses remain history. Read the current version and request before responding. No new inbox nudge is sent for each edit. |
 | `requirement_changed` | Only `requirement` changed. This does not reopen the task or start another review cycle. Do not treat it as a request for another look. |
 | `withdrawn` | The request was withdrawn. Stop working on that request; its earlier decisions remain. The payload also has `withdrawn: true`. |
 

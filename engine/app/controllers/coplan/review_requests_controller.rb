@@ -15,6 +15,19 @@ module CoPlan
       render json: Reviews::Suggest.call(plan: @plan)
     end
 
+    def settings
+      authorize!(@plan, :update?)
+      attributes = params.expect(review_settings: [ :reset_reviews_on_change ])
+      enabled = ActiveModel::Type::Boolean.new.cast(attributes.fetch(:reset_reviews_on_change))
+      @plan.with_lock do
+        if @plan.reset_reviews_on_change != enabled
+          @plan.update!(reset_reviews_on_change: enabled, review_sequence: @plan.review_sequence + 1)
+        end
+      end
+      Broadcaster.custom_action_to(@plan, action: "coplan-review-changed", target: "plan-review-controls", html: "")
+      render json: { reset_reviews_on_change: @plan.reset_reviews_on_change }
+    end
+
     def create
       authorize!(@plan, :update?)
       attributes = params.expect(review_request: [ :reviewer_id, :requirement ])

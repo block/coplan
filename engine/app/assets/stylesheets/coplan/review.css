@@ -530,3 +530,6 @@ body:has(.review-tray[data-completed="true"]:not([data-reconsidering="true"]):no
 
 /* Live content and the inline editor share this reader, including empty plans. */
 .plan-reader:has(.markdown-rendered > *) > .empty-state { display: none; }
+
+.review-reset-policy__status { display: inline-block; width: 1em; color: var(--color-text-muted); opacity: 0; }
+.review-reset-policy__status[data-state="saved"] { opacity: 1; }

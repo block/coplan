@@ -9,7 +9,7 @@ module CoPlan
 
         plan.update!(current_plan_version: version, current_revision: version.revision,
           review_sequence: plan.review_sequence + 1)
-        requests = plan.review_requests.active.to_a
+        requests = plan.reset_reviews_on_change? ? plan.review_requests.active.to_a : []
         requests.each do |request|
           request.update!(status: "pending", generation: request.generation + 1,
             current_response: nil, reset_reason: "content_changed")
@@ -17,6 +17,9 @@ module CoPlan
         # No new review notifications for each edit, and no reset broadcast
         # for a transaction that rolls back.
         ActiveRecord.after_all_transactions_commit do
+          if requests.empty?
+            Broadcaster.custom_action_to(plan, action: "coplan-review-changed", target: "plan-review-controls", html: "")
+          end
           requests.each do |request|
             Reviews::Changed.call(request: request, event_type: "review.requested",
               payload: { "action" => "content_changed", "revision" => version.revision,

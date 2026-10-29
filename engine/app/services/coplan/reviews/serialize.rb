@@ -13,9 +13,10 @@ module CoPlan
         request = @request
         {
           id: request.id, reviewer: { id: request.reviewer_id, name: request.reviewer.name },
-          requirement: request.requirement, status: request.status, effective_status: request.effective_status,
+          requirement: request.requirement, status: request.status, review_status: request.review_status, effective_status: request.effective_status,
           requested_at: request.requested_at, generation: request.generation, reset_reason: request.reset_reason,
           current_response_id: request.current_response_id,
+          recorded_response_id: request.recorded_response&.id,
           effective_response_id: request.effective_response&.id,
           effective_human_decision: request.effective_human_decision,
           latest_human_response_id: request.review_responses.find { |response|
