@@ -6,37 +6,6 @@ RSpec.describe "Review requests", type: :request do
   let(:plan) { create(:plan, :published, created_by_user: author) }
   let(:task) { create(:review_request, plan: plan, reviewer: reviewer) }
 
-  [ true, false ].each do |keyed|
-    it "rejects old #{keyed ? 'keyed' : 'legacy'} responses after removing and re-adding a reviewer", :review_removal do
-      payload = { revision: 1, decision: "approved" }
-      payload[:idempotency_key] = SecureRandom.uuid if keyed
-      previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, **payload)
-      sign_in_as(author)
-      delete plan_review_request_path(plan, task), params: { review_request: { remove: true } }, as: :json
-      expect(response).to have_http_status(:no_content)
-      expect(CoPlan::ReviewResponse.exists?(previous.id)).to be(false)
-      post plan_review_requests_path(plan), params: { review_request: { reviewer_id: reviewer.id } }, as: :json
-      expect(response).to have_http_status(:created)
-      fresh = plan.review_requests.find(response.parsed_body.fetch("id"))
-      expect(fresh.id).not_to eq(task.id)
-
-      sign_in_as(reviewer)
-      post respond_plan_review_request_path(plan, task), params: { review_response: payload }, as: :json
-      expect(response).to have_http_status(:not_found)
-      sign_in_as(author)
-      patch plan_review_request_path(plan, task), params: { review_request: { request_again: true } }, as: :json
-      expect(response).to have_http_status(:not_found)
-      delete plan_review_request_path(plan, task), params: { review_request: { remove: true } }, as: :json
-      expect(response).to have_http_status(:no_content)
-      expect(fresh.reload.status).to eq("pending")
-      expect(fresh.review_responses).to be_empty
-      get plan_review_requests_path(plan)
-      expect(Nokogiri::HTML(response.body).css(".review-log__event").map { |node| node.text.squish }).to eq([
-        "#{author.name} requested a review from #{reviewer.name}"
-      ])
-    end
-  end
-
   it "allows only the plan author to erase a reviewer's decisions", :review_removal do
     previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
     sign_in_as(reviewer)

@@ -1,14 +1,15 @@
 module CoPlan
   module Reviews
     class Request
-      def self.call(plan:, reviewer:, actor:, requirement: "required", api_token: nil, create_only: false, request_id: nil)
-        new(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, request_id:).call
+      def self.call(plan:, reviewer:, actor:, requirement: "required", api_token: nil, create_only: false, request_id: nil, replace_withdrawn: false)
+        new(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, request_id:, replace_withdrawn:).call
       end
 
-      def initialize(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, request_id:)
+      def initialize(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, request_id:, replace_withdrawn:)
         @plan, @reviewer, @actor, @requirement, @api_token = plan, reviewer, actor, requirement, api_token
         @create_only = create_only
         @request_id = request_id
+        @replace_withdrawn = replace_withdrawn
       end
 
       def call
@@ -19,14 +20,17 @@ module CoPlan
           else
             @plan.review_requests.find_or_initialize_by(reviewer: @reviewer)
           end
-          # Retrying a create cannot change a decision, reopen a withdrawal,
-          # or send another nudge. Only an explicit re-request starts a cycle.
+          # API create retries preserve every existing task. The web add form
+          # deliberately replaces withdrawn tasks left by earlier removals.
           if @create_only && request.persisted?
             unless ReviewRequest::REQUIREMENTS.include?(@requirement)
               request.errors.add(:requirement, :inclusion)
               raise ActiveRecord::RecordInvalid, request
             end
-            next request
+            next request unless @replace_withdrawn && request.status == "withdrawn"
+
+            request.destroy!
+            request = @plan.review_requests.new(reviewer: @reviewer)
           end
 
           # Preserve the original request for tasks created before request

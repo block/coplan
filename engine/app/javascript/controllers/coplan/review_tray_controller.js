@@ -267,15 +267,7 @@ export default class extends Controller {
     event.preventDefault()
     if (!this.reviewerIdTarget.value) { this.assignmentErrorTarget.textContent = "Choose a person from the results first."; return }
     await this.withBusy(event.target, this.assignmentErrorTarget, async () => {
-      const requirement = event.target.querySelector('[type="checkbox"]').checked ? "required" : "optional"
-      const request = await this.write(this.urlValue, "POST", { review_request: { reviewer_id: this.reviewerIdTarget.value, requirement } })
-      // Create retries preserve withdrawn tasks. Re-adding someone here is
-      // an explicit new request; reopen it through the existing update API.
-      // If that result is lost, the next create returns the pending task
-      // and does not send another request or notification.
-      if (request.status === "withdrawn") {
-        await this.write(`${this.urlValue}/${encodeURIComponent(request.id)}`, "PATCH", { review_request: { request_again: true, requirement } })
-      }
+      await this.write(this.urlValue, "POST", { review_request: { reviewer_id: this.reviewerIdTarget.value, requirement: event.target.querySelector('[type="checkbox"]').checked ? "required" : "optional", replace_withdrawn: true } })
       this.searchTarget.value = ""; this.reviewerIdTarget.value = ""; this.resultsTarget.replaceChildren()
       this.closeAssignment()
       event.target.querySelector('[type="checkbox"]').checked = true

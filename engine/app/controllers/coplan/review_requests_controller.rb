@@ -17,10 +17,11 @@ module CoPlan
 
     def create
       authorize!(@plan, :update?)
-      attributes = params.expect(review_request: [ :reviewer_id, :requirement ])
+      attributes = params.expect(review_request: [ :reviewer_id, :requirement, :replace_withdrawn ])
       reviewer = User.find(attributes[:reviewer_id])
       request = Reviews::Request.call(plan: @plan, reviewer: reviewer, actor: current_user,
-        requirement: attributes[:requirement].presence || "required", create_only: true)
+        requirement: attributes[:requirement].presence || "required", create_only: true,
+        replace_withdrawn: ActiveModel::Type::Boolean.new.cast(attributes[:replace_withdrawn]))
       render json: Reviews::Serialize.call(request), status: :created
     end
 

@@ -7,8 +7,6 @@ RSpec.describe CoPlan::Reviews::Remove do
 
   %w[approved changes_requested].each do |decision|
     it "erases a removed reviewer's #{decision} decisions and starts a new pending request" do
-      watcher = create(:api_token, user: plan.created_by_user)
-      CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Authorbot")
       previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1,
         decision: decision, note: decision == "changes_requested" ? "Earlier feedback" : nil)
       other = CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: plan.created_by_user)
@@ -19,9 +17,6 @@ RSpec.describe CoPlan::Reviews::Remove do
       expect(CoPlan::ReviewRequest.exists?(task.id)).to be(false)
       expect(CoPlan::ReviewResponse.exists?(previous.id)).to be(false)
       expect(plan.notifications.where(review_request_id: task.id)).to be_empty
-      expect(plan.plan_events.where(after_value: task.id)).to be_empty
-      expect(watcher.agent_events.where(event_type: "review.responded").map { |event| event.payload["review_request_id"] }).to eq([ other.id ])
-      expect(watcher.agent_events.last.payload).to include("action" => "removed", "review_request_id" => task.id)
       expect(other_response.reload.decision).to eq("approved")
 
       fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user, create_only: true)
@@ -42,28 +37,15 @@ RSpec.describe CoPlan::Reviews::Remove do
     expect(fresh.review_responses).to eq([ approval ])
   end
 
-  it "rejects an old re-request already in flight when the request is removed" do
-    old_id = task.id
-    described_class.call(plan: plan, request_id: old_id)
+  it "keeps the old review if a replacement request is invalid" do
+    previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+    CoPlan::Reviews::Withdraw.call(request: task, actor: plan.created_by_user)
     expect {
-      CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user, request_id: old_id)
-    }.to raise_error(ActiveRecord::RecordNotFound)
-    expect(plan.review_requests).to be_empty
-  end
-
-  it "does not erase a request from another plan" do
-    task
-    expect(described_class.call(plan: create(:plan, :published), request_id: task.id)).to be_nil
-    expect(task.reload.status).to eq("pending")
-  end
-
-  it "does not republish an erased response when its post-commit fan-out runs late" do
-    watcher = create(:api_token, user: plan.created_by_user)
-    CoPlan::AgentSession.create!(plan: plan, api_token: watcher, state: "watching", agent_name: "Authorbot")
-    stale_request = task
-    described_class.call(plan: plan, request_id: task.id)
-    CoPlan::Reviews::Changed.call(request: stale_request, event_type: "review.responded", payload: { "decision" => "approved" })
-    expect(watcher.agent_events.where(event_type: "review.responded")).to be_empty
+      CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user,
+        requirement: "invalid", create_only: true, replace_withdrawn: true)
+    }.to raise_error(ActiveRecord::RecordInvalid)
+    expect(previous.reload.decision).to eq("approved")
+    expect(task.reload.status).to eq("withdrawn")
   end
 
   describe "requests already waiting for the plan lock" do

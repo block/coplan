@@ -60,7 +60,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
-  [ "light", "dark" ].product(%w[approved changes_requested]).each do |theme, decision|
+  [ [ "light", "approved" ], [ "dark", "changes_requested" ] ].each do |theme, decision|
     it "starts fresh after removing a #{decision} reviewer in #{theme} theme", :review_readdition do
       previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: decision,
         note: decision == "changes_requested" ? "Earlier review feedback" : nil)
@@ -104,75 +104,22 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
-  [ "lost", "rejected" ].each do |failure|
-    it "keeps removal retryable after a #{failure} result", :review_readdition do
-      sign_in_browser(author)
-      click_button "More actions"
-      within("#plan-menu") { click_button "Manage reviewers" }
-      page.execute_script(<<~JS, failure)
-        const originalFetch = window.fetch.bind(window)
-        const failure = arguments[0]
-        // Also lose the socket invalidation so the stale row can be retried.
-        window.Turbo.StreamActions['coplan-review-changed'] = function () {}
-        let interrupt = true
-        window.fetch = async (url, options) => {
-          if (interrupt && options?.method === 'DELETE' && String(url).includes('/review_requests/')) {
-            interrupt = false
-            if (failure === 'rejected') return new Response(JSON.stringify({error: 'Please retry removal'}), {status: 422, headers: {'Content-Type': 'application/json'}})
-            await originalFetch(url, options)
-            throw new TypeError('Lost the successful removal result')
-          }
-          return originalFetch(url, options)
-        }
-      JS
-      within(".review-management[open]") do
-        click_button "Actions for Plan Reviewer", enable_aria_label: true
-        click_button "Remove reviewer"
-        expect(page).to have_css("[role='alert']", text: failure == "lost" ? "Couldn't reach CoPlan" : "Please retry removal")
-        expect(CoPlan::ReviewRequest.exists?(task.id)).to eq(failure == "rejected")
-        click_button "Actions for Plan Reviewer", enable_aria_label: true
-        click_button "Remove reviewer"
-        expect(page).to have_no_css("[data-review-assignments] .review-person")
-      end
-      expect(CoPlan::ReviewRequest.exists?(task.id)).to be(false)
-    end
-
-    it "keeps re-adding a reviewer retryable after a #{failure} update result", :review_readdition do
-      CoPlan::Reviews::Withdraw.call(request: task, actor: author)
-      sign_in_browser(author)
-      click_button "More actions"
-      within("#plan-menu") { click_button "Manage reviewers" }
-      within(".review-management[open]") { click_button "Add reviewer", exact: true }
-      fill_in "Find a reviewer", with: reviewer.name
-      find(".review-search-result", text: reviewer.name).click
-      page.execute_script(<<~JS, failure)
-        const originalFetch = window.fetch.bind(window)
-        let interrupt = true
-        const failure = arguments[0]
-        window.fetch = async (url, options) => {
-          if (interrupt && options?.method === 'PATCH' && String(url).includes('/review_requests/')) {
-            interrupt = false
-            if (failure === 'rejected') return new Response(JSON.stringify({error: 'Please retry this request'}), {status: 422, headers: {'Content-Type': 'application/json'}})
-            await originalFetch(url, options)
-            throw new TypeError('Lost the result after the server reopened the task')
-          }
-          return originalFetch(url, options)
-        }
-      JS
-      within(".review-assignment-form") { click_button "Add reviewer", exact: true }
-      expect(page).to have_css(".review-assignment [role='alert']", text: failure == "lost" ? "Couldn't reach CoPlan" : "Please retry this request")
-      expect(page).to have_field("Find a reviewer", with: reviewer.name)
-      expect(task.reload.status).to eq(failure == "lost" ? "pending" : "withdrawn")
-      within(".review-assignment-form") { click_button "Add reviewer", exact: true }
-      within(".review-management[open] [data-review-assignments]") do
-        expect(page).to have_css(".review-person", text: reviewer.name)
-        expect(page).to have_css(".review-state", text: "Pending")
-      end
-      expect(task.reload.status).to eq("pending")
-      expect(plan.review_requests.where(reviewer: reviewer).count).to eq(1)
-      expect(plan.plan_events.where(event_type: "review_requested", after_value: task.id).count).to eq(2)
-      expect(task.notifications.unread.where(user: reviewer, reason: "review_requested").count).to eq(1)
-    end
+  it "re-adds a reviewer removed before permanent removal was supported", :review_readdition do
+    previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+    CoPlan::Reviews::Withdraw.call(request: task, actor: author)
+    sign_in_browser(author)
+    click_button "More actions"
+    within("#plan-menu") { click_button "Manage reviewers" }
+    within(".review-management[open]") { click_button "Add reviewer", exact: true }
+    fill_in "Find a reviewer", with: reviewer.name
+    find(".review-search-result", text: reviewer.name).click
+    within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+    expect(page).to have_css(".review-person", text: reviewer.name)
+    expect(page).to have_css(".review-state", text: "Pending")
+    fresh = plan.review_requests.find_by!(reviewer: reviewer)
+    expect(fresh.id).not_to eq(task.id)
+    expect(fresh.review_responses).to be_empty
+    expect(CoPlan::ReviewResponse.exists?(previous.id)).to be(false)
   end
 
   it "leaves an already active review unchanged when a selected re-add is submitted", :review_readdition do

@@ -2,7 +2,7 @@
     _version_item.html.erb. Non-interactive (no turbo-frame target) since
     there's no separate diff to display — the event payload itself is the
     diff. %>
-<div class="history-split__item history-split__item--event" id="<%= dom_id(event) %>">
+<div class="history-split__item history-split__item--event">
   <div class="history-split__event-chip"><%= event.field || event.event_type %></div>
   <div class="history-split__meta">
     <% if event.actor_user %>
