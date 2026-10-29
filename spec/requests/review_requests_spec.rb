@@ -6,28 +6,6 @@ RSpec.describe "Review requests", type: :request do
   let(:plan) { create(:plan, :published, created_by_user: author) }
   let(:task) { create(:review_request, plan: plan, reviewer: reviewer) }
 
-  it "defaults to resetting reviews and persists an editor's document-wide preference", :review_reset_policy do
-    expect(plan.reset_reviews_on_change).to be(true)
-    sequence = plan.review_sequence
-    sign_in_as(author)
-    [ false, false, true ].each_with_index do |enabled, index|
-      patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: enabled } }, as: :json
-      expect(response).to have_http_status(:ok)
-      expect(response.parsed_body).to eq("reset_reviews_on_change" => enabled)
-      expect(plan.reload.reset_reviews_on_change).to eq(enabled)
-      expect(plan.review_sequence).to eq(sequence + (index == 2 ? 2 : 1))
-      expect(CoPlan::Reviews::Evidence.call(plan: plan)[:reset_reviews_on_change]).to eq(enabled)
-    end
-  end
-
-  it "does not let a reviewer change the document's reset policy", :review_reset_policy do
-    task
-    sign_in_as(reviewer)
-    patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: false } }, as: :json
-    expect(response).to have_http_status(:not_found)
-    expect(plan.reload.reset_reviews_on_change).to be(true)
-  end
-
   it "labels an agent decision separately from the reviewer's own human approval" do
     token = create(:api_token, user: reviewer, agent_name: "Reviewbot")
     CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", api_token: token)

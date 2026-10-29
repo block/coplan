@@ -24,7 +24,7 @@ module CoPlan
     scope :pending, -> { where(status: "pending") }
 
     def pending?
-      review_status == "pending"
+      effective_status == "pending"
     end
 
     # Positive history is for comparison only. Never use it as current evidence.
@@ -32,22 +32,11 @@ module CoPlan
       review_responses.find { |response| response.decision == "approved" }
     end
 
-    # Lifecycle completion may survive edits when automatic resets are off.
-    # The recorded decision still covers only its original immutable version.
-    def recorded_response
+    def effective_response
       response = current_response
       response if response && status == response.decision &&
-        response.review_request_id == id && response.request_generation == generation
-    end
-
-    def review_status
-      status == "withdrawn" ? "withdrawn" : (recorded_response&.decision || "pending")
-    end
-
-    # Exact-version evidence stays strict regardless of the reset preference.
-    def effective_response
-      response = recorded_response
-      response if response&.plan_version_id == plan.current_plan_version_id
+        response.review_request_id == id && response.request_generation == generation &&
+        response.plan_version_id == plan.current_plan_version_id
     end
 
     def effective_status

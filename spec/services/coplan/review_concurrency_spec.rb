@@ -11,52 +11,49 @@ RSpec.describe "Concurrent review and content commits" do
     Thread.new { ActiveRecord::Base.connection_pool.with_connection(&block) }
   end
 
-  [ true, false ].each do |reset|
-    it "makes evidence and stale responses wait for a complete edit with resets=#{reset}" do
-      owner = create(:coplan_user)
-      reviewer = create(:coplan_user)
-      plan = CoPlan::Plans::Create.call(title: "Concurrent review", content: "Before", user: owner)
-      plan.update!(reset_reviews_on_change: reset)
-      task = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: owner)
-      first = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, generation: 1, decision: "approved")
-      edited, release, attempting = Queue.new, Queue.new, Queue.new
-      writer = threaded do
-        local = CoPlan::Plan.find(plan.id)
-        local.with_lock do
-          CoPlan::Plans::ReplaceContent.call(plan: local, new_content: "After", base_revision: 1, actor_type: "human", actor_id: owner.id)
-          edited << true
-          release.pop
-        end
+  it "makes an evidence read and stale response wait for the complete edit/reset transaction" do
+    owner = create(:coplan_user)
+    reviewer = create(:coplan_user)
+    plan = CoPlan::Plans::Create.call(title: "Concurrent review", content: "Before", user: owner)
+    task = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: owner)
+    first = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, generation: 1, decision: "approved")
+    edited, release, attempting = Queue.new, Queue.new, Queue.new
+    writer = threaded do
+      local = CoPlan::Plan.find(plan.id)
+      local.with_lock do
+        CoPlan::Plans::ReplaceContent.call(plan: local, new_content: "After", base_revision: 1, actor_type: "human", actor_id: owner.id)
+        edited << true
+        release.pop
       end
-      Timeout.timeout(10) { edited.pop }
-      reader = threaded do
-        attempting << true
-        CoPlan::Reviews::Evidence.call(plan: CoPlan::Plan.find(plan.id))
-      end
-      responder = threaded do
-        attempting << true
-        begin
-          CoPlan::Reviews::Respond.call(request: CoPlan::ReviewRequest.find(task.id), actor: reviewer,
-            revision: 1, generation: 1, decision: "approved", idempotency_key: SecureRandom.uuid)
-        rescue CoPlan::Reviews::Respond::Conflict => error
-          error.code
-        end
-      end
-      Timeout.timeout(10) { 2.times { attempting.pop } }
-      expect(reader).to be_alive
-      expect(responder).to be_alive
-      release << true
-      [ writer, reader, responder ].each { |thread| expect(thread.join(20)).to be_present }
-      evidence = reader.value
-      expect(evidence[:version]).to include(revision: 2, content_markdown: "After")
-      expect(evidence[:review_requests].first).to include(status: reset ? "pending" : "approved", effective_response_id: nil, generation: reset ? 2 : 1)
-      expect(evidence[:review_sequence]).to eq(first.decision_sequence + 1)
-      expect(responder.value).to eq("review_version_changed")
-      expect(task.reload.review_responses.pluck(:id)).to eq([ first.id ])
-    ensure
-      release << true if release
-      [ writer, reader, responder ].compact.each { |thread| thread.kill if thread.alive? }
     end
+    Timeout.timeout(10) { edited.pop }
+    reader = threaded do
+      attempting << true
+      CoPlan::Reviews::Evidence.call(plan: CoPlan::Plan.find(plan.id))
+    end
+    responder = threaded do
+      attempting << true
+      begin
+        CoPlan::Reviews::Respond.call(request: CoPlan::ReviewRequest.find(task.id), actor: reviewer,
+          revision: 1, generation: 1, decision: "approved", idempotency_key: SecureRandom.uuid)
+      rescue CoPlan::Reviews::Respond::Conflict => error
+        error.code
+      end
+    end
+    Timeout.timeout(10) { 2.times { attempting.pop } }
+    expect(reader).to be_alive
+    expect(responder).to be_alive
+    release << true
+    [ writer, reader, responder ].each { |thread| expect(thread.join(20)).to be_present }
+    evidence = reader.value
+    expect(evidence[:version]).to include(revision: 2, content_markdown: "After")
+    expect(evidence[:review_requests].first).to include(status: "pending", effective_response_id: nil, generation: 2)
+    expect(evidence[:review_sequence]).to eq(first.decision_sequence + 1)
+    expect(responder.value).to eq("review_version_changed")
+    expect(task.reload.review_responses.pluck(:id)).to eq([ first.id ])
+  ensure
+    release << true if release
+    [ writer, reader, responder ].compact.each { |thread| thread.kill if thread.alive? }
   end
 
   it "serializes two same-time decisions with unique increasing server sequences" do

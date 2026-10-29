@@ -13,10 +13,6 @@
     <% end %>
   </div>
   <% if allowed_to?(plan, :update?) %>
-    <div class="review-reset-policy">
-      <label class="review-required"><input type="checkbox" <%= "checked" if plan.reset_reviews_on_change %> data-action="change->coplan--review-tray#changeResetPolicy" data-review-reset-policy data-saved-value="<%= plan.reset_reviews_on_change %>"> Reset approvals when content changes <span class="review-reset-policy__status" data-coplan--review-tray-target="policyIcon" role="img" aria-hidden="true" aria-label="Saved" title="Saved">✓</span></label>
-      <p class="text-sm text-muted">Applies to future edits for all reviewers. When off, completed reviews stay completed.</p>
-    </div>
     <div id="review-assignment" class="review-assignment" popover="auto" role="dialog" aria-label="Add reviewer" data-coplan--review-tray-target="assignment" data-action="toggle->coplan--review-tray#assignmentToggled keydown.esc->coplan--review-tray#dismissAssignment">
       <%= form_with url: plan_review_requests_path(plan), class: "review-assignment-form", data: { action: "submit->coplan--review-tray#assign" } do %>
         <label for="reviewer-search">Find a reviewer</label>

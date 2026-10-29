@@ -1,8 +1,8 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "managementStatus", "policyIcon", "assignmentError", "approval", "approvalNote", "approvalError", "approvalTitle", "approveButton", "comparison", "diff", "activity", "suggestions"]
-  static values = { url: String, searchUrl: String, suggestionsUrl: String, settingsUrl: String }
+  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "managementStatus", "assignmentError", "approval", "approvalNote", "approvalError", "approvalTitle", "approveButton", "comparison", "diff", "activity", "suggestions"]
+  static values = { url: String, searchUrl: String, suggestionsUrl: String }
 
   connect() {
     this.searchSequence = 0
@@ -21,12 +21,6 @@ export default class extends Controller {
 
   disconnect() {
     clearTimeout(this.searchTimer)
-    clearTimeout(this.policySaveTimer)
-    if (this.policySaveTimer) {
-      this.policySaveTimer = null
-      this.saveResetPolicy(this.element.querySelector("[data-review-reset-policy]"))
-    }
-    clearTimeout(this.policyIconTimer)
     this.searchSequence++
     this.refreshSequence++
     document.body.classList.remove("has-review-tray")
@@ -227,19 +221,12 @@ export default class extends Controller {
 
   async refresh() {
     const sequence = ++this.refreshSequence
-    const policyBusy = this.policySaving || this.policySaveTimer
     try {
       const response = await fetch(this.urlValue, { credentials: "same-origin", headers: { Accept: "text/html" } })
       if (!response.ok) return
       const incoming = new DOMParser().parseFromString(await response.text(), "text/html")
       if (sequence !== this.refreshSequence || !this.element.isConnected) return
       this.element.dataset.reviewGeneration = incoming.getElementById("plan-review-controls")?.dataset.reviewGeneration || ""
-      const policy = this.element.querySelector("[data-review-reset-policy]")
-      const incomingPolicy = incoming.querySelector("[data-review-reset-policy]")
-      if (policy && incomingPolicy && !policyBusy && !this.policySaving && !this.policySaveTimer) {
-        policy.checked = incomingPolicy.checked
-        policy.dataset.savedValue = String(incomingPolicy.checked)
-      }
       const tray = incoming.querySelector(".review-tray")
       const existingTray = this.element.querySelector(".review-tray")
       const wasWithdrawn = this.reviewWithdrawn
@@ -283,58 +270,6 @@ export default class extends Controller {
       if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", String(!this.discussionTarget.hidden))
       this.syncFeedbackLinks()
     } catch { /* The task and draft remain usable; the next event retries. */ }
-  }
-
-  changeResetPolicy(event) {
-    const input = event.currentTarget
-    input.setAttribute("aria-busy", "true")
-    this.refreshSequence++
-    this.policyIconTarget.setAttribute("aria-hidden", "true")
-    clearTimeout(this.policyIconTimer)
-    this.policyIconTarget.dataset.state = ""
-    clearTimeout(this.policySaveTimer)
-    this.policySaveTimer = setTimeout(() => {
-      this.policySaveTimer = null
-      this.saveResetPolicy(input)
-    }, 200)
-  }
-
-  async saveResetPolicy(input) {
-    if (this.policySaving) return
-    const previous = input.dataset.savedValue === "true"
-    const enabled = input.checked
-    if (previous === enabled) { input.setAttribute("aria-busy", "false"); return }
-    this.policySaving = true
-    this.managementErrorTarget.textContent = ""
-    try {
-      await this.write(this.settingsUrlValue, "PATCH", { review_settings: { reset_reviews_on_change: enabled } })
-      input.dataset.savedValue = String(enabled)
-      if (input.checked === enabled) {
-        this.policyIconTarget.dataset.state = "saved"
-        this.policyIconTarget.setAttribute("aria-hidden", "false")
-        this.policyIconTimer = setTimeout(() => {
-          this.policyIconTarget.dataset.state = ""
-          this.policyIconTarget.setAttribute("aria-hidden", "true")
-        }, 1500)
-      }
-    } catch (error) {
-      // A lost HTTP result may already have saved. Read back before restoring
-      // the checkbox, while preserving clicks made during that request.
-      let persisted = previous
-      try {
-        const response = await fetch(this.urlValue, { credentials: "same-origin", headers: { Accept: "text/html" } })
-        const policy = new DOMParser().parseFromString(await response.text(), "text/html").querySelector("[data-review-reset-policy]")
-        if (response.ok && policy) persisted = policy.checked
-      } catch { /* Keep the last confirmed value and show the error. */ }
-      input.dataset.savedValue = String(persisted)
-      if (input.checked === enabled) input.checked = persisted
-      this.managementErrorTarget.textContent = persisted === enabled ? "" : error.message
-    } finally {
-      this.policySaving = false
-      // Serialize saves so a slow older request cannot overwrite a newer click.
-      if (input.checked !== (input.dataset.savedValue === "true")) this.saveResetPolicy(input)
-      else input.setAttribute("aria-busy", "false")
-    }
   }
 
   async assign(event) {

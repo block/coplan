@@ -35,20 +35,6 @@ RSpec.describe "Review evidence API", type: :request do
     expect(response.parsed_body.fetch("review_requests").first.fetch("effective_response_id")).to be_nil
   end
 
-  it "distinguishes retained task completion from current-version approval when resets are off" do
-    plan.update!(reset_reviews_on_change: false)
-    receipt = CoPlan::Reviews::Respond.call(request: task, actor: task.reviewer, revision: 1, generation: 1, decision: "approved")
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "New source", base_revision: 1, actor_type: "human", actor_id: author.id)
-    get review_evidence_api_v1_plan_path(plan), headers: headers
-    expect(response).to have_http_status(:ok)
-    data = response.parsed_body
-    expect(data.fetch("reset_reviews_on_change")).to be(false)
-    expect(data.fetch("version").fetch("revision")).to eq(2)
-    expect(data.fetch("review_requests").first).to include("review_status" => "approved", "recorded_response_id" => receipt.id,
-      "effective_status" => "pending", "effective_human_decision" => nil, "effective_response_id" => nil)
-    expect(data.fetch("review_requests").first.fetch("responses").first).to include("revision" => 1, "plan_version_id" => receipt.plan_version_id)
-  end
-
   it "returns the exact historical source after edits and never substitutes current content" do
     original = plan.current_plan_version
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "New body", base_revision: 1, actor_type: "human", actor_id: author.id)
