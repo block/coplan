@@ -229,14 +229,16 @@ export default class extends Controller {
 
   async refresh() {
     const sequence = ++this.refreshSequence
+    this.policyRefreshPending = false
     const policyBusy = this.policySaving || this.policySaveTimer
     const policyGeneration = this.policyInputGeneration
     try {
       const response = await fetch(this.urlValue, { credentials: "same-origin", headers: { Accept: "text/html" } })
       if (!response.ok) return
       const incoming = new DOMParser().parseFromString(await response.text(), "text/html")
-      if (sequence !== this.refreshSequence || !this.element.isConnected) return
-      this.element.dataset.reviewGeneration = incoming.getElementById("plan-review-controls")?.dataset.reviewGeneration || ""
+      const controls = incoming.getElementById("plan-review-controls")
+      if (sequence !== this.refreshSequence || !this.element.isConnected || !controls) return
+      this.element.dataset.reviewGeneration = controls.dataset.reviewGeneration || ""
       const policy = this.element.querySelector("[data-review-reset-policy]")
       const incomingPolicy = incoming.querySelector("[data-review-reset-policy]")
       if (policy && incomingPolicy) {
@@ -581,7 +583,7 @@ export default class extends Controller {
       // Network failures and lost results keep their original key/generation.
       if (String(url).endsWith("/respond") && [409, 422].includes(response.status)) {
         this.responseIntents = {}
-        await this.refresh()
+        this.refresh()
       }
       const error = new Error(result.error || "Couldn't save. Please try again.")
       error.status = response.status

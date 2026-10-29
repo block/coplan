@@ -360,6 +360,54 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
+  it "stops a deferred controls refresh when successful HTML is a sign-in page", :review_refresh_failures do
+    sign_in_browser(author)
+    open_review_settings
+    page.execute_script(<<~JS)
+      const root = document.getElementById('plan-review-controls')
+      const controller = window.Stimulus.getControllerForElementAndIdentifier(root, 'coplan--review-tray')
+      const originalFetch = window.fetch.bind(window)
+      window.controlsReads = 0
+      window.fetch = async (url, options) => {
+        if (url === controller.urlValue && !options?.method) {
+          root.dataset.controlsReads = String(++window.controlsReads)
+          if (window.controlsReads > 2) throw new TypeError('Stop the test loop')
+          await new Promise(resolve => setTimeout(resolve, 20))
+          return new Response('<html><body>Sign in</body></html>', {status: 200})
+        }
+        return originalFetch(url, options)
+      }
+      controller.policyRefreshPending = true
+      controller.refresh()
+      setTimeout(() => { root.dataset.refreshSettled = 'true' }, 200)
+    JS
+    expect(page).to have_css("[data-refresh-settled='true']")
+    expect(page.evaluate_script("window.controlsReads")).to eq(1)
+    expect(page).to have_css(".review-management[open]")
+  end
+
+  it "shows a rejected review and releases submission while the controls refresh stalls", :review_refresh_failures do
+    within(".review-tray") { click_button "Approve", exact: true }
+    page.execute_script(<<~JS)
+      const root = document.getElementById('plan-review-controls')
+      const controlsUrl = root.getAttribute('data-coplan--review-tray-url-value')
+      const originalFetch = window.fetch.bind(window)
+      window.fetch = async (url, options) => {
+        if (options?.method === 'POST' && String(url).endsWith('/respond')) {
+          return new Response(JSON.stringify({error: 'The review request changed'}), {status: 409})
+        }
+        if (url === controlsUrl && !options?.method) return new Promise(() => {})
+        return originalFetch(url, options)
+      }
+    JS
+    within(".review-confirmation") do
+      click_button "Approve v1", exact: true
+      expect(page).to have_text("The review request changed")
+      expect(page).to have_button("Approve v1", disabled: false)
+      expect(page).to have_no_css("[aria-busy='true']")
+    end
+  end
+
   it "dismisses an approval after an edit, preserves its snapshot and accepts a fresh review", :version_parity do
     within(".review-tray") { click_button "Approve", exact: true }
     within(".review-confirmation") do
