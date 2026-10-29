@@ -1,6 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Version-bound review evidence" do
+  include ActiveJob::TestHelper
   let(:plan) { CoPlan::Plans::Create.call(title: "Reviewed body", content: "# Plan\n\n- [ ] Ship", user: create(:coplan_user)) }
   let(:reviewer) { create(:coplan_user) }
   let(:task) { CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user) }
@@ -61,6 +62,25 @@ RSpec.describe "Version-bound review evidence" do
     expect(CoPlan::AgentEvent.where(api_token: observer, event_type: "review.requested").count).to eq(2)
     expect(CoPlan::Broadcaster).to have_received(:custom_action_to).with(plan,
       action: "coplan-review-changed", target: "plan-review-controls", html: "").once
+  end
+
+  it "keeps a committed edit successful and retries one failed reset without blocking other reviewers" do
+    task
+    other = CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: plan.created_by_user)
+    allow(CoPlan::Reviews::Changed).to receive(:call).and_call_original
+    allow(CoPlan::Reviews::Changed).to receive(:call).with(hash_including(request: task)).and_raise(IOError, "temporary delivery failure")
+    allow(CoPlan::Broadcaster).to receive(:custom_action_to)
+    allow(Rails.error).to receive(:report)
+    expect { replace("Committed despite a delivery failure") }.not_to raise_error
+    expect(plan.reload.current_revision).to eq(2)
+    expect(CoPlan::Reviews::Changed).to have_received(:call).with(hash_including(request: other))
+    expect(CoPlan::Broadcaster).to have_received(:custom_action_to).with(plan,
+      action: "coplan-review-changed", target: "plan-review-controls", html: "").once
+    expect(CoPlan::ReviewResetDeliveryJob).to have_been_enqueued.with(
+      request_id: task.id, generation: task.reload.generation, revision: 2, actor_token_id: nil)
+    allow(CoPlan::Reviews::Changed).to receive(:call).and_call_original
+    perform_enqueued_jobs(only: CoPlan::ReviewResetDeliveryJob)
+    expect(CoPlan::Reviews::Changed).to have_received(:call).with(hash_including(request: task)).twice
   end
 
   it "dismisses on human drafts and checkbox edits" do

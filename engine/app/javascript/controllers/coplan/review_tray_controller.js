@@ -245,6 +245,13 @@ export default class extends Controller {
           policy.checked = incomingPolicy.checked
           policy.dataset.savedValue = String(incomingPolicy.checked)
           policy.dataset.reviewSequence = incomingPolicy.dataset.reviewSequence
+          if (this.policyUncertainSequence != null && Number(policy.dataset.reviewSequence) > this.policyUncertainSequence) {
+            if (this.policyUnresolved) this.managementErrorTarget.textContent = ""
+            this.policyUncertainSequence = null
+            this.policyUnresolved = false
+            this.policyFenceAttempted = false
+            policy.removeAttribute("aria-invalid")
+          }
           this.policyRefreshPending = false
         } else this.policyRefreshPending = true
       }
@@ -299,6 +306,9 @@ export default class extends Controller {
     input.setAttribute("aria-busy", "true")
     this.policyInputGeneration = (this.policyInputGeneration || 0) + 1
     this.policyConflictRetries = 0
+    this.policyFenceAttempted = false
+    this.policyUnresolved = false
+    input.removeAttribute("aria-invalid")
     this.clearPolicyIcon()
     clearTimeout(this.policySaveTimer)
     this.policySaveTimer = setTimeout(() => {
@@ -312,7 +322,8 @@ export default class extends Controller {
     const previous = input.dataset.savedValue === "true"
     const enabled = input.checked
     const generation = this.policyInputGeneration
-    if (previous === enabled && !this.policyMustSave) {
+    const submittedSequence = Number(input.dataset.reviewSequence)
+    if (previous === enabled && !this.policyMustSave && this.policyUncertainSequence == null) {
       input.setAttribute("aria-busy", "false")
       if (this.policyRefreshPending) await this.refresh()
       return
@@ -326,11 +337,18 @@ export default class extends Controller {
       input.dataset.savedValue = String(enabled)
       input.dataset.reviewSequence = String(result.review_sequence)
       this.policyConflictRetries = 0
+      this.policyUncertainSequence = null
+      this.policyFenceAttempted = false
+      this.policyUnresolved = false
+      input.removeAttribute("aria-invalid")
       confirmed = true
     } catch (error) {
       // A lost HTTP result may already have saved. Read back before restoring
       // the checkbox, while preserving clicks made during that request.
       let persisted = previous
+      if (!error.status || error.status >= 500) {
+        this.policyUncertainSequence = Math.max(this.policyUncertainSequence ?? -1, submittedSequence)
+      }
       try {
         persisted = await this.withPolicyDeadline(async signal => {
           const response = await fetch(this.urlValue, { credentials: "same-origin", headers: { Accept: "text/html" }, signal })
@@ -339,16 +357,26 @@ export default class extends Controller {
           input.dataset.reviewSequence = policy.dataset.reviewSequence
           return policy.checked
         })
-        confirmed = persisted === enabled
       } catch { /* Keep the last confirmed value and show the error. */ }
+      this.policyUnresolved = this.policyUncertainSequence != null && Number(input.dataset.reviewSequence) <= this.policyUncertainSequence
+      confirmed = persisted === enabled && !this.policyUnresolved
+      if (!this.policyUnresolved) this.policyUncertainSequence = null
       input.dataset.savedValue = String(persisted)
       if (generation !== this.policyInputGeneration || (error.status === 409 && ++this.policyConflictRetries <= 2)) this.policyMustSave = true
       else input.checked = persisted
+      if (this.policyUnresolved && !this.policyFenceAttempted) {
+        // Readback alone cannot cancel a PATCH still waiting for the row lock.
+        // Fence it once with the reconciled value, even when that is a no-op.
+        this.policyFenceAttempted = true
+        this.policyMustSave = true
+        this.policyUnresolved = false
+      } else if (this.policyUnresolved) input.setAttribute("aria-invalid", "true")
       this.managementErrorTarget.textContent = confirmed ? "" : error.message
+      if (this.policyUnresolved) this.managementErrorTarget.textContent += " A previous save may still be running. Toggle again to retry."
     } finally {
       this.policySaving = false
       // Serialize saves so a slow older request cannot overwrite a newer click.
-      if (this.policyMustSave || input.checked !== (input.dataset.savedValue === "true")) this.saveResetPolicy(input)
+      if (!this.policyUnresolved && (this.policyMustSave || input.checked !== (input.dataset.savedValue === "true"))) this.saveResetPolicy(input)
       else {
         input.setAttribute("aria-busy", "false")
         if (this.policyRefreshPending) await this.refresh()

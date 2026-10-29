@@ -266,36 +266,42 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_no_text("Review settings changed. Please try again.")
   end
 
-  it "fences a lost older write before it can override the latest choice", :review_reset_policy do
-    sign_in_browser(author)
-    open_review_settings
-    page.execute_script(<<~JS)
-      const originalFetch = window.fetch.bind(window)
-      let first = true
-      window.fetch = async (url, options) => {
-        if (first && options?.method === 'PATCH' && String(url).endsWith('/settings')) {
-          first = false
-          document.querySelector('[data-review-reset-policy]').dataset.inFlight = 'true'
-          window.deliverOldPolicy = async () => {
-            const result = await originalFetch(url, options)
-            document.querySelector('[data-review-reset-policy]').dataset.oldStatus = String(result.status)
+  [ true, false ].each do |newer_choice|
+      it "fences a lost older write with newer input=#{newer_choice}", :review_reset_policy do
+      sign_in_browser(author)
+      open_review_settings
+      page.execute_script(<<~JS, newer_choice)
+        const newerChoice = arguments[0]
+        const originalTimeout = window.setTimeout.bind(window)
+        if (!newerChoice) window.setTimeout = (action, delay, ...args) => originalTimeout(action, delay === 10000 ? 100 : delay, ...args)
+        const originalFetch = window.fetch.bind(window)
+        let first = true
+        window.fetch = async (url, options) => {
+          if (first && options?.method === 'PATCH' && String(url).endsWith('/settings')) {
+            first = false
+            document.querySelector('[data-review-reset-policy]').dataset.inFlight = 'true'
+            window.deliverOldPolicy = async () => {
+              const result = await originalFetch(url, {...options, signal: undefined})
+              document.querySelector('[data-review-reset-policy]').dataset.oldStatus = String(result.status)
+            }
+            return await new Promise((_, reject) => { window.losePolicy = () => reject(new TypeError('Lost response')) })
           }
-          return await new Promise((_, reject) => { window.losePolicy = () => reject(new TypeError('Lost response')) })
+          return originalFetch(url, options)
         }
-        return originalFetch(url, options)
-      }
-    JS
-    uncheck "Reset approvals when content changes"
-    expect(page).to have_css("[data-review-reset-policy][data-in-flight='true']")
-    check "Reset approvals when content changes"
-    page.execute_script("window.losePolicy()")
-    expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
-    page.execute_script("window.deliverOldPolicy()")
-    expect(page).to have_css("[data-review-reset-policy][data-old-status='409']")
-    expect(page).to have_checked_field("Reset approvals when content changes")
-    expect(plan.reload.reset_reviews_on_change).to be(true)
+      JS
+      uncheck "Reset approvals when content changes"
+      expect(page).to have_css("[data-review-reset-policy][data-in-flight='true']")
+      if newer_choice
+        check "Reset approvals when content changes"
+        page.execute_script("window.losePolicy()")
+      end
+      expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+      page.execute_script("window.deliverOldPolicy()")
+      expect(page).to have_css("[data-review-reset-policy][data-old-status='409']")
+      expect(page).to have_checked_field("Reset approvals when content changes")
+      expect(plan.reload.reset_reviews_on_change).to be(true)
+    end
   end
-
   it "keeps a review refresh when policy toggles cancel out", :review_reset_policy do
     sign_in_browser(author)
     open_review_settings
