@@ -360,6 +360,56 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
+  it "does not retry an obsolete policy after Turbo navigation", :review_policy_disconnect do
+    sign_in_browser(author)
+    open_review_settings
+    page.execute_script(<<~JS)
+      const root = document.getElementById('plan-review-controls')
+      const controller = window.Stimulus.getControllerForElementAndIdentifier(root, 'coplan--review-tray')
+      const save = controller.saveResetPolicy.bind(controller)
+      controller.saveResetPolicy = (...args) => {
+        const result = save(...args)
+        window.oldPolicySave ||= result
+        return result
+      }
+      const originalFetch = window.fetch.bind(window)
+      window.policyWrites = []
+      window.fetch = async (url, options) => {
+        if (options?.method === 'PATCH' && String(url).endsWith('/settings')) {
+          window.policyWrites.push(JSON.parse(options.body).review_settings.reset_reviews_on_change)
+          if (window.policyWrites.length === 1) {
+            root.dataset.inFlight = 'true'
+            await new Promise(resolve => { window.releaseOldPolicy = resolve })
+            const response = await originalFetch(url, options)
+            window.oldPolicyStatus = response.status
+            return response
+          }
+        }
+        return originalFetch(url, options)
+      }
+    JS
+    uncheck "Reset approvals when content changes"
+    expect(page).to have_css("[data-in-flight='true']")
+    page.execute_script("Turbo.visit(arguments[0])", library_page_path(author))
+    expect(page).to have_current_path(library_page_path(author))
+    page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
+    expect(page).to have_current_path(plan_page_path(plan))
+    open_review_settings
+    uncheck "Reset approvals when content changes"
+    expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+    check "Reset approvals when content changes"
+    expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+    page.evaluate_async_script(<<~JS)
+      const done = arguments[arguments.length - 1]
+      window.releaseOldPolicy()
+      window.oldPolicySave.then(done)
+    JS
+    expect(page.evaluate_script("window.oldPolicyStatus")).to eq(409)
+    expect(page.evaluate_script("window.policyWrites")).to eq([ false, false, true ])
+    expect(plan.reload.reset_reviews_on_change).to be(true)
+    expect(page).to have_checked_field("Reset approvals when content changes")
+  end
+
   it "stops a deferred controls refresh when successful HTML is a sign-in page", :review_refresh_failures do
     sign_in_browser(author)
     open_review_settings

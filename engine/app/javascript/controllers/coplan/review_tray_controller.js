@@ -5,6 +5,10 @@ export default class extends Controller {
   static values = { url: String, searchUrl: String, suggestionsUrl: String, settingsUrl: String }
 
   connect() {
+    this.policyConnection = { active: true }
+    this.policySaving = false
+    this.policyMustSave = false
+    this.policyUncertainSequence = null
     this.searchSequence = 0
     this.suggestionSequence = 0
     this.refreshSequence = 0
@@ -20,6 +24,7 @@ export default class extends Controller {
   }
 
   disconnect() {
+    this.policyConnection.active = false
     clearTimeout(this.searchTimer)
     clearTimeout(this.policySaveTimer)
     if (this.policySaveTimer) {
@@ -321,6 +326,7 @@ export default class extends Controller {
 
   async saveResetPolicy(input) {
     if (this.policySaving) return
+    const connection = this.policyConnection
     const previous = input.dataset.savedValue === "true"
     const enabled = input.checked
     const generation = this.policyInputGeneration
@@ -336,6 +342,7 @@ export default class extends Controller {
     let confirmed = false
     try {
       const result = await this.withPolicyDeadline(signal => this.write(this.settingsUrlValue, "PATCH", { review_settings: { reset_reviews_on_change: enabled, review_sequence: input.dataset.reviewSequence } }, signal))
+      if (connection !== this.policyConnection) return
       input.dataset.savedValue = String(enabled)
       input.dataset.reviewSequence = String(result.review_sequence)
       this.policyConflictRetries = 0
@@ -345,6 +352,7 @@ export default class extends Controller {
       input.removeAttribute("aria-invalid")
       confirmed = true
     } catch (error) {
+      if (connection !== this.policyConnection) return
       // A lost HTTP result may already have saved. Read back before restoring
       // the checkbox, while preserving clicks made during that request.
       let persisted = previous
@@ -356,10 +364,11 @@ export default class extends Controller {
           const response = await fetch(this.urlValue, { credentials: "same-origin", headers: { Accept: "text/html" }, signal })
           const policy = new DOMParser().parseFromString(await response.text(), "text/html").querySelector("[data-review-reset-policy]")
           if (!response.ok || !policy) throw error
-          input.dataset.reviewSequence = policy.dataset.reviewSequence
+          if (connection === this.policyConnection) input.dataset.reviewSequence = policy.dataset.reviewSequence
           return policy.checked
         })
       } catch { /* Keep the last confirmed value and show the error. */ }
+      if (connection !== this.policyConnection) return
       this.policyUnresolved = this.policyUncertainSequence != null && Number(input.dataset.reviewSequence) <= this.policyUncertainSequence
       confirmed = persisted === enabled && !this.policyUnresolved
       if (!this.policyUnresolved) this.policyUncertainSequence = null
@@ -376,7 +385,14 @@ export default class extends Controller {
       this.managementErrorTarget.textContent = confirmed ? "" : error.message
       if (this.policyUnresolved) this.managementErrorTarget.textContent += " A previous save may still be running. Toggle again to retry."
     } finally {
+      if (connection !== this.policyConnection) return
       this.policySaving = false
+      // A detached controller may reconcile a sent write, but must not rebase
+      // its old choice over preferences saved by the new page.
+      if (!connection.active) {
+        input.setAttribute("aria-busy", "false")
+        return
+      }
       // Serialize saves so a slow older request cannot overwrite a newer click.
       if (!this.policyUnresolved && (this.policyMustSave || input.checked !== (input.dataset.savedValue === "true"))) this.saveResetPolicy(input)
       else {
