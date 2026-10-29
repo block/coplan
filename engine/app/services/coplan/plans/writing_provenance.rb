@@ -99,7 +99,7 @@ module CoPlan
         end
         runs = self.class.remap(old, content, prior_runs, insertions, fallback_source: @historical_human ? source_key : UNKNOWN)
         runs, removed_lines = WritingProvenanceMoves.call(before: old, after: content, prior_runs: prior_runs, runs: runs,
-          removed_lines: valid ? snapshot.fetch("removed_lines", []) : [])
+          removed_lines: valid ? snapshot.fetch("removed_lines", []) : [], fresh_source: identity["kind"] == "human" ? source_key : nil)
         retained = (runs + removed_lines.flat_map { |_, line_runs| line_runs || [] }).map(&:last).to_set
         sources.select! { |key, _| retained.include?(key) }
         summary = summarize(content, runs, sources)

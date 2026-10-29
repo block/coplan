@@ -128,9 +128,25 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     original = plan.current_plan_version.writing_provenance.deep_dup
     edit(plan, "Other agent writing.\n", kind: "human", input_sources: sources("Other agent writing.\n"))
     pasted = "Other agent writing.\n" + moved
-    edit(plan, pasted, kind: "human", input_sources: sources(pasted))
+    edit(plan, pasted, kind: "human", input_sources: sources(pasted, "unknown"))
     expect(plan.writing_provenance_summary.fetch("counts")).to eq(original.fetch("summary").fetch("counts"))
     expect(character_sources(pasted, plan.current_plan_version.writing_provenance)).to eq(character_sources(moved + "Other agent writing.\n", original).rotate(moved.gsub(/[[:space:]]/, "").length))
+  end
+
+  it "credits observed typing that recreates a deleted line to the new writer" do
+    sentence = "Original sentence from the agent.\n"
+    plan = make_plan(sentence + "Keep this paragraph.\n", kind: "local_agent")
+    edit(plan, "Keep this paragraph.\n")
+    writer = create(:coplan_user)
+    content = plan.current_content + sentence
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 2,
+      actor_type: "human", actor_id: writer.id, input_sources: sources(content))
+
+    snapshot = plan.current_plan_version.writing_provenance
+    runs = described_class.slice(snapshot.fetch("runs"), content.index(sentence), content.length)
+    expect(runs.map { |_, key| snapshot.fetch("sources").fetch(key) }).to all(include("kind" => "human", "user_id" => writer.id, "origin_revision" => 3))
+    expect(snapshot.dig("summary", "counts", "ai")).to eq("Keepthisparagraph.".length)
+    expect(snapshot.dig("summary", "counts", "unknown")).to eq(0)
   end
 
   it "keeps external paste unknown while recovering a moved line" do
