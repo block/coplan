@@ -4,7 +4,13 @@ module CoPlan
   class ReviewResetDeliveryJob < ApplicationJob
     retry_on StandardError, wait: :polynomially_longer, attempts: 5
 
-    def perform(request_id:, generation:, revision:, actor_token_id: nil)
+    def perform(request_id: nil, generation: nil, revision: nil, actor_token_id: nil, plan_id: nil)
+      if plan_id
+        plan = Plan.find_by(id: plan_id)
+        return unless plan
+
+        return Broadcaster.custom_action_to(plan, action: "coplan-review-changed", target: "plan-review-controls", html: "")
+      end
       request = ReviewRequest.find_by(id: request_id)
       return unless request&.pending? && request.generation == generation
 

@@ -37,6 +37,11 @@ module CoPlan
             Broadcaster.custom_action_to(plan, action: "coplan-review-changed", target: "plan-review-controls", html: "")
           rescue StandardError => error
             Rails.error.report(error)
+            begin
+              ReviewResetDeliveryJob.perform_later(plan_id: plan.id)
+            rescue StandardError => enqueue_error
+              Rails.error.report(enqueue_error)
+            end
           end
         end
         version

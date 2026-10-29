@@ -83,6 +83,22 @@ RSpec.describe "Version-bound review evidence" do
     expect(CoPlan::Reviews::Changed).to have_received(:call).with(hash_including(request: task)).twice
   end
 
+  it "retries a failed controls invalidation without changing the committed save result" do
+    task
+    allow(Rails.error).to receive(:report)
+    allow(CoPlan::Broadcaster).to receive(:custom_action_to).and_call_original
+    allow(CoPlan::Broadcaster).to receive(:custom_action_to).with(plan,
+      action: "coplan-review-changed", target: "plan-review-controls", html: "").and_raise(IOError, "temporary transport failure")
+    expect { replace("Committed with a failed controls broadcast") }.not_to raise_error
+    expect(plan.reload.current_revision).to eq(2)
+    expect(CoPlan::ReviewResetDeliveryJob).to have_been_enqueued.with(plan_id: plan.id)
+    allow(CoPlan::Broadcaster).to receive(:custom_action_to).with(plan,
+      action: "coplan-review-changed", target: "plan-review-controls", html: "").and_return(true)
+    perform_enqueued_jobs(only: CoPlan::ReviewResetDeliveryJob)
+    expect(CoPlan::Broadcaster).to have_received(:custom_action_to).with(plan,
+      action: "coplan-review-changed", target: "plan-review-controls", html: "").twice
+  end
+
   it "dismisses on human drafts and checkbox edits" do
     decide
     CoPlan::Plans::ToggleCheckbox.call(plan: plan, old_text: "- [ ] Ship", new_text: "- [x] Ship", base_revision: 1, actor_id: plan.created_by_user_id)

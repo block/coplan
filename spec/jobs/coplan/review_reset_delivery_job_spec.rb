@@ -26,4 +26,11 @@ RSpec.describe CoPlan::ReviewResetDeliveryJob, type: :job do
     described_class.perform_now(request_id: task.id, generation: task.generation, revision: 1)
     expect(CoPlan::Reviews::Changed).not_to have_received(:call)
   end
+
+  it "retries controls transport failures and ignores missing plans" do
+    allow(CoPlan::Broadcaster).to receive(:custom_action_to).and_raise(IOError, "temporary transport failure")
+    expect { described_class.perform_now(plan_id: plan.id) }.to have_enqueued_job(described_class).with(plan_id: plan.id)
+    described_class.perform_now(plan_id: SecureRandom.uuid)
+    expect(CoPlan::Broadcaster).to have_received(:custom_action_to).once
+  end
 end
