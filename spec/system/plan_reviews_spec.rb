@@ -40,6 +40,54 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   before { sign_in_browser(reviewer, open_sections: !RSpec.current_example.metadata[:collapsed_support]) }
 
+  it "dismisses an approval after an edit, preserves its snapshot and accepts a fresh review", :version_parity do
+    within(".review-tray") { click_button "Approve", exact: true }
+    within(".review-confirmation") do
+      expect(page).to have_text("Attachments, linked or embedded content")
+      click_button "Approve v1", exact: true
+    end
+    expect(page).to have_css(".review-tray", text: "You approved v1")
+    original = task.reload.effective_response.plan_version
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "# Revised\n\nEveryone must review this change.",
+      base_revision: 1, actor_type: "human", actor_id: author.id)
+    visit plan_page_path(plan)
+    expand_plan_section("footnote-approvals")
+    expect(page).to have_css(".review-tray", text: "Content changed; review v2 again")
+    expect(page).to have_css(".review-person__meta", text: "Content changed; review again")
+    expect(task.reload.effective_response).to be_nil
+    [ "light", "dark" ].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      page.save_screenshot(Rails.root.join("tmp/review-preview/version-dismissal-#{theme}.png"))
+    end
+    within("#footnote-approvals") { click_button "View activity", exact: false }
+    within(".review-activity-dialog[open]") do
+      expect(page).to have_text("Historical decision")
+      click_link "v1 · Markdown snapshot"
+    end
+    expect(page).to have_text("Exact Markdown source")
+    find("summary", text: "Exact Markdown source").click
+    expect(page).to have_css("pre code", text: original.content_markdown)
+    visit plan_page_path(plan)
+    within(".review-tray") { click_button "Approve", exact: true }
+    within(".review-confirmation") { click_button "Approve v2", exact: true }
+    expect(page).to have_css(".review-tray", text: "You approved v2")
+    expect(task.reload.effective_response.plan_version.revision).to eq(2)
+  end
+
+  it "rejects a decision opened before a same-version re-request", :version_parity do
+    within(".review-tray") { click_button "Approve", exact: true }
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+    within(".review-confirmation") { click_button "Approve v1", exact: true }
+    expect(page).to have_css(".review-confirmation [role='alert']", text: "review request changed")
+    expect(task.reload).to be_pending
+    expect(task.review_responses).to be_empty
+    click_button "Close approval", enable_aria_label: true
+    within(".review-tray") { click_button "Approve", exact: true }
+    within(".review-confirmation") { click_button "Approve v1", exact: true }
+    expect(page).to have_css(".review-tray", text: "You approved v1")
+    expect(task.reload.effective_response.request_generation).to eq(2)
+  end
+
   it "keeps a withdrawn request between its two request cycles", :review_withdrawals do
     sign_in_browser(author)
     click_button "More actions"
@@ -165,7 +213,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   it "records approvals and public change requests on an empty version" do
     # Older hosts can have a persisted empty version, as in plans_spec.
-    plan.current_plan_version.update_columns(content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
+    set_version_fixture(plan.current_plan_version, content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
     visit plan_page_path(plan)
     expect(page).to have_content("This plan has no content yet.")
     within(".review-tray") { click_button "Approve", exact: true }
@@ -277,7 +325,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   it "confirms approval with simple wording and a top-left close control" do
     within(".review-tray") { click_button "Approve" }
-    expect(page).to have_css(".review-confirmation[open]", text: "I’ve reviewed this version and approve it.")
+    expect(page).to have_css(".review-confirmation[open]", text: "I’ve reviewed and approve the Markdown source of this version.")
     expect(page).to have_css(".review-confirmation__close:focus")
     expect(page).to have_css("#approval-title", text: "Approve v1?")
     expect(page).to have_no_content("AI agents can see this sign-off")
@@ -334,7 +382,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     within(".review-tray") { click_button "Approve" }
     fill_in "Public note", with: "An unsent approval note"
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "Changed while reviewing")
-    plan.update!(current_plan_version: version, current_revision: 2)
+    plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
     click_button "Approve v1"
     expect(page).to have_content("The plan has changed. Review the latest version")
     expect(page).to have_field("Public note", with: "An unsent approval note")
@@ -362,13 +410,13 @@ RSpec.describe "Plan discussion and approval", type: :system do
   it "compares later edits while preserving the approval of the earlier version" do
     CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A clarified retry contract.")
-    plan.update!(current_plan_version: version, current_revision: 2)
+    plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
     visit plan_page_path(plan)
     within("#footnote-approvals") { click_button "Compare", exact: false }
     expect(page).to have_css(".review-comparison[open]", text: "Version 1 → 2")
     expect(page).to have_content("A clarified retry contract.")
     expect(page).to have_content("The earlier approval remains recorded")
-    expect(task.reload.status).to eq("approved")
+    expect(task.reload.status).to eq("pending")
     expect(task.latest_approval.plan_version.revision).to eq(1)
   end
 
@@ -837,11 +885,11 @@ RSpec.describe "Plan discussion and approval", type: :system do
     click_button "Close review activity", enable_aria_label: true
     CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "# Revised contract\n\nMore detail")
-    plan.update!(current_plan_version: version, current_revision: 2)
+    plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
     visit plan_page_path(plan)
     expect(page).to have_no_css("#plan-header [data-review-indicator]", visible: :all)
     within(".review-table") do
-      expect(page).to have_css(".review-version", text: "v1")
+      expect(page).to have_css(".review-person__meta", text: "Content changed; review again")
       expect(page).to have_button("Compare")
     end
     expect(page).to have_css(".review-activity-dialog .review-history", text: /Plan Reviewer approved\s+v1/, visible: :all)

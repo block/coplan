@@ -124,6 +124,11 @@ module CoPlan
         scenario: "Alex and Noura have pending approvals"
       },
       {
+        key: "changed-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: review dismissed after edits",
+        tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios",
+        scenario: "Earlier v1 approvals remain history; v2 requires fresh review"
+      },
+      {
         key: "approved-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: approved rollout",
         tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios",
         scenario: "Both approvers have approved; no pending approvals"
@@ -245,7 +250,8 @@ module CoPlan
 
     REVIEW_SCENARIOS = {
       "pending-review" => false,
-      "approved-review" => true
+      "approved-review" => true,
+      "changed-review" => true
     }.freeze
 
     SMALL_EDITS = [
@@ -858,6 +864,10 @@ module CoPlan
 
           request = Reviews::Request.call(plan: plan, reviewer: users.fetch(reviewer), actor: plan.created_by_user)
           Reviews::Respond.call(request: request, actor: request.reviewer, revision: plan.current_revision, decision: "approved") if approved
+        end
+        if key == "changed-review" && plan.current_revision == 1
+          Plans::ReplaceContent.call(plan: plan, new_content: "#{plan.current_content}\n\nUpdated after approval: review the retry policy again.\n",
+            base_revision: 1, actor_type: "human", actor_id: plan.created_by_user_id)
         end
       end
     end

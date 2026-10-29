@@ -37,7 +37,10 @@ module CoPlan
             Reviews::Request.call(plan: @plan, reviewer: @review_request.reviewer, actor: current_user,
               requirement: params[:requirement].presence || @review_request.requirement, api_token: @api_token)
           else
-            @plan.with_lock { @review_request.update!(requirement: params.require(:requirement)) }
+            @plan.with_lock do
+              @review_request.update!(requirement: params.require(:requirement))
+              @plan.update!(review_sequence: @plan.review_sequence + 1)
+            end
             Reviews::Changed.call(request: @review_request, event_type: "review.requested", actor_token_id: api_token_id,
               payload: { "action" => "requirement_changed", "requirement" => @review_request.requirement })
           end
@@ -54,10 +57,12 @@ module CoPlan
             return render json: { error: "Only the requested reviewer can respond" }, status: :forbidden
           end
           response = Reviews::Respond.call(request: @review_request, actor: current_user,
-            revision: params.require(:revision), decision: params.require(:decision), note: params[:note], api_token: @api_token, idempotency_key: params[:idempotency_key])
+            revision: params.require(:revision), decision: params.require(:decision), note: params[:note], api_token: @api_token, idempotency_key: params[:idempotency_key], generation: params[:generation])
           render json: { id: response.id, decision: response.decision, revision: response.plan_version.revision,
                          actor_type: response.actor_type, agent_name: response.agent_name,
-                         comment_thread_id: response.comment_thread_id }, status: :created
+                         comment_thread_id: response.comment_thread_id, plan_version_id: response.plan_version_id,
+                     content_sha256: response.plan_version.content_sha256, generation: response.request_generation,
+                     decision_sequence: response.decision_sequence, effective: @review_request.reload.effective_response&.id == response.id }, status: :created
         end
 
         private

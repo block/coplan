@@ -151,12 +151,12 @@ RSpec.describe CoPlan::LinkPreviews do
     expect(described_class.for_plan(plan, base_url: base_url).description).to eq("Generated summary")
 
     plan.update!(summary: nil)
-    plan.current_plan_version.update!(content_markdown: "# Heading\n\n#{"word " * 80}", content_sha256: nil)
+    set_version_fixture(plan.current_plan_version, content_markdown: "# Heading\n\n#{"word " * 80}", content_sha256: nil)
     first = described_class.for_plan(plan.reload, base_url: base_url)
     expect(first.description.length).to be <= 240
     expect(first.description).not_to include("#")
 
-    plan.current_plan_version.update!(content_markdown: "Changed", content_sha256: nil)
+    set_version_fixture(plan.current_plan_version, content_markdown: "Changed", content_sha256: nil)
     expect(described_class.for_plan(plan.reload, base_url: base_url).cache_key).not_to eq(first.cache_key)
   end
 

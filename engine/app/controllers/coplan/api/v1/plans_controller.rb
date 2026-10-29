@@ -2,8 +2,8 @@ module CoPlan
   module Api
     module V1
       class PlansController < BaseController
-        before_action :set_plan, only: [ :show, :update, :versions, :comments, :snapshot, :locations, :writing_provenance ]
-        before_action :authorize_plan_access!, only: [ :show, :update, :versions, :comments, :snapshot, :locations, :writing_provenance ]
+        before_action :set_plan, only: [ :show, :update, :version, :versions, :comments, :snapshot, :review_evidence, :locations, :writing_provenance ]
+        before_action :authorize_plan_access!, only: [ :show, :update, :version, :versions, :comments, :snapshot, :review_evidence, :locations, :writing_provenance ]
 
         def index
           plans = Plan
@@ -270,6 +270,11 @@ module CoPlan
           render json: { error: e.record.errors.full_messages.join(", ") }, status: :unprocessable_content
         end
 
+        def version
+          version = @plan.plan_versions.find(params[:version_id])
+          render json: version_json(version).merge(content_markdown: version.verified_content!, approval_scope: Reviews::Evidence::SCOPE)
+        end
+
         def versions
           versions = @plan.plan_versions.order(revision: :desc)
           render json: versions.map { |v| version_json(v) }
@@ -305,6 +310,10 @@ module CoPlan
         def comments
           threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)
           render json: threads.map { |t| thread_json(t) }
+        end
+
+        def review_evidence
+          render json: Reviews::Evidence.call(plan: @plan)
         end
 
         def snapshot

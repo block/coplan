@@ -30,8 +30,10 @@ module CoPlan
             RecordRequest.call(request: request)
           end
           request.assign_attributes(requested_by_user: @actor, requested_plan_version: @plan.current_plan_version,
-            requirement: @requirement, status: "pending", requested_at: Time.current)
+            requirement: @requirement, status: "pending", requested_at: Time.current,
+            generation: request.persisted? ? request.generation + 1 : 1, current_response: nil, reset_reason: request.persisted? ? "requested_again" : nil)
           request.save!
+          @plan.update!(review_sequence: @plan.review_sequence + 1)
           RecordRequest.call(request: request, api_token: @api_token)
           # One unread nudge per task. Reading it never completes the task.
           request.notifications.unread.where(user: @reviewer).update_all(read_at: Time.current)

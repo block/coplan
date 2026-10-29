@@ -37,6 +37,8 @@ install demo users or documents.
 
 ## Named scenarios
 
+The **Workspace invitations: review dismissed after edits** scenario keeps v1 approvals as history while v2 awaits fresh review. Sign in as Alex to approve v2, or Hampton to edit it again. See [Version-bound reviews](REVIEWS.md) for the source scope and lifecycle contract.
+
 The index starts with **Diagrams**, **Presentations**, **Tables and rich text**,
 and **References**. Every link labels the document's actual plan type. The
 **Every plan type** section links to a real example of each of the twelve

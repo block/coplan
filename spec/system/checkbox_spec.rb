@@ -163,7 +163,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   it "toggles the correct checkbox when task lines are duplicated" do
-    plan.current_plan_version.update!(
+    set_version_fixture(plan.current_plan_version,
       content_markdown: "# Tasks\n\n- [ ] TODO\n- [ ] TODO\n- [ ] Deploy\n- [ ] Deploy to staging"
     )
 
@@ -179,7 +179,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   it "toggles a task whose text is a prefix of another task" do
-    plan.current_plan_version.update!(
+    set_version_fixture(plan.current_plan_version,
       content_markdown: "# Tasks\n\n- [ ] Deploy to staging\n- [ ] Deploy"
     )
 

@@ -15,7 +15,7 @@ RSpec.describe "Plan versions", type: :request do
     end
 
     it "keeps footnote definitions in a historical mixed-content version" do
-      plan.current_plan_version.update!(content_markdown: <<~MD, content_sha256: nil)
+      set_version_fixture(plan.current_plan_version, content_markdown: <<~MD, content_sha256: nil)
         Context[^a].
 
         ::: {.presentation}

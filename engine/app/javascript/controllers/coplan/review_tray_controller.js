@@ -125,13 +125,17 @@ export default class extends Controller {
 
   requestChanges(event) {
     this.responseUrl = event.currentTarget.dataset.url
-    if (this.discussionTarget.hidden) this.changesRevision = this.viewedRevision()
+    if (this.discussionTarget.hidden) {
+      this.changesRevision = this.viewedRevision()
+      this.changesGeneration = this.element.dataset.reviewGeneration
+    }
     this.expand()
   }
 
   confirmApproval(event) {
     this.responseUrl = event.currentTarget.dataset.url
     this.approvalRevision = this.viewedRevision()
+    this.approvalGeneration = this.element.dataset.reviewGeneration
     this.approvalErrorTarget.textContent = ""
     this.approveButtonTarget.textContent = `Approve v${this.approvalRevision}`
     this.approvalTitleTarget.textContent = `Approve v${this.approvalRevision}?`
@@ -142,12 +146,14 @@ export default class extends Controller {
     this.approvalTarget.close()
   }
 
-  responseIntent(url, revision, decision, note) {
+  responseIntent(url, revision, decision, note, generation) {
     this.responseIntents ||= {}
+    // A lost result may be retried after a re-request. Keep its original
+    // generation with the key until the server acknowledges that intent.
     const fields = JSON.stringify([url, String(revision), note.trim()])
     const previous = this.responseIntents[decision]
     if (previous?.fields === fields) return previous
-    return this.responseIntents[decision] = { fields, key: crypto.randomUUID() }
+    return this.responseIntents[decision] = { fields, generation, key: crypto.randomUUID() }
   }
 
   confirmIntent(decision, intent) {
@@ -157,13 +163,15 @@ export default class extends Controller {
   async approve(event) {
     event.preventDefault()
     await this.withBusy(event.target, this.approvalErrorTarget, async () => {
-      const intent = this.responseIntent(this.responseUrl, this.approvalRevision, "approved", this.approvalNoteTarget.value)
-      const result = await this.write(this.responseUrl, "POST", { review_response: { revision: this.approvalRevision, decision: "approved", note: this.approvalNoteTarget.value, idempotency_key: intent.key } })
+      const intent = this.responseIntent(this.responseUrl, this.approvalRevision, "approved", this.approvalNoteTarget.value, this.approvalGeneration)
+      const result = await this.write(this.responseUrl, "POST", { review_response: { revision: this.approvalRevision, generation: intent.generation, decision: "approved", note: this.approvalNoteTarget.value, idempotency_key: intent.key } })
       this.confirmIntent("approved", intent)
       const synced = !result.comment_thread_id || await this.refreshThreads(result.comment_thread_id)
       this.approvalTarget.close()
       this.approvalNoteTarget.value = ""
-      if (this.hasNoticeTarget) this.noticeTarget.textContent = `Your approval of v${this.approvalRevision} is recorded.` + (synced ? "" : " Refresh the page to see your comment.")
+      if (this.hasNoticeTarget) this.noticeTarget.textContent = result.effective === false
+        ? "Your earlier decision was already recorded. Review the current request again."
+        : `Your approval of v${this.approvalRevision} is recorded.` + (synced ? "" : " Refresh the page to see your comment.")
       const tray = this.element.querySelector(".review-tray")
       if (tray) delete tray.dataset.reconsidering
       await this.refresh()
@@ -177,8 +185,8 @@ export default class extends Controller {
     if (form.closest('[data-dictation-busy="true"]') || form.querySelector('[data-dictation-busy="true"]')) return
     const error = form.querySelector('[role="alert"]')
     await this.withBusy(form, error, async () => {
-      const intent = this.responseIntent(form.action, this.changesRevision, "changes_requested", input.value)
-      const result = await this.write(form.action, "POST", { review_response: { revision: this.changesRevision, decision: "changes_requested", note: input.value, idempotency_key: intent.key } })
+      const intent = this.responseIntent(form.action, this.changesRevision, "changes_requested", input.value, this.changesGeneration)
+      const result = await this.write(form.action, "POST", { review_response: { revision: this.changesRevision, generation: intent.generation, decision: "changes_requested", note: input.value, idempotency_key: intent.key } })
       this.confirmIntent("changes_requested", intent)
       // Feedback lives in the ordinary discussion collection.
       const synced = await this.refreshThreads(result.comment_thread_id)
@@ -218,6 +226,7 @@ export default class extends Controller {
       if (!response.ok) return
       const incoming = new DOMParser().parseFromString(await response.text(), "text/html")
       if (sequence !== this.refreshSequence || !this.element.isConnected) return
+      this.element.dataset.reviewGeneration = incoming.getElementById("plan-review-controls")?.dataset.reviewGeneration || ""
       const tray = incoming.querySelector(".review-tray")
       const existingTray = this.element.querySelector(".review-tray")
       const wasWithdrawn = this.reviewWithdrawn
@@ -431,6 +440,13 @@ export default class extends Controller {
     let result
     try { result = await response.json() } catch { throw new Error("Couldn't save your response. Your draft is still here. Please try again.") }
     if (!response.ok) {
+      // A definite rejection did not record this intent. Refresh the cycle
+      // so closing and deliberately reopening the dialog can start a new one.
+      // Network failures and lost results keep their original key/generation.
+      if (String(url).endsWith("/respond") && response.status >= 400 && response.status < 500) {
+        this.responseIntents = {}
+        await this.refresh()
+      }
       const error = new Error(result.error || "Couldn't save. Please try again.")
       if (result.code === "authentication_required") error.signInPath = result.sign_in_path
       throw error

@@ -99,7 +99,7 @@ RSpec.describe "Human document editor", type: :request do
   end
 
   it "merges stale disjoint edits and rejects overlapping edits atomically" do
-    plan.current_plan_version.update!(content_markdown: "Alpha. Beta.")
+    set_version_fixture(plan.current_plan_version, content_markdown: "Alpha. Beta.")
     patch update_content_plan_path(plan), params: { content: "Alpha! Beta.", base_revision: 1 }, as: :json
     expect(response).to have_http_status(:ok)
     patch update_content_plan_path(plan), params: { content: "Alpha. Beta!", base_revision: 1 }, as: :json

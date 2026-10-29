@@ -171,7 +171,7 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
     expect(JSON.parse(response.body).fetch("id")).to eq(key)
     expect(task.reload.status).to eq("pending")
     expect(task.review_responses.count).to eq(1)
-    post respond_api_v1_plan_review_request_path(plan, task), params: payload.merge(idempotency_key: SecureRandom.uuid), headers: headers("reviews-reviewer"), as: :json
+    post respond_api_v1_plan_review_request_path(plan, task), params: payload.merge(idempotency_key: SecureRandom.uuid, generation: task.reload.generation), headers: headers("reviews-reviewer"), as: :json
     expect(response).to have_http_status(:created)
     expect(task.reload.status).to eq("approved")
     expect(task.review_responses.count).to eq(2)

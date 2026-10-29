@@ -290,6 +290,13 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(agent_edits.pluck(:api_token_id)).to all(be_present)
       expect(agent_edits.pluck(:operations_json)).to all(have_attributes(size: 1))
 
+      changed = seeded_plan("changed-review")
+      expect(changed.current_revision).to eq(2)
+      expect(changed.review_requests.pluck(:status)).to eq(%w[pending pending])
+      expect(changed.review_requests.pluck(:reset_reason)).to eq(%w[content_changed content_changed])
+      expect(changed.review_requests.map(&:effective_response)).to all(be_nil)
+      expect(changed.review_requests.map { |r| r.latest_approval.plan_version.revision }).to eq([ 1, 1 ])
+
       pending = seeded_plan("pending-review").plan_collaborators.approvers
       approved = seeded_plan("approved-review").plan_collaborators.approvers
       expect(pending.count).to eq(2)

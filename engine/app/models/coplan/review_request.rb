@@ -10,7 +10,8 @@ module CoPlan
     # Historical context of when the request was sent, never a review target.
     # Pending requests follow the plan; only responses bind to a version.
     belongs_to :requested_plan_version, class_name: "CoPlan::PlanVersion"
-    has_many :review_responses, -> { order(created_at: :desc, id: :desc) }, dependent: :delete_all
+    has_many :review_responses, -> { order(Arel.sql("CASE WHEN decision_sequence IS NULL THEN 0 ELSE 1 END DESC"), decision_sequence: :desc, created_at: :desc, id: :desc) }, dependent: :delete_all
+    belongs_to :current_response, class_name: "CoPlan::ReviewResponse", optional: true
     has_many :notifications, dependent: :destroy
 
     validates :reviewer_id, uniqueness: { scope: :plan_id }
@@ -23,11 +24,28 @@ module CoPlan
     scope :pending, -> { where(status: "pending") }
 
     def pending?
-      status == "pending"
+      effective_status == "pending"
     end
 
+    # Positive history is for comparison only. Never use it as current evidence.
     def latest_approval
       review_responses.find { |response| response.decision == "approved" }
+    end
+
+    def effective_response
+      response = current_response
+      response if response && status == response.decision &&
+        response.review_request_id == id && response.request_generation == generation &&
+        response.plan_version_id == plan.current_plan_version_id
+    end
+
+    def effective_status
+      status == "withdrawn" ? "withdrawn" : (effective_response&.decision || "pending")
+    end
+
+    def effective_human_decision
+      response = effective_response
+      response.decision if response&.actor_type == "human"
     end
 
     def self.ransackable_attributes(_auth_object = nil)

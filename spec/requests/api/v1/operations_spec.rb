@@ -95,7 +95,7 @@ RSpec.describe "Api::V1::Operations", type: :request do
   end
 
   it "apply replace_section operation creates new version" do
-    plan.current_plan_version.update!(content_markdown: "# Title\n\n## Goals\n\nGoal 1.\n\n## Timeline\n\nQ1.")
+    set_version_fixture(plan.current_plan_version, content_markdown: "# Title\n\n## Goals\n\nGoal 1.\n\n## Timeline\n\nQ1.")
     expect {
       post api_v1_plan_operations_path(plan),
         params: {

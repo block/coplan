@@ -34,6 +34,8 @@ return 429. Invalid names return 422 with `invalid_request`.
 | `GET /api/v1/plans` | List the plans that you can see. Filters: `?visibility=draft\|published`, `?archived=true`, `?folder_id=`. | primer |
 | `POST /api/v1/plans` | Create a plan. | creating |
 | `GET /api/v1/plans/:id` | Get a plan with its content and references. | primer |
+| `GET /api/v1/plans/:id/versions/:version_id` | Read exact historical Markdown bytes and SHA-256. No read receipt. | comments |
+| `GET /api/v1/plans/:id/review_evidence` | Read exact current Markdown bytes/hash and coherent review cycles and decisions, without a read receipt. | comments |
 | `GET /api/v1/plans/:id/snapshot` | Get a plan with content, threads, references, collaborators, and review requests. | primer |
 | `GET /api/v1/plans/:id/writing_provenance` | Get writing-origin counts and reported agent identities. `?ranges=1` includes compact source ranges. Older plans can return `202` while history is reconstructed. | editing |
 | `PATCH /api/v1/plans/:id` | Change the title, type, tags, folder, visibility, archive state, or references. Plan author only. | editing |
@@ -82,7 +84,9 @@ return 429. Invalid names return 422 with `invalid_request`.
 
 Creating a review request for an existing reviewer returns the current task with status 201. It leaves the requirement, decision, history, and notifications unchanged. Use `PATCH` to change the requirement or `request_again: true` to request another look.
 
-Include `idempotency_key` (a fresh UUID) for each intended review response. Reuse that UUID and identical fields when retrying a lost response; its returned `id` is the UUID. Use a new UUID for a new decision, including another review of the same version. A keyed retry returns the original recorded result even after the plan changes or the task is withdrawn. It preserves any newly pending review task. Without a key, an identical response is treated as a retry. Retries may use a renewed token for the same human principal. The original response keeps its original agent and token attribution. A key reused for different fields returns 422.
+Send the request’s `generation` and the viewed `revision` with every new response. A missing generation is supported only for the first cycle. After edits or re-requests, a stale or missing generation returns 409 with `code: review_request_changed`. Fetch the task again and deliberately review before submitting a fresh response. Edits reset active tasks to pending and advance their generations. Withdrawn tasks stay withdrawn. Earlier responses remain history.
+
+Include `idempotency_key` (a fresh UUID) for each intended review response. Reuse that UUID and identical fields when retrying a lost response; its returned `id` is the UUID. Use a new UUID for a new decision, including another review of the same version. A keyed retry returns the original recorded result even after the plan changes or the task is withdrawn. It preserves any newly pending review task. Without a key, an identical response is treated as a retry. Retries may use a renewed token for the same human principal. The original response keeps its original agent and token attribution. A key reused for different fields returns 422. A retry’s `effective: false` means it is history, not a current decision. New responses return `plan_version_id`, `content_sha256`, `generation`, and server `decision_sequence`.
 
 A review response returns 409 with `code: review_version_changed` for a stale revision. Re-read before responding. A new response to a withdrawn request returns 409 with `code: review_request_withdrawn`; stop responding unless the author requests another look.
 

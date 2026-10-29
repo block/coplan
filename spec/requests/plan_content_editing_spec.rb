@@ -7,7 +7,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
 
   before do
     sign_in_as(author)
-    plan.current_plan_version.update!(content_markdown: "# Plan\n\nOriginal body.\n")
+    set_version_fixture(plan.current_plan_version, content_markdown: "# Plan\n\nOriginal body.\n")
   end
 
   describe "GET legacy edit URL" do

@@ -6,6 +6,15 @@ RSpec.describe "Review requests", type: :request do
   let(:plan) { create(:plan, :published, created_by_user: author) }
   let(:task) { create(:review_request, plan: plan, reviewer: reviewer) }
 
+  it "labels an agent decision separately from the reviewer's own human approval" do
+    token = create(:api_token, user: reviewer, agent_name: "Reviewbot")
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", api_token: token)
+    sign_in_as(reviewer)
+    get plan_review_requests_path(plan)
+    expect(response.body).to include("Reviewbot (via you) approved")
+    expect(task.reload.effective_human_decision).to be_nil
+  end
+
   it "marks an unread note-less review decision as attention until its owner reads it", :review_attention do
     CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
     notice = author.notifications.find_by!(review_request: task, reason: "review_response")
@@ -122,7 +131,7 @@ RSpec.describe "Review requests", type: :request do
     expect(entries.size).to eq(3)
     expect(entries.map { |entry| entry.at_css(".review-log__event").text.squish }).to eq([
       "#{author.name} requested a review from #{reviewer.name}",
-      "#{reviewer.name} approved v1",
+      "#{reviewer.name} approved v1 · Markdown snapshot · Historical decision",
       "#{author.name} requested a review from #{reviewer.name}"
     ])
     expect(Time.iso8601(entries.last.at_css("time")["datetime"]).to_i).to eq(first_at.to_i)

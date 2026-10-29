@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_19_185311) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_29_141536) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -411,6 +411,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_185311) do
     t.integer "current_revision", default: 0, null: false
     t.json "metadata"
     t.string "plan_type_id", limit: 36, null: false
+    t.bigint "review_sequence", default: 0, null: false
     t.text "search_text", size: :medium
     t.string "slug", null: false
     t.string "slug_suffix", limit: 8
@@ -454,14 +455,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_185311) do
 
   create_table "coplan_review_requests", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.string "current_response_id", limit: 36
+    t.bigint "generation", default: 1, null: false
     t.string "plan_id", limit: 36, null: false
     t.datetime "requested_at", null: false
     t.string "requested_by_user_id", limit: 36, null: false
     t.string "requested_plan_version_id", limit: 36, null: false
     t.string "requirement", null: false
+    t.string "reset_reason"
     t.string "reviewer_id", limit: 36, null: false
     t.string "status", null: false
     t.datetime "updated_at", null: false
+    t.index ["current_response_id"], name: "index_coplan_review_requests_on_current_response_id"
     t.index ["plan_id", "reviewer_id"], name: "index_coplan_review_requests_on_plan_id_and_reviewer_id", unique: true
     t.index ["requested_by_user_id"], name: "fk_rails_c5db6a7f68"
     t.index ["requested_plan_version_id"], name: "fk_rails_9648b04dbb"
@@ -475,8 +480,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_185311) do
     t.string "comment_thread_id", limit: 36
     t.datetime "created_at", null: false
     t.string "decision", null: false
+    t.bigint "decision_sequence"
     t.text "note"
     t.string "plan_version_id", limit: 36, null: false
+    t.bigint "request_generation"
     t.string "review_request_id", limit: 36, null: false
     t.string "user_id", limit: 36, null: false
     t.index ["api_token_id"], name: "fk_rails_edc220f557"
@@ -603,6 +610,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_185311) do
   add_foreign_key "coplan_references", "coplan_plans", column: "target_plan_id"
   add_foreign_key "coplan_review_requests", "coplan_plan_versions", column: "requested_plan_version_id"
   add_foreign_key "coplan_review_requests", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_review_requests", "coplan_review_responses", column: "current_response_id", on_delete: :nullify
   add_foreign_key "coplan_review_requests", "coplan_users", column: "requested_by_user_id"
   add_foreign_key "coplan_review_requests", "coplan_users", column: "reviewer_id"
   add_foreign_key "coplan_review_responses", "coplan_api_tokens", column: "api_token_id", on_delete: :nullify

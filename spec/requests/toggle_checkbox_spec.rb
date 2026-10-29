@@ -7,7 +7,7 @@ RSpec.describe "Toggle Checkbox", type: :request do
 
   before do
     sign_in_as(user)
-    plan.current_plan_version.update!(content_markdown: "# Tasks\n\n- [ ] Buy milk\n- [x] Write tests\n- [ ] Deploy")
+    set_version_fixture(plan.current_plan_version, content_markdown: "# Tasks\n\n- [ ] Buy milk\n- [x] Write tests\n- [ ] Deploy")
   end
 
   describe "PATCH toggle_checkbox" do
@@ -146,7 +146,7 @@ RSpec.describe "Toggle Checkbox", type: :request do
 
   describe "PATCH toggle_checkbox with duplicate task lines" do
     before do
-      plan.current_plan_version.update!(
+      set_version_fixture(plan.current_plan_version,
         content_markdown: "# Tasks\n\n- [ ] TODO\n- [ ] TODO\n- [ ] Deploy to staging\n- [ ] Deploy"
       )
     end
