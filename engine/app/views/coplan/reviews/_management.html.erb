@@ -12,6 +12,10 @@
       <button type="button" class="review-add-button" title="Add reviewer" aria-expanded="false" aria-haspopup="dialog" aria-controls="review-assignment" popovertarget="review-assignment" data-coplan--review-tray-target="addReviewerButton"><span aria-hidden="true">+</span> Add reviewer</button>
     <% end %>
   </div>
+  <div class="review-reset-policy">
+    <label class="review-required"><input type="checkbox" checked disabled aria-describedby="review-reset-explanation"> Reset approvals when content changes</label>
+    <p id="review-reset-explanation" class="text-sm text-muted">Required for all reviewers. Every new content version needs fresh approvals.</p>
+  </div>
   <% if allowed_to?(plan, :update?) %>
     <div id="review-assignment" class="review-assignment" popover="auto" role="dialog" aria-label="Add reviewer" data-coplan--review-tray-target="assignment" data-action="toggle->coplan--review-tray#assignmentToggled keydown.esc->coplan--review-tray#dismissAssignment">
       <%= form_with url: plan_review_requests_path(plan), class: "review-assignment-form", data: { action: "submit->coplan--review-tray#assign" } do %>

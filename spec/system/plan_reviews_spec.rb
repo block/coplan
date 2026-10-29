@@ -40,6 +40,20 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   before { sign_in_browser(reviewer, open_sections: !RSpec.current_example.metadata[:collapsed_support]) }
 
+  [ "light", "dark" ].each do |theme|
+    it "shows content-change resets as required in the reviewer dialog in #{theme} theme", :review_reset_policy do
+      sign_in_browser(author)
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      click_button "More actions"
+      within("#plan-menu") { click_button "Manage reviewers" }
+      within(".review-management[open]") do
+        expect(page).to have_checked_field("Reset approvals when content changes", disabled: true)
+        expect(page).to have_text("Required for all reviewers. Every new content version needs fresh approvals.")
+      end
+      page.save_screenshot(Rails.root.join("tmp/review-preview/reset-policy-required-#{theme}.png"))
+    end
+  end
+
   it "dismisses an approval after an edit, preserves its snapshot and accepts a fresh review", :version_parity do
     within(".review-tray") { click_button "Approve", exact: true }
     within(".review-confirmation") do
