@@ -15,6 +15,22 @@ module CoPlan
       render json: Reviews::Suggest.call(plan: @plan)
     end
 
+    def settings
+      authorize!(@plan, :update?)
+      attributes = params.expect(review_settings: [ :reset_reviews_on_change, :review_sequence ])
+      enabled = ActiveModel::Type::Boolean.new.cast(attributes.fetch(:reset_reviews_on_change))
+      @plan.with_lock do
+        unless attributes.fetch(:review_sequence).to_s == @plan.review_sequence.to_s
+          render json: { error: "Review settings changed. Please try again." }, status: :conflict
+          return
+        end
+        # Even a same-value write fences an older, indeterminate request.
+        @plan.update!(reset_reviews_on_change: enabled, review_sequence: @plan.review_sequence + 1)
+      end
+      Broadcaster.custom_action_to(@plan, action: "coplan-review-changed", target: "plan-review-controls", html: "")
+      render json: { reset_reviews_on_change: @plan.reset_reviews_on_change, review_sequence: @plan.review_sequence }
+    end
+
     def create
       authorize!(@plan, :update?)
       attributes = params.expect(review_request: [ :reviewer_id, :requirement ])
@@ -31,7 +47,10 @@ module CoPlan
         Reviews::Request.call(plan: @plan, reviewer: @review_request.reviewer, actor: current_user,
           requirement: attributes[:requirement].presence || @review_request.requirement)
       else
-        @plan.with_lock { @review_request.update!(requirement: attributes.fetch(:requirement)) }
+        @plan.with_lock do
+          @review_request.update!(requirement: attributes.fetch(:requirement))
+          @plan.update!(review_sequence: @plan.review_sequence + 1)
+        end
         Reviews::Changed.call(request: @review_request, event_type: "review.requested",
           payload: { "action" => "requirement_changed", "requirement" => @review_request.requirement })
       end
@@ -46,11 +65,13 @@ module CoPlan
 
     def respond
       raise NotAuthorizedError unless @review_request.reviewer_id == current_user.id
-      attributes = params.expect(review_response: [ :revision, :decision, :note, :idempotency_key ])
+      attributes = params.expect(review_response: [ :revision, :decision, :note, :idempotency_key, :generation ])
       response = Reviews::Respond.call(request: @review_request, actor: current_user,
-        revision: attributes[:revision], decision: attributes[:decision], note: attributes[:note], idempotency_key: attributes[:idempotency_key])
+        revision: attributes[:revision], decision: attributes[:decision], note: attributes[:note], idempotency_key: attributes[:idempotency_key], generation: attributes[:generation])
       render json: { id: response.id, decision: response.decision, revision: response.plan_version.revision,
-                     comment_thread_id: response.comment_thread_id }, status: :created
+                     comment_thread_id: response.comment_thread_id, plan_version_id: response.plan_version_id,
+                     content_sha256: response.plan_version.content_sha256, generation: response.request_generation,
+                     decision_sequence: response.decision_sequence, effective: @review_request.reload.effective_response&.id == response.id }, status: :created
     end
 
     def compare

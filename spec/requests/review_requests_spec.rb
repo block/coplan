@@ -6,6 +6,48 @@ RSpec.describe "Review requests", type: :request do
   let(:plan) { create(:plan, :published, created_by_user: author) }
   let(:task) { create(:review_request, plan: plan, reviewer: reviewer) }
 
+  it "defaults to resetting reviews and persists an editor's document-wide preference", :review_reset_policy do
+    expect(plan.reset_reviews_on_change).to be(true)
+    sequence = plan.review_sequence
+    sign_in_as(author)
+    [ false, false, true ].each_with_index do |enabled, index|
+      patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: enabled, review_sequence: plan.review_sequence } }, as: :json
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to eq("reset_reviews_on_change" => enabled, "review_sequence" => sequence + index + 1)
+      expect(plan.reload.reset_reviews_on_change).to eq(enabled)
+      expect(plan.review_sequence).to eq(sequence + index + 1)
+      expect(CoPlan::Reviews::Evidence.call(plan: plan)[:reset_reviews_on_change]).to eq(enabled)
+    end
+  end
+
+  it "fences an older policy write even when the newer choice keeps the current value", :review_reset_policy do
+    sign_in_as(author)
+    sequence = plan.review_sequence
+    patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: true, review_sequence: sequence } }, as: :json
+    expect(response).to have_http_status(:ok)
+    patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: false, review_sequence: sequence } }, as: :json
+    expect(response).to have_http_status(:conflict)
+    expect(plan.reload.reset_reviews_on_change).to be(true)
+    expect(plan.review_sequence).to eq(sequence + 1)
+  end
+
+  it "does not let a reviewer change the document's reset policy", :review_reset_policy do
+    task
+    sign_in_as(reviewer)
+    patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: false } }, as: :json
+    expect(response).to have_http_status(:not_found)
+    expect(plan.reload.reset_reviews_on_change).to be(true)
+  end
+
+  it "labels an agent decision separately from the reviewer's own human approval" do
+    token = create(:api_token, user: reviewer, agent_name: "Reviewbot")
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", api_token: token)
+    sign_in_as(reviewer)
+    get plan_review_requests_path(plan)
+    expect(response.body).to include("Reviewbot (via you) approved")
+    expect(task.reload.effective_human_decision).to be_nil
+  end
+
   it "marks an unread note-less review decision as attention until its owner reads it", :review_attention do
     CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.current_revision, decision: "approved")
     notice = author.notifications.find_by!(review_request: task, reason: "review_response")
@@ -122,7 +164,7 @@ RSpec.describe "Review requests", type: :request do
     expect(entries.size).to eq(3)
     expect(entries.map { |entry| entry.at_css(".review-log__event").text.squish }).to eq([
       "#{author.name} requested a review from #{reviewer.name}",
-      "#{reviewer.name} approved v1",
+      "#{reviewer.name} approved v1 · Markdown snapshot · Historical decision",
       "#{author.name} requested a review from #{reviewer.name}"
     ])
     expect(Time.iso8601(entries.last.at_css("time")["datetime"]).to_i).to eq(first_at.to_i)

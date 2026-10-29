@@ -127,7 +127,7 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "goes up to the plan's containing folder from the masthead and sticky nav" do
-      foldered_plan.current_plan_version.update!(
+      set_version_fixture(foldered_plan.current_plan_version,
         content_markdown: (1..30).map { |n| "## Section #{n}\n\nEnough content to scroll past the masthead." }.join("\n\n")
       )
       # The masthead links straight at the canonical browsable path, so

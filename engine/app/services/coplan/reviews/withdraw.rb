@@ -18,12 +18,13 @@ module CoPlan
           unless request.plan.plan_events.where(event_type: "review_requested", after_value: request.id).exists?
             RecordRequest.call(request: request)
           end
-          request.update!(status: "withdrawn")
+          request.update!(status: "withdrawn", current_response: nil)
+          request.plan.update!(review_sequence: request.plan.review_sequence + 1)
           request.plan.plan_events.create!(event_type: "review_withdrawn", field: "reviews", after_value: request.id,
             actor_id: actor.id, actor_type: api_token ? "local_agent" : "human", api_token: api_token,
             agent_name: api_token && ApiToken.normalized_agent_name(api_token.agent_name.presence || api_token.name),
             metadata: { "reviewer_name" => request.reviewer.name, "revision" => request.plan.current_revision,
-                        "requirement" => request.requirement })
+                        "requirement" => request.requirement, "generation" => request.generation, "review_sequence" => request.plan.review_sequence })
           request.notifications.unread.where(user_id: request.reviewer_id, reason: "review_requested").update_all(read_at: Time.current)
           true
         end

@@ -1,11 +1,12 @@
 <% requests = plan.review_requests.includes(:reviewer, :requested_by_user, :requested_plan_version, review_responses: [ :plan_version, :user ]).order(:requested_at).to_a %>
 <% request_events = plan.plan_events.where(event_type: %w[review_requested review_withdrawn]).includes(:actor_user).to_a %>
-<% active_requests = requests.reject { |request| request.status == "withdrawn" } %>
+<% active_requests = requests.reject { |request| request.review_status == "withdrawn" } %>
 <% own_request = active_requests.find { |request| request.reviewer_id == current_user.id } %>
 <% response_thread_ids = requests.flat_map { |request| request.review_responses.map(&:comment_thread_id) }.compact %>
 <% feedback_thread_ids = plan.comment_threads.with_kept_comments.where(id: response_thread_ids).pluck(:id) %>
-<div id="plan-review-controls" data-review-record-count="<%= requests.size %>" data-controller="coplan--review-tray"
+<div id="plan-review-controls" data-review-generation="<%= own_request&.generation %>" data-review-record-count="<%= requests.size %>" data-controller="coplan--review-tray"
      data-coplan--review-tray-url-value="<%= plan_review_requests_path(plan) %>"
+     data-coplan--review-tray-settings-url-value="<%= settings_plan_review_requests_path(plan) %>"
      data-coplan--review-tray-search-url-value="<%= search_users_path %>"
      <% if CoPlan.configuration.suggest_reviewers %>data-coplan--review-tray-suggestions-url-value="<%= suggestions_plan_review_requests_path(plan) %>"<% end %>
      data-action="coplan:anchors-updated@document->coplan--review-tray#syncFeedbackLinks coplan:reviews-changed->coplan--review-tray#refresh coplan:manage-reviews@document->coplan--review-tray#openReviews coplan:content-updated@document->coplan--review-tray#refresh coplan:editor-saved@document->coplan--review-tray#refresh resize@window->coplan--review-tray#positionAssignment keydown.esc@document->coplan--review-tray#escape">
@@ -28,16 +29,18 @@
       </div>
       <div class="review-tray__bar">
         <div class="review-tray__status" data-review-status>
-          <% response = own_request.review_responses.first %>
+          <% response = own_request.recorded_response %>
           <% approval = own_request.latest_approval %>
           <div class="review-tray__decision">
             <% if own_request.pending? %>
-              <span class="review-task-dot" aria-hidden="true"></span><strong>Your review is requested</strong><small><%= own_request.requirement.humanize %></small>
+              <span class="review-task-dot" aria-hidden="true"></span><strong>Your review is requested</strong><small><%= own_request.requirement.humanize %><%= " · Content changed; review v#{plan.current_revision} again" if own_request.reset_reason == "content_changed" %><%= " · Earlier decisions are history; please review again" if own_request.reset_reason == "legacy_history" %></small>
             <% elsif response %>
-              <span class="review-result-icon<%= ' review-result-icon--approved' if own_request.status == 'approved' %>" aria-hidden="true"><%= own_request.status == "approved" ? "✓" : "↩" %></span>
-              <span><strong><%= own_request.status == "approved" ? "You approved" : "You requested changes to" %> v<%= response.plan_version.revision %></strong> <span class="review-tray__date">on <time datetime="<%= response.created_at.iso8601 %>" title="<%= response.created_at.strftime('%B %-d, %Y at %H:%M %Z') %>"><%= response.created_at.strftime("%b %-d, %Y") %></time></span></span>
+              <span class="review-result-icon<%= ' review-result-icon--approved' if own_request.review_status == 'approved' %>" aria-hidden="true"><%= own_request.review_status == "approved" ? "✓" : "↩" %></span>
+              <% decision_actor = response.actor_type == "local_agent" ? "#{response.agent_name} (via you)" : "You" %>
+              <span><strong><%= own_request.review_status == "approved" ? "#{decision_actor} approved" : "#{decision_actor} requested changes to" %> v<%= response.plan_version.revision %></strong> <span class="review-tray__date">on <time datetime="<%= response.created_at.iso8601 %>" title="<%= response.created_at.strftime('%B %-d, %Y at %H:%M %Z') %>"><%= response.created_at.strftime("%b %-d, %Y") %></time></span></span>
             <% end %>
           </div>
+          <% if response && response.plan_version_id != plan.current_plan_version_id %><small>Content changed since review; no new review required.</small><% end %>
           <% if !own_request.pending? && feedback_thread_ids.include?(response&.comment_thread_id) %><button type="button" class="review-log__link review-feedback-link" data-action="coplan--review-tray#openThread" data-thread-id="<%= response.comment_thread_id %>">View feedback</button><% end %>
           <% if approval && approval.plan_version.revision != plan.current_revision %><button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#compare" data-url="<%= compare_plan_review_request_path(plan, own_request, response_id: approval.id) %>">Changes since approval</button><% end %>
         </div>
@@ -60,7 +63,8 @@
       <span class="review-confirmation__icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 12 4 4 8-8"/></svg></span>
       <h2 id="approval-title" data-coplan--review-tray-target="approvalTitle">Approve this version?</h2>
     </div>
-    <p class="review-confirmation__statement">I’ve reviewed this version and approve it.</p>
+    <p class="review-confirmation__statement">I’ve reviewed and approve the Markdown source of this version.</p>
+    <p class="text-sm text-muted">Attachments, linked or embedded content, title, tags, and child plans are outside this approval.</p>
     <form data-action="submit->coplan--review-tray#approve">
       <label for="approval-note">Public note <span class="text-muted">(optional)</span></label><textarea id="approval-note" rows="3" placeholder="Anything you’d like to add?" data-coplan--review-tray-target="approvalNote"></textarea>
       <p class="review-error" role="alert" data-coplan--review-tray-target="approvalError"></p>

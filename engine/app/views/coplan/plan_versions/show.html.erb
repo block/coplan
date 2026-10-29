@@ -17,6 +17,9 @@
   </div>
 </div>
 
+<p class="text-sm text-muted">This snapshot records Markdown source only. The title above is current metadata. Attachments, linked or embedded content, and child plans are not part of this approval.</p>
+<details class="card mb-md"><summary>Exact Markdown source · SHA-256 <%= @version.content_sha256 %></summary><pre><code><%= @version.verified_content! %></code></pre></details>
+
 <% if @diff %>
   <div class="card mb-md">
     <h3>Changes from v<%= @version.revision - 1 %></h3>

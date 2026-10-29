@@ -44,7 +44,7 @@ RSpec.describe "Changed-section highlights", type: :request do
 
   it "compares against the most recent version the viewer read, without repeating older changes" do
     original = "## Design\n\nOriginal design.\n\n## Rollout\n\nOriginal rollout.\n"
-    plan.current_plan_version.update_columns(content_markdown: original, created_at: 1.hour.ago)
+    set_version_fixture(plan.current_plan_version, content_markdown: original, created_at: 1.hour.ago)
     read_version = create(:plan_version, plan: plan, revision: 2, actor_id: author.id,
       content_markdown: original.sub("Original design", "Revised design"), created_at: 30.minutes.ago)
     latest = create(:plan_version, plan: plan, revision: 3, actor_id: author.id,
@@ -65,7 +65,7 @@ RSpec.describe "Changed-section highlights", type: :request do
   it "embeds the last section editor and time safely, without a summary banner" do
     author.update!(name: 'Editor "<design>"')
     original = "## Design\n\nOriginal design.\n\n## Rollout\n\nOriginal rollout.\n"
-    plan.current_plan_version.update_columns(content_markdown: original, created_at: 2.hours.ago)
+    set_version_fixture(plan.current_plan_version, content_markdown: original, created_at: 2.hours.ago)
     CoPlan::PlanViewer.create!(plan: plan, user: viewer, last_seen_at: 1.hour.ago)
     edited = create(:plan_version, plan: plan, revision: 2, actor_id: author.id,
       actor_type: "local_agent", agent_name: "Codex", created_at: 30.minutes.ago,

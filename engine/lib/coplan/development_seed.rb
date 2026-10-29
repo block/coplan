@@ -124,6 +124,16 @@ module CoPlan
         scenario: "Alex and Noura have pending approvals"
       },
       {
+        key: "changed-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: review dismissed after edits",
+        tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios",
+        scenario: "Earlier v1 approvals remain history; v2 requires fresh review"
+      },
+      {
+        key: "retained-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: reviews retained after edits",
+        tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios",
+        scenario: "Automatic resets off; v1 reviews stay completed after v2 edits"
+      },
+      {
         key: "approved-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: approved rollout",
         tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios",
         scenario: "Both approvers have approved; no pending approvals"
@@ -245,7 +255,9 @@ module CoPlan
 
     REVIEW_SCENARIOS = {
       "pending-review" => false,
-      "approved-review" => true
+      "approved-review" => true,
+      "changed-review" => true,
+      "retained-review" => true
     }.freeze
 
     SMALL_EDITS = [
@@ -847,6 +859,7 @@ module CoPlan
     def seed_reviews(users, plans)
       REVIEW_SCENARIOS.each do |key, approved|
         plan = plans.fetch(key)
+        plan.update!(reset_reviews_on_change: false) if key == "retained-review" && plan.current_revision == 1
         %w[alex noura].each do |reviewer|
           collaborator = plan.plan_collaborators.find_or_initialize_by(user: users.fetch(reviewer))
           unless collaborator.persisted?
@@ -858,6 +871,10 @@ module CoPlan
 
           request = Reviews::Request.call(plan: plan, reviewer: users.fetch(reviewer), actor: plan.created_by_user)
           Reviews::Respond.call(request: request, actor: request.reviewer, revision: plan.current_revision, decision: "approved") if approved
+        end
+        if %w[changed-review retained-review].include?(key) && plan.current_revision == 1
+          Plans::ReplaceContent.call(plan: plan, new_content: "#{plan.current_content}\n\nUpdated after approval: the retry policy has changed.\n",
+            base_revision: 1, actor_type: "human", actor_id: plan.created_by_user_id)
         end
       end
     end

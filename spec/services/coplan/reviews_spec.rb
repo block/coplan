@@ -9,7 +9,7 @@ RSpec.describe "CoPlan reviews" do
 
   def respond(decision: "approved", note: nil, **attributes)
     CoPlan::Reviews::Respond.call(request: request, actor: reviewer, revision: plan.current_revision,
-      decision: decision, note: note, **attributes)
+      decision: decision, note: note, generation: request.reload.generation, **attributes)
   end
 
   it "requests optional review and sends a notification without granting permissions" do
@@ -23,12 +23,13 @@ RSpec.describe "CoPlan reviews" do
     expect(plan.plan_collaborators).to be_empty
   end
 
-  it "preserves the original approval after edits and another review request" do
+  it "dismisses the active approval after edits and preserves its receipt" do
     response = respond(note: "Looks right")
     expect(response.comment_thread.comments.first.body_markdown).to eq("Looks right")
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A revised plan")
-    plan.update!(current_plan_version: version, current_revision: 2)
-    expect(request.reload.status).to eq("approved")
+    plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
+    expect(request.reload.status).to eq("pending")
+    expect(request.effective_response).to be_nil
     expect(response.reload.plan_version.revision).to eq(1)
     CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
     expect(request.reload).to be_pending
@@ -42,7 +43,7 @@ RSpec.describe "CoPlan reviews" do
     original_actor = original.requested_by_user
     respond
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A revised plan")
-    plan.update!(current_plan_version: version, current_revision: 2)
+    plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
     next_actor = create(:coplan_user)
     travel_to(1.hour.from_now) do
       CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: next_actor, requirement: "optional")
@@ -61,7 +62,7 @@ RSpec.describe "CoPlan reviews" do
   it "keeps pending requests on the latest plan and binds only the completed response" do
     task = request
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "Latest plan")
-    plan.update!(current_plan_version: version, current_revision: 2)
+    plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
     expect(CoPlan::Reviews::Serialize.call(task)).not_to have_key(:requested_revision)
     response = respond
     expect(response.plan_version).to eq(version)
@@ -131,7 +132,7 @@ RSpec.describe "CoPlan reviews" do
     key = SecureRandom.uuid
     first = respond(note: "Reviewed", idempotency_key: key)
     version = create(:plan_version, plan: plan, revision: 2, content_markdown: "A newer plan")
-    plan.update!(current_plan_version: version, current_revision: 2)
+    plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
     CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
     replay = CoPlan::Reviews::Respond.call(request: request, actor: reviewer,
       revision: 1, decision: "approved", note: "Reviewed", idempotency_key: key)

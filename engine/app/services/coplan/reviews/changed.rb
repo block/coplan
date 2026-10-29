@@ -1,12 +1,13 @@
 module CoPlan
   module Reviews
     class Changed
-      def self.call(request:, event_type:, actor_token_id: nil, payload: {})
-        new(request:, event_type:, actor_token_id:, payload:).call
+      def self.call(request:, event_type:, actor_token_id: nil, payload: {}, broadcast_controls: true)
+        new(request:, event_type:, actor_token_id:, payload:, broadcast_controls:).call
       end
 
-      def initialize(request:, event_type:, actor_token_id:, payload:)
+      def initialize(request:, event_type:, actor_token_id:, payload:, broadcast_controls:)
         @request, @event_type, @actor_token_id, @payload = request, event_type, actor_token_id, payload
+        @broadcast_controls = broadcast_controls
       end
 
       def call
@@ -16,7 +17,7 @@ module CoPlan
         Notifications::BroadcastBadges.call(user_ids: [ request.reviewer_id, request.plan.created_by_user_id ])
         # No viewer-relative HTML or CSRF tokens on a shared stream. Each
         # open tab fetches its own controls, preserving its current draft.
-        Broadcaster.custom_action_to(request.plan, action: "coplan-review-changed", target: "plan-review-controls", html: "")
+        Broadcaster.custom_action_to(request.plan, action: "coplan-review-changed", target: "plan-review-controls", html: "") if @broadcast_controls
       end
     end
   end

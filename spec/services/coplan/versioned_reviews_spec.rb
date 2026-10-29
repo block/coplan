@@ -1,0 +1,264 @@
+require "rails_helper"
+
+RSpec.describe "Version-bound review evidence" do
+  include ActiveJob::TestHelper
+  let(:plan) { CoPlan::Plans::Create.call(title: "Reviewed body", content: "# Plan\n\n- [ ] Ship", user: create(:coplan_user)) }
+  let(:reviewer) { create(:coplan_user) }
+  let(:task) { CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user) }
+
+  def decide(**attributes)
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: plan.reload.current_revision,
+      generation: task.reload.generation, decision: "approved", idempotency_key: SecureRandom.uuid, **attributes)
+  end
+
+  def replace(content)
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: plan.reload.current_revision,
+      actor_type: "human", actor_id: plan.created_by_user_id)
+  end
+
+  it "pools current-version human decisions while retaining dismissed receipts and withdrawn tasks" do
+    first = decide
+    other = CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: plan.created_by_user)
+    CoPlan::Reviews::Respond.call(request: other, actor: other.reviewer, revision: 1, generation: other.generation, decision: "approved")
+    withdrawn = CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: plan.created_by_user)
+    CoPlan::Reviews::Withdraw.call(request: withdrawn, actor: plan.created_by_user)
+    expect(CoPlan::Reviews::Evidence.call(plan: plan)[:review_requests].count { |r| r[:effective_human_decision] == "approved" }).to eq(2)
+    count = CoPlan::Notification.count
+    replace("# Plan\n\nRevised")
+    expect(CoPlan::Notification.count).to eq(count)
+    expect(task.reload).to have_attributes(status: "pending", current_response_id: nil, reset_reason: "content_changed")
+    expect(other.reload.status).to eq("pending")
+    expect(withdrawn.reload.status).to eq("withdrawn")
+    expect(first.reload.plan_version.verified_content!).to eq("# Plan\n\n- [ ] Ship")
+    expect(CoPlan::Reviews::Evidence.call(plan: plan)[:review_requests].map { |r| r[:effective_human_decision] }).to all(be_nil)
+  end
+
+  it "keeps actual replacement no-ops approved, but never revives A after A to B to A" do
+    first = decide
+    original = plan.current_content
+    sequence = plan.reload.review_sequence
+    expect(replace(original.gsub("\n", "\r\n"))[:no_op]).to be(true)
+    expect(plan.reload.review_sequence).to eq(sequence)
+    expect(task.reload.effective_response).to eq(first)
+    replace("B")
+    replace(original)
+    expect(plan.current_plan_version.content_sha256).to eq(first.plan_version.content_sha256)
+    expect(plan.current_plan_version_id).not_to eq(first.plan_version_id)
+    expect(task.reload.effective_response).to be_nil
+  end
+
+  it "publishes one controls invalidation per edit and excludes the editing agent from reset events" do
+    task
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: plan.created_by_user)
+    writer = create(:api_token, user: plan.created_by_user)
+    observer = create(:api_token, user: reviewer)
+    [ writer, observer ].each do |token|
+      CoPlan::AgentSession.create!(plan: plan, api_token: token, state: "watching", agent_name: "Watcher")
+    end
+    allow(CoPlan::Broadcaster).to receive(:custom_action_to)
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Edited by agent", base_revision: 1,
+      actor_type: "local_agent", actor_id: writer.user_id, api_token_id: writer.id)
+    expect(CoPlan::AgentEvent.where(api_token: writer, event_type: "review.requested")).to be_empty
+    expect(CoPlan::AgentEvent.where(api_token: observer, event_type: "review.requested").count).to eq(2)
+    expect(CoPlan::Broadcaster).to have_received(:custom_action_to).with(plan,
+      action: "coplan-review-changed", target: "plan-review-controls", html: "").once
+  end
+
+  it "keeps a committed edit successful and retries one failed reset without blocking other reviewers" do
+    task
+    other = CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: plan.created_by_user)
+    allow(CoPlan::Reviews::Changed).to receive(:call).and_call_original
+    allow(CoPlan::Reviews::Changed).to receive(:call).with(hash_including(request: task)).and_raise(IOError, "temporary delivery failure")
+    allow(CoPlan::Broadcaster).to receive(:custom_action_to)
+    allow(Rails.error).to receive(:report)
+    expect { replace("Committed despite a delivery failure") }.not_to raise_error
+    expect(plan.reload.current_revision).to eq(2)
+    expect(CoPlan::Reviews::Changed).to have_received(:call).with(hash_including(request: other))
+    expect(CoPlan::Broadcaster).to have_received(:custom_action_to).with(plan,
+      action: "coplan-review-changed", target: "plan-review-controls", html: "").once
+    expect(CoPlan::ReviewResetDeliveryJob).to have_been_enqueued.with(
+      request_id: task.id, generation: task.reload.generation, revision: 2, actor_token_id: nil)
+    allow(CoPlan::Reviews::Changed).to receive(:call).and_call_original
+    perform_enqueued_jobs(only: CoPlan::ReviewResetDeliveryJob)
+    expect(CoPlan::Reviews::Changed).to have_received(:call).with(hash_including(request: task)).twice
+  end
+
+  it "retries a failed controls invalidation without changing the committed save result" do
+    task
+    allow(Rails.error).to receive(:report)
+    allow(CoPlan::Broadcaster).to receive(:custom_action_to).and_call_original
+    allow(CoPlan::Broadcaster).to receive(:custom_action_to).with(plan,
+      action: "coplan-review-changed", target: "plan-review-controls", html: "").and_raise(IOError, "temporary transport failure")
+    expect { replace("Committed with a failed controls broadcast") }.not_to raise_error
+    expect(plan.reload.current_revision).to eq(2)
+    expect(CoPlan::ReviewResetDeliveryJob).to have_been_enqueued.with(plan_id: plan.id)
+    allow(CoPlan::Broadcaster).to receive(:custom_action_to).with(plan,
+      action: "coplan-review-changed", target: "plan-review-controls", html: "").and_return(true)
+    perform_enqueued_jobs(only: CoPlan::ReviewResetDeliveryJob)
+    expect(CoPlan::Broadcaster).to have_received(:custom_action_to).with(plan,
+      action: "coplan-review-changed", target: "plan-review-controls", html: "").twice
+  end
+
+  it "dismisses on human drafts and checkbox edits" do
+    decide
+    CoPlan::Plans::ToggleCheckbox.call(plan: plan, old_text: "- [ ] Ship", new_text: "- [x] Ship", base_revision: 1, actor_id: plan.created_by_user_id)
+    expect(task.reload.effective_response).to be_nil
+    decide
+    CoPlan::Plans::SaveHumanDraft.call(plan: plan, content: "A human draft", base_revision: 2, actor: plan.created_by_user)
+    expect(task.reload).to have_attributes(status: "pending", current_response_id: nil)
+  end
+
+  it "dismisses on session commits, including operations that net to the same bytes" do
+    first = decide
+    session = CoPlan::EditSession.create!(plan: plan, actor_type: "human", actor_id: plan.created_by_user_id,
+      base_revision: 1, status: "open", expires_at: 1.hour.from_now,
+      draft_content: plan.current_content, operations_json: [ { "op" => "replace_exact", "old_text" => "Ship", "new_text" => "Ship" } ])
+    result = CoPlan::Plans::CommitSession.call(session: session)
+    expect(result[:version].content_sha256).to eq(first.plan_version.content_sha256)
+    expect(task.reload.effective_response).to be_nil
+    decide
+    empty = CoPlan::EditSession.create!(plan: plan, actor_type: "human", actor_id: plan.created_by_user_id,
+      base_revision: 2, status: "open", expires_at: 1.hour.from_now)
+    expect(CoPlan::Plans::CommitSession.call(session: empty)[:version]).to be_nil
+    expect(task.reload.effective_human_decision).to eq("approved")
+  end
+
+  it "rejects delayed first-seen keyed and legacy intentions for a reopened task" do
+    task
+    old_generation = task.generation
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
+    [ { idempotency_key: SecureRandom.uuid, generation: old_generation }, {} ].each do |attributes|
+      expect {
+        CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", **attributes)
+      }.to raise_error(CoPlan::Reviews::Respond::Conflict, /request changed/)
+    end
+    expect(task.reload.effective_response).to be_nil
+    expect(decide.request_generation).to eq(task.generation)
+  end
+
+  it "orders reconsideration by server sequence, not caller UUID or timestamp, and distinguishes agents" do
+    travel_to(Time.current.change(usec: 0)) do
+      objection = decide(decision: "changes_requested", note: "Clarify this", idempotency_key: "ffffffff-ffff-4fff-afff-ffffffffffff")
+      agent = decide(api_token: create(:api_token, user: reviewer, agent_name: "Reviewbot"), idempotency_key: "00000000-0000-4000-a000-000000000000")
+      expect(task.reload.effective_response).to eq(agent)
+      expect(task.effective_human_decision).to be_nil
+      expect(CoPlan::Reviews::Serialize.call(task)[:latest_human_response_id]).to eq(objection.id)
+      human = decide
+      expect(task.reload.effective_human_decision).to eq("approved")
+      expect(task.review_responses.map(&:id)).to eq([ human.id, agent.id, objection.id ])
+      expect([ objection, agent, human ].map(&:decision_sequence)).to eq([ objection.decision_sequence, objection.decision_sequence + 1, objection.decision_sequence + 2 ])
+    end
+  end
+
+  it "rolls back version, resets and sequence together when a content transaction fails" do
+    first = decide
+    before = plan.reload.review_sequence
+    plan.with_lock do
+      replace("Rolled back")
+      raise ActiveRecord::Rollback
+    end
+    expect(plan.reload.current_revision).to eq(1)
+    expect(plan.review_sequence).to eq(before)
+    expect(task.reload.effective_response).to eq(first)
+  end
+
+  it "makes the content boundary explicit and leaves title and attachment metadata outside approval" do
+    first = decide
+    plan.update!(title: "Different title")
+    plan.attachments.attach(io: StringIO.new("mutable resource"), filename: "scope.txt", content_type: "text/plain")
+    evidence = CoPlan::Reviews::Evidence.call(plan: plan)
+    expect(evidence[:approval_scope][:excludes]).to include("title", "attachments", "embedded_resources", "child_plans")
+    expect(evidence[:version][:content_markdown]).to eq(first.plan_version.content_markdown)
+    expect(task.reload.effective_response).to eq(first)
+  end
+
+  context "when automatic resets are off" do
+    before { plan.update!(reset_reviews_on_change: false) }
+
+    [ :replace, :draft, :checkbox, :session ].each do |writer|
+      it "preserves completed review lifecycle, not current-version evidence, after #{writer}" do
+        first = decide
+        sequence = plan.reload.review_sequence
+        case writer
+        when :replace then replace("New source")
+        when :draft
+          CoPlan::Plans::SaveHumanDraft.call(plan: plan, content: "A human draft", base_revision: 1, actor: plan.created_by_user)
+        when :checkbox
+          CoPlan::Plans::ToggleCheckbox.call(plan: plan, old_text: "- [ ] Ship", new_text: "- [x] Ship", base_revision: 1, actor_id: plan.created_by_user_id)
+        when :session
+          session = CoPlan::EditSession.create!(plan: plan, actor_type: "human", actor_id: plan.created_by_user_id,
+            base_revision: 1, status: "open", expires_at: 1.hour.from_now,
+            draft_content: "Revised by session", operations_json: [ { "op" => "replace_exact", "old_text" => "Ship", "new_text" => "Ship" } ])
+          CoPlan::Plans::CommitSession.call(session: session)
+        end
+        expect(plan.reload.review_sequence).to eq(sequence + 1)
+        expect(task.reload).to have_attributes(status: "approved", generation: 1, recorded_response: first, review_status: "approved")
+        expect(task).not_to be_pending
+        expect(task.effective_response).to be_nil
+        evidence = CoPlan::Reviews::Evidence.call(plan: plan)
+        expect(evidence[:reset_reviews_on_change]).to be(false)
+        expect(evidence[:review_requests].first).to include(review_status: "approved", effective_status: "pending",
+          recorded_response_id: first.id, effective_human_decision: nil, effective_response_id: nil)
+      end
+    end
+
+    it "preserves objections and agent attribution without inventing human evidence" do
+      response = decide(decision: "changes_requested", note: "Clarify this", api_token: create(:api_token, user: reviewer))
+      replace("New source")
+      expect(task.reload.review_status).to eq("changes_requested")
+      expect(task.recorded_response).to eq(response)
+      expect(task.recorded_response.actor_type).to eq("local_agent")
+      expect(task.effective_human_decision).to be_nil
+    end
+
+    it "keeps no-ops completed and never treats returned bytes or old retries as current approval" do
+      first = decide
+      original = plan.current_content
+      expect(replace(original)[:no_op]).to be(true)
+      expect(task.reload.effective_response).to eq(first)
+      replace("B")
+      replace(original)
+      [ { idempotency_key: first.id }, {} ].each do |attributes|
+        retry_response = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", **attributes)
+        expect(retry_response).to eq(first)
+      end
+      expect(task.reload.recorded_response).to eq(first)
+      expect(task.effective_response).to be_nil
+      expect(decide.plan_version.revision).to eq(3)
+      expect(task.reload.effective_human_decision).to eq("approved")
+    end
+
+    it "applies enabling to the next edit and never resurrects a dismissed decision when disabled" do
+      first = decide
+      replace("B")
+      plan.update!(reset_reviews_on_change: true)
+      expect(task.reload.recorded_response).to eq(first)
+      replace("C")
+      expect(task.reload).to be_pending
+      generation = task.generation
+      plan.update!(reset_reviews_on_change: false)
+      expect(task.reload.recorded_response).to be_nil
+      replace("D")
+      expect(task.reload).to be_pending
+      expect(task.generation).to eq(generation)
+      expect {
+        CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 3, generation: generation, decision: "approved", idempotency_key: SecureRandom.uuid)
+      }.to raise_error(CoPlan::Reviews::Respond::Conflict)
+      expect(decide.plan_version.revision).to eq(4)
+    end
+
+    it "preserves withdrawal and explicit re-request semantics across edits and retries" do
+      first = decide
+      CoPlan::Reviews::Withdraw.call(request: task, actor: plan.created_by_user)
+      replace("B")
+      expect(task.reload.review_status).to eq("withdrawn")
+      CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user)
+      [ { idempotency_key: first.id }, {} ].each do |attributes|
+        CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", **attributes)
+      end
+      expect(task.reload).to be_pending
+      expect(task.recorded_response).to be_nil
+      expect(decide.plan_version.revision).to eq(2)
+    end
+  end
+end

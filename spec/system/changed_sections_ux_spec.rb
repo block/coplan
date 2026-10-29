@@ -43,7 +43,7 @@ RSpec.describe "Updated section signposts", type: :system do
   end
   let(:plan) do
     p = create(:plan, :published, created_by_user: author)
-    p.current_plan_version.update_columns(content_markdown: content, created_at: 2.hours.ago)
+    set_version_fixture(p.current_plan_version, content_markdown: content, created_at: 2.hours.ago)
     CoPlan::PlanViewer.create!(plan: p, user: viewer, last_seen_at: 1.hour.ago)
     version = create(:plan_version, plan: p, revision: 2, actor_id: author.id,
       content_markdown: content.sub("easy to read", "comfortable to read").sub("same heading", "same heading, now updated"))

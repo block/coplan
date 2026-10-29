@@ -73,7 +73,7 @@ RSpec.describe CoPlan::ApplicationHelper, type: :helper do
     end
 
     it "includes a content excerpt when content is present" do
-      plan.current_plan_version.update!(content_markdown: "# Overview\n\nThis is the summary of the plan.")
+      set_version_fixture(plan.current_plan_version, content_markdown: "# Overview\n\nThis is the summary of the plan.")
       result = helper.plan_og_description(plan)
       expect(result).to include("This is the summary of the plan.")
     end
@@ -89,7 +89,7 @@ RSpec.describe CoPlan::ApplicationHelper, type: :helper do
 
     it "truncates long content" do
       long_text = "A" * 500
-      plan.current_plan_version.update!(content_markdown: long_text)
+      set_version_fixture(plan.current_plan_version, content_markdown: long_text)
       result = helper.plan_og_description(plan)
       expect(result.length).to be <= 250
     end

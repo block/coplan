@@ -2,6 +2,7 @@
   <details class="review-log-details document-support__disclosure" data-controller="coplan--support-disclosure" data-action="toggle->coplan--support-disclosure#remember">
     <summary class="review-log-panel__header document-support__heading"><span class="document-support__chevron" aria-hidden="true">›</span><h2 class="plan-footnote__title" id="review-log-title">Reviews</h2><span class="review-log-panel__summary" data-review-log-summary><span><%= pluralize(active_requests.size, "reviewer") %><%= " · #{active_requests.count(&:pending?)} awaiting review" if active_requests.any?(&:pending?) %></span></span></summary>
     <div class="review-log-panel__columns document-support__content">
+      <p class="text-sm text-muted">Reviews cover the Markdown source only. Decisions record the version reviewed; earlier decisions remain in activity.</p>
       <%= render "coplan/reviews/roster", plan: plan, active_requests: active_requests, manage: false %>
       <div class="review-log-panel__tools"><button type="button" class="btn btn--secondary btn--sm" data-action="coplan--review-tray#openActivity">View activity <span aria-hidden="true">↗</span></button></div>
     </div>
