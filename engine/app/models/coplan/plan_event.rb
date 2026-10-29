@@ -9,7 +9,7 @@ module CoPlan
   # metadata-only changes).
   #
   # Records are append-only — never updated, never destroyed except through
-  # the parent plan's cascade.
+  # the parent plan's cascade or explicit removal of a reviewer's history.
   class PlanEvent < ApplicationRecord
     # Mirrors PlanVersion::ACTOR_TYPES so history items from either source can
     # be rendered uniformly.

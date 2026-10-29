@@ -82,6 +82,8 @@ return 429. Invalid names return 422 with `invalid_request`.
 
 Creating a review request for an existing reviewer returns the current task with status 201. It leaves the requirement, decision, history, and notifications unchanged. Use `PATCH` to change the requirement or `request_again: true` to request another look.
 
+Removing a reviewer in the web management pane deletes their request and review decisions. Re-adding them creates a fresh pending request with a new ID. The removed request ID returns 404, including for old response retries. API withdrawal remains separate and preserves history.
+
 Include `idempotency_key` (a fresh UUID) for each intended review response. Reuse that UUID and identical fields when retrying a lost response; its returned `id` is the UUID. Use a new UUID for a new decision, including another review of the same version. A keyed retry returns the original recorded result even after the plan changes or the task is withdrawn. It preserves any newly pending review task. Without a key, an identical response is treated as a retry. Retries may use a renewed token for the same human principal. The original response keeps its original agent and token attribution. A key reused for different fields returns 422.
 
 A review response returns 409 with `code: review_version_changed` for a stale revision. Re-read before responding. A new response to a withdrawn request returns 409 with `code: review_request_withdrawn`; stop responding unless the author requests another look.

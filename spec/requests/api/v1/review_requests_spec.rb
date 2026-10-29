@@ -15,6 +15,37 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
   before { author_token; reviewer_token }
 
   [ true, false ].each do |keyed|
+    it "cannot replay a removed #{keyed ? 'keyed' : 'legacy'} review into a fresh request", :review_removal do
+      payload = { revision: 1, decision: "changes_requested", note: "Earlier feedback" }
+      payload[:idempotency_key] = SecureRandom.uuid if keyed
+      post respond_api_v1_plan_review_request_path(plan, task), params: payload, headers: headers("reviews-reviewer"), as: :json
+      expect(response).to have_http_status(:created)
+      old_response_id = response.parsed_body.fetch("id")
+      sign_in_as(author)
+      delete plan_review_request_path(plan, task), params: { review_request: { remove: true } }, as: :json
+      expect(response).to have_http_status(:no_content)
+      post api_v1_plan_review_requests_path(plan), params: { reviewer_id: reviewer.id }, headers: headers("reviews-owner"), as: :json
+      expect(response).to have_http_status(:created)
+      fresh = plan.review_requests.find(response.parsed_body.fetch("id"))
+      expect(fresh.id).not_to eq(task.id)
+      expect(response.parsed_body.fetch("responses")).to be_empty
+
+      post respond_api_v1_plan_review_request_path(plan, task), params: payload, headers: headers("reviews-reviewer"), as: :json
+      expect(response).to have_http_status(:not_found)
+      patch api_v1_plan_review_request_path(plan, task), params: { request_again: true }, headers: headers("reviews-owner"), as: :json
+      expect(response).to have_http_status(:not_found)
+      delete api_v1_plan_review_request_path(plan, task), headers: headers("reviews-owner")
+      expect(response).to have_http_status(:not_found)
+      expect(CoPlan::ReviewResponse.exists?(old_response_id)).to be(false)
+      expect(fresh.reload.status).to eq("pending")
+      get api_v1_plan_review_requests_path(plan), headers: headers("reviews-owner")
+      requests = response.parsed_body.fetch("review_requests")
+      expect(requests.map { |request| request.fetch("id") }).to eq([ fresh.id ])
+      expect(requests.first.fetch("responses")).to be_empty
+    end
+  end
+
+  [ true, false ].each do |keyed|
     it "replays a #{keyed ? 'keyed' : 'legacy unkeyed'} response through a renewed session token without changing its attribution", :review_retries do
       first_token, first_secret = reviewer_token.mint_session_token!(agent_name: "Originalbot")
       payload = { revision: 1, decision: "approved", note: "Recorded before renewal" }

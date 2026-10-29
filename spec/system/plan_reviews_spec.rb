@@ -40,15 +40,9 @@ RSpec.describe "Plan discussion and approval", type: :system do
 
   before { sign_in_browser(reviewer, open_sections: !RSpec.current_example.metadata[:collapsed_support]) }
 
-  it "keeps a withdrawn request between its two request cycles", :review_withdrawals do
+  it "keeps an API-withdrawn request between its two request cycles", :review_withdrawals do
     sign_in_browser(author)
-    click_button "More actions"
-    within("#plan-menu") { click_button "Manage reviewers" }
-    within(".review-management[open]") do
-      click_button "Actions for Plan Reviewer", enable_aria_label: true
-      click_button "Remove request"
-      expect(page).to have_no_css("[data-review-assignments] .review-person")
-    end
+    CoPlan::Reviews::Withdraw.call(request: task, actor: author)
     expect(task.reload.status).to eq("withdrawn")
     CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
     visit plan_page_path(plan)
@@ -66,20 +60,22 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
-  [ "light", "dark" ].each do |theme|
-    it "re-adds a removed reviewer through the assignment pane in #{theme} theme", :review_readdition do
-      approval = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+  [ "light", "dark" ].product(%w[approved changes_requested]).each do |theme, decision|
+    it "starts fresh after removing a #{decision} reviewer in #{theme} theme", :review_readdition do
+      previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: decision,
+        note: decision == "changes_requested" ? "Earlier review feedback" : nil)
       sign_in_browser(author)
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
       click_button "More actions"
       within("#plan-menu") { click_button "Manage reviewers" }
       within(".review-management[open]") do
         click_button "Actions for Plan Reviewer", enable_aria_label: true
-        click_button "Remove request"
+        click_button "Remove reviewer"
         expect(page).to have_no_css("[data-review-assignments] .review-person")
         click_button "Add reviewer", exact: true
       end
-      expect(task.reload.status).to eq("withdrawn")
+      expect(CoPlan::ReviewRequest.exists?(task.id)).to be(false)
+      expect(CoPlan::ReviewResponse.exists?(previous.id)).to be(false)
       fill_in "Find a reviewer", with: reviewer.name
       find(".review-search-result", text: reviewer.name).click
       uncheck "Required"
@@ -89,17 +85,58 @@ RSpec.describe "Plan discussion and approval", type: :system do
         expect(page).to have_css(".review-person__requirement", text: "Optional")
         expect(page).to have_css(".review-state", text: "Pending")
       end
-      expect(task.reload).to have_attributes(status: "pending", requirement: "optional")
+      fresh = plan.review_requests.find_by!(reviewer: reviewer)
+      expect(fresh.id).not_to eq(task.id)
+      expect(fresh).to have_attributes(status: "pending", requirement: "optional")
       expect(plan.review_requests.where(reviewer: reviewer).count).to eq(1)
-      expect(task.review_responses.pluck(:id)).to eq([ approval.id ])
-      expect(task.notifications.unread.where(user: reviewer, reason: "review_requested").count).to eq(1)
+      expect(fresh.review_responses).to be_empty
+      expect(fresh.notifications.unread.where(user: reviewer, reason: "review_requested").count).to eq(1)
       page.save_screenshot(Rails.root.join("tmp/review-preview/readded-reviewer-#{theme}.png"))
+      within(".review-management[open]") { click_button "Close reviews", enable_aria_label: true }
+      within("#footnote-approvals") { click_button "View activity", exact: false }
+      within(".review-activity-dialog[open]") do
+        expect(all(".review-log__event").map { |entry| entry.text.squish }).to eq([ "Plan Author requested a review from Plan Reviewer" ])
+        expect(page).to have_no_text("Earlier review feedback")
+      end
+      page.save_screenshot(Rails.root.join("tmp/review-preview/fresh-review-history-#{theme}.png"))
       sign_in_browser(reviewer)
       expect(page).to have_css(".review-tray", text: "Your review is requested")
     end
   end
 
   [ "lost", "rejected" ].each do |failure|
+    it "keeps removal retryable after a #{failure} result", :review_readdition do
+      sign_in_browser(author)
+      click_button "More actions"
+      within("#plan-menu") { click_button "Manage reviewers" }
+      page.execute_script(<<~JS, failure)
+        const originalFetch = window.fetch.bind(window)
+        const failure = arguments[0]
+        // Also lose the socket invalidation so the stale row can be retried.
+        window.Turbo.StreamActions['coplan-review-changed'] = function () {}
+        let interrupt = true
+        window.fetch = async (url, options) => {
+          if (interrupt && options?.method === 'DELETE' && String(url).includes('/review_requests/')) {
+            interrupt = false
+            if (failure === 'rejected') return new Response(JSON.stringify({error: 'Please retry removal'}), {status: 422, headers: {'Content-Type': 'application/json'}})
+            await originalFetch(url, options)
+            throw new TypeError('Lost the successful removal result')
+          }
+          return originalFetch(url, options)
+        }
+      JS
+      within(".review-management[open]") do
+        click_button "Actions for Plan Reviewer", enable_aria_label: true
+        click_button "Remove reviewer"
+        expect(page).to have_css("[role='alert']", text: failure == "lost" ? "Couldn't reach CoPlan" : "Please retry removal")
+        expect(CoPlan::ReviewRequest.exists?(task.id)).to eq(failure == "rejected")
+        click_button "Actions for Plan Reviewer", enable_aria_label: true
+        click_button "Remove reviewer"
+        expect(page).to have_no_css("[data-review-assignments] .review-person")
+      end
+      expect(CoPlan::ReviewRequest.exists?(task.id)).to be(false)
+    end
+
     it "keeps re-adding a reviewer retryable after a #{failure} update result", :review_readdition do
       CoPlan::Reviews::Withdraw.call(request: task, actor: author)
       sign_in_browser(author)
@@ -188,7 +225,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_field("Public review comment", with: "Can we clarify this boundary?", enable_aria_label: true)
   end
 
-  [ [ "Request another review", false ], [ "Remove request", true ] ].each do |action, failed|
+  [ [ "Request another review", false ], [ "Remove reviewer", true ] ].each do |action, failed|
     it "keeps reviewer-update progress visible for #{action}", :review_interactions do
       sign_in_browser(author)
       click_button "More actions"

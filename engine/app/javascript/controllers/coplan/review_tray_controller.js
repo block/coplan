@@ -362,7 +362,7 @@ export default class extends Controller {
 
   requestAgain(event) { this.manage(event, "PATCH", { review_request: { request_again: true } }) }
   changeRequirement(event) { this.manage(event, "PATCH", { review_request: { requirement: event.currentTarget.dataset.requirement } }) }
-  withdraw(event) { this.manage(event, "DELETE") }
+  withdraw(event) { this.manage(event, "DELETE", { review_request: { remove: true } }) }
 
   async manage(event, method, body) {
     if (this.managing) return

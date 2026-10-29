@@ -1,19 +1,24 @@
 module CoPlan
   module Reviews
     class Request
-      def self.call(plan:, reviewer:, actor:, requirement: "required", api_token: nil, create_only: false)
-        new(plan:, reviewer:, actor:, requirement:, api_token:, create_only:).call
+      def self.call(plan:, reviewer:, actor:, requirement: "required", api_token: nil, create_only: false, request_id: nil)
+        new(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, request_id:).call
       end
 
-      def initialize(plan:, reviewer:, actor:, requirement:, api_token:, create_only:)
+      def initialize(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, request_id:)
         @plan, @reviewer, @actor, @requirement, @api_token = plan, reviewer, actor, requirement, api_token
         @create_only = create_only
+        @request_id = request_id
       end
 
       def call
         changed = false
         request = @plan.with_lock do
-          request = @plan.review_requests.find_or_initialize_by(reviewer: @reviewer)
+          request = if @request_id
+            @plan.review_requests.where(reviewer: @reviewer).find(@request_id)
+          else
+            @plan.review_requests.find_or_initialize_by(reviewer: @reviewer)
+          end
           # Retrying a create cannot change a decision, reopen a withdrawal,
           # or send another nudge. Only an explicit re-request starts a cycle.
           if @create_only && request.persisted?
