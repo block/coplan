@@ -17,15 +17,18 @@ module CoPlan
 
     def settings
       authorize!(@plan, :update?)
-      attributes = params.expect(review_settings: [ :reset_reviews_on_change ])
+      attributes = params.expect(review_settings: [ :reset_reviews_on_change, :review_sequence ])
       enabled = ActiveModel::Type::Boolean.new.cast(attributes.fetch(:reset_reviews_on_change))
       @plan.with_lock do
-        if @plan.reset_reviews_on_change != enabled
-          @plan.update!(reset_reviews_on_change: enabled, review_sequence: @plan.review_sequence + 1)
+        unless attributes.fetch(:review_sequence).to_s == @plan.review_sequence.to_s
+          render json: { error: "Review settings changed. Please try again." }, status: :conflict
+          return
         end
+        # Even a same-value write fences an older, indeterminate request.
+        @plan.update!(reset_reviews_on_change: enabled, review_sequence: @plan.review_sequence + 1)
       end
       Broadcaster.custom_action_to(@plan, action: "coplan-review-changed", target: "plan-review-controls", html: "")
-      render json: { reset_reviews_on_change: @plan.reset_reviews_on_change }
+      render json: { reset_reviews_on_change: @plan.reset_reviews_on_change, review_sequence: @plan.review_sequence }
     end
 
     def create

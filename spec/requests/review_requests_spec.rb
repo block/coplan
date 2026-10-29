@@ -11,13 +11,24 @@ RSpec.describe "Review requests", type: :request do
     sequence = plan.review_sequence
     sign_in_as(author)
     [ false, false, true ].each_with_index do |enabled, index|
-      patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: enabled } }, as: :json
+      patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: enabled, review_sequence: plan.review_sequence } }, as: :json
       expect(response).to have_http_status(:ok)
-      expect(response.parsed_body).to eq("reset_reviews_on_change" => enabled)
+      expect(response.parsed_body).to eq("reset_reviews_on_change" => enabled, "review_sequence" => sequence + index + 1)
       expect(plan.reload.reset_reviews_on_change).to eq(enabled)
-      expect(plan.review_sequence).to eq(sequence + (index == 2 ? 2 : 1))
+      expect(plan.review_sequence).to eq(sequence + index + 1)
       expect(CoPlan::Reviews::Evidence.call(plan: plan)[:reset_reviews_on_change]).to eq(enabled)
     end
+  end
+
+  it "fences an older policy write even when the newer choice keeps the current value", :review_reset_policy do
+    sign_in_as(author)
+    sequence = plan.review_sequence
+    patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: true, review_sequence: sequence } }, as: :json
+    expect(response).to have_http_status(:ok)
+    patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: false, review_sequence: sequence } }, as: :json
+    expect(response).to have_http_status(:conflict)
+    expect(plan.reload.reset_reviews_on_change).to be(true)
+    expect(plan.review_sequence).to eq(sequence + 1)
   end
 
   it "does not let a reviewer change the document's reset policy", :review_reset_policy do

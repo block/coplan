@@ -196,7 +196,9 @@ export default class extends Controller {
       this.confirmIntent("changes_requested", intent)
       // Feedback lives in the ordinary discussion collection.
       const synced = await this.refreshThreads(result.comment_thread_id)
-      this.noticeTarget.textContent = "Changes requested. Your feedback is in the plan’s comments." + (synced ? "" : " Refresh the page to see your comment.")
+      this.noticeTarget.textContent = result.effective === false
+        ? "Your earlier change request was already recorded. Review the current request again."
+        : "Changes requested. Your feedback is in the plan’s comments." + (synced ? "" : " Refresh the page to see your comment.")
       input.value = ""
       this.collapse()
       await this.refresh()
@@ -242,6 +244,7 @@ export default class extends Controller {
           if (policy.checked !== incomingPolicy.checked) this.clearPolicyIcon()
           policy.checked = incomingPolicy.checked
           policy.dataset.savedValue = String(incomingPolicy.checked)
+          policy.dataset.reviewSequence = incomingPolicy.dataset.reviewSequence
           this.policyRefreshPending = false
         } else this.policyRefreshPending = true
       }
@@ -295,6 +298,7 @@ export default class extends Controller {
     const input = event.currentTarget
     input.setAttribute("aria-busy", "true")
     this.policyInputGeneration = (this.policyInputGeneration || 0) + 1
+    this.policyConflictRetries = 0
     this.clearPolicyIcon()
     clearTimeout(this.policySaveTimer)
     this.policySaveTimer = setTimeout(() => {
@@ -308,17 +312,20 @@ export default class extends Controller {
     const previous = input.dataset.savedValue === "true"
     const enabled = input.checked
     const generation = this.policyInputGeneration
-    if (previous === enabled) {
+    if (previous === enabled && !this.policyMustSave) {
       input.setAttribute("aria-busy", "false")
       if (this.policyRefreshPending) await this.refresh()
       return
     }
     this.policySaving = true
+    this.policyMustSave = false
     this.managementErrorTarget.textContent = ""
     let confirmed = false
     try {
-      await this.withPolicyDeadline(signal => this.write(this.settingsUrlValue, "PATCH", { review_settings: { reset_reviews_on_change: enabled } }, signal))
+      const result = await this.withPolicyDeadline(signal => this.write(this.settingsUrlValue, "PATCH", { review_settings: { reset_reviews_on_change: enabled, review_sequence: input.dataset.reviewSequence } }, signal))
       input.dataset.savedValue = String(enabled)
+      input.dataset.reviewSequence = String(result.review_sequence)
+      this.policyConflictRetries = 0
       confirmed = true
     } catch (error) {
       // A lost HTTP result may already have saved. Read back before restoring
@@ -329,17 +336,19 @@ export default class extends Controller {
           const response = await fetch(this.urlValue, { credentials: "same-origin", headers: { Accept: "text/html" }, signal })
           const policy = new DOMParser().parseFromString(await response.text(), "text/html").querySelector("[data-review-reset-policy]")
           if (!response.ok || !policy) throw error
+          input.dataset.reviewSequence = policy.dataset.reviewSequence
           return policy.checked
         })
         confirmed = persisted === enabled
       } catch { /* Keep the last confirmed value and show the error. */ }
       input.dataset.savedValue = String(persisted)
-      if (generation === this.policyInputGeneration) input.checked = persisted
+      if (generation !== this.policyInputGeneration || (error.status === 409 && ++this.policyConflictRetries <= 2)) this.policyMustSave = true
+      else input.checked = persisted
       this.managementErrorTarget.textContent = confirmed ? "" : error.message
     } finally {
       this.policySaving = false
       // Serialize saves so a slow older request cannot overwrite a newer click.
-      if (input.checked !== (input.dataset.savedValue === "true")) this.saveResetPolicy(input)
+      if (this.policyMustSave || input.checked !== (input.dataset.savedValue === "true")) this.saveResetPolicy(input)
       else {
         input.setAttribute("aria-busy", "false")
         if (this.policyRefreshPending) await this.refresh()
@@ -547,6 +556,7 @@ export default class extends Controller {
         await this.refresh()
       }
       const error = new Error(result.error || "Couldn't save. Please try again.")
+      error.status = response.status
       if (result.code === "authentication_required") error.signInPath = result.sign_in_path
       throw error
     }

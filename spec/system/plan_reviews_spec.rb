@@ -255,6 +255,47 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page.evaluate_script("window.policyWrites")).to eq([ false, false ])
   end
 
+  it "retries the selected policy after a concurrent review sequence change", :review_reset_policy do
+    sign_in_browser(author)
+    open_review_settings
+    plan.reload.update!(review_sequence: plan.review_sequence + 1)
+    uncheck "Reset approvals when content changes"
+    expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+    expect(page).to have_unchecked_field("Reset approvals when content changes")
+    expect(plan.reload.reset_reviews_on_change).to be(false)
+    expect(page).to have_no_text("Review settings changed. Please try again.")
+  end
+
+  it "fences a lost older write before it can override the latest choice", :review_reset_policy do
+    sign_in_browser(author)
+    open_review_settings
+    page.execute_script(<<~JS)
+      const originalFetch = window.fetch.bind(window)
+      let first = true
+      window.fetch = async (url, options) => {
+        if (first && options?.method === 'PATCH' && String(url).endsWith('/settings')) {
+          first = false
+          document.querySelector('[data-review-reset-policy]').dataset.inFlight = 'true'
+          window.deliverOldPolicy = async () => {
+            const result = await originalFetch(url, options)
+            document.querySelector('[data-review-reset-policy]').dataset.oldStatus = String(result.status)
+          }
+          return await new Promise((_, reject) => { window.losePolicy = () => reject(new TypeError('Lost response')) })
+        }
+        return originalFetch(url, options)
+      }
+    JS
+    uncheck "Reset approvals when content changes"
+    expect(page).to have_css("[data-review-reset-policy][data-in-flight='true']")
+    check "Reset approvals when content changes"
+    page.execute_script("window.losePolicy()")
+    expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+    page.execute_script("window.deliverOldPolicy()")
+    expect(page).to have_css("[data-review-reset-policy][data-old-status='409']")
+    expect(page).to have_checked_field("Reset approvals when content changes")
+    expect(plan.reload.reset_reviews_on_change).to be(true)
+  end
+
   it "keeps a review refresh when policy toggles cancel out", :review_reset_policy do
     sign_in_browser(author)
     open_review_settings
@@ -559,13 +600,16 @@ RSpec.describe "Plan discussion and approval", type: :system do
     within(".review-tray__discussion") { click_button "Request changes" }
     expect(page).to have_css(".review-tray__discussion [role='alert']", text: "try again")
     first = task.review_responses.last!
+    CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+    expect(page).to have_css(".review-tray", text: "Your review is requested")
     within(".review-tray__discussion") { click_button "Cancel" }
-    within("#footnote-approvals") { click_button "Change decision", enable_aria_label: true }
     within(".review-tray") { click_button "Request changes" }
     expect(page).to have_field("Public review comment", with: "Keep one copy of this feedback", enable_aria_label: true)
     within(".review-tray__discussion") { click_button "Request changes" }
     expect(page).to have_no_css(".review-tray__discussion", visible: true)
     expect(task.review_responses.pluck(:id)).to eq([ first.id ])
+    expect(task.reload.status).to eq("pending")
+    expect(page).to have_content("Your earlier change request was already recorded. Review the current request again.")
     expect(plan.comment_threads.count).to eq(1)
     expect(plan.notifications.where(reason: "review_response").count).to eq(1)
   end
