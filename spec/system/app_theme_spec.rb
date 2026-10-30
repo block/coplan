@@ -202,7 +202,7 @@ RSpec.describe "App themes", type: :system do
       expect(editor).to eq(reader)
     end
 
-    it "keeps deck diagrams in the deck's font while document diagrams follow the theme" do
+    it "keeps deck diagrams in the deck's font and colors while document diagrams follow the theme" do
       plan.current_plan_version.update_columns(content_markdown: <<~MD)
         ```mermaid
         flowchart LR
@@ -230,6 +230,13 @@ RSpec.describe "App themes", type: :system do
       document_font, deck_font = fonts.values_at("document", "deck")
       expect(document_font).to start_with("system-ui")
       expect(deck_font).to start_with("Lexend")
+
+      themes = page.evaluate_script(<<~JS)
+        Object.fromEntries([...document.querySelectorAll(".mermaid-diagram")].map(diagram =>
+          [diagram.closest(".deck") ? "deck" : "document", diagram.dataset.mermaidTheme]))
+      JS
+      expect(themes["document"]).to start_with("neutral-")
+      expect(themes["deck"]).to eq("light")
     end
   end
 end

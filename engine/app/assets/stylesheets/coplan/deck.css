@@ -32,6 +32,18 @@
   --diagram-bg: initial;
   --diagram-border: initial;
   --diagram-radius: initial;
+  /* With no diagram palette, Mermaid uses its built-in themes. */
+  --diagram-node: initial;
+  --diagram-node-border: initial;
+  --diagram-text: initial;
+  --diagram-line: initial;
+  --diagram-cluster: initial;
+  --diagram-cluster-border: initial;
+  --diagram-actor-line: initial;
+  --diagram-alt: initial;
+  --diagram-note: initial;
+  --diagram-note-border: initial;
+  --diagram-note-text: initial;
   --blockquote-rule: initial;
   --table-radius: initial;
   --table-numerals: initial;

@@ -77,7 +77,8 @@ file sets is reset there or allowlisted with a reason. Decks also set
 `--font-sans` and `--font-mono` back to the built-in stacks,
 `--font-builtin-sans` and `--font-builtin-mono`, so diagram labels and code
 inside a slide keep the deck's fonts. Themes don't set those two. Mermaid
-labels use the `--font-sans` of the diagram's container, not the page's.
+reads its label font and its palette from the diagram's container, not the
+page.
 
 ## Repeated titles
 
@@ -128,6 +129,6 @@ values (Mermaid's color math can't read `oklch()`), per scheme:
 `--diagram-note-border`, `--diagram-note-text`.
 
 Each diagram reads the palette from its own container. If any of them is
-missing, documents keep Mermaid's built-in themes. Decks always do, because
-`.deck` resets `--diagram-bg`. An expanded deck diagram keeps the slide's
-background, so its built-in colors stay readable in either mode.
+missing there, the diagram uses Mermaid's built-in themes. `.deck` sets them
+all to `initial`, so slides always do. An expanded deck diagram keeps the
+slide's background, so its built-in colors stay readable in either mode.
