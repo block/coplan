@@ -1,6 +1,6 @@
 module CoPlan
   # App themes. A theme is a named set of CSS variable values, applied with
-  # <html data-ui-theme="key"> (docs/THEMES.md). Classic is the built-in look
+  # <html data-app-theme="key"> (docs/THEMES.md). Classic is the built-in look
   # and sets no variables. Light and dark are a separate choice, so every
   # theme comes in both.
   module Themes

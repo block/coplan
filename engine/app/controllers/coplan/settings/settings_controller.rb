@@ -7,6 +7,7 @@ module CoPlan
         @web_push_subscriptions = current_user.web_push_subscriptions.order(created_at: :desc)
       end
 
+      # Saves the light/dark mode (docs/THEMES.md).
       def update_theme
         theme = params[:theme]
         if CoPlan::User::THEME_PREFERENCES.include?(theme)

@@ -428,7 +428,7 @@ function themeDiagramPalette() {
     palette[key] = style.getPropertyValue(property).trim()
     if (!palette[key]) return null
   }
-  palette.name = document.documentElement.dataset.uiTheme || "theme"
+  palette.name = document.documentElement.dataset.appTheme || "theme"
   return palette
 }
 

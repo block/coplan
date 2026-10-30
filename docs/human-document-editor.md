@@ -18,7 +18,7 @@ unique index.
 Rich mode shares reading-view typography. The compact toolbar provides selected
 states, accessible labels and shortcut hints. The link button uses the same
 Lucide outline convention as the app; style controls and native options follow
-light/dark themes. Cmd/Ctrl+B/I format, Cmd/Ctrl+Z undoes, Cmd/Ctrl+Shift+Z redoes,
+light and dark mode. Cmd/Ctrl+B/I format, Cmd/Ctrl+Z undoes, Cmd/Ctrl+Shift+Z redoes,
 and Cmd/Ctrl+K adds a link. Lists support Enter, Tab and Shift+Tab.
 At the start of a paragraph, typing `* ` creates a bullet. Immediate Backspace
 restores the literal asterisk and space. After typing an item and pressing Enter,
@@ -289,7 +289,7 @@ large structural rewrites can move the selection to the changed range.
 Run `bundle exec rspec`. Concurrent worktrees need distinct test databases via
 `DATABASE_URL`, so one suite cannot reset another suite’s schema or data.
 `spec/system/editor_lists_spec.rb` covers bullet typing, immediate reversal,
-empty-item exit and caret alignment in both themes, repeated Backspace without
+empty-item exit and caret alignment in both modes, repeated Backspace without
 new bullets, blank lines after lists, citation metadata, and saved/reopened lists.
 `spec/system/document_editor_modes_spec.rb` covers mode
 fidelity, table/Mermaid previews, Close editor success/error/conflict/in-flight behavior,

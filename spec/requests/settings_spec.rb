@@ -15,13 +15,13 @@ RSpec.describe "Settings", type: :request do
 
     it "renders the host's default theme on <html>" do
       get settings_root_path
-      expect(response.parsed_body.at_css("html")["data-ui-theme"]).to eq("classic")
+      expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("classic")
     end
 
     it "falls back to Classic when the host names an unknown theme" do
       CoPlan.configuration.default_theme = "hotdog-stand"
       get settings_root_path
-      expect(response.parsed_body.at_css("html")["data-ui-theme"]).to eq("classic")
+      expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("classic")
     end
   end
 

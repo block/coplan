@@ -3,8 +3,8 @@ module CoPlan
     include CoPlan::KeyboardShortcutsHelper
     include MarkdownHelper
 
-    # The app theme for this page, as <html data-ui-theme> (docs/THEMES.md).
-    def coplan_ui_theme
+    # The app theme for this page, as <html data-app-theme> (docs/THEMES.md).
+    def coplan_app_theme
       CoPlan::Themes.default
     end
 

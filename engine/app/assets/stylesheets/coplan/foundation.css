@@ -297,7 +297,7 @@ body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .
   }
 }
 
-/* Forced dark theme — overrides system preference */
+/* Forced dark mode — overrides system preference */
 :root[data-theme="dark"] {
   color-scheme: dark;
   --color-bg: #0b1220;
@@ -389,7 +389,7 @@ body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .
   --card-edge: rgba(148, 163, 184, 0.16);
 }
 
-/* Forced light theme — overrides system dark preference */
+/* Forced light mode — overrides system dark preference */
 :root[data-theme="light"] {
   color-scheme: light;
 }

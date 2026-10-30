@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="<%= I18n.locale %>" data-ui-theme="<%= coplan_ui_theme %>"<% if signed_in? && current_user.theme_preference != "system" %> data-theme="<%= current_user.theme_preference %>"<% end %>>
+<html lang="<%= I18n.locale %>" data-app-theme="<%= coplan_app_theme %>"<% if signed_in? && current_user.theme_preference != "system" %> data-theme="<%= current_user.theme_preference %>"<% end %>>
   <head>
     <title><%= content_for(:title) || "CoPlan" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
