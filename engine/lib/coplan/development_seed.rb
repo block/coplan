@@ -95,6 +95,9 @@ module CoPlan
       { key: "formatting-gallery", author: "hampton", type: "General", title: "Rich text: headings, tasks, code, quotes, and footnotes",
         tags: %w[demo markdown], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "Markdown formatting, editable template notes hidden while reading, reversible bullet typing, list exit, task toggles, code languages, image, mention, and footnotes" },
+      { key: "reading-specimen", author: "hampton", type: "Design Doc", title: "Reading specimen: webhook delivery through a durable outbox",
+        tags: %w[demo markdown reading], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "A realistic agent-drafted design doc for judging reading: common Markdown elements, SQL, Ruby, YAML, and diff code, a long scrolling line, two Mermaid diagrams, and open, answered, resolved, diagram, table-cell, and general discussions" },
       { key: "image-resizing", author: "hampton", type: "General", title: "Images: resize and snap to full width",
         tags: %w[demo images editor], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "Editor corner resizing, text wrapping beside images, Enter to continue below, undo, and snap to natural full width" },
@@ -288,6 +291,7 @@ module CoPlan
         seed_agent_access(users)
         seed_agent_connections(users) if CoPlan.configuration.agent_connection_enabled?
         seed_content_discussions(users, plans)
+        seed_reading_specimen(users, plans)
         seed_reference_gallery(plans, base_url: base_url)
         catalog = seed_catalog(users, plans, plan_types, base_url: base_url)
         seed_writing_history(users, plans, catalog)
@@ -870,7 +874,9 @@ module CoPlan
         [ "class-model", "mermaid_diagram", "classDiagram", "Entire diagram", "Should both adapters expose the same delivery outcome codes?" ],
         [ "long-title", "mermaid_diagram", "sequenceDiagram", "Entire diagram", "Does the receipt response wait for the region-local audit write?" ],
         [ "mobile-checkout", "mermaid_diagram", "stateDiagram", "Entire diagram", "Where does an expired receipt transition after reconnecting?" ],
-        [ "table-gallery", "table_cell", "queued", "Delivery status", "How long can this receipt remain queued before the admin sees a warning?" ]
+        [ "table-gallery", "table_cell", "queued", "Delivery status", "How long can this receipt remain queued before the admin sees a warning?" ],
+        [ "reading-specimen", "mermaid_node", "Dead[", "Node Dead", "Who gets paged when a partner's events start dead-lettering?" ],
+        [ "reading-specimen", "table_cell", "about 4.7 h", "Cumulative (worst case)", "The contract says 24 hours, but this schedule gives up after about five. Is that intentional?" ]
       ]
       selections.each do |key, kind, fragment, label, body|
         plan = plans.fetch(key)
@@ -888,6 +894,45 @@ module CoPlan
         token = Plans::SourceTargets.verifier.generate(data, purpose: "comment")
         seed_thread(plan: plan, user: users.fetch("alex"), body: body, source_token: token)
       end
+    end
+
+    # The prose discussions a reader meets in a real review, so a visual
+    # change to the document can be judged with its highlights in place.
+    # Diagram and table-cell threads come from seed_content_discussions.
+    def seed_reading_specimen(users, plans)
+      plan = plans.fetch("reading-specimen")
+      hampton = users.fetch("hampton")
+      token = seed_agent_token(hampton)
+
+      seed_thread(
+        plan: plan, user: users.fetch("noura"),
+        anchor: "Partners see the same payload, headers, and signature as today.",
+        body: "Signatures include a timestamp. A retry six hours later carries a new one, so partners that reject stale timestamps will see the same event as \"new\". Can we say which timestamp a retry signs?"
+      )
+
+      # An open question an agent has already answered.
+      question = seed_thread(
+        plan: plan, user: users.fetch("alex"),
+        anchor: "workers claim per partner with a concurrency cap",
+        body: "Is 2 per partner enough for the two partners that send us 40% of volume? I'd expect a backlog during their evening peak."
+      )
+      question&.comments&.create!(
+        body_markdown: "At their peak of 180 events/min and a p50 response of 300 ms, two workers clear about 400/min, so 2 keeps up. " \
+          "It falls behind only when their p50 passes 650 ms. I'd keep 2 and alert on per-partner queue age above 5 minutes.",
+        author_type: "local_agent", author_id: hampton.id, agent_name: token.agent_name, api_token_id: token.id
+      )
+
+      seed_thread(
+        plan: plan, user: users.fetch("sam"),
+        anchor: "Delivered rows are deleted after 7 days",
+        resolved_by: hampton,
+        body: "Support asks about deliveries up to 30 days back. Can we keep delivered rows for 30 days, or copy them to the audit log first?"
+      )
+
+      seed_thread(
+        plan: plan, user: users.fetch("aiko"),
+        body: "This reads well. Please link the dashboard we'll watch during each rollout step before the first partner is enabled."
+      )
     end
 
     def seed_reference_gallery(plans, base_url:)
