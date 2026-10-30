@@ -21,9 +21,8 @@ Classic's value as the fallback, `var(--hook, <Classic value>)`. A theme sets
 only the hooks it changes.
 
 Neutral is for reading: warm grays, the system font, no glass or page
-backdrop, and the document set flat on the page. It also hides an opening H1
-that repeats the plan title, since the page header already shows it (see
-below). It lives in `themes/neutral.css`.
+backdrop, the document set flat on the page, and a document H1 smaller than
+the plan title above it. It lives in `themes/neutral.css`.
 
 ## How a theme is applied
 
@@ -63,8 +62,11 @@ The themes are listed in `CoPlan::Themes::ALL`
    repeat them under `:root[data-app-theme="<key>"][data-theme="dark"]` and
    inside `@media (prefers-color-scheme: dark)` under
    `:root[data-app-theme="<key>"]:not([data-theme])`.
-4. Set custom properties only. A hook can also be set on a component, for
-   example `:root[data-app-theme="<key>"] .plan-document { --color-surface: … }`.
+4. Set custom properties only, so a theme changes how CoPlan looks, never
+   what it does. A hook can also be set on a component, for example
+   `:root[data-app-theme="<key>"] .plan-document { --color-surface: … }`.
+   Anything a theme would solve with a rule, such as an opening H1 that
+   repeats the plan title, belongs to every theme, in shared CSS or markup.
 
 A hook set on `:root` resolves any `var()` it uses at the root. To follow a
 token that changes further down the page, set the hook on that component.
@@ -79,14 +81,6 @@ file sets is reset there or allowlisted with a reason. Decks also set
 inside a slide keep the deck's fonts. Themes don't set those two. Mermaid
 reads its label font and its palette from the diagram's container, not the
 page.
-
-## Repeated titles
-
-Many plans open with an H1 that repeats the plan title.
-`render_content_regions(content, title:)` marks such a document with
-`markdown-rendered--repeats-title` (`MarkdownHelper#repeats_title?`). Classic
-ignores the class. Neutral hides the H1 visually but keeps it in the page, and
-shows it again while it holds a visible comment highlight.
 
 ## Tokens
 

@@ -61,10 +61,7 @@ module CoPlan
     # expandable_images: frame each image with the same full-window expander
     # diagrams and tables use. Follows data_tables by default, so decks opt
     # out of both together.
-    #
-    # repeats_title: the content opens with the plan title as its H1 (see
-    # repeats_title?). Marks the wrapper so the reader can hide that H1.
-    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, expandable_images: data_tables, source_comments: false, retain_sourcepos: false, repeats_title: false)
+    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, expandable_images: data_tables, source_comments: false, retain_sourcepos: false)
       render_options = { unsafe: true }
       # Sourcepos wires checkboxes and structural comment targets to source;
       # it is stripped after generating trusted interaction metadata.
@@ -86,19 +83,7 @@ module CoPlan
 
       result = wrap_data_tables(result) if data_tables
       result = wrap_expandable_images(result) if expandable_images
-      tag.div(result.html_safe, class: class_names("markdown-rendered", "markdown-rendered--repeats-title": repeats_title), data: { controller: "coplan--mermaid coplan--syntax-highlight" })
-    end
-
-    # True when the content opens with an ATX H1 whose text is exactly the
-    # plan title. The page header already shows the title, so the reader
-    # takes that H1 out of view (markdown.css). Plain text only: a heading
-    # with inline markup never matches, which errs toward showing it.
-    def repeats_title?(content, title)
-      return false if title.blank?
-
-      first_line = content.to_s.each_line.find { |line| line.strip.present? }
-      heading = first_line&.match(/\A {0,3}#[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$/)&.[](1)
-      heading.present? && heading.squish == title.squish
+      tag.div(result.html_safe, class: "markdown-rendered", data: { controller: "coplan--mermaid coplan--syntax-highlight" })
     end
 
     # Replaces `<a href="mention:username">@username</a>` produced by

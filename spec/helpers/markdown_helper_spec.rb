@@ -373,26 +373,4 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include("<img")
     end
   end
-
-  describe "#repeats_title?" do
-    it "matches an opening H1 that is exactly the title" do
-      expect(helper.repeats_title?("\n# Durable outbox\n\nBody", "Durable outbox")).to be(true)
-      expect(helper.repeats_title?("# Durable outbox ##\n", " Durable  outbox ")).to be(true)
-    end
-
-    it "does not match other headings or other text" do
-      expect(helper.repeats_title?("# Durable outbox v2\n", "Durable outbox")).to be(false)
-      expect(helper.repeats_title?("## Durable outbox\n", "Durable outbox")).to be(false)
-      expect(helper.repeats_title?("Intro\n\n# Durable outbox\n", "Durable outbox")).to be(false)
-      expect(helper.repeats_title?("# **Durable** outbox\n", "Durable outbox")).to be(false)
-      expect(helper.repeats_title?("# Durable outbox\n", nil)).to be(false)
-    end
-  end
-
-  describe "repeats_title:" do
-    it "marks the wrapper only when asked" do
-      expect(helper.render_markdown("# Title", repeats_title: true)).to include("markdown-rendered--repeats-title")
-      expect(helper.render_markdown("# Title")).not_to include("markdown-rendered--repeats-title")
-    end
-  end
 end

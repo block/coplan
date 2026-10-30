@@ -62,15 +62,11 @@ module CoPlan
     # Render prose and any number of decks, then align every fragment against
     # one whole-plan render. This keeps footnotes, link definitions and heading
     # IDs global rather than restarting them at each region boundary.
-    #
-    # title: the plan title, so prose that opens by repeating it can be marked
-    # (MarkdownHelper#repeats_title?).
-    def render_content_regions(content, interactive: true, title: nil)
-      repeats_title = repeats_title?(content, title)
-      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true, repeats_title:) unless content.include?("::: {.presentation")
+    def render_content_regions(content, interactive: true)
+      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true) unless content.include?("::: {.presentation")
 
       result = ContentRegions::Split.call(content)
-      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true, repeats_title:) unless result.regions.any? { |region| region.kind == :presentation }
+      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true) unless result.regions.any? { |region| region.kind == :presentation }
 
       definitions = Slideshows::Split.call(result.canonical_source).definition_blocks
       deck_number = 0
@@ -105,8 +101,7 @@ module CoPlan
             end_line: region.start_line + region.source.count("\n"))
           preamble = deck_preamble(definitions, fragment)
           render_markdown(preamble + region.source, interactive:, footnotes: :exclude, retain_sourcepos: interactive,
-                          line_offset: region.start_line - 1 - preamble.count("\n"),
-                          repeats_title: repeats_title && region.equal?(result.regions.first))
+                          line_offset: region.start_line - 1 - preamble.count("\n"))
         end
       end
       rendered = Nokogiri::HTML::DocumentFragment.parse(safe_join(fragments))

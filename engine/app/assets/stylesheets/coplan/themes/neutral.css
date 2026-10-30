@@ -101,7 +101,7 @@
   --reading-heading-weight: 500;
   --reading-heading-tracking: -0.01em;
   --reading-heading-wrap: balance;
-  --reading-h1-size: 1.75rem;
+  --reading-h1-size: 1.25rem;
   --reading-h1-leading: 1.25;
   --reading-h2-size: 1.375rem;
   --reading-h2-leading: 1.3;
@@ -290,23 +290,4 @@
 
 :root[data-app-theme="neutral"] #new-plan-modal {
   --overlay-tint: oklch(0.15 0.004 90 / 0.58);
-}
-
-/* The plan title is already the page heading. When the document opens with
-   an H1 that repeats it exactly (MarkdownHelper#repeats_title?), take that
-   H1 out of view but keep it for screen readers and the outline's first
-   entry. A comment highlight inside it brings it back, so the comment stays
-   visible (resolved ones only while resolved threads are shown). */
-:root[data-app-theme="neutral"] .plan-reader .markdown-rendered--repeats-title > h1:first-child:is(:not(:has(mark)), .plan-layout--hide-resolved h1:not(:has(mark.anchor-highlight--open))) {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-:root[data-app-theme="neutral"] .plan-reader .markdown-rendered--repeats-title > h1:first-child:is(:not(:has(mark)), .plan-layout--hide-resolved h1:not(:has(mark.anchor-highlight--open))) + * {
-  margin-top: 0;
 }

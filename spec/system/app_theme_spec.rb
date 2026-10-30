@@ -172,23 +172,11 @@ RSpec.describe "App themes", type: :system do
         expect(style(".plan-reader .markdown-rendered h2", "font-weight")).to eq("500")
         expect(style(".plan-reader .markdown-rendered strong", "font-weight")).to eq("600")
         expect(style(".page-header__title", "font-size")).to eq("28px")
+        expect(style(".plan-reader .markdown-rendered h1", "font-size")).to eq("20px")
         expect(style(".plan-reader .markdown-rendered pre", "border-top-width")).to eq("0px")
         expect(style(".plan-reader .markdown-rendered pre[lang]", "text-align", "::before")).to eq("right")
         expect(style(".plan-reader .markdown-rendered pre[lang]", "background-image", "::before")).to eq("none")
       end
-    end
-
-    it "hides an opening H1 that repeats the plan title, but only in Neutral" do
-      visit plan_page_path(plan)
-      h1 = ".plan-reader .markdown-rendered--repeats-title > h1"
-      expect(page).to have_css(h1, text: "Durable outbox", visible: :all)
-      expect(style(h1, "position")).to eq("absolute")
-      expect(style(h1, "clip-path")).to eq("inset(50%)")
-
-      user.update!(app_theme: "classic")
-      visit plan_page_path(plan)
-      expect(page).to have_css(h1, text: "Durable outbox")
-      expect(style(h1, "position")).to eq("static")
     end
 
     it "sets editor paragraphs like the reader's" do
