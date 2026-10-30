@@ -9,7 +9,7 @@ defines both.
 | Term | Means | In code |
 | --- | --- | --- |
 | Mode | Light, dark or system | `data-theme`, `theme_preference`, `theme_controller.js`. These names predate app themes and stay. |
-| Theme | The app's look: Classic, … | `data-app-theme`, `CoPlan::Themes`, `config.default_theme` |
+| Theme | The app's look: Classic or Neutral | `data-app-theme`, `CoPlan::Themes`, `config.default_theme` |
 | Deck theme | A slide look: `coplan`, `graphite` | the `theme` attribute on a presentation region. Always say "deck theme". |
 
 If the mode attribute is ever renamed, move `data-theme` to `data-mode` and
@@ -20,13 +20,30 @@ sets no variables. Every rule that a theme can change reads a variable with
 Classic's value as the fallback, `var(--hook, <Classic value>)`. A theme sets
 only the hooks it changes.
 
+Neutral is for reading: warm grays, the system font, no glass or page
+backdrop, and the document set flat on the page. It also hides an opening H1
+that repeats the plan title, since the page header already shows it (see
+below). It lives in `themes/neutral.css`.
+
 ## How a theme is applied
 
-The layout renders `<html data-app-theme="classic">`. The value is the host's
-`config.default_theme` (see [HOST_APP_GUIDE.md](HOST_APP_GUIDE.md)). An
-unknown name stops boot in development and test. In other environments it
-logs a warning and falls back to `classic`. Light and dark stay on
-`data-theme`.
+The layout renders `<html data-app-theme="classic">`
+(`ApplicationHelper#coplan_app_theme`). Light and dark stay on `data-theme`.
+
+The value is the viewer's own pick, if they made one. Each person chooses
+under Settings → Appearance → Theme, stored in `coplan_users.app_theme`. Its
+values are `default` or a theme key. `default`, the column default, follows
+the host's `config.default_theme` (see [HOST_APP_GUIDE.md](HOST_APP_GUIDE.md)),
+so a host can change the look for everyone who hasn't chosen. A stored key
+that is no longer a theme falls back to that default. An unknown
+`config.default_theme` stops boot in development and test. In other
+environments it logs a warning and falls back to `classic`.
+
+Picking a theme applies at once, without a reload (`app_theme_controller.js`):
+it sets `data-app-theme`, dispatches `coplan:theme-changed` on `window`, and
+saves with `PATCH /settings/app_theme` in the background. If the save fails,
+the old choice comes back. Code that reads theme values in JavaScript, such
+as the Mermaid palette, should redraw on `coplan:theme-changed`.
 
 The themes are listed in `CoPlan::Themes::ALL`
 (`engine/app/models/coplan/themes.rb`).
@@ -50,7 +67,19 @@ Decks are fixed artifacts. `.deck` sets every document hook to `initial`,
 which brings back the built-in value, so themes never restyle slides. Code
 panels on slides pin their own colors in `.deck-slide .deck-content pre`.
 `spec/lib/deck_theme_isolation_spec.rb` checks that every variable a theme
-file sets is reset there or allowlisted with a reason.
+file sets is reset there or allowlisted with a reason. Decks also set
+`--font-sans` and `--font-mono` back to the built-in stacks,
+`--font-builtin-sans` and `--font-builtin-mono`, so diagram labels and code
+inside a slide keep the deck's fonts. Themes don't set those two. Mermaid
+labels use the `--font-sans` of the diagram's container, not the page's.
+
+## Repeated titles
+
+Many plans open with an H1 that repeats the plan title.
+`render_content_regions(content, title:)` marks such a document with
+`markdown-rendered--repeats-title` (`MarkdownHelper#repeats_title?`). Classic
+ignores the class. Neutral hides the H1 visually but keeps it in the page, and
+shows it again while it holds a visible comment highlight.
 
 ## Tokens
 
@@ -73,7 +102,7 @@ Every token in `foundation.css` `:root` can be overridden, for example
 | Plan title | `--plan-title-size`, `--plan-title-size-narrow`, `--plan-title-weight`, `--plan-title-leading`, `--plan-title-tracking`, `--plan-title-wrap` |
 | Reading type | `--reading-measure`, `--reading-leading`, `--reading-paragraph-gap`, `--reading-heading-weight`, `--reading-heading-tracking`, `--reading-heading-wrap`, `--reading-h1-size`, `--reading-h1-leading`, and for h2 and h3: `-size`, `-leading`, `-space-above`, `-space-below` |
 | Emphasis | `--strong-weight` |
-| Code blocks | `--code-block-border`, `--code-block-radius`, `--code-block-padding`, `--code-block-font-size`, `--code-block-leading`, `--code-block-scrollbar` |
+| Code blocks | `--code-block-text`, `--code-block-border`, `--code-block-radius`, `--code-block-padding`, `--code-block-font-size`, `--code-block-leading`, `--code-block-scrollbar` |
 | Code label | `--code-label-height`, `--code-label-margin`, `--code-label-padding`, `--code-label-bg`, `--code-label-dots`, `--code-label-border`, `--code-label-radius`, `--code-label-font`, `--code-label-leading`, `--code-label-tracking`, `--code-label-align` |
 | Inline code | `--code-chip-padding`, `--code-chip-radius`, `--code-chip-size` |
 | Diagrams | `--diagram-bg`, `--diagram-border`, `--diagram-radius` |

@@ -192,6 +192,7 @@
   padding: var(--code-block-padding, var(--space-md));
   overflow-x: auto;
   margin-bottom: var(--space-md);
+  color: var(--code-block-text, inherit);
   font-family: var(--font-mono);
   font-size: var(--code-block-font-size, var(--text-sm));
   line-height: var(--code-block-leading, 1.5);

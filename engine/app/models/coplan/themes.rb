@@ -9,7 +9,8 @@ module CoPlan
     CLASSIC = "classic"
 
     ALL = [
-      Theme.new(key: CLASSIC, name: "Classic", description: "Lexend, glass panels and the document card.")
+      Theme.new(key: CLASSIC, name: "Classic", description: "Lexend, glass panels and the document card."),
+      Theme.new(key: "neutral", name: "Neutral", description: "Warm grays, the system font and a flat page for reading.")
     ].freeze
 
     def self.keys = ALL.map(&:key)

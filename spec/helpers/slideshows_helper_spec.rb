@@ -6,6 +6,22 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
   end
 
   describe "#render_content_regions" do
+    it "marks prose that opens by repeating the plan title" do
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions("# Outbox\n\nBody", title: "Outbox"))
+      expect(doc.at_css(".markdown-rendered")["class"]).to include("markdown-rendered--repeats-title")
+
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions("# Outbox\n\nBody", title: "Inbox"))
+      expect(doc.at_css(".markdown-rendered")["class"]).not_to include("markdown-rendered--repeats-title")
+    end
+
+    it "marks only the first prose region of a document with decks" do
+      source = "# Outbox\n\nIntro\n\n::: {.presentation}\n\n# Outbox\n\n:::\n\nEnd"
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source, title: "Outbox"))
+      expect(doc.css(".markdown-rendered--repeats-title").size).to eq(1)
+      expect(doc.at_css(".markdown-rendered--repeats-title > h1").text).to include("Outbox")
+      expect(doc.at_css(".markdown-rendered--repeats-title").ancestors(".deck-region")).to be_empty
+    end
+
     it "renders prose and two independent decks in source order" do
       source = "Intro\n\n::: {.presentation}\n\n# First\n\n---\n\n# Second\n\n:::\n\nBetween\n\n::: {.presentation}\n\n# Third\n\n:::\n\nEnd"
       doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source))

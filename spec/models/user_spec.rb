@@ -74,6 +74,26 @@ RSpec.describe CoPlan::User, type: :model do
       expect(user.voice_hotkey).to eq("alt")
     end
 
+    it "defaults the app theme to the site default and accepts every theme" do
+      expect(described_class.new.app_theme).to eq("default")
+      expect(described_class::APP_THEMES).to eq([ "default", *CoPlan::Themes.keys ])
+      CoPlan::Themes.keys.each do |key|
+        expect(build(:coplan_user, app_theme: key)).to be_valid
+      end
+    end
+
+    it "rejects an unknown app theme" do
+      user = build(:coplan_user, app_theme: "hotdog-stand")
+      expect(user).not_to be_valid
+      expect(user.errors[:app_theme]).to be_present
+    end
+
+    it "still saves a user whose stored theme the host has since retired" do
+      user = create(:coplan_user)
+      user.update_column(:app_theme, "retired")
+      expect(user.reload.update(name: "Renamed")).to be(true)
+    end
+
     it "validates allowed settings" do
       user = build(:coplan_user, theme_preference: "invalid", voice_hotkey: "F13")
       expect(user).not_to be_valid

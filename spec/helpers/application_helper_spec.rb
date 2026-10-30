@@ -1,6 +1,44 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::ApplicationHelper, type: :helper do
+  describe "#coplan_app_theme" do
+    around do |example|
+      original = CoPlan.configuration.default_theme
+      example.run
+    ensure
+      CoPlan.configuration.default_theme = original
+    end
+
+    def viewing_as(user)
+      helper.define_singleton_method(:signed_in?) { user.present? }
+      helper.define_singleton_method(:current_user) { user }
+    end
+
+    it "uses the host's default for signed-out viewers and viewers on Default" do
+      CoPlan.configuration.default_theme = "neutral"
+      viewing_as(nil)
+      expect(helper.coplan_app_theme).to eq("neutral")
+      viewing_as(build(:coplan_user, app_theme: "default"))
+      expect(helper.coplan_app_theme).to eq("neutral")
+    end
+
+    it "uses the viewer's pick, and the host's default when that pick no longer exists" do
+      viewing_as(build(:coplan_user, app_theme: "neutral"))
+      expect(helper.coplan_app_theme).to eq("neutral")
+      viewing_as(build(:coplan_user, app_theme: "retired"))
+      expect(helper.coplan_app_theme).to eq("classic")
+    end
+
+    it "reports the pick Settings shows, with a retired theme as Default" do
+      viewing_as(build(:coplan_user, app_theme: "neutral"))
+      expect(helper.coplan_app_theme_choice).to eq("neutral")
+      viewing_as(build(:coplan_user, app_theme: "retired"))
+      expect(helper.coplan_app_theme_choice).to eq("default")
+      viewing_as(nil)
+      expect(helper.coplan_app_theme_choice).to eq("default")
+    end
+  end
+
   describe "environment logo treatments" do
     it "uses green artwork and matching favicons in development" do
       allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("development"))
