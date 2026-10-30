@@ -71,6 +71,10 @@ RSpec.describe CoPlan::Themes do
     expect(described_class.resolve("default").key).to eq("classic")
   end
 
+  it "never keys a theme \"default\", which a stored choice uses to follow the host" do
+    expect(described_class.keys).not_to include(CoPlan::User::DEFAULT_APP_THEME)
+  end
+
   it "has a stylesheet for every theme except Classic" do
     manifest = CoPlan::Engine.root.join("app/assets/stylesheets/coplan/application.css").read
     (described_class.keys - [ "classic" ]).each do |key|
