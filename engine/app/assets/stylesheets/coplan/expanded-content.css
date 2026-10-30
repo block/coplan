@@ -30,8 +30,8 @@
 }
 
 .expander::backdrop {
-  background: rgba(8, 12, 24, 0.55);
-  backdrop-filter: blur(2px);
+  background: var(--overlay-tint, rgba(8, 12, 24, 0.55));
+  backdrop-filter: var(--overlay-blur, blur(2px));
 }
 
 .expander__bar {

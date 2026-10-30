@@ -526,9 +526,9 @@
 }
 
 #new-plan-modal::backdrop {
-  background: rgba(4, 9, 20, 0.58);
-  -webkit-backdrop-filter: blur(5px);
-  backdrop-filter: blur(5px);
+  background: var(--overlay-tint, rgba(4, 9, 20, 0.58));
+  -webkit-backdrop-filter: var(--overlay-blur, blur(5px));
+  backdrop-filter: var(--overlay-blur, blur(5px));
 }
 
 #new-plan-modal .add-modal__header {

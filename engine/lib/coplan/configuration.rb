@@ -154,10 +154,18 @@ module CoPlan
     #   config.reserved_handles = %w[square block official]
     attr_accessor :reserved_handles
 
+    # The app theme everyone sees unless they pick another in Settings. One
+    # of CoPlan::Themes.keys; unknown names fall back to "classic".
+    #
+    # Example:
+    #   config.default_theme = "classic"
+    attr_accessor :default_theme
+
 
     def initialize
       @authenticate = nil
       @reserved_handles = []
+      @default_theme = "classic"
       @ai_base_url = "https://api.openai.com/v1"
       @ai_api_key = nil
       @ai_model = "gpt-4o"

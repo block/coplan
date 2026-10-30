@@ -20,6 +20,21 @@
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  /* A deck is a fixed artifact: app themes don't restyle it. Setting a
+     theme hook to initial brings back its built-in value (docs/THEMES.md).
+     Code keeps the app's original mono stack. */
+  --font-mono: "Hack", "SF Mono", SFMono-Regular, ui-monospace, Menlo, monospace;
+  --strong-weight: initial;
+  --code-chip-padding: initial;
+  --code-chip-radius: initial;
+  --code-chip-size: initial;
+  --diagram-bg: initial;
+  --diagram-border: initial;
+  --diagram-radius: initial;
+  --blockquote-rule: initial;
+  --table-radius: initial;
+  --table-numerals: initial;
+  --image-outline: initial;
 }
 
 .deck-slide {
@@ -135,7 +150,8 @@
    scheme. The host flips its --code-* variables with the app's
    light/dark mode — inside a deck that painted deck-ink text on a
    near-black panel — so the panel pins every variable the host's code
-   chrome reads (panel, header, hairlines, highlight tokens). */
+   chrome reads (panel, header, hairlines, highlight tokens) and resets
+   the code-block theme hooks. */
 .deck-slide .deck-content pre {
   font-size: 0.8em;
   line-height: 1.55;
@@ -146,6 +162,20 @@
   --color-border: rgb(255 255 255 / 0.09);
   --code-header-bg: #161b22;
   --code-header-text: #8b8f98;
+  --code-block-radius: initial;
+  --code-block-padding: initial;
+  --code-block-scrollbar: initial;
+  --code-label-height: initial;
+  --code-label-margin: initial;
+  --code-label-padding: initial;
+  --code-label-bg: initial;
+  --code-label-dots: initial;
+  --code-label-border: initial;
+  --code-label-radius: initial;
+  --code-label-font: initial;
+  --code-label-leading: initial;
+  --code-label-tracking: initial;
+  --code-label-align: initial;
   --code-comment: #7f848e;
   --code-keyword: #c678dd;
   --code-entity: #61afef;

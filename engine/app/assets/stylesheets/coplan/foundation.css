@@ -422,10 +422,10 @@ body {
   background-color: var(--color-bg);
   /* The liquid-glass backdrop: three soft color spots that panels blur
      over. Fixed so scrolling glides content across the light. */
-  background-image:
+  background-image: var(--page-backdrop,
     radial-gradient(42rem 30rem at 12% -8%, var(--mesh-1), transparent 60%),
     radial-gradient(38rem 28rem at 88% 10%, var(--mesh-2), transparent 60%),
-    radial-gradient(50rem 38rem at 45% 115%, var(--mesh-3), transparent 65%);
+    radial-gradient(50rem 38rem at 45% 115%, var(--mesh-3), transparent 65%));
   background-attachment: fixed;
   color: var(--color-text);
 }

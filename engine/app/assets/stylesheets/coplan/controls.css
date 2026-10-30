@@ -107,6 +107,15 @@
   box-shadow: var(--shadow-glass);
 }
 
+/* The plan document's card (theme hooks; docs/THEMES.md). */
+.plan-document.card {
+  padding: var(--document-padding, var(--space-lg));
+  border: var(--document-border, 1px solid var(--card-edge));
+  border-radius: var(--document-radius, var(--radius-lg));
+  background: var(--document-bg, var(--glass-bg-strong));
+  box-shadow: var(--document-shadow, var(--shadow-glass));
+}
+
 /* Status badges */
 .badge {
   display: inline-block;

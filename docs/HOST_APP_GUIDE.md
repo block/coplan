@@ -314,6 +314,9 @@ CoPlan.configure do |config|
   config.track_event = ->(event, payload) {
     AnalyticsEvent.create!(name: event, payload: payload)
   }
+
+  # App theme (optional). One of CoPlan::Themes.keys; see docs/THEMES.md.
+  config.default_theme = "classic"                    # default
 end
 ```
 

@@ -2,6 +2,12 @@ module CoPlan
   module ApplicationHelper
     include CoPlan::KeyboardShortcutsHelper
     include MarkdownHelper
+
+    # The app theme for this page, as <html data-ui-theme> (docs/THEMES.md).
+    def coplan_ui_theme
+      CoPlan::Themes.default
+    end
+
     def coplan_favicon_tag
       safe_join([
         tag.link(rel: "icon", type: "image/png", sizes: "192x192", href: asset_path(coplan_logo_asset(format: :png))),
