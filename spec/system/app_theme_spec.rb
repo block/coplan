@@ -99,6 +99,59 @@ RSpec.describe "App themes", type: :system do
     expect(user.reload.app_theme).to eq("neutral")
   end
 
+  it "switches mode and theme from the bar's Appearance menu, in step with Settings" do
+    visit settings_root_path
+    find(".site-nav__appearance-btn").click
+    expect(page).to have_css("#appearance-menu .appearance-menu__theme:has(input:checked)", text: "Classic")
+
+    within("#appearance-menu") { find(".appearance-menu__theme", text: "Neutral").click }
+    expect(app_theme_attribute).to eq("neutral")
+    expect(page).to have_css(".settings-row .segmented__option:has(input:checked)", text: "Neutral")
+
+    within("#appearance-menu") { find(".segmented__option", exact_text: "Dark").click }
+    expect(page).to have_css("html[data-theme='dark']")
+    expect(page).to have_css("#appearance-menu:popover-open")
+    expect(page).to have_css("input[name='theme'][value='dark']:checked", visible: :all)
+    Timeout.timeout(5) { sleep 0.1 until user.reload.app_theme == "neutral" && user.theme_preference == "dark" }
+
+    find("body").send_keys(:escape)
+    find(".settings-row .segmented__option", text: "Default (Classic)").click
+    expect(app_theme_attribute).to eq("classic")
+    expect(page).to have_css("input[name='appearance_theme'][value='classic']:checked", visible: :all)
+    Timeout.timeout(5) { sleep 0.1 until user.reload.app_theme == "default" }
+  end
+
+  it "keeps the Appearance menu on screen on the narrowest phones" do
+    # Headless Chrome keeps windows wider than this, so emulate the screen.
+    page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 320, height: 700, deviceScaleFactor: 1, mobile: true)
+    visit settings_root_path
+    find(".site-nav__appearance-btn").click
+    expect(page).to have_css("#appearance-menu:popover-open")
+    left, right = page.evaluate_script("(r => [r.left, r.right])(document.getElementById('appearance-menu').getBoundingClientRect())")
+    expect(left).to be >= 0
+    expect(right).to be <= 320
+  ensure
+    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+  end
+
+  it "shows the current pick in a menu Turbo restores from its cache" do
+    visit settings_root_path
+    find(".site-nav__appearance-btn").click
+    within("#appearance-menu") { find(".appearance-menu__theme", text: "Neutral").click }
+    Timeout.timeout(5) { sleep 0.1 until user.reload.app_theme == "neutral" }
+    find("body").send_keys(:escape)
+
+    click_link "Manage agent sessions"
+    expect(page).to have_no_css(".settings-row")
+    find(".site-nav__appearance-btn").click
+    within("#appearance-menu") { find(".appearance-menu__theme", text: "Classic").click }
+    Timeout.timeout(5) { sleep 0.1 until user.reload.app_theme == "classic" }
+    page.go_back
+
+    expect(page).to have_css(".settings-row .segmented__option:has(input:checked)", text: "Classic")
+    expect(page).to have_css("input[name='appearance_theme'][value='classic']:checked", visible: :all)
+  end
+
   describe "Neutral" do
     before { user.update!(app_theme: "neutral") }
 

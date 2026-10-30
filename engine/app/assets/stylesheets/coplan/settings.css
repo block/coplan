@@ -248,6 +248,11 @@
   color: var(--color-text);
 }
 
+.segmented__option:has(input:focus-visible) .segmented__btn {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .segmented__option:has(input:checked) .segmented__btn {
   background: var(--color-primary-light);
   color: var(--color-primary);

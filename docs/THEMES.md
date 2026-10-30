@@ -45,6 +45,12 @@ saves with `PATCH /settings/app_theme` in the background. If the save fails,
 the old choice comes back. Code that reads theme values in JavaScript, such
 as the Mermaid palette, should redraw on `coplan:theme-changed`.
 
+The Appearance button in the top bar, beside notifications, offers the same
+choices from any page (`shared/_appearance_menu.html.erb`): the mode, and
+Classic or Neutral with the theme that's showing checked. It has no Default
+option; Settings keeps that. The menu and Settings use the same controllers
+and keep each other's radios in step (`coplan:app-theme`).
+
 The themes are listed in `CoPlan::Themes::ALL`
 (`engine/app/models/coplan/themes.rb`).
 

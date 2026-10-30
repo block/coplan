@@ -38,6 +38,15 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).to include("Default (Neutral)")
     end
 
+    it "marks the theme that's showing in the bar's Appearance menu" do
+      CoPlan.configuration.default_theme = "neutral"
+      get settings_root_path
+      menu = response.parsed_body.at_css("#appearance-menu")
+      expect(menu.css("input[name=appearance_theme][checked]").map { _1["value"] }).to eq([ "neutral" ])
+      expect(menu.at_css("[data-coplan--app-theme-saved-value]")["data-coplan--app-theme-saved-value"]).to eq("default")
+      expect(menu.css("input[name=appearance_mode][checked]").map { _1["value"] }).to eq([ alice.theme_preference ])
+    end
+
     it "falls back to the host's default for a stored theme that no longer exists" do
       CoPlan.configuration.default_theme = "neutral"
       alice.update_column(:app_theme, "retired")
