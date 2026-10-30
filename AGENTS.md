@@ -95,7 +95,7 @@ Follow [the design guidance](docs/DESIGN.md) across document, rich preview,
 expanded table/diagram, and editing surfaces:
 
 - **Blue means interaction:** subtle blue for hover, blue for keyboard focus,
-  selection, active discussions, and comment-composer quotes, in both themes.
+  selection, active discussions, and comment-composer quotes, in both modes.
 - **Selection supports reading first:** clicking table cells or selecting text
   must not open a composer. Offer Comment and the C shortcut. Intentional comment
   actions focus the comment or reply field immediately. Diagrams browse by
@@ -131,7 +131,7 @@ a way for the person who requested it to try the changed behavior:
 
 - Run the relevant automated specs. Exercise UI behavior in a real browser,
   using a built-in browser when the agent environment provides one. For UI
-  changes, check light and dark themes and capture screenshots or a short
+  changes, check light and dark mode and capture screenshots or a short
   recording of the result. For visual bugs, include before-and-after evidence
   when useful.
 - Start the development server (`bin/dev`; use `bin/setup --skip-server` and

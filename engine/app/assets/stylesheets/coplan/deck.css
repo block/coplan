@@ -20,6 +20,21 @@
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  /* A deck is a fixed artifact: app themes don't restyle it. Setting an
+     app theme hook to initial brings back its built-in value (docs/THEMES.md).
+     Code keeps the app's original mono stack. */
+  --font-mono: "Hack", "SF Mono", SFMono-Regular, ui-monospace, Menlo, monospace;
+  --strong-weight: initial;
+  --code-chip-padding: initial;
+  --code-chip-radius: initial;
+  --code-chip-size: initial;
+  --diagram-bg: initial;
+  --diagram-border: initial;
+  --diagram-radius: initial;
+  --blockquote-rule: initial;
+  --table-radius: initial;
+  --table-numerals: initial;
+  --image-outline: initial;
 }
 
 .deck-slide {
@@ -135,7 +150,8 @@
    scheme. The host flips its --code-* variables with the app's
    light/dark mode — inside a deck that painted deck-ink text on a
    near-black panel — so the panel pins every variable the host's code
-   chrome reads (panel, header, hairlines, highlight tokens). */
+   chrome reads (panel, header, hairlines, highlight tokens) and resets
+   the code-block app theme hooks. */
 .deck-slide .deck-content pre {
   font-size: 0.8em;
   line-height: 1.55;
@@ -146,6 +162,20 @@
   --color-border: rgb(255 255 255 / 0.09);
   --code-header-bg: #161b22;
   --code-header-text: #8b8f98;
+  --code-block-radius: initial;
+  --code-block-padding: initial;
+  --code-block-scrollbar: initial;
+  --code-label-height: initial;
+  --code-label-margin: initial;
+  --code-label-padding: initial;
+  --code-label-bg: initial;
+  --code-label-dots: initial;
+  --code-label-border: initial;
+  --code-label-radius: initial;
+  --code-label-font: initial;
+  --code-label-leading: initial;
+  --code-label-tracking: initial;
+  --code-label-align: initial;
   --code-comment: #7f848e;
   --code-keyword: #c678dd;
   --code-entity: #61afef;
@@ -543,7 +573,7 @@
    put the room's eyes on it (the presenter swallows the drag so it doesn't
    also page forward, and starves the comment affordance). Inverse video in
    the deck's own accent, not the OS selection tint — this has to read from
-   the back of a room, on a projector, in every theme. Title slides invert
+   the back of a room, on a projector, in every deck theme. Title slides invert
    against their own canvas instead: poster's title background IS its
    accent, so an accent block would vanish there. */
 .deck--presenting .deck-slide::selection,
@@ -577,7 +607,7 @@
 
 .deck-ink__stroke {
   fill: none;
-  /* Themes registered before the pen existed still get a visible mark. */
+  /* Deck themes registered before the pen existed still get a visible mark. */
   stroke: var(--deck-pen, var(--deck-accent));
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -586,7 +616,7 @@
   filter: drop-shadow(0 0.15cqi 0.3cqi rgb(0 0 0 / 0.35));
 }
 
-/* A theme may art-direct its title canvas into the pen's own color
+/* A deck theme may art-direct its title canvas into the pen's own color
    (poster's title slide IS the accent), so the pen gets the same
    title-slide escape hatch the accent does. :has() rather than
    inheritance: the layer belongs to the canvas, not to a slide. */
@@ -648,7 +678,7 @@
 }
 
 /* The badge's shell follows the canvas it sits on, and only the glyph is
-   the pen. A theme's --deck-muted is a color for its body canvas: on an
+   the pen. A deck theme's --deck-muted is a color for its body canvas: on an
    art-directed title canvas the hint has to come from that canvas's own
    ink instead, or it disappears into the background. */
 .deck--presenting:has(.deck-slide--current.deck-slide--title) .deck-ink-badge {

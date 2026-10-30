@@ -3,7 +3,7 @@ import { openExpander, attachExpandAffordance, mountPanZoom, nearestHeading } fr
 
 let diagramId = 0
 let mermaidPromise
-let configuredTheme
+let configuredMermaid
 
 export default class extends Controller {
   connect() {
@@ -55,7 +55,7 @@ export default class extends Controller {
       for (const { container, source } of sources) {
         // Sequential renders, so re-configuring per diagram is safe (and
         // a no-op when the theme hasn't changed).
-        const theme = configureMermaid(mermaid, diagramDark(container))
+        const theme = configureMermaid(mermaid, diagramDark(container), diagramPalette(container))
         await this.renderDiagram(mermaid, container, source, theme, generation)
       }
     } catch {
@@ -229,6 +229,11 @@ export default class extends Controller {
       onClose: () => { this.expanded = null }
     })
     this.expanded = expander
+    // A deck diagram keeps the deck's colors, so it keeps the slide's canvas
+    // too, whatever the app's mode and theme paint the expander.
+    const deck = diagram.closest(".deck")
+    const deckCanvas = deck && getComputedStyle(deck).getPropertyValue("--deck-bg").trim()
+    if (deckCanvas) expander.dialog.style.setProperty("--expander-canvas-bg", deckCanvas)
 
     const content = svg.cloneNode(true)
     content.removeAttribute("width")
@@ -350,8 +355,8 @@ function naturalSize(svg) {
 }
 
 // A deck is a fixed artifact — its diagrams follow the deck theme, not
-// the reader's app scheme, so a dark-mode reader sees the same slides as
-// a light-mode one. Outside a deck, diagrams follow the app. The theme
+// the reader's mode, so a dark-mode reader sees the same slides as a
+// light-mode one. Outside a deck, diagrams follow the app. The deck theme
 // list is small enough to name here; when the theme picker lands, the
 // deck can carry scheme metadata instead.
 function diagramDark(container) {
@@ -363,26 +368,32 @@ function diagramDark(container) {
     (!explicitTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)
 }
 
-function configureMermaid(mermaid, dark) {
-  const theme = dark ? "dark" : "light"
-  if (theme === configuredTheme) return theme
+// An app theme can bring its own diagram palette as CSS variables
+// (docs/THEMES.md); without one, Mermaid's built-in themes apply. The
+// configuration is keyed on the palette's colors, not just its name, so
+// diagrams with different palettes on one page each get their own.
+function configureMermaid(mermaid, dark, palette) {
+  const scheme = dark ? "dark" : "light"
+  const theme = palette ? `${palette.name}-${scheme}` : scheme
+  const configuration = JSON.stringify([ scheme, palette ])
+  if (configuration === configuredMermaid) return theme
 
   const fontFamily = appFontStack()
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: "strict",
     suppressErrorRendering: true,
-    theme: dark ? "base" : "default",
+    theme: palette || dark ? "base" : "default",
     // Mermaid's 14px default reads small next to 16px body copy, and it's
     // the label size that survives (or doesn't) being scaled to fit.
     fontFamily,
-    themeVariables: { fontSize: "16px", fontFamily, ...(dark && darkThemeVariables()) },
+    themeVariables: { fontSize: "16px", fontFamily, ...(palette ? paletteThemeVariables(palette, dark) : dark && darkThemeVariables()) },
     themeCSS: THEME_CSS,
     flowchart: { padding: 14, nodeSpacing: 55, rankSpacing: 60, useMaxWidth: true },
     sequence: { actorFontSize: 15, messageFontSize: 15, noteFontSize: 14 },
     gantt: { fontSize: 14 }
   })
-  configuredTheme = theme
+  configuredMermaid = configuration
   return theme
 }
 
@@ -397,6 +408,66 @@ const THEME_CSS = `
 function appFontStack() {
   const declared = getComputedStyle(document.documentElement).getPropertyValue("--font-sans").trim()
   return declared || "system-ui, sans-serif"
+}
+
+// Mermaid's color math needs hex, so themes give these as hex values.
+const DIAGRAM_PALETTE_PROPERTIES = {
+  background: "--diagram-bg",
+  node: "--diagram-node",
+  nodeBorder: "--diagram-node-border",
+  text: "--diagram-text",
+  line: "--diagram-line",
+  cluster: "--diagram-cluster",
+  clusterBorder: "--diagram-cluster-border",
+  actorLine: "--diagram-actor-line",
+  alt: "--diagram-alt",
+  note: "--diagram-note",
+  noteBorder: "--diagram-note-border",
+  noteText: "--diagram-note-text"
+}
+
+// The theme's palette where the diagram sits, for the current scheme, or
+// null when it isn't complete there. Decks reset --diagram-bg, so diagrams
+// in slides always get null and keep Mermaid's built-in themes.
+function diagramPalette(container) {
+  const style = getComputedStyle(container)
+  const palette = {}
+  for (const [key, property] of Object.entries(DIAGRAM_PALETTE_PROPERTIES)) {
+    palette[key] = style.getPropertyValue(property).trim()
+    if (!palette[key]) return null
+  }
+  palette.name = document.documentElement.dataset.appTheme || "theme"
+  return palette
+}
+
+function paletteThemeVariables(c, dark) {
+  // Alternate the node and alt colors so mindmap branches and pie slices
+  // stay distinct without introducing new hues.
+  const categories = Object.fromEntries(Array.from({ length: 12 }, (_, index) =>
+    [`cScale${index}`, index % 2 ? c.alt : c.node]))
+  return {
+    ...categories,
+    darkMode: dark,
+    background: c.background,
+    primaryColor: c.node, primaryBorderColor: c.nodeBorder, primaryTextColor: c.text,
+    secondaryColor: c.alt, secondaryBorderColor: c.nodeBorder, secondaryTextColor: c.text,
+    tertiaryColor: c.cluster, tertiaryBorderColor: c.clusterBorder, tertiaryTextColor: c.text,
+    mainBkg: c.node, nodeBorder: c.nodeBorder, nodeTextColor: c.text,
+    textColor: c.text, titleColor: c.text, labelColor: c.text,
+    lineColor: c.line, defaultLinkColor: c.line,
+    clusterBkg: c.cluster, clusterBorder: c.clusterBorder,
+    edgeLabelBackground: c.background,
+    actorBkg: c.node, actorBorder: c.nodeBorder, actorTextColor: c.text, actorLineColor: c.actorLine,
+    signalColor: c.line, signalTextColor: c.text,
+    labelBoxBkgColor: c.node, labelBoxBorderColor: c.nodeBorder, labelTextColor: c.text, loopTextColor: c.text,
+    activationBkgColor: c.alt, activationBorderColor: c.nodeBorder,
+    noteBkgColor: c.note, noteBorderColor: c.noteBorder, noteTextColor: c.noteText,
+    sequenceNumberColor: c.background,
+    sectionBkgColor: c.alt, altSectionBkgColor: c.background, sectionBkgColor2: c.node,
+    taskBkgColor: c.node, taskBorderColor: c.nodeBorder, taskTextColor: c.text,
+    doneTaskBkgColor: c.alt, doneTaskBorderColor: c.nodeBorder, gridColor: c.actorLine,
+    altBackground: c.alt
+  }
 }
 
 function darkThemeVariables() {

@@ -5,6 +5,26 @@ RSpec.describe "Settings", type: :request do
 
   before { sign_in_as(alice) }
 
+  describe "app theme" do
+    around do |example|
+      original = CoPlan.configuration.default_theme
+      example.run
+    ensure
+      CoPlan.configuration.default_theme = original
+    end
+
+    it "renders the host's default theme on <html>" do
+      get settings_root_path
+      expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("classic")
+    end
+
+    it "falls back to Classic when the host names an unknown theme" do
+      CoPlan.configuration.default_theme = "hotdog-stand"
+      get settings_root_path
+      expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("classic")
+    end
+  end
+
   describe "PATCH /settings/theme" do
     it "persists an allowed theme preference" do
       patch settings_theme_path, params: { theme: "dark" }

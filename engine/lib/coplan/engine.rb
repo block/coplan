@@ -3,6 +3,7 @@ module CoPlan
     isolate_namespace CoPlan
 
     config.after_initialize do
+      CoPlan::Themes.check_default!
       CoPlan::WritingProvenanceBackfillJob.start unless Rails.env.test? || ENV["SECRET_KEY_BASE_DUMMY"]
     end
 

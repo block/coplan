@@ -135,41 +135,96 @@
   top: 1px;
 }
 
+/* Reading typography for the document body, read or edited (the editor's
+   ProseMirror is a .markdown-rendered too, so writing matches reading).
+   Comment bodies, previews and popovers keep the compact base type above;
+   deck slides own theirs, and diagram labels keep the line-height Mermaid
+   measured (below). Theme hooks; docs/THEMES.md. */
+:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) {
+  max-width: var(--reading-measure, none);
+}
+
+:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) :is(p, li):not(.mermaid-diagram *) {
+  line-height: var(--reading-leading, 1.9);
+}
+
+:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) p:not(.mermaid-diagram *) {
+  margin-bottom: var(--reading-paragraph-gap, var(--space-md));
+}
+
+:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) :is(h1, h2, h3, h4, h5, h6) {
+  font-weight: var(--reading-heading-weight, 700);
+  letter-spacing: var(--reading-heading-tracking, normal);
+  text-wrap: var(--reading-heading-wrap, wrap);
+}
+
+:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) h1 {
+  font-size: var(--reading-h1-size, var(--text-2xl));
+  line-height: var(--reading-h1-leading, 1.3);
+}
+
+:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) h2 {
+  font-size: var(--reading-h2-size, var(--text-xl));
+  line-height: var(--reading-h2-leading, 1.3);
+  margin-top: var(--reading-h2-space-above, var(--space-xl));
+  margin-bottom: var(--reading-h2-space-below, var(--space-md));
+}
+
+:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) h3 {
+  font-size: var(--reading-h3-size, var(--text-lg));
+  line-height: var(--reading-h3-leading, 1.3);
+  margin-top: var(--reading-h3-space-above, var(--space-xl));
+  margin-bottom: var(--reading-h3-space-below, var(--space-md));
+}
+
+:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) > :is(h1, h2, h3):first-child {
+  margin-top: 0;
+}
+
+.markdown-rendered strong {
+  font-weight: var(--strong-weight, bolder);
+}
+
 .markdown-rendered pre {
   background: var(--code-block-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: var(--space-md);
+  border: var(--code-block-border, 1px solid var(--color-border));
+  border-radius: var(--code-block-radius, var(--radius));
+  padding: var(--code-block-padding, var(--space-md));
   overflow-x: auto;
   margin-bottom: var(--space-md);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  line-height: 1.5;
+  font-size: var(--code-block-font-size, var(--text-sm));
+  line-height: var(--code-block-leading, 1.5);
+  scrollbar-width: var(--code-block-scrollbar, auto);
 }
 
 /* Terminal-style header on fenced code blocks that declare a language:
    traffic-light dots + the language name from the lang attribute. Pure CSS
    (attr() in a pseudo-element) so it adds no DOM text — comment-anchor
    matching against textContent never sees it. Mermaid blocks are excluded;
-   they get replaced by rendered diagrams. */
+   they get replaced by rendered diagrams. The --code-label-* hooks let a
+   theme reshape it, for example into a corner label (docs/THEMES.md). */
 .markdown-rendered pre[lang]:not([lang="mermaid"])::before {
   content: attr(lang);
   display: block;
   position: sticky; /* stay pinned when the code scrolls horizontally */
   left: 0;
-  margin: calc(-1 * var(--space-md)) calc(-1 * var(--space-md)) var(--space-md);
-  padding: 0.5em var(--space-md) 0.5em 4.6em;
-  background-color: var(--code-header-bg);
-  background-image:
+  height: var(--code-label-height, auto);
+  margin: var(--code-label-margin, calc(-1 * var(--space-md)) calc(-1 * var(--space-md)) var(--space-md));
+  padding: var(--code-label-padding, 0.5em var(--space-md) 0.5em 4.6em);
+  background-color: var(--code-label-bg, var(--code-header-bg));
+  background-image: var(--code-label-dots,
     radial-gradient(circle at 1.1em 50%, #ff5f57 0.3em, transparent 0.36em),
     radial-gradient(circle at 2.2em 50%, #febc2e 0.3em, transparent 0.36em),
-    radial-gradient(circle at 3.3em 50%, #28c840 0.3em, transparent 0.36em);
-  border-bottom: 1px solid var(--color-border);
-  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
+    radial-gradient(circle at 3.3em 50%, #28c840 0.3em, transparent 0.36em));
+  border-bottom: var(--code-label-border, 1px solid var(--color-border));
+  border-radius: var(--code-label-radius, calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0);
   color: var(--code-header-text);
+  font-family: var(--code-label-font, var(--font-mono));
   font-size: 0.75rem;
-  line-height: 1.2;
-  letter-spacing: 0.04em;
+  line-height: var(--code-label-leading, 1.2);
+  letter-spacing: var(--code-label-tracking, 0.04em);
+  text-align: var(--code-label-align, match-parent);
   user-select: none;
 }
 
@@ -180,8 +235,9 @@
 
 .markdown-rendered :not(pre) > code {
   background: var(--color-code-bg);
-  padding: 0.15em 0.35em;
-  border-radius: 3px;
+  padding: var(--code-chip-padding, 0.15em 0.35em);
+  border-radius: var(--code-chip-radius, 3px);
+  font-size: var(--code-chip-size, 0.875em);
 }
 
 /* Syntax highlighting — highlight.js token classes mapped onto the
@@ -258,9 +314,9 @@
 .markdown-rendered .mermaid-diagram {
   position: relative;
   margin-bottom: var(--space-md);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  background: var(--diagram-bg, var(--color-surface));
+  border: var(--diagram-border, 1px solid var(--color-border));
+  border-radius: var(--diagram-radius, var(--radius));
   cursor: default;
 }
 
@@ -369,7 +425,7 @@
 }
 
 .markdown-rendered blockquote {
-  border-left: 3px solid var(--color-border);
+  border-left: 3px solid var(--blockquote-rule, var(--color-border));
   padding-left: var(--space-md);
   color: var(--color-text-muted);
   margin-bottom: var(--space-md);
@@ -401,7 +457,7 @@
   position: relative;
   margin-bottom: var(--space-md);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border-radius: var(--table-radius, var(--radius));
   background: var(--color-surface);
 }
 
@@ -427,6 +483,7 @@
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--text-sm);
+  font-variant-numeric: var(--table-numerals, normal);
 }
 
 .markdown-rendered .data-grid th,
@@ -481,13 +538,13 @@
 
 .markdown-rendered .data-grid::before {
   left: 1px;
-  border-radius: var(--radius) 0 0 var(--radius);
+  border-radius: var(--table-radius, var(--radius)) 0 0 var(--table-radius, var(--radius));
   background: linear-gradient(to right, var(--color-surface), transparent);
 }
 
 .markdown-rendered .data-grid::after {
   right: 1px;
-  border-radius: 0 var(--radius) var(--radius) 0;
+  border-radius: 0 var(--table-radius, var(--radius)) var(--table-radius, var(--radius)) 0;
   background: linear-gradient(to left, var(--color-surface), transparent);
 }
 
@@ -553,6 +610,8 @@
 .markdown-rendered img {
   max-width: 100%;
   border-radius: var(--radius);
+  outline: var(--image-outline, none);
+  outline-offset: -1px;
 }
 
 /* Image editor chrome hugs the picture without adding a card or changing

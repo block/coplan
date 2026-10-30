@@ -127,7 +127,7 @@ RSpec.describe "Updated section signposts", type: :system do
     expect(page).to have_no_css(".changed-sections-note", visible: :all)
   end
 
-  it "marks only section starts and keeps rich content's own surfaces in both themes" do
+  it "marks only section starts and keeps rich content's own surfaces in both modes" do
     %w[light dark].each do |theme|
       page.execute_script("document.documentElement.dataset.theme = '#{theme}'")
       expect(page).to have_no_css(".changed-sections-note", visible: :all)
