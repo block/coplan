@@ -3,7 +3,7 @@ import { openExpander, attachExpandAffordance, mountPanZoom, nearestHeading } fr
 
 let diagramId = 0
 let mermaidPromise
-let configuredTheme
+let configuredMermaid
 
 export default class extends Controller {
   connect() {
@@ -55,7 +55,7 @@ export default class extends Controller {
       for (const { container, source } of sources) {
         // Sequential renders, so re-configuring per diagram is safe (and
         // a no-op when the theme hasn't changed).
-        const theme = configureMermaid(mermaid, diagramDark(container), Boolean(container.closest(".deck")))
+        const theme = configureMermaid(mermaid, diagramDark(container), diagramPalette(container))
         await this.renderDiagram(mermaid, container, source, theme, generation)
       }
     } catch {
@@ -229,6 +229,11 @@ export default class extends Controller {
       onClose: () => { this.expanded = null }
     })
     this.expanded = expander
+    // A deck diagram keeps the deck's colors, so it keeps the slide's canvas
+    // too, whatever the app's mode and theme paint the expander.
+    const deck = diagram.closest(".deck")
+    const deckCanvas = deck && getComputedStyle(deck).getPropertyValue("--deck-bg").trim()
+    if (deckCanvas) expander.dialog.style.setProperty("--expander-canvas-bg", deckCanvas)
 
     const content = svg.cloneNode(true)
     content.removeAttribute("width")
@@ -350,8 +355,8 @@ function naturalSize(svg) {
 }
 
 // A deck is a fixed artifact — its diagrams follow the deck theme, not
-// the reader's app scheme, so a dark-mode reader sees the same slides as
-// a light-mode one. Outside a deck, diagrams follow the app. The theme
+// the reader's mode, so a dark-mode reader sees the same slides as a
+// light-mode one. Outside a deck, diagrams follow the app. The deck theme
 // list is small enough to name here; when the theme picker lands, the
 // deck can carry scheme metadata instead.
 function diagramDark(container) {
@@ -364,12 +369,14 @@ function diagramDark(container) {
 }
 
 // An app theme can bring its own diagram palette as CSS variables
-// (docs/THEMES.md). Decks always keep the built-in themes.
-function configureMermaid(mermaid, dark, deck = false) {
-  const palette = deck ? null : themeDiagramPalette()
+// (docs/THEMES.md); without one, Mermaid's built-in themes apply. The
+// configuration is keyed on the palette's colors, not just its name, so
+// diagrams with different palettes on one page each get their own.
+function configureMermaid(mermaid, dark, palette) {
   const scheme = dark ? "dark" : "light"
   const theme = palette ? `${palette.name}-${scheme}` : scheme
-  if (theme === configuredTheme) return theme
+  const configuration = JSON.stringify([ scheme, palette ])
+  if (configuration === configuredMermaid) return theme
 
   const fontFamily = appFontStack()
   mermaid.initialize({
@@ -386,7 +393,7 @@ function configureMermaid(mermaid, dark, deck = false) {
     sequence: { actorFontSize: 15, messageFontSize: 15, noteFontSize: 14 },
     gantt: { fontSize: 14 }
   })
-  configuredTheme = theme
+  configuredMermaid = configuration
   return theme
 }
 
@@ -419,10 +426,11 @@ const DIAGRAM_PALETTE_PROPERTIES = {
   noteText: "--diagram-note-text"
 }
 
-// The active theme's palette for the current scheme, or null when the theme
-// doesn't define a complete one.
-function themeDiagramPalette() {
-  const style = getComputedStyle(document.documentElement)
+// The theme's palette where the diagram sits, for the current scheme, or
+// null when it isn't complete there. Decks reset --diagram-bg, so diagrams
+// in slides always get null and keep Mermaid's built-in themes.
+function diagramPalette(container) {
+  const style = getComputedStyle(container)
   const palette = {}
   for (const [key, property] of Object.entries(DIAGRAM_PALETTE_PROPERTIES)) {
     palette[key] = style.getPropertyValue(property).trim()

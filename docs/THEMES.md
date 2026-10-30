@@ -23,8 +23,9 @@ only the hooks it changes.
 ## How a theme is applied
 
 The layout renders `<html data-app-theme="classic">`. The value is the host's
-`config.default_theme` (see [HOST_APP_GUIDE.md](HOST_APP_GUIDE.md)), and
-falls back to `classic` for an unknown name. Light and dark stay on
+`config.default_theme` (see [HOST_APP_GUIDE.md](HOST_APP_GUIDE.md)). An
+unknown name stops boot in development and test. In other environments it
+logs a warning and falls back to `classic`. Light and dark stay on
 `data-theme`.
 
 The themes are listed in `CoPlan::Themes::ALL`
@@ -46,7 +47,10 @@ A hook set on `:root` resolves any `var()` it uses at the root. To follow a
 token that changes further down the page, set the hook on that component.
 
 Decks are fixed artifacts. `.deck` sets every document hook to `initial`,
-which brings back the built-in value, so themes never restyle slides.
+which brings back the built-in value, so themes never restyle slides. Code
+panels on slides pin their own colors in `.deck-slide .deck-content pre`.
+`spec/lib/deck_theme_isolation_spec.rb` checks that every variable a theme
+file sets is reset there or allowlisted with a reason.
 
 ## Tokens
 
@@ -88,5 +92,7 @@ values (Mermaid's color math can't read `oklch()`), per scheme:
 `--diagram-actor-line`, `--diagram-alt`, `--diagram-note`,
 `--diagram-note-border`, `--diagram-note-text`.
 
-If any of them is missing, documents keep Mermaid's built-in themes. Decks
-always do.
+Each diagram reads the palette from its own container. If any of them is
+missing, documents keep Mermaid's built-in themes. Decks always do, because
+`.deck` resets `--diagram-bg`. An expanded deck diagram keeps the slide's
+background, so its built-in colors stay readable in either mode.

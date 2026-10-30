@@ -140,6 +140,8 @@
   /* The browser's own pan and pinch would fight the controller's. */
   touch-action: none;
   cursor: grab;
+  /* Set for deck diagrams, which keep their slide's canvas. */
+  background: var(--expander-canvas-bg, transparent);
 }
 
 .expander__canvas.is-grabbing {

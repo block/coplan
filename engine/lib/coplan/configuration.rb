@@ -155,7 +155,9 @@ module CoPlan
     attr_accessor :reserved_handles
 
     # The app theme everyone sees unless they pick another in Settings. One
-    # of CoPlan::Themes.keys; unknown names fall back to "classic".
+    # of CoPlan::Themes.keys. An unknown name stops boot in development and
+    # test; in other environments it logs a warning and falls back to
+    # "classic".
     #
     # Example:
     #   config.default_theme = "classic"

@@ -5,7 +5,7 @@ module CoPlan
 
     # The app theme for this page, as <html data-app-theme> (docs/THEMES.md).
     def coplan_app_theme
-      CoPlan::Themes.default
+      CoPlan::Themes.default.key
     end
 
     def coplan_favicon_tag

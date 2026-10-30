@@ -16,10 +16,21 @@ module CoPlan
 
     def self.find(key) = ALL.find { |theme| theme.key == key.to_s }
 
-    # The host's configured default. Falls back to Classic when the host
-    # names a theme that doesn't exist.
-    def self.default
-      find(CoPlan.configuration.default_theme)&.key || CLASSIC
+    # The host's configured default theme. Falls back to Classic when the
+    # host names a theme that doesn't exist.
+    def self.default = find(CoPlan.configuration.default_theme) || find(CLASSIC)
+
+    # Runs at boot, so a misspelled default doesn't fall back to Classic
+    # unnoticed. Development and test raise; other environments log a
+    # warning and keep serving Classic.
+    def self.check_default!(env: Rails.env, logger: Rails.logger)
+      name = CoPlan.configuration.default_theme
+      return if find(name)
+
+      message = "CoPlan config.default_theme is #{name.inspect}, which is not a theme. " \
+        "Valid themes: #{keys.join(", ")}."
+      raise ArgumentError, message if env.development? || env.test?
+      logger.warn("#{message} Falling back to #{CLASSIC}.")
     end
   end
 end
