@@ -93,8 +93,10 @@
   --document-padding: var(--space-sm) 0;
   --document-padding-narrow: var(--space-sm) 0 var(--space-sm) var(--space-lg);
 
-  /* Plan title, set like the document's headings */
+  /* Plan title, set like the document's headings, and a size above the
+     document's H1 (--reading-h1-size) on phones too. */
   --plan-title-size: 1.75rem;
+  --plan-title-size-narrow: 1.5rem;
   --plan-title-weight: 500;
   --plan-title-leading: 1.2;
   --plan-title-tracking: -0.01em;
