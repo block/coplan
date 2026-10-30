@@ -14,26 +14,57 @@ module CoPlan
 
       def call(before:, after:, prior_runs:, runs:, removed_lines:, fresh_source:)
         @lines = {}
-        current_lines = Set.new
+        current_counts, archived_counts = Hash.new(0), Hash.new(0)
         @characters = @run_count = 0
         each_line(before, prior_runs) do |text, line_runs, _|
-          current_lines << text
+          current_counts[text] += 1
           remember(text, line_runs)
         end
-        removed_lines.each { |text, line_runs| remember(text, line_runs) }
+        removed_lines.each do |text, line_runs, count|
+          remember(text, line_runs)
+          archived_counts[text] += count || 1
+        end
+
+        # Reserve occurrences the normal diff already retained before assigning
+        # any lost moves. A new copy earlier in the document cannot spend the
+        # original occurrence's attribution before we reach the retained one.
+        matched, after_counts = Hash.new(0), Hash.new(0)
+        each_line(after, runs) do |text, line_runs, _|
+          after_counts[text] += 1
+          if @lines[text] == line_runs && matched[text] < current_counts[text]
+            matched[text] += 1
+          end
+        end
+        remaining = current_counts.dup
+        matched.each { |text, count| remaining[text] -= count }
+        archived_remaining = archived_counts.dup
 
         result = []
-        present = Set.new
         each_line(after, runs) do |text, line_runs, ending_runs|
-          present << text
           restored = @lines[text]
-          if restored && fresh_source && !current_lines.include?(text)
-            restored = retain_fresh_input(line_runs, restored, fresh_source)
+          extra_typed_copy = fresh_source && after_counts[text] > current_counts[text] + archived_counts[text] &&
+            line_runs.any? { |_, source| source == fresh_source }
+          if extra_typed_copy
+            restored = nil
+          elsif restored && matched[text].positive? && line_runs == restored
+            matched[text] -= 1
+          elsif restored && remaining[text].positive?
+            remaining[text] -= 1
+            restored = retain_fresh_input(line_runs, restored, fresh_source) if fresh_source
+          elsif restored && archived_remaining[text].positive?
+            archived_remaining[text] -= 1
+            restored = retain_fresh_input(line_runs, restored, fresh_source) if fresh_source
+          else
+            restored = nil
           end
           (restored || line_runs).each { |length, source| WritingProvenance.append(result, length, source) }
           ending_runs.each { |length, source| WritingProvenance.append(result, length, source) }
         end
-        [ result, @lines.reject { |text, _| present.include?(text) }.to_a ]
+        deleted = @lines.filter_map do |text, line_runs|
+          count = current_counts[text] + archived_counts[text] - after_counts[text]
+          [ text, line_runs, count ] if count.positive?
+        end
+        [ result, deleted ]
       end
 
       private

@@ -149,6 +149,80 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     expect(snapshot.dig("summary", "counts", "unknown")).to eq(0)
   end
 
+  %w[human unknown].each do |kind|
+    %w[before after].each do |position|
+      it "keeps #{kind} input on an extra copy #{position} an existing identical line" do
+        line = "Repeated architecture 😀.\n"
+        original = "Opening context.\n#{line}Closing context.\n"
+        plan = make_plan(original, kind: "local_agent")
+        content = position == "before" ? line + original : original + line
+        edit(plan, content, kind: "human", input_sources: sources(content, kind))
+
+        snapshot = plan.current_plan_version.writing_provenance
+        fresh_at = position == "before" ? 0 : original.length
+        retained_at = original.index(line) + (position == "before" ? line.length : 0)
+        fresh = described_class.slice(snapshot.fetch("runs"), fresh_at, fresh_at + line.length - 1)
+        retained = described_class.slice(snapshot.fetch("runs"), retained_at, retained_at + line.length - 1)
+        expect(fresh.map { |_, key| snapshot.fetch("sources").fetch(key) }).to all(include("kind" => kind, "user_id" => user.id, "origin_revision" => 2))
+        expect(retained.map { |_, key| snapshot.fetch("sources").fetch(key) }).to all(include("kind" => "ai", "origin_revision" => 1))
+        expect(snapshot.dig("summary", "counts", "ai")).to eq(original.gsub(/[[:space:]]/, "").length)
+        expect(snapshot.dig("summary", "counts", kind)).to eq(line.gsub(/[[:space:]]/, "").length)
+      end
+    end
+  end
+
+  it "restores only the saved number of archived copies" do
+    line = "Agent-authored paragraph.\n"
+    kept = "Remaining context.\n"
+    plan = make_plan(line + kept, kind: "local_agent")
+    edit(plan, kept, kind: "human", input_sources: sources(kept, "unknown"))
+    content = kept + line * 2
+    edit(plan, content, kind: "human", input_sources: sources(content, "unknown"))
+    expect(plan.writing_provenance_summary.fetch("counts")).to eq("human" => 0,
+      "ai" => (line + kept).gsub(/[[:space:]]/, "").length, "unknown" => line.gsub(/[[:space:]]/, "").length)
+  end
+
+  it "reserves a moved occurrence when a newly typed copy appears before it" do
+    line = "Agent-authored paragraph.\n"
+    kept = (1..10).map { |i| "Unchanged context #{i}.\n" }.join
+    plan = make_plan(line + kept, kind: "local_agent")
+    content = kept + line * 2
+    edit(plan, content, kind: "human", input_sources: { "runs" => [ [ kept.length, "unknown" ], [ line.length, "human" ], [ line.length, "unknown" ] ] })
+    snapshot = plan.current_plan_version.writing_provenance
+    typed = described_class.slice(snapshot.fetch("runs"), kept.length, kept.length + line.length - 1)
+    moved = described_class.slice(snapshot.fetch("runs"), kept.length + line.length, content.length - 1)
+    expect(typed.map { |_, key| snapshot.fetch("sources").fetch(key) }).to all(include("kind" => "human", "origin_revision" => 2))
+    expect(moved.map { |_, key| snapshot.fetch("sources").fetch(key) }).to all(include("kind" => "ai", "origin_revision" => 1))
+  end
+
+  it "remembers a cut occurrence even when an identical occurrence remains" do
+    line = "Agent-authored paragraph.\n"
+    kept = "Remaining context.\n"
+    original = line * 2 + kept
+    plan = make_plan(original, kind: "local_agent")
+    cut = line + kept
+    edit(plan, cut, kind: "human", input_sources: sources(cut, "unknown"))
+    pasted = cut + line
+    edit(plan, pasted, kind: "human", input_sources: sources(pasted, "unknown"))
+    expect(plan.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
+    snapshot = plan.current_plan_version.writing_provenance
+    expect(character_sources(pasted, snapshot).map { |_, key| snapshot.fetch("sources").fetch(key) }).to all(include("kind" => "ai", "origin_revision" => 1))
+  end
+
+  it "reads deleted-line evidence saved before occurrence counts were recorded" do
+    line = "Agent-authored paragraph.\n"
+    kept = "Remaining context.\n"
+    plan = make_plan(line + kept, kind: "local_agent")
+    edit(plan, kept)
+    version = plan.current_plan_version
+    snapshot = version.writing_provenance.deep_dup
+    snapshot["removed_lines"] = snapshot.fetch("removed_lines").map { |text, runs, _| [ text, runs ] }
+    version.update_columns(writing_provenance: snapshot)
+    pasted = kept + line
+    edit(plan, pasted, kind: "human", input_sources: sources(pasted, "unknown"))
+    expect(plan.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
+  end
+
   it "keeps external paste unknown while recovering a moved line" do
     plan = make_plan("Human paragraph.\nOther paragraph.\n", input_sources: sources("Human paragraph.\nOther paragraph.\n"))
     pasted = "Other paragraph.\nHuman paragraph.\nExternal evidence.\n"

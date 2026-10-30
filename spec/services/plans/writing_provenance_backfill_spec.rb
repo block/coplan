@@ -144,6 +144,20 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     expect(agent.reload.writing_provenance_summary.fetch("counts")).to eq("human" => 5, "ai" => 5, "unknown" => 0)
   end
 
+  it "keeps moved agent writing during historical human-input reconstruction" do
+    first = "Agent-authored architecture.\n\n"
+    last = "Agent-authored proposal.\n"
+    agent = CoPlan::Plans::Create.call(title: "Reordered history", content: first + last, user: user, actor_type: "local_agent")
+    reordered = last + "\n" + first
+    CoPlan::Plans::ReplaceContent.call(plan: agent, new_content: reordered, base_revision: 1, actor_type: "human", actor_id: user.id)
+    rollout(agent)
+    run_batch(agent)
+    expect(agent.reload.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
+    summary = agent.writing_provenance_summary.deep_dup
+    run_batch(agent, described_class.claim(agent, restart: true))
+    expect(agent.reload.writing_provenance_summary).to eq(summary)
+  end
+
   it "includes old writers after the cutoff without treating interleaved instrumented paste as human" do
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor oldworker", base_revision: 1, actor_type: "human", actor_id: user.id)
     pasted = "Old editor oldworker paste"

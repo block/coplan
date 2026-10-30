@@ -98,8 +98,9 @@ module CoPlan
           [ [ content.length, identity["kind"] == "ai" ? source_key : unknown_key ] ]
         end
         runs = self.class.remap(old, content, prior_runs, insertions, fallback_source: @historical_human ? source_key : UNKNOWN)
+        # Historical human input is an assumption, not fresh typing evidence.
         runs, removed_lines = WritingProvenanceMoves.call(before: old, after: content, prior_runs: prior_runs, runs: runs,
-          removed_lines: valid ? snapshot.fetch("removed_lines", []) : [], fresh_source: identity["kind"] == "human" ? source_key : nil)
+          removed_lines: valid ? snapshot.fetch("removed_lines", []) : [], fresh_source: identity["kind"] == "human" && !@historical_human ? source_key : nil)
         retained = (runs + removed_lines.flat_map { |_, line_runs| line_runs || [] }).map(&:last).to_set
         sources.select! { |key, _| retained.include?(key) }
         summary = summarize(content, runs, sources)
