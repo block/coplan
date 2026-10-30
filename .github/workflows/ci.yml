@@ -19,7 +19,8 @@ jobs:
   # test jobs rather than gating them: a bracket-spacing nit should not hide
   # whether the suite passes.
   lint:
-    runs-on: ubuntu-latest
+    # The pinned setup-ruby action provides Ruby 3.4.7 for this image.
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
