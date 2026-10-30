@@ -4,61 +4,67 @@
    with no blur, and a document that sits directly on the page instead of a
    card. Blue still means interaction and orange still means attention.
 
-   Custom properties only. A var() in a custom property resolves where it is
-   declared, so hooks that follow the document's own surface are set on the
-   document, not on :root. */
+   Custom properties only, so the theme changes how CoPlan looks, never what
+   it does. Each color gives its light and dark value in light-dark(), which
+   follows the mode's color-scheme. A var() in a custom property resolves
+   where it is declared, so hooks that follow the document's own surface are
+   set on the document, not on :root. */
 
 :root[data-app-theme="neutral"] {
   /* Colors. --color-surface is the floating surface (popovers, menus, the
      composer), white so it lifts off the page. Inside the document it
      becomes the page (below); --color-surface-floating keeps the original. */
-  --color-bg: oklch(0.993 0.0015 106);
-  --color-bg-muted: oklch(0.97 0.003 90);
-  --color-surface: oklch(1 0 0);
-  --color-surface-muted: oklch(0.98 0.003 90);
+  --color-bg: light-dark(oklch(0.993 0.0015 106), oklch(0.212 0.003 90));
+  --color-bg-muted: light-dark(oklch(0.97 0.003 90), oklch(0.235 0.004 90));
+  --color-surface: light-dark(oklch(1 0 0), oklch(0.255 0.004 90));
+  --color-surface-muted: light-dark(oklch(0.98 0.003 90), oklch(0.28 0.004 90));
   --color-surface-floating: var(--color-surface);
   --color-surface-floating-muted: var(--color-surface-muted);
   /* Muted panels set in the document (back matter, table headers). */
-  --color-page-muted: oklch(0.975 0.003 90);
+  --color-page-muted: light-dark(oklch(0.975 0.003 90), oklch(0.235 0.004 90));
   --color-input-bg: var(--color-surface);
-  --color-text: oklch(0.287 0.005 95);
-  --color-text-muted: oklch(0.53 0.008 90);
-  --color-border: oklch(0.915 0.005 90);
-  --color-border-strong: oklch(0.84 0.007 90);
-  --color-tag-bg: oklch(0.97 0.003 90);
-  --color-tag-text: oklch(0.35 0.005 95);
-  --color-tag-hover-bg: oklch(0.915 0.005 90);
-  --color-tag-hover-text: oklch(0.17 0.004 95);
+  --color-text: light-dark(oklch(0.287 0.005 95), oklch(0.893 0.004 95));
+  --color-text-muted: light-dark(oklch(0.53 0.008 90), oklch(0.68 0.006 90));
+  --color-border: light-dark(oklch(0.915 0.005 90), oklch(0.3 0.005 90));
+  --color-border-strong: light-dark(oklch(0.84 0.007 90), oklch(0.38 0.006 90));
+  --color-tag-bg: light-dark(oklch(0.97 0.003 90), oklch(0.235 0.004 90));
+  --color-tag-text: light-dark(oklch(0.35 0.005 95), oklch(0.86 0.005 95));
+  --color-tag-hover-bg: light-dark(oklch(0.915 0.005 90), oklch(0.3 0.005 90));
+  --color-tag-hover-text: light-dark(oklch(0.17 0.004 95), oklch(0.955 0.003 95));
 
   /* Code: a borderless tinted block with a small corner language label.
      Syntax colors are soft and warm, so code reads as part of the page. */
-  --color-code-bg: oklch(0.955 0.005 90);
-  --code-block-bg: oklch(0.969 0.004 98);
-  --code-block-text: oklch(0.28 0.006 90);
-  --code-header-text: oklch(0.5 0.008 90);
-  --code-comment: oklch(0.5 0.01 90);
-  --code-keyword: oklch(0.5 0.13 35);
-  --code-entity: oklch(0.45 0.08 250);
-  --code-constant: oklch(0.52 0.11 65);
-  --code-string: oklch(0.48 0.09 140);
-  --code-tag: oklch(0.5 0.12 20);
-  --code-addition-fg: oklch(0.46 0.1 140);
-  --code-addition-bg: oklch(0.95 0.035 140);
-  --code-deletion-fg: oklch(0.5 0.14 30);
-  --code-deletion-bg: oklch(0.95 0.03 30);
+  --color-code-bg: light-dark(oklch(0.955 0.005 90), oklch(0.255 0.004 90));
+  --code-block-bg: light-dark(oklch(0.969 0.004 98), oklch(0.262 0.005 90));
+  --code-block-text: light-dark(oklch(0.28 0.006 90), oklch(0.88 0.005 90));
+  --code-header-text: light-dark(oklch(0.5 0.008 90), oklch(0.68 0.006 90));
+  --code-comment: light-dark(oklch(0.5 0.01 90), oklch(0.68 0.008 90));
+  --code-keyword: light-dark(oklch(0.5 0.13 35), oklch(0.76 0.1 35));
+  --code-entity: light-dark(oklch(0.45 0.08 250), oklch(0.79 0.07 235));
+  --code-constant: light-dark(oklch(0.52 0.11 65), oklch(0.82 0.09 75));
+  --code-string: light-dark(oklch(0.48 0.09 140), oklch(0.8 0.08 135));
+  --code-tag: light-dark(oklch(0.5 0.12 20), oklch(0.76 0.09 20));
+  --code-addition-fg: light-dark(oklch(0.46 0.1 140), oklch(0.8 0.09 140));
+  --code-addition-bg: light-dark(oklch(0.95 0.035 140), oklch(0.8 0.09 140 / 0.12));
+  --code-deletion-fg: light-dark(oklch(0.5 0.14 30), oklch(0.76 0.1 30));
+  --code-deletion-bg: light-dark(oklch(0.95 0.03 30), oklch(0.7 0.12 30 / 0.14));
 
   /* Typography */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 
   /* Solid surfaces: page-level panels (nav, rows) use the page color,
-     floating panels the floating surface. */
-  --shadow-lg: 0 1px 2px oklch(0.3 0.01 90 / 0.06), 0 14px 32px -10px oklch(0.3 0.01 90 / 0.18);
-  --shadow-pop: 0 1px 2px oklch(0.3 0.01 90 / 0.06), 0 14px 32px -10px oklch(0.3 0.01 90 / 0.18);
-  --shadow-glass: 0 1px 2px oklch(0.3 0.01 90 / 0.06), 0 14px 32px -10px oklch(0.3 0.01 90 / 0.18);
+     floating panels the floating surface. Shadows have the same layers in
+     both modes: light uses the small drop, dark the 1px ring. */
+  --shadow-lg:
+    0 0 0 1px light-dark(transparent, rgb(0 0 0 / 0.3)),
+    0 1px 2px light-dark(oklch(0.3 0.01 90 / 0.06), transparent),
+    0 14px 32px -10px light-dark(oklch(0.3 0.01 90 / 0.18), rgb(0 0 0 / 0.6));
+  --shadow-pop: var(--shadow-lg);
+  --shadow-glass: var(--shadow-lg);
   --glass-bg: var(--color-bg);
   --glass-bg-strong: var(--color-surface);
-  --glass-edge: oklch(0.9 0.005 90);
+  --glass-edge: light-dark(oklch(0.9 0.005 90), oklch(0.33 0.005 90));
   --surface-translucent: var(--color-surface);
   --card-edge: var(--color-border);
 
@@ -141,10 +147,12 @@
   --table-radius: 6px;
   --table-numerals: tabular-nums;
   --blockquote-rule: var(--color-border-strong);
-  --image-outline: 1px solid rgb(0 0 0 / 0.1);
+  --image-outline: 1px solid light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.1));
 
   /* Mermaid palette, as hex (Mermaid's color math can't read oklch()).
-     --diagram-bg is also the diagram's background. */
+     --diagram-bg is also the diagram's background. Mermaid reads these with
+     getComputedStyle, which returns light-dark() unresolved, so dark mode
+     sets them in its own blocks below. */
   --diagram-bg: #f7f6f3;
   --diagram-node: #f0ece4;
   --diagram-node-border: #bab0a0;
@@ -159,44 +167,8 @@
   --diagram-note-text: #483b24;
 }
 
-/* Dark mode, forced */
+/* The Mermaid palette in dark mode, forced */
 :root[data-app-theme="neutral"][data-theme="dark"] {
-  --color-bg: oklch(0.212 0.003 90);
-  --color-bg-muted: oklch(0.235 0.004 90);
-  --color-surface: oklch(0.255 0.004 90);
-  --color-surface-muted: oklch(0.28 0.004 90);
-  --color-page-muted: oklch(0.235 0.004 90);
-  --color-text: oklch(0.893 0.004 95);
-  --color-text-muted: oklch(0.68 0.006 90);
-  --color-border: oklch(0.3 0.005 90);
-  --color-border-strong: oklch(0.38 0.006 90);
-  --color-tag-bg: oklch(0.235 0.004 90);
-  --color-tag-text: oklch(0.86 0.005 95);
-  --color-tag-hover-bg: oklch(0.3 0.005 90);
-  --color-tag-hover-text: oklch(0.955 0.003 95);
-
-  /* Code is fully raised in dark; syntax keeps the light hues, lifted. */
-  --color-code-bg: oklch(0.255 0.004 90);
-  --code-block-bg: oklch(0.262 0.005 90);
-  --code-block-text: oklch(0.88 0.005 90);
-  --code-header-text: oklch(0.68 0.006 90);
-  --code-comment: oklch(0.68 0.008 90);
-  --code-keyword: oklch(0.76 0.1 35);
-  --code-entity: oklch(0.79 0.07 235);
-  --code-constant: oklch(0.82 0.09 75);
-  --code-string: oklch(0.8 0.08 135);
-  --code-tag: oklch(0.76 0.09 20);
-  --code-addition-fg: oklch(0.8 0.09 140);
-  --code-addition-bg: oklch(0.8 0.09 140 / 0.12);
-  --code-deletion-fg: oklch(0.76 0.1 30);
-  --code-deletion-bg: oklch(0.7 0.12 30 / 0.14);
-
-  --shadow-lg: 0 0 0 1px rgb(0 0 0 / 0.3), 0 14px 32px -10px rgb(0 0 0 / 0.6);
-  --shadow-pop: 0 0 0 1px rgb(0 0 0 / 0.3), 0 14px 32px -10px rgb(0 0 0 / 0.6);
-  --shadow-glass: 0 0 0 1px rgb(0 0 0 / 0.3), 0 14px 32px -10px rgb(0 0 0 / 0.6);
-  --glass-edge: oklch(0.33 0.005 90);
-  --image-outline: 1px solid rgb(255 255 255 / 0.1);
-
   --diagram-bg: #1f1f1d;
   --diagram-node: #2c2a26;
   --diagram-node-border: #5c584f;
@@ -211,44 +183,9 @@
   --diagram-note-text: #ebe5cf;
 }
 
-/* Dark mode, following the system (same values as above) */
+/* The Mermaid palette in dark mode, following the system */
 @media (prefers-color-scheme: dark) {
   :root[data-app-theme="neutral"]:not([data-theme]) {
-    --color-bg: oklch(0.212 0.003 90);
-    --color-bg-muted: oklch(0.235 0.004 90);
-    --color-surface: oklch(0.255 0.004 90);
-    --color-surface-muted: oklch(0.28 0.004 90);
-    --color-page-muted: oklch(0.235 0.004 90);
-    --color-text: oklch(0.893 0.004 95);
-    --color-text-muted: oklch(0.68 0.006 90);
-    --color-border: oklch(0.3 0.005 90);
-    --color-border-strong: oklch(0.38 0.006 90);
-    --color-tag-bg: oklch(0.235 0.004 90);
-    --color-tag-text: oklch(0.86 0.005 95);
-    --color-tag-hover-bg: oklch(0.3 0.005 90);
-    --color-tag-hover-text: oklch(0.955 0.003 95);
-
-    --color-code-bg: oklch(0.255 0.004 90);
-    --code-block-bg: oklch(0.262 0.005 90);
-    --code-block-text: oklch(0.88 0.005 90);
-    --code-header-text: oklch(0.68 0.006 90);
-    --code-comment: oklch(0.68 0.008 90);
-    --code-keyword: oklch(0.76 0.1 35);
-    --code-entity: oklch(0.79 0.07 235);
-    --code-constant: oklch(0.82 0.09 75);
-    --code-string: oklch(0.8 0.08 135);
-    --code-tag: oklch(0.76 0.09 20);
-    --code-addition-fg: oklch(0.8 0.09 140);
-    --code-addition-bg: oklch(0.8 0.09 140 / 0.12);
-    --code-deletion-fg: oklch(0.76 0.1 30);
-    --code-deletion-bg: oklch(0.7 0.12 30 / 0.14);
-
-    --shadow-lg: 0 0 0 1px rgb(0 0 0 / 0.3), 0 14px 32px -10px rgb(0 0 0 / 0.6);
-    --shadow-pop: 0 0 0 1px rgb(0 0 0 / 0.3), 0 14px 32px -10px rgb(0 0 0 / 0.6);
-    --shadow-glass: 0 0 0 1px rgb(0 0 0 / 0.3), 0 14px 32px -10px rgb(0 0 0 / 0.6);
-    --glass-edge: oklch(0.33 0.005 90);
-    --image-outline: 1px solid rgb(255 255 255 / 0.1);
-
     --diagram-bg: #1f1f1d;
     --diagram-node: #2c2a26;
     --diagram-node-border: #5c584f;

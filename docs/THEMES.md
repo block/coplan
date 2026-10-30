@@ -58,10 +58,11 @@ The themes are listed in `CoPlan::Themes::ALL`
 1. Add an entry to `CoPlan::Themes::ALL`.
 2. Add `engine/app/assets/stylesheets/coplan/themes/<key>.css` and import it
    last in `coplan/application.css`.
-3. Set tokens and hooks under `:root[data-app-theme="<key>"]`. For dark mode,
-   repeat them under `:root[data-app-theme="<key>"][data-theme="dark"]` and
-   inside `@media (prefers-color-scheme: dark)` under
-   `:root[data-app-theme="<key>"]:not([data-theme])`.
+3. Set tokens and hooks under `:root[data-app-theme="<key>"]`. Give each
+   color its light and dark value with `light-dark(<light>, <dark>)`, which
+   follows the mode, including inside borders and shadows. Give a shadow the
+   same layers in both modes and use `transparent` for a layer one mode
+   doesn't have. The diagram palette is the exception (below).
 4. Set custom properties only, so a theme changes how CoPlan looks, never
    what it does. A hook can also be set on a component, for example
    `:root[data-app-theme="<key>"] .plan-document { --color-surface: … }`.
@@ -116,7 +117,11 @@ only. Comments, previews and decks keep their own type.
 ## Diagram palette
 
 A theme can give Mermaid diagrams its own colors. Set all of these as hex
-values (Mermaid's color math can't read `oklch()`), per scheme:
+values (Mermaid's color math can't read `oklch()`). Mermaid reads them with
+`getComputedStyle`, which returns `light-dark()` unresolved, so set the dark
+values in a block under `:root[data-app-theme="<key>"][data-theme="dark"]` and
+one inside `@media (prefers-color-scheme: dark)` under
+`:root[data-app-theme="<key>"]:not([data-theme])`:
 `--diagram-bg`, `--diagram-node`, `--diagram-node-border`, `--diagram-text`,
 `--diagram-line`, `--diagram-cluster`, `--diagram-cluster-border`,
 `--diagram-actor-line`, `--diagram-alt`, `--diagram-note`,
