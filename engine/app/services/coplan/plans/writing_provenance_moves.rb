@@ -91,7 +91,7 @@ module CoPlan
       end
 
       def remember(text, runs)
-        return unless text.match?(/[[:alnum:]]/)
+        return unless text.match?(/[^[:space:]]/)
         if @lines.key?(text)
           @lines[text] = nil unless @lines[text] == runs
         elsif @lines.size < MAX_LINES && @characters + text.length <= MAX_CHARACTERS && @run_count + runs.to_a.size <= MAX_RUNS

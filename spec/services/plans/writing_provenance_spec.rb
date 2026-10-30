@@ -223,6 +223,23 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     expect(plan.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
   end
 
+  { "human" => "human", "local_agent" => "ai" }.each do |actor_type, kind|
+    [ "😀👋\n", "---\n", "{}();\n" ].each do |line|
+      it "keeps #{kind} attribution when #{line.inspect} is cut and pasted across saves" do
+        kept = "Remaining context.\n"
+        original = line + kept
+        plan = make_plan(original, kind: actor_type, input_sources: sources(original))
+        edit(plan, kept, kind: "human", input_sources: sources(kept, "unknown"))
+        pasted = kept + line
+        edit(plan, pasted, kind: "human", input_sources: sources(pasted, "unknown"))
+        snapshot = plan.current_plan_version.writing_provenance
+        expect(snapshot.dig("summary", "shares", kind)).to eq(1.0)
+        moved = described_class.slice(snapshot.fetch("runs"), kept.length, pasted.length - 1)
+        expect(moved.map { |_, key| snapshot.fetch("sources").fetch(key) }).to all(include("kind" => kind, "origin_revision" => 1))
+      end
+    end
+  end
+
   it "keeps external paste unknown while recovering a moved line" do
     plan = make_plan("Human paragraph.\nOther paragraph.\n", input_sources: sources("Human paragraph.\nOther paragraph.\n"))
     pasted = "Other paragraph.\nHuman paragraph.\nExternal evidence.\n"
