@@ -41,9 +41,9 @@ module CoPlan
     validates :external_id, presence: true, uniqueness: true
     # Settings belong to the engine; metadata is replaceable host/directory data.
     validates :theme_preference, inclusion: { in: THEME_PREFERENCES }
-    # Only a new choice is checked: a host can retire a theme, and the
-    # sign-in sync must still save users who picked it. Their pages fall back
-    # to the default (ApplicationHelper#coplan_app_theme).
+    # Only a new choice is checked: a later CoPlan release can remove a
+    # theme, and the sign-in sync must still save users who picked it. Their
+    # pages fall back to the default (Themes.resolve).
     validates :app_theme, inclusion: { in: APP_THEMES }, if: :app_theme_changed?
     validates :voice_hotkey, inclusion: { in: VOICE_HOTKEYS }
     validates :name, presence: true

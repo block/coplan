@@ -14,7 +14,10 @@ import { Controller } from "@hotwired/stimulus"
  *
  * Settings and the bar's Appearance menu each have one. coplan:app-theme
  * tells the others about a pick or a save, so their radios agree. The menu
- * has no Default option, so it checks the theme that's showing.
+ * has no Default option, so it checks the theme that's showing. It's an
+ * event of its own, not coplan:theme-changed plus a look at <html>, because
+ * <html> holds only the resolved theme: it can't tell Default from the theme
+ * Default resolves to, or a pick from a save.
  */
 export default class extends Controller {
   static targets = ["error"]

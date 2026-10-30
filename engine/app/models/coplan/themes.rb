@@ -33,5 +33,10 @@ module CoPlan
       raise ArgumentError, message if env.development? || env.test?
       logger.warn("#{message} Falling back to #{CLASSIC}.")
     end
+
+    # The theme a viewer's stored choice shows: the theme it names, else the
+    # default. "default" isn't a theme key, so it falls through, and so does
+    # a theme a later CoPlan release removed.
+    def self.resolve(choice) = find(choice) || default
   end
 end

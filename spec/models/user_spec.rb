@@ -88,7 +88,7 @@ RSpec.describe CoPlan::User, type: :model do
       expect(user.errors[:app_theme]).to be_present
     end
 
-    it "still saves a user whose stored theme the host has since retired" do
+    it "still saves a user whose stored theme CoPlan no longer ships" do
       user = create(:coplan_user)
       user.update_column(:app_theme, "retired")
       expect(user.reload.update(name: "Renamed")).to be(true)

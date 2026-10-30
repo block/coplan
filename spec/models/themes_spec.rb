@@ -61,6 +61,16 @@ RSpec.describe CoPlan::Themes do
     end
   end
 
+  it "resolves a stored choice to the theme it shows" do
+    CoPlan.configuration.default_theme = "neutral"
+    expect(described_class.resolve("classic").key).to eq("classic")
+    expect(described_class.resolve("neutral").key).to eq("neutral")
+    %w[default retired].each { |choice| expect(described_class.resolve(choice).key).to eq("neutral") }
+    expect(described_class.resolve(nil).key).to eq("neutral")
+    CoPlan.configuration.default_theme = "hotdog-stand"
+    expect(described_class.resolve("default").key).to eq("classic")
+  end
+
   it "has a stylesheet for every theme except Classic" do
     manifest = CoPlan::Engine.root.join("app/assets/stylesheets/coplan/application.css").read
     (described_class.keys - [ "classic" ]).each do |key|

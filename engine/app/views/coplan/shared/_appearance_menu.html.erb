@@ -33,7 +33,7 @@
     <div class="menu__separator" role="separator"></div>
     <fieldset class="appearance-menu__group" data-controller="coplan--app-theme"
               data-coplan--app-theme-url-value="<%= coplan.settings_app_theme_path %>"
-              data-coplan--app-theme-default-value="<%= CoPlan::Themes.default %>"
+              data-coplan--app-theme-default-value="<%= CoPlan::Themes.default.key %>"
               data-coplan--app-theme-saved-value="<%= coplan_app_theme_choice %>">
       <legend class="visually-hidden">Theme</legend>
       <% CoPlan::Themes::ALL.each do |theme| %>
