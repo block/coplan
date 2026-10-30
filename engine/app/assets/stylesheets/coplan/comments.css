@@ -148,6 +148,63 @@
   min-width: 0;
 }
 
+/* Margin discussion markers: the first commenter's avatar beside the text a
+   discussion is about, in the page margin outside the document card so the
+   text keeps its width. comment_margin_controller sets the column's offset
+   and leaves it hidden when the margin has no room. */
+.comment-margin {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.comment-margin[hidden],
+.comment-margin:not([data-fits]) { display: none; }
+
+.comment-margin__card {
+  position: absolute;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-pop);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: top 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+/* Set while the marker or its highlighted text is hovered. */
+.comment-margin__card.is-hover {
+  border-color: var(--color-highlight-open-border);
+  transform: scale(1.15);
+}
+
+.comment-margin__card:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.comment-margin__card.is-active { border-color: var(--color-primary); }
+
+.comment-margin__card--resolved { opacity: 0.6; }
+
+.comment-margin__card .avatar,
+.comment-margin__card .comment__agent-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 0.6rem;
+  border-radius: 50%;
+}
+
+.anchor-highlight--open.is-margin-hover {
+  background: var(--color-highlight-open-hover-bg);
+}
+
 #plan-threads {
   position: absolute;
   width: 0;

@@ -148,6 +148,11 @@
         <%= render "coplan/plans/thread_collection", plan: @plan, threads: @threads %>
         </div>
       </div>
+      <%# Avatar markers in the page margin beside the text each discussion is
+          about. Positioned outside the card, so the text keeps its width. %>
+      <aside class="comment-margin" aria-label="Discussions" hidden
+             data-controller="coplan--comment-margin"
+             data-action="coplan:anchors-updated@document->coplan--comment-margin#refresh coplan:resolved-visibility@document->coplan--comment-margin#refresh resize@window->coplan--comment-margin#position toggle@document->coplan--comment-margin#popoverToggled:capture mouseover@document->coplan--comment-margin#hoverChanged"></aside>
     </div>
 </div>
 
