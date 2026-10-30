@@ -55,7 +55,7 @@ export default class extends Controller {
       for (const { container, source } of sources) {
         // Sequential renders, so re-configuring per diagram is safe (and
         // a no-op when the theme hasn't changed).
-        const theme = configureMermaid(mermaid, diagramDark(container), diagramPalette(container))
+        const theme = configureMermaid(mermaid, diagramDark(container), diagramPalette(container), fontStack(container))
         await this.renderDiagram(mermaid, container, source, theme, generation)
       }
     } catch {
@@ -369,16 +369,17 @@ function diagramDark(container) {
 }
 
 // An app theme can bring its own diagram palette as CSS variables
-// (docs/THEMES.md); without one, Mermaid's built-in themes apply. The
-// configuration is keyed on the palette's colors, not just its name, so
-// diagrams with different palettes on one page each get their own.
-function configureMermaid(mermaid, dark, palette) {
+// (docs/THEMES.md); without one, Mermaid's built-in themes apply. Labels
+// use the font of the diagram's surroundings, which decks pin. The
+// configuration is keyed on the palette's colors and the font, not just the
+// palette's name, so diagrams with different surroundings on one page each
+// get their own.
+function configureMermaid(mermaid, dark, palette, fontFamily) {
   const scheme = dark ? "dark" : "light"
   const theme = palette ? `${palette.name}-${scheme}` : scheme
-  const configuration = JSON.stringify([ scheme, palette ])
+  const configuration = JSON.stringify([ scheme, palette, fontFamily ])
   if (configuration === configuredMermaid) return theme
 
-  const fontFamily = appFontStack()
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: "strict",
@@ -405,8 +406,8 @@ const THEME_CSS = `
   .cluster rect { stroke-width: 1.25px; }
 `
 
-function appFontStack() {
-  const declared = getComputedStyle(document.documentElement).getPropertyValue("--font-sans").trim()
+function fontStack(element) {
+  const declared = getComputedStyle(element).getPropertyValue("--font-sans").trim()
   return declared || "system-ui, sans-serif"
 }
 

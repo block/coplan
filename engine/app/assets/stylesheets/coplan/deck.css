@@ -22,8 +22,9 @@
   gap: 2rem;
   /* A deck is a fixed artifact: app themes don't restyle it. Setting an
      app theme hook to initial brings back its built-in value (docs/THEMES.md).
-     Code keeps the app's original mono stack. */
-  --font-mono: "Hack", "SF Mono", SFMono-Regular, ui-monospace, Menlo, monospace;
+     Diagram labels and code keep the app's original sans and mono stacks. */
+  --font-sans: var(--font-builtin-sans);
+  --font-mono: var(--font-builtin-mono);
   --strong-weight: initial;
   --code-chip-padding: initial;
   --code-chip-radius: initial;
