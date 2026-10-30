@@ -24,7 +24,7 @@
   --color-page-muted: light-dark(oklch(0.975 0.003 90), oklch(0.235 0.004 90));
   --color-input-bg: var(--color-surface);
   --color-text: light-dark(oklch(0.287 0.005 95), oklch(0.893 0.004 95));
-  --color-text-muted: light-dark(oklch(0.53 0.008 90), oklch(0.68 0.006 90));
+  --color-text-muted: light-dark(oklch(0.53 0.008 90), oklch(0.75 0.006 90));
   --color-border: light-dark(oklch(0.915 0.005 90), oklch(0.3 0.005 90));
   --color-border-strong: light-dark(oklch(0.84 0.007 90), oklch(0.38 0.006 90));
   --color-tag-bg: light-dark(oklch(0.97 0.003 90), oklch(0.235 0.004 90));
@@ -37,17 +37,17 @@
   --color-code-bg: light-dark(oklch(0.955 0.005 90), oklch(0.255 0.004 90));
   --code-block-bg: light-dark(oklch(0.969 0.004 98), oklch(0.262 0.005 90));
   --code-block-text: light-dark(oklch(0.28 0.006 90), oklch(0.88 0.005 90));
-  --code-header-text: light-dark(oklch(0.5 0.008 90), oklch(0.68 0.006 90));
-  --code-comment: light-dark(oklch(0.5 0.01 90), oklch(0.68 0.008 90));
-  --code-keyword: light-dark(oklch(0.5 0.13 35), oklch(0.76 0.1 35));
+  --code-header-text: light-dark(oklch(0.5 0.008 90), oklch(0.75 0.006 90));
+  --code-comment: light-dark(oklch(0.5 0.01 90), oklch(0.72 0.008 90));
+  --code-keyword: light-dark(oklch(0.5 0.13 35), oklch(0.8 0.1 35));
   --code-entity: light-dark(oklch(0.45 0.08 250), oklch(0.79 0.07 235));
   --code-constant: light-dark(oklch(0.52 0.11 65), oklch(0.82 0.09 75));
   --code-string: light-dark(oklch(0.48 0.09 140), oklch(0.8 0.08 135));
-  --code-tag: light-dark(oklch(0.5 0.12 20), oklch(0.76 0.09 20));
+  --code-tag: light-dark(oklch(0.5 0.12 20), oklch(0.8 0.09 20));
   --code-addition-fg: light-dark(oklch(0.46 0.1 140), oklch(0.8 0.09 140));
   --code-addition-bg: light-dark(oklch(0.95 0.035 140), oklch(0.8 0.09 140 / 0.12));
-  --code-deletion-fg: light-dark(oklch(0.5 0.14 30), oklch(0.76 0.1 30));
-  --code-deletion-bg: light-dark(oklch(0.95 0.03 30), oklch(0.7 0.12 30 / 0.14));
+  --code-deletion-fg: light-dark(oklch(0.5 0.14 30), oklch(0.8 0.1 30));
+  --code-deletion-bg: light-dark(oklch(0.95 0.025 30), oklch(0.7 0.12 30 / 0.14));
 
   /* Typography */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -158,7 +158,7 @@
   --diagram-line: #81796d;
   --diagram-cluster: #fbfaf7;
   --diagram-cluster-border: #d4d1ca;
-  --diagram-actor-line: #bcb7ad;
+  --diagram-actor-line: #8f8c84;
   --diagram-alt: #f2e5db;
   --diagram-note: #f7efd1;
   --diagram-note-border: #cfbc8a;
@@ -174,7 +174,7 @@
   --diagram-line: #95928a;
   --diagram-cluster: #22211f;
   --diagram-cluster-border: #3c3a37;
-  --diagram-actor-line: #4f4d48;
+  --diagram-actor-line: #6b6964;
   --diagram-alt: #352f2a;
   --diagram-note: #312b1a;
   --diagram-note-border: #695d3c;
@@ -191,7 +191,7 @@
     --diagram-line: #95928a;
     --diagram-cluster: #22211f;
     --diagram-cluster-border: #3c3a37;
-    --diagram-actor-line: #4f4d48;
+    --diagram-actor-line: #6b6964;
     --diagram-alt: #352f2a;
     --diagram-note: #312b1a;
     --diagram-note-border: #695d3c;
