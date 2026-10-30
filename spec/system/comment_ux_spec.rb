@@ -278,6 +278,46 @@ RSpec.describe "Comment UX", type: :system do
       expect(mark.evaluate_script("getComputedStyle(this).borderBottomStyle")).to eq("none")
     end
 
+    it "shows an avatar marker in the margin for each open discussion that opens it" do
+      postgres = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
+      opened = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
+      opened.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Scale needs.")
+      resolved = create_anchored_thread(plan: plan, anchor_text: "rate limiting", body: "Per user?", user: reviewer)
+      resolved.resolve!(author)
+
+      page.current_window.resize_to(1600, 900)
+      visit plan_page_path(plan)
+
+      # Resolved discussions stay hidden by default.
+      expect(page).to have_css(".comment-margin__card", count: 2)
+      opened_card = find(".comment-margin__card[data-thread-id='comment_thread_#{opened.id}']")
+      postgres_card = find(".comment-margin__card[data-thread-id='comment_thread_#{postgres.id}']")
+      expect(opened_card).to have_css(".avatar[aria-label='#{reviewer.name}']")
+      expect(opened_card[:"aria-label"]).to eq("Discussion started by #{reviewer.name}, 1 reply")
+
+      # Each marker sits in the page margin, outside the document, on the
+      # line it discusses.
+      middle = ->(element) { element.evaluate_script("(r => r.top + r.height / 2)(this.getClientRects()[0])") }
+      expect(postgres_card.evaluate_script("this.getBoundingClientRect().left"))
+        .to be > find(".plan-document").evaluate_script("this.getBoundingClientRect().right")
+      expect(middle.(opened_card)).to be_within(4).of(middle.(find("mark", text: "microservices architecture")))
+      expect(middle.(postgres_card)).to be_within(4).of(middle.(find("mark", text: "PostgreSQL")))
+
+      # Hover links a marker and its text in both directions.
+      find("mark", text: "PostgreSQL").hover
+      expect(page).to have_css(".comment-margin__card.is-hover", count: 1)
+      expect(postgres_card[:class]).to include("is-hover")
+      opened_card.hover
+      expect(page).to have_css("mark.is-margin-hover", count: 1, text: "microservices architecture")
+      expect(postgres_card[:class]).not_to include("is-hover")
+
+      postgres_card.click
+      within(".thread-popover:popover-open") { expect(page).to have_content("Consider MySQL") }
+      expect(page).to have_css(".comment-margin__card.is-active[data-thread-id='comment_thread_#{postgres.id}']")
+    ensure
+      page.current_window.resize_to(1400, 900)
+    end
+
     it "does not toggle resolved visibility while typing s in a reply box" do
       open_thread = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
       resolved = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
