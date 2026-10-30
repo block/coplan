@@ -109,7 +109,8 @@ Every token in `foundation.css` `:root` can be overridden, for example
 | Inline code | `--code-chip-padding`, `--code-chip-radius`, `--code-chip-size` |
 | Diagrams | `--diagram-bg`, `--diagram-border`, `--diagram-radius` |
 | Tables | `--table-radius`, `--table-numerals` |
-| Other | `--blockquote-rule`, `--image-outline` |
+| Images | `--image-outline`, `--image-radius` |
+| Other | `--blockquote-rule` |
 
 Reading type applies to the document body in the reader and the editor
 only. Comments, previews and decks keep their own type.

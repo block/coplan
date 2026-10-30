@@ -610,7 +610,7 @@
 
 .markdown-rendered img {
   max-width: 100%;
-  border-radius: var(--radius);
+  border-radius: var(--image-radius, var(--radius));
   outline: var(--image-outline, none);
   outline-offset: -1px;
 }
@@ -619,7 +619,7 @@
    its reading layout. Only the corner affordance appears on hover/focus. */
 .document-editor__image { position: relative; display: inline-block; max-width: 100%; vertical-align: top; line-height: 0; }
 .document-editor__image img { display: block; height: auto; }
-.document-editor__image-handle { --image-handle-opacity: 0; position: absolute; right: 0; bottom: 0; display: grid; place-items: end; width: 36px; height: 36px; padding: 2px; border: 0; border-radius: 0 0 var(--radius) 0; background: transparent; color: rgb(51 65 85 / .65); cursor: nwse-resize; touch-action: none; transition: color .18s ease; }
+.document-editor__image-handle { --image-handle-opacity: 0; position: absolute; right: 0; bottom: 0; display: grid; place-items: end; width: 36px; height: 36px; padding: 2px; border: 0; border-radius: 0 0 var(--image-radius, var(--radius)) 0; background: transparent; color: rgb(51 65 85 / .65); cursor: nwse-resize; touch-action: none; transition: color .18s ease; }
 /* Clear glass picks up the image beneath it, including in dark mode. Keep
    the triangular paint separate from the larger rectangular grab area.
    Fade the painted layers, never their parent: parent opacity below 1

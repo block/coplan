@@ -48,6 +48,7 @@
   --table-radius: initial;
   --table-numerals: initial;
   --image-outline: initial;
+  --image-radius: initial;
 }
 
 .deck-slide {

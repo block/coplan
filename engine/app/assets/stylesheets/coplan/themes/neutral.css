@@ -54,12 +54,12 @@
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 
   /* Solid surfaces: page-level panels (nav, rows) use the page color,
-     floating panels the floating surface. Shadows have the same layers in
-     both modes: light uses the small drop, dark the 1px ring. */
+     floating panels the floating surface. Every floating panel has a 1px
+     border, so light adds a soft drop and dark adds nothing: a drop can't
+     be seen on a dark page, and a ring would double the border. */
   --shadow-lg:
-    0 0 0 1px light-dark(transparent, rgb(0 0 0 / 0.3)),
     0 1px 2px light-dark(oklch(0.3 0.01 90 / 0.06), transparent),
-    0 14px 32px -10px light-dark(oklch(0.3 0.01 90 / 0.18), rgb(0 0 0 / 0.6));
+    0 14px 32px -10px light-dark(oklch(0.3 0.01 90 / 0.18), transparent);
   --shadow-pop: var(--shadow-lg);
   --shadow-glass: var(--shadow-lg);
   --glass-bg: var(--color-bg);
@@ -144,13 +144,15 @@
   --diagram-radius: 6px;
   --table-radius: 6px;
   --table-numerals: tabular-nums;
+  --image-radius: 6px;
   --blockquote-rule: var(--color-border-strong);
   --image-outline: 1px solid light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.1));
 
   /* Mermaid palette, as hex (Mermaid's color math can't read oklch()).
-     --diagram-bg is also the diagram's background. Mermaid reads these with
-     getComputedStyle, which returns light-dark() unresolved, so dark mode
-     sets them in its own blocks below. */
+     --diagram-bg is also the diagram's background, the same tint as a code
+     block in both modes. Mermaid reads these with getComputedStyle, which
+     returns light-dark() unresolved, so dark mode sets them in its own
+     blocks below. */
   --diagram-bg: #f7f6f3;
   --diagram-node: #f0ece4;
   --diagram-node-border: #bab0a0;
@@ -167,14 +169,14 @@
 
 /* The Mermaid palette in dark mode, forced */
 :root[data-app-theme="neutral"][data-theme="dark"] {
-  --diagram-bg: #1f1f1d;
+  --diagram-bg: #252422;
   --diagram-node: #2c2a26;
   --diagram-node-border: #5c584f;
   --diagram-text: #ecebe8;
   --diagram-line: #95928a;
-  --diagram-cluster: #22211f;
+  --diagram-cluster: #282725;
   --diagram-cluster-border: #3c3a37;
-  --diagram-actor-line: #6b6964;
+  --diagram-actor-line: #706e69;
   --diagram-alt: #352f2a;
   --diagram-note: #312b1a;
   --diagram-note-border: #695d3c;
@@ -184,14 +186,14 @@
 /* The Mermaid palette in dark mode, following the system */
 @media (prefers-color-scheme: dark) {
   :root[data-app-theme="neutral"]:not([data-theme]) {
-    --diagram-bg: #1f1f1d;
+    --diagram-bg: #252422;
     --diagram-node: #2c2a26;
     --diagram-node-border: #5c584f;
     --diagram-text: #ecebe8;
     --diagram-line: #95928a;
-    --diagram-cluster: #22211f;
+    --diagram-cluster: #282725;
     --diagram-cluster-border: #3c3a37;
-    --diagram-actor-line: #6b6964;
+    --diagram-actor-line: #706e69;
     --diagram-alt: #352f2a;
     --diagram-note: #312b1a;
     --diagram-note-border: #695d3c;
