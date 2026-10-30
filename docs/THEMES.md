@@ -21,8 +21,8 @@ Classic's value as the fallback, `var(--hook, <Classic value>)`. A theme sets
 only the hooks it changes.
 
 Neutral is for reading: warm grays, the system font, no glass or page
-backdrop, the document set flat on the page, and a document H1 smaller than
-the plan title above it. It lives in `themes/neutral.css`.
+backdrop, and the document set flat on the page. Its headings keep the shared
+size scale. It lives in `themes/neutral.css`.
 
 ## How a theme is applied
 

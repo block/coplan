@@ -93,29 +93,25 @@
   --document-padding: var(--space-sm) 0;
   --document-padding-narrow: var(--space-sm) 0 var(--space-sm) var(--space-lg);
 
-  /* Plan title, set like the document's headings, and a size above the
-     document's H1 (--reading-h1-size) on phones too. */
+  /* Plan title, set like the document's headings */
   --plan-title-size: 1.75rem;
-  --plan-title-size-narrow: 1.5rem;
   --plan-title-weight: 500;
   --plan-title-leading: 1.2;
   --plan-title-tracking: -0.01em;
   --plan-title-wrap: balance;
 
-  /* Reading type */
+  /* Reading type. Heading sizes come from the shared scale, so each level
+     is a step below the one above it. */
   --reading-measure: 80ch;
   --reading-leading: 1.6;
   --reading-paragraph-gap: 1.12em;
   --reading-heading-weight: 500;
   --reading-heading-tracking: -0.01em;
   --reading-heading-wrap: balance;
-  --reading-h1-size: 1.25rem;
   --reading-h1-leading: 1.25;
-  --reading-h2-size: 1.375rem;
   --reading-h2-leading: 1.3;
   --reading-h2-space-above: 2.5rem;
   --reading-h2-space-below: 0.75rem;
-  --reading-h3-size: 1.125rem;
   --reading-h3-leading: 1.35;
   --reading-h3-space-above: 2rem;
   --reading-h3-space-below: 0.75rem;

@@ -15,6 +15,10 @@ RSpec.describe "App themes", type: :system do
 
       Write one row per event and deliver it later.
 
+      ### Rows
+
+      Each row holds the event and its payload.
+
       ```ruby
       Outbox.create!(event: "order.paid")
       ```
@@ -172,7 +176,7 @@ RSpec.describe "App themes", type: :system do
         expect(style(".plan-reader .markdown-rendered h2", "font-weight")).to eq("500")
         expect(style(".plan-reader .markdown-rendered strong", "font-weight")).to eq("600")
         expect(style(".page-header__title", "font-size")).to eq("28px")
-        expect(style(".plan-reader .markdown-rendered h1", "font-size")).to eq("20px")
+        expect(%w[h1 h2 h3].map { |h| style(".plan-reader .markdown-rendered #{h}", "font-size") }).to eq(%w[24px 20px 18px])
         expect(style(".plan-reader .markdown-rendered pre", "border-top-width")).to eq("0px")
         expect(style(".plan-reader .markdown-rendered pre[lang]", "text-align", "::before")).to eq("right")
         expect(style(".plan-reader .markdown-rendered pre[lang]", "background-image", "::before")).to eq("none")
