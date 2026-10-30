@@ -91,6 +91,12 @@ Every token in `foundation.css` `:root` can be overridden, for example
 `--shadow-*`. Keep blue for interaction and orange for attention
 ([DESIGN.md](DESIGN.md)).
 
+Shadows mix heights. `--shadow-glass` is on cards and pills on the page and
+also on menus and dialogs. `--shadow-pop` is on buttons and hover lifts.
+`--shadow-lg` is on thread windows and other popovers. To keep page cards
+flat while menus float, set a quiet `--shadow-glass` on `:root` and set it
+again on the floating panels. Neutral shows how.
+
 ## Hooks
 
 | Area | Hooks |
@@ -102,7 +108,7 @@ Every token in `foundation.css` `:root` can be overridden, for example
 | Panels | `--panel-bg`, `--panel-edge`, `--panel-shadow`, `--panel-row-bg`, `--document-support-radius` |
 | Document card | `--document-bg`, `--document-border`, `--document-radius`, `--document-shadow`, `--document-padding`, `--document-padding-narrow` (phones) |
 | Plan title | `--plan-title-size`, `--plan-title-size-narrow`, `--plan-title-weight`, `--plan-title-leading`, `--plan-title-tracking`, `--plan-title-wrap` |
-| Reading type | `--reading-measure`, `--reading-leading`, `--reading-paragraph-gap`, `--reading-heading-weight`, `--reading-heading-tracking`, `--reading-heading-wrap`, `--reading-h1-size`, `--reading-h1-leading`, and for h2 and h3: `-size`, `-leading`, `-space-above`, `-space-below` |
+| Reading type | `--reading-measure`, `--reading-leading`, `--reading-paragraph-gap`, `--reading-heading-weight`, `--reading-heading-tracking`, `--reading-heading-wrap`, `--reading-h1-size`, `--reading-h1-leading`, and for h2 and h3: `-size`, `-leading`, `-space-above`, `-space-below`; `--reading-h4-weight` (defaults to the heading weight) |
 | Emphasis | `--strong-weight` |
 | Code blocks | `--code-block-text`, `--code-block-border`, `--code-block-radius`, `--code-block-padding`, `--code-block-font-size`, `--code-block-leading`, `--code-block-scrollbar` |
 | Code label | `--code-label-height`, `--code-label-margin`, `--code-label-padding`, `--code-label-bg`, `--code-label-dots`, `--code-label-border`, `--code-label-radius`, `--code-label-font`, `--code-label-leading`, `--code-label-tracking`, `--code-label-align` |

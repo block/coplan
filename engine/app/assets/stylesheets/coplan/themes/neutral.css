@@ -54,14 +54,19 @@
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 
   /* Solid surfaces: page-level panels (nav, rows) use the page color,
-     floating panels the floating surface. Every floating panel has a 1px
-     border, so light adds a soft drop and dark adds nothing: a drop can't
-     be seen on a dark page, and a ring would double the border. */
+     floating panels the floating surface. Every panel has a 1px border, so
+     light adds a drop and dark adds nothing: a drop can't be seen on a dark
+     page, and a ring would double the border. Three heights: cards and
+     pills on the page barely lift (--shadow-glass), buttons and hover lifts
+     a little (--shadow-pop), and menus, dialogs and thread windows float
+     (--shadow-lg, and --shadow-glass on the floating panels below). */
   --shadow-lg:
     0 1px 2px light-dark(oklch(0.3 0.01 90 / 0.06), transparent),
     0 14px 32px -10px light-dark(oklch(0.3 0.01 90 / 0.18), transparent);
-  --shadow-pop: var(--shadow-lg);
-  --shadow-glass: var(--shadow-lg);
+  --shadow-pop:
+    0 1px 2px light-dark(oklch(0.3 0.01 90 / 0.06), transparent),
+    0 3px 8px -2px light-dark(oklch(0.3 0.01 90 / 0.1), transparent);
+  --shadow-glass: 0 1px 2px light-dark(oklch(0.3 0.01 90 / 0.05), transparent);
   --glass-bg: var(--color-bg);
   --glass-bg-strong: var(--color-surface);
   --glass-edge: light-dark(oklch(0.9 0.005 90), oklch(0.33 0.005 90));
@@ -93,19 +98,24 @@
   --document-padding: var(--space-sm) 0;
   --document-padding-narrow: var(--space-sm) 0 var(--space-sm) var(--space-lg);
 
-  /* Plan title, set like the document's headings */
+  /* Plan title, set like the document's headings. It stays a step above
+     the document's H1 (the shared 1.5rem) on phones too. */
   --plan-title-size: 1.75rem;
+  --plan-title-size-narrow: 1.625rem;
   --plan-title-weight: 500;
   --plan-title-leading: 1.2;
   --plan-title-tracking: -0.01em;
   --plan-title-wrap: balance;
 
   /* Reading type. Heading sizes come from the shared scale, so each level
-     is a step below the one above it. */
-  --reading-measure: 80ch;
+     is a step below the one above it. A ch is the width of "0", wider than
+     an average letter, so 68ch holds about 85 characters a line. H4 is body
+     size, so weight is what marks it. */
+  --reading-measure: 68ch;
   --reading-leading: 1.6;
   --reading-paragraph-gap: 1.12em;
   --reading-heading-weight: 500;
+  --reading-h4-weight: 600;
   --reading-heading-tracking: -0.01em;
   --reading-heading-wrap: balance;
   --reading-h1-leading: 1.25;
@@ -217,6 +227,17 @@
   --color-surface-muted: var(--color-surface-floating-muted);
   --color-interaction-hover-bg: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-floating));
   --color-interaction-active-bg: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface-floating));
+}
+
+/* Floating panels that read --shadow-glass get the floating drop; cards and
+   pills on the page keep the quiet one. The selection's Comment button
+   floats over text, so it lifts like a button. */
+:root[data-app-theme="neutral"] :is(.menu, .review-dialog, .plan-visibility-panel, .review-assignment, .content-nav[popover]) {
+  --shadow-glass: var(--shadow-lg);
+}
+
+:root[data-app-theme="neutral"] .comment-popover__action {
+  --shadow-glass: var(--shadow-pop);
 }
 
 /* Back matter is a flat muted panel on the document's own surface. */

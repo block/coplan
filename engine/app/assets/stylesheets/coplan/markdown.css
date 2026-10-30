@@ -177,6 +177,10 @@
   margin-bottom: var(--reading-h3-space-below, var(--space-md));
 }
 
+:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) h4 {
+  font-weight: var(--reading-h4-weight, var(--reading-heading-weight, 700));
+}
+
 :is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) > :is(h1, h2, h3):first-child {
   margin-top: 0;
 }
@@ -668,6 +672,12 @@
 .markdown-rendered details[open] summary {
   border-bottom: 1px solid var(--color-border);
   margin-bottom: var(--space-md);
+}
+
+/* Raised text keeps the line's height, so a footnote marker doesn't push
+   its line apart from the others. */
+.markdown-rendered :is(sup, sub) {
+  line-height: 0;
 }
 
 .markdown-rendered .footnote-ref a,
