@@ -83,6 +83,9 @@ module CoPlan
       { key: "class-model", author: "hampton", type: "Design Doc", title: "Class diagram: delivery adapters",
         tags: %w[demo diagrams], visibility: "published", folder: "Demo content/Diagrams", group: "Diagrams",
         showcase: "Mermaid class diagram; whole-diagram commenting" },
+      { key: "comment-reactions", author: "hampton", type: "Design Doc", title: "Discussions: react to comments",
+        tags: %w[demo comments], visibility: "published", folder: "Demo content/Discussions", group: "Discussions",
+        showcase: "Threads with reactions; yours are pressed in blue, hover a chip to see who reacted, add one with the smiley button" },
       { key: "single-slide", author: "hampton", type: "Presentation", title: "One slide: the workspace launch decision",
         tags: %w[demo slides], visibility: "published", folder: "Demo content/Presentations", group: "Presentations",
         showcase: "One-slide presentation with speaker notes" },
@@ -296,6 +299,7 @@ module CoPlan
         seed_agent_connections(users) if CoPlan.configuration.agent_connection_enabled?
         seed_content_discussions(users, plans)
         seed_reading_specimen(users, plans)
+        seed_comment_reactions(users, plans)
         seed_reference_gallery(plans, base_url: base_url)
         catalog = seed_catalog(users, plans, plan_types, base_url: base_url)
         seed_writing_history(users, plans, catalog)
@@ -953,6 +957,41 @@ module CoPlan
       )
     end
 
+    # Replies and reactions are added only when a thread is first created,
+    # so re-seeding never restores a reaction someone removed.
+    REACTION_DISCUSSIONS = [
+      { user: "alex", anchor: "valid for seven days",
+        body: "Seven days matches what support already tells people. Ship it.",
+        reactions: { "thumbs_up" => %w[hampton sam mateo], "eyes" => %w[noura] },
+        replies: [ { user: "sam", body: "Agreed. We can revisit if expired-link tickets go up.", reactions: { "heart" => %w[alex hampton] } } ] },
+      { user: "noura", anchor: "revoked the invitation",
+        body: "Check revocation right before sending, not when the reminder is scheduled.",
+        reactions: { "rocket" => %w[aiko alex], "tada" => %w[mateo] } },
+      { user: "hampton", anchor: "appear in the person's workspace switcher",
+        body: "I lean yes, but I want a second opinion from someone on identity.",
+        reactions: { "smile" => %w[alex] } }
+    ].freeze
+
+    def seed_comment_reactions(users, plans)
+      plan = plans.fetch("comment-reactions")
+      REACTION_DISCUSSIONS.each do |discussion|
+        thread = seed_thread(plan: plan, user: users.fetch(discussion[:user]), anchor: discussion[:anchor], body: discussion[:body])
+        next unless thread
+
+        add_seed_reactions(thread.comments.first, users, discussion[:reactions])
+        discussion.fetch(:replies, []).each do |reply|
+          comment = thread.comments.create!(body_markdown: reply[:body], author_type: "human", author_id: users.fetch(reply[:user]).id)
+          add_seed_reactions(comment, users, reply[:reactions])
+        end
+      end
+    end
+
+    def add_seed_reactions(comment, users, reactions)
+      reactions.each do |kind, keys|
+        keys.each { |key| comment.reactions.create!(user: users.fetch(key), kind: kind) }
+      end
+    end
+
     def seed_reference_gallery(plans, base_url:)
       plan = plans.fetch("reference-gallery")
       definition = DOCUMENTS.find { |entry| entry[:key] == "reference-gallery" }
@@ -1006,7 +1045,7 @@ module CoPlan
           "More documents"
         end
       end
-      order = [ "Diagrams", "Presentations", "Tables and rich text", "References", "Writing sources",
+      order = [ "Diagrams", "Presentations", "Tables and rich text", "Discussions", "References", "Writing sources",
         "Plan type examples", "More documents", "Libraries and visibility", "Review scenarios" ]
       sections = order.filter_map do |heading|
         definitions = groups[heading]
@@ -1042,8 +1081,8 @@ module CoPlan
         actual plan type and what you can try. Hampton owns the focused content examples.
 
         Jump to [Diagrams](#diagrams), [Presentations](#presentations),
-        [Tables and rich text](#tables-and-rich-text), [References](#references),
-        or [Every plan type](#every-plan-type).
+        [Tables and rich text](#tables-and-rich-text), [Discussions](#discussions),
+        [References](#references), or [Every plan type](#every-plan-type).
 
         Flowcharts support node and connection comments. Other Mermaid types support
         whole-diagram comments. Browse first; press **C** or choose **Comment** when

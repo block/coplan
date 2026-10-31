@@ -224,6 +224,28 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(formatting.current_content).to eq(formatting_content)
     end
 
+    it "seeds discussions with reactions and preserves reaction changes on re-seed" do
+      described_class.call
+      hampton = CoPlan::User.find_by!(email: "hampton@example.com")
+      plan = seeded_plan("comment-reactions")
+      expect(seeded_plan("demo-library").current_content).to include("## Discussions", plan.url_path, "`comment-reactions`")
+
+      comments = CoPlan::Comment.where(comment_thread: plan.comment_threads)
+      reactions = CoPlan::CommentReaction.where(comment: comments)
+      expect(plan.comment_threads.count).to eq(3)
+      expect(reactions.distinct.pluck(:kind).sort).to eq(CoPlan::CommentReaction::KINDS.keys.sort)
+      expect(reactions.where(user: hampton)).to be_present
+      expect(comments.where.not(id: reactions.where(user: hampton).select(:comment_id))).to be_present
+
+      removed = reactions.find_by!(user: hampton, kind: "thumbs_up")
+      removed.destroy!
+      count = reactions.count
+      described_class.call
+      expect(plan.comment_threads.count).to eq(3)
+      expect(reactions.count).to eq(count)
+      expect(reactions.where(user: hampton, kind: "thumbs_up")).to be_empty
+    end
+
     it "refuses to take over an existing login and rolls back the seed" do
       existing = create(:coplan_user, email: "hampton@example.com", name: "Existing person")
       expect { described_class.call }.to raise_error(ArgumentError, /dedicated development database/)
