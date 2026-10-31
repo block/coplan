@@ -10,11 +10,11 @@
        data-coplan--app-theme-default-value="<%= site_default.key %>"
        data-coplan--app-theme-saved-value="<%= coplan_app_theme_choice %>">
     <div class="settings-row__main">
-      <span class="settings-row__label">Theme</span>
+      <span class="settings-row__label" id="settings-app-theme-label">Theme</span>
       <p class="settings-row__hint settings-row__hint--error" role="status"
          data-coplan--app-theme-target="error" hidden></p>
     </div>
-    <div class="segmented">
+    <div class="segmented" role="radiogroup" aria-labelledby="settings-app-theme-label">
       <label class="segmented__option" title="Follow this site's default, <%= site_default.name %>">
         <input type="radio" name="app_theme" value="<%= CoPlan::User::DEFAULT_APP_THEME %>"
                <%= "checked" if chosen == CoPlan::User::DEFAULT_APP_THEME %>
@@ -33,8 +33,8 @@
   </div>
 
   <div class="settings-row" data-controller="coplan--theme" data-coplan--theme-url-value="<%= coplan.settings_theme_path %>">
-    <span class="settings-row__label">Mode</span>
-    <div class="segmented">
+    <span class="settings-row__label" id="settings-mode-label">Mode</span>
+    <div class="segmented" role="radiogroup" aria-labelledby="settings-mode-label">
       <label class="segmented__option" title="System">
         <input type="radio" name="theme" value="system" <%= "checked" if current_user.theme_preference == "system" %> data-action="coplan--theme#select">
         <span class="segmented__btn">
