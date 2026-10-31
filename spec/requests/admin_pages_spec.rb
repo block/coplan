@@ -18,6 +18,7 @@ RSpec.describe "Admin pages", type: :request do
       )
     },
     "api_tokens" => -> { create(:api_token) },
+    "comment_reactions" => -> { create(:comment_reaction) },
     "comment_threads" => -> { create(:comment_thread) },
     "plan_comments" => -> { create(:comment) },
     "edit_leases" => -> { create(:edit_lease) },
