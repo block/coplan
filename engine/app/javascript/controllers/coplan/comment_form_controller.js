@@ -1,10 +1,13 @@
 import { Controller } from "@hotwired/stimulus"
 import { commandFor } from "coplan/shortcuts"
 
+const LINK_URL = /^(https?:\/\/|mailto:)/i
+
 // Comment-form behavior: submit-on-Enter (Shift+Enter for newline) plus an
 // inline @-mention picker. The picker activates when the user types `@` at a
 // word boundary inside the textarea, fetches matches from /users/search, and
-// inserts `[@username](mention:username)` markdown on selection.
+// inserts `[@username](mention:username)` markdown on selection. Mod+K and
+// pasting a URL over a selection write Markdown links.
 //
 // Both behaviors live on the same controller so submit-on-Enter can defer to
 // the picker when it's open (Enter selects the highlighted user instead of
@@ -99,6 +102,36 @@ export default class extends Controller {
       if (submitter?.disabled) return
       form.requestSubmit(submitter)
     }
+  }
+
+  // Mod+K matches the document editor's link command, writing Markdown.
+  link(event) {
+    if (commandFor("reply", event) !== "link") return
+    event.preventDefault()
+    const { selectionStart: start, selectionEnd: end } = this.element
+    const href = window.prompt("Link URL (https://…)")?.trim()
+    if (!href || !LINK_URL.test(href)) return
+    this.element.focus()
+    this.element.setSelectionRange(start, end)
+    const label = this.element.value.slice(start, end)
+    this.insertText(`[${label}](${href})`)
+    if (!label) this.element.setSelectionRange(start + 1, start + 1)
+  }
+
+  pasteLink(event) {
+    const { selectionStart: start, selectionEnd: end, value } = this.element
+    const href = event.clipboardData?.getData("text/plain").trim()
+    const label = value.slice(start, end)
+    if (!label || !LINK_URL.test(href) || /\s/.test(href) || LINK_URL.test(label.trim())) return
+    event.preventDefault()
+    this.insertText(`[${label}](${href})`)
+  }
+
+  // insertText keeps the edit on the browser's undo stack and fires input.
+  insertText(text) {
+    if (document.execCommand("insertText", false, text)) return
+    this.element.setRangeText(text, this.element.selectionStart, this.element.selectionEnd, "end")
+    this.element.dispatchEvent(new Event("input", { bubbles: true }))
   }
 
   handleInput(_event) {

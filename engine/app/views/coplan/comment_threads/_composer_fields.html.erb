@@ -10,6 +10,7 @@
             rows: 3, placeholder: local_assigns.fetch(:placeholder, "Write a comment..."), required: true,
             aria: { label: label }, class: "composer__input",
             data: { controller: "coplan--comment-form", "coplan--dictation-target": "input",
+                    action: "keydown->coplan--comment-form#link paste->coplan--comment-form#pasteLink",
                     "coplan--comment-form-search-url-value": search_users_path }.merge(local_assigns.fetch(:textarea_data, {})) %>
       <div class="composer__status" role="status" aria-live="polite" data-coplan--dictation-target="status"></div>
       <div class="comment-form__error text-sm" role="alert" id="<%= local_assigns.fetch(:error_id, "new-comment-form-error") %>"></div>
