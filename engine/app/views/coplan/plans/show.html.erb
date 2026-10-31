@@ -25,6 +25,11 @@
   <%= render "coplan/plans/nav_context", plan: @plan, placement: @placement %>
 <% end %>
 
+<% viewers_html = render(partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(@plan), current_user: current_user }) %>
+<% content_for :nav_presence do %>
+  <div id="plan-nav-viewers" class="plan-viewers site-nav__viewers"><%= viewers_html %></div>
+<% end %>
+
 <%= turbo_stream_from @plan %>
 
 <%# plan-keys: Backspace goes back to wherever you came from; [ / ] jump
@@ -48,7 +53,7 @@
   <%= render partial: "coplan/plans/header", locals: { plan: @plan, placement: @placement } %>
   <div class="plan-masthead__side">
     <%= render partial: "coplan/plans/agent_sessions", locals: { agent_sessions: CoPlan::AgentSession.visible.where(plan_id: @plan.id).order(:created_at) } %>
-    <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(@plan), current_user: current_user } %>
+    <div id="plan-viewers" class="plan-viewers"><%= viewers_html %></div>
     <%= render partial: "coplan/plans/toolbar", locals: { plan: @plan, placement: @placement } %>
   </div>
 </div>

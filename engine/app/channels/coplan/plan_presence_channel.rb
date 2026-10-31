@@ -1,5 +1,9 @@
 module CoPlan
   class PlanPresenceChannel < ActionCable::Channel::Base
+    # The masthead list and the compact stack in the sticky nav. Both are
+    # filled from one render; CSS trims the nav copy.
+    VIEWER_TARGETS = "#plan-viewers, #plan-nav-viewers".freeze
+
     def subscribed
       unless current_user
         reject
@@ -65,9 +69,9 @@ module CoPlan
       return if Rails.cache.read(cache_key) == fingerprint
       Rails.cache.write(cache_key, fingerprint, expires_in: 10.minutes)
 
-      Broadcaster.replace_to(
+      Broadcaster.update_to(
         @plan,
-        target: "plan-viewers",
+        targets: VIEWER_TARGETS,
         partial: "coplan/plans/viewers",
         locals: { viewers: viewers }
       )

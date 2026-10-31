@@ -22,8 +22,11 @@ module CoPlan
         Turbo::StreamsChannel.broadcast_replace_to(streamable, target: target, html: html)
       end
 
-      def update_to(streamable, target:, html:)
-        Turbo::StreamsChannel.broadcast_update_to(streamable, target: target, html: html)
+      # targets: takes a CSS selector, so one render can fill several
+      # containers (e.g. the masthead and sticky-nav copies of presence).
+      def update_to(streamable, target: nil, targets: nil, html: nil, partial: nil, locals: {})
+        html ||= render(partial:, locals:)
+        Turbo::StreamsChannel.broadcast_update_to(streamable, target: target, targets: targets, html: html)
       end
 
       def remove_to(streamable, target:)

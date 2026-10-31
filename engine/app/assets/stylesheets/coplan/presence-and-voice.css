@@ -6,9 +6,12 @@
   gap: var(--space-sm);
 }
 
+/* Every item overlaps its neighbour by the same negative margin; the
+   padding absorbs the leftmost one, even when CSS hides trailing items. */
 .plan-viewers__avatars {
   display: flex;
   flex-direction: row-reverse;
+  padding-left: 0.5rem;
 }
 
 /* Each avatar is wrapped in a profile link — the link owns the stacking
@@ -68,10 +71,6 @@
   opacity: 1;
 }
 
-.plan-viewers__avatars > :last-child {
-  margin-left: 0;
-}
-
 .plan-viewers__overflow {
   display: flex;
   align-items: center;
@@ -85,6 +84,11 @@
   font-weight: 600;
   border: 2px solid var(--color-surface);
   margin-left: -0.5rem;
+}
+
+/* The compact count belongs to the sticky-nav copy (see navigation.css). */
+.plan-viewers__overflow--compact {
+  display: none;
 }
 
 .plan-viewers__label {
