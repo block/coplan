@@ -6,6 +6,7 @@ RSpec.describe "Links in the comment composer", type: :system do
   let!(:thread_record) { create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: author) }
   let!(:comment) { create(:comment, comment_thread: thread_record, author_id: author.id, body_markdown: "Start here") }
   let(:textarea) { find(".comment-window:popover-open textarea") }
+  let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
 
   before do
     allow(CoPlan::Ai).to receive(:available?).and_return(false)
@@ -39,11 +40,11 @@ RSpec.describe "Links in the comment composer", type: :system do
 
   it "links the selection with Mod+K, undoes it, and posts it as a link" do
     select_text(4, 19)
-    accept_prompt(with: "https://example.com") { textarea.send_keys([ :control, "k" ]) }
+    accept_prompt(with: "https://example.com") { textarea.send_keys([ mod, "k" ]) }
     expect(textarea.value).to eq("See [Design Overview](https://example.com)")
-    textarea.send_keys([ :control, "z" ])
+    textarea.send_keys([ mod, "z" ])
     expect(textarea.value).to eq("See Design Overview")
-    textarea.send_keys([ :control, "y" ])
+    textarea.send_keys([ mod, :shift, "z" ])
     textarea.send_keys(:enter)
     expect(page).to have_link("Design Overview", href: "https://example.com")
     expect(CoPlan::Comment.last.body_markdown).to eq("See [Design Overview](https://example.com)")
@@ -51,15 +52,15 @@ RSpec.describe "Links in the comment composer", type: :system do
 
   it "inserts an empty link at the caret without a selection" do
     select_text(3, 3)
-    accept_prompt(with: "mailto:team@example.com") { textarea.send_keys([ :control, "k" ]) }
+    accept_prompt(with: "mailto:team@example.com") { textarea.send_keys([ mod, "k" ]) }
     expect(textarea.value).to eq("See[](mailto:team@example.com) Design Overview")
     expect(caret).to eq([ 4, 4 ])
   end
 
   it "leaves the draft alone when the prompt is cancelled or the URL is invalid" do
     select_text(4, 19)
-    dismiss_prompt { textarea.send_keys([ :control, "k" ]) }
-    accept_prompt(with: "javascript:alert(1)") { textarea.send_keys([ :control, "k" ]) }
+    dismiss_prompt { textarea.send_keys([ mod, "k" ]) }
+    accept_prompt(with: "javascript:alert(1)") { textarea.send_keys([ mod, "k" ]) }
     expect(textarea.value).to eq("See Design Overview")
   end
 
