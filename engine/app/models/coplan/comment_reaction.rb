@@ -43,6 +43,15 @@ module CoPlan
       ActiveRecord::Associations::Preloader.new(records: Array(comments), associations: { reactions: :user }).call
     end
 
+    # The read-only shape agents see on each comment in thread JSON.
+    def self.as_api_json(comment)
+      return [] if comment.deleted?
+
+      summarize(comment.reactions).map do |entry|
+        entry.slice(:kind, :emoji, :count).merge(user_ids: entry[:reactions].map(&:user_id))
+      end
+    end
+
     def self.ransackable_attributes(_auth_object = nil)
       %w[id comment_id user_id kind created_at updated_at]
     end

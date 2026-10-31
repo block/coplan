@@ -303,13 +303,13 @@ module CoPlan
         end
 
         def comments
-          threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)
+          threads = @plan.comment_threads.includes({ comments: :reactions }, :created_by_user).order(created_at: :desc)
           render json: threads.map { |t| thread_json(t) }
         end
 
         def snapshot
           record_plan_read!(@plan)
-          threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)
+          threads = @plan.comment_threads.includes({ comments: :reactions }, :created_by_user).order(created_at: :desc)
           references = @plan.references.order(created_at: :desc)
           collaborators = @plan.plan_collaborators.includes(:user)
 
@@ -552,7 +552,8 @@ module CoPlan
                 author_id: c.author_id,
                 agent_name: c.agent_name,
                 body_markdown: c.body_markdown,
-                created_at: c.created_at
+                created_at: c.created_at,
+                reactions: CommentReaction.as_api_json(c)
               }
             }
           }

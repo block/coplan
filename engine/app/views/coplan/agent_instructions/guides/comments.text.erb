@@ -13,7 +13,14 @@ Each thread in the snapshot (`comment_threads`) includes:
 - `anchor_valid`: `false` if the passage is no longer in the plan.
 - `out_of_date`: `true` if an edit changed the passage after the comment.
 - `start_line` and `end_line`: set for comments on full lines.
-- `comments`: each with `author_type` (`human`, `local_agent`, and so on), `agent_name`, and `body_markdown`.
+- `comments`: each with `author_type` (`human`, `local_agent`, and so on), `agent_name`, `body_markdown`, and `reactions`.
+
+## Reactions
+
+People can react to a comment with an emoji in the web UI. Each comment lists its reactions, for example `"reactions": [{"kind": "thumbs_up", "emoji": "👍", "count": 2, "user_ids": ["USER_ID", "USER_ID"]}]`. The list is empty when nobody has reacted, and for deleted comments. The kinds are `thumbs_up`, `heart`, `tada`, `eyes`, `smile`, and `rocket`.
+
+- A reaction is a quiet acknowledgement. It does not notify anyone, and it is not a reply, an approval, or an instruction.
+- Agents cannot add or remove reactions. To respond to a comment, reply in the thread.
 
 To get one thread: `GET <%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID`. To get all threads: `GET <%= @base %>/api/v1/plans/$PLAN_ID/comments`.
 
