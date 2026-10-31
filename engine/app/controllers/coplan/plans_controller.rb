@@ -145,7 +145,7 @@ module CoPlan
       @placement = PlanPlacement.includes(:library, folder: { parent: { parent: { parent: :parent } } })
         .find_by(plan_id: @plan.id)
       @my_folders = current_user.library.folders.order(:name).to_a
-      @threads = @plan.comment_threads.with_kept_comments.includes({ comments: :agent_harness }, :created_by_user).order(:created_at)
+      @threads = @plan.comment_threads.with_kept_comments.includes({ comments: [ :agent_harness, { reactions: :user } ] }, :created_by_user).order(:created_at)
       # The reader view joins auto-extracted resources to their Markdown
       # citations by URL, then lists the remaining resources in the same
       # References section.
@@ -170,7 +170,7 @@ module CoPlan
     def comments_body
       authorize!(@plan, :show?)
       response.headers["Cache-Control"] = "no-store"
-      @threads = @plan.comment_threads.with_kept_comments.includes({ comments: :agent_harness }, :created_by_user).order(:created_at)
+      @threads = @plan.comment_threads.with_kept_comments.includes({ comments: [ :agent_harness, { reactions: :user } ] }, :created_by_user).order(:created_at)
       render partial: "coplan/plans/thread_collection", locals: { plan: @plan, threads: @threads }, layout: false
     end
 

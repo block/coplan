@@ -184,7 +184,7 @@ export default class extends Controller {
 
   dismiss(event, restoreFocus = true) {
     // This document capture handler runs before the nested menu receives Escape.
-    if (event?.key === "Escape" && document.querySelector(".microphone-settings__panel:popover-open")) return
+    if (event?.key === "Escape" && document.querySelector(".microphone-settings__panel:popover-open, .comment-reactions__picker:popover-open")) return
     this.panelTarget.dispatchEvent(new CustomEvent("coplan:composer-close", { bubbles: true }))
     if (event && !this.panelTarget.matches(":popover-open")) return
     event?.preventDefault()
@@ -318,7 +318,12 @@ export default class extends Controller {
       else if (!this.showingOutdated && quote) quote.textContent = this.quoteTarget.textContent
       copy.querySelectorAll(".comment").forEach(comment => {
         const previous = editingComments.get(comment.dataset.commentId)
-        if (previous?.dataset.commentVersion === comment.dataset.commentVersion) comment.replaceWith(previous)
+        if (previous?.dataset.commentVersion !== comment.dataset.commentVersion) return
+        // Reactions change without bumping the comment version; keep the
+        // draft but show the latest reactions.
+        const reactions = comment.querySelector(".comment-reactions")
+        if (reactions) previous.querySelector(".comment-reactions")?.replaceWith(reactions)
+        comment.replaceWith(previous)
       })
       const previousReply = replies.get(copy.dataset.threadId)
       const nextReply = copy.querySelector(".thread-popover__reply")
