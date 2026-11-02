@@ -17,7 +17,7 @@ module CoPlan
         end
 
         def index
-          requests = @plan.review_requests.includes(:reviewer, :requested_plan_version, review_responses: :plan_version)
+          requests = @plan.review_requests.includes(:reviewer, :requested_plan_version, current_response: :plan_version, review_responses: :plan_version)
           render json: { review_requests: requests.map { |request| Reviews::Serialize.call(request) },
                          approval_meaning: "Satisfied with a specific version; grants no execution authority or permissions." }
         end
