@@ -132,6 +132,8 @@ export default class extends Controller {
   confirmApproval(event) {
     this.responseUrl = event.currentTarget.dataset.url
     this.approvalRevision = this.viewedRevision()
+    this.approvalInvalidated = false
+    this.approveButtonTarget.disabled = false
     this.approvalErrorTarget.textContent = ""
     this.approveButtonTarget.textContent = `Approve v${this.approvalRevision}`
     this.approvalTitleTarget.textContent = `Approve v${this.approvalRevision}?`
@@ -140,6 +142,12 @@ export default class extends Controller {
 
   closeApproval() {
     this.approvalTarget.close()
+  }
+
+  invalidateApproval() {
+    this.approvalInvalidated = true
+    this.approveButtonTarget.disabled = true
+    this.approvalErrorTarget.textContent = "This review request changed. Close this dialog and reopen approval for the current request. Your note is preserved."
   }
 
   responseIntent(url, revision, decision, note) {
@@ -156,11 +164,16 @@ export default class extends Controller {
 
   async approve(event) {
     event.preventDefault()
+    if (this.approvalInvalidated) { this.invalidateApproval(); return }
     await this.withBusy(event.target, this.approvalErrorTarget, async () => {
-      const intent = this.responseIntent(this.responseUrl, this.approvalRevision, "approved", this.approvalNoteTarget.value)
-      const result = await this.write(this.responseUrl, "POST", { review_response: { revision: this.approvalRevision, decision: "approved", note: this.approvalNoteTarget.value, idempotency_key: intent.key } })
+      const url = this.responseUrl
+      const intent = this.responseIntent(url, this.approvalRevision, "approved", this.approvalNoteTarget.value)
+      const result = await this.write(url, "POST", { review_response: { revision: this.approvalRevision, decision: "approved", note: this.approvalNoteTarget.value, idempotency_key: intent.key } })
       this.confirmIntent("approved", intent)
       const synced = !result.comment_thread_id || await this.refreshThreads(result.comment_thread_id)
+      // Removal can also arrive after the server saved the old approval but
+      // before its result and comments arrive. Keep the dialog and its note.
+      if (this.approvalInvalidated || this.responseUrl !== url) return
       this.approvalTarget.close()
       this.approvalNoteTarget.value = ""
       if (this.hasNoticeTarget) this.noticeTarget.textContent = `Your approval of v${this.approvalRevision} is recorded.` + (synced ? "" : " Refresh the page to see your comment.")
@@ -168,6 +181,9 @@ export default class extends Controller {
       if (tray) delete tray.dataset.reconsidering
       await this.refresh()
     }, "Recording…")
+    // A refresh can invalidate this dialog while the original POST is in
+    // flight. Keep it invalid after the busy-state cleanup restores buttons.
+    if (this.approvalInvalidated && this.approvalTarget.open) this.invalidateApproval()
   }
 
   async post(event) {
@@ -220,6 +236,8 @@ export default class extends Controller {
       if (sequence !== this.refreshSequence || !this.element.isConnected) return
       const tray = incoming.querySelector(".review-tray")
       const existingTray = this.element.querySelector(".review-tray")
+      const responsePath = tray?.querySelector('[data-coplan--review-tray-target="commentForm"]')?.getAttribute("action")
+      if (this.approvalTarget.open && responsePath !== this.responseUrl) this.invalidateApproval()
       const wasWithdrawn = this.reviewWithdrawn
       this.reviewWithdrawn = !tray
       if (!tray && existingTray) {

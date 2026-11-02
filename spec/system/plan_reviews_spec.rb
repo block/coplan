@@ -230,6 +230,95 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(fresh.review_responses.count).to eq(1)
   end
 
+  [ [ "light", false ], [ "dark", true ] ].each do |theme, separate_refresh|
+    it "invalidates an open approval after #{separate_refresh ? 'separate' : 'coalesced'} reassignment refreshes", :approval_reassignment do
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      within(".review-tray") { click_button "Approve", exact: true }
+      fill_in "Public note", with: "Keep the approval audit trail."
+      pause_review_refreshes
+      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      refresh_review_controls if separate_refresh
+      fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
+      refresh_review_controls
+      within(".review-confirmation[open]") do
+        expect(page).to have_content("This review request changed.")
+        expect(page).to have_button("Approve v1", disabled: true)
+        expect(page).to have_field("Public note", with: "Keep the approval audit trail.")
+        page.save_screenshot(Rails.root.join("tmp/review-preview/invalidated-approval-#{theme}.png"))
+        click_button "Close approval", enable_aria_label: true
+      end
+      expect(fresh.reload.status).to eq("pending")
+      expect(fresh.review_responses).to be_empty
+      within(".review-tray") { click_button "Approve", exact: true }
+      expect(page).to have_field("Public note", with: "Keep the approval audit trail.")
+      click_button "Approve v1"
+      expect(page).to have_no_css(".review-confirmation[open]")
+      expect(fresh.reload.status).to eq("approved")
+      expect(fresh.review_responses.last!.note).to eq("Keep the approval audit trail.")
+    end
+  end
+
+  it "keeps an approval dialog usable when only its requirement changes", :approval_reassignment do
+    within(".review-tray") { click_button "Approve", exact: true }
+    fill_in "Public note", with: "Same review request"
+    pause_review_refreshes
+    task.update!(requirement: "optional")
+    refresh_review_controls
+    expect(page).to have_button("Approve v1", disabled: false)
+    expect(page).to have_no_content("This review request changed.")
+    click_button "Approve v1"
+    expect(page).to have_no_css(".review-confirmation[open]")
+    expect(task.reload.status).to eq("approved")
+  end
+
+  [ false, true ].each do |saved|
+    it "invalidates an approval removed #{saved ? 'after' : 'before'} its in-flight submission is saved", :approval_reassignment do
+      within(".review-tray") { click_button "Approve", exact: true }
+      fill_in "Public note", with: "An approval sent before removal"
+      pause_review_refreshes
+      page.execute_script(<<~JS, saved)
+        const holdAfterSave = arguments[0];
+        const originalFetch = window.fetch.bind(window);
+        window.reviewWrites = [];
+        window.fetch = async (...args) => {
+          if (args[1]?.method === "POST" && String(args[0]).endsWith("/respond")) {
+            window.reviewWrites.push({ url: String(args[0]), key: JSON.parse(args[1].body).review_response.idempotency_key });
+            if (window.reviewWrites.length === 1) {
+              const result = holdAfterSave ? await originalFetch(...args) : null;
+              document.documentElement.dataset.reviewWriteHeld = "true";
+              await new Promise(resolve => { window.releaseReviewWrite = resolve; });
+              if (result) return result;
+            }
+          }
+          return originalFetch(...args);
+        };
+      JS
+      click_button "Approve v1"
+      expect(page).to have_css('html[data-review-write-held="true"]')
+      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
+      refresh_review_controls
+      page.execute_script("window.releaseReviewWrite()")
+      expect(page).to have_no_css('.review-confirmation form[aria-busy="true"]')
+      expect(page).to have_content("This review request changed.")
+      expect(page).to have_button("Approve v1", disabled: true)
+      expect(page).to have_field("Public note", with: "An approval sent before removal")
+      expect(fresh.reload.status).to eq("pending")
+      expect(fresh.review_responses).to be_empty
+      click_button "Close approval", enable_aria_label: true
+      within(".review-tray") { click_button "Approve", exact: true }
+      click_button "Approve v1"
+      expect(page).to have_no_css(".review-confirmation[open]")
+      writes = page.evaluate_script("window.reviewWrites")
+      expect(writes.map { |write| URI(write.fetch("url")).path }).to eq([
+        respond_plan_review_request_path(plan, task), respond_plan_review_request_path(plan, fresh)
+      ])
+      expect(writes.map { |write| write.fetch("key") }.uniq.size).to eq(2)
+      expect(fresh.review_responses.count).to eq(1)
+      expect(fresh.reload.status).to eq("approved")
+    end
+  end
+
   [ [ "light", false ], [ "dark", true ] ].each do |theme, legacy|
     it "updates a surviving note's label after #{legacy ? 'legacy replacement' : 'removal'} without navigation", :review_readdition do
       CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", note: "Keep the audit trail.")
