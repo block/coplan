@@ -53,8 +53,8 @@ RSpec.describe "Plan discussion and approval", type: :system do
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
       open_review_settings
       within(".review-management[open]") do
-        expect(page).to have_checked_field("Reset approvals when content changes")
-        uncheck "Reset approvals when content changes"
+        expect(page).to have_checked_field("Require a new review after changes")
+        uncheck "Require a new review after changes"
         expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
       end
       expect(page).to have_css(".review-reset-policy__status[data-state='saved']")
@@ -63,8 +63,8 @@ RSpec.describe "Plan discussion and approval", type: :system do
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
       open_review_settings
       within(".review-management[open]") do
-        expect(page).to have_unchecked_field("Reset approvals when content changes")
-        check "Reset approvals when content changes"
+        expect(page).to have_unchecked_field("Require a new review after changes")
+        check "Require a new review after changes"
         expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
       end
       expect(plan.reload.reset_reviews_on_change).to be(true)
@@ -76,7 +76,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     sign_in_browser(author)
     open_review_settings
     within(".review-management[open]") do
-      uncheck "Reset approvals when content changes"
+      uncheck "Require a new review after changes"
       expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
     end
     sign_in_browser(reviewer)
@@ -87,8 +87,8 @@ RSpec.describe "Plan discussion and approval", type: :system do
     visit plan_page_path(plan)
     expand_plan_section("footnote-approvals")
     expect(page).to have_css(".review-tray", text: "You approved v1")
-    expect(page).to have_css(".review-tray", text: "no new review required")
-    expect(page).to have_css(".review-person", text: "Content changed since review")
+    expect(page).to have_css(".review-tray", text: "Current version: v2. No new review required.")
+    expect(page).to have_css(".review-person", text: "Current: v2")
     expect(page).to have_no_css(".review-tray", text: "Your review is requested")
     expect(task.reload.effective_human_decision).to be_nil
     [ "light", "dark" ].each do |theme|
@@ -98,7 +98,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     sign_in_browser(author)
     open_review_settings
     within(".review-management[open]") do
-      check "Reset approvals when content changes"
+      check "Require a new review after changes"
       expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
     end
     expect(task.reload.review_status).to eq("approved")
@@ -130,16 +130,16 @@ RSpec.describe "Plan discussion and approval", type: :system do
       page.execute_script('const input = document.querySelector("[data-review-reset-policy]"); input.click(); input.click()')
       expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
       expect(page.evaluate_script("window.policyWrites")).to eq([])
-      uncheck "Reset approvals when content changes"
+      uncheck "Require a new review after changes"
       expect(page).to have_css("[data-review-reset-policy][aria-busy='true']")
       expect(page).to have_no_text("Saving…")
       expect(page).to have_no_text("Saved")
       # Wait until the first request is in flight, then change our mind.
       expect(page).to have_selector("[data-review-reset-policy][data-saved-value='true']")
       expect(page).to have_css("[data-review-reset-policy][data-first-policy-write='true']")
-      check "Reset approvals when content changes"
+      check "Require a new review after changes"
       expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
-      expect(page).to have_checked_field("Reset approvals when content changes", disabled: false)
+      expect(page).to have_checked_field("Require a new review after changes", disabled: false)
     end
     expect(plan.reload.reset_reviews_on_change).to be(true)
     expect(page.evaluate_script("window.policyWrites")).to eq([ false, true ])
@@ -161,14 +161,14 @@ RSpec.describe "Plan discussion and approval", type: :system do
       }
     JS
     within(".review-management[open]") do
-      uncheck "Reset approvals when content changes"
+      uncheck "Require a new review after changes"
       expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
-      expect(page).to have_unchecked_field("Reset approvals when content changes")
+      expect(page).to have_unchecked_field("Require a new review after changes")
     end
     expect(plan.reload.reset_reviews_on_change).to be(false)
     visit plan_page_path(plan)
     open_review_settings
-    expect(page).to have_unchecked_field("Reset approvals when content changes")
+    expect(page).to have_unchecked_field("Require a new review after changes")
   end
 
   it "restores the saved reset preference after a rejected settings update", :review_reset_policy do
@@ -186,11 +186,11 @@ RSpec.describe "Plan discussion and approval", type: :system do
       }
     JS
     within(".review-management[open]") do
-      uncheck "Reset approvals when content changes"
+      uncheck "Require a new review after changes"
       expect(page).to have_text("Unable to save settings")
-      expect(page).to have_checked_field("Reset approvals when content changes", disabled: false)
+      expect(page).to have_checked_field("Require a new review after changes", disabled: false)
       expect(plan.reload.reset_reviews_on_change).to be(true)
-      uncheck "Reset approvals when content changes"
+      uncheck "Require a new review after changes"
       expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
     end
     expect(plan.reload.reset_reviews_on_change).to be(false)
@@ -210,7 +210,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
         return result
       }
     JS
-    uncheck "Reset approvals when content changes"
+    uncheck "Require a new review after changes"
     expect(page).to have_css("[data-review-reset-policy][data-committed='true']")
     # Another author tab commits the opposite setting before our response arrives.
     plan.reload.update!(reset_reviews_on_change: true)
@@ -221,7 +221,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     JS
     page.execute_script("window.releasePolicy()")
     expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
-    expect(page).to have_checked_field("Reset approvals when content changes")
+    expect(page).to have_checked_field("Require a new review after changes")
     expect(plan.reload.reset_reviews_on_change).to be(true)
     expect(page).to have_no_css(".review-reset-policy__status[data-state='saved']")
   end
@@ -243,14 +243,14 @@ RSpec.describe "Plan discussion and approval", type: :system do
         return originalFetch(url, options)
       }
     JS
-    uncheck "Reset approvals when content changes"
+    uncheck "Require a new review after changes"
     expect(page).to have_css("[data-review-reset-policy][data-in-flight='true']")
     page.execute_script(<<~JS)
       const input = document.querySelector('[data-review-reset-policy]')
       input.click(); input.click(); window.rejectPolicy()
     JS
     expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
-    expect(page).to have_unchecked_field("Reset approvals when content changes")
+    expect(page).to have_unchecked_field("Require a new review after changes")
     expect(plan.reload.reset_reviews_on_change).to be(false)
     expect(page.evaluate_script("window.policyWrites")).to eq([ false, false ])
   end
@@ -259,9 +259,9 @@ RSpec.describe "Plan discussion and approval", type: :system do
     sign_in_browser(author)
     open_review_settings
     plan.reload.update!(review_sequence: plan.review_sequence + 1)
-    uncheck "Reset approvals when content changes"
+    uncheck "Require a new review after changes"
     expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
-    expect(page).to have_unchecked_field("Reset approvals when content changes")
+    expect(page).to have_unchecked_field("Require a new review after changes")
     expect(plan.reload.reset_reviews_on_change).to be(false)
     expect(page).to have_no_text("Review settings changed. Please try again.")
   end
@@ -289,16 +289,16 @@ RSpec.describe "Plan discussion and approval", type: :system do
           return originalFetch(url, options)
         }
       JS
-      uncheck "Reset approvals when content changes"
+      uncheck "Require a new review after changes"
       expect(page).to have_css("[data-review-reset-policy][data-in-flight='true']")
       if newer_choice
-        check "Reset approvals when content changes"
+        check "Require a new review after changes"
         page.execute_script("window.losePolicy()")
       end
       expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
       page.execute_script("window.deliverOldPolicy()")
       expect(page).to have_css("[data-review-reset-policy][data-old-status='409']")
-      expect(page).to have_checked_field("Reset approvals when content changes")
+      expect(page).to have_checked_field("Require a new review after changes")
       expect(plan.reload.reset_reviews_on_change).to be(true)
     end
   end
@@ -349,12 +349,12 @@ RSpec.describe "Plan discussion and approval", type: :system do
         }
         window.restorePolicyNetwork = () => { window.fetch = originalFetch; window.setTimeout = originalTimeout }
       JS
-      uncheck "Reset approvals when content changes"
+      uncheck "Require a new review after changes"
       expect(page).to have_text(/Couldn't confirm|Couldn't reach/)
       expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
-      expect(page).to have_checked_field("Reset approvals when content changes", disabled: false)
+      expect(page).to have_checked_field("Require a new review after changes", disabled: false)
       page.execute_script("window.restorePolicyNetwork()")
-      uncheck "Reset approvals when content changes"
+      uncheck "Require a new review after changes"
       expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
       expect(plan.reload.reset_reviews_on_change).to be(false)
     end
@@ -388,16 +388,16 @@ RSpec.describe "Plan discussion and approval", type: :system do
         return originalFetch(url, options)
       }
     JS
-    uncheck "Reset approvals when content changes"
+    uncheck "Require a new review after changes"
     expect(page).to have_css("[data-in-flight='true']")
     page.execute_script("Turbo.visit(arguments[0])", library_page_path(author))
     expect(page).to have_current_path(library_page_path(author))
     page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
     expect(page).to have_current_path(plan_page_path(plan))
     open_review_settings
-    uncheck "Reset approvals when content changes"
+    uncheck "Require a new review after changes"
     expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
-    check "Reset approvals when content changes"
+    check "Require a new review after changes"
     expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
     page.evaluate_async_script(<<~JS)
       const done = arguments[arguments.length - 1]
@@ -407,7 +407,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page.evaluate_script("window.oldPolicyStatus")).to eq(409)
     expect(page.evaluate_script("window.policyWrites")).to eq([ false, false, true ])
     expect(plan.reload.reset_reviews_on_change).to be(true)
-    expect(page).to have_checked_field("Reset approvals when content changes")
+    expect(page).to have_checked_field("Require a new review after changes")
   end
 
   it "stops a deferred controls refresh when successful HTML is a sign-in page", :review_refresh_failures do
@@ -811,15 +811,18 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_css(".review-tray:popover-open", text: "You approved v1")
   end
 
-  it "refuses sign-off when the viewed version changed and keeps the public note" do
-    within(".review-tray") { click_button "Approve" }
-    fill_in "Public note", with: "An unsent approval note"
-    version = create(:plan_version, plan: plan, revision: 2, content_markdown: "Changed while reviewing")
-    plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
-    click_button "Approve v1"
-    expect(page).to have_content("The plan has changed. Review the latest version")
-    expect(page).to have_field("Public note", with: "An unsent approval note")
-    expect(task.review_responses).to be_empty
+  [ true, false ].each do |enabled|
+    it "refuses sign-off on older versions with automatic resets #{enabled ? 'on' : 'off'}", :version_parity do
+      plan.update!(reset_reviews_on_change: enabled)
+      within(".review-tray") { click_button "Approve" }
+      fill_in "Public note", with: "An unsent approval note"
+      version = create(:plan_version, plan: plan, revision: 2, content_markdown: "Changed while reviewing")
+      plan.with_lock { CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version) }
+      click_button "Approve v1"
+      expect(page).to have_content("The plan has changed. Review the latest version")
+      expect(page).to have_field("Public note", with: "An unsent approval note")
+      expect(task.review_responses).to be_empty
+    end
   end
 
   it "keeps feedback tied to the version shown when composition began" do

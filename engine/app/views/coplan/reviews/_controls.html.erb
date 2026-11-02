@@ -40,7 +40,7 @@
               <span><strong><%= own_request.review_status == "approved" ? "#{decision_actor} approved" : "#{decision_actor} requested changes to" %> v<%= response.plan_version.revision %></strong> <span class="review-tray__date">on <time datetime="<%= response.created_at.iso8601 %>" title="<%= response.created_at.strftime('%B %-d, %Y at %H:%M %Z') %>"><%= response.created_at.strftime("%b %-d, %Y") %></time></span></span>
             <% end %>
           </div>
-          <% if response && response.plan_version_id != plan.current_plan_version_id %><small>Content changed since review; no new review required.</small><% end %>
+          <% if response && response.plan_version_id != plan.current_plan_version_id %><small>Current version: v<%= plan.current_revision %>. No new review required.</small><% end %>
           <% if !own_request.pending? && feedback_thread_ids.include?(response&.comment_thread_id) %><button type="button" class="review-log__link review-feedback-link" data-action="coplan--review-tray#openThread" data-thread-id="<%= response.comment_thread_id %>">View feedback</button><% end %>
           <% if approval && approval.plan_version.revision != plan.current_revision %><button type="button" class="btn btn--ghost btn--sm" data-action="coplan--review-tray#compare" data-url="<%= compare_plan_review_request_path(plan, own_request, response_id: approval.id) %>">Changes since approval</button><% end %>
         </div>
