@@ -107,6 +107,15 @@
   box-shadow: var(--shadow-glass);
 }
 
+/* The plan document's card (theme hooks; docs/THEMES.md). */
+.plan-document.card {
+  padding: var(--document-padding, var(--space-lg));
+  border: var(--document-border, 1px solid var(--card-edge));
+  border-radius: var(--document-radius, var(--radius-lg));
+  background: var(--document-bg, var(--glass-bg-strong));
+  box-shadow: var(--document-shadow, var(--shadow-glass));
+}
+
 /* Status badges */
 .badge {
   display: inline-block;
@@ -172,7 +181,7 @@
 .plan-type-icon--lg { width: 36px; height: 36px; border-radius: 9px; }
 .plan-type-icon--lg svg { width: 19px; height: 19px; }
 
-/* Saturated mid-tones read on both themes (like language dots). */
+/* Saturated mid-tones read in both modes (like language dots). */
 .plan-type-icon--0 { background: color-mix(in srgb, #5b8def 16%, transparent); color: #5b8def; }
 .plan-type-icon--1 { background: color-mix(in srgb, #3fa876 16%, transparent); color: #3fa876; }
 .plan-type-icon--2 { background: color-mix(in srgb, #d99a2b 16%, transparent); color: #d99a2b; }
@@ -197,7 +206,7 @@
 .avatar--xl { width: 4rem; height: 4rem; font-size: 1.3rem; }
 
 .avatar--initials {
-  /* White initials need a deeper blue than the dark theme's link color. */
+  /* White initials need a deeper blue than dark mode's link color. */
   background: #2563eb;
   color: var(--color-text-inverse);
   font-weight: 600;
