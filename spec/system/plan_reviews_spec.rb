@@ -360,11 +360,12 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
-  [ true, false ].each do |destination_changes|
-    it "flushes a queued policy across navigation with destination changes=#{destination_changes}", :review_policy_disconnect do
+  [ true, false ].product(%w[accepted rejected lost]).each do |destination_changes, outcome|
+    it "flushes a queued policy after a #{outcome} save with destination changes=#{destination_changes}", :review_policy_disconnect do
       sign_in_browser(author)
       open_review_settings
-      page.execute_script(<<~JS)
+      page.execute_script(<<~JS, outcome)
+        const outcome = arguments[0]
         const root = document.getElementById('plan-review-controls')
         const controller = window.Stimulus.getControllerForElementAndIdentifier(root, 'coplan--review-tray')
         const save = controller.saveResetPolicy.bind(controller)
@@ -380,29 +381,41 @@ RSpec.describe "Plan discussion and approval", type: :system do
           if (options?.method === 'PATCH' && String(url).endsWith('/settings')) {
             const write = {enabled: JSON.parse(options.body).review_settings.reset_reviews_on_change}
             window.policyWrites.push(write)
-            const response = await originalFetch(url, options)
-            write.status = response.status
+            let response
             if (window.policyWrites.length === 1) {
-              root.dataset.committed = 'true'
+              response = outcome === 'accepted' ? await originalFetch(url, options) : new Response(JSON.stringify({error: 'Rejected'}), {status: 422})
+              root.dataset.requestHeld = 'true'
               await new Promise(resolve => { window.releaseOldPolicy = resolve })
-            }
+              if (outcome === 'lost') throw new TypeError('Lost before saving')
+            } else response = await originalFetch(url, options)
+            write.status = response.status
             return response
           }
           return originalFetch(url, options)
         }
       JS
       uncheck "Require a new review after changes"
-      expect(page).to have_css("[data-committed='true']")
-      check "Require a new review after changes"
+      expect(page).to have_css("[data-request-held='true']")
+      if outcome == "accepted"
+        check "Require a new review after changes"
+      else
+        page.execute_script("const input = document.querySelector('[data-review-reset-policy]'); input.click(); input.click()")
+      end
       page.execute_script("Turbo.visit(arguments[0])", library_page_path(author))
       expect(page).to have_current_path(library_page_path(author))
       if destination_changes
         page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
         expect(page).to have_current_path(plan_page_path(plan))
         open_review_settings
-        check "Require a new review after changes"
-        expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
-        uncheck "Require a new review after changes"
+        if outcome == "accepted"
+          check "Require a new review after changes"
+          expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+          uncheck "Require a new review after changes"
+        else
+          uncheck "Require a new review after changes"
+          expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+          check "Require a new review after changes"
+        end
         expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
       end
       page.evaluate_async_script(<<~JS)
@@ -411,8 +424,13 @@ RSpec.describe "Plan discussion and approval", type: :system do
         window.policySaves[0].then(() => Promise.all(window.policySaves)).then(done)
       JS
       writes = page.evaluate_script("window.policyWrites")
-      expect(writes.select { |write| write["status"] == 200 }.map { |write| write["enabled"] }).to eq(destination_changes ? [ false, true, false ] : [ false, true ])
-      expect(plan.reload.reset_reviews_on_change).to eq(!destination_changes)
+      expected = if outcome == "accepted"
+        destination_changes ? [ false, true, false ] : [ false, true ]
+      else
+        destination_changes ? [ false, true ] : [ false ]
+      end
+      expect(writes.select { |write| write["status"] == 200 }.map { |write| write["enabled"] }).to eq(expected)
+      expect(plan.reload.reset_reviews_on_change).to eq(outcome == "accepted" ? !destination_changes : destination_changes)
     end
   end
 

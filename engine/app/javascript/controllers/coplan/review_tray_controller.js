@@ -392,7 +392,7 @@ export default class extends Controller {
       if (!connection.active) {
         // Flush a newer unsent choice using only our submitted sequence or its
         // receipt. A destination-page write wins; never rebase on readback here.
-        if (generation !== this.policyInputGeneration && input.checked !== enabled) {
+        if (generation !== this.policyInputGeneration && (this.policyMustSave || input.checked !== enabled)) {
           input.dataset.reviewSequence = String(followupSequence)
           this.policyMustSave = true
           this.saveResetPolicy(input)
