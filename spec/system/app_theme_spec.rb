@@ -125,6 +125,28 @@ RSpec.describe "App themes", type: :system do
     Timeout.timeout(5) { sleep 0.1 until user.reload.app_theme == "default" }
   end
 
+  it "saves picks from Settings and the bar's menu in the order they were made" do
+    visit settings_root_path
+    page.execute_script(<<~JS)
+      const fetch = window.fetch
+      window.themeSaves = 0
+      window.fetch = (url, options) => {
+        if (!String(url).includes("app_theme")) return fetch(url, options)
+        const wait = options.body.includes("neutral") ? 400 : 0
+        return new Promise(resolve => setTimeout(resolve, wait)).then(() => fetch(url, options)).finally(() => window.themeSaves++)
+      }
+    JS
+
+    find(".settings-row .segmented__option", text: "Neutral").click
+    find(".site-nav__appearance-btn").click
+    within("#appearance-menu") { find(".appearance-menu__theme", text: "Classic").click }
+    expect(app_theme_attribute).to eq("classic")
+
+    Timeout.timeout(5) { sleep 0.1 until page.evaluate_script("window.themeSaves") == 2 }
+    expect(user.reload.app_theme).to eq("classic")
+    expect(page).to have_no_content("Couldn't save that")
+  end
+
   it "keeps the Appearance menu on screen on the narrowest phones" do
     # Headless Chrome keeps windows wider than this, so emulate the screen.
     page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 320, height: 700, deviceScaleFactor: 1, mobile: true)

@@ -19,6 +19,11 @@ import { Controller } from "@hotwired/stimulus"
  * <html> holds only the resolved theme: it can't tell Default from the theme
  * Default resolves to, or a pick from a save.
  */
+// One save queue for the page, shared by every control: Settings and the
+// menu are separate controllers, and a pick in one can follow a pick in the
+// other before its save lands.
+let saving = null
+
 export default class extends Controller {
   static targets = ["error"]
   // saved: the stored choice, "default" or a theme key. The menu's checked
@@ -45,16 +50,16 @@ export default class extends Controller {
     window.removeEventListener("coplan:app-theme", this.follow)
   }
 
-  // Saves go out one at a time, in the order they were picked, so saved
-  // always matches the server. Only the latest pick's outcome touches the
-  // page, so quick clicks can't revert a newer choice.
+  // Saves go out one at a time, in the order they were picked in any
+  // control, so saved always matches the server. Only the latest pick's
+  // outcome touches the page, so quick clicks can't revert a newer choice.
   select(event) {
     const choice = event.target.value
     this._apply(choice)
     this._setError("")
     this._announce(choice, false)
 
-    const save = this.saving = (this.saving || Promise.resolve())
+    const save = saving = (saving || Promise.resolve())
       .then(() => this._save(choice))
       .then(ok => {
         if (ok) {
@@ -64,8 +69,8 @@ export default class extends Controller {
         return ok
       })
     save.then(ok => {
-      if (save !== this.saving) return
-      this.saving = null
+      if (save !== saving) return
+      saving = null
       if (ok) return
 
       if (this.saved) {
