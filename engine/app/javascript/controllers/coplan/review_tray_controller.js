@@ -340,11 +340,13 @@ export default class extends Controller {
     this.policyMustSave = false
     this.managementErrorTarget.textContent = ""
     let confirmed = false
+    let followupSequence = submittedSequence
     try {
       const result = await this.withPolicyDeadline(signal => this.write(this.settingsUrlValue, "PATCH", { review_settings: { reset_reviews_on_change: enabled, review_sequence: input.dataset.reviewSequence } }, signal))
       if (connection !== this.policyConnection) return
       input.dataset.savedValue = String(enabled)
       input.dataset.reviewSequence = String(result.review_sequence)
+      followupSequence = result.review_sequence
       this.policyConflictRetries = 0
       this.policyUncertainSequence = null
       this.policyFenceAttempted = false
@@ -387,10 +389,14 @@ export default class extends Controller {
     } finally {
       if (connection !== this.policyConnection) return
       this.policySaving = false
-      // A detached controller may reconcile a sent write, but must not rebase
-      // its old choice over preferences saved by the new page.
       if (!connection.active) {
-        input.setAttribute("aria-busy", "false")
+        // Flush a newer unsent choice using only our submitted sequence or its
+        // receipt. A destination-page write wins; never rebase on readback here.
+        if (generation !== this.policyInputGeneration && input.checked !== enabled) {
+          input.dataset.reviewSequence = String(followupSequence)
+          this.policyMustSave = true
+          this.saveResetPolicy(input)
+        } else input.setAttribute("aria-busy", "false")
         return
       }
       // Serialize saves so a slow older request cannot overwrite a newer click.

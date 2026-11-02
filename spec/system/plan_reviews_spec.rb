@@ -360,6 +360,62 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
+  [ true, false ].each do |destination_changes|
+    it "flushes a queued policy across navigation with destination changes=#{destination_changes}", :review_policy_disconnect do
+      sign_in_browser(author)
+      open_review_settings
+      page.execute_script(<<~JS)
+        const root = document.getElementById('plan-review-controls')
+        const controller = window.Stimulus.getControllerForElementAndIdentifier(root, 'coplan--review-tray')
+        const save = controller.saveResetPolicy.bind(controller)
+        window.policySaves = []
+        controller.saveResetPolicy = (...args) => {
+          const result = save(...args)
+          window.policySaves.push(result)
+          return result
+        }
+        const originalFetch = window.fetch.bind(window)
+        window.policyWrites = []
+        window.fetch = async (url, options) => {
+          if (options?.method === 'PATCH' && String(url).endsWith('/settings')) {
+            const write = {enabled: JSON.parse(options.body).review_settings.reset_reviews_on_change}
+            window.policyWrites.push(write)
+            const response = await originalFetch(url, options)
+            write.status = response.status
+            if (window.policyWrites.length === 1) {
+              root.dataset.committed = 'true'
+              await new Promise(resolve => { window.releaseOldPolicy = resolve })
+            }
+            return response
+          }
+          return originalFetch(url, options)
+        }
+      JS
+      uncheck "Require a new review after changes"
+      expect(page).to have_css("[data-committed='true']")
+      check "Require a new review after changes"
+      page.execute_script("Turbo.visit(arguments[0])", library_page_path(author))
+      expect(page).to have_current_path(library_page_path(author))
+      if destination_changes
+        page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
+        expect(page).to have_current_path(plan_page_path(plan))
+        open_review_settings
+        check "Require a new review after changes"
+        expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+        uncheck "Require a new review after changes"
+        expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
+      end
+      page.evaluate_async_script(<<~JS)
+        const done = arguments[arguments.length - 1]
+        window.releaseOldPolicy()
+        window.policySaves[0].then(() => Promise.all(window.policySaves)).then(done)
+      JS
+      writes = page.evaluate_script("window.policyWrites")
+      expect(writes.select { |write| write["status"] == 200 }.map { |write| write["enabled"] }).to eq(destination_changes ? [ false, true, false ] : [ false, true ])
+      expect(plan.reload.reset_reviews_on_change).to eq(!destination_changes)
+    end
+  end
+
   it "does not retry an obsolete policy after Turbo navigation", :review_policy_disconnect do
     sign_in_browser(author)
     open_review_settings
