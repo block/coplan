@@ -1,0 +1,41 @@
+/* A quiet glass empty state in the regular application layout. */
+.lost-page { max-width: 34rem; margin: clamp(2rem, 10vh, 6rem) auto var(--space-xl); text-align: center; }
+.lost-page__glass { padding: clamp(2.5rem, 6vw, 4rem) clamp(1.25rem, 4vw, 3rem); border: 1px solid var(--glass-edge); border-radius: 32px; background: linear-gradient(135deg, rgba(255, 255, 255, .12), transparent 55%), var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); box-shadow: var(--shadow-glass); }
+.lost-page__icon { display: grid; place-items: center; margin: 0 auto var(--space-lg); color: var(--color-text-muted); }
+.lost-page__icon svg { width: 42px; height: 42px; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.lost-page__icon circle { fill: currentColor; stroke: none; }
+.lost-page__code { color: var(--color-text-muted); font-size: var(--text-sm); margin-bottom: var(--space-sm); }
+.lost-page h1 { font-size: var(--text-2xl); font-weight: 600; }
+.lost-page__description { color: var(--color-text-muted); font-size: var(--text-sm); margin: var(--space-sm) auto 0; max-width: 24rem; }
+.lost-page__detour { margin-top: var(--space-md); }
+.lost-page__detour summary { display: grid; place-items: center; width: 44px; height: 44px; margin: 0 auto; border-radius: 50%; color: var(--color-text-muted); cursor: pointer; list-style: none; }
+.lost-page__detour summary::-webkit-details-marker { display: none; }
+.lost-page__detour summary svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.lost-page__detour summary:hover { color: var(--color-primary); background: var(--color-interaction-hover-bg); }
+.lost-page__detour[open] summary { color: var(--color-primary); background: var(--color-interaction-active-bg); }
+.lost-page__detour summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.lost-game { max-width: 320px; margin: var(--space-lg) auto 0; text-align: left; }
+.lost-game__heading { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); color: var(--color-text-muted); font-size: .75rem; margin-bottom: var(--space-sm); }
+.lost-game__moves { font-variant-numeric: tabular-nums; }
+.lost-game h2 { font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--space-sm); }
+.lost-game__instructions { color: var(--color-text-muted); font-size: .8125rem; }
+.lost-game__map { position: relative; max-width: 320px; padding: 22px; margin: var(--space-sm) auto; }
+.lost-game__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.lost-game__tile { aspect-ratio: 1; padding: 0; border-radius: var(--radius); border: 1px solid var(--color-border-strong); background: var(--color-surface-muted); color: var(--color-text-muted); cursor: pointer; touch-action: manipulation; }
+.lost-game__tile svg { display: block; width: 100%; height: 100%; transition: transform 160ms ease-out; overflow: hidden; border-radius: calc(var(--radius) - 1px); }
+.lost-game__tile path { stroke: currentColor; stroke-width: 10; stroke-linecap: round; }
+.lost-game__tile circle { fill: var(--color-surface); }
+.lost-game__tile.is-connected { color: var(--color-primary); background: var(--color-interaction-active-bg); }
+.lost-game__tile:hover { border-color: var(--color-primary); background: var(--color-interaction-hover-bg); }
+.lost-game__tile:focus-visible, .lost-game__reset:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.lost-game__tile:disabled { cursor: default; }
+.lost-game__in, .lost-game__out { position: absolute; font-size: .625rem; font-weight: 600; line-height: 1.5; color: var(--color-primary); text-align: center; }
+.lost-game__in { left: 0; top: calc(12.5% + 4px); }
+.lost-game__out { right: -1px; bottom: calc(12.5% + 4px); }
+.lost-game__status { font-size: .75rem; line-height: 1.6; min-height: 39px; margin-bottom: var(--space-md); color: var(--color-text-muted); }
+.is-solved .lost-game__status { color: var(--color-primary); font-weight: 600; }
+.lost-game__footer { border-top: 1px solid var(--color-border); display: flex; gap: var(--space-sm); align-items: center; justify-content: space-between; padding-top: var(--space-sm); }
+.lost-game__footer > span { max-width: 160px; font-size: .6875rem; color: var(--color-text-muted); }
+.lost-game__reset { min-height: 44px; flex-shrink: 0; font-family: inherit; }
+.lost-game__fallback { color: var(--color-text-muted); font-size: var(--text-sm); margin-top: var(--space-md); }
+@media (prefers-reduced-motion: reduce) { .lost-game__tile svg { transition: none; } }

@@ -40,11 +40,18 @@ module CoPlan
 
     class NotAuthorizedError < StandardError; end
 
-    rescue_from NotAuthorizedError do
-      head :not_found
-    end
+    rescue_from NotAuthorizedError, ActiveRecord::RecordNotFound, with: :render_not_found
 
     private
+
+    def render_not_found
+      # Mime#html? also matches Turbo Streams, which need an empty error response.
+      if request.format == Mime[:html] && action_name != "markdown"
+        render "coplan/errors/not_found", layout: "coplan/application", status: :not_found
+      else
+        head :not_found
+      end
+    end
 
     # A second CSP composes with any stricter host policy. It also constrains
     # frame redirects, rather than trusting only the initial iframe URL.
