@@ -226,6 +226,52 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
+  [ false, true ].each do |legacy|
+    it "does not apply a delayed #{legacy ? 'reassignment' : 'removal'} discussion refresh to another plan", :review_navigation do
+      CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", note: "Plan A review discussion")
+      CoPlan::Reviews::Withdraw.call(request: task, actor: author) if legacy
+      destination = create(:plan, :published, created_by_user: author, title: "Destination plan")
+      thread = create(:comment_thread, plan: destination, created_by_user: author)
+      create(:comment, comment_thread: thread, author_id: author.id, body_markdown: "Plan B discussion stays here")
+      sign_in_browser(author)
+      hold_review_delivery("comments")
+      page.execute_script(<<~JS)
+        const root = document.getElementById("plan-review-controls");
+        const controller = window.Stimulus.getControllerForElementAndIdentifier(root, "coplan--review-tray");
+        const refresh = controller.refreshThreads.bind(controller);
+        controller.refreshThreads = async (...args) => {
+          const result = await refresh(...args);
+          document.documentElement.dataset.oldReviewFinished = "true";
+          return result;
+        };
+      JS
+      click_button "More actions"
+      within("#plan-menu") { click_button "Manage reviewers" }
+      within(".review-management[open]") do
+        if legacy
+          click_button "Add reviewer", exact: true
+        else
+          click_button "Actions for Plan Reviewer", enable_aria_label: true
+          click_button "Remove reviewer"
+        end
+      end
+      if legacy
+        fill_in "Find a reviewer", with: reviewer.name
+        find(".review-search-result", text: reviewer.name).click
+        within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+      end
+      expect(page).to have_css('html[data-review-delivery-held="true"]')
+      expect(page.evaluate_script("window.heldReviewDelivery")).to include("Plan A review discussion")
+      page.execute_script("window.Turbo.visit(arguments[0])", plan_page_path(destination))
+      expect(page).to have_current_path(plan_page_path(destination))
+      expect(page).to have_css("#plan-general-comment-list", text: "Plan B discussion stays here", visible: :all)
+      page.execute_script("window.releaseReviewDelivery()")
+      expect(page).to have_css('html[data-old-review-finished="true"]')
+      expect(page).to have_css("#plan-general-comment-list", text: "Plan B discussion stays here", visible: :all)
+      expect(page).to have_no_css("#plan-general-comment-list", text: "Plan A review discussion", visible: :all)
+    end
+  end
+
   [ [ "light", false ], [ "dark", true ] ].each do |theme, separate_refresh|
     it "submits a preserved draft to the replacement after #{separate_refresh ? 'separate' : 'coalesced'} refreshes", :review_readdition do
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)

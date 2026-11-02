@@ -220,6 +220,7 @@ export default class extends Controller {
   }
 
   async refreshThreads(threadId, current = () => true) {
+    if (!this.element.isConnected) return false
     // Another reviewer's removal can also make this collection snapshot stale.
     const removalSequence = this.removalSequence
     const editor = document.querySelector('[data-coplan--inline-editor-comments-url-value]')
@@ -228,7 +229,7 @@ export default class extends Controller {
       const response = await fetch(editor.getAttribute("data-coplan--inline-editor-comments-url-value"), { credentials: "same-origin", headers: { Accept: "text/html" } })
       if (response.ok) {
         const html = await response.text()
-        if (!current() || removalSequence !== this.removalSequence) return false
+        if (!this.element.isConnected || !current() || removalSequence !== this.removalSequence) return false
         const incoming = new DOMParser().parseFromString(html, "text/html")
         const id = `comment_thread_${threadId}`
         const thread = incoming.getElementById(id)
