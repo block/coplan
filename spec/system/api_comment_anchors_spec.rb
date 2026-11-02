@@ -13,6 +13,8 @@ RSpec.describe "API comment anchors", type: :system do
       | Composer | Reads the `response.deadline` field. |
       | Policy | No deadline means available. |
 
+      ![Diagram description](/icon.svg)
+
       <!-- internal annotation -->
     MARKDOWN
   end
@@ -67,6 +69,15 @@ RSpec.describe "API comment anchors", type: :system do
     expect(page).to have_css("td mark[data-thread-id='comment_thread_#{thread.id}']", text: "response.deadline")
     expect(page).to have_no_css("p mark[data-thread-id='comment_thread_#{thread.id}']")
     expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Only the table occurrence")
+  end
+
+  it "shows a fallback when a valid text quote has no matching DOM text" do
+    thread = post_comment("Diagram description", "Feedback on the image description")
+    expect(thread.rendered_anchor_text).to eq("Diagram description")
+    visit plan_page_path(plan, thread: thread.id)
+    expect(page).to have_no_css("mark[data-thread-id='comment_thread_#{thread.id}']")
+    expect(page).to have_css("#plan-general-comments .document-comment", text: "Feedback on the image description")
+    expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Feedback on the image description")
   end
 
   it "makes an unrendered source anchor discoverable, replyable, and directly linkable" do
