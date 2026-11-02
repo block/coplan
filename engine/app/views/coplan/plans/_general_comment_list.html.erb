@@ -1,4 +1,4 @@
-<% general_threads = threads.reject(&:anchored?).reject(&:out_of_date?) %>
+<% general_threads = threads.select { |thread| thread.anchor_kind.blank? && !thread.out_of_date? } %>
 <div id="plan-general-comment-list" data-coplan--document-comments-target="list">
     <% reviews = CoPlan::ReviewResponse.where(comment_thread_id: general_threads.map(&:id)).includes(:plan_version).index_by(&:comment_thread_id) %>
     <% general_threads.each do |thread| %>

@@ -19,7 +19,14 @@ export default class extends Controller {
   applyFilter() {
     if (!this.hasListTarget) return
     const filter = this.filterTarget.value || "open"
-    const comments = [...this.listTarget.querySelectorAll("[data-comment-status]")]
+    // Keep a document entry whenever the renderer cannot place a text anchor.
+    // Checking actual marks also covers overlapping anchors and Turbo updates.
+    const comments = [...this.listTarget.querySelectorAll("[data-comment-status]")].filter(comment => {
+      const inline = comment.dataset.inlineAnchor === "true" &&
+        document.querySelector(`mark.anchor-highlight[data-thread-id="${comment.dataset.threadId}"]`)
+      if (inline) comment.hidden = true
+      return !inline
+    })
     comments.forEach(comment => { comment.hidden = filter !== "all" && comment.dataset.commentStatus !== filter })
     const navCount = document.getElementById("nav-comments-count")
     if (navCount) navCount.textContent = comments.length || ""

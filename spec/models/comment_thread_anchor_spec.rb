@@ -13,6 +13,41 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
     plan
   end
 
+  describe "rendered_anchor_text" do
+    let(:content) do
+      "Read the `deadline` field.\n\nRead the `deadline` field.\n\n" \
+        "| Name | Policy |\n| --- | --- |\n| Example | **Available** |\n\n" \
+        "Literal syntax: `` `deadline` ``.\n\n<!-- hidden -->\n"
+    end
+
+    def source_thread(anchor, occurrence: 1)
+      plan.comment_threads.create!(plan_version: plan.current_plan_version,
+        created_by_user: user, anchor_text: anchor, anchor_occurrence: occurrence)
+    end
+
+    it "projects source formatting while preserving the stored quote and occurrence" do
+      thread = source_thread("Read the `deadline` field.", occurrence: 2)
+      expect(thread.rendered_anchor_text).to eq("Read the deadline field.")
+      expect(thread.anchor_occurrence_index).to eq(1)
+      expect(thread.anchor_text).to eq("Read the `deadline` field.")
+      expect(content[thread.anchor_start...thread.anchor_end]).to eq(thread.anchor_text)
+    end
+
+    it "projects a table row using the surrounding document grammar" do
+      expect(source_thread("| Example | **Available** |").rendered_anchor_text).to eq("Example Available")
+    end
+
+    it "preserves literal Markdown characters rendered inside code" do
+      expect(source_thread("`` `deadline` ``").rendered_anchor_text).to eq("`deadline`")
+    end
+
+    it "returns no rendered quote for source with no visible text" do
+      thread = source_thread("<!-- hidden -->")
+      expect(thread.rendered_anchor_text).to eq("")
+      expect(thread.anchor_occurrence_index).to be_nil
+    end
+  end
+
   describe "anchor_must_resolve on create" do
     # A thread whose anchor never resolved renders nowhere: no highlight,
     # no popover, no path to it from the page. Refused at the door rather

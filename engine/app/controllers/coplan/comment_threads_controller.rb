@@ -61,7 +61,7 @@ module CoPlan
       Broadcaster.append_to(@plan, target: "plan-threads", partial: "coplan/comment_threads/thread_popover", locals: locals)
       html = render_to_string(partial: "coplan/comment_threads/thread_popover", locals: locals, formats: [ :html ])
       inline_streams = [ turbo_stream.append("plan-threads", html) ]
-      inline_streams << general_comments_stream unless thread.anchored?
+      inline_streams << general_comments_stream if thread.anchor_kind.blank? && !thread.out_of_date?
 
       respond_with_stream_or_redirect("Comment added.", streams: inline_streams)
     end
@@ -135,7 +135,7 @@ module CoPlan
 
     def comment_list_streams(thread)
       streams = []
-      streams << general_comments_stream unless thread.anchored?
+      streams << general_comments_stream if thread.anchor_kind.blank? && !thread.out_of_date?
       streams << detached_comments_stream if thread.out_of_date? && thread.anchor_kind.blank?
       streams
     end

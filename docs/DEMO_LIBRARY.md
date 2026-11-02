@@ -53,6 +53,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | mixed-slides | Prose around two separately presentable decks; diagrams, code, table, image, notes |
 | pattern-showcase | Title, columns, stage, quote, code, image, and table slide layouts |
 | reference-gallery | All five reference types, a resolved CoPlan target, explicit/extracted references, named citations, repeated URLs, footnotes |
+| api-comment-anchors | Markdown text and table-row highlights; source-only discussion in Comments |
 | table-gallery | Precise cell discussion, repeated labels, empty values, links, wide expandable data |
 | formatting-gallery | Headings, editable template notes hidden while reading, emphasis, quotes, nested lists, tasks, two code languages, image, mention, footnote |
 | image-resizing | Resize and restore image widths, wrap prose from the top, Shift+Enter beside, Enter below |
