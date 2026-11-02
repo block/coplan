@@ -43,6 +43,66 @@ RSpec.describe "Writing provenance", type: :system do
     snapshot.fetch("sources").fetch(run.last).fetch("kind")
   end
 
+  context "when reordering a person's writing" do
+    let(:content) { "# Current Architecture\n\nDevices connect directly to the cloud.\n\n# Proposal\n\nConnect devices securely over the local network.\n" }
+    let(:plan) do
+      CoPlan::Plans::Create.call(title: "Moved writing", content: content, user: user, actor_type: "human",
+        input_sources: { "runs" => [ [ content.length, "human" ] ] })
+    end
+
+    it "retains the author and introduction version after separate rich-editor cut and paste autosaves" do
+      open_editor
+      paragraph = "Devices connect directly to the cloud."
+      page.execute_script(<<~JS, content.index(paragraph), paragraph.length)
+        const controller = Stimulus.getControllerForElementAndIdentifier(document.querySelector('form.document-editor'), 'coplan--editor')
+        controller.richEditor.selectSource(arguments[0], arguments[0] + arguments[1])
+        const clipboard = new DataTransfer()
+        controller.richEditor.view.dom.dispatchEvent(new ClipboardEvent('cut', {clipboardData: clipboard, bubbles: true, cancelable: true}))
+        window.movedWriting = clipboard.getData('text/plain')
+      JS
+      expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", visible: :all, wait: 15)
+      expect(plan.reload.current_content).not_to include("Devices connect directly")
+      surface = find('[aria-label="Document body"]')
+      page.execute_script(<<~JS, plan.current_content.length)
+        const controller = Stimulus.getControllerForElementAndIdentifier(document.querySelector('form.document-editor'), 'coplan--editor')
+        controller.richEditor.selectSource(arguments[0], arguments[0])
+      JS
+      surface.send_keys(:enter)
+      page.execute_script(<<~JS, surface)
+        const clipboard = new DataTransfer()
+        clipboard.setData('text/plain', window.movedWriting)
+        arguments[0].dispatchEvent(new ClipboardEvent('paste', {clipboardData: clipboard, bubbles: true, cancelable: true}))
+      JS
+      expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v3", visible: :all, wait: 15)
+      expect(plan.reload.current_content.index("Connect devices securely")).to be < plan.current_content.index(paragraph)
+      expect(writing_kind("Devices connect directly")).to eq("human")
+      expect(plan.writing_provenance_summary.dig("shares", "human")).to eq(1.0)
+      within("#plan-toolbar") { click_link "Done" }
+      expect(page).to have_no_css('.inline-editor form.document-editor', wait: 20)
+      find(".writing-provenance__trigger").click
+      expect(page).to have_css(".writing-provenance__counts", text: user.name)
+      expect(page).to have_no_css(".writing-provenance__counts dt", text: "Unknown")
+      click_button "Inspect writing"
+      expect(page).to have_button("Done inspecting")
+      point = page.evaluate_script(<<~JS)
+        (() => {
+          const root = [...document.querySelectorAll('#plan-content-body p')].find(node => node.textContent.includes('Devices connect directly'))
+          const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+          let node
+          while (node = walker.nextNode()) {
+            const at = node.textContent.indexOf('Devices')
+            if (at < 0) continue
+            const range = document.createRange(); range.setStart(node, at); range.setEnd(node, at + 7)
+            const rect = range.getBoundingClientRect()
+            return {x: rect.x + rect.width / 2, y: rect.y + rect.height / 2}
+          }
+        })()
+      JS
+      page.driver.browser.execute_cdp("Input.dispatchMouseEvent", type: "mouseMoved", x: point.fetch("x"), y: point.fetch("y"))
+      expect(page).to have_css('.writing-inspection__tooltip:popover-open', text: "Added in v1")
+    end
+  end
+
   it "keeps mixed typed and pasted citation text separate from retained agent writing" do
     content = "Read source[^ref].\n\n[^ref]: Original evidence.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "local_agent", actor_id: user.id)
@@ -262,7 +322,7 @@ RSpec.describe "Writing provenance", type: :system do
     JS
     expect(page).to have_css('#writing-provenance[data-coplan--writing-provenance-revision-value="2"]', wait: 20)
     expect(plan.reload.writing_provenance_summary.dig("counts", "unknown")).to eq(13)
-    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => 2)
+    expect(plan.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => CoPlan::Plans::WritingProvenance::HISTORY_POLICY)
   end
 
   it "attributes repeated prose to its writer rather than an earlier diagram label" do

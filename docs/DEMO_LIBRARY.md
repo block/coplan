@@ -45,6 +45,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | Content example | What to try |
 | --- | --- |
 | writing-legacy-unknown | Pre-identity history repaired as Unknown; recorded agent identities are preserved |
+| writing-moved | Original authorship survives reordering, including separate cut and paste autosaves |
 | diagram-comments | Flowchart node and edge discussions; browse, press C, select an element, expand |
 | entity-relationships / class-model | ER and class diagrams with whole-diagram discussions |
 | mobile-checkout / long-title | State and sequence diagrams with whole-diagram discussions |
