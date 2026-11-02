@@ -63,6 +63,77 @@ RSpec.describe "API comment anchors", type: :system do
     end
   end
 
+  it "restores anchor visibility when the Comments controller reconnects" do
+    inline = post_comment("Read the `response.deadline` field.", "Inline code feedback")
+    post_comment("Diagram description", "Feedback on the image description")
+    visit plan_page_path(plan)
+    expect(page).to have_css("mark[data-thread-id='comment_thread_#{inline.id}']")
+    find("#plan-general-comments summary").click
+    expect(page).to have_css("#plan-general-comments .document-comment", count: 1)
+
+    # Replace only Comments, leaving the already-connected highlighter in place.
+    # Clear visibility to mimic freshly rendered server HTML.
+    page.execute_script(<<~JS)
+      const comments = document.getElementById("plan-general-comments").cloneNode(true)
+      comments.querySelectorAll(".document-comment").forEach(comment => comment.hidden = false)
+      comments.dataset.reconnected = "true"
+      window.Turbo.renderStreamMessage(`<turbo-stream action="replace" target="plan-general-comments"><template>${comments.outerHTML}</template></turbo-stream>`)
+    JS
+    expect(page).to have_css("#plan-general-comments[data-reconnected='true']")
+    expect(page).to have_css("#plan-general-comments .document-comment", count: 1, text: "Feedback on the image description")
+    expect(page).to have_no_css("#plan-general-comments .document-comment", text: "Inline code feedback")
+    expect(page).to have_css("#nav-comments-count", text: "1", exact_text: true)
+  end
+
+  it "refilters Turbo list replacements and updates counts when the last target is removed" do
+    inline = post_comment("Read the `response.deadline` field.", "Inline code feedback")
+    post_comment("Diagram description", "Feedback on the image description")
+    visit plan_page_path(plan)
+    expect(page).to have_css("mark[data-thread-id='comment_thread_#{inline.id}']")
+    find("#plan-general-comments summary").click
+    expect(page).to have_css("#plan-general-comments .document-comment", count: 1)
+
+    # Replacing the list keeps the Comments controller connected. Its new
+    # targets must use the last anchor snapshot without another highlight pass.
+    page.execute_script(<<~JS)
+      const list = document.getElementById("plan-general-comment-list").cloneNode(true)
+      list.querySelectorAll(".document-comment").forEach(comment => comment.hidden = false)
+      list.dataset.replaced = "true"
+      window.Turbo.renderStreamMessage(`<turbo-stream action="replace" target="plan-general-comment-list"><template>${list.outerHTML}</template></turbo-stream>`)
+    JS
+    expect(page).to have_css("#plan-general-comment-list[data-replaced='true']")
+    expect(page).to have_no_css("#plan-general-comments .document-comment", text: "Inline code feedback")
+    expect(page).to have_css("#plan-general-comments .document-comment", text: "Feedback on the image description")
+
+    # Emptying the list has no connected targets to trigger a recount.
+    page.execute_script(<<~JS)
+      window.Turbo.renderStreamMessage('<turbo-stream action="update" target="plan-general-comment-list"><template></template></turbo-stream>')
+    JS
+    expect(page).to have_no_css("#plan-general-comments .document-comment")
+    expect(page).to have_css("#nav-comments-count", text: "", exact_text: true, visible: :all)
+    expect(page).to have_css("[data-coplan--document-comments-target='count']", text: "", exact_text: true, visible: :all)
+  end
+
+  it "shows the fallback when a previously placed anchor disappears" do
+    thread = post_comment("Read the `response.deadline` field.", "Inline code feedback")
+    visit plan_page_path(plan)
+    expect(page).to have_css("mark[data-thread-id='comment_thread_#{thread.id}']")
+    find("#plan-general-comments summary").click
+    expect(page).to have_no_css("#plan-general-comments .document-comment")
+
+    # A thread-data refresh reruns highlighting; an empty snapshot must clear
+    # the previous placement rather than retaining its hidden fallback.
+    page.execute_script(<<~JS, "comment_thread_#{thread.id}")
+      const thread = document.getElementById(arguments[0])
+      const replacement = thread.cloneNode(true)
+      replacement.dataset.anchorText = "Text that is absent from the rendered document"
+      thread.replaceWith(replacement)
+    JS
+    expect(page).to have_no_css("mark[data-thread-id='comment_thread_#{thread.id}']")
+    expect(page).to have_css("#plan-general-comments .document-comment", text: "Inline code feedback")
+    expect(page).to have_css("#nav-comments-count", text: "1", exact_text: true)
+  end
+
   it "keeps repeated source text attached to its requested occurrence" do
     thread = post_comment("`response.deadline`", "Only the table occurrence", occurrence: 2)
     visit plan_page_path(plan, thread: thread.id)

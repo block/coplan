@@ -1,15 +1,40 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["list", "filter", "count", "empty"]
+  static targets = ["comment", "disclosure", "filter", "count", "empty"]
+
+  initialize() {
+    this.highlightedThreadIds = new Set()
+  }
 
   connect() {
     this.key = `coplan-comments:${window.location.pathname}`
     try { this.filterTarget.value = sessionStorage.getItem(this.key) || "open" } catch { /* Keep the default. */ }
+    // The highlighter may have connected before this controller. Request its
+    // current snapshot as well as listening for subsequent anchor updates.
+    this.element.dispatchEvent(new CustomEvent("coplan:request-text-anchors", { bubbles: true }))
     this.applyFilter()
   }
 
-  listTargetConnected() { if (this.hasFilterTarget && this.hasEmptyTarget) this.applyFilter() }
+  commentTargetConnected() { this.scheduleFilter() }
+  commentTargetDisconnected() { this.scheduleFilter() }
+
+  scheduleFilter() {
+    if (this.filterScheduled) return
+    this.filterScheduled = true
+    queueMicrotask(() => {
+      this.filterScheduled = false
+      if (this.element.isConnected) this.applyFilter()
+    })
+  }
+
+  anchorsUpdated(event) {
+    // Source diagrams and the editor also emit this event without text-anchor
+    // state. Only the text highlighter owns this snapshot.
+    if (!event.detail?.highlightedThreadIds) return
+    this.highlightedThreadIds = new Set(event.detail.highlightedThreadIds)
+    this.applyFilter()
+  }
 
   filterChanged() {
     try { sessionStorage.setItem(this.key, this.filterTarget.value) } catch { /* Keep the local choice. */ }
@@ -17,19 +42,19 @@ export default class extends Controller {
   }
 
   applyFilter() {
-    if (!this.hasListTarget) return
+    if (!this.hasFilterTarget || !this.hasCountTarget || !this.hasEmptyTarget) return
     const filter = this.filterTarget.value || "open"
     // Keep a document entry whenever the renderer cannot place a text anchor.
-    // Checking actual marks also covers overlapping anchors and Turbo updates.
-    const comments = [...this.listTarget.querySelectorAll("[data-comment-status]")].filter(comment => {
+    const comments = this.commentTargets.filter(comment => {
       const inline = comment.dataset.inlineAnchor === "true" &&
-        document.querySelector(`mark.anchor-highlight[data-thread-id="${comment.dataset.threadId}"]`)
+        this.highlightedThreadIds.has(comment.dataset.threadId)
       if (inline) comment.hidden = true
       return !inline
     })
     comments.forEach(comment => { comment.hidden = filter !== "all" && comment.dataset.commentStatus !== filter })
-    const navCount = document.getElementById("nav-comments-count")
-    if (navCount) navCount.textContent = comments.length || ""
+    this.element.dispatchEvent(new CustomEvent("coplan:document-comment-count", {
+      bubbles: true, detail: { count: comments.length }
+    }))
     const visible = comments.filter(comment => !comment.hidden).length
     this.countTarget.textContent = visible || ""
     this.emptyTarget.textContent = filter === "all" ? "No comments yet." : `No ${filter} discussions.`
@@ -37,7 +62,7 @@ export default class extends Controller {
   }
 
   revealThread(event) {
-    const comment = this.listTarget.querySelector(`[data-thread-id="${event.detail.threadId}"]`)
+    const comment = this.commentTargets.find(comment => comment.dataset.threadId === event.detail.threadId)
     if (!comment || !comment.hidden) return
     this.filterTarget.value = comment.dataset.commentStatus
     this.filterChanged()
@@ -47,6 +72,6 @@ export default class extends Controller {
     if (!event.detail.success) return
     this.filterTarget.value = "open"
     this.filterChanged()
-    this.element.querySelector("details").open = true
+    this.disclosureTarget.open = true
   }
 }
