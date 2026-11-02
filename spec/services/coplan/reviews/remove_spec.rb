@@ -92,8 +92,7 @@ RSpec.describe CoPlan::Reviews::Remove do
                 if action == :respond
                   CoPlan::Reviews::Respond.call(request: stale, actor: stale.reviewer, revision: 1, decision: "approved")
                 else
-                  CoPlan::Reviews::Request.call(plan: stale.plan, reviewer: stale.reviewer,
-                    actor: stale.requested_by_user, request_id: old_id)
+                  CoPlan::Reviews::Request.again(request: stale, actor: stale.requested_by_user)
                 end
               rescue ActiveRecord::RecordNotFound => error
                 error

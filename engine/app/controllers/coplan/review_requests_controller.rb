@@ -29,10 +29,14 @@ module CoPlan
       authorize!(@plan, :update?)
       attributes = params.expect(review_request: [ :requirement, :request_again ])
       if ActiveModel::Type::Boolean.new.cast(attributes[:request_again])
-        Reviews::Request.call(plan: @plan, reviewer: @review_request.reviewer, actor: current_user,
-          requirement: attributes[:requirement].presence || @review_request.requirement, request_id: @review_request.id)
+        Reviews::Request.again(request: @review_request, actor: current_user,
+          requirement: attributes[:requirement].presence)
       else
-        @plan.with_lock { @review_request.reload.update!(requirement: attributes.fetch(:requirement)) }
+        @plan.with_lock do
+          # The request may have been removed while waiting for the plan lock.
+          @review_request.reload
+          @review_request.update!(requirement: attributes.fetch(:requirement))
+        end
         Reviews::Changed.call(request: @review_request, event_type: "review.requested",
           payload: { "action" => "requirement_changed", "requirement" => @review_request.requirement })
       end

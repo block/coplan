@@ -1,14 +1,19 @@
 module CoPlan
   module Reviews
     class Request
-      def self.call(plan:, reviewer:, actor:, requirement: "required", api_token: nil, create_only: false, request_id: nil, replace_withdrawn: false)
-        new(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, request_id:, replace_withdrawn:).call
+      def self.call(plan:, reviewer:, actor:, requirement: "required", api_token: nil, create_only: false, replace_withdrawn: false)
+        new(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, replace_withdrawn:).call
       end
 
-      def initialize(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, request_id:, replace_withdrawn:)
+      def self.again(request:, actor:, requirement: nil, api_token: nil)
+        new(plan: request.plan, reviewer: request.reviewer, request:, actor:, requirement:, api_token:,
+          create_only: false, replace_withdrawn: false).call
+      end
+
+      def initialize(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, replace_withdrawn:, request: nil)
         @plan, @reviewer, @actor, @requirement, @api_token = plan, reviewer, actor, requirement, api_token
         @create_only = create_only
-        @request_id = request_id
+        @request = request
         @replace_withdrawn = replace_withdrawn
       end
 
@@ -16,8 +21,12 @@ module CoPlan
         changed = false
         removed = nil
         request = @plan.with_lock do
-          request = if @request_id
-            @plan.review_requests.where(reviewer: @reviewer).find(@request_id)
+          request = if @request
+            # The plan lock does not reload its children. Reject a request
+            # removed while this operation was waiting for the lock.
+            @request.reload
+            @requirement = @request.requirement if @requirement.nil?
+            @request
           else
             @plan.review_requests.find_or_initialize_by(reviewer: @reviewer)
           end

@@ -234,6 +234,12 @@ export default class extends Controller {
         }
       }
       if (tray && existingTray) existingTray.dataset.completed = tray.dataset.completed
+      if (tray && existingTray) {
+        // Keep the draft and dictation state, but submit new feedback to the
+        // current request. An already-issued fetch retains its original URL.
+        const form = tray.querySelector('[data-coplan--review-tray-target="commentForm"]')
+        if (form && this.hasCommentFormTarget) this.commentFormTarget.action = form.action
+      }
       if (tray && !this.element.querySelector(".review-tray")) this.element.append(tray)
       const currentTray = this.element.querySelector(".review-tray")
       if (tray && currentTray) {
