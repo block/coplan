@@ -322,6 +322,7 @@ export default class extends Controller {
       event.target.querySelector('[type="checkbox"]').checked = true
       this.addReviewerButtonTarget.focus({ preventScroll: true })
       await this.refresh()
+      await this.refreshThreads(null)
     }, "Requesting…")
     this.assignButtonTarget.disabled = !this.reviewerIdTarget.value
   }
@@ -421,7 +422,9 @@ export default class extends Controller {
     try {
       await this.withBusy(button, this.managementErrorTarget, async () => {
         await this.write(button.dataset.url, method, body)
-        await this.refresh()
+        const removedId = method === "DELETE" && body?.review_request?.remove ? new URL(button.dataset.url, document.baseURI).pathname.split("/").at(-1) : null
+        await this.refresh(removedId ? { detail: { removedRequestId: removedId } } : undefined)
+        if (removedId) await this.refreshThreads(null)
       }, "Updating…")
     } finally {
       this.managing = false

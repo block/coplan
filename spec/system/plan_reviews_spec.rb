@@ -194,6 +194,38 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect([ plan.plan_events.where(event_type: "review_requested").count, CoPlan::Notification.count ]).to eq(counts)
   end
 
+  [ false, true ].each do |legacy|
+    it "updates discussion labels after #{legacy ? 'legacy reassignment' : 'removal'} without ActionCable", :review_offline do
+      CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", note: "Retain this public discussion")
+      CoPlan::Reviews::Withdraw.call(request: task, actor: author) if legacy
+      sign_in_browser(author)
+      expect(page).to have_css(".document-comment__type", text: "Review · Approved · v1")
+      page.execute_script('document.querySelectorAll("turbo-cable-stream-source").forEach(source => source.remove())')
+      expect(page).to have_no_css("turbo-cable-stream-source", visible: :all)
+      click_button "More actions"
+      within("#plan-menu") { click_button "Manage reviewers" }
+      within(".review-management[open]") do
+        if legacy
+          click_button "Add reviewer", exact: true
+        else
+          click_button "Actions for Plan Reviewer", enable_aria_label: true
+          click_button "Remove reviewer"
+          expect(page).to have_no_css("[data-review-assignments] .review-person")
+        end
+      end
+      if legacy
+        fill_in "Find a reviewer", with: reviewer.name
+        find(".review-search-result", text: reviewer.name).click
+        within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+        expect(page).to have_css(".review-state", text: "Pending")
+      end
+      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+      expect(page).to have_no_css(".document-comment__type", text: "Review · Approved")
+      within(".review-management[open]") { click_button "Close reviews", enable_aria_label: true }
+      expect(page).to have_content("Retain this public discussion")
+    end
+  end
+
   [ [ "light", false ], [ "dark", true ] ].each do |theme, separate_refresh|
     it "submits a preserved draft to the replacement after #{separate_refresh ? 'separate' : 'coalesced'} refreshes", :review_readdition do
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
