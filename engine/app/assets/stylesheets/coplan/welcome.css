@@ -189,7 +189,7 @@
 
 /* Landing mock — an illustrative, CSS-only rendering of the review loop
    (anchored comment → agent edit → new version). Uses the same design tokens
-   as the real plan UI so it stays truthful in both light and dark themes. */
+   as the real plan UI so it stays truthful in both light and dark mode. */
 .landing-mock {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);

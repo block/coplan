@@ -163,14 +163,18 @@
     overflow-wrap: anywhere;
   }
 
+  .page-header .page-header__title {
+    font-size: var(--plan-title-size-narrow, var(--text-xl));
+  }
+
   /* At phone widths the byline can wrap under itself freely. */
   .page-header__byline {
     flex-wrap: wrap;
   }
 
-  .plan-document {
+  .plan-document.card {
     /* Leave room for the update dot's full hit area inside the card. */
-    padding: var(--space-lg);
+    padding: var(--document-padding-narrow, var(--space-lg));
   }
 
 

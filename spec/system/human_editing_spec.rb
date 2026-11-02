@@ -852,7 +852,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_no_css("#plan-citations", text: "::: {.iframe")
   end
 
-  it "opens back-matter citations for whole content blocks in both themes" do
+  it "opens back-matter citations for whole content blocks in both modes" do
     source = "::: {.presentation}\n\n# Review\n\nDecision.[^catalog]\n\n:::\n\n" +
       '::: {.iframe src="https://unapproved.example.com/report" title="Report" /}' + "\n\n[^catalog]: Catalog details.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,

@@ -371,9 +371,37 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(host_plan.reload.plan_type).to eq(custom)
     end
 
+    it "seeds a reading specimen with every content surface and each discussion state" do
+      described_class.call
+      plan = seeded_plan("reading-specimen")
+      content = plan.current_content
+      expect(content).to include("```sql", "```ruby", "```diff", "```yaml", "```text", "<details>", "- [x] ", "~~Exactly-once delivery~~",
+        "[^incident]:", "[@alex](mention:alex)", "\n---\n", described_class.demo_logo_url)
+      expect(content.scan("```mermaid").size).to eq(2)
+
+      threads = plan.comment_threads
+      expect(threads.where(anchor_kind: %w[mermaid_node table_cell]).pluck(:anchor_kind).sort).to eq(%w[mermaid_node table_cell])
+      ranges = CoPlan::Plans::SourceTargets.new(content).ranges
+      threads.where.not(anchor_kind: nil).each do |thread|
+        expect(ranges).to include([ thread.anchor_kind, thread.anchor_start, thread.anchor_end ])
+      end
+      prose = threads.where(anchor_kind: nil)
+      expect(prose.where.not(anchor_text: nil).where.not(anchor_start: nil).count).to eq(3)
+      expect(prose.where(anchor_text: nil).count).to eq(1)
+      expect(prose.pluck(:status).tally).to eq("open" => 3, "resolved" => 1)
+      answered = prose.detect { |thread| thread.comments.size == 2 }
+      expect(answered.comments.last.author_type).to eq("local_agent")
+
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})", "`reading-specimen`")
+      count = CoPlan::Comment.count
+      described_class.call
+      expect(CoPlan::Comment.count).to eq(count)
+      expect(plan.reload.current_revision).to eq(1)
+    end
+
     it "preserves edited and resolved seeded discussions on re-seeding" do
       described_class.call
-      %w[collab-showcase diagram-comments table-gallery].each do |key|
+      %w[collab-showcase diagram-comments table-gallery reading-specimen].each do |key|
         plan = seeded_plan(key)
         plan.comment_threads.each do |thread|
           thread.comments.first.update!(body_markdown: "My revised feedback")
@@ -382,13 +410,13 @@ RSpec.describe CoPlan::DevelopmentSeed do
       end
       count = CoPlan::CommentThread.count
       # Simulate a pre-upgrade dataset with edited comments but no UUID map.
-      %w[collab-showcase diagram-comments table-gallery].each do |key|
+      %w[collab-showcase diagram-comments table-gallery reading-specimen].each do |key|
         plan = seeded_plan(key)
         plan.update!(metadata: plan.metadata.except("development_seed_threads"))
       end
       described_class.call
       expect(CoPlan::CommentThread.count).to eq(count)
-      %w[collab-showcase diagram-comments table-gallery].each do |key|
+      %w[collab-showcase diagram-comments table-gallery reading-specimen].each do |key|
         expect(seeded_plan(key).comment_threads.pluck(:status)).to all(eq("resolved"))
       end
     end
