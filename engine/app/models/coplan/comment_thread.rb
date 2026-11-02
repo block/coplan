@@ -215,7 +215,9 @@ module CoPlan
       stripped, positions = plan.stripped_content
       first = positions.index { |position| position >= anchor_start && position < anchor_end }
       last = positions.rindex { |position| position >= anchor_start && position < anchor_end }
-      first ? stripped[first..last] : ""
+      # Authored HTML can render text that the Markdown extractor omits.
+      # Give the browser the original quote when there is no mapped text.
+      first ? stripped[first..last] : anchor_text
     end
 
     # Returns the 0-based occurrence index of anchor_text in the rendered

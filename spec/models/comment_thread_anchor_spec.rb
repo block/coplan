@@ -41,9 +41,9 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       expect(source_thread("`` `deadline` ``").rendered_anchor_text).to eq("`deadline`")
     end
 
-    it "returns no rendered quote for source with no visible text" do
+    it "keeps the original quote when the extractor has no mapped text" do
       thread = source_thread("<!-- hidden -->")
-      expect(thread.rendered_anchor_text).to eq("")
+      expect(thread.rendered_anchor_text).to eq("<!-- hidden -->")
       expect(thread.anchor_occurrence_index).to be_nil
     end
   end

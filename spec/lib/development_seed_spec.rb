@@ -9,7 +9,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       threads = plan.comment_threads.order(:created_at).to_a
       expect(threads.map(&:rendered_anchor_text)).to contain_exactly(
         "Read the response.deadline field.", "Composer Reads the response.deadline field.",
-        "No deadline means available.", "")
+        "No deadline means available.", "<!-- internal annotation -->")
       ids = threads.map(&:id).sort
       threads.last.resolve!(plan.created_by_user)
       described_class.call
