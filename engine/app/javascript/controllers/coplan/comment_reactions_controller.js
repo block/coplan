@@ -82,7 +82,7 @@ export default class extends Controller {
       const response = await fetch(url, {
         method: "PATCH", body,
         headers: { "Accept": "text/vnd.turbo-stream.html", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content }
-      })
+      }).catch(() => { throw new Error("") })
       if (!response.ok) throw new Error(response.status === 422 ? await response.text() : "")
       return response.text()
     }).then(({ result, last }) => {
