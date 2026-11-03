@@ -8,6 +8,10 @@ RSpec.describe "Comment reactions", type: :system do
       # Reaction plan
 
       The cache keeps results warm between deploys.
+
+      | Name | Status |
+      |---|---|
+      | Receipt | queued |
     MARKDOWN
   end
   let(:plan) do
@@ -54,6 +58,23 @@ RSpec.describe "Comment reactions", type: :system do
 
   def chip(scope, emoji)
     scope.find(".comment-reaction", text: emoji)
+  end
+
+  def create_table_thread
+    _, start, finish = CoPlan::Plans::SourceTargets.new(plan.current_content).ranges.find { |kind, *| kind == "table_cell" }
+    token = CoPlan::Plans::SourceTargets.verifier.generate(
+      { "digest" => Digest::SHA256.hexdigest(plan.current_content), "kind" => "table_cell",
+        "start" => start, "end" => finish, "label" => "Status" }, purpose: "comment")
+    plan.comment_threads.create!(plan_version: plan.current_plan_version, source_token: token,
+      created_by_user: sam, status: "open").tap do |table_thread|
+      table_thread.comments.create!(author_type: "human", author_id: sam.id, body_markdown: "Queued for how long?")
+    end
+  end
+
+  def open_table_discussion
+    visit plan_page_path(plan)
+    find(".data-grid .source-thread-badge").click
+    find(".source-comments", visible: true).tap { |panel| expect(panel).to have_text("Queued for how long?") }
   end
 
   before { sign_in(viewer) }
@@ -141,5 +162,32 @@ RSpec.describe "Comment reactions", type: :system do
     JS
     sleep 0.2
     expect(popover).to have_reaction("eyes", count: 1, pressed: false)
+  end
+
+  it "keeps reactions working in a cloned table discussion" do
+    table_comment = create_table_thread.comments.first
+    create(:comment_reaction, comment: table_comment, user: viewer, kind: "thumbs_up")
+    create(:comment_reaction, comment: table_comment, user: sam, kind: "thumbs_up")
+    create(:comment_reaction, comment: table_comment, user: sam, kind: "tada")
+    original = "#reactions_comment_#{table_comment.id}"
+    panel = open_table_discussion
+
+    expect(panel).to have_css(".comment-reactions", count: 1)
+    expect(panel).to have_reaction("thumbs_up", count: 2, pressed: true)
+    expect(panel).to have_reaction("tada", count: 1, pressed: false)
+
+    chip(panel, "🎉").click
+    expect(panel).to have_reaction("tada", count: 2, pressed: true)
+    wait_for { table_comment.reactions.where(user: viewer, kind: "tada").exists? }
+    expect(page).to have_css("#{original} .comment-reaction[data-kind='tada'][aria-pressed='true'] .comment-reaction__count",
+      exact_text: "2", visible: :all)
+    expect(panel).to have_css(".comment-reactions[data-version='#{table_comment.reload.reactions_version}']")
+
+    chip(panel, "👍").click
+    expect(panel).to have_reaction("thumbs_up", count: 1, pressed: false)
+    wait_for { !table_comment.reactions.where(user: viewer, kind: "thumbs_up").exists? }
+    expect(page).to have_css("#{original} .comment-reaction[data-kind='thumbs_up'][aria-pressed='false'] .comment-reaction__count",
+      exact_text: "1", visible: :all)
+    expect(panel).to have_css(".comment-reactions", count: 1)
   end
 end
