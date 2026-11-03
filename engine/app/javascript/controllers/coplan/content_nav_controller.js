@@ -4,7 +4,7 @@ import { registerShortcuts, commandFor } from "coplan/shortcuts"
 const STORAGE_KEY = "coplan:content-nav-visible"
 
 export default class extends Controller {
-  static targets = ["sidebar", "list", "content", "toggleBtn", "showBtn", "editorToggleBtn"]
+  static targets = ["sidebar", "list", "content", "toggleBtn", "showBtn", "editorToggleBtn", "commentsCount"]
   static values = { visible: { type: Boolean, default: true } }
 
   connect() {
@@ -31,6 +31,10 @@ export default class extends Controller {
       this.element.removeEventListener("coplan:anchors-updated", this._handleAnchorsUpdated)
     }
     clearTimeout(this._editorTocTimer)
+  }
+
+  documentCommentCountChanged(event) {
+    if (this.hasCommentsCountTarget) this.commentsCountTarget.textContent = event.detail.count || ""
   }
 
   buildToc() {
