@@ -173,7 +173,7 @@ RSpec.describe "Human plan editing", type: :system do
     # Use native selection/typing: Capybara's programmatic input.select() can
     # lose its range when Chrome refocuses the element before send_keys.
     modifier = RUBY_PLATFORM.include?("darwin") ? :meta : :control
-    find("#plan-header .inline-editor__title").send_keys([ modifier, "a" ], "Renamed In Editor")
+    find("#plan-title .inline-editor__title").send_keys([ modifier, "a" ], "Renamed In Editor")
     expect(page).not_to have_css(".document-editor__menu")
     expect(page).not_to have_field("plan_tag_names")
     expect(page).not_to have_field("change_summary", visible: :all)

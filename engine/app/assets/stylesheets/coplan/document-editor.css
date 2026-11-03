@@ -155,7 +155,6 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 .inline-editor__title:focus { outline: none; }
 .inline-editor__title:empty::before { content: attr(data-placeholder); color: var(--color-text-muted); pointer-events: none; }
 .inline-editor__title:focus-visible { text-decoration: underline; text-decoration-color: var(--color-border); text-decoration-thickness: 1px; text-underline-offset: 5px; }
-.page-header__title[hidden] { display: none; }
 .inline-editor .document-editor__paper { min-height: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 .inline-editor .document-editor__body .ProseMirror { min-height: 40vh; }
 .inline-editor__error { margin: 12px 0 0; padding: 10px 12px; border-radius: 6px; background: var(--color-danger-bg, #fef2f2); color: var(--color-danger); font-size: 13px; }

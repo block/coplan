@@ -4,6 +4,18 @@ module CoPlan
   module PlansHelper
     include MarkdownHelper
 
+    # The reading view hides a body's leading H1 — the title above already
+    # says it. An open discussion anchored in that line keeps it showing, so
+    # its highlight stays readable. Decided per page load, not per thread
+    # change, so resolving the discussion never pulls the line out from
+    # under the reader.
+    def opening_heading_discussed?(plan)
+      content = plan.current_content.to_s
+      return false unless content.start_with?("# ")
+      heading_end = content.index("\n") || content.length
+      plan.comment_threads.active.where.not(anchor_start: nil).where(anchor_start: ...heading_end).exists?
+    end
+
     # The narrowing a workspace link may carry. Filter links build on the
     # current params via workspace_path so no call site has to re-list this
     # whitelist — or remember which param to omit.

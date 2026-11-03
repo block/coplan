@@ -839,6 +839,11 @@ module CoPlan
 
     def broadcast_plan_update(plan)
       Broadcaster.replace_to(plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: plan })
+      # Only on a rename: a replaced #plan-title makes every open editor
+      # re-read the plan.
+      if plan.saved_change_to_title?
+        Broadcaster.replace_to(plan, target: "plan-title", partial: "coplan/plans/title", locals: { plan: plan })
+      end
       Broadcaster.replace_to(plan, target: "plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: plan })
     end
 

@@ -366,6 +366,20 @@ RSpec.describe "Api::V1::Plans", type: :request do
       expect(plan.reload.title).to eq("New Title")
     end
 
+    it "broadcasts the new title to the document and the sticky nav" do
+      targets = []
+      allow(CoPlan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
+      patch api_v1_plan_path(plan), params: { title: "New Title" }, headers: headers, as: :json
+      expect(targets).to include("plan-header", "plan-title", "plan-nav-context")
+    end
+
+    it "leaves the title alone when the title did not change" do
+      targets = []
+      allow(CoPlan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
+      patch api_v1_plan_path(plan), params: { tags: [ "infra" ] }, headers: headers, as: :json
+      expect(targets).not_to include("plan-title")
+    end
+
     it "maps legacy status writes onto visibility/archived" do
       draft = create(:plan, :draft, created_by_user: alice)
       patch api_v1_plan_path(draft), params: { status: "developing" }, headers: headers, as: :json

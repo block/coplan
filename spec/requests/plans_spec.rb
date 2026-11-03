@@ -273,6 +273,19 @@ RSpec.describe "Plans", type: :request do
     expect(response).to redirect_to(plan_page_path(plan))
   end
 
+  it "re-broadcasts the document title only when the plan is renamed" do
+    plan # trigger creation
+    targets = []
+    allow(CoPlan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
+
+    patch plan_path(plan), params: { plan: { tag_names: "infra" } }
+    expect(targets).to include("plan-header")
+    expect(targets).not_to include("plan-title")
+
+    patch plan_path(plan), params: { plan: { title: "Renamed" } }
+    expect(targets).to include("plan-title")
+  end
+
   it "index hides other users brainstorm plans when you visit their library" do
     brainstorm_plan # alice's brainstorm
     sign_in_as(bob)
@@ -524,6 +537,31 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).to include('aria-label="General document"')
       tint = Zlib.crc32("General") % CoPlan::PlansHelper::PLAN_TYPE_COLOR_COUNT
       expect(response.body).to include("plan-type-icon--#{tint}")
+    end
+  end
+
+  describe "title on the document" do
+    it "puts the title at the head of the document card, with the metadata row above it" do
+      get plan_page_path(plan)
+      document = Nokogiri::HTML(response.body)
+      expect(document.at_css(".plan-document > .plan-document__head > #plan-title h1.plan-title__heading").text).to eq(plan.title)
+      expect(document.at_css("#plan-header .page-header__byline")).to be_present
+      expect(document.css("#plan-header h1")).to be_empty
+      expect(document.at_css("a.site-nav__doc-title")["href"]).to eq("#plan-title")
+      expect(document.at_css(".plan-document--opening-discussed")).to be_nil
+    end
+
+    it "keeps a leading H1 showing while an open discussion is anchored in it" do
+      plan = CoPlan::Plans::Create.call(title: "Payments", content: "# Payments redesign\n\nIntro.", user: alice,
+        visibility: "published", actor_type: "human")
+      thread = create(:comment_thread, plan: plan, created_by_user: alice, anchor_text: "Payments redesign")
+      expect(thread.anchor_start).to eq(2)
+      get plan_page_path(plan)
+      expect(Nokogiri::HTML(response.body).at_css(".plan-document--opening-discussed")).to be_present
+
+      thread.update!(status: "resolved")
+      get plan_page_path(plan)
+      expect(Nokogiri::HTML(response.body).at_css(".plan-document--opening-discussed")).to be_nil
     end
   end
 

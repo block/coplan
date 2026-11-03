@@ -195,6 +195,15 @@ module CoPlan
             Broadcaster.replace_to(@plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: @plan })
           end
 
+          if @plan.saved_change_to_title?
+            Broadcaster.replace_to(@plan, target: "plan-title", partial: "coplan/plans/title", locals: { plan: @plan })
+          end
+
+          # The sticky nav carries the title and the type icon.
+          if @plan.saved_change_to_title? || @plan.saved_change_to_plan_type_id?
+            Broadcaster.replace_to(@plan, target: "plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: @plan })
+          end
+
           if permitted.key?(:title) && @plan.saved_change_to_title?
             Plans::LogEvent.call(
               plan: @plan, actor: current_user, event_type: "title_changed",
