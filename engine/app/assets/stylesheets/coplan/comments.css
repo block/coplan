@@ -458,7 +458,7 @@
   inset: auto;
   margin: 0;
   padding: 6px 9px;
-  max-width: min(280px, calc(100vw - 16px));
+  max-width: min(360px, calc(100vw - 16px));
   box-sizing: border-box;
   border: 1px solid var(--color-border-strong);
   border-radius: 7px;
@@ -467,6 +467,7 @@
   box-shadow: var(--shadow-pop);
   font: 12px/1.4 var(--font-sans);
   overflow-wrap: anywhere;
+  text-wrap: pretty;
   pointer-events: none;
 }
 
