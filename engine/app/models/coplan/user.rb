@@ -1,5 +1,7 @@
 module CoPlan
   class User < ApplicationRecord
+    # Light/dark mode, not an app theme (docs/THEMES.md). The "theme" names
+    # predate app themes and are persisted, so they stay.
     THEME_PREFERENCES = %w[system light dark].freeze
 
     # Which key holds the microphone open for push-to-talk commenting.

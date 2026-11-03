@@ -45,6 +45,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | Content example | What to try |
 | --- | --- |
 | writing-legacy-unknown | Pre-identity history repaired as Unknown; recorded agent identities are preserved |
+| writing-moved | Original authorship survives reordering, including separate cut and paste autosaves |
 | diagram-comments | Flowchart node and edge discussions; browse, press C, select an element, expand |
 | entity-relationships / class-model | ER and class diagrams with whole-diagram discussions |
 | mobile-checkout / long-title | State and sequence diagrams with whole-diagram discussions |
@@ -56,6 +57,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | api-comment-anchors | Markdown text and table-row highlights; source-only discussion in Comments |
 | table-gallery | Precise cell discussion, repeated labels, empty values, links, wide expandable data |
 | formatting-gallery | Headings, editable template notes hidden while reading, emphasis, quotes, nested lists, tasks, two code languages, image, mention, footnote |
+| reading-specimen | A realistic design doc for judging reading in both modes: prose, headings, lists, tasks, quote, table, footnote, image, SQL/Ruby/diff/YAML code, a long scrolling line, flowchart and sequence diagrams, plus open, agent-answered, resolved, diagram-node, table-cell, and general discussions |
 | image-resizing | Resize and restore image widths, wrap prose from the top, Shift+Enter beside, Enter below |
 
 Flowcharts currently support source-backed node and edge comments. Other
@@ -204,7 +206,7 @@ can open that example from the demo index and try the new behavior.
 3. Seed the real relationships or versions needed by the feature.
 4. Add assertions for the initial state, repeatability, and preservation of
    local changes in `spec/lib/development_seed_spec.rb`.
-5. Run the seed and relevant specs, then try the example in both themes.
+5. Run the seed and relevant specs, then try the example in both modes.
 
 The browsable index includes every definition and refreshes as examples are
 added. If you edit the index yourself, re-seeding preserves your version.

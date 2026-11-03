@@ -248,8 +248,8 @@ del.agent-flash {
   color: var(--color-text-muted, currentColor);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  box-shadow: 0 2px 12px rgb(0 0 0 / 12%);
-  backdrop-filter: blur(8px);
+  box-shadow: var(--window-shadow, 0 2px 12px rgb(0 0 0 / 12%));
+  backdrop-filter: var(--window-blur, blur(8px));
   transition: transform 120ms ease, color 120ms ease, background 120ms ease;
 }
 

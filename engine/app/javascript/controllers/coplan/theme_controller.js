@@ -1,5 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
+// Switches light/dark mode (data-theme), not the app theme (docs/THEMES.md).
+// The "theme" names predate app themes and are kept for hosts.
 export default class extends Controller {
   static values = { url: String }
 
