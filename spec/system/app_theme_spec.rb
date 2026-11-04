@@ -99,6 +99,32 @@ RSpec.describe "App themes", type: :system do
     expect(page.evaluate_script("document.documentElement.dataset.appThemeChoice")).to eq("default")
   end
 
+  it "sends each save with the session token from when it was picked" do
+    visit settings_root_path
+    page.execute_script(<<~JS)
+      const fetch = window.fetch
+      window.themeTokens = []
+      window.fetch = (url, options) => {
+        if (!String(url).includes("app_theme")) return fetch(url, options)
+        const wait = options.body.includes("neutral") ? 400 : 0
+        return new Promise(resolve => setTimeout(resolve, wait)).then(() => {
+          window.themeTokens.push(options.headers["X-CSRF-Token"])
+          return fetch(url, options)
+        })
+      }
+    JS
+    # Tests run without forgery protection, so give the page a token to send.
+    page.execute_script("document.head.insertAdjacentHTML('beforeend', '<meta name=\"csrf-token\" content=\"first-session\">')")
+
+    find(".segmented__option", text: "Neutral").click
+    find(".segmented__option", exact_text: "Classic").click
+    # As if the session changed while the Classic save waits in the queue.
+    page.execute_script("document.querySelector('meta[name=\"csrf-token\"]').content = 'another-session'")
+
+    Timeout.timeout(5) { sleep 0.1 until page.evaluate_script("window.themeTokens.length") == 2 }
+    expect(page.evaluate_script("window.themeTokens")).to eq(%w[first-session first-session])
+  end
+
   it "keeps quick picks in order and falls back to the last one that saved" do
     visit settings_root_path
     page.execute_script(<<~JS)
@@ -207,6 +233,20 @@ RSpec.describe "App themes", type: :system do
     expect(page).to have_css(".settings-row .segmented__option:has(input:checked)", text: "Default (Classic)", wait: 1)
     expect(user.reload.app_theme).to eq("neutral")
     Timeout.timeout(8) { sleep 0.1 until user.reload.app_theme == "default" }
+    expect(page).to have_css(".settings-row .segmented__option:has(input:checked)", text: "Default (Classic)")
+  end
+
+  it "reads the stored choice from <html> once saves settle" do
+    visit settings_root_path
+    find(".segmented__option", text: "Neutral").click
+    Timeout.timeout(5) { sleep 0.1 until page.evaluate_script("document.documentElement.dataset.appThemeChoice") == "neutral" }
+    # As if another account's page now owns <html>.
+    page.execute_script("const h = document.documentElement; h.dataset.appThemeChoice = 'default'; h.dataset.appTheme = 'classic'")
+
+    click_link "Manage agent sessions"
+    expect(page).to have_no_css(".settings-row")
+    page.execute_script("Turbo.visit(#{settings_root_path.to_json})")
+
     expect(page).to have_css(".settings-row .segmented__option:has(input:checked)", text: "Default (Classic)")
   end
 

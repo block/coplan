@@ -27,7 +27,8 @@ import { Controller } from "@hotwired/stimulus"
  */
 // One save queue for the page, shared by every control: Settings and the
 // menu are separate controllers, and a pick in one can follow a pick in the
-// other before its save lands. picked is the latest pick, saved or not.
+// other before its save lands. picked is the latest pick while saves are
+// in flight; once they settle, <html> holds the stored choice.
 let saving = null
 let picked = null
 
@@ -56,24 +57,26 @@ export default class extends Controller {
   // a newer choice.
   select(event) {
     const choice = picked = event.target.value
+    // The session's token at pick time: a save still queued after signing
+    // out carries the old session's token, which the server refuses.
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
     this._apply(choice)
     this._setError("")
     this._announce(choice)
 
     const save = saving = (saving || Promise.resolve())
-      .then(() => this._save(choice))
+      .then(() => this._save(choice, csrfToken))
       .then(ok => {
         if (ok) document.documentElement.dataset.appThemeChoice = choice
         return ok
       })
     save.then(ok => {
       if (save !== saving) return
-      saving = null
+      saving = picked = null
       if (ok) return
 
       const stored = document.documentElement.dataset.appThemeChoice
       if (stored) {
-        picked = stored
         this._check(stored)
         this._apply(stored)
         this._announce(stored)
@@ -82,8 +85,7 @@ export default class extends Controller {
     })
   }
 
-  async _save(choice) {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+  async _save(choice, csrfToken) {
     try {
       const response = await fetch(this.urlValue, {
         method: "PATCH",
