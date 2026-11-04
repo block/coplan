@@ -93,7 +93,9 @@ export default class extends Controller {
         },
         body: `app_theme=${encodeURIComponent(choice)}`
       })
-      return response.ok
+      // A signed-out save is redirected to sign-in, which fetch follows to a
+      // 200, so a redirect is a refusal too.
+      return response.ok && !response.redirected
     } catch {
       // Offline or the request never landed — same outcome as a refusal.
       return false

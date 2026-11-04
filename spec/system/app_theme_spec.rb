@@ -82,6 +82,23 @@ RSpec.describe "App themes", type: :system do
     expect(user.reload.app_theme).to eq("default")
   end
 
+  it "treats a save redirected to sign-in as failed" do
+    visit settings_root_path
+    page.execute_script(<<~JS)
+      const fetch = window.fetch
+      window.fetch = (url, options) => String(url).includes("app_theme")
+        ? Promise.resolve(Object.defineProperty(new Response("", { status: 200 }), "redirected", { value: true }))
+        : fetch(url, options)
+    JS
+
+    find(".segmented__option", text: "Neutral").click
+
+    expect(page).to have_content("Couldn't save that")
+    expect(page).to have_css(".segmented__option:has(input:checked)", text: "Default (Classic)")
+    expect(app_theme_attribute).to eq("classic")
+    expect(page.evaluate_script("document.documentElement.dataset.appThemeChoice")).to eq("default")
+  end
+
   it "keeps quick picks in order and falls back to the last one that saved" do
     visit settings_root_path
     page.execute_script(<<~JS)
