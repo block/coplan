@@ -252,12 +252,12 @@ module CoPlan
         task_body = Nokogiri::XML::Node.new("span", doc)
         task_body["class"] = "task-list-item-content"
 
+        # Loose list items place the task checkbox inside a paragraph rather
+        # than directly under the <li>. Move the checkbox itself first so it
+        # is always in the hit area and the paragraph keeps only task content.
+        hit_area.add_child(cb)
         li.children.to_a.each do |child|
-          if child == cb
-            hit_area.add_child(child)
-          else
-            task_body.add_child(child)
-          end
+          task_body.add_child(child)
         end
         row.add_child(hit_area)
         row.add_child(task_body)
