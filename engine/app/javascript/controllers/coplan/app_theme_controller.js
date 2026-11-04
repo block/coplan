@@ -81,7 +81,9 @@ export default class extends Controller {
         this._apply(stored)
         this._announce(stored)
       }
-      this._setError("Couldn't save that — try again.")
+      // After a Turbo navigation this control is gone, so say it page-wide.
+      if (this.element.isConnected) this._setError("Couldn't save that — try again.")
+      else this._toast("Couldn't save your theme — try again.")
     })
   }
 
@@ -126,6 +128,17 @@ export default class extends Controller {
 
     document.documentElement.dataset.appTheme = theme
     window.dispatchEvent(new CustomEvent("coplan:theme-changed"))
+  }
+
+  _toast(message) {
+    const toasts = document.getElementById("coplan-toasts")
+    if (!toasts) return
+    const toast = document.createElement("div")
+    toast.className = "flash flash--alert toasts__toast"
+    toast.dataset.controller = "coplan--toast"
+    toast.setAttribute("role", "alert")
+    toast.textContent = message
+    toasts.append(toast)
   }
 
   _setError(message) {

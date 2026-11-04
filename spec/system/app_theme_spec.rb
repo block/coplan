@@ -82,6 +82,24 @@ RSpec.describe "App themes", type: :system do
     expect(user.reload.app_theme).to eq("default")
   end
 
+  it "says a save failed in a toast when the page has moved on" do
+    visit settings_root_path
+    page.execute_script(<<~JS)
+      const fetch = window.fetch
+      window.fetch = (url, options) => String(url).includes("app_theme")
+        ? new Promise(resolve => setTimeout(resolve, 1000)).then(() => new Response("", { status: 500 }))
+        : fetch(url, options)
+    JS
+
+    find(".segmented__option", text: "Neutral").click
+    click_link "Manage agent sessions"
+    expect(page).to have_no_css(".settings-row")
+
+    expect(page).to have_css("#coplan-toasts [role='alert']", text: "Couldn't save your theme")
+    expect(app_theme_attribute).to eq("classic")
+    expect(user.reload.app_theme).to eq("default")
+  end
+
   it "treats a save redirected to sign-in as failed" do
     visit settings_root_path
     page.execute_script(<<~JS)
