@@ -28,6 +28,7 @@ RSpec.describe "Settings", type: :request do
       alice.update!(app_theme: "neutral")
       get settings_root_path
       expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("neutral")
+      expect(response.parsed_body.at_css("html")["data-app-theme-choice"]).to eq("neutral")
     end
 
     it "follows a changed host default for viewers on Default" do
@@ -43,7 +44,7 @@ RSpec.describe "Settings", type: :request do
       get settings_root_path
       menu = response.parsed_body.at_css("#appearance-menu")
       expect(menu.css("input[name=appearance_theme][checked]").map { _1["value"] }).to eq([ "neutral" ])
-      expect(menu.at_css("[data-coplan--app-theme-saved-value]")["data-coplan--app-theme-saved-value"]).to eq("default")
+      expect(response.parsed_body.at_css("html")["data-app-theme-choice"]).to eq("default")
       expect(menu.css("input[name=appearance_mode][checked]").map { _1["value"] }).to eq([ alice.theme_preference ])
     end
 
@@ -52,6 +53,7 @@ RSpec.describe "Settings", type: :request do
       alice.update_column(:app_theme, "retired")
       get settings_root_path
       expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("neutral")
+      expect(response.parsed_body.at_css("html")["data-app-theme-choice"]).to eq("default")
       expect(response.parsed_body.at_css("input[name=app_theme][value=default][checked]")).to be_present
     end
   end

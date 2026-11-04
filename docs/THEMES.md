@@ -40,9 +40,12 @@ environments it logs a warning and falls back to `classic`.
 
 Picking a theme applies at once, without a reload (`app_theme_controller.js`):
 it sets `data-app-theme`, dispatches `coplan:theme-changed` on `window`, and
-saves with `PATCH /settings/app_theme` in the background. If the save fails,
-the old choice comes back. Code that reads theme values in JavaScript, such
-as the Mermaid palette, should redraw on `coplan:theme-changed`.
+saves with `PATCH /settings/app_theme` in the background. Saves from every
+control on the page go out one at a time, in the order they were picked. The
+stored choice, `default` or a theme key, is on `<html data-app-theme-choice>`
+and updates when a save lands. If the save fails, that choice comes back.
+Code that reads theme values in JavaScript, such as the Mermaid palette,
+should redraw on `coplan:theme-changed`.
 
 The Appearance button in the top bar, beside notifications, offers the same
 choices from any page (`shared/_appearance_menu.html.erb`): the mode, and

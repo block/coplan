@@ -4,6 +4,11 @@ import { Controller } from "@hotwired/stimulus"
 // The "theme" names predate app themes and are kept for hosts. Settings and
 // the bar's Appearance menu each have one; both follow <html>, so a pick in
 // one shows in the other.
+
+// One save queue for the page, shared by both controls, so saves land in
+// the order they were picked and the last pick is the one stored.
+let saving = Promise.resolve()
+
 export default class extends Controller {
   static values = { url: String }
 
@@ -37,13 +42,13 @@ export default class extends Controller {
     window.dispatchEvent(new CustomEvent("coplan:theme-changed"))
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
-    fetch(this.urlValue, {
+    saving = saving.then(() => fetch(this.urlValue, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "X-CSRF-Token": csrfToken
       },
       body: `theme=${theme}`
-    })
+    })).catch(() => {})
   }
 }

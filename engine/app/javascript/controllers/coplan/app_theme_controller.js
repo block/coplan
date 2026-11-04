@@ -13,37 +13,37 @@ import { Controller } from "@hotwired/stimulus"
  * render on the next visit.
  *
  * Settings and the bar's Appearance menu each have one. coplan:app-theme
- * tells the others about a pick or a save, so their radios agree. The menu
- * has no Default option, so it checks the theme that's showing. It's an
- * event of its own, not coplan:theme-changed plus a look at <html>, because
- * <html> holds only the resolved theme: it can't tell Default from the theme
- * Default resolves to, or a pick from a save.
+ * tells the others about a pick, or a failed save putting the old choice
+ * back, so their radios agree. The menu has no Default option, so it checks
+ * the theme that's showing. It's an event of its own, not
+ * coplan:theme-changed plus a look at <html>, because data-app-theme holds
+ * only the resolved theme: it can't tell Default from the theme Default
+ * resolves to.
+ *
+ * The stored choice ("default" or a theme key) lives on <html> as
+ * data-app-theme-choice, next to data-app-theme. Turbo keeps <html> across
+ * navigations and cache restores, so every control reads the same current
+ * value, and a save that lands updates it without moving any radio.
  */
 // One save queue for the page, shared by every control: Settings and the
 // menu are separate controllers, and a pick in one can follow a pick in the
-// other before its save lands.
+// other before its save lands. picked is the latest pick, saved or not.
 let saving = null
+let picked = null
 
 export default class extends Controller {
   static targets = ["error"]
-  // saved: the stored choice, "default" or a theme key. The menu's checked
-  // radio can't say which, so the page renders it.
-  static values = { url: String, default: String, saved: String }
+  static values = { url: String, default: String }
 
   connect() {
-    this.saved = this.savedValue
     this.follow = ({ detail }) => {
-      if (detail.source === this) return
-      this._check(detail.choice)
-      if (detail.saved) this.saved = detail.choice
+      if (detail.source !== this) this._check(detail.choice)
     }
     window.addEventListener("coplan:app-theme", this.follow)
 
     // A page Turbo restores from its cache can carry an older pick; the
-    // theme on <html> is current.
-    const checked = this.element.querySelector("input[type='radio']:checked")
-    const showing = document.documentElement.dataset.appTheme
-    if (checked && this._resolve(checked.value) !== showing) this._check(showing)
+    // latest pick, or else the stored choice on <html>, is current.
+    this._check(picked || document.documentElement.dataset.appThemeChoice)
   }
 
   disconnect() {
@@ -51,21 +51,19 @@ export default class extends Controller {
   }
 
   // Saves go out one at a time, in the order they were picked in any
-  // control, so saved always matches the server. Only the latest pick's
-  // outcome touches the page, so quick clicks can't revert a newer choice.
+  // control, so the stored choice on <html> always matches the server. Only
+  // the latest pick's outcome touches the page, so quick clicks can't revert
+  // a newer choice.
   select(event) {
-    const choice = event.target.value
+    const choice = picked = event.target.value
     this._apply(choice)
     this._setError("")
-    this._announce(choice, false)
+    this._announce(choice)
 
     const save = saving = (saving || Promise.resolve())
       .then(() => this._save(choice))
       .then(ok => {
-        if (ok) {
-          this.saved = choice
-          this._announce(choice, true)
-        }
+        if (ok) document.documentElement.dataset.appThemeChoice = choice
         return ok
       })
     save.then(ok => {
@@ -73,10 +71,12 @@ export default class extends Controller {
       saving = null
       if (ok) return
 
-      if (this.saved) {
-        this._check(this.saved)
-        this._apply(this.saved)
-        this._announce(this.saved, false)
+      const stored = document.documentElement.dataset.appThemeChoice
+      if (stored) {
+        picked = stored
+        this._check(stored)
+        this._apply(stored)
+        this._announce(stored)
       }
       this._setError("Couldn't save that — try again.")
     })
@@ -112,8 +112,8 @@ export default class extends Controller {
     return choice === "default" ? this.defaultValue : choice
   }
 
-  _announce(choice, saved) {
-    window.dispatchEvent(new CustomEvent("coplan:app-theme", { detail: { choice, saved, source: this } }))
+  _announce(choice) {
+    window.dispatchEvent(new CustomEvent("coplan:app-theme", { detail: { choice, source: this } }))
   }
 
   _apply(choice) {

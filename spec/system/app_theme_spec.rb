@@ -145,6 +145,96 @@ RSpec.describe "App themes", type: :system do
     Timeout.timeout(5) { sleep 0.1 until page.evaluate_script("window.themeSaves") == 2 }
     expect(user.reload.app_theme).to eq("classic")
     expect(page).to have_no_content("Couldn't save that")
+    # The older save landing last mustn't move either control off the newer pick.
+    expect(page).to have_css("input[name='appearance_theme'][value='classic']:checked", visible: :all)
+    expect(page).to have_css(".settings-row .segmented__option:has(input:checked)", exact_text: "Classic")
+    expect(page.evaluate_script("document.documentElement.dataset.appThemeChoice")).to eq("classic")
+  end
+
+  it "puts both controls back on the last saved pick when a later pick in the other fails" do
+    visit settings_root_path
+    page.execute_script(<<~JS)
+      const fetch = window.fetch
+      window.fetch = (url, options) => {
+        if (!String(url).includes("app_theme")) return fetch(url, options)
+        if (options.body.includes("neutral")) return new Promise(resolve => setTimeout(resolve, 400)).then(() => fetch(url, options))
+        return Promise.resolve(new Response("", { status: 500 }))
+      }
+    JS
+
+    find(".settings-row .segmented__option", text: "Neutral").click
+    find(".site-nav__appearance-btn").click
+    within("#appearance-menu") { find(".appearance-menu__theme", text: "Classic").click }
+    expect(app_theme_attribute).to eq("classic")
+
+    expect(page).to have_content("Couldn't save that")
+    expect(app_theme_attribute).to eq("neutral")
+    expect(page).to have_css("input[name='appearance_theme'][value='neutral']:checked", visible: :all)
+    expect(page).to have_css(".settings-row .segmented__option:has(input:checked)", text: "Neutral")
+    expect(user.reload.app_theme).to eq("neutral")
+  end
+
+  it "shows a Default pick that's still saving on a Settings page Turbo renders" do
+    user.update!(app_theme: "neutral")
+    visit settings_root_path
+    page.execute_script(<<~JS)
+      const fetch = window.fetch
+      window.fetch = (url, options) => String(url).includes("app_theme") ? new Promise(resolve => setTimeout(resolve, 4000)).then(() => fetch(url, options)) : fetch(url, options)
+    JS
+
+    find(".settings-row .segmented__option", text: "Default (Classic)").click
+    click_link "Manage agent sessions"
+    expect(page).to have_no_css(".settings-row")
+    page.execute_script("Turbo.visit(#{settings_root_path.to_json})")
+
+    expect(page).to have_css(".settings-row .segmented__option:has(input:checked)", text: "Default (Classic)", wait: 1)
+    expect(user.reload.app_theme).to eq("neutral")
+    Timeout.timeout(8) { sleep 0.1 until user.reload.app_theme == "default" }
+    expect(page).to have_css(".settings-row .segmented__option:has(input:checked)", text: "Default (Classic)")
+  end
+
+  it "saves mode picks from Settings and the bar's menu in the order they were made" do
+    visit settings_root_path
+    page.execute_script(<<~JS)
+      const fetch = window.fetch
+      window.modeSaves = 0
+      window.fetch = (url, options) => {
+        if (!String(url).includes("settings/theme")) return fetch(url, options)
+        const wait = options.body.includes("dark") ? 400 : 0
+        return new Promise(resolve => setTimeout(resolve, wait)).then(() => fetch(url, options)).finally(() => window.modeSaves++)
+      }
+    JS
+
+    find(".settings-row .segmented__option", exact_text: "Dark").click
+    find(".site-nav__appearance-btn").click
+    within("#appearance-menu") { find(".segmented__option", exact_text: "Light").click }
+    expect(page).to have_css("html[data-theme='light']")
+
+    Timeout.timeout(5) { sleep 0.1 until page.evaluate_script("window.modeSaves") == 2 }
+    expect(user.reload.theme_preference).to eq("light")
+  end
+
+  it "puts back the stored choice after a cache restore when a save fails" do
+    visit settings_root_path
+    click_link "Manage agent sessions"
+    expect(page).to have_no_css(".settings-row")
+    find(".site-nav__appearance-btn").click
+    within("#appearance-menu") { find(".appearance-menu__theme", text: "Neutral").click }
+    Timeout.timeout(5) { sleep 0.1 until user.reload.app_theme == "neutral" }
+    find("body").send_keys(:escape)
+    page.go_back
+    expect(page).to have_css(".settings-row .segmented__option:has(input:checked)", text: "Neutral")
+
+    page.execute_script(<<~JS)
+      const fetch = window.fetch
+      window.fetch = (url, options) => String(url).includes("app_theme") ? Promise.resolve(new Response("", { status: 500 })) : fetch(url, options)
+    JS
+    find(".settings-row .segmented__option", text: "Default (Classic)").click
+
+    expect(page).to have_content("Couldn't save that")
+    expect(page).to have_css(".settings-row .segmented__option:has(input:checked)", text: "Neutral")
+    expect(app_theme_attribute).to eq("neutral")
+    expect(user.reload.app_theme).to eq("neutral")
   end
 
   it "keeps the Appearance menu on screen on the narrowest phones" do
