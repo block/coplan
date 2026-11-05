@@ -17,7 +17,12 @@ module CoPlan
 
     def settings
       authorize!(@plan, :update?)
-      attributes = params.expect(review_settings: [ :reset_reviews_on_change, :review_sequence ])
+      attributes = params.expect(review_settings: [ :reset_reviews_on_change, :review_sequence, :write_id ])
+      write_id = attributes[:write_id]
+      if write_id && (!write_id.is_a?(String) || !write_id.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i))
+        render json: { error: "Write ID must be a UUID." }, status: :bad_request
+        return
+      end
       enabled = ActiveModel::Type::Boolean.new.cast(attributes.fetch(:reset_reviews_on_change))
       @plan.with_lock do
         unless attributes.fetch(:review_sequence).to_s == @plan.review_sequence.to_s
@@ -25,7 +30,11 @@ module CoPlan
           return
         end
         # Even a same-value write fences an older, indeterminate request.
-        @plan.update!(reset_reviews_on_change: enabled, review_sequence: @plan.review_sequence + 1)
+        sequence = @plan.review_sequence + 1
+        # Keep the latest policy receipt with the write, so readback can identify
+        # a committed request without adopting a newer writer's sequence.
+        @plan.update!(reset_reviews_on_change: enabled, review_sequence: sequence,
+          review_policy_write_id: write_id&.downcase, review_policy_write_sequence: write_id ? sequence : nil)
       end
       Broadcaster.custom_action_to(@plan, action: "coplan-review-changed", target: "plan-review-controls", html: "")
       render json: { reset_reviews_on_change: @plan.reset_reviews_on_change, review_sequence: @plan.review_sequence }

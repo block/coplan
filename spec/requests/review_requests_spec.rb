@@ -31,6 +31,51 @@ RSpec.describe "Review requests", type: :request do
     expect(plan.review_sequence).to eq(sequence + 1)
   end
 
+  it "exposes the committed policy receipt without adopting intervening review sequences" do
+    sign_in_as(author)
+    write_id = SecureRandom.uuid
+    sequence = plan.review_sequence
+    patch settings_plan_review_requests_path(plan), params: { review_settings: {
+      reset_reviews_on_change: false, review_sequence: sequence, write_id: write_id
+    } }, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(plan.reload).to have_attributes(review_policy_write_id: write_id, review_policy_write_sequence: sequence + 1)
+
+    # An unrelated review change advances the current sequence, not the receipt.
+    plan.update!(review_sequence: sequence + 2)
+    get plan_review_requests_path(plan)
+    input = Nokogiri::HTML(response.body).at_css("[data-review-reset-policy]")
+    expect(input["data-policy-write-id"]).to eq(write_id)
+    expect(input["data-policy-write-sequence"]).to eq((sequence + 1).to_s)
+    expect(input["data-review-sequence"]).to eq((sequence + 2).to_s)
+
+    patch settings_plan_review_requests_path(plan), params: { review_settings: {
+      reset_reviews_on_change: true, review_sequence: sequence + 1, write_id: SecureRandom.uuid
+    } }, as: :json
+    expect(response).to have_http_status(:conflict)
+    expect(plan.reload).to have_attributes(reset_reviews_on_change: false,
+      review_policy_write_id: write_id, review_policy_write_sequence: sequence + 1)
+
+    # Older clients still work, but their writes invalidate the previous receipt.
+    patch settings_plan_review_requests_path(plan), params: { review_settings: {
+      reset_reviews_on_change: true, review_sequence: sequence + 2
+    } }, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(plan.reload).to have_attributes(review_policy_write_id: nil, review_policy_write_sequence: nil)
+  end
+
+  it "rejects malformed policy receipt IDs without changing the setting" do
+    sign_in_as(author)
+    [ "not-a-uuid", "x" * 100 ].each do |write_id|
+      patch settings_plan_review_requests_path(plan), params: { review_settings: {
+        reset_reviews_on_change: false, review_sequence: plan.review_sequence, write_id: write_id
+      } }, as: :json
+      expect(response).to have_http_status(:bad_request)
+      expect(plan.reload.reset_reviews_on_change).to be(true)
+      expect(plan.review_policy_write_id).to be_nil
+    end
+  end
+
   it "does not let a reviewer change the document's reset policy", :review_reset_policy do
     task
     sign_in_as(reviewer)

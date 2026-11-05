@@ -360,7 +360,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
-  [ true, false ].product(%w[accepted rejected lost]).each do |destination_changes, outcome|
+  [ true, false ].product(%w[accepted rejected lost committed_lost]).each do |destination_changes, outcome|
     it "flushes a queued policy after a #{outcome} save with destination changes=#{destination_changes}", :review_policy_disconnect do
       sign_in_browser(author)
       open_review_settings
@@ -383,10 +383,10 @@ RSpec.describe "Plan discussion and approval", type: :system do
             window.policyWrites.push(write)
             let response
             if (window.policyWrites.length === 1) {
-              response = outcome === 'accepted' ? await originalFetch(url, options) : new Response(JSON.stringify({error: 'Rejected'}), {status: 422})
+              response = ['accepted', 'committed_lost'].includes(outcome) ? await originalFetch(url, options) : new Response(JSON.stringify({error: 'Rejected'}), {status: 422})
               root.dataset.requestHeld = 'true'
               await new Promise(resolve => { window.releaseOldPolicy = resolve })
-              if (outcome === 'lost') throw new TypeError('Lost before saving')
+              if (outcome === 'lost' || outcome === 'committed_lost') throw new TypeError('Lost HTTP response')
             } else response = await originalFetch(url, options)
             write.status = response.status
             return response
@@ -396,7 +396,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
       JS
       uncheck "Require a new review after changes"
       expect(page).to have_css("[data-request-held='true']")
-      if outcome == "accepted"
+      if [ "accepted", "committed_lost" ].include?(outcome)
         check "Require a new review after changes"
       else
         page.execute_script("const input = document.querySelector('[data-review-reset-policy]'); input.click(); input.click()")
@@ -407,7 +407,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
         page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
         expect(page).to have_current_path(plan_page_path(plan))
         open_review_settings
-        if outcome == "accepted"
+        if [ "accepted", "committed_lost" ].include?(outcome)
           check "Require a new review after changes"
           expect(page).to have_no_css("[data-review-reset-policy][aria-busy='true']")
           uncheck "Require a new review after changes"
@@ -424,13 +424,15 @@ RSpec.describe "Plan discussion and approval", type: :system do
         window.policySaves[0].then(() => Promise.all(window.policySaves)).then(done)
       JS
       writes = page.evaluate_script("window.policyWrites")
-      expected = if outcome == "accepted"
+      expected = if [ "accepted", "committed_lost" ].include?(outcome)
         destination_changes ? [ false, true, false ] : [ false, true ]
       else
         destination_changes ? [ false, true ] : [ false ]
       end
+      # The first committed write deliberately has no observed HTTP result.
+      expected = expected.drop(1) if outcome == "committed_lost"
       expect(writes.select { |write| write["status"] == 200 }.map { |write| write["enabled"] }).to eq(expected)
-      expect(plan.reload.reset_reviews_on_change).to eq(outcome == "accepted" ? !destination_changes : destination_changes)
+      expect(plan.reload.reset_reviews_on_change).to eq([ "accepted", "committed_lost" ].include?(outcome) ? !destination_changes : destination_changes)
     end
   end
 

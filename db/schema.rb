@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_29_174023) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -412,6 +412,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_174023) do
     t.json "metadata"
     t.string "plan_type_id", limit: 36, null: false
     t.boolean "reset_reviews_on_change", default: true, null: false
+    t.string "review_policy_write_id", limit: 36
+    t.bigint "review_policy_write_sequence"
     t.bigint "review_sequence", default: 0, null: false
     t.text "search_text", size: :medium
     t.string "slug", null: false

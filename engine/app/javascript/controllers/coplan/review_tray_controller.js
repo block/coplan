@@ -331,6 +331,7 @@ export default class extends Controller {
     const enabled = input.checked
     const generation = this.policyInputGeneration
     const submittedSequence = Number(input.dataset.reviewSequence)
+    const writeId = crypto.randomUUID()
     if (previous === enabled && !this.policyMustSave && this.policyUncertainSequence == null) {
       input.setAttribute("aria-busy", "false")
       if (this.policyRefreshPending) await this.refresh()
@@ -342,7 +343,7 @@ export default class extends Controller {
     let confirmed = false
     let followupSequence = submittedSequence
     try {
-      const result = await this.withPolicyDeadline(signal => this.write(this.settingsUrlValue, "PATCH", { review_settings: { reset_reviews_on_change: enabled, review_sequence: input.dataset.reviewSequence } }, signal))
+      const result = await this.withPolicyDeadline(signal => this.write(this.settingsUrlValue, "PATCH", { review_settings: { reset_reviews_on_change: enabled, review_sequence: input.dataset.reviewSequence, write_id: writeId } }, signal))
       if (connection !== this.policyConnection) return
       input.dataset.savedValue = String(enabled)
       input.dataset.reviewSequence = String(result.review_sequence)
@@ -366,7 +367,14 @@ export default class extends Controller {
           const response = await fetch(this.urlValue, { credentials: "same-origin", headers: { Accept: "text/html" }, signal })
           const policy = new DOMParser().parseFromString(await response.text(), "text/html").querySelector("[data-review-reset-policy]")
           if (!response.ok || !policy) throw error
-          if (connection === this.policyConnection) input.dataset.reviewSequence = policy.dataset.reviewSequence
+          if (connection === this.policyConnection) {
+            input.dataset.reviewSequence = policy.dataset.reviewSequence
+            // Only our own receipt can advance a disconnected page's queued
+            // write. Never borrow the current sequence from another writer.
+            if (policy.dataset.policyWriteId === writeId) {
+              followupSequence = Number(policy.dataset.policyWriteSequence)
+            }
+          }
           return policy.checked
         })
       } catch { /* Keep the last confirmed value and show the error. */ }
