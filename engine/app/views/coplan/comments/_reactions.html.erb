@@ -6,7 +6,7 @@
 <div class="comment-reactions"
      id="<%= dom_id(comment, :reactions) %>"
      data-controller="coplan--comment-reactions"
-     data-action="pointerdown->coplan--comment-reactions#holdPointer pointerup@window->coplan--comment-reactions#releasePointer pointercancel@window->coplan--comment-reactions#releasePointer blur@window->coplan--comment-reactions#releasePointer"
+     data-action="keydown->coplan--comment-reactions#holdKey keyup@window->coplan--comment-reactions#releaseKey focusout->coplan--comment-reactions#releaseKey blur@window->coplan--comment-reactions#releaseKey pointerdown->coplan--comment-reactions#holdPointer pointerup@window->coplan--comment-reactions#releasePointer pointercancel@window->coplan--comment-reactions#releasePointer blur@window->coplan--comment-reactions#releasePointer"
      data-coplan--comment-reactions-url-value="<%= CoPlan::Engine.routes.url_helpers.plan_comment_thread_comment_reactions_path(thread.plan, thread, comment) %>"
      data-coplan--comment-reactions-comment-id-value="<%= comment.id %>"
      data-version="<%= comment.reactions_version %>">

@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { captureReactionFocus } from "coplan/reaction_focus"
 import { commentWindowTop } from "coplan/comment_window"
 
 // The panel stays inside this Stimulus scope, even in the modal expander.
@@ -284,6 +285,7 @@ export default class extends Controller {
     // form whose submit-end is still pending. Rebuilding those forms either
     // loses a draft/focus or detaches the submission event from this panel.
     this.saveReplyDrafts()
+    const restoreReactionFocus = captureReactionFocus()
     const focused = this.discussionsTarget.contains(document.activeElement) ? document.activeElement : null
     const replies = new Map(Array.from(this.discussionsTarget.children).map(thread =>
       [thread.dataset.threadId, thread.querySelector(".thread-popover__reply")]))
@@ -345,6 +347,7 @@ export default class extends Controller {
       discussions[0].querySelector(".comment-window__bar").remove()
     }
     if (focused?.isConnected && this.panelTarget.matches(":popover-open")) focused.focus({ preventScroll: true })
+    restoreReactionFocus()
     this.composerTarget.hidden = this.showingOutdated || threads.length > 0
     this.panelTarget.classList.toggle("comment-form", !this.composerTarget.hidden)
     this.panelTarget.classList.toggle("thread-popover", this.composerTarget.hidden)

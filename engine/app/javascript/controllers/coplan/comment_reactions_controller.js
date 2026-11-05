@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { captureReactionFocus } from "coplan/reaction_focus"
 
 // Reaction chips under a comment. The server renders one copy for every
 // viewer (broadcasts have no current_user), listing who reacted; this
@@ -69,7 +70,9 @@ document.addEventListener("turbo:before-stream-render", event => {
         }
       }
     }
+    const restoreFocus = captureReactionFocus()
     await render(streamElement)
+    restoreFocus()
   }
 })
 
@@ -79,6 +82,7 @@ export default class extends Controller {
 
   connect() {
     this.pointerHeld = false
+    this.keyHeld = false
     this.idleWaiters = new Set()
     controllers.add(this)
     this.me = document.querySelector("meta[name='coplan-current-user-id']")?.content || ""
@@ -95,6 +99,7 @@ export default class extends Controller {
   disconnect() {
     controllers.delete(this)
     cancelAnimationFrame(this.releaseFrame)
+    cancelAnimationFrame(this.keyReleaseFrame)
     this.idleWaiters.forEach(resolve => resolve())
     this.idleWaiters.clear()
     this.hideTooltip()
@@ -103,7 +108,7 @@ export default class extends Controller {
   }
 
   get interacting() {
-    return this.pointerHeld || (this.hasPickerTarget && this.pickerTarget.matches(":popover-open"))
+    return this.pointerHeld || this.keyHeld || (this.hasPickerTarget && this.pickerTarget.matches(":popover-open"))
   }
 
   holdPointer() {
@@ -116,6 +121,22 @@ export default class extends Controller {
     // The click follows pointerup. Keep its target alive until it dispatches.
     this.releaseFrame = requestAnimationFrame(() => {
       this.pointerHeld = false
+      this.flushIdle()
+    })
+  }
+
+  holdKey(event) {
+    if (![" ", "Enter"].includes(event.key) || !event.target.closest("button")) return
+    cancelAnimationFrame(this.keyReleaseFrame)
+    this.keyHeld = true
+  }
+
+  releaseKey(event) {
+    if (event.type === "keyup" && ![" ", "Enter"].includes(event.key)) return
+    if (!this.keyHeld) return
+    // Space activates native buttons on keyup, after this handler.
+    this.keyReleaseFrame = requestAnimationFrame(() => {
+      this.keyHeld = false
       this.flushIdle()
     })
   }
@@ -192,6 +213,7 @@ export default class extends Controller {
 
   // Applies a reaction change to these chips without waiting for the server.
   setReaction(kind, reacted) {
+    const restoreFocus = captureReactionFocus()
     let chip = this.chipFor(kind)
     const reactors = chip ? this.reactors(chip).filter(reactor => reactor.id !== this.me) : []
     if (reacted) reactors.push({ id: this.me, name: "" })
@@ -204,6 +226,7 @@ export default class extends Controller {
       chip.querySelector(".comment-reaction__count").textContent = reactors.length
     }
     this.refresh()
+    restoreFocus()
   }
 
   revert(commentId, kind, reacted) {

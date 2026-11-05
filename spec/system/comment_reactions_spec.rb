@@ -324,6 +324,52 @@ RSpec.describe "Comment reactions", type: :system do
   end
 
   %w[inline table].each do |surface|
+    %w[chip add].each do |control|
+      it "keeps a held Space on the #{surface} #{control} through a broadcast" do
+        target_comment = surface == "table" ? create_table_thread.comments.first : comment
+        create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")
+        scope = surface == "table" ? open_table_discussion : open_thread
+        button = control == "chip" ? chip(scope, "👍") : scope.find(".comment-reactions__add")
+        page.execute_script("arguments[0].focus()", button)
+        page.driver.browser.action.key_down(:space).perform
+        page.execute_script("document.addEventListener('turbo:before-stream-render', () => window.reactionStreamReceived = true, { once: true })")
+        create(:comment_reaction, comment: target_comment, user: sam, kind: "eyes")
+        target_comment.bump_reactions_version!
+        CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{target_comment.id}",
+          partial: "coplan/comments/reactions", locals: { comment: target_comment.reload })
+        wait_for { page.evaluate_script("window.reactionStreamReceived === true") }
+        sleep 0.2 # Keep Space down while the stream attempts to render.
+        page.driver.browser.action.key_up(:space).perform
+        if control == "add"
+          expect(scope).to have_css(".comment-reactions__picker:popover-open")
+          scope.find(".comment-reactions__option[data-kind='rocket']").send_keys(:space)
+          wait_for { target_comment.reactions.where(user: viewer, kind: "rocket").exists? }
+        else
+          wait_for { target_comment.reactions.where(user: viewer, kind: "thumbs_up").exists? }
+        end
+        expect(scope).to have_reaction("eyes", count: 1, pressed: false)
+      end
+    end
+
+    it "retains #{surface} keyboard focus after saved reaction changes" do
+      target_comment = surface == "table" ? create_table_thread.comments.first : comment
+      create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")
+      scope = surface == "table" ? open_table_discussion : open_thread
+      chip(scope, "👍").send_keys(:space)
+      wait_for { target_comment.reactions.where(user: viewer, kind: "thumbs_up").exists? }
+      expect(scope).to have_css(".comment-reactions[data-version='#{target_comment.reload.reactions_version}']")
+      expect(scope).to have_css(".comment-reaction[data-kind='thumbs_up']:focus")
+      scope.find(".comment-reactions__add").send_keys(:space)
+      scope.find(".comment-reactions__option[data-kind='rocket']").send_keys(:space)
+      wait_for { target_comment.reactions.where(user: viewer, kind: "rocket").exists? }
+      expect(scope).to have_css(".comment-reactions[data-version='#{target_comment.reload.reactions_version}']")
+      expect(scope).to have_css(".comment-reactions__add:focus")
+      chip(scope, "🚀").send_keys(:space)
+      wait_for { !target_comment.reactions.where(user: viewer, kind: "rocket").exists? }
+      expect(scope).to have_css(".comment-reactions[data-version='#{target_comment.reload.reactions_version}']")
+      expect(scope).to have_css(".comment-reactions__add:focus")
+    end
+
     it "keeps the #{surface} picker usable while a reaction snapshot arrives" do
       target_comment = surface == "table" ? create_table_thread.comments.first : comment
       scope = surface == "table" ? open_table_discussion : open_thread
