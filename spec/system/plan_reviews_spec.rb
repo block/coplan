@@ -1375,7 +1375,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     within(".review-tray") { click_button "Request changes" }
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Changed while composing feedback",
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
-    expect(page).to have_css('#plan-content-body[data-coplan--live-update-revision-value="2"]', text: "Changed while composing feedback")
+    expect(page).to have_css('#plan-content-body[data-coplan--live-update-revision-value="2"]', text: /Changed.*while.*composing feedback/)
     fill_in "Public review comment", with: "My feedback on the earlier version", enable_aria_label: true
     within(".review-tray__discussion") { click_button "Request changes" }
     expect(page).to have_content("The plan has changed. Review the latest version")

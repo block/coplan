@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe CoPlan::Plans::BackfillDocumentTitles do
   def legacy_plan(content)
     plan = create(:plan, title: "Metadata title")
-    plan.current_plan_version.update_columns(content_markdown: content, content_sha256: Digest::SHA256.hexdigest(content))
+    set_version_fixture(plan.current_plan_version, content_markdown: content)
     plan.reload
   end
 

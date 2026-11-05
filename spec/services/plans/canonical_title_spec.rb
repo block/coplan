@@ -75,4 +75,32 @@ RSpec.describe "Canonical document titles" do
     }.to raise_error(CoPlan::Plans::MergeText::Conflict)
     expect(plan.reload.title).to eq("Agent title")
   end
+
+  [ true, false ].each do |reset_reviews|
+    it "honors review reset policy #{reset_reviews} on autosave without resetting again on Done" do
+      plan.update!(reset_reviews_on_change: reset_reviews)
+      reviewer = create(:coplan_user)
+      request = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: user)
+      response = CoPlan::Reviews::Respond.call(request: request, actor: reviewer,
+        revision: plan.current_revision, generation: request.generation, decision: "approved")
+      generation = request.generation
+      original_path = plan.url_path
+
+      CoPlan::Plans::SaveHumanDraft.call(plan: plan, content: "# Renamed\n\nBody",
+        base_revision: plan.current_revision, actor: user)
+      expect(plan.reload.url_path).to eq(original_path)
+      expect(request.reload.generation).to eq(generation + (reset_reviews ? 1 : 0))
+      expect(request.current_response_id).to eq(reset_reviews ? nil : response.id)
+      expect(response.reload.plan_version.verified_content!).to eq("# Original\n\nBody")
+      sequence = plan.review_sequence
+      revision = plan.current_revision
+      generation = request.generation
+
+      CoPlan::Plans::SaveHumanDraft.call(plan: plan, content: plan.current_content,
+        base_revision: revision, actor: user, finalize: true)
+      expect(plan.reload).to have_attributes(current_revision: revision, review_sequence: sequence)
+      expect(plan.url_path).not_to eq(original_path)
+      expect(request.reload.generation).to eq(generation)
+    end
+  end
 end

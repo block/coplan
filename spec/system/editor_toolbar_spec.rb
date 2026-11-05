@@ -250,7 +250,7 @@ RSpec.describe "Editor toolbar", type: :system do
     expect(status["data-state"]).to eq("saving")
     page.execute_script("window.finishSave()")
     expect(page).to have_css('.document-editor__save-status[data-state="saved"]', visible: :all, wait: 10)
-    expect(plan.reload.current_content).to eq("First edit and newer typing")
+    expect(plan.reload.current_content).to eq("# Toolbar test\n\nFirst edit and newer typing")
     expect(status["title"]).to include("All changes saved · v3")
     expect(page).to have_css('#coplan-inline-save-announcement[aria-live="polite"][aria-atomic="true"]', visible: :all)
     expect(find(".document-editor__close-inline").rect).to eq(bounds)
@@ -284,7 +284,7 @@ RSpec.describe "Editor toolbar", type: :system do
     page.execute_script("window.fetch = window.originalFetch")
     find('.document-editor__close-inline[data-state="error"]').click
     expect(page).to have_css('.document-editor__save-status[data-state="saved"]', visible: :all, wait: 10)
-    expect(plan.reload.current_content).to eq("Retained draft with more")
+    expect(plan.reload.current_content).to eq("# Toolbar test\n\nRetained draft with more")
   end
 
   it "keeps formatting visible but disabled for raw focus and restores it for rich focus" do
@@ -325,7 +325,7 @@ RSpec.describe "Editor toolbar", type: :system do
     click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Human follow-up")
     expect(page).to have_css('.document-editor__save-status[data-state="saved"]', visible: :all, wait: 10)
-    expect(plan.reload.current_content).to eq("Human follow-up")
+    expect(plan.reload.current_content).to eq("# Toolbar test\n\nHuman follow-up")
     expect(plan.tag_names).to eq([ "remote-tag" ])
   end
 

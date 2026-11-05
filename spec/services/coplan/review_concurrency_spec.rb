@@ -48,7 +48,7 @@ RSpec.describe "Concurrent review and content commits" do
       release << true
       [ writer, reader, responder ].each { |thread| expect(thread.join(20)).to be_present }
       evidence = reader.value
-      expect(evidence[:version]).to include(revision: 2, content_markdown: "After")
+      expect(evidence[:version]).to include(revision: 2, content_markdown: "# Concurrent review\n\nAfter")
       expect(evidence[:review_requests].first).to include(status: reset ? "pending" : "approved", effective_response_id: nil, generation: reset ? 2 : 1)
       expect(evidence[:review_sequence]).to eq(first.decision_sequence + 1)
       expect(responder.value).to eq("review_version_changed")
