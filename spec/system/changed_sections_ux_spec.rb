@@ -207,7 +207,9 @@ RSpec.describe "Updated section signposts", type: :system do
     expect(page).to have_no_css(".section-updated")
   end
 
-  it "keeps mobile dots inside the document without a summary banner" do
+  # Classic keeps the dot inside its document card. Neutral has no card: its
+  # text lines up with the header, and the dot sits in the page margin.
+  it "keeps mobile dots on screen and tappable without a summary banner" do
     window = page.current_window
     original_size = window.size
     [ 320, 390, 481 ].product(%w[classic neutral]).each do |width, app_theme|
@@ -223,7 +225,11 @@ RSpec.describe "Updated section signposts", type: :system do
             const card = document.querySelector('.plan-document').getBoundingClientRect()
             const marker = document.querySelector('#design .section-update-marker')
             const target = marker.getBoundingClientRect()
-            return target.left > card.left && target.right < card.right &&
+            const placed = #{app_theme == "neutral"}
+              ? target.left >= 0 && target.width >= 22 &&
+                Math.abs(document.querySelector('#design').getBoundingClientRect().left - card.left) < 1
+              : target.left > card.left && target.right < card.right
+            return placed &&
               getComputedStyle(marker, '::after').visibility === 'visible' &&
               document.documentElement.scrollWidth <= window.innerWidth
           })()

@@ -60,6 +60,11 @@
     min-height: 44px;
   }
 
+  /* Segmented controls: the Appearance menu's Mode row and Settings. */
+  .segmented__btn {
+    min-height: 44px;
+  }
+
   /* Preserve a 44px touch target without giving the compact control 44px
      of layout footprint in the byline or sticky plan context. */
   .plan-location-link {
@@ -177,6 +182,12 @@
   .plan-document.card {
     /* Leave room for the update dot's full hit area inside the card. */
     padding: var(--document-padding-narrow, var(--space-lg));
+  }
+
+  /* A theme without the card's side padding moves the dot into the page
+     margin, so its hit area stays on screen. */
+  .section-update-marker {
+    left: calc(-1 * var(--update-marker-offset-narrow, 23px));
   }
 
 

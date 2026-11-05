@@ -24,7 +24,9 @@
   --color-page-muted: light-dark(oklch(0.975 0.003 90), oklch(0.235 0.004 90));
   --color-input-bg: var(--color-surface);
   --color-text: light-dark(oklch(0.287 0.005 95), oklch(0.893 0.004 95));
-  --color-text-muted: light-dark(oklch(0.53 0.008 90), oklch(0.75 0.006 90));
+  /* Muted text reads about as strong in dark mode as in light: APCA Lc 64
+     on the dark page, against 75 on the light one. */
+  --color-text-muted: light-dark(oklch(0.53 0.008 90), oklch(0.79 0.006 90));
   --color-border: light-dark(oklch(0.915 0.005 90), oklch(0.3 0.005 90));
   --color-border-strong: light-dark(oklch(0.84 0.007 90), oklch(0.38 0.006 90));
   --color-tag-bg: light-dark(oklch(0.97 0.003 90), oklch(0.235 0.004 90));
@@ -37,8 +39,8 @@
   --color-code-bg: light-dark(oklch(0.955 0.005 90), oklch(0.255 0.004 90));
   --code-block-bg: light-dark(oklch(0.969 0.004 98), oklch(0.262 0.005 90));
   --code-block-text: light-dark(oklch(0.28 0.006 90), oklch(0.88 0.005 90));
-  --code-header-text: light-dark(oklch(0.5 0.008 90), oklch(0.75 0.006 90));
-  --code-comment: light-dark(oklch(0.5 0.01 90), oklch(0.72 0.008 90));
+  --code-header-text: light-dark(oklch(0.5 0.008 90), oklch(0.79 0.006 90));
+  --code-comment: light-dark(oklch(0.5 0.01 90), oklch(0.78 0.008 90));
   --code-keyword: light-dark(oklch(0.5 0.13 35), oklch(0.8 0.1 35));
   --code-entity: light-dark(oklch(0.45 0.08 250), oklch(0.79 0.07 235));
   --code-constant: light-dark(oklch(0.52 0.11 65), oklch(0.82 0.09 75));
@@ -89,33 +91,35 @@
   --panel-row-bg: transparent;
   --document-support-radius: 6px;
 
-  /* The document has no card: its text sits on the page. Phones keep room
-     at the start for the update dot's hit area (left: -23px). */
+  /* The document has no card: its text sits on the page, lined up with the
+     header above it. On phones the update dot's hit area moves into the
+     page's side margin (--space-md) instead of indenting the text. */
   --document-bg: var(--color-bg);
   --document-border: 0;
   --document-radius: 0;
   --document-shadow: none;
   --document-padding: var(--space-sm) 0;
-  --document-padding-narrow: var(--space-sm) 0 var(--space-sm) var(--space-lg);
+  --document-padding-narrow: var(--space-sm) 0;
+  --update-marker-offset-narrow: var(--space-md);
 
   /* Plan title, set like the document's headings. It stays a step above
      the document's H1 (the shared 1.5rem) on phones too. */
   --plan-title-size: 1.75rem;
   --plan-title-size-narrow: 1.625rem;
-  --plan-title-weight: 500;
+  --plan-title-weight: 600;
   --plan-title-leading: 1.2;
   --plan-title-tracking: -0.01em;
   --plan-title-wrap: balance;
 
   /* Reading type. Heading sizes come from the shared scale, so each level
      is a step below the one above it. A ch is the width of "0", wider than
-     an average letter, so 68ch holds about 85 characters a line. H4 is body
-     size, so weight is what marks it. */
+     an average letter, so 68ch holds about 85 characters a line. Headings
+     are as heavy as bold body text, never lighter, so a bold phrase can't
+     outweigh the heading above it. */
   --reading-measure: 68ch;
   --reading-leading: 1.6;
   --reading-paragraph-gap: 1.12em;
-  --reading-heading-weight: 500;
-  --reading-h4-weight: 600;
+  --reading-heading-weight: 600;
   --reading-heading-tracking: -0.01em;
   --reading-heading-wrap: balance;
   --reading-h1-leading: 1.25;
@@ -162,10 +166,11 @@
      --diagram-bg is also the diagram's background, the same tint as a code
      block in both modes. Mermaid reads these with getComputedStyle, which
      returns light-dark() unresolved, so dark mode sets them in its own
-     blocks below. */
+     blocks below. A node's fill is close to the background, so its border
+     is what outlines it, and keeps 3:1 contrast in both modes. */
   --diagram-bg: #f7f6f3;
   --diagram-node: #f0ece4;
-  --diagram-node-border: #bab0a0;
+  --diagram-node-border: #938b7f;
   --diagram-text: #1c1a17;
   --diagram-line: #81796d;
   --diagram-cluster: #fbfaf7;
@@ -181,7 +186,7 @@
 :root[data-app-theme="neutral"][data-theme="dark"] {
   --diagram-bg: #252422;
   --diagram-node: #2c2a26;
-  --diagram-node-border: #5c584f;
+  --diagram-node-border: #726e67;
   --diagram-text: #ecebe8;
   --diagram-line: #95928a;
   --diagram-cluster: #282725;
@@ -198,7 +203,7 @@
   :root[data-app-theme="neutral"]:not([data-theme]) {
     --diagram-bg: #252422;
     --diagram-node: #2c2a26;
-    --diagram-node-border: #5c584f;
+    --diagram-node-border: #726e67;
     --diagram-text: #ecebe8;
     --diagram-line: #95928a;
     --diagram-cluster: #282725;

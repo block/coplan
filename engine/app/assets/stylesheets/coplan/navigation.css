@@ -148,8 +148,20 @@
   pointer-events: none;
 }
 
-.appearance-menu__theme-name {
+.appearance-menu__theme-text {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* What the theme looks like, shown rather than left to a tooltip, which
+   touch screens never show. */
+.appearance-menu__theme-description {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
 }
 
 /* The theme that's showing: blue marks the selection (docs/DESIGN.md). */
@@ -157,9 +169,10 @@
   visibility: hidden;
 }
 
-.appearance-menu__theme:has(input:checked) {
+/* Color and the check mark the pick; the weight stays put, so the name
+   doesn't change width as the check moves. */
+.appearance-menu__theme:has(input:checked) .appearance-menu__theme-name {
   color: var(--color-primary);
-  font-weight: 600;
 }
 
 .appearance-menu__theme:has(input:checked) .appearance-menu__check {

@@ -168,6 +168,9 @@ RSpec.describe "App themes", type: :system do
     visit settings_root_path
     find(".site-nav__appearance-btn").click
     expect(page).to have_css("#appearance-menu .appearance-menu__theme:has(input:checked)", text: "Classic")
+    # Each theme says what it looks like, on screen rather than in a tooltip.
+    expect(page).to have_css("#appearance-menu .appearance-menu__theme-description", text: CoPlan::Themes.find("neutral").description)
+    expect(page).to have_css("input[name='appearance_theme'][value='neutral'][aria-describedby='appearance-theme-neutral-description']", visible: :all)
 
     within("#appearance-menu") { find(".appearance-menu__theme", text: "Neutral").click }
     expect(app_theme_attribute).to eq("neutral")
@@ -360,7 +363,8 @@ RSpec.describe "App themes", type: :system do
         expect(style(".site-nav", "backdrop-filter")).to eq("none")
         expect(style(".plan-reader .markdown-rendered p", "line-height")).to eq("25.6px")
         expect(style(".plan-reader .markdown-rendered", "font-family")).to start_with("system-ui")
-        expect(style(".plan-reader .markdown-rendered h2", "font-weight")).to eq("500")
+        # A bold phrase in the body never outweighs the heading above it.
+        expect(style(".plan-reader .markdown-rendered h2", "font-weight")).to eq("600")
         expect(style(".plan-reader .markdown-rendered strong", "font-weight")).to eq("600")
         expect(style(".plan-title__heading", "font-size")).to eq("28px")
         expect(%w[h1 h2 h3].map { |h| style(".plan-reader .markdown-rendered #{h}", "font-size") }).to eq(%w[24px 20px 18px])
