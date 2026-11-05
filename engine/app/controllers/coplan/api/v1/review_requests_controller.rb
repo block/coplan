@@ -40,6 +40,7 @@ module CoPlan
             @plan.with_lock do
               # The request may have been removed while waiting for the plan lock.
               @review_request.reload
+              @review_request.ensure_current!
               @review_request.update!(requirement: params.require(:requirement))
             end
             Reviews::Changed.call(request: @review_request, event_type: "review.requested", actor_token_id: api_token_id,
@@ -67,7 +68,7 @@ module CoPlan
         private
 
         def set_review_request
-          @review_request = @plan.review_requests.find(params[:id])
+          @review_request = @plan.review_requests.current.find(params[:id])
         end
       end
     end

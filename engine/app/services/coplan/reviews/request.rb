@@ -25,10 +25,11 @@ module CoPlan
             # The plan lock does not reload its children. Reject a request
             # removed while this operation was waiting for the lock.
             @request.reload
+            @request.ensure_current!
             @requirement = @request.requirement if @requirement.nil?
             @request
           else
-            @plan.review_requests.find_or_initialize_by(reviewer: @reviewer)
+            @plan.review_requests.current.find_or_initialize_by(reviewer: @reviewer)
           end
           # API create retries preserve every existing task. The web add form
           # deliberately replaces withdrawn tasks left by earlier removals.
@@ -39,11 +40,7 @@ module CoPlan
             end
             next request unless @replace_withdrawn && request.status == "withdrawn"
 
-            unless @plan.plan_events.where(event_type: "review_requested", after_value: request.id).exists?
-              RecordRequest.call(request: request)
-            end
-            request.destroy!
-            removed = request
+            removed = Remove.call(plan: @plan, request_id: request.id, actor: @actor, api_token: @api_token, broadcast: false)
             request = @plan.review_requests.new(reviewer: @reviewer)
           end
 

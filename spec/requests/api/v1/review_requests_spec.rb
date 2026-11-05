@@ -36,12 +36,14 @@ RSpec.describe "Api::V1::ReviewRequests", type: :request do
       expect(response).to have_http_status(:not_found)
       delete api_v1_plan_review_request_path(plan, task), headers: headers("reviews-owner")
       expect(response).to have_http_status(:not_found)
-      expect(CoPlan::ReviewResponse.exists?(old_response_id)).to be(false)
+      expect(CoPlan::ReviewResponse.find(old_response_id).decision).to eq("changes_requested")
       expect(fresh.reload.status).to eq("pending")
       get api_v1_plan_review_requests_path(plan), headers: headers("reviews-owner")
       requests = response.parsed_body.fetch("review_requests")
-      expect(requests.map { |request| request.fetch("id") }).to eq([ fresh.id ])
-      expect(requests.first.fetch("responses")).to be_empty
+      expect(requests.map { |request| request.fetch("id") }).to contain_exactly(task.id, fresh.id)
+      expect(requests.find { |item| item["id"] == task.id }).to include("status" => "removed")
+      expect(requests.find { |item| item["id"] == task.id }.fetch("responses").first.fetch("id")).to eq(old_response_id)
+      expect(requests.find { |item| item["id"] == fresh.id }.fetch("responses")).to be_empty
     end
   end
 

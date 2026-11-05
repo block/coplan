@@ -2,7 +2,7 @@ module CoPlan
   # A task, independent of both inbox read state and collaborator permissions.
   class ReviewRequest < ApplicationRecord
     REQUIREMENTS = %w[required optional].freeze
-    STATUSES = %w[pending approved changes_requested withdrawn].freeze
+    STATUSES = %w[pending approved changes_requested withdrawn removed].freeze
 
     belongs_to :plan
     belongs_to :reviewer, class_name: "CoPlan::User"
@@ -13,14 +13,27 @@ module CoPlan
     has_many :review_responses, -> { order(created_at: :desc, id: :desc) }, dependent: :delete_all
     has_many :notifications, dependent: :destroy
 
-    validates :reviewer_id, uniqueness: { scope: :plan_id }
+    # A nullable unique slot allows many ended assignments for one reviewer.
+    # Keep it derived from status; false would create a second reusable slot.
+    before_validation { self.current_assignment = status == "removed" ? nil : true }
+    validates :reviewer_id, uniqueness: { scope: :plan_id, conditions: -> { current } }, unless: :removed?
+    validates :current_assignment, inclusion: { in: [ true, nil ] }
     validates :requirement, inclusion: { in: REQUIREMENTS }
     validates :status, inclusion: { in: STATUSES }
     validates :requested_at, presence: true
     validate :version_belongs_to_plan
 
-    scope :active, -> { where.not(status: "withdrawn") }
-    scope :pending, -> { where(status: "pending") }
+    scope :current, -> { where(current_assignment: true) }
+    scope :active, -> { current.where.not(status: "withdrawn") }
+    scope :pending, -> { current.where(status: "pending") }
+
+    def removed?
+      status == "removed"
+    end
+
+    def ensure_current!
+      raise ActiveRecord::RecordNotFound, "Review request was removed" if removed?
+    end
 
     def pending?
       status == "pending"

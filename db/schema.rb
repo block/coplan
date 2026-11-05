@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_30_180126) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_175218) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -454,6 +454,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_180126) do
 
   create_table "coplan_review_requests", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.boolean "current_assignment", default: true
     t.string "plan_id", limit: 36, null: false
     t.datetime "requested_at", null: false
     t.string "requested_by_user_id", limit: 36, null: false
@@ -462,7 +463,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_180126) do
     t.string "reviewer_id", limit: 36, null: false
     t.string "status", null: false
     t.datetime "updated_at", null: false
-    t.index ["plan_id", "reviewer_id"], name: "index_coplan_review_requests_on_plan_id_and_reviewer_id", unique: true
+    t.index ["plan_id", "reviewer_id", "current_assignment"], name: "index_coplan_reviews_on_current_assignment", unique: true
     t.index ["requested_by_user_id"], name: "fk_rails_c5db6a7f68"
     t.index ["requested_plan_version_id"], name: "fk_rails_9648b04dbb"
     t.index ["reviewer_id", "status"], name: "index_coplan_review_requests_on_reviewer_id_and_status"
