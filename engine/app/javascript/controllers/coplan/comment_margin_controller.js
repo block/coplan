@@ -131,6 +131,12 @@ export default class extends Controller {
       const card = this.cards.get(id)
       const rect = mark.getClientRects()[0]
       if (!card || !rect) continue
+      // A scrolled-out slide anchor must not leave its marker beside prose
+      // above or below the deck. getClientRects still includes clipped text.
+      const slide = mark.closest(".deck-slide")
+      const bounds = slide?.getBoundingClientRect()
+      card.hidden = !!bounds && (rect.bottom <= bounds.top || rect.top >= bounds.bottom)
+      if (card.hidden) continue
       placed.push({ card, top: rect.top + (rect.height - WIDTH) / 2 - originTop })
     }
     placed.sort((a, b) => a.top - b.top)

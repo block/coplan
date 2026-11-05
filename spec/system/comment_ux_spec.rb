@@ -58,6 +58,67 @@ RSpec.describe "Comment UX", type: :system do
     thread
   end
 
+  describe "discussion margins in decks" do
+    let(:plan_content) do
+      <<~MARKDOWN
+        ::: {.presentation}
+
+        # First slide
+
+        First discussion target.
+
+        ---
+
+        # Second slide
+
+        Second discussion target.
+
+        #{(1..35).map { |n| "Paragraph #{n} keeps this slide scrollable.\n" }.join("\n")}
+
+        :::
+      MARKDOWN
+    end
+
+    before do
+      sign_in(author)
+      page.current_window.resize_to(1600, 900)
+    end
+
+    after { page.current_window.resize_to(1400, 900) }
+
+    it "replaces margin markers when navigating between equal-sized slides" do
+      first = create_anchored_thread(plan: plan, anchor_text: "First discussion target", body: "First feedback", user: reviewer)
+      second = create_anchored_thread(plan: plan, anchor_text: "Second discussion target", body: "Second feedback", user: reviewer)
+      visit plan_page_path(plan)
+      expect(page).to have_css(".comment-margin__card[data-thread-id='comment_thread_#{first.id}']")
+      expect(page).to have_no_css(".comment-margin__card[data-thread-id='comment_thread_#{second.id}']")
+
+      find(".deck-toolbar__step--next").click
+      expect(page).to have_css(".comment-margin__card[data-thread-id='comment_thread_#{second.id}']")
+      expect(page).to have_no_css(".comment-margin__card[data-thread-id='comment_thread_#{first.id}']")
+      find(".comment-margin__card").click
+      expect(page).to have_css(".thread-popover:popover-open", text: "Second feedback")
+    end
+
+    it "keeps the marker aligned while its slide scrolls" do
+      thread = create_anchored_thread(plan: plan, anchor_text: "Second discussion target", body: "Scrolling feedback", user: reviewer)
+      visit plan_page_path(plan)
+      find(".deck-toolbar__step--next").click
+      # Rebuild highlights to isolate scrolling from slide-change refresh.
+      page.execute_script("document.dispatchEvent(new CustomEvent('coplan:anchors-updated'))")
+      card = find(".comment-margin__card[data-thread-id='comment_thread_#{thread.id}']")
+      before = card.evaluate_script("this.getBoundingClientRect().top")
+      find(".deck-slide--current").execute_script("this.scrollTop = 40")
+      expect(page).to have_css(".comment-margin__card", count: 1) { |marker|
+        (before - marker.evaluate_script("this.getBoundingClientRect().top") - 40).abs < 3
+      }
+      find(".deck-slide--current").execute_script("this.scrollTop = this.scrollHeight")
+      expect(page).to have_no_css(".comment-margin__card")
+      find(".deck-slide--current").execute_script("this.scrollTop = 0")
+      expect(page).to have_css(".comment-margin__card[data-thread-id='comment_thread_#{thread.id}']")
+    end
+  end
+
   describe "plan show page layout" do
     before { sign_in(author) }
 

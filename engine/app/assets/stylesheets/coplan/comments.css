@@ -193,6 +193,8 @@
 
 .comment-margin__card--resolved { opacity: 0.6; }
 
+.comment-margin__card[hidden] { display: none; }
+
 .comment-margin__card .avatar,
 .comment-margin__card .comment__agent-avatar {
   width: 26px;
