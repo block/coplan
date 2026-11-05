@@ -23,6 +23,18 @@ RSpec.describe "CoPlan reviews" do
     expect(plan.plan_collaborators).to be_empty
   end
 
+  it "re-requests the existing task using its current requirement unless overridden" do
+    stale = request
+    CoPlan::ReviewRequest.find(stale.id).update!(requirement: "optional")
+
+    repeated = CoPlan::Reviews::Request.again(request: stale, actor: plan.created_by_user)
+    expect(repeated).to have_attributes(id: stale.id, requirement: "optional", status: "pending")
+    expect(plan.plan_events.where(event_type: "review_requested").last.metadata).to include("requirement" => "optional")
+
+    overridden = CoPlan::Reviews::Request.again(request: stale, actor: plan.created_by_user, requirement: "required")
+    expect(overridden).to have_attributes(id: stale.id, requirement: "required", status: "pending")
+  end
+
   it "dismisses the active approval after edits and preserves its receipt" do
     response = respond(note: "Looks right")
     expect(response.comment_thread.comments.first.body_markdown).to eq("Looks right")

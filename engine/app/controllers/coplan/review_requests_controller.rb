@@ -1,7 +1,7 @@
 module CoPlan
   class ReviewRequestsController < ApplicationController
     before_action :set_plan
-    before_action :set_review_request, only: [ :update, :destroy, :respond, :compare ]
+    before_action :set_review_request, only: [ :update, :respond, :compare ]
     rescue_from Reviews::Respond::Conflict, with: :render_conflict
     rescue_from ActiveRecord::RecordInvalid, with: :render_invalid
 
@@ -42,10 +42,11 @@ module CoPlan
 
     def create
       authorize!(@plan, :update?)
-      attributes = params.expect(review_request: [ :reviewer_id, :requirement ])
+      attributes = params.expect(review_request: [ :reviewer_id, :requirement, :replace_withdrawn ])
       reviewer = User.find(attributes[:reviewer_id])
       request = Reviews::Request.call(plan: @plan, reviewer: reviewer, actor: current_user,
-        requirement: attributes[:requirement].presence || "required", create_only: true)
+        requirement: attributes[:requirement].presence || "required", create_only: true,
+        replace_withdrawn: ActiveModel::Type::Boolean.new.cast(attributes[:replace_withdrawn]))
       render json: Reviews::Serialize.call(request), status: :created
     end
 
@@ -53,10 +54,11 @@ module CoPlan
       authorize!(@plan, :update?)
       attributes = params.expect(review_request: [ :requirement, :request_again ])
       if ActiveModel::Type::Boolean.new.cast(attributes[:request_again])
-        Reviews::Request.call(plan: @plan, reviewer: @review_request.reviewer, actor: current_user,
-          requirement: attributes[:requirement].presence || @review_request.requirement)
+        Reviews::Request.again(request: @review_request, actor: current_user,
+          requirement: attributes[:requirement].presence)
       else
         @plan.with_lock do
+          @review_request.reload
           @review_request.update!(requirement: attributes.fetch(:requirement))
           @plan.update!(review_sequence: @plan.review_sequence + 1)
         end
@@ -68,7 +70,12 @@ module CoPlan
 
     def destroy
       authorize!(@plan, :update?)
-      Reviews::Withdraw.call(request: @review_request, actor: current_user)
+      if ActiveModel::Type::Boolean.new.cast(params.dig(:review_request, :remove))
+        Reviews::Remove.call(plan: @plan, request_id: params[:id])
+      else
+        set_review_request
+        Reviews::Withdraw.call(request: @review_request, actor: current_user)
+      end
       head :no_content
     end
 

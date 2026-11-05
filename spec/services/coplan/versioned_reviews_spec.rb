@@ -57,6 +57,42 @@ RSpec.describe "Version-bound review evidence" do
     end
   end
 
+  %i[respond request_again remove].each do |action|
+    it "skips an obsolete reset delivery when #{action} finishes before the commit callback" do
+      task
+      callbacks = []
+      allow(ActiveRecord).to receive(:after_all_transactions_commit) { |&callback| callbacks << callback }
+      replace("A new revision")
+      case action
+      when :respond then decide
+      when :request_again then CoPlan::Reviews::Request.again(request: task, actor: plan.created_by_user)
+      when :remove then CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      end
+      allow(CoPlan::Reviews::Changed).to receive(:call).and_call_original
+      expect(callbacks).not_to be_empty
+      callbacks.each(&:call)
+      expect(CoPlan::Reviews::Changed).not_to have_received(:call)
+    end
+  end
+
+  it "reads historical evidence without selecting historical Markdown bodies" do
+    3.times do |index|
+      decide
+      replace("Revision #{index}")
+    end
+    statements = []
+    subscriber = ->(_name, _start, _finish, _id, payload) { statements << payload[:sql] unless payload[:cached] }
+    evidence = ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") do
+      CoPlan::Reviews::Evidence.call(plan: plan.reload)
+    end
+    expect(evidence[:review_requests].first[:responses].map { |response| response[:revision] }).to eq([ 3, 2, 1 ])
+    historical_reads = statements.grep(/SELECT.*FROM [`"]coplan_plan_versions[`"].* IN /i)
+    expect(historical_reads.size).to eq(1)
+    expect(historical_reads.first).to include("content_sha256", "revision")
+    expect(historical_reads.first).not_to include("content_markdown", "*")
+    expect(evidence[:version][:content_markdown]).to eq("Revision 2")
+  end
+
   it "keeps actual replacement no-ops approved, but never revives A after A to B to A" do
     first = decide
     original = plan.current_content

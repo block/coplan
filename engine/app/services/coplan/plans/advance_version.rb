@@ -33,7 +33,12 @@ module CoPlan
         ActiveRecord.after_all_transactions_commit do
           requests.each do |request|
             begin
-              Reviews::Changed.call(request: request, event_type: "review.requested",
+              # Another writer can finish after commit releases the plan lock.
+              # Match retry delivery: suppress obsolete or removed reset tasks.
+              current_request = ReviewRequest.find_by(id: request.id)
+              next unless current_request&.pending? && current_request.generation == request.generation
+
+              Reviews::Changed.call(request: current_request, event_type: "review.requested",
                 actor_token_id: version.api_token_id, broadcast_controls: false,
                 payload: { "action" => "content_changed", "revision" => version.revision,
                            "generation" => request.generation })

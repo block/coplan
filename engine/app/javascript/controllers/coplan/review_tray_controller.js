@@ -15,7 +15,9 @@ export default class extends Controller {
     // Shared streams carry an invalidation signal, never another viewer's
     // forms, tokens or personal task status.
     window.Turbo.StreamActions["coplan-review-changed"] ||= function () {
-      document.getElementById(this.getAttribute("target"))?.dispatchEvent(new CustomEvent("coplan:reviews-changed"))
+      document.getElementById(this.getAttribute("target"))?.dispatchEvent(new CustomEvent("coplan:reviews-changed", {
+        detail: { removedRequestId: this.getAttribute("data-removed-review-request-id") }
+      }))
     }
     const tray = this.element.querySelector(".review-tray")
     if (tray) tray.showPopover()
@@ -147,6 +149,8 @@ export default class extends Controller {
     this.responseUrl = event.currentTarget.dataset.url
     this.approvalRevision = this.viewedRevision()
     this.approvalGeneration = this.element.dataset.reviewGeneration
+    this.approvalInvalidated = false
+    this.approveButtonTarget.disabled = false
     this.approvalErrorTarget.textContent = ""
     this.approveButtonTarget.textContent = `Approve v${this.approvalRevision}`
     this.approvalTitleTarget.textContent = `Approve v${this.approvalRevision}?`
@@ -155,6 +159,12 @@ export default class extends Controller {
 
   closeApproval() {
     this.approvalTarget.close()
+  }
+
+  invalidateApproval() {
+    this.approvalInvalidated = true
+    this.approveButtonTarget.disabled = true
+    this.approvalErrorTarget.textContent = "This review request changed. Close this dialog and reopen approval for the current request. Your note is preserved."
   }
 
   responseIntent(url, revision, decision, note, generation) {
@@ -171,13 +181,26 @@ export default class extends Controller {
     if (this.responseIntents[decision] === intent) delete this.responseIntents[decision]
   }
 
+  responseIsCurrent(url) {
+    const parsed = new URL(url, document.baseURI)
+    return !this.reviewWithdrawn && this.hasCommentFormTarget && this.commentFormTarget.action === parsed.href &&
+      !this.removedRequestIds?.has(parsed.pathname.split("/").at(-2))
+  }
+
   async approve(event) {
     event.preventDefault()
+    if (this.approvalInvalidated) { this.invalidateApproval(); return }
     await this.withBusy(event.target, this.approvalErrorTarget, async () => {
-      const intent = this.responseIntent(this.responseUrl, this.approvalRevision, "approved", this.approvalNoteTarget.value, this.approvalGeneration)
-      const result = await this.write(this.responseUrl, "POST", { review_response: { revision: this.approvalRevision, generation: intent.generation, decision: "approved", note: this.approvalNoteTarget.value, idempotency_key: intent.key } })
+      const url = this.responseUrl
+      const intent = this.responseIntent(url, this.approvalRevision, "approved", this.approvalNoteTarget.value, this.approvalGeneration)
+      const result = await this.write(url, "POST", { review_response: { revision: this.approvalRevision, generation: intent.generation, decision: "approved", note: this.approvalNoteTarget.value, idempotency_key: intent.key } })
       this.confirmIntent("approved", intent)
-      const synced = !result.comment_thread_id || await this.refreshThreads(result.comment_thread_id)
+      const current = () => !this.approvalInvalidated && this.responseUrl === url && this.responseIsCurrent(url)
+      if (!current()) return
+      const synced = !result.comment_thread_id || await this.refreshThreads(result.comment_thread_id, current)
+      // Removal can also arrive after the server saved the old approval but
+      // before its result and comments arrive. Keep the dialog and its note.
+      if (!current()) return
       this.approvalTarget.close()
       this.approvalNoteTarget.value = ""
       if (this.hasNoticeTarget) this.noticeTarget.textContent = result.effective === false
@@ -187,6 +210,9 @@ export default class extends Controller {
       if (tray) delete tray.dataset.reconsidering
       await this.refresh()
     }, "Recording…")
+    // A refresh can invalidate this dialog while the original POST is in
+    // flight. Keep it invalid after the busy-state cleanup restores buttons.
+    if (this.approvalInvalidated && this.approvalTarget.open) this.invalidateApproval()
   }
 
   async post(event) {
@@ -196,11 +222,15 @@ export default class extends Controller {
     if (form.closest('[data-dictation-busy="true"]') || form.querySelector('[data-dictation-busy="true"]')) return
     const error = form.querySelector('[role="alert"]')
     await this.withBusy(form, error, async () => {
-      const intent = this.responseIntent(form.action, this.changesRevision, "changes_requested", input.value, this.changesGeneration)
-      const result = await this.write(form.action, "POST", { review_response: { revision: this.changesRevision, generation: intent.generation, decision: "changes_requested", note: input.value, idempotency_key: intent.key } })
+      const url = form.action
+      const current = () => form.isConnected && this.responseIsCurrent(url)
+      const intent = this.responseIntent(url, this.changesRevision, "changes_requested", input.value, this.changesGeneration)
+      const result = await this.write(url, "POST", { review_response: { revision: this.changesRevision, generation: intent.generation, decision: "changes_requested", note: input.value, idempotency_key: intent.key } })
       this.confirmIntent("changes_requested", intent)
+      if (!current()) return
       // Feedback lives in the ordinary discussion collection.
-      const synced = await this.refreshThreads(result.comment_thread_id)
+      const synced = await this.refreshThreads(result.comment_thread_id, current)
+      if (!current()) return
       this.noticeTarget.textContent = result.effective === false
         ? "Your earlier change request was already recorded. Review the current request again."
         : "Changes requested. Your feedback is in the plan’s comments." + (synced ? "" : " Refresh the page to see your comment.")
@@ -210,13 +240,18 @@ export default class extends Controller {
     }, "Posting…")
   }
 
-  async refreshThreads(threadId) {
+  async refreshThreads(threadId, current = () => true) {
+    if (!this.element.isConnected) return false
+    // Another reviewer's removal can also make this collection snapshot stale.
+    const removalSequence = this.removalSequence
     const editor = document.querySelector('[data-coplan--inline-editor-comments-url-value]')
     if (!editor) return false
     try {
       const response = await fetch(editor.getAttribute("data-coplan--inline-editor-comments-url-value"), { credentials: "same-origin", headers: { Accept: "text/html" } })
       if (response.ok) {
-        const incoming = new DOMParser().parseFromString(await response.text(), "text/html")
+        const html = await response.text()
+        if (!this.element.isConnected || !current() || removalSequence !== this.removalSequence) return false
+        const incoming = new DOMParser().parseFromString(html, "text/html")
         const id = `comment_thread_${threadId}`
         const thread = incoming.getElementById(id)
         if (thread && !document.getElementById(id)) document.getElementById("plan-threads")?.append(thread)
@@ -232,7 +267,14 @@ export default class extends Controller {
     return false
   }
 
-  async refresh() {
+  async refresh(event) {
+    const removedId = event?.detail?.removedRequestId
+    if (removedId) {
+      this.removalSequence = (this.removalSequence || 0) + 1
+      this.removedRequestIds ||= new Set()
+      this.removedRequestIds.add(removedId)
+      if (this.approvalTarget.open && this.responseUrl?.endsWith(`/${removedId}/respond`)) this.invalidateApproval()
+    }
     const sequence = ++this.refreshSequence
     this.policyRefreshPending = false
     const policyBusy = this.policySaving || this.policySaveTimer
@@ -264,6 +306,8 @@ export default class extends Controller {
       }
       const tray = incoming.querySelector(".review-tray")
       const existingTray = this.element.querySelector(".review-tray")
+      const responsePath = tray?.querySelector('[data-coplan--review-tray-target="commentForm"]')?.getAttribute("action")
+      if (this.approvalTarget.open && responsePath !== this.responseUrl) this.invalidateApproval()
       const wasWithdrawn = this.reviewWithdrawn
       this.reviewWithdrawn = !tray
       if (!tray && existingTray) {
@@ -278,6 +322,15 @@ export default class extends Controller {
         }
       }
       if (tray && existingTray) existingTray.dataset.completed = tray.dataset.completed
+      if (tray && existingTray) {
+        // Keep the draft and dictation state, but submit new feedback to the
+        // current request. An already-issued fetch retains its original URL.
+        const form = tray.querySelector('[data-coplan--review-tray-target="commentForm"]')
+        if (form && this.hasCommentFormTarget) {
+          if (this.commentFormTarget.action !== form.action) this.changesGeneration = this.element.dataset.reviewGeneration
+          this.commentFormTarget.action = form.action
+        }
+      }
       if (tray && !this.element.querySelector(".review-tray")) this.element.append(tray)
       const currentTray = this.element.querySelector(".review-tray")
       if (tray && currentTray) {
@@ -444,12 +497,13 @@ export default class extends Controller {
     event.preventDefault()
     if (!this.reviewerIdTarget.value) { this.assignmentErrorTarget.textContent = "Choose a person from the results first."; return }
     await this.withBusy(event.target, this.assignmentErrorTarget, async () => {
-      await this.write(this.urlValue, "POST", { review_request: { reviewer_id: this.reviewerIdTarget.value, requirement: event.target.querySelector('[type="checkbox"]').checked ? "required" : "optional" } })
+      await this.write(this.urlValue, "POST", { review_request: { reviewer_id: this.reviewerIdTarget.value, requirement: event.target.querySelector('[type="checkbox"]').checked ? "required" : "optional", replace_withdrawn: true } })
       this.searchTarget.value = ""; this.reviewerIdTarget.value = ""; this.resultsTarget.replaceChildren()
       this.closeAssignment()
       event.target.querySelector('[type="checkbox"]').checked = true
       this.addReviewerButtonTarget.focus({ preventScroll: true })
       await this.refresh()
+      await this.refreshThreads(null)
     }, "Requesting…")
     this.assignButtonTarget.disabled = !this.reviewerIdTarget.value
   }
@@ -531,7 +585,7 @@ export default class extends Controller {
 
   requestAgain(event) { this.manage(event, "PATCH", { review_request: { request_again: true } }) }
   changeRequirement(event) { this.manage(event, "PATCH", { review_request: { requirement: event.currentTarget.dataset.requirement } }) }
-  withdraw(event) { this.manage(event, "DELETE") }
+  withdraw(event) { this.manage(event, "DELETE", { review_request: { remove: true } }) }
 
   async manage(event, method, body) {
     if (this.managing) return
@@ -549,7 +603,9 @@ export default class extends Controller {
     try {
       await this.withBusy(button, this.managementErrorTarget, async () => {
         await this.write(button.dataset.url, method, body)
-        await this.refresh()
+        const removedId = method === "DELETE" && body?.review_request?.remove ? new URL(button.dataset.url, document.baseURI).pathname.split("/").at(-1) : null
+        await this.refresh(removedId ? { detail: { removedRequestId: removedId } } : undefined)
+        if (removedId) await this.refreshThreads(null)
       }, "Updating…")
     } finally {
       this.managing = false
