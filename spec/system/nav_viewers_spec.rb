@@ -21,8 +21,8 @@ RSpec.describe "Viewer stack in the sticky nav", type: :system do
   end
 
   before do
-    plan.current_plan_version.update!(
-      content_markdown: (1..30).map { |n| "## Section #{n}\n\nEnough content to scroll past the masthead." }.join("\n\n")
+    set_version_fixture(plan.current_plan_version,
+      content_markdown: "# #{plan.title}\n\n" + (1..30).map { |n| "## Section #{n}\n\nEnough content to scroll past the masthead." }.join("\n\n")
     )
     sign_in
     visit plan_page_path(plan)

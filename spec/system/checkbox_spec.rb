@@ -161,7 +161,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   it "does not toggle the checkbox when a word in the task text is double-clicked" do
-    plan.current_plan_version.update!(content_markdown: "# Tasks\n\n- [ ] Review `retry_policy` settings")
+    set_version_fixture(plan.current_plan_version, content_markdown: "# Tasks\n\n- [ ] Review `retry_policy` settings")
     visit plan_page_path(plan)
     count_toggle_requests
 
