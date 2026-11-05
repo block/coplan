@@ -35,6 +35,20 @@ module DocumentTitleHelpers
     JS
   end
 
+  def select_document_body
+    page.execute_script <<~JS
+      const editor = document.querySelector('.document-editor__body .ProseMirror')
+      editor.focus()
+      const range = document.createRange()
+      range.selectNodeContents(editor)
+      range.setStartAfter(editor.querySelector(':scope > h1:first-child'))
+      const selection = window.getSelection()
+      selection.removeAllRanges()
+      selection.addRange(range)
+      document.dispatchEvent(new Event('selectionchange'))
+    JS
+  end
+
   def select_document_title
     page.execute_script <<~JS
       const title = document.querySelector('.inline-editor .ProseMirror > h1:first-child')

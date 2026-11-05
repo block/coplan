@@ -22,12 +22,16 @@ export default class extends Controller {
     this._observeAnchor()
 
     if (this.head) {
-      this._mutation = new MutationObserver(() => {
-        this._observeAnchor()
-        this._syncTitle()
-      })
+      this._mutation = new MutationObserver(() => this.syncAnchor())
       this._mutation.observe(this.head, { childList: true, subtree: true, characterData: true })
     }
+  }
+
+  // Editor readiness changes visibility after its heading has mounted.
+  // Bind after the inline editor handles that bubbling event.
+  syncAnchor() {
+    this._observeAnchor()
+    this._syncTitle()
   }
 
   disconnect() {

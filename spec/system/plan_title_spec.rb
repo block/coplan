@@ -46,6 +46,20 @@ RSpec.describe "Canonical document title", type: :system do
     expect(page).to have_css(".site-nav__plan-context--visible .site-nav__doc-title-text", text: "Shared workspaces")
   end
 
+  it "tracks the visible title when editing opens before any typing" do
+    open_editor
+    expect(page).to have_no_css(".inline-editor--preparing")
+    page.evaluate_async_script("const done = arguments[0]; requestAnimationFrame(() => requestAnimationFrame(done))")
+    expect(page).to have_no_css(".site-nav__plan-context--visible")
+    page.execute_script("window.scrollTo(0, 900)")
+    expect(page).to have_css(".site-nav__plan-context--visible")
+    page.execute_script("window.scrollTo(0, 0)")
+    expect(page).to have_no_css(".site-nav__plan-context--visible")
+    within("#plan-toolbar") { click_link "Done" }
+    expect(page).to have_no_css(".inline-editor .ProseMirror", wait: 15)
+    expect(page).to have_no_css(".site-nav__plan-context--visible")
+  end
+
   it "autosaves title text repeatedly but changes the URL only on Done" do
     path = plan.url_path
     open_editor

@@ -914,7 +914,9 @@ export default class extends Controller {
     const content = this._contentRoot()
     if (!content) return null
 
+    // The document title is not a section fallback for a general remark.
     const headings = Array.from(content.querySelectorAll("h1, h2, h3, h4, h5, h6"))
+      .filter(heading => heading.id !== "plan-title" && !heading.matches(".ProseMirror > h1:first-child"))
     if (headings.length === 0) return null
 
     const readingLine = window.innerHeight * 0.4

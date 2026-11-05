@@ -669,6 +669,12 @@ export default class extends Controller {
     } else if (event.key === "Enter") {
       event.preventDefault()
       this.insertCode()
+    } else if (event.key === "Escape") {
+      event.preventDefault()
+      this.codePickerTarget.hidePopover()
+      // Native focus restoration can reset the caret to the document title.
+      // Preserve the model's insertion point when dismissing the picker.
+      this.richEditor.view.focus()
     }
   }
   chooseCodeLanguage(event) {
