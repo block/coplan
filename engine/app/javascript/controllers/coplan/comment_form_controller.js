@@ -16,7 +16,7 @@ export default class extends Controller {
   // Search URL is supplied per-form via a Stimulus value so it respects the
   // engine's mount point (host apps may mount Coplan under e.g. `/coplan`).
   // The default is fine for hosts that mount at root.
-  static targets = ["input", "draft", "linkPanel", "linkUrl", "linkError"]
+  static targets = ["input", "draft", "linkPanel", "linkUrl", "linkLabel", "linkError"]
 
   static values = {
     searchUrl: { type: String, default: "/users/search" }
@@ -119,7 +119,6 @@ export default class extends Controller {
     this.linkUrlTarget.value = ""
     this.clearLinkError()
     this.draftTarget.inert = true
-    this.draftTarget.style.visibility = "hidden"
     this.linkPanelTarget.hidden = false
     this.linkUrlTarget.focus({ preventScroll: true })
   }
@@ -139,21 +138,32 @@ export default class extends Controller {
 
   clearLinkError() {
     this.linkErrorTarget.hidden = true
+    this.linkLabelTarget.hidden = false
     this.linkUrlTarget.removeAttribute("aria-invalid")
+  }
+
+  showLinkError(message) {
+    this.linkErrorTarget.textContent = message
+    this.linkErrorTarget.hidden = false
+    this.linkLabelTarget.hidden = true
+    this.linkUrlTarget.setAttribute("aria-invalid", "true")
+    this.linkUrlTarget.focus({ preventScroll: true })
   }
 
   applyLink() {
     const href = this.linkUrlTarget.value.trim()
     if (!LINK_URL.test(href) || /\s/.test(href)) {
-      this.linkErrorTarget.hidden = false
-      this.linkUrlTarget.setAttribute("aria-invalid", "true")
-      this.linkUrlTarget.focus({ preventScroll: true })
+      this.showLinkError("Use http(s):// or mailto: without spaces.")
       return
     }
     const selection = this._linkSelection
+    // Dictation can update the draft while this field has focus. Keep the
+    // URL available and explain why the original selection is no longer safe.
+    if (!selection || this.inputTarget.value !== selection.value) {
+      this.showLinkError("Draft changed. Cancel and reselect text.")
+      return
+    }
     this.cancelLink()
-    // Dictation or a remote draft update must not replace a stale selection.
-    if (!selection || this.inputTarget.value !== selection.value) return
     const label = selection.value.slice(selection.start, selection.end)
     this.insertLink(label, href)
     if (!label) this.inputTarget.setSelectionRange(selection.start + 1, selection.start + 1)
@@ -162,9 +172,8 @@ export default class extends Controller {
   cancelLink() {
     this.linkPanelTarget.hidden = true
     this.draftTarget.inert = false
-    this.draftTarget.style.visibility = ""
     this.inputTarget.focus({ preventScroll: true })
-    if (this._linkSelection) {
+    if (this._linkSelection && this.inputTarget.value === this._linkSelection.value) {
       this.inputTarget.setSelectionRange(this._linkSelection.start, this._linkSelection.end)
     }
     this._linkSelection = null

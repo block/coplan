@@ -185,6 +185,8 @@ export default class extends Controller {
   }
 
   dismiss(event, restoreFocus = true) {
+    // Let nested link entry cancel itself before dismissing the discussion.
+    if (event?.key === "Escape" && event.target.closest?.(".composer__link:not([hidden])")) return
     // This document capture handler runs before the nested menu receives Escape.
     if (event?.key === "Escape" && document.querySelector(".microphone-settings__panel:popover-open, .comment-reactions__picker:popover-open")) return
     this.panelTarget.dispatchEvent(new CustomEvent("coplan:composer-close", { bubbles: true }))

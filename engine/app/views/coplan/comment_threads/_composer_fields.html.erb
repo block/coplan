@@ -35,11 +35,12 @@
   </div>
   <div class="composer__link" role="group" aria-label="Insert link" hidden
        data-coplan--comment-form-target="linkPanel" data-action="keydown->coplan--comment-form#linkKeydown">
-    <label>Link URL
-      <input type="text" inputmode="url" placeholder="https://…" autocomplete="off"
+    <label>
+      <span data-coplan--comment-form-target="linkLabel">Link URL</span>
+      <span role="alert" hidden data-coplan--comment-form-target="linkError">Use http(s):// or mailto: without spaces.</span>
+      <input aria-label="Link URL" type="text" inputmode="url" placeholder="https://…" autocomplete="off"
              data-coplan--comment-form-target="linkUrl" data-action="input->coplan--comment-form#clearLinkError">
     </label>
-    <p class="text-sm" role="alert" hidden data-coplan--comment-form-target="linkError">Enter a URL starting with https://, http://, or mailto:, without spaces.</p>
     <div class="composer__send-actions">
       <button type="button" class="composer__cancel" data-action="coplan--comment-form#cancelLink">Cancel link</button>
       <button type="button" class="btn btn--primary btn--sm" data-action="coplan--comment-form#applyLink">Insert link</button>

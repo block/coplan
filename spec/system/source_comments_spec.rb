@@ -62,6 +62,26 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(page).to have_no_css(".source-comments:popover-open")
   end
 
+  [ false, true ].each do |reply|
+    it "cancels the link field before closing a table #{reply ? 'reply' : 'comment'}" do
+      all(".data-grid tbody tr")[0].all("td")[1].send_keys("c")
+      comment("Existing discussion") if reply
+      input = panel.find("textarea")
+      input.fill_in with: "Keep my draft"
+      page.execute_script("arguments[0].setSelectionRange(0, 4)", input)
+      modifier = RUBY_PLATFORM.include?("darwin") ? :meta : :control
+      input.send_keys([ modifier, "k" ])
+      panel.fill_in "Link URL", with: "https://example.com"
+      panel.find_field("Link URL").send_keys(:escape)
+      expect(page).to have_css(".source-comments:popover-open")
+      expect(panel.find("textarea").value).to eq("Keep my draft")
+      expect(panel).to have_css("textarea:focus")
+      expect(panel).to have_no_field("Link URL")
+      page.driver.browser.action.send_keys(:escape).perform
+      expect(page).to have_no_css(".source-comments:popover-open")
+    end
+  end
+
   it "scrolls table discussion content without moving the resized window's header or grip" do
     cell = all(".data-grid tbody tr")[0].all("td")[1]
     cell.send_keys("c")

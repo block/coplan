@@ -99,7 +99,9 @@ RSpec.describe "Links in the comment composer", type: :system do
     find_field("Link URL").send_keys(:escape)
     expect(caret).to eq([ 4, 19 ])
     insert_link("javascript:alert(1)")
-    expect(page).to have_text("Enter a URL starting with")
+    expect(page).to have_text("Use http(s):// or mailto: without spaces.")
+    panel = find('[aria-label="Insert link"]')
+    expect(page.evaluate_script("arguments[0].scrollHeight <= arguments[0].clientHeight", panel)).to be(true)
     click_button "Cancel link"
     expect(textarea.value).to eq("See Design Overview")
   end
@@ -124,6 +126,21 @@ RSpec.describe "Links in the comment composer", type: :system do
     expect(thread_record.comments.count).to eq(1)
     expect(page).to have_field("Your reply", enable_aria_label: true, focused: true)
     expect(textarea.value).to eq("See [Design Overview](https://example.com)")
+  end
+
+  it "explains a changed draft and keeps the URL instead of silently losing insertion" do
+    select_text(4, 19)
+    textarea.send_keys([ mod, "k" ])
+    fill_in "Link URL", with: "https://example.com"
+    # A transcription can arrive after the author opened the link field.
+    input = find(".thread-popover__reply textarea", visible: :all)
+    page.execute_script("arguments[0].value = 'Arriving transcription'", input)
+    click_button "Insert link"
+    expect(page).to have_text("Draft changed. Cancel and reselect text.")
+    expect(page).to have_field("Link URL", enable_aria_label: true, with: "https://example.com")
+    click_button "Cancel link"
+    expect(textarea.value).to eq("Arriving transcription")
+    expect(thread_record.comments.count).to eq(1)
   end
 
   it "links text while editing an existing comment" do
