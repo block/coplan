@@ -4,6 +4,7 @@ module CoPlan
     # The domain is optional and does not affect lookup. Bases supply the
     # engine mount prefix; authorization belongs to the caller.
     class ResolvePlan
+      MAX_REDIRECTS = 20
       LEGACY_PATH = %r{\Aplans/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/?\z}
 
       def self.call(url:, bases:)
@@ -37,15 +38,19 @@ module CoPlan
           return Plan.find_by(id: match[1])
         end
 
-        handle, _, rest = path.partition("/")
-        return if rest.blank?
+        visited = []
+        MAX_REDIRECTS.times do
+          return if visited.include?(path)
+          visited << path
+          handle, _, rest = path.partition("/")
+          return if rest.blank?
 
-        result = Resolve.call(handle: handle, slug_path: rest)
-        if result.redirect_to_path.present?
-          handle, _, rest = result.redirect_to_path.partition("/")
           result = Resolve.call(handle: handle, slug_path: rest)
+          return result.plan if result.redirect_to_path.blank?
+
+          path = result.redirect_to_path
         end
-        result.plan
+        nil
       rescue URI::InvalidURIError
         nil
       end
