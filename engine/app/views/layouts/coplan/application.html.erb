@@ -51,7 +51,9 @@
             <%# Persistent controls: Search (jump to a doc/person), Appearance
                 (mode and theme), the notifications bell, and the menu.
                 Everything else lives in the menu, so the bar stays calm
-                while you read. %>
+                while you read. A plan page also puts its compact viewer
+                stack here, shown with the title. %>
+            <%= yield :nav_presence %>
             <button type="button"
                     class="site-nav__search"
                     aria-label="Search plans and people"

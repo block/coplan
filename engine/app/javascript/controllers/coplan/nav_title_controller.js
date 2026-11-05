@@ -94,6 +94,8 @@ export default class extends Controller {
 
   _setVisible(visible) {
     this.element.classList.toggle("site-nav__plan-context--visible", visible)
+    // The compact viewer stack on the right of the bar fades on this too.
+    this.element.closest(".site-nav")?.classList.toggle("site-nav--plan-scrolled", visible)
     // Collapsed, it's decorative and must stay out of the tab order; once
     // shown, both the containing-folder and return-to-top links are real controls,
     // so expose them to keyboard and screen-reader users too.

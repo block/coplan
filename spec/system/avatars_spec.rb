@@ -73,7 +73,7 @@ RSpec.describe "User avatars", type: :system do
     dimensions = page.evaluate_script("Array.from(document.querySelectorAll('.plan-viewers__avatar'), el => [el.offsetWidth, el.offsetHeight])")
 
     user.update!(avatar_url: "/missing-live-avatar.png")
-    CoPlan::Broadcaster.replace_to(plan, target: "plan-viewers",
+    CoPlan::Broadcaster.update_to(plan, targets: CoPlan::PlanPresenceChannel::VIEWER_TARGETS,
       partial: "coplan/plans/viewers", locals: { viewers: [ user ] })
 
     expect(page).not_to have_css("#plan-viewers img", visible: :all)
