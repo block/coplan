@@ -53,7 +53,7 @@ RSpec.describe CoPlan::Broadcaster do
 
     it "refreshes attribution for writes without a diff flash, without crediting untouched sections" do
       original = "## Design\n\nKeep the design.\n\n## Rollout\n\nOriginal rollout.\n"
-      plan.current_plan_version.update_columns(content_markdown: original)
+      set_version_fixture(plan.current_plan_version, content_markdown: original)
       version = create(:plan_version, plan: plan, revision: 2, actor_id: author.id,
         content_markdown: original.sub("Original rollout", "New rollout"))
       plan.update!(current_plan_version: version, current_revision: 2)
@@ -72,7 +72,7 @@ RSpec.describe CoPlan::Broadcaster do
 
     it "preserves extensive rewrite metadata even without a diff flash" do
       original = %w[Design Data Rollout Testing].map { |title| "## #{title}\n\nOriginal #{title} body.\n" }.join("\n")
-      plan.current_plan_version.update_columns(content_markdown: original)
+      set_version_fixture(plan.current_plan_version, content_markdown: original)
       version = create(:plan_version, plan: plan, revision: 2, actor_id: author.id,
         content_markdown: original.gsub("Original", "Entirely new"))
       plan.update!(current_plan_version: version, current_revision: 2)

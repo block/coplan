@@ -68,6 +68,7 @@ module CoPlan
     before_save :assign_url_slug, if: :url_slug_stale?
 
     validates :title, presence: true
+    validates :reset_reviews_on_change, inclusion: { in: [ true, false ] }
     validates :visibility, presence: true, inclusion: { in: VISIBILITIES }
     validate :attachments_within_limits
 

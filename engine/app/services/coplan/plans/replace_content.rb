@@ -136,10 +136,7 @@ module CoPlan
             reason: @reason
           )
 
-          @plan.update!(
-            current_plan_version: version,
-            current_revision: new_revision
-          )
+          Plans::AdvanceVersion.call(plan: @plan, version: version)
 
           @plan.comment_threads.mark_out_of_date_for_new_version!(version)
 

@@ -198,7 +198,7 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "preserves generated duplicate fragments and authored heading links" do
-      plan.current_plan_version.update!(content_markdown: "## Intro\n\nFirst\n\n## Intro\n\nSecond")
+      set_version_fixture(plan.current_plan_version, content_markdown: "## Intro\n\nFirst\n\n## Intro\n\nSecond")
       visit plan_page_path(plan)
 
       expect(all(".markdown-rendered h2").map { |heading| heading[:id] }).to eq(%w[intro intro-1])
@@ -216,7 +216,7 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "renders Mermaid fences as diagrams" do
-      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+      set_version_fixture(plan.current_plan_version, content_markdown: <<~MARKDOWN)
         # Request flow
 
         ```mermaid
@@ -239,7 +239,7 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "expands a Mermaid diagram using the expand control" do
-      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+      set_version_fixture(plan.current_plan_version, content_markdown: <<~MARKDOWN)
         ```mermaid
         flowchart LR
           Client --> API
@@ -260,7 +260,7 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "keeps invalid Mermaid source readable" do
-      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+      set_version_fixture(plan.current_plan_version, content_markdown: <<~MARKDOWN)
         ```mermaid
         not a valid diagram
         ```
@@ -433,7 +433,7 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "opens a popover for a comment anchored to a Mermaid label" do
-      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+      set_version_fixture(plan.current_plan_version, content_markdown: <<~MARKDOWN)
         # Request flow
 
         ```mermaid
@@ -483,7 +483,7 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "keeps a keyboard-opened Mermaid popover attached across re-renders" do
-      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+      set_version_fixture(plan.current_plan_version, content_markdown: <<~MARKDOWN)
         ```mermaid
         flowchart LR
           Queue["assignment"] --> Printer
@@ -569,7 +569,7 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "opens a linked comment anchored to a Mermaid label" do
-      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+      set_version_fixture(plan.current_plan_version, content_markdown: <<~MARKDOWN)
         ```mermaid
         flowchart LR
           Queue["~3 min retries"] --> Printer
@@ -602,7 +602,7 @@ RSpec.describe "Comment UX", type: :system do
     end
 
     it "opens a pending linked comment after Mermaid rendering fails" do
-      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+      set_version_fixture(plan.current_plan_version, content_markdown: <<~MARKDOWN)
         ```mermaid
         not a valid diagram
         ```
@@ -1039,7 +1039,7 @@ RSpec.describe "Comment UX", type: :system do
     before { sign_in(author) }
 
     it "keeps an overlapping heading comment visible and clickable after reload" do
-      plan.current_plan_version.update!(content_markdown: <<~MARKDOWN)
+      set_version_fixture(plan.current_plan_version, content_markdown: <<~MARKDOWN)
         # Performance
 
         ## 1.3 Hard carts — and why native degrades fast

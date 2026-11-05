@@ -6,7 +6,7 @@ RSpec.describe CoPlan::References::ExtractFromContent do
 
   def update_content(plan, content)
     version = plan.current_plan_version
-    version.update!(content_markdown: content)
+    set_version_fixture(version, content_markdown: content)
   end
 
   describe ".call" do
@@ -101,7 +101,7 @@ RSpec.describe CoPlan::References::ExtractFromContent do
     end
 
     it "handles empty content" do
-      plan.current_plan_version.update_column(:content_markdown, "")
+      set_version_fixture(plan.current_plan_version, content_markdown: "")
       described_class.call(plan: plan)
       expect(plan.references.count).to eq(0)
     end

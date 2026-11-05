@@ -13,6 +13,23 @@ RSpec.describe CoPlan::PlanVersion, type: :model do
     expect(version.content_sha256).to eq(Digest::SHA256.hexdigest("test content"))
   end
 
+  it "protects persisted body, hash and version identity while allowing provenance backfills" do
+    version = create(:plan).current_plan_version
+    { content_markdown: "changed", content_sha256: "bad", revision: 9, plan_id: SecureRandom.uuid, id: SecureRandom.uuid }.each do |field, value|
+      expect { version.update_columns(field => value) }.to raise_error(ActiveRecord::ActiveRecordError)
+    end
+    expect { version.update!(content_markdown: "changed") }.to raise_error(ActiveRecord::ReadonlyAttributeError)
+    version.reload.update!(writing_provenance: { "backfill" => true })
+    expect(version.reload.writing_provenance).to eq("backfill" => true)
+  end
+
+  it "rejects a supplied hash that differs from the stored bytes and fails closed on corrupt legacy data" do
+    expect(build(:plan_version, content_markdown: "body", content_sha256: "wrong")).not_to be_valid
+    version = create(:plan).current_plan_version
+    CoPlan::PlanVersion.where(id: version.id).update_all(content_markdown: "tampered")
+    expect { version.reload.verified_content! }.to raise_error(ActiveRecord::RecordInvalid)
+  end
+
   it "validates revision uniqueness per plan" do
     plan = create(:plan)
     existing_version = plan.current_plan_version

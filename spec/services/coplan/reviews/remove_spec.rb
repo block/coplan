@@ -12,7 +12,9 @@ RSpec.describe CoPlan::Reviews::Remove do
       other = CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: plan.created_by_user)
       other_response = CoPlan::Reviews::Respond.call(request: other, actor: other.reviewer, revision: 1, decision: "approved")
 
+      sequence = plan.reload.review_sequence
       described_class.call(plan: plan, request_id: task.id)
+      expect(plan.reload.review_sequence).to eq(sequence + 1)
 
       expect(CoPlan::ReviewRequest.exists?(task.id)).to be(false)
       expect(CoPlan::ReviewResponse.exists?(previous.id)).to be(false)
@@ -32,7 +34,9 @@ RSpec.describe CoPlan::Reviews::Remove do
     described_class.call(plan: plan, request_id: old_id)
     fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user, create_only: true)
     approval = CoPlan::Reviews::Respond.call(request: fresh, actor: reviewer, revision: 1, decision: "approved")
+    sequence = plan.reload.review_sequence
     expect { described_class.call(plan: plan, request_id: old_id) }.not_to change(CoPlan::Notification, :count)
+    expect(plan.reload.review_sequence).to eq(sequence)
     expect(fresh.reload.status).to eq("approved")
     expect(fresh.review_responses).to eq([ approval ])
   end
