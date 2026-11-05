@@ -194,6 +194,36 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
   # The unified editor carries title/tags alongside the body — the whole
   # metadata path rides update_content, not the legacy #update action.
   describe "PATCH update_content with metadata" do
+    [ false, true ].each do |edit_body|
+      it "broadcasts an inline rename with body editing #{edit_body}" do
+        targets = []
+        allow(CoPlan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
+
+        patch update_content_plan_path(plan), params: {
+          content: edit_body ? "Updated body." : plan.current_content,
+          base_revision: plan.current_revision,
+          plan: { title: "Renamed inline" }
+        }, as: :json
+
+        expect(response).to have_http_status(:ok)
+        expect(targets).to include("plan-title", "plan-nav-context")
+      end
+    end
+
+    it "does not broadcast the document title for tag-only editor saves" do
+      targets = []
+      allow(CoPlan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
+
+      patch update_content_plan_path(plan), params: {
+        content: plan.current_content, base_revision: plan.current_revision,
+        plan: { tag_names: "infra" }
+      }, as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(targets).to include("plan-header")
+      expect(targets).not_to include("plan-title")
+    end
+
     it "applies title and tag changes alongside content and logs their events" do
       plan.tag_names = [ "security" ]
       plan.save!

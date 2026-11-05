@@ -28,7 +28,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_no_button("Revert unsaved changes")
     expect(page).to have_no_button("Discard changes and close")
     expect(page).to have_css("[data-coplan--inline-editor-target='reader'][hidden]", visible: :all)
-    page.execute_script('window.inlineTitleBeforeSave = document.querySelector("#plan-header .inline-editor__title")')
+    page.execute_script('window.inlineTitleBeforeSave = document.querySelector("#plan-title .inline-editor__title")')
     expect(page).to have_css(".inline-editor button.document-editor__close-inline > .document-editor__save-status", count: 1, visible: :all)
     expect(page).to have_css("#coplan-inline-save-announcement[role='status'][aria-live='polite']", visible: :all)
     close_width = find(".inline-editor button.document-editor__close-inline").rect.width
@@ -39,7 +39,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css(".document-editor__save-status[data-state='saved']", visible: :all, wait: 15)
     expect(find(".inline-editor button.document-editor__close-inline")["title"]).to include("All changes saved")
     expect(page).to have_css("#plan-header .page-header__byline", text: /\bv2\b/)
-    expect(page.evaluate_script('window.inlineTitleBeforeSave === document.querySelector("#plan-header .inline-editor__title")')).to be(true)
+    expect(page.evaluate_script('window.inlineTitleBeforeSave === document.querySelector("#plan-title .inline-editor__title")')).to be(true)
     expect(find(".inline-editor button.document-editor__close-inline").rect.width).to eq(close_width)
     find(".inline-editor").click_button "Done editing"
 
@@ -85,7 +85,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     within("#plan-toolbar") { click_link "Done" }
 
-    expect(page).to have_css("#plan-header .page-header__title", text: "Inline plan", wait: 15)
+    expect(page).to have_css("#plan-title .plan-title__heading", text: "Inline plan", wait: 15)
     expect(page).to have_no_css(".inline-editor form.document-editor", wait: 10)
     expect(page).to have_current_path(plan_page_path(plan))
   end
@@ -211,7 +211,7 @@ RSpec.describe "Inline plan editing", type: :system do
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     expect(page.evaluate_script("window.scrollY")).to be <= 2
-    expect(page).to have_css("#plan-header .inline-editor__title", visible: true)
+    expect(page).to have_css("#plan-title .inline-editor__title", visible: true)
     find(".inline-editor").click_button "Done editing"
     expect(page).to have_no_css(".inline-editor form.document-editor", wait: 10)
     expect(page.evaluate_script("window.scrollY")).to be <= 2
@@ -328,7 +328,7 @@ RSpec.describe "Inline plan editing", type: :system do
     visit "#{plan_page_path(plan)}?from=review#context"
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
-    title = find("#plan-header .inline-editor__title", wait: 10)
+    title = find("#plan-title .inline-editor__title", wait: 10)
     title.click
     title.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ])
     title.send_keys("A clearer title")
@@ -340,37 +340,57 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page.current_url).to end_with("?from=review#context")
   end
 
-  it "wraps long titles and offers hidden formatting controls without a visible scrollbar", :ci_boundary do
-    plan.update!(title: "A long working title about collaborative planning and rich editing that needs to stay fully visible while someone changes it")
-    visit plan_page_path(plan)
-    within("#plan-toolbar") { click_link "Edit" }
-    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+  context "when the reading view has an outline" do
+    # The leading H1 is hidden in the reading view and left out of its
+    # outline, so the document needs a section heading of its own.
+    let(:content) { "# A plan\n\nFirst paragraph.\n\n## Details\n\nSecond paragraph.\n" }
 
-    page.execute_script("document.querySelector('.inline-editor__title').style.maxWidth = '320px'")
-    expect(page.evaluate_script("document.querySelector('.inline-editor__title').getBoundingClientRect().height > parseFloat(getComputedStyle(document.querySelector('.inline-editor__title')).lineHeight) * 1.5")).to eq(true)
-    expect(page.evaluate_script("document.querySelector('.inline-editor__title').scrollWidth <= document.querySelector('.inline-editor__title').clientWidth")).to eq(true)
-    expect(page.evaluate_script("getComputedStyle(document.querySelector('.document-editor__format-controls')).scrollbarWidth")).to eq("none")
-    page.execute_script("document.querySelector('.document-editor__format-controls').style.maxWidth = '200px'")
-    expect(page).to have_css(".document-editor__more-tools", visible: true)
-    # One activation advances a partial page, not necessarily the whole strip.
-    # Font metrics and host controls determine how many pages are needed.
-    max_clicks = page.evaluate_script("(() => { const c = document.querySelector('.document-editor__format-controls'); return Math.ceil(c.scrollWidth / (c.clientWidth * 0.7)) + 1 })()")
-    max_clicks.times do
-      break if page.has_css?('.document-editor__more-tools[aria-label="Earlier formatting tools"]', wait: 0)
-      page.execute_script <<~JS
-        window.formatToolsScrolled = new Promise(resolve => {
-          document.querySelector('.document-editor__format-controls').addEventListener('scrollend', () => resolve(), {once: true})
-        })
-      JS
-      find(".document-editor__more-tools").click
-      page.evaluate_async_script("const done = arguments[0]; window.formatToolsScrolled.then(() => done())")
+    it "wraps long titles and offers hidden formatting controls without a visible scrollbar", :ci_boundary do
+      plan.update!(title: "A long working title about collaborative planning and rich editing that needs to stay fully visible while someone changes it")
+      visit plan_page_path(plan)
+      within("#plan-toolbar") { click_link "Edit" }
+      expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+
+      page.execute_script("document.querySelector('.inline-editor__title').style.maxWidth = '320px'")
+      expect(page.evaluate_script("document.querySelector('.inline-editor__title').getBoundingClientRect().height > parseFloat(getComputedStyle(document.querySelector('.inline-editor__title')).lineHeight) * 1.5")).to eq(true)
+      expect(page.evaluate_script("document.querySelector('.inline-editor__title').scrollWidth <= document.querySelector('.inline-editor__title').clientWidth")).to eq(true)
+      expect(page.evaluate_script("getComputedStyle(document.querySelector('.document-editor__format-controls')).scrollbarWidth")).to eq("none")
+      page.execute_script("document.querySelector('.document-editor__format-controls').style.maxWidth = '200px'")
+      expect(page).to have_css(".document-editor__more-tools", visible: true)
+      # One activation advances a partial page, not necessarily the whole strip.
+      # Font metrics and host controls determine how many pages are needed.
+      max_clicks = page.evaluate_script("(() => { const c = document.querySelector('.document-editor__format-controls'); return Math.ceil(c.scrollWidth / (c.clientWidth * 0.7)) + 1 })()")
+      max_clicks.times do
+        break if page.has_css?('.document-editor__more-tools[aria-label="Earlier formatting tools"]', wait: 0)
+        page.execute_script <<~JS
+          window.formatToolsScrolled = new Promise(resolve => {
+            document.querySelector('.document-editor__format-controls').addEventListener('scrollend', () => resolve(), {once: true})
+          })
+        JS
+        find(".document-editor__more-tools").click
+        page.evaluate_async_script("const done = arguments[0]; window.formatToolsScrolled.then(() => done())")
+      end
+      expect(page).to have_css('.document-editor__more-tools[aria-label="Earlier formatting tools"]', wait: 5)
+      click_button "Toggle table of contents", enable_aria_label: true
+      expect(page).to have_no_css(".content-nav", visible: true)
+      expect(page).to have_css('.document-editor__more-tools[aria-label="Earlier formatting tools"]')
+      click_button "Toggle table of contents", enable_aria_label: true
+      expect(page).to have_css(".content-nav", visible: true)
     end
-    expect(page).to have_css('.document-editor__more-tools[aria-label="Earlier formatting tools"]', wait: 5)
-    click_button "Toggle table of contents", enable_aria_label: true
-    expect(page).to have_no_css(".content-nav", visible: true)
-    expect(page).to have_css('.document-editor__more-tools[aria-label="Earlier formatting tools"]')
-    click_button "Toggle table of contents", enable_aria_label: true
-    expect(page).to have_css(".content-nav", visible: true)
+
+    it "updates the editing outline when an agent changes a heading" do
+      within("#plan-toolbar") { click_link "Edit" }
+      expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+      expect(page).to have_css(".content-nav", text: "A plan")
+
+      CoPlan::Plans::ReplaceContent.call(plan: plan.reload,
+        new_content: content.sub("# A plan", "# Revised plan"),
+        base_revision: plan.current_revision, actor_type: "local_agent", actor_id: author.id)
+
+      expect(page).to have_css(".inline-editor .ProseMirror h1", text: "Revised plan", wait: 10)
+      expect(page).to have_css(".content-nav__link", text: "Revised plan", wait: 10)
+      expect(page).to have_current_path(plan_page_path(plan))
+    end
   end
 
   it "keeps the visible title within the saved title limit" do
@@ -428,20 +448,6 @@ RSpec.describe "Inline plan editing", type: :system do
     find(".inline-editor .ProseMirror h1", text: "Second").click
     page.driver.browser.action.send_keys(:end, " updated").perform
     expect(page).to have_link("Second updated", wait: 5)
-    expect(page).to have_current_path(plan_page_path(plan))
-  end
-
-  it "updates the editing outline when an agent changes a heading" do
-    within("#plan-toolbar") { click_link "Edit" }
-    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
-    expect(page).to have_css(".content-nav", text: "A plan")
-
-    CoPlan::Plans::ReplaceContent.call(plan: plan.reload,
-      new_content: content.sub("# A plan", "# Revised plan"),
-      base_revision: plan.current_revision, actor_type: "local_agent", actor_id: author.id)
-
-    expect(page).to have_css(".inline-editor .ProseMirror h1", text: "Revised plan", wait: 10)
-    expect(page).to have_css(".content-nav__link", text: "Revised plan", wait: 10)
     expect(page).to have_current_path(plan_page_path(plan))
   end
 
@@ -812,7 +818,7 @@ RSpec.describe "Inline plan editing", type: :system do
   end
 
   it "keeps the reading passage in place and pulses the outline for an offscreen agent edit" do
-    long_content = "# Introduction\n\nOpening words.\n\n# Main section\n\n" +
+    long_content = "## Introduction\n\nOpening words.\n\n## Main section\n\n" +
       (1..75).map { |n| "Main paragraph #{n} with a stable reading position." }.join("\n\n")
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: long_content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)

@@ -364,7 +364,7 @@ RSpec.describe "App themes", type: :system do
         expect(style(".plan-reader .markdown-rendered", "font-family")).to start_with("system-ui")
         expect(style(".plan-reader .markdown-rendered h2", "font-weight")).to eq("500")
         expect(style(".plan-reader .markdown-rendered strong", "font-weight")).to eq("600")
-        expect(style(".page-header__title", "font-size")).to eq("28px")
+        expect(style(".plan-title__heading", "font-size")).to eq("28px")
         expect(%w[h1 h2 h3].map { |h| style(".plan-reader .markdown-rendered #{h}", "font-size") }).to eq(%w[24px 20px 18px])
         expect(style(".plan-reader .markdown-rendered pre", "border-top-width")).to eq("0px")
         expect(style(".plan-reader .markdown-rendered pre[lang]", "text-align", "::before")).to eq("right")
