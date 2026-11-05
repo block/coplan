@@ -12,7 +12,7 @@ export default class extends Controller {
   connect() {
     if (this.draftValue) {
       this.loading = true
-      this.headerVisible = true
+      this.titleVisible = true
       this.openScrollY = window.scrollY
       return
     }
@@ -30,7 +30,7 @@ export default class extends Controller {
 
     this.loading = true
     if (this.hasErrorTarget) this.errorTarget.hidden = true
-    this.headerVisible = this.element.querySelector("#plan-header")?.getBoundingClientRect().bottom > 0
+    this.titleVisible = this.element.querySelector("#plan-title")?.getBoundingClientRect().bottom > 0
     this.openScrollY = window.scrollY
     this.anchor = captureViewport(this.readerTarget)
     this.setTriggers(true)
@@ -55,11 +55,11 @@ export default class extends Controller {
     this.editing = true
     this.loading = false
     this.setTriggers(false)
-    this.controller.showInline(this.anchor, { focus: !this.headerVisible || (this.autoOpenValue && !this.focusTitleValue) })
+    this.controller.showInline(this.anchor, { focus: !this.titleVisible || (this.autoOpenValue && !this.focusTitleValue) })
     this.element.dataset.editing = "true"
     this.mountTitle()
     if (this.autoOpenValue && this.focusTitleValue) {
-      const title = this.element.querySelector("#plan-header .inline-editor__title")
+      const title = this.element.querySelector("#plan-title .inline-editor__title")
       title?.focus()
       const selection = window.getSelection()
       const range = document.createRange()
@@ -70,16 +70,16 @@ export default class extends Controller {
       }
     }
     this.autoOpenValue = false
-    if (this.headerVisible) window.scrollTo({ top: this.openScrollY, behavior: "instant" })
-    this.headerObserver = new MutationObserver(() => this.mountTitle())
-    const masthead = this.element.querySelector(".plan-masthead")
-    if (masthead) this.headerObserver.observe(masthead, { childList: true })
+    if (this.titleVisible) window.scrollTo({ top: this.openScrollY, behavior: "instant" })
+    this.titleObserver = new MutationObserver(() => this.mountTitle())
+    const head = this.element.querySelector(".plan-document__head")
+    if (head) this.titleObserver.observe(head, { childList: true })
     if (!this.draftValue) this.updateOutline()
     const sticky = document.querySelector(".site-nav__edit")
     if (sticky) sticky.dataset.editing = "true"
     // Focus and mounting the inline title can move the page. Restore the
     // passage after both have finished changing the layout.
-    if (!this.headerVisible) restoreViewport(this.editorTarget, this.anchor)
+    if (!this.titleVisible) restoreViewport(this.editorTarget, this.anchor)
   }
 
   editCitation(event) {
@@ -111,15 +111,15 @@ export default class extends Controller {
       body.setAttribute("data-coplan--live-update-revision-value", revision)
       this.updateRevision(Number(revision))
       this.latestSnapshot = event.detail.snapshot
-      this.headerObserver?.disconnect()
-      this.headerObserver = null
+      this.titleObserver?.disconnect()
+      this.titleObserver = null
       const anchor = captureViewport(this.editorTarget)
-      const headerVisible = this.element.querySelector("#plan-header")?.getBoundingClientRect().bottom > 0
+      const titleVisible = this.element.querySelector("#plan-title")?.getBoundingClientRect().bottom > 0
       const scrollY = window.scrollY
       this.unmountTitle(event.detail.snapshot.title)
       this.readerTarget.hidden = false
       this.editorTarget.hidden = true
-      if (headerVisible) window.scrollTo({ top: scrollY, behavior: "instant" })
+      if (titleVisible) window.scrollTo({ top: scrollY, behavior: "instant" })
       else restoreViewport(this.readerTarget, anchor)
       const canonicalUrl = new URL(this.controller.backTarget.href)
       if (canonicalUrl.pathname !== window.location.pathname) {
@@ -234,7 +234,7 @@ export default class extends Controller {
 
   mountTitle() {
     if (!this.editing) return
-    const heading = this.element.querySelector("#plan-header .page-header__title")
+    const heading = this.element.querySelector("#plan-title .plan-title__heading")
     if (!heading || heading.parentElement.querySelector(".inline-editor__title")) return
     const input = document.createElement("h1")
     input.className = "inline-editor__title"
@@ -263,7 +263,7 @@ export default class extends Controller {
       selection.addRange(range)
     }
     field.dispatchEvent(new Event("input", { bubbles: true }))
-    const heading = this.element.querySelector("#plan-header .page-header__title")
+    const heading = this.element.querySelector("#plan-title .plan-title__heading")
     if (heading) heading.textContent = field.value
   }
 
@@ -288,8 +288,8 @@ export default class extends Controller {
   }
 
   unmountTitle(title) {
-    this.element.querySelector("#plan-header .inline-editor__title")?.remove()
-    const heading = this.element.querySelector("#plan-header .page-header__title")
+    this.element.querySelector("#plan-title .inline-editor__title")?.remove()
+    const heading = this.element.querySelector("#plan-title .plan-title__heading")
     if (heading) { heading.textContent = title; heading.hidden = false }
   }
 

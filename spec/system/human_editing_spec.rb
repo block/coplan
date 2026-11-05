@@ -42,8 +42,11 @@ RSpec.describe "Human plan editing", type: :system do
       find('a[title="Edit this document"]').click
       editor
       expect(page.evaluate_script(<<~JS)).to be_within(1).of(0)
-        document.querySelector('.document-editor__toolbar').getBoundingClientRect().top -
-          document.querySelector('.plan-layout__content').getBoundingClientRect().top
+        (() => {
+          const title = document.querySelector('.plan-title');
+          return document.querySelector('.document-editor__toolbar').getBoundingClientRect().top -
+            title.getBoundingClientRect().bottom - parseFloat(getComputedStyle(title).marginBottom);
+        })()
       JS
     end
   end
@@ -173,7 +176,7 @@ RSpec.describe "Human plan editing", type: :system do
     # Use native selection/typing: Capybara's programmatic input.select() can
     # lose its range when Chrome refocuses the element before send_keys.
     modifier = RUBY_PLATFORM.include?("darwin") ? :meta : :control
-    find("#plan-header .inline-editor__title").send_keys([ modifier, "a" ], "Renamed In Editor")
+    find("#plan-title .inline-editor__title").send_keys([ modifier, "a" ], "Renamed In Editor")
     expect(page).not_to have_css(".document-editor__menu")
     expect(page).not_to have_field("plan_tag_names")
     expect(page).not_to have_field("change_summary", visible: :all)

@@ -224,15 +224,15 @@
 .deck-toolbar button:disabled { cursor: default; opacity: 0.45; }
 .deck-toolbar button:disabled:hover { color: var(--color-text-muted); box-shadow: none; }
 
-/* Add scroll-margin to headings — and the plan's own masthead header — so
-   they clear the sticky nav. The nav-title control scrolls to the very top
-   in JS; this keeps a no-JS #plan-header jump landing below the bar too. */
+/* Add scroll-margin to headings — and the plan's own title — so they clear
+   the sticky nav. The nav-title control scrolls to the very top in JS;
+   this keeps a no-JS #plan-title jump landing below the bar too. */
 .markdown-rendered h1,
 .markdown-rendered h2,
 .markdown-rendered h3,
 .markdown-rendered h4,
 .markdown-rendered h5,
 .markdown-rendered h6,
-.page-header--plan {
+.plan-title {
   scroll-margin-top: calc(var(--nav-height) + var(--space-lg));
 }

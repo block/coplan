@@ -6,6 +6,8 @@ RSpec.describe "Comment UX", type: :system do
 
   let(:plan_content) do
     <<~MARKDOWN
+      System design notes for review.
+
       # Architecture Overview
 
       This system uses a microservices architecture with three main components.

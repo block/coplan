@@ -16,7 +16,7 @@ RSpec.describe "Editor code caret", type: :system do
   it "advances the visible caret for each Enter in a newly inserted javascript block" do
     visit new_plan_path
     expect(page).to have_css('.ProseMirror[contenteditable=true]', wait: 20)
-    find("#plan-header .inline-editor__title", wait: 10).send_keys("Caret regression")
+    find("#plan-title .inline-editor__title", wait: 10).send_keys("Caret regression")
     click_button "Insert code block"
     fill_in "coplan-insert-language", with: "javascript"
     click_button "Insert", exact: true
