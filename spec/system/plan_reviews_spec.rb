@@ -698,7 +698,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
       within(".review-activity-dialog[open]") do
         expect(all(".review-log__event").map { |entry| entry.text.squish }).to contain_exactly(
           "Plan Author requested a review from Plan Reviewer", "Plan Author requested a review from Plan Reviewer",
-          "Plan Author removed reviewer Plan Reviewer", "Plan Reviewer #{decision == 'approved' ? 'approved' : 'requested changes on'} v1")
+          "Plan Author removed reviewer Plan Reviewer", "Plan Reviewer #{decision == 'approved' ? 'approved' : 'requested changes on'} v1 · Markdown snapshot · Historical decision")
         expect(page).to have_text("Earlier review feedback") if decision == "changes_requested"
         expect(plan.plan_events.where(event_type: "review_requested").pluck(:after_value)).to contain_exactly(requested.id, fresh.id)
       end
