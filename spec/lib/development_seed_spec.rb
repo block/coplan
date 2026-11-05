@@ -3,6 +3,20 @@ require "coplan/development_seed"
 
 RSpec.describe CoPlan::DevelopmentSeed do
   describe ".call" do
+    it "seeds visible text and fallback anchor examples without duplicating discussions" do
+      described_class.call
+      plan = seeded_plan("api-comment-anchors")
+      threads = plan.comment_threads.order(:created_at).to_a
+      expect(threads.map(&:rendered_anchor_text)).to contain_exactly(
+        "Read the response.deadline field.", "Composer Reads the response.deadline field.",
+        "No deadline means available.", "<!-- internal annotation -->")
+      ids = threads.map(&:id).sort
+      threads.last.resolve!(plan.created_by_user)
+      described_class.call
+      expect(plan.comment_threads.pluck(:id).sort).to eq(ids)
+      expect(threads.last.reload.status).to eq("resolved")
+    end
+
     it "provides human, AI, unknown, and mixed writing examples and preserves edits when re-seeded" do
       described_class.call
       expect(seeded_plan("writing-human").writing_provenance_summary.dig("shares", "human")).to eq(1.0)
@@ -36,6 +50,25 @@ RSpec.describe CoPlan::DevelopmentSeed do
       described_class.call
       expect(mixed.reload.current_content).to eq("My local revision")
       expect(seeded_plan("demo-library").current_content).to include("Writing sources", mixed.url_path)
+    end
+
+    it "seeds crowded discussions and slide anchors while preserving review activity" do
+      described_class.call
+      plan = seeded_plan("discussion-margins")
+      expect(plan.comment_threads.count).to eq(8)
+      receipt = plan.comment_threads.find_by!(anchor_text: "receipt")
+      expect(receipt.comments.count).to eq(3)
+      expect(receipt.comments.pluck(:author_id).uniq.size).to eq(3)
+      expect(plan.comment_threads.find_by!(anchor_text: "resolved example")).to be_closed
+      expect(plan.comment_threads.pluck(:anchor_text)).to include("first slide discussion", "second slide discussion")
+      receipt.resolve!(plan.created_by_user)
+      receipt.comments.last.update!(body_markdown: "My local reply")
+      described_class.call
+      expect(plan.comment_threads.count).to eq(8)
+      expect(receipt.reload).to be_closed
+      expect(receipt.comments.count).to eq(3)
+      expect(receipt.comments.last.body_markdown).to eq("My local reply")
+      expect(seeded_plan("demo-library").current_content).to include(plan.url_path)
     end
 
     def seeded_plan(key)

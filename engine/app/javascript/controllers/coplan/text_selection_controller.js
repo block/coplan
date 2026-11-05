@@ -512,6 +512,8 @@ export default class extends Controller {
 
   _restoreActiveThreadPopover(threadId) {
     if (!threadId || !this._activePopover) return
+    // Margin cards survive re-highlighting; keep the window beside its card.
+    if (this._activeMark?.isConnected && this._activeMark.closest(".comment-margin")) return
 
     const replacementMark = this.contentTarget.querySelector(`.anchor-highlight[data-thread-id="${threadId}"]`)
     if (replacementMark && this._findOpenPopover() === this._activePopover) {
@@ -703,6 +705,7 @@ export default class extends Controller {
     this.fullText = this._renderedText()
     this._normalizedFullText = this._buildNormalizedMap(this.fullText)
 
+    this.highlightedThreadIds = new Set()
     const threads = this.element.querySelectorAll("[data-anchor-text]")
     threads.forEach(thread => {
       if (thread.dataset.anchorKind || thread.dataset.threadOutOfDate === "true") return
@@ -721,6 +724,7 @@ export default class extends Controller {
           marks.forEach(mark => {
             if (!mark.dataset.threadId) {
               mark.dataset.threadId = threadId
+              this.highlightedThreadIds.add(threadId)
               mark.style.cursor = "pointer"
               mark.dataset.action = "click->coplan--text-selection#openThreadPopover"
             }
@@ -730,7 +734,13 @@ export default class extends Controller {
     })
 
     this._restoreActiveThreadPopover(activeThreadId)
-    this.element.dispatchEvent(new CustomEvent("coplan:anchors-updated", { bubbles: true }))
+    this.publishTextAnchors()
+  }
+
+  publishTextAnchors() {
+    this.element.dispatchEvent(new CustomEvent("coplan:anchors-updated", {
+      bubbles: true, detail: { highlightedThreadIds: [...(this.highlightedThreadIds || [])] }
+    }))
   }
 
   // Find and highlight the Nth occurrence of text in the rendered DOM.

@@ -6,8 +6,9 @@ CoPlan is a Rails engine that manages collaborative planning documents. It owns 
 
 ## User settings and host integrations
 
-CoPlan owns the settings shown on its Settings page. Light/dark mode and
-push-to-talk preferences live in `coplan_users.theme_preference` and `coplan_users.voice_hotkey`.
+CoPlan owns the settings shown on its Settings page. The app theme, light/dark
+mode and push-to-talk preferences live in `coplan_users.app_theme`,
+`coplan_users.theme_preference` and `coplan_users.voice_hotkey`.
 Notification preferences have their own column; browser subscriptions and API
 tokens have engine-owned tables. User `metadata` is available for host directory
 data and is not a settings API.
@@ -217,6 +218,7 @@ The engine manages a `coplan_users` table with these columns:
 | `name`        | String  | Display name |
 | `admin`       | Boolean | Admin flag |
 | `metadata`    | JSON    | Host directory data; not CoPlan settings |
+| `app_theme` | String | Engine-owned app theme: `default` (follow `config.default_theme`) or a `CoPlan::Themes` key |
 | `theme_preference` | String | Engine-owned light/dark mode: system, light, or dark |
 | `voice_hotkey` | String | Engine-owned push-to-talk preference |
 
@@ -315,7 +317,8 @@ CoPlan.configure do |config|
     AnalyticsEvent.create!(name: event, payload: payload)
   }
 
-  # App theme (optional). One of CoPlan::Themes.keys; see docs/THEMES.md.
+  # App theme for everyone who hasn't picked one in Settings (optional).
+  # One of CoPlan::Themes.keys: "classic" or "neutral". See docs/THEMES.md.
   config.default_theme = "classic"                    # default
 end
 ```

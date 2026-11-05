@@ -8,15 +8,12 @@
      data-coplan--inline-editor-auto-open-value="true"
      data-coplan--inline-editor-focus-title-value="true">
   <div class="plan-masthead" data-plan-section="top">
-    <div class="page-header page-header--plan" id="plan-header">
-      <%= plan_type_icon(@new_plan_type || CoPlan::PlanType.general, size: :lg) %>
-      <div class="page-header__text">
-        <h1 class="page-header__title"></h1>
-        <div class="page-header__byline text-sm text-muted">
-          <%= user_avatar(current_user) %> <%= profile_link(current_user) %> ·
-          <span data-coplan--inline-editor-target="draftState">Not saved</span>
-          <span aria-hidden="true">·</span> <%= link_to @new_folder ? @new_folder.name : "My Plans", back_path, class: "plan-location-link" %>
-        </div>
+    <div class="plan-meta" id="plan-header">
+      <%= plan_type_icon(@new_plan_type || CoPlan::PlanType.general) %>
+      <div class="page-header__byline text-sm text-muted">
+        <%= user_avatar(current_user) %> <%= profile_link(current_user) %> ·
+        <span data-coplan--inline-editor-target="draftState">Not saved</span>
+        <span aria-hidden="true">·</span> <%= link_to @new_folder ? @new_folder.name : "My Plans", back_path, class: "plan-location-link" %>
       </div>
     </div>
     <div class="plan-masthead__side">
@@ -26,9 +23,13 @@
     </div>
   </div>
 
-  <div class="plan-document card">
+  <div class="plan-document plan-document--titled card">
     <div class="plan-layout">
       <div class="plan-layout__content">
+        <div class="plan-document__head">
+          <div class="plan-title" id="plan-title"><h1 class="plan-title__heading"></h1></div>
+        </div>
+
         <div data-coplan--inline-editor-target="reader" hidden></div>
         <div class="inline-editor" data-coplan--inline-editor-target="editor">
           <%= render "coplan/plans/editor_form", inline_editor: true %>

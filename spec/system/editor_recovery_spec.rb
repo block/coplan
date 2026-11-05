@@ -84,10 +84,10 @@ RSpec.describe "Editor draft recovery", type: :system do
     store("coplan-rich-draft-#{author.id}-#{plan.id}-existing", base.merge(title: "", base: base))
     visit plan_edit_page_path(plan)
     rich
-    expect(find("#plan-header .inline-editor__title").text).to eq("")
+    expect(find("#plan-title .inline-editor__title").text).to eq("")
     expect(page).to have_content("Add a document title to save")
     click_button "Add a document title to save", enable_aria_label: true
-    expect(page).to have_css("#plan-header .inline-editor__title:focus", wait: 0)
+    expect(page).to have_css("#plan-title .inline-editor__title:focus", wait: 0)
     expect(plan.reload.title).to eq("Recovery")
   end
 
@@ -105,7 +105,7 @@ RSpec.describe "Editor draft recovery", type: :system do
         return original(url, options);
       };
     JS
-    find("#plan-header .inline-editor__title").send_keys("Recovered new plan")
+    find("#plan-title .inline-editor__title").send_keys("Recovered new plan")
     rich.send_keys("Retained creation draft")
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "Sign in again · draft retained", wait: 10, visible: :all)
     expect(author.created_plans.where(title: "Recovered new plan")).to be_empty
@@ -127,7 +127,7 @@ RSpec.describe "Editor draft recovery", type: :system do
         return response;
       };
     JS
-    find("#plan-header .inline-editor__title", wait: 10).send_keys("One document")
+    find("#plan-title .inline-editor__title", wait: 10).send_keys("One document")
     click_button "Raw", exact: true
     raw = find('[aria-label="Markdown source"]')
     raw.send_keys("First draft")

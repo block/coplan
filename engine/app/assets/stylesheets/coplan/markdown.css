@@ -115,10 +115,18 @@
   padding-left: var(--space-md);
 }
 
-.markdown-rendered .task-list-item label {
+.markdown-rendered .task-list-item-row {
   display: flex;
   align-items: baseline;
   gap: var(--space-sm);
+}
+
+/* Padding widens the hit target around the small native box; the negative
+   margin keeps the row's layout as if the box stood alone. */
+.markdown-rendered .task-list-item-checkbox {
+  display: inline-flex;
+  padding: 6px;
+  margin: -6px;
   cursor: pointer;
 }
 
@@ -177,6 +185,10 @@
   margin-bottom: var(--reading-h3-space-below, var(--space-md));
 }
 
+:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) h4 {
+  font-weight: var(--reading-h4-weight, var(--reading-heading-weight, 700));
+}
+
 :is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) > :is(h1, h2, h3):first-child {
   margin-top: 0;
 }
@@ -192,6 +204,7 @@
   padding: var(--code-block-padding, var(--space-md));
   overflow-x: auto;
   margin-bottom: var(--space-md);
+  color: var(--code-block-text, inherit);
   font-family: var(--font-mono);
   font-size: var(--code-block-font-size, var(--text-sm));
   line-height: var(--code-block-leading, 1.5);
@@ -609,7 +622,7 @@
 
 .markdown-rendered img {
   max-width: 100%;
-  border-radius: var(--radius);
+  border-radius: var(--image-radius, var(--radius));
   outline: var(--image-outline, none);
   outline-offset: -1px;
 }
@@ -618,7 +631,7 @@
    its reading layout. Only the corner affordance appears on hover/focus. */
 .document-editor__image { position: relative; display: inline-block; max-width: 100%; vertical-align: top; line-height: 0; }
 .document-editor__image img { display: block; height: auto; }
-.document-editor__image-handle { --image-handle-opacity: 0; position: absolute; right: 0; bottom: 0; display: grid; place-items: end; width: 36px; height: 36px; padding: 2px; border: 0; border-radius: 0 0 var(--radius) 0; background: transparent; color: rgb(51 65 85 / .65); cursor: nwse-resize; touch-action: none; transition: color .18s ease; }
+.document-editor__image-handle { --image-handle-opacity: 0; position: absolute; right: 0; bottom: 0; display: grid; place-items: end; width: 36px; height: 36px; padding: 2px; border: 0; border-radius: 0 0 var(--image-radius, var(--radius)) 0; background: transparent; color: rgb(51 65 85 / .65); cursor: nwse-resize; touch-action: none; transition: color .18s ease; }
 /* Clear glass picks up the image beneath it, including in dark mode. Keep
    the triangular paint separate from the larger rectangular grab area.
    Fade the painted layers, never their parent: parent opacity below 1
@@ -667,6 +680,12 @@
 .markdown-rendered details[open] summary {
   border-bottom: 1px solid var(--color-border);
   margin-bottom: var(--space-md);
+}
+
+/* Raised text keeps the line's height, so a footnote marker doesn't push
+   its line apart from the others. */
+.markdown-rendered :is(sup, sub) {
+  line-height: 0;
 }
 
 .markdown-rendered .footnote-ref a,

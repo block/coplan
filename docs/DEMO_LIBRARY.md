@@ -54,9 +54,11 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | mixed-slides | Prose around two separately presentable decks; diagrams, code, table, image, notes |
 | pattern-showcase | Title, columns, stage, quote, code, image, and table slide layouts |
 | reference-gallery | All five reference types, a resolved CoPlan target, explicit/extracted references, named citations, repeated URLs, footnotes |
+| api-comment-anchors | Markdown text and table-row highlights; source-only discussion in Comments |
 | table-gallery | Precise cell discussion, repeated labels, empty values, links, wide expandable data |
 | comment-reactions | Discussions with emoji reactions; your own are pressed in blue, hover a chip for who reacted, add or remove one in place. Re-seeding keeps reactions you removed removed |
 | formatting-gallery | Headings, editable template notes hidden while reading, emphasis, quotes, nested lists, tasks, two code languages, image, mention, footnote |
+| discussion-margins | Crowded prose discussions, multiple participants, resolved visibility, and slide navigation/scrolling; avatars identify starters, not unread activity |
 | reading-specimen | A realistic design doc for judging reading in both modes: prose, headings, lists, tasks, quote, table, footnote, image, SQL/Ruby/diff/YAML code, a long scrolling line, flowchart and sequence diagrams, plus open, agent-answered, resolved, diagram-node, table-cell, and general discussions |
 | image-resizing | Resize and restore image widths, wrap prose from the top, Shift+Enter beside, Enter below |
 

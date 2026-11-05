@@ -96,6 +96,7 @@ CoPlan::Engine.routes.draw do
       resources :tokens, only: [ :index, :create, :destroy ]
       get "agent_sessions", to: "tokens#sessions"
       patch "theme", to: "settings#update_theme"
+      patch "app_theme", to: "settings#update_app_theme"
       patch "voice_hotkey", to: "settings#update_voice_hotkey"
     end
 
@@ -168,6 +169,7 @@ CoPlan::Engine.routes.draw do
       post "library/organize", to: "libraries#organize", as: :own_library_organize
 
       resources :plans, only: [ :index, :show, :create, :update ] do
+        get :resolve, on: :collection
         resources :review_requests, only: [ :index, :create, :update, :destroy ] do
           get :suggestions, on: :collection
           post :respond, on: :member
