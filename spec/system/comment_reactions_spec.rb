@@ -164,6 +164,52 @@ RSpec.describe "Comment reactions", type: :system do
     expect(popover).to have_reaction("eyes", count: 1, pressed: false)
   end
 
+  %w[comment thread].each do |ancestor|
+    it "preserves newer reactions inside a stale #{ancestor} replacement" do
+      popover = open_thread
+      target = ancestor == "comment" ? "comment_#{comment.id}" : "comment_thread_#{thread_record.id}"
+      stale = page.evaluate_script("document.getElementById(arguments[0]).outerHTML", target)
+      create(:comment_reaction, comment: comment, user: sam, kind: "eyes")
+      comment.bump_reactions_version!
+      CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{comment.id}",
+        partial: "coplan/comments/reactions", locals: { comment: comment.reload })
+      expect(popover).to have_reaction("eyes", count: 1, pressed: false)
+
+      page.execute_script(<<~JS, target, stale)
+        const html = arguments[1].replace("How long do results stay warm?", "Updated comment body")
+        window.Turbo.renderStreamMessage(`<turbo-stream action="replace" target="${arguments[0]}"><template>${html}</template></turbo-stream>`)
+      JS
+      expect(page).to have_css("##{target}", text: "Updated comment body", visible: :all)
+      expect(page).to have_css("#reactions_comment_#{comment.id}[data-version='#{comment.reactions_version}'] .comment-reaction[data-kind='eyes']", visible: :all)
+    end
+  end
+
+  [["thumbs_up", "tada"], ["thumbs_up", "thumbs_up"]].each do |kinds|
+    it "rolls back both failed queued changes for #{kinds.join(' then ')}" do
+      create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")
+      create(:comment_reaction, comment: comment, user: sam, kind: "tada")
+      popover = open_thread
+      page.execute_script(<<~JS, kinds)
+        window.reactionFailures = []
+        const originalFetch = window.fetch
+        window.fetch = (url, options) => options?.method === "PATCH" && String(url).endsWith("/reactions")
+          ? new Promise((resolve, reject) => window.reactionFailures.push(reject))
+          : originalFetch(url, options)
+        for (const kind of arguments[0]) {
+          document.querySelector(`.thread-popover:popover-open .comment-reaction[data-kind="${kind}"]`).click()
+        }
+      JS
+      wait_for { page.evaluate_script("window.reactionFailures.length") == 1 }
+      page.execute_script("window.reactionFailures.shift()(new Error('offline'))")
+      wait_for { page.evaluate_script("window.reactionFailures.length") == 1 }
+      page.execute_script("window.reactionFailures.shift()(new Error('offline'))")
+      expect(page).to have_css(".toasts__toast", text: "Couldn't save your reaction.", count: 2)
+      expect(popover).to have_reaction("thumbs_up", count: 1, pressed: false)
+      expect(popover).to have_reaction("tada", count: 1, pressed: false)
+      expect(comment.reactions.where(user: viewer)).to be_empty
+    end
+  end
+
   it "keeps reactions working in a cloned table discussion" do
     table_comment = create_table_thread.comments.first
     create(:comment_reaction, comment: table_comment, user: viewer, kind: "thumbs_up")

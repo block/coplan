@@ -10,6 +10,7 @@ import { Controller } from "@hotwired/stimulus"
 // rendered, so quick repeated clicks settle on the last choice instead of
 // flickering through the intermediate ones.
 const queues = new Map()
+const pendingReactions = new Map()
 const NAME_LIMIT = 10
 
 function enqueue(key, task) {
@@ -34,8 +35,15 @@ document.addEventListener("turbo:before-stream-render", event => {
   const render = event.detail.render
   event.detail.render = async streamElement => {
     const current = document.getElementById(stream.getAttribute("target") || "")
-    const incoming = stream.templateElement?.content.firstElementChild
-    if (current?.matches(".comment-reactions") && version(incoming) < version(current)) return
+    const incoming = stream.templateElement?.content
+    if (["replace", "update"].includes(stream.getAttribute("action")) && current && incoming) {
+      for (const reactions of incoming.querySelectorAll(".comment-reactions")) {
+        const saved = document.getElementById(reactions.id)
+        if (saved && (saved === current || current.contains(saved)) && version(reactions) < version(saved)) {
+          reactions.replaceWith(saved.cloneNode(true))
+        }
+      }
+    }
     await render(streamElement)
   }
 })
@@ -71,9 +79,24 @@ export default class extends Controller {
 
   react(kind, reacted) {
     if (!this.me) return
-    this.setReaction(kind, reacted)
-
     const commentId = this.commentIdValue
+    const key = JSON.stringify([commentId, kind])
+    let state = pendingReactions.get(key)
+    if (!state) {
+      state = { confirmed: this.chipFor(kind)?.getAttribute("aria-pressed") === "true", operations: [] }
+      pendingReactions.set(key, state)
+    }
+    const operation = { reacted }
+    state.operations.push(operation)
+    this.revert(commentId, kind, reacted)
+
+    const settle = saved => {
+      if (saved) state.confirmed = reacted
+      state.operations.splice(state.operations.indexOf(operation), 1)
+      this.revert(commentId, kind, state.operations.at(-1)?.reacted ?? state.confirmed)
+      if (!state.operations.length) pendingReactions.delete(key)
+    }
+
     const url = this.urlValue
     const body = new FormData()
     body.append("kind", kind)
@@ -86,9 +109,10 @@ export default class extends Controller {
       if (!response.ok) throw new Error(response.status === 422 ? await response.text() : "")
       return response.text()
     }).then(({ result, last }) => {
+      settle(true)
       if (last) window.Turbo.renderStreamMessage(result)
     }).catch(error => {
-      if (error.last) this.revert(commentId, kind, !reacted)
+      settle(false)
       this.toast(error.message || "Couldn't save your reaction. Please try again.")
     })
   }
