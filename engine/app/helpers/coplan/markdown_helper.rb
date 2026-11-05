@@ -35,7 +35,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 23
+    RENDER_CACHE_VERSION = 24
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -239,23 +239,31 @@ module CoPlan
 
         li.add_class("task-list-item")
 
-        # Wrap li contents in a <label> so the whole text is clickable. Keep
+        # The <label> wraps only the checkbox, never the task text: selecting
+        # text to comment on it must not tick the box. The label's padding
+        # keeps a comfortable hit target around the small native box. Keep
         # the rendered task body in one flex item so inline elements such as
         # <code> participate in normal inline flow instead of becoming
         # separate columns alongside the checkbox.
-        label = Nokogiri::XML::Node.new("label", doc)
+        row = Nokogiri::XML::Node.new("div", doc)
+        row["class"] = "task-list-item-row"
+        hit_area = Nokogiri::XML::Node.new("label", doc)
+        hit_area["class"] = "task-list-item-checkbox"
         task_body = Nokogiri::XML::Node.new("span", doc)
         task_body["class"] = "task-list-item-content"
 
         li.children.to_a.each do |child|
           if child == cb
-            label.add_child(child)
+            hit_area.add_child(child)
           else
             task_body.add_child(child)
           end
         end
-        label.add_child(task_body)
-        li.add_child(label)
+        row.add_child(hit_area)
+        row.add_child(task_body)
+        li.add_child(row)
+
+        cb["aria-label"] = task_checkbox_name(task_body)
 
         ul = li.parent
         ul.add_class("task-list") if ul&.name == "ul"
@@ -270,6 +278,31 @@ module CoPlan
         end
       end
       doc.to_html
+    end
+
+    TASK_NAME_BLOCK_TAGS = %w[ul ol pre blockquote table div hr h1 h2 h3 h4 h5 h6].freeze
+
+    # Matches the rich editor's "Task: <first paragraph>" name so a
+    # checkbox is announced the same way in view and edit mode.
+    def task_checkbox_name(task_body)
+      first = task_body.children.find { |child| !(child.text? && child.text.strip.empty?) }
+      if first&.name == "p"
+        nodes = first.children
+      else
+        nodes = task_body.children.take_while { |child| !TASK_NAME_BLOCK_TAGS.include?(child.name) }
+      end
+
+      text = nodes.map { |node| task_name_text(node) }.join.squish
+      text.empty? ? "Task" : "Task: #{text}"
+    end
+
+    def task_name_text(node)
+      return node.text if node.text?
+      return "" unless node.element?
+      return "" if node.name == "sup" && node.classes.include?("footnote-ref")
+      return node["alt"].to_s if node.name == "img"
+
+      node.children.map { |child| task_name_text(child) }.join
     end
 
     # A table is a block of data, not a paragraph. Each one gets a scroll
