@@ -4,6 +4,12 @@ module CoPlan
     # predate app themes and are persisted, so they stay.
     THEME_PREFERENCES = %w[system light dark].freeze
 
+    # The app theme picked in Settings (docs/THEMES.md). "default" follows
+    # the host's config.default_theme, so a host can change it for everyone
+    # who hasn't chosen.
+    DEFAULT_APP_THEME = "default".freeze
+    APP_THEMES = ([ DEFAULT_APP_THEME ] + Themes.keys).freeze
+
     # Which key holds the microphone open for push-to-talk commenting.
     # A short list rather than a free capture: each one carries its own
     # feel in the browser (a bare modifier needs a hold delay, because
@@ -35,6 +41,10 @@ module CoPlan
     validates :external_id, presence: true, uniqueness: true
     # Settings belong to the engine; metadata is replaceable host/directory data.
     validates :theme_preference, inclusion: { in: THEME_PREFERENCES }
+    # Only a new choice is checked: a later CoPlan release can remove a
+    # theme, and the sign-in sync must still save users who picked it. Their
+    # pages fall back to the default (Themes.resolve).
+    validates :app_theme, inclusion: { in: APP_THEMES }, if: :app_theme_changed?
     validates :voice_hotkey, inclusion: { in: VOICE_HOTKEYS }
     validates :name, presence: true
     validates :email, uniqueness: true, allow_nil: true

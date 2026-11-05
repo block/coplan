@@ -93,6 +93,7 @@ CoPlan::Engine.routes.draw do
       resources :tokens, only: [ :index, :create, :destroy ]
       get "agent_sessions", to: "tokens#sessions"
       patch "theme", to: "settings#update_theme"
+      patch "app_theme", to: "settings#update_app_theme"
       patch "voice_hotkey", to: "settings#update_voice_hotkey"
     end
 

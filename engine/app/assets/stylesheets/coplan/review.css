@@ -491,7 +491,7 @@ body:has(.review-tray[data-completed="true"]:not([data-reconsidering="true"]):no
 
 
 .document-editor__footnote { color: var(--color-primary); font-size: 0.7em; white-space: nowrap; }
-.document-editor__footnote button { border: 0; background: transparent; color: inherit; padding: 0 2px; font: inherit; cursor: pointer; border-radius: 3px; }
+.document-editor__footnote button { border: 0; background: transparent; color: inherit; padding: 0 2px; font: inherit; line-height: 1; cursor: pointer; border-radius: 3px; }
 .document-editor__footnote button:hover { background: var(--color-interaction-hover-bg); }
 .document-editor__footnote button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .document-editor__block-source { display: block; width: 100%; min-height: 320px; resize: vertical; border: 0; padding: 18px; background: var(--color-surface); color: var(--color-text); font: 14px/1.7 var(--font-mono, monospace); box-sizing: border-box; }
