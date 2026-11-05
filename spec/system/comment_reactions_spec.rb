@@ -408,6 +408,40 @@ RSpec.describe "Comment reactions", type: :system do
     end
   end
 
+  %w[picker pointer keyboard].each do |gesture|
+    it "preserves a table #{gesture} while unrelated replies rebuild the panel" do
+      table_thread = create_table_thread
+      target_comment = table_thread.comments.first
+      create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")
+      scope = open_table_discussion
+      if gesture == "picker"
+        scope.find(".comment-reactions__add").click
+      elsif gesture == "pointer"
+        page.driver.browser.action.move_to(chip(scope, "👍").native).click_and_hold.perform
+      else
+        page.execute_script("arguments[0].focus()", chip(scope, "👍"))
+        page.driver.browser.action.key_down(:space).perform
+      end
+      2.times do |index|
+        reply = table_thread.comments.create!(author_type: "human", author_id: sam.id, body_markdown: "Arriving reply #{index}")
+        CoPlan::Broadcaster.append_to(plan, target: "comments_comment_thread_#{table_thread.id}",
+          partial: "coplan/comments/comment", locals: { comment: reply })
+        expect(page).to have_css("#plan-threads #comment_#{reply.id}", visible: :all)
+      end
+      sleep 0.2 # Both appends have landed while the existing control is active.
+      if gesture == "picker"
+        expect(scope).to have_css(".comment-reactions__picker:popover-open")
+        scope.find(".comment-reactions__option[data-kind='rocket']").click
+        wait_for { target_comment.reactions.where(user: viewer, kind: "rocket").exists? }
+      else
+        gesture == "pointer" ? page.driver.browser.action.release.perform : page.driver.browser.action.key_up(:space).perform
+        wait_for { target_comment.reactions.where(user: viewer, kind: "thumbs_up").exists? }
+      end
+      expect(scope).to have_text("Arriving reply 0", count: 1)
+      expect(scope).to have_text("Arriving reply 1", count: 1)
+    end
+  end
+
   it "keeps mounted reaction endpoints after a requestless thread replacement" do
     assets = ->(env) { env["PATH_INFO"].start_with?("/assets/") ? Rails.application.call(env) : [ 404, {}, [ "Not found" ] ] }
     mounted = Rack::URLMap.new("/coplan" => Rails.application, "/" => assets)

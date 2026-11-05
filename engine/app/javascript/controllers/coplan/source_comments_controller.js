@@ -22,6 +22,7 @@ export default class extends Controller {
   }
 
   disconnect() {
+    this.deferredReactionRender = null
     this.observer?.disconnect()
     this.panelObserver?.disconnect()
     this.panelHome?.remove()
@@ -281,6 +282,25 @@ export default class extends Controller {
 
   renderDiscussions() {
     if (!this.selection && !this.showingOutdated) return
+    if (this.deferredReactionRender) return
+    // Any canonical mutation can rebuild this entire panel, including an
+    // unrelated reply. Protect the controls we are about to remove, rather
+    // than inferring affected gestures from the incoming stream's contents.
+    const active = Array.from(this.discussionsTarget.querySelectorAll(".comment-reactions"))
+      .map(element => this.application.getControllerForElementAndIdentifier(element, "coplan--comment-reactions"))
+      .filter(controller => controller?.interacting)
+    if (active.length) {
+      const pending = Promise.all(active.map(controller => controller.whenIdle()))
+      this.deferredReactionRender = pending
+      pending.then(() => {
+        if (this.deferredReactionRender !== pending || !this.element.isConnected) return
+        this.deferredReactionRender = null
+        // Re-read current canonical threads and recheck interactions. Several
+        // broadcasts may have arrived while this single rebuild was waiting.
+        this.renderDiscussions()
+      })
+      return
+    }
     // Keep the actual reply forms alive through broadcasts, including a
     // form whose submit-end is still pending. Rebuilding those forms either
     // loses a draft/focus or detaches the submission event from this panel.

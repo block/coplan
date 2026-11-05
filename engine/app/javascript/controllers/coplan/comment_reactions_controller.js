@@ -21,7 +21,7 @@ async function waitForInteractions(commentIds) {
   while (true) {
     const active = [...controllers].filter(controller => commentIds.includes(controller.commentIdValue) && controller.interacting)
     if (!active.length) return
-    await Promise.all(active.map(controller => new Promise(resolve => controller.idleWaiters.add(resolve))))
+    await Promise.all(active.map(controller => controller.whenIdle()))
   }
 }
 
@@ -139,6 +139,11 @@ export default class extends Controller {
       this.keyHeld = false
       this.flushIdle()
     })
+  }
+
+  whenIdle() {
+    if (!this.interacting) return Promise.resolve()
+    return new Promise(resolve => this.idleWaiters.add(resolve))
   }
 
   flushIdle() {
