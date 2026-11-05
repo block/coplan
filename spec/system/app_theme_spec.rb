@@ -26,7 +26,7 @@ RSpec.describe "App themes", type: :system do
   end
   let(:plan) do
     create(:plan, :published, title: "Durable outbox", created_by_user: user).tap do |p|
-      p.current_plan_version.update_columns(content_markdown: content)
+      set_version_fixture(p.current_plan_version, content_markdown: content)
     end
   end
 
@@ -219,7 +219,7 @@ RSpec.describe "App themes", type: :system do
       window.fetch = (url, options) => {
         if (!String(url).includes("app_theme")) return fetch(url, options)
         if (options.body.includes("neutral")) return new Promise(resolve => setTimeout(resolve, 400)).then(() => fetch(url, options))
-        return Promise.resolve(new Response("", { status: 500 }))
+        return new Promise(resolve => { window.rejectThemeSave = () => resolve(new Response("", { status: 500 })) })
       }
     JS
 
@@ -228,6 +228,8 @@ RSpec.describe "App themes", type: :system do
     within("#appearance-menu") { find(".appearance-menu__theme", text: "Classic").click }
     expect(app_theme_attribute).to eq("classic")
 
+    Timeout.timeout(5) { sleep 0.1 until page.evaluate_script("typeof window.rejectThemeSave === 'function'") }
+    page.execute_script("window.rejectThemeSave()")
     expect(page).to have_content("Couldn't save that")
     expect(app_theme_attribute).to eq("neutral")
     expect(page).to have_css("input[name='appearance_theme'][value='neutral']:checked", visible: :all)
@@ -382,7 +384,7 @@ RSpec.describe "App themes", type: :system do
     end
 
     it "keeps deck diagrams in the deck's font and colors while document diagrams follow the theme" do
-      plan.current_plan_version.update_columns(content_markdown: <<~MD)
+      set_version_fixture(plan.current_plan_version, content_markdown: <<~MD)
         ```mermaid
         flowchart LR
           Request --> Outbox
