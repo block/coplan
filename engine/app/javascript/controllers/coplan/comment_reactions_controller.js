@@ -12,6 +12,17 @@ import { Controller } from "@hotwired/stimulus"
 const queues = new Map()
 const pendingReactions = new Map()
 const NAME_LIMIT = 10
+const controllers = new Set()
+
+// Canonical updates also rebuild cloned table discussions. Wait for every
+// visible copy to finish its gesture before replacing or settling its chips.
+async function waitForInteractions(commentIds) {
+  while (true) {
+    const active = [...controllers].filter(controller => commentIds.includes(controller.commentIdValue) && controller.interacting)
+    if (!active.length) return
+    await Promise.all(active.map(controller => new Promise(resolve => controller.idleWaiters.add(resolve))))
+  }
+}
 
 function enqueue(key, task) {
   const run = (queues.get(key) || Promise.resolve()).catch(() => {}).then(task)
@@ -44,8 +55,11 @@ document.addEventListener("turbo:before-stream-render", event => {
   const stream = event.target
   const render = event.detail.render
   event.detail.render = async streamElement => {
-    const current = document.getElementById(stream.getAttribute("target") || "")
     const incoming = stream.templateElement?.content
+    const commentIds = [...(incoming?.querySelectorAll(".comment-reactions") || [])]
+      .map(element => element.getAttribute("data-coplan--comment-reactions-comment-id-value"))
+    await waitForInteractions(commentIds)
+    const current = document.getElementById(stream.getAttribute("target") || "")
     if (["replace", "update"].includes(stream.getAttribute("action")) && current && incoming) {
       for (const reactions of incoming.querySelectorAll(".comment-reactions")) {
         confirmPendingReactions(reactions)
@@ -64,6 +78,9 @@ export default class extends Controller {
   static targets = ["chip", "add", "picker", "option", "tooltip", "chipTemplate"]
 
   connect() {
+    this.pointerHeld = false
+    this.idleWaiters = new Set()
+    controllers.add(this)
     this.me = document.querySelector("meta[name='coplan-current-user-id']")?.content || ""
     this.addTarget.hidden = !this.me
     confirmPendingReactions(this.element)
@@ -76,9 +93,37 @@ export default class extends Controller {
   }
 
   disconnect() {
+    controllers.delete(this)
+    cancelAnimationFrame(this.releaseFrame)
+    this.idleWaiters.forEach(resolve => resolve())
+    this.idleWaiters.clear()
     this.hideTooltip()
     this.closePicker()
     this.stopClosingOnMove()
+  }
+
+  get interacting() {
+    return this.pointerHeld || (this.hasPickerTarget && this.pickerTarget.matches(":popover-open"))
+  }
+
+  holdPointer() {
+    cancelAnimationFrame(this.releaseFrame)
+    this.pointerHeld = true
+  }
+
+  releasePointer() {
+    if (!this.pointerHeld) return
+    // The click follows pointerup. Keep its target alive until it dispatches.
+    this.releaseFrame = requestAnimationFrame(() => {
+      this.pointerHeld = false
+      this.flushIdle()
+    })
+  }
+
+  flushIdle() {
+    if (this.interacting) return
+    this.idleWaiters.forEach(resolve => resolve())
+    this.idleWaiters.clear()
   }
 
   toggle(event) {
@@ -114,7 +159,8 @@ export default class extends Controller {
       if (!state.operations.length) pendingReactions.delete(key)
     }
 
-    const url = this.urlValue
+    const root = document.querySelector("meta[name='coplan-root-path']")?.content || "/"
+    const url = root.replace(/\/$/, "") + this.urlValue
     const body = new FormData()
     body.append("kind", kind)
     body.append("reacted", reacted)
@@ -126,7 +172,8 @@ export default class extends Controller {
       if (!response.ok) throw new Error(response.status === 422 ? await response.text() : "")
       if (response.redirected || !response.headers.get("Content-Type")?.includes("text/vnd.turbo-stream.html")) throw new Error("")
       return response.text()
-    }).then(result => {
+    }).then(async result => {
+      await waitForInteractions([commentId])
       // Confirm before settling, since Turbo renders asynchronously.
       // A newer broadcast still wins over this response.
       const response = document.createElement("template")
@@ -136,7 +183,8 @@ export default class extends Controller {
       }
       settle()
       window.Turbo.renderStreamMessage(result)
-    }).catch(error => {
+    }).catch(async error => {
+      await waitForInteractions([commentId])
       settle()
       this.toast(error.message || "Couldn't save your reaction. Please try again.")
     })
@@ -222,6 +270,7 @@ export default class extends Controller {
     const open = event.newState === "open"
     this.addTarget.setAttribute("aria-expanded", open)
     if (!open) this.stopClosingOnMove()
+    if (!open) this.flushIdle()
     if (!open && this.pickerTarget.contains(document.activeElement)) this.addTarget.focus({ preventScroll: true })
   }
 
