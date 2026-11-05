@@ -282,7 +282,7 @@ export default class extends Controller {
         if (input.value !== value) input.value = value
       }
       if (this.inlineValue) {
-        const title = document.querySelector("#plan-header .inline-editor__title")
+        const title = document.querySelector("#plan-title .inline-editor__title")
         if (title && title.textContent !== merged.title) title.textContent = merged.title
       }
       if (remote.url) this.backTarget.href = remote.url
@@ -328,7 +328,7 @@ export default class extends Controller {
     const target = event.target.getAttribute?.("target")
     // Content/header streams can precede their transaction's commit. History
     // is broadcast by PlanVersion.after_create_commit, so fetch again then.
-    if (!["plan-content-body", "plan-header", "plan-history-list"].includes(target)) {
+    if (!["plan-content-body", "plan-header", "plan-title", "plan-history-list"].includes(target)) {
       if (event.target.getAttribute?.("action") === "coplan-replace-if-clean") event.preventDefault()
       return
     }
@@ -394,9 +394,9 @@ export default class extends Controller {
     this.element.querySelector('[name="plan[title]"]').value = this.base.title
     this.element.querySelector('[name="plan[tag_names]"]').value = this.base.tags
     if (this.inlineValue) {
-      const title = document.querySelector("#plan-header .inline-editor__title")
+      const title = document.querySelector("#plan-title .inline-editor__title")
       if (title) title.textContent = this.base.title
-      const heading = document.querySelector("#plan-header .page-header__title")
+      const heading = document.querySelector("#plan-title .plan-title__heading")
       if (heading) heading.textContent = this.base.title
     }
   }
@@ -512,7 +512,7 @@ export default class extends Controller {
     if (focus) this.richEditor?.focusText(anchor?.text, anchor?.occurrence)
   }
   revealDetails() {
-    document.querySelector("#plan-header .inline-editor__title")?.focus()
+    document.querySelector("#plan-title .inline-editor__title")?.focus()
   }
   comments() {
     return Array.from(document.querySelectorAll('#plan-threads [data-anchor-text]:not([data-thread-out-of-date="true"])'), thread => ({

@@ -109,7 +109,7 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
     expect(page.evaluate_script('getSelection().toString()')).to include("Before prose.", "After prose.")
     expect(page.evaluate_script('getSelection().toString()')).not_to include("Code scopes", "Editor", "Dual")
-    find("#plan-header .inline-editor__title").send_keys([ mod, "a" ], "Scoped title")
+    find("#plan-title .inline-editor__title").send_keys([ mod, "a" ], "Scoped title")
     click_link "Done"
     expect(page).to have_current_path(/scoped-title$/, wait: 10)
     expect(plan.reload.current_content).to include("Before prose.", "const scoped = 7;", "After prose.", "puts :other")

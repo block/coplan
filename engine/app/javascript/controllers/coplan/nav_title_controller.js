@@ -1,44 +1,49 @@
 import { Controller } from "@hotwired/stimulus"
 
 // Fades the plan context (containing-folder control + title) into the sticky top nav
-// once the document's own header has scrolled up behind the bar. Persistent wayfinding —
+// once the document's own title has scrolled up behind the bar. Persistent wayfinding —
 // especially on mobile and on comment deep links, where you land centered
-// on an anchor with the masthead already off-screen — that costs zero
-// space while the header is still visible.
+// on an anchor with the title already off-screen — that costs zero
+// space while the title is still visible.
 export default class extends Controller {
-  static values = { anchor: { type: String, default: "plan-header" } }
+  static values = { anchor: { type: String, default: "plan-title" } }
 
   connect() {
-    // #plan-header is stream-replaced on every live plan update, which would
-    // strand an observer bound to the old (detached) node. The .plan-masthead
-    // wrapper around it is never itself a stream target, so watch that: when
-    // it mutates we re-point the IntersectionObserver at the fresh header and
-    // re-sync the title copy from it.
-    this.masthead = document.querySelector(".plan-masthead")
+    // #plan-title is stream-replaced when the plan is renamed, which would
+    // strand an observer bound to the old (detached) node. The
+    // .plan-document__head wrapper around it is never itself a stream
+    // target, so watch that: when it mutates we re-point the
+    // IntersectionObserver at the fresh title and re-sync the copy from it.
+    // This copy is itself stream-replaced (renames, moves) while the reader
+    // may be scrolled down. Take the first state without animating, so a
+    // fresh copy appears in place rather than sliding in again.
+    this.element.classList.add("site-nav__plan-context--settling")
+    this.head = document.querySelector(".plan-document__head")
     this.textEl = this.element.querySelector(".site-nav__doc-title-text")
     this.editEl = this.element.querySelector(".site-nav__edit")
     if (this.editEl) this.editEl.hidden = !document.querySelector('#plan-toolbar a[title^="Edit this document"]')
     this._observeAnchor()
 
-    if (this.masthead) {
+    if (this.head) {
       this._mutation = new MutationObserver(() => {
         this._observeAnchor()
         this._syncTitle()
       })
-      this._mutation.observe(this.masthead, { childList: true, subtree: true, characterData: true })
+      this._mutation.observe(this.head, { childList: true, subtree: true, characterData: true })
     }
   }
 
   disconnect() {
     this._observer?.disconnect()
     this._mutation?.disconnect()
+    this._anchor = null
     this._setVisible(false)
   }
 
-  // Return to the top of the plan. A bare #plan-header jump lands the header
+  // Return to the top of the plan. A bare #plan-title jump lands the title
   // under the sticky bar (and reads as "nothing moved"); scroll all the way
-  // up instead, so the full masthead is back in view — at which point the
-  // observer hides this title on its own.
+  // up instead, so the metadata row and title are back in view — at which
+  // point the observer hides this copy on its own.
   scrollToTop(event) {
     event.preventDefault()
     window.scrollTo({ top: 0, behavior: "smooth" })
@@ -49,9 +54,9 @@ export default class extends Controller {
     document.dispatchEvent(new CustomEvent("coplan:edit-request"))
   }
 
-  // (Re)bind the IntersectionObserver to the current header element. Only
-  // rebuilds when the node actually changed, so routine masthead updates
-  // (presence, toolbar) don't churn the observer.
+  // (Re)bind the IntersectionObserver to the current title element. Only
+  // rebuilds when the node actually changed, so live typing in the inline
+  // title editor doesn't churn the observer.
   _observeAnchor() {
     const anchor = document.getElementById(this.anchorValue)
     if (!anchor || anchor === this._anchor) return
@@ -59,21 +64,32 @@ export default class extends Controller {
 
     this._observer?.disconnect()
     this._observer = new IntersectionObserver(
-      ([entry]) => this._setVisible(!entry.isIntersecting),
-      // Trip the moment the header clears the sticky nav, not the very top
+      ([entry]) => {
+        this._setVisible(!entry.isIntersecting)
+        this._settled()
+      },
+      // Trip the moment the title clears the sticky nav, not the very top
       // of the viewport — otherwise the title would linger under the bar.
       { rootMargin: `-${this._navHeightPx()}px 0px 0px 0px`, threshold: 0 }
     )
     this._observer.observe(anchor)
   }
 
-  // Keep the sticky copy in step with the live header, so a rename that
+  // Keep the sticky copy in step with the live title, so a rename that
   // arrives over the wire doesn't leave a stale name pinned to the bar.
   _syncTitle() {
-    const title = this.masthead?.querySelector(".page-header__title")?.textContent?.trim()
+    const title = this.head?.querySelector(".plan-title__heading")?.textContent?.trim()
     if (title && this.textEl && this.textEl.textContent !== title) {
       this.textEl.textContent = title
     }
+  }
+
+  _settled() {
+    if (!this.element.classList.contains("site-nav__plan-context--settling")) return
+    // Two frames: the first paints the state, the second re-enables motion.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      this.element.classList.remove("site-nav__plan-context--settling")
+    }))
   }
 
   _setVisible(visible) {

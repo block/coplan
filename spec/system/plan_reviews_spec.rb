@@ -38,17 +38,56 @@ RSpec.describe "Plan discussion and approval", type: :system do
     JS
   end
 
+  # Hold automatic invalidations so both separate and coalesced delivery can
+  # be exercised deterministically without replacing the open draft.
+  def pause_review_refreshes
+    page.execute_script(<<~JS)
+      const root = document.getElementById("plan-review-controls");
+      const controller = window.Stimulus.getControllerForElementAndIdentifier(root, "coplan--review-tray");
+      window.refreshReviewControls = controller.refresh.bind(controller);
+      controller.refresh = async () => {};
+    JS
+  end
+
+  def refresh_review_controls
+    page.driver.browser.execute_async_script("window.refreshReviewControls().then(arguments[0])")
+  end
+
+  def hold_review_delivery(stage, controls: false)
+    page.execute_script(<<~JS, stage, controls)
+      const stage = arguments[0], blockControls = arguments[1];
+      const originalFetch = window.fetch.bind(window);
+      const controlsUrl = document.getElementById("plan-review-controls").getAttribute("data-coplan--review-tray-url-value");
+      const commentsUrl = document.querySelector('[data-coplan--inline-editor-comments-url-value]').getAttribute("data-coplan--inline-editor-comments-url-value");
+      let held = false;
+      const controls = [];
+      window.blockReviewControls = blockControls;
+      window.releaseReviewControls = () => {
+        window.blockReviewControls = false;
+        controls.splice(0).forEach(resolve => resolve());
+      };
+      window.fetch = async (...args) => {
+        if (window.blockReviewControls && String(args[0]) === controlsUrl && !args[1]?.method) {
+          await new Promise(resolve => controls.push(resolve));
+        }
+        const response = await originalFetch(...args);
+        const selected = stage === "result" ? args[1]?.method === "POST" && String(args[0]).endsWith("/respond") : String(args[0]) === commentsUrl;
+        if (!held && selected) {
+          held = true;
+          window.heldReviewDelivery = await response.clone().text();
+          document.documentElement.dataset.reviewDeliveryHeld = "true";
+          await new Promise(resolve => { window.releaseReviewDelivery = resolve; });
+        }
+        return response;
+      };
+    JS
+  end
+
   before { sign_in_browser(reviewer, open_sections: !RSpec.current_example.metadata[:collapsed_support]) }
 
-  it "keeps a withdrawn request between its two request cycles", :review_withdrawals do
+  it "keeps an API-withdrawn request between its two request cycles", :review_withdrawals do
     sign_in_browser(author)
-    click_button "More actions"
-    within("#plan-menu") { click_button "Manage reviewers" }
-    within(".review-management[open]") do
-      click_button "Actions for Plan Reviewer", enable_aria_label: true
-      click_button "Remove request"
-      expect(page).to have_no_css("[data-review-assignments] .review-person")
-    end
+    CoPlan::Reviews::Withdraw.call(request: task, actor: author)
     expect(task.reload.status).to eq("withdrawn")
     CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
     visit plan_page_path(plan)
@@ -63,6 +102,434 @@ RSpec.describe "Plan discussion and approval", type: :system do
     [ "light", "dark" ].each do |theme|
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
       page.save_screenshot(Rails.root.join("tmp/review-preview/review-withdrawal-history-#{theme}.png"))
+    end
+  end
+
+  [ [ "light", "approved" ], [ "dark", "changes_requested" ] ].each do |theme, decision|
+    it "starts fresh after removing a #{decision} reviewer in #{theme} theme", :review_readdition do
+      task.destroy!
+      requested = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author)
+      previous = CoPlan::Reviews::Respond.call(request: requested, actor: reviewer, revision: 1, decision: decision,
+        note: decision == "changes_requested" ? "Earlier review feedback" : nil)
+      sign_in_browser(author)
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      click_button "More actions"
+      within("#plan-menu") { click_button "Manage reviewers" }
+      within(".review-management[open]") do
+        click_button "Actions for Plan Reviewer", enable_aria_label: true
+        click_button "Remove reviewer"
+        expect(page).to have_no_css("[data-review-assignments] .review-person")
+        click_button "Add reviewer", exact: true
+      end
+      expect(CoPlan::ReviewRequest.exists?(requested.id)).to be(false)
+      expect(CoPlan::ReviewResponse.exists?(previous.id)).to be(false)
+      fill_in "Find a reviewer", with: reviewer.name
+      find(".review-search-result", text: reviewer.name).click
+      uncheck "Required"
+      within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+      within(".review-management[open] [data-review-assignments]") do
+        expect(page).to have_css(".review-person", text: "Plan Reviewer")
+        expect(page).to have_css(".review-person__requirement", text: "Optional")
+        expect(page).to have_css(".review-state", text: "Pending")
+      end
+      fresh = plan.review_requests.find_by!(reviewer: reviewer)
+      expect(fresh.id).not_to eq(requested.id)
+      expect(fresh).to have_attributes(status: "pending", requirement: "optional")
+      expect(plan.review_requests.where(reviewer: reviewer).count).to eq(1)
+      expect(fresh.review_responses).to be_empty
+      expect(fresh.notifications.unread.where(user: reviewer, reason: "review_requested").count).to eq(1)
+      page.save_screenshot(Rails.root.join("tmp/review-preview/readded-reviewer-#{theme}.png"))
+      within(".review-management[open]") { click_button "Close reviews", enable_aria_label: true }
+      within("#footnote-approvals") { click_button "View activity", exact: false }
+      within(".review-activity-dialog[open]") do
+        expect(all(".review-log__event").map { |entry| entry.text.squish }).to eq([ "Plan Author requested a review from Plan Reviewer" ] * 2)
+        expect(page).to have_no_text("Earlier review feedback")
+        expect(plan.plan_events.where(event_type: "review_requested").pluck(:after_value)).to contain_exactly(requested.id, fresh.id)
+      end
+      page.save_screenshot(Rails.root.join("tmp/review-preview/fresh-review-history-#{theme}.png"))
+      sign_in_browser(reviewer)
+      expect(page).to have_css(".review-tray", text: "Your review is requested")
+    end
+  end
+
+  it "re-adds a reviewer removed before permanent removal was supported", :review_readdition do
+    previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+    CoPlan::Reviews::Withdraw.call(request: task, actor: author)
+    sign_in_browser(author)
+    click_button "More actions"
+    within("#plan-menu") { click_button "Manage reviewers" }
+    within(".review-management[open]") { click_button "Add reviewer", exact: true }
+    fill_in "Find a reviewer", with: reviewer.name
+    find(".review-search-result", text: reviewer.name).click
+    within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+    expect(page).to have_css(".review-person", text: reviewer.name)
+    expect(page).to have_css(".review-state", text: "Pending")
+    fresh = plan.review_requests.find_by!(reviewer: reviewer)
+    expect(fresh.id).not_to eq(task.id)
+    expect(fresh.review_responses).to be_empty
+    expect(CoPlan::ReviewResponse.exists?(previous.id)).to be(false)
+  end
+
+  it "leaves an already active review unchanged when a selected re-add is submitted", :review_readdition do
+    CoPlan::Reviews::Withdraw.call(request: task, actor: author)
+    sign_in_browser(author)
+    click_button "More actions"
+    within("#plan-menu") { click_button "Manage reviewers" }
+    within(".review-management[open]") { click_button "Add reviewer", exact: true }
+    fill_in "Find a reviewer", with: reviewer.name
+    find(".review-search-result", text: reviewer.name).click
+    # Another tab restores and completes this request after the person was
+    # selected. Submitting the stale add form must not reset that decision.
+    restored = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, requirement: "optional")
+    approval = CoPlan::Reviews::Respond.call(request: restored, actor: reviewer, revision: 1, decision: "approved")
+    counts = [ plan.plan_events.where(event_type: "review_requested").count, CoPlan::Notification.count ]
+    within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+    within(".review-management[open] [data-review-assignments]") do
+      expect(page).to have_css(".review-person", text: reviewer.name)
+      expect(page).to have_css(".review-state", text: "Approved")
+      expect(page).to have_css(".review-person__requirement", text: "Optional")
+    end
+    expect(task.reload).to have_attributes(status: "approved", requirement: "optional")
+    expect(task.review_responses.pluck(:id)).to eq([ approval.id ])
+    expect([ plan.plan_events.where(event_type: "review_requested").count, CoPlan::Notification.count ]).to eq(counts)
+  end
+
+  [ false, true ].each do |legacy|
+    it "updates discussion labels after #{legacy ? 'legacy reassignment' : 'removal'} without ActionCable", :review_offline do
+      CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", note: "Retain this public discussion")
+      CoPlan::Reviews::Withdraw.call(request: task, actor: author) if legacy
+      sign_in_browser(author)
+      expect(page).to have_css(".document-comment__type", text: "Review · Approved · v1")
+      page.execute_script('document.querySelectorAll("turbo-cable-stream-source").forEach(source => source.remove())')
+      expect(page).to have_no_css("turbo-cable-stream-source", visible: :all)
+      click_button "More actions"
+      within("#plan-menu") { click_button "Manage reviewers" }
+      within(".review-management[open]") do
+        if legacy
+          click_button "Add reviewer", exact: true
+        else
+          click_button "Actions for Plan Reviewer", enable_aria_label: true
+          click_button "Remove reviewer"
+          expect(page).to have_no_css("[data-review-assignments] .review-person")
+        end
+      end
+      if legacy
+        fill_in "Find a reviewer", with: reviewer.name
+        find(".review-search-result", text: reviewer.name).click
+        within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+        expect(page).to have_css(".review-state", text: "Pending")
+      end
+      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+      expect(page).to have_no_css(".document-comment__type", text: "Review · Approved")
+      within(".review-management[open]") { click_button "Close reviews", enable_aria_label: true }
+      expect(page).to have_content("Retain this public discussion")
+    end
+  end
+
+  [ false, true ].each do |legacy|
+    it "does not apply a delayed #{legacy ? 'reassignment' : 'removal'} discussion refresh to another plan", :review_navigation do
+      CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", note: "Plan A review discussion")
+      CoPlan::Reviews::Withdraw.call(request: task, actor: author) if legacy
+      destination = create(:plan, :published, created_by_user: author, title: "Destination plan")
+      thread = create(:comment_thread, plan: destination, created_by_user: author)
+      create(:comment, comment_thread: thread, author_id: author.id, body_markdown: "Plan B discussion stays here")
+      sign_in_browser(author)
+      hold_review_delivery("comments")
+      page.execute_script(<<~JS)
+        const root = document.getElementById("plan-review-controls");
+        const controller = window.Stimulus.getControllerForElementAndIdentifier(root, "coplan--review-tray");
+        const refresh = controller.refreshThreads.bind(controller);
+        controller.refreshThreads = async (...args) => {
+          const result = await refresh(...args);
+          document.documentElement.dataset.oldReviewFinished = "true";
+          return result;
+        };
+      JS
+      click_button "More actions"
+      within("#plan-menu") { click_button "Manage reviewers" }
+      within(".review-management[open]") do
+        if legacy
+          click_button "Add reviewer", exact: true
+        else
+          click_button "Actions for Plan Reviewer", enable_aria_label: true
+          click_button "Remove reviewer"
+        end
+      end
+      if legacy
+        fill_in "Find a reviewer", with: reviewer.name
+        find(".review-search-result", text: reviewer.name).click
+        within(".review-assignment-form") { click_button "Add reviewer", exact: true }
+      end
+      expect(page).to have_css('html[data-review-delivery-held="true"]')
+      expect(page.evaluate_script("window.heldReviewDelivery")).to include("Plan A review discussion")
+      page.execute_script("window.Turbo.visit(arguments[0])", plan_page_path(destination))
+      expect(page).to have_current_path(plan_page_path(destination))
+      expect(page).to have_css("#plan-general-comment-list", text: "Plan B discussion stays here", visible: :all)
+      page.execute_script("window.releaseReviewDelivery()")
+      expect(page).to have_css('html[data-old-review-finished="true"]')
+      expect(page).to have_css("#plan-general-comment-list", text: "Plan B discussion stays here", visible: :all)
+      expect(page).to have_no_css("#plan-general-comment-list", text: "Plan A review discussion", visible: :all)
+    end
+  end
+
+  [ [ "light", false ], [ "dark", true ] ].each do |theme, separate_refresh|
+    it "submits a preserved draft to the replacement after #{separate_refresh ? 'separate' : 'coalesced'} refreshes", :review_readdition do
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      within(".review-tray") { click_button "Request changes", exact: true }
+      fill_in "Public review comment", with: "Please clarify the retry limits.", enable_aria_label: true
+      page.execute_script('window.reviewDraft = document.getElementById("review-discussion-body")')
+      pause_review_refreshes
+      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      if separate_refresh
+        refresh_review_controls
+        expect(page).to have_css('.review-tray__discussion [type="submit"][disabled]')
+        expect(page).to have_content("Your unsent feedback is still here.")
+      end
+      fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
+      refresh_review_controls
+      expect(page).to have_css("[data-review-decision-actions] button[data-url*='#{fresh.id}']", visible: :all)
+      expect(find('[data-coplan--review-tray-target="commentForm"]')["action"]).to end_with(respond_plan_review_request_path(plan, fresh))
+      expect(page).to have_field("Public review comment", with: "Please clarify the retry limits.", enable_aria_label: true)
+      expect(page.evaluate_script('window.reviewDraft === document.getElementById("review-discussion-body")')).to be(true)
+      page.save_screenshot(Rails.root.join("tmp/review-preview/preserved-reassigned-draft-#{theme}.png"))
+      within(".review-tray__discussion") { click_button "Request changes" }
+      expect(page).to have_content("Changes requested. Your feedback is in the plan’s comments.")
+      expect(fresh.reload.status).to eq("changes_requested")
+      expect(fresh.review_responses.last!.note).to eq("Please clarify the retry limits.")
+      expect(CoPlan::ReviewRequest.exists?(task.id)).to be(false)
+    end
+  end
+
+  it "keeps an in-flight submission bound to the removed request", :review_readdition do
+    within(".review-tray") { click_button "Request changes", exact: true }
+    fill_in "Public review comment", with: "Feedback submitted before removal", enable_aria_label: true
+    pause_review_refreshes
+    page.execute_script(<<~JS)
+      const originalFetch = window.fetch.bind(window);
+      window.reviewWrites = [];
+      window.fetch = async (...args) => {
+        if (args[1]?.method === "POST" && String(args[0]).endsWith("/respond")) {
+          window.reviewWrites.push({ url: String(args[0]), key: JSON.parse(args[1].body).review_response.idempotency_key });
+          if (window.reviewWrites.length === 1) {
+            document.documentElement.dataset.reviewWriteHeld = "true";
+            await new Promise(resolve => { window.releaseReviewWrite = resolve; });
+          }
+        }
+        return originalFetch(...args);
+      };
+    JS
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_css('html[data-review-write-held="true"]')
+    CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+    fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
+    refresh_review_controls
+    page.execute_script("window.releaseReviewWrite()")
+    expect(page).to have_content("Couldn't save your response. Your draft is still here.")
+    expect(fresh.reload.status).to eq("pending")
+    expect(fresh.review_responses).to be_empty
+    expect(page).to have_field("Public review comment", with: "Feedback submitted before removal", enable_aria_label: true)
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_content("Changes requested. Your feedback is in the plan’s comments.")
+    writes = page.evaluate_script("window.reviewWrites")
+    expect(writes.map { |write| URI(write.fetch("url")).path }).to eq([
+      respond_plan_review_request_path(plan, task), respond_plan_review_request_path(plan, fresh)
+    ])
+    expect(writes.map { |write| write.fetch("key") }.uniq.size).to eq(2)
+    expect(fresh.review_responses.count).to eq(1)
+  end
+
+  [ [ "light", false ], [ "dark", true ] ].each do |theme, separate_refresh|
+    it "invalidates an open approval after #{separate_refresh ? 'separate' : 'coalesced'} reassignment refreshes", :approval_reassignment do
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      within(".review-tray") { click_button "Approve", exact: true }
+      fill_in "Public note", with: "Keep the approval audit trail."
+      pause_review_refreshes
+      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      refresh_review_controls if separate_refresh
+      fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
+      refresh_review_controls
+      within(".review-confirmation[open]") do
+        expect(page).to have_content("This review request changed.")
+        expect(page).to have_button("Approve v1", disabled: true)
+        expect(page).to have_field("Public note", with: "Keep the approval audit trail.")
+        page.save_screenshot(Rails.root.join("tmp/review-preview/invalidated-approval-#{theme}.png"))
+        click_button "Close approval", enable_aria_label: true
+      end
+      expect(fresh.reload.status).to eq("pending")
+      expect(fresh.review_responses).to be_empty
+      within(".review-tray") { click_button "Approve", exact: true }
+      expect(page).to have_field("Public note", with: "Keep the approval audit trail.")
+      click_button "Approve v1"
+      expect(page).to have_no_css(".review-confirmation[open]")
+      expect(fresh.reload.status).to eq("approved")
+      expect(fresh.review_responses.last!.note).to eq("Keep the approval audit trail.")
+    end
+  end
+
+  it "keeps an approval dialog usable when only its requirement changes", :approval_reassignment do
+    within(".review-tray") { click_button "Approve", exact: true }
+    fill_in "Public note", with: "Same review request"
+    pause_review_refreshes
+    task.update!(requirement: "optional")
+    refresh_review_controls
+    expect(page).to have_button("Approve v1", disabled: false)
+    expect(page).to have_no_content("This review request changed.")
+    click_button "Approve v1"
+    expect(page).to have_no_css(".review-confirmation[open]")
+    expect(task.reload.status).to eq("approved")
+  end
+
+  [ false, true ].each do |saved|
+    it "invalidates an approval removed #{saved ? 'after' : 'before'} its in-flight submission is saved", :approval_reassignment do
+      within(".review-tray") { click_button "Approve", exact: true }
+      fill_in "Public note", with: "An approval sent before removal"
+      pause_review_refreshes
+      page.execute_script(<<~JS, saved)
+        const holdAfterSave = arguments[0];
+        const originalFetch = window.fetch.bind(window);
+        window.reviewWrites = [];
+        window.fetch = async (...args) => {
+          if (args[1]?.method === "POST" && String(args[0]).endsWith("/respond")) {
+            window.reviewWrites.push({ url: String(args[0]), key: JSON.parse(args[1].body).review_response.idempotency_key });
+            if (window.reviewWrites.length === 1) {
+              const result = holdAfterSave ? await originalFetch(...args) : null;
+              document.documentElement.dataset.reviewWriteHeld = "true";
+              await new Promise(resolve => { window.releaseReviewWrite = resolve; });
+              if (result) return result;
+            }
+          }
+          return originalFetch(...args);
+        };
+      JS
+      click_button "Approve v1"
+      expect(page).to have_css('html[data-review-write-held="true"]')
+      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
+      refresh_review_controls
+      page.execute_script("window.releaseReviewWrite()")
+      expect(page).to have_no_css('.review-confirmation form[aria-busy="true"]')
+      expect(page).to have_content("This review request changed.")
+      expect(page).to have_button("Approve v1", disabled: true)
+      expect(page).to have_field("Public note", with: "An approval sent before removal")
+      expect(fresh.reload.status).to eq("pending")
+      expect(fresh.review_responses).to be_empty
+      click_button "Close approval", enable_aria_label: true
+      within(".review-tray") { click_button "Approve", exact: true }
+      click_button "Approve v1"
+      expect(page).to have_no_css(".review-confirmation[open]")
+      writes = page.evaluate_script("window.reviewWrites")
+      expect(writes.map { |write| URI(write.fetch("url")).path }).to eq([
+        respond_plan_review_request_path(plan, task), respond_plan_review_request_path(plan, fresh)
+      ])
+      expect(writes.map { |write| write.fetch("key") }.uniq.size).to eq(2)
+      expect(fresh.review_responses.count).to eq(1)
+      expect(fresh.reload.status).to eq("approved")
+    end
+  end
+
+  it "preserves feedback when a saved result arrives after reassignment", :review_delivery do
+    expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all)
+    hold_review_delivery("result", controls: true)
+    within(".review-tray") { click_button "Request changes", exact: true }
+    fill_in "Public review comment", with: "Keep this feedback for the new request", enable_aria_label: true
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_css('html[data-review-delivery-held="true"]')
+    expect(task.reload.status).to eq("changes_requested")
+    CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+    fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
+    expect(page).to have_css(".document-comment__type", text: "Plan comment")
+    page.execute_script("window.releaseReviewDelivery()")
+    expect(page).to have_no_css('.review-tray__discussion form[aria-busy="true"]')
+    expect(page).to have_field("Public review comment", with: "Keep this feedback for the new request", enable_aria_label: true)
+    expect(page).to have_css(".review-tray__discussion", visible: true)
+    expect(page).to have_no_content("Changes requested. Your feedback is in the plan’s comments.")
+    expect(fresh.reload.status).to eq("pending")
+    page.execute_script("window.releaseReviewControls()")
+    expect(page).to have_css("[data-review-decision-actions] button[data-url*='#{fresh.id}']", visible: :all)
+    within(".review-tray__discussion") { click_button "Request changes" }
+    expect(page).to have_content("Changes requested. Your feedback is in the plan’s comments.")
+    expect(fresh.reload.status).to eq("changes_requested")
+  end
+
+  %w[approved changes_requested].each do |decision|
+    it "discards stale #{decision} comment HTML while replacement controls are delayed", :review_delivery do
+      expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all)
+      hold_review_delivery("comments", controls: true)
+      if decision == "approved"
+        within(".review-tray") { click_button "Approve", exact: true }
+        fill_in "Public note", with: "Keep the public note"
+        click_button "Approve v1"
+      else
+        within(".review-tray") { click_button "Request changes", exact: true }
+        fill_in "Public review comment", with: "Keep the public note", enable_aria_label: true
+        within(".review-tray__discussion") { click_button "Request changes" }
+      end
+      expect(page).to have_css('html[data-review-delivery-held="true"]')
+      expect(page.evaluate_script("window.heldReviewDelivery")).to include("Review · #{decision.humanize} · v1")
+      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
+      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+      page.execute_script("window.releaseReviewDelivery()")
+      expect(page).to have_no_css('#plan-review-controls form[aria-busy="true"]', visible: :all)
+      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+      expect(page).to have_no_css(".document-comment__type", text: "Review ·")
+      if decision == "approved"
+        expect(page).to have_css(".review-confirmation[open]", text: "This review request changed.")
+        expect(page).to have_field("Public note", with: "Keep the public note")
+        expect(page).to have_button("Approve v1", disabled: true)
+        click_button "Close approval", enable_aria_label: true
+      else
+        expect(page).to have_field("Public review comment", with: "Keep the public note", enable_aria_label: true)
+        expect(page).to have_css(".review-tray__discussion", visible: true)
+      end
+      expect(fresh.reload.status).to eq("pending")
+      expect(fresh.review_responses).to be_empty
+      page.execute_script("window.releaseReviewControls()")
+      expect(page).to have_css("[data-review-decision-actions] button[data-url*='#{fresh.id}']", visible: :all)
+    end
+  end
+
+  it "does not restore another reviewer's deleted label from a delayed comments response", :review_delivery do
+    other = create(:coplan_user)
+    other_task = CoPlan::Reviews::Request.call(plan: plan, reviewer: other, actor: author)
+    CoPlan::Reviews::Respond.call(request: other_task, actor: other, revision: 1, decision: "approved", note: "Other reviewer approval")
+    expect(page).to have_css(".document-comment", text: "Other reviewer approval")
+    hold_review_delivery("comments", controls: true)
+    within(".review-tray") { click_button "Approve", exact: true }
+    fill_in "Public note", with: "My current approval"
+    click_button "Approve v1"
+    expect(page).to have_css('html[data-review-delivery-held="true"]')
+    CoPlan::Reviews::Remove.call(plan: plan, request_id: other_task.id)
+    within(find(".document-comment", text: "Other reviewer approval")) do
+      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+    end
+    page.execute_script("window.releaseReviewDelivery(); window.releaseReviewControls()")
+    expect(page).to have_no_css(".review-confirmation[open]")
+    within(find(".document-comment", text: "Other reviewer approval")) do
+      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+    end
+    expect(task.reload.status).to eq("approved")
+    expect(task.review_responses.last!.note).to eq("My current approval")
+  end
+
+  [ [ "light", false ], [ "dark", true ] ].each do |theme, legacy|
+    it "updates a surviving note's label after #{legacy ? 'legacy replacement' : 'removal'} without navigation", :review_readdition do
+      CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", note: "Keep the audit trail.")
+      CoPlan::Reviews::Withdraw.call(request: task, actor: author) if legacy
+      sign_in_browser(author)
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all)
+      expect(page).to have_css(".document-comment__type", text: "Review · Approved · v1")
+      if legacy
+        CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true, replace_withdrawn: true)
+      else
+        CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      end
+      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+      expect(page).to have_no_css(".document-comment__type", text: "Review · Approved · v1")
+      expect(page).to have_content("Keep the audit trail.")
+      page.execute_script('document.getElementById("plan-general-comments").scrollIntoView({block: "center"})')
+      page.save_screenshot(Rails.root.join("tmp/review-preview/removed-review-note-#{theme}.png"))
     end
   end
 
@@ -92,7 +559,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_field("Public review comment", with: "Can we clarify this boundary?", enable_aria_label: true)
   end
 
-  [ [ "Request another review", false ], [ "Remove request", true ] ].each do |action, failed|
+  [ [ "Request another review", false ], [ "Remove reviewer", true ] ].each do |action, failed|
     it "keeps reviewer-update progress visible for #{action}", :review_interactions do
       sign_in_browser(author)
       click_button "More actions"

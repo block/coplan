@@ -195,9 +195,9 @@
 }
 
 /* Scroll-aware plan context in the top nav: containing folder + document title.
-   Collapsed to zero width while the masthead is visible, so it steals no
+   Collapsed to zero width while the plan's title is visible, so it steals no
    space and causes no reflow at the top of a plan. coplan--nav-title reveals
-   the whole context once #plan-header scrolls behind the bar. */
+   the whole context once #plan-title scrolls behind the bar. */
 .site-nav__plan-context {
   display: flex;
   align-items: center;
@@ -231,23 +231,49 @@
   pointer-events: auto;
 }
 
+/* It's the document's name, not chrome: full text color, like the title it
+   stands in for. */
 .site-nav__doc-title {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
   min-width: 0;
-  color: var(--color-text-muted);
-  text-decoration: none;
-}
-
-.site-nav__doc-title:hover {
   color: var(--color-text);
   text-decoration: none;
 }
 
+.site-nav__doc-title:hover {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+/* The page's title scrolls up out of view as this one appears, so the copy
+   rises in from below: it reads as the title moving into the bar. */
 .site-nav__doc-title-text {
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Room for descenders: the context's line-height: 1 clips them here. */
+  line-height: 1.3;
+  transform: translateY(0.6rem);
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.site-nav__plan-context--visible .site-nav__doc-title-text {
+  transform: none;
+}
+
+/* A freshly connected copy takes its first state in place (see
+   nav_title_controller.js). */
+.site-nav__plan-context--settling,
+.site-nav__plan-context--settling .site-nav__doc-title-text {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-nav__doc-title-text {
+    transform: none;
+    transition: none;
+  }
 }
 
 .site-nav__doc-title .plan-type-icon {

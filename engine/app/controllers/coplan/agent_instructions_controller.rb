@@ -115,7 +115,7 @@ module CoPlan
       JSON.generate(
         {
           title: "My Plan",
-          content: "# My Plan\n\nContent following the type template.",
+          content: "## Summary\n\nContent following the type template.",
           plan_type: example_type&.name || "general",
           folder_path: "Team EBT/Q3"
         },

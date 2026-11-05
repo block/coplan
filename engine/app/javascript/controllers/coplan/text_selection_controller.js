@@ -512,6 +512,8 @@ export default class extends Controller {
 
   _restoreActiveThreadPopover(threadId) {
     if (!threadId || !this._activePopover) return
+    // Margin cards survive re-highlighting; keep the window beside its card.
+    if (this._activeMark?.isConnected && this._activeMark.closest(".comment-margin")) return
 
     const replacementMark = this.contentTarget.querySelector(`.anchor-highlight[data-thread-id="${threadId}"]`)
     if (replacementMark && this._findOpenPopover() === this._activePopover) {

@@ -40,6 +40,14 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response.body).not_to include("jq -r .token)")
     end
 
+    it "documents URL resolution in the primer and API reference" do
+      get agent_instructions_path
+      expect(response.body).to include('/api/v1/plans/resolve')
+      get agent_instructions_guide_path(guide: "api")
+      expect(response.body).to include('/api/v1/plans/resolve?url=')
+      expect(response.body).to include('This does not record a content read')
+    end
+
     it "declares identity once through the session token" do
       get agent_instructions_path
 

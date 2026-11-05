@@ -81,7 +81,7 @@ RSpec.describe "Glass comment composer", type: :system do
     expect(panel).to have_css('[role="alert"]', text: "Couldn't post your comment. Your draft is still here.")
     expect(panel.find("textarea").value).to eq("Preserve this draft on a server error")
     expect(panel).to have_button("Try again", disabled: false)
-    expect(page).to have_css("#plan-header", text: plan.title)
+    expect(page).to have_css("#plan-title", text: plan.title)
   end
 
   it "aligns Edit and Delete on the same row" do

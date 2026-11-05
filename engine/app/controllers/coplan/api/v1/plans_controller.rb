@@ -195,6 +195,15 @@ module CoPlan
             Broadcaster.replace_to(@plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: @plan })
           end
 
+          if @plan.saved_change_to_title?
+            Broadcaster.replace_to(@plan, target: "plan-title", partial: "coplan/plans/title", locals: { plan: @plan })
+          end
+
+          # The sticky nav carries the title and the type icon.
+          if @plan.saved_change_to_title? || @plan.saved_change_to_plan_type_id?
+            Broadcaster.replace_to(@plan, target: "plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: @plan })
+          end
+
           if permitted.key?(:title) && @plan.saved_change_to_title?
             Plans::LogEvent.call(
               plan: @plan, actor: current_user, event_type: "title_changed",
@@ -305,6 +314,19 @@ module CoPlan
         def comments
           threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)
           render json: threads.map { |t| thread_json(t) }
+        end
+
+        # Other people's drafts are readable by URL but omitted from the
+        # index. Resolve their addresses with the reader's access policy,
+        # including aliases for moved and renamed plans.
+        def resolve
+          plan = Urls::ResolvePlan.call(url: params[:url],
+            bases: [ root_url, "#{request.base_url}#{root_path}" ])
+          unless plan && PlanPolicy.new(current_user, plan).show?
+            return render json: { error: "Plan not found" }, status: :not_found
+          end
+
+          render json: plan_json(plan)
         end
 
         def snapshot
