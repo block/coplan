@@ -83,12 +83,18 @@ module CoPlan
       { key: "class-model", author: "hampton", type: "Design Doc", title: "Class diagram: delivery adapters",
         tags: %w[demo diagrams], visibility: "published", folder: "Demo content/Diagrams", group: "Diagrams",
         showcase: "Mermaid class diagram; whole-diagram commenting" },
+      { key: "comment-reactions", author: "hampton", type: "Design Doc", title: "Discussions: react to comments",
+        tags: %w[demo comments], visibility: "published", folder: "Demo content/Discussions", group: "Discussions",
+        showcase: "Threads with reactions; yours are pressed in blue, hover a chip to see who reacted, add one with the smiley button" },
       { key: "single-slide", author: "hampton", type: "Presentation", title: "One slide: the workspace launch decision",
         tags: %w[demo slides], visibility: "published", folder: "Demo content/Presentations", group: "Presentations",
         showcase: "One-slide presentation with speaker notes" },
       { key: "mixed-slides", author: "hampton", type: "Presentation", title: "Mixed document: prose and two embedded decks",
         tags: %w[demo slides], visibility: "published", folder: "Demo content/Presentations", group: "Presentations",
         showcase: "Prose before, between, and after two decks; diagrams, code, tables, and notes" },
+      { key: "discussion-margins", author: "hampton", type: "Design Doc", title: "Discussion margins: crowded lines and slide navigation",
+        tags: %w[demo collaboration], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "Nearby discussions, multiple participants, resolved threads, and scrollable slides; avatars show starters, not unread state" },
       { key: "reference-gallery", author: "hampton", type: "General", title: "References: every supported reference type",
         tags: %w[demo references], visibility: "published", folder: "Demo content/References", group: "References",
         showcase: "CoPlan document, repository, pull request, external document, web link, footnote, and named citation" },
@@ -136,6 +142,16 @@ module CoPlan
         key: "review-reassignment", author: "hampton", type: "Design Doc", title: "Workspace invitations: review history after reassignment",
         tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios", fixture: "approved-review",
         scenario: "Alex is Pending after reassignment; his earlier approval and removal remain in activity. Noura stays Approved"
+      },
+      {
+        key: "changed-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: review dismissed after edits",
+        tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios",
+        scenario: "Earlier v1 approvals remain history; v2 requires fresh review"
+      },
+      {
+        key: "retained-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: reviews retained after edits",
+        tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios",
+        scenario: "Automatic resets off; v1 reviews stay completed after v2 edits"
       },
       {
         key: "approved-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: approved rollout",
@@ -259,7 +275,9 @@ module CoPlan
 
     REVIEW_SCENARIOS = {
       "pending-review" => false,
-      "approved-review" => true
+      "approved-review" => true,
+      "changed-review" => true,
+      "retained-review" => true
     }.freeze
 
     SMALL_EDITS = [
@@ -304,7 +322,9 @@ module CoPlan
         seed_agent_access(users)
         seed_agent_connections(users) if CoPlan.configuration.agent_connection_enabled?
         seed_content_discussions(users, plans)
+        seed_discussion_margins(users, plans)
         seed_reading_specimen(users, plans)
+        seed_comment_reactions(users, plans)
         seed_reference_gallery(plans, base_url: base_url)
         catalog = seed_catalog(users, plans, plan_types, base_url: base_url)
         seed_writing_history(users, plans, catalog)
@@ -657,6 +677,30 @@ module CoPlan
       )
     end
 
+    def seed_discussion_margins(users, plans)
+      plan = plans.fetch("discussion-margins")
+      [
+        [ "alex", "receipt", "Which receipt identifies a retry?" ],
+        [ "noura", "delivery", "Can delivery expose a previous tenant's address?" ],
+        [ "sam", "retry", "What limits retry attempts?" ],
+        [ "aiko", "timeout", "Which timeout should the on-call monitor?" ],
+        [ "mateo", "rollback", "Can mobile clients tolerate rollback?" ],
+        [ "alex", "first slide discussion", "Keep the first-slide marker with this slide." ],
+        [ "noura", "second slide discussion", "Scroll this slide and watch the marker follow its text." ]
+      ].each do |user, anchor, body|
+        thread = seed_thread(plan: plan, user: users.fetch(user), anchor: anchor, body: body)
+        # Only populate replies on initial creation; later edits and deletions are preserved.
+        next unless thread && anchor == "receipt"
+
+        thread.comments.create!(author_type: "human", author_id: users.fetch("hampton").id,
+          body_markdown: "The request key identifies the receipt across retries.")
+        thread.comments.create!(author_type: "human", author_id: users.fetch("noura").id,
+          body_markdown: "Include the tenant in that key so the boundary stays explicit.")
+      end
+      seed_thread(plan: plan, user: users.fetch("sam"), anchor: "resolved example",
+        body: "The retention period is now documented.", resolved_by: users.fetch("hampton"))
+    end
+
     def seed_thread(plan:, user:, body:, anchor: nil, source_token: nil, author_type: "human",
       agent_name: nil, api_token: nil, resolved_by: nil)
       return if seeded_thread?(plan, body)
@@ -892,6 +936,7 @@ module CoPlan
     def seed_reviews(users, plans)
       REVIEW_SCENARIOS.each do |key, approved|
         plan = plans.fetch(key)
+        plan.update!(reset_reviews_on_change: false) if key == "retained-review" && plan.current_revision == 1
         %w[alex noura].each do |reviewer|
           collaborator = plan.plan_collaborators.find_or_initialize_by(user: users.fetch(reviewer))
           unless collaborator.persisted?
@@ -903,6 +948,10 @@ module CoPlan
 
           request = Reviews::Request.call(plan: plan, reviewer: users.fetch(reviewer), actor: plan.created_by_user)
           Reviews::Respond.call(request: request, actor: request.reviewer, revision: plan.current_revision, decision: "approved") if approved
+        end
+        if %w[changed-review retained-review].include?(key) && plan.current_revision == 1
+          Plans::ReplaceContent.call(plan: plan, new_content: "#{plan.current_content}\n\nUpdated after approval: the retry policy has changed.\n",
+            base_revision: 1, actor_type: "human", actor_id: plan.created_by_user_id)
         end
       end
     end
@@ -986,6 +1035,41 @@ module CoPlan
       )
     end
 
+    # Replies and reactions are added only when a thread is first created,
+    # so re-seeding never restores a reaction someone removed.
+    REACTION_DISCUSSIONS = [
+      { user: "alex", anchor: "valid for seven days",
+        body: "Seven days matches what support already tells people. Ship it.",
+        reactions: { "thumbs_up" => %w[hampton sam mateo], "eyes" => %w[noura] },
+        replies: [ { user: "sam", body: "Agreed. We can revisit if expired-link tickets go up.", reactions: { "heart" => %w[alex hampton] } } ] },
+      { user: "noura", anchor: "revoked the invitation",
+        body: "Check revocation right before sending, not when the reminder is scheduled.",
+        reactions: { "rocket" => %w[aiko alex], "tada" => %w[mateo] } },
+      { user: "hampton", anchor: "appear in the person's workspace switcher",
+        body: "I lean yes, but I want a second opinion from someone on identity.",
+        reactions: { "smile" => %w[alex] } }
+    ].freeze
+
+    def seed_comment_reactions(users, plans)
+      plan = plans.fetch("comment-reactions")
+      REACTION_DISCUSSIONS.each do |discussion|
+        thread = seed_thread(plan: plan, user: users.fetch(discussion[:user]), anchor: discussion[:anchor], body: discussion[:body])
+        next unless thread
+
+        add_seed_reactions(thread.comments.first, users, discussion[:reactions])
+        discussion.fetch(:replies, []).each do |reply|
+          comment = thread.comments.create!(body_markdown: reply[:body], author_type: "human", author_id: users.fetch(reply[:user]).id)
+          add_seed_reactions(comment, users, reply[:reactions])
+        end
+      end
+    end
+
+    def add_seed_reactions(comment, users, reactions)
+      reactions.each do |kind, keys|
+        keys.each { |key| comment.reactions.create!(user: users.fetch(key), kind: kind) }
+      end
+    end
+
     def seed_reference_gallery(plans, base_url:)
       plan = plans.fetch("reference-gallery")
       definition = DOCUMENTS.find { |entry| entry[:key] == "reference-gallery" }
@@ -1039,7 +1123,7 @@ module CoPlan
           "More documents"
         end
       end
-      order = [ "Diagrams", "Presentations", "Tables and rich text", "References", "Writing sources",
+      order = [ "Diagrams", "Presentations", "Tables and rich text", "Discussions", "References", "Writing sources",
         "Plan type examples", "More documents", "Libraries and visibility", "Review scenarios" ]
       sections = order.filter_map do |heading|
         definitions = groups[heading]
@@ -1075,8 +1159,8 @@ module CoPlan
         actual plan type and what you can try. Hampton owns the focused content examples.
 
         Jump to [Diagrams](#diagrams), [Presentations](#presentations),
-        [Tables and rich text](#tables-and-rich-text), [References](#references),
-        or [Every plan type](#every-plan-type).
+        [Tables and rich text](#tables-and-rich-text), [Discussions](#discussions),
+        [References](#references), or [Every plan type](#every-plan-type).
 
         Flowcharts support node and connection comments. Other Mermaid types support
         whole-diagram comments. Browse first; press **C** or choose **Comment** when

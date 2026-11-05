@@ -257,7 +257,7 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     snapshot["sources"]["other"] = snapshot.fetch("sources").fetch(key).merge("kind" => "ai")
     snapshot["runs"] += [ [ text.length, "other" ] ]
     snapshot["sha256"] = Digest::SHA256.hexdigest(text * 2)
-    version.update_columns(content_markdown: text * 2, content_sha256: snapshot["sha256"], writing_provenance: snapshot)
+    set_version_fixture(version, content_markdown: text * 2, writing_provenance: snapshot)
     edit(plan, "Kept text.\n", kind: "human", input_sources: sources("Kept text.\n"))
     pasted = "Kept text.\n" + text
     edit(plan, pasted, kind: "human", input_sources: sources(pasted, "unknown"))

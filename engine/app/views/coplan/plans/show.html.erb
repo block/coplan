@@ -19,10 +19,15 @@
 <% reference_count = plan_reference_count(@plan, @references) %>
 
 <%# Fills the sticky nav's title slot (see layouts/coplan/application). The
-    containing-folder control, icon, and title mirror the masthead;
-    coplan--nav-title fades them in once #plan-header scrolls behind the bar. %>
+    containing-folder control, icon, and title mirror the plan's own;
+    coplan--nav-title fades them in once #plan-title scrolls behind the bar. %>
 <% content_for :nav_title do %>
   <%= render "coplan/plans/nav_context", plan: @plan, placement: @placement %>
+<% end %>
+
+<% viewers_html = render(partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(@plan), current_user: current_user }) %>
+<% content_for :nav_presence do %>
+  <div id="plan-nav-viewers" class="plan-viewers site-nav__viewers"><%= viewers_html %></div>
 <% end %>
 
 <%= turbo_stream_from @plan %>
@@ -39,16 +44,17 @@
      data-coplan--inline-editor-focus-title-value="<%= params[:edit] == '1' %>"
      data-coplan--plan-keys-fallback-url-value="<%= @placement ? folder_browse_path(@placement.folder) : library_browse_path(@plan.library) %>">
 
-<%# The masthead: the plan's identity (broadcast-replaced #plan-header)
-    on the left, and the viewer-relative side column (presence + toolbar)
-    bottom-aligned on the right. Two DOM subtrees, one visual block —
-    broadcasts own the left, this request (and the visibility/archive
-    stream responses) own the right, so neither can clobber the other. %>
+<%# The masthead: one row of chrome above the document. The plan's
+    metadata (broadcast-replaced #plan-header) on the left, and the
+    viewer-relative side column (presence + toolbar) on the right. Two DOM
+    subtrees, one visual row — broadcasts own the left, this request (and
+    the visibility/archive stream responses) own the right, so neither can
+    clobber the other. The title is not here: it heads the document. %>
 <div class="plan-masthead" data-controller="coplan--presence" data-coplan--presence-plan-id-value="<%= @plan.id %>" data-plan-section="top">
   <%= render partial: "coplan/plans/header", locals: { plan: @plan, placement: @placement } %>
   <div class="plan-masthead__side">
     <%= render partial: "coplan/plans/agent_sessions", locals: { agent_sessions: CoPlan::AgentSession.visible.where(plan_id: @plan.id).order(:created_at) } %>
-    <%= render partial: "coplan/plans/viewers", locals: { viewers: CoPlan::PlanViewer.active_viewers_for(@plan), current_user: current_user } %>
+    <div id="plan-viewers" class="plan-viewers"><%= viewers_html %></div>
     <%= render partial: "coplan/plans/toolbar", locals: { plan: @plan, placement: @placement } %>
   </div>
 </div>
@@ -56,7 +62,7 @@
 <%= render partial: "coplan/plans/banner", locals: { plan: @plan } %>
 
 <% update_details = (@section_updates || {}).transform_values { |version| section_update_details(version) } %>
-<div class="plan-document card">
+<div class="plan-document plan-document--titled<%= " plan-document--opening-discussed" if opening_heading_discussed?(@plan) %> card">
     <div class="plan-layout plan-layout--hide-resolved" data-controller="coplan--source-comments coplan--text-selection coplan--content-nav coplan--checkbox coplan--changed-sections coplan--reference-preview" data-coplan--text-selection-focus-thread-value="<%= params[:thread] %>" data-action="coplan:request-text-anchors->coplan--text-selection#publishTextAnchors coplan:document-comment-count->coplan--content-nav#documentCommentCountChanged coplan:source-thread->coplan--source-comments#openThread coplan:resolved-visibility->coplan--source-comments#resolvedVisibilityChanged coplan:diagram-moved->coplan--source-comments#positionPanel keydown.esc@document->coplan--source-comments#dismiss:capture turbo:before-cache@document->coplan--source-comments#beforeCache coplan:mermaid-settled->coplan--source-comments#refresh coplan:content-updated->coplan--source-comments#refresh coplan:expander-opened->coplan--source-comments#refresh coplan:expander-closing->coplan--source-comments#expanderClosing resize@window->coplan--text-selection#reposition selectionchange@document->coplan--text-selection#selectionChanged coplan:editor-content-changed->coplan--text-selection#clearSelection keydown@document->coplan--text-selection#selectionKey keydown.esc@document->coplan--text-selection#dismiss keydown.esc@document->coplan--reference-preview#dismiss click@document->coplan--reference-preview#dismissFromOutside scroll@window->coplan--reference-preview#reposition resize@window->coplan--reference-preview#reposition coplan:open-thread@document->coplan--text-selection#openThread resize@window->coplan--content-nav#outlineResized coplan:show-outline@document->coplan--content-nav#showOutline coplan:content-updated->coplan--content-nav#contentUpdated coplan:content-updated->coplan--changed-sections#refresh coplan:section-update->coplan--changed-sections#refresh visibilitychange@document->coplan--changed-sections#visibilityChanged coplan:remote-change->coplan--content-nav#remoteChange coplan:deck-slide-changed->coplan--content-nav#slideChanged coplan:editor-content-changed->coplan--content-nav#editorContentChanged coplan:editor-preview-settled->coplan--text-selection#editorPreviewSettled coplan:mermaid-settled->coplan--text-selection#editorPreviewSettled" data-coplan--checkbox-revision-value="<%= @plan.current_revision %>" data-coplan--checkbox-toggle-url-value="<%= toggle_checkbox_plan_path(@plan) %>" data-coplan--changed-sections-revision-value="<%= @plan.current_revision %>" data-coplan--changed-sections-keys-value="<%= @changed_sections.keys.to_json %>" data-coplan--changed-sections-updates-value="<%= update_details.to_json %>" data-coplan--changed-sections-rewritten-value="<%= @changed_sections.rewritten? %>">
       <nav class="content-nav"<%= ' style="display:none"'.html_safe if @plan.current_content.blank? %> data-coplan--content-nav-target="sidebar" aria-label="Document outline" data-action="beforetoggle->coplan--content-nav#outlineClosing">
         <%# No "Contents" label — the outline speaks for itself, and the plan
@@ -89,6 +95,12 @@
           anchored to diagram labels get their marks (and pending ?thread=
           deep links can resolve). %>
       <div class="plan-layout__content">
+        <%# Never a stream target itself, so observers survive #plan-title
+            being replaced inside it. %>
+        <div class="plan-document__head">
+          <%= render partial: "coplan/plans/title", locals: { plan: @plan } %>
+        </div>
+
         <%= render "coplan/plans/section_update_marker" %>
         <%# Each presentation region owns its own reader controls and
             presenter. Live updates wait until an active show ends before
@@ -148,6 +160,11 @@
         <%= render "coplan/plans/thread_collection", plan: @plan, threads: @threads %>
         </div>
       </div>
+      <%# Avatar markers in the page margin beside the text each discussion is
+          about. Positioned outside the card, so the text keeps its width. %>
+      <aside class="comment-margin" aria-label="Discussions" hidden
+             data-controller="coplan--comment-margin"
+             data-action="coplan:deck-slide-changed@document->coplan--comment-margin#refresh scroll@document->coplan--comment-margin#position:capture coplan:anchors-updated@document->coplan--comment-margin#refresh coplan:resolved-visibility@document->coplan--comment-margin#refresh resize@window->coplan--comment-margin#position toggle@document->coplan--comment-margin#popoverToggled:capture mouseover@document->coplan--comment-margin#hoverChanged"></aside>
     </div>
 </div>
 

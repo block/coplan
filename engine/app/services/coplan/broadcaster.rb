@@ -22,8 +22,11 @@ module CoPlan
         Turbo::StreamsChannel.broadcast_replace_to(streamable, target: target, html: html)
       end
 
-      def update_to(streamable, target:, html:)
-        Turbo::StreamsChannel.broadcast_update_to(streamable, target: target, html: html)
+      # targets: takes a CSS selector, so one render can fill several
+      # containers (e.g. the masthead and sticky-nav copies of presence).
+      def update_to(streamable, target: nil, targets: nil, html: nil, partial: nil, locals: {})
+        html ||= render(partial:, locals:)
+        Turbo::StreamsChannel.broadcast_update_to(streamable, target: target, targets: targets, html: html)
       end
 
       def remove_to(streamable, target:)
@@ -87,7 +90,7 @@ module CoPlan
         # Structured anchors move through the same OT as prose anchors.
         # Refresh their source ranges together with the rendered document;
         # the client compares content digests before displaying a badge.
-        updates = plan.comment_threads.where.not(anchor_kind: nil).with_kept_comments.includes(:comments, :created_by_user).map do |thread|
+        updates = plan.comment_threads.where.not(anchor_kind: nil).with_kept_comments.includes({ comments: { reactions: :user } }, :created_by_user).map do |thread|
           target = ERB::Util.html_escape(ActionView::RecordIdentifier.dom_id(thread))
           html = render(partial: "coplan/comment_threads/thread_popover", locals: { plan: plan, thread: thread })
           %(<turbo-stream action="replace" target="#{target}"><template>#{html}</template></turbo-stream>)

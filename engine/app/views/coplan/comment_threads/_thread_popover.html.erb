@@ -33,6 +33,7 @@
     <% end %>
 
     <div class="thread-popover__comments" id="<%= dom_id(thread, :comments) %>">
+      <% CoPlan::CommentReaction.preload_for(thread.comments.to_a) %>
       <% thread.comments.each do |comment| %>
         <%= render partial: "coplan/comments/comment", locals: { comment: comment } %>
       <% end %>

@@ -145,7 +145,7 @@ module CoPlan
       @placement = PlanPlacement.includes(:library, folder: { parent: { parent: { parent: :parent } } })
         .find_by(plan_id: @plan.id)
       @my_folders = current_user.library.folders.order(:name).to_a
-      @threads = @plan.comment_threads.with_kept_comments.includes({ comments: :agent_harness }, :created_by_user).order(:created_at)
+      @threads = @plan.comment_threads.with_kept_comments.includes({ comments: [ :agent_harness, { reactions: :user } ] }, :created_by_user).order(:created_at)
       # The reader view joins auto-extracted resources to their Markdown
       # citations by URL, then lists the remaining resources in the same
       # References section.
@@ -170,7 +170,7 @@ module CoPlan
     def comments_body
       authorize!(@plan, :show?)
       response.headers["Cache-Control"] = "no-store"
-      @threads = @plan.comment_threads.with_kept_comments.includes({ comments: :agent_harness }, :created_by_user).order(:created_at)
+      @threads = @plan.comment_threads.with_kept_comments.includes({ comments: [ :agent_harness, { reactions: :user } ] }, :created_by_user).order(:created_at)
       render partial: "coplan/plans/thread_collection", locals: { plan: @plan, threads: @threads }, layout: false
     end
 
@@ -301,14 +301,16 @@ module CoPlan
       metadata = fields.to_h.symbolize_keys
       baseline = params[:base_metadata].present? ? params.expect(base_metadata: [ :title, :tag_names ]).to_h.symbolize_keys : {}
       changed = false
+      title_changed = false
       result = Plans::SaveHumanDraft.call(plan: @plan, content: params[:content].to_s.delete("\r"),
         base_revision: params[:base_revision].to_i, actor: current_user,
         metadata: metadata, base_metadata: baseline, overwrite_revision: params[:overwrite_revision],
         change_summary: params[:change_summary],
         input_sources: params[:input_sources].is_a?(ActionController::Parameters) ? params[:input_sources].to_unsafe_h : nil) do |updates|
         changed = apply_metadata_changes!(title: updates[:title], tag_names: updates[:tag_names])
+        title_changed = @plan.saved_change_to_title?
       end
-      broadcast_plan_update(@plan) if changed
+      broadcast_plan_update(@plan, title_changed: title_changed) if changed
       if request.format.json?
         render json: editor_snapshot.merge(no_op: result[:no_op] && !changed)
       else
@@ -837,8 +839,13 @@ module CoPlan
       redirect_to canonical, status: :moved_permanently
     end
 
-    def broadcast_plan_update(plan)
+    def broadcast_plan_update(plan, title_changed: plan.saved_change_to_title?)
       Broadcaster.replace_to(plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: plan })
+      # Only on a rename: a replaced #plan-title makes every open editor
+      # re-read the plan.
+      if title_changed
+        Broadcaster.replace_to(plan, target: "plan-title", partial: "coplan/plans/title", locals: { plan: plan })
+      end
       Broadcaster.replace_to(plan, target: "plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: plan })
     end
 

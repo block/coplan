@@ -12,9 +12,15 @@ RSpec.describe CoPlan::Reviews::Remove do
       other = CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: plan.created_by_user)
       other_response = CoPlan::Reviews::Respond.call(request: other, actor: other.reviewer, revision: 1, decision: "approved")
 
+      sequence = plan.reload.review_sequence
       described_class.call(plan: plan, request_id: task.id, actor: plan.created_by_user)
+      expect(plan.reload.review_sequence).to eq(sequence + 1)
 
       expect(task.reload).to be_removed
+      evidence = CoPlan::Reviews::Evidence.call(plan: plan)[:review_requests].find { |row| row[:id] == task.id }
+      expect(evidence).to include(status: "removed", review_status: "removed", effective_status: "removed",
+        current_response_id: nil, recorded_response_id: nil, effective_response_id: nil, effective_human_decision: nil)
+      expect(evidence[:responses].map { |row| row[:id] }).to include(previous.id)
       expect(previous.reload.decision).to be_present
       expect(plan.notifications.unread.where(review_request_id: task.id, reason: "review_requested")).to be_empty
       expect(other_response.reload.decision).to eq("approved")
@@ -54,7 +60,9 @@ RSpec.describe CoPlan::Reviews::Remove do
     described_class.call(plan: plan, request_id: old_id, actor: plan.created_by_user)
     fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user, create_only: true)
     approval = CoPlan::Reviews::Respond.call(request: fresh, actor: reviewer, revision: 1, decision: "approved")
+    sequence = plan.reload.review_sequence
     expect { described_class.call(plan: plan, request_id: old_id, actor: plan.created_by_user) }.not_to change(CoPlan::Notification, :count)
+    expect(plan.reload.review_sequence).to eq(sequence)
     expect(fresh.reload.status).to eq("approved")
     expect(fresh.review_responses).to eq([ approval ])
     expect(plan.plan_events.where(event_type: "review_removed", after_value: old_id).count).to eq(1)

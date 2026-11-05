@@ -295,7 +295,7 @@ RSpec.describe "Document editor modes", type: :system do
     block_saves
     click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Retained raw **draft**.")
-    find("#plan-header .inline-editor__title").send_keys([ mod, "a" ], "Recovered source title")
+    find("#plan-title .inline-editor__title").send_keys([ mod, "a" ], "Recovered source title")
     save_now
     expect(page).to have_css('.document-editor__close-inline[data-state="error"][aria-label="Retry sync"]')
     other_tab_key = "coplan-rich-draft-#{author.id}-#{plan.id}-other-tab"
@@ -310,7 +310,7 @@ RSpec.describe "Document editor modes", type: :system do
     JS
     page.refresh
     expect(raw).to have_text("Original prose.")
-    expect(find("#plan-header .inline-editor__title").text).to eq("Mode test")
+    expect(find("#plan-title .inline-editor__title").text).to eq("Mode test")
     expect(page).to have_css('[data-mode="markdown"][aria-pressed="true"]')
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", wait: 10, visible: :all)
     expect(plan.reload.current_content).to eq(source)
@@ -332,11 +332,11 @@ RSpec.describe "Document editor modes", type: :system do
 
   it "blocks closing on invalid fields and allows valid source mode to save" do
     open_editor
-    find("#plan-header .inline-editor__title").send_keys([ mod, "a" ], :backspace)
+    find("#plan-title .inline-editor__title").send_keys([ mod, "a" ], :backspace)
     click_link "Done"
     expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(page).to have_content("Add a document title to save")
-    find("#plan-header .inline-editor__title").send_keys(plan.title)
+    find("#plan-title .inline-editor__title").send_keys(plan.title)
     all('[aria-label="Code language"]').last.fill_in(with: "ruby`")
     click_link "Done"
     expect(page).to have_current_path(plan_edit_page_path(plan))
@@ -352,7 +352,7 @@ RSpec.describe "Document editor modes", type: :system do
     expect(page).to have_css('.document-editor__body .ProseMirror[contenteditable="true"]', wait: 20)
     click_button "Raw", exact: true
     raw.send_keys("# New source\n\nUntouched **Markdown**.")
-    find("#plan-header .inline-editor__title", wait: 10).send_keys("Autosaved new source")
+    find("#plan-title .inline-editor__title", wait: 10).send_keys("Autosaved new source")
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", wait: 15, visible: :all)
     expect(raw).to have_text("Untouched **Markdown**.")
     created = CoPlan::Plan.find_by!(title: "Autosaved new source")
@@ -381,7 +381,7 @@ RSpec.describe "Document editor modes", type: :system do
     expect(language.value).to eq("custom-lang extra=1")
     expect(raw).to have_text("```custom-lang extra=1")
     page.save_screenshot(Rails.root.join("tmp/editor-dual.png"))
-    title = find("#plan-header .inline-editor__title")
+    title = find("#plan-title .inline-editor__title")
     title.send_keys([ mod, "a" ], "Selection stays local")
     expect(title.text).to eq("Selection stays local")
     expect(raw).to have_text("Shared draft")

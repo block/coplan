@@ -115,10 +115,18 @@
   padding-left: var(--space-md);
 }
 
-.markdown-rendered .task-list-item label {
+.markdown-rendered .task-list-item-row {
   display: flex;
   align-items: baseline;
   gap: var(--space-sm);
+}
+
+/* Padding widens the hit target around the small native box; the negative
+   margin keeps the row's layout as if the box stood alone. */
+.markdown-rendered .task-list-item-checkbox {
+  display: inline-flex;
+  padding: 6px;
+  margin: -6px;
   cursor: pointer;
 }
 

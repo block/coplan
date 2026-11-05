@@ -12,7 +12,7 @@ RSpec.describe CoPlan::Plans::SectionUpdates do
     version
   end
 
-  before { plan.current_plan_version.update_columns(content_markdown: original) }
+  before { set_version_fixture(plan.current_plan_version, content_markdown: original) }
 
   it "attributes each section to its last actual edit, even after later unrelated edits" do
     design_content = original.sub("Original design", "Revised design")

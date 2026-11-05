@@ -1,0 +1,36 @@
+<%# Shared by every viewer through broadcasts, so nothing here depends on
+    current_user. The coplan--comment-reactions controller reads the
+    reactor ids to mark the viewer's own reactions and to say "You". %>
+<% thread = comment.comment_thread %>
+<% CoPlan::CommentReaction.preload_for(comment) %>
+<div class="comment-reactions"
+     id="<%= dom_id(comment, :reactions) %>"
+     data-controller="coplan--comment-reactions"
+     data-action="keydown->coplan--comment-reactions#holdKey keyup@window->coplan--comment-reactions#releaseKey focusout->coplan--comment-reactions#releaseKey blur@window->coplan--comment-reactions#releaseKey pointerdown->coplan--comment-reactions#holdPointer pointerup@window->coplan--comment-reactions#releasePointer pointercancel@window->coplan--comment-reactions#releasePointer blur@window->coplan--comment-reactions#releasePointer"
+     data-coplan--comment-reactions-url-value="<%= CoPlan::Engine.routes.url_helpers.plan_comment_thread_comment_reactions_path(thread.plan, thread, comment) %>"
+     data-coplan--comment-reactions-comment-id-value="<%= comment.id %>"
+     data-version="<%= comment.reactions_version %>">
+  <% CoPlan::CommentReaction.summarize(comment.reactions).each do |entry| %>
+    <%= render "coplan/comments/reaction_chip", kind: entry[:kind], users: entry[:reactions].map(&:user) %>
+  <% end %>
+  <button type="button" class="comment-reactions__add" aria-label="Add reaction" title="Add reaction" aria-expanded="false"
+          data-coplan--comment-reactions-target="add"
+          data-action="pointerdown->coplan--comment-reactions#notePicker coplan--comment-reactions#openPicker">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 10.5A9 9 0 1 1 13.5 3.2"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/><path d="M19 2v6M16 5h6"/></svg>
+  </button>
+  <div popover="auto" class="comment-reactions__picker" role="group" aria-label="Reactions"
+       data-coplan--comment-reactions-target="picker"
+       data-action="toggle->coplan--comment-reactions#pickerToggled">
+    <% CoPlan::CommentReaction::KINDS.each do |kind, details| %>
+      <button type="button" class="comment-reactions__option" aria-pressed="false"
+              aria-label="<%= details[:label].capitalize %>" title="<%= details[:label].capitalize %>"
+              data-kind="<%= kind %>" data-label="<%= details[:label] %>" data-emoji="<%= details[:emoji] %>"
+              data-coplan--comment-reactions-target="option"
+              data-action="coplan--comment-reactions#pick"><%= details[:emoji] %></button>
+    <% end %>
+  </div>
+  <div popover="manual" class="comment-reactions__tooltip" aria-hidden="true" data-coplan--comment-reactions-target="tooltip"></div>
+  <template data-coplan--comment-reactions-target="chipTemplate">
+    <%= render "coplan/comments/reaction_chip" %>
+  </template>
+</div>

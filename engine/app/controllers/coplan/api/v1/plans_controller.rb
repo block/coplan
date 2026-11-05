@@ -2,8 +2,8 @@ module CoPlan
   module Api
     module V1
       class PlansController < BaseController
-        before_action :set_plan, only: [ :show, :update, :versions, :comments, :snapshot, :locations, :writing_provenance ]
-        before_action :authorize_plan_access!, only: [ :show, :update, :versions, :comments, :snapshot, :locations, :writing_provenance ]
+        before_action :set_plan, only: [ :show, :update, :version, :versions, :comments, :snapshot, :review_evidence, :locations, :writing_provenance ]
+        before_action :authorize_plan_access!, only: [ :show, :update, :version, :versions, :comments, :snapshot, :review_evidence, :locations, :writing_provenance ]
 
         def index
           plans = Plan
@@ -195,6 +195,15 @@ module CoPlan
             Broadcaster.replace_to(@plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: @plan })
           end
 
+          if @plan.saved_change_to_title?
+            Broadcaster.replace_to(@plan, target: "plan-title", partial: "coplan/plans/title", locals: { plan: @plan })
+          end
+
+          # The sticky nav carries the title and the type icon.
+          if @plan.saved_change_to_title? || @plan.saved_change_to_plan_type_id?
+            Broadcaster.replace_to(@plan, target: "plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: @plan })
+          end
+
           if permitted.key?(:title) && @plan.saved_change_to_title?
             Plans::LogEvent.call(
               plan: @plan, actor: current_user, event_type: "title_changed",
@@ -270,6 +279,11 @@ module CoPlan
           render json: { error: e.record.errors.full_messages.join(", ") }, status: :unprocessable_content
         end
 
+        def version
+          version = @plan.plan_versions.find(params[:version_id])
+          render json: version_json(version).merge(content_markdown: version.verified_content!, approval_scope: Reviews::Evidence::SCOPE)
+        end
+
         def versions
           versions = @plan.plan_versions.order(revision: :desc)
           render json: versions.map { |v| version_json(v) }
@@ -303,13 +317,30 @@ module CoPlan
         end
 
         def comments
-          threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)
+          threads = @plan.comment_threads.includes({ comments: :reactions }, :created_by_user).order(created_at: :desc)
           render json: threads.map { |t| thread_json(t) }
+        end
+
+        def review_evidence
+          render json: Reviews::Evidence.call(plan: @plan)
+        end
+
+        # Other people's drafts are readable by URL but omitted from the
+        # index. Resolve their addresses with the reader's access policy,
+        # including aliases for moved and renamed plans.
+        def resolve
+          plan = Urls::ResolvePlan.call(url: params[:url],
+            bases: [ root_url, "#{request.base_url}#{root_path}" ])
+          unless plan && PlanPolicy.new(current_user, plan).show?
+            return render json: { error: "Plan not found" }, status: :not_found
+          end
+
+          render json: plan_json(plan)
         end
 
         def snapshot
           record_plan_read!(@plan)
-          threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)
+          threads = @plan.comment_threads.includes({ comments: :reactions }, :created_by_user).order(created_at: :desc)
           references = @plan.references.order(created_at: :desc)
           collaborators = @plan.plan_collaborators.includes(:user)
 
@@ -319,7 +350,7 @@ module CoPlan
             comment_threads: snapshot_threads_json(threads),
             references: references.map { |r| reference_json(r) },
             collaborators: collaborators.map { |c| collaborator_json(c) },
-            review_requests: @plan.review_requests.includes(:reviewer, :requested_plan_version, review_responses: :plan_version).map { |r| Reviews::Serialize.call(r) }
+            review_requests: @plan.review_requests.includes(:reviewer, :requested_plan_version, current_response: :plan_version, review_responses: :plan_version).map { |r| Reviews::Serialize.call(r) }
           )
         end
 
@@ -552,7 +583,8 @@ module CoPlan
                 author_id: c.author_id,
                 agent_name: c.agent_name,
                 body_markdown: c.body_markdown,
-                created_at: c.created_at
+                created_at: c.created_at,
+                reactions: CommentReaction.as_api_json(c)
               }
             }
           }

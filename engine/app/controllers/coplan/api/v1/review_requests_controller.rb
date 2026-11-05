@@ -17,7 +17,7 @@ module CoPlan
         end
 
         def index
-          requests = @plan.review_requests.includes(:reviewer, :requested_plan_version, review_responses: :plan_version)
+          requests = @plan.review_requests.includes(:reviewer, :requested_plan_version, current_response: :plan_version, review_responses: :plan_version)
           render json: { review_requests: requests.map { |request| Reviews::Serialize.call(request) },
                          approval_meaning: "Satisfied with a specific version; grants no execution authority or permissions." }
         end
@@ -38,10 +38,10 @@ module CoPlan
               requirement: params[:requirement].presence, api_token: @api_token)
           else
             @plan.with_lock do
-              # The request may have been removed while waiting for the plan lock.
               @review_request.reload
               @review_request.ensure_current!
               @review_request.update!(requirement: params.require(:requirement))
+              @plan.update!(review_sequence: @plan.review_sequence + 1)
             end
             Reviews::Changed.call(request: @review_request, event_type: "review.requested", actor_token_id: api_token_id,
               payload: { "action" => "requirement_changed", "requirement" => @review_request.requirement })
@@ -59,10 +59,12 @@ module CoPlan
             return render json: { error: "Only the requested reviewer can respond" }, status: :forbidden
           end
           response = Reviews::Respond.call(request: @review_request, actor: current_user,
-            revision: params.require(:revision), decision: params.require(:decision), note: params[:note], api_token: @api_token, idempotency_key: params[:idempotency_key])
+            revision: params.require(:revision), decision: params.require(:decision), note: params[:note], api_token: @api_token, idempotency_key: params[:idempotency_key], generation: params[:generation])
           render json: { id: response.id, decision: response.decision, revision: response.plan_version.revision,
                          actor_type: response.actor_type, agent_name: response.agent_name,
-                         comment_thread_id: response.comment_thread_id }, status: :created
+                         comment_thread_id: response.comment_thread_id, plan_version_id: response.plan_version_id,
+                     content_sha256: response.plan_version.content_sha256, generation: response.request_generation,
+                     decision_sequence: response.decision_sequence, effective: @review_request.reload.effective_response&.id == response.id }, status: :created
         end
 
         private

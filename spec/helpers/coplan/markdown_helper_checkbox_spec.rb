@@ -40,21 +40,41 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include("task-list-item")
     end
 
-    it "wraps checkbox li contents in a label for clickability" do
+    it "labels only the checkbox, so selecting task text cannot toggle the box" do
       html = helper.render_markdown("- [ ] Click me")
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
-      label = doc.at_css("li.task-list-item label")
-      expect(label).to be_present
-      expect(label.at_css('input[type="checkbox"]')).to be_present
+      label = doc.at_css("li.task-list-item label.task-list-item-checkbox")
+      expect(label.element_children.map(&:name)).to eq([ "input" ])
+      expect(doc.at_css("label .task-list-item-content")).to be_nil
+    end
+
+    it "names each checkbox after its own task text, excluding nested tasks" do
+      html = helper.render_markdown("- [ ] Parent `step`\n  - [ ] Child step")
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      names = doc.css('input[type="checkbox"]').map { |cb| cb["aria-label"] }
+      expect(names).to eq([ "Task: Parent step", "Task: Child step" ])
+    end
+
+    it "names a checkbox from its first paragraph, without footnote markers or block content" do
+      html = helper.render_markdown("- [ ] Ship **it**[^1]\n\n  ```ruby\n  def foo; end\n  ```\n\n[^1]: note\n")
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      expect(doc.at_css('input[type="checkbox"]')["aria-label"]).to eq("Task: Ship it")
+    end
+
+    it "falls back to image alt text, then to a generic name" do
+      html = helper.render_markdown("- [ ] ![diagram](x.png)\n- [ ] `   `")
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      names = doc.css('input[type="checkbox"]').map { |cb| cb["aria-label"] }
+      expect(names).to eq([ "Task: diagram", "Task" ])
     end
 
     it "groups task text and inline markup into a single flex item" do
       html = helper.render_markdown("- [ ] Before `cards.buyer_id`, verify `CardService` behavior")
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
-      label = doc.at_css("li.task-list-item label")
-      task_body = label.at_css(".task-list-item-content")
+      row = doc.at_css("li.task-list-item .task-list-item-row")
+      task_body = row.at_css(".task-list-item-content")
 
-      expect(label.element_children.to_a).to eq([ label.at_css('input[type="checkbox"]'), task_body ])
+      expect(row.element_children.to_a).to eq([ row.at_css("label.task-list-item-checkbox"), task_body ])
       expect(task_body.css("code").map(&:text)).to eq([ "cards.buyer_id", "CardService" ])
       expect(task_body.text.squish).to eq("Before cards.buyer_id, verify CardService behavior")
     end

@@ -23,7 +23,7 @@
                 <% end %>
                 <strong><%= kind == :request_event ? item.metadata["reviewer_name"] : item.reviewer.name %></strong>
               <% end %>
-              <% if kind == :response %><span class="review-version">v<%= item.plan_version.revision %></span><% end %>
+              <% if kind == :response %><%= link_to "v#{item.plan_version.revision} · Markdown snapshot", plan_version_browse_path(item.review_request.plan, item.plan_version), class: "review-version" %><%= " · Historical decision" unless item.review_request.effective_response&.id == item.id %><% end %>
             </p>
             <time datetime="<%= at.iso8601 %>" title="<%= l(at, format: :long) %>"><%= l(at, format: :short) %></time>
             <% if kind == :response && item.note.present? %><p class="review-log__note"><%= item.note %></p><% end %>

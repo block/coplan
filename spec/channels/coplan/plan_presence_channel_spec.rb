@@ -78,6 +78,16 @@ RSpec.describe CoPlan::PlanPresenceChannel, type: :channel do
       expect(websocket_user.name).to eq(request.object_id.to_s)
     end
 
+    it "updates the masthead and sticky-nav viewer lists from one render" do
+      expect { subscribe(plan_id: plan.id) }
+        .to have_broadcasted_to(plan.to_gid_param).with { |content|
+          stream = Nokogiri::HTML.fragment(content).at_css("turbo-stream")
+          expect(stream["action"]).to eq("update")
+          expect(stream["targets"]).to eq("#plan-viewers, #plan-nav-viewers")
+          expect(stream.at_css("template").inner_html).to include("1 viewing")
+        }
+    end
+
     it "rejects when plan does not exist" do
       subscribe(plan_id: "nonexistent")
       expect(subscription).to be_rejected

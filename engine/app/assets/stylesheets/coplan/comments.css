@@ -148,6 +148,65 @@
   min-width: 0;
 }
 
+/* Margin discussion markers: the first commenter's avatar beside the text a
+   discussion is about, in the page margin outside the document card so the
+   text keeps its width. comment_margin_controller sets the column's offset
+   and leaves it hidden when the margin has no room. */
+.comment-margin {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.comment-margin[hidden],
+.comment-margin:not([data-fits]) { display: none; }
+
+.comment-margin__card {
+  position: absolute;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-pop);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: top 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+/* Set while the marker or its highlighted text is hovered. */
+.comment-margin__card.is-hover {
+  border-color: var(--color-highlight-open-border);
+  transform: scale(1.15);
+}
+
+.comment-margin__card:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.comment-margin__card.is-active { border-color: var(--color-primary); }
+
+.comment-margin__card--resolved { opacity: 0.6; }
+
+.comment-margin__card[hidden] { display: none; }
+
+.comment-margin__card .avatar,
+.comment-margin__card .comment__agent-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 0.6rem;
+  border-radius: 50%;
+}
+
+.anchor-highlight--open.is-margin-hover {
+  background: var(--color-highlight-open-hover-bg);
+}
+
 #plan-threads {
   position: absolute;
   width: 0;
@@ -332,4 +391,145 @@
 .btn--sm {
   padding: var(--space-xs) var(--space-sm);
   font-size: 0.75rem;
+}
+
+/* Comment reactions. The viewer's own reactions are a selection, so they
+   use the subtle blue interaction treatment in both themes. */
+.comment-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.comment-reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font: 600 12px/1 var(--font-sans);
+  cursor: pointer;
+}
+
+.comment-reaction:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-interaction-hover-bg);
+}
+
+.comment-reaction[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+  background: var(--color-interaction-active-bg);
+  color: var(--color-primary);
+}
+
+.comment-reaction:focus-visible,
+.comment-reactions__add:focus-visible,
+.comment-reactions__option:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.comment-reaction__emoji {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.comment-reaction__count {
+  font-variant-numeric: tabular-nums;
+}
+
+.comment-reactions__add {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.comment:hover .comment-reactions__add,
+.comment-reactions:focus-within .comment-reactions__add,
+.comment-reactions__add[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.comment-reactions__add:hover,
+.comment-reactions__add[aria-expanded="true"] {
+  color: var(--color-primary);
+  background: var(--color-interaction-hover-bg);
+}
+
+@media (hover: none) {
+  .comment-reactions__add { opacity: 1; }
+}
+
+.comment-reactions__picker {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 4px;
+  gap: 2px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-pop);
+}
+
+.comment-reactions__picker:popover-open {
+  display: flex;
+}
+
+.comment-reactions__option {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.comment-reactions__option:hover {
+  background: var(--color-interaction-hover-bg);
+}
+
+.comment-reactions__option[aria-pressed="true"] {
+  background: var(--color-interaction-active-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 55%, transparent);
+}
+
+.comment-reactions__tooltip {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 6px 9px;
+  max-width: min(360px, calc(100vw - 16px));
+  box-sizing: border-box;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 7px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-pop);
+  font: 12px/1.4 var(--font-sans);
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  pointer-events: none;
+}
+
+.comment-reactions__tooltip::before {
+  content: attr(data-text);
 }

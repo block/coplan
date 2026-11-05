@@ -128,6 +128,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_175218) do
     t.index ["user_id"], name: "index_coplan_api_tokens_on_user_id"
   end
 
+  create_table "coplan_comment_reactions", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "comment_id", limit: 36, null: false
+    t.datetime "created_at", null: false
+    t.string "kind", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_id", limit: 36, null: false
+    t.index ["comment_id", "user_id", "kind"], name: "index_coplan_comment_reactions_on_comment_user_kind", unique: true
+    t.index ["user_id"], name: "index_coplan_comment_reactions_on_user_id"
+  end
+
   create_table "coplan_comment_threads", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.string "addressed_in_plan_version_id", limit: 36
     t.text "anchor_context"
@@ -166,6 +176,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_175218) do
     t.string "comment_thread_id", limit: 36, null: false
     t.datetime "created_at", null: false
     t.datetime "deleted_at"
+    t.integer "reactions_version", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["agent_harness_id"], name: "index_coplan_comments_on_agent_harness_id"
     t.index ["api_token_id"], name: "index_coplan_comments_on_api_token_id"
@@ -411,6 +422,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_175218) do
     t.integer "current_revision", default: 0, null: false
     t.json "metadata"
     t.string "plan_type_id", limit: 36, null: false
+    t.boolean "reset_reviews_on_change", default: true, null: false
+    t.string "review_policy_write_id", limit: 36
+    t.bigint "review_policy_write_sequence"
+    t.bigint "review_sequence", default: 0, null: false
     t.text "search_text", size: :medium
     t.string "slug", null: false
     t.string "slug_suffix", limit: 8
@@ -455,14 +470,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_175218) do
   create_table "coplan_review_requests", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.boolean "current_assignment", default: true
+    t.string "current_response_id", limit: 36
+    t.bigint "generation", default: 1, null: false
     t.string "plan_id", limit: 36, null: false
     t.datetime "requested_at", null: false
     t.string "requested_by_user_id", limit: 36, null: false
     t.string "requested_plan_version_id", limit: 36, null: false
     t.string "requirement", null: false
+    t.string "reset_reason"
     t.string "reviewer_id", limit: 36, null: false
     t.string "status", null: false
     t.datetime "updated_at", null: false
+    t.index ["current_response_id"], name: "index_coplan_review_requests_on_current_response_id"
     t.index ["plan_id", "reviewer_id", "current_assignment"], name: "index_coplan_reviews_on_current_assignment", unique: true
     t.index ["requested_by_user_id"], name: "fk_rails_c5db6a7f68"
     t.index ["requested_plan_version_id"], name: "fk_rails_9648b04dbb"
@@ -476,8 +495,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_175218) do
     t.string "comment_thread_id", limit: 36
     t.datetime "created_at", null: false
     t.string "decision", null: false
+    t.bigint "decision_sequence"
     t.text "note"
     t.string "plan_version_id", limit: 36, null: false
+    t.bigint "request_generation"
     t.string "review_request_id", limit: 36, null: false
     t.string "user_id", limit: 36, null: false
     t.index ["api_token_id"], name: "fk_rails_edc220f557"
@@ -560,6 +581,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_175218) do
   add_foreign_key "coplan_agent_sessions", "coplan_plans", column: "plan_id"
   add_foreign_key "coplan_api_tokens", "coplan_api_tokens", column: "parent_id"
   add_foreign_key "coplan_api_tokens", "coplan_users", column: "user_id"
+  add_foreign_key "coplan_comment_reactions", "coplan_comments", column: "comment_id"
+  add_foreign_key "coplan_comment_reactions", "coplan_users", column: "user_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "addressed_in_plan_version_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "out_of_date_since_version_id"
   add_foreign_key "coplan_comment_threads", "coplan_plan_versions", column: "plan_version_id"
@@ -605,6 +628,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_175218) do
   add_foreign_key "coplan_references", "coplan_plans", column: "target_plan_id"
   add_foreign_key "coplan_review_requests", "coplan_plan_versions", column: "requested_plan_version_id"
   add_foreign_key "coplan_review_requests", "coplan_plans", column: "plan_id"
+  add_foreign_key "coplan_review_requests", "coplan_review_responses", column: "current_response_id", on_delete: :nullify
   add_foreign_key "coplan_review_requests", "coplan_users", column: "requested_by_user_id"
   add_foreign_key "coplan_review_requests", "coplan_users", column: "reviewer_id"
   add_foreign_key "coplan_review_responses", "coplan_api_tokens", column: "api_token_id", on_delete: :nullify

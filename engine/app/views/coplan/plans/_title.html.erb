@@ -1,0 +1,7 @@
+<%# The title is the document's first line, on the page itself rather than in
+    the chrome above it. Broadcast-replaced when the title changes; its
+    .plan-document__head parent is never a stream target, so the editor and
+    the sticky nav watch that to re-bind after a replace. %>
+<div class="plan-title" id="plan-title">
+  <h1 class="plan-title__heading"><%= plan.title %></h1>
+</div>

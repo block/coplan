@@ -52,6 +52,25 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(seeded_plan("demo-library").current_content).to include("Writing sources", mixed.url_path)
     end
 
+    it "seeds crowded discussions and slide anchors while preserving review activity" do
+      described_class.call
+      plan = seeded_plan("discussion-margins")
+      expect(plan.comment_threads.count).to eq(8)
+      receipt = plan.comment_threads.find_by!(anchor_text: "receipt")
+      expect(receipt.comments.count).to eq(3)
+      expect(receipt.comments.pluck(:author_id).uniq.size).to eq(3)
+      expect(plan.comment_threads.find_by!(anchor_text: "resolved example")).to be_closed
+      expect(plan.comment_threads.pluck(:anchor_text)).to include("first slide discussion", "second slide discussion")
+      receipt.resolve!(plan.created_by_user)
+      receipt.comments.last.update!(body_markdown: "My local reply")
+      described_class.call
+      expect(plan.comment_threads.count).to eq(8)
+      expect(receipt.reload).to be_closed
+      expect(receipt.comments.count).to eq(3)
+      expect(receipt.comments.last.body_markdown).to eq("My local reply")
+      expect(seeded_plan("demo-library").current_content).to include(plan.url_path)
+    end
+
     def seeded_plan(key)
       CoPlan::Plan.all.detect { |plan| plan.metadata.to_h["development_seed_key"] == key }
     end
@@ -238,6 +257,28 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(formatting.current_content).to eq(formatting_content)
     end
 
+    it "seeds discussions with reactions and preserves reaction changes on re-seed" do
+      described_class.call
+      hampton = CoPlan::User.find_by!(email: "hampton@example.com")
+      plan = seeded_plan("comment-reactions")
+      expect(seeded_plan("demo-library").current_content).to include("## Discussions", plan.url_path, "`comment-reactions`")
+
+      comments = CoPlan::Comment.where(comment_thread: plan.comment_threads)
+      reactions = CoPlan::CommentReaction.where(comment: comments)
+      expect(plan.comment_threads.count).to eq(3)
+      expect(reactions.distinct.pluck(:kind).sort).to eq(CoPlan::CommentReaction::KINDS.keys.sort)
+      expect(reactions.where(user: hampton)).to be_present
+      expect(comments.where.not(id: reactions.where(user: hampton).select(:comment_id))).to be_present
+
+      removed = reactions.find_by!(user: hampton, kind: "thumbs_up")
+      removed.destroy!
+      count = reactions.count
+      described_class.call
+      expect(plan.comment_threads.count).to eq(3)
+      expect(reactions.count).to eq(count)
+      expect(reactions.where(user: hampton, kind: "thumbs_up")).to be_empty
+    end
+
     it "refuses to take over an existing login and rolls back the seed" do
       existing = create(:coplan_user, email: "hampton@example.com", name: "Existing person")
       expect { described_class.call }.to raise_error(ArgumentError, /dedicated development database/)
@@ -343,6 +384,20 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(agent_edits.pluck(:api_token_id)).to all(be_present)
       expect(agent_edits.pluck(:operations_json)).to all(have_attributes(size: 1))
 
+      changed = seeded_plan("changed-review")
+      expect(changed.current_revision).to eq(2)
+      expect(changed.review_requests.pluck(:status)).to eq(%w[pending pending])
+      expect(changed.review_requests.pluck(:reset_reason)).to eq(%w[content_changed content_changed])
+      expect(changed.review_requests.map(&:effective_response)).to all(be_nil)
+      expect(changed.review_requests.map { |r| r.latest_approval.plan_version.revision }).to eq([ 1, 1 ])
+
+      retained = seeded_plan("retained-review")
+      expect(retained.current_revision).to eq(2)
+      expect(retained.reset_reviews_on_change).to be(false)
+      expect(retained.review_requests.map(&:review_status)).to eq(%w[approved approved])
+      expect(retained.review_requests.map(&:effective_response)).to all(be_nil)
+      retained_ids = retained.review_requests.pluck(:current_response_id)
+
       pending = seeded_plan("pending-review").plan_collaborators.approvers
       approved = seeded_plan("approved-review").plan_collaborators.approvers
       expect(pending.count).to eq(2)
@@ -369,6 +424,9 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(pending.reload.where(approved_at: nil).count).to eq(1)
       expect(thread.reload.status).to eq("resolved")
       expect(edited.reload.current_revision).to eq(8)
+      expect(retained.reload.current_revision).to eq(2)
+      expect(retained.review_requests.pluck(:current_response_id)).to match_array(retained_ids)
+      expect(retained.reset_reviews_on_change).to be(false)
     end
 
     it "refreshes a generated index while preserving a locally edited index" do

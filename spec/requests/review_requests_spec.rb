@@ -6,6 +6,93 @@ RSpec.describe "Review requests", type: :request do
   let(:plan) { create(:plan, :published, created_by_user: author) }
   let(:task) { create(:review_request, plan: plan, reviewer: reviewer) }
 
+  it "defaults to resetting reviews and persists an editor's document-wide preference", :review_reset_policy do
+    expect(plan.reset_reviews_on_change).to be(true)
+    sequence = plan.review_sequence
+    sign_in_as(author)
+    [ false, false, true ].each_with_index do |enabled, index|
+      patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: enabled, review_sequence: plan.review_sequence } }, as: :json
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to eq("reset_reviews_on_change" => enabled, "review_sequence" => sequence + index + 1)
+      expect(plan.reload.reset_reviews_on_change).to eq(enabled)
+      expect(plan.review_sequence).to eq(sequence + index + 1)
+      expect(CoPlan::Reviews::Evidence.call(plan: plan)[:reset_reviews_on_change]).to eq(enabled)
+    end
+  end
+
+  it "fences an older policy write even when the newer choice keeps the current value", :review_reset_policy do
+    sign_in_as(author)
+    sequence = plan.review_sequence
+    patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: true, review_sequence: sequence } }, as: :json
+    expect(response).to have_http_status(:ok)
+    patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: false, review_sequence: sequence } }, as: :json
+    expect(response).to have_http_status(:conflict)
+    expect(plan.reload.reset_reviews_on_change).to be(true)
+    expect(plan.review_sequence).to eq(sequence + 1)
+  end
+
+  it "exposes the committed policy receipt without adopting intervening review sequences" do
+    sign_in_as(author)
+    write_id = SecureRandom.uuid
+    sequence = plan.review_sequence
+    patch settings_plan_review_requests_path(plan), params: { review_settings: {
+      reset_reviews_on_change: false, review_sequence: sequence, write_id: write_id
+    } }, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(plan.reload).to have_attributes(review_policy_write_id: write_id, review_policy_write_sequence: sequence + 1)
+
+    # An unrelated review change advances the current sequence, not the receipt.
+    plan.update!(review_sequence: sequence + 2)
+    get plan_review_requests_path(plan)
+    input = Nokogiri::HTML(response.body).at_css("[data-review-reset-policy]")
+    expect(input["data-policy-write-id"]).to eq(write_id)
+    expect(input["data-policy-write-sequence"]).to eq((sequence + 1).to_s)
+    expect(input["data-review-sequence"]).to eq((sequence + 2).to_s)
+
+    patch settings_plan_review_requests_path(plan), params: { review_settings: {
+      reset_reviews_on_change: true, review_sequence: sequence + 1, write_id: SecureRandom.uuid
+    } }, as: :json
+    expect(response).to have_http_status(:conflict)
+    expect(plan.reload).to have_attributes(reset_reviews_on_change: false,
+      review_policy_write_id: write_id, review_policy_write_sequence: sequence + 1)
+
+    # Older clients still work, but their writes invalidate the previous receipt.
+    patch settings_plan_review_requests_path(plan), params: { review_settings: {
+      reset_reviews_on_change: true, review_sequence: sequence + 2
+    } }, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(plan.reload).to have_attributes(review_policy_write_id: nil, review_policy_write_sequence: nil)
+  end
+
+  it "rejects malformed policy receipt IDs without changing the setting" do
+    sign_in_as(author)
+    [ "not-a-uuid", "x" * 100 ].each do |write_id|
+      patch settings_plan_review_requests_path(plan), params: { review_settings: {
+        reset_reviews_on_change: false, review_sequence: plan.review_sequence, write_id: write_id
+      } }, as: :json
+      expect(response).to have_http_status(:bad_request)
+      expect(plan.reload.reset_reviews_on_change).to be(true)
+      expect(plan.review_policy_write_id).to be_nil
+    end
+  end
+
+  it "does not let a reviewer change the document's reset policy", :review_reset_policy do
+    task
+    sign_in_as(reviewer)
+    patch settings_plan_review_requests_path(plan), params: { review_settings: { reset_reviews_on_change: false } }, as: :json
+    expect(response).to have_http_status(:not_found)
+    expect(plan.reload.reset_reviews_on_change).to be(true)
+  end
+
+  it "labels an agent decision separately from the reviewer's own human approval" do
+    token = create(:api_token, user: reviewer, agent_name: "Reviewbot")
+    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", api_token: token)
+    sign_in_as(reviewer)
+    get plan_review_requests_path(plan)
+    expect(response.body).to include("Reviewbot (via you) approved")
+    expect(task.reload.effective_human_decision).to be_nil
+  end
+
   it "allows only the plan author to end a reviewer's assignment", :review_removal do
     previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
     sign_in_as(reviewer)
@@ -131,7 +218,7 @@ RSpec.describe "Review requests", type: :request do
     expect(entries.size).to eq(3)
     expect(entries.map { |entry| entry.at_css(".review-log__event").text.squish }).to eq([
       "#{author.name} requested a review from #{reviewer.name}",
-      "#{reviewer.name} approved v1",
+      "#{reviewer.name} approved v1 · Markdown snapshot · Historical decision",
       "#{author.name} requested a review from #{reviewer.name}"
     ])
     expect(Time.iso8601(entries.last.at_css("time")["datetime"]).to_i).to eq(first_at.to_i)

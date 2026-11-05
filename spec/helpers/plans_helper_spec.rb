@@ -5,7 +5,7 @@ RSpec.describe CoPlan::PlansHelper, type: :helper do
     let(:plan) { create(:plan, :considering) }
 
     it "strips markdown formatting and returns a plain-text preview" do
-      plan.current_plan_version.update!(
+      set_version_fixture(plan.current_plan_version,
         content_markdown: "# Heading\n\nA **bold** intro with [a link](https://example.com)."
       )
       preview = helper.plan_content_preview(plan)
@@ -16,7 +16,7 @@ RSpec.describe CoPlan::PlansHelper, type: :helper do
     end
 
     it "omits presentation delimiters from a mixed plan preview" do
-      plan.current_plan_version.update!(content_markdown: "::: {.presentation}\n\n# Opening slide\n\n:::\n\nClosing context.")
+      set_version_fixture(plan.current_plan_version, content_markdown: "::: {.presentation}\n\n# Opening slide\n\n:::\n\nClosing context.")
 
       preview = helper.plan_content_preview(plan)
 
@@ -25,14 +25,14 @@ RSpec.describe CoPlan::PlansHelper, type: :helper do
     end
 
     it "truncates to the requested limit" do
-      plan.current_plan_version.update!(content_markdown: "word " * 100)
+      set_version_fixture(plan.current_plan_version, content_markdown: "word " * 100)
       preview = helper.plan_content_preview(plan, limit: 40)
       expect(preview.length).to be <= 41 # 40 chars + ellipsis
       expect(preview).to end_with("…")
     end
 
     it "returns nil when the plan has no content" do
-      plan.current_plan_version.update_columns(content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
+      set_version_fixture(plan.current_plan_version, content_markdown: "", content_sha256: Digest::SHA256.hexdigest(""))
       plan.reload
       expect(helper.plan_content_preview(plan)).to be_nil
     end

@@ -26,7 +26,7 @@ RSpec.describe "App themes", type: :system do
   end
   let(:plan) do
     create(:plan, :published, title: "Durable outbox", created_by_user: user).tap do |p|
-      p.current_plan_version.update_columns(content_markdown: content)
+      set_version_fixture(p.current_plan_version, content_markdown: content)
     end
   end
 
@@ -168,6 +168,9 @@ RSpec.describe "App themes", type: :system do
     visit settings_root_path
     find(".site-nav__appearance-btn").click
     expect(page).to have_css("#appearance-menu .appearance-menu__theme:has(input:checked)", text: "Classic")
+    # Each theme says what it looks like, on screen rather than in a tooltip.
+    expect(page).to have_css("#appearance-menu .appearance-menu__theme-description", text: CoPlan::Themes.find("neutral").description)
+    expect(page).to have_css("input[name='appearance_theme'][value='neutral'][aria-describedby='appearance-theme-neutral-description']", visible: :all)
 
     within("#appearance-menu") { find(".appearance-menu__theme", text: "Neutral").click }
     expect(app_theme_attribute).to eq("neutral")
@@ -184,6 +187,27 @@ RSpec.describe "App themes", type: :system do
     expect(app_theme_attribute).to eq("classic")
     expect(page).to have_css("input[name='appearance_theme'][value='classic']:checked", visible: :all)
     Timeout.timeout(5) { sleep 0.1 until user.reload.app_theme == "default" }
+  end
+
+  it "keeps mode and theme controls finger-sized on touch screens" do
+    page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 390, height: 844, deviceScaleFactor: 1, mobile: true)
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: true, maxTouchPoints: 1)
+    visit settings_root_path
+    expect(page.evaluate_script("matchMedia('(pointer: coarse)').matches")).to be true
+    find(".site-nav__appearance-btn").click
+    %w[Classic Neutral].each do |theme|
+      within("#appearance-menu") { find(".appearance-menu__theme", text: theme).click }
+      %w[Light Dark].each do |mode|
+        within("#appearance-menu") { find(".segmented__option", exact_text: mode).click }
+        expect(page).to have_css("html[data-theme='#{mode.downcase}']")
+        expect(page.evaluate_script(<<~JS)).to be true
+          Array.from(document.querySelectorAll('.segmented__btn')).every(button => button.getBoundingClientRect().height >= 44)
+        JS
+      end
+    end
+  ensure
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: false)
+    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
   end
 
   it "saves picks from Settings and the bar's menu in the order they were made" do
@@ -219,7 +243,7 @@ RSpec.describe "App themes", type: :system do
       window.fetch = (url, options) => {
         if (!String(url).includes("app_theme")) return fetch(url, options)
         if (options.body.includes("neutral")) return new Promise(resolve => setTimeout(resolve, 400)).then(() => fetch(url, options))
-        return Promise.resolve(new Response("", { status: 500 }))
+        return new Promise(resolve => { window.rejectThemeSave = () => resolve(new Response("", { status: 500 })) })
       }
     JS
 
@@ -228,6 +252,8 @@ RSpec.describe "App themes", type: :system do
     within("#appearance-menu") { find(".appearance-menu__theme", text: "Classic").click }
     expect(app_theme_attribute).to eq("classic")
 
+    Timeout.timeout(5) { sleep 0.1 until page.evaluate_script("typeof window.rejectThemeSave === 'function'") }
+    page.execute_script("window.rejectThemeSave()")
     expect(page).to have_content("Couldn't save that")
     expect(app_theme_attribute).to eq("neutral")
     expect(page).to have_css("input[name='appearance_theme'][value='neutral']:checked", visible: :all)
@@ -360,9 +386,10 @@ RSpec.describe "App themes", type: :system do
         expect(style(".site-nav", "backdrop-filter")).to eq("none")
         expect(style(".plan-reader .markdown-rendered p", "line-height")).to eq("25.6px")
         expect(style(".plan-reader .markdown-rendered", "font-family")).to start_with("system-ui")
-        expect(style(".plan-reader .markdown-rendered h2", "font-weight")).to eq("500")
+        # A bold phrase in the body never outweighs the heading above it.
+        expect(style(".plan-reader .markdown-rendered h2", "font-weight")).to eq("600")
         expect(style(".plan-reader .markdown-rendered strong", "font-weight")).to eq("600")
-        expect(style(".page-header__title", "font-size")).to eq("28px")
+        expect(style(".plan-title__heading", "font-size")).to eq("28px")
         expect(%w[h1 h2 h3].map { |h| style(".plan-reader .markdown-rendered #{h}", "font-size") }).to eq(%w[24px 20px 18px])
         expect(style(".plan-reader .markdown-rendered pre", "border-top-width")).to eq("0px")
         expect(style(".plan-reader .markdown-rendered pre[lang]", "text-align", "::before")).to eq("right")
@@ -382,7 +409,7 @@ RSpec.describe "App themes", type: :system do
     end
 
     it "keeps deck diagrams in the deck's font and colors while document diagrams follow the theme" do
-      plan.current_plan_version.update_columns(content_markdown: <<~MD)
+      set_version_fixture(plan.current_plan_version, content_markdown: <<~MD)
         ```mermaid
         flowchart LR
           Request --> Outbox

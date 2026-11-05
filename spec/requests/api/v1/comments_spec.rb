@@ -27,6 +27,44 @@ RSpec.describe "Api::V1::Comments", type: :request do
     expect(body["anchor_context"]).to include("** same **")
   end
 
+  describe "reactions" do
+    let(:bob) { create(:coplan_user) }
+    let(:comment) { create(:comment, comment_thread: thread_record, author_id: alice.id) }
+
+    before do
+      create(:comment_reaction, comment: comment, user: bob, kind: "rocket", created_at: 2.minutes.ago)
+      create(:comment_reaction, comment: comment, user: alice, kind: "thumbs_up", created_at: 1.minute.ago)
+      create(:comment_reaction, comment: comment, user: bob, kind: "thumbs_up", created_at: 3.minutes.ago)
+    end
+
+    it "lists each comment's reactions, read-only, in the thread" do
+      get api_v1_plan_comment_path(plan, thread_record), headers: headers
+
+      expect(response).to have_http_status(:ok)
+      reactions = JSON.parse(response.body)["comments"].first["reactions"]
+      expect(reactions).to eq([
+        { "kind" => "thumbs_up", "emoji" => "👍", "count" => 2, "user_ids" => [ bob.id, alice.id ] },
+        { "kind" => "rocket", "emoji" => "🚀", "count" => 1, "user_ids" => [ bob.id ] }
+      ])
+    end
+
+    it "includes reactions in the plan's comment list and snapshot" do
+      get comments_api_v1_plan_path(plan), headers: headers
+      listed = JSON.parse(response.body).first["comments"].first["reactions"]
+      expect(listed.map { |reaction| reaction["kind"] }).to eq(%w[thumbs_up rocket])
+
+      get snapshot_api_v1_plan_path(plan), headers: headers
+      snapshot = JSON.parse(response.body)["comment_threads"].first["comments"].first["reactions"]
+      expect(snapshot).to eq(listed)
+    end
+
+    it "reports no reactions on a deleted comment" do
+      comment.soft_delete!
+      get api_v1_plan_comment_path(plan, thread_record), headers: headers
+      expect(JSON.parse(response.body)["comments"].first["reactions"]).to eq([])
+    end
+  end
+
   it "create comment thread" do
     expect {
       post api_v1_plan_comments_path(plan),

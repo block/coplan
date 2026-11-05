@@ -43,7 +43,7 @@ module CoPlan
             agent_name: @agent_name,
             api_token_id: @api_token_id
           )
-          plan.update!(current_plan_version: version, current_revision: 1)
+          AdvanceVersion.call(plan: plan, version: version)
           plan
         end
 

@@ -75,6 +75,7 @@ CoPlan::Engine.routes.draw do
       # see DictationsController.
       resources :dictations, only: [ :create ]
       resources :review_requests, only: [ :index, :create, :update, :destroy ] do
+        patch :settings, on: :collection
         get :suggestions, on: :collection
         post :respond, on: :member
         get :compare, on: :member
@@ -84,7 +85,10 @@ CoPlan::Engine.routes.draw do
           patch :resolve
           patch :reopen
         end
-        resources :comments, only: [ :create, :update, :destroy ]
+        resources :comments, only: [ :create, :update, :destroy ] do
+          # Sets the signed-in person's reaction of one kind on or off.
+          resource :reactions, only: [ :update ], controller: "comment_reactions"
+        end
       end
     end
 
@@ -166,14 +170,17 @@ CoPlan::Engine.routes.draw do
       post "library/organize", to: "libraries#organize", as: :own_library_organize
 
       resources :plans, only: [ :index, :show, :create, :update ] do
+        get :resolve, on: :collection
         resources :review_requests, only: [ :index, :create, :update, :destroy ] do
           get :suggestions, on: :collection
           post :respond, on: :member
         end
         get :versions, on: :member
+        get "versions/:version_id", on: :member, action: :version, as: :version
         get :locations, on: :member
         get :comments, on: :member
         get :snapshot, on: :member
+        get :review_evidence, on: :member
         get :writing_provenance, on: :member
         resource :content, only: [ :update ], controller: "content"
         resource :lease, only: [ :create, :update, :destroy ], controller: "leases"

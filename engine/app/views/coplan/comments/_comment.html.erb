@@ -38,6 +38,7 @@
         <%= render_markdown(comment.body_markdown, footnote_prefix: "comment-#{comment.id}", expandable_images: false) %>
       <% end %>
     </div>
+    <%= render "coplan/comments/reactions", comment: comment %>
     <% if comment.author_type == "human" %>
       <div class="comment__editor" data-coplan--comment-actions-target="editor" hidden>
         <%= form_with url: plan_comment_thread_comment_path(comment.comment_thread.plan, comment.comment_thread, comment), method: :patch, data: { action: "submit->coplan--comment-actions#save" } do %>
