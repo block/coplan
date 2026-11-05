@@ -42,8 +42,11 @@ RSpec.describe "Human plan editing", type: :system do
       find('a[title="Edit this document"]').click
       editor
       expect(page.evaluate_script(<<~JS)).to be_within(1).of(0)
-        document.querySelector('.document-editor__toolbar').getBoundingClientRect().top -
-          document.querySelector('.plan-layout__content').getBoundingClientRect().top
+        (() => {
+          const title = document.querySelector('.plan-title');
+          return document.querySelector('.document-editor__toolbar').getBoundingClientRect().top -
+            title.getBoundingClientRect().bottom - parseFloat(getComputedStyle(title).marginBottom);
+        })()
       JS
     end
   end
