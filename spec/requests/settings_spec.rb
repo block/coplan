@@ -5,6 +5,80 @@ RSpec.describe "Settings", type: :request do
 
   before { sign_in_as(alice) }
 
+  describe "app theme" do
+    around do |example|
+      original = CoPlan.configuration.default_theme
+      example.run
+    ensure
+      CoPlan.configuration.default_theme = original
+    end
+
+    it "renders the host's default theme on <html>" do
+      get settings_root_path
+      expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("classic")
+    end
+
+    it "falls back to Classic when the host names an unknown theme" do
+      CoPlan.configuration.default_theme = "hotdog-stand"
+      get settings_root_path
+      expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("classic")
+    end
+
+    it "uses the viewer's own pick over the host's default" do
+      alice.update!(app_theme: "neutral")
+      get settings_root_path
+      expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("neutral")
+      expect(response.parsed_body.at_css("html")["data-app-theme-choice"]).to eq("neutral")
+    end
+
+    it "follows a changed host default for viewers on Default" do
+      CoPlan.configuration.default_theme = "neutral"
+      get settings_root_path
+      expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("neutral")
+      expect(response.parsed_body.at_css("input[name=app_theme][value=default][checked]")).to be_present
+      expect(response.body).to include("Default (Neutral)")
+    end
+
+    it "marks the theme that's showing in the bar's Appearance menu" do
+      CoPlan.configuration.default_theme = "neutral"
+      get settings_root_path
+      menu = response.parsed_body.at_css("#appearance-menu")
+      expect(menu.css("input[name=appearance_theme][checked]").map { _1["value"] }).to eq([ "neutral" ])
+      expect(response.parsed_body.at_css("html")["data-app-theme-choice"]).to eq("default")
+      expect(menu.css("input[name=appearance_mode][checked]").map { _1["value"] }).to eq([ alice.theme_preference ])
+    end
+
+    it "falls back to the host's default for a stored theme that no longer exists" do
+      CoPlan.configuration.default_theme = "neutral"
+      alice.update_column(:app_theme, "retired")
+      get settings_root_path
+      expect(response.parsed_body.at_css("html")["data-app-theme"]).to eq("neutral")
+      expect(response.parsed_body.at_css("html")["data-app-theme-choice"]).to eq("default")
+      expect(response.parsed_body.at_css("input[name=app_theme][value=default][checked]")).to be_present
+    end
+  end
+
+  describe "PATCH /settings/app_theme" do
+    it "persists a known theme" do
+      patch settings_app_theme_path, params: { app_theme: "neutral" }
+      expect(response).to have_http_status(:ok)
+      expect(alice.reload.app_theme).to eq("neutral")
+    end
+
+    it "persists Default" do
+      alice.update!(app_theme: "neutral")
+      patch settings_app_theme_path, params: { app_theme: "default" }
+      expect(response).to have_http_status(:ok)
+      expect(alice.reload.app_theme).to eq("default")
+    end
+
+    it "rejects unknown themes" do
+      patch settings_app_theme_path, params: { app_theme: "hotdog-stand" }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(alice.reload.app_theme).to eq("default")
+    end
+  end
+
   describe "PATCH /settings/theme" do
     it "persists an allowed theme preference" do
       patch settings_theme_path, params: { theme: "dark" }

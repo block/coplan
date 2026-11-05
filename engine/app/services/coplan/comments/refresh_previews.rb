@@ -11,7 +11,7 @@ module CoPlan
 
       def call
         kinds = []
-        kinds << "general" unless @thread.anchored?
+        kinds << "general" if @thread.anchor_kind.blank? && !@thread.out_of_date?
         kinds << "detached" if @thread.out_of_date? && @thread.anchor_kind.blank?
         return [] if kinds.empty?
 

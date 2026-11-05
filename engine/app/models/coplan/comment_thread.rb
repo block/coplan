@@ -203,6 +203,23 @@ module CoPlan
       !out_of_date
     end
 
+    # API callers may quote Markdown source, including formatting or table
+    # delimiters. Project that source range through the full document's text
+    # map; parsing the quote alone would lose its table or code-block context.
+    # Keep the stored quote and offsets intact for API clients and edit tracking.
+    def rendered_anchor_text
+      return anchor_text if anchor_kind.present? || out_of_date?
+      return anchor_text unless anchor_start && anchor_end
+      return anchor_text unless plan.current_content.to_s[anchor_start...anchor_end] == anchor_text
+
+      stripped, positions = plan.stripped_content
+      first = positions.index { |position| position >= anchor_start && position < anchor_end }
+      last = positions.rindex { |position| position >= anchor_start && position < anchor_end }
+      # Authored HTML can render text that the Markdown extractor omits.
+      # Give the browser the original quote when there is no mapped text.
+      first ? stripped[first..last] : anchor_text
+    end
+
     # Returns the 0-based occurrence index of anchor_text in the rendered
     # (stripped) content, computed from anchor_start. The frontend uses this
     # to find the correct occurrence in the rendered DOM text.
@@ -211,7 +228,7 @@ module CoPlan
       return nil if anchor_kind.present?
 
       content = plan.current_content
-      return nil unless content.present?
+      return nil unless content.present? && rendered_anchor_text.present?
 
       # When anchor_start is known, count occurrences before it.
       if anchor_start.present?
@@ -225,7 +242,7 @@ module CoPlan
         stripped_start = pos_map.index { |raw_idx| raw_idx >= anchor_start }
         return nil if stripped_start.nil?
 
-        ranges = find_all_occurrences(stripped, self.class.fold_anchor(anchor_text))
+        ranges = find_all_occurrences(stripped, self.class.fold_anchor(rendered_anchor_text))
         return ranges.index { |s, _| s >= stripped_start } || 0
       end
 

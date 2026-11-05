@@ -28,6 +28,7 @@
 
 .site-nav__search:focus-visible,
 .site-nav__bell:focus-visible,
+.site-nav__appearance-btn:focus-visible,
 .site-nav__menu-btn:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 3px;

@@ -921,7 +921,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_no_css(".review-tray__actions button", text: "Approve")
   end
 
-  it "uses the existing dictation composer and keeps the bar within narrow screens in both themes" do
+  it "uses the existing dictation composer and keeps the bar within narrow screens in both modes" do
     within(".review-tray") { click_button "Request changes" }
     expect(page).to have_css('.review-tray [data-controller="coplan--dictation"]')
     [ "light", "dark" ].each do |theme|

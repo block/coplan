@@ -99,6 +99,18 @@
   gap: var(--space-md);
 }
 
+/* A card holding several related rows (Appearance: theme and mode). */
+.settings-group__title {
+  margin: 0 0 var(--space-md);
+  font-size: var(--text-base);
+}
+
+.settings-group .settings-row + .settings-row {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
 .settings-row__label {
   font-weight: 600;
   color: var(--color-text);
@@ -186,7 +198,7 @@
   margin-top: var(--space-xs);
 }
 
-/* Segmented control (theme switcher, push-to-talk key) */
+/* Segmented control (theme, mode, push-to-talk key) */
 .segmented {
   display: inline-flex;
   /* The control is the row's point; the explanation next to it is what
@@ -234,6 +246,11 @@
 .segmented__option:hover .segmented__btn {
   background: var(--color-bg-muted);
   color: var(--color-text);
+}
+
+.segmented__option:has(input:focus-visible) .segmented__btn {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
 
 .segmented__option:has(input:checked) .segmented__btn {

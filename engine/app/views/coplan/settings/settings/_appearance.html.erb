@@ -1,0 +1,60 @@
+<%# Appearance: the app theme (Classic, Neutral, …) and light/dark mode.
+    Both apply as soon as they're picked; see docs/THEMES.md. %>
+<% site_default = CoPlan::Themes.default %>
+<% chosen = coplan_app_theme_choice %>
+<section class="card mb-md settings-group" aria-labelledby="settings-appearance">
+  <h2 id="settings-appearance" class="settings-group__title">Appearance</h2>
+
+  <div class="settings-row" data-controller="coplan--app-theme"
+       data-coplan--app-theme-url-value="<%= coplan.settings_app_theme_path %>"
+       data-coplan--app-theme-default-value="<%= site_default.key %>">
+    <div class="settings-row__main">
+      <span class="settings-row__label" id="settings-app-theme-label">Theme</span>
+      <p class="settings-row__hint settings-row__hint--error" role="status"
+         data-coplan--app-theme-target="error" hidden></p>
+    </div>
+    <div class="segmented" role="radiogroup" aria-labelledby="settings-app-theme-label">
+      <label class="segmented__option" title="Follow this site's default, <%= site_default.name %>">
+        <input type="radio" name="app_theme" value="<%= CoPlan::User::DEFAULT_APP_THEME %>"
+               <%= "checked" if chosen == CoPlan::User::DEFAULT_APP_THEME %>
+               data-action="coplan--app-theme#select">
+        <span class="segmented__btn">Default (<%= site_default.name %>)</span>
+      </label>
+      <% CoPlan::Themes::ALL.each do |theme| %>
+        <label class="segmented__option" title="<%= theme.description %>">
+          <input type="radio" name="app_theme" value="<%= theme.key %>"
+                 <%= "checked" if chosen == theme.key %>
+                 data-action="coplan--app-theme#select">
+          <span class="segmented__btn"><%= theme.name %></span>
+        </label>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="settings-row" data-controller="coplan--theme" data-coplan--theme-url-value="<%= coplan.settings_theme_path %>">
+    <span class="settings-row__label" id="settings-mode-label">Mode</span>
+    <div class="segmented" role="radiogroup" aria-labelledby="settings-mode-label">
+      <label class="segmented__option" title="System">
+        <input type="radio" name="theme" value="system" <%= "checked" if current_user.theme_preference == "system" %> data-action="coplan--theme#select">
+        <span class="segmented__btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          System
+        </span>
+      </label>
+      <label class="segmented__option" title="Light">
+        <input type="radio" name="theme" value="light" <%= "checked" if current_user.theme_preference == "light" %> data-action="coplan--theme#select">
+        <span class="segmented__btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          Light
+        </span>
+      </label>
+      <label class="segmented__option" title="Dark">
+        <input type="radio" name="theme" value="dark" <%= "checked" if current_user.theme_preference == "dark" %> data-action="coplan--theme#select">
+        <span class="segmented__btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          Dark
+        </span>
+      </label>
+    </div>
+  </div>
+</section>

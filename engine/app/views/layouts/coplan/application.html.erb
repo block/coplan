@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="<%= I18n.locale %>"<% if signed_in? && current_user.theme_preference != "system" %> data-theme="<%= current_user.theme_preference %>"<% end %>>
+<html lang="<%= I18n.locale %>" data-app-theme="<%= coplan_app_theme %>" data-app-theme-choice="<%= coplan_app_theme_choice %>"<% if signed_in? && current_user.theme_preference != "system" %> data-theme="<%= current_user.theme_preference %>"<% end %>>
   <head>
     <title><%= content_for(:title) || "CoPlan" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -47,11 +47,11 @@
               bar reads the same on every surface. %>
           <%= yield :nav_title %>
           <div class="site-nav__right">
-            <%# Two persistent controls plus notifications: Search (jump to a
-                doc/person), the notifications bell, and the menu. Everything
-                that isn't reading, searching, or a live alert lives in the
-                menu, so the bar stays calm while you read. A plan page also
-                puts its compact viewer stack here, shown with the title. %>
+            <%# Persistent controls: Search (jump to a doc/person), Appearance
+                (mode and theme), the notifications bell, and the menu.
+                Everything else lives in the menu, so the bar stays calm
+                while you read. A plan page also puts its compact viewer
+                stack here, shown with the title. %>
             <%= yield :nav_presence %>
             <button type="button"
                     class="site-nav__search"
@@ -62,6 +62,7 @@
               <span class="site-nav__search-label">Search plans and people…</span>
               <kbd class="site-nav__search-kbd">/</kbd>
             </button>
+            <%= render "coplan/shared/appearance_menu" %>
             <%= turbo_stream_from "coplan_notifications:#{current_user.id}" %>
             <% unread = current_user.notifications.unread.count %>
             <%# Notifications is a first-class bar control whenever there's room:

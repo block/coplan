@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_19_185311) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_30_180126) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -515,6 +515,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_185311) do
 
   create_table "coplan_users", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.boolean "admin", default: false, null: false
+    t.string "app_theme", default: "default", null: false
     t.string "avatar_url"
     t.datetime "created_at", null: false
     t.string "email"
