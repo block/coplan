@@ -67,6 +67,21 @@ RSpec.describe "Plan title on the document", type: :system do
     expect(page).to have_css("p.section-updated--viewed", wait: 6)
   end
 
+  it "starts the outline beside the title and keeps the title aligned with the body" do
+    open_plan(sections)
+
+    positions = page.evaluate_script(<<~JS)
+      (() => {
+        const title = document.querySelector("#plan-title").getBoundingClientRect()
+        const outline = document.querySelector(".content-nav").getBoundingClientRect()
+        const body = document.querySelector("#plan-content-body").getBoundingClientRect()
+        return { topGap: Math.abs(title.top - outline.top), leftGap: Math.abs(title.left - body.left) }
+      })()
+    JS
+    expect(positions["topGap"]).to be <= 1
+    expect(positions["leftGap"]).to be <= 1
+  end
+
   it "keeps a later H1 visible" do
     open_plan("Intro paragraph.\n\n# A real heading\n\n#{sections}")
 

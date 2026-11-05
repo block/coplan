@@ -145,40 +145,8 @@
   flex-shrink: 0;
 }
 
-/* The title is the document's first line: on the card, set one step above
-   the body's own h1 so it reads title → section → subsection. It shares
-   the reading column's left edge, whatever sits beside the body — the
-   outline, its collapsed ☰ button, or nothing on small screens. The card
-   is a two-column grid and the layout below the title borrows its columns
-   (subgrid), so the title's column is the body's column, through the
-   outline's collapse animation too. Only the reading card: the editor's
-   paper is a .plan-document too and lays itself out. */
-.plan-document--titled {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-}
-
-.plan-document--titled > .plan-document__head {
-  grid-column: 2;
-}
-
-.plan-document--titled > .plan-layout {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: subgrid;
-}
-
-.plan-document--titled > .plan-layout > .content-nav,
-.plan-document--titled > .plan-layout > .content-nav-show-btn {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.plan-document--titled > .plan-layout > .plan-layout__content {
-  grid-column: 2;
-  grid-row: 1;
-}
-
+/* Title and body share the content column; the outline starts beside the
+   title so its column has no empty band above it. */
 .plan-title {
   /* Theme hooks (docs/THEMES.md); the measure keeps it on the body's edge. */
   max-width: var(--reading-measure, none);

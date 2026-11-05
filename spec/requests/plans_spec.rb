@@ -544,7 +544,7 @@ RSpec.describe "Plans", type: :request do
     it "puts the title at the head of the document card, with the metadata row above it" do
       get plan_page_path(plan)
       document = Nokogiri::HTML(response.body)
-      expect(document.at_css(".plan-document > .plan-document__head > #plan-title h1.plan-title__heading").text).to eq(plan.title)
+      expect(document.at_css(".plan-layout__content > .plan-document__head > #plan-title h1.plan-title__heading").text).to eq(plan.title)
       expect(document.at_css("#plan-header .page-header__byline")).to be_present
       expect(document.css("#plan-header h1")).to be_empty
       expect(document.at_css("a.site-nav__doc-title")["href"]).to eq("#plan-title")
