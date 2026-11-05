@@ -1,6 +1,7 @@
 <% label = local_assigns.fetch(:label, "New comment") %>
 <% submit_label = local_assigns.fetch(:submit_label, "Comment") %>
 <div class="composer" data-controller="coplan--comment-form"
+     data-action="coplan:composer-close@document->coplan--comment-form#composerClosed"
      data-coplan--comment-form-search-url-value="<%= search_users_path %>">
   <div class="composer__draft" data-coplan--comment-form-target="draft">
     <div class="composer__writing" data-controller="coplan--dictation"

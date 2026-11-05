@@ -82,6 +82,22 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     end
   end
 
+  it "returns to the saved draft after closing the table link field from outside" do
+    cell = all(".data-grid tbody tr")[0].all("td")[1]
+    cell.send_keys("c")
+    input = panel.find("textarea")
+    input.fill_in with: "Keep this draft"
+    page.execute_script("arguments[0].setSelectionRange(0, 4)", input)
+    modifier = RUBY_PLATFORM.include?("darwin") ? :meta : :control
+    input.send_keys([ modifier, "k" ])
+    panel.fill_in "Link URL", with: "https://example.com"
+    find("#plan-title").click
+    expect(page).to have_no_css(".source-comments:popover-open")
+    cell.send_keys("c")
+    expect(panel).to have_field("Write a comment...", with: "Keep this draft")
+    expect(panel).to have_no_field("Link URL")
+  end
+
   it "scrolls table discussion content without moving the resized window's header or grip" do
     cell = all(".data-grid tbody tr")[0].all("td")[1]
     cell.send_keys("c")

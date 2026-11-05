@@ -169,9 +169,19 @@ export default class extends Controller {
     if (!label) this.inputTarget.setSelectionRange(selection.start + 1, selection.start + 1)
   }
 
-  cancelLink() {
+  composerClosed(event) {
+    if (!event.target.contains(this.element)) return
+    this.closeLink()
+    this._linkSelection = null
+  }
+
+  closeLink() {
     this.linkPanelTarget.hidden = true
     this.draftTarget.inert = false
+  }
+
+  cancelLink() {
+    this.closeLink()
     this.inputTarget.focus({ preventScroll: true })
     if (this._linkSelection && this.inputTarget.value === this._linkSelection.value) {
       this.inputTarget.setSelectionRange(this._linkSelection.start, this._linkSelection.end)
