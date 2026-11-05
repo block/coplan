@@ -50,6 +50,33 @@ RSpec.describe "Links in the comment composer", type: :system do
     expect(CoPlan::Comment.last.body_markdown).to eq("See [Design Overview](https://example.com)")
   end
 
+  [ :keyboard, :paste ].each do |method|
+    [
+      [ 'Use [draft', 'https://example.com/search?q=)' ],
+      [ 'design] notes', 'https://example.com/search?q=(' ],
+      [ 'Path \\[draft] (notes)', 'https://example.com/search?q=\\[draft](notes)' ]
+    ].each do |label, href|
+      it "preserves #{label.inspect} and #{href.inspect} in a rendered #{method} link" do
+        textarea.fill_in with: label
+        select_text(0, label.length)
+        if method == :keyboard
+          accept_prompt(with: href) { textarea.send_keys([ mod, "k" ]) }
+        else
+          expect(paste(href)).to be(false)
+        end
+        textarea.send_keys(:enter)
+        # CommonMark percent-encodes backslashes and brackets in destinations.
+        expected_href = href.gsub("\\", "%5C").gsub("[", "%5B").gsub("]", "%5D")
+        expect(page).to have_link(label, href: expected_href, exact: true)
+        posted = CoPlan::Comment.order(:created_at).last
+        html = Nokogiri::HTML.fragment(CoPlan::Markdown.to_html(posted.body_markdown))
+        expect(html.css("a").size).to eq(1)
+        expect(html.at_css("a").text).to eq(label)
+        expect(html.at_css("a")["href"]).to eq(expected_href)
+      end
+    end
+  end
+
   it "inserts an empty link at the caret without a selection" do
     select_text(3, 3)
     accept_prompt(with: "mailto:team@example.com") { textarea.send_keys([ mod, "k" ]) }

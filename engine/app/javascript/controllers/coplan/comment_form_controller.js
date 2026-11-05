@@ -114,7 +114,7 @@ export default class extends Controller {
     this.element.focus()
     this.element.setSelectionRange(start, end)
     const label = this.element.value.slice(start, end)
-    this.insertText(`[${label}](${href})`)
+    this.insertLink(label, href)
     if (!label) this.element.setSelectionRange(start + 1, start + 1)
   }
 
@@ -124,7 +124,15 @@ export default class extends Controller {
     const label = value.slice(start, end)
     if (!label || !LINK_URL.test(href) || /\s/.test(href) || LINK_URL.test(label.trim())) return
     event.preventDefault()
-    this.insertText(`[${label}](${href})`)
+    this.insertLink(label, href)
+  }
+
+  insertLink(label, href) {
+    // Escape backslashes together with delimiters so literal prose and URL
+    // punctuation survive CommonMark parsing when the comment is posted.
+    const escapedLabel = label.replace(/[\\\[\]]/g, "\\$&")
+    const escapedHref = href.replace(/[\\()]/g, "\\$&")
+    this.insertText(`[${escapedLabel}](${escapedHref})`)
   }
 
   // insertText keeps the edit on the browser's undo stack and fires input.
