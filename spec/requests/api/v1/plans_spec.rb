@@ -700,6 +700,17 @@ RSpec.describe "Api::V1::Plans", type: :request do
       expect(response).to have_http_status(:not_found)
     end
 
+    it "accepts readable and legacy paths without a domain" do
+      [ "/#{plan.url_path}", plan.url_path, "/plans/#{plan.id}" ].each do |path|
+        resolve(path)
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+      end
+      resolve("/coplan/#{plan.url_path}", env: { "SCRIPT_NAME" => "/coplan" })
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+    end
+
     it "follows a renamed library handle" do
       old_path = plan.url_path
       alice.library.update!(handle: "renamed-library")
@@ -717,10 +728,8 @@ RSpec.describe "Api::V1::Plans", type: :request do
       end
     end
 
-    it "rejects addresses outside the deployment and engine mount" do
-      [ "https://foreign.example/#{plan.url_path}",
-       "https://foreign.example/plans/#{plan.id}",
-       "http://www.example.com/?next=/plans/#{plan.id}",
+    it "rejects addresses outside the engine mount" do
+      [ "http://www.example.com/?next=/plans/#{plan.id}",
        "http://www.example.com/plans/#{plan.id}/not-a-plan",
        "http://www.example.com/#{plan.url_path}" ].each do |url|
         resolve(url, env: { "SCRIPT_NAME" => "/coplan" })
@@ -728,10 +737,10 @@ RSpec.describe "Api::V1::Plans", type: :request do
       end
     end
 
-    it "accepts the configured browser host as well as the API host" do
+    it "resolves matching paths regardless of the supplied domain" do
       original = ActionController::API.default_url_options
       ActionController::API.default_url_options = { host: "coplan.example.org", protocol: "https" }
-      [ "https://coplan.example.org", "http://www.example.com" ].each do |base|
+      [ "https://coplan.example.org", "http://www.example.com", "https://other.example:444" ].each do |base|
         resolve("#{base}/#{plan.url_path}")
         expect(response).to have_http_status(:ok)
         expect(JSON.parse(response.body)["id"]).to eq(plan.id)

@@ -4,9 +4,8 @@ RSpec.describe CoPlan::Urls::ResolvePlan do
   let(:plan) { create(:plan) }
   let(:base) { "https://coplan.example/coplan/" }
 
-  it "rejects lookalike origins and mount prefixes" do
-    [ "https://elsewhere.example/coplan/", "https://coplan.example:444/coplan/",
-      "https://coplan.example/coplan-other/", "https://user@coplan.example/coplan/" ].each do |prefix|
+  it "rejects different mount prefixes and URL credentials" do
+    [ "https://coplan.example/coplan-other/", "https://user@coplan.example/coplan/" ].each do |prefix|
       expect(described_class.call(url: "#{prefix}#{plan.url_path}", bases: [ base ])).to be_nil
     end
   end

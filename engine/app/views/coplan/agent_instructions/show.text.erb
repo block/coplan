@@ -54,7 +54,7 @@ API paths use the plan `id`. If you have a plan URL, look up its `id`:
 <%= @curl %> -G "<%= @base %>/api/v1/plans/resolve" --data-urlencode "url=$PLAN_URL" | jq -r .id
 ```
 
-This works for any plan you can open, including private plans and old links to moved plans. The list at `/api/v1/plans` leaves out archived plans unless you add `?archived=true`, and lists a private plan only for its author.
+This works for any plan you can open, including private plans and old links to moved plans. You can pass a URL or just its path; the domain is ignored. The list at `/api/v1/plans` leaves out archived plans unless you add `?archived=true`, and lists a private plan only for its author.
 
 ## 3. Edit a plan
 
