@@ -184,7 +184,7 @@ RSpec.describe "Comment reactions", type: :system do
     end
   end
 
-  [["thumbs_up", "tada"], ["thumbs_up", "thumbs_up"]].each do |kinds|
+  [ [ "thumbs_up", "tada" ], [ "thumbs_up", "thumbs_up" ] ].each do |kinds|
     it "rolls back both failed queued changes for #{kinds.join(' then ')}" do
       create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")
       create(:comment_reaction, comment: comment, user: sam, kind: "tada")
