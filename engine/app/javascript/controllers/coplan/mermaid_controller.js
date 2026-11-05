@@ -428,7 +428,7 @@ const DIAGRAM_PALETTE_PROPERTIES = {
 }
 
 // The theme's palette where the diagram sits, for the current scheme, or
-// null when it isn't complete there. Decks reset --diagram-bg, so diagrams
+// null when it isn't complete there. Decks reset the palette, so diagrams
 // in slides always get null and keep Mermaid's built-in themes.
 function diagramPalette(container) {
   const style = getComputedStyle(container)

@@ -24,6 +24,12 @@ RSpec.describe CoPlan::Themes do
     expect(described_class.default).to eq(paper)
   end
 
+  it "ships Neutral as an opt-in theme" do
+    expect(described_class.find("neutral")).to have_attributes(name: "Neutral")
+    CoPlan.configuration.default_theme = "neutral"
+    expect(described_class.default.key).to eq("neutral")
+  end
+
   it "falls back to Classic for an unknown theme" do
     CoPlan.configuration.default_theme = "hotdog-stand"
     expect(described_class.default.key).to eq("classic")
@@ -53,6 +59,20 @@ RSpec.describe CoPlan::Themes do
       described_class.check_default!(env: "production".inquiry, logger: logger)
       expect(logger).to have_received(:warn).with(/"hotdog-stand".*Valid themes: #{described_class.keys.join(", ")}\./)
     end
+  end
+
+  it "resolves a stored choice to the theme it shows" do
+    CoPlan.configuration.default_theme = "neutral"
+    expect(described_class.resolve("classic").key).to eq("classic")
+    expect(described_class.resolve("neutral").key).to eq("neutral")
+    %w[default retired].each { |choice| expect(described_class.resolve(choice).key).to eq("neutral") }
+    expect(described_class.resolve(nil).key).to eq("neutral")
+    CoPlan.configuration.default_theme = "hotdog-stand"
+    expect(described_class.resolve("default").key).to eq("classic")
+  end
+
+  it "never keys a theme \"default\", which a stored choice uses to follow the host" do
+    expect(described_class.keys).not_to include(CoPlan::User::DEFAULT_APP_THEME)
   end
 
   it "has a stylesheet for every theme except Classic" do

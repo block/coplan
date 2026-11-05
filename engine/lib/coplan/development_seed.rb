@@ -92,6 +92,9 @@ module CoPlan
       { key: "reference-gallery", author: "hampton", type: "General", title: "References: every supported reference type",
         tags: %w[demo references], visibility: "published", folder: "Demo content/References", group: "References",
         showcase: "CoPlan document, repository, pull request, external document, web link, footnote, and named citation" },
+      { key: "api-comment-anchors", author: "hampton", type: "Research Note", title: "API comments: Markdown quotes and visible fallbacks",
+        tags: %w[demo tables], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "API-style text anchors across inline code and table rows; Comments fallback for hidden source" },
       { key: "table-gallery", author: "hampton", type: "Research Note", title: "Tables: cells, links, empty values, and wide data",
         tags: %w[demo tables], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "Cell discussion, repeated labels, empty cells, links, and a wide expandable table" },
@@ -885,6 +888,16 @@ module CoPlan
     end
 
     def seed_content_discussions(users, plans)
+      examples = plans.fetch("api-comment-anchors")
+      {
+        "Read the `response.deadline` field." => "Should clients display this deadline in the viewer's timezone?",
+        "| Composer | Reads the `response.deadline` field. |" => "Can we document the response when this field is absent?",
+        "No deadline means available." => "Does this policy also apply to older records?",
+        "<!-- internal annotation -->" => "This source-only annotation is reachable from the document Comments section."
+      }.each do |anchor, body|
+        seed_thread(plan: examples, user: users.fetch("alex"), anchor: anchor, body: body)
+      end
+
       selections = [
         [ "diagram-comments", "mermaid_node", "Queue[", "Node Queue", "Should this queue have a separate retry budget per workspace?" ],
         [ "diagram-comments", "mermaid_edge", "retry", "Connection Queue → Delivery", "What backoff do we use on this retry connection?" ],

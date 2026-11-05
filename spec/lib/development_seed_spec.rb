@@ -3,6 +3,20 @@ require "coplan/development_seed"
 
 RSpec.describe CoPlan::DevelopmentSeed do
   describe ".call" do
+    it "seeds visible text and fallback anchor examples without duplicating discussions" do
+      described_class.call
+      plan = seeded_plan("api-comment-anchors")
+      threads = plan.comment_threads.order(:created_at).to_a
+      expect(threads.map(&:rendered_anchor_text)).to contain_exactly(
+        "Read the response.deadline field.", "Composer Reads the response.deadline field.",
+        "No deadline means available.", "<!-- internal annotation -->")
+      ids = threads.map(&:id).sort
+      threads.last.resolve!(plan.created_by_user)
+      described_class.call
+      expect(plan.comment_threads.pluck(:id).sort).to eq(ids)
+      expect(threads.last.reload.status).to eq("resolved")
+    end
+
     it "provides human, AI, unknown, and mixed writing examples and preserves edits when re-seeded" do
       described_class.call
       expect(seeded_plan("writing-human").writing_provenance_summary.dig("shares", "human")).to eq(1.0)

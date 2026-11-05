@@ -87,6 +87,97 @@
   background: var(--color-interaction-hover-bg);
 }
 
+/* Appearance: mode and theme, one click away (shared/_appearance_menu). */
+.site-nav__appearance {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.site-nav__appearance-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px;
+  border: none;
+  background: none;
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.site-nav__appearance-btn:hover,
+.site-nav__appearance-btn:has(+ .appearance-menu:popover-open) {
+  color: var(--color-primary-hover);
+  background: var(--color-interaction-hover-bg);
+}
+
+.appearance-menu {
+  width: 17rem;
+}
+
+.appearance-menu__group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.appearance-menu .segmented--fill {
+  display: flex;
+  margin: 2px;
+}
+
+.segmented--fill .segmented__option {
+  flex: 1;
+}
+
+.segmented--fill .segmented__btn {
+  justify-content: center;
+  width: 100%;
+  padding: 6px var(--space-sm);
+}
+
+.appearance-menu__theme {
+  cursor: pointer;
+}
+
+.appearance-menu__theme input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.appearance-menu__theme-name {
+  flex: 1;
+}
+
+/* The theme that's showing: blue marks the selection (docs/DESIGN.md). */
+.appearance-menu__check {
+  visibility: hidden;
+}
+
+.appearance-menu__theme:has(input:checked) {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.appearance-menu__theme:has(input:checked) .appearance-menu__check {
+  visibility: visible;
+  color: var(--color-primary);
+}
+
+.appearance-menu__theme:has(input:focus-visible) {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.appearance-menu__error {
+  margin: var(--space-xs) var(--space-sm);
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+}
+
 /* When the bell has folded into the menu (phone widths), the ☰ carries a
    small unread dot so a waiting notification is still visible at a glance.
    coplan--inbox-badge toggles .site-nav--has-unread from the live count;
