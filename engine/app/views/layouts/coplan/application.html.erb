@@ -4,6 +4,7 @@
     <title><%= content_for(:title) || "CoPlan" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="<%= signed_in? && current_user.theme_preference != 'system' ? current_user.theme_preference : 'light dark' %>">
+    <meta name="coplan-root-path" content="<%= coplan.root_path %>">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
     <% if signed_in? %>

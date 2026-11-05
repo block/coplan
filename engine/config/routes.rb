@@ -84,7 +84,10 @@ CoPlan::Engine.routes.draw do
           patch :resolve
           patch :reopen
         end
-        resources :comments, only: [ :create, :update, :destroy ]
+        resources :comments, only: [ :create, :update, :destroy ] do
+          # Sets the signed-in person's reaction of one kind on or off.
+          resource :reactions, only: [ :update ], controller: "comment_reactions"
+        end
       end
     end
 

@@ -38,7 +38,7 @@ install demo users or documents.
 ## Named scenarios
 
 The index starts with **Diagrams**, **Presentations**, **Tables and rich text**,
-and **References**. Every link labels the document's actual plan type. The
+**Discussions**, and **References**. Every link labels the document's actual plan type. The
 **Every plan type** section links to a real example of each of the twelve
 shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 
@@ -56,6 +56,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | reference-gallery | All five reference types, a resolved CoPlan target, explicit/extracted references, named citations, repeated URLs, footnotes |
 | api-comment-anchors | Markdown text and table-row highlights; source-only discussion in Comments |
 | table-gallery | Precise cell discussion, repeated labels, empty values, links, wide expandable data |
+| comment-reactions | Discussions with emoji reactions; your own are pressed in blue, hover a chip for who reacted, add or remove one in place. Re-seeding keeps reactions you removed removed |
 | formatting-gallery | Headings, editable template notes hidden while reading, emphasis, quotes, nested lists, tasks, two code languages, image, mention, footnote |
 | discussion-margins | Crowded prose discussions, multiple participants, resolved visibility, and slide navigation/scrolling; avatars identify starters, not unread activity |
 | reading-specimen | A realistic design doc for judging reading in both modes: prose, headings, lists, tasks, quote, table, footnote, image, SQL/Ruby/diff/YAML code, a long scrolling line, flowchart and sequence diagrams, plus open, agent-answered, resolved, diagram-node, table-cell, and general discussions |
