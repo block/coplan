@@ -5,7 +5,9 @@ RSpec.describe "Links in the comment composer", type: :system do
   let(:plan) { create(:plan, :considering, created_by_user: author) }
   let!(:thread_record) { create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: author) }
   let!(:comment) { create(:comment, comment_thread: thread_record, author_id: author.id, body_markdown: "Start here") }
-  let(:textarea) { find(".comment-window:popover-open textarea") }
+  def textarea
+    find(".comment-window:popover-open textarea")
+  end
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
 
   before do
@@ -34,13 +36,20 @@ RSpec.describe "Links in the comment composer", type: :system do
     JS
   end
 
+  def insert_link(href)
+    textarea.send_keys([ mod, "k" ])
+    expect(page).to have_field("Link URL", focused: true)
+    fill_in "Link URL", with: href
+    find_field("Link URL").send_keys(:enter)
+  end
+
   def caret
     page.evaluate_script("[arguments[0].selectionStart, arguments[0].selectionEnd]", textarea)
   end
 
   it "links the selection with Mod+K, undoes it, and posts it as a link" do
     select_text(4, 19)
-    accept_prompt(with: "https://example.com") { textarea.send_keys([ mod, "k" ]) }
+    insert_link("https://example.com")
     expect(textarea.value).to eq("See [Design Overview](https://example.com)")
     textarea.send_keys([ mod, "z" ])
     expect(textarea.value).to eq("See Design Overview")
@@ -60,7 +69,7 @@ RSpec.describe "Links in the comment composer", type: :system do
         textarea.fill_in with: label
         select_text(0, label.length)
         if method == :keyboard
-          accept_prompt(with: href) { textarea.send_keys([ mod, "k" ]) }
+          insert_link(href)
         else
           expect(paste(href)).to be(false)
         end
@@ -79,16 +88,52 @@ RSpec.describe "Links in the comment composer", type: :system do
 
   it "inserts an empty link at the caret without a selection" do
     select_text(3, 3)
-    accept_prompt(with: "mailto:team@example.com") { textarea.send_keys([ mod, "k" ]) }
+    insert_link("mailto:team@example.com")
     expect(textarea.value).to eq("See[](mailto:team@example.com) Design Overview")
     expect(caret).to eq([ 4, 4 ])
   end
 
-  it "leaves the draft alone when the prompt is cancelled or the URL is invalid" do
+  it "leaves the draft alone when link insertion is cancelled or the URL is invalid" do
     select_text(4, 19)
-    dismiss_prompt { textarea.send_keys([ mod, "k" ]) }
-    accept_prompt(with: "javascript:alert(1)") { textarea.send_keys([ mod, "k" ]) }
+    textarea.send_keys([ mod, "k" ])
+    find_field("Link URL").send_keys(:escape)
+    expect(caret).to eq([ 4, 19 ])
+    insert_link("javascript:alert(1)")
+    expect(page).to have_text("Enter a URL starting with")
+    click_button "Cancel link"
     expect(textarea.value).to eq("See Design Overview")
+  end
+
+  it "cancels from the keyboard without submitting or moving the composer" do
+    select_text(4, 19)
+    before = page.evaluate_script("document.querySelector('.comment-window:popover-open').getBoundingClientRect().toJSON()")
+    textarea.send_keys([ mod, "k" ])
+    fill_in "Link URL", with: "https://example.com"
+    find_button("Cancel link").send_keys(:enter)
+    expect(textarea.value).to eq("See Design Overview")
+    expect(caret).to eq([ 4, 19 ])
+    expect(page).to have_field("Your reply", enable_aria_label: true, focused: true)
+    after = page.evaluate_script("document.querySelector('.comment-window:popover-open').getBoundingClientRect().toJSON()")
+    expect(after).to eq(before)
+    expect(thread_record.comments.count).to eq(1)
+  end
+
+  it "inserts a link without posting until the author submits the reply" do
+    select_text(4, 19)
+    insert_link("https://example.com")
+    expect(thread_record.comments.count).to eq(1)
+    expect(page).to have_field("Your reply", enable_aria_label: true, focused: true)
+    expect(textarea.value).to eq("See [Design Overview](https://example.com)")
+  end
+
+  it "links text while editing an existing comment" do
+    within(".comment-window:popover-open") { click_button "Edit" }
+    textarea.fill_in with: "hi"
+    select_text(0, 2)
+    insert_link("https://example.com/edit")
+    click_button "Save changes"
+    expect(page).to have_link("hi", href: "https://example.com/edit")
+    expect(comment.reload.body_markdown).to eq("[hi](https://example.com/edit)")
   end
 
   it "links a selection when a URL is pasted over it and leaves other pastes alone" do

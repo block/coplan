@@ -16,6 +16,8 @@ export default class extends Controller {
   // Search URL is supplied per-form via a Stimulus value so it respects the
   // engine's mount point (host apps may mount Coplan under e.g. `/coplan`).
   // The default is fine for hosts that mount at root.
+  static targets = ["input", "draft", "linkPanel", "linkUrl", "linkError"]
+
   static values = {
     searchUrl: { type: String, default: "/users/search" }
   }
@@ -31,23 +33,23 @@ export default class extends Controller {
     this._keydownHandler = this.handleKeydown.bind(this)
     this._submitEndHandler = this.handleSubmitEnd.bind(this)
 
-    this.element.addEventListener("input", this._inputHandler)
+    this.inputTarget.addEventListener("input", this._inputHandler)
     // keydown listens with capture so the picker handles Enter/Arrows
     // before anything else on the page sees them.
-    this.element.addEventListener("keydown", this._keydownHandler, true)
+    this.inputTarget.addEventListener("keydown", this._keydownHandler, true)
     document.addEventListener("click", this._docClickHandler)
 
     // Notify the global Web Push encouragement banner that this user just
     // posted a comment — gives the banner a chance to surface itself.
-    this._submitForm = this.element.closest("form")
+    this._submitForm = this.inputTarget.closest("form")
     if (this._submitForm) {
       this._submitForm.addEventListener("turbo:submit-end", this._submitEndHandler)
     }
   }
 
   disconnect() {
-    this.element.removeEventListener("input", this._inputHandler)
-    this.element.removeEventListener("keydown", this._keydownHandler, true)
+    this.inputTarget.removeEventListener("input", this._inputHandler)
+    this.inputTarget.removeEventListener("keydown", this._keydownHandler, true)
     document.removeEventListener("click", this._docClickHandler)
     if (this._submitForm) {
       this._submitForm.removeEventListener("turbo:submit-end", this._submitEndHandler)
@@ -94,32 +96,82 @@ export default class extends Controller {
 
     // Submit-on-Enter (only when picker is closed).
     if (commandFor("reply", event) === "submit") {
-      const form = this.element.closest("form")
+      const form = this.inputTarget.closest("form")
       if (!form) return
       event.preventDefault()
-      if (this.element.closest('[data-dictation-busy="true"]')) return
+      if (this.inputTarget.closest('[data-dictation-busy="true"]')) return
       const submitter = form.querySelector('[type="submit"]')
       if (submitter?.disabled) return
       form.requestSubmit(submitter)
     }
   }
 
-  // Mod+K matches the document editor's link command, writing Markdown.
+  // Keep the selection while the in-app URL field has focus.
   link(event) {
     if (commandFor("reply", event) !== "link") return
     event.preventDefault()
-    const { selectionStart: start, selectionEnd: end } = this.element
-    const href = window.prompt("Link URL (https://…)")?.trim()
-    if (!href || !LINK_URL.test(href)) return
-    this.element.focus()
-    this.element.setSelectionRange(start, end)
-    const label = this.element.value.slice(start, end)
+    event.stopPropagation()
+    if (this._debounce) clearTimeout(this._debounce)
+    this._fetchAbort?.abort()
+    this.closePicker()
+    const { selectionStart: start, selectionEnd: end, value } = this.inputTarget
+    this._linkSelection = { start, end, value }
+    this.linkUrlTarget.value = ""
+    this.clearLinkError()
+    this.draftTarget.inert = true
+    this.draftTarget.style.visibility = "hidden"
+    this.linkPanelTarget.hidden = false
+    this.linkUrlTarget.focus({ preventScroll: true })
+  }
+
+  linkKeydown(event) {
+    // Do not let Enter submit the comment or Escape close its window.
+    event.stopPropagation()
+    if (event.isComposing) return
+    if (event.key === "Escape") {
+      event.preventDefault()
+      this.cancelLink()
+    } else if (event.key === "Enter" && event.target === this.linkUrlTarget) {
+      event.preventDefault()
+      this.applyLink()
+    }
+  }
+
+  clearLinkError() {
+    this.linkErrorTarget.hidden = true
+    this.linkUrlTarget.removeAttribute("aria-invalid")
+  }
+
+  applyLink() {
+    const href = this.linkUrlTarget.value.trim()
+    if (!LINK_URL.test(href) || /\s/.test(href)) {
+      this.linkErrorTarget.hidden = false
+      this.linkUrlTarget.setAttribute("aria-invalid", "true")
+      this.linkUrlTarget.focus({ preventScroll: true })
+      return
+    }
+    const selection = this._linkSelection
+    this.cancelLink()
+    // Dictation or a remote draft update must not replace a stale selection.
+    if (!selection || this.inputTarget.value !== selection.value) return
+    const label = selection.value.slice(selection.start, selection.end)
     this.insertLink(label, href)
-    if (!label) this.element.setSelectionRange(start + 1, start + 1)
+    if (!label) this.inputTarget.setSelectionRange(selection.start + 1, selection.start + 1)
+  }
+
+  cancelLink() {
+    this.linkPanelTarget.hidden = true
+    this.draftTarget.inert = false
+    this.draftTarget.style.visibility = ""
+    this.inputTarget.focus({ preventScroll: true })
+    if (this._linkSelection) {
+      this.inputTarget.setSelectionRange(this._linkSelection.start, this._linkSelection.end)
+    }
+    this._linkSelection = null
   }
 
   pasteLink(event) {
-    const { selectionStart: start, selectionEnd: end, value } = this.element
+    const { selectionStart: start, selectionEnd: end, value } = this.inputTarget
     const href = event.clipboardData?.getData("text/plain").trim()
     const label = value.slice(start, end)
     if (!label || !LINK_URL.test(href) || /\s/.test(href) || LINK_URL.test(label.trim())) return
@@ -138,8 +190,8 @@ export default class extends Controller {
   // insertText keeps the edit on the browser's undo stack and fires input.
   insertText(text) {
     if (document.execCommand("insertText", false, text)) return
-    this.element.setRangeText(text, this.element.selectionStart, this.element.selectionEnd, "end")
-    this.element.dispatchEvent(new Event("input", { bubbles: true }))
+    this.inputTarget.setRangeText(text, this.inputTarget.selectionStart, this.inputTarget.selectionEnd, "end")
+    this.inputTarget.dispatchEvent(new Event("input", { bubbles: true }))
   }
 
   handleInput(_event) {
@@ -165,7 +217,7 @@ export default class extends Controller {
   }
 
   detectMentionTrigger() {
-    const ta = this.element
+    const ta = this.inputTarget
     const caret = ta.selectionStart
     if (caret !== ta.selectionEnd) return null
     const value = ta.value
@@ -223,7 +275,7 @@ export default class extends Controller {
       this._picker.className = "mention-picker"
       this._picker.setAttribute("role", "listbox")
       // A nested top-layer picker can extend beyond the glass window.
-      const host = this.element.closest(".comment-window") || document.body
+      const host = this.inputTarget.closest(".comment-window") || document.body
       host.appendChild(this._picker)
       if (host !== document.body) {
         this._picker.setAttribute("popover", "manual")
@@ -297,7 +349,7 @@ export default class extends Controller {
 
   positionPicker() {
     if (!this._picker) return
-    const rect = this.element.getBoundingClientRect()
+    const rect = this.inputTarget.getBoundingClientRect()
     const fixed = this._picker.hasAttribute("popover")
     const top = Math.max(12, Math.min(rect.bottom + 4, window.innerHeight - this._picker.offsetHeight - 12))
     this._picker.style.top = `${fixed ? top : window.scrollY + top}px`
@@ -310,7 +362,7 @@ export default class extends Controller {
       this.closePicker()
       return
     }
-    const ta = this.element
+    const ta = this.inputTarget
     const caret = ta.selectionStart
     const before = ta.value.slice(0, this._triggerStart)
     const after = ta.value.slice(caret)
@@ -343,7 +395,7 @@ export default class extends Controller {
   handleDocumentClick(event) {
     if (!this._picker) return
     if (this._picker.contains(event.target)) return
-    if (event.target === this.element) return
+    if (event.target === this.inputTarget) return
     this.closePicker()
   }
 }
