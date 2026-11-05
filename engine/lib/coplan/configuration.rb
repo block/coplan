@@ -37,6 +37,13 @@ module CoPlan
     attr_accessor :agent_setup_install_command
     # Suggestions for the document editor; arbitrary existing fence info stays valid.
     attr_accessor :editor_code_languages
+
+    # How agents install a skill they don't have, shown in the agent guide
+    # where rendered diagrams name the skill that edits them (see
+    # CoPlan::RenderedDiagrams). Write `<skill>` where the name goes, e.g.
+    # "sq agents skills add <skill>". When nil, the guide tells agents to
+    # look in their own skill marketplace.
+    attr_accessor :skill_install_command
     attr_accessor :seed_plan_types
 
     # Path to the partial rendered as the public landing page at "/welcome"
@@ -179,6 +186,7 @@ module CoPlan
       @onboarding_banner = 'Want to upload Agentic plans? Give your agent <a href="/agent-instructions">these instructions</a>.'
       @agent_curl_prefix = 'curl -s -H "Authorization: Bearer $TOKEN"'
       @editor_code_languages = %w[text ruby javascript typescript python sql json yaml bash html css go java rust mermaid]
+      @skill_install_command = nil
       @seed_plan_types = []
       @wake_url_policy = nil
       @landing_page_partial = "coplan/welcome/default_landing"

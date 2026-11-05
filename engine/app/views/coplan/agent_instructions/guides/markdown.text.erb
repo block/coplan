@@ -89,6 +89,33 @@ flowchart LR
 
 Use a diagram for architecture, data flow, sequences, or state. Do not use a diagram when a short list says the same thing. Readers can comment on a node or an edge of a diagram, and on a cell of a table.
 
+## Rendered diagrams
+
+When Mermaid can't draw what you need, draw the diagram with an agent skill that renders images, such as `draw-diagram`. Keep the diagram's source in the plan, in a fence named for the skill, with the image you rendered from it in the braces after the name:
+
+````markdown
+```draw-diagram {image="/rails/active_storage/blobs/redirect/…/flow.png" alt="Requests flow from the client to the database" lang=javascript}
+…the whole render.mjs…
+```
+````
+
+- CoPlan shows the image. Readers can open the source under it.
+- `image` is required. Use the `url` from uploading the image as an attachment (see Images and attachments below). `alt` describes the image.
+- Optional: `width` is a display width in pixels. `lang` is the language the source is written in, for highlighting. `skill` names the skill when it isn't the fence name. `skill-source` is an https link to the skill.
+- Put the whole source in the fence, so another agent can render it again from the plan alone.
+- Write notes for the next person who edits the diagram as comments in the source.
+- A fence without `image` is an ordinary code block.
+
+### Changing a rendered diagram
+
+1. Only the plan's author and their agents can upload images. If you are not one of them, comment with the change and the new source. Do not edit the fence.
+2. Use the skill that the diagram names: its `skill`, or else the fence name. Look in your installed skills first, then <% if (command = CoPlan.configuration.skill_install_command.presence) %>install it with `<%= command %>`<% else %>in your agent's skill marketplace<% end %>. If you can't get the skill, comment with the change you suggest.
+3. Read the source and its comments. If you didn't write it, it is someone else's program. Render it the way the skill says to render diagrams you didn't write. If the skill says nothing about that, do not run a source that does anything except draw; tell your principal.
+4. Edit the source and render it with the skill. Look at the image before you upload it.
+5. Upload the image: `<%= @curl %> -X POST -F "file=@./diagram.png" "<%= @base %>/api/v1/plans/$PLAN_ID/attachments" | jq -r .url`.
+6. Edit the plan. Put the new source in the fence and the new `url` in `image`, in the same edit. If the source changes and the image doesn't, CoPlan marks the image as out of date.
+7. Delete the old attachment.
+
 ## Code blocks
 
 Always put a language tag on a code fence. CoPlan highlights the syntax with highlight.js and accepts any language name that highlight.js supports. Use the canonical names: `ruby`, `python`, `javascript`, `typescript`, `go`, `java`, `kotlin`, `swift`, `rust`, `c`, `cpp`, `csharp`, `sql`, `json`, `yaml`, `xml` (also for HTML), `css`, `graphql`, `protobuf`, `bash` (scripts), `shell` (terminal sessions with `$` prompts), `diff`, `http`. Use `plaintext` for logs. Do not invent tags: CoPlan shows an unknown tag as plain text.
@@ -144,4 +171,4 @@ When a paragraph starts with an image, text in that paragraph wraps beside it fr
 - The maximum size is 25 MB per file. Allowed types are PNG, JPEG, GIF, WebP, PDF, TXT, MD, CSV, JSON, and ZIP. CoPlan returns `422` for other files.
 - Only the plan author can upload or delete attachments. Any reader can list and download them.
 - List the attachments: `GET <%= @base %>/api/v1/plans/$PLAN_ID/attachments`. Delete one: `DELETE <%= @base %>/api/v1/plans/$PLAN_ID/attachments/$ATTACHMENT_ID`.
-- If a Mermaid diagram can show the content, use Mermaid instead of an image. A person can edit Mermaid; nobody can edit an image of a diagram.
+- If a Mermaid diagram can show the content, use Mermaid instead of an image. A person can edit Mermaid. For a diagram you render yourself, use a rendered diagram so its source stays in the plan.

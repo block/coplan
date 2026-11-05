@@ -83,6 +83,9 @@ module CoPlan
       { key: "class-model", author: "hampton", type: "Design Doc", title: "Class diagram: delivery adapters",
         tags: %w[demo diagrams], visibility: "published", folder: "Demo content/Diagrams", group: "Diagrams",
         showcase: "Mermaid class diagram; whole-diagram commenting" },
+      { key: "rendered-diagram", author: "hampton", type: "Design Doc", title: "Rendered diagram: an image that keeps its source",
+        tags: %w[demo diagrams images], visibility: "published", folder: "Demo content/Diagrams", group: "Diagrams",
+        showcase: "A draw-diagram fence: render.mjs source inline, the rendered PNG as its image, the skill that edits it" },
       { key: "single-slide", author: "hampton", type: "Presentation", title: "One slide: the workspace launch decision",
         tags: %w[demo slides], visibility: "published", folder: "Demo content/Presentations", group: "Presentations",
         showcase: "One-slide presentation with speaker notes" },
@@ -275,6 +278,7 @@ module CoPlan
       raise ArgumentError, "Demo base URL must be an http(s) URL without a query or fragment" unless %w[http https].include?(uri.scheme) && uri.host && !uri.query && !uri.fragment
 
       puts "Seeding reusable development data..."
+      @rendered_diagram_blob = nil
       catalog = ActiveRecord::Base.transaction do
         CoPlan::Engine.load_seed
         users = seed_users
@@ -285,6 +289,7 @@ module CoPlan
         seed_renamed_folder(users)
         plans = seed_documents(users, plan_types)
         seed_bundled_images(plans)
+        seed_rendered_diagram(plans)
         seed_retitled_document(plans)
         seed_folder_descriptions(users)
         seed_collaboration_showcase(users, plans, base_url: base_url)
@@ -747,6 +752,8 @@ module CoPlan
       key = definition[:fixture] || definition.fetch(:key)
       content = File.read(File.join(CONTENT_ROOT, "#{key}.md"))
       content = content.gsub("{{demo_logo_url}}") { demo_logo_url }
+      content = content.gsub("{{rendered_diagram_url}}") { rendered_diagram_url }
+      content = content.gsub("{{rendered_diagram_source}}") { File.read(File.join(RENDERED_DIAGRAM_ROOT, "render.mjs")).chomp }
       content = "# #{definition.fetch(:title)}\n\n#{content}"
       if %i[slideshow_deck pattern_showcase].include?(definition[:fixture])
         "::: {.presentation}\n\n#{content}\n\n:::"
@@ -757,6 +764,29 @@ module CoPlan
 
     def demo_logo_url
       ActionController::Base.helpers.asset_path("coplan/demo-logo.png")
+    end
+
+    RENDERED_DIAGRAM_ROOT = File.join(CONTENT_ROOT, "rendered-diagram")
+
+    # The document embeds the image by its blob URL, so the blob exists
+    # before the document does. Only a run that just created the document
+    # uploads it; re-seeding leaves the attachment as it is.
+    def rendered_diagram_url
+      @rendered_diagram_blob ||= File.open(File.join(RENDERED_DIAGRAM_ROOT, "rendered-diagram.png")) do |io|
+        ActiveStorage::Blob.create_and_upload!(io: io, filename: "rendered-diagram.png", content_type: "image/png")
+      end
+      Rails.application.routes.url_helpers.rails_blob_path(@rendered_diagram_blob, only_path: true)
+    end
+
+    def seed_rendered_diagram(plans)
+      blob = @rendered_diagram_blob
+      return unless blob
+      @rendered_diagram_blob = nil
+
+      plan = plans.fetch("rendered-diagram")
+      author = plan.created_by_user
+      blob.update!(metadata: blob.metadata.merge("uploaded_by_id" => author.id, "uploaded_by_name" => author.name))
+      plan.attachments.attach(blob)
     end
 
     def seed_bundled_images(plans)

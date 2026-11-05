@@ -17,7 +17,7 @@ module CoPlan
       section
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title width target rel type start checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-reference-type data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
+    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title width target rel type start checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-reference-type data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx data-meta].freeze
 
     # Commonmarker extensions beyond the gem defaults (tables, tasklist,
     # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
@@ -35,7 +35,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 23
+    RENDER_CACHE_VERSION = 25
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -62,7 +62,9 @@ module CoPlan
     # diagrams and tables use. Follows data_tables by default, so decks opt
     # out of both together.
     def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, expandable_images: data_tables, source_comments: false, retain_sourcepos: false)
-      render_options = { unsafe: true }
+      # Full info strings put a fence's `{…}` attributes in data-meta, which
+      # rendered diagrams read.
+      render_options = { unsafe: true, full_info_string: true }
       # Sourcepos wires checkboxes and structural comment targets to source;
       # it is stripped after generating trusted interaction metadata.
       render_options[:sourcepos] = true if interactive || content.to_s.include?(ContentRegions::Iframe::PREFIX)
@@ -71,6 +73,7 @@ module CoPlan
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       sanitized = render_iframe_blocks(sanitized, content.to_s)
+      sanitized = render_rendered_diagrams(sanitized)
       result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments, retain_sourcepos: retain_sourcepos) : sanitized
       unless interactive
         fragment = Nokogiri::HTML::DocumentFragment.parse(result)
@@ -170,6 +173,25 @@ module CoPlan
       source = ContentRegions::Split.call(source).canonical_source if source.include?("::: {.presentation")
       html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
       Nokogiri::HTML::DocumentFragment.parse(html).text.squish
+    end
+
+    # Flags rendered diagrams whose source changed after their image was
+    # rendered (RenderedDiagrams.stale_images). Separate from rendering
+    # because it depends on the plan's history, not just its content.
+    def mark_stale_rendered_diagrams(html, images)
+      return html if images.empty?
+
+      doc = Nokogiri::HTML::DocumentFragment.parse(html.to_s)
+      doc.css("figure.rendered-diagram").each do |figure|
+        next unless images.include?(figure.at_css("img")&.[]("src"))
+
+        figure.add_class("rendered-diagram--stale")
+        message = "Source changed since this image was rendered"
+        figure.at_css(".rendered-diagram__footer")&.add_previous_sibling(
+          doc.document.create_element("span", class: "rendered-diagram__stale", role: "note",
+            "data-label" => message, "aria-label" => message))
+      end
+      doc.to_html.html_safe
     end
 
     private
@@ -330,6 +352,50 @@ module CoPlan
         end
       end
 
+      doc.to_html
+    end
+
+    # Shows a rendered-diagram fence (see RenderedDiagrams) as its image,
+    # with the source folded underneath. Runs after sanitization because it
+    # writes the figure itself; the image URL is checked by
+    # RenderedDiagrams.parse_info instead. Labels come from data-label via
+    # CSS, so the rendered text — which comment anchors count — stays exactly
+    # the document's text.
+    def render_rendered_diagrams(html)
+      return html unless html.include?("data-meta")
+
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      doc.css("pre[data-meta]").each do |pre|
+        info = RenderedDiagrams.parse_info("#{pre["lang"]} #{pre["data-meta"]}")
+        pre.remove_attribute("data-meta")
+        next unless info
+
+        figure = doc.document.create_element("figure", class: "rendered-diagram", "data-renderer" => info[:renderer])
+        image = doc.document.create_element("img", src: info[:image], alt: info[:alt])
+        image["width"] = info[:width] if info[:width]
+        footer = doc.document.create_element("div", class: "rendered-diagram__footer")
+        details = doc.document.create_element("details", class: "rendered-diagram__source")
+        details.add_child(doc.document.create_element("summary", class: "rendered-diagram__summary",
+          "data-label" => "Source · #{info[:renderer]}", "aria-label" => "#{info[:renderer]} source"))
+        footer.add_child(details)
+        # The skill that edits and renders it: its own page when the fence
+        # says where, otherwise the guide that explains rendered diagrams.
+        # Outside the details, so it shows while the source is folded.
+        href = info[:skill_source]
+        href ||= agent_instructions_guide_path(guide: "markdown", anchor: "rendered-diagrams") if respond_to?(:agent_instructions_guide_path)
+        skill = doc.document.create_element(href ? "a" : "span", class: "rendered-diagram__skill",
+          "data-label" => "Skill: #{info[:skill]}", "aria-label" => "Edited with the #{info[:skill]} skill")
+        if href
+          skill["href"] = href
+          skill["target"], skill["rel"] = "_blank", "noopener noreferrer" if info[:skill_source]
+        end
+        footer.add_child(skill)
+        info[:lang] ? pre["lang"] = info[:lang] : pre.remove_attribute("lang")
+        pre.add_previous_sibling(figure)
+        figure.add_child(image)
+        figure.add_child(footer)
+        details.add_child(pre)
+      end
       doc.to_html
     end
 

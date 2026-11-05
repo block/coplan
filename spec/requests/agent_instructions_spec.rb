@@ -5,6 +5,26 @@ RSpec.describe "Agent Instructions", type: :request do
   # not determine their fixtures or the order in which they pass.
   before { CoPlan::PlanType.delete_all }
 
+  describe "rendered diagrams in the markdown guide" do
+    it "tells agents to change a diagram with the skill it names, safely" do
+      get "/agent-instructions/markdown"
+
+      expect(response.body).to include("## Rendered diagrams", "### Changing a rendered diagram",
+        "comments in the source", "Only the plan's author and their agents can upload images",
+        "someone else's program", "in your agent's skill marketplace",
+        %(-F "file=@./diagram.png" "http://www.example.com/api/v1/plans/$PLAN_ID/attachments" | jq -r .url))
+    end
+
+    it "shows the host's command for installing a skill" do
+      CoPlan.configuration.skill_install_command = "sq agents skills add <skill>"
+      get "/agent-instructions/markdown"
+
+      expect(response.body).to include("then install it with `sq agents skills add <skill>`")
+    ensure
+      CoPlan.configuration.skill_install_command = nil
+    end
+  end
+
   describe "GET /agent-instructions" do
     it "returns markdown content" do
       get agent_instructions_path

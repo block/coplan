@@ -301,6 +301,7 @@ module CoPlan
       def nonprose?(node)
         return true if %i[image footnote_definition].include?(node.type)
         return true if node.type == :code_block && node.fence_info.to_s.split.first == "mermaid"
+        return true if node.type == :code_block && RenderedDiagrams.parse_info(node.fence_info)
         return false unless node.type == :paragraph
 
         pos = node.source_position

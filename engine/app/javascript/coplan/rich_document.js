@@ -1476,7 +1476,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     stopEvent: () => true, ignoreMutation: () => true, destroy() { generation++ } }
 }
 function codeNodeView(initial, view, getPos, preview, sourceRangeAt) {
-  let node = initial, generation = 0, timer
+  let node = initial, generation = 0, timer, previewedParams = null
   const { dom, header, title, edit } = blockChrome(getPos, "Code")
   dom.classList.add("document-editor__code-window")
   const controls = document.createElement("div"); controls.className = "document-editor__window-controls"
@@ -1496,17 +1496,29 @@ function codeNodeView(initial, view, getPos, preview, sourceRangeAt) {
   const diagram = document.createElement("div"); diagram.className = "document-editor__block-preview"; diagram.contentEditable = "false"; dom.append(diagram)
   const render = (languageChanged = true) => {
     if (languageChanged && language.value !== (node.attrs.params || "")) language.value = node.attrs.params || ""
-    const sequence = ++generation, mermaid = node.attrs.params?.trim().split(/\s+/)[0] === "mermaid"
+    const params = node.attrs.params?.trim() || "", mermaid = params.split(/\s+/)[0] === "mermaid"
+    // A rendered diagram (`name {image="…"}`, see RenderedDiagrams) previews
+    // its image. That depends only on the fence's attributes, so the source
+    // isn't sent and typing in it doesn't fetch again.
+    const rendered = !mermaid && /^[A-Za-z0-9_+-]+\s+\{.*\bimage=/.test(params), previewed = mermaid || rendered
+    if (rendered && params === previewedParams) return
+    previewedParams = null
+    const sequence = ++generation
     clearTimeout(timer)
     edit.hidden = true
-    diagram.hidden = !mermaid
-    if (!mermaid) { diagram.replaceChildren(); return }
+    diagram.hidden = !previewed
+    if (!previewed) { diagram.replaceChildren(); return }
     if (!preview) return
     timer = setTimeout(async () => {
       try {
-        const html = await preview(defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node)))
-        if (sequence === generation) { diagram.innerHTML = html; previewSettled(diagram, view, getPos, sourceRangeAt) }
-      } catch { if (sequence === generation) diagram.textContent = "Preview unavailable. Your Mermaid source is retained." }
+        const block = rendered ? node.type.create(node.attrs) : node
+        const html = await preview(defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, block)))
+        if (sequence !== generation) return
+        // The server decides what is a rendered diagram; anything else has no preview.
+        if (rendered) previewedParams = params
+        if (rendered && !html.includes("rendered-diagram")) { diagram.replaceChildren(); return }
+        diagram.innerHTML = html; previewSettled(diagram, view, getPos, sourceRangeAt)
+      } catch { if (sequence === generation) { previewedParams = null; diagram.textContent = mermaid ? "Preview unavailable. Your Mermaid source is retained." : "Preview unavailable. Your source is retained." } }
     }, 250)
   }
   render()

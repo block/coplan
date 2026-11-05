@@ -184,6 +184,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       specification = Gem::Specification.load(CoPlan::Engine.root.join("coplan.gemspec").to_s)
       expect(specification.files).to include("lib/coplan/development_seed.rb")
       expect(specification.files).to include("app/assets/images/coplan/demo-logo.png")
+      expect(specification.files).to include("db/demo/content/rendered-diagram/rendered-diagram.png", "db/demo/content/rendered-diagram/render.mjs")
       described_class::DOCUMENTS.each do |definition|
         key = definition[:fixture] || definition.fetch(:key)
         expect(specification.files).to include("db/demo/content/#{key}.md")
@@ -262,6 +263,23 @@ RSpec.describe CoPlan::DevelopmentSeed do
         base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
       described_class.call
       expect(plan.reload.current_content).to eq(resized)
+    end
+
+    it "seeds a rendered diagram whose source is inline and whose image is attached once" do
+      described_class.call
+      plan = seeded_plan("rendered-diagram")
+      attachment = plan.attachments_attachments.sole
+      expect(attachment.blob.filename.to_s).to eq("rendered-diagram.png")
+      expect(attachment.blob.metadata["uploaded_by_name"]).to eq("Hampton")
+      block = CoPlan::RenderedDiagrams.blocks(plan.current_content).sole
+      expect(block.renderer).to eq("draw-diagram")
+      expect(block.image).to eq(Rails.application.routes.url_helpers.rails_blob_path(attachment.blob, only_path: true))
+      expect(block).to have_attributes(lang: "javascript", skill: "draw-diagram")
+      expect(block.source).to include("new Diagram", "d.save(", "Notes for the next editor")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+
+      expect { described_class.call }.not_to change(ActiveStorage::Blob, :count)
+      expect(plan.reload.current_revision).to eq(1)
     end
 
     it "upgrades only untouched host image URLs and preserves edited image examples" do
