@@ -60,6 +60,7 @@ RSpec.describe "Viewer stack in the sticky nav", type: :system do
   end
 
   it "hides the scrolled stack at 900px and restores it at 901px without navigation" do
+    original_size = page.current_window.size
     page.current_window.resize_to(901, 900)
     expect(page.evaluate_script("window.innerWidth")).to eq(901)
     page.execute_script("window.scrollTo(0, document.body.scrollHeight)")
@@ -75,6 +76,8 @@ RSpec.describe "Viewer stack in the sticky nav", type: :system do
 
     page.current_window.resize_to(901, 900)
     expect(page).to have_css("#plan-nav-viewers .plan-viewers__avatar", text: "AM", visible: true)
+  ensure
+    page.current_window.resize_to(*original_size) if original_size
   end
 
   it "shows at most four avatars and an overflow count" do
