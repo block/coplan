@@ -6,7 +6,6 @@ module CoPlan
       def self.call
         Plan.find_each do |plan|
           plan.with_lock do
-            next unless plan.current_plan_version
             content = DocumentTitle.call(plan.current_content, fallback: plan.title, override: true)
             next if content == plan.current_content
 

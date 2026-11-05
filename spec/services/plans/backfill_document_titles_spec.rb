@@ -22,6 +22,17 @@ RSpec.describe CoPlan::Plans::BackfillDocumentTitles do
     expect { described_class.call }.not_to change(CoPlan::PlanVersion, :count)
   end
 
+  it "gives a legacy plan without a current version its first titled content" do
+    plan = CoPlan::Plan.create!(title: "Legacy skeleton", created_by_user: create(:coplan_user))
+    path = plan.url_path
+    described_class.call
+    expect(plan.reload.current_content).to eq("# Legacy skeleton\n\n")
+    expect(plan.current_revision).to eq(1)
+    expect(plan.current_plan_version.actor_type).to eq("system")
+    expect(plan.url_path).to eq(path)
+    expect { described_class.call }.not_to change(CoPlan::PlanVersion, :count)
+  end
+
   it "respects leases and resumes after the lease is released" do
     plan = legacy_plan("Body")
     CoPlan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: plan.created_by_user_id, lease_token: "migration-test")
