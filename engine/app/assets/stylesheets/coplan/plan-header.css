@@ -23,7 +23,7 @@
   justify-content: space-between;
   gap: var(--space-sm) var(--space-lg);
   flex-wrap: wrap;
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
 }
 
 .plan-masthead__side {
@@ -219,7 +219,6 @@
 
 @media (max-width: 640px) {
   .plan-title {
-    margin-bottom: var(--space-lg);
     font-size: var(--plan-title-size-narrow, 1.75rem);
   }
 }
