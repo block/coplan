@@ -177,6 +177,7 @@ Agents learn CoPlan only from the served instructions, not from this repo. A cha
 
 ## Code Review
 
+- Agents assigned to maintain PRs follow [PR stewardship](docs/PR_STEWARDSHIP.md), including automated reviews, conflict resolution, current-head CI, and public cleanup summaries before and after Hampton's review.
 - Run the `code-review` skill before considering a session complete
 - Address all feedback until the review passes
 

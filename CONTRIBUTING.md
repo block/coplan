@@ -35,3 +35,10 @@ API or command-line work, provide an equivalent runnable example.
 ## Pull request description
 
 Use the [pull request template](.github/PULL_REQUEST_TEMPLATE.md). Explain what changed and why, link the relevant issue or plan, describe the specs and manual checks you ran, provide a tryout path, and attach the visual evidence. Mention any limitations or follow-up work that reviewers need to know about.
+
+## Maintainer review process
+
+Hampton ([@HamptonMakes](https://github.com/HamptonMakes)) makes CoPlan's final
+product and acceptance decisions. Assigned maintenance agents follow the
+[PR stewardship process](docs/PR_STEWARDSHIP.md) to prepare changes for his review,
+address feedback, keep CI and mergeability current, and document revisions on GitHub.
