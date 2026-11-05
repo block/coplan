@@ -1,11 +1,11 @@
 # PR stewardship
 
-CoPlan's maintainer is Hampton, [@HamptonMakes on GitHub](https://github.com/HamptonMakes).
+Coplan's maintainer is Hampton, [@HamptonMakes on GitHub](https://github.com/HamptonMakes).
 He makes the final product and acceptance decisions. Agents handle routine
 engineering preparation so his review can focus on whether the feature belongs
-in CoPlan and feels right to use. Apply the same quality bar to every contributor.
+in Coplan and feels right to use. Apply the same quality bar to every contributor.
 
-This is the workflow for agents assigned to help maintain CoPlan PRs. It is not
+This is the workflow for agents assigned to help maintain Coplan PRs. It is not
 a requirement that every outside contributor run an agent or host a local server.
 Follow [the contribution guide](../CONTRIBUTING.md), [agent guidelines](../AGENTS.md),
 and [design guidance](DESIGN.md). Favor correctness, native-feeling interactions,

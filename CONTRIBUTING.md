@@ -1,6 +1,6 @@
-# Contributing to CoPlan
+# Contributing to Coplan
 
-Thanks for helping improve CoPlan. Keep pull requests focused and make it easy for reviewers to see the behavior that changed.
+Thanks for helping improve Coplan. Keep pull requests focused and make it easy for reviewers to see the behavior that changed.
 
 ## Before opening a pull request
 
@@ -38,7 +38,7 @@ Use the [pull request template](.github/PULL_REQUEST_TEMPLATE.md). Explain what 
 
 ## Maintainer review process
 
-Hampton ([@HamptonMakes](https://github.com/HamptonMakes)) makes CoPlan's final
+Hampton ([@HamptonMakes](https://github.com/HamptonMakes)) makes Coplan's final
 product and acceptance decisions. Assigned maintenance agents follow the
 [PR stewardship process](docs/PR_STEWARDSHIP.md) to prepare changes for his review,
 address feedback, keep CI and mergeability current, and document revisions on GitHub.
