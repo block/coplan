@@ -307,12 +307,12 @@ module CoPlan
           render json: threads.map { |t| thread_json(t) }
         end
 
-        # Drafts are readable by URL but never listed, so the index can't
-        # turn a link to one into an id. This walks the address the same way
-        # the reader does, stale aliases included.
+        # Other people's drafts are readable by URL but omitted from the
+        # index. Resolve their addresses with the reader's access policy,
+        # including aliases for moved and renamed plans.
         def resolve
-          plan_id = Reference.extract_target_plan_id(params[:url].to_s)
-          plan = plan_id && Plan.find_by(id: plan_id)
+          plan = Urls::ResolvePlan.call(url: params[:url],
+            bases: [ root_url, "#{request.base_url}#{root_path}" ])
           unless plan && PlanPolicy.new(current_user, plan).show?
             return render json: { error: "Plan not found" }, status: :not_found
           end

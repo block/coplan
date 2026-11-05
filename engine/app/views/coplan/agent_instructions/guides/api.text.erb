@@ -33,6 +33,7 @@ return 429. Invalid names return 422 with `invalid_request`.
 |---|---|---|
 | `GET /api/v1/plans` | List the plans that you can see. Filters: `?visibility=draft\|published`, `?archived=true`, `?folder_id=`. | primer |
 | `POST /api/v1/plans` | Create a plan. | creating |
+| `GET /api/v1/plans/resolve?url=<encoded URL>` | Resolve a readable or legacy plan URL, including moved or renamed addresses. Returns one list entry, including private or archived plans readable by link. Use an absolute HTTP(S) URL on this API origin or the configured browser origin, including the engine mount prefix. Query and fragment are ignored. Invalid or unknown addresses return 404 with `{"error":"Plan not found"}`. This does not record a content read; fetch the plan before editing. | editing |
 | `GET /api/v1/plans/:id` | Get a plan with its content and references. | primer |
 | `GET /api/v1/plans/:id/snapshot` | Get a plan with content, threads, references, collaborators, and review requests. | primer |
 | `GET /api/v1/plans/:id/writing_provenance` | Get writing-origin counts and reported agent identities. `?ranges=1` includes compact source ranges. Older plans can return `202` while history is reconstructed. | editing |
