@@ -54,6 +54,19 @@ RSpec.describe "Plan title on the document", type: :system do
     expect(page).to have_no_css("#plan-content-body h1.section-updated", visible: :all)
   end
 
+  it "acknowledges an opening-section marker even when its block is taller than the viewport" do
+    open_plan("# Opening\n\n#{'Long introductory paragraph. ' * 500}\n\n#{sections}")
+    page.execute_script(<<~JS)
+      const layout = document.querySelector(".plan-layout")
+      layout.setAttribute("data-coplan--changed-sections-keys-value", '["opening"]')
+      window.Stimulus.getControllerForElementAndIdentifier(layout, "coplan--changed-sections").connect()
+    JS
+
+    expect(page).to have_css("p.section-updated .section-update-marker")
+    expect(page.evaluate_script("document.querySelector('p.section-updated').getBoundingClientRect().height > window.innerHeight")).to be(true)
+    expect(page).to have_css("p.section-updated--viewed", wait: 6)
+  end
+
   it "keeps a later H1 visible" do
     open_plan("Intro paragraph.\n\n# A real heading\n\n#{sections}")
 

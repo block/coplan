@@ -36,8 +36,6 @@ export default class extends Controller {
   disconnect() {
     this._observer?.disconnect()
     this._mutation?.disconnect()
-    // Stimulus reuses this instance if the element reconnects; forget the
-    // anchor so connect() observes it again.
     this._anchor = null
     this._setVisible(false)
   }
