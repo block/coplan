@@ -93,14 +93,14 @@
 
   /* The document has no card: its text sits on the page, lined up with the
      header above it. On phones the update dot's hit area moves into the
-     page's side margin (--space-md) instead of indenting the text. */
+     page's 24px side margin instead of indenting the text. */
   --document-bg: var(--color-bg);
   --document-border: 0;
   --document-radius: 0;
   --document-shadow: none;
   --document-padding: var(--space-sm) 0;
   --document-padding-narrow: var(--space-sm) 0;
-  --update-marker-offset-narrow: var(--space-md);
+  --document-page-padding-narrow: var(--space-lg);
 
   /* Plan title, set like the document's headings. It stays a step above
      the document's H1 (the shared 1.5rem) on phones too. */

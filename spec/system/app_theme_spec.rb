@@ -189,6 +189,27 @@ RSpec.describe "App themes", type: :system do
     Timeout.timeout(5) { sleep 0.1 until user.reload.app_theme == "default" }
   end
 
+  it "keeps mode and theme controls finger-sized on touch screens" do
+    page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 390, height: 844, deviceScaleFactor: 1, mobile: true)
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: true, maxTouchPoints: 1)
+    visit settings_root_path
+    expect(page.evaluate_script("matchMedia('(pointer: coarse)').matches")).to be true
+    find(".site-nav__appearance-btn").click
+    %w[Classic Neutral].each do |theme|
+      within("#appearance-menu") { find(".appearance-menu__theme", text: theme).click }
+      %w[Light Dark].each do |mode|
+        within("#appearance-menu") { find(".segmented__option", exact_text: mode).click }
+        expect(page).to have_css("html[data-theme='#{mode.downcase}']")
+        expect(page.evaluate_script(<<~JS)).to be true
+          Array.from(document.querySelectorAll('.segmented__btn')).every(button => button.getBoundingClientRect().height >= 44)
+        JS
+      end
+    end
+  ensure
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: false)
+    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
+  end
+
   it "saves picks from Settings and the bar's menu in the order they were made" do
     visit settings_root_path
     page.execute_script(<<~JS)

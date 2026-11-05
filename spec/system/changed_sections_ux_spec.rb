@@ -220,6 +220,7 @@ RSpec.describe "Updated section signposts", type: :system do
         visit plan_page_path(plan)
         page.execute_script("document.documentElement.dataset.theme = '#{theme}'")
         find("#design .section-update-marker").hover
+        find("#design .section-update-marker").send_keys(:tab, [ :shift, :tab ])
         expect(page.evaluate_script(<<~JS)).to be true
           (() => {
             const card = document.querySelector('.plan-document').getBoundingClientRect()
@@ -227,9 +228,13 @@ RSpec.describe "Updated section signposts", type: :system do
             const target = marker.getBoundingClientRect()
             const placed = #{app_theme == "neutral"}
               ? target.left >= 0 && target.width >= 22 &&
+                target.right <= document.querySelector('#design').getBoundingClientRect().left &&
+                Math.abs(document.querySelector('.plan-masthead').getBoundingClientRect().left - card.left) < 1 &&
                 Math.abs(document.querySelector('#design').getBoundingClientRect().left - card.left) < 1
               : target.left > card.left && target.right < card.right
-            return placed &&
+            const ring = getComputedStyle(marker)
+            const outside = Math.max(0, parseFloat(ring.outlineOffset) + parseFloat(ring.outlineWidth))
+            return placed && marker.matches(':focus-visible') && target.left - outside >= 0 &&
               getComputedStyle(marker, '::after').visibility === 'visible' &&
               document.documentElement.scrollWidth <= window.innerWidth
           })()

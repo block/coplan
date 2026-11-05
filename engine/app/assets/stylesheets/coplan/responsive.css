@@ -184,10 +184,15 @@
     padding: var(--document-padding-narrow, var(--space-lg));
   }
 
-  /* A theme without the card's side padding moves the dot into the page
-     margin, so its hit area stays on screen. */
-  .section-update-marker {
-    left: calc(-1 * var(--update-marker-offset-narrow, 23px));
+  /* Cardless documents need room for the full update target in the page
+     margin. Move the masthead and body together to retain their alignment. */
+  .main-content:has(.plan-document) {
+    padding-inline: var(--document-page-padding-narrow, var(--space-md));
+  }
+
+  .section-update-marker:focus-visible {
+    /* Keep the ring within the target near the viewport edge. */
+    outline-offset: -2px;
   }
 
 
