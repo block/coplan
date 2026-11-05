@@ -56,6 +56,8 @@ RSpec.describe "Toggle Checkbox", type: :request do
     it "attributes repeated checkbox selections to the person while retaining the agent's task text" do
       agent_plan = CoPlan::Plans::Create.call(title: "Agent tasks", content: "- [ ] Ship 😀\n", user: user, actor_type: "local_agent")
       5.times do |index|
+        actor = index < 2 ? user : other_user
+        sign_in_as(actor)
         checked = index.even?
         patch toggle_checkbox_plan_path(agent_plan), params: {
           old_text: checked ? "- [ ] Ship 😀" : "- [x] Ship 😀",
@@ -66,11 +68,9 @@ RSpec.describe "Toggle Checkbox", type: :request do
         snapshot = agent_plan.reload.current_plan_version.writing_provenance
         expect(snapshot.dig("summary", "counts", "unknown")).to eq(0)
         expect(snapshot.dig("summary", "counts", "ai")).to eq(8)
-        if checked
-          source = snapshot.fetch("sources").values.find { |entry| entry["kind"] == "human" }
-          expect(source).to include("user_id" => user.id, "origin_revision" => agent_plan.current_revision)
-          expect(snapshot.dig("summary", "counts", "human")).to eq(1)
-        end
+        marker_key = CoPlan::Plans::WritingProvenance.slice(snapshot.fetch("runs"), 3, 4).first.last
+        expect(snapshot.fetch("sources").fetch(marker_key)).to include("kind" => "human", "user_id" => actor.id, "origin_revision" => agent_plan.current_revision)
+        expect(snapshot.dig("summary", "counts", "human")).to eq(checked ? 1 : 0)
       end
     end
 

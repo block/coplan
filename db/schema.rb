@@ -525,6 +525,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
 
   create_table "coplan_users", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.boolean "admin", default: false, null: false
+    t.string "app_theme", default: "default", null: false
     t.string "avatar_url"
     t.datetime "created_at", null: false
     t.string "email"

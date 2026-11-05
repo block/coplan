@@ -7,6 +7,7 @@ module CoPlan
         @web_push_subscriptions = current_user.web_push_subscriptions.order(created_at: :desc)
       end
 
+      # Saves the light/dark mode (docs/THEMES.md).
       def update_theme
         theme = params[:theme]
         if CoPlan::User::THEME_PREFERENCES.include?(theme)
@@ -14,6 +15,18 @@ module CoPlan
           current_user.save!
         end
         head :ok
+      end
+
+      # Saves the app theme (docs/THEMES.md).
+      def update_app_theme
+        app_theme = params[:app_theme]
+        if CoPlan::User::APP_THEMES.include?(app_theme)
+          current_user.app_theme = app_theme
+          current_user.save!
+          head :ok
+        else
+          head :unprocessable_content
+        end
       end
 
       def update_voice_hotkey
