@@ -48,13 +48,13 @@ This command sends the long-lived token and **replaces `$TOKEN` with the new ses
 
 One call returns `current_content` (Markdown), `current_revision`, `url`, `comment_threads`, `references`, and `collaborators`. The read also records that you saw this revision. You need that record to edit (step 3).
 
-API paths use the plan `id`. If you have a plan URL, find the `id` in the list of plans you can see:
+API paths use the plan `id`. If you have a plan URL, look up its `id`:
 
 ```bash
-<%= @curl %> "<%= @base %>/api/v1/plans" | jq -r --arg url "$PLAN_URL" '.[] | select(.url == $url) | .id'
+<%= @curl %> -G "<%= @base %>/api/v1/plans/resolve" --data-urlencode "url=$PLAN_URL" | jq -r .id
 ```
 
-The list does not include archived plans unless you add `?archived=true`. A private plan is listed only for its author.
+This works for any plan you can open, including private plans and old links to moved plans. The list at `/api/v1/plans` leaves out archived plans unless you add `?archived=true`, and lists a private plan only for its author.
 
 ## 3. Edit a plan
 

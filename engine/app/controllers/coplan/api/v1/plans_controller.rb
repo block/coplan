@@ -307,6 +307,19 @@ module CoPlan
           render json: threads.map { |t| thread_json(t) }
         end
 
+        # Drafts are readable by URL but never listed, so the index can't
+        # turn a link to one into an id. This walks the address the same way
+        # the reader does, stale aliases included.
+        def resolve
+          plan_id = Reference.extract_target_plan_id(params[:url].to_s)
+          plan = plan_id && Plan.find_by(id: plan_id)
+          unless plan && PlanPolicy.new(current_user, plan).show?
+            return render json: { error: "Plan not found" }, status: :not_found
+          end
+
+          render json: plan_json(plan)
+        end
+
         def snapshot
           record_plan_read!(@plan)
           threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)

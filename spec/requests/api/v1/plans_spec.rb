@@ -655,6 +655,57 @@ RSpec.describe "Api::V1::Plans", type: :request do
     end
   end
 
+  describe "GET /api/v1/plans/resolve" do
+    def resolve(url, with: headers)
+      get resolve_api_v1_plans_path, params: { url: url }, headers: with
+    end
+
+    it "finds someone else's private plan, which the index leaves out" do
+      draft = create(:plan, :draft, created_by_user: carol, title: "Webhook integrations")
+
+      get api_v1_plans_path, headers: headers
+      expect(JSON.parse(response.body).map { |p| p["id"] }).not_to include(draft.id)
+
+      resolve("https://coplan.example/#{draft.url_path}")
+
+      expect(response).to have_http_status(:success)
+      body = JSON.parse(response.body)
+      expect(body["id"]).to eq(draft.id)
+      expect(body["visibility"]).to eq("draft")
+    end
+
+    it "follows an old address to a plan that was retitled" do
+      old_path = plan.url_path
+      patch api_v1_plan_path(plan), params: { title: "Acme Roadmap 2027" }, headers: headers, as: :json
+      expect(plan.reload.url_path).not_to eq(old_path)
+
+      resolve("https://coplan.example/#{old_path}")
+
+      expect(response).to have_http_status(:success)
+      expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+    end
+
+    it "accepts the legacy /plans/<id> address" do
+      resolve("https://coplan.example/plans/#{plan.id}")
+
+      expect(response).to have_http_status(:success)
+      expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+    end
+
+    it "returns 404 when the address names no plan" do
+      resolve("https://coplan.example/#{alice.library.handle}/no-such-plan")
+      expect(response).to have_http_status(:not_found)
+
+      resolve("")
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "requires auth" do
+      resolve("https://coplan.example/#{plan.url_path}", with: {})
+      expect(response).to have_http_status(:unauthorized)
+    end
+  end
+
   describe "GET /api/v1/plans/:id/locations" do
     # Still an array — a plan has one location or none, and clients
     # already iterate it.
