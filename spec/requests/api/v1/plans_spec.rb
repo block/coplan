@@ -655,6 +655,170 @@ RSpec.describe "Api::V1::Plans", type: :request do
     end
   end
 
+  describe "GET /api/v1/plans/resolve" do
+    def resolve(url, with: headers, env: {})
+      get "/api/v1/plans/resolve", params: { url: url }, headers: with, env: env
+    end
+
+    it "finds someone else's private plan, which the index leaves out" do
+      draft = create(:plan, :draft, created_by_user: carol, title: "Webhook integrations")
+
+      get api_v1_plans_path, headers: headers
+      expect(JSON.parse(response.body).map { |p| p["id"] }).not_to include(draft.id)
+
+      resolve("http://www.example.com/#{draft.url_path}")
+
+      expect(response).to have_http_status(:success)
+      body = JSON.parse(response.body)
+      expect(body["id"]).to eq(draft.id)
+      expect(body["visibility"]).to eq("draft")
+    end
+
+    it "follows an old address to a plan that was retitled" do
+      old_path = plan.url_path
+      patch api_v1_plan_path(plan), params: { title: "Acme Roadmap 2027" }, headers: headers, as: :json
+      expect(plan.reload.url_path).not_to eq(old_path)
+
+      resolve("http://www.example.com/#{old_path}")
+
+      expect(response).to have_http_status(:success)
+      expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+    end
+
+    it "accepts the legacy /plans/<id> address" do
+      resolve("http://www.example.com/plans/#{plan.id}")
+
+      expect(response).to have_http_status(:success)
+      expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+    end
+
+    it "returns 404 when the address names no plan" do
+      resolve("http://www.example.com/#{alice.library.handle}/no-such-plan")
+      expect(response).to have_http_status(:not_found)
+
+      resolve("")
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "accepts readable and legacy paths without a domain" do
+      [ "/#{plan.url_path}", plan.url_path, "/plans/#{plan.id}" ].each do |path|
+        resolve(path)
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+      end
+      resolve("/coplan/#{plan.url_path}", env: { "SCRIPT_NAME" => "/coplan" })
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+    end
+
+    it "accepts displayed Unicode paths and URLs" do
+      [ "信頼性向上ロードマップ", "خطة المشروع", "incorporación" ].each do |title|
+        document = create(:plan, title: title, created_by_user: alice)
+        [ "/#{document.url_path}", "https://other.example/#{document.url_path}" ].each do |url|
+          resolve(url)
+          expect(response).to have_http_status(:ok)
+          expect(JSON.parse(response.body)["id"]).to eq(document.id)
+        end
+      end
+    end
+
+    it "resolves known plan subpages including stale links" do
+      old_path = plan.url_path
+      patch api_v1_plan_path(plan), params: { title: "Renamed Roadmap" }, headers: headers, as: :json
+      [ old_path, plan.reload.url_path ].each do |path|
+        [ "/edit", "/history", "/history/3", "/history/3/diff", ".md" ].each do |tail|
+          resolve("/#{path}#{tail}")
+          expect(response).to have_http_status(:ok), "#{path}#{tail}"
+          expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+        end
+      end
+    end
+
+    it "preserves plans named history or edit and rejects unknown subpages" do
+      %w[History Edit].each do |title|
+        document = create(:plan, title: title, created_by_user: alice)
+        resolve("/#{document.url_path}")
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)["id"]).to eq(document.id)
+      end
+      resolve("/#{plan.url_path}/history/not-a-revision")
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "follows a renamed library handle" do
+      old_path = plan.url_path
+      alice.library.update!(handle: "renamed-library")
+
+      resolve("http://www.example.com/#{old_path}")
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+    end
+
+    it "resolves readable and legacy URLs within the engine mount" do
+      [ plan.url_path, "plans/#{plan.id}" ].each do |path|
+        resolve("http://www.example.com/coplan/#{path}", env: { "SCRIPT_NAME" => "/coplan" })
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+      end
+    end
+
+    it "rejects addresses outside the engine mount" do
+      [ "http://www.example.com/?next=/plans/#{plan.id}",
+       "http://www.example.com/plans/#{plan.id}/not-a-plan",
+       "http://www.example.com/#{plan.url_path}" ].each do |url|
+        resolve(url, env: { "SCRIPT_NAME" => "/coplan" })
+        expect(response).to have_http_status(:not_found), url
+      end
+    end
+
+    it "resolves matching paths regardless of the supplied domain" do
+      original = ActionController::API.default_url_options
+      ActionController::API.default_url_options = { host: "coplan.example.org", protocol: "https" }
+      [ "https://coplan.example.org", "http://www.example.com", "https://other.example:444" ].each do |base|
+        resolve("#{base}/#{plan.url_path}")
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+      end
+    ensure
+      ActionController::API.default_url_options = original
+    end
+
+    it "rejects malformed input and ids embedded outside the plan path" do
+      [ nil, [], { bad: "input" }, "not a URL", "http://[invalid",
+       "ftp://www.example.com/#{plan.url_path}",
+       "http://www.example.com/%00/a",
+       "http://www.example.com/#{alice.library.handle}/%00",
+       "http://www.example.com/?next=/plans/#{plan.id}",
+       "http://www.example.com/#/plans/#{plan.id}",
+       "http://www.example.com/other/plans/#{plan.id}",
+       "http://www.example.com/plans/#{plan.id}/extra" ].each do |url|
+        resolve(url)
+        expect(response).to have_http_status(:not_found), url.inspect
+        expect(JSON.parse(response.body)).to eq("error" => "Plan not found")
+      end
+    end
+
+    it "resolves archived plans without recording a content read" do
+      plan.update!(archived_at: Time.current)
+      expect {
+        resolve("http://www.example.com/#{plan.url_path}?view=read#discussion")
+      }.not_to change(CoPlan::PlanRead, :count)
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)).to include("id" => plan.id, "archived" => true)
+    end
+
+    it "applies the reader's show policy" do
+      allow_any_instance_of(CoPlan::PlanPolicy).to receive(:show?).and_return(false)
+      resolve("http://www.example.com/#{plan.url_path}")
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "requires auth" do
+      resolve("http://www.example.com/#{plan.url_path}", with: {})
+      expect(response).to have_http_status(:unauthorized)
+    end
+  end
+
   describe "GET /api/v1/plans/:id/locations" do
     # Still an array — a plan has one location or none, and clients
     # already iterate it.

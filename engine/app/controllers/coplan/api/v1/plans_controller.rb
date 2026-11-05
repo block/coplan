@@ -307,6 +307,19 @@ module CoPlan
           render json: threads.map { |t| thread_json(t) }
         end
 
+        # Other people's drafts are readable by URL but omitted from the
+        # index. Resolve their addresses with the reader's access policy,
+        # including aliases for moved and renamed plans.
+        def resolve
+          plan = Urls::ResolvePlan.call(url: params[:url],
+            bases: [ root_url, "#{request.base_url}#{root_path}" ])
+          unless plan && PlanPolicy.new(current_user, plan).show?
+            return render json: { error: "Plan not found" }, status: :not_found
+          end
+
+          render json: plan_json(plan)
+        end
+
         def snapshot
           record_plan_read!(@plan)
           threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)
