@@ -83,7 +83,9 @@ changed heading, leaving paragraphs, code, tables, and diagrams in their
 original surfaces and spacing. An unheaded introduction
 gets one dot at its first block. Do not tint whole sections or draw rails
 down the document.
-On phones, keep the dot's full hit area inside the document card.
+On phones, keep the dot's full hit area and focus ring on screen and clear
+of heading text. Use the document card's padding, or the page gutter for
+a cardless theme; keep the masthead and document aligned.
 
 Do not show a changed-section summary banner or reserve space for one.
 A heading that stays fully in view for three seconds loses its attention cue.

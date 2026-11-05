@@ -60,6 +60,11 @@
     min-height: 44px;
   }
 
+  /* Segmented controls: the Appearance menu's Mode row and Settings. */
+  .segmented__btn {
+    min-height: 44px;
+  }
+
   /* Preserve a 44px touch target without giving the compact control 44px
      of layout footprint in the byline or sticky plan context. */
   .plan-location-link {
@@ -177,6 +182,17 @@
   .plan-document.card {
     /* Leave room for the update dot's full hit area inside the card. */
     padding: var(--document-padding-narrow, var(--space-lg));
+  }
+
+  /* Cardless documents need room for the full update target in the page
+     margin. Move the masthead and body together to retain their alignment. */
+  .main-content:has(.plan-document) {
+    padding-inline: var(--document-page-padding-narrow, var(--space-md));
+  }
+
+  .section-update-marker:focus-visible {
+    /* Keep the ring within the target near the viewport edge. */
+    outline-offset: -2px;
   }
 
 

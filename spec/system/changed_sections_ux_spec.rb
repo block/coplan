@@ -207,7 +207,9 @@ RSpec.describe "Updated section signposts", type: :system do
     expect(page).to have_no_css(".section-updated")
   end
 
-  it "keeps mobile dots inside the document without a summary banner" do
+  # Classic keeps the dot inside its document card. Neutral has no card: its
+  # text lines up with the header, and the dot sits in the page margin.
+  it "keeps mobile dots on screen and tappable without a summary banner" do
     window = page.current_window
     original_size = window.size
     [ 320, 390, 481 ].product(%w[classic neutral]).each do |width, app_theme|
@@ -218,12 +220,21 @@ RSpec.describe "Updated section signposts", type: :system do
         visit plan_page_path(plan)
         page.execute_script("document.documentElement.dataset.theme = '#{theme}'")
         find("#design .section-update-marker").hover
+        find("#design .section-update-marker").send_keys(:tab, [ :shift, :tab ])
         expect(page.evaluate_script(<<~JS)).to be true
           (() => {
             const card = document.querySelector('.plan-document').getBoundingClientRect()
             const marker = document.querySelector('#design .section-update-marker')
             const target = marker.getBoundingClientRect()
-            return target.left > card.left && target.right < card.right &&
+            const placed = #{app_theme == "neutral"}
+              ? target.left >= 0 && target.width >= 22 &&
+                target.right <= document.querySelector('#design').getBoundingClientRect().left &&
+                Math.abs(document.querySelector('.plan-masthead').getBoundingClientRect().left - card.left) < 1 &&
+                Math.abs(document.querySelector('#design').getBoundingClientRect().left - card.left) < 1
+              : target.left > card.left && target.right < card.right
+            const ring = getComputedStyle(marker)
+            const outside = Math.max(0, parseFloat(ring.outlineOffset) + parseFloat(ring.outlineWidth))
+            return placed && marker.matches(':focus-visible') && target.left - outside >= 0 &&
               getComputedStyle(marker, '::after').visibility === 'visible' &&
               document.documentElement.scrollWidth <= window.innerWidth
           })()

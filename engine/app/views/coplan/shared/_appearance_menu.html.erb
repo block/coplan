@@ -36,11 +36,15 @@
               data-coplan--app-theme-default-value="<%= CoPlan::Themes.default.key %>">
       <legend class="visually-hidden">Theme</legend>
       <% CoPlan::Themes::ALL.each do |theme| %>
-        <label class="menu__item appearance-menu__theme" title="<%= theme.description %>">
+        <label class="menu__item appearance-menu__theme">
           <input type="radio" name="appearance_theme" value="<%= theme.key %>"
                  <%= "checked" if coplan_app_theme == theme.key %>
+                 aria-describedby="appearance-theme-<%= theme.key %>-description"
                  data-action="coplan--app-theme#select">
-          <span class="appearance-menu__theme-name"><%= theme.name %></span>
+          <span class="appearance-menu__theme-text">
+            <span class="appearance-menu__theme-name"><%= theme.name %></span>
+            <span class="appearance-menu__theme-description" id="appearance-theme-<%= theme.key %>-description"><%= theme.description %></span>
+          </span>
           <svg class="appearance-menu__check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
         </label>
       <% end %>

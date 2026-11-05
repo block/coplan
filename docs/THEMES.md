@@ -109,7 +109,7 @@ again on the floating panels. Neutral shows how.
 | Floating windows | `--window-bg`, `--window-edge`, `--window-shadow`, `--composer-input-bg` |
 | Overlays | `--overlay-tint` (new-document and expanded views), `--dialog-backdrop` (review dialog) |
 | Panels | `--panel-bg`, `--panel-edge`, `--panel-shadow`, `--panel-row-bg`, `--document-support-radius` |
-| Document card | `--document-bg`, `--document-border`, `--document-radius`, `--document-shadow`, `--document-padding`, `--document-padding-narrow` (phones) |
+| Document card | `--document-bg`, `--document-border`, `--document-radius`, `--document-shadow`, `--document-padding`, `--document-padding-narrow` (phones), `--document-page-padding-narrow` (phone page gutter around both the masthead and document; cardless themes need room for the 22px update target) |
 | Plan title | `--plan-title-size`, `--plan-title-size-narrow`, `--plan-title-weight`, `--plan-title-leading`, `--plan-title-tracking`, `--plan-title-wrap` |
 | Reading type | `--reading-measure`, `--reading-leading`, `--reading-paragraph-gap`, `--reading-heading-weight`, `--reading-heading-tracking`, `--reading-heading-wrap`, `--reading-h1-size`, `--reading-h1-leading`, and for h2 and h3: `-size`, `-leading`, `-space-above`, `-space-below`; `--reading-h4-weight` (defaults to the heading weight) |
 | Emphasis | `--strong-weight` |
