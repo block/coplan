@@ -57,6 +57,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | api-comment-anchors | Markdown text and table-row highlights; source-only discussion in Comments |
 | table-gallery | Precise cell discussion, repeated labels, empty values, links, wide expandable data |
 | formatting-gallery | Headings, editable template notes hidden while reading, emphasis, quotes, nested lists, tasks, two code languages, image, mention, footnote |
+| discussion-margins | Crowded prose discussions, multiple participants, resolved visibility, and slide navigation/scrolling; avatars identify starters, not unread activity |
 | reading-specimen | A realistic design doc for judging reading in both modes: prose, headings, lists, tasks, quote, table, footnote, image, SQL/Ruby/diff/YAML code, a long scrolling line, flowchart and sequence diagrams, plus open, agent-answered, resolved, diagram-node, table-cell, and general discussions |
 | image-resizing | Resize and restore image widths, wrap prose from the top, Shift+Enter beside, Enter below |
 

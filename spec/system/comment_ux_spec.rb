@@ -58,6 +58,67 @@ RSpec.describe "Comment UX", type: :system do
     thread
   end
 
+  describe "discussion margins in decks" do
+    let(:plan_content) do
+      <<~MARKDOWN
+        ::: {.presentation}
+
+        # First slide
+
+        First discussion target.
+
+        ---
+
+        # Second slide
+
+        Second discussion target.
+
+        #{(1..35).map { |n| "Paragraph #{n} keeps this slide scrollable.\n" }.join("\n")}
+
+        :::
+      MARKDOWN
+    end
+
+    before do
+      sign_in(author)
+      page.current_window.resize_to(1600, 900)
+    end
+
+    after { page.current_window.resize_to(1400, 900) }
+
+    it "replaces margin markers when navigating between equal-sized slides" do
+      first = create_anchored_thread(plan: plan, anchor_text: "First discussion target", body: "First feedback", user: reviewer)
+      second = create_anchored_thread(plan: plan, anchor_text: "Second discussion target", body: "Second feedback", user: reviewer)
+      visit plan_page_path(plan)
+      expect(page).to have_css(".comment-margin__card[data-thread-id='comment_thread_#{first.id}']")
+      expect(page).to have_no_css(".comment-margin__card[data-thread-id='comment_thread_#{second.id}']")
+
+      find(".deck-toolbar__step--next").click
+      expect(page).to have_css(".comment-margin__card[data-thread-id='comment_thread_#{second.id}']")
+      expect(page).to have_no_css(".comment-margin__card[data-thread-id='comment_thread_#{first.id}']")
+      find(".comment-margin__card").click
+      expect(page).to have_css(".thread-popover:popover-open", text: "Second feedback")
+    end
+
+    it "keeps the marker aligned while its slide scrolls" do
+      thread = create_anchored_thread(plan: plan, anchor_text: "Second discussion target", body: "Scrolling feedback", user: reviewer)
+      visit plan_page_path(plan)
+      find(".deck-toolbar__step--next").click
+      # Rebuild highlights to isolate scrolling from slide-change refresh.
+      page.execute_script("document.dispatchEvent(new CustomEvent('coplan:anchors-updated'))")
+      card = find(".comment-margin__card[data-thread-id='comment_thread_#{thread.id}']")
+      before = card.evaluate_script("this.getBoundingClientRect().top")
+      find(".deck-slide--current").execute_script("this.scrollTop = 40")
+      expect(page).to have_css(".comment-margin__card", count: 1) { |marker|
+        (before - marker.evaluate_script("this.getBoundingClientRect().top") - 40).abs < 3
+      }
+      find(".deck-slide--current").execute_script("this.scrollTop = this.scrollHeight")
+      expect(page).to have_no_css(".comment-margin__card")
+      find(".deck-slide--current").execute_script("this.scrollTop = 0")
+      expect(page).to have_css(".comment-margin__card[data-thread-id='comment_thread_#{thread.id}']")
+    end
+  end
+
   describe "plan show page layout" do
     before { sign_in(author) }
 
@@ -276,6 +337,46 @@ RSpec.describe "Comment UX", type: :system do
       expect(border).to eq("dashed")
       find("body").send_keys("s")
       expect(mark.evaluate_script("getComputedStyle(this).borderBottomStyle")).to eq("none")
+    end
+
+    it "shows an avatar marker in the margin for each open discussion that opens it" do
+      postgres = create_anchored_thread(plan: plan, anchor_text: "PostgreSQL", body: "Consider MySQL", user: reviewer)
+      opened = create_anchored_thread(plan: plan, anchor_text: "microservices architecture", body: "Why not monolith?", user: reviewer)
+      opened.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Scale needs.")
+      resolved = create_anchored_thread(plan: plan, anchor_text: "rate limiting", body: "Per user?", user: reviewer)
+      resolved.resolve!(author)
+
+      page.current_window.resize_to(1600, 900)
+      visit plan_page_path(plan)
+
+      # Resolved discussions stay hidden by default.
+      expect(page).to have_css(".comment-margin__card", count: 2)
+      opened_card = find(".comment-margin__card[data-thread-id='comment_thread_#{opened.id}']")
+      postgres_card = find(".comment-margin__card[data-thread-id='comment_thread_#{postgres.id}']")
+      expect(opened_card).to have_css(".avatar[aria-label='#{reviewer.name}']")
+      expect(opened_card[:"aria-label"]).to eq("Discussion started by #{reviewer.name}, 1 reply")
+
+      # Each marker sits in the page margin, outside the document, on the
+      # line it discusses.
+      middle = ->(element) { element.evaluate_script("(r => r.top + r.height / 2)(this.getClientRects()[0])") }
+      expect(postgres_card.evaluate_script("this.getBoundingClientRect().left"))
+        .to be > find(".plan-document").evaluate_script("this.getBoundingClientRect().right")
+      expect(middle.(opened_card)).to be_within(4).of(middle.(find("mark", text: "microservices architecture")))
+      expect(middle.(postgres_card)).to be_within(4).of(middle.(find("mark", text: "PostgreSQL")))
+
+      # Hover links a marker and its text in both directions.
+      find("mark", text: "PostgreSQL").hover
+      expect(page).to have_css(".comment-margin__card.is-hover", count: 1)
+      expect(postgres_card[:class]).to include("is-hover")
+      opened_card.hover
+      expect(page).to have_css("mark.is-margin-hover", count: 1, text: "microservices architecture")
+      expect(postgres_card[:class]).not_to include("is-hover")
+
+      postgres_card.click
+      within(".thread-popover:popover-open") { expect(page).to have_content("Consider MySQL") }
+      expect(page).to have_css(".comment-margin__card.is-active[data-thread-id='comment_thread_#{postgres.id}']")
+    ensure
+      page.current_window.resize_to(1400, 900)
     end
 
     it "does not toggle resolved visibility while typing s in a reply box" do
