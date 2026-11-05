@@ -10,6 +10,15 @@ module CoPlan
       }.freeze
 
       def self.call(plan:)
+        new(plan:).call
+      end
+
+      def initialize(plan:)
+        @plan = plan
+      end
+
+      def call
+        plan = @plan
         plan.with_lock do
           version = plan.current_plan_version
           {

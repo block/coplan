@@ -33,6 +33,30 @@ RSpec.describe "Version-bound review evidence" do
     expect(CoPlan::Reviews::Evidence.call(plan: plan)[:review_requests].map { |r| r[:effective_human_decision] }).to all(be_nil)
   end
 
+  it "resets reviewers from different revisions with one update and no historical version reads" do
+    task
+    3.times do |index|
+      replace("Revision #{index}")
+      CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: plan.created_by_user)
+    end
+    generations = plan.review_requests.active.pluck(:id, :generation).to_h
+    statements = []
+    subscriber = ->(_name, _start, _finish, _id, payload) { statements << payload[:sql] unless payload[:cached] }
+    # Isolate the locked projection from after-commit notification delivery.
+    plan.with_lock do
+      version = create(:plan_version, plan: plan, revision: plan.current_revision + 1)
+      ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") do
+        CoPlan::Plans::AdvanceVersion.call(plan: plan, version: version)
+      end
+    end
+    expect(statements.grep(/SELECT.*coplan_plan_versions/i)).to be_empty
+    expect(statements.grep(/UPDATE [`"]?coplan_review_requests/i).size).to eq(1)
+    plan.review_requests.reload.each do |request|
+      expect(request).to have_attributes(generation: generations.fetch(request.id) + 1,
+        status: "pending", current_response_id: nil, reset_reason: "content_changed")
+    end
+  end
+
   it "keeps actual replacement no-ops approved, but never revives A after A to B to A" do
     first = decide
     original = plan.current_content

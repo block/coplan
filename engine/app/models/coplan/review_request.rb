@@ -2,6 +2,7 @@ module CoPlan
   # A task, independent of both inbox read state and collaborator permissions.
   class ReviewRequest < ApplicationRecord
     REQUIREMENTS = %w[required optional].freeze
+    RESET_REASONS = %w[legacy_history content_changed requested_again].freeze
     STATUSES = %w[pending approved changes_requested withdrawn].freeze
 
     belongs_to :plan
@@ -16,6 +17,7 @@ module CoPlan
 
     validates :reviewer_id, uniqueness: { scope: :plan_id }
     validates :requirement, inclusion: { in: REQUIREMENTS }
+    validates :reset_reason, inclusion: { in: RESET_REASONS }, allow_nil: true
     validates :status, inclusion: { in: STATUSES }
     validates :requested_at, presence: true
     validate :version_belongs_to_plan

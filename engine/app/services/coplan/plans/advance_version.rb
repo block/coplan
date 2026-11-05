@@ -4,15 +4,29 @@ module CoPlan
     # CommitSession still locks its session before the plan.
     class AdvanceVersion
       def self.call(plan:, version:)
+        new(plan:, version:).call
+      end
+
+      def initialize(plan:, version:)
+        @plan, @version = plan, version
+      end
+
+      def call
+        plan, version = @plan, @version
         raise ArgumentError, "Version advancement requires the writer’s plan transaction" unless plan.class.connection.transaction_open?
         raise ArgumentError, "Version must belong to the plan and advance its revision" unless version.plan_id == plan.id && version.revision > plan.current_revision
 
         plan.update!(current_plan_version: version, current_revision: version.revision,
           review_sequence: plan.review_sequence + 1)
-        requests = plan.reset_reviews_on_change? ? plan.review_requests.active.to_a : []
-        requests.each do |request|
-          request.update!(status: "pending", generation: request.generation + 1,
-            current_response: nil, reset_reason: "content_changed")
+        requests = []
+        if plan.reset_reviews_on_change?
+          active_requests = plan.review_requests.active
+          # The plan lock serializes every review writer. Only reset projection
+          # fields change here; validating unchanged version associations would
+          # load full historical Markdown once per reviewer inside that lock.
+          active_requests.update_all(status: "pending", generation: Arel.sql("generation + 1"),
+            current_response_id: nil, reset_reason: "content_changed", updated_at: Time.current)
+          requests = active_requests.reload.to_a
         end
         # No new review notifications for each edit, and no reset broadcast
         # for a transaction that rolls back.
