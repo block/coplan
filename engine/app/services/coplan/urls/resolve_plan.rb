@@ -17,9 +17,12 @@ module CoPlan
       end
 
       def call
-        return unless @url.is_a?(String)
+        return unless @url.is_a?(String) && @url.valid_encoding?
 
-        uri = URI.parse(@url)
+        # Browser address bars display Unicode slugs decoded. Preserve URL
+        # delimiters and existing escapes while encoding only non-ASCII text.
+        encoded_url = @url.gsub(/[^\x00-\x7F]/) { |char| char.bytes.map { |byte| "%%%02X" % byte }.join }
+        uri = URI.parse(encoded_url)
         relative = uri.relative? && uri.host.nil?
         return unless relative || (uri.is_a?(URI::HTTP) && uri.host.present? && uri.userinfo.nil?)
 
@@ -34,6 +37,20 @@ module CoPlan
         path = URI::DEFAULT_PARSER.unescape(input_path.delete_prefix("#{base.path.chomp('/')}/"))
         return unless path.valid_encoding? && !path.include?("\0")
 
+        plan = resolve_path(path)
+        return plan if plan
+
+        # A canonical document can itself be named history or edit. Only
+        # after full-path lookup fails should a routed subpage be removed.
+        document_path = path.sub(%r{(?:/(?:edit|history(?:/\d+(?:/diff)?)?)/?|\.md)\z}, "")
+        resolve_path(document_path) if document_path != path
+      rescue URI::InvalidURIError
+        nil
+      end
+
+      private
+
+      def resolve_path(path)
         if (match = LEGACY_PATH.match(path))
           return Plan.find_by(id: match[1])
         end
@@ -50,8 +67,6 @@ module CoPlan
 
           path = result.redirect_to_path
         end
-        nil
-      rescue URI::InvalidURIError
         nil
       end
     end

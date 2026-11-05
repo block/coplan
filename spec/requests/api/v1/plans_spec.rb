@@ -711,6 +711,40 @@ RSpec.describe "Api::V1::Plans", type: :request do
       expect(JSON.parse(response.body)["id"]).to eq(plan.id)
     end
 
+    it "accepts displayed Unicode paths and URLs" do
+      [ "信頼性向上ロードマップ", "خطة المشروع", "incorporación" ].each do |title|
+        document = create(:plan, title: title, created_by_user: alice)
+        [ "/#{document.url_path}", "https://other.example/#{document.url_path}" ].each do |url|
+          resolve(url)
+          expect(response).to have_http_status(:ok)
+          expect(JSON.parse(response.body)["id"]).to eq(document.id)
+        end
+      end
+    end
+
+    it "resolves known plan subpages including stale links" do
+      old_path = plan.url_path
+      patch api_v1_plan_path(plan), params: { title: "Renamed Roadmap" }, headers: headers, as: :json
+      [ old_path, plan.reload.url_path ].each do |path|
+        [ "/edit", "/history", "/history/3", "/history/3/diff", ".md" ].each do |tail|
+          resolve("/#{path}#{tail}")
+          expect(response).to have_http_status(:ok), "#{path}#{tail}"
+          expect(JSON.parse(response.body)["id"]).to eq(plan.id)
+        end
+      end
+    end
+
+    it "preserves plans named history or edit and rejects unknown subpages" do
+      %w[History Edit].each do |title|
+        document = create(:plan, title: title, created_by_user: alice)
+        resolve("/#{document.url_path}")
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)["id"]).to eq(document.id)
+      end
+      resolve("/#{plan.url_path}/history/not-a-revision")
+      expect(response).to have_http_status(:not_found)
+    end
+
     it "follows a renamed library handle" do
       old_path = plan.url_path
       alice.library.update!(handle: "renamed-library")
