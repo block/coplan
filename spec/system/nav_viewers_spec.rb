@@ -59,6 +59,24 @@ RSpec.describe "Viewer stack in the sticky nav", type: :system do
     expect(page).to have_css("#plan-nav-viewers", visible: :hidden)
   end
 
+  it "hides the scrolled stack at 900px and restores it at 901px without navigation" do
+    page.current_window.resize_to(901, 900)
+    expect(page.evaluate_script("window.innerWidth")).to eq(901)
+    page.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+
+    expect(page).to have_css(".site-nav__plan-context--visible")
+    expect(page).to have_css("#plan-nav-viewers .plan-viewers__avatar", text: "AM", visible: true)
+
+    page.current_window.resize_to(900, 900)
+    expect(page.evaluate_script("window.innerWidth")).to eq(900)
+    expect(page).to have_css(".site-nav__plan-context--visible")
+    expect(page).to have_css("#plan-nav-viewers", visible: :hidden)
+    expect(page).to have_css("#plan-viewers .plan-viewers__avatar", text: "AM", visible: :all)
+
+    page.current_window.resize_to(901, 900)
+    expect(page).to have_css("#plan-nav-viewers .plan-viewers__avatar", text: "AM", visible: true)
+  end
+
   it "shows at most four avatars and an overflow count" do
     6.times { |n| create(:plan_viewer, plan: plan, user: create(:coplan_user, name: "Viewer #{n}")) }
     visit plan_page_path(plan)
