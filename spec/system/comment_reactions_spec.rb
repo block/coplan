@@ -210,6 +210,75 @@ RSpec.describe "Comment reactions", type: :system do
     end
   end
 
+  it "keeps an earlier saved choice when the next queued change fails" do
+    create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")
+    popover = open_thread
+    page.execute_script(<<~JS)
+      const originalFetch = window.fetch
+      let requests = 0
+      window.fetch = (url, options) => {
+        if (options?.method === "PATCH" && String(url).endsWith("/reactions") && ++requests === 2) {
+          return Promise.reject(new Error("offline"))
+        }
+        return originalFetch(url, options)
+      }
+      const chip = document.querySelector('.thread-popover:popover-open .comment-reaction[data-kind="thumbs_up"]')
+      chip.click()
+      chip.click()
+    JS
+    expect(page).to have_css(".toasts__toast", text: "Couldn't save your reaction.")
+    expect(popover).to have_reaction("thumbs_up", count: 2, pressed: true)
+    expect(comment.reactions.where(user: viewer, kind: "thumbs_up")).to exist
+  end
+
+  [ "redirect", "html" ].each do |response_kind|
+    it "rolls back a successful HTTP #{response_kind} response that did not save a reaction" do
+      create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")
+      popover = open_thread
+      page.execute_script(<<~JS, response_kind)
+        const redirected = arguments[0] === "redirect"
+        const originalFetch = window.fetch
+        window.fetch = (url, options) => options?.method === "PATCH" && String(url).endsWith("/reactions")
+          ? Promise.resolve({ ok: true, redirected,
+              headers: new Headers({ "Content-Type": redirected ? "text/vnd.turbo-stream.html" : "text/html" }),
+              text: async () => "<h1>Sign in</h1>" })
+          : originalFetch(url, options)
+      JS
+      chip(popover, "👍").click
+      expect(page).to have_css(".toasts__toast", text: "Couldn't save your reaction.")
+      expect(popover).to have_reaction("thumbs_up", count: 1, pressed: false)
+      expect(comment.reactions.where(user: viewer)).to be_empty
+    end
+  end
+
+  [ true, false ].each do |reacted|
+    it "preserves a newer same-account broadcast after a failed #{reacted ? 'add' : 'remove'}" do
+      create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")
+      create(:comment_reaction, comment: comment, user: viewer, kind: "thumbs_up") unless reacted
+      popover = open_thread
+      page.execute_script(<<~JS)
+        const originalFetch = window.fetch
+        window.fetch = (url, options) => options?.method === "PATCH" && String(url).endsWith("/reactions")
+          ? new Promise((resolve, reject) => { window.rejectReaction = reject })
+          : originalFetch(url, options)
+      JS
+      chip(popover, "👍").click
+      wait_for { page.evaluate_script("typeof window.rejectReaction === 'function'") }
+      if reacted
+        create(:comment_reaction, comment: comment, user: viewer, kind: "thumbs_up")
+      else
+        comment.reactions.where(user: viewer).delete_all
+      end
+      comment.bump_reactions_version!
+      CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{comment.id}",
+        partial: "coplan/comments/reactions", locals: { comment: comment.reload })
+      expect(popover).to have_saved_reactions
+      page.execute_script("window.rejectReaction(new Error('offline'))")
+      expect(page).to have_css(".toasts__toast", text: "Couldn't save your reaction.")
+      expect(popover).to have_reaction("thumbs_up", count: reacted ? 2 : 1, pressed: reacted)
+    end
+  end
+
   it "keeps reactions working in a cloned table discussion" do
     table_comment = create_table_thread.comments.first
     create(:comment_reaction, comment: table_comment, user: viewer, kind: "thumbs_up")

@@ -26,6 +26,18 @@ function version(element) {
   return Number(element?.dataset.version)
 }
 
+// A pending request can settle after another tab has saved a newer choice.
+// Only server markup with a newer version can advance the rollback baseline.
+function confirmPendingReactions(reactions) {
+  for (const state of pendingReactions.values()) {
+    if (state.commentId !== reactions.getAttribute("data-coplan--comment-reactions-comment-id-value") || version(reactions) <= state.version) continue
+    const chip = reactions.querySelector(`.comment-reaction[data-kind="${CSS.escape(state.kind)}"]`)
+    const reactors = JSON.parse(chip?.dataset.reactors || "[]")
+    state.confirmed = reactors.some(reactor => reactor.id === state.userId)
+    state.version = version(reactions)
+  }
+}
+
 // Responses and broadcasts from concurrent changes can arrive in any
 // order. Skip a replacement of the chips older than the copy on screen.
 // Turbo renders a stream a frame after announcing it, by which time
@@ -38,6 +50,7 @@ document.addEventListener("turbo:before-stream-render", event => {
     const incoming = stream.templateElement?.content
     if (["replace", "update"].includes(stream.getAttribute("action")) && current && incoming) {
       for (const reactions of incoming.querySelectorAll(".comment-reactions")) {
+        confirmPendingReactions(reactions)
         const saved = document.getElementById(reactions.id)
         if (saved && (saved === current || current.contains(saved)) && version(reactions) < version(saved)) {
           reactions.replaceWith(saved.cloneNode(true))
@@ -55,6 +68,7 @@ export default class extends Controller {
   connect() {
     this.me = document.querySelector("meta[name='coplan-current-user-id']")?.content || ""
     this.addTarget.hidden = !this.me
+    confirmPendingReactions(this.element)
     this.refresh()
   }
 
@@ -83,15 +97,15 @@ export default class extends Controller {
     const key = JSON.stringify([commentId, kind])
     let state = pendingReactions.get(key)
     if (!state) {
-      state = { confirmed: this.chipFor(kind)?.getAttribute("aria-pressed") === "true", operations: [] }
+      state = { commentId, kind, userId: this.me, version: version(this.element),
+        confirmed: this.chipFor(kind)?.getAttribute("aria-pressed") === "true", operations: [] }
       pendingReactions.set(key, state)
     }
     const operation = { reacted }
     state.operations.push(operation)
     this.revert(commentId, kind, reacted)
 
-    const settle = saved => {
-      if (saved) state.confirmed = reacted
+    const settle = () => {
       state.operations.splice(state.operations.indexOf(operation), 1)
       this.revert(commentId, kind, state.operations.at(-1)?.reacted ?? state.confirmed)
       if (!state.operations.length) pendingReactions.delete(key)
@@ -107,12 +121,20 @@ export default class extends Controller {
         headers: { "Accept": "text/vnd.turbo-stream.html", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content }
       }).catch(() => { throw new Error("") })
       if (!response.ok) throw new Error(response.status === 422 ? await response.text() : "")
+      if (response.redirected || !response.headers.get("Content-Type")?.includes("text/vnd.turbo-stream.html")) throw new Error("")
       return response.text()
     }).then(({ result, last }) => {
-      settle(true)
+      // Read even skipped intermediate responses: they can confirm a save
+      // before a later queued request fails. A newer broadcast still wins.
+      const response = document.createElement("template")
+      response.innerHTML = result
+      for (const template of response.content.querySelectorAll("turbo-stream > template")) {
+        template.content.querySelectorAll(".comment-reactions").forEach(confirmPendingReactions)
+      }
+      settle()
       if (last) window.Turbo.renderStreamMessage(result)
     }).catch(error => {
-      settle(false)
+      settle()
       this.toast(error.message || "Couldn't save your reaction. Please try again.")
     })
   }
