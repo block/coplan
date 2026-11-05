@@ -624,6 +624,7 @@ RSpec.describe "Deck UX", type: :system do
     MD
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
+    content = plan.reload.current_content
     html = Commonmarker.to_html(content, options: { render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
     mapped = CoPlan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
     cell = mapped.css("[data-source-target]").find { |node| node.text.include?("Review") }

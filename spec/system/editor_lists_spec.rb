@@ -20,7 +20,18 @@ RSpec.describe "Editor lists", type: :system do
   end
 
   def replace_body(text)
-    editor.send_keys([ modifier, "a" ], text)
+    page.execute_script <<~JS
+      const editor = document.querySelector('.ProseMirror')
+      editor.focus()
+      const range = document.createRange()
+      range.selectNodeContents(editor)
+      range.setStartAfter(editor.querySelector(':scope > h1:first-child'))
+      const selection = window.getSelection()
+      selection.removeAllRanges()
+      selection.addRange(range)
+      document.dispatchEvent(new Event('selectionchange'))
+    JS
+    page.driver.browser.action.send_keys(text).perform
   end
 
   def caret

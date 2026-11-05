@@ -1496,6 +1496,19 @@ RSpec.describe "Plan discussion and approval", type: :system do
     CoPlan.configuration.suggest_reviewers = previous_hook
   end
 
+  it "positions the plan menu before its deferred toggle event so Manage reviewers stays clickable" do
+    sign_in_browser(author)
+    page.execute_script(<<~JS)
+      document.getElementById("plan-menu").addEventListener("toggle", event => event.stopImmediatePropagation(), true)
+    JS
+    click_button "More actions"
+    menu = find("#plan-menu").rect
+    trigger = find('#plan-toolbar [popovertarget="plan-menu"]').rect
+    expect(menu.y).to be_within(1).of(trigger.y + trigger.height + 6)
+    within("#plan-menu") { click_button "Manage reviewers" }
+    expect(page).to have_css(".review-management[open]")
+  end
+
   it "keeps the manager and assignment stable while search results overlay beneath the field" do
     create(:coplan_user, name: "Popover Candidate", username: "popover-candidate")
     sign_in_browser(author)
