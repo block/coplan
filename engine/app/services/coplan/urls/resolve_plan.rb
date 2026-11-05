@@ -28,7 +28,7 @@ module CoPlan
         return unless base
 
         path = URI::DEFAULT_PARSER.unescape(uri.path.delete_prefix("#{base.path.chomp('/')}/"))
-        return unless path.valid_encoding?
+        return unless path.valid_encoding? && !path.include?("\0")
 
         if (match = LEGACY_PATH.match(path))
           return Plan.find_by(id: match[1])

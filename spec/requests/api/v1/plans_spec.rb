@@ -743,6 +743,8 @@ RSpec.describe "Api::V1::Plans", type: :request do
     it "rejects malformed input and ids embedded outside the plan path" do
       [ nil, [], { bad: "input" }, "not a URL", "http://[invalid",
        "ftp://www.example.com/#{plan.url_path}",
+       "http://www.example.com/%00/a",
+       "http://www.example.com/#{alice.library.handle}/%00",
        "http://www.example.com/?next=/plans/#{plan.id}",
        "http://www.example.com/#/plans/#{plan.id}",
        "http://www.example.com/other/plans/#{plan.id}",
