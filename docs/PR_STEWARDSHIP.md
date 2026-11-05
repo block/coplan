@@ -25,8 +25,9 @@ clear behavior, simplicity, and maintainability over clearing the queue quickly.
 ## 2. Request automated reviews
 
 For review-ready work, check which automated reviews already cover the changes.
-Post `🤖 @codex review` when a Codex review is needed. Also request GitHub Copilot
-review when supported. Avoid duplicate requests for reviews already in progress.
+Post `🤖 @codex review` when a Codex review is needed. Avoid duplicate requests
+for reviews already in progress. Copilot review is not required; do not request
+or wait for it. Assess any existing actionable findings on their merits.
 
 Check back after roughly 30 minutes. If a review is still running, keep monitoring;
 elapsed time does not count as approval. Record which commit each review covered.
@@ -84,8 +85,8 @@ Read feedback directly in the worker chat as well as on GitHub. Carry requested
 revisions through implementation, tests, and publication. Do not ask again for
 authorization Hampton has already given for that scope.
 
-After every push, check CI and mergeability again. Repeat Codex and, when supported,
-Copilot review after major refactors, rebuilt behavior, or substantial changes from
+After every push, check CI and mergeability again. Repeat Codex review after
+major refactors, rebuilt behavior, or substantial changes from
 Hampton's feedback. Small, bounded corrections do not automatically need a new
 review round: explain the fix, resolve the finding when appropriate, and wait for CI.
 Record why the existing review still covers the change when a new round is unnecessary.
