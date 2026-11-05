@@ -3,6 +3,8 @@ name: Research
 icon: flask
 description: Findings, evidence, and sources in one place.
 ---
+# Document title
+
 <!-- Research: the reader trusts this document instead of re-searching.
 That trust is built one citation at a time - every claim gets a
 footnote[^like-this] with a durable source link and the date you

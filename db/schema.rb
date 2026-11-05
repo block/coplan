@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_213838) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -20,9 +20,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.bigint "resource_id"
     t.string "resource_type"
     t.datetime "updated_at", null: false
-    t.index ["author_type", "author_id"], name: "index_active_admin_comments_on_author"
-    t.index ["namespace"], name: "index_active_admin_comments_on_namespace"
-    t.index ["resource_type", "resource_id"], name: "index_active_admin_comments_on_resource"
+    t.index [ "author_type", "author_id" ], name: "index_active_admin_comments_on_author"
+    t.index [ "namespace" ], name: "index_active_admin_comments_on_namespace"
+    t.index [ "resource_type", "resource_id" ], name: "index_active_admin_comments_on_resource"
   end
 
   create_table "active_storage_attachments", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", comment: "Created by CoPlan engine", force: :cascade do |t|
@@ -31,8 +31,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "name", null: false
     t.string "record_id", limit: 36, null: false
     t.string "record_type", null: false
-    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
-    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+    t.index [ "blob_id" ], name: "index_active_storage_attachments_on_blob_id"
+    t.index [ "record_type", "record_id", "name", "blob_id" ], name: "index_active_storage_attachments_uniqueness", unique: true
   end
 
   create_table "active_storage_blobs", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", comment: "Created by CoPlan engine", force: :cascade do |t|
@@ -44,13 +44,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "key", null: false
     t.text "metadata"
     t.string "service_name", null: false
-    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
+    t.index [ "key" ], name: "index_active_storage_blobs_on_key", unique: true
   end
 
   create_table "active_storage_variant_records", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", comment: "Created by CoPlan engine", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
-    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+    t.index [ "blob_id", "variation_digest" ], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
   create_table "coplan_agent_connection_requests", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -63,10 +63,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.datetime "updated_at", null: false
     t.string "user_code_digest", null: false
     t.string "user_id", limit: 36
-    t.index ["device_code_digest"], name: "index_coplan_agent_connection_requests_on_device_code_digest", unique: true
-    t.index ["expires_at"], name: "index_coplan_agent_connection_requests_on_expires_at"
-    t.index ["user_code_digest"], name: "index_coplan_agent_connection_requests_on_user_code_digest", unique: true
-    t.index ["user_id"], name: "index_coplan_agent_connection_requests_on_user_id"
+    t.index [ "device_code_digest" ], name: "index_coplan_agent_connection_requests_on_device_code_digest", unique: true
+    t.index [ "expires_at" ], name: "index_coplan_agent_connection_requests_on_expires_at"
+    t.index [ "user_code_digest" ], name: "index_coplan_agent_connection_requests_on_user_code_digest", unique: true
+    t.index [ "user_id" ], name: "index_coplan_agent_connection_requests_on_user_id"
   end
 
   create_table "coplan_agent_events", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -78,9 +78,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "event_type", null: false
     t.json "payload"
     t.string "plan_id", limit: 36, null: false
-    t.index ["api_token_id", "acked_at"], name: "index_coplan_agent_events_on_api_token_id_and_acked_at"
-    t.index ["api_token_id", "id"], name: "index_coplan_agent_events_on_api_token_id_and_id"
-    t.index ["plan_id"], name: "index_coplan_agent_events_on_plan_id"
+    t.index [ "api_token_id", "acked_at" ], name: "index_coplan_agent_events_on_api_token_id_and_acked_at"
+    t.index [ "api_token_id", "id" ], name: "index_coplan_agent_events_on_api_token_id_and_id"
+    t.index [ "plan_id" ], name: "index_coplan_agent_events_on_plan_id"
   end
 
   create_table "coplan_agent_harnesses", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -89,7 +89,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "icon_url"
     t.string "key", null: false
     t.datetime "updated_at", null: false
-    t.index ["key"], name: "index_coplan_agent_harnesses_on_key", unique: true
+    t.index [ "key" ], name: "index_coplan_agent_harnesses_on_key", unique: true
   end
 
   create_table "coplan_agent_sessions", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -106,8 +106,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "wake_secret"
     t.string "wake_url"
     t.integer "wakes_answered_count", default: 0, null: false
-    t.index ["api_token_id"], name: "index_coplan_agent_sessions_on_api_token_id"
-    t.index ["plan_id", "api_token_id"], name: "index_coplan_agent_sessions_on_plan_id_and_api_token_id", unique: true
+    t.index [ "api_token_id" ], name: "index_coplan_agent_sessions_on_api_token_id"
+    t.index [ "plan_id", "api_token_id" ], name: "index_coplan_agent_sessions_on_plan_id_and_api_token_id", unique: true
   end
 
   create_table "coplan_api_tokens", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -123,9 +123,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "token_prefix", limit: 8
     t.datetime "updated_at", null: false
     t.string "user_id", limit: 36, null: false
-    t.index ["parent_id", "revoked_at"], name: "index_coplan_api_tokens_on_parent_id_and_revoked_at"
-    t.index ["token_digest"], name: "index_coplan_api_tokens_on_token_digest", unique: true
-    t.index ["user_id"], name: "index_coplan_api_tokens_on_user_id"
+    t.index [ "parent_id", "revoked_at" ], name: "index_coplan_api_tokens_on_parent_id_and_revoked_at"
+    t.index [ "token_digest" ], name: "index_coplan_api_tokens_on_token_digest", unique: true
+    t.index [ "user_id" ], name: "index_coplan_api_tokens_on_user_id"
   end
 
   create_table "coplan_comment_reactions", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -134,8 +134,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "kind", null: false
     t.datetime "updated_at", null: false
     t.string "user_id", limit: 36, null: false
-    t.index ["comment_id", "user_id", "kind"], name: "index_coplan_comment_reactions_on_comment_user_kind", unique: true
-    t.index ["user_id"], name: "index_coplan_comment_reactions_on_user_id"
+    t.index [ "comment_id", "user_id", "kind" ], name: "index_coplan_comment_reactions_on_comment_user_kind", unique: true
+    t.index [ "user_id" ], name: "index_coplan_comment_reactions_on_user_id"
   end
 
   create_table "coplan_comment_threads", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -157,13 +157,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.integer "start_line"
     t.string "status", default: "open", null: false
     t.datetime "updated_at", null: false
-    t.index ["addressed_in_plan_version_id"], name: "fk_rails_e7003e0df7"
-    t.index ["created_by_user_id"], name: "fk_rails_88fb5e06ca"
-    t.index ["out_of_date_since_version_id"], name: "fk_rails_be37c1499d"
-    t.index ["plan_id", "out_of_date"], name: "index_coplan_comment_threads_on_plan_id_and_out_of_date"
-    t.index ["plan_id", "status"], name: "index_coplan_comment_threads_on_plan_id_and_status"
-    t.index ["plan_version_id"], name: "fk_rails_676660f283"
-    t.index ["resolved_by_user_id"], name: "fk_rails_8625e1eb43"
+    t.index [ "addressed_in_plan_version_id" ], name: "fk_rails_e7003e0df7"
+    t.index [ "created_by_user_id" ], name: "fk_rails_88fb5e06ca"
+    t.index [ "out_of_date_since_version_id" ], name: "fk_rails_be37c1499d"
+    t.index [ "plan_id", "out_of_date" ], name: "index_coplan_comment_threads_on_plan_id_and_out_of_date"
+    t.index [ "plan_id", "status" ], name: "index_coplan_comment_threads_on_plan_id_and_status"
+    t.index [ "plan_version_id" ], name: "fk_rails_676660f283"
+    t.index [ "resolved_by_user_id" ], name: "fk_rails_8625e1eb43"
   end
 
   create_table "coplan_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -178,9 +178,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.datetime "deleted_at"
     t.integer "reactions_version", default: 0, null: false
     t.datetime "updated_at", null: false
-    t.index ["agent_harness_id"], name: "index_coplan_comments_on_agent_harness_id"
-    t.index ["api_token_id"], name: "index_coplan_comments_on_api_token_id"
-    t.index ["comment_thread_id", "created_at"], name: "index_coplan_comments_on_comment_thread_id_and_created_at"
+    t.index [ "agent_harness_id" ], name: "index_coplan_comments_on_agent_harness_id"
+    t.index [ "api_token_id" ], name: "index_coplan_comments_on_api_token_id"
+    t.index [ "comment_thread_id", "created_at" ], name: "index_coplan_comments_on_comment_thread_id_and_created_at"
   end
 
   create_table "coplan_edit_leases", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -192,7 +192,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "lease_token_digest", null: false
     t.string "plan_id", limit: 36, null: false
     t.datetime "updated_at", null: false
-    t.index ["plan_id"], name: "index_coplan_edit_leases_on_plan_id", unique: true
+    t.index [ "plan_id" ], name: "index_coplan_edit_leases_on_plan_id", unique: true
   end
 
   create_table "coplan_edit_sessions", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -209,15 +209,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "plan_version_id", limit: 36
     t.string "status", default: "open", null: false
     t.datetime "updated_at", null: false
-    t.index ["plan_id", "status"], name: "index_coplan_edit_sessions_on_plan_id_and_status"
-    t.index ["plan_version_id"], name: "fk_rails_14c3f0737b"
+    t.index [ "plan_id", "status" ], name: "index_coplan_edit_sessions_on_plan_id_and_status"
+    t.index [ "plan_version_id" ], name: "fk_rails_14c3f0737b"
   end
 
   create_table "coplan_embed_domains", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "hostname", null: false
     t.datetime "updated_at", null: false
-    t.index ["hostname"], name: "index_coplan_embed_domains_on_hostname", unique: true
+    t.index [ "hostname" ], name: "index_coplan_embed_domains_on_hostname", unique: true
   end
 
   create_table "coplan_folders", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -229,11 +229,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "parent_id", limit: 36
     t.string "slug", null: false
     t.datetime "updated_at", null: false
-    t.index ["created_by_user_id"], name: "index_coplan_folders_on_created_by_user_id"
-    t.index ["library_id", "parent_id", "name"], name: "index_coplan_folders_on_library_id_and_parent_id_and_name", unique: true
-    t.index ["library_id", "parent_id", "slug"], name: "index_coplan_folders_on_library_and_parent_and_slug", unique: true
-    t.index ["library_id"], name: "index_coplan_folders_on_library_id"
-    t.index ["parent_id"], name: "index_coplan_folders_on_parent_id"
+    t.index [ "created_by_user_id" ], name: "index_coplan_folders_on_created_by_user_id"
+    t.index [ "library_id", "parent_id", "name" ], name: "index_coplan_folders_on_library_id_and_parent_id_and_name", unique: true
+    t.index [ "library_id", "parent_id", "slug" ], name: "index_coplan_folders_on_library_and_parent_and_slug", unique: true
+    t.index [ "library_id" ], name: "index_coplan_folders_on_library_id"
+    t.index [ "parent_id" ], name: "index_coplan_folders_on_parent_id"
   end
 
   create_table "coplan_libraries", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -243,8 +243,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "owner_id", limit: 36, null: false
     t.string "owner_type", null: false
     t.datetime "updated_at", null: false
-    t.index ["handle"], name: "index_coplan_libraries_on_handle", unique: true
-    t.index ["owner_type", "owner_id"], name: "index_coplan_libraries_on_owner_type_and_owner_id", unique: true
+    t.index [ "handle" ], name: "index_coplan_libraries_on_handle", unique: true
+    t.index [ "owner_type", "owner_id" ], name: "index_coplan_libraries_on_owner_type_and_owner_id", unique: true
   end
 
   create_table "coplan_library_events", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -261,11 +261,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.json "metadata"
     t.string "plan_id", limit: 36
     t.string "run_id", limit: 36
-    t.index ["api_token_id"], name: "index_coplan_library_events_on_api_token_id"
-    t.index ["event_type"], name: "index_coplan_library_events_on_event_type"
-    t.index ["library_id", "created_at"], name: "index_coplan_library_events_on_library_id_and_created_at"
-    t.index ["plan_id"], name: "index_coplan_library_events_on_plan_id"
-    t.index ["run_id"], name: "index_coplan_library_events_on_run_id"
+    t.index [ "api_token_id" ], name: "index_coplan_library_events_on_api_token_id"
+    t.index [ "event_type" ], name: "index_coplan_library_events_on_event_type"
+    t.index [ "library_id", "created_at" ], name: "index_coplan_library_events_on_library_id_and_created_at"
+    t.index [ "plan_id" ], name: "index_coplan_library_events_on_plan_id"
+    t.index [ "run_id" ], name: "index_coplan_library_events_on_run_id"
   end
 
   create_table "coplan_notification_deliveries", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -277,8 +277,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.datetime "sent_at"
     t.string "status", null: false
     t.datetime "updated_at", null: false
-    t.index ["channel", "status", "created_at"], name: "index_coplan_notification_deliveries_on_channel_and_status"
-    t.index ["notification_id", "channel"], name: "index_coplan_delivery_on_notification_and_channel", unique: true
+    t.index [ "channel", "status", "created_at" ], name: "index_coplan_notification_deliveries_on_channel_and_status"
+    t.index [ "notification_id", "channel" ], name: "index_coplan_delivery_on_notification_and_channel", unique: true
   end
 
   create_table "coplan_notifications", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -291,11 +291,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "review_request_id", limit: 36
     t.datetime "updated_at", null: false
     t.string "user_id", limit: 36, null: false
-    t.index ["comment_id"], name: "fk_rails_c70f93334a"
-    t.index ["comment_thread_id", "user_id"], name: "index_coplan_notifications_on_thread_and_user"
-    t.index ["plan_id"], name: "index_coplan_notifications_on_plan_id"
-    t.index ["review_request_id"], name: "index_coplan_notifications_on_review_request_id"
-    t.index ["user_id", "read_at"], name: "index_coplan_notifications_on_user_id_and_read_at"
+    t.index [ "comment_id" ], name: "fk_rails_c70f93334a"
+    t.index [ "comment_thread_id", "user_id" ], name: "index_coplan_notifications_on_thread_and_user"
+    t.index [ "plan_id" ], name: "index_coplan_notifications_on_plan_id"
+    t.index [ "review_request_id" ], name: "index_coplan_notifications_on_review_request_id"
+    t.index [ "user_id", "read_at" ], name: "index_coplan_notifications_on_user_id_and_read_at"
   end
 
   create_table "coplan_plan_collaborators", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -307,10 +307,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "role", null: false
     t.datetime "updated_at", null: false
     t.string "user_id", limit: 36, null: false
-    t.index ["added_by_user_id"], name: "index_coplan_plan_collaborators_on_added_by_user_id"
-    t.index ["plan_id", "user_id"], name: "index_coplan_plan_collaborators_on_plan_id_and_user_id", unique: true
-    t.index ["plan_id"], name: "index_coplan_plan_collaborators_on_plan_id"
-    t.index ["user_id"], name: "index_coplan_plan_collaborators_on_user_id"
+    t.index [ "added_by_user_id" ], name: "index_coplan_plan_collaborators_on_added_by_user_id"
+    t.index [ "plan_id", "user_id" ], name: "index_coplan_plan_collaborators_on_plan_id_and_user_id", unique: true
+    t.index [ "plan_id" ], name: "index_coplan_plan_collaborators_on_plan_id"
+    t.index [ "user_id" ], name: "index_coplan_plan_collaborators_on_user_id"
   end
 
   create_table "coplan_plan_events", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -325,10 +325,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "field"
     t.json "metadata"
     t.string "plan_id", limit: 36, null: false
-    t.index ["api_token_id"], name: "index_coplan_plan_events_on_api_token_id"
-    t.index ["event_type"], name: "index_coplan_plan_events_on_event_type"
-    t.index ["plan_id", "created_at"], name: "index_coplan_plan_events_on_plan_id_and_created_at"
-    t.index ["plan_id"], name: "index_coplan_plan_events_on_plan_id"
+    t.index [ "api_token_id" ], name: "index_coplan_plan_events_on_api_token_id"
+    t.index [ "event_type" ], name: "index_coplan_plan_events_on_event_type"
+    t.index [ "plan_id", "created_at" ], name: "index_coplan_plan_events_on_plan_id_and_created_at"
+    t.index [ "plan_id" ], name: "index_coplan_plan_events_on_plan_id"
   end
 
   create_table "coplan_plan_placements", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -338,11 +338,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "placed_by_user_id", limit: 36
     t.string "plan_id", limit: 36, null: false
     t.datetime "updated_at", null: false
-    t.index ["folder_id"], name: "index_coplan_plan_placements_on_folder_id"
-    t.index ["library_id", "folder_id", "plan_id"], name: "index_coplan_placements_covering_folder_counts"
-    t.index ["library_id"], name: "index_coplan_plan_placements_on_library_id"
-    t.index ["placed_by_user_id"], name: "fk_rails_ef17324b42"
-    t.index ["plan_id"], name: "index_coplan_plan_placements_on_plan_id", unique: true
+    t.index [ "folder_id" ], name: "index_coplan_plan_placements_on_folder_id"
+    t.index [ "library_id", "folder_id", "plan_id" ], name: "index_coplan_placements_covering_folder_counts"
+    t.index [ "library_id" ], name: "index_coplan_plan_placements_on_library_id"
+    t.index [ "placed_by_user_id" ], name: "fk_rails_ef17324b42"
+    t.index [ "plan_id" ], name: "index_coplan_plan_placements_on_plan_id", unique: true
   end
 
   create_table "coplan_plan_reads", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -353,7 +353,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "reader_id", limit: 36, null: false
     t.string "reader_type", null: false
     t.datetime "updated_at", null: false
-    t.index ["plan_id", "reader_type", "reader_id"], name: "index_coplan_plan_reads_on_plan_and_reader", unique: true
+    t.index [ "plan_id", "reader_type", "reader_id" ], name: "index_coplan_plan_reads_on_plan_and_reader", unique: true
   end
 
   create_table "coplan_plan_tags", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -361,8 +361,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "plan_id", limit: 36, null: false
     t.string "tag_id", limit: 36, null: false
     t.datetime "updated_at", null: false
-    t.index ["plan_id", "tag_id"], name: "index_coplan_plan_tags_on_plan_id_and_tag_id", unique: true
-    t.index ["tag_id"], name: "index_coplan_plan_tags_on_tag_id"
+    t.index [ "plan_id", "tag_id" ], name: "index_coplan_plan_tags_on_plan_id_and_tag_id", unique: true
+    t.index [ "tag_id" ], name: "index_coplan_plan_tags_on_tag_id"
   end
 
   create_table "coplan_plan_types", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -374,7 +374,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "name", null: false
     t.text "template_content"
     t.datetime "updated_at", null: false
-    t.index ["name"], name: "index_coplan_plan_types_on_name", unique: true
+    t.index [ "name" ], name: "index_coplan_plan_types_on_name", unique: true
   end
 
   create_table "coplan_plan_versions", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -396,10 +396,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.text "reason"
     t.integer "revision", null: false
     t.json "writing_provenance"
-    t.index ["api_token_id"], name: "index_coplan_plan_versions_on_api_token_id"
-    t.index ["plan_id", "created_at"], name: "index_coplan_plan_versions_on_plan_id_and_created_at"
-    t.index ["plan_id", "revision"], name: "index_coplan_plan_versions_on_plan_id_and_revision", unique: true
-    t.index ["plan_id"], name: "index_coplan_plan_versions_on_plan_id"
+    t.index [ "api_token_id" ], name: "index_coplan_plan_versions_on_api_token_id"
+    t.index [ "plan_id", "created_at" ], name: "index_coplan_plan_versions_on_plan_id_and_created_at"
+    t.index [ "plan_id", "revision" ], name: "index_coplan_plan_versions_on_plan_id_and_revision", unique: true
+    t.index [ "plan_id" ], name: "index_coplan_plan_versions_on_plan_id"
   end
 
   create_table "coplan_plan_viewers", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -408,9 +408,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "plan_id", limit: 36, null: false
     t.datetime "updated_at", null: false
     t.string "user_id", limit: 36, null: false
-    t.index ["last_seen_at"], name: "index_coplan_plan_viewers_on_last_seen_at"
-    t.index ["plan_id", "user_id"], name: "index_coplan_plan_viewers_on_plan_id_and_user_id", unique: true
-    t.index ["user_id"], name: "fk_rails_6e3ee700a1"
+    t.index [ "last_seen_at" ], name: "index_coplan_plan_viewers_on_last_seen_at"
+    t.index [ "plan_id", "user_id" ], name: "index_coplan_plan_viewers_on_plan_id_and_user_id", unique: true
+    t.index [ "user_id" ], name: "fk_rails_6e3ee700a1"
   end
 
   create_table "coplan_plans", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -432,22 +432,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.text "summary"
     t.string "summary_content_sha256", limit: 64
     t.datetime "summary_generated_at"
-    t.string "title", null: false
+    t.text "title", null: false
     t.datetime "updated_at", null: false
     t.string "visibility", default: "published", null: false
     t.json "writing_provenance_backfill"
     t.json "writing_provenance_summary"
-    t.index ["archived_at"], name: "index_coplan_plans_on_archived_at"
-    t.index ["created_by_user_id", "creation_key"], name: "index_coplan_plans_on_author_and_creation_key", unique: true
-    t.index ["created_by_user_id", "updated_at"], name: "index_coplan_plans_on_author_and_updated_at"
-    t.index ["created_by_user_id"], name: "index_coplan_plans_on_created_by_user_id"
-    t.index ["current_plan_version_id"], name: "fk_rails_c401577583"
-    t.index ["plan_type_id"], name: "index_coplan_plans_on_plan_type_id"
-    t.index ["search_text"], name: "index_coplan_plans_on_search_text", type: :fulltext
-    t.index ["slug", "slug_suffix"], name: "index_coplan_plans_on_slug_and_suffix"
-    t.index ["updated_at"], name: "index_coplan_plans_on_updated_at"
-    t.index ["visibility", "updated_at"], name: "index_coplan_plans_on_visibility_and_updated_at"
-    t.index ["visibility"], name: "index_coplan_plans_on_visibility"
+    t.index [ "archived_at" ], name: "index_coplan_plans_on_archived_at"
+    t.index [ "created_by_user_id", "creation_key" ], name: "index_coplan_plans_on_author_and_creation_key", unique: true
+    t.index [ "created_by_user_id", "updated_at" ], name: "index_coplan_plans_on_author_and_updated_at"
+    t.index [ "created_by_user_id" ], name: "index_coplan_plans_on_created_by_user_id"
+    t.index [ "current_plan_version_id" ], name: "fk_rails_c401577583"
+    t.index [ "plan_type_id" ], name: "index_coplan_plans_on_plan_type_id"
+    t.index [ "search_text" ], name: "index_coplan_plans_on_search_text", type: :fulltext
+    t.index [ "slug", "slug_suffix" ], name: "index_coplan_plans_on_slug_and_suffix"
+    t.index [ "updated_at" ], name: "index_coplan_plans_on_updated_at"
+    t.index [ "visibility", "updated_at" ], name: "index_coplan_plans_on_visibility_and_updated_at"
+    t.index [ "visibility" ], name: "index_coplan_plans_on_visibility"
   end
 
   create_table "coplan_references", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -461,10 +461,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.datetime "updated_at", null: false
     t.text "url", null: false, collation: "utf8mb4_bin"
     t.virtual "url_digest", type: :string, limit: 64, as: "sha2(`url`,256)", stored: true
-    t.index ["plan_id", "key"], name: "index_coplan_references_on_plan_id_and_key", unique: true
-    t.index ["plan_id", "url_digest"], name: "index_coplan_references_on_plan_id_and_url_digest", unique: true
-    t.index ["source"], name: "index_coplan_references_on_source"
-    t.index ["target_plan_id"], name: "index_coplan_references_on_target_plan_id"
+    t.index [ "plan_id", "key" ], name: "index_coplan_references_on_plan_id_and_key", unique: true
+    t.index [ "plan_id", "url_digest" ], name: "index_coplan_references_on_plan_id_and_url_digest", unique: true
+    t.index [ "source" ], name: "index_coplan_references_on_source"
+    t.index [ "target_plan_id" ], name: "index_coplan_references_on_target_plan_id"
   end
 
   create_table "coplan_review_requests", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -500,18 +500,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.bigint "request_generation"
     t.string "review_request_id", limit: 36, null: false
     t.string "user_id", limit: 36, null: false
-    t.index ["api_token_id"], name: "fk_rails_edc220f557"
-    t.index ["comment_thread_id"], name: "fk_rails_ba6743adfa"
-    t.index ["plan_version_id"], name: "fk_rails_2feda03aa3"
-    t.index ["review_request_id", "created_at"], name: "index_coplan_review_responses_on_request_and_created"
-    t.index ["user_id"], name: "fk_rails_8aa5efae11"
+    t.index [ "api_token_id" ], name: "fk_rails_edc220f557"
+    t.index [ "comment_thread_id" ], name: "fk_rails_ba6743adfa"
+    t.index [ "plan_version_id" ], name: "fk_rails_2feda03aa3"
+    t.index [ "review_request_id", "created_at" ], name: "index_coplan_review_responses_on_request_and_created"
+    t.index [ "user_id" ], name: "fk_rails_8aa5efae11"
   end
 
   create_table "coplan_search_queries", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.timestamp "created_at", null: false
     t.string "query", null: false
     t.string "user_id", limit: 36, null: false
-    t.index ["user_id", "created_at"], name: "index_coplan_search_queries_on_user_id_and_created_at"
+    t.index [ "user_id", "created_at" ], name: "index_coplan_search_queries_on_user_id_and_created_at"
   end
 
   create_table "coplan_tags", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -519,7 +519,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.string "name", null: false
     t.integer "plans_count", default: 0, null: false
     t.datetime "updated_at", null: false
-    t.index ["name"], name: "index_coplan_tags_on_name", unique: true
+    t.index [ "name" ], name: "index_coplan_tags_on_name", unique: true
   end
 
   create_table "coplan_url_aliases", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -530,8 +530,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.integer "resolve_count", default: 0, null: false
     t.string "target_path", limit: 512, null: false
     t.datetime "updated_at", null: false
-    t.index ["kind", "resolve_count", "created_at"], name: "index_coplan_url_aliases_for_pruning"
-    t.index ["path", "kind"], name: "index_coplan_url_aliases_on_path_and_kind", unique: true
+    t.index [ "kind", "resolve_count", "created_at" ], name: "index_coplan_url_aliases_for_pruning"
+    t.index [ "path", "kind" ], name: "index_coplan_url_aliases_on_path_and_kind", unique: true
   end
 
   create_table "coplan_users", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -550,9 +550,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.datetime "updated_at", null: false
     t.string "username"
     t.string "voice_hotkey", default: "ctrl_space", null: false
-    t.index ["email"], name: "index_coplan_users_on_email", unique: true
-    t.index ["external_id"], name: "index_coplan_users_on_external_id", unique: true
-    t.index ["username"], name: "index_coplan_users_on_username", unique: true
+    t.index [ "email" ], name: "index_coplan_users_on_email", unique: true
+    t.index [ "external_id" ], name: "index_coplan_users_on_external_id", unique: true
+    t.index [ "username" ], name: "index_coplan_users_on_username", unique: true
   end
 
   create_table "coplan_web_push_subscriptions", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
@@ -567,8 +567,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_165942) do
     t.datetime "updated_at", null: false
     t.string "user_agent"
     t.string "user_id", limit: 36, null: false
-    t.index ["endpoint_digest"], name: "index_coplan_web_push_subscriptions_on_endpoint_digest", unique: true
-    t.index ["user_id"], name: "index_coplan_web_push_subscriptions_on_user_id"
+    t.index [ "endpoint_digest" ], name: "index_coplan_web_push_subscriptions_on_endpoint_digest", unique: true
+    t.index [ "user_id" ], name: "index_coplan_web_push_subscriptions_on_user_id"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"

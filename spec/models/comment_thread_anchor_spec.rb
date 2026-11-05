@@ -797,7 +797,7 @@ RSpec.describe CoPlan::CommentThread, "structured source anchor tracking" do
 
   it "moves the exact duplicate's range through unrelated edits" do
     replace_content("Preface 🌱\n\n#{content}")
-    expect(thread).to have_attributes(anchor_start: target["start"] + "Preface 🌱\n\n".length,
+    expect(thread).to have_attributes(anchor_start: target["start"] + "# #{plan.title}\n\nPreface 🌱\n\n".length,
       anchor_revision: 2, out_of_date: false, anchor_kind: "table_cell")
     expect(plan.current_content[thread.anchor_start...thread.anchor_end]).to eq(" same ")
   end

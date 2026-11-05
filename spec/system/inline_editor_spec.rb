@@ -28,7 +28,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_no_button("Revert unsaved changes")
     expect(page).to have_no_button("Discard changes and close")
     expect(page).to have_css("[data-coplan--inline-editor-target='reader'][hidden]", visible: :all)
-    page.execute_script('window.inlineTitleBeforeSave = document.querySelector("#plan-title .inline-editor__title")')
+    page.execute_script('window.inlineTitleBeforeSave = document.querySelector(".inline-editor .ProseMirror > h1:first-child")')
     expect(page).to have_css(".inline-editor button.document-editor__close-inline > .document-editor__save-status", count: 1, visible: :all)
     expect(page).to have_css("#coplan-inline-save-announcement[role='status'][aria-live='polite']", visible: :all)
     close_width = find(".inline-editor button.document-editor__close-inline").rect.width
@@ -39,7 +39,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css(".document-editor__save-status[data-state='saved']", visible: :all, wait: 15)
     expect(find(".inline-editor button.document-editor__close-inline")["title"]).to include("All changes saved")
     expect(page).to have_css("#plan-header .page-header__byline", text: /\bv2\b/)
-    expect(page.evaluate_script('window.inlineTitleBeforeSave === document.querySelector("#plan-title .inline-editor__title")')).to be(true)
+    expect(page.evaluate_script('window.inlineTitleBeforeSave === document.querySelector(".inline-editor .ProseMirror > h1:first-child")')).to be(true)
     expect(find(".inline-editor button.document-editor__close-inline").rect.width).to eq(close_width)
     find(".inline-editor").click_button "Done editing"
 
@@ -85,7 +85,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     within("#plan-toolbar") { click_link "Done" }
 
-    expect(page).to have_css("#plan-title .plan-title__heading", text: "Inline plan", wait: 15)
+    expect(page).to have_css("h1#plan-title", text: "A plan", wait: 15)
     expect(page).to have_no_css(".inline-editor form.document-editor", wait: 10)
     expect(page).to have_current_path(plan_page_path(plan))
   end
@@ -211,7 +211,7 @@ RSpec.describe "Inline plan editing", type: :system do
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     expect(page.evaluate_script("window.scrollY")).to be <= 2
-    expect(page).to have_css("#plan-title .inline-editor__title", visible: true)
+    expect(page).to have_css(".inline-editor .ProseMirror > h1:first-child", visible: true)
     find(".inline-editor").click_button "Done editing"
     expect(page).to have_no_css(".inline-editor form.document-editor", wait: 10)
     expect(page.evaluate_script("window.scrollY")).to be <= 2
@@ -328,9 +328,9 @@ RSpec.describe "Inline plan editing", type: :system do
     visit "#{plan_page_path(plan)}?from=review#context"
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
-    title = find("#plan-title .inline-editor__title", wait: 10)
+    title = find(".inline-editor .ProseMirror > h1:first-child", wait: 10)
     title.click
-    title.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ])
+    select_document_title
     title.send_keys("A clearer title")
     find(".inline-editor").click_button "Done editing"
 
@@ -346,14 +346,14 @@ RSpec.describe "Inline plan editing", type: :system do
     let(:content) { "# A plan\n\nFirst paragraph.\n\n## Details\n\nSecond paragraph.\n" }
 
     it "wraps long titles and offers hidden formatting controls without a visible scrollbar", :ci_boundary do
-      plan.update!(title: "A long working title about collaborative planning and rich editing that needs to stay fully visible while someone changes it")
+      retitle_plan(plan, "A long working title about collaborative planning and rich editing that needs to stay fully visible while someone changes it")
       visit plan_page_path(plan)
       within("#plan-toolbar") { click_link "Edit" }
       expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
 
-      page.execute_script("document.querySelector('.inline-editor__title').style.maxWidth = '320px'")
-      expect(page.evaluate_script("document.querySelector('.inline-editor__title').getBoundingClientRect().height > parseFloat(getComputedStyle(document.querySelector('.inline-editor__title')).lineHeight) * 1.5")).to eq(true)
-      expect(page.evaluate_script("document.querySelector('.inline-editor__title').scrollWidth <= document.querySelector('.inline-editor__title').clientWidth")).to eq(true)
+      page.execute_script("document.querySelector('.inline-editor .ProseMirror > h1:first-child').style.maxWidth = '320px'")
+      expect(page.evaluate_script("document.querySelector('.inline-editor .ProseMirror > h1:first-child').getBoundingClientRect().height > parseFloat(getComputedStyle(document.querySelector('.inline-editor .ProseMirror > h1:first-child')).lineHeight) * 1.5")).to eq(true)
+      expect(page.evaluate_script("document.querySelector('.inline-editor .ProseMirror > h1:first-child').scrollWidth <= document.querySelector('.inline-editor .ProseMirror > h1:first-child').clientWidth")).to eq(true)
       expect(page.evaluate_script("getComputedStyle(document.querySelector('.document-editor__format-controls')).scrollbarWidth")).to eq("none")
       page.execute_script("document.querySelector('.document-editor__format-controls').style.maxWidth = '200px'")
       expect(page).to have_css(".document-editor__more-tools", visible: true)
@@ -379,6 +379,7 @@ RSpec.describe "Inline plan editing", type: :system do
     end
 
     it "updates the editing outline when an agent changes a heading" do
+      original_path = current_path
       within("#plan-toolbar") { click_link "Edit" }
       expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
       expect(page).to have_css(".content-nav", text: "A plan")
@@ -389,23 +390,23 @@ RSpec.describe "Inline plan editing", type: :system do
 
       expect(page).to have_css(".inline-editor .ProseMirror h1", text: "Revised plan", wait: 10)
       expect(page).to have_css(".content-nav__link", text: "Revised plan", wait: 10)
-      expect(page).to have_current_path(plan_page_path(plan))
+      expect(page).to have_current_path(original_path)
     end
   end
 
-  it "keeps the visible title within the saved title limit" do
+  it "preserves long document titles" do
     within("#plan-toolbar") { click_link "Edit" }
-    expect(page).to have_css(".inline-editor__title", wait: 20)
-    title = find(".inline-editor__title")
+    expect(page).to have_css(".inline-editor .ProseMirror > h1:first-child", wait: 20)
+    title = find(".inline-editor .ProseMirror > h1:first-child")
     title.click
-    title.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ])
+    select_document_title
     title.send_keys("A" * 280)
 
-    expect(title.text.length).to eq(255)
+    expect(title.text.length).to eq(280)
     expect(page).to have_css('.document-editor__save-status[data-state="saved"]', visible: :all, wait: 15)
     find(".inline-editor").click_button "Done editing"
     expect(page).to have_no_css(".inline-editor form.document-editor", wait: 10)
-    expect(plan.reload.title.length).to eq(255)
+    expect(plan.reload.title.length).to eq(280)
   end
 
   it "keeps the visible passage fixed when editing starts and ends halfway down a long plan" do
@@ -565,8 +566,8 @@ RSpec.describe "Inline plan editing", type: :system do
     page.execute_script(<<~JS)
       const form = document.querySelector('.inline-editor form.document-editor')
       const controller = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor')
-      const title = form.querySelector('[name="plan[title]"]')
-      title.value = 'My unsaved title'
+      const view = controller.richEditor.view
+      view.dispatch(view.state.tr.insertText("My unsaved title", 1, view.state.doc.firstChild.nodeSize - 1))
       controller.accept({ ...controller.base, revision: 2,
         content: controller.base.content.replace('Second paragraph.', 'A completely different reviewed passage.') })
       const thread = document.getElementById('comment_thread_#{thread.id}')
@@ -575,7 +576,7 @@ RSpec.describe "Inline plan editing", type: :system do
     JS
 
     expect(page).to have_css(selector, text: "A completely different reviewed passage.", wait: 0)
-    expect(find('.inline-editor [name="plan[title]"]', visible: :all).value).to eq("My unsaved title")
+    expect(find('.inline-editor .ProseMirror > h1:first-child').text).to eq("My unsaved title")
   end
 
   it "shows an out-of-date comment without moving it to another matching passage" do

@@ -3,7 +3,7 @@ module CoPlan
     # No browser-session lease. The plan row is locked only while comparing
     # the immutable base, applying the surgical diff and committing a version.
     class SaveHumanDraft
-      def self.call(plan:, content:, base_revision:, actor:, metadata: {}, base_metadata: {}, overwrite_revision: nil, change_summary: nil, input_sources: nil)
+      def self.call(plan:, content:, base_revision:, actor:, metadata: {}, base_metadata: {}, overwrite_revision: nil, change_summary: nil, input_sources: nil, finalize: false)
         plan.with_lock do
           # Leases from the first editor prototype are obsolete. Old tabs still
           # send revision-guarded saves; retiring a lease never discards a draft.
@@ -18,9 +18,10 @@ module CoPlan
           else
             merged = MergeText.call(base: base.content_markdown, local: content, remote: current)
           end
+          merged = DocumentTitle.call(merged, fallback: DocumentTitle::DEFAULT) if finalize
           updates = {}
-          metadata.each do |key, value|
-            current_value = key == :title ? plan.title : plan.tag_names.join(", ")
+          metadata.except(:title).each do |key, value|
+            current_value = plan.tag_names.join(", ")
             baseline = base_metadata[key]
             # Older clients omit a metadata baseline: only accept unchanged
             # metadata when they are stale. New clients always include it.
@@ -48,7 +49,8 @@ module CoPlan
           end
           result = ReplaceContent.call(plan: plan, new_content: merged, base_revision: plan.current_revision,
             actor_type: "human", actor_id: actor.id, change_summary: change_summary.presence || "Edited in web UI",
-            granularity: :character, input_sources: input_sources)
+            granularity: :character, input_sources: input_sources, allow_empty_title: !finalize)
+          plan.finalize_title! if finalize
           result
         end
       end

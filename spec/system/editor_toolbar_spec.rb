@@ -88,7 +88,7 @@ RSpec.describe "Editor toolbar", type: :system do
     [ :open, :dismissed ].each do |discussion_state|
       it "keeps the sticky header Edit link clickable after linking to a #{discussion_state} long discussion" do
         thread = long_thread
-        plan.update!(title: "A long document title with assigned reviewers and a detailed discussion")
+        retitle_plan(plan, "A long document title with assigned reviewers and a detailed discussion")
         visit plan_page_path(plan, thread: thread.id)
         expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open")
         if discussion_state == :dismissed

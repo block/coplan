@@ -301,7 +301,7 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page.evaluate_script("document.querySelector('#workspace-add-menu').matches(':popover-open')")).to eq(false)
       within("#new-plan-modal") { click_link "Design Doc" }
 
-      title = find("#plan-title .inline-editor__title[contenteditable='plaintext-only']", wait: 20)
+      title = find(".inline-editor .ProseMirror > h1:first-child", wait: 20)
       expect(title.text).to be_empty
       expect(page).to have_css(".inline-editor .ProseMirror", text: "Problem")
       expect(page).to have_css('.document-editor__inline-mode button[data-mode="rich"][aria-pressed="true"]')
@@ -333,7 +333,7 @@ RSpec.describe "Folders workspace", type: :system do
       within("#workspace-add-menu") { click_button "Plan" }
       within("#new-plan-modal") { click_link "Scratchpad" }
 
-      expect(page).to have_css("#plan-title .inline-editor__title[contenteditable='plaintext-only']", wait: 20)
+      expect(page).to have_css(".inline-editor .ProseMirror > h1:first-child", wait: 20)
       expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']")
       expect(CoPlan::Plan.find_by(title: "Untitled plan")).to be_nil
     end
@@ -346,7 +346,7 @@ RSpec.describe "Folders workspace", type: :system do
       within("#new-plan-modal") { click_link "Scratchpad" }
       expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
 
-      find("#plan-title .inline-editor__title").send_keys("Just a title")
+      find(".inline-editor .ProseMirror > h1:first-child").send_keys("Just a title")
       click_link "Done"
 
       expect(page).to have_current_path(folder_page_path(team))
@@ -374,7 +374,7 @@ RSpec.describe "Folders workspace", type: :system do
       within("#workspace-add-menu") { click_button "Plan" }
       within("#new-plan-modal") { click_link "Presentation" }
 
-      expect(page).to have_css("#plan-title .inline-editor__title[contenteditable='plaintext-only']", wait: 20)
+      expect(page).to have_css(".inline-editor .ProseMirror > h1:first-child", wait: 20)
       expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']")
     end
 

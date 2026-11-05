@@ -4,14 +4,14 @@ module CoPlan
       # Plans are shared by default: they're created published unless the
       # caller explicitly asks for an unlisted draft.
       def self.call(
-        title:, content:, user:, plan_type_id: nil, visibility: "published",
+        title: nil, content:, user:, plan_type_id: nil, visibility: "published",
         actor_type: "human", actor_id: nil, agent_name: nil, api_token_id: nil, creation_key: nil, input_sources: nil
       )
         new(title:, content:, user:, plan_type_id:, visibility:, actor_type:, actor_id:, agent_name:, api_token_id:, creation_key:, input_sources:).call
       end
 
       def initialize(
-        title:, content:, user:, plan_type_id: nil, visibility: "published",
+        title: nil, content:, user:, plan_type_id: nil, visibility: "published",
         actor_type: "human", actor_id: nil, agent_name: nil, api_token_id: nil, creation_key: nil, input_sources: nil
       )
         @title = title
@@ -29,10 +29,11 @@ module CoPlan
 
       def call
         plan = ActiveRecord::Base.transaction do
-          plan = Plan.create!(title: @title, created_by_user: @user, plan_type_id: @plan_type_id, visibility: @visibility, creation_key: @creation_key)
-          version = PlanVersion.create!(
+          plan = Plan.create!(title: DocumentTitle.extract(DocumentTitle.call(@content, fallback: @title)), created_by_user: @user, plan_type_id: @plan_type_id, visibility: @visibility, creation_key: @creation_key)
+          version = PlanVersion.create_for_commit!(
             plan: plan,
             revision: 1,
+            allow_empty_title: @actor_type == "human",
             input_sources: @input_sources,
             # Normalize line endings on the way in (ReplaceContent does the
             # same) — otherwise a CRLF-created document diffs against its

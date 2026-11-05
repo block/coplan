@@ -204,7 +204,6 @@ module CoPlan
       @plan.with_lock do
         EditLease.enforce!(plan: @plan, lease_token: params[:lease_token])
         apply_metadata_changes!(
-          title: plan_params[:title],
           tag_names: plan_params.key?(:tag_names) ? plan_params[:tag_names] : nil
         )
       end
@@ -221,7 +220,7 @@ module CoPlan
       return head :not_found if params[:folder_id].present? && !@new_folder
 
       @plan = Plan.new(title: "", created_by_user: current_user, plan_type: @new_plan_type)
-      @draft_content = @new_plan_type&.template_content.to_s
+      @draft_content = Plans::DocumentTitle.call(@new_plan_type&.template_content.to_s, fallback: "Untitled")
       @base_revision = 0
       load_tag_suggestions
       render :new_inline
@@ -298,19 +297,17 @@ module CoPlan
       authorize!(@plan, :edit_content?)
 
       fields = params[:plan].present? ? params.expect(plan: [ :title, :tag_names ]) : {}
-      metadata = fields.to_h.symbolize_keys
+      metadata = fields.to_h.symbolize_keys.except(:title)
       baseline = params[:base_metadata].present? ? params.expect(base_metadata: [ :title, :tag_names ]).to_h.symbolize_keys : {}
       changed = false
-      title_changed = false
       result = Plans::SaveHumanDraft.call(plan: @plan, content: params[:content].to_s.delete("\r"),
         base_revision: params[:base_revision].to_i, actor: current_user,
-        metadata: metadata, base_metadata: baseline, overwrite_revision: params[:overwrite_revision],
+        metadata: metadata, base_metadata: baseline, finalize: params[:finalize] == true, overwrite_revision: params[:overwrite_revision],
         change_summary: params[:change_summary],
         input_sources: params[:input_sources].is_a?(ActionController::Parameters) ? params[:input_sources].to_unsafe_h : nil) do |updates|
-        changed = apply_metadata_changes!(title: updates[:title], tag_names: updates[:tag_names])
-        title_changed = @plan.saved_change_to_title?
+        changed = apply_metadata_changes!(tag_names: updates[:tag_names])
       end
-      broadcast_plan_update(@plan, title_changed: title_changed) if changed
+      broadcast_plan_update(@plan) if changed
       if request.format.json?
         render json: editor_snapshot.merge(no_op: result[:no_op] && !changed)
       else
@@ -485,28 +482,15 @@ module CoPlan
         title: @plan.title, tags: @plan.tag_names.join(", "), url: helpers.plan_browse_path(@plan) }
     end
 
-    # Title/tag updates with their audit events — shared by the metadata
+    # Tag updates with their audit events — shared by the metadata
     # PATCH (#update) and the unified editor (#update_content). Returns
     # true when anything actually changed.
-    def apply_metadata_changes!(title:, tag_names:)
-      old_title = @plan.title
+    def apply_metadata_changes!(tag_names:)
       old_tag_names = @plan.tag_names
 
       @plan.tag_names = tag_names.to_s.split(",") unless tag_names.nil?
-      @plan.update!(title: title) unless title.nil?
 
       changed = false
-      if @plan.saved_change_to_title?
-        changed = true
-        Plans::LogEvent.call(
-          plan: @plan,
-          actor: current_user,
-          event_type: "title_changed",
-          before: old_title,
-          after: @plan.title
-        )
-      end
-
       new_tag_names = @plan.tag_names
       (new_tag_names - old_tag_names).each do |added|
         changed = true
@@ -839,13 +823,8 @@ module CoPlan
       redirect_to canonical, status: :moved_permanently
     end
 
-    def broadcast_plan_update(plan, title_changed: plan.saved_change_to_title?)
+    def broadcast_plan_update(plan)
       Broadcaster.replace_to(plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: plan })
-      # Only on a rename: a replaced #plan-title makes every open editor
-      # re-read the plan.
-      if title_changed
-        Broadcaster.replace_to(plan, target: "plan-title", partial: "coplan/plans/title", locals: { plan: plan })
-      end
       Broadcaster.replace_to(plan, target: "plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: plan })
     end
 

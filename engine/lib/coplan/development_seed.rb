@@ -50,6 +50,9 @@ module CoPlan
     AGENT_ORGANIZED_KEYS = %w[agent-pick-metrics agent-pick-postmortem agent-pick-vendors].freeze
 
     DOCUMENTS = [
+      { key: "document-title", author: "hampton", type: "General", title: "One document, one title",
+        tags: %w[demo editing], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "Edit the opening title; autosave keeps its URL stable until Done. Backspace and formatting cannot remove the title block." },
       { key: "writing-legacy-unknown", author: "hampton", type: "General", title: "Writing sources: early history is unknown",
         tags: %w[demo provenance], visibility: "published", folder: "Demo content/Writing sources", group: "Writing sources", writing_source: "legacy_unknown",
         showcase: "Early human-labeled API history repaired as Unknown; no agent identity is invented" },
@@ -466,13 +469,20 @@ module CoPlan
       document = plans.fetch("liveorder-pricing")
       return unless document.title == RETITLED_DOCUMENT_FROM
 
-      document.update!(title: RETITLED_DOCUMENT_TO)
+      retitle_document(document, RETITLED_DOCUMENT_TO)
     end
 
     def seed_retitled_private_document(document)
       return unless document.title == PRIVATE_RETITLED_DOCUMENT_FROM && document.draft? && !document.archived?
 
-      document.update!(title: PRIVATE_RETITLED_DOCUMENT_TO)
+      retitle_document(document, PRIVATE_RETITLED_DOCUMENT_TO)
+    end
+
+    def retitle_document(document, title)
+      Plans::ReplaceContent.call(plan: document,
+        new_content: Plans::DocumentTitle.call(document.current_content, fallback: title, override: true),
+        base_revision: document.current_revision, actor_type: "system", actor_id: nil,
+        change_summary: "Demonstrate a document rename")
     end
 
     # Folder descriptions give agents (and readers) semantics a bare name
@@ -793,7 +803,7 @@ module CoPlan
       content = content.gsub("{{demo_logo_url}}") { demo_logo_url }
       content = "# #{definition.fetch(:title)}\n\n#{content}"
       if %i[slideshow_deck pattern_showcase].include?(definition[:fixture])
-        "::: {.presentation}\n\n#{content}\n\n:::"
+        "# #{definition.fetch(:title)}\n\n::: {.presentation}\n\n#{content}\n\n:::"
       else
         content
       end

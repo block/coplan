@@ -10,7 +10,7 @@ This guide assumes that you have read the primer at <<%= @base %>/agent-instruct
 
 ## Create request fields
 
-`POST <%= @base %>/api/v1/plans` requires `title` and `content`. CoPlan shows the title above the content, so do not start `content` with `# <title>`. Optional fields:
+`POST <%= @base %>/api/v1/plans` requires `content`. Start it with `# Your document title`, then follow the type template. The opening heading is the title; CoPlan derives response metadata from it. A legacy `title` input is accepted but ignored. Missing or empty opening headings become `# Untitled` on creation. Optional fields:
 
 | Field | Value |
 |---|---|

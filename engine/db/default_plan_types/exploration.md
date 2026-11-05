@@ -3,6 +3,8 @@ name: Exploration
 icon: compass
 description: Investigate options before choosing a direction.
 ---
+# Document title
+
 <!-- Exploration: thinking in progress, shared. Structure is loose on
 purpose - fragments and code samples are welcome. Keep dead ends in the
 document: they save the next reader from redigging the same hole. -->

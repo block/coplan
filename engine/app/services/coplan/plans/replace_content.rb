@@ -30,7 +30,7 @@ module CoPlan
       # Surfaces as a 500 (rather than silently persisting wrong content).
       class RoundtripFailureError < StandardError; end
 
-      def self.call(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil, lease_token: nil, granularity: :line, input_sources: nil)
+      def self.call(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil, lease_token: nil, granularity: :line, input_sources: nil, allow_empty_title: false)
         new(
           plan: plan,
           new_content: new_content,
@@ -44,15 +44,16 @@ module CoPlan
           reader_type: reader_type,
           reader_id: reader_id,
           lease_token: lease_token,
-          granularity: granularity, input_sources: input_sources
+          granularity: granularity, input_sources: input_sources, allow_empty_title: allow_empty_title
         ).call
       end
 
-      def initialize(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil, lease_token: nil, granularity: :line, input_sources: nil)
+      def initialize(plan:, new_content:, base_revision:, actor_type:, actor_id:, agent_name: nil, api_token_id: nil, change_summary: nil, reason: nil, reader_type: nil, reader_id: nil, lease_token: nil, granularity: :line, input_sources: nil, allow_empty_title: false)
         @plan = plan
         @lease_token = lease_token
         @granularity = granularity
         @input_sources = input_sources
+        @allow_empty_title = allow_empty_title
         # Normalize line endings to LF before diffing. Browser textareas, agents
         # running on Windows, and copy-paste from various sources commonly emit
         # CRLF (`\r\n`). If the stored current_content is LF and the inbound
@@ -95,6 +96,9 @@ module CoPlan
           end
 
           current_content = @plan.current_content || ""
+          normalized = DocumentTitle.call(@new_content, fallback: @plan.title, allow_empty: @allow_empty_title)
+          @input_sources = DocumentTitle.remap_input_sources(@input_sources, @new_content, normalized)
+          @new_content = normalized
 
           # No-op: content is identical → no version, no broadcasts.
           if current_content == @new_content
@@ -119,12 +123,13 @@ module CoPlan
           new_revision = @plan.current_revision + 1
           diff = Diffy::Diff.new(current_content, @new_content).to_s
 
-          version = PlanVersion.create!(
+          version = PlanVersion.create_for_commit!(
             plan: @plan,
             edit_lease_token: @lease_token,
             revision: new_revision,
             content_markdown: @new_content,
             input_sources: @input_sources,
+            allow_empty_title: @allow_empty_title,
             actor_type: @actor_type,
             actor_id: @actor_id,
             agent_name: @agent_name,
@@ -148,7 +153,7 @@ module CoPlan
           )
           changed_sections = Plans::ChangedSections.call(
             old_content: current_content,
-            new_content: @new_content
+            new_content: version.content_markdown
           )
           Broadcaster.replace_plan_content(@plan, changed_sections: changed_sections)
 

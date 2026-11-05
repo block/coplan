@@ -301,7 +301,7 @@ RSpec.describe "Browsable library URLs", type: :request do
     it "301s to the new path after a published plan is retitled" do
       plan = create(:plan, :published, created_by_user: author, title: "Cart Roadmap")
 
-      plan.update!(title: "Basket Roadmap")
+      retitle_plan(plan, "Basket Roadmap")
 
       get "/hampton/cart-roadmap"
 
@@ -314,7 +314,7 @@ RSpec.describe "Browsable library URLs", type: :request do
       thread = create(:comment_thread, plan: plan)
       old_path = plan_page_path(plan, thread: thread.id)
       folder = create(:folder, name: "LiveOrder", created_by_user: author)
-      plan.update!(title: "Basket Roadmap")
+      retitle_plan(plan, "Basket Roadmap")
       place(plan, folder)
 
       get old_path
@@ -328,7 +328,7 @@ RSpec.describe "Browsable library URLs", type: :request do
       plan = create(:plan, :draft, created_by_user: author, title: "Cart Roadmap")
       folder = create(:folder, name: "LiveOrder", created_by_user: author)
       old_paths = [ "/#{plan.url_path}" ]
-      plan.update!(title: "Basket Roadmap")
+      retitle_plan(plan, "Basket Roadmap")
       old_paths << "/#{plan.url_path}"
       place(plan, folder)
 
@@ -357,7 +357,7 @@ RSpec.describe "Browsable library URLs", type: :request do
 
     it "does not redirect the old URL when an archived document is retitled" do
       plan = create(:plan, :archived, created_by_user: author, title: "Cart Roadmap")
-      plan.update!(title: "Basket Roadmap")
+      retitle_plan(plan, "Basket Roadmap")
 
       get "/hampton/cart-roadmap"
       expect(response).to have_http_status(:not_found)

@@ -114,8 +114,7 @@ module CoPlan
       example_type = @plan_types.reject { |t| t.name.casecmp?(PlanType::GENERAL_NAME) }.first
       JSON.generate(
         {
-          title: "My Plan",
-          content: "## Summary\n\nContent following the type template.",
+          content: "# My Plan\n\n## Summary\n\nContent following the type template.",
           plan_type: example_type&.name || "general",
           folder_path: "Team EBT/Q3"
         },

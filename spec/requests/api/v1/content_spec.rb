@@ -99,10 +99,11 @@ RSpec.describe "Api::V1::Content", type: :request do
       expect(JSON.parse(response.body)["error"]).to match(/content/)
     end
 
-    it "rejects empty content with 422 (PlanVersion requires content_markdown)" do
+    it "restores the existing title when content is empty" do
       put_content("")
-      expect(response).to have_http_status(:unprocessable_content)
-      expect(plan.reload.current_revision).to eq(1)
+      expect(response).to have_http_status(:created)
+      expect(plan.reload.current_revision).to eq(2)
+      expect(plan.current_content).to eq("# #{plan.title}\n\n")
     end
   end
 

@@ -168,7 +168,7 @@ RSpec.describe CoPlan::Reference, type: :model do
       # document, so it should still name it — the alias walk is the same
       # one that makes following the link work.
       it "follows a rename through the alias table" do
-        plan.reload.update!(title: "Basket Roadmap")
+        retitle_plan(plan.reload, "Basket Roadmap")
         expect(plan.reload.url_path).to eq("hampton/liveorder/basket-roadmap")
 
         expect(described_class.extract_target_plan_id("https://coplan.example.com/hampton/liveorder/cart-roadmap"))

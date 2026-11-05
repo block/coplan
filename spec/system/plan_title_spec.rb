@@ -1,101 +1,113 @@
 require "rails_helper"
 
-# The plan title heads the document card and slides into the sticky nav once
-# it scrolls behind the bar. A leading H1 in the content would repeat it, so
-# the reading view and the outline both drop it.
-RSpec.describe "Plan title on the document", type: :system do
+RSpec.describe "Canonical document title", type: :system do
   let(:author) { create(:coplan_user, email: "title-author@example.com") }
-  let(:sections) { (1..12).map { |i| "## Section #{i}\n\n#{"Body text for this section. " * 30}" }.join("\n\n") }
+  let!(:plan) { CoPlan::Plans::Create.call(user: author, content: "# Shared workspaces\n\nFirst paragraph.\n\n## Details\n\n#{'More detail. ' * 500}", actor_type: "local_agent") }
 
-  def sign_in(user)
+  before do
     visit sign_in_path
-    fill_in "Email address", with: user.email
+    fill_in "Email address", with: author.email
     click_button "Sign In"
     expect(page).to have_button("Menu")
-  end
-
-  def open_plan(content)
-    plan = CoPlan::Plans::Create.call(title: "Shared workspaces", content: content, user: author,
-      visibility: "published", actor_type: "human")
-    sign_in(author)
     visit plan_page_path(plan)
-    expect(page).to have_css("#plan-title .plan-title__heading", text: "Shared workspaces")
-    plan
   end
 
-  it "hides a leading H1 in the reading view and the outline, whatever it says" do
-    open_plan("# Something else entirely\n\nIntro paragraph.\n\n#{sections}")
-
-    expect(page).to have_css("#plan-content-body h1", text: "Something else entirely", visible: :hidden)
-    expect(page).to have_css("#plan-content-body p", text: "Intro paragraph.")
-    expect(page).to have_css(".content-nav__link-text", text: "Section 1")
-    expect(page).to have_no_css(".content-nav__link-text", text: "Something else entirely")
+  def open_editor
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
   end
 
-  it "shows a leading H1 while an open discussion is anchored in it" do
-    plan = open_plan("# Something else entirely\n\nIntro paragraph.\n\n#{sections}")
-    thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Something else")
-    thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Is this the title?")
+  def select_title
+    page.execute_script <<~JS
+      const title = document.querySelector('.inline-editor .ProseMirror > h1:first-child')
+      title.closest('[contenteditable]').focus()
+      const range = document.createRange()
+      range.selectNodeContents(title)
+      const selection = window.getSelection()
+      selection.removeAllRanges()
+      selection.addRange(range)
+      document.dispatchEvent(new Event('selectionchange'))
+    JS
+  end
+
+  def wait_saved(title)
+    expect(page).to have_css('.document-editor__close-inline[data-state="idle"]', wait: 15)
+    expect(plan.reload.title).to eq(title)
+  end
+
+  it "renders one visible title with working discussion anchors and a sticky copy" do
+    expect(page).to have_css("#plan-content-body h1", count: 1)
+    expect(page).to have_css("#plan-title", text: "Shared workspaces")
+    thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "Shared workspaces")
+    thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "A title discussion")
     visit plan_page_path(plan)
-
-    expect(page).to have_css("#plan-content-body h1 mark.anchor-highlight--open", text: "Something else")
-  end
-
-  it "puts the update dot for the opening section on its first visible block" do
-    open_plan("# Something else entirely\n\nIntro paragraph.\n\n#{sections}")
-    page.execute_script(<<~JS)
-      const layout = document.querySelector(".plan-layout")
-      layout.setAttribute("data-coplan--changed-sections-keys-value", '["something-else-entirely"]')
-      window.Stimulus.getControllerForElementAndIdentifier(layout, "coplan--changed-sections").connect()
-    JS
-
-    expect(page).to have_css("#plan-content-body p.section-updated .section-update-marker", visible: :all)
-    expect(page).to have_css("#plan-content-body p.section-updated", text: "Intro paragraph.")
-    expect(page).to have_no_css("#plan-content-body h1.section-updated", visible: :all)
-  end
-
-  it "acknowledges an opening-section marker even when its block is taller than the viewport" do
-    open_plan("# Opening\n\n#{'Long introductory paragraph. ' * 500}\n\n#{sections}")
-    page.execute_script(<<~JS)
-      const layout = document.querySelector(".plan-layout")
-      layout.setAttribute("data-coplan--changed-sections-keys-value", '["opening"]')
-      window.Stimulus.getControllerForElementAndIdentifier(layout, "coplan--changed-sections").connect()
-    JS
-
-    expect(page).to have_css("p.section-updated .section-update-marker")
-    expect(page.evaluate_script("document.querySelector('p.section-updated').getBoundingClientRect().height > window.innerHeight")).to be(true)
-    expect(page).to have_css("p.section-updated--viewed", wait: 6)
-  end
-
-  it "starts the outline beside the title and keeps the title aligned with the body" do
-    open_plan(sections)
-
-    positions = page.evaluate_script(<<~JS)
-      (() => {
-        const title = document.querySelector("#plan-title").getBoundingClientRect()
-        const outline = document.querySelector(".content-nav").getBoundingClientRect()
-        const body = document.querySelector("#plan-content-body").getBoundingClientRect()
-        return { topGap: Math.abs(title.top - outline.top), leftGap: Math.abs(title.left - body.left) }
-      })()
-    JS
-    expect(positions["topGap"]).to be <= 1
-    expect(positions["leftGap"]).to be <= 1
-  end
-
-  it "keeps a later H1 visible" do
-    open_plan("Intro paragraph.\n\n# A real heading\n\n#{sections}")
-
-    expect(page).to have_css("#plan-content-body h1", text: "A real heading")
-    expect(page).to have_css(".content-nav__link-text", text: "A real heading")
-  end
-
-  it "moves the title into the sticky nav once it scrolls behind the bar" do
-    open_plan(sections)
-
-    expect(page).to have_no_css(".site-nav__plan-context--visible")
+    expect(page).to have_css("#plan-title mark", text: "Shared workspaces")
     page.execute_script("window.scrollTo(0, 900)")
     expect(page).to have_css(".site-nav__plan-context--visible .site-nav__doc-title-text", text: "Shared workspaces")
-    page.execute_script("window.scrollTo(0, 0)")
-    expect(page).to have_no_css(".site-nav__plan-context--visible")
+  end
+
+  it "autosaves title text repeatedly but changes the URL only on Done" do
+    path = plan.url_path
+    open_editor
+    select_title
+    find('.inline-editor .ProseMirror').send_keys("First rename")
+    wait_saved("First rename")
+    expect(plan.url_path).to eq(path)
+    select_title
+    find('.inline-editor .ProseMirror').send_keys("Final rename")
+    wait_saved("Final rename")
+    expect(page).to have_title("Final rename — CoPlan")
+    expect(plan.url_path).to eq(path)
+    expect(CoPlan::UrlAlias.find_by(path: path)).to be_nil
+    within("#plan-toolbar") { click_link "Done" }
+    expect(page).to have_no_css(".inline-editor .ProseMirror", wait: 15)
+    expect(page).to have_css("#plan-title", text: "Final rename")
+    expect(plan.reload.url_path).not_to eq(path)
+    expect(CoPlan::UrlAlias.rewrite(path)).to eq(plan.url_path)
+  end
+
+  it "keeps an empty title block through autosave and fills it on Done" do
+    open_editor
+    select_title
+    find('.inline-editor .ProseMirror').send_keys(:backspace)
+    wait_saved("Untitled")
+    expect(page).to have_css('.inline-editor .ProseMirror > h1:first-child')
+    expect(plan.current_content.lines.first.strip).to eq("#")
+    within("#plan-toolbar") { click_link "Done" }
+    expect(page).to have_no_css(".inline-editor .ProseMirror", wait: 15)
+    expect(page).to have_css("#plan-title", text: "Untitled")
+  end
+
+  it "blocks demotion and boundary deletion while Enter moves into the body" do
+    open_editor
+    select_title
+    expect(page).to have_css('[aria-label="Paragraph style"][disabled]', visible: :all)
+    editor = find('.inline-editor .ProseMirror')
+    editor.send_keys(:left, :backspace)
+    expect(page).to have_css('.inline-editor .ProseMirror > h1:first-child', text: "Shared workspaces")
+    select_title
+    editor.send_keys(:right, :enter)
+    editor.send_keys("New body paragraph")
+    expect(page).to have_css('.inline-editor .ProseMirror > h1:first-child', text: "Shared workspaces")
+    expect(page).to have_css('.inline-editor .ProseMirror > p', text: "New body paragraph")
+  end
+
+  it "keeps title and body in the same undo history" do
+    open_editor
+    select_title
+    find('.inline-editor .ProseMirror').send_keys("Renamed")
+    expect(page).to have_css('.inline-editor .ProseMirror > h1:first-child', text: "Renamed")
+    find('.inline-editor .ProseMirror').send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "z" ])
+    expect(page).to have_css('.inline-editor .ProseMirror > h1:first-child', text: "Shared workspaces")
+  end
+  it "keeps a title when the whole document is replaced and supports undo" do
+    open_editor
+    editor = find('.inline-editor .ProseMirror')
+    modifier = RUBY_PLATFORM.include?("darwin") ? :meta : :control
+    editor.send_keys([ modifier, "a" ], "Replacement title")
+    expect(page).to have_css('.inline-editor .ProseMirror > h1:first-child', text: "Replacement title")
+    editor.send_keys([ modifier, "z" ])
+    expect(page).to have_css('.inline-editor .ProseMirror > h1:first-child', text: "Shared workspaces")
+    expect(page).to have_css('.inline-editor .ProseMirror > p', text: "First paragraph.")
   end
 end

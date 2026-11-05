@@ -62,6 +62,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | formatting-gallery | Headings, editable template notes hidden while reading, emphasis, quotes, nested lists, tasks, two code languages, image, mention, footnote |
 | discussion-margins | Crowded prose discussions, multiple participants, resolved visibility, and slide navigation/scrolling; avatars identify starters, not unread activity |
 | reading-specimen | A realistic design doc for judging reading in both modes: prose, headings, lists, tasks, quote, table, footnote, image, SQL/Ruby/diff/YAML code, a long scrolling line, flowchart and sequence diagrams, plus open, agent-answered, resolved, diagram-node, table-cell, and general discussions |
+| document-title | One editable title; autosave keeps the URL stable until Done; title boundaries and empty-title behavior |
 | image-resizing | Resize and restore image widths, wrap prose from the top, Shift+Enter beside, Enter below |
 
 Flowcharts currently support source-backed node and edge comments. Other
