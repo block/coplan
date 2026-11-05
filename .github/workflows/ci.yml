@@ -19,8 +19,8 @@ jobs:
   # test jobs rather than gating them: a bracket-spacing nit should not hide
   # whether the suite passes.
   lint:
-    # Pinned: setup-ruby has no Ruby 3.4.7 build for ubuntu-latest (26.04) yet.
-    runs-on: ubuntu-24.04
+    runs-on:
+      group: ubuntu-x86-runners
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

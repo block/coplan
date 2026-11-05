@@ -127,7 +127,7 @@ RSpec.describe "Updated section signposts", type: :system do
     expect(page).to have_no_css(".changed-sections-note", visible: :all)
   end
 
-  it "marks only section starts and keeps rich content's own surfaces in both themes" do
+  it "marks only section starts and keeps rich content's own surfaces in both modes" do
     %w[light dark].each do |theme|
       page.execute_script("document.documentElement.dataset.theme = '#{theme}'")
       expect(page).to have_no_css(".changed-sections-note", visible: :all)
@@ -207,10 +207,11 @@ RSpec.describe "Updated section signposts", type: :system do
     expect(page).to have_no_css(".section-updated")
   end
 
-  it "keeps mobile dots inside the card without a summary banner" do
+  it "keeps mobile dots inside the document without a summary banner" do
     window = page.current_window
     original_size = window.size
-    [ 320, 390, 481 ].each do |width|
+    [ 320, 390, 481 ].product(%w[classic neutral]).each do |width, app_theme|
+      viewer.update!(app_theme: app_theme)
       %w[light dark].each do |theme|
         window.resize_to(width, 853)
         CoPlan::PlanViewer.find_by!(plan: plan, user: viewer).update!(last_seen_at: 1.hour.ago)

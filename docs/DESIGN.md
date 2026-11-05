@@ -2,7 +2,7 @@
 
 Reading is the primary activity. Apply these rules consistently to document
 text, tables, diagrams, rich previews, expanded views, and editors, in light
-and dark themes.
+and dark mode.
 
 Selecting a table cell is a browsing action. Keep its composer closed until
 the reader presses C or Enter, chooses Comment, or opens a discussion badge.

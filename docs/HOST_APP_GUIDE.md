@@ -6,8 +6,9 @@ CoPlan is a Rails engine that manages collaborative planning documents. It owns 
 
 ## User settings and host integrations
 
-CoPlan owns the settings shown on its Settings page. Theme and push-to-talk
-preferences live in `coplan_users.theme_preference` and `coplan_users.voice_hotkey`.
+CoPlan owns the settings shown on its Settings page. The app theme, light/dark
+mode and push-to-talk preferences live in `coplan_users.app_theme`,
+`coplan_users.theme_preference` and `coplan_users.voice_hotkey`.
 Notification preferences have their own column; browser subscriptions and API
 tokens have engine-owned tables. User `metadata` is available for host directory
 data and is not a settings API.
@@ -19,7 +20,7 @@ bin/rails co_plan:install:migrations
 bin/rails db:migrate
 ```
 
-`MoveUserSettingsOutOfMetadata` copies valid existing theme and hotkey values,
+`MoveUserSettingsOutOfMetadata` copies valid existing mode and hotkey values,
 including explicit System and Off choices. Missing or invalid values use System
 and Ctrl+Space. Preferences erased by an earlier directory sync cannot be recovered.
 Rollback copies the latest settings back into metadata while preserving host fields.
@@ -65,7 +66,7 @@ config.exceptions_app = CoPlan::ExceptionsApp.new(Rails.root.join("public"))
 ```
 
 This page uses the regular application layout, including the signed-in viewer's
-navigation and theme. Visitors without a session can still use it. Other error statuses and
+navigation, mode and theme. Visitors without a session can still use it. Other error statuses and
 non-HTML errors retain Rails' public error handling. Development still shows
 Rails' detailed routing exceptions; use the preview URL to try the design.
 Keep a static `public/404.html` as a fallback for web servers serving errors
@@ -217,7 +218,8 @@ The engine manages a `coplan_users` table with these columns:
 | `name`        | String  | Display name |
 | `admin`       | Boolean | Admin flag |
 | `metadata`    | JSON    | Host directory data; not CoPlan settings |
-| `theme_preference` | String | Engine-owned theme: system, light, or dark |
+| `app_theme` | String | Engine-owned app theme: `default` (follow `config.default_theme`) or a `CoPlan::Themes` key |
+| `theme_preference` | String | Engine-owned light/dark mode: system, light, or dark |
 | `voice_hotkey` | String | Engine-owned push-to-talk preference |
 
 `CoPlan::User` is a normal ActiveRecord model. Host apps can reference it directly:
@@ -314,6 +316,10 @@ CoPlan.configure do |config|
   config.track_event = ->(event, payload) {
     AnalyticsEvent.create!(name: event, payload: payload)
   }
+
+  # App theme for everyone who hasn't picked one in Settings (optional).
+  # One of CoPlan::Themes.keys: "classic" or "neutral". See docs/THEMES.md.
+  config.default_theme = "classic"                    # default
 end
 ```
 

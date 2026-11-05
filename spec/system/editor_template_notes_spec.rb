@@ -81,7 +81,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     page.save_screenshot(Rails.root.join("tmp", "template-notes-reading.png"))
   end
 
-  it "edits notes in place with multiline input, undo, autosave and muted text in both themes" do
+  it "edits notes in place with multiline input, undo, autosave and muted text in both modes" do
     %w[light dark].each do |theme|
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
       colors = page.evaluate_script(<<~'JS')

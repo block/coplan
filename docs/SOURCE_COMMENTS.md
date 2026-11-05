@@ -37,7 +37,7 @@ checks a 120-row, 24-column table and commenting on its far corner. Diagram
 rendering coverage is distinct from the source-comment syntax described below.
 
 Hover, keyboard focus, active selections, and new-comment context use blue
-interaction styling in both themes. Open discussions keep small muted badges.
+interaction styling in both modes. Open discussions keep small muted badges.
 Unresolved does not mean unread: orange is reserved for a viewer's outstanding
 task or review attention, as defined in [the design guidance](DESIGN.md).
 

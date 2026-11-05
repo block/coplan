@@ -118,6 +118,16 @@
   overflow-wrap: anywhere;
 }
 
+/* The plan title (theme hooks; docs/THEMES.md). The editable title in
+   edit mode reads the same hooks, so Edit doesn't resize it. */
+.page-header :is(.page-header__title, .inline-editor__title) {
+  font-size: var(--plan-title-size, var(--text-2xl));
+  font-weight: var(--plan-title-weight, 700);
+  line-height: var(--plan-title-leading, 1.6);
+  letter-spacing: var(--plan-title-tracking, normal);
+  text-wrap: var(--plan-title-wrap, wrap);
+}
+
 .page-header__byline {
   display: flex;
   align-items: center;
