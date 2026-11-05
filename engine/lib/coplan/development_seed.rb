@@ -86,6 +86,9 @@ module CoPlan
       { key: "mixed-slides", author: "hampton", type: "Presentation", title: "Mixed document: prose and two embedded decks",
         tags: %w[demo slides], visibility: "published", folder: "Demo content/Presentations", group: "Presentations",
         showcase: "Prose before, between, and after two decks; diagrams, code, tables, and notes" },
+      { key: "discussion-margins", author: "hampton", type: "Design Doc", title: "Discussion margins: crowded lines and slide navigation",
+        tags: %w[demo collaboration], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "Nearby discussions, multiple participants, resolved threads, and scrollable slides; avatars show starters, not unread state" },
       { key: "reference-gallery", author: "hampton", type: "General", title: "References: every supported reference type",
         tags: %w[demo references], visibility: "published", folder: "Demo content/References", group: "References",
         showcase: "CoPlan document, repository, pull request, external document, web link, footnote, and named citation" },
@@ -288,6 +291,7 @@ module CoPlan
         seed_agent_access(users)
         seed_agent_connections(users) if CoPlan.configuration.agent_connection_enabled?
         seed_content_discussions(users, plans)
+        seed_discussion_margins(users, plans)
         seed_reference_gallery(plans, base_url: base_url)
         catalog = seed_catalog(users, plans, plan_types, base_url: base_url)
         seed_writing_history(users, plans, catalog)
@@ -638,6 +642,30 @@ module CoPlan
         anchor: "Should MAX_STACK be a merchant setting instead of a constant?",
         body: "Coffee chains stack loyalty + happy hour + volume today — three is the observed max, so promoting this to a setting can wait for a real merchant ask."
       )
+    end
+
+    def seed_discussion_margins(users, plans)
+      plan = plans.fetch("discussion-margins")
+      [
+        [ "alex", "receipt", "Which receipt identifies a retry?" ],
+        [ "noura", "delivery", "Can delivery expose a previous tenant's address?" ],
+        [ "sam", "retry", "What limits retry attempts?" ],
+        [ "aiko", "timeout", "Which timeout should the on-call monitor?" ],
+        [ "mateo", "rollback", "Can mobile clients tolerate rollback?" ],
+        [ "alex", "first slide discussion", "Keep the first-slide marker with this slide." ],
+        [ "noura", "second slide discussion", "Scroll this slide and watch the marker follow its text." ]
+      ].each do |user, anchor, body|
+        thread = seed_thread(plan: plan, user: users.fetch(user), anchor: anchor, body: body)
+        # Only populate replies on initial creation; later edits and deletions are preserved.
+        next unless thread && anchor == "receipt"
+
+        thread.comments.create!(author_type: "human", author_id: users.fetch("hampton").id,
+          body_markdown: "The request key identifies the receipt across retries.")
+        thread.comments.create!(author_type: "human", author_id: users.fetch("noura").id,
+          body_markdown: "Include the tenant in that key so the boundary stays explicit.")
+      end
+      seed_thread(plan: plan, user: users.fetch("sam"), anchor: "resolved example",
+        body: "The retention period is now documented.", resolved_by: users.fetch("hampton"))
     end
 
     def seed_thread(plan:, user:, body:, anchor: nil, source_token: nil, author_type: "human",

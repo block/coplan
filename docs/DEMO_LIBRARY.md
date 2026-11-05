@@ -55,6 +55,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | reference-gallery | All five reference types, a resolved CoPlan target, explicit/extracted references, named citations, repeated URLs, footnotes |
 | table-gallery | Precise cell discussion, repeated labels, empty values, links, wide expandable data |
 | formatting-gallery | Headings, editable template notes hidden while reading, emphasis, quotes, nested lists, tasks, two code languages, image, mention, footnote |
+| discussion-margins | Crowded prose discussions, multiple participants, resolved visibility, and slide navigation/scrolling; avatars identify starters, not unread activity |
 | image-resizing | Resize and restore image widths, wrap prose from the top, Shift+Enter beside, Enter below |
 
 Flowcharts currently support source-backed node and edge comments. Other

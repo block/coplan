@@ -38,6 +38,25 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(seeded_plan("demo-library").current_content).to include("Writing sources", mixed.url_path)
     end
 
+    it "seeds crowded discussions and slide anchors while preserving review activity" do
+      described_class.call
+      plan = seeded_plan("discussion-margins")
+      expect(plan.comment_threads.count).to eq(8)
+      receipt = plan.comment_threads.find_by!(anchor_text: "receipt")
+      expect(receipt.comments.count).to eq(3)
+      expect(receipt.comments.pluck(:author_id).uniq.size).to eq(3)
+      expect(plan.comment_threads.find_by!(anchor_text: "resolved example")).to be_closed
+      expect(plan.comment_threads.pluck(:anchor_text)).to include("first slide discussion", "second slide discussion")
+      receipt.resolve!(plan.created_by_user)
+      receipt.comments.last.update!(body_markdown: "My local reply")
+      described_class.call
+      expect(plan.comment_threads.count).to eq(8)
+      expect(receipt.reload).to be_closed
+      expect(receipt.comments.count).to eq(3)
+      expect(receipt.comments.last.body_markdown).to eq("My local reply")
+      expect(seeded_plan("demo-library").current_content).to include(plan.url_path)
+    end
+
     def seeded_plan(key)
       CoPlan::Plan.all.detect { |plan| plan.metadata.to_h["development_seed_key"] == key }
     end
