@@ -231,6 +231,51 @@ RSpec.describe "Comment reactions", type: :system do
     expect(comment.reactions.where(user: viewer, kind: "thumbs_up")).to exist
   end
 
+  [ true, false ].each do |broadcasts|
+    it "retains saved snapshots and pending choices with broadcasts #{broadcasts ? 'enabled' : 'unavailable'}" do
+      create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")
+      create(:comment_reaction, comment: comment, user: sam, kind: "tada")
+      popover = open_thread
+      target = "comment_#{comment.id}"
+      stale = page.evaluate_script("document.getElementById(arguments[0]).outerHTML", target)
+      allow(CoPlan::Broadcaster).to receive(:replace_to) unless broadcasts
+      page.execute_script(<<~JS)
+        const originalFetch = window.fetch
+        let requests = 0
+        window.fetch = (url, options) => {
+          if (options?.method !== "PATCH" || !String(url).endsWith("/reactions")) return originalFetch(url, options)
+          if (++requests === 1) {
+            return originalFetch(url, options).then(response => new Promise(resolve => {
+              window.releaseSavedReaction = () => resolve(response)
+            }))
+          }
+          return new Promise((resolve, reject) => { window.rejectQueuedReaction = reject })
+        }
+        for (const kind of ["thumbs_up", "tada"]) {
+          document.querySelector(`.thread-popover:popover-open .comment-reaction[data-kind="${kind}"]`).click()
+        }
+      JS
+      wait_for { page.evaluate_script("typeof window.releaseSavedReaction === 'function'") }
+      page.execute_script("window.releaseSavedReaction()")
+      wait_for { page.evaluate_script("typeof window.rejectQueuedReaction === 'function'") }
+      expect(popover).to have_saved_reactions
+      expect(popover).to have_reaction("thumbs_up", count: 2, pressed: true)
+      expect(popover).to have_reaction("tada", count: 2, pressed: true)
+
+      page.execute_script("window.rejectQueuedReaction(new Error('offline'))")
+      expect(page).to have_css(".toasts__toast", text: "Couldn't save your reaction.")
+      expect(popover).to have_reaction("tada", count: 1, pressed: false)
+      page.execute_script(<<~JS, target, stale)
+        const html = arguments[1].replace("How long do results stay warm?", "Updated comment after queued failure")
+        window.Turbo.renderStreamMessage(`<turbo-stream action="replace" target="${arguments[0]}"><template>${html}</template></turbo-stream>`)
+      JS
+      expect(popover).to have_text("Updated comment after queued failure")
+      expect(popover).to have_saved_reactions
+      expect(popover).to have_reaction("thumbs_up", count: 2, pressed: true)
+      expect(popover).to have_reaction("tada", count: 1, pressed: false)
+    end
+  end
+
   [ "redirect", "html" ].each do |response_kind|
     it "rolls back a successful HTTP #{response_kind} response that did not save a reaction" do
       create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")

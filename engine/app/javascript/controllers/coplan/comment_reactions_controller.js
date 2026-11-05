@@ -6,9 +6,9 @@ import { Controller } from "@hotwired/stimulus"
 // "You". Clicks update the chips immediately, then the server's Turbo
 // Stream replaces them with the saved state.
 //
-// Requests for one comment run in order, and only the latest response is
-// rendered, so quick repeated clicks settle on the last choice instead of
-// flickering through the intermediate ones.
+// Requests for one comment run in order. Every saved response updates the
+// server snapshot; pending choices are overlaid when its controller connects
+// so intermediate responses do not erase the viewer's latest choice.
 const queues = new Map()
 const pendingReactions = new Map()
 const NAME_LIMIT = 10
@@ -17,9 +17,7 @@ function enqueue(key, task) {
   const run = (queues.get(key) || Promise.resolve()).catch(() => {}).then(task)
   queues.set(key, run)
   const isLast = () => queues.get(key) === run
-  return run
-    .then(result => ({ result, last: isLast() }), error => { error.last = isLast(); throw error })
-    .finally(() => { if (isLast()) queues.delete(key) })
+  return run.finally(() => { if (isLast()) queues.delete(key) })
 }
 
 function version(element) {
@@ -70,6 +68,11 @@ export default class extends Controller {
     this.addTarget.hidden = !this.me
     confirmPendingReactions(this.element)
     this.refresh()
+    for (const state of pendingReactions.values()) {
+      if (state.commentId !== this.commentIdValue || state.userId !== this.me) continue
+      const pending = state.operations.at(-1)
+      if (pending) this.setReaction(state.kind, pending.reacted)
+    }
   }
 
   disconnect() {
@@ -123,16 +126,16 @@ export default class extends Controller {
       if (!response.ok) throw new Error(response.status === 422 ? await response.text() : "")
       if (response.redirected || !response.headers.get("Content-Type")?.includes("text/vnd.turbo-stream.html")) throw new Error("")
       return response.text()
-    }).then(({ result, last }) => {
-      // Read even skipped intermediate responses: they can confirm a save
-      // before a later queued request fails. A newer broadcast still wins.
+    }).then(result => {
+      // Confirm before settling, since Turbo renders asynchronously.
+      // A newer broadcast still wins over this response.
       const response = document.createElement("template")
       response.innerHTML = result
       for (const template of response.content.querySelectorAll("turbo-stream > template")) {
         template.content.querySelectorAll(".comment-reactions").forEach(confirmPendingReactions)
       }
       settle()
-      if (last) window.Turbo.renderStreamMessage(result)
+      window.Turbo.renderStreamMessage(result)
     }).catch(error => {
       settle()
       this.toast(error.message || "Couldn't save your reaction. Please try again.")
