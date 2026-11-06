@@ -193,21 +193,47 @@ const defaultMarkdownSerializer = new MarkdownSerializer({
 }, { ...baseMarkdownSerializer.marks, strikethrough: { open: "~~", close: "~~", mixable: true, expelEnclosingWhitespace: true } })
 
 const presentationOpen = /^::: \{\.presentation(?: #([a-zA-Z][\w-]*))?(?: theme="(coplan|graphite)")?\}$/
+const summaryOpen = "::: {.summary}"
 function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false) {
   const ranges = tokens.filter(t => t.level === 0 && t.map && t.nesting !== -1)
   const specials = []
-  let opener = null
+  // Mirrors ContentRegions::Split. Presentation markers are standalone
+  // paragraphs. Summary markers are whole lines outside code and raw HTML,
+  // because `- Last point` then `:::` folds the closer into the list.
+  const markers = new Map()
   for (const token of ranges) {
     const [from, to] = token.map
     if (token.type !== "paragraph_open" || to !== from + 1) continue
     const line = lines[from].replace(/\r$/, "")
-    if (opener !== null) {
-      if (line !== ":::") continue
-      specials.push({ from: offsets[opener], to: Math.min(offsets[to], markdown.length), kind: "presentation" })
-      opener = null
-    } else if (presentationOpen.test(line)) opener = from
+    if (line === ":::" || presentationOpen.test(line)) markers.set(from, { line, paragraph: true })
     if (line.startsWith("::: {.iframe ") && line.endsWith(" /}"))
       specials.push({ from: offsets[from], to: Math.min(offsets[to], markdown.length), kind: "iframe" })
+  }
+  if (markdown.includes(summaryOpen)) {
+    const literal = tokens.filter(t => t.map && ["fence", "code_block", "html_block"].includes(t.type))
+    lines.forEach((raw, index) => {
+      const line = raw.replace(/\r$/, "")
+      if ((line === summaryOpen || line === ":::") && !markers.has(index) &&
+        !literal.some(t => index >= t.map[0] && index < t.map[1])) markers.set(index, { line, paragraph: false })
+    })
+  }
+  // The first closed summary block is one card; a presentation opener
+  // inside it leaves the summary as text.
+  let opener = null, summaryOpener = null, summaryFound = false
+  for (const [index, { line, paragraph }] of [...markers].sort((a, b) => a[0] - b[0])) {
+    const to = Math.min(offsets[index + 1], markdown.length)
+    if (opener !== null) {
+      if (!paragraph || line !== ":::") continue
+      specials.push({ from: offsets[opener], to, kind: "presentation" })
+      opener = null
+    } else if (paragraph && presentationOpen.test(line)) {
+      summaryOpener = null
+      opener = index
+    } else if (summaryOpener !== null && line === ":::") {
+      specials.push({ from: offsets[summaryOpener], to, kind: "summary" })
+      summaryOpener = null
+      summaryFound = true
+    } else if (line === summaryOpen && !summaryFound && summaryOpener === null) summaryOpener = index
   }
   // Definitions are metadata, not visible body blocks. Keep their exact source,
   // including indented continuation paragraphs, for citation editing and Raw.
@@ -408,7 +434,7 @@ export function parseDocument(markdown) {
       try {
         const parsed = richMarkdownParser.parse(text)
         const unsupported = text.replace(imageTag, tag => htmlImage(tag) ? "" : tag)
-        if (parsed.firstChild?.type.name !== "code_block" && /\]\s*\[|<\/?[a-z!]|^\s*\[[^\]]+\]:|^:::(?: \{\.presentation.*\})?$/im.test(unsupported)) throw new Error("preserve")
+        if (parsed.firstChild?.type.name !== "code_block" && /\]\s*\[|<\/?[a-z!]|^\s*\[[^\]]+\]:|^:::(?: \{\.(?:presentation.*|summary)\})?$/im.test(unsupported)) throw new Error("preserve")
         if (parsed.childCount !== 1) throw new Error("preserve")
         let node = schema.nodeFromJSON(parsed.firstChild.toJSON())
         node = node.type.create({ ...node.attrs, source: text, snapshot: signature(node) }, node.content, node.marks)
@@ -1325,6 +1351,17 @@ function blockChrome(getPos, label) {
   header.append(title, edit, copy); dom.append(header)
   return { dom, header, title, edit, copy }
 }
+
+// The reading view owns the card's id and its outline entry.
+function summaryPreview(html) {
+  const template = document.createElement("template"); template.innerHTML = html
+  const card = template.content.querySelector("section.plan-summary")
+  if (!card) throw new Error("Summary unavailable")
+  card.removeAttribute("id")
+  const wrapper = document.createElement("div"); wrapper.className = "markdown-rendered"; wrapper.append(card)
+  return wrapper.outerHTML
+}
+
 function previewSettled(body, view, getPos, sourceRangeAt) {
   const updateRange = (force = false) => {
     const range = sourceRangeAt(view, getPos())
@@ -1513,16 +1550,20 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     const sequence = ++generation, source = node.attrs.source
     dom.hidden = !source.trim()
     if (dom.hidden) return
-    const isTable = node.attrs.kind !== "list" && /^\s*\|?.*\|.*\n\s*\|?\s*:?-{3,}/m.test(source)
-    const isReferences = /^\s*\[\^[^\]]+\]:/m.test(source)
-    title.textContent = node.attrs.kind === "list" ? "List" : isTable ? "Table" : isReferences ? "References" : "Markdown block"
+    const summary = node.attrs.kind === "summary"
+    const isTable = !summary && node.attrs.kind !== "list" && /^\s*\|?.*\|.*\n\s*\|?\s*:?-{3,}/m.test(source)
+    const isReferences = !summary && /^\s*\[\^[^\]]+\]:/m.test(source)
+    title.textContent = summary ? "Summary" : node.attrs.kind === "list" ? "List" : isTable ? "Table" : isReferences ? "References" : "Markdown block"
     body.replaceChildren()
     const fallback = document.createElement("pre"); fallback.textContent = source; body.append(fallback)
     // Rendering definitions alone drops them as unused footnotes. Keep their
     // source visible so References cards never become empty previews.
     if (preview && !isReferences) {
       try {
-        const html = await preview(source)
+        // The summary previews from the whole plan, so its citations keep
+        // their numbers; only its card is shown.
+        let html = await preview(summary ? serializeDocument(view.state.doc) : source)
+        if (summary) html = summaryPreview(html)
         if (sequence === generation) { body.innerHTML = html; previewSettled(body, view, getPos, sourceRangeAt) }
       } catch { /* Source remains usable offline. */ }
     }

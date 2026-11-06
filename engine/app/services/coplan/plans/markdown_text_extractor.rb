@@ -17,7 +17,7 @@ module CoPlan
       end
 
       def initialize(content, exclude_nonprose: false, source_spans: false)
-        @content = content.to_s.include?("::: {.presentation") ? ContentRegions::Split.call(content).canonical_source : content
+        @content = ContentRegions::Split.applies?(content.to_s) ? ContentRegions::Split.call(content).canonical_source : content
         @exclude_nonprose = exclude_nonprose
         @source_lines = @content.lines if exclude_nonprose || source_spans
         @source_spans = [] if source_spans

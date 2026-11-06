@@ -363,6 +363,24 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       end
     end
 
+    context "inside a summary block" do
+      let(:summary_markdown) { "# Plan\n\n::: {.summary}\n- The **summary** names one option.\n- Ship it.\n:::\n\nA second summary sentence." }
+
+      it "never anchors to the block's marker lines" do
+        thread = assert_anchor_resolves(summary_markdown, "summary", "summary")
+        expect(thread.anchor_start).to eq(summary_markdown.index("**summary**") + 2)
+        expect(thread.anchor_occurrence_index).to eq(0)
+
+        second = assert_anchor_resolves(summary_markdown, "summary", "summary", occurrence: 2)
+        expect(second.anchor_start).to eq(summary_markdown.index("summary sentence"))
+      end
+
+      it "resolves a selection across formatting and list items in the card" do
+        assert_anchor_resolves(summary_markdown, "The summary names one option. Ship it.",
+          "The **summary** names one option.\n- Ship it.")
+      end
+    end
+
     it "handles missing anchor_text gracefully" do
       thread = plan.comment_threads.create!(
         plan_version: plan.current_plan_version,

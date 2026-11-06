@@ -29,4 +29,41 @@ RSpec.describe CoPlan::ContentRegions::Split do
     expect(result.regions.first.source).to eq("")
     expect(result.canonical_source).not_to include(":::")
   end
+
+  describe "summary blocks" do
+    it "finds a summary whose closer follows a list without a blank line" do
+      source = "# Title\n\n::: {.summary}\n- One\n- Two\n:::\n\nBody"
+      result = described_class.call(source)
+
+      expect(result.summary.to_h).to eq(open_line: 3, close_line: 6)
+      expect(result.regions.map(&:kind)).to eq([ :document ])
+      expect(result.canonical_source.lines.map(&:length)).to eq(source.lines.map(&:length))
+      expect(result.canonical_source).not_to include("{.summary}", ":::")
+    end
+
+    it "keeps only the first block and ignores markers in code, quotes, and raw HTML" do
+      source = "```text\n::: {.summary}\n:::\n```\n\n> ::: {.summary}\n\n<div>\n::: {.summary}\n</div>\n\n" \
+        "::: {.summary}\nFirst\n:::\n\n::: {.summary}\nSecond\n:::"
+      result = described_class.call(source)
+
+      expect(result.summary.to_h).to eq(open_line: 12, close_line: 14)
+      expect(result.canonical_source).to include("::: {.summary}\nSecond\n:::")
+    end
+
+    it "leaves an unclosed summary and one interrupted by a deck as text" do
+      expect(described_class.call("::: {.summary}\n- One").summary).to be_nil
+
+      result = described_class.call("::: {.summary}\n\n::: {.presentation}\n\n# Slide\n\n:::\n\nAfter")
+      expect(result.summary).to be_nil
+      expect(result.regions.map(&:kind)).to eq(%i[document presentation document])
+    end
+
+    it "extracts the block's reading text without citation markers" do
+      source = "::: {.summary}\n- **Ship** it with [the flag](https://example.com).[^why]\n- `Two`\n:::\n\nBody text.\n\n[^why]: Because."
+
+      expect(described_class.summary_text(source)).to eq("Ship it with the flag. Two")
+      expect(described_class.summary_text("No summary here.")).to be_nil
+      expect(described_class.summary_text("::: {.summary}\n:::")).to be_nil
+    end
+  end
 end

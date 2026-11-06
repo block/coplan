@@ -160,6 +160,28 @@ RSpec.describe CoPlan::LinkPreviews do
     expect(described_class.for_plan(plan.reload, base_url: base_url).cache_key).not_to eq(first.cache_key)
   end
 
+  it "prefers the summary block over the generated summary, truncated the same way" do
+    plan.update!(summary: "Generated summary")
+    set_version_fixture(plan.current_plan_version,
+      content_markdown: "# Plan\n\n::: {.summary}\n- **Ship** the queue option.[^why]\n- Saves get faster.\n:::\n\nBody.\n\n[^why]: Profiled.")
+    expect(described_class.for_plan(plan.reload, base_url: base_url).description).to eq("Ship the queue option. Saves get faster.")
+
+    set_version_fixture(plan.current_plan_version, content_markdown: "::: {.summary}\n#{"takeaway " * 60}\n:::")
+    long = described_class.for_plan(plan.reload, base_url: base_url).description
+    expect(long.length).to eq(240)
+    expect(long).to end_with("…")
+  end
+
+  it "falls back to the generated summary, then content, when there is no summary block" do
+    plan.update!(summary: "Generated summary")
+    set_version_fixture(plan.current_plan_version, content_markdown: "```markdown\n::: {.summary}\nExample\n:::\n```\n\nBody.")
+    expect(described_class.for_plan(plan.reload, base_url: base_url).description).to eq("Generated summary")
+
+    plan.update!(summary: nil)
+    set_version_fixture(plan.current_plan_version, content_markdown: "::: {.summary}\n:::\n\nOpening text.")
+    expect(described_class.for_plan(plan.reload, base_url: base_url).description).to eq("Opening text.")
+  end
+
   it "changes its cache key when preview metadata changes" do
     first = described_class.for_plan(plan, base_url: base_url)
     retitle_plan(plan, "A new title")

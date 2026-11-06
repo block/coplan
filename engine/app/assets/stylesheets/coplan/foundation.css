@@ -143,6 +143,10 @@ body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .
   --color-quote-warning-bg-subtle: rgba(255, 213, 79, 0.08);
   --color-quote-info-border: rgba(108, 140, 255, 0.6);
   --color-quote-info-bg: rgba(108, 140, 255, 0.05);
+  /* Summary block: teal, so it is neither interaction blue nor attention orange. */
+  --color-summary-bg: #f0fbf9;
+  --color-summary-border: #14b8a6;
+  --color-summary-label: #0f766e;
   --color-highlight-open-bg: rgba(108, 140, 255, 0.12);
   --color-highlight-open-hover-bg: rgba(108, 140, 255, 0.22);
   --color-highlight-open-border: rgba(108, 140, 255, 0.6);
@@ -270,6 +274,9 @@ body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .
     --color-quote-warning-bg-subtle: rgba(245, 158, 11, 0.12);
     --color-quote-info-border: rgba(96, 165, 250, 0.8);
     --color-quote-info-bg: rgba(96, 165, 250, 0.12);
+    --color-summary-bg: rgba(45, 212, 191, 0.09);
+    --color-summary-border: #2dd4bf;
+    --color-summary-label: #5eead4;
     --color-highlight-open-bg: rgba(96, 165, 250, 0.18);
     --color-highlight-open-hover-bg: rgba(96, 165, 250, 0.28);
     --color-highlight-open-border: rgba(96, 165, 250, 0.85);
@@ -363,6 +370,9 @@ body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .
   --color-quote-warning-bg-subtle: rgba(245, 158, 11, 0.12);
   --color-quote-info-border: rgba(96, 165, 250, 0.8);
   --color-quote-info-bg: rgba(96, 165, 250, 0.12);
+  --color-summary-bg: rgba(45, 212, 191, 0.09);
+  --color-summary-border: #2dd4bf;
+  --color-summary-label: #5eead4;
   --color-highlight-open-bg: rgba(96, 165, 250, 0.18);
   --color-highlight-open-hover-bg: rgba(96, 165, 250, 0.28);
   --color-highlight-open-border: rgba(96, 165, 250, 0.85);

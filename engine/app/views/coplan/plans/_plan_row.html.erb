@@ -6,7 +6,7 @@
     draggable, so without it a drag that starts on the title picks up the
     *link* payload instead of the row's — the "only works if you grab the
     right spot" bug. %>
-<% summary = plan.try(:summary).presence || plan_content_preview(plan) %>
+<% summary = plan_row_summary(plan) %>
 <% folder_id = plan_folder_id(plan) %>
 
 <article class="plan-row<%= " plan-row--archived" if plan.archived? %>"

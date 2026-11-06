@@ -318,10 +318,32 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(plan.reload.current_content).to eq(resized)
     end
 
+    it "seeds a long analysis that opens with one summary block and preserves edits on re-seed" do
+      described_class.call
+      plan = seeded_plan("summary-block")
+      content = plan.current_content
+      expect(CoPlan::ContentRegions::Split.call(content).summary).to be_present
+      expect(content.lines.count { |line| line.chomp == "::: {.summary}" }).to eq(1)
+      expect(content).to include("[^profile]:", "[§5 Options](#section-5)", "```mermaid", "| Plan size |")
+      expect(content.scan(/^## /).size).to be >= 6
+      expect(CoPlan::LinkPreviews.for_plan(plan, base_url: "http://localhost:3000").description).to start_with("Recommendation: move search indexing")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})", "`summary-block`")
+      revision = plan.current_revision
+      described_class.call
+      expect(plan.reload.current_revision).to eq(revision)
+
+      edited = content.sub("Decision needed:", "Decision made:")
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: edited,
+        base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
+      described_class.call
+      expect(plan.reload.current_content).to eq(edited)
+    end
+
     it "upgrades only untouched host image URLs and preserves edited image examples" do
       described_class.call
       plan = seeded_plan("pattern-showcase")
       legacy = plan.current_content.gsub(described_class.demo_logo_url, "/coplan-logo.png")
+
       CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: legacy,
         base_revision: plan.current_revision, actor_type: "system", actor_id: plan.created_by_user_id)
       described_class.call

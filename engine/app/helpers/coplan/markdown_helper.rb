@@ -1,6 +1,7 @@
 module CoPlan
   module MarkdownHelper
     include EmbedsHelper
+    include SummaryBlocksHelper
     ALLOWED_TAGS = %w[
       h1 h2 h3 h4 h5 h6
       p div span
@@ -35,7 +36,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 24
+    RENDER_CACHE_VERSION = 25
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -61,16 +62,22 @@ module CoPlan
     # expandable_images: frame each image with the same full-window expander
     # diagrams and tables use. Follows data_tables by default, so decks opt
     # out of both together.
-    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, expandable_images: data_tables, source_comments: false, retain_sourcepos: false)
+    #
+    # summary: a ContentRegions::Split::Summary whose marker lines are
+    # relative to `content`. render_content_regions finds the plan's one
+    # summary block and passes it to the fragment that contains it.
+    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, expandable_images: data_tables, source_comments: false, retain_sourcepos: false, summary: nil)
       render_options = { unsafe: true }
       # Sourcepos wires checkboxes and structural comment targets to source;
       # it is stripped after generating trusted interaction metadata.
-      render_options[:sourcepos] = true if interactive || content.to_s.include?(ContentRegions::Iframe::PREFIX)
-      html = CoPlan::Markdown.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
+      render_options[:sourcepos] = true if interactive || summary || content.to_s.include?(ContentRegions::Iframe::PREFIX)
+      markdown = summary ? ContentRegions::Split.with_summary_breaks(content.to_s, summary) : content.to_s
+      html = CoPlan::Markdown.to_html(markdown.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       sanitized = render_iframe_blocks(sanitized, content.to_s)
+      sanitized = render_summary_block(sanitized, summary)
       result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments, retain_sourcepos: retain_sourcepos) : sanitized
       unless interactive
         fragment = Nokogiri::HTML::DocumentFragment.parse(result)
@@ -167,7 +174,7 @@ module CoPlan
 
     def markdown_to_plain_text(content)
       source = content.to_s.encode("UTF-8")
-      source = ContentRegions::Split.call(source).canonical_source if source.include?("::: {.presentation")
+      source = ContentRegions::Split.call(source).canonical_source if ContentRegions::Split.applies?(source)
       html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
       Nokogiri::HTML::DocumentFragment.parse(html).text.squish
     end
