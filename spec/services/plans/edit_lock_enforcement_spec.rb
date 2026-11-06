@@ -27,7 +27,7 @@ RSpec.describe "Content write lock enforcement" do
     travel 6.minutes do
       CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Agent", base_revision: 2, actor_type: "local_agent", actor_id: nil)
     end
-    expect(plan.reload.current_content).to eq("Agent")
+    expect(plan.reload.current_content).to eq("# #{plan.title}\n\nAgent")
   end
 
   it "does not revive an expired lease by renewing it" do

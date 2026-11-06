@@ -35,7 +35,7 @@ export default class extends Controller {
       this.mode = "rich"
       this.richEditor = rich.createRichDocument(this.surfaceTarget, this.textareaTarget.value,
         (content, kind) => this.editorChanged("rich", content, kind), state => this.updateToolbar(state), source => this.preview(source),
-        this.inlineValue ? this.comments() : [])
+        this.inlineValue ? this.comments() : [], { documentTitle: true })
       if (this.inlineValue) {
         const threads = document.getElementById("plan-threads")
         if (threads) {
@@ -103,7 +103,7 @@ export default class extends Controller {
     this.noteToast = toast
   }
   snapshot() {
-    return { content: this.textareaTarget.value, title: this.element.querySelector('[name="plan[title]"]').value,
+    return { content: this.textareaTarget.value, title: this.base?.title || "Untitled",
       tags: this.element.querySelector('[name="plan[tag_names]"]').value }
   }
   dirty() { return JSON.stringify(this.snapshot()) !== JSON.stringify({ content: this.base.content, title: this.base.title, tags: this.base.tags }) }
@@ -158,7 +158,7 @@ export default class extends Controller {
 
   input(event) {
     // ProseMirror transactions already report document edits, once per change.
-    if (event && !["plan[title]", "plan[tag_names]"].includes(event.target.name)) return
+    if (event && event.target.name !== "plan[tag_names]") return
     if (!this.editor) return
     this.setStatus("Unsaved changes", "dirty")
     this.persistDraft()
@@ -169,11 +169,11 @@ export default class extends Controller {
     if (!this.blocked && !this.retryable) this.saveTimer = setTimeout(() => this.flush(false), delay)
   }
   submit(event) { event.preventDefault(); this.flush(true) }
-  async flush(manual = false, overwriteRevision = null) {
+  async flush(manual = false, overwriteRevision = null, finalize = false) {
     clearTimeout(this.saveTimer)
-    if (this.editor && !this.isNew && !this.dirty() && !overwriteRevision) return true
-    // A selected type may prefill a template. Choosing it or typing only a
-    // title is still a local draft; the first content edit creates the plan.
+    if (this.editor && !this.isNew && !this.dirty() && !overwriteRevision && !finalize) return true
+    // A selected type may prefill a template. Choosing it is still a local
+    // draft; the first content edit, including a title edit, creates the plan.
     if (this.isNew && !manual && this.textareaTarget.value === this.base.content) {
       this.setStatus("Start writing to create this plan", "idle")
       return false
@@ -184,13 +184,12 @@ export default class extends Controller {
       if (!manual) { this.scheduleSave(250); return false }
       await this.whenIdle()
       if (!this.active) return false
-      return this.flush(manual, overwriteRevision)
+      return this.flush(manual, overwriteRevision, finalize)
     }
     if (this.blocked && !overwriteRevision) { if (manual && !this.inlineValue) this.setStatus("Resolve the conflicting edit before saving", "error"); return false }
-    if (!this.snapshot().title.trim()) { this.setStatus(this.inlineValue ? "Add a document title to save" : "Add a title to save this draft", "error"); if (this.inlineValue) this.revealDetails(); return false }
     if (!manual && !this.element.checkValidity()) { this.setStatus("Correct the highlighted field to save this draft", "error"); return false }
     if (!this.element.checkValidity() && this.inlineValue) this.revealDetails()
-    if (!this.element.reportValidity()) { this.setStatus("Add a document title to save", "error"); return }
+    if (!this.element.reportValidity()) { this.setStatus("Correct the highlighted field to save", "error"); return }
     const sent = this.isNew ? (this.creationSnapshot ||= this.snapshot()) : this.snapshot(), sentBase = { ...this.base }
     // Keep attribution tied to the exact snapshot retried after a lost create.
     const inputSources = this.isNew ? (this.creationInputSources ||= sent.content === this.inputOrigins.content ? this.inputOrigins.payload() : {runs: [[sent.content.length, "unknown"]]}) : this.inputOrigins.payload()
@@ -202,8 +201,8 @@ export default class extends Controller {
         creation_key: this.isNew ? this.creationKey : undefined,
         plan_type_id: this.isNew ? this.element.querySelector('[name="plan_type_id"]')?.value : undefined,
         folder_id: this.isNew ? this.element.querySelector('[name="folder_id"]')?.value : undefined,
-        content: sent.content, input_sources: inputSources, plan: { title: sent.title, tag_names: sent.tags },
-        base_revision: sentBase.revision, base_metadata: { title: overwriteRevision ? this.pendingRemote.title : sentBase.title, tag_names: overwriteRevision ? this.pendingRemote.tags : sentBase.tags },
+        content: sent.content, input_sources: inputSources, plan: { tag_names: sent.tags }, finalize,
+        base_revision: sentBase.revision, base_metadata: { tag_names: overwriteRevision ? this.pendingRemote.tags : sentBase.tags },
         overwrite_revision: overwriteRevision
       })
       if (this.isNew) {
@@ -266,7 +265,7 @@ export default class extends Controller {
     this.pendingRemote = remote
     const merged = {
       content: this.merge.mergeText(ancestor.content, local.content, remote.content),
-      title: this.merge.mergeField(ancestor.title, local.title, remote.title, "title"),
+      title: remote.title,
       tags: this.merge.mergeField(ancestor.tags, local.tags, remote.tags, "tags")
     }
     // Update before dispatching remote steps; those transactions preserve local
@@ -277,15 +276,12 @@ export default class extends Controller {
       this.updateEditors(merged.content)
       this.textareaTarget.value = merged.content
       if (contentChanged && this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-content-changed", { bubbles: true }))
-      for (const [name, value] of [["plan[title]", merged.title], ["plan[tag_names]", merged.tags]]) {
+      for (const [name, value] of [["plan[tag_names]", merged.tags]]) {
         const input = this.element.querySelector(`[name="${name}"]`)
         if (input.value !== value) input.value = value
       }
-      if (this.inlineValue) {
-        const title = document.querySelector("#plan-title .inline-editor__title")
-        if (title && title.textContent !== merged.title) title.textContent = merged.title
-      }
       if (remote.url) this.backTarget.href = remote.url
+      if (this.inlineValue) document.title = `${remote.title} — CoPlan`
     }
     this.base = { content: remote.content, title: remote.title, tags: remote.tags, revision: remote.revision }
     this.revisionValue = remote.revision
@@ -304,7 +300,7 @@ export default class extends Controller {
       if (!this.active) return
       if (this.blocked) { this.pendingRemote = remote; this.latestTarget.textContent = remote.content; this.replaceTarget.hidden = false; return true }
       const wasRetryable = this.retryable
-      const updated = remote.revision !== this.base.revision || remote.title !== this.base.title || remote.tags !== this.base.tags
+      const updated = remote.revision !== this.base.revision || remote.tags !== this.base.tags
       await this.whenCompositionEnds()
       if (!this.active) return
       this.accept(remote)
@@ -391,14 +387,8 @@ export default class extends Controller {
     this.inputOrigins?.record(this.base.content, "unknown")
     this.updateEditors(this.base.content)
     this.textareaTarget.value = this.base.content
-    this.element.querySelector('[name="plan[title]"]').value = this.base.title
     this.element.querySelector('[name="plan[tag_names]"]').value = this.base.tags
-    if (this.inlineValue) {
-      const title = document.querySelector("#plan-title .inline-editor__title")
-      if (title) title.textContent = this.base.title
-      const heading = document.querySelector("#plan-title .plan-title__heading")
-      if (heading) heading.textContent = this.base.title
-    }
+
   }
   fail(message, code = null) {
     if (!this.active) return
@@ -427,15 +417,15 @@ export default class extends Controller {
   updateToolbar(state) {
     const rawFocused = (this.editor === this.rawEditor && !!this.rawEditor) || !!document.activeElement?.closest(".document-editor__content-block, .document-editor__block-source")
     const formattingDisabled = rawFocused || state.templateNote
-    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-code"]').disabled = formattingDisabled
-    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-content"]').disabled = formattingDisabled
+    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-code"]').disabled = formattingDisabled || state.documentTitle
+    this.toolbarTarget.querySelector('[popovertarget="coplan-insert-content"]').disabled = formattingDisabled || state.documentTitle
     if (formattingDisabled && this.contentPickerTarget.matches(":popover-open")) this.contentPickerTarget.hidePopover()
     if (formattingDisabled && this.codePickerTarget.matches(":popover-open")) this.codePickerTarget.hidePopover()
     this.toolbarTarget.querySelectorAll("[data-command]").forEach(button => {
       const command = button.dataset.command
-      button.disabled = formattingDisabled
+      button.disabled = formattingDisabled || (state.documentTitle && ["bullet", "ordered", "quote"].includes(command))
       if (button.tagName === "SELECT") {
-        button.disabled = rawFocused
+        button.disabled = rawFocused || state.documentTitle
         button.value = rawFocused ? "0" : state.heading || "0"
         button.querySelector('option[value="comment"]').disabled = !state.canHideComment
         return
@@ -484,7 +474,7 @@ export default class extends Controller {
     // Keep the action consistent with the Retry sync control still on screen.
     else if (this.inlineValue && this.retryOffered) this.reconnect()
     else if (this.inlineValue) this.closeInline()
-    else this.navigate(() => this.backTarget.href)
+    else this.navigate(() => this.backTarget.href, { finalize: true })
   }
   async closeInline() {
     if (this.navigating) return
@@ -497,22 +487,24 @@ export default class extends Controller {
           detail: { controller: this, snapshot: { ...this.base } } }))
         return
       }
-      if (!this.snapshot().title.trim()) { this.setStatus("Add a document title to save", "error"); this.revealDetails(); return }
       if (!this.element.checkValidity()) this.revealDetails()
       if (!this.element.reportValidity()) return
       while (this.dirty()) {
         if (!await this.flush(true) || !this.active || this.blocked) return
       }
+      await this.whenCompositionEnds()
+      this.element.inert = true
+      if (!await this.flush(true, null, true) || !this.active || this.blocked) return
       this.element.dispatchEvent(new CustomEvent("coplan:editor-closed", { bubbles: true,
         detail: { controller: this, snapshot: { ...this.base } } }))
-    } finally { this.navigating = false }
+    } finally { this.element.inert = false; this.navigating = false }
   }
   showInline(anchor, { focus = true } = {}) {
     this.inlineVisible = true
     if (focus) this.richEditor?.focusText(anchor?.text, anchor?.occurrence)
   }
   revealDetails() {
-    document.querySelector("#plan-title .inline-editor__title")?.focus()
+    this.richEditor?.focusTitle()
   }
   comments() {
     return Array.from(document.querySelectorAll('#plan-threads [data-anchor-text]:not([data-thread-out-of-date="true"])'), thread => ({
@@ -530,7 +522,7 @@ export default class extends Controller {
   }
   whenIdle() { return this.busy ? new Promise(resolve => (this.idleWaiters ||= []).push(resolve)) : Promise.resolve() }
   releaseIdle() { for (const resolve of this.idleWaiters || []) resolve(); this.idleWaiters = [] }
-  async navigate(destination) {
+  async navigate(destination, { finalize = false } = {}) {
     if (this.navigating) return
     this.navigating = true
     this.backTarget.setAttribute("aria-busy", "true")
@@ -548,11 +540,17 @@ export default class extends Controller {
       while (this.dirty()) {
         if (!await this.flush(true) || !this.active || this.blocked) return
       }
+      if (finalize) {
+        await this.whenCompositionEnds()
+        this.element.inert = true
+        if (!await this.flush(true, null, true) || !this.active || this.blocked) return
+      }
       this.leaving = true
       // Do not preview a reading-page snapshot taken before this save.
       window.Turbo.cache.clear()
       window.Turbo.visit(destination())
     } finally {
+      this.element.inert = false
       this.navigating = false
       if (this.active) this.backTarget.removeAttribute("aria-busy")
     }
@@ -671,6 +669,12 @@ export default class extends Controller {
     } else if (event.key === "Enter") {
       event.preventDefault()
       this.insertCode()
+    } else if (event.key === "Escape") {
+      event.preventDefault()
+      this.codePickerTarget.hidePopover()
+      // Native focus restoration can reset the caret to the document title.
+      // Preserve the model's insertion point when dismissing the picker.
+      this.richEditor.view.focus()
     }
   }
   chooseCodeLanguage(event) {
@@ -943,7 +947,6 @@ export default class extends Controller {
       if (draft.base) this.base = draft.base
       else if (draft.revision !== this.base.revision) { this.blocked = true; this.fail("An older draft needs review before syncing.") }
       this.textareaTarget.value = draft.content
-      this.element.querySelector('[name="plan[title]"]').value = draft.title ?? this.base.title
       this.element.querySelector('[name="plan[tag_names]"]').value = draft.tags ?? this.base.tags
       this.draftNoticeTarget.hidden = false
       if (draft.legacySource?.key === `coplan-editor-draft-${this.planIdValue}`) {

@@ -135,7 +135,7 @@ module CoPlan
           new_revision = plan.current_revision + 1
           diff = Diffy::Diff.new(current_content, new_content).to_s
 
-          version = PlanVersion.create!(
+          version = PlanVersion.create_for_commit!(
             plan: plan,
             revision: new_revision,
             content_markdown: new_content,

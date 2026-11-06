@@ -5,8 +5,8 @@ module CoPlan
     class Evidence
       SCOPE = {
         kind: "markdown_source", includes: [ "content_markdown" ],
-        excludes: %w[title tags attachments linked_resources embedded_resources child_plans rendered_output],
-        meaning: "Approval covers the Markdown source bytes only. Linked or embedded content is not captured or approved. Grants no execution authority or permissions."
+        excludes: %w[tags attachments linked_resources embedded_resources child_plans rendered_output],
+        meaning: "Approval covers the Markdown source bytes, including the document title heading. Linked or embedded content is not captured or approved. Grants no execution authority or permissions."
       }.freeze
 
       def self.call(plan:)

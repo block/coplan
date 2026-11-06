@@ -1375,7 +1375,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     within(".review-tray") { click_button "Request changes" }
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Changed while composing feedback",
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
-    expect(page).to have_css('#plan-content-body[data-coplan--live-update-revision-value="2"]', text: "Changed while composing feedback")
+    expect(page).to have_css('#plan-content-body[data-coplan--live-update-revision-value="2"]', text: /Changed.*while.*composing feedback/)
     fill_in "Public review comment", with: "My feedback on the earlier version", enable_aria_label: true
     within(".review-tray__discussion") { click_button "Request changes" }
     expect(page).to have_content("The plan has changed. Review the latest version")
@@ -1494,6 +1494,19 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(plan.review_requests.find_by!(reviewer: owner).requirement).to eq("optional")
   ensure
     CoPlan.configuration.suggest_reviewers = previous_hook
+  end
+
+  it "positions the plan menu before its deferred toggle event so Manage reviewers stays clickable" do
+    sign_in_browser(author)
+    page.execute_script(<<~JS)
+      document.getElementById("plan-menu").addEventListener("toggle", event => event.stopImmediatePropagation(), true)
+    JS
+    click_button "More actions"
+    menu = find("#plan-menu").rect
+    trigger = find('#plan-toolbar [popovertarget="plan-menu"]').rect
+    expect(menu.y).to be_within(1).of(trigger.y + trigger.height + 6)
+    within("#plan-menu") { click_button "Manage reviewers" }
+    expect(page).to have_css(".review-management[open]")
   end
 
   it "keeps the manager and assignment stable while search results overlay beneath the field" do

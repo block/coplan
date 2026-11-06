@@ -637,7 +637,56 @@ function setHiddenComment(state, dispatch) {
   return true
 }
 
-export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = []) {
+// Keep the document title in the editor's own history and selection. Commands
+// cannot demote it, wrap it, or join it to the first body paragraph.
+function titleSelection(state) {
+  return state.selection.from < state.doc.firstChild.nodeSize
+}
+function titleBoundary(key) {
+  return (state, dispatch, view) => {
+    if (dispatch && view) state = synchronizeSelection(view)
+    const { empty, $from } = state.selection
+    if (!empty) return false
+    const first = state.doc.firstChild
+    if (key === "Backspace") return $from.pos === 1 || ($from.depth === 1 && $from.pos === first.nodeSize + 1)
+    return $from.depth === 1 && $from.pos === first.nodeSize - 1
+  }
+}
+function titleEnter(state, dispatch, view) {
+  if (dispatch && view) state = synchronizeSelection(view)
+  if (state.selection.$from.depth !== 1 || !titleSelection(state)) return false
+  if (dispatch) {
+    const tr = state.tr.deleteSelection()
+    tr.split(tr.selection.from, 1, [{ type: schema.nodes.paragraph }])
+    dispatch(tr.scrollIntoView())
+  }
+  return true
+}
+function documentTitlePlugin() {
+  return new Plugin({
+    filterTransaction(tr, state) {
+      if (!tr.docChanged || tr.getMeta("remote")) return true
+      const first = tr.doc.firstChild
+      return (first?.type === schema.nodes.heading && first.attrs.level === 1) ||
+        (first?.type === schema.nodes.paragraph &&
+          ((!first.content.size && tr.doc.childCount === 1) ||
+            (state.selection.from <= 1 && state.selection.to >= state.doc.content.size - 1)))
+    },
+    appendTransaction(transactions, oldState, state) {
+      const first = state.doc.firstChild
+      if (first?.type === schema.nodes.heading && first.attrs.level === 1) return null
+      // Whole-document replacement keeps its first paragraph as the title.
+      // Other source-mode structures get an empty title ahead of the body.
+      if (first?.type === schema.nodes.paragraph && !transactions.some(tr => tr.getMeta("remote"))) {
+        return state.tr.setNodeMarkup(0, schema.nodes.heading, { level: 1 })
+      }
+      const title = schema.nodes.heading.create({ level: 1 })
+      return state.tr.insert(0, title)
+    }
+  })
+}
+
+export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = [], { documentTitle = false } = {}) {
   let rangeDoc, ranges, previewOffsetTimer, editingLanguage = false
   const sourceRangeAt = (view, position) => {
     if (rangeDoc !== view.state.doc) {
@@ -657,7 +706,10 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
   }
   const state = EditorState.create({
     doc: parseDocument(markdown),
-    plugins: [history(), inputRules({ rules: [
+    plugins: [...(documentTitle ? [documentTitlePlugin(), keymap({
+      Backspace: titleBoundary("Backspace"), Delete: titleBoundary("Delete"),
+      Enter: titleEnter, "Shift-Enter": titleEnter
+    })] : []), history(), inputRules({ rules: [
       wrappingInputRule(/^\* $/, schema.nodes.bullet_list),
       wrappingInputRule(/^([1-9]\d{0,8})[.)] $/, schema.nodes.ordered_list, match => ({ order: +match[1] }),
         (match, node) => !node.attrs.listStyle && node.childCount + node.attrs.order === +match[1]),
@@ -770,7 +822,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       // A note must never serialize text outside its HTML comment wrapper.
       if (transaction.docChanged && hasInvalidTemplateNote(transaction.doc)) {
         view.updateState(view.state)
-        selectionChanged(toolbarState(view.state))
+        selectionChanged(toolbarState(view.state, documentTitle))
         element.dispatchEvent(new CustomEvent("coplan:template-note-rejected", { bubbles: true }))
         return
       }
@@ -790,7 +842,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
           if (!selection.eq(transaction.selection)) transaction.setSelection(selection)
         }
       }
-      view.updateState(view.state.apply(transaction))
+      view.updateState(view.state.applyTransaction(transaction).state)
       if (transaction.docChanged) {
         for (const block of view.dom.querySelectorAll(".document-editor__content-block")) block.coplanRefreshPreview?.()
         clearTimeout(previewOffsetTimer)
@@ -801,12 +853,16 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
         }, 150)
         if (!transaction.getMeta("remote")) changed(serializeDocument(view.state.doc), inputOrigin(transaction))
       }
-      selectionChanged(toolbarState(view.state))
+      selectionChanged(toolbarState(view.state, documentTitle))
     }
   })
   return {
     view,
     content: () => serializeDocument(view.state.doc),
+    focusTitle() {
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, view.state.doc.firstChild.nodeSize - 1)))
+      view.focus()
+    },
     sourceSelection() {
       const { $from, $to } = visibleSelection(view.state, view)
       return { from: sourceOffsetForRich(view.state.doc, $from.pos), to: sourceOffsetForRich(view.state.doc, $to.pos) }
@@ -817,7 +873,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, Math.min(start, end), Math.max(start, end))).scrollIntoView())
       view.focus()
     },
-    toolbarState: () => toolbarState(view.state),
+    toolbarState: () => toolbarState(view.state, documentTitle),
     historyState: () => ({ undo: undo(view.state), redo: redo(view.state) }),
     closeHistory() { view.dispatch(closeHistory(view.state.tr)) },
     update(markdown) {
@@ -933,7 +989,7 @@ function commentPlugin(initial) {
       apply(transaction, previous, _, state) {
         const incoming = transaction.getMeta(commentKey)
         if (incoming) {
-          const known = new Set(comments.map(comment => comment.id))
+          const known = new Map(comments.map(comment => [comment.id, comment]))
           comments = incoming.comments
           if (!incoming.preserveRanges) return commentDecorations(state.doc, comments)
           // A saved-thread refresh may describe the last acknowledged text
@@ -950,7 +1006,12 @@ function commentPlugin(initial) {
           })
           // A quote invalidated by a broad local rewrite must stay detached;
           // looking up its old text could attach it to another occurrence.
-          const added = commentDecorations(state.doc, comments.filter(comment => !known.has(comment.id))).find()
+          // A newly authoritative quote may change while an unrelated local
+          // edit (including a title edit) remains unsaved. Keep valid mapped
+          // ranges; otherwise resolve that changed quote against the new body.
+          const keptIds = new Set(kept.map(mark => mark.type.attrs["data-thread-id"]))
+          const added = commentDecorations(state.doc, comments.filter(comment =>
+            !keptIds.has(comment.id) && (!known.has(comment.id) || known.get(comment.id).text !== comment.text))).find()
           return DecorationSet.create(state.doc, [...kept, ...added])
         }
         if (!transaction.docChanged) return previous
@@ -1037,12 +1098,12 @@ function commentDecorations(doc, comments) {
   return DecorationSet.create(doc, decorations)
 }
 
-function toolbarState(state) {
+function toolbarState(state, documentTitle = false) {
   const { from, to, empty, $from } = state.selection
   const marks = state.storedMarks || $from.marks()
   const markActive = name => empty ? !!schema.marks[name].isInSet(marks) : state.doc.rangeHasMark(from, to, schema.marks[name])
   const ancestor = name => { for (let depth = $from.depth; depth > 0; depth--) if ($from.node(depth).type.name === name) return $from.node(depth); return null }
-  return { bold: markActive("strong"), italic: markActive("em"), code: markActive("code"), link: markActive("link"),
+  return { documentTitle: documentTitle && titleSelection(state), bold: markActive("strong"), italic: markActive("em"), code: markActive("code"), link: markActive("link"),
     bullet: !!ancestor("bullet_list"), ordered: !!ancestor("ordered_list"), quote: !!ancestor("blockquote"),
     heading: ancestor("template_note") ? "comment" : ancestor("code_block") ? "code" : ancestor("heading")?.attrs.level || 0,
     canHideComment: hiddenCommentBlocks(state).length > 0,

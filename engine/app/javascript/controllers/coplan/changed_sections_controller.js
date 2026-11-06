@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { renderedBlocks, LEADING_HEADING } from "coplan/content_sections"
+import { renderedBlocks } from "coplan/content_sections"
 
 // Quiet dots outside authored content, dismissed after a short reading pause.
 const TOP_KEY = "__top__"
@@ -26,21 +26,12 @@ export default class extends Controller {
     const keys = new Set(this.keysValue)
     const used = new Set()
     let inIntroduction = true
-    // A hidden leading H1 cannot carry its dot; the section's first visible
-    // block does, the way an introduction's does. A section that is only
-    // that heading changed nothing the reader can see, so it gets none.
-    let hiddenKey = null
     for (const node of renderedBlocks(content)) {
       if (/^H[1-3]$/.test(node.tagName)) {
         inIntroduction = false
-        hiddenKey = null
         const key = this._slug(node.textContent, used)
         if (!keys.has(key)) continue
-        if (node.matches(LEADING_HEADING)) hiddenKey = key
-        else this._mark(node, key)
-      } else if (hiddenKey) {
-        this._mark(node, hiddenKey)
-        hiddenKey = null
+        this._mark(node, key)
       } else if (inIntroduction && keys.has(TOP_KEY) && !this.sections.has(TOP_KEY)) {
         this._mark(node, TOP_KEY)
       }

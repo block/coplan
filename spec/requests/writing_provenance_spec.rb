@@ -42,7 +42,7 @@ RSpec.describe "Writing provenance", type: :request do
     get writing_provenance_plan_path(plan), headers: { "Accept" => "application/json" }
     data = response.parsed_body
     expect(data.fetch("revision")).to eq(1)
-    expect(data.dig("rendered", "text")).to eq("AIbody")
+    expect(data.dig("rendered", "text")).to eq("ProvenanceAIbody")
     key = data.dig("rendered", "runs").first.last
     expect(data.dig("rendered", "sources", key)).to include("kind" => "ai", "origin_revision" => 1)
   end
@@ -61,7 +61,7 @@ RSpec.describe "Writing provenance", type: :request do
     expect(response).to have_http_status(:ok)
     created = CoPlan::Plan.find(response.parsed_body.fetch("id"))
     expect(created.current_plan_version.actor_type).to eq("human")
-    expect(created.writing_provenance_summary.fetch("counts")).to eq("human" => 5, "ai" => 0, "unknown" => 6)
+    expect(created.writing_provenance_summary.fetch("counts")).to eq("human" => 5, "ai" => 0, "unknown" => 21)
   end
 
   it "keeps percentages and API ranges available when inspection exceeds its size budget" do

@@ -69,8 +69,8 @@ The themes are listed in `CoPlan::Themes::ALL`
 4. Set custom properties only, so a theme changes how Coplan looks, never
    what it does. A hook can also be set on a component, for example
    `:root[data-app-theme="<key>"] .plan-document { --color-surface: … }`.
-   Anything a theme would solve with a rule, such as an opening H1 that
-   repeats the plan title, belongs to every theme, in shared CSS or markup.
+   Anything a theme would solve with a rule, such as the opening H1 that
+   supplies the document title, belongs to every theme, in shared CSS or markup.
 
 A hook set on `:root` resolves any `var()` it uses at the root. To follow a
 token that changes further down the page, set the hook on that component.

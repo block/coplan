@@ -110,11 +110,12 @@
 .page-header__title {
   min-width: 0;
   overflow-wrap: anywhere;
+  text-wrap: var(--plan-title-wrap, wrap);
 }
 
 /* The plan title (theme hooks; docs/THEMES.md). The editable title in
    edit mode reads the same hooks, so Edit doesn't resize it. */
-.page-header :is(.page-header__title, .inline-editor__title) {
+.page-header .page-header__title {
   font-size: var(--plan-title-size, var(--text-2xl));
   font-weight: var(--plan-title-weight, 700);
   line-height: var(--plan-title-leading, 1.6);
@@ -146,48 +147,24 @@
   flex-shrink: 0;
 }
 
-/* Title and body share the content column; the outline starts beside the
-   title so its column has no empty band above it. */
-.plan-title {
-  /* Theme hooks (docs/THEMES.md); the measure keeps it on the body's edge. */
-  max-width: var(--reading-measure, none);
-  margin-bottom: var(--space-xl);
+/* The first content heading is the title in both reading and editing. */
+#plan-content-body #plan-title,
+.document-editor .document-editor__body .ProseMirror > h1:first-child {
   font-size: var(--plan-title-size, 2.25rem);
   font-weight: var(--plan-title-weight, 700);
   line-height: var(--plan-title-leading, 1.15);
   letter-spacing: var(--plan-title-tracking, -0.015em);
+  margin: 0 0 var(--space-xl);
+  overflow-wrap: anywhere;
   text-wrap: var(--plan-title-wrap, wrap);
 }
-
-/* The inline title editor swaps in beside the heading; both take the size
-   from .plan-title so entering edit mode doesn't move a pixel. */
-.plan-title__heading,
-.plan-title .inline-editor__title {
-  margin: 0;
-  font-size: inherit;
-  font-weight: inherit;
-  line-height: inherit;
-  letter-spacing: inherit;
-  overflow-wrap: anywhere;
+.document-editor .document-editor__body .ProseMirror > h1:first-child:has(> br:only-child)::before {
+  content: "Document title";
+  color: var(--color-text-muted);
+  pointer-events: none;
+  position: absolute;
 }
-
-.plan-title__heading[hidden] { display: none; }
-
-/* A body that opens with an H1 is almost always restating the title, which
-   now sits right above it. Hide it in the reading view (the editor still
-   shows the source) — unless an open discussion is anchored in it, which
-   must stay readable (opening_heading_discussed?). Keep in step with
-   LEADING_HEADING in coplan/content_sections.js. */
-.plan-document--titled:not(.plan-document--opening-discussed) #plan-content-body > .markdown-rendered:first-child > h1:first-child {
-  display: none;
-}
-
-.plan-document--titled:not(.plan-document--opening-discussed) #plan-content-body > .markdown-rendered:first-child > h1:first-child + * {
-  margin-top: 0;
-}
-
 @media (max-width: 640px) {
-  .plan-title {
-    font-size: var(--plan-title-size-narrow, 1.75rem);
-  }
+  #plan-content-body #plan-title,
+  .document-editor .document-editor__body .ProseMirror > h1:first-child { font-size: var(--plan-title-size-narrow, 1.75rem); }
 }

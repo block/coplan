@@ -60,7 +60,7 @@ RSpec.describe "Claiming a URL segment" do
     it "locks when a retitle moves a plan to a new segment" do
       plan = create(:plan, :published, created_by_user: author, title: "Cart Roadmap")
 
-      taken = namespace_locks_during { plan.update!(title: "Basket Roadmap") }
+      taken = namespace_locks_during { retitle_plan(plan, "Basket Roadmap") }
 
       expect(taken).to be >= 1
     end

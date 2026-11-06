@@ -3,6 +3,19 @@ require "coplan/development_seed"
 
 RSpec.describe CoPlan::DevelopmentSeed do
   describe ".call" do
+    it "provides the canonical title demo and preserves subsequent edits on reseeding" do
+      described_class.call
+      document = seeded_plan("document-title")
+      expect(document.current_content.scan(/^# /).length).to eq(1)
+      expect(document.title).to eq("One document, one title")
+      retitle_plan(document, "My renamed document")
+      revision = document.current_revision
+      described_class.call
+      expect(document.reload.title).to eq("My renamed document")
+      expect(document.current_revision).to eq(revision)
+      expect(seeded_plan("demo-library").current_content).to include(document.url_path)
+    end
+
     it "seeds visible text and fallback anchor examples without duplicating discussions" do
       described_class.call
       plan = seeded_plan("api-comment-anchors")
@@ -48,7 +61,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       CoPlan::Plans::ReplaceContent.call(plan: mixed, new_content: "My local revision", base_revision: mixed.current_revision,
         actor_type: "human", actor_id: mixed.created_by_user_id)
       described_class.call
-      expect(mixed.reload.current_content).to eq("My local revision")
+      expect(mixed.reload.current_content).to eq("# #{mixed.title}\n\nMy local revision")
       expect(seeded_plan("demo-library").current_content).to include("Writing sources", mixed.url_path)
     end
 
@@ -90,7 +103,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       CoPlan::Plans::ReplaceContent.call(plan: moved, new_content: "My own revised arrangement", base_revision: 3,
         actor_type: "human", actor_id: moved.created_by_user_id)
       described_class.call
-      expect(moved.reload.current_content).to eq("My own revised arrangement")
+      expect(moved.reload.current_content).to eq("# #{moved.title}\n\nMy own revised arrangement")
       expect(seeded_plan("demo-library").current_content).to include(moved.url_path)
     end
 
@@ -132,14 +145,14 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(draft.current_content).to include("[original link](./untitled-thoughts-on-activation)")
       expect(seeded_plan("demo-library").current_content).to include("(/#{draft.url_path})")
 
-      draft.update!(title: "My activation notes")
+      retitle_plan(draft, "My activation notes")
       CoPlan::Plans::ReplaceContent.call(plan: draft, new_content: "My local revision",
         base_revision: draft.current_revision, actor_type: "human", actor_id: draft.created_by_user_id)
       aliases = CoPlan::UrlAlias.count
       described_class.call
 
       expect(draft.reload.title).to eq("My activation notes")
-      expect(draft.current_content).to eq("My local revision")
+      expect(draft.current_content).to eq("# #{draft.title}\n\nMy local revision")
       expect(draft).to be_draft
       expect(CoPlan::UrlAlias.count).to eq(aliases)
       expect(CoPlan::UrlAlias.rewrite(old_path)).to eq(draft.url_path)
@@ -156,7 +169,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       2.times { described_class.call }
 
       expect(draft.reload.title).to eq(described_class::PRIVATE_RETITLED_DOCUMENT_FROM)
-      expect(draft.current_content).to eq("My existing local content")
+      expect(draft.current_content).to eq("# #{draft.title}\n\nMy existing local content")
       expect(draft).to be_draft
       expect(CoPlan::UrlAlias.where(path: draft.url_path)).not_to exist
     end
@@ -412,7 +425,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
     it "refreshes a generated index while preserving a locally edited index" do
       described_class.call
       plan = seeded_plan("api-gateway")
-      plan.update!(title: "Gateway architecture, revised")
+      retitle_plan(plan, "Gateway architecture, revised")
       described_class.call
       catalog = seeded_plan("demo-library")
       expect(catalog.current_content).to include("Gateway architecture, revised")
@@ -655,8 +668,8 @@ RSpec.describe CoPlan::DevelopmentSeed do
     it "preserves edits to existing seed document content and titles" do
       described_class.call
       plan = CoPlan::Plan.find { |candidate| candidate.metadata.to_h["development_seed_key"] == "api-gateway" }
-      plan.update!(title: "Locally edited title")
-      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "# Locally edited content",
+      retitle_plan(plan, "Locally edited title")
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "# Locally edited title\n\nLocally edited content",
         base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
       formatting = seeded_plan("formatting-gallery")
       edited_notes = formatting.current_content.sub("Template guidance:", "My edited template guidance:")
@@ -666,7 +679,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       described_class.call
 
       expect(plan.reload.title).to eq("Locally edited title")
-      expect(plan.current_content).to eq("# Locally edited content")
+      expect(plan.current_content).to eq("# Locally edited title\n\nLocally edited content")
       expect(formatting.reload.current_content).to eq(edited_notes)
     end
   end

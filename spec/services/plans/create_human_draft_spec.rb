@@ -9,8 +9,8 @@ RSpec.describe CoPlan::Plans::CreateHumanDraft do
   let(:key) { SecureRandom.uuid }
 
   it "names the author of initially typed content in the retained sources" do
-    draft = described_class.call(user: user, creation_key: key, title: "Typed draft", content: "Typed words", tags: "",
-      input_sources: { "runs" => [ [ 11, "human" ] ] })
+    draft = described_class.call(user: user, creation_key: key, title: "Typed draft", content: "# Typed draft\n\nTyped words", tags: "",
+      input_sources: { "runs" => [ [ 26, "human" ] ] })
     expect(draft.current_plan_version.actor_id).to eq(user.id)
     contributor = draft.writing_provenance_summary.fetch("contributors").find { |source| source["kind"] == "human" }
     expect(contributor).to include("user_id" => user.id, "user_name" => user.name, "share" => 1.0)
@@ -27,7 +27,7 @@ RSpec.describe CoPlan::Plans::CreateHumanDraft do
     expect(first).to be_published
     CoPlan::Plans::ReplaceContent.call(plan: first, new_content: "Later edit", base_revision: 1, actor_type: "human", actor_id: user.id)
     expect { expect(create_draft(creation_key: key.upcase).id).to eq(first.id) }.not_to change(CoPlan::Plan, :count)
-    expect(first.reload.current_content).to eq("Later edit")
+    expect(first.reload.current_content).to eq("# New plan\n\nLater edit")
     expect(first.current_revision).to eq(2)
     expect(first.tag_names).to eq([ "kept" ])
   end
@@ -66,9 +66,10 @@ RSpec.describe CoPlan::Plans::CreateHumanDraft do
       path: "#{user.library.handle}/latency-findings", target_path: first.url_path)
   end
 
-  it "allows a corrected retry after validation fails" do
-    expect { create_draft(content: "") }.to raise_error(ActiveRecord::RecordInvalid)
-    expect(create_draft).to be_persisted
+  it "normalizes an empty draft and keeps retries idempotent" do
+    draft = create_draft(content: "")
+    expect(draft.current_content).to start_with("# New plan")
+    expect(create_draft.id).to eq(draft.id)
   end
 
   it "rejects malformed keys" do

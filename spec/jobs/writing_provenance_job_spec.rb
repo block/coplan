@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe CoPlan::WritingProvenanceJob do
   it "coalesces requests durably and releases a claim if the queue is unavailable" do
-    plan = CoPlan::Plans::Create.call(title: "Queue outage", content: "Old", user: create(:coplan_user), actor_type: "human")
+    plan = create_historical_plan(title: "Queue outage", content: "Old", user: create(:coplan_user), actor_type: "human")
     allow(described_class).to receive(:perform_later).and_raise(ActiveJob::EnqueueError, "offline")
     expect { described_class.request(plan) }.not_to raise_error
     expect(plan.reload.writing_provenance_backfill["token"]).to be_nil
@@ -12,9 +12,9 @@ RSpec.describe CoPlan::WritingProvenanceJob do
   end
   it "reconstructs legacy agents, preserves new human evidence, and is idempotent" do
     user = create(:coplan_user)
-    plan = CoPlan::Plans::Create.call(title: "Backfill", content: "Agent", user: user, actor_type: "local_agent")
+    plan = create_historical_plan(title: "Backfill", content: "Agent", user: user, actor_type: "local_agent")
     plan.current_plan_version.update_columns(writing_provenance: nil)
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Agent typed", base_revision: 1, actor_type: "human", actor_id: user.id,
+    append_historical_content(plan: plan, new_content: "Agent typed", base_revision: 1, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ 5, "unknown" ], [ 6, "human" ] ] })
     expect(plan.writing_provenance_summary.dig("counts", "unknown")).to eq(5)
     described_class.perform_now(plan_id: plan.id, restart: true)
@@ -26,7 +26,7 @@ RSpec.describe CoPlan::WritingProvenanceJob do
 
   it "uses the recorded fixture identity when upgrading an older human-saved demo" do
     user = create(:coplan_user)
-    plan = CoPlan::Plans::Create.call(title: "Old demo", content: "Generated demo", user: user, actor_type: "human")
+    plan = create_historical_plan(title: "Old demo", content: "Generated demo", user: user, actor_type: "human")
     version = plan.current_plan_version
     snapshot = version.writing_provenance.merge("write_source" => { "kind" => "ai", "agent_name" => "Demo agent" })
     version.update_columns(writing_provenance: snapshot)

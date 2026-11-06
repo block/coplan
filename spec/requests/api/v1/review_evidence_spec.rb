@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Review evidence API", type: :request do
   let(:author) { create(:coplan_user) }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Approval API", content: "Exact bytes", user: author) }
+  let(:plan) { CoPlan::Plans::Create.call(title: "Approval API", content: "# Approval API\n\nExact bytes", user: author) }
   let(:token) { create(:api_token, user: author, raw_token: "parity-fixture") }
   let(:headers) { token; { "Authorization" => "Bearer parity-fixture" } }
   let(:task) { CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: author) }
@@ -13,9 +13,9 @@ RSpec.describe "Review evidence API", type: :request do
     get review_evidence_api_v1_plan_path(plan), headers: headers
     expect(response).to have_http_status(:ok)
     data = response.parsed_body
-    expect(data.fetch("version")).to include("id" => receipt.plan_version_id, "content_markdown" => "Exact bytes", "content_sha256" => Digest::SHA256.hexdigest("Exact bytes"))
+    expect(data.fetch("version")).to include("id" => receipt.plan_version_id, "content_markdown" => "# Approval API\n\nExact bytes", "content_sha256" => Digest::SHA256.hexdigest("# Approval API\n\nExact bytes"))
     expect(data.fetch("review_requests").first).to include("generation" => task.generation, "effective_response_id" => receipt.id, "effective_human_decision" => "approved")
-    expect(data.fetch("approval_scope").fetch("excludes")).to include("attachments", "title", "child_plans", "embedded_resources")
+    expect(data.fetch("approval_scope").fetch("excludes")).to include("attachments", "child_plans", "embedded_resources")
     expect([ CoPlan::PlanRead.count, CoPlan::AgentSession.count, CoPlan::Notification.count ]).to eq(counts)
   end
 
@@ -31,7 +31,7 @@ RSpec.describe "Review evidence API", type: :request do
       CoPlan::Reviews::Respond.call(request: task, actor: task.reviewer, revision: 1, generation: 1, decision: "approved", idempotency_key: SecureRandom.uuid)
     }.to raise_error(CoPlan::Reviews::Respond::Conflict)
     get review_evidence_api_v1_plan_path(plan), headers: headers
-    expect(response.parsed_body.fetch("version")).to include("revision" => 2, "content_markdown" => "Changed bytes")
+    expect(response.parsed_body.fetch("version")).to include("revision" => 2, "content_markdown" => "# Approval API\n\nChanged bytes")
     expect(response.parsed_body.fetch("review_requests").first.fetch("effective_response_id")).to be_nil
   end
 
@@ -54,7 +54,7 @@ RSpec.describe "Review evidence API", type: :request do
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "New body", base_revision: 1, actor_type: "human", actor_id: author.id)
     get version_api_v1_plan_path(plan, version_id: original.id), headers: headers
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body).to include("id" => original.id, "revision" => 1, "content_markdown" => "Exact bytes")
+    expect(response.parsed_body).to include("id" => original.id, "revision" => 1, "content_markdown" => "# Approval API\n\nExact bytes")
     get version_api_v1_plan_path(plan, version_id: SecureRandom.uuid), headers: headers
     expect(response).to have_http_status(:not_found)
   end

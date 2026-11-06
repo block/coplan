@@ -3,6 +3,8 @@ name: PRD
 icon: scale
 description: What to build, why it matters, and how to know it worked.
 ---
+# Document title
+
 <!-- PRD: the agreement about what gets built. Requirements must be
 testable statements - if you cannot check it, it is not a requirement. -->
 

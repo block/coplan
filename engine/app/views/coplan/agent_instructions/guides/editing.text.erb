@@ -129,7 +129,7 @@ You can take the lock yourself to keep a long series of edits together. Most edi
 
 | Field | Value |
 |---|---|
-| `title` | A string. The plan's URL follows the new title. For active plans, including private plans, the old URL redirects to the new one. Retitling an archived plan does not create a redirect. |
+| `title` | Legacy input, accepted but ignored. Rename by editing the opening Markdown H1 through a content write. |
 | `plan_type` | A type name. Coplan adds the new type's default tags. Restructure the content to match the new template. |
 | `tags` | An array. It replaces the full tag list. |
 | `folder_path` or `folder_id` | Moves the plan in its library. |
@@ -142,3 +142,11 @@ See <<%= @base %>/agent-instructions/creating> for the rules on types, folders, 
 ## History
 
 `GET <%= @base %>/api/v1/plans/$PLAN_ID/versions` lists every version, newest first, with `revision`, `actor_type` (`human`, `local_agent`, and so on), `change_summary`, and `created_at`. Use it to find what changed and who changed it. Do not write a changelog in the plan.
+
+## Document titles
+
+The opening top-level H1 is the document title. Rename it through the normal content operations or whole-content replacement. Fetch responses include the heading in `current_content` and its plain text in `title`.
+
+If an update omits the opening H1 or leaves it empty, CoPlan restores it from the current metadata title. This normalization is stored in the new version, its hash, and its operation history. Re-read after writing when you need the exact normalized source. Headings inside code, quotes, and presentations do not count as document titles.
+
+A committed agent content edit finalizes the document URL. Human editor autosaves retain the existing URL until Done. Old URLs redirect to the new address; archived plans do not create new redirects.

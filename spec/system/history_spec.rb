@@ -5,7 +5,7 @@ RSpec.describe "Plan history page", type: :system do
 
   let(:plan_content) do
     <<~MARKDOWN
-      # Hello
+      # History Plan
 
       - [ ] First task
       - [ ] Second task

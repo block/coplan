@@ -57,6 +57,10 @@ module CoPlan
             return if performed? # resolve_plan_type_param rendered an error
           end
 
+          if params[:content].nil?
+            return render json: { error: "content is required" }, status: :unprocessable_content
+          end
+
           # Plans are born published; `"visibility": "draft"` is the opt-in
           # for starting private.
           visibility = params[:visibility].presence || "published"
@@ -67,7 +71,7 @@ module CoPlan
           plan = nil
           ActiveRecord::Base.transaction do
             plan = Plans::Create.call(
-              title: params[:title],
+              title: nil,
               content: params[:content] || "",
               user: current_user,
               plan_type_id: plan_type&.id,
@@ -126,7 +130,6 @@ module CoPlan
           end
 
           permitted = {}
-          permitted[:title] = params[:title] if params.key?(:title)
           visibility_updates = visibility_params_for_update
           return if performed? # visibility_params_for_update rendered an error
           permitted.merge!(visibility_updates)
@@ -138,7 +141,6 @@ module CoPlan
           end
 
           # Snapshot before-state so LogEvent can record meaningful diffs.
-          old_title = @plan.title
           old_visibility = @plan.visibility
           old_archived = @plan.archived?
           old_tag_names = @plan.tag_names
@@ -164,7 +166,7 @@ module CoPlan
             end
 
             @plan.lock!
-            if params.key?(:title) || params.key?(:tags) || params.key?(:plan_type)
+            if params.key?(:tags) || params.key?(:plan_type)
               EditLease.enforce!(plan: @plan, lease_token: params[:lease_token])
             end
             @plan.tag_names = params[:tags] if params.key?(:tags)
@@ -195,21 +197,8 @@ module CoPlan
             Broadcaster.replace_to(@plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: @plan })
           end
 
-          if @plan.saved_change_to_title?
-            Broadcaster.replace_to(@plan, target: "plan-title", partial: "coplan/plans/title", locals: { plan: @plan })
-          end
-
-          # The sticky nav carries the title and the type icon.
-          if @plan.saved_change_to_title? || @plan.saved_change_to_plan_type_id?
+          if @plan.saved_change_to_plan_type_id?
             Broadcaster.replace_to(@plan, target: "plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: @plan })
-          end
-
-          if permitted.key?(:title) && @plan.saved_change_to_title?
-            Plans::LogEvent.call(
-              plan: @plan, actor: current_user, event_type: "title_changed",
-              before: old_title, after: @plan.title,
-              actor_type: api_author_type, actor_id: api_user_id, agent_name: api_agent_name, api_token_id: api_token_id
-            )
           end
 
           if @plan.saved_change_to_visibility? && @plan.published? && old_visibility == "draft"

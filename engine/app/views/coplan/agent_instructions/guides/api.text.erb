@@ -39,7 +39,7 @@ return 429. Invalid names return 422 with `invalid_request`.
 | `GET /api/v1/plans/:id/review_evidence` | Read exact current Markdown bytes/hash and coherent review cycles and decisions, without a read receipt. | comments |
 | `GET /api/v1/plans/:id/snapshot` | Get a plan with content, threads, references, collaborators, and review requests. | primer |
 | `GET /api/v1/plans/:id/writing_provenance` | Get writing-origin counts and reported agent identities. `?ranges=1` includes compact source ranges. Older plans can return `202` while history is reconstructed. | editing |
-| `PATCH /api/v1/plans/:id` | Change the title, type, tags, folder, visibility, archive state, or references. Plan author only. | editing |
+| `PATCH /api/v1/plans/:id` | Change the type, tags, folder, visibility, archive state, or references. Legacy `title` is ignored; edit the content heading to rename. Plan author only. | editing |
 | `PUT /api/v1/plans/:id/content` | Replace the content. | editing |
 | `POST /api/v1/plans/:id/operations` | Apply targeted edits. | editing |
 | `POST /api/v1/plans/:id/sessions` | Open an edit session (10 minutes): returns `id` and `base_revision`. Send `session_id` and that `base_revision` on each operation request to collect operations without saving. | editing |

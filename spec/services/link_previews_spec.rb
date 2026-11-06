@@ -162,7 +162,7 @@ RSpec.describe CoPlan::LinkPreviews do
 
   it "changes its cache key when preview metadata changes" do
     first = described_class.for_plan(plan, base_url: base_url)
-    plan.update!(title: "A new title")
+    retitle_plan(plan, "A new title")
     expect(described_class.for_plan(plan.reload, base_url: base_url).cache_key).not_to eq(first.cache_key)
   end
 

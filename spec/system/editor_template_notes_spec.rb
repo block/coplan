@@ -121,7 +121,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
   end
 
   it "edits a standalone note immediately after prose without a blank line" do
-    initial = "Visible prose.\n<!-- Guidance after prose. -->\nMore prose.\n"
+    initial = "# Decision\n\nVisible prose.\n<!-- Guidance after prose. -->\nMore prose.\n"
     click_button "Raw", exact: true
     find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], initial)
     click_button "Editor", exact: true
@@ -133,7 +133,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     note.send_keys(:end, " Revised.")
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
-    expect(plan.reload.current_content).to eq("Visible prose.\n\n<!-- Guidance after prose. Revised. -->\n\nMore prose.\n")
+    expect(plan.reload.current_content).to eq("# Decision\n\nVisible prose.\n\n<!-- Guidance after prose. Revised. -->\n\nMore prose.\n")
     expect(page).to have_content("Visible prose.")
     expect(page).to have_content("More prose.")
     expect(page).not_to have_content("Guidance after prose.")
@@ -353,9 +353,9 @@ RSpec.describe "Template notes in the document editor", type: :system do
 
   it "converts selected paragraphs together and rejects text that would close the comment" do
     click_button "Raw", exact: true
-    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "## Heading\n\n**Bold** guidance.\n")
+    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "# Decision\n\n## Heading\n\n**Bold** guidance.\n")
     click_button "Editor", exact: true
-    find(".ProseMirror > p", text: "Bold guidance.").send_keys([ mod, "a" ])
+    select_document_body
     select "Comment", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".document-editor__template-note", count: 2)
     expect(page).to have_css(".document-editor__template-note", text: "Heading")
@@ -365,7 +365,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).to have_css(".ProseMirror > h2", text: "Heading")
     expect(page).to have_css(".ProseMirror > p strong", text: "Bold")
     click_button "Raw", exact: true
-    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "Visible --> text.\n")
+    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "# Decision\n\nVisible --> text.\n")
     click_button "Editor", exact: true
     find(".ProseMirror > p", text: "Visible --> text.").click
     select "Comment", from: "Paragraph style", enable_aria_label: true
@@ -377,7 +377,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
 
   it "keeps an empty comment hidden when its first character would abruptly close it" do
     click_button "Raw", exact: true
-    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "<!---->\n\nVisible prose.")
+    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "# Decision\n\n<!---->\n\nVisible prose.")
     click_button "Editor", exact: true
     note = find(".document-editor__template-note")
     note.click
@@ -386,14 +386,14 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(note.text).to eq("")
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
-    expect(plan.reload.current_content).to eq("<!---->\n\nVisible prose.")
+    expect(plan.reload.current_content).to eq("# Decision\n\n<!---->\n\nVisible prose.")
     expect(page).to have_content("Visible prose.")
     expect(page).not_to have_content("-->")
   end
 
   [ "<!---->", "<!-- \n  -->" ].each do |comment|
     it "keeps the caret inside #{comment.inspect} when switching either editor mode" do
-      initial = "#{comment}\n\nVisible prose."
+      initial = "# Decision\n\n#{comment}\n\nVisible prose."
       %w[rich_to_raw raw_to_rich].each do |direction|
         visit plan_edit_page_path(plan)
         click_button "Raw", exact: true
@@ -453,9 +453,9 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).to have_css(".document-editor__template-note", count: 1, wait: 20)
   end
 
-  it "removes an empty leading comment through native backward deletion and moves to the next paragraph" do
+  it "removes an empty first body comment through native backward deletion and moves to the title" do
     click_button "Raw", exact: true
-    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "<!-- -->\n\nFollowing prose.\n")
+    find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "# Decision\n\n<!-- -->\n\nFollowing prose.\n")
     click_button "Editor", exact: true
     note = find(".document-editor__template-note")
     note.click
@@ -465,7 +465,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
       }))
     JS
     expect(page).to have_no_css(".document-editor__template-note")
-    expect(page.evaluate_script('window.getSelection().anchorNode.parentElement.closest("p")?.textContent')).to eq("Following prose.")
+    expect(page.evaluate_script('window.getSelection().anchorNode.parentElement.closest("h1")?.textContent')).to eq("Decision")
   end
 
   it "keeps formatting shortcuts and boundary deletion from turning notes into visible prose" do
@@ -591,11 +591,11 @@ RSpec.describe "Template notes in the document editor", type: :system do
   }.each do |label, pasted|
     it "keeps #{label} standalone when pasted after an unchanged paragraph without a final newline" do
       click_button "Raw", exact: true
-      find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "Existing prose.")
+      find('[aria-label="Markdown source"]').send_keys([ mod, "a" ], "# Decision\n\nExisting prose.")
       click_button "Editor", exact: true
       click_link "Done"
       expect(page).to have_current_path(plan_page_path(plan), wait: 15)
-      expect(plan.reload.current_content).to eq("Existing prose.")
+      expect(plan.reload.current_content).to eq("# Decision\n\nExisting prose.")
       visit plan_edit_page_path(plan)
       expect(page).to have_css(".document-editor__body .ProseMirror > p", text: "Existing prose.", wait: 20)
       expect(page).to have_no_css(".inline-editor--preparing", wait: 20)
@@ -603,7 +603,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
         const form = document.querySelector('form.document-editor');
         const editor = window.Stimulus.getControllerForElementAndIdentifier(form, 'coplan--editor').richEditor;
         // A synthetic paste has no keydown to synchronize the native selection.
-        editor.selectSource("Existing prose.".length, "Existing prose.".length);
+        editor.selectSource("# Decision\n\nExisting prose.".length, "# Decision\n\nExisting prose.".length);
         const clipboard = new DataTransfer(); clipboard.setData("text/plain", arguments[0]);
         document.querySelector('.document-editor__body .ProseMirror').dispatchEvent(
           new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }));
@@ -611,7 +611,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
       expect(page).to have_css(".document-editor__template-note", text: "Pasted guidance.")
       click_link "Done"
       expect(page).to have_current_path(plan_page_path(plan), wait: 15)
-      expect(plan.reload.current_content).to eq("Existing prose.\n\n#{pasted}")
+      expect(plan.reload.current_content).to eq("# Decision\n\nExisting prose.\n\n#{pasted}")
       expect(page).not_to have_content("Pasted guidance.")
       visit plan_edit_page_path(plan)
       expect(page).to have_css(".document-editor__template-note", text: "Pasted guidance.", wait: 20)

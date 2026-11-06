@@ -341,7 +341,7 @@ RSpec.describe "Writing provenance", type: :system do
     click_button "Inspect writing"
     expect(page).to have_button("Done inspecting")
     expect(page.evaluate_script("[...CSS.highlights.get('coplan-writing-human')].map(range => range.toString()).join('')")).to eq("Foo")
-    expect(page.evaluate_script("CSS.highlights.get('coplan-writing-ai').size")).to eq(0)
+    expect(page.evaluate_script("[...CSS.highlights.get('coplan-writing-ai')].map(range => range.toString()).join('')")).to eq("Repeated sources")
     find("#plan-content-body p strong", text: "Foo", exact_text: true).hover
     expect(page).to have_css('.writing-inspection__tooltip:popover-open', text: user.name)
     expect(find('.writing-inspection__tooltip')).to have_text("Added in v2")
@@ -359,7 +359,7 @@ RSpec.describe "Writing provenance", type: :system do
     find(".writing-provenance__trigger").click
     click_button "Inspect writing"
     expect(page).to have_button("Done inspecting")
-    expect(page.evaluate_script("[...CSS.highlights.get('coplan-writing-ai')].map(range => range.toString()).join('').replace(/\\s/g, '')")).to eq("Typed*literal*&café©😀after.")
+    expect(page.evaluate_script("[...CSS.highlights.get('coplan-writing-ai')].map(range => range.toString()).join('').replace(/\\s/g, '')")).to eq("EscapedwritingTyped*literal*&café©😀after.")
     expect(page.evaluate_script("CSS.highlights.get('coplan-writing-unknown').size")).to eq(0)
   end
 
@@ -376,7 +376,7 @@ RSpec.describe "Writing provenance", type: :system do
     find(".writing-provenance__trigger").click
     click_button "Inspect writing"
     expect(page).to have_button("Done inspecting")
-    expect(page.evaluate_script("[...CSS.highlights.get('coplan-writing-ai')].map(range => range.toString()).join('').replace(/\\s/g, '')")).to eq("NoterawHTML&café")
+    expect(page.evaluate_script("[...CSS.highlights.get('coplan-writing-ai')].map(range => range.toString()).join('').replace(/\\s/g, '')")).to eq("HTMLwritingNoterawHTML&café")
     expect(page.evaluate_script("CSS.highlights.get('coplan-writing-unknown').size")).to eq(0)
   end
 

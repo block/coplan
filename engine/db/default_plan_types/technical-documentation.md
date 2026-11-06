@@ -3,6 +3,8 @@ name: Technical Documentation
 icon: wrench
 description: How an existing system or interface works.
 ---
+# Document title
+
 <!-- Technical Documentation: reference for what exists today. Organize
 for lookup, not narrative - tables beat prose. Anchor freshness to
 facts: "verified against <commit or version>" lines are welcome;

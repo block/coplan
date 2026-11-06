@@ -18,7 +18,7 @@ RSpec.describe "Document editor modes", type: :system do
   def open_editor
     visit plan_edit_page_path(plan)
     expect(page).to have_css('.document-editor__body .ProseMirror[contenteditable="true"]', wait: 20)
-    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", visible: :all, wait: 15)
+    expect(page).to have_css('.document-editor__save-status[title*="saved"]', visible: :all, wait: 15)
   end
 
   def raw
@@ -154,7 +154,7 @@ RSpec.describe "Document editor modes", type: :system do
     page.execute_script('window.fetch = window.originalFetch')
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
-    expect(plan.reload.current_content).to eq("Retain this draft")
+    expect(plan.reload.current_content).to eq("# Draft\n\nRetain this draft")
   end
 
   it "waits for a save in flight before closing" do
@@ -175,7 +175,7 @@ RSpec.describe "Document editor modes", type: :system do
     click_link "Done"
     expect(page).to have_current_path(plan_edit_page_path(plan))
     expect(page).to have_current_path(plan_page_path(plan), wait: 15)
-    expect(plan.reload.current_content).to eq("Before request and in flight")
+    expect(plan.reload.current_content).to eq("# Draft\n\nBefore request and in flight")
   end
 
   it "blocks closing on overlapping changes in raw mode" do
@@ -190,14 +190,15 @@ RSpec.describe "Document editor modes", type: :system do
     expect(raw).to have_text("Local replacement")
     find('.document-editor__close-inline[data-state="conflict"]').click
     expect(raw).to have_text("Remote replacement")
-    expect(plan.reload.current_content).to eq("Remote replacement")
+    expect(plan.reload.current_content).to eq("# Draft\n\nRemote replacement")
   end
 
   it "merges live raw edits and retains local undo across an incoming agent change" do
     open_editor
     block_saves
     click_button "Raw", exact: true
-    raw.send_keys([ mod, :end ], "\nHuman tail")
+    page.execute_script('const c = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor"); c.rawEditor.select(c.textareaTarget.value.length)')
+    raw.send_keys("\nHuman tail")
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("Original prose.", "Agent prose."), base_revision: 1, actor_type: "local_agent", actor_id: author.id)
     expect(raw).to have_text("Agent prose.", wait: 10)
     expect(raw).to have_text("Human tail")
@@ -295,7 +296,7 @@ RSpec.describe "Document editor modes", type: :system do
     block_saves
     click_button "Raw", exact: true
     raw.send_keys([ mod, "a" ], "Retained raw **draft**.")
-    find("#plan-title .inline-editor__title").send_keys([ mod, "a" ], "Recovered source title")
+
     save_now
     expect(page).to have_css('.document-editor__close-inline[data-state="error"][aria-label="Retry sync"]')
     other_tab_key = "coplan-rich-draft-#{author.id}-#{plan.id}-other-tab"
@@ -310,7 +311,7 @@ RSpec.describe "Document editor modes", type: :system do
     JS
     page.refresh
     expect(raw).to have_text("Original prose.")
-    expect(find("#plan-title .inline-editor__title").text).to eq("Mode test")
+    expect(raw).to have_text("# Draft")
     expect(page).to have_css('[data-mode="markdown"][aria-pressed="true"]')
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", wait: 10, visible: :all)
     expect(plan.reload.current_content).to eq(source)
@@ -327,16 +328,11 @@ RSpec.describe "Document editor modes", type: :system do
     expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]', wait: 10)
     find('.document-editor__close-inline[data-state="conflict"]').click
     expect(raw).to have_text("Remote replacement", wait: 10)
-    expect(plan.reload.current_content).to eq("Remote replacement")
+    expect(plan.reload.current_content).to eq("# Draft\n\nRemote replacement")
   end
 
-  it "blocks closing on invalid fields and allows valid source mode to save" do
+  it "allows valid source mode to save after a code language becomes invalid" do
     open_editor
-    find("#plan-title .inline-editor__title").send_keys([ mod, "a" ], :backspace)
-    click_link "Done"
-    expect(page).to have_current_path(plan_edit_page_path(plan))
-    expect(page).to have_content("Add a document title to save")
-    find("#plan-title .inline-editor__title").send_keys(plan.title)
     all('[aria-label="Code language"]').last.fill_in(with: "ruby`")
     click_link "Done"
     expect(page).to have_current_path(plan_edit_page_path(plan))
@@ -351,8 +347,7 @@ RSpec.describe "Document editor modes", type: :system do
     visit new_plan_path
     expect(page).to have_css('.document-editor__body .ProseMirror[contenteditable="true"]', wait: 20)
     click_button "Raw", exact: true
-    raw.send_keys("# New source\n\nUntouched **Markdown**.")
-    find("#plan-title .inline-editor__title", wait: 10).send_keys("Autosaved new source")
+    raw.send_keys([ mod, "a" ], "# Autosaved new source\n\nUntouched **Markdown**.")
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", wait: 15, visible: :all)
     expect(raw).to have_text("Untouched **Markdown**.")
     created = CoPlan::Plan.find_by!(title: "Autosaved new source")
@@ -381,25 +376,21 @@ RSpec.describe "Document editor modes", type: :system do
     expect(language.value).to eq("custom-lang extra=1")
     expect(raw).to have_text("```custom-lang extra=1")
     page.save_screenshot(Rails.root.join("tmp/editor-dual.png"))
-    title = find("#plan-title .inline-editor__title")
-    title.send_keys([ mod, "a" ], "Selection stays local")
+    title = find(".inline-editor .ProseMirror > h1:first-child")
+    select_document_title
+    rich.send_keys("Selection stays local")
     expect(title.text).to eq("Selection stays local")
-    expect(raw).to have_text("Shared draft")
+    expect(raw).to have_text("Selection stays local")
     rich.find("p", text: "Human words.").click
     page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
     expect(page.evaluate_script('document.querySelector("[aria-label=\"Document body\"]").contains(getSelection().anchorNode)')).to eq(true)
-    expect(page.evaluate_script('getSelection().toString()')).to include("Shared draft")
-    # Focus a control outside either editor: default browser selection is allowed.
-    title.click
-    page.execute_script('window.addEventListener("keydown", event => { if (event.key === "a") window.selectAllEvent = { target: event.target.tagName, prevented: event.defaultPrevented } })')
-    page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
-    expect(page.evaluate_script('window.selectAllEvent')).to eq({ "prevented" => false, "target" => "H1" })
+    expect(page.evaluate_script('getSelection().toString()')).to include("Selection stays local")
     page.execute_script('window.savedRequests = 0; window.fetch = (url, options) => { if (options?.method === "PATCH") window.savedRequests++; return window.originalFetch(url, options) }')
     click_link "Done"
     expect(page).to have_current_path(/selection-stays-local$/, wait: 15)
     expect(plan.reload.current_revision).to eq(2)
     expect(plan.current_content).to include("More.", "custom-lang extra=1")
-    expect(page.evaluate_script("window.savedRequests")).to eq(1)
+    expect(page.evaluate_script("window.savedRequests")).to eq(2)
   end
 
   it "maps dual undo and selection through a disjoint incoming agent edit" do
@@ -456,7 +447,7 @@ RSpec.describe "Document editor modes", type: :system do
     find('.document-editor__close-inline[data-state="conflict"]').click
     expect(raw).to have_text("Remote replacement")
     expect(find('[aria-label="Document body"]')).to have_text("Remote replacement")
-    expect(plan.reload.current_content).to eq("Remote replacement")
+    expect(plan.reload.current_content).to eq("# Draft\n\nRemote replacement")
   end
 
   it "defers counterpart updates until composition completes and stacks panes on narrow screens" do

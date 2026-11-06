@@ -14,7 +14,7 @@ RSpec.describe "Plan metadata event logging", type: :request do
   describe "PATCH /plans/:id (web)" do
     it "records a title_changed event when the title moves" do
       expect {
-        patch plan_path(plan), params: { plan: { title: "Renamed" } }
+        patch update_content_plan_path(plan), params: { content: "# Renamed\n\nBody", base_revision: plan.current_revision }, as: :json
       }.to change { plan.plan_events.where(event_type: "title_changed").count }.by(1)
 
       event = plan.plan_events.where(event_type: "title_changed").last
@@ -131,7 +131,7 @@ RSpec.describe "Plan metadata event logging", type: :request do
     let!(:token) { create(:api_token, user: user, raw_token: raw_token) }
     let(:auth_headers) { { "Authorization" => "Bearer #{raw_token}" } }
 
-    it "records events for title, archival, and tag diffs in a single request" do
+    it "records archival and tag diffs while ignoring legacy title input" do
       plan.tag_names = [ "existing" ]
 
       expect {
@@ -140,10 +140,10 @@ RSpec.describe "Plan metadata event logging", type: :request do
           archived: true,
           tags: [ "existing", "added" ]
         }, headers: auth_headers, as: :json
-      }.to change { plan.plan_events.count }.by(3)
+      }.to change { plan.plan_events.count }.by(2)
 
       expect(plan.plan_events.pluck(:event_type)).to contain_exactly(
-        "title_changed", "archived", "tag_added"
+        "archived", "tag_added"
       )
     end
 
