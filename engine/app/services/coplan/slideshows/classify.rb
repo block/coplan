@@ -4,7 +4,7 @@ module CoPlan
     # docs/SLIDE_SPEC.md — the spec's conformance examples are this class's
     # acceptance tests (spec/services/slideshows/conformance_spec.rb).
     #
-    # A pure function: markdown in, classification out. No CoPlan models, no
+    # A pure function: markdown in, classification out. No Coplan models, no
     # rendering, no measurement — layout must be deterministic so the same
     # content produces the same deck on every render, and simple enough that
     # an authoring agent can compose with the rules deliberately.

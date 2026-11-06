@@ -52,7 +52,7 @@ DeliveryJob.perform_later(receipt.id)
 - [x] Retry-safe adapter
 - [ ] Beta delivery dashboard
 
-![CoPlan]({{demo_logo_url}})
+![Coplan]({{demo_logo_url}})
 
 :::
 

@@ -56,7 +56,7 @@ options = {
 OptionParser.new do |opts|
   opts.banner = "Usage: coplan-attach --plan PLAN_ID [--once] [--timeout SECONDS]"
   opts.on("--plan PLAN_ID", "Plan to attach to (repeatable)") { |v| (options[:plans] ||= []) << v }
-  opts.on("--base URL", "CoPlan base URL (default $COPLAN_BASE)") { |v| options[:base] = v }
+  opts.on("--base URL", "Coplan base URL (default $COPLAN_BASE)") { |v| options[:base] = v }
   opts.on("--token TOKEN", "API token (default $COPLAN_TOKEN)") { |v| options[:token] = v }
   opts.on("--name NAME", "Agent name shown on the pill") { |v| options[:agent_name] = v }
   opts.on("--once", "Exit after the first event (turn-based agents)") { options[:once] = true }
@@ -93,7 +93,7 @@ TOKEN =
 def api(method, path, body: nil)
   # Concatenation, not URI.join: an absolute path in URI.join discards
   # the base's mount prefix (host/coplan + /api/v1/x -> host/api/v1/x),
-  # and CoPlan engines may be mounted under a prefix.
+  # and Coplan engines may be mounted under a prefix.
   uri = URI("#{BASE.to_s.chomp("/")}#{path}")
   klass = { get: Net::HTTP::Get, post: Net::HTTP::Post, patch: Net::HTTP::Patch,
             delete: Net::HTTP::Delete }.fetch(method)
@@ -172,7 +172,7 @@ handing_off = false
 # and one pill across its turns. End it with
 # `DELETE /api/v1/tokens/current` using the token stored in
 # ~/.coplan/sessions/<key>.json (or `script/coplan session --revoke`
-# from a CoPlan checkout).
+# from a Coplan checkout).
 at_exit { detach(PLANS) if options[:claim] && !handing_off }
 trap("INT") { exit 0 }
 

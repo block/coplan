@@ -95,7 +95,7 @@ RSpec.describe CoPlan::Reference, type: :model do
       expect(described_class.classify_url("https://github.com/org/repo/blob/main/file.rb")).to eq("repository")
     end
 
-    it "classifies CoPlan plan URLs" do
+    it "classifies Coplan plan URLs" do
       expect(described_class.classify_url("https://coplan.example.com/plans/019d54a7-ea13-72d5-bc54-fc44cb9b939a")).to eq("plan")
     end
 
@@ -103,7 +103,7 @@ RSpec.describe CoPlan::Reference, type: :model do
     # it has to read as a plan link — but only once we know it's ours.
     # /hampton/cart-roadmap is shaped like any other site's URL, so the host
     # is the whole distinction, and callers who know it pass it in.
-    it "classifies readable CoPlan document URLs on our own host" do
+    it "classifies readable Coplan document URLs on our own host" do
       host = "coplan.example.com"
       expect(described_class.classify_url("https://coplan.example.com/hampton/cart-roadmap", own_host: host)).to eq("plan")
       expect(described_class.classify_url("https://coplan.example.com/hampton/liveorder/q3/cart-roadmap", own_host: host)).to eq("plan")

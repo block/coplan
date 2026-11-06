@@ -137,7 +137,7 @@ RSpec.describe "Token management", type: :system do
         page.driver.browser.manage.window.resize_to(320, 720)
         visit public_send(route)
         expect(page).to have_content("Your personal tokens")
-        expect(find(".site-nav__brand").native.accessible_name).to eq("CoPlan")
+        expect(find(".site-nav__brand").native.accessible_name).to eq("Coplan")
         expect(page.evaluate_script("document.documentElement.scrollWidth <= innerWidth")).to be(true)
 
         table_region = find(".data-table-scroll[aria-labelledby='tokens-heading']")

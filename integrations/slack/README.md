@@ -1,4 +1,4 @@
-# CoPlan Slack adapter
+# Coplan Slack adapter
 
 Add the optional adapter alongside `coplan-engine`:
 
@@ -6,14 +6,14 @@ Add the optional adapter alongside `coplan-engine`:
 gem "coplan-slack"
 ```
 
-When developing from a CoPlan source checkout, use `gem "coplan-slack", path: "integrations/slack"` instead. Mount the adapter before the core engine:
+When developing from a Coplan source checkout, use `gem "coplan-slack", path: "integrations/slack"` instead. Mount the adapter before the core engine:
 
 ```ruby
 mount CoPlan::Slack::Engine => "/integrations/slack", as: :coplan_slack
 mount CoPlan::Engine => "/", as: :coplan
 ```
 
-Configure the deployment's Slack app and canonical CoPlan URL:
+Configure the deployment's Slack app and canonical Coplan URL:
 
 ```ruby
 CoPlan::Slack.configure do |config|
@@ -36,7 +36,7 @@ end
 
 `signing_secret` is only for inbound link unfurls. If the host already uses
 link unfurls, add `notifications_enabled = true` to its existing block.
-The adapter uses CoPlan's
+The adapter uses Coplan's
 persisted notification recipients, waits two minutes to group comments in the
 same thread for each recipient, and skips DMs when the recipient has already
 cleared the on-site notification. Each DM links directly to its comment thread,
@@ -48,7 +48,7 @@ Each notification gets a durable channel delivery status and, when sent, the
 Slack message timestamp. Message content and a reporting view are not stored
 by this adapter.
 
-Point Slack's Events API request URL at `/integrations/slack/events`. Configure the `links:read` and `links:write` bot scopes, subscribe to `link_shared`, and register the CoPlan domain under **App unfurl domains**. The endpoint must be reachable from Slack over HTTPS.
+Point Slack's Events API request URL at `/integrations/slack/events`. Configure the `links:read` and `links:write` bot scopes, subscribe to `link_shared`, and register the Coplan domain under **App unfurl domains**. The endpoint must be reachable from Slack over HTTPS.
 
 ## Brand the Slack app
 
@@ -56,14 +56,14 @@ Slack takes the name and icon shown above an unfurl from the app profile, not
 from the `chat.unfurl` payload. In the app's **Basic Information → Display
 Information** settings, use:
 
-- **App name:** `CoPlan`
+- **App name:** `Coplan`
 - **Short description:** `Collaborative engineering plans, reviewed by humans and refined by AI.`
 - **App icon:** [`assets/coplan-slack-icon.png`](assets/coplan-slack-icon.png)
 - **Background color:** `#010D27`
 
 The icon is intentionally simpler than the in-product logo so the document and
 conversation mark stays legible in Slack's small app avatar. The dark profile
-color matches CoPlan's navigation chrome; unfurls use CoPlan blue, violet for
+color matches Coplan's navigation chrome; unfurls use Coplan blue, violet for
 private plans, and slate for archived plans.
 
 Any proxy must preserve the raw request body plus `X-Slack-Signature` and `X-Slack-Request-Timestamp`. The adapter verifies Slack's signature and timestamp before parsing the event. An edge rule that merely checks for the signature header is not a replacement for this verification.

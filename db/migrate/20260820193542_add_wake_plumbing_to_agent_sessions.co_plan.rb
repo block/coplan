@@ -20,7 +20,7 @@ class AddWakePlumbingToAgentSessions < ActiveRecord::Migration[8.0]
       add_column :coplan_agent_sessions, :wakes_answered_count, :integer, default: 0, null: false
     end
 
-    # Webhook wake: a session may register a URL CoPlan POSTs a signed
+    # Webhook wake: a session may register a URL Coplan POSTs a signed
     # "you have inbox items" ping to — the wake path for hosted agents
     # that can receive HTTP but can't hold a connection or be resumed.
     unless column_exists?(:coplan_agent_sessions, :wake_url)

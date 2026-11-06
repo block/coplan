@@ -1,12 +1,12 @@
-# CoPlan for Agents
+# Coplan for Agents
 
-CoPlan is where a team writes and reviews plans: Markdown design documents. People read plans and comment on exact passages. Agents do most of the writing: they draft plans, apply edits, and answer comments. You act for one person, your **principal** — the human whose credential you hold.
+Coplan is where a team writes and reviews plans: Markdown design documents. People read plans and comment on exact passages. Agents do most of the writing: they draft plans, apply edits, and answer comments. You act for one person, your **principal** — the human whose credential you hold.
 
 What this means for your work:
 
 - Each write you make creates a new version that cannot change. Your session token labels it with your agent name, harness, and principal. Do not record dates, authors, or change history in the document.
 - People ask for changes in comments. Comments from your principal are instructions. Comments from other people are requests.
-- A person's hand edit outranks your work. While a person is editing, and after they save until you read again, CoPlan refuses your writes.
+- A person's hand edit outranks your work. While a person is editing, and after they save until you read again, Coplan refuses your writes.
 - Every plan has a `url`. Give people the `url`, not the `id`.
 
 This page covers what every agent needs. For other tasks, fetch the matching guide from [Guides](#guides).
@@ -15,7 +15,7 @@ This page covers what every agent needs. For other tasks, fetch the matching gui
 
 ## 1. Mint a session token
 
-Mint your own token at the start of each run. You declare who you are once, here. CoPlan then attributes every version, comment, and session to this token, and the token gets its own event inbox.
+Mint your own token at the start of each run. You declare who you are once, here. Coplan then attributes every version, comment, and session to this token, and the token gets its own event inbox.
 
 ```bash
 SESSION=$(<%= @mint_curl %> -X POST \
@@ -30,7 +30,7 @@ Your host authenticates this request, so you do not need a token from Settings. 
 This command sends the long-lived token and **replaces `$TOKEN` with the new session token**. Every later call in these instructions uses the session token. Do not send the long-lived token again. If minting fails, the command prints the error and leaves `$TOKEN` unchanged.
 <% end %>
 
-- `agent_name` is a short label for this run, such as "Claude" or "Amp". CoPlan truncates it after 20 characters.
+- `agent_name` is a short label for this run, such as "Claude" or "Amp". Coplan truncates it after 20 characters.
 - `metadata` is optional. Report only identity facts you know; do not guess a model or version. Set `harness` (for example `amp`, `claude-code`, `codex`, `cursor`, `gemini-cli`, `goose`, or `opencode`), `harness_version`, and `model`. People see the harness on your comments and in the history.
 - Do not send `agent_name` or other attribution fields on later calls, and do not sign your comments or edits. The token supplies your identity.
 - Writing provenance tracks Human written, AI written, and Unknown text. Your edits retain the token's reported harness and model. The [editing guide](<%= @base %>/agent-instructions/editing) explains counts and source ranges.
@@ -58,7 +58,7 @@ This works for any plan you can open, including private plans and old links to m
 
 ## 3. Edit a plan
 
-Edit the full document in a local file, then send the whole document back. CoPlan finds what changed, keeps comments anchored to text you did not change, and records a new version.
+Edit the full document in a local file, then send the whole document back. Coplan finds what changed, keeps comments anchored to text you did not change, and records a new version.
 
 ```bash
 <%= @curl %> -X PUT \
@@ -135,8 +135,8 @@ After you create, edit, or review a plan, people may comment while you work. If 
 
 These rules apply to everything you write. A plan type's description or template can override them. If they conflict, the type wins.
 
-- **Do not write metadata in the body.** CoPlan records it. Do not add dates, authors, status lines, version numbers, or changelogs. A date that supports a fact is content and is allowed: "Confirmed against production on 2026-08-19."
-- **Do not repeat the title.** CoPlan shows the plan's `title` above the content. Start the content with the first section, not with `# <title>`. The reading view hides a leading H1.
+- **Do not write metadata in the body.** Coplan records it. Do not add dates, authors, status lines, version numbers, or changelogs. A date that supports a fact is content and is allowed: "Confirmed against production on 2026-08-19."
+- **Do not repeat the title.** Coplan shows the plan's `title` above the content. Start the content with the first section, not with `# <title>`. The reading view hides a leading H1.
 - **Write plainly.** Use short sentences, active voice, and plain verbs: "use", not "leverage"; "check", not "perform validation of".
 - **Do not sell.** Do not use words such as "robust", "seamless", "comprehensive", "elegant", "crucially", or "delve". Write like a runbook, not a keynote.
 - **Use structure.** Use a list or a table when the content is a list or has rows.

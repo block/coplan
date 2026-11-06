@@ -22,7 +22,7 @@ module CoPlan
     end
 
     # Speech to text. `context` is surrounding material the speaker was
-    # looking at; passing it makes the difference between "CoPlan" and
+    # looking at; passing it makes the difference between "Coplan" and
     # "co-plan", or "Turbo Streams" and "turbo streets".
     def self.transcribe(file:, context: nil)
       AiProviders::OpenAi.transcribe(file: file, context: context)

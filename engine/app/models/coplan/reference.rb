@@ -19,7 +19,7 @@ module CoPlan
     # shape, so a path alone is proof. A readable address isn't — now that
     # handles sit at the root, `/sam/liveorder/cart-roadmap` is shaped like
     # any other site's URL, and matching it on shape would type half the
-    # links people paste as CoPlan documents.
+    # links people paste as Coplan documents.
     #
     # So the two forms are recognized by different means. The id form by
     # pattern, anywhere. The readable form only when we know the URL is ours
@@ -28,7 +28,7 @@ module CoPlan
     PLAN_ID_PATH = %r{/plans/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})}
     READABLE_PLAN_PATH = %r{\A/([a-z0-9][a-z0-9-]*)/([^?#]+)}
 
-    # `own_host` is the host CoPlan is being served from, when the caller
+    # `own_host` is the host Coplan is being served from, when the caller
     # knows it. Views do (`request.host`); background work generally
     # doesn't, and gets the id form only.
     def self.classify_url(url, own_host: nil)

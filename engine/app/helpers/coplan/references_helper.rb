@@ -12,7 +12,7 @@ module CoPlan
       domain = reference_domain(url)
 
       case reference_type
-      when "plan" then "CoPlan plan"
+      when "plan" then "Coplan plan"
       when "repository" then "GitHub repository"
       when "pull_request" then "GitHub pull request"
       when "document"

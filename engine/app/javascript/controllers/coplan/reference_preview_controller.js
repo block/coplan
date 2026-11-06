@@ -200,7 +200,7 @@ export default class extends Controller {
   }
 
   referenceTypeLabel(referenceType, url) {
-    if (referenceType === "plan") return "CoPlan plan"
+    if (referenceType === "plan") return "Coplan plan"
     if (referenceType === "repository") return "GitHub repository"
     if (referenceType === "pull_request") return "GitHub pull request"
 

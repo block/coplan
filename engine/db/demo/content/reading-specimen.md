@@ -1,6 +1,6 @@
 Partner webhooks are delivered from the request that caused them. When a partner endpoint is slow, our checkout requests wait on it, and when the process restarts mid-send the event is gone. This plan moves delivery to a **durable outbox**: the request writes one row in the same transaction as the business change, and a worker delivers it with bounded retries. Nothing about the payloads or signatures changes for partners.[^incident]
 
-The plan is written the way most CoPlan documents are — drafted with an agent, then corrected by the people who own the system. [@alex](mention:alex) owns the worker fleet; [@noura](mention:noura) reviews anything that touches signing keys.
+The plan is written the way most Coplan documents are — drafted with an agent, then corrected by the people who own the system. [@alex](mention:alex) owns the worker fleet; [@noura](mention:noura) reviews anything that touches signing keys.
 
 ## Problem
 
@@ -174,7 +174,7 @@ We considered publishing to the existing Kafka cluster instead of a table. It wo
 
 Each step waits one week and is reversible by flipping the flag back. Rows written while the flag was on are still delivered after it is turned off.
 
-![CoPlan logo]({{demo_logo_url}})
+![Coplan logo]({{demo_logo_url}})
 
 ## Open questions
 

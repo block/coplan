@@ -47,7 +47,7 @@ module CoPlan
           end
 
           # A wake URL makes this session wakeable without holding a
-          # connection: CoPlan POSTs a signed "you have inbox items" ping
+          # connection: Coplan POSTs a signed "you have inbox items" ping
           # there on every event. The signing secret is minted here, once,
           # and returned only in this response — re-claiming keeps it, so
           # the receiver's verification doesn't churn; passing an empty

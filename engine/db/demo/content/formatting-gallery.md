@@ -87,7 +87,7 @@ receipt.deliver_unless_expired!
 
 ## Image and supporting detail
 
-![CoPlan logo]({{demo_logo_url}})
+![Coplan logo]({{demo_logo_url}})
 
 The logo opens in an expanded image view. A footnote keeps the supporting detail nearby.[^demo]
 

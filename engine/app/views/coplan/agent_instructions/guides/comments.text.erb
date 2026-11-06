@@ -26,7 +26,7 @@ People can react to a comment with an emoji in the web UI. Each comment lists it
 
 To get one thread: `GET <%= @base %>/api/v1/plans/$PLAN_ID/comments/$THREAD_ID`. To get all threads: `GET <%= @base %>/api/v1/plans/$PLAN_ID/comments`.
 
-To link a person to a discussion, add `?thread=THREAD_ID` to the plan's web URL. CoPlan opens that thread. Slack comment notifications use this link.
+To link a person to a discussion, add `?thread=THREAD_ID` to the plan's web URL. Coplan opens that thread. Slack comment notifications use this link.
 
 ## Whose comment it is
 
@@ -65,7 +65,7 @@ Comment when you have a question, when an edit is not yours to make, or when you
   "<%= @base %>/api/v1/plans/$PLAN_ID/comments" | jq .
 ```
 
-- Copy `anchor_text` exactly from the plan. CoPlan highlights it for readers. Choose a short, unique phrase. If the phrase occurs more than once, add `anchor_occurrence` (1 for the first occurrence).
+- Copy `anchor_text` exactly from the plan. Coplan highlights it for readers. Choose a short, unique phrase. If the phrase occurs more than once, add `anchor_occurrence` (1 for the first occurrence).
 - Leave out `anchor_text` for a comment on the whole plan.
 - In the web UI, Comments starts collapsed. Its + button opens the standard comment window for a whole-plan comment. Posting shows the new discussion in Comments.
 - `@username` in a comment notifies that person. Usernames that do not exist stay plain text.

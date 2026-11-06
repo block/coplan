@@ -51,9 +51,9 @@ flowchart LR
 - Every edit is a version with provenance
 - Present from the same link
 
-![CoPlan]({{demo_logo_url}})
+![Coplan]({{demo_logo_url}})
 
-<!-- notes: This split slide is why decks live in CoPlan at all. -->
+<!-- notes: This split slide is why decks live in Coplan at all. -->
 
 ---
 

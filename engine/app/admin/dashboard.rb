@@ -1,7 +1,7 @@
 ActiveAdmin.register_page "Dashboard" do
   menu priority: 1
 
-  content title: "CoPlan administration" do
+  content title: "Coplan administration" do
     since = 7.days.ago
     counts = CoPlan::NotificationDelivery.where(created_at: since..).group(:status).count
     slack_messages = CoPlan::NotificationDelivery.where(channel: "slack", status: "delivered", sent_at: since..)
