@@ -34,6 +34,25 @@ RSpec.describe CoPlan::MigrationSupport::BackfillDocumentTitles do
     expect { described_class.call }.not_to change(CoPlan::PlanVersion, :count)
   end
 
+  it "finishes title backfill when legacy content contains a long link label" do
+    body = "[#{"x" * 300}](https://example.com/report)"
+    plan = legacy_plan(body)
+
+    described_class.call
+
+    expect(plan.reload.current_content).to eq("# Metadata title\n\n#{body}")
+    expect(plan.references.sole.title).to eq("#{"x" * 254}…")
+    expect { described_class.call }.not_to change(CoPlan::PlanVersion, :count)
+  end
+
+  it "repairs references when an earlier attempt already committed the title" do
+    plan = legacy_plan("# Metadata title\n\n[#{"x" * 300}](https://example.com/report)")
+
+    expect { described_class.call }.not_to change(CoPlan::PlanVersion, :count)
+
+    expect(plan.references.sole.title).to eq("#{"x" * 254}…")
+  end
+
   it "refreshes schema cached before the review policy migrations" do
     plan = legacy_plan("Body")
     columns = CoPlan::Plan.columns_hash

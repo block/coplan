@@ -13,7 +13,12 @@ module CoPlan
         Plan.find_each do |plan|
           plan.with_lock do
             content = MarkdownDocumentTitle.normalize(plan.current_content, fallback: plan.title, override: true)
-            next if content == plan.current_content
+            if content == plan.current_content
+              # A previous attempt may have committed the version before its
+              # reference-extraction callback failed. Repair that derived data.
+              References::ExtractFromContent.call(plan: plan, content: content)
+              next
+            end
 
             Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: plan.current_revision,
               actor_type: "system", actor_id: nil, change_summary: "Use the document heading as its title")

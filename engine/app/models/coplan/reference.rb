@@ -2,6 +2,7 @@ module CoPlan
   class Reference < ApplicationRecord
     SOURCES = %w[extracted explicit].freeze
     REFERENCE_TYPES = %w[plan repository pull_request document link].freeze
+    EXTRACTED_TITLE_LIMIT = 255
 
     belongs_to :plan
     belongs_to :target_plan, class_name: "CoPlan::Plan", optional: true

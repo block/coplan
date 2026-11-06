@@ -10,6 +10,18 @@ RSpec.describe CoPlan::References::ExtractFromContent do
   end
 
   describe ".call" do
+    it "bounds long extracted link titles without changing document content" do
+      title = "界" * 300
+      content = "[#{title}](https://example.com/inline)\n\n[report]: https://example.com/defined \"#{title}\"\n"
+      update_content(plan, content)
+
+      2.times { described_class.call(plan: plan) }
+
+      expect(plan.references.reload.count).to eq(2)
+      expect(plan.references.pluck(:title)).to eq([ "#{"界" * 254}…" ] * 2)
+      expect(plan.reload.current_content).to eq(content)
+    end
+
     it "extracts markdown links from content" do
       update_content(plan, "Check out [Rails](https://rubyonrails.org) for details.")
       described_class.call(plan: plan)

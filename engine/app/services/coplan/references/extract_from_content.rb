@@ -38,7 +38,7 @@ module CoPlan
 
           ref.assign_attributes(
             key: meta[:key].presence || ref.key,
-            title: meta[:title].presence || ref.title,
+            title: meta[:title].presence&.truncate(Reference::EXTRACTED_TITLE_LIMIT, omission: "…") || ref.title,
             reference_type: ref_type,
             source: "extracted",
             target_plan_id: target_plan_id
