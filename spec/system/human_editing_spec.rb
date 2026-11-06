@@ -173,6 +173,9 @@ RSpec.describe "Human plan editing", type: :system do
       click_button "Toggle table of contents", enable_aria_label: true
       expect(page).to have_css(".content-nav", text: "New heading", visible: true)
       expect(page).to have_css('.document-editor__outline-toggle[aria-expanded="true"]')
+      # Opening the sidebar moves the toolbar. Wait for its width transition
+      # before Selenium calculates the next click's coordinates.
+      page.evaluate_async_script('const done = arguments[0]; Promise.all(document.querySelector(".content-nav").getAnimations().map(a => a.finished.catch(() => {}))).then(done)')
       click_button "Toggle table of contents", enable_aria_label: true
       expect(page).to have_no_css(".content-nav", visible: true)
       expect(page).to have_css('.document-editor__outline-toggle[aria-expanded="false"]')
