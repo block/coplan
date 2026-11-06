@@ -2,6 +2,8 @@ require "rails_helper"
 require CoPlan::Engine.root.join("db/migrate/20261105220000_unify_document_titles.rb")
 
 RSpec.describe CoPlan::MigrationSupport::BackfillDocumentTitles do
+  include ActiveJob::TestHelper
+
   def legacy_plan(content)
     plan = create(:plan, title: "Metadata title")
     set_version_fixture(plan.current_plan_version, content_markdown: content)
@@ -46,11 +48,23 @@ RSpec.describe CoPlan::MigrationSupport::BackfillDocumentTitles do
   end
 
   it "repairs references when an earlier attempt already committed the title" do
-    plan = legacy_plan("# Metadata title\n\n[#{"x" * 300}](https://example.com/report)")
+    plan = legacy_plan("# Metadata title\n\n[#{"x" * 300}](https://example.com/report)\n\n[^1]: https://example.com/note")
+    plan.update_columns(summary: "Old summary", summary_content_sha256: "old", writing_provenance_backfill: nil)
+    allow(CoPlan::Ai).to receive(:call).and_return("Recovered summary")
+    clear_enqueued_jobs
 
-    expect { described_class.call }.not_to change(CoPlan::PlanVersion, :count)
+    expect do
+      perform_enqueued_jobs(only: [ CoPlan::SummarizePlanJob, CoPlan::WritingProvenanceJob ]) do
+        described_class.call
+      end
+    end.not_to change(CoPlan::PlanVersion, :count)
 
-    expect(plan.references.sole.title).to eq("#{"x" * 254}…")
+    expect(plan.references.find_by!(url: "https://example.com/report").title).to eq("#{"x" * 254}…")
+    expect(plan.references.find_by!(url: "https://example.com/note").key).to be_nil
+    expect(plan.reload.summary).to eq("Recovered summary")
+    expect(plan.summary_content_sha256).to eq(plan.current_plan_version.content_sha256)
+    expect(CoPlan::Plans::WritingProvenanceBackfill.pending?(plan)).to be(false)
+    expect { described_class.call }.not_to have_enqueued_job
   end
 
   it "refreshes schema cached before the review policy migrations" do

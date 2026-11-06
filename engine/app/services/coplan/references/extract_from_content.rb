@@ -36,8 +36,10 @@ module CoPlan
           # Don't overwrite explicit references
           next if ref.persisted? && ref.source == "explicit"
 
+          key = meta[:key].presence || ref.key
+          key = nil if key && @plan.references.where(key: key).where.not(id: ref.id).exists?
           ref.assign_attributes(
-            key: meta[:key].presence || ref.key,
+            key: key,
             title: meta[:title].presence&.truncate(Reference::EXTRACTED_TITLE_LIMIT, omission: "…") || ref.title,
             reference_type: ref_type,
             source: "extracted",
@@ -66,6 +68,7 @@ module CoPlan
 
           url = url.strip
           k = key.strip.downcase.gsub(/[^a-z0-9_-]/, "-").gsub(/-+/, "-").truncate(64, omission: "")
+          k = nil unless k.match?(Reference::KEY_FORMAT)
           urls[url] ||= { title: title&.strip, key: k }
         end
 

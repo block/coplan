@@ -10,6 +10,26 @@ RSpec.describe CoPlan::References::ExtractFromContent do
   end
 
   describe ".call" do
+    it "keeps footnote and punctuation-only definitions without invalid keys" do
+      update_content(plan, "[^1]: https://example.com/note\n[!!!]: https://example.com/symbols\n")
+
+      described_class.call(plan: plan)
+
+      expect(plan.references.reload.pluck(:url)).to match_array([ "https://example.com/note", "https://example.com/symbols" ])
+      expect(plan.references.pluck(:key)).to eq([ nil, nil ])
+    end
+
+    it "keeps every URL when generated keys collide, preserving explicit keys" do
+      explicit = create(:reference, plan: plan, key: "auth-api", url: "https://example.com/explicit", source: "explicit")
+      update_content(plan, "[auth.api]: https://example.com/one\n[auth-api]: https://example.com/two\n[a.b]: https://example.com/three\n[a-b]: https://example.com/four\n")
+
+      2.times { described_class.call(plan: plan) }
+
+      expect(plan.references.reload.count).to eq(5)
+      expect(explicit.reload.key).to eq("auth-api")
+      expect(plan.references.extracted.pluck(:key).compact).to eq([ "a-b" ])
+    end
+
     it "bounds long extracted link titles without changing document content" do
       title = "界" * 300
       content = "[#{title}](https://example.com/inline)\n\n[report]: https://example.com/defined \"#{title}\"\n"

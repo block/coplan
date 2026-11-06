@@ -14,9 +14,14 @@ module CoPlan
           plan.with_lock do
             content = MarkdownDocumentTitle.normalize(plan.current_content, fallback: plan.title, override: true)
             if content == plan.current_content
-              # A previous attempt may have committed the version before its
-              # reference-extraction callback failed. Repair that derived data.
+              # A failed after-commit callback leaves the version saved but can
+              # skip references and jobs. Both jobs deduplicate durable work.
               References::ExtractFromContent.call(plan: plan, content: content)
+              version = plan.current_plan_version
+              if version && plan.summary_content_sha256 != version.content_sha256
+                SummarizePlanJob.set(wait: 10.seconds).perform_later(plan_id: plan.id)
+              end
+              WritingProvenanceJob.request(plan) if Plans::WritingProvenanceBackfill.pending?(plan)
               next
             end
 
