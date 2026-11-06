@@ -143,6 +143,13 @@ body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .
   --color-quote-warning-bg-subtle: rgba(255, 213, 79, 0.08);
   --color-quote-info-border: rgba(108, 140, 255, 0.6);
   --color-quote-info-bg: rgba(108, 140, 255, 0.05);
+  /* Callout accents (`> [!NOTE]` and friends). Most follow the semantic
+     colors, so dark mode and themes carry over; only Important has its own. */
+  --color-callout-note: var(--color-primary);
+  --color-callout-tip: var(--color-success);
+  --color-callout-important: #7c3aed;
+  --color-callout-warning: var(--color-warning);
+  --color-callout-caution: var(--color-danger);
   --color-highlight-open-bg: rgba(108, 140, 255, 0.12);
   --color-highlight-open-hover-bg: rgba(108, 140, 255, 0.22);
   --color-highlight-open-border: rgba(108, 140, 255, 0.6);
@@ -270,6 +277,7 @@ body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .
     --color-quote-warning-bg-subtle: rgba(245, 158, 11, 0.12);
     --color-quote-info-border: rgba(96, 165, 250, 0.8);
     --color-quote-info-bg: rgba(96, 165, 250, 0.12);
+    --color-callout-important: #a78bfa;
     --color-highlight-open-bg: rgba(96, 165, 250, 0.18);
     --color-highlight-open-hover-bg: rgba(96, 165, 250, 0.28);
     --color-highlight-open-border: rgba(96, 165, 250, 0.85);
@@ -363,6 +371,7 @@ body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .
   --color-quote-warning-bg-subtle: rgba(245, 158, 11, 0.12);
   --color-quote-info-border: rgba(96, 165, 250, 0.8);
   --color-quote-info-bg: rgba(96, 165, 250, 0.12);
+  --color-callout-important: #a78bfa;
   --color-highlight-open-bg: rgba(96, 165, 250, 0.18);
   --color-highlight-open-hover-bg: rgba(96, 165, 250, 0.28);
   --color-highlight-open-border: rgba(96, 165, 250, 0.85);

@@ -21,8 +21,12 @@ module CoPlan
 
     # Commonmarker extensions beyond the gem defaults (tables, tasklist,
     # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
-    # `[^1]: definition` block anywhere in the document.
-    EXTENSION_OPTIONS = { footnotes: true }.freeze
+    # `[^1]: definition` block anywhere in the document. Alerts: a block
+    # quote whose first line is `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`,
+    # `[!WARNING]` or `[!CAUTION]` renders as a callout (see render_callouts).
+    EXTENSION_OPTIONS = { footnotes: true, alerts: true }.freeze
+
+    CALLOUT_TYPES = %w[note tip important warning caution].freeze
 
     # A source line the toggle endpoint will accept as a task item. Shared
     # between the renderer and PlansController#toggle_checkbox so a checkbox
@@ -35,7 +39,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 24
+    RENDER_CACHE_VERSION = 25
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -71,6 +75,7 @@ module CoPlan
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
       sanitized = render_iframe_blocks(sanitized, content.to_s)
+      sanitized = render_callouts(sanitized)
       result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments, retain_sourcepos: retain_sourcepos) : sanitized
       unless interactive
         fragment = Nokogiri::HTML::DocumentFragment.parse(result)
@@ -303,6 +308,42 @@ module CoPlan
       return node["alt"].to_s if node.name == "img"
 
       node.children.map { |child| task_name_text(child) }.join
+    end
+
+    # Commonmarker renders an alert as a div with a title paragraph. The
+    # title moves into data-callout-title, which the stylesheet shows beside
+    # the type's icon, so the label adds no text to the document. Comment
+    # anchors and occurrence counts then match the source text, where the
+    # `[!NOTE]` marker is not prose either.
+    #
+    # This runs after sanitization because data-callout-title is not an
+    # attribute authors may write. Raw HTML can copy Commonmarker's alert
+    # markup, which gives the same callout the marker gives, but it cannot
+    # set the callout classes directly: those are removed first.
+    def render_callouts(html)
+      return html unless html.include?("callout") || html.include?("markdown-alert")
+
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      doc.css("[class*='callout']").each do |node|
+        classes = node.classes.reject { |name| name.match?(/\Acallout(?:--|\z)/) }
+        if classes.empty?
+          node.remove_attribute("class")
+        else
+          node["class"] = classes.join(" ")
+        end
+      end
+
+      doc.css("div.markdown-alert").each do |alert|
+        type = CALLOUT_TYPES.find { |name| alert.classes.include?("markdown-alert-#{name}") }
+        title = alert.element_children.first
+        next unless type && title&.name == "p" && title.classes == [ "markdown-alert-title" ]
+
+        title.remove
+        alert["class"] = "callout callout--#{type}"
+        alert["data-callout-title"] = title.text.squish
+      end
+
+      doc.to_html
     end
 
     # A table is a block of data, not a paragraph. Each one gets a scroll
