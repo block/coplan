@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { commentWindowTop } from "coplan/comment_window"
+import { commentWindowTop, placeOnMarginCard } from "coplan/comment_window"
 
 // Elements whose text is never rendered but still appears in textContent —
 // e.g. the <style> sheet Mermaid embeds inside its SVG. Their text must stay
@@ -574,7 +574,7 @@ export default class extends Controller {
   }
 
   _positionPopoverAtMark(popover, mark) {
-    if (popover.dataset.positioned === "true") return
+    if (popover.dataset.positioned === "true" || placeOnMarginCard(popover)) return
     // Small screens: thread popovers become a fixed bottom sheet instead
     // of floating beside the mark (where they'd overflow the viewport).
     if (this._isMobile()) {

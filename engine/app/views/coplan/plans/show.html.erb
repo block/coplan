@@ -55,6 +55,7 @@
   <div class="plan-masthead__side">
     <%= render partial: "coplan/plans/agent_sessions", locals: { agent_sessions: CoPlan::AgentSession.visible.where(plan_id: @plan.id).order(:created_at) } %>
     <div id="plan-viewers" class="plan-viewers"><%= viewers_html %></div>
+    <%= render "coplan/plans/comment_margin_mode", threads: @threads %>
     <%= render partial: "coplan/plans/toolbar", locals: { plan: @plan, placement: @placement } %>
   </div>
 </div>
@@ -154,11 +155,13 @@
         <%= render "coplan/plans/thread_collection", plan: @plan, threads: @threads %>
         </div>
       </div>
-      <%# Avatar markers in the page margin beside the text each discussion is
-          about. Positioned outside the card, so the text keeps its width. %>
+      <%# Discussions in the page margin beside the text each one is about:
+          avatar markers, or cards with the first comment (the Markers /
+          Cards switch in the masthead). Positioned outside the card, so the
+          text keeps its width. %>
       <aside class="comment-margin" aria-label="Discussions" hidden
              data-controller="coplan--comment-margin"
-             data-action="coplan:deck-slide-changed@document->coplan--comment-margin#refresh scroll@document->coplan--comment-margin#position:capture coplan:anchors-updated@document->coplan--comment-margin#refresh coplan:resolved-visibility@document->coplan--comment-margin#refresh resize@window->coplan--comment-margin#position toggle@document->coplan--comment-margin#popoverToggled:capture mouseover@document->coplan--comment-margin#hoverChanged"></aside>
+             data-action="coplan:deck-slide-changed@document->coplan--comment-margin#refresh scroll@document->coplan--comment-margin#position:capture coplan:anchors-updated@document->coplan--comment-margin#refresh coplan:resolved-visibility@document->coplan--comment-margin#refresh resize@window->coplan--comment-margin#position beforetoggle@document->coplan--comment-margin#popoverToggled:capture mouseover@document->coplan--comment-margin#hoverChanged coplan:comment-margin-mode@document->coplan--comment-margin#modeChanged"></aside>
     </div>
 </div>
 
