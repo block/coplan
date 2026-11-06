@@ -26,10 +26,11 @@ RSpec.describe "Editor draft recovery", type: :system do
       visit new_plan_path
       rich
       scope = find('[data-coplan--editor-draft-scope-value]', visible: :all)['data-coplan--editor-draft-scope-value']
-      snapshot = { content: "Recovered body.", title: "A *literal* legacy title", tags: "" }
+      snapshot = { content: "Recovered 😀 body.", title: "A *literal* legacy title", tags: "" }
       draft = snapshot.merge(base: { content: "", title: "", tags: "", revision: 0 }, revision: 0, creationKey: SecureRandom.uuid)
       if failed_create
         draft[:creationSnapshot] = snapshot
+        draft[:creationInputSources] = { runs: [ [ snapshot[:content].encode(Encoding::UTF_16LE).bytesize / 2, "human" ] ] }
         draft[:content] += " Newer typing."
       end
       store("coplan-rich-draft-#{author.id}-new-#{scope}-legacy", draft)
@@ -39,10 +40,15 @@ RSpec.describe "Editor draft recovery", type: :system do
       page.driver.browser.action.key_down(mod).send_keys("s").key_up(mod).perform
       expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", wait: 15, visible: :all)
       created = author.created_plans.find_by!(title: "A *literal* legacy title")
-      expect(created.current_content).to include("# A \\*literal\\* legacy title", "Recovered body.")
+      expect(created.current_content).to include("# A \\*literal\\* legacy title", "Recovered 😀 body.")
       if failed_create
         expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", wait: 15, visible: :all)
         expect(created.reload.current_content).to include("Newer typing.")
+        first = created.plan_versions.find_by!(revision: 1)
+        provenance = first.writing_provenance
+        start = first.content_markdown.index(snapshot[:content])
+        runs = CoPlan::Plans::WritingProvenance.slice(provenance.fetch("runs"), start, start + snapshot[:content].length)
+        expect(runs.map { |_, key| provenance.fetch("sources").fetch(key).fetch("kind") }).to all(eq("human"))
       end
     end
   end
