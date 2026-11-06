@@ -47,6 +47,18 @@ RSpec.describe "Search (COPLAN-21)", type: :request do
         expect(response.body).to include("Quarterly Sitewide Roadmap")
       end
 
+      it "returns authorized link choices without recording a search or navigating" do
+        expect {
+          get search_path, params: { q: "roadmap", frame: "links" }
+        }.not_to change(CoPlan::SearchQuery, :count)
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("Quarterly Sitewide Roadmap", "data-link-href", "coplan--comment-form#selectLink")
+        expect(response.body).not_to include("<html")
+        create(:plan, :brainstorm, created_by_user: bob, title: "Hidden Private Roadmap")
+        get search_path, params: { q: "roadmap", frame: "links" }
+        expect(response.body).not_to include("Hidden Private Roadmap")
+      end
+
       it "logs explicit navigations to recent searches" do
         expect {
           get search_path, params: { q: "roadmap" }

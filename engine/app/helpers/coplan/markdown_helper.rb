@@ -35,7 +35,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 24
+    RENDER_CACHE_VERSION = 25
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -69,7 +69,10 @@ module CoPlan
       html = CoPlan::Markdown.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
-      sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
+      scrubber = LinkScrubber.new
+      scrubber.tags = ALLOWED_TAGS
+      scrubber.attributes = ALLOWED_ATTRIBUTES
+      sanitized = sanitize(with_references, scrubber: scrubber)
       sanitized = render_iframe_blocks(sanitized, content.to_s)
       result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments, retain_sourcepos: retain_sourcepos) : sanitized
       unless interactive

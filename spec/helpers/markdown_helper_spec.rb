@@ -9,6 +9,16 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include("markdown-rendered")
     end
 
+    it "preserves application URI links while blocking executable URLs and custom image sources" do
+      html = helper.render_markdown('[Open chat](codex://threads/123) [SSH](ssh://host/path) [Call](tel:+15551234567)')
+      fragment = Nokogiri::HTML.fragment(html)
+      expect(fragment.css("a").map { |a| a["href"] }).to eq([ "codex://threads/123", "ssh://host/path", "tel:+15551234567" ])
+      unsafe = helper.render_markdown('<a href="java&#x73;cript:alert(1)">bad</a><a href="java&#x09;script:alert(1)">bad</a><a href="data:text/html,bad">bad</a><img src="codex://threads/123" onerror="alert(1)">')
+      nodes = Nokogiri::HTML.fragment(unsafe)
+      expect(nodes.css("img[src], [onerror]")).to be_empty
+      expect(nodes.css("a[href]").map { |a| a["href"] }).to eq([ "java%09script:alert(1)" ])
+    end
+
     it "sanitizes dangerous HTML" do
       html = helper.render_markdown('<script>alert("xss")</script>')
       expect(html).not_to match(/<script>/)

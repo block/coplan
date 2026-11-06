@@ -1,7 +1,9 @@
 import { Controller } from "@hotwired/stimulus"
 import { commandFor } from "coplan/shortcuts"
 
-const LINK_URL = /^(https?:\/\/|mailto:)/i
+const URI_SCHEME = /^[a-z][a-z0-9+.-]*:/i
+const UNSAFE_SCHEME = /^(javascript|vbscript|data|blob):/i
+const linkUri = value => URI_SCHEME.test(value) && !UNSAFE_SCHEME.test(value) && !/[\s\u0000-\u001f\u007f]/.test(value)
 
 // Comment-form behavior: submit-on-Enter (Shift+Enter for newline) plus an
 // inline @-mention picker. The picker activates when the user types `@` at a
@@ -16,10 +18,11 @@ export default class extends Controller {
   // Search URL is supplied per-form via a Stimulus value so it respects the
   // engine's mount point (host apps may mount Coplan under e.g. `/coplan`).
   // The default is fine for hosts that mount at root.
-  static targets = ["input", "draft", "linkPanel", "linkUrl", "linkLabel", "linkError"]
+  static targets = ["input", "draft", "linkPanel", "linkUrl", "linkLabel", "linkError", "linkResults"]
 
   static values = {
-    searchUrl: { type: String, default: "/users/search" }
+    searchUrl: { type: String, default: "/users/search" },
+    linkSearchUrl: String
   }
 
   connect() {
@@ -54,6 +57,7 @@ export default class extends Controller {
     if (this._submitForm) {
       this._submitForm.removeEventListener("turbo:submit-end", this._submitEndHandler)
     }
+    this.closeLink()
     this.closePicker()
     if (this._debounce) clearTimeout(this._debounce)
     this._fetchAbort?.abort()
@@ -120,7 +124,62 @@ export default class extends Controller {
     this.clearLinkError()
     this.draftTarget.inert = true
     this.linkPanelTarget.hidden = false
+    this.linkPanelTarget.showPopover()
+    this.linkResultsTarget.textContent = "Search plans and people, or paste a link."
+    this.positionLink()
     this.linkUrlTarget.focus({ preventScroll: true })
+  }
+
+  positionLink() {
+    if (this.linkPanelTarget.hidden) return
+    const anchor = this.inputTarget.getBoundingClientRect()
+    const panel = this.linkPanelTarget
+    const width = Math.min(340, innerWidth - 24)
+    panel.style.width = `${width}px`
+    const height = panel.getBoundingClientRect().height
+    const beside = innerWidth - anchor.right >= width + 20
+    const left = beside ? anchor.right + 8 : Math.min(anchor.left, innerWidth - width - 12)
+    const top = beside ? anchor.top : (innerHeight - anchor.bottom >= height + 20 ? anchor.bottom + 8 : anchor.top - height - 8)
+    Object.assign(panel.style, { left: `${Math.max(12, left)}px`, top: `${Math.max(12, Math.min(top, innerHeight - height - 12))}px` })
+  }
+
+  searchLinks() {
+    this.clearLinkError()
+    clearTimeout(this._linkDebounce)
+    this._linkAbort?.abort()
+    const query = this.linkUrlTarget.value.trim()
+    if (!query || URI_SCHEME.test(query)) {
+      this.linkResultsTarget.textContent = query ? "" : "Search plans and people, or paste a link."
+      this.positionLink()
+      return
+    }
+    this.linkResultsTarget.textContent = "Searching…"
+    this._linkDebounce = setTimeout(() => this.fetchLinks(query), 180)
+  }
+
+  async fetchLinks(query) {
+    const request = new AbortController()
+    this._linkAbort = request
+    const url = new URL(this.linkSearchUrlValue, location.href)
+    url.searchParams.set("q", query)
+    url.searchParams.set("frame", "links")
+    try {
+      const response = await fetch(url, { signal: request.signal, headers: { Accept: "text/html" } })
+      if (!response.ok || response.redirected) throw new Error("Search unavailable")
+      const html = await response.text()
+      if (request.signal.aborted || this.linkPanelTarget.hidden) return
+      this.linkResultsTarget.innerHTML = html
+    } catch (error) {
+      if (error.name === "AbortError") return
+      this.linkResultsTarget.textContent = "Search unavailable. You can still paste a link."
+    }
+    this.positionLink()
+  }
+
+  selectLink(event) {
+    const { linkHref, linkTitle } = event.currentTarget.dataset
+    this.linkUrlTarget.value = new URL(linkHref, location.href).href
+    this.applyLink(linkTitle)
   }
 
   linkKeydown(event) {
@@ -130,9 +189,19 @@ export default class extends Controller {
     if (event.key === "Escape") {
       event.preventDefault()
       this.cancelLink()
+    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      const results = [...this.linkResultsTarget.querySelectorAll("button")]
+      if (!results.length) return
+      event.preventDefault()
+      const index = results.indexOf(event.target)
+      const next = event.key === "ArrowDown" ? index + 1 : (index < 0 ? results.length - 1 : index - 1)
+      results[(next + results.length) % results.length].focus({ preventScroll: true })
+      results[(next + results.length) % results.length].scrollIntoView({ block: "nearest" })
     } else if (event.key === "Enter" && event.target === this.linkUrlTarget) {
       event.preventDefault()
-      this.applyLink()
+      const result = this.linkResultsTarget.querySelector("button")
+      if (!URI_SCHEME.test(this.linkUrlTarget.value.trim()) && result) result.click()
+      else this.applyLink()
     }
   }
 
@@ -150,10 +219,10 @@ export default class extends Controller {
     this.linkUrlTarget.focus({ preventScroll: true })
   }
 
-  applyLink() {
+  applyLink(suggestedLabel) {
     const href = this.linkUrlTarget.value.trim()
-    if (!LINK_URL.test(href) || /\s/.test(href)) {
-      this.showLinkError("Use http(s):// or mailto: without spaces.")
+    if (!linkUri(href)) {
+      this.showLinkError("Enter a URI such as https://… or codex://… without spaces.")
       return
     }
     const selection = this._linkSelection
@@ -164,7 +233,7 @@ export default class extends Controller {
       return
     }
     this.cancelLink()
-    const label = selection.value.slice(selection.start, selection.end)
+    const label = selection.value.slice(selection.start, selection.end) || (typeof suggestedLabel === "string" ? suggestedLabel : "")
     this.insertLink(label, href)
     if (!label) this.inputTarget.setSelectionRange(selection.start + 1, selection.start + 1)
   }
@@ -176,6 +245,9 @@ export default class extends Controller {
   }
 
   closeLink() {
+    clearTimeout(this._linkDebounce)
+    this._linkAbort?.abort()
+    if (this.linkPanelTarget.matches(":popover-open")) this.linkPanelTarget.hidePopover()
     this.linkPanelTarget.hidden = true
     this.draftTarget.inert = false
   }
@@ -193,7 +265,7 @@ export default class extends Controller {
     const { selectionStart: start, selectionEnd: end, value } = this.inputTarget
     const href = event.clipboardData?.getData("text/plain").trim()
     const label = value.slice(start, end)
-    if (!label || !LINK_URL.test(href) || /\s/.test(href) || LINK_URL.test(label.trim())) return
+    if (!label || !linkUri(href) || URI_SCHEME.test(label.trim())) return
     event.preventDefault()
     this.insertLink(label, href)
   }
@@ -412,6 +484,7 @@ export default class extends Controller {
   }
 
   handleDocumentClick(event) {
+    if (!this.linkPanelTarget.hidden && !this.linkPanelTarget.contains(event.target)) this.cancelLink()
     if (!this._picker) return
     if (this._picker.contains(event.target)) return
     if (event.target === this.inputTarget) return

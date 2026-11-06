@@ -1,7 +1,8 @@
 <% label = local_assigns.fetch(:label, "New comment") %>
 <% submit_label = local_assigns.fetch(:submit_label, "Comment") %>
 <div class="composer" data-controller="coplan--comment-form"
-     data-action="coplan:composer-close@document->coplan--comment-form#composerClosed"
+     data-action="coplan:composer-close@document->coplan--comment-form#composerClosed resize@window->coplan--comment-form#positionLink scroll@document->coplan--comment-form#positionLink:capture"
+     data-coplan--comment-form-link-search-url-value="<%= coplan.search_path %>"
      data-coplan--comment-form-search-url-value="<%= search_users_path %>">
   <div class="composer__draft" data-coplan--comment-form-target="draft">
     <div class="composer__writing" data-controller="coplan--dictation"
@@ -34,14 +35,15 @@
       </div>
     </div>
   </div>
-  <div class="composer__link" role="group" aria-label="Insert link" hidden
+  <div class="composer__link" popover="manual" role="dialog" aria-label="Insert link" hidden
        data-coplan--comment-form-target="linkPanel" data-action="keydown->coplan--comment-form#linkKeydown">
     <label>
-      <span data-coplan--comment-form-target="linkLabel">Link URL</span>
-      <span role="alert" hidden data-coplan--comment-form-target="linkError">Use http(s):// or mailto: without spaces.</span>
-      <input aria-label="Link URL" type="text" inputmode="url" placeholder="https://…" autocomplete="off"
-             data-coplan--comment-form-target="linkUrl" data-action="input->coplan--comment-form#clearLinkError">
+      <span data-coplan--comment-form-target="linkLabel">Search or paste a link</span>
+      <span role="alert" hidden data-coplan--comment-form-target="linkError">Enter a URI such as https://… or codex://… without spaces.</span>
+      <input aria-label="Search or paste a link" type="text" placeholder="Search CoPlan or paste a URI…" autocomplete="off"
+             data-coplan--comment-form-target="linkUrl" data-action="input->coplan--comment-form#searchLinks">
     </label>
+    <div class="composer__link-results" aria-live="polite" data-coplan--comment-form-target="linkResults"></div>
     <div class="composer__send-actions">
       <button type="button" class="composer__cancel" data-action="coplan--comment-form#cancelLink">Cancel link</button>
       <button type="button" class="btn btn--primary btn--sm" data-action="coplan--comment-form#applyLink">Insert link</button>

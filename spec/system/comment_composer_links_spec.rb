@@ -38,9 +38,9 @@ RSpec.describe "Links in the comment composer", type: :system do
 
   def insert_link(href)
     textarea.send_keys([ mod, "k" ])
-    expect(page).to have_field("Link URL", focused: true)
-    fill_in "Link URL", with: href
-    find_field("Link URL").send_keys(:enter)
+    expect(page).to have_field("Search or paste a link", focused: true)
+    fill_in "Search or paste a link", with: href
+    find_field("Search or paste a link").send_keys(:enter)
   end
 
   def caret
@@ -86,6 +86,43 @@ RSpec.describe "Links in the comment composer", type: :system do
     end
   end
 
+  it "keeps the draft visible beside the link picker" do
+    select_text(4, 19)
+    textarea.send_keys([ mod, "k" ])
+    expect(page).to have_field("Your reply", with: "See Design Overview", enable_aria_label: true)
+    input = find(".comment-window:popover-open textarea")
+    panel = find('[aria-label="Insert link"]')
+    expect(page.evaluate_script(<<~JS, input, panel)).to be(true)
+      (() => {
+        const a = arguments[0].getBoundingClientRect(), b = arguments[1].getBoundingClientRect()
+        return a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top
+      })()
+    JS
+  end
+
+  it "searches CoPlan and inserts a result without navigating or posting" do
+    select_text(4, 19)
+    textarea.send_keys([ mod, "k" ])
+    fill_in "Search or paste a link", with: "links@example.com"
+    expect(page).to have_button(author.name)
+    find_field("Search or paste a link").send_keys(:arrow_down)
+    find_button(author.name).send_keys(:enter)
+    expect(textarea.value).to include("See [Design Overview](http")
+    expect(textarea.value).to include("/links)")
+    expect(thread_record.comments.count).to eq(1)
+    expect(page).to have_current_path(plan_page_path(plan))
+  end
+
+  [ :keyboard, :paste ].each do |method|
+    it "posts a codex URI using #{method}" do
+      select_text(4, 19)
+      uri = "codex://threads/abc-123"
+      method == :keyboard ? insert_link(uri) : paste(uri)
+      textarea.send_keys(:enter)
+      expect(page).to have_link("Design Overview", href: uri)
+    end
+  end
+
   it "inserts an empty link at the caret without a selection" do
     select_text(3, 3)
     insert_link("mailto:team@example.com")
@@ -96,10 +133,10 @@ RSpec.describe "Links in the comment composer", type: :system do
   it "leaves the draft alone when link insertion is cancelled or the URL is invalid" do
     select_text(4, 19)
     textarea.send_keys([ mod, "k" ])
-    find_field("Link URL").send_keys(:escape)
+    find_field("Search or paste a link").send_keys(:escape)
     expect(caret).to eq([ 4, 19 ])
     insert_link("javascript:alert(1)")
-    expect(page).to have_text("Use http(s):// or mailto: without spaces.")
+    expect(page).to have_text("Enter a URI such as https://… or codex://… without spaces.")
     panel = find('[aria-label="Insert link"]')
     expect(page.evaluate_script("arguments[0].scrollHeight <= arguments[0].clientHeight", panel)).to be(true)
     click_button "Cancel link"
@@ -110,7 +147,7 @@ RSpec.describe "Links in the comment composer", type: :system do
     select_text(4, 19)
     before = page.evaluate_script("document.querySelector('.comment-window:popover-open').getBoundingClientRect().toJSON()")
     textarea.send_keys([ mod, "k" ])
-    fill_in "Link URL", with: "https://example.com"
+    fill_in "Search or paste a link", with: "https://example.com"
     find_button("Cancel link").send_keys(:enter)
     expect(textarea.value).to eq("See Design Overview")
     expect(caret).to eq([ 4, 19 ])
@@ -131,13 +168,13 @@ RSpec.describe "Links in the comment composer", type: :system do
   it "explains a changed draft and keeps the URL instead of silently losing insertion" do
     select_text(4, 19)
     textarea.send_keys([ mod, "k" ])
-    fill_in "Link URL", with: "https://example.com"
+    fill_in "Search or paste a link", with: "https://example.com"
     # A transcription can arrive after the author opened the link field.
     input = find(".thread-popover__reply textarea", visible: :all)
     page.execute_script("arguments[0].value = 'Arriving transcription'", input)
     click_button "Insert link"
     expect(page).to have_text("Draft changed. Cancel and reselect text.")
-    expect(page).to have_field("Link URL", enable_aria_label: true, with: "https://example.com")
+    expect(page).to have_field("Search or paste a link", enable_aria_label: true, with: "https://example.com")
     click_button "Cancel link"
     expect(textarea.value).to eq("Arriving transcription")
     expect(thread_record.comments.count).to eq(1)

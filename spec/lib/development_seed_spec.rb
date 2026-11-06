@@ -262,7 +262,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(formatting_content).to include("## Try numbered and lettered lists", "1) First numbered step.", "A) First uppercase lettered step.", "a) First lowercase lettered step.")
 
       links_content = seeded_plan("comment-links").current_content
-      expect(links_content).to include("# Link selected text in comments", "Cmd+K", "Cancel link", "https://example.com/search?q=)")
+      expect(links_content).to include("# Link selected text in comments", "Cmd+K", "Cancel link", "https://example.com/search?q=)", "floating link picker", "codex://threads/example")
 
       thread_count = CoPlan::CommentThread.count
       reference_count = gallery.references.count

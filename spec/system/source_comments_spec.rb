@@ -71,12 +71,12 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
       page.execute_script("arguments[0].setSelectionRange(0, 4)", input)
       modifier = RUBY_PLATFORM.include?("darwin") ? :meta : :control
       input.send_keys([ modifier, "k" ])
-      panel.fill_in "Link URL", with: "https://example.com"
-      panel.find_field("Link URL").send_keys(:escape)
+      panel.fill_in "Search or paste a link", with: "https://example.com"
+      panel.find_field("Search or paste a link").send_keys(:escape)
       expect(page).to have_css(".source-comments:popover-open")
       expect(panel.find("textarea").value).to eq("Keep my draft")
       expect(panel).to have_css("textarea:focus")
-      expect(panel).to have_no_field("Link URL")
+      expect(panel).to have_no_field("Search or paste a link")
       page.driver.browser.action.send_keys(:escape).perform
       expect(page).to have_no_css(".source-comments:popover-open")
     end
@@ -90,12 +90,12 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     page.execute_script("arguments[0].setSelectionRange(0, 4)", input)
     modifier = RUBY_PLATFORM.include?("darwin") ? :meta : :control
     input.send_keys([ modifier, "k" ])
-    panel.fill_in "Link URL", with: "https://example.com"
+    panel.fill_in "Search or paste a link", with: "https://example.com"
     find("#plan-title").click
     expect(page).to have_no_css(".source-comments:popover-open")
     cell.send_keys("c")
     expect(panel).to have_field("Write a comment...", with: "Keep this draft")
-    expect(panel).to have_no_field("Link URL")
+    expect(panel).to have_no_field("Search or paste a link")
   end
 
   it "scrolls table discussion content without moving the resized window's header or grip" do
