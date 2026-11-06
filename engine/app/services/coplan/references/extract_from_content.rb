@@ -19,6 +19,12 @@ module CoPlan
         # Remove extracted references for URLs no longer in content
         @plan.references.extracted.where.not(url: found_urls.keys).delete_all
 
+        # Release changed keys before assigning new ones, so label swaps do not
+        # collide with another reference's obsolete key. Explicit keys stay put.
+        @plan.references.extracted.where.not(key: nil).find_each do |ref|
+          ref.update_column(:key, nil) unless ref.key == found_urls.dig(ref.url, :key)
+        end
+
         # Once per distinct URL, not once per mention: a readable address
         # costs a segment walk to turn into an id, so a body full of
         # cross-links to the same document pays for it once.

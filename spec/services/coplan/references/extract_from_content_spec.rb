@@ -10,6 +10,17 @@ RSpec.describe CoPlan::References::ExtractFromContent do
   end
 
   describe ".call" do
+    it "assigns swapped generated keys in a single extraction" do
+      update_content(plan, "[a]: https://example.com/one\n[b]: https://example.com/two")
+      described_class.call(plan: plan)
+
+      update_content(plan, "[b]: https://example.com/one\n[a]: https://example.com/two")
+      described_class.call(plan: plan)
+
+      expect(plan.references.find_by!(url: "https://example.com/one").key).to eq("b")
+      expect(plan.references.find_by!(url: "https://example.com/two").key).to eq("a")
+    end
+
     it "clears a generated key when the definition becomes an invalid label" do
       update_content(plan, "[report]: https://example.com/report")
       described_class.call(plan: plan)
