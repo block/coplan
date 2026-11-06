@@ -64,7 +64,7 @@ module DocumentTitleHelpers
 
   def retitle_plan(plan, title)
     CoPlan::Plans::ReplaceContent.call(plan: plan,
-      new_content: CoPlan::Plans::DocumentTitle.call(plan.current_content, fallback: title, override: true),
+      new_content: CoPlan::MarkdownDocumentTitle.normalize(plan.current_content, fallback: title, override: true),
       base_revision: plan.current_revision, actor_type: "local_agent", actor_id: plan.created_by_user_id)
     plan.reload
   end

@@ -1,6 +1,24 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::Plans::WritingProvenance do
+  describe ".adjust_input_sources_for_content_change" do
+    it "preserves UTF-16 input attribution past an inserted heading" do
+      original = "😀 typed"
+      normalized = "# Name\n\n#{original}"
+      payload = described_class.adjust_input_sources_for_content_change({ "runs" => [ [ 8, "human" ] ] }, original, normalized)
+      expect(payload).to eq("runs" => [ [ 8, "unknown" ], [ 8, "human" ] ])
+    end
+
+    it "leaves unchanged content evidence untouched" do
+      payload = { "runs" => [ [ 4, "human" ] ] }
+      expect(described_class.adjust_input_sources_for_content_change(payload, "Body", "Body")).to equal(payload)
+    end
+
+    it "does not invent input evidence when none was supplied" do
+      expect(described_class.adjust_input_sources_for_content_change(nil, "Body", "# Title\n\nBody")).to be_nil
+    end
+  end
+
   let(:user) { create(:coplan_user) }
 
   def make_plan(content, kind: "human", input_sources: nil, token: nil)

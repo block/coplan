@@ -480,7 +480,7 @@ module CoPlan
 
     def retitle_document(document, title)
       Plans::ReplaceContent.call(plan: document,
-        new_content: Plans::DocumentTitle.call(document.current_content, fallback: title, override: true),
+        new_content: MarkdownDocumentTitle.normalize(document.current_content, fallback: title, override: true),
         base_revision: document.current_revision, actor_type: "system", actor_id: nil,
         change_summary: "Demonstrate a document rename")
     end

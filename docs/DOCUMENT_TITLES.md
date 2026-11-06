@@ -15,3 +15,9 @@ For existing documents, the saved metadata wins: a matching opening heading is r
 Run the migration with old writers stopped and active edit leases drained. An active lease stops the migration rather than writing over an agent session. The backfill is idempotent: after the lease expires or is released, rerun `db:migrate`; completed documents are skipped. The migration is irreversible because its versions are part of the audit history. Take the normal database backup before deployment.
 
 Permanent write normalization differs from backfill: once deployed, a submitted opening H1 wins over metadata. The saved metadata is only a fallback when an agent omits or clears the heading.
+
+## Code ownership
+
+`CoPlan::MarkdownDocumentTitle` is a plain Markdown utility in `engine/lib/coplan/markdown_document_title.rb`. `normalize` ensures the opening title exists; `extract` returns its plain text. It has no persistence behavior. `Plans::WritingProvenance.adjust_input_sources_for_content_change` preserves input attribution when normalization changes content.
+
+`CoPlan::MigrationSupport::BackfillDocumentTitles` is migration-only code, explicitly loaded by `UnifyDocumentTitles`. Retain it until that migration is retired from supported upgrade paths; it is not a permanent runtime service.

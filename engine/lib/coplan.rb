@@ -5,6 +5,7 @@ require "coplan/configuration"
 require "coplan/admin"
 require "coplan/analytics"
 require "coplan/engine"
+require "coplan/markdown_document_title"
 require "coplan/exceptions_app"
 
 module CoPlan

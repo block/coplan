@@ -96,8 +96,8 @@ module CoPlan
           end
 
           current_content = @plan.current_content || ""
-          normalized = DocumentTitle.call(@new_content, fallback: @plan.title, allow_empty: @allow_empty_title)
-          @input_sources = DocumentTitle.remap_input_sources(@input_sources, @new_content, normalized)
+          normalized = MarkdownDocumentTitle.normalize(@new_content, fallback: @plan.title, allow_empty: @allow_empty_title)
+          @input_sources = WritingProvenance.adjust_input_sources_for_content_change(@input_sources, @new_content, normalized)
           @new_content = normalized
 
           # No-op: content is identical → no version, no broadcasts.

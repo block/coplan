@@ -1,6 +1,7 @@
 require "rails_helper"
+require CoPlan::Engine.root.join("db/migrate/20261105220000_unify_document_titles.rb")
 
-RSpec.describe CoPlan::Plans::BackfillDocumentTitles do
+RSpec.describe CoPlan::MigrationSupport::BackfillDocumentTitles do
   def legacy_plan(content)
     plan = create(:plan, title: "Metadata title")
     set_version_fixture(plan.current_plan_version, content_markdown: content)

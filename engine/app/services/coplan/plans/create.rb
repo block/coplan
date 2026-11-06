@@ -29,7 +29,7 @@ module CoPlan
 
       def call
         plan = ActiveRecord::Base.transaction do
-          plan = Plan.create!(title: DocumentTitle.extract(DocumentTitle.call(@content, fallback: @title)), created_by_user: @user, plan_type_id: @plan_type_id, visibility: @visibility, creation_key: @creation_key)
+          plan = Plan.create!(title: MarkdownDocumentTitle.extract(MarkdownDocumentTitle.normalize(@content, fallback: @title)), created_by_user: @user, plan_type_id: @plan_type_id, visibility: @visibility, creation_key: @creation_key)
           version = PlanVersion.create_for_commit!(
             plan: plan,
             revision: 1,

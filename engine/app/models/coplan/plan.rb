@@ -361,7 +361,7 @@ module CoPlan
 
     def extract_document_title
       if current_plan_version && (will_save_change_to_current_plan_version_id? || will_save_change_to_title?)
-        self.title = Plans::DocumentTitle.extract(current_content)
+        self.title = MarkdownDocumentTitle.extract(current_content)
       end
     end
 

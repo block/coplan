@@ -18,7 +18,7 @@ module CoPlan
           else
             merged = MergeText.call(base: base.content_markdown, local: content, remote: current)
           end
-          merged = DocumentTitle.call(merged, fallback: DocumentTitle::DEFAULT) if finalize
+          merged = MarkdownDocumentTitle.normalize(merged, fallback: MarkdownDocumentTitle::DEFAULT) if finalize
           updates = {}
           metadata.except(:title).each do |key, value|
             current_value = plan.tag_names.join(", ")

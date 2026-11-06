@@ -220,7 +220,7 @@ module CoPlan
       return head :not_found if params[:folder_id].present? && !@new_folder
 
       @plan = Plan.new(title: "", created_by_user: current_user, plan_type: @new_plan_type)
-      @draft_content = Plans::DocumentTitle.call(@new_plan_type&.template_content.to_s, fallback: "Untitled")
+      @draft_content = MarkdownDocumentTitle.normalize(@new_plan_type&.template_content.to_s, fallback: "Untitled")
       @base_revision = 0
       load_tag_suggestions
       render :new_inline

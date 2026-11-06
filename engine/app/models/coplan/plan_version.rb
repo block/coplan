@@ -78,10 +78,10 @@ module CoPlan
     # that were committed, including repairs to titleless agent submissions.
     def normalize_document_title
       original = content_markdown.to_s
-      normalized = Plans::DocumentTitle.call(original, fallback: plan.title, allow_empty: allow_empty_title)
+      normalized = MarkdownDocumentTitle.normalize(original, fallback: plan.title, allow_empty: allow_empty_title)
       return if original == normalized
 
-      self.input_sources = Plans::DocumentTitle.remap_input_sources(input_sources, original, normalized)
+      self.input_sources = Plans::WritingProvenance.adjust_input_sources_for_content_change(input_sources, original, normalized)
       if plan.current_plan_version
         repairs = Plans::DiffToOperations.call(old_content: original, new_content: normalized)
         applied = Plans::ApplyOperations.call(content: original, operations: repairs)
