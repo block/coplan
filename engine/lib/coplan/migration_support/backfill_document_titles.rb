@@ -7,6 +7,9 @@ module CoPlan
     # never rewritten. A lease stops the backfill; rerunning resumes safely.
     class BackfillDocumentTitles
       def self.call
+        # Boot initializers can cache the schema before earlier migrations add
+        # columns used by the current model's validations and version writes.
+        Plan.reset_column_information
         Plan.find_each do |plan|
           plan.with_lock do
             content = MarkdownDocumentTitle.normalize(plan.current_content, fallback: plan.title, override: true)

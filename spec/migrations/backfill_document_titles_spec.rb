@@ -34,6 +34,25 @@ RSpec.describe CoPlan::MigrationSupport::BackfillDocumentTitles do
     expect { described_class.call }.not_to change(CoPlan::PlanVersion, :count)
   end
 
+  it "refreshes schema cached before the review policy migrations" do
+    plan = legacy_plan("Body")
+    columns = CoPlan::Plan.columns_hash
+    schema_cache = CoPlan::Plan.connection_pool.schema_cache
+    allow(schema_cache).to receive(:columns_hash).and_call_original
+    allow(schema_cache).to receive(:columns_hash).with("coplan_plans")
+      .and_return(columns.except("reset_reviews_on_change"), columns)
+    CoPlan::Plan.reset_column_information
+    # Production's writing-provenance initializer loads this before db:migrate.
+    expect(CoPlan::Plan.column_names).not_to include("reset_reviews_on_change")
+
+    described_class.call
+
+    expect(plan.reload.current_content).to eq("# Metadata title\n\nBody")
+    expect(plan.reset_reviews_on_change).to be(true)
+  ensure
+    CoPlan::Plan.reset_column_information
+  end
+
   it "respects leases and resumes after the lease is released" do
     plan = legacy_plan("Body")
     CoPlan::EditLease.acquire!(plan: plan, holder_type: "local_agent", holder_id: plan.created_by_user_id, lease_token: "migration-test")
