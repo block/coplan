@@ -207,6 +207,38 @@
   background: var(--color-highlight-open-hover-bg);
 }
 
+/* Discussions hidden in a closed <details>: a compact blue count on its
+   summary. The count is generated here so the summary's text, which
+   comment anchors match against, stays the author's. */
+.details-comment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: var(--space-sm);
+  padding: 1px 7px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font: 700 0.7rem/1.4 var(--font-sans);
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.details-comment-badge::after { content: attr(data-count); }
+
+.details-comment-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+.details-comment-badge:hover { border-color: var(--color-highlight-open-border); }
+
+.details-comment-badge:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 #plan-threads {
   position: absolute;
   width: 0;

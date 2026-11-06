@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { hidingSection } from "coplan/collapsed_sections"
 
 // Collapsed discussion markers in the page margin, one per highlighted
 // thread, aligned with the text they discuss. A marker shows the first
@@ -7,7 +8,8 @@ import { Controller } from "@hotwired/stimulus"
 //
 // Cards are derived from the highlights coplan--text-selection builds and
 // from the thread popovers in #plan-threads, so broadcasts that add
-// threads or comments update them without a server round-trip.
+// threads or comments update them without a server round-trip. A closed
+// <details> shows a count badge on its summary instead of markers.
 const STACK_GAP = 4
 // Room beside the document card: gap from the card, gap from the window
 // edge, and the marker width.
@@ -50,12 +52,25 @@ export default class extends Controller {
   refresh() {
     const showResolved = !this.layout.classList.contains("plan-layout--hide-resolved")
     const marks = new Map()
-    for (const mark of this.content.querySelectorAll("mark.anchor-highlight[data-thread-id]")) {
+    const hidden = new Map()
+    const seen = new Set()
+    // Table-cell and diagram discussions have their own badges, so they
+    // only count toward a closed section.
+    for (const mark of this.content.querySelectorAll("mark.anchor-highlight[data-thread-id], [data-source-badge][data-thread-id]")) {
       const id = mark.dataset.threadId
-      if (marks.has(id) || !mark.getClientRects().length) continue
+      if (seen.has(id)) continue
       if (!showResolved && !mark.classList.contains("anchor-highlight--open")) continue
-      marks.set(id, mark)
+      const section = hidingSection(mark)
+      if (!section && (mark.hasAttribute("data-source-badge") || !mark.getClientRects().length)) continue
+      seen.add(id)
+      if (section) {
+        if (!hidden.has(section)) hidden.set(section, [])
+        hidden.get(section).push(id)
+      } else {
+        marks.set(id, mark)
+      }
     }
+    this.renderSectionBadges(hidden)
 
     for (const [id, card] of this.cards) {
       if (marks.has(id)) continue
@@ -72,6 +87,32 @@ export default class extends Controller {
     this.marks = marks
     this.element.hidden = this.cards.size === 0
     this.position()
+  }
+
+  // Each closed section counts the discussions it hides, in document order;
+  // its badge opens the section at the first one.
+  renderSectionBadges(sections) {
+    for (const badge of this.content.querySelectorAll(".details-comment-badge")) {
+      if (!sections.has(badge.closest("details"))) badge.remove()
+    }
+    for (const [details, ids] of sections) {
+      const summary = details.querySelector(":scope > summary")
+      if (!summary) continue
+      let badge = summary.querySelector(":scope > .details-comment-badge")
+      if (!badge) {
+        badge = document.createElement("button")
+        badge.type = "button"
+        badge.className = "details-comment-badge"
+        badge.dataset.action = "click->coplan--text-selection#openSectionThread"
+        // The count is CSS-generated: a text node here would enter the
+        // document text that comment anchors are matched against.
+        badge.innerHTML = COMMENT_ICON
+        summary.append(badge)
+      }
+      badge.dataset.threadId = ids[0]
+      badge.dataset.count = ids.length
+      badge.setAttribute("aria-label", `${ids.length} ${ids.length === 1 ? "discussion" : "discussions"} in this section`)
+    }
   }
 
   // Reuse card elements: an open discussion window tracks its trigger
@@ -169,11 +210,16 @@ export default class extends Controller {
   }
 
   // Keep the card for the open discussion visibly selected, however it was
-  // opened (card, highlight, j/k, or a deep link).
-  popoverToggled(event) {
-    const popover = event.target
-    if (!popover.classList?.contains("thread-popover")) return
-    const card = this.cards.get(popover.id.replace(/_popover$/, ""))
+  // opened (card, highlight, j/k, or a deep link). Opening or closing a
+  // section in the document shows or hides the markers inside it.
+  toggled(event) {
+    const target = event.target
+    if (target.tagName === "DETAILS" && this.content.contains(target)) {
+      this.scheduleRefresh()
+      return
+    }
+    if (!target.classList?.contains("thread-popover")) return
+    const card = this.cards.get(target.id.replace(/_popover$/, ""))
     card?.classList.toggle("is-active", event.newState === "open")
   }
 }
