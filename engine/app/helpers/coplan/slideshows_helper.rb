@@ -124,7 +124,7 @@ module CoPlan
 
     # SLIDE_SPEC.md's markup contract on the rendered DOM: the slide's
     # block container gets the spec's neutral .deck-content name (the
-    # design system must not know CoPlan's .markdown-rendered), and split
+    # design system must not know Coplan's .markdown-rendered), and split
     # slides get their two pane wrappers. Wrappers add structure only —
     # no text, no reordering — so comment anchors and the parity passes
     # above are unaffected.

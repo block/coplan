@@ -1,6 +1,6 @@
 # Shared demo library
 
-CoPlan ships one reusable development dataset in the engine gem. Use it for
+Coplan ships one reusable development dataset in the engine gem. Use it for
 feature work, browser checks, screenshots, and demos. The content is readable
 Markdown in `engine/db/demo/content/`; scenario definitions and relationships
 live in `engine/lib/coplan/development_seed.rb`.
@@ -55,7 +55,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | launch-deck | A complete multi-slide presentation |
 | mixed-slides | Prose around two separately presentable decks; diagrams, code, table, image, notes |
 | pattern-showcase | Title, columns, stage, quote, code, image, and table slide layouts |
-| reference-gallery | All five reference types, a resolved CoPlan target, explicit/extracted references, named citations, repeated URLs, footnotes |
+| reference-gallery | All five reference types, a resolved Coplan target, explicit/extracted references, named citations, repeated URLs, footnotes |
 | api-comment-anchors | Markdown text and table-row highlights; source-only discussion in Comments |
 | table-gallery | Precise cell discussion, repeated labels, empty values, links, wide expandable data |
 | comment-reactions | Discussions with emoji reactions; your own are pressed in blue, hover a chip for who reacted, add or remove one in place. Re-seeding keeps reactions you removed removed |

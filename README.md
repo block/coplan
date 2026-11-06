@@ -1,10 +1,10 @@
-# CoPlan
+# Coplan
 
 Engineering design doc review, purpose-built for AI-assisted planning. Built with Rails 8, Hotwire, and a semantic operations API.
 
-## Why CoPlan?
+## Why Coplan?
 
-Plans get better when more eyes see them. An engineer drafts a plan — often with AI help — and CoPlan gives it a home where teammates can review it, leave inline feedback, and iterate. Domain experts catch things the author missed. AI agents respond to feedback and apply edits automatically. The result is higher-quality plans before a single line of code is written.
+Plans get better when more eyes see them. An engineer drafts a plan — often with AI help — and Coplan gives it a home where teammates can review it, leave inline feedback, and iterate. Domain experts catch things the author missed. AI agents respond to feedback and apply edits automatically. The result is higher-quality plans before a single line of code is written.
 
 **The editing model is intentionally asymmetric:** humans comment, AI agents edit. When a reviewer leaves feedback and the author accepts it, an agent applies the change — creating a new immutable version with full provenance (who changed what, why, and which comment triggered it). This keeps the version history clean and auditable.
 

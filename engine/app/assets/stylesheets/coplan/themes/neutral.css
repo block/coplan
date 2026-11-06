@@ -4,7 +4,7 @@
    with no blur, and a document that sits directly on the page instead of a
    card. Blue still means interaction and orange still means attention.
 
-   Custom properties only, so the theme changes how CoPlan looks, never what
+   Custom properties only, so the theme changes how Coplan looks, never what
    it does. Each color gives its light and dark value in light-dark(), which
    follows the mode's color-scheme. A var() in a custom property resolves
    where it is declared, so hooks that follow the document's own surface are

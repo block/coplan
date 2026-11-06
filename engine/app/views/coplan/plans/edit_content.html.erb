@@ -1,4 +1,4 @@
 <% creating = @plan.new_record? %>
 <% content_for :head do %><meta name="turbo-cache-control" content="no-cache"><% end %>
-<% content_for(:title, "#{creating ? "New #{@new_plan_type&.name || 'document'}" : @plan.title} — CoPlan") %>
+<% content_for(:title, "#{creating ? "New #{@new_plan_type&.name || 'document'}" : @plan.title} — Coplan") %>
 <%= render "coplan/plans/editor_form", inline_editor: false %>

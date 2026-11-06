@@ -11,7 +11,7 @@ module CoPlan
     end
 
     # The viewer's pick as Settings shows it, as <html data-app-theme-choice>:
-    # a theme key, or "default". A stored theme that CoPlan no longer ships
+    # a theme key, or "default". A stored theme that Coplan no longer ships
     # counts as "default".
     def coplan_app_theme_choice
       (CoPlan::Themes.find(current_user.app_theme)&.key if signed_in?) || CoPlan::User::DEFAULT_APP_THEME

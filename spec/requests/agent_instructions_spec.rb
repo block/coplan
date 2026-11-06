@@ -10,7 +10,7 @@ RSpec.describe "Agent Instructions", type: :request do
       get agent_instructions_path
       expect(response).to have_http_status(:success)
       expect(response.content_type).to include("text/markdown")
-      expect(response.body).to include("# CoPlan for Agents")
+      expect(response.body).to include("# Coplan for Agents")
     end
 
     it "covers the basics every agent needs, in order" do
@@ -298,7 +298,7 @@ RSpec.describe "Agent Instructions", type: :request do
 
         expect(response).to have_http_status(:success)
         expect(response.content_type).to include("text/markdown")
-        expect(response.body).to include("# CoPlan for Agents")
+        expect(response.body).to include("# Coplan for Agents")
         expect(response.body).not_to include("<html")
       end
 
@@ -306,7 +306,7 @@ RSpec.describe "Agent Instructions", type: :request do
         get agent_instructions_path, headers: { "Accept" => "text/markdown" }
 
         expect(response.content_type).to include("text/markdown")
-        expect(response.body).to include("# CoPlan for Agents")
+        expect(response.body).to include("# Coplan for Agents")
       end
 
       it "serves byte-identical markdown regardless of non-HTML Accept header" do
@@ -338,7 +338,7 @@ RSpec.describe "Agent Instructions", type: :request do
         get agent_instructions_path(format: :md), headers: { "Accept" => browser_accept }
 
         expect(response.content_type).to include("text/markdown")
-        expect(response.body).to include("# CoPlan for Agents")
+        expect(response.body).to include("# Coplan for Agents")
         expect(response.body).not_to include("<html")
       end
 
@@ -352,7 +352,7 @@ RSpec.describe "Agent Instructions", type: :request do
         get agent_instructions_guide_path(guide: "live/claude-code"), headers: { "Accept" => browser_accept }
 
         expect(response.content_type).to include("text/html")
-        expect(response.body).to include("<title>Live Sessions in Claude Code — CoPlan</title>")
+        expect(response.body).to include("<title>Live Sessions in Claude Code — Coplan</title>")
         expect(response.body).to include("markdown-rendered")
         expect(response.body).to include(%(href="#{agent_instructions_reference_path}"))
         expect(response.body).to include("/agent-instructions/live/claude-code.md")
@@ -377,7 +377,7 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.content_type).to include("text/html")
       expect(response.body).to include("Agent instructions")
-      expect(response.body).to include("CoPlan for Agents")
+      expect(response.body).to include("Coplan for Agents")
       expect(response.body).to include(%(href="#{agent_setup_path}"))
     end
 

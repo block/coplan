@@ -1,6 +1,6 @@
 
 /* @-mention chip — matches Google Docs style. Uses theme tokens so it
-   adapts to dark mode automatically via CoPlan's existing variables. */
+   adapts to dark mode automatically via Coplan's existing variables. */
 .markdown-rendered .mention {
   display: inline;
   background: var(--color-primary-light);

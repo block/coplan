@@ -33,7 +33,7 @@ module CoPlan
       active_admin.comments = false
       active_admin.namespace :admin do |namespace|
         namespace.route_options = { path: path }
-        namespace.site_title = "CoPlan Admin"
+        namespace.site_title = "Coplan Admin"
       end
 
       ActiveSupport.on_load(:action_controller_base) { include CoPlan::Admin::Authentication }

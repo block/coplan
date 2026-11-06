@@ -198,7 +198,7 @@ RSpec.describe "Resizing editor images", type: :system do
     expect(page).to have_css('.ProseMirror img[alt="Pasted large image"]:not([width])')
   end
 
-  it "preserves intentional widths when copying images within CoPlan" do
+  it "preserves intentional widths when copying images within Coplan" do
     result = page.evaluate_async_script(<<~JS, image_url)
       const [url, done] = arguments;
       Promise.all([import("coplan/rich_document"), import("prosemirror-state")]).then(([m, state]) => {

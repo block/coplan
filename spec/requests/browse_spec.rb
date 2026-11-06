@@ -45,7 +45,7 @@ RSpec.describe "Browsable library URLs", type: :request do
     expect(CoPlan::Library.find_by!(owner: viewer).handle).to eq("viewer")
   end
 
-  it "creates a person's library on their first CoPlan request" do
+  it "creates a person's library on their first Coplan request" do
     newcomer = create(:coplan_user, username: "newcomer")
     expect(CoPlan::Library.where(owner: newcomer)).not_to exist
     sign_in_as(newcomer)
@@ -112,7 +112,7 @@ RSpec.describe "Browsable library URLs", type: :request do
 
       expect(response).to have_http_status(:unauthorized)
       expect(response.media_type).to eq("text/markdown")
-      expect(response.body).to include("# CoPlan API")
+      expect(response.body).to include("# Coplan API")
       expect(response.body).to include("/agent-instructions")
     end
   end

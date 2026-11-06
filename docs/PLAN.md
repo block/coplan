@@ -1,11 +1,11 @@
 ---
-title: CoPlan — Detailed Implementation Plan
+title: Coplan — Detailed Implementation Plan
 description: Full data models, API design, operations engine, and phased build order
 author: Hampton Lintorn-Catlin
 date: 2026-02-20
 ---
 
-# CoPlan — Implementation Plan
+# Coplan — Implementation Plan
 
 > Status: **Developing** — Phases 0–6 complete, 143 tests passing
 > Parent: [CONCEPT.md](./CONCEPT.md)

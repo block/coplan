@@ -1,4 +1,4 @@
-<% content_for(:title, "New #{@new_plan_type&.name || 'document'} — CoPlan") %>
+<% content_for(:title, "New #{@new_plan_type&.name || 'document'} — Coplan") %>
 <% content_for(:head) do %><meta name="turbo-cache-control" content="no-cache"><% end %>
 <% back_path = @new_folder ? folder_browse_path(@new_folder) : library_browse_path(current_user.library) %>
 

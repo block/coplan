@@ -1421,7 +1421,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
       };
     JS
     within(".review-tray__discussion") { click_button "Request changes" }
-    expect(page).to have_css("#review-discussion-error", text: "Couldn't reach CoPlan. Your draft is still here")
+    expect(page).to have_css("#review-discussion-error", text: "Couldn't reach Coplan. Your draft is still here")
     expect(page).to have_field("Public review comment", with: "Keep this unsent comment", enable_aria_label: true)
     within(".review-tray__discussion") { click_button "Request changes" }
     expect(page).to have_css(".review-tray", text: "You requested changes to v1")

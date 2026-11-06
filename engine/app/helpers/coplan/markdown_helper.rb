@@ -111,7 +111,7 @@ module CoPlan
     # unambiguous same-document references such as
     # `[§3.1](#section-3-1)`. Plain `§3.1` text is deliberately not linked:
     # research plans also cite external laws as `RKSV §3.1`, where guessing
-    # that the target is a CoPlan heading would create incorrect links.
+    # that the target is a Coplan heading would create incorrect links.
     #
     # Footnote citations and valid numbered-section links opt into the shared
     # reference-preview controller. It reads their already-rendered targets,
@@ -121,7 +121,7 @@ module CoPlan
       used_ids = doc.css("[id]").filter_map { |node| node["id"].presence }.to_set
       section_ids = Set.new
 
-      # `own_host` is what lets a readable CoPlan address be recognized
+      # `own_host` is what lets a readable Coplan address be recognized
       # here: /sam/liveorder/cart-roadmap is shaped like any other site's
       # URL, so being on our own host is the whole distinction.
       own_host = request&.host

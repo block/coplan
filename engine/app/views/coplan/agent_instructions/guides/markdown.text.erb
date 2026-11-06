@@ -1,6 +1,6 @@
 # Writing Plan Markdown
 
-Plans use CommonMark with the GitHub extensions: tables, task lists, strikethrough, and autolinks. CoPlan also supports the features on this page, and slide decks inside a plan (see <<%= @base %>/agent-instructions/presentations>). CoPlan sanitizes raw HTML when it shows the plan, but keeps the original source.
+Plans use CommonMark with the GitHub extensions: tables, task lists, strikethrough, and autolinks. Coplan also supports the features on this page, and slide decks inside a plan (see <<%= @base %>/agent-instructions/presentations>). Coplan sanitizes raw HTML when it shows the plan, but keeps the original source.
 
 This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>.
 
@@ -64,7 +64,7 @@ Number the headings that you refer to, and link to them with an explicit fragmen
 The flag stays off until the checks in [§3.1](#section-3-1) pass.
 ```
 
-Readers see a preview of the section on hover. CoPlan does not link a bare `§3.1`, because plans also use `§` to cite external documents such as laws.
+Readers see a preview of the section on hover. Coplan does not link a bare `§3.1`, because plans also use `§` to cite external documents such as laws.
 
 ## Footnotes and links
 
@@ -73,11 +73,11 @@ Readers see a preview of the section on hover. CoPlan does not link a bare `§3.
 - **To give a link a stable name, use a reference-style link:** `See [auth-repo].` with `[auth-repo]: https://github.com/org/auth-service "Auth Service"`. The key and title go to the plan's References.
   Duplicate reference-style labels use the first definition. Labels match with Unicode case folding and collapsed whitespace.
 
-CoPlan adds content links, including links in footnotes, to the plan's References section. Iframe src URLs describe embedded content and do not become references. Do not add these links again through the API. See "References" in <<%= @base %>/agent-instructions/creating>.
+Coplan adds content links, including links in footnotes, to the plan's References section. Iframe src URLs describe embedded content and do not become references. Do not add these links again through the API. See "References" in <<%= @base %>/agent-instructions/creating>.
 
 ## Diagrams
 
-Write Mermaid in a `mermaid` fence. CoPlan shows the diagram, and the source stays editable with the rest of the plan:
+Write Mermaid in a `mermaid` fence. Coplan shows the diagram, and the source stays editable with the rest of the plan:
 
 ````markdown
 ```mermaid
@@ -91,11 +91,11 @@ Use a diagram for architecture, data flow, sequences, or state. Do not use a dia
 
 ## Code blocks
 
-Always put a language tag on a code fence. CoPlan highlights the syntax with highlight.js and accepts any language name that highlight.js supports. Use the canonical names: `ruby`, `python`, `javascript`, `typescript`, `go`, `java`, `kotlin`, `swift`, `rust`, `c`, `cpp`, `csharp`, `sql`, `json`, `yaml`, `xml` (also for HTML), `css`, `graphql`, `protobuf`, `bash` (scripts), `shell` (terminal sessions with `$` prompts), `diff`, `http`. Use `plaintext` for logs. Do not invent tags: CoPlan shows an unknown tag as plain text.
+Always put a language tag on a code fence. Coplan highlights the syntax with highlight.js and accepts any language name that highlight.js supports. Use the canonical names: `ruby`, `python`, `javascript`, `typescript`, `go`, `java`, `kotlin`, `swift`, `rust`, `c`, `cpp`, `csharp`, `sql`, `json`, `yaml`, `xml` (also for HTML), `css`, `graphql`, `protobuf`, `bash` (scripts), `shell` (terminal sessions with `$` prompts), `diff`, `http`. Use `plaintext` for logs. Do not invent tags: Coplan shows an unknown tag as plain text.
 
 ## Task lists
 
-`- [ ] Item` and `- [x] Done item` render as checkboxes. Readers can select a checkbox in the web UI. **Each selection is a hand edit.** After a person selects a checkbox, CoPlan refuses your next write until you read the plan again.
+`- [ ] Item` and `- [x] Done item` render as checkboxes. Readers can select a checkbox in the web UI. **Each selection is a hand edit.** After a person selects a checkbox, Coplan refuses your next write until you read the plan again.
 In the rich editor, task text stays directly editable. Checkboxes toggle in place,
 and Enter continues with an unchecked task. Strikethrough and mentions also stay
 inline in editable prose and lists.
@@ -133,15 +133,15 @@ To set an image's display width, use an HTML image tag with a `width` in pixels:
 <img src="/path/to/architecture.png" alt="System architecture" width="320">
 ```
 
-Use the uploaded image's URL for `src`. CoPlan keeps images within the reading column. Expanding an image uses its original dimensions.
+Use the uploaded image's URL for `src`. Coplan keeps images within the reading column. Expanding an image uses its original dimensions.
 
 The web editor writes this form when a person resizes an image. Snapping back to natural full width removes the width setting.
 
-Images pasted from other apps default to natural size within the document width, ignoring copied display widths. Copying images within CoPlan's rich editor preserves their saved widths. Existing Markdown widths remain unchanged.
+Images pasted from other apps default to natural size within the document width, ignoring copied display widths. Copying images within Coplan's rich editor preserves their saved widths. Existing Markdown widths remain unchanged.
 
 When a paragraph starts with an image, text in that paragraph wraps beside it from the top if there is room. Put a blank line before the next paragraph to start below the image. A hard line break stays beside the image. In the web editor, Enter starts below; Shift+Enter adds a line beside it.
 
-- The maximum size is 25 MB per file. Allowed types are PNG, JPEG, GIF, WebP, PDF, TXT, MD, CSV, JSON, and ZIP. CoPlan returns `422` for other files.
+- The maximum size is 25 MB per file. Allowed types are PNG, JPEG, GIF, WebP, PDF, TXT, MD, CSV, JSON, and ZIP. Coplan returns `422` for other files.
 - Only the plan author can upload or delete attachments. Any reader can list and download them.
 - List the attachments: `GET <%= @base %>/api/v1/plans/$PLAN_ID/attachments`. Delete one: `DELETE <%= @base %>/api/v1/plans/$PLAN_ID/attachments/$ATTACHMENT_ID`.
 - If a Mermaid diagram can show the content, use Mermaid instead of an image. A person can edit Mermaid; nobody can edit an image of a diagram.
