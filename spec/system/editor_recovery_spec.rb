@@ -53,7 +53,10 @@ RSpec.describe "Editor draft recovery", type: :system do
     end
   end
 
-  [ [ "# Current title", "Current title" ], [ "Current title\n===", "Current title" ], [ "#", "" ] ].each do |heading, title|
+  [
+    [ "# Current title", "Current title" ], [ "Current title\n===", "Current title" ], [ "#", "" ],
+    [ "\n# Current title", "Current title" ], [ " \t\n\nCurrent title\n===", "Current title" ], [ "\n#", "" ]
+  ].each do |heading, title|
     it "keeps the recovered new document's canonical heading #{heading.inspect}" do
       visit new_plan_path
       rich

@@ -964,8 +964,14 @@ export default class extends Controller {
     const normalize = snapshot => {
       if (!snapshot || typeof snapshot.content !== "string" || typeof snapshot.title !== "string") return snapshot
       const title = snapshot.title.replace(/\s+/g, " ").trim()
-      const first = rich.parseDocument(snapshot.content).firstChild
-      if (!title || (first?.type.name === "heading" && first.attrs.level === 1)) return snapshot
+      // Blank lines are preserved nodes in the rich parser, but do not precede
+      // the title semantically. Strip only whole blank lines, never indentation.
+      const content = snapshot.content.replace(/^(?:[ \t]*\r?\n)+/, "")
+      const first = rich.parseDocument(content).firstChild
+      if (first?.type.name === "heading" && first.attrs.level === 1) {
+        return content === snapshot.content ? snapshot : { ...snapshot, content }
+      }
+      if (!title) return snapshot
       const escaped = title.replace(/([\\`*_{}\[\]<>()#!|~&])/g, "\\$1")
       return { ...snapshot, content: `# ${escaped}\n\n${snapshot.content}` }
     }
