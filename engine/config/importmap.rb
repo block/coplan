@@ -5,6 +5,7 @@ pin "coplan/shortcuts", to: "coplan/shortcuts.js", preload: true
 pin "coplan/reaction_focus", to: "coplan/reaction_focus.js", preload: true
 pin "coplan/comment_window", to: "coplan/comment_window.js", preload: true
 pin "coplan/collapsed_sections", to: "coplan/collapsed_sections.js", preload: true
+pin "coplan/comment_margin", to: "coplan/comment_margin.js", preload: true
 # Statically imported by the mermaid and data-grid controllers, which are
 # themselves preloaded — preload these too or every page pays a round trip
 # to discover them.

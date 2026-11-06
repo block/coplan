@@ -84,6 +84,37 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(seeded_plan("demo-library").current_content).to include(plan.url_path)
     end
 
+    it "seeds comment cards with a stacked pair, a long comment, and replies without duplicating on re-seed" do
+      described_class.call
+      plan = seeded_plan("comment-cards")
+      expect(plan.title).to eq("Comment cards: margin discussions")
+      expect(seeded_plan("demo-library").current_content).to include("## Discussions", plan.url_path, "`comment-cards`")
+      threads = plan.comment_threads
+      expect(threads.count).to eq(7)
+      expect(threads.where(status: "open").where.not(anchor_text: nil).count).to eq(5)
+      expect(threads.where(anchor_text: nil).count).to eq(1)
+      expect(threads.find_by!(anchor_text: "dimmed cards")).to be_closed
+      expect(threads.where(status: "open").pluck(:created_by_user_id).uniq.size).to be >= 5
+
+      pair = plan.current_content.lines.find { |line| line.include?("the cache warmup") }
+      expect(pair).to include("the retry budget")
+      expect(threads.where(anchor_text: [ "the cache warmup", "the retry budget" ]).count).to eq(2)
+      long = threads.find_by!(anchor_text: "a thin connector").comments.first.body_markdown
+      expect(long.split.size).to be >= 80
+
+      aligned = threads.find_by!(anchor_text: "aligned with the passage it quotes")
+      expect(aligned.comments.count).to eq(3)
+      expect(aligned.comments.order(:created_at).last.author_id).not_to eq(aligned.comments.order(:created_at).first.author_id)
+      expect(threads.find_by!(anchor_text: "the retry budget").comments.count).to eq(2)
+      threads.where.not(anchor_text: nil).each { |thread| expect(plan.current_content).to include(thread.anchor_text) }
+
+      aligned.resolve!(plan.created_by_user)
+      described_class.call
+      expect(plan.comment_threads.count).to eq(7)
+      expect(aligned.reload).to be_closed
+      expect(aligned.comments.count).to eq(3)
+    end
+
     def seeded_plan(key)
       CoPlan::Plan.all.detect { |plan| plan.metadata.to_h["development_seed_key"] == key }
     end

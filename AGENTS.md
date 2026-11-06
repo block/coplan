@@ -230,8 +230,8 @@ reader to an apparently empty page.
 
 ### Inline review UI
 - **Highlights**: anchored text is wrapped in `<mark>` elements — subtle blue for `open`, unstyled for `resolved`; orange is reserved for viewer-specific attention, never thread status
-- **Margin dots**: colored indicators in the left margin aligned to each highlight's vertical position
-- **Collapsed sections**: a closed `<details>` hides its highlights, so it shows a compact blue count badge on its summary instead of margin dots (open threads only, unless resolved threads are shown). Every jump to a thread — `?thread=`, j/k, a badge — opens the enclosing sections first (`coplan/collapsed_sections.js`)
+- **Margin discussions**: one entry per highlighted thread in the right page margin, aligned with its text (`comment_margin_controller.js`). **Markers** (the default) show the first commenter's avatar; **Cards** show the first comment, reply count, latest participant, and status, and the open thread popover expands over its card. The Markers / Cards switch in the masthead is remembered per user in localStorage; cards fall back to markers when the margin is too narrow
+- **Collapsed sections**: a closed `<details>` hides its highlights, so it shows a compact blue count badge on its summary instead of margin markers or cards (open threads only, unless resolved threads are shown). Every jump to a thread — `?thread=`, j/k, a badge — opens the enclosing sections first (`coplan/collapsed_sections.js`)
 - **Thread popovers**: native HTML Popover API (`popover="auto"`) showing the comment thread, reply form, and action buttons; positioned relative to the anchor and tracked on scroll
 - **Comment toolbar**: fixed bottom bar showing open thread count, j/k navigation, and a "Show resolved" toggle
 
