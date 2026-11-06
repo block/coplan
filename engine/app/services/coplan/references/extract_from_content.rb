@@ -36,7 +36,7 @@ module CoPlan
           # Don't overwrite explicit references
           next if ref.persisted? && ref.source == "explicit"
 
-          key = meta[:key].presence || ref.key
+          key = meta[:key].presence
           key = nil if key && @plan.references.where(key: key).where.not(id: ref.id).exists?
           ref.assign_attributes(
             key: key,

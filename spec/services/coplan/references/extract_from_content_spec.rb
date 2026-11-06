@@ -10,6 +10,19 @@ RSpec.describe CoPlan::References::ExtractFromContent do
   end
 
   describe ".call" do
+    it "clears a generated key when the definition becomes an invalid label" do
+      update_content(plan, "[report]: https://example.com/report")
+      described_class.call(plan: plan)
+      reference = plan.references.sole
+      expect(reference.key).to eq("report")
+
+      update_content(plan, "[^1]: https://example.com/report")
+      2.times { described_class.call(plan: plan) }
+
+      expect(plan.references.reload.sole.id).to eq(reference.id)
+      expect(reference.reload.key).to be_nil
+    end
+
     it "keeps footnote and punctuation-only definitions without invalid keys" do
       update_content(plan, "[^1]: https://example.com/note\n[!!!]: https://example.com/symbols\n")
 
