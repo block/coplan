@@ -34,7 +34,7 @@
     <% end %>
     <%= link_to "Continue after signing in", agent_connect_path(user_code: @user_code), class: "btn btn--secondary" %>
   <% else %>
-    <h2>Allow this computer to use CoPlan?</h2>
+    <h2>Allow this computer to use Coplan?</h2>
     <p>Signed in as <strong><%= current_user.name %></strong><% if current_user.email.present? %> (<%= current_user.email %>)<% end %>.</p>
     <p>Connection name reported by your local helper: <strong><%= @connection.name %></strong></p>
     <p class="connection-code"><code><%= @user_code %></code></p>

@@ -1,7 +1,7 @@
 require "uri"
 
 module CoPlan
-  # A deterministic, idempotent dataset for exercising CoPlan's development UI.
+  # A deterministic, idempotent dataset for exercising Coplan's development UI.
   # Existing seed documents keep local content edits; missing records are restored
   # on the next run and seed-owned metadata remains consistent.
   module DevelopmentSeed
@@ -97,7 +97,7 @@ module CoPlan
         showcase: "Nearby discussions, multiple participants, resolved threads, and scrollable slides; avatars show starters, not unread state" },
       { key: "reference-gallery", author: "hampton", type: "General", title: "References: every supported reference type",
         tags: %w[demo references], visibility: "published", folder: "Demo content/References", group: "References",
-        showcase: "CoPlan document, repository, pull request, external document, web link, footnote, and named citation" },
+        showcase: "Coplan document, repository, pull request, external document, web link, footnote, and named citation" },
       { key: "api-comment-anchors", author: "hampton", type: "Research Note", title: "API comments: Markdown quotes and visible fallbacks",
         tags: %w[demo tables], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "API-style text anchors across inline code and table rows; Comments fallback for hidden source" },
@@ -1146,7 +1146,7 @@ module CoPlan
         whole-diagram comments. Browse first; press **C** or choose **Comment** when
         you want to comment. Diagrams and tables include seeded discussions to open.
 
-        This is the shared demo and development library shipped with CoPlan. Each key is
+        This is the shared demo and development library shipped with Coplan. Each key is
         a named scenario. Start here when trying a feature, taking screenshots, or
         extending the examples. Re-seeding adds missing documents and keeps local edits,
         approvals, and resolved discussions. Use a fresh database for the initial states.

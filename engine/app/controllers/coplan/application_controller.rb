@@ -27,7 +27,7 @@ module CoPlan
     helper CoPlan::BrowseHelper
     helper CoPlan::WritingProvenanceHelper
 
-    # Skip host auth — CoPlan handles authentication internally via config.authenticate
+    # Skip host auth — Coplan handles authentication internally via config.authenticate
     skip_before_action :authenticate_user!, raise: false
 
     before_action :authenticate_coplan_user!
@@ -91,7 +91,7 @@ module CoPlan
       @current_coplan_user = CoPlan::Authentication.user_from_request(request)
       if @current_coplan_user
         # People sync leaves directory records passive; the first authenticated
-        # CoPlan request creates the person's own library.
+        # Coplan request creates the person's own library.
         @current_coplan_user.library
       else
         if request.format.json?
@@ -177,11 +177,11 @@ module CoPlan
     def agent_redirect_instructions
       base = request.base_url
       <<~MARKDOWN
-        # CoPlan API
+        # Coplan API
 
-        You're accessing CoPlan's web UI, which requires browser authentication.
+        You're accessing Coplan's web UI, which requires browser authentication.
 
-        To interact with CoPlan programmatically, use the API. Full instructions are at:
+        To interact with Coplan programmatically, use the API. Full instructions are at:
 
         #{base}#{coplan.agent_instructions_path}
 

@@ -3,7 +3,7 @@ require "uri"
 
 module CoPlan
   class LinkPreviews
-    # CoPlan uses time-ordered UUIDv7 IDs, while imported installations may
+    # Coplan uses time-ordered UUIDv7 IDs, while imported installations may
     # contain older UUID versions. Validate the UUID shape, not one version.
     UUID = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
     DESCRIPTION_LENGTH = 240

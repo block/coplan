@@ -707,7 +707,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
     }, DOMSerializer.marksFromSchema(schema)),
     transformPastedHTML(html) {
       // Other apps copy their thumbnail/display width along with the original
-      // image URL. Default those pastes to natural size; retain CoPlan resizes.
+      // image URL. Default those pastes to natural size; retain Coplan resizes.
       const template = document.createElement("template")
       template.innerHTML = html
       for (const image of template.content.querySelectorAll("img")) {
@@ -1401,7 +1401,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     const hint = document.createElement("p"); hint.className = "document-editor__embed-hint"
     const form = view.dom.closest("[data-coplan--editor-embed-domains-value]")
     const hosts = JSON.parse(form?.dataset.coplanEditorEmbedDomainsValue || form?.getAttribute("data-coplan--editor-embed-domains-value") || "[]")
-    hint.textContent = (hosts.length ? `Approved domains: ${hosts.join(", ")}. HTTPS only.` : "No iframe domains are approved. An administrator can add them in CoPlan Admin.") + " Title describes the page for screen readers; it is not a visible caption."
+    hint.textContent = (hosts.length ? `Approved domains: ${hosts.join(", ")}. HTTPS only.` : "No iframe domains are approved. An administrator can add them in Coplan Admin.") + " Title describes the page for screen readers; it is not a visible caption."
     dom.append(fields, hint, previewBody)
     const settlePreview = (content, asText = false) => {
       // A preview above the active field/button must not move it mid-action.

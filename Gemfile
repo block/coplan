@@ -56,7 +56,7 @@ gem "activeadmin_assets"
 gem "rack-attack"
 # Slack API client for notifications
 gem "slack-ruby-client"
-# CoPlan engine (core functionality)
+# Coplan engine (core functionality)
 gem "coplan-engine", path: "engine", require: "coplan"
 gem "coplan-slack", path: "integrations/slack", require: "coplan/slack"
 

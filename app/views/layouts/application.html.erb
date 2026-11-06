@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="<%= I18n.locale %>">
   <head>
-    <title><%= content_for(:title) || "CoPlan" %></title>
+    <title><%= content_for(:title) || "Coplan" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="application-name" content="CoPlan">
+    <meta name="application-name" content="Coplan">
     <meta name="mobile-web-app-capable" content="yes">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
@@ -28,10 +28,10 @@
   <body>
     <nav class="site-nav">
       <div class="site-nav__inner">
-        <%= link_to coplan.root_path, class: "site-nav__brand", aria: { label: "CoPlan" }, title: coplan_environment_logo_title do %>
+        <%= link_to coplan.root_path, class: "site-nav__brand", aria: { label: "Coplan" }, title: coplan_environment_logo_title do %>
           <%= image_tag coplan_logo_asset, alt: "", class: "site-nav__logo",
                 title: coplan_environment_logo_title %>
-          CoPlan
+          Coplan
         <% end %>
 
         <% if signed_in? %>

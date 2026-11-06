@@ -1,4 +1,4 @@
-# Required reference data for a CoPlan installation. Idempotent — safe to run
+# Required reference data for a Coplan installation. Idempotent — safe to run
 # repeatedly, and never touches rows the host has customized.
 #
 # This exists because data migrations only run on databases initialized by

@@ -28,7 +28,7 @@ module CoPlan
       name = CoPlan.configuration.default_theme
       return if find(name)
 
-      message = "CoPlan config.default_theme is #{name.inspect}, which is not a theme. " \
+      message = "Coplan config.default_theme is #{name.inspect}, which is not a theme. " \
         "Valid themes: #{keys.join(", ")}."
       raise ArgumentError, message if env.development? || env.test?
       logger.warn("#{message} Falling back to #{CLASSIC}.")
@@ -36,7 +36,7 @@ module CoPlan
 
     # The theme a viewer's stored choice shows: the theme it names, else the
     # default. "default" isn't a theme key, so it falls through, and so does
-    # a theme a later CoPlan release removed.
+    # a theme a later Coplan release removed.
     def self.resolve(choice) = find(choice) || default
   end
 end

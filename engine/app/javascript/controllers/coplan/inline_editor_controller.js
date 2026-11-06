@@ -156,7 +156,7 @@ export default class extends Controller {
   draftSaved(event) {
     if (!this.draftValue || !this.hasDraftStateTarget) return
     this.draftStateTarget.textContent = `Saved · v${event.detail.revision}`
-    document.title = `${this.controller.snapshot().title} — CoPlan`
+    document.title = `${this.controller.snapshot().title} — Coplan`
   }
 
   revisionChanged(event) {

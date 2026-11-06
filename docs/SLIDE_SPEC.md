@@ -33,11 +33,11 @@ In reading mode, each deck has its own slide controls and Present button.
 The presentation occupies the browser window and returns to its reader
 position when closed.
 
-This document is the product boundary of CoPlan's deck design system. On one
+This document is the product boundary of Coplan's deck design system. On one
 side: plain CommonMark and a deterministic classifier that assigns every slide
 a layout pattern. On the other: a markup contract and a stylesheet
 (`deck.css` + `deck-theme-*.css`) that render those patterns. Anything that
-implements this spec — CoPlan's Ruby renderer today, a JS implementation
+implements this spec — Coplan's Ruby renderer today, a JS implementation
 later — produces the same deck from the same markdown.
 
 Two properties are non-negotiable and every rule below serves them:
@@ -73,7 +73,7 @@ proves itself against the same fixtures.
 
 Classification operates on one slide's markdown (boundaries and definition
 hoisting are upstream concerns; see `Slideshows::Split`). Parse it as
-CommonMark with the host's extensions (CoPlan: footnotes, tables,
+CommonMark with the host's extensions (Coplan: footnotes, tables,
 strikethrough, autolink, tasklist). The **content sequence** is the slide's
 top-level blocks, excluding:
 
@@ -107,7 +107,7 @@ pattern: content
 ```
 
 Link-reference definitions are consumed by the parser and contribute no
-blocks. Classify the same string the renderer renders — in CoPlan that
+blocks. Classify the same string the renderer renders — in Coplan that
 includes the hoisted definition preamble, so reference-style images
 (`![chart][q3]`) resolve to image nodes here exactly as they do on screen.
 
@@ -708,7 +708,7 @@ classes live under the `deck-` namespace and everything is scoped beneath
   must skip the wrappers rather than wrap the wrong nodes or reorder
   visible text around them; the stylesheet degrades to the content layout.
 
-Three invariants protect CoPlan's review loop and hold for every pattern:
+Three invariants protect Coplan's review loop and hold for every pattern:
 
 1. **No added visible text.** Slide numbers, quote marks, kicker rules —
    all chrome is CSS-generated or structural. Comment anchors count
@@ -763,7 +763,7 @@ theme, never from the reader's scheme.
 ## Out of scope here
 
 Slide splitting and definition hoisting (`Slideshows::Split`), speaker
-notes, the fit report's budgets, and presenter-mode chrome are CoPlan
+notes, the fit report's budgets, and presenter-mode chrome are Coplan
 concerns documented with their implementations. This spec owns exactly:
 the content sequence, the catalog, the steps, the markup contract, and the
 theme tokens.

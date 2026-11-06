@@ -10,13 +10,13 @@ This guide assumes that you have read the primer at <<%= @base %>/agent-instruct
 
 ## Create request fields
 
-`POST <%= @base %>/api/v1/plans` requires `title` and `content`. CoPlan shows the title above the content, so do not start `content` with `# <title>`. Optional fields:
+`POST <%= @base %>/api/v1/plans` requires `title` and `content`. Coplan shows the title above the content, so do not start `content` with `# <title>`. Optional fields:
 
 | Field | Value |
 |---|---|
 | `plan_type` | A type name. If you do not send one, the plan gets the type **General**. |
-| `folder_path` | A path such as `"Team EBT/Q3"`. CoPlan creates missing folders in your principal's library. You can send `folder_id` instead. |
-| `tags` | An array of tag names. CoPlan adds them to the type's `default_tags`. |
+| `folder_path` | A path such as `"Team EBT/Q3"`. Coplan creates missing folders in your principal's library. You can send `folder_id` instead. |
+| `tags` | An array of tag names. Coplan adds them to the type's `default_tags`. |
 | `references` | An array of resources that the content does not link. See [References](#references). |
 | `visibility` | Send `"draft"` only when your principal asks for a private plan. See [Visibility and archiving](#visibility-and-archiving). |
 
@@ -28,7 +28,7 @@ Each plan has one type. A type has a description, default tags, and a content te
 
 - Choose the most specific type that fits. Use **General** only after you check the list and no other type fits.
 - The type's `template_content` is the structure that readers of that type expect. Keep its sections and fill them with real content. Remove a section only when it does not apply.
-- CoPlan applies the type's `default_tags` when it creates the plan.
+- Coplan applies the type's `default_tags` when it creates the plan.
 - If a plan changes into a different kind of document, change its type: `PATCH <%= @base %>/api/v1/plans/$PLAN_ID` with `{"plan_type": "..."}`. Then restructure the content to match the new template. An unknown type name returns `422` with the list of valid names.
 <% if @plan_types.any? %>
 
@@ -64,7 +64,7 @@ To reorganize a library, or to move many plans, fetch <<%= @base %>/agent-instru
 
 ## References
 
-References are the list of resources connected to a plan: repositories, pull requests, documents, and other plans. Readers see them in the plan's References section. CoPlan adds content links to this list. Iframe src URLs describe embedded content and do not become references. Add a reference through the API only for a resource that the content does not link.
+References are the list of resources connected to a plan: repositories, pull requests, documents, and other plans. Readers see them in the plan's References section. Coplan adds content links to this list. Iframe src URLs describe embedded content and do not become references. Add a reference through the API only for a resource that the content does not link.
 
 ```bash
 <%= @curl %> -X POST \
@@ -74,7 +74,7 @@ References are the list of resources connected to a plan: repositories, pull req
 ```
 
 - `url` is required. Always set `key`, a short stable name such as `auth-repo` or `impl-pr` (lowercase letters, numbers, `-`, and `_`; unique in the plan). Set `title` to a name that people can read, not the URL.
-- CoPlan sets the type (repository, pull request, plan, document, or link) from the URL.
+- Coplan sets the type (repository, pull request, plan, document, or link) from the URL.
 - Only the plan author can add or remove references through the API. You can also send `references` on create or in a `PATCH` to the plan.
 - `GET <%= @base %>/api/v1/plans/$PLAN_ID/references` lists the references of a plan.
 - `GET <%= @base %>/api/v1/references/search?url=...` finds the plans that refer to a URL.

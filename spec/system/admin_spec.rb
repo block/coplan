@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe "CoPlan administration", type: :system do
+RSpec.describe "Coplan administration", type: :system do
   it "opens the shared dashboard and delivery history from the app menu" do
     user = create(:coplan_user, admin: true, email: "admin-browser@example.com")
     visit sign_in_path

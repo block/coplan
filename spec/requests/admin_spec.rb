@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe "CoPlan administration", type: :request do
+RSpec.describe "Coplan administration", type: :request do
   it "requires a signed-in user" do
     get "/_/admin"
 

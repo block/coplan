@@ -1,4 +1,4 @@
-// CoPlan service worker.
+// Coplan service worker.
 // Served by Coplan::ServiceWorkersController#show with Cache-Control: no-cache.
 // Default scope is the engine mount point.
 
@@ -21,24 +21,24 @@ self.addEventListener("activate", (event) => {
 // userVisibleOnly: true contract), and because it makes the DevTools
 // "Push" test button useful for verifying the SW is actually wired up.
 self.addEventListener("push", (event) => {
-  let payload = { title: "CoPlan", body: "" }
+  let payload = { title: "Coplan", body: "" }
   if (event.data) {
     try {
       payload = event.data.json()
     } catch {
-      payload = { title: "CoPlan", body: event.data.text() }
+      payload = { title: "Coplan", body: event.data.text() }
     }
   } else {
-    payload = { title: "CoPlan", body: "Test push (no payload)" }
+    payload = { title: "Coplan", body: "Test push (no payload)" }
   }
 
-  const title = payload.title || "CoPlan"
+  const title = payload.title || "Coplan"
   const options = {
     body: payload.body || "",
     tag: payload.tag,
     data: { url: payload.url },
     // Substituted by ServiceWorkersController at request time so the SW always
-    // picks up the current digested asset path for the CoPlan logo.
+    // picks up the current digested asset path for the Coplan logo.
     icon: "__COPLAN_NOTIFICATION_ICON__",
     badge: "__COPLAN_NOTIFICATION_ICON__"
   }
@@ -62,8 +62,8 @@ self.addEventListener("notificationclick", (event) => {
       includeUncontrolled: true
     })
 
-    // Prefer focusing an existing CoPlan tab and navigating it. We compare
-    // origins so a CoPlan tab on /aiko/one handles a notification for
+    // Prefer focusing an existing Coplan tab and navigating it. We compare
+    // origins so a Coplan tab on /aiko/one handles a notification for
     // /sam/liveorder/two without spawning a new window.
     const targetUrlObj = new URL(targetUrl, self.location.origin)
     for (const client of allClients) {
