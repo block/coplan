@@ -98,6 +98,9 @@ module CoPlan
       { key: "discussion-margins", author: "hampton", type: "Design Doc", title: "Discussion margins: crowded lines and slide navigation",
         tags: %w[demo collaboration], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "Nearby discussions, multiple participants, resolved threads, and scrollable slides; avatars show starters, not unread state" },
+      { key: "comment-cards", author: "hampton", type: "Design Doc", title: "Comment cards: margin discussions",
+        tags: %w[demo comments], visibility: "published", folder: "Demo content/Discussions", group: "Discussions",
+        showcase: "Switch the margin to Cards on a wide window: aligned cards, a stacked pair, a long comment with more, replies, and a hidden resolved thread" },
       { key: "reference-gallery", author: "hampton", type: "General", title: "References: every supported reference type",
         tags: %w[demo references], visibility: "published", folder: "Demo content/References", group: "References",
         showcase: "Coplan document, repository, pull request, external document, web link, footnote, and named citation" },
@@ -320,6 +323,7 @@ module CoPlan
         seed_agent_connections(users) if CoPlan.configuration.agent_connection_enabled?
         seed_content_discussions(users, plans)
         seed_discussion_margins(users, plans)
+        seed_comment_cards(users, plans)
         seed_reading_specimen(users, plans)
         seed_comment_reactions(users, plans)
         seed_reference_gallery(plans, base_url: base_url)
@@ -703,6 +707,46 @@ module CoPlan
       end
       seed_thread(plan: plan, user: users.fetch("sam"), anchor: "resolved example",
         body: "The retention period is now documented.", resolved_by: users.fetch("hampton"))
+    end
+
+    COMMENT_CARD_LONG_BODY = "Before we commit to pushing the later card down, consider what happens on a long " \
+      "design review where a dozen discussions cluster around one section. The bottom cards could end up a full " \
+      "screen away from the passage they quote, and readers would have to trace a connector across the page to " \
+      "understand the context. An alternative is to collapse cards in a dense cluster into a single summary card " \
+      "that expands on click. That keeps every card close to its text at the cost of one extra interaction. I would " \
+      "like to see both approaches tried against a realistic document before we pick one."
+
+    # Open discussions spread through the document, a pair on one line that
+    # must stack, a long first comment, replies, a resolved card, and one
+    # general comment that stays in the Comments section.
+    def seed_comment_cards(users, plans)
+      plan = plans.fetch("comment-cards")
+      [
+        { user: "alex", anchor: "aligned with the passage it quotes",
+          body: "Should cards align to the start of the highlight or its first line when the passage wraps?",
+          replies: [ [ "hampton", "The first line; that is where the eye lands." ],
+            [ "noura", "Agreed, and keep it consistent with the markers so switching modes does not jump." ] ] },
+        { user: "sam", anchor: "the cache warmup",
+          body: "Warmup should finish before the new retry rules take effect." },
+        { user: "aiko", anchor: "the retry budget",
+          body: "What is the retry budget per request during the rollout?",
+          replies: [ [ "sam", "Three attempts with jittered backoff." ] ] },
+        { user: "noura", anchor: "a thin connector", body: COMMENT_CARD_LONG_BODY },
+        { user: "mateo", anchor: "the most recent participant",
+          body: "Show the avatar of the most recent participant next to the count." }
+      ].each do |discussion|
+        thread = seed_thread(plan: plan, user: users.fetch(discussion[:user]), anchor: discussion[:anchor], body: discussion[:body])
+        # Only populate replies on initial creation; later edits and deletions are preserved.
+        next unless thread
+
+        discussion.fetch(:replies, []).each do |user, body|
+          thread.comments.create!(author_type: "human", author_id: users.fetch(user).id, body_markdown: body)
+        end
+      end
+      seed_thread(plan: plan, user: users.fetch("sam"), anchor: "dimmed cards",
+        body: "Dimmed resolved cards now match the resolved marker style.", resolved_by: users.fetch("hampton"))
+      seed_thread(plan: plan, user: users.fetch("aiko"),
+        body: "Overall this reads well. A short screen recording of the stacking behavior would help reviewers.")
     end
 
     def seed_thread(plan:, user:, body:, anchor: nil, source_token: nil, author_type: "human",

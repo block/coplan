@@ -1,6 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import { registerShortcuts, commandFor } from "coplan/shortcuts"
-import { commentWindowTop } from "coplan/comment_window"
+import { commentWindowTop, placeOnMarginCard } from "coplan/comment_window"
 
 export default class extends Controller {
 
@@ -185,7 +185,7 @@ export default class extends Controller {
   }
 
   positionPopoverAtMark(popover, mark) {
-    if (popover.dataset.positioned === "true") return
+    if (popover.dataset.positioned === "true" || placeOnMarginCard(popover)) return
     // Mirrors text_selection_controller: bottom sheet on small screens.
     if (window.matchMedia("(max-width: 640px)").matches) {
       popover.classList.add("thread-popover--sheet")
