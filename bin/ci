@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 require_relative "../config/boot"
-require "active_support/continuous_integration"
+require_relative "../lib/local_ci"
 
-CI = ActiveSupport::ContinuousIntegration
-require_relative "../config/ci.rb"
+$stdout.sync = true
+Dir.chdir(File.expand_path("..", __dir__)) do
+  LocalCi.start(ARGV)
+end
