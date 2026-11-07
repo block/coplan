@@ -5,7 +5,7 @@ and people edit it like any other text.
 
 Each delivery attempt fails independently with probability $p$, so a message
 still fails after $n$ attempts with probability $p^n$. With exponential backoff
-starting at $b$ seconds, the wait before attempt $k$ is $`b \cdot 2^{k-1}`$.
+starting at $b$ seconds, the wait after failed attempt $k$ is $`b \cdot 2^{k-1}`$.
 
 ## Display math
 
@@ -24,7 +24,7 @@ n_{\min} = \left\lceil \frac{\ln \varepsilon}{\ln p} \right\rceil
 ## Math in lists and tables
 
 - At $p = 0.2$ and a target of $\varepsilon = 10^{-4}$, we need $n_{\min} = 6$ attempts.
-- The last wait is then $b \cdot 2^{5} = 32b$.
+- The last wait, after attempt 5, is then $b \cdot 2^{4} = 16b$.
 
 | Attempts $n$ | Failure rate $p^n$ | Total wait $T(n)$ |
 | --- | --- | --- |
