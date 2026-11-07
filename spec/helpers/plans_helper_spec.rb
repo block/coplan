@@ -1,6 +1,18 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::PlansHelper, type: :helper do
+  describe "#render_plan_document" do
+    before { helper.extend(CoPlan::SlideshowsHelper) }
+    it "preserves the numbered title fragment alongside the canonical title anchor" do
+      html = helper.render_plan_document("# 1 Overview\n\nOpening text. See [overview](#section-1).\n\n## 2 Details\n\nDetails.")
+      doc = Nokogiri::HTML.fragment(html)
+      expect(doc.at_css("h1#plan-title")).to be_present
+      expect(doc.at_css("#section-1")).to be_present
+      expect(doc.css("[id]").map { |node| node["id"] }.uniq.size).to eq(doc.css("[id]").size)
+      expect(doc.at_css('a[href="#section-1"]')["class"]).to include("reference-anchor--section")
+    end
+  end
+
   describe "#plan_content_preview" do
     let(:plan) { create(:plan, :considering) }
 

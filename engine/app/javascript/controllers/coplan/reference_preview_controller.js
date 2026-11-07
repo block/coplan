@@ -249,7 +249,8 @@ export default class extends Controller {
     if (!href?.startsWith("#") || href.length === 1) return null
 
     try {
-      return document.getElementById(decodeURIComponent(href.slice(1)))
+      const target = document.getElementById(decodeURIComponent(href.slice(1)))
+      return target?.hasAttribute("data-heading-alias") ? target.closest("h1, h2, h3, h4, h5, h6") : target
     } catch {
       return null
     }
