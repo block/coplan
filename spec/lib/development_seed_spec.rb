@@ -318,6 +318,30 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(plan.reload.current_content).to eq(resized)
     end
 
+    it "seeds the callout gallery once with every callout type and preserves a person's edits" do
+      described_class.call
+      plan = seeded_plan("callout-gallery")
+      expect(plan.title).to eq("Callouts: notes, tips, and warnings")
+      expect(plan.current_content).to include("> [!IMPORTANT] Decision needed", "> [!NOTE]", "> [!TIP]", "> [!WARNING]", "> [!CAUTION]")
+      expect(plan.current_content).to include("> [!QUESTION]", "> Storage is cheap; the backup window is not.")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+
+      html = ApplicationController.helpers.render_markdown(plan.current_content)
+      types = Nokogiri::HTML::DocumentFragment.parse(html).css(".callout").map { |node| node["class"].delete_prefix("callout callout--") }
+      expect(types).to eq(%w[important note tip warning caution tip warning])
+      expect(plan.current_content).to include('> \\[!NOTE]', 'theme="coplan"', 'theme="graphite"')
+
+      revision = plan.current_revision
+      described_class.call
+      expect(plan.reload.current_revision).to eq(revision)
+
+      edited = plan.current_content.sub("> [!TIP]", "> [!NOTE]")
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: edited,
+        base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
+      described_class.call
+      expect(plan.reload.current_content).to eq(edited)
+    end
+
     it "upgrades only untouched host image URLs and preserves edited image examples" do
       described_class.call
       plan = seeded_plan("pattern-showcase")

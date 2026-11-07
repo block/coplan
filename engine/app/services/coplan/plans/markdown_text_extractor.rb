@@ -72,8 +72,11 @@ module CoPlan
         offsets
       end
 
-      # Block-level node types that should be separated by newlines.
-      BLOCK_TYPES = %i[paragraph heading table table_row item block_quote list code_block].to_set.freeze
+      # Block-level node types that should be separated by newlines. An
+      # alert's `[!NOTE]` marker and title are not child nodes, so neither
+      # reaches the stripped text; the rendered callout shows its label
+      # through CSS for the same reason.
+      BLOCK_TYPES = %i[paragraph heading table table_row item block_quote alert list code_block].to_set.freeze
 
       # Recursively walks the AST, appending text content to `stripped` and
       # character-index mappings to `pos_map`. Inserts whitespace between
