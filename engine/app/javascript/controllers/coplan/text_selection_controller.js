@@ -372,12 +372,16 @@ export default class extends Controller {
     event.stopPropagation()
     const id = event.currentTarget.dataset.threadId
     const mark = this.contentTarget.querySelector(`mark.anchor-highlight[data-thread-id="${id}"], [data-source-badge][data-thread-id="${id}"]`)
-    if (!mark) return
+    const thread = document.getElementById(id)
+    if (!mark || !thread?.dataset.threadId) return
+    // Opening the section removes its badge. Keep a live focus-return target
+    // for both prose popovers and source-comment panels.
+    event.currentTarget.closest("summary")?.focus({ preventScroll: true })
     revealSections(mark)
     mark.scrollIntoView({ behavior: "instant", block: "center" })
     if (mark.hasAttribute("data-source-badge")) {
       mark.dispatchEvent(new CustomEvent("coplan:source-thread", {
-        bubbles: true, cancelable: true, detail: { threadId: document.getElementById(id)?.dataset.threadId, focusReply: false }
+        bubbles: true, cancelable: true, detail: { threadId: thread.dataset.threadId, focusReply: false }
       }))
     } else {
       this._showThreadPopoverFor(mark)

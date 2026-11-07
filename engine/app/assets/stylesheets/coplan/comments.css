@@ -215,6 +215,9 @@
   align-items: center;
   gap: 3px;
   margin-left: var(--space-sm);
+  min-width: 24px;
+  min-height: 24px;
+  justify-content: center;
   padding: 1px 7px;
   border: 1px solid transparent;
   border-radius: 999px;

@@ -82,6 +82,8 @@ export default class extends Controller {
       if (!popover) continue
       const card = this.cards.get(id) || this.buildCard(id)
       this.fillCard(card, popover, mark)
+      // A section can reveal this card after the popover's toggle event.
+      card.classList.toggle("is-active", popover.matches(":popover-open"))
     }
 
     this.marks = marks
@@ -111,7 +113,7 @@ export default class extends Controller {
       }
       badge.dataset.threadId = ids[0]
       badge.dataset.count = ids.length
-      badge.setAttribute("aria-label", `${ids.length} ${ids.length === 1 ? "discussion" : "discussions"} in this section`)
+      badge.setAttribute("aria-label", `${ids.length} ${ids.length === 1 ? "discussion" : "discussions"} in this section, open the first`)
     }
   }
 

@@ -65,7 +65,7 @@ RSpec.describe "Discussions inside collapsed sections", type: :system do
 
   after { page.current_window.resize_to(1400, 900) }
 
-  it "reveals every enclosing section for a linked table discussion" do
+  def table_discussion
     _, start, finish = CoPlan::Plans::SourceTargets.new(plan.current_content).ranges.find { |kind, *| kind == "table_cell" }
     token = CoPlan::Plans::SourceTargets.verifier.generate(
       { "digest" => Digest::SHA256.hexdigest(plan.current_content), "kind" => "table_cell",
@@ -74,6 +74,11 @@ RSpec.describe "Discussions inside collapsed sections", type: :system do
       created_by_user: reviewer, status: "open")
     thread.comments.create!(author_type: "human", author_id: reviewer.id, body_markdown: "How old are these samples?")
 
+    thread
+  end
+
+  it "reveals every enclosing section for a linked table discussion" do
+    thread = table_discussion
     visit plan_page_path(plan, thread: thread.id)
     expect(page).to have_css(".source-comments:popover-open", text: "How old are these samples?")
     expect(page).to have_css("#plan-content-body details[open]", count: 2)
@@ -81,11 +86,71 @@ RSpec.describe "Discussions inside collapsed sections", type: :system do
     expect(page).to have_no_css(".source-comments textarea:focus")
   end
 
+  it "returns focus to the table cell after its discussion closes" do
+    table_discussion
+    visit plan_page_path(plan)
+    section.find("summary", text: "Raw timeline").click
+    nested = section.find("details")
+    nested.find(".details-comment-badge").send_keys(:enter)
+    expect(page).to have_css(".source-comments:popover-open", text: "How old are these samples?")
+    expect(nested).to have_no_css(".details-comment-badge", visible: :all)
+    expect(page).to have_css(".source-comments [aria-label='Close element comments']:focus")
+    page.driver.browser.action.send_keys(:escape).perform
+    expect(page).to have_css("[data-source-target]:focus", text: "Status")
+  end
+
+  it "ignores a source badge whose thread disappeared before activation" do
+    thread = table_discussion
+    visit plan_page_path(plan)
+    section.find("summary", text: "Raw timeline").click
+    source_badge = section.find("details").find(".details-comment-badge")
+    # Model a Turbo replacement in the interval before the margin refresh.
+    dispatched_ids = source_badge.evaluate_script(<<~JS, "comment_thread_#{thread.id}")
+      ((button, id) => {
+        const dispatched = [];
+        const observe = event => { dispatched.push(event.detail.threadId ?? null); };
+        document.addEventListener("coplan:source-thread", observe);
+        button.click(); // Prove the action is bound and the event is observable.
+        document.getElementById(id).remove();
+        button.click();
+        document.removeEventListener("coplan:source-thread", observe);
+        return dispatched;
+      })(this, arguments[0])
+    JS
+    expect(dispatched_ids).to eq([ thread.id ])
+  end
+
+  it "keeps keyboard focus on the summary after activating its discussion badge" do
+    visit plan_page_path(plan)
+    badge.send_keys(:enter)
+    expect(page).to have_css("#comment_thread_#{backlog.id}_popover:popover-open")
+    expect(section).to have_no_css(".details-comment-badge", visible: :all)
+    expect(page).to have_css("#raw-timeline > summary:focus")
+    page.driver.browser.action.send_keys(:escape).perform
+    expect(page).to have_no_css(".thread-popover:popover-open")
+    expect(page).to have_css("#raw-timeline > summary:focus")
+  end
+
+  it "marks a newly revealed margin card active and clears it when dismissed" do
+    visit plan_page_path(plan)
+    badge.click
+    expect(page).to have_css("#comment_thread_#{backlog.id}_popover:popover-open")
+    expect(page).to have_css(".comment-margin__card.is-active[data-thread-id='comment_thread_#{backlog.id}']")
+    page.driver.browser.action.send_keys(:escape).perform
+    expect(page).to have_no_css(".comment-margin__card.is-active")
+  end
+
+  it "offers a discussion button target at least 24 pixels in each dimension" do
+    visit plan_page_path(plan)
+    expect(badge.rect.width).to be >= 24
+    expect(badge.rect.height).to be >= 24
+  end
+
   it "counts open discussions on the collapsed summary and opens the first one" do
     visit plan_page_path(plan)
     expect(page).to have_css(collapsed)
     expect(badge["data-count"]).to eq("2")
-    expect(badge[:"aria-label"]).to eq("2 discussions in this section")
+    expect(badge[:"aria-label"]).to eq("2 discussions in this section, open the first")
 
     # Resolved discussions count only while they are shown.
     find("body").send_keys("s")
