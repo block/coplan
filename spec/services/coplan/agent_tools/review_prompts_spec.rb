@@ -15,7 +15,7 @@ RSpec.describe "Agent review event prompts" do
   end
 
   { "coplan-attach" => "brief", "coplan-bridge" => "wake_prompt" }.each do |tool, method|
-    %w[requested requirement_changed withdrawn].each do |action|
+    %w[requested requirement_changed withdrawn removed].each do |action|
       it "shows #{action} review data in #{tool} without directing a document edit" do
         event = { "type" => "review.requested", "plan_id" => "plan",
                   "payload" => { "action" => action, "requirement" => "optional", "review_request_id" => "review" } }

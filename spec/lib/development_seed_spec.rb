@@ -363,6 +363,26 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(CoPlan::User.count).to eq(described_class::USERS.size)
     end
 
+    it "preserves the reassignment demo history and local decisions on reseeding" do
+      described_class.call
+      plan = seeded_plan("review-reassignment")
+      alex = CoPlan::User.find_by!(email: "alex@example.com")
+      old = plan.review_requests.find_by!(reviewer: alex, status: "removed")
+      fresh = plan.review_requests.current.find_by!(reviewer: alex)
+      expect(old.latest_approval.note).to eq("The invitation audit trail is clear.")
+      expect(fresh).to be_pending
+      expect(fresh.review_responses).to be_empty
+      expect(plan.review_requests.active.count).to eq(2)
+      expect(plan.plan_events.where(event_type: "review_removed", after_value: old.id)).to exist
+      expect(seeded_plan("demo-library").current_content).to include("review-reassignment")
+      ids = plan.review_requests.pluck(:id)
+      CoPlan::Reviews::Respond.call(request: fresh, actor: alex, revision: plan.current_revision, decision: "approved")
+      described_class.call
+      expect(plan.review_requests.pluck(:id)).to match_array(ids)
+      expect(fresh.reload.status).to eq("approved")
+      expect(old.reload.review_responses.count).to eq(1)
+    end
+
     it "seeds untouched, frequently edited, pending, and approved scenarios" do
       described_class.call
       untouched = seeded_plan("untouched-document")
