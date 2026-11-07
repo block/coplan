@@ -210,7 +210,12 @@ function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false
       specials.push({ from: offsets[from], to: Math.min(offsets[to], markdown.length), kind: "iframe" })
   }
   if (markdown.includes(summaryOpen)) {
-    const literal = tokens.filter(t => t.map && ["fence", "code_block", "html_block"].includes(t.type))
+    // The rich parser disables HTML; scan literal boundaries with the
+    // HTML-aware parser so examples cannot consume the real summary.
+    const literal = htmlBlockTokenizer.parse(markdown, {}).filter(t => t.map && ["fence", "code_block", "html_block"].includes(t.type))
+    for (const token of literal) {
+      for (let line = token.map[0]; line < token.map[1]; line++) markers.delete(line)
+    }
     lines.forEach((raw, index) => {
       const line = raw.replace(/\r$/, "")
       if ((line === summaryOpen || line === ":::") && !markers.has(index) &&
@@ -870,7 +875,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       }
       view.updateState(view.state.applyTransaction(transaction).state)
       if (transaction.docChanged) {
-        for (const block of view.dom.querySelectorAll(".document-editor__content-block")) block.coplanRefreshPreview?.()
+        for (const block of view.dom.querySelectorAll(".document-editor__content-block, .document-editor__summary-block")) block.coplanRefreshPreview?.()
         clearTimeout(previewOffsetTimer)
         previewOffsetTimer = setTimeout(() => {
           for (const body of view.dom.querySelectorAll(".document-editor__block-preview[data-source-from]")) {
@@ -1358,7 +1363,8 @@ function summaryPreview(html) {
   const card = template.content.querySelector("section.plan-summary")
   if (!card) throw new Error("Summary unavailable")
   card.removeAttribute("id")
-  const wrapper = document.createElement("div"); wrapper.className = "markdown-rendered"; wrapper.append(card)
+  const wrapper = card.closest(".markdown-rendered")?.cloneNode(false) || document.createElement("div")
+  wrapper.classList.add("markdown-rendered"); wrapper.append(card)
   return wrapper.outerHTML
 }
 
@@ -1546,6 +1552,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     dom.append(input)
   }
   const body = document.createElement("div"); body.className = "document-editor__block-preview"; dom.append(body)
+  let previewTimer, renderedSource
   const render = async () => {
     const sequence = ++generation, source = node.attrs.source
     dom.hidden = !source.trim()
@@ -1554,18 +1561,29 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     const isTable = !summary && node.attrs.kind !== "list" && /^\s*\|?.*\|.*\n\s*\|?\s*:?-{3,}/m.test(source)
     const isReferences = !summary && /^\s*\[\^[^\]]+\]:/m.test(source)
     title.textContent = summary ? "Summary" : node.attrs.kind === "list" ? "List" : isTable ? "Table" : isReferences ? "References" : "Markdown block"
-    body.replaceChildren()
-    const fallback = document.createElement("pre"); fallback.textContent = source; body.append(fallback)
+    if (!summary || !body.querySelector("section.plan-summary")) {
+      body.replaceChildren()
+      const fallback = document.createElement("pre"); fallback.textContent = source; body.append(fallback)
+    }
     // Rendering definitions alone drops them as unused footnotes. Keep their
     // source visible so References cards never become empty previews.
     if (preview && !isReferences) {
       try {
         // The summary previews from the whole plan, so its citations keep
         // their numbers; only its card is shown.
-        let html = await preview(summary ? serializeDocument(view.state.doc) : source)
+        const previewSource = summary ? serializeDocument(view.state.doc) : source
+        let html = await preview(previewSource)
         if (summary) html = summaryPreview(html)
-        if (sequence === generation) { body.innerHTML = html; previewSettled(body, view, getPos, sourceRangeAt) }
+        if (sequence === generation) { renderedSource = previewSource; body.innerHTML = html; previewSettled(body, view, getPos, sourceRangeAt) }
       } catch { /* Source remains usable offline. */ }
+    }
+  }
+  if (node.attrs.kind === "summary") {
+    dom.classList.add("document-editor__summary-block")
+    dom.coplanRefreshPreview = () => {
+      if (renderedSource === serializeDocument(view.state.doc)) return
+      generation++; clearTimeout(previewTimer)
+      previewTimer = setTimeout(render, 300)
     }
   }
   render()
@@ -1575,7 +1593,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
       if (input && input.value !== node.attrs.source) input.value = node.attrs.source
       render()
     } return true },
-    stopEvent: () => true, ignoreMutation: () => true, destroy() { generation++ } }
+    stopEvent: () => true, ignoreMutation: () => true, destroy() { generation++; clearTimeout(previewTimer) } }
 }
 function codeNodeView(initial, view, getPos, preview, sourceRangeAt) {
   let node = initial, generation = 0, timer

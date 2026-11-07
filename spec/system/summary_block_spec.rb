@@ -95,6 +95,7 @@ RSpec.describe "Summary block", type: :system do
   end
 
   it "keeps the block as one Summary card in the rich editor and saves it unchanged" do
+    page.driver.browser.manage.timeouts.script_timeout = 20
     result = page.evaluate_async_script(<<~'JS')
       const done = arguments[0];
       import("coplan/rich_document").then(m => {
@@ -102,17 +103,24 @@ RSpec.describe "Summary block", type: :system do
           "# Plan\n\n::: {.summary}\n- One\n- Two\n:::\n\nBody\n",
           "Intro\n::: {.summary}\nText\n:::\nAfter\n",
           "```markdown\n::: {.summary}\n:::\n```\n",
-          "::: {.summary}\nFirst\n:::\n\n::: {.summary}\nSecond\n:::\n"
+          "::: {.summary}\nFirst\n:::\n\n::: {.summary}\nSecond\n:::\n",
+          "<div>\n::: {.summary}\nExample\n:::\n</div>\n",
+          "<!--\n::: {.summary}\nExample\n:::\n-->\n\n::: {.summary}\nReal summary\n:::\n",
+          "::: {.summary}\nIntro\n\n<!--\n\n:::\n\n-->\n\nTail\n:::\n"
         ];
         done(examples.map(source => {
-          const doc = m.parseDocument(source), kinds = [];
-          doc.forEach(node => kinds.push(node.attrs.kind || node.type.name));
-          return { exact: m.serializeDocument(doc) === source, summaries: kinds.filter(kind => kind === "summary").length };
+          const doc = m.parseDocument(source), kinds = [], summarySources = [];
+          doc.forEach(node => {
+            kinds.push(node.attrs.kind || node.type.name);
+            if (node.attrs.kind === "summary") summarySources.push(node.attrs.source);
+          });
+          return { summarySources, exact: m.serializeDocument(doc) === source, summaries: kinds.filter(kind => kind === "summary").length };
         }));
       }).catch(error => done({ error: error.message }));
     JS
     expect(result).to all(include("exact" => true))
-    expect(result.map { |entry| entry.fetch("summaries") }).to eq([ 1, 1, 0, 1 ])
+    expect(result.map { |entry| entry.fetch("summaries") }).to eq([ 1, 1, 0, 1, 0, 1, 1 ])
+    expect(result.last.fetch("summarySources").first).to end_with("Tail\n:::\n")
 
     visit plan_edit_page_path(plan)
     expect(page).to have_no_css(".inline-editor--preparing", wait: 20)
@@ -121,5 +129,36 @@ RSpec.describe "Summary block", type: :system do
     expect(card).to have_css(".document-editor__block-preview sup.footnote-ref", text: "1")
     expect(card).to have_no_css("[id='plan-summary']")
     expect(page).to have_no_css(".ProseMirror p", text: "::: {.summary}")
+
+    paragraph = find(".ProseMirror p", text: "Supporting detail paragraph 1 ", match: :first)
+    paragraph.click
+    paragraph.send_keys(:end, " Reviewed.")
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", visible: :all, wait: 15)
+    summary_source = content[/::: \{\.summary\}.*?:::/m]
+    expect(plan.reload.current_content).to include(summary_source, "Reviewed.")
+    click_button "Done editing"
+    expect(page).to have_css("#plan-content-body section.plan-summary", text: "Recommendation:")
+    expect(plan.reload.current_content).to include(summary_source)
+  end
+
+  it "refreshes citations and renders diagrams inside the summary preview" do
+    enriched = content.sub("::: {.summary}", "Earlier citation.[^earlier]\n\n::: {.summary}")
+      .sub(":::\n\n## 1 Background", "\n```mermaid\nflowchart LR\nA[Queue] --> B[Search]\n```\n\n:::\n\n## 1 Background")
+    enriched += "\n[^earlier]: Earlier reference.\n"
+    plan = CoPlan::Plans::Create.call(title: "Save latency analysis", content: enriched, user: author,
+      visibility: "published", actor_type: "human")
+    visit plan_edit_page_path(plan)
+    card = find(".document-editor__block", text: "Summary", match: :first)
+    expect(card).to have_css("sup.footnote-ref", text: "2", wait: 15)
+    expect(card).to have_css(".mermaid-diagram svg", wait: 20)
+    paragraph = find(".ProseMirror p", text: "Earlier citation.")
+    page.execute_script(<<~JS, paragraph)
+      const range = document.createRange();
+      range.selectNodeContents(arguments[0]);
+      const selection = window.getSelection();
+      selection.removeAllRanges(); selection.addRange(range);
+    JS
+    page.driver.browser.action.send_keys(:backspace).perform
+    expect(card).to have_css("sup.footnote-ref", text: "1", wait: 15)
   end
 end

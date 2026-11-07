@@ -98,6 +98,7 @@ RSpec.describe CoPlan::SummaryBlocksHelper, type: :helper do
     targets.each do |target|
       resolved = CoPlan::Plans::SourceTargets.resolve(target["token"], content)
       expect(content[resolved["start"]...resolved["end"]].strip).to eq(target["text"].strip)
+      expect(CoPlan::Plans::SourceTargets.new(content).ranges).to include(resolved.values_at("kind", "start", "end"))
     end
   end
 
