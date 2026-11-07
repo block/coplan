@@ -160,6 +160,9 @@
   --table-numerals: tabular-nums;
   --image-radius: 6px;
   --blockquote-rule: var(--color-border-strong);
+  --color-summary-bg: light-dark(oklch(0.975 0.014 185), oklch(0.72 0.1 185 / 0.09));
+  --color-summary-border: light-dark(oklch(0.62 0.09 185), oklch(0.72 0.09 185));
+  --color-summary-label: light-dark(oklch(0.45 0.07 185), oklch(0.84 0.07 185));
   --image-outline: 1px solid light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.1));
 
   /* Mermaid palette, as hex (Mermaid's color math can't read oklch()).

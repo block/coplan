@@ -53,14 +53,18 @@ export default class extends Controller {
     const headings = Array.from(documentRoot.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3"))
     // The title is part of the document and is a navigable heading too.
     this._headings = headings
+    // The server renders at most one summary block. Its entry is pinned
+    // first, wherever the block sits, so the 30-second read is one click away.
+    this._summary = documentRoot.querySelector(".markdown-rendered section.plan-summary[id]")
 
-    if (headings.length === 0) {
+    if (headings.length === 0 && !this._summary) {
       this.sidebarTarget.style.display = "none"
       if (this.hasShowBtnTarget) this.showBtnTarget.style.display = "none"
       return
     }
     this.sidebarTarget.style.display = ""
     if (this.hasShowBtnTarget) Object.assign(this.showBtnTarget.style, { display: "", visibility: "" })
+    if (this._summary) this.appendSummaryItem(this._summary)
 
     // Commonmarker supplies an empty self-link inside each heading. Promote
     // its generated fragment to the heading itself when that heading does
@@ -142,6 +146,23 @@ export default class extends Controller {
     this.updateCommentBadges()
   }
 
+  appendSummaryItem(summary) {
+    const li = document.createElement("li")
+    li.className = "content-nav__item content-nav__item--summary"
+    li.dataset.headingId = summary.id
+    const a = document.createElement("a")
+    a.className = "content-nav__link"
+    a.href = `#${summary.id}`
+    a.addEventListener("click", event => this.handleLinkClick(event, summary))
+    const text = document.createElement("span")
+    text.className = "content-nav__link-text"
+    text.textContent = "Summary"
+    a.appendChild(text)
+    li.appendChild(a)
+    this.listTarget.appendChild(li)
+    this._itemsById.set(summary.id, li)
+  }
+
   // ProseMirror owns every node under its root. The reader's heading IDs,
   // title spans and permalink links cannot be inserted there: its next DOM
   // reconciliation would discard them and could move the caret. Keep the
@@ -151,6 +172,7 @@ export default class extends Controller {
     // last heading must not move the caret or a toolbar button mid-click.
     if (this._editorRoot !== root) this._editorSidebarDisplayed = this.sidebarTarget.style.display !== "none"
     this._editorRoot = root
+    this._summary = null
     this._headings = this.editorHeadings()
     this._editorHeadingSignature = this.editorHeadingSignature(this._headings)
     this._outlineIds = []
@@ -221,7 +243,7 @@ export default class extends Controller {
     if (this._scrollHandler) {
       window.removeEventListener("scroll", this._scrollHandler)
     }
-    if (!this._headings || this._headings.length === 0) return
+    if (!this._headings?.length && !this._summary) return
 
     this._scrollHandler = () => {
       if (this._ignoreScroll) {
@@ -279,10 +301,7 @@ export default class extends Controller {
   _updateActiveFromScroll() {
     const threshold = 100
     let active = null
-    const headings = this._editorRoot ? this.editorHeadings() : this._headings.filter(heading => {
-      const slide = heading.closest(".deck-slide")
-      return !slide || slide.classList.contains("deck-slide--current")
-    })
+    const headings = this._editorRoot ? this.editorHeadings() : this.readingTargets()
     for (const heading of headings) {
       if (heading.getBoundingClientRect().top <= threshold) {
         active = heading
@@ -297,6 +316,18 @@ export default class extends Controller {
       this._activeHeadingId = id
       this._setActiveLink(id)
     }
+  }
+
+  // Outline targets in document order: visible headings, plus the summary
+  // block so its entry is current while it is being read.
+  readingTargets() {
+    const headings = this._headings.filter(heading => {
+      const slide = heading.closest(".deck-slide")
+      return !slide || slide.classList.contains("deck-slide--current")
+    })
+    if (!this._summary) return headings
+    return [...headings, this._summary].sort((a, b) =>
+      a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1)
   }
 
   handleLinkClick(event, heading, outlineId = heading?.id) {

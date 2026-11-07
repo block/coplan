@@ -144,22 +144,33 @@ module CoPlan
       "Comment by voice — or hold #{User::VOICE_HOTKEY_LABELS[hotkey]} to talk"
     end
 
-    def plan_content_preview(plan, limit: 200)
+    # A workspace row's description: the author's summary block, then the
+    # generated abstract, then the plan's opening text.
+    def plan_row_summary(plan, limit: 200)
       stub = plan.current_version_stub
-      return nil if stub.nil?
+      return plan.try(:summary).presence unless stub
 
-      # Cached per content SHA: without this, every index page fell back to a
-      # full Commonmarker + Nokogiri parse per plan without an AI summary.
-      # The document body itself is fetched only on a cache miss — list pages
-      # preload just the stub (id + sha), never the MEDIUMTEXT columns.
-      cache_key = [ "coplan/plan-preview", MarkdownHelper::RENDER_CACHE_VERSION, plan.id,
-                   stub.content_sha256 || plan.current_revision ]
-      plain = Rails.cache.fetch(cache_key) do
-        markdown_to_plain_text(PlanVersion.where(id: stub.id).pick(:content_markdown))
+      # Cache authored summary text independently of the generated abstract.
+      # Only fetch the body on a cache miss, and only parse the whole document
+      # when neither summary is available. Share the cold fetch between both.
+      cache_key = [ "coplan/plan-row-preview", MarkdownHelper::RENDER_CACHE_VERSION, plan.id,
+                    stub.content_sha256 || plan.current_revision ]
+      content = nil
+      load_content = -> { content ||= PlanVersion.where(id: stub.id).pick(:content_markdown).to_s }
+      summary_block = Rails.cache.fetch([ *cache_key, "summary-block" ]) do
+        ContentRegions::Split.summary_text(load_content.call)
       end
-      return nil if plain.blank?
+      return truncate_preview(summary_block, limit) if summary_block
+      return plan.summary if plan.try(:summary).present?
 
-      truncate(plain, length: limit, omission: "…", separator: " ")
+      plain = Rails.cache.fetch([ *cache_key, "plain" ]) { markdown_to_plain_text(load_content.call) }
+      truncate_preview(plain, limit)
+    end
+
+    private
+
+    def truncate_preview(text, limit)
+      truncate(text, length: limit, omission: "…", separator: " ") if text.present?
     end
   end
 end

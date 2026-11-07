@@ -63,10 +63,10 @@ module CoPlan
     # one whole-plan render. This keeps footnotes, link definitions and heading
     # IDs global rather than restarting them at each region boundary.
     def render_content_regions(content, interactive: true)
-      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true) unless content.include?("::: {.presentation")
-
-      result = ContentRegions::Split.call(content)
-      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true) unless result.regions.any? { |region| region.kind == :presentation }
+      result = ContentRegions::Split.call(content) if ContentRegions::Split.applies?(content)
+      unless result&.regions&.any? { |region| region.kind == :presentation }
+        return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true, summary: result&.summary)
+      end
 
       definitions = Slideshows::Split.call(result.canonical_source).definition_blocks
       deck_number = 0
@@ -100,12 +100,19 @@ module CoPlan
           fragment = Slideshows::Split::Slide.new(start_line: region.start_line,
             end_line: region.start_line + region.source.count("\n"))
           preamble = deck_preamble(definitions, fragment)
+          line_offset = region.start_line - 1 - preamble.count("\n")
+          # The summary cannot span a deck, so one document region holds it.
+          summary = result.summary if result.summary && result.summary.open_line >= fragment.start_line &&
+            result.summary.close_line <= fragment.end_line
+          summary &&= ContentRegions::Split::Summary.new(open_line: summary.open_line - line_offset,
+            close_line: summary.close_line - line_offset)
           render_markdown(preamble + region.source, interactive:, footnotes: :exclude, retain_sourcepos: interactive,
-                          line_offset: region.start_line - 1 - preamble.count("\n"))
+                          line_offset:, summary:)
         end
       end
       rendered = Nokogiri::HTML::DocumentFragment.parse(safe_join(fragments))
       document = Nokogiri::HTML::DocumentFragment.parse(render_markdown(result.canonical_source, interactive: false, data_tables: false))
+      rendered.at_css("section.plan-summary")&.set_attribute("id", summary_id(document))
       reconcile_references(rendered, document)
       Plans::SourceTargets.new(content).annotate(rendered) if interactive
       rendered.css("[data-sourcepos]").each { |element| element.remove_attribute("data-sourcepos") }

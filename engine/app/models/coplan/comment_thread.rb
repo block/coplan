@@ -347,8 +347,11 @@ module CoPlan
       occurrence = self.anchor_occurrence || 1
       return if occurrence < 1
 
-      # First, try an exact match against the raw markdown.
-      ranges = find_all_occurrences(content, anchor_text)
+      # First, try an exact match against the raw markdown. Region markers
+      # such as `::: {.summary}` are not text a reader can select, so match
+      # against the canonical source, which blanks them in place.
+      raw = ContentRegions::Split.applies?(content) ? ContentRegions::Split.call(content).canonical_source : content
+      ranges = find_all_occurrences(raw, anchor_text)
 
       # If no exact match, the selected text may span markdown formatting
       # (e.g. DOM text "Hello me you" vs raw "Hello `me` you", or table

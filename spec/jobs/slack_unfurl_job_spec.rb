@@ -50,6 +50,19 @@ RSpec.describe CoPlan::Slack::UnfurlJob do
       "channel" => "C1", "message_ts" => "123.4", "links" => [ { "url" => exact } ])
   end
 
+  it "describes the plan with its summary block rather than the generated summary" do
+    plan.update!(summary: "Generated summary")
+    set_version_fixture(plan.current_plan_version, content_markdown: "# Plan\n\n::: {.summary}\n- Ship the queue option.\n:::\n\nBody.")
+    exact = "https://coplan.example.test/plans/#{plan.id}"
+    expect(client).to receive(:chat_unfurl) do |unfurls:, **|
+      text = unfurls.fetch(exact).dig(:blocks, 0, :text, :text)
+      expect(text).to include("Ship the queue option.")
+      expect(text).not_to include("Generated summary")
+    end
+
+    described_class.perform_now("channel" => "C1", "message_ts" => "123.4", "links" => [ { "url" => exact } ])
+  end
+
   it "does not call Slack when every link is unsupported" do
     expect(client).not_to receive(:chat_unfurl)
     described_class.perform_now("links" => [ { "url" => "https://elsewhere.test/x" } ])

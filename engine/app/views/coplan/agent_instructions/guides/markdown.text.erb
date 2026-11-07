@@ -4,6 +4,26 @@ Plans use CommonMark with the GitHub extensions: tables, task lists, strikethrou
 
 This guide assumes that you have read the primer at <<%= @base %>/agent-instructions>.
 
+## Summary block
+
+Start a long plan with a summary that a reader can finish in 30 seconds. Put it right after the title, before the first section:
+
+```markdown
+::: {.summary}
+- **Recommendation:** move webhook delivery to a durable outbox.
+- Retries drop from hours to minutes; no new infrastructure is needed.
+- Decision needed by Friday.
+:::
+```
+
+- Put the opening and closing lines each on their own line, with nothing else on the line, outside lists, quotes, and code.
+- Write ordinary Markdown between them: lists, bold, links, and footnotes work as usual.
+- If you wrap the summary in HTML, keep the whole block inside one container. Do not open or close that container midway through the block.
+- State the conclusion, the impact, and the decision or next step. Leave the evidence to the sections below.
+- Use one summary block per plan. Coplan shows only the first as a summary; a second one shows its `:::` lines as plain text.
+
+Readers see the block as a labeled card with a "Summary" link pinned at the top of the outline. Link previews, such as Slack unfurls, use its text instead of the generated summary. Short plans do not need one.
+
 ## Template notes
 
 Put author guidance in a standalone HTML comment: `<!-- Explain the decision here. -->`.

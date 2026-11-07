@@ -444,6 +444,35 @@
   margin-bottom: var(--space-md);
 }
 
+/* Summary block: the plan's 30-second read. The label is generated
+   content, so it is never part of the text a comment selection quotes;
+   the section's aria-label names it for assistive technology. */
+.markdown-rendered section.plan-summary {
+  margin: 0 0 var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  border-left: 4px solid var(--color-summary-border);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--color-summary-bg);
+  scroll-margin-top: calc(var(--nav-height) + var(--space-lg));
+}
+
+.markdown-rendered section.plan-summary::before {
+  content: "Summary";
+  content: "Summary" / "";
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-summary-label);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.markdown-rendered section.plan-summary > :last-child {
+  margin-bottom: 0;
+}
+
 .markdown-rendered table {
   width: 100%;
   border-collapse: collapse;

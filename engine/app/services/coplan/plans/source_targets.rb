@@ -32,8 +32,12 @@ module CoPlan
         @digest = Digest::SHA256.hexdigest(@content)
         # Raw HTML may contain data-sourcepos supplied by the author. Only
         # positions produced by the Markdown AST can become signed targets.
+        # Parse what the renderer parsed: a summary block's markers end the
+        # blocks around them, which can move a neighbouring table's span.
         @positions = Hash.new { |hash, key| hash[key] = Set.new }
-        collect_positions(CoPlan::Markdown.parse(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }))
+        summary = ContentRegions::Split.call(@content).summary if @content.include?(ContentRegions::Split::SUMMARY_OPEN)
+        @markdown = summary ? ContentRegions::Split.with_summary_breaks(@content, summary) : @content
+        collect_positions(CoPlan::Markdown.parse(@markdown, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }))
       end
 
       def annotate(doc)
@@ -89,7 +93,7 @@ module CoPlan
       # Used after OT: a surviving range must still describe a selectable
       # element, rather than syntax that an edit elsewhere turned into prose.
       def ranges
-        html = CoPlan::Markdown.to_html(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS,
+        html = CoPlan::Markdown.to_html(@markdown, options: { extension: MarkdownHelper::EXTENSION_OPTIONS,
           render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
         doc = annotate(Nokogiri::HTML.fragment(html))
         targets = doc.css("[data-source-target]").map { |node| JSON.parse(node["data-source-target"]) }

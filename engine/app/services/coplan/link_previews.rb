@@ -40,7 +40,9 @@ module CoPlan
         path_suffix = plan.url_path || "plans/#{plan.id}"
         canonical.path = join_path(base.path, encode_path_segments(path_suffix))
         canonical.query = canonical.fragment = nil
-        description = plan.summary.presence || plain_content(plan)
+        # The author's summary block outranks the generated abstract.
+        content = plan.current_content
+        description = ContentRegions::Split.summary_text(content) || plan.summary.presence || plain_content(content)
 
         LinkPreview.new(
           kind: "plan",
@@ -179,8 +181,7 @@ module CoPlan
         path.split("/").map { |seg| CGI.unescape(seg) }.join("/")
       end
 
-      def plain_content(plan)
-        content = plan.current_content
+      def plain_content(content)
         content.present? ? Plans::MarkdownTextExtractor.call(content).first.squish : nil
       end
 
