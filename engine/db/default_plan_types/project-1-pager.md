@@ -3,6 +3,8 @@ name: Project 1-Pager
 icon: rocket
 description: A concise pitch for a project.
 ---
+# Document title
+
 <!-- Project 1-Pager: the whole case on one page. This type overrides
 the default writing-style rules: persuasion is allowed. Specifics are
 still required - an adjective is not evidence. If it runs past a page,

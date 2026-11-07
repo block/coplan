@@ -41,7 +41,7 @@ RSpec.describe "Plan references", type: :system do
       version = CoPlan::PlanVersion.create!(
         plan: plan,
         revision: 2,
-        content_markdown: "Read the [CoPlan repository](https://github.com/block/coplan) for implementation details.",
+        content_markdown: "Read the [Coplan repository](https://github.com/block/coplan) for implementation details.",
         actor_type: "human",
         actor_id: user.id
       )
@@ -50,7 +50,7 @@ RSpec.describe "Plan references", type: :system do
       visit plan_page_path(plan)
 
       within("#plan-extracted-references") do
-        link = find_link("CoPlan repository", href: "https://github.com/block/coplan")
+        link = find_link("Coplan repository", href: "https://github.com/block/coplan")
         expect(link["target"]).to eq("_blank")
         expect(link["rel"]).to eq("noopener noreferrer")
         expect(page).to have_css(".references-list__meta", text: /GitHub repository\s+·\s+github\.com ↗/)

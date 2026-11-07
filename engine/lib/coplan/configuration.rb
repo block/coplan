@@ -74,7 +74,7 @@ module CoPlan
     # Accepts a query string, returns an array of hashes with keys:
     #   :id, :username, :name, :email, :avatar_url, :title, :team
     # Candidates must have a username matching a local user. Results use that
-    # user's local ID; an external directory ID is not a CoPlan reviewer ID.
+    # user's local ID; an external directory ID is not a Coplan reviewer ID.
     # Symbol and string keys are supported.
     # When nil (default), falls back to LIKE search on local coplan_users table.
     #

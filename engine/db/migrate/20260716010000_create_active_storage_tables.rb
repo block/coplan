@@ -9,19 +9,19 @@
 #   goes through CoPlan::ApplicationRecord#assign_uuid, so string UUID PKs
 #   would be left blank on insert.
 # * `active_storage_attachments.record_id` is `string, limit: 36` (instead of
-#   bigint) because it's a polymorphic FK that must hold CoPlan's string UUID
+#   bigint) because it's a polymorphic FK that must hold Coplan's string UUID
 #   primary keys (e.g. coplan_plans.id).
 # * Table creation is guarded with `table_exists?` so hosts that already have
 #   ActiveStorage don't blow up. Hosts that installed ActiveStorage via the
 #   stock migration normally never receive this file (install:migrations
 #   skips same-named migrations), but the guard also covers schema-loaded
 #   databases. If a pre-existing active_storage_attachments table has a
-#   non-string record_id, we warn loudly: CoPlan's UUID plan ids cannot be
+#   non-string record_id, we warn loudly: Coplan's UUID plan ids cannot be
 #   stored in a bigint record_id column.
 class CreateActiveStorageTables < ActiveRecord::Migration[8.1]
   # Ownership marker: `down` only drops tables carrying this comment, so a
   # rollback can never destroy ActiveStorage tables (and data) that the host
-  # app created before installing CoPlan.
+  # app created before installing Coplan.
   OWNERSHIP_COMMENT = "Created by CoPlan engine".freeze
 
   def up
@@ -45,8 +45,8 @@ class CreateActiveStorageTables < ActiveRecord::Migration[8.1]
       record_id_type = columns(:active_storage_attachments).find { |c| c.name == "record_id" }&.type
       unless record_id_type == :string
         say "WARNING: active_storage_attachments.record_id is #{record_id_type.inspect}, not :string.", true
-        say "CoPlan attachments store string(36) UUIDs in record_id and WILL NOT WORK until the column is widened.", true
-        say "See the 'File attachments (ActiveStorage)' section of CoPlan's HOST_APP_GUIDE.md.", true
+        say "Coplan attachments store string(36) UUIDs in record_id and WILL NOT WORK until the column is widened.", true
+        say "See the 'File attachments (ActiveStorage)' section of Coplan's HOST_APP_GUIDE.md.", true
       end
     else
       create_table :active_storage_attachments, comment: OWNERSHIP_COMMENT do |t|
@@ -76,7 +76,7 @@ class CreateActiveStorageTables < ActiveRecord::Migration[8.1]
   # Mirrors the stock ActiveStorage install migration's rollback, but only
   # for tables this migration actually created (identified by the ownership
   # comment set in `up`). Tables that pre-existed — the host app installed
-  # ActiveStorage before CoPlan, so `up` skipped them — are left untouched:
+  # ActiveStorage before Coplan, so `up` skipped them — are left untouched:
   # dropping them would destroy host-owned data.
   def down
     [ :active_storage_variant_records, :active_storage_attachments, :active_storage_blobs ].each do |table|
@@ -85,7 +85,7 @@ class CreateActiveStorageTables < ActiveRecord::Migration[8.1]
       if connection.table_comment(table) == OWNERSHIP_COMMENT
         drop_table table
       else
-        say "Skipping drop of #{table}: not created by the CoPlan engine (no ownership comment).", true
+        say "Skipping drop of #{table}: not created by the Coplan engine (no ownership comment).", true
       end
     end
   end

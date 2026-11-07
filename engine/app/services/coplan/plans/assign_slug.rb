@@ -45,8 +45,16 @@ module CoPlan
       def call
         target_library&.lock_namespace!
 
+        previous_slug = @plan.slug
+        previous_suffix = @plan.slug_suffix
         @plan.slug = derive
-        @plan.slug_suffix = contested? ? assign_suffix : nil
+        @plan.slug_suffix = if contested?
+          if previous_slug == @plan.slug && previous_suffix.present? && !taken.include?([ @plan.slug, previous_suffix ])
+            previous_suffix
+          else
+            assign_suffix
+          end
+        end
 
         record_alias
         @plan

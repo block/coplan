@@ -1,4 +1,4 @@
-# CoPlan voice sidecar
+# Coplan voice sidecar
 
 Two voice tiers, one loop. Both turn speech into a plan comment, which
 wakes the plan's agent through the event inbox (`GET /api/v1/agent/events`
@@ -80,7 +80,7 @@ pin pipecat past the ~0.0.62 SmallWebRTC audio regression.
   (`OpenAITTSService` pointed at a different `base_url` already covers
   any OpenAI-compatible vendor).
 - **The brain**: `CoPlanAgentBackend` in `bot.py` is the only
-  CoPlan-aware piece — transcript in, fast-ack + comment out. Smarter
+  Coplan-aware piece — transcript in, fast-ack + comment out. Smarter
   behavior (doc Q&A without waking the agent, richer spoken summaries
   when the agent finishes) belongs there.
 

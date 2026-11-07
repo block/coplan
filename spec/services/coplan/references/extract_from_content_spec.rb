@@ -10,6 +10,62 @@ RSpec.describe CoPlan::References::ExtractFromContent do
   end
 
   describe ".call" do
+    it "assigns swapped generated keys in a single extraction" do
+      update_content(plan, "[a]: https://example.com/one\n[b]: https://example.com/two")
+      described_class.call(plan: plan)
+
+      update_content(plan, "[b]: https://example.com/one\n[a]: https://example.com/two")
+      described_class.call(plan: plan)
+
+      expect(plan.references.find_by!(url: "https://example.com/one").key).to eq("b")
+      expect(plan.references.find_by!(url: "https://example.com/two").key).to eq("a")
+    end
+
+    it "clears a generated key when the definition becomes an invalid label" do
+      update_content(plan, "[report]: https://example.com/report")
+      described_class.call(plan: plan)
+      reference = plan.references.sole
+      expect(reference.key).to eq("report")
+
+      update_content(plan, "[^1]: https://example.com/report")
+      2.times { described_class.call(plan: plan) }
+
+      expect(plan.references.reload.sole.id).to eq(reference.id)
+      expect(reference.reload.key).to be_nil
+    end
+
+    it "keeps footnote and punctuation-only definitions without invalid keys" do
+      update_content(plan, "[^1]: https://example.com/note\n[!!!]: https://example.com/symbols\n")
+
+      described_class.call(plan: plan)
+
+      expect(plan.references.reload.pluck(:url)).to match_array([ "https://example.com/note", "https://example.com/symbols" ])
+      expect(plan.references.pluck(:key)).to eq([ nil, nil ])
+    end
+
+    it "keeps every URL when generated keys collide, preserving explicit keys" do
+      explicit = create(:reference, plan: plan, key: "auth-api", url: "https://example.com/explicit", source: "explicit")
+      update_content(plan, "[auth.api]: https://example.com/one\n[auth-api]: https://example.com/two\n[a.b]: https://example.com/three\n[a-b]: https://example.com/four\n")
+
+      2.times { described_class.call(plan: plan) }
+
+      expect(plan.references.reload.count).to eq(5)
+      expect(explicit.reload.key).to eq("auth-api")
+      expect(plan.references.extracted.pluck(:key).compact).to eq([ "a-b" ])
+    end
+
+    it "bounds long extracted link titles without changing document content" do
+      title = "界" * 300
+      content = "[#{title}](https://example.com/inline)\n\n[report]: https://example.com/defined \"#{title}\"\n"
+      update_content(plan, content)
+
+      2.times { described_class.call(plan: plan) }
+
+      expect(plan.references.reload.count).to eq(2)
+      expect(plan.references.pluck(:title)).to eq([ "#{"界" * 254}…" ] * 2)
+      expect(plan.reload.current_content).to eq(content)
+    end
+
     it "extracts markdown links from content" do
       update_content(plan, "Check out [Rails](https://rubyonrails.org) for details.")
       described_class.call(plan: plan)

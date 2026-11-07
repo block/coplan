@@ -107,7 +107,7 @@ RSpec.describe "Version-bound review evidence" do
     expect(historical_reads.size).to eq(1)
     expect(historical_reads.first).to include("content_sha256", "revision")
     expect(historical_reads.first).not_to include("content_markdown", "*")
-    expect(evidence[:version][:content_markdown]).to eq("Revision 2")
+    expect(evidence[:version][:content_markdown]).to eq("# Plan\n\nRevision 2")
   end
 
   it "keeps actual replacement no-ops approved, but never revives A after A to B to A" do
@@ -239,12 +239,12 @@ RSpec.describe "Version-bound review evidence" do
     expect(task.reload.effective_response).to eq(first)
   end
 
-  it "makes the content boundary explicit and leaves title and attachment metadata outside approval" do
+  it "makes the content boundary explicit and leaves attachment metadata outside approval" do
     first = decide
-    plan.update!(title: "Different title")
     plan.attachments.attach(io: StringIO.new("mutable resource"), filename: "scope.txt", content_type: "text/plain")
     evidence = CoPlan::Reviews::Evidence.call(plan: plan)
-    expect(evidence[:approval_scope][:excludes]).to include("title", "attachments", "embedded_resources", "child_plans")
+    expect(evidence[:approval_scope][:excludes]).to include("attachments", "embedded_resources", "child_plans")
+    expect(evidence[:approval_scope][:excludes]).not_to include("title")
     expect(evidence[:version][:content_markdown]).to eq(first.plan_version.content_markdown)
     expect(task.reload.effective_response).to eq(first)
   end

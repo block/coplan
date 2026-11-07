@@ -1,10 +1,10 @@
-"""CoPlan voice sidecar — fully local speech loop on macOS.
+"""Coplan voice sidecar — fully local speech loop on macOS.
 
 Pipeline: browser mic --WebRTC--> Silero VAD + smart-turn --> MLX Whisper STT
           --> CoPlanAgentBackend --> Kokoro TTS --WebRTC--> browser speaker
 
 The "brain" is deliberately NOT an LLM service: spoken feedback becomes a
-CoPlan comment (same event inbox that wakes the plan's agent — see
+Coplan comment (same event inbox that wakes the plan's agent — see
 script/coplan-bridge), and the pipeline speaks a fast acknowledgment
 ("Got it") within ~1s while the real agent works at its own pace. Doc
 edits arrive visually through the plan page's live broadcasts, not through
@@ -38,7 +38,7 @@ ACKS = ["Got it.", "On it.", "Sure thing.", "Okay, one sec."]
 
 
 class CoPlanAgentBackend(FrameProcessor):
-    """The brain seam: final transcript in → fast ack + CoPlan comment out.
+    """The brain seam: final transcript in → fast ack + Coplan comment out.
 
     Anything smarter (RAG over the doc, direct Q&A without waking the
     agent) slots in here without touching VAD/turn-taking/barge-in.

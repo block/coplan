@@ -10,10 +10,10 @@ RSpec.describe "Agent setup", type: :request do
 
     expect(response).to have_http_status(:ok)
     expect(response.content_type).to include("text/markdown")
-    expect(response.body).to include("# CoPlan agent setup")
+    expect(response.body).to include("# Coplan agent setup")
     expect(response.body).to include("You are the agent receiving this guide")
     expect(response.body).to include("http://www.example.com/agent-instructions")
-    expect(response.body).to include("At the start of each CoPlan task, fetch")
+    expect(response.body).to include("At the start of each Coplan task, fetch")
     expect(response.body).to include("Never use a saved copy")
     expect(response.body.length).to be < 2_000
   end
@@ -47,10 +47,10 @@ RSpec.describe "Agent setup", type: :request do
     expect(response.content_type).to include("text/html")
     expect(response.body).to include("Connect your AI agent")
     expect(response.body).to include(%(data-coplan--clipboard-text-value="http://www.example.com/_/agent/setup.md"))
-    expect(response.body).to include("Give this URL to your agent and let it set up the CoPlan skill")
+    expect(response.body).to include("Give this URL to your agent and let it set up the Coplan skill")
     expect(response.body).to include("Curious about what your agent will read?")
     expect(response.body).to include(%(href="#{agent_instructions_reference_path}"))
-    expect(response.body).not_to include("# CoPlan agent setup")
+    expect(response.body).not_to include("# Coplan agent setup")
     expect(response.body).not_to include("http://www.example.com/agent-instructions")
     expect(response.body).not_to include("sq agents skills add coplan")
   end
@@ -64,13 +64,13 @@ RSpec.describe "Agent setup", type: :request do
     get link["href"], headers: { "Accept" => browser_accept }
 
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include("CoPlan for Agents")
+    expect(response.body).to include("Coplan for Agents")
   end
 
   it "serves Markdown at .md even to browsers" do
     get agent_setup_path(format: :md), headers: { "Accept" => browser_accept }
 
     expect(response.content_type).to include("text/markdown")
-    expect(response.body).to include("# CoPlan agent setup")
+    expect(response.body).to include("# Coplan agent setup")
   end
 end

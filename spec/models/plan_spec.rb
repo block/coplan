@@ -48,7 +48,7 @@ RSpec.describe CoPlan::Plan, type: :model do
 
   it "returns current content from version" do
     plan = create(:plan)
-    expect(plan.current_content).to include("Plan Content")
+    expect(plan.current_content).to include(plan.title)
   end
 
   describe "where it lives" do
@@ -120,12 +120,12 @@ RSpec.describe CoPlan::Plan, type: :model do
       expect(plan.search_text).to include("Quarterly Strategy Document")
       expect(plan.search_text).to include("Carmen Author")
       expect(plan.search_text).to include("strategy")
-      expect(plan.search_text).to include("Plan Content")
+      expect(plan.search_text).to include(plan.title)
     end
 
     it "refreshes when the title changes" do
       plan = create(:plan, :considering, title: "Original Title")
-      plan.update!(title: "Renamed Plan")
+      retitle_plan(plan, "Renamed Plan")
       expect(plan.reload.search_text).to include("Renamed Plan")
       expect(plan.search_text).not_to include("Original Title")
     end

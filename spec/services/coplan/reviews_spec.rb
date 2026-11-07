@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe "CoPlan reviews" do
+RSpec.describe "Coplan reviews" do
   include ActiveJob::TestHelper
 
   let(:plan) { create(:plan, :published) }

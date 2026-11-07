@@ -210,9 +210,10 @@ RSpec.describe "Api::V1::Plans", type: :request do
     expect(body["error"]).to include("rfc")
   end
 
-  it "create without title fails" do
+  it "creates without metadata and normalizes a missing heading" do
     post api_v1_plans_path, params: { content: "no title" }, headers: headers, as: :json
-    expect(response).to have_http_status(:unprocessable_content)
+    expect(response).to have_http_status(:created)
+    expect(JSON.parse(response.body)["title"]).to eq("Untitled")
   end
 
   describe "filing on create" do
@@ -358,19 +359,19 @@ RSpec.describe "Api::V1::Plans", type: :request do
   end
 
   describe "PATCH /api/v1/plans/:id" do
-    it "updates plan title" do
+    it "ignores the legacy metadata title" do
       patch api_v1_plan_path(plan), params: { title: "New Title" }, headers: headers, as: :json
       expect(response).to have_http_status(:success)
       body = JSON.parse(response.body)
-      expect(body["title"]).to eq("New Title")
-      expect(plan.reload.title).to eq("New Title")
+      expect(body["title"]).to eq("Acme Roadmap")
+      expect(plan.reload.title).to eq("Acme Roadmap")
     end
 
-    it "broadcasts the new title to the document and the sticky nav" do
+    it "does not broadcast a rename for ignored legacy metadata" do
       targets = []
       allow(CoPlan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
       patch api_v1_plan_path(plan), params: { title: "New Title" }, headers: headers, as: :json
-      expect(targets).to include("plan-header", "plan-title", "plan-nav-context")
+      expect(targets).not_to include("plan-title", "plan-nav-context")
     end
 
     it "leaves the title alone when the title did not change" do
@@ -403,7 +404,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
       patch api_v1_plan_path(plan), params: { title: "Updated", archived: true, tags: [ "v2" ] }, headers: headers, as: :json
       expect(response).to have_http_status(:success)
       body = JSON.parse(response.body)
-      expect(body["title"]).to eq("Updated")
+      expect(body["title"]).to eq("Acme Roadmap")
       expect(body["archived"]).to be(true)
       expect(body["tags"]).to eq([ "v2" ])
     end
@@ -690,7 +691,7 @@ RSpec.describe "Api::V1::Plans", type: :request do
 
     it "follows an old address to a plan that was retitled" do
       old_path = plan.url_path
-      patch api_v1_plan_path(plan), params: { title: "Acme Roadmap 2027" }, headers: headers, as: :json
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "# Acme Roadmap 2027\n\nBody", base_revision: plan.current_revision, actor_type: "local_agent", actor_id: alice.id)
       expect(plan.reload.url_path).not_to eq(old_path)
 
       resolve("http://www.example.com/#{old_path}")

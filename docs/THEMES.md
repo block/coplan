@@ -1,6 +1,6 @@
 # App themes
 
-A theme changes how CoPlan looks, never what it does. It is a named set of
+A theme changes how Coplan looks, never what it does. It is a named set of
 CSS variable values. Light and dark mode are a separate choice, so a theme
 defines both.
 
@@ -66,11 +66,11 @@ The themes are listed in `CoPlan::Themes::ALL`
    follows the mode, including inside borders and shadows. Give a shadow the
    same layers in both modes and use `transparent` for a layer one mode
    doesn't have. The diagram palette is the exception (below).
-4. Set custom properties only, so a theme changes how CoPlan looks, never
+4. Set custom properties only, so a theme changes how Coplan looks, never
    what it does. A hook can also be set on a component, for example
    `:root[data-app-theme="<key>"] .plan-document { --color-surface: … }`.
-   Anything a theme would solve with a rule, such as an opening H1 that
-   repeats the plan title, belongs to every theme, in shared CSS or markup.
+   Anything a theme would solve with a rule, such as the opening H1 that
+   supplies the document title, belongs to every theme, in shared CSS or markup.
 
 A hook set on `:root` resolves any `var()` it uses at the root. To follow a
 token that changes further down the page, set the hook on that component.

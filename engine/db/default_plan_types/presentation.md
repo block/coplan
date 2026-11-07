@@ -3,6 +3,8 @@ name: Presentation
 icon: presentation
 description: A slide deck for sharing an idea or update.
 ---
+# Document title
+
 <!-- A presentation region is delimited by ::: {.presentation} and :::.
 Each slide inside it is separated by `---` on
 its own line. Keep one idea per slide - a headline sentence, not a topic

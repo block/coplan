@@ -234,7 +234,7 @@ RSpec.describe "Api::V1::Sessions", type: :request do
       # Create an intervening version that edits a different part of the content
       # Original: "# Plan Content\n\nSome content here."
       # Intervening edit changes the heading
-      intervening_content = original_content.sub("# Plan Content", "# Updated Plan Title")
+      intervening_content = original_content.sub("# #{plan.title}", "# Updated Plan Title")
       new_rev = plan.current_revision + 1
       intervening_version = CoPlan::PlanVersion.create!(
         plan: plan,
@@ -244,11 +244,11 @@ RSpec.describe "Api::V1::Sessions", type: :request do
         actor_id: alice.id,
         operations_json: [ {
           "op" => "replace_exact",
-          "old_text" => "# Plan Content",
+          "old_text" => "# #{plan.title}",
           "new_text" => "# Updated Plan Title",
-          "resolved_range" => [ 0, 14 ],
+          "resolved_range" => [ 0, "# #{plan.title}".length ],
           "new_range" => [ 0, 20 ],
-          "delta" => 6
+          "delta" => 20 - "# #{plan.title}".length
         } ]
       )
       plan.update!(current_plan_version: intervening_version, current_revision: new_rev)

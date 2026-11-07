@@ -658,7 +658,7 @@ export default class extends Controller {
     try {
       response = await fetch(url, { method, headers: { "X-CSRF-Token": this.csrfToken(), "Content-Type": "application/json", Accept: "application/json" }, credentials: "same-origin", body: body ? JSON.stringify(body) : undefined, signal })
     } catch {
-      throw new Error("Couldn't reach CoPlan. Your draft is still here. Check that the server is running and try again.")
+      throw new Error("Couldn't reach Coplan. Your draft is still here. Check that the server is running and try again.")
     }
     if (response.status === 204) return {}
     let result

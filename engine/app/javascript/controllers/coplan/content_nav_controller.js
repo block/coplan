@@ -1,6 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
 import { registerShortcuts, commandFor } from "coplan/shortcuts"
-import { LEADING_HEADING } from "coplan/content_sections"
 
 const STORAGE_KEY = "coplan:content-nav-visible"
 
@@ -52,10 +51,8 @@ export default class extends Controller {
     // slide. Scan the whole content column either way — scanning the first
     // rendered block gave a deck an outline of slide 1 and nothing else.
     const headings = Array.from(documentRoot.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3"))
-    // The plan title already heads the document; skip the H1 restating it.
-    // A document whose only heading is that one still keeps the column for
-    // its back matter (references, reviews, comments), as it always had.
-    this._headings = headings.filter(heading => !heading.matches(LEADING_HEADING))
+    // The title is part of the document and is a navigable heading too.
+    this._headings = headings
 
     if (headings.length === 0) {
       this.sidebarTarget.style.display = "none"

@@ -19,6 +19,12 @@ module CoPlan
         # Remove extracted references for URLs no longer in content
         @plan.references.extracted.where.not(url: found_urls.keys).delete_all
 
+        # Release changed keys before assigning new ones, so label swaps do not
+        # collide with another reference's obsolete key. Explicit keys stay put.
+        @plan.references.extracted.where.not(key: nil).find_each do |ref|
+          ref.update_column(:key, nil) unless ref.key == found_urls.dig(ref.url, :key)
+        end
+
         # Once per distinct URL, not once per mention: a readable address
         # costs a segment walk to turn into an id, so a body full of
         # cross-links to the same document pays for it once.
@@ -36,9 +42,11 @@ module CoPlan
           # Don't overwrite explicit references
           next if ref.persisted? && ref.source == "explicit"
 
+          key = meta[:key].presence
+          key = nil if key && @plan.references.where(key: key).where.not(id: ref.id).exists?
           ref.assign_attributes(
-            key: meta[:key].presence || ref.key,
-            title: meta[:title].presence || ref.title,
+            key: key,
+            title: meta[:title].presence&.truncate(Reference::EXTRACTED_TITLE_LIMIT, omission: "…") || ref.title,
             reference_type: ref_type,
             source: "extracted",
             target_plan_id: target_plan_id
@@ -66,6 +74,7 @@ module CoPlan
 
           url = url.strip
           k = key.strip.downcase.gsub(/[^a-z0-9_-]/, "-").gsub(/-+/, "-").truncate(64, omission: "")
+          k = nil unless k.match?(Reference::KEY_FORMAT)
           urls[url] ||= { title: title&.strip, key: k }
         end
 

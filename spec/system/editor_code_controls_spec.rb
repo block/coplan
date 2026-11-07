@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Editor code controls", type: :system do
   let(:author) { create(:coplan_user, email: "code-controls@example.com") }
-  let(:source) { "Before prose.\n\nAfter prose.\n" }
+  let(:source) { "# Code controls\n\nBefore prose.\n\nAfter prose.\n" }
   let(:plan) { CoPlan::Plans::Create.call(title: "Code controls", content: source, user: author, visibility: "draft", actor_type: "human") }
 
   before do
@@ -48,6 +48,7 @@ RSpec.describe "Editor code controls", type: :system do
     click_button "Insert code block"
     find("#coplan-insert-language").send_keys(:escape)
     expect(page).not_to have_css("#coplan-insert-code:popover-open")
+    expect(page).to have_css('[aria-label="Document body"]:focus')
     expect(page).to have_css('[aria-label="Code language"]', count: 1)
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(draft)
     click_button "Insert code block"
@@ -79,6 +80,8 @@ RSpec.describe "Editor code controls", type: :system do
   it "focuses a code block inserted before the first paragraph" do
     visit plan_edit_page_path(plan)
     expect(page).to have_css('[aria-label="Document body"]', wait: 20)
+    find('[aria-label="Document body"] p', text: "Before prose.").click
+    page.driver.browser.action.send_keys(:home).perform
     click_button "Insert code block"
     expect(page).to have_css("#coplan-insert-language:focus")
     page.driver.browser.action.send_keys("java", :enter, "const first = 1;").perform
@@ -108,7 +111,7 @@ RSpec.describe "Editor code controls", type: :system do
   end
 
   context "with an existing code block" do
-    let(:source) { "Before prose.\n\n```ruby\nputs :other\n```\n\nAfter prose.\n" }
+    let(:source) { "# Code controls\n\nBefore prose.\n\n```ruby\nputs :other\n```\n\nAfter prose.\n" }
 
     it "preserves the visible caret when decorations update before selectionchange" do
       find('[aria-label="Document body"] p', text: "Before prose.").click

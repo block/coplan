@@ -24,8 +24,8 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
       expect(design.icon).to eq("scroll")
 
       # The catch-alls deliberately ship without templates.
-      expect(CoPlan::PlanType.find_by_name("Scratchpad").template_content).to be_nil
-      expect(CoPlan::PlanType.find_by_name("General").template_content).to be_nil
+      expect(CoPlan::PlanType.find_by_name("Scratchpad").template_content).to eq("# Document title")
+      expect(CoPlan::PlanType.find_by_name("General").template_content).to eq("# Document title")
     end
 
     it "installs a presentation template with an explicit region" do
@@ -87,7 +87,7 @@ RSpec.describe CoPlan::PlanTypes::InstallDefaults do
       described_class.call(force: true)
 
       scratchpad = CoPlan::PlanType.find_by_name("Scratchpad")
-      expect(scratchpad.template_content).to be_nil
+      expect(scratchpad.template_content).to eq("# Document title")
       expect(scratchpad.default_tags).to eq([])
     end
 

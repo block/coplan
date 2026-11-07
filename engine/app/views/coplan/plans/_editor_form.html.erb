@@ -17,13 +17,11 @@
   <% end %>
   <div data-coplan--editor-target="subscription" hidden><%= turbo_stream_from @plan unless creating %></div>
   <% if inline_editor %>
-    <%= hidden_field_tag "plan[title]", @plan.title, id: "inline-plan-title", required: true %>
     <%= hidden_field_tag "plan[tag_names]", @plan.tag_names.join(", "), id: "inline-plan-tags" %>
     <%= link_to creating ? (@new_folder ? folder_browse_path(@new_folder) : library_browse_path(current_user.library)) : plan_browse_path(@plan), hidden: true, data: { "coplan--editor-target": "back" } do %>Close editor<% end %>
   <% else %>
   <div class="document-editor__top">
     <div class="document-editor__identity">
-      <%= text_field_tag "plan[title]", @plan.title, required: true, maxlength: 255, autofocus: creating, placeholder: "Document title", class: "document-editor__title", aria: { label: "Document title" } %>
       <%= hidden_field_tag "plan[tag_names]", @plan.tag_names.join(", ") %>
     </div>
     <div class="document-editor__actions">

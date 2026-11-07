@@ -136,7 +136,7 @@ RSpec.describe "New document live delivery", type: :system do
     expect(page).to have_current_path(root_path)
     visit new_plan_path
     expect(page).to have_css('[aria-label="Document body"]', wait: 20)
-    find("#plan-title .inline-editor__title", wait: 10).send_keys("Created live")
+    find(".inline-editor .ProseMirror > h1:first-child", wait: 10).send_keys("Created live")
     click_button "Dual", exact: true
     raw = find('[aria-label="Markdown source"]')
     raw.send_keys(source)

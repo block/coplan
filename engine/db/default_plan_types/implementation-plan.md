@@ -3,6 +3,8 @@ name: Implementation Plan
 icon: map
 description: Steps and checks for building a specific change.
 ---
+# Document title
+
 <!-- Implementation Plan: a living checklist. Check steps off as you
 execute - the checkboxes are the plan's state, so no separate status
 notes. Each step needs a way to verify it worked. -->

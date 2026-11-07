@@ -19,6 +19,23 @@ module CoPlan
       MAX_INSPECTION_RUNS = 10_000
       class InspectionLimit < StandardError; end
 
+      # Preserve human/AI input attribution when server-side normalization changes
+      # content. Inserted text is unknown; retained text keeps its source. Browser
+      # payloads count UTF-16 code units, so convert the adjusted Ruby character runs.
+      def self.adjust_input_sources_for_content_change(payload, original, normalized)
+        return payload if original == normalized
+        runs = input_runs(payload, original)
+        return nil unless runs
+
+        runs = remap(original, normalized, runs, [ [ normalized.length, "unknown" ] ])
+        offset = 0
+        { "runs" => runs.map { |length, kind|
+          text = normalized[offset, length]
+          offset += length
+          [ text.encode(Encoding::UTF_16LE).bytesize / 2, kind ]
+        } }
+      end
+
       def self.agent_write?(version)
         version.actor_type.in?(%w[local_agent cloud_persona]) ||
           (version.actor_type == "human" && (version.api_token_id.present? || version.agent_name.present?))

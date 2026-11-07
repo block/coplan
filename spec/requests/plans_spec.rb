@@ -28,7 +28,7 @@ RSpec.describe "Plans", type: :request do
 
       created_plan = CoPlan::Plan.order(:created_at).last
       expect(created_plan).to have_attributes(title: "Checkout redesign", visibility: "published", plan_type: type)
-      expect(created_plan.current_content).to eq("## Problem\n\nSlow checkout")
+      expect(created_plan.current_content).to eq("# Checkout redesign\n\n## Problem\n\nSlow checkout")
       expect(created_plan.tag_names).to contain_exactly("design", "payments")
       expect(created_plan.placement.folder).to eq(folder)
       expect(created_plan.slug).to eq("checkout-redesign")
@@ -261,19 +261,19 @@ RSpec.describe "Plans", type: :request do
     expect(response.body).to include("turbo-cable-stream-source")
   end
 
-  it "update plan updates title without creating a version" do
-    plan # trigger creation
+  it "ignores legacy metadata title updates without creating a version" do
+    original_title = plan.title
     expect {
       patch plan_path(plan), params: {
         plan: { title: "Updated Title" }
       }
     }.not_to change(CoPlan::PlanVersion, :count)
     plan.reload
-    expect(plan.title).to eq("Updated Title")
+    expect(plan.title).to eq(original_title)
     expect(response).to redirect_to(plan_page_path(plan))
   end
 
-  it "re-broadcasts the document title only when the plan is renamed" do
+  it "does not broadcast a separate title element for metadata updates" do
     plan # trigger creation
     targets = []
     allow(CoPlan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
@@ -283,7 +283,7 @@ RSpec.describe "Plans", type: :request do
     expect(targets).not_to include("plan-title")
 
     patch plan_path(plan), params: { plan: { title: "Renamed" } }
-    expect(targets).to include("plan-title")
+    expect(targets).not_to include("plan-title")
   end
 
   it "index hides other users brainstorm plans when you visit their library" do
@@ -544,7 +544,7 @@ RSpec.describe "Plans", type: :request do
     it "puts the title at the head of the document card, with the metadata row above it" do
       get plan_page_path(plan)
       document = Nokogiri::HTML(response.body)
-      expect(document.at_css(".plan-layout__content > .plan-document__head > #plan-title h1.plan-title__heading").text).to eq(plan.title)
+      expect(document.at_css("#plan-content-body h1#plan-title").text.strip).to eq(plan.title)
       expect(document.at_css("#plan-header .page-header__byline")).to be_present
       expect(document.css("#plan-header h1")).to be_empty
       expect(document.at_css("a.site-nav__doc-title")["href"]).to eq("#plan-title")
@@ -557,11 +557,11 @@ RSpec.describe "Plans", type: :request do
       thread = create(:comment_thread, plan: plan, created_by_user: alice, anchor_text: "Payments redesign")
       expect(thread.anchor_start).to eq(2)
       get plan_page_path(plan)
-      expect(Nokogiri::HTML(response.body).at_css(".plan-document--opening-discussed")).to be_present
+      expect(Nokogiri::HTML(response.body).at_css("#plan-title").text.strip).to eq("Payments redesign")
 
       thread.update!(status: "resolved")
       get plan_page_path(plan)
-      expect(Nokogiri::HTML(response.body).at_css(".plan-document--opening-discussed")).to be_nil
+      expect(Nokogiri::HTML(response.body).at_css("#plan-title").text.strip).to eq("Payments redesign")
     end
   end
 

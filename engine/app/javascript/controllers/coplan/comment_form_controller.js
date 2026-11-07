@@ -11,7 +11,7 @@ import { commandFor } from "coplan/shortcuts"
 // submitting the form).
 export default class extends Controller {
   // Search URL is supplied per-form via a Stimulus value so it respects the
-  // engine's mount point (host apps may mount CoPlan under e.g. `/coplan`).
+  // engine's mount point (host apps may mount Coplan under e.g. `/coplan`).
   // The default is fine for hosts that mount at root.
   static values = {
     searchUrl: { type: String, default: "/users/search" }

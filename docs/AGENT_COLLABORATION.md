@@ -2,8 +2,8 @@
 
 How an agent that authored a plan hears about your comment within a
 second, shows you it's working, replies, and edits the doc while you
-watch. Design docs (options + tradeoffs) live in CoPlan itself — see the
-"Agent Collaboration in CoPlan" umbrella plan.
+watch. Design docs (options + tradeoffs) live in Coplan itself — see the
+"Agent Collaboration in Coplan" umbrella plan.
 
 ## The loop
 
@@ -20,7 +20,7 @@ watch. Design docs (options + tradeoffs) live in CoPlan itself — see the
    then settle.
 
 The delivery is pull-based on purpose: agents run on laptops behind NAT,
-so CoPlan never assumes it can push. Same endpoint serves long-poll
+so Coplan never assumes it can push. Same endpoint serves long-poll
 (plain JSON, curl-friendly) and SSE (`Accept: text/event-stream`).
 Cursor = last event id (UUIDv7, time-ordered); delivery is
 at-least-once with explicit ack.
@@ -81,7 +81,7 @@ HTTP requests can follow `/agent-instructions/live` directly and does not need i
 
 ## What the harness must provide
 
-CoPlan can deliver an event in ~180ms; it cannot start the model's next
+Coplan can deliver an event in ~180ms; it cannot start the model's next
 turn. That last inch of wiring belongs to the harness, and it is the
 whole game: an event printed by a background process nobody wakes up for
 is transport without collaboration.
@@ -108,7 +108,7 @@ The shapes that close the loop, most portable first:
    attach the primary authoring conversation.
 4. **Webhook wake.** For hosted agents that can receive HTTP but can't
    hold connections or be exec-resumed (Amp orbs, scheduled runners):
-   claim the session with a `wake_url` and CoPlan POSTs a signed "you
+   claim the session with a `wake_url` and Coplan POSTs a signed "you
    have inbox items" ping there on every event (`X-CoPlan-Signature`:
    HMAC-SHA256 of the body with the `wake_secret` returned once at
    registration; `event_id` for dedupe; retried with backoff). The ping
@@ -195,7 +195,7 @@ The following adapters re-enter an existing session and require its id.
 ### Dedicated ACP agents (separate deployment mode)
 
 The bridge still has an ACP adapter for an operator who intentionally wants a
-standing CoPlan worker or reviewer. It starts a harness ACP server, calls
+standing Coplan worker or reviewer. It starts a harness ACP server, calls
 `session/new`, and pushes plan events into the new session as prompt turns.
 That agent has its own identity and lifecycle; it is not the primary author
 and it does not attach or resume the conversation that launched the bridge.

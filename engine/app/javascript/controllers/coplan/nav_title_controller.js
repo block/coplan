@@ -9,28 +9,29 @@ export default class extends Controller {
   static values = { anchor: { type: String, default: "plan-title" } }
 
   connect() {
-    // #plan-title is stream-replaced when the plan is renamed, which would
-    // strand an observer bound to the old (detached) node. The
-    // .plan-document__head wrapper around it is never itself a stream
-    // target, so watch that: when it mutates we re-point the
-    // IntersectionObserver at the fresh title and re-sync the copy from it.
+    // The title lives inside content in both modes. Observe the stable
+    // content column so reader replacements and editor mounts rebind it.
     // This copy is itself stream-replaced (renames, moves) while the reader
     // may be scrolled down. Take the first state without animating, so a
     // fresh copy appears in place rather than sliding in again.
     this.element.classList.add("site-nav__plan-context--settling")
-    this.head = document.querySelector(".plan-document__head")
+    this.head = document.querySelector(".plan-layout__content")
     this.textEl = this.element.querySelector(".site-nav__doc-title-text")
     this.editEl = this.element.querySelector(".site-nav__edit")
     if (this.editEl) this.editEl.hidden = !document.querySelector('#plan-toolbar a[title^="Edit this document"]')
     this._observeAnchor()
 
     if (this.head) {
-      this._mutation = new MutationObserver(() => {
-        this._observeAnchor()
-        this._syncTitle()
-      })
+      this._mutation = new MutationObserver(() => this.syncAnchor())
       this._mutation.observe(this.head, { childList: true, subtree: true, characterData: true })
     }
+  }
+
+  // Editor readiness changes visibility after its heading has mounted.
+  // Bind after the inline editor handles that bubbling event.
+  syncAnchor() {
+    this._observeAnchor()
+    this._syncTitle()
   }
 
   disconnect() {
@@ -58,7 +59,7 @@ export default class extends Controller {
   // rebuilds when the node actually changed, so live typing in the inline
   // title editor doesn't churn the observer.
   _observeAnchor() {
-    const anchor = document.getElementById(this.anchorValue)
+    const anchor = document.querySelector("[data-editing] .inline-editor .ProseMirror > h1:first-child") || document.getElementById(this.anchorValue)
     if (!anchor || anchor === this._anchor) return
     this._anchor = anchor
 
@@ -78,7 +79,7 @@ export default class extends Controller {
   // Keep the sticky copy in step with the live title, so a rename that
   // arrives over the wire doesn't leave a stale name pinned to the bar.
   _syncTitle() {
-    const title = this.head?.querySelector(".plan-title__heading")?.textContent?.trim()
+    const title = this._anchor?.textContent?.trim()
     if (title && this.textEl && this.textEl.textContent !== title) {
       this.textEl.textContent = title
     }

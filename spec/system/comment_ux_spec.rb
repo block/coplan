@@ -561,7 +561,7 @@ RSpec.describe "Comment UX", type: :system do
       expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Why not monolith?")
       expect(page).to have_no_css(".thread-popover:popover-open", text: "Unrelated discussion")
 
-      plan.update!(title: "Renamed architecture")
+      retitle_plan(plan, "Renamed architecture")
       visit notification_url.request_uri
 
       expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Why not monolith?")

@@ -42,7 +42,7 @@ module CoPlan
     validates :external_id, presence: true, uniqueness: true
     # Settings belong to the engine; metadata is replaceable host/directory data.
     validates :theme_preference, inclusion: { in: THEME_PREFERENCES }
-    # Only a new choice is checked: a later CoPlan release can remove a
+    # Only a new choice is checked: a later Coplan release can remove a
     # theme, and the sign-in sync must still save users who picked it. Their
     # pages fall back to the default (Themes.resolve).
     validates :app_theme, inclusion: { in: APP_THEMES }, if: :app_theme_changed?
@@ -56,7 +56,7 @@ module CoPlan
     after_initialize { self.notification_preferences ||= {} }
 
     # People sync creates user records for colleagues who have never used
-    # CoPlan. Keep those records passive until the app needs a library,
+    # Coplan. Keep those records passive until the app needs a library,
     # whether on sign-in, a profile visit, or rendering an author link.
     def library
       @library ||= Library.for(self)

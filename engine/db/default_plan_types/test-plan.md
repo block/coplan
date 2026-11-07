@@ -3,6 +3,8 @@ name: Test Plan
 icon: shield
 description: Checks that prove a change is ready.
 ---
+# Document title
+
 <!-- Test Plan: each case independently runnable by someone who didn't
 write it. Record actual results in the Cases table as you run them -
 results are facts, and facts belong in content. -->

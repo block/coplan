@@ -26,7 +26,7 @@ module CoPlanConnect
       FileUtils.mkdir_p(directory, mode: 0o700)
       raise Error, "The credentials path must not be a symbolic link." if File.symlink?(@credentials) || File.symlink?("#{@credentials}.lock")
       File.open("#{@credentials}.lock", File::RDWR | File::CREAT, 0o600) do |lock|
-        raise Error, "Another CoPlan setup is already running for this credentials file." unless lock.flock(File::LOCK_EX | File::LOCK_NB)
+        raise Error, "Another Coplan setup is already running for this credentials file." unless lock.flock(File::LOCK_EX | File::LOCK_NB)
         return if already_connected?
         connection, status = post("/api/v1/agent_connections", { name: @name })
         raise Error, "This host uses its own authentication. Follow its /agent-instructions instead." if status == 404
@@ -34,7 +34,7 @@ module CoPlanConnect
         verification = URI(connection.fetch("verification_uri_complete"))
         base_uri = URI(@base)
         unless [ verification.scheme, verification.host, verification.port ] == [ base_uri.scheme, base_uri.host, base_uri.port ] && !verification.userinfo
-          raise Error, "The approval URL must belong to the CoPlan host."
+          raise Error, "The approval URL must belong to the Coplan host."
         end
         puts "Approve this connection to #{@base}:"
         puts verification
@@ -57,7 +57,7 @@ module CoPlanConnect
       uri = URI(base.to_s)
       loopback = %w[localhost 127.0.0.1 ::1].include?(uri.hostname)
       unless uri.is_a?(URI::HTTP) && uri.host && (uri.scheme == "https" || (uri.scheme == "http" && loopback)) && !uri.userinfo && !uri.query && !uri.fragment
-        raise Error, "Use an HTTPS CoPlan URL (HTTP is allowed only on localhost)."
+        raise Error, "Use an HTTPS Coplan URL (HTTP is allowed only on localhost)."
       end
       uri.to_s.delete_suffix("/")
     end
@@ -84,7 +84,7 @@ module CoPlanConnect
       request.body = JSON.generate(body)
       response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https", open_timeout: 10, read_timeout: 15) { |http| http.request(request) }
       return [ {}, response.code.to_i ] if response.code == "404"
-      raise Error, "Unexpected response from the CoPlan host." if response.body.to_s.bytesize > 32_768
+      raise Error, "Unexpected response from the Coplan host." if response.body.to_s.bytesize > 32_768
       [ JSON.parse(response.body), response.code.to_i ]
     end
 
@@ -136,7 +136,7 @@ module CoPlanConnect
     options = { name: "Local computer", credentials: File.join(Dir.home, ".config/coplan/credentials.json") }
     parser = OptionParser.new do |opts|
       opts.banner = "Usage: ruby coplan-connect --base https://coplan.example.com [--name 'Work laptop']"
-      opts.on("--base URL", "CoPlan host, including its mount path") { |v| options[:base] = v }
+      opts.on("--base URL", "Coplan host, including its mount path") { |v| options[:base] = v }
       opts.on("--name NAME", "Name of this computer's connection") { |v| options[:name] = v }
       opts.on("--credentials PATH", "Private credentials file") { |v| options[:credentials] = v }
       opts.on("--no-open", "Print the approval link without opening a browser") { options[:open_browser] = false }

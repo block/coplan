@@ -3,6 +3,8 @@ name: Engineering Design
 icon: scroll
 description: Technical design and decisions for a proposed change.
 ---
+# Document title
+
 <!-- Engineering Design: a decision record. The reader is a reviewer with
 five minutes, then a maintainer two years from now. Keep the whole
 document readable in five minutes. Delete these comments as you fill

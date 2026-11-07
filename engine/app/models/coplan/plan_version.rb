@@ -2,7 +2,7 @@ module CoPlan
   class PlanVersion < ApplicationRecord
     attr_readonly :id, :plan_id, :revision, :content_markdown, :content_sha256
 
-    attr_accessor :edit_lease_token, :input_sources, :writing_identity
+    attr_accessor :edit_lease_token, :input_sources, :writing_identity, :allow_empty_title
 
     before_create :enforce_edit_lease
     before_create :capture_writing_provenance
@@ -59,7 +59,38 @@ module CoPlan
     after_create_commit :backfill_writing_provenance
     after_create_commit :broadcast_writing_provenance
 
+    # Commit paths use this constructor. Plain create! remains available for
+    # importing immutable historical versions, which must retain exact source.
+    def self.create_for_commit!(**attributes)
+      transaction do
+        version = new(**attributes)
+        version.send(:enforce_edit_lease)
+        version.send(:normalize_document_title)
+        version.save!
+        version
+      end
+    end
+
     private
+
+    # Normalize before hashing/provenance. When normalization adds text, record
+    # its operations after the caller's operations so OT sees the exact bytes
+    # that were committed, including repairs to titleless agent submissions.
+    def normalize_document_title
+      original = content_markdown.to_s
+      normalized = MarkdownDocumentTitle.normalize(original, fallback: plan.title, allow_empty: allow_empty_title)
+      return if original == normalized
+
+      self.input_sources = Plans::WritingProvenance.adjust_input_sources_for_content_change(input_sources, original, normalized)
+      if plan.current_plan_version
+        repairs = Plans::DiffToOperations.call(old_content: original, new_content: normalized)
+        applied = Plans::ApplyOperations.call(content: original, operations: repairs)
+        self.operations_json = operations_json.to_a + applied[:applied]
+        self.diff_unified = Diffy::Diff.new(plan.current_content.to_s, normalized).to_s.presence
+      end
+      self.content_markdown = normalized
+      self.content_sha256 = nil
+    end
 
     def capture_writing_provenance
       previous = plan.current_plan_version

@@ -43,9 +43,8 @@ RSpec.describe "Human plan editing", type: :system do
       editor
       expect(page.evaluate_script(<<~JS)).to be_within(1).of(0)
         (() => {
-          const title = document.querySelector('.plan-title');
-          return document.querySelector('.document-editor__toolbar').getBoundingClientRect().top -
-            title.getBoundingClientRect().bottom - parseFloat(getComputedStyle(title).marginBottom);
+          const toolbar = document.querySelector('.document-editor__toolbar');
+          return toolbar.getBoundingClientRect().top - toolbar.parentElement.getBoundingClientRect().top;
         })()
       JS
     end
@@ -55,10 +54,11 @@ RSpec.describe "Human plan editing", type: :system do
     visit plan_edit_page_path(plan)
     editor
     bold_x = find_button("Bold").rect.x
-    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Revised body from the browser.")
-    expect(page).to have_no_css(".content-nav__list:not(.content-nav__list--footnotes) li")
+    select_document_paragraph
+    editor.send_keys("Revised body from the browser.")
+    expect(page).to have_css(".content-nav__list:not(.content-nav__list--footnotes) li", text: "Editable Plan")
     expect(find_button("Bold").rect.x).to be_within(1).of(bold_x)
-    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ])
+    select_document_paragraph
     click_button "Bold"
     expect(page).to have_css(".ProseMirror strong", text: "Revised body")
     save_now
@@ -75,9 +75,11 @@ RSpec.describe "Human plan editing", type: :system do
         base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
       visit plan_edit_page_path(plan)
       paper_x = editor.rect.x
+      click_button "Hide table of contents", enable_aria_label: true if page.has_button?("Hide table of contents", wait: 0)
       bold_x = find_button("Bold").rect.x
-      expect(page).to have_button("Toggle table of contents", disabled: true, enable_aria_label: true)
-      editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "New heading")
+      expect(page).to have_button("Toggle table of contents", disabled: false, enable_aria_label: true)
+      select_document_paragraph
+      editor.send_keys("New heading")
       select "Heading 1", from: "Paragraph style", enable_aria_label: true
       expect(page).to have_css(".ProseMirror h1", text: "New heading")
       expect(page).to have_css(".content-nav__link", text: "New heading", visible: :all)
@@ -94,7 +96,9 @@ RSpec.describe "Human plan editing", type: :system do
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
     paper_x = editor.rect.x
-    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "New heading")
+      click_button "Hide table of contents", enable_aria_label: true if page.has_button?("Hide table of contents", wait: 0)
+    select_document_paragraph
+      editor.send_keys("New heading")
     select "Heading 1", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".ProseMirror h1", text: "New heading")
     expect(page).to have_css(".content-nav__link", text: "New heading", visible: :all)
@@ -111,7 +115,9 @@ RSpec.describe "Human plan editing", type: :system do
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
     paper_x = editor.rect.x
-    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "New heading")
+      click_button "Hide table of contents", enable_aria_label: true if page.has_button?("Hide table of contents", wait: 0)
+    select_document_paragraph
+      editor.send_keys("New heading")
     select "Heading 1", from: "Paragraph style", enable_aria_label: true
     expect(page).to have_css(".ProseMirror h1", text: "New heading")
     expect(page).to have_css(".content-nav__link", text: "New heading", visible: :all)
@@ -151,11 +157,15 @@ RSpec.describe "Human plan editing", type: :system do
     it "keeps the paper in place when adding its first heading and opens the outline on request (#{theme})" do
       CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Opening paragraph.\n",
         base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+      page.execute_script('localStorage.setItem("coplan:content-nav-visible", "false")')
       visit plan_edit_page_path(plan)
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      editor
+      page.evaluate_async_script('const done = arguments[0]; Promise.all(document.querySelector(".plan-layout").getAnimations({subtree: true}).filter(a => a.effect.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))).then(done)')
       paper_x = editor.rect.x
-      expect(page).to have_button("Toggle table of contents", enable_aria_label: true, disabled: true)
-      editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "New heading")
+      expect(page).to have_button("Toggle table of contents", enable_aria_label: true, disabled: false)
+      select_document_paragraph
+      editor.send_keys("New heading")
       select "Heading 1", from: "Paragraph style", enable_aria_label: true
       expect(page).to have_css(".ProseMirror h1", text: "New heading")
       expect(page).to have_css(".content-nav__link", text: "New heading", visible: :all)
@@ -163,6 +173,9 @@ RSpec.describe "Human plan editing", type: :system do
       click_button "Toggle table of contents", enable_aria_label: true
       expect(page).to have_css(".content-nav", text: "New heading", visible: true)
       expect(page).to have_css('.document-editor__outline-toggle[aria-expanded="true"]')
+      # Opening the sidebar moves the toolbar. Wait for its width transition
+      # before Selenium calculates the next click's coordinates.
+      page.evaluate_async_script('const done = arguments[0]; Promise.all(document.querySelector(".content-nav").getAnimations().map(a => a.finished.catch(() => {}))).then(done)')
       click_button "Toggle table of contents", enable_aria_label: true
       expect(page).to have_no_css(".content-nav", visible: true)
       expect(page).to have_css('.document-editor__outline-toggle[aria-expanded="false"]')
@@ -176,12 +189,13 @@ RSpec.describe "Human plan editing", type: :system do
     # Use native selection/typing: Capybara's programmatic input.select() can
     # lose its range when Chrome refocuses the element before send_keys.
     modifier = RUBY_PLATFORM.include?("darwin") ? :meta : :control
-    find("#plan-title .inline-editor__title").send_keys([ modifier, "a" ], "Renamed In Editor")
+    select_document_title
+    find(".inline-editor .ProseMirror").send_keys("Renamed In Editor")
     expect(page).not_to have_css(".document-editor__menu")
     expect(page).not_to have_field("plan_tag_names")
     expect(page).not_to have_field("change_summary", visible: :all)
     save_now
-    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", visible: :all, wait: 15)
+    expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", visible: :all, wait: 15)
     expect(plan.reload.title).to eq("Renamed In Editor")
     expect(plan.tag_names).to contain_exactly("security", "api-design")
   end
@@ -206,7 +220,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "edits cited prose and lists without Markdown cards, retaining citations on save" do
-    source = "A catalog price.[^catalog-shape] Inline `[^literal]` stays code.\n\n" \
+    source = "# Editable Plan\n\nA catalog price.[^catalog-shape] Inline `[^literal]` stays code.\n\n" \
       "- A client rule.[^client]\n- Another rule.\n\n[^catalog-shape]: Catalog details.\n[^client]: Client details.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
@@ -241,7 +255,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "keeps formatted prose, mentions and task lists editable beside template notes" do
-    source = "<!-- Explain the decision. -->\n\n" \
+    source = "# Editable Plan\n\n<!-- Explain the decision. -->\n\n" \
       "Use **bold** for a decision, *italics* for emphasis, ~~strikethrough~~ for an abandoned option, and `receipt_id` for code. Ask [@alex](mention:alex). Literal \\~\\~tildes\\~\\~.\n\n" \
       "- [x] Define a **receipt**\n- [ ] Inspect retry metrics\n  - [X] Nested task\n  - Ordinary nested item\n- Ordinary item\n\n" \
       "1. Ordered item\n2. Another item\n"
@@ -278,7 +292,7 @@ RSpec.describe "Human plan editing", type: :system do
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: /All changes saved/, visible: :all, wait: 15)
     expect(plan.reload.current_content).to include("**bold**", "~~strikethrough~~", "[@alex](mention:alex)", "More context.", "[ ] Define a **receipt**", "[x] Inspect retry metrics", "[ ] Nested task")
     expect(plan.current_content).to include("\\~\\~tildes\\~\\~.")
-    expect(plan.current_content).to start_with("<!-- Explain the decision. -->\n\n")
+    expect(plan.current_content).to start_with("# Editable Plan\n\n<!-- Explain the decision. -->\n\n")
     find(".document-editor__template-note", text: "Explain the decision.").click
     %w[light dark].each do |theme|
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
@@ -293,7 +307,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "continues task lists with unchecked items and supports nesting, exit and undo" do
-    source = "- [x] Completed task\n- Ordinary item\n"
+    source = "# Editable Plan\n\n- [x] Completed task\n- Ordinary item\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -331,7 +345,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "starts a new task unchecked when splitting the middle of a completed task" do
-    source = "- [x] Finish review\n"
+    source = "# Editable Plan\n\n- [x] Finish review\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -349,7 +363,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "edits a whole presentation in one Markdown field, preserving its wrapping region" do
-    source = "Before the deck.[^earlier]\n\n[api]: https://example.com/api\n  \"API reference\"\n\n::: {.presentation #review theme=\"graphite\"}\n\n# Review\n\nOpening slide. [API][api] Decision.[^later]\n\n[api]: https://example.com/duplicate\n\n---\n\n## Decision\n\n- Ship it.\n\n:::\n\nAfter the deck.\n\n[^earlier]: Earlier note.\n[^later]: Later note.\n"
+    source = "# Editable Plan\n\nBefore the deck.[^earlier]\n\n[api]: https://example.com/api\n  \"API reference\"\n\n::: {.presentation #review theme=\"graphite\"}\n\n# Review\n\nOpening slide. [API][api] Decision.[^later]\n\n[api]: https://example.com/duplicate\n\n---\n\n## Decision\n\n- Ship it.\n\n:::\n\nAfter the deck.\n\n[^earlier]: Earlier note.\n[^later]: Later note.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -377,7 +391,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "previews only the selected presentation in a document with multiple decks" do
-    source = "::: {.presentation}\n\n# First deck\n\nFirst.[^first]\n\n:::\n\n::: {.presentation}\n\n# Second deck\n\nSecond.[^second]\n\n:::\n\n[^first]: First note.\n[^second]: Second note.\n"
+    source = "# Editable Plan\n\n::: {.presentation}\n\n# First deck\n\nFirst.[^first]\n\n:::\n\n::: {.presentation}\n\n# Second deck\n\nSecond.[^second]\n\n:::\n\n[^first]: First note.\n[^second]: Second note.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -545,7 +559,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "matches folded and whitespace citation labels while retaining their source spelling" do
-    source = "Road.[^STRASSE] Context.[^ Catalog  shape ]\n\n[^straße]: Street details.\n[^catalog shape]: Shape details.\n"
+    source = "# Editable Plan\n\nRoad.[^STRASSE] Context.[^ Catalog  shape ]\n\n[^straße]: Street details.\n[^catalog shape]: Shape details.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -570,7 +584,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "edits citations in a dialog while keeping definitions out of the body" do
-    source = "A catalog price.[^catalog] More context.[^other]\n\n[^catalog]: Catalog details.\n    A second line.\n\n    A second paragraph.\n[^other]: Keep this definition.\n"
+    source = "# Editable Plan\n\nA catalog price.[^catalog] More context.[^other]\n\n[^catalog]: Catalog details.\n    A second line.\n\n    A second paragraph.\n[^other]: Keep this definition.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -589,7 +603,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "keeps a list rich when it contains a table and edits just that table" do
-    source = "- First item.\n\n  | Name | State |\n  | --- | --- |\n  | Alpha | Ready |\n\n- Second item.\n"
+    source = "# Editable Plan\n\n- First item.\n\n  | Name | State |\n  | --- | --- |\n  | Alpha | Ready |\n\n- Second item.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -607,7 +621,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "keeps quoted tables in their quote and exposes their own source range" do
-    source = "> Explanation.\n>\n> | Name | Status |\n> | --- | --- |\n> | Alpha | Ready |\n\nAfter.\n"
+    source = "# Editable Plan\n\n> Explanation.\n>\n> | Name | Status |\n> | --- | --- |\n> | Alpha | Ready |\n\nAfter.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -633,7 +647,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "edits iframe settings and keeps disallowed URLs from loading" do
-    source = '::: {.iframe src="https://unapproved.example.com/report" title="Report" width="100%" height="480" /}' + "\n"
+    source = "# Editable Plan\n\n" + '::: {.iframe src="https://unapproved.example.com/report" title="Report" width="100%" height="480" /}' + "\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -668,7 +682,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "adds content after a selected presentation without replacing it" do
-    source = "::: {.presentation}\n\n# Existing deck\n\n:::\n"
+    source = "# Editable Plan\n\n::: {.presentation}\n\n# Existing deck\n\n:::\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -677,7 +691,7 @@ RSpec.describe "Human plan editing", type: :system do
       const done = arguments[0];
       import('prosemirror-state').then(({NodeSelection}) => {
         const view = window.Stimulus.getControllerForElementAndIdentifier(document.querySelector('[data-controller~="coplan--editor"]'), 'coplan--editor').richEditor.view;
-        view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, 0)));
+        view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, view.state.doc.firstChild.nodeSize)));
         done();
       });
     JS
@@ -688,7 +702,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "focuses a newly inserted iframe and lets removal be undone" do
-    source = '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' + "\n\nEnd.\n"
+    source = "# Editable Plan\n\n" + '::: {.iframe src="https://unapproved.example.com/first" title="First" /}' + "\n\nEnd.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -837,7 +851,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "separates inserted content blocks from citation definitions across save and reload" do
-    source = "Plain.[^catalog]\n\n[^catalog]: Catalog source.\n"
+    source = "# Editable Plan\n\nPlain.[^catalog]\n\n[^catalog]: Catalog source.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     visit plan_edit_page_path(plan)
@@ -856,7 +870,7 @@ RSpec.describe "Human plan editing", type: :system do
   end
 
   it "opens back-matter citations for whole content blocks in both modes" do
-    source = "::: {.presentation}\n\n# Review\n\nDecision.[^catalog]\n\n:::\n\n" +
+    source = "# Editable Plan\n\n::: {.presentation}\n\n# Review\n\nDecision.[^catalog]\n\n:::\n\n" +
       '::: {.iframe src="https://unapproved.example.com/report" title="Report" /}' + "\n\n[^catalog]: Catalog details.\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
       base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
@@ -899,7 +913,7 @@ RSpec.describe "Human plan editing", type: :system do
   it "keeps untouched blocks exact when editing beside tables and Mermaid" do
     visit plan_edit_page_path(plan)
     editor
-    source = "# Heading\n\nOriginal body.\n\n```mermaid\ngraph TD; A-->B\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |\n"
+    source = "# Editable Plan\n\n# Heading\n\nOriginal body.\n\n```mermaid\ngraph TD; A-->B\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |\n"
     result = page.evaluate_async_script(<<~'JS', source)
       const [source, done] = arguments;
       import("coplan/rich_document").then(m => {
@@ -912,7 +926,7 @@ RSpec.describe "Human plan editing", type: :system do
       });
     JS
     expect(result).to include("Revised body.")
-    expect(result).to start_with("# Heading\n\n")
+    expect(result).to start_with("# Editable Plan\n\n# Heading\n\n")
     expect(result).to end_with("```mermaid\ngraph TD; A-->B\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |\n")
   end
 
@@ -957,7 +971,7 @@ RSpec.describe "Human plan editing", type: :system do
       actor_type: "local_agent", actor_id: author.id)
     expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]', wait: 10)
     expect(editor).to have_text("My retained draft")
-    expect(plan.reload.current_content).to eq("Intervening content")
+    expect(plan.reload.current_content).to eq("# Editable Plan\n\nIntervening content")
     page.execute_script('window.fetch = window.originalFetch')
     find('.document-editor__close-inline[data-state="conflict"]').click
     expect(editor).to have_text("Intervening content", wait: 10)
@@ -987,8 +1001,10 @@ RSpec.describe "Human plan editing", type: :system do
 
   it "handles Command and Control formatting, undo, redo and list shortcuts" do
     visit plan_edit_page_path(plan)
-    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ], "Keyboard text")
-    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, "a" ])
+    editor
+    select_document_paragraph
+    editor.send_keys("Keyboard text")
+    select_document_paragraph
     [ :meta, :control ].each do |modifier|
       editor.send_keys([ modifier, "b" ])
       expect(page).to have_css(".ProseMirror strong", text: "Keyboard text")
@@ -1184,7 +1200,8 @@ RSpec.describe "Human plan editing", type: :system do
     editor
     # Prevent the human patch long enough to receive a real server version.
     page.execute_script('window.originalFetch = window.fetch; window.fetch = (url, options) => options?.method === "PATCH" ? Promise.reject(new TypeError("Offline")) : window.originalFetch(url, options)')
-    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, :end ], " Human addition.")
+    find('.ProseMirror > p', text: "First draft body.").click
+    editor.send_keys([ RUBY_PLATFORM.include?("darwin") ? :meta : :control, :right ], " Human addition.")
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "# Agent heading\n\nFirst draft body.\n", base_revision: 1,
       actor_type: "local_agent", actor_id: author.id)
     expect(editor).to have_text("Agent heading", wait: 10)
