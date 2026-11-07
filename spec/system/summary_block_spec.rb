@@ -161,4 +161,21 @@ RSpec.describe "Summary block", type: :system do
     page.driver.browser.action.send_keys(:backspace).perform
     expect(card).to have_css("sup.footnote-ref", text: "1", wait: 15)
   end
+
+  it "navigates nested summaries without taking an existing heading fragment" do
+    nested = content.sub("::: {.summary}", "<details open>\n<summary>Executive overview</summary>\n\n::: {.summary}")
+      .sub(":::\n\n## 1 Background", ":::\n\n</details>\n\n## 1 Background")
+    nested += "\n## Plan summary\n\nExisting section link.\n"
+    nested_plan = CoPlan::Plans::Create.call(title: "Save latency analysis", content: nested, user: author,
+      visibility: "published", actor_type: "human")
+    visit plan_page_path(nested_plan)
+    expect(page).to have_css("details section.plan-summary", text: "Recommendation:")
+    expect(page).to have_css("h2#plan-summary", text: "Plan summary")
+    expect(page).to have_no_css("details hr")
+    click_link "Plan summary", exact: true
+    expect(page).to have_current_path(/#plan-summary\z/, url: true)
+    find(".content-nav__item--summary a").click
+    expect(page).to have_current_path(/#plan-summary-2\z/, url: true)
+    expect(page).to have_css(".content-nav__item--summary .content-nav__link--active")
+  end
 end

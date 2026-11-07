@@ -5,7 +5,7 @@ module CoPlan
 
     # Wraps a summary block in section.plan-summary. The block was rendered
     # with its marker lines as thematic breaks (Split.with_summary_breaks);
-    # the siblings between those two root-level breaks move into the
+    # the nodes between those two sibling breaks move into the
     # section and the breaks are dropped. `summary` holds the marker lines
     # in the coordinates of the rendered source, or nil for no block.
     #
@@ -18,15 +18,16 @@ module CoPlan
 
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
       doc.css("[class~='#{SUMMARY_CLASS}']").each do |node|
+        node.remove_attribute("id") if node["id"] == SUMMARY_ID
         node["class"] = node.classes.reject { |name| name == SUMMARY_CLASS }.join(" ")
         node.remove_attribute("class") if node["class"].empty?
       end
-      doc.css("[id='#{SUMMARY_ID}']").each { |node| node.remove_attribute("id") }
 
       opener = summary && summary_break(doc, summary.open_line)
       closer = summary && summary_break(doc, summary.close_line)
-      if opener && closer && doc.children.index(opener) < doc.children.index(closer)
-        section = doc.document.create_element("section", class: SUMMARY_CLASS, id: SUMMARY_ID, "aria-label" => "Summary")
+      if opener && closer && opener.parent == closer.parent &&
+          opener.parent.children.index(opener) < closer.parent.children.index(closer)
+        section = doc.document.create_element("section", class: SUMMARY_CLASS, id: summary_id(doc), "aria-label" => "Summary")
         opener.add_previous_sibling(section)
         node = opener.next_sibling
         until node == closer
@@ -34,19 +35,32 @@ module CoPlan
           section.add_child(node)
           node = following
         end
-        opener.remove
-        closer.remove
       end
+      opener&.remove
+      closer&.remove
       doc.to_html
     end
 
     private
 
+    # Preserve existing heading and author fragments; the outline reads the
+    # actual card id rather than assuming a fixed anchor.
+    def summary_id(doc)
+      ids = doc.css("[id]").map { |node| node["id"] }.to_set
+      candidate = SUMMARY_ID
+      suffix = 2
+      while ids.include?(candidate)
+        candidate = "#{SUMMARY_ID}-#{suffix}"
+        suffix += 1
+      end
+      candidate
+    end
+
     # Raw HTML can carry its own data-sourcepos, so a line claimed by more
-    # than one root-level break matches nothing.
+    # than one break matches nothing.
     def summary_break(doc, line)
       pattern = /\A#{line}:\d+-#{line}:\d+\z/
-      candidates = doc.children.select { |node| node.name == "hr" && pattern.match?(node["data-sourcepos"].to_s) }
+      candidates = doc.css("hr[data-sourcepos]").select { |node| pattern.match?(node["data-sourcepos"].to_s) }
       candidates.first if candidates.one?
     end
   end

@@ -102,6 +102,29 @@ RSpec.describe CoPlan::SummaryBlocksHelper, type: :helper do
     end
   end
 
+  it "renders recognized summary markers inside an HTML container without stray rules" do
+    content = "<details open>\n<summary>Read more</summary>\n\n::: {.summary}\nNested takeaway\n:::\n\n</details>"
+    expect(CoPlan::ContentRegions::Split.summary_text(content)).to eq("Nested takeaway")
+    doc = render(content)
+    expect(doc.at_css("details section.plan-summary")&.text&.strip).to eq("Nested takeaway")
+    expect(doc.css("hr")).to be_empty
+  end
+
+  it "preserves existing heading fragments when assigning the summary card id" do
+    doc = render("#{source}\n\n## Plan summary\n\nExisting section.\n\n## Plan summary 2")
+    heading = doc.css("h2").find { |node| node.text.strip == "Plan summary" }
+    expect(heading.at_css("a.anchor")["id"]).to eq("plan-summary")
+    expect(doc.at_css("section.plan-summary")["id"]).not_to eq("plan-summary")
+    ids = doc.css("[id]").map { |node| node["id"] }
+    expect(ids.uniq).to eq(ids)
+  end
+
+  it "preserves heading fragments across deck and document boundaries" do
+    doc = render("#{source}\n\n::: {.presentation}\n\n# Slide\n\n:::\n\n## Plan summary\n\nExisting section.")
+    expect(doc.at_css("section.plan-summary")["id"]).not_to eq("plan-summary")
+    expect(doc.at_css("h2 a#plan-summary")).to be_present
+  end
+
   it "does not render a card outside a plan document" do
     doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown("::: {.summary}\nComment text\n:::"))
 
