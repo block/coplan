@@ -1,5 +1,64 @@
 # GitHub CI
 
+## Local checks in parallel
+
+Run `bundle install` and start MySQL, then use:
+
+```sh
+bin/ci
+```
+
+This runs every RSpec file, including real-browser system specs, plus RuboCop,
+the gem and importmap audits, Brakeman, and the demo seeds twice. It does not
+run `bin/setup`, alter the development database, or replant your usual test
+database. Dependencies must already be installed. Chrome for Testing is
+provisioned by Selenium using the same local configuration as ordinary system specs.
+
+The default worker budget is half the detected CPU count, capped at eight and
+at least one. Up to four workers run browser shards; the remaining slots can
+run other specs or checks at the same time. RuboCop's own parallelism is disabled
+so it shares this budget. To use more cores or less memory:
+
+```sh
+bin/ci --jobs 12 --browser-jobs 6
+bin/ci --jobs 2 --browser-jobs 1
+bin/ci --jobs 1
+```
+
+Each RSpec shard and the seed check get a newly named database, unique to this
+checkout and invocation, and a separate schema file. The database account needs
+permission to create and drop databases. Databases are dropped after each check,
+including after failures and Ctrl+C. If the coordinator is forcibly killed or
+the database server becomes unavailable, cleanup may need to be done manually;
+the database names are in the check logs.
+
+Without `DATABASE_URL`, workers use the test connection in `config/database.yml`.
+With it, workers retain its connection settings and replace the database name.
+For example, PostgreSQL checks migrate each new database instead of loading the
+MySQL schema:
+
+```sh
+DATABASE_URL=postgresql://postgres@localhost/coplan_local_test bin/ci
+```
+
+Preview the selected worker counts and file counts without running commands:
+
+```sh
+bin/ci --list
+```
+
+Files are balanced by source size, separately for browser and non-browser specs.
+Every discovered spec runs once. The coordinator prints each check's start,
+finish, duration, and log path. Logs, RSpec JSON reports, private schema files,
+and `summary.json` remain under the printed `tmp/local-ci/<run>/` directory.
+An empty suite, a missing report, a failed audit, or a cleanup failure makes
+`bin/ci` exit nonzero. Other checks finish so one failure does not hide their results.
+Repeat a test order with `bin/ci --seed <printed-seed>`; keep the same worker
+counts to preserve the same groups. GitHub's extra repeated regression cohorts
+remain available separately through `bin/rspec-stress`.
+
+## GitHub Actions
+
 The workflow in `.github/workflows/ci.yml` runs these jobs independently:
 
 | Job | Database | Runner | Coverage |
