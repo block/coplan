@@ -45,8 +45,13 @@ module CoPlan
       # Only persist explicit navigations as recent searches — not every
       # typeahead `frame=results` request fired on each keystroke. Otherwise
       # typing "roadmap" would log r, ro, roa, … and evict actual recents.
-      if @query.present? && params[:frame] != "results"
+      if @query.present? && !%w[results links].include?(params[:frame])
         SearchQuery.log!(user: current_user, query: @query)
+      end
+
+      if params[:frame] == "links"
+        render partial: "coplan/search/link_results", locals: { results: @results, people: @people }
+        return
       end
 
       @recent_queries = SearchQuery.recent_for(current_user).pluck(:query)

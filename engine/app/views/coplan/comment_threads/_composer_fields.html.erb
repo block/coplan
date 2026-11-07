@@ -1,6 +1,10 @@
 <% label = local_assigns.fetch(:label, "New comment") %>
 <% submit_label = local_assigns.fetch(:submit_label, "Comment") %>
-<div class="composer">
+<div class="composer" data-controller="coplan--comment-form"
+     data-action="coplan:composer-close@document->coplan--comment-form#composerClosed resize@window->coplan--comment-form#positionLink scroll@document->coplan--comment-form#positionLink:capture"
+     data-coplan--comment-form-link-search-url-value="<%= coplan.search_path %>"
+     data-coplan--comment-form-search-url-value="<%= search_users_path %>">
+  <div class="composer__draft" data-coplan--comment-form-target="draft">
     <div class="composer__writing" data-controller="coplan--dictation"
          data-coplan--dictation-url-value="<%= plan_dictations_path(local_assigns.fetch(:plan)) %>"
          data-coplan--dictation-transcription-value="<%= CoPlan::Ai.available? %>"
@@ -9,8 +13,8 @@
             id: local_assigns.fetch(:field_id, "comment_thread_body_markdown"),
             rows: 3, placeholder: local_assigns.fetch(:placeholder, "Write a comment..."), required: true,
             aria: { label: label }, class: "composer__input",
-            data: { controller: "coplan--comment-form", "coplan--dictation-target": "input",
-                    "coplan--comment-form-search-url-value": search_users_path }.merge(local_assigns.fetch(:textarea_data, {})) %>
+            data: { "coplan--comment-form-target": "input", "coplan--dictation-target": "input",
+                    action: "keydown->coplan--comment-form#link paste->coplan--comment-form#pasteLink" }.merge(local_assigns.fetch(:textarea_data, {})) %>
       <div class="composer__status" role="status" aria-live="polite" data-coplan--dictation-target="status"></div>
       <div class="comment-form__error text-sm" role="alert" id="<%= local_assigns.fetch(:error_id, "new-comment-form-error") %>"></div>
       <div class="composer__toolbar">
@@ -30,4 +34,19 @@
         </div>
       </div>
     </div>
+  </div>
+  <div class="composer__link" popover="manual" role="dialog" aria-label="Insert link" hidden
+       data-coplan--comment-form-target="linkPanel" data-action="keydown->coplan--comment-form#linkKeydown">
+    <label>
+      <span data-coplan--comment-form-target="linkLabel">Search or paste a link</span>
+      <span role="alert" hidden data-coplan--comment-form-target="linkError">Enter a URI such as https://… or codex://… without spaces.</span>
+      <input aria-label="Search or paste a link" type="text" placeholder="Search Coplan or paste a URI…" autocomplete="off"
+             data-coplan--comment-form-target="linkUrl" data-action="input->coplan--comment-form#searchLinks">
+    </label>
+    <div class="composer__link-results" aria-live="polite" data-coplan--comment-form-target="linkResults"></div>
+    <div class="composer__send-actions">
+      <button type="button" class="composer__cancel" data-action="coplan--comment-form#cancelLink">Cancel link</button>
+      <button type="button" class="btn btn--primary btn--sm" data-action="coplan--comment-form#applyLink">Insert link</button>
+    </div>
+  </div>
 </div>
