@@ -65,6 +65,47 @@ RSpec.describe "Callouts", type: :system do
     expect(thread.anchor_start).to eq(source.index("Back up first.", source.index("[!WARNING]")))
   end
 
+  it "keeps callouts readable in either deck theme regardless of app mode" do
+    content = %w[coplan graphite].map do |theme|
+      "::: {.presentation theme=\"#{theme}\"}\n\n# Callout slide\n\n> [!TIP]\n> Readable in either app mode.\n\n:::\n"
+    end.join("\n")
+    deck = CoPlan::Plans::Create.call(title: "Callout decks", content: content, user: author,
+      visibility: "draft", actor_type: "human")
+    visit plan_page_path(deck)
+    expect(page).to have_css(".deck .callout", count: 2)
+    palettes = %w[light dark].map do |mode|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", mode)
+      page.evaluate_script(<<~JS)
+        Array.from(document.querySelectorAll(".deck .callout"), node => {
+          const style = getComputedStyle(node), slide = getComputedStyle(node.closest(".deck-slide"));
+          return { text: style.color, ink: slide.color, label: getComputedStyle(node, "::before").color,
+                   border: style.borderLeftColor, background: style.backgroundColor };
+        })
+      JS
+    end
+    palettes.flatten.each { |palette| expect(palette["text"]).to eq(palette["ink"]) }
+    expect(palettes.first).to eq(palettes.last)
+  end
+
+  it "keeps literal markers and empty-callout boundaries consistent with the reader" do
+    samples = [
+      "> \\[!NOTE]\n> Literal.\n",
+      "> [!UNKNOWN]\n> Literal.\n",
+      ">\n> [!NOTE]\n> Literal.\n",
+      "> [!NOTE]\nOutside the callout.\n"
+    ]
+    results = page.evaluate_async_script(<<~'JS', samples)
+      const sources = arguments[0], done = arguments[1];
+      import("coplan/rich_document").then(m => done(sources.map(source => {
+        const doc = m.parseDocument(source), callouts = [];
+        doc.descendants(node => { if (node.attrs.callout) callouts.push(node.textContent); });
+        return { callouts, roundtrip: m.serializeDocument(doc) };
+      }))).catch(error => done({ error: error.message }));
+    JS
+    expect(results.map { |result| result["callouts"] }).to eq([ [], [], [], [] ])
+    expect(results.map { |result| result["roundtrip"] }).to eq(samples)
+  end
+
   it "keeps each marker unchanged through the rich editor" do
     round_trips = page.evaluate_async_script(<<~'JS')
       const done = arguments[0];

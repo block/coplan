@@ -328,7 +328,8 @@ RSpec.describe CoPlan::DevelopmentSeed do
 
       html = ApplicationController.helpers.render_markdown(plan.current_content)
       types = Nokogiri::HTML::DocumentFragment.parse(html).css(".callout").map { |node| node["class"].delete_prefix("callout callout--") }
-      expect(types).to eq(%w[important note tip warning caution])
+      expect(types).to eq(%w[important note tip warning caution tip warning])
+      expect(plan.current_content).to include('> \\[!NOTE]', 'theme="coplan"', 'theme="graphite"')
 
       revision = plan.current_revision
       described_class.call

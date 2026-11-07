@@ -150,12 +150,27 @@ tokenizer.core.ruler.after("block", "coplan_tasks", state => {
   })
 })
 tokenizer.core.ruler.after("block", "coplan_callouts", state => {
+  let quoteDepth = 0
+  const lines = state.src.split("\n")
   for (let index = 0; index < state.tokens.length; index++) {
     const token = state.tokens[index]
-    if (token.type !== "blockquote_open" || state.tokens[index + 1]?.type !== "paragraph_open") continue
+    if (token.type === "blockquote_close") quoteDepth--
+    if (token.type !== "blockquote_open") continue
+    quoteDepth++
+    const paragraph = state.tokens[index + 1]
+    // Commonmarker only recognizes a marker on the opening quote line.
+    if (paragraph?.type !== "paragraph_open" || paragraph.map[0] !== token.map[0]) continue
     const inline = state.tokens[index + 2]
     const match = inline?.type === "inline" && calloutMarker.exec(inline.content)
     if (!match) continue
+    // An alert marker is not a paragraph for lazy continuation. Markdown-it
+    // folds an unquoted following line into this paragraph; keep that unusual
+    // source in the server-rendered preview instead of changing its meaning.
+    if (inline.content.slice(match[0].length) &&
+        !new RegExp(`^(?:[ \t]*>){${quoteDepth}}`).test(lines[paragraph.map[0] + 1] || "")) {
+      token.meta = { preserveCallout: true }
+      continue
+    }
     token.meta = { callout: match[1].toLowerCase(), marker: match[0].replace(/\n$/, "") }
     inline.content = inline.content.slice(match[0].length)
     // A marker on its own line, before a blank line, list or fence, leaves
@@ -450,6 +465,7 @@ export function parseDocument(markdown) {
       if (start > consumed) blocks.push(preserved(source.slice(consumed, start)))
       const text = source.slice(start, end)
       try {
+        if (text.includes("[!") && tokenizer.parse(text, {}).some(token => token.meta?.preserveCallout)) throw new Error("preserve")
         const parsed = richMarkdownParser.parse(text)
         const unsupported = text.replace(imageTag, tag => htmlImage(tag) ? "" : tag)
         if (parsed.firstChild?.type.name !== "code_block" && /\]\s*\[|<\/?[a-z!]|^\s*\[[^\]]+\]:|^:::(?: \{\.presentation.*\})?$/im.test(unsupported)) throw new Error("preserve")

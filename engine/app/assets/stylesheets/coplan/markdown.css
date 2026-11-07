@@ -458,7 +458,7 @@
   border-left: 4px solid var(--callout-accent);
   border-radius: 6px;
   background: color-mix(in srgb, var(--callout-accent) 8%, transparent);
-  color: var(--color-text);
+  color: var(--callout-ink, var(--color-text));
 }
 
 .markdown-rendered :is(.callout--note, .document-editor__callout--note) {
@@ -491,7 +491,7 @@
   display: block;
   margin-bottom: 0.25em;
   padding-left: 1.5em;
-  color: color-mix(in srgb, var(--callout-accent) 78%, var(--color-text));
+  color: color-mix(in srgb, var(--callout-accent) 78%, var(--callout-ink, var(--color-text)));
   font-weight: 600;
   line-height: 1.5;
   user-select: none;
@@ -506,6 +506,12 @@
   height: 1em;
   background: var(--callout-accent);
   mask: var(--callout-icon) center / contain no-repeat;
+}
+
+/* A deck is a fixed artifact, independent of the reader's app theme. */
+.deck .markdown-rendered .callout {
+  --callout-ink: var(--deck-ink);
+  --callout-accent: var(--deck-muted);
 }
 
 /* The second selector outranks the reading paragraph gap above. */

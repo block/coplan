@@ -41,3 +41,30 @@ An unknown marker also stays a plain blockquote:
 
 > [!QUESTION]
 > Should finance review the retention window?
+
+An escaped known marker stays literal too:
+
+> \[!NOTE]
+> This text explains the syntax rather than creating a note.
+
+## Callouts in slides
+
+The deck palette stays fixed when the app switches between light and dark mode.
+
+::: {.presentation theme="coplan"}
+
+# Retention rollout
+
+> [!TIP]
+> Compare checksums before deleting the original batch.
+
+:::
+
+::: {.presentation theme="graphite"}
+
+# Retention rollout
+
+> [!WARNING]
+> Schedule the archive lock outside the billing run.
+
+:::

@@ -121,7 +121,9 @@ Use a callout for a note or warning that must stand out from the body text. Star
 > An action with a bad or irreversible result.
 ```
 
-Each type has its own color, icon and label. The marker is not case sensitive. To change the label, put text after the marker: `> [!WARNING] Before you migrate`. Lists, code blocks and tables work inside a callout when every line starts with `>`. Any other marker, such as `> [!FOO]`, renders as a plain blockquote.
+Each type has an icon and label. Notes and warnings use neutral accents; blue and orange remain reserved for interaction and viewer-specific attention. Slides use their deck palette. The marker is not case sensitive. To change the label, put text after the marker: `> [!WARNING] Before you migrate`. Lists, code blocks and tables work inside a callout when every line starts with `>`. Any other marker, such as `> [!FOO]`, renders as a plain blockquote.
+
+Keep the marker on the opening quote line. Escape it as `> \[!NOTE]` to show it literally. In the rich editor, an empty callout immediately followed by unquoted text uses the source-preview block; edit that block’s source or use Raw.
 
 Use callouts sparingly: one or two in a section. If everything stands out, nothing does. Do not use a callout for a quote; use a plain `>` blockquote.
 

@@ -261,6 +261,20 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(doc.at_css(".callout")).to be_nil
     end
 
+    it "keeps escaped markers and markers after an opening blank quote line literal" do
+      [ "> \\[!NOTE]\n> Literal.", ">\n> [!NOTE]\n> Literal." ].each do |source|
+        doc = callout_doc(source)
+        expect(doc.at_css(".callout")).to be_nil
+        expect(doc.at_css("blockquote").text).to include("[!NOTE]")
+      end
+    end
+
+    it "keeps an unquoted line outside an empty callout" do
+      doc = callout_doc("> [!NOTE]\nOutside the callout.")
+      expect(doc.at_css(".callout").text.strip).to be_empty
+      expect(doc.at_css(".callout + p").text).to eq("Outside the callout.")
+    end
+
     it "renders lists, code and nested quotes inside a callout" do
       markdown = <<~MD
         > [!IMPORTANT]
