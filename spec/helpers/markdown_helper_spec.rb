@@ -324,6 +324,12 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(callout["data-sourcepos"]).to be_nil
     end
 
+    it "omits generated and custom callout titles from plan-row plain text" do
+      expect(helper.markdown_to_plain_text("> [!WARNING]\n> Back up first.")).to eq("Back up first.")
+      expect(helper.markdown_to_plain_text("> [!NOTE] Custom label\n> Body.")).to eq("Body.")
+      expect(helper.markdown_to_plain_text("> [!UNKNOWN]\n> Body.")).to eq("[!UNKNOWN] Body.")
+    end
+
     it "leaves the marker and label out of plain-text extraction anchors" do
       stripped, = CoPlan::Plans::MarkdownTextExtractor.call("Intro.\n\n> [!NOTE]\n> Read this first.\n")
 

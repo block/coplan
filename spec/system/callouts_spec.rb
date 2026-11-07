@@ -87,23 +87,54 @@ RSpec.describe "Callouts", type: :system do
     expect(palettes.first).to eq(palettes.last)
   end
 
-  it "keeps literal markers and empty-callout boundaries consistent with the reader" do
+  it "keeps literal markers and empty-callout boundaries consistent with the reader", :aggregate_failures do
     samples = [
       "> \\[!NOTE]\n> Literal.\n",
       "> [!UNKNOWN]\n> Literal.\n",
       ">\n> [!NOTE]\n> Literal.\n",
-      "> [!NOTE]\nOutside the callout.\n"
+      "> [!NOTE]\nOutside the callout.\n",
+      ">[!NOTE]\n> Literal.\n",
+      ">  [!NOTE]\n> Literal.\n",
+      ">\t[!NOTE]\n> Literal.\n",
+      "> [!NOTE]\n> a\n> ---\n",
+      "> [!NOTE]\n> ---\n",
+      "> [!NOTE]\n> ===\n"
     ]
     results = page.evaluate_async_script(<<~'JS', samples)
       const sources = arguments[0], done = arguments[1];
       import("coplan/rich_document").then(m => done(sources.map(source => {
         const doc = m.parseDocument(source), callouts = [];
         doc.descendants(node => { if (node.attrs.callout) callouts.push(node.textContent); });
-        return { callouts, roundtrip: m.serializeDocument(doc) };
+        const rebuilt = doc.type.create(null, doc.content.content.map(node => node.type.name === "preserved" ? node :
+          node.type.create({ ...node.attrs, source: null, snapshot: null }, node.content, node.marks)));
+        return { callouts, roundtrip: m.serializeDocument(doc), rewritten: m.serializeDocument(rebuilt) };
       }))).catch(error => done({ error: error.message }));
     JS
-    expect(results.map { |result| result["callouts"] }).to eq([ [], [], [], [] ])
+    expect(results.map { |result| result["callouts"] }).to all(eq([]))
     expect(results.map { |result| result["roundtrip"] }).to eq(samples)
+    results[4..6].each do |result|
+      html = ApplicationController.helpers.render_markdown(result["rewritten"])
+      expect(Nokogiri::HTML.fragment(html).at_css(".callout")).to be_nil
+    end
+    expect(results.last(3).map { |result| result["rewritten"] }).to eq(samples.last(3))
+  end
+
+  it "preserves a setext callout while saving an edit to nearby prose" do
+    source = "# Setext callout\n\n> [!NOTE]\n> Heading body\n> ---\n\nAfter."
+    document = CoPlan::Plans::Create.call(title: "Setext callout", content: source, user: author,
+      visibility: "draft", actor_type: "human")
+    visit plan_edit_page_path(document)
+    expect(page).to have_css(".document-editor__block-preview .callout h2", text: "Heading body")
+    paragraph = find(".ProseMirror p", text: "After.", exact_text: true)
+    paragraph.click
+    paragraph.send_keys(:end, " Edited.")
+    click_button "Raw", exact: true
+    expected = source.sub("After.", "After. Edited.")
+    expect(find('[aria-label="Markdown source"]').text).to eq(expected.strip)
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(document))
+    expect(document.reload.current_content).to eq(expected)
+    expect(page).to have_css(".callout h2", text: "Heading body")
   end
 
   it "keeps each marker unchanged through the rich editor" do

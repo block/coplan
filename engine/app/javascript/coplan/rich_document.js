@@ -159,10 +159,19 @@ tokenizer.core.ruler.after("block", "coplan_callouts", state => {
     quoteDepth++
     const paragraph = state.tokens[index + 1]
     // Commonmarker only recognizes a marker on the opening quote line.
-    if (paragraph?.type !== "paragraph_open" || paragraph.map[0] !== token.map[0]) continue
+    if (!["paragraph_open", "heading_open"].includes(paragraph?.type) || paragraph.map[0] !== token.map[0]) continue
     const inline = state.tokens[index + 2]
     const match = inline?.type === "inline" && calloutMarker.exec(inline.content)
     if (!match) continue
+    // Commonmarker requires exactly one space after the quote marker.
+    const opening = lines[paragraph.map[0]]
+    if (!opening.slice(0, opening.indexOf("[!")).endsWith("> ")) continue
+    // Markdown-it folds the marker into a setext heading, but Commonmarker
+    // parses the alert first. Preserve that source rather than rewrite it.
+    if (paragraph.type === "heading_open") {
+      token.meta = { preserveCallout: true }
+      continue
+    }
     // An alert marker is not a paragraph for lazy continuation. Markdown-it
     // folds an unquoted following line into this paragraph; keep that unusual
     // source in the server-rendered preview instead of changing its meaning.

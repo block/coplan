@@ -39,7 +39,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 25
+    RENDER_CACHE_VERSION = 26
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -174,7 +174,9 @@ module CoPlan
       source = content.to_s.encode("UTF-8")
       source = ContentRegions::Split.call(source).canonical_source if source.include?("::: {.presentation")
       html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
-      Nokogiri::HTML::DocumentFragment.parse(html).text.squish
+      fragment = Nokogiri::HTML::DocumentFragment.parse(html)
+      fragment.css("p.markdown-alert-title").remove
+      fragment.text.squish
     end
 
     private
