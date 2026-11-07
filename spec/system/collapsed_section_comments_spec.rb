@@ -123,4 +123,24 @@ RSpec.describe "Discussions inside collapsed sections", type: :system do
     expect(page).to have_no_css(".comment-margin__card[data-thread-id='comment_thread_#{backlog.id}']")
     expect(section).to have_css(".details-comment-badge[data-count='2']")
   end
+
+  it "counts and stacks two discussions on the same line of a collapsed section" do
+    same_line = discuss("rollout started", "Which rollout step was this?")
+    visit plan_page_path(plan)
+    expect(badge["data-count"]).to eq("3")
+
+    section.find("summary", text: "Raw timeline").click
+    first = find(".comment-margin__card[data-thread-id='comment_thread_#{backlog.id}']")
+    second = find(".comment-margin__card[data-thread-id='comment_thread_#{same_line.id}']")
+    rect = ->(element) { element.evaluate_script("(r => ({top: r.top, bottom: r.bottom}))(this.getBoundingClientRect())") }
+    upper, lower = [ rect.(first), rect.(second) ].sort_by { |r| r["top"] }
+    expect(lower["top"]).to be >= upper["bottom"]
+
+    find("body").send_keys(:escape)
+    find("body").send_keys("j")
+    find("body").send_keys("j")
+    expect(page).to have_css("#comment_thread_#{backlog.id}_popover:popover-open")
+    find("body").send_keys("j")
+    expect(page).to have_css("#comment_thread_#{same_line.id}_popover:popover-open")
+  end
 end
