@@ -139,6 +139,12 @@ RSpec.describe "Links in the comment composer", type: :system do
     expect(page).to have_text("Enter a URI such as https://… or codex://… without spaces.")
     panel = find('[aria-label="Insert link"]')
     expect(page.evaluate_script("arguments[0].scrollHeight <= arguments[0].clientHeight", panel)).to be(true)
+    expect(page.evaluate_script(<<~JS, textarea, panel)).to be(true)
+      (() => {
+        const a = arguments[0].getBoundingClientRect(), b = arguments[1].getBoundingClientRect()
+        return a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top
+      })()
+    JS
     click_button "Cancel link"
     expect(textarea.value).to eq("See Design Overview")
   end

@@ -216,6 +216,7 @@ export default class extends Controller {
     this.linkErrorTarget.hidden = false
     this.linkLabelTarget.hidden = true
     this.linkUrlTarget.setAttribute("aria-invalid", "true")
+    this.positionLink()
     this.linkUrlTarget.focus({ preventScroll: true })
   }
 
