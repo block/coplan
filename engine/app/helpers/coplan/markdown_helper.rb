@@ -17,12 +17,20 @@ module CoPlan
       section
     ].freeze
 
-    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title width target rel type start checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-reference-type data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx].freeze
+    ALLOWED_ATTRIBUTES = %w[id class lang href src alt title width target rel type start checked disabled open aria-label aria-haspopup aria-expanded data-line data-line-text data-action data-mention-username data-sourcepos data-reference-type data-footnotes data-footnote-ref data-footnote-backref data-footnote-backref-idx data-math-style].freeze
 
     # Commonmarker extensions beyond the gem defaults (tables, tasklist,
     # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
-    # `[^1]: definition` block anywhere in the document.
-    EXTENSION_OPTIONS = { footnotes: true }.freeze
+    # `[^1]: definition` block anywhere in the document. Math: `$inline$`,
+    # `$$display$$`, `` $`inline`$ `` and ```` ```math ```` fences render as
+    # elements carrying `data-math-style`, typeset in the browser by KaTeX.
+    # comrak's dollar rules keep currency ("$5 and $10") as text.
+    EXTENSION_OPTIONS = { footnotes: true, math_dollars: true, math_code: true }.freeze
+
+    # The only elements and values comrak emits for math. Anything else
+    # carrying the attribute (authored HTML) loses it during rendering.
+    MATH_ELEMENTS = %w[span code pre].freeze
+    MATH_STYLES = %w[inline display].freeze
 
     # A source line the toggle endpoint will accept as a task item. Shared
     # between the renderer and PlansController#toggle_checkbox so a checkbox
@@ -35,7 +43,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 24
+    RENDER_CACHE_VERSION = 25
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -70,6 +78,7 @@ module CoPlan
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
+      sanitized = prepare_math(sanitized)
       sanitized = render_iframe_blocks(sanitized, content.to_s)
       result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments, retain_sourcepos: retain_sourcepos) : sanitized
       unless interactive
@@ -211,6 +220,26 @@ module CoPlan
       else
         raise ArgumentError, "unknown footnote mode: #{mode.inspect}"
       end
+    end
+
+    # Math elements become self-rendering: each one connects the KaTeX
+    # controller, so every surface that renders Markdown (documents,
+    # comments, previews, decks, footnote sections) typesets math, and a
+    # page without math never loads KaTeX. Runs after sanitization because
+    # it writes data-controller, which authored markup may not set; the
+    # math attribute itself survives only on comrak's elements and values.
+    def prepare_math(html)
+      return html unless html.include?("data-math-style")
+
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      doc.css("[data-math-style]").each do |node|
+        if MATH_ELEMENTS.include?(node.name) && MATH_STYLES.include?(node["data-math-style"])
+          node["data-controller"] = "coplan--math"
+        else
+          node.remove_attribute("data-math-style")
+        end
+      end
+      doc.to_html
     end
 
     # Wires rendered task checkboxes to their source lines via Commonmarker's

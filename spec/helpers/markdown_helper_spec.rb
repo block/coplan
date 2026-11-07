@@ -373,4 +373,112 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include("<img")
     end
   end
+
+  describe "math" do
+    def render(markdown, **options)
+      Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown, **options))
+    end
+
+    def math(doc)
+      doc.css("[data-math-style]").map { |node| [ node.name, node["data-math-style"], node.text ] }
+    end
+
+    it "renders $inline$ as an inline math element wired to the KaTeX controller" do
+      doc = render("Energy $E = mc^2$ matters.")
+
+      node = doc.at_css("span[data-math-style]")
+      expect(math(doc)).to eq([ [ "span", "inline", "E = mc^2" ] ])
+      expect(node["data-controller"]).to eq("coplan--math")
+      expect(doc.at_css("p").text).to eq("Energy E = mc^2 matters.")
+    end
+
+    it "renders $$display$$ inline and as its own paragraph" do
+      expect(math(render("Area $$\\pi r^2$$ here."))).to eq([ [ "span", "display", "\\pi r^2" ] ])
+      expect(math(render("$$\n\\int_0^1 x\\,dx\n$$\n"))).to eq([ [ "span", "display", "\n\\int_0^1 x\\,dx\n" ] ])
+    end
+
+    it "renders $`inline`$ code math" do
+      expect(math(render("Use $`a_1 * b_2`$ here."))).to eq([ [ "code", "inline", "a_1 * b_2" ] ])
+    end
+
+    it "renders a math fence as display math" do
+      doc = render("```math\n\\sum_{k=1}^n k\n```\n")
+
+      expect(math(doc)).to eq([ [ "pre", "display", "\\sum_{k=1}^n k\n" ] ])
+      expect(doc.at_css("pre")["data-controller"]).to eq("coplan--math")
+      expect(render("```math notes\nx\n```\n").css("[data-math-style]")).to be_empty
+    end
+
+    it "keeps TeX that looks like Markdown literal" do
+      expect(math(render("Sum $a_1 + b_2 * c_3 *d*$ end."))).to eq([ [ "span", "inline", "a_1 + b_2 * c_3 *d*" ] ])
+    end
+
+    it "leaves currency dollars as text" do
+      [ "Lunch costs $5 and coffee costs $10.", "It went from $5 to $10", "Budget: $1,000 - $2,000", "Price $5$10" ].each do |text|
+        doc = render(text)
+
+        expect(doc.css("[data-math-style]")).to be_empty, "#{text.inspect} became math"
+        expect(doc.at_css("p").text).to eq(text)
+      end
+    end
+
+    it "leaves an escaped dollar and spaced dollars as text" do
+      expect(render("Not math: \\$x$ or $ y $.").css("[data-math-style]")).to be_empty
+    end
+
+    it "leaves code spans and code blocks containing dollars untouched" do
+      doc = render("Run `echo $HOME $x$` now.\n\n```sh\nprice=$5 total=$x$\n```\n\n    indented $y$\n")
+
+      expect(doc.css("[data-math-style]")).to be_empty
+      expect(doc.css("code").map(&:text)).to eq([ "echo $HOME $x$", "price=$5 total=$x$\n", "indented $y$\n" ])
+      expect(doc.css("[data-controller~='coplan--math']")).to be_empty
+    end
+
+    it "renders math inside lists, tables, and footnotes" do
+      markdown = <<~MARKDOWN
+        - Item $a^2$
+          1. Nested $b^2$
+
+        | Term | Value |
+        | --- | --- |
+        | Area | $\\pi r^2$ |
+
+        Claim.[^proof]
+
+        [^proof]: Because $c^2 = a^2 + b^2$.
+      MARKDOWN
+      doc = render(markdown, footnote_prefix: "math")
+
+      expect(doc.css("li > span[data-math-style], li li span[data-math-style]").map(&:text)).to include("a^2", "b^2")
+      expect(doc.at_css("td span[data-math-style]").text).to eq("\\pi r^2")
+      expect(doc.at_css("section[data-footnotes] span[data-math-style]").text).to eq("c^2 = a^2 + b^2")
+      expect(doc.css("[data-math-style]").map { |node| node["data-controller"] }.uniq).to eq([ "coplan--math" ])
+    end
+
+    it "renders math in footnote-only and non-interactive renders" do
+      footnotes = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown("Claim.[^a]\n\n[^a]: See $x$.", footnotes: :only))
+
+      expect(footnotes.at_css("[data-math-style]")["data-controller"]).to eq("coplan--math")
+      expect(render("Static $y$.", interactive: false).at_css("[data-math-style]")["data-controller"]).to eq("coplan--math")
+    end
+
+    it "keeps the math attribute only on comrak's elements and values" do
+      doc = render(<<~MARKDOWN)
+        <div data-math-style="inline">div</div>
+        <span data-math-style="evil" data-controller="coplan--mermaid" onclick="alert(1)">bad value</span>
+        <a href="/x" data-math-style="inline">link</a>
+
+        Real $z$.
+      MARKDOWN
+
+      expect(doc.css("[data-math-style]").map(&:text)).to eq([ "z" ])
+      expect(doc.css(".markdown-rendered [data-controller]").map { |node| node["data-controller"] }).to eq([ "coplan--math" ])
+      expect(doc.to_html).not_to include("onclick")
+      expect(doc.at_css("span[data-math-style]").attributes.keys).to contain_exactly("data-math-style", "data-controller")
+    end
+
+    it "uses the same math grammar when extracting plain text" do
+      expect(helper.markdown_to_plain_text("Energy $E = mc^2$ costs $5 and $10.")).to eq("Energy E = mc^2 costs $5 and $10.")
+    end
+  end
 end

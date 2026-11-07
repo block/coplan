@@ -253,6 +253,51 @@
   font-size: var(--code-chip-size, 0.875em);
 }
 
+/* Math, typeset by math_controller with KaTeX. Until KaTeX arrives, or if
+   it can't load, the TeX source reads as code. Once typeset, a math element
+   drops every code treatment and inherits the surrounding text color, so it
+   follows light and dark mode. Footnote definitions also render outside
+   .markdown-rendered: in References and in the citation preview. */
+:is(.markdown-rendered, .reference-citations, .reference-preview) span[data-math-style]:not(.is-math-rendered) {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+:is(.markdown-rendered, .reference-citations, .reference-preview) [data-math-style].is-math-rendered {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+:is(.markdown-rendered, .reference-citations, .reference-preview) pre[data-math-style].is-math-rendered {
+  border-radius: 0;
+  overflow-y: hidden;
+  white-space: normal;
+  line-height: normal;
+}
+
+:is(.markdown-rendered, .reference-citations, .reference-preview) pre[data-math-style].is-math-rendered::before {
+  content: none;
+}
+
+/* Wide display math scrolls on its own line instead of the page. */
+:is(.markdown-rendered, .reference-citations, .reference-preview) .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25em 0;
+}
+
+/* KaTeX shows an expression it can't parse as its source, colored with an
+   inline style; use the theme's danger color so it reads in both modes. */
+:is(.markdown-rendered, .reference-citations, .reference-preview) .katex-error {
+  color: var(--color-danger) !important;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
 /* Syntax highlighting — highlight.js token classes mapped onto the
    --code-* theme variables (GitHub Light/Dark palettes above). Applied by
    syntax_highlight_controller, which loads grammars on demand. */

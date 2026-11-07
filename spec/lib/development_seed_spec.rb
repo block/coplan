@@ -318,6 +318,31 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(plan.reload.current_content).to eq(resized)
     end
 
+    it "seeds the math gallery with every math form and preserves edits on re-seed" do
+      described_class.call
+      plan = seeded_plan("math-gallery")
+      expect(plan.title).to eq("Math: estimating a retry budget")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+
+      html = Nokogiri::HTML::DocumentFragment.parse(ApplicationController.helpers.render_markdown(plan.current_content))
+      math = html.css("[data-math-style]")
+      expect(math.map(&:name).tally).to include("span" => be >= 10, "code" => 1, "pre" => 1)
+      expect(math.map { |node| node["data-math-style"] }).to include("inline", "display")
+      expect(html.css("li [data-math-style], td [data-math-style], th [data-math-style]")).not_to be_empty
+      expect(math.map(&:text)).to include("\\frac{1}{")
+      expect(html.at_css("p:contains('Each retry costs')").text).to include("$0.002", "$5", "$10", "$25")
+      expect(html.css("code:not([data-math-style])").map(&:text).join).to include('"$RETRY_LIMIT"', "$((6 * 32))")
+
+      revision = plan.current_revision
+      described_class.call
+      expect(plan.reload.current_revision).to eq(revision)
+      edited = plan.current_content.sub("$p^n$.", "$p^{n}$.")
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: edited,
+        base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
+      described_class.call
+      expect(plan.reload.current_content).to eq(edited)
+    end
+
     it "upgrades only untouched host image URLs and preserves edited image examples" do
       described_class.call
       plan = seeded_plan("pattern-showcase")
