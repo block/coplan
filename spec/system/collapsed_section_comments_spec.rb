@@ -10,7 +10,7 @@ RSpec.describe "Discussions inside collapsed sections", type: :system do
       content_markdown: <<~MARKDOWN)
         Summary: the retry budget ran out during the deploy.
 
-        <details>
+        <details id="raw-timeline">
         <summary>Raw timeline</summary>
 
         The queue backed up right after the rollout started.
@@ -18,6 +18,15 @@ RSpec.describe "Discussions inside collapsed sections", type: :system do
         Workers recovered once the cache warmed.
 
         A manual drain was considered and rejected.
+
+        <details>
+        <summary>Queue samples</summary>
+
+        | Status | Count |
+        | --- | --- |
+        | Waiting | 42 |
+
+        </details>
 
         </details>
 
@@ -41,10 +50,10 @@ RSpec.describe "Discussions inside collapsed sections", type: :system do
     thread
   end
 
-  def section = find("#plan-content-body details")
+  def section = find("#raw-timeline")
   def badge = section.find("summary .details-comment-badge")
-  def collapsed = "#plan-content-body details:not([open])"
-  def expanded = "#plan-content-body details[open]"
+  def collapsed = "#raw-timeline:not([open])"
+  def expanded = "#raw-timeline[open]"
 
   before do
     visit sign_in_path
@@ -55,6 +64,22 @@ RSpec.describe "Discussions inside collapsed sections", type: :system do
   end
 
   after { page.current_window.resize_to(1400, 900) }
+
+  it "reveals every enclosing section for a linked table discussion" do
+    _, start, finish = CoPlan::Plans::SourceTargets.new(plan.current_content).ranges.find { |kind, *| kind == "table_cell" }
+    token = CoPlan::Plans::SourceTargets.verifier.generate(
+      { "digest" => Digest::SHA256.hexdigest(plan.current_content), "kind" => "table_cell",
+        "start" => start, "end" => finish, "label" => "Status" }, purpose: "comment")
+    thread = plan.comment_threads.create!(plan_version: plan.current_plan_version, source_token: token,
+      created_by_user: reviewer, status: "open")
+    thread.comments.create!(author_type: "human", author_id: reviewer.id, body_markdown: "How old are these samples?")
+
+    visit plan_page_path(plan, thread: thread.id)
+    expect(page).to have_css(".source-comments:popover-open", text: "How old are these samples?")
+    expect(page).to have_css("#plan-content-body details[open]", count: 2)
+    expect(page).to have_css(".data-grid .source-thread-badge", visible: true)
+    expect(page).to have_no_css(".source-comments textarea:focus")
+  end
 
   it "counts open discussions on the collapsed summary and opens the first one" do
     visit plan_page_path(plan)
