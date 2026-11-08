@@ -26,9 +26,9 @@ module CoPlan
       end
 
       def call
-        if @recipient_token_id.present?
+        unless @recipient_token_id.nil?
           token = ApiToken.find_by(id: @recipient_token_id)
-          return unless token&.active?
+          return unless token&.active? && !token.parent_disabled?
 
           deliver(token, AgentSession.find_by(plan_id: @plan.id, api_token_id: token.id))
         else
@@ -80,7 +80,7 @@ module CoPlan
 
         # Hand the event straight to any connection already waiting on
         # this token's inbox, so delivery doesn't wait for a poll tick.
-        AgentEventBus.signal(token.id)
+        ActiveRecord.after_all_transactions_commit { AgentEventBus.signal(token.id) }
       end
 
       def base_payload

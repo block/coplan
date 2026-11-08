@@ -150,6 +150,54 @@ RSpec.describe CoPlan::CommitExpiredSessionJob do
         expect(event.payload).not_to have_key("found")
       end
 
+      it "does not repeat the event when the job is retried" do
+        session
+        2.times { described_class.new.perform(session_id: session.id) }
+        expect(CoPlan::AgentEvent.count).to eq(1)
+      end
+
+      it "keeps the session retryable when inbox creation fails" do
+        session
+        allow(CoPlan::AgentEvent).to receive(:create!).and_raise(ActiveRecord::StatementInvalid, "inbox unavailable")
+        expect {
+          CoPlan::EditSession.transaction(requires_new: true) do
+            described_class.new.perform(session_id: session.id)
+          end
+        }.to raise_error(ActiveRecord::StatementInvalid, "inbox unavailable")
+        expect(session.reload.status).to eq("open")
+        expect(CoPlan::AgentEvent.count).to eq(0)
+
+        allow(CoPlan::AgentEvent).to receive(:create!).and_call_original
+        described_class.new.perform(session_id: session.id)
+        expect(session.reload.status).to eq("failed")
+        expect(CoPlan::AgentEvent.count).to eq(1)
+      end
+
+      it "does not overwrite a session closed between the conflict and failure handling" do
+        session
+        allow(CoPlan::Plans::CommitSession).to receive(:call) do
+          CoPlan::EditSession.find(session.id).update!(status: "committed")
+          raise CoPlan::Plans::CommitSession::SessionConflictError, "conflict"
+        end
+        expect { described_class.new.perform(session_id: session.id) }.not_to change(CoPlan::AgentEvent, :count)
+        expect(session.reload.status).to eq("committed")
+      end
+
+      it "does not broadcast an ownerless failure to watchers" do
+        session.update!(actor_id: nil)
+        allow(CoPlan::Plans::CommitSession).to receive(:call).and_raise(CoPlan::Plans::CommitSession::SessionConflictError, "conflict")
+        expect { described_class.new.perform(session_id: session.id) }.not_to change(CoPlan::AgentEvent, :count)
+        expect(session.reload.status).to eq("failed")
+      end
+
+      it "reports stale sessions separately from conflicts" do
+        session
+        conflicting_agent_edit
+        plan.update!(current_revision: 22)
+        described_class.new.perform(session_id: session.id)
+        expect(CoPlan::AgentEvent.sole.payload).to include("reason" => "stale")
+      end
+
       it "still fails the session but publishes nothing when the owner's token is revoked" do
         session
         conflicting_agent_edit

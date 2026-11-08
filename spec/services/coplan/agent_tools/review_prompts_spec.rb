@@ -33,6 +33,17 @@ RSpec.describe "Agent review event prompts" do
       expect(prompt).not_to include("then apply any edit")
     end
 
+    %w[conflict stale human_edit_pending].each do |reason|
+      it "guides #{reason} recovery in #{tool} without a thread reply or blind replay" do
+        event = { "type" => "session.commit_failed", "plan_id" => "plan",
+                  "payload" => { "session_id" => "failed-session", "reason" => reason, "message" => "Failed" } }
+        prompt = format_event(tool, method, event)
+        expect(prompt).to include('"session_id":"failed-session"', '"reason":"' + reason + '"',
+          "GET /api/v1/plans/plan", "preserving human edits", "cannot be reused", "recovery already succeeded")
+        expect(prompt).not_to include("Reply on the thread first", "then apply any edit")
+      end
+    end
+
     it "retains comment collaboration instructions in #{tool}" do
       event = { "type" => "comment.created", "plan_id" => "plan", "comment_thread_id" => "thread",
                 "payload" => { "comment_author" => "Reviewer", "comment_body" => "Please clarify" } }

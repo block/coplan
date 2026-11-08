@@ -57,6 +57,32 @@ RSpec.describe CoPlan::AgentEvents::Publish do
         .not_to change { CoPlan::AgentEvent.count }
     end
 
+    it "skips a child whose parent has expired" do
+      parent = create(:api_token, user: user, expires_at: 1.minute.ago)
+      recipient_token.update!(parent: parent)
+      expect { publish(recipient_token_id: recipient_token.id) }.not_to change(CoPlan::AgentEvent, :count)
+    end
+
+    it "does not fan out a blank recipient" do
+      expect { publish(recipient_token_id: "") }.not_to change(CoPlan::AgentEvent, :count)
+    end
+
+    it "does not signal or enqueue a wake for a rolled-back event" do
+      allow(CoPlan::AgentEventBus).to receive(:signal)
+      allow(CoPlan::WakeWebhookJob).to receive(:perform_later)
+      CoPlan::AgentSession.create!(plan: plan, api_token: recipient_token, state: "complete",
+        agent_name: "Claude", wake_url: "https://agents.example.com/wake", wake_secret: "secret")
+      CoPlan::AgentEvent.transaction(requires_new: true) do
+        publish(recipient_token_id: recipient_token.id)
+        expect(CoPlan::AgentEventBus).not_to have_received(:signal)
+        expect(CoPlan::WakeWebhookJob).not_to have_received(:perform_later)
+        raise ActiveRecord::Rollback
+      end
+      expect(CoPlan::AgentEvent.count).to eq(0)
+      expect(CoPlan::AgentEventBus).not_to have_received(:signal)
+      expect(CoPlan::WakeWebhookJob).not_to have_received(:perform_later)
+    end
+
     it "skips an id that names no token" do
       expect { publish(recipient_token_id: user.id) }
         .not_to change { CoPlan::AgentEvent.count }
