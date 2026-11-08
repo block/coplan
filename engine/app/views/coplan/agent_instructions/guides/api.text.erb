@@ -125,6 +125,8 @@ Guides: `<%= @base %>/agent-instructions/<guide>`, for example <<%= @base %>/age
 | `409` | A stale `base_revision`, a hand edit that you have not read (`"code": "human_edit_pending"`), or someone holds the edit lock (`"code": "edit_locked"`). See the editing guide. |
 | `422` | The request is not valid, or an operation cannot apply. The `error` field says why. |
 
+Stale operations and edit-session commits return `409` if their base version is missing or their target cannot be safely rebased. No partial version is saved. An operations target mismatch includes `expected` and `found` text; these also replace the former `expected_needle` and `expected_heading` fields. Session conflicts report the reason in `error`. Read the plan again before retrying.
+
 ## Iframe domains
 
 `GET /api/v1/embed_domains` returns `{"hostnames":["embed.example.com"]}`. This is the exact-host allowlist for iframe content blocks. It requires your Bearer token. An empty list means no hosts are approved. Only an administrator can change the list, through Coplan Admin. See <<%= @base %>/agent-instructions/embeds> for block syntax.
