@@ -26,6 +26,9 @@ module CoPlan
       # five-sixths of a 1.5-em body line per code line, not half of one.
       CODE_LINES_PER_UNIT = 1.2
       OPAQUE_HTML_UNITS = 2
+      # A display formula renders each of its rows as roughly one body line;
+      # rows are `\\` breaks or source lines, whichever is more.
+      DISPLAY_MATH_ROW = /\\\\/
 
       # Comment boundaries follow the HTML parser that decides what renders:
       # `<!-->` and `<!--->` are complete (empty) comments, a normal comment
@@ -89,7 +92,7 @@ module CoPlan
 
         if (featured = featured_block(body))
           return [ :stage, nil ] if media_block?(featured)
-          return [ :code,  nil ] if featured.type == :code_block
+          return [ :code,  nil ] if featured.type == :code_block && !math_fence?(featured)
           return [ :quote, nil ] if featured.type == :block_quote
           return [ :table, nil ] if featured.type == :table
         end
@@ -170,19 +173,25 @@ module CoPlan
 
       # Hard breaks count as a full line's worth of characters: six
       # hard-broken agenda lines are not a subtitle however few glyphs
-      # they hold.
+      # they hold. Display-math rows count the same way.
       def short_paragraph?(node)
         node.type == :paragraph && image_count(node).zero? &&
-          plain_text(node).length + CHARS_PER_UNIT * hard_break_count(node) <= SHORT_TEXT
+          plain_text(node).length + CHARS_PER_UNIT * (hard_break_count(node) + display_math_rows(node)) <= SHORT_TEXT
       end
 
       # Visible characters only: image alt text renders as an attribute,
       # zero glyphs on the canvas, so the walk never descends into an image
-      # (its rendered cost is exactly its IMAGE_UNITS).
+      # (its rendered cost is exactly its IMAGE_UNITS). Inline math counts
+      # its TeX source; display math bills by rows instead.
       def plain_text(node)
         text = +""
         each_visible_inline(node) do |inline|
-          text << inline.string_content if %i[text code].include?(inline.type)
+          if %i[text code].include?(inline.type)
+            text << inline.string_content
+          elsif inline.type == :math
+            delimiters, tex = math_source(inline)
+            text << tex unless delimiters == "$$"
+          end
         end
         text
       end
@@ -215,9 +224,12 @@ module CoPlan
         when :heading
           1
         when :paragraph
-          text_units(node) + hard_break_count(node) + IMAGE_UNITS * image_count(node)
+          text_units(node) + hard_break_count(node) + IMAGE_UNITS * image_count(node) + display_math_rows(node)
         when :code_block
           return MERMAID_UNITS if media_block?(node)
+          # A math fence typesets as display math: its paragraph-like line
+          # plus a line per row, not code lines at the code divisor.
+          return 1 + math_rows(node.string_content) if math_fence?(node)
 
           [ node.string_content.count("\n"), 1 ].max.fdiv(CODE_LINES_PER_UNIT).ceil
         when :table
@@ -251,6 +263,39 @@ module CoPlan
         count = 0
         each_visible_inline(node) { |inline| count += 1 if inline.type == :image }
         count
+      end
+
+      def math_fence?(node)
+        node.type == :code_block && node.fence_info == "math"
+      end
+
+      def display_math_rows(node)
+        rows = 0
+        each_visible_inline(node) do |inline|
+          next unless inline.type == :math
+
+          delimiters, tex = math_source(inline)
+          rows += math_rows(tex) if delimiters == "$$"
+        end
+        rows
+      end
+
+      def math_rows(tex)
+        [ tex.scan(DISPLAY_MATH_ROW).size + 1, tex.each_line.count { |line| line.strip.present? }, 1 ].max
+      end
+
+      # Math nodes carry no string content, so read their literal from the
+      # source span (byte columns, inclusive end) and split off the
+      # delimiters: "$", "$$", or the "$`…`$" code form.
+      def math_source(node)
+        @line_offsets ||= @source.each_line.reduce([ 0 ]) { |offsets, line| offsets << offsets.last + line.bytesize }
+        position = node.source_position
+        first = @line_offsets[position[:start_line] - 1] + position[:start_column] - 1
+        last = @line_offsets[position[:end_line] - 1] + position[:end_column]
+        literal = @source.byteslice(first, last - first).to_s.force_encoding(Encoding::UTF_8)
+        delimiters = literal[/\A(?:\$`|\$\$|\$)/].to_s
+        closing = delimiters == "$`" ? "`$" : delimiters
+        [ delimiters, literal.delete_prefix(delimiters).delete_suffix(closing) ]
       end
     end
   end

@@ -477,6 +477,35 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(doc.at_css("span[data-math-style]").attributes.keys).to contain_exactly("data-math-style", "data-controller")
     end
 
+    it "strips data-math-style from authored HTML that imitates comrak's math, in every render mode" do
+      markdown = <<~MARKDOWN
+        Before <span data-math-style="inline">x</span> after, <code data-math-style="inline">y</code>, and <span data-math-style="display" data-sourcepos="9:1-9:5">forged</span>.
+
+        <pre lang="math" data-math-style="display"><code>w</code></pre>
+
+        Real $z$ and $`q`$.
+
+        ```math
+        f
+        ```
+      MARKDOWN
+
+      [ {}, { interactive: false }, { interactive: false, data_tables: false } ].each do |options|
+        doc = render(markdown, **options)
+
+        expect(doc.css("[data-math-style]").map { |node| [ node.name, node.text.strip ] }).to eq([ [ "span", "z" ], [ "code", "q" ], [ "pre", "f" ] ]), options.inspect
+        expect(doc.css("[data-controller~='coplan--math']").size).to eq(3)
+        expect(doc.at_css("p").text).to eq("Before x after, y, and forged.")
+        expect(doc.css("[data-sourcepos]")).to be_empty unless options.empty?
+      end
+    end
+
+    it "gives no math behaviour to authored HTML that copies a real formula's source position" do
+      doc = render("Real $z$ here.\n\n<span data-math-style=\"inline\" data-sourcepos=\"1:6-1:8\">copy</span>\n", interactive: false)
+
+      expect(doc.css("[data-math-style]").map(&:text)).not_to include("copy")
+    end
+
     it "uses the same math grammar when extracting plain text" do
       expect(helper.markdown_to_plain_text("Energy $E = mc^2$ costs $5 and $10.")).to eq("Energy E = mc^2 costs $5 and $10.")
     end

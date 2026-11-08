@@ -151,6 +151,36 @@ RSpec.describe "Math rendering", type: :system do
     expect(preview.text).not_to include("O(n)O(n)")
   end
 
+  it "previews a section that is only a math fence as its TeX source" do
+    sections = CoPlan::Plans::Create.call(title: "Fence preview", user: author, visibility: "published", actor_type: "human",
+      content: "## 1 Intro\n\nSee [§2](#section-2).\n\n## 2 Bound\n\n```math\n\\sum_{k=1}^{n} k\n```\n")
+    visit plan_page_path(sections)
+    expect(page).to have_css("pre[data-math-style].is-math-rendered .katex-display", wait: 20)
+
+    find("a.reference-anchor--section", text: "§2").hover
+    preview = find("#reference-preview", visible: true, wait: 10)
+    expect(preview).to have_text("\\sum_{k=1}^{n} k")
+    expect(preview.text.scan("\\sum").size).to eq(1)
+    expect(preview.text).not_to include("∑")
+  end
+
+  it "anchors a comment across authored HTML that imitates math" do
+    source = "Before <span data-math-style=\"inline\">x</span> after the imitation.\n\nReal $y$ stays math.\n"
+    imitation = CoPlan::Plans::Create.call(title: "Imitation", content: source, user: author,
+      visibility: "published", actor_type: "human")
+    visit plan_page_path(imitation)
+    expect(page).to have_css("span[data-math-style].is-math-rendered .katex", count: 1, wait: 20)
+    expect(page).to have_css("[data-math-style]", count: 1)
+
+    select_across("Before", 0, " after", 6)
+    comment_on_selection("Not actually math")
+
+    thread = CoPlan::CommentThread.order(:created_at).last
+    expect(thread.anchor_text).to eq("Before x after")
+    expect(imitation.reload.current_content[thread.anchor_start...thread.anchor_end]).to eq("Before <span data-math-style=\"inline\">x</span> after")
+    expect(all("mark.anchor-highlight").map(&:text).join).to include("x")
+  end
+
   it "renders math in a comment" do
     thread = create(:comment_thread, plan: plan, plan_version: plan.current_plan_version, created_by_user: author)
     create(:comment, comment_thread: thread, author_id: author.id, body_markdown: "Should this be $\\sqrt{2}$, not $1.41$?")

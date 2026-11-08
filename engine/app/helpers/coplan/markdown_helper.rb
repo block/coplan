@@ -71,14 +71,16 @@ module CoPlan
     # out of both together.
     def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, expandable_images: data_tables, source_comments: false, retain_sourcepos: false)
       render_options = { unsafe: true }
-      # Sourcepos wires checkboxes and structural comment targets to source;
+      # Sourcepos wires checkboxes and structural comment targets to source,
+      # and tells parser-generated math from authored HTML that imitates it;
       # it is stripped after generating trusted interaction metadata.
-      render_options[:sourcepos] = true if interactive || content.to_s.include?(ContentRegions::Iframe::PREFIX)
-      html = CoPlan::Markdown.to_html(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
+      source = content.to_s.encode("UTF-8")
+      render_options[:sourcepos] = true if interactive || source.include?(ContentRegions::Iframe::PREFIX) || source.include?("$") || source.include?("math")
+      html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       sanitized = sanitize(with_references, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES)
-      sanitized = prepare_math(sanitized)
+      sanitized = prepare_math(sanitized, source)
       sanitized = render_iframe_blocks(sanitized, content.to_s)
       result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments, retain_sourcepos: retain_sourcepos) : sanitized
       unless interactive
@@ -226,20 +228,48 @@ module CoPlan
     # controller, so every surface that renders Markdown (documents,
     # comments, previews, decks, footnote sections) typesets math, and a
     # page without math never loads KaTeX. Runs after sanitization because
-    # it writes data-controller, which authored markup may not set; the
-    # math attribute itself survives only on comrak's elements and values.
-    def prepare_math(html)
+    # it writes data-controller, which authored markup may not set.
+    #
+    # Only math the parser produced keeps data-math-style. Authored HTML can
+    # write the same attribute (and even a data-sourcepos), so an element
+    # must sit at the unique source position of a math node in the AST —
+    # the same rule SourceTargets applies to diagram targets. Anything else
+    # loses the attribute and stays ordinary, anchorable text, matching
+    # MarkdownTextExtractor, which counts authored HTML text as prose.
+    def prepare_math(html, source)
       return html unless html.include?("data-math-style")
 
+      positions = math_positions(source)
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
-      doc.css("[data-math-style]").each do |node|
-        if MATH_ELEMENTS.include?(node.name) && MATH_STYLES.include?(node["data-math-style"])
+      nodes = doc.css("[data-math-style]")
+      counts = nodes.map { |node| node["data-sourcepos"] }.tally
+      nodes.each do |node|
+        position = node["data-sourcepos"]
+        kind = node.name == "pre" ? :fence : :inline
+        if MATH_ELEMENTS.include?(node.name) && MATH_STYLES.include?(node["data-math-style"]) &&
+            positions[kind].include?(position) && counts[position] == 1
           node["data-controller"] = "coplan--math"
         else
           node.remove_attribute("data-math-style")
         end
       end
       doc.to_html
+    end
+
+    # Source positions ("line:col-line:col", as comrak writes data-sourcepos)
+    # of the math nodes and math fences the parser found.
+    def math_positions(source)
+      positions = { inline: Set.new, fence: Set.new }
+      CoPlan::Markdown.parse(source, options: { extension: EXTENSION_OPTIONS }).walk do |node|
+        kind = if node.type == :math then :inline
+        elsif node.type == :code_block && node.fence_info == "math" then :fence
+        end
+        next unless kind
+
+        p = node.source_position
+        positions[kind] << "#{p[:start_line]}:#{p[:start_column]}-#{p[:end_line]}:#{p[:end_column]}"
+      end
+      positions
     end
 
     # Wires rendered task checkboxes to their source lines via Commonmarker's
