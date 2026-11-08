@@ -272,6 +272,30 @@ RSpec.describe CoPlan::Plans::TransformRange do
     end
   end
 
+  describe ".exchange" do
+    it "shifts the later edit by the earlier one's delta" do
+      edit, range_edit = described_class.exchange({ "resolved_range" => [ 20, 22 ], "delta" => 3 }, { "resolved_range" => [ 0, 4 ], "delta" => 36 })
+      expect(edit).to eq("resolved_range" => [ 56, 58 ], "delta" => 3)
+      expect(range_edit).to eq("resolved_range" => [ 0, 4 ], "delta" => 36)
+    end
+
+    it "orders an insert at the same point first, as transform does for the range" do
+      insert = { "resolved_range" => [ 10, 10 ], "new_range" => [ 10, 12 ] }
+      op_insert = { "resolved_range" => [ 10, 10 ], "delta" => 5 }
+      expect(described_class.transform([ 10, 10 ], insert)).to eq([ 12, 12 ])
+
+      edit, range_edit = described_class.exchange(insert, op_insert)
+      expect(edit).to eq("resolved_range" => [ 10, 10 ], "delta" => 2)
+      expect(range_edit).to eq("resolved_range" => [ 12, 12 ], "delta" => 5)
+    end
+
+    it "raises Conflict when the edits overlap" do
+      expect {
+        described_class.exchange({ "resolved_range" => [ 5, 15 ], "delta" => 0 }, { "resolved_range" => [ 10, 20 ], "delta" => 1 })
+      }.to raise_error(described_class::Conflict)
+    end
+  end
+
   describe "commutativity property" do
     it "produces the same result for non-overlapping edits regardless of order" do
       edit_a = { "resolved_range" => [ 0, 5 ], "delta" => 3 }

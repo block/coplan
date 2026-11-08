@@ -163,8 +163,8 @@ RSpec.describe "Api::V1::Operations", type: :request do
   end
 
   # A stale request whose first operation changes the document's length
-  # before an intervening edit. The second operation's target has to be
-  # found in the right place, or not used at all.
+  # before an intervening edit. The second operation must still delete
+  # its own paragraph, and the intervening edit must survive.
   describe "a stale request after an earlier operation changes the length" do
     let(:expanded) { "AAAA expanded into a forty-char sentence" }
     let(:stale_plan) do
@@ -182,10 +182,10 @@ RSpec.describe "Api::V1::Operations", type: :request do
       p
     end
 
-    # "BB" still occurs inside the misplaced span, so it used to delete the
-    # wrong text; "BBBB" does not, so it used to be refused.
+    # "BB" also occurs in a span shifted by the wrong amount, which used to
+    # delete the wrong text; "BBBB" does not, which used to be refused.
     %w[BBBB BB].each do |needle|
-      it "does not delete the wrong text (needle #{needle})" do
+      it "deletes the paragraph it targeted (needle #{needle})" do
         post api_v1_plan_operations_path(stale_plan),
           params: {
             base_revision: 1,
@@ -196,10 +196,10 @@ RSpec.describe "Api::V1::Operations", type: :request do
           },
           headers: headers, as: :json
 
-        expect(response).to have_http_status(:conflict)
+        expect(response).to have_http_status(:created)
         stale_plan.reload
-        expect(stale_plan.current_revision).to eq(2)
-        expect(stale_plan.current_content).to eq("# Stale\n\nAAAA\n\nBBBB\n\nCCXXCC")
+        expect(stale_plan.current_revision).to eq(3)
+        expect(stale_plan.current_content).to eq("# Stale\n\n#{expanded}\n\nCCXXCC")
       end
     end
   end
