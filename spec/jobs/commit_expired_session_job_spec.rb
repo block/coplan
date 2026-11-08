@@ -1,6 +1,7 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::CommitExpiredSessionJob do
+  include ActiveJob::TestHelper
   let(:user) { create(:coplan_user) }
   let(:content) { "# Test Plan\n\nSome content here." }
   let(:plan) do
@@ -159,16 +160,14 @@ RSpec.describe CoPlan::CommitExpiredSessionJob do
       it "keeps the session retryable when inbox creation fails" do
         session
         allow(CoPlan::AgentEvent).to receive(:create!).and_raise(ActiveRecord::StatementInvalid, "inbox unavailable")
-        expect {
-          CoPlan::EditSession.transaction(requires_new: true) do
-            described_class.new.perform(session_id: session.id)
-          end
-        }.to raise_error(ActiveRecord::StatementInvalid, "inbox unavailable")
+        clear_enqueued_jobs
+        expect { described_class.perform_now(session_id: session.id) }
+          .to have_enqueued_job(described_class).with(session_id: session.id)
         expect(session.reload.status).to eq("open")
         expect(CoPlan::AgentEvent.count).to eq(0)
 
         allow(CoPlan::AgentEvent).to receive(:create!).and_call_original
-        described_class.new.perform(session_id: session.id)
+        perform_enqueued_jobs
         expect(session.reload.status).to eq("failed")
         expect(CoPlan::AgentEvent.count).to eq(1)
       end

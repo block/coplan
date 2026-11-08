@@ -2,6 +2,8 @@ module CoPlan
   class CommitExpiredSessionJob < ApplicationJob
     queue_as :default
 
+    retry_on ActiveRecord::ActiveRecordError, wait: :polynomially_longer, attempts: 5
+
     def perform(session_id:)
       session = EditSession.find_by(id: session_id)
       return unless session  # Session was deleted
@@ -50,7 +52,7 @@ module CoPlan
     # publish leaves the session open for retry. Recheck under the lock so
     # duplicate jobs cannot notify twice or overwrite a concurrent commit.
     def fail_session(session, reason:, error:, summary:)
-      session.with_lock do
+      session.with_lock(requires_new: true) do
         return unless session.open?
 
         session.update!(status: "failed", change_summary: "#{summary}: #{error.message}")
