@@ -104,6 +104,39 @@ RSpec.describe "Math rendering", type: :system do
     expect(page.evaluate_script("performance.getEntriesByType('resource').some(entry => entry.name.includes('katex'))")).to be(false)
   end
 
+  it "keeps source readable when the stylesheet fails and renders on a later visit" do
+    page.driver.browser.execute_cdp("Network.enable")
+    page.driver.browser.execute_cdp("Network.setBlockedURLs", urls: [ "*katex.min.css*" ])
+    visit plan_page_path(plan)
+
+    expect(page).to have_css("span[data-math-source]", text: "E = mc^2", wait: 20)
+    expect(page).to have_no_css('link[href*="katex.min.css"]', visible: :all)
+    expect(document).to have_no_css(".katex")
+    expect(document).to have_text("Lunch costs $5 and coffee costs $10.")
+
+    page.driver.browser.execute_cdp("Network.setBlockedURLs", urls: [])
+    visit plan_page_path(plan)
+    expect(document).to have_css(".is-math-rendered .katex", wait: 20)
+  ensure
+    page.driver.browser.execute_cdp("Network.setBlockedURLs", urls: [])
+  end
+
+  it "does not let TeX create trusted links, images, or authored classes" do
+    untrusted = CoPlan::Plans::Create.call(title: "Untrusted math", user: author,
+      visibility: "published", actor_type: "human", content: <<~'MARKDOWN')
+        $\href{javascript:alert(1)}{click}$
+
+        $\includegraphics{https://example.com/math-probe.png}$
+
+        $\htmlClass{math-probe}{x}$
+      MARKDOWN
+    visit plan_page_path(untrusted)
+
+    expect(document).to have_css(".is-math-rendered", count: 3, wait: 20)
+    expect(document).to have_no_css("[data-math-style] a, [data-math-style] img, .math-probe")
+    expect(page.evaluate_script("performance.getEntriesByType('resource').some(entry => entry.name.includes('math-probe'))")).to be(false)
+  end
+
   it "reads math as TeX source in the outline and section previews" do
     sections = CoPlan::Plans::Create.call(title: "Scan costs", user: author, visibility: "published", actor_type: "human",
       content: "## 1 Intro\n\nSee [§2](#section-2).\n\n## 2 Cost of $O(n)$ scans\n\nA scan of $n$ rows costs $O(n)$ time.\n")
