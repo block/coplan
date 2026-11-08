@@ -110,6 +110,7 @@ If KaTeX cannot parse an expression, readers see its TeX source in red. KaTeX su
 
 Readers cannot select text inside a formula to comment on it. A comment selected across a formula covers the formula's source. To comment on one formula, anchor the text around it.
 In the rich editor, math stays inline TeX source that people can edit directly. Typing the closing dollar sign marks a span as math, and the editor saves the TeX unchanged.
+On slides, inline TeX source length and display-math rows count toward layout size. Split long derivations across slides. Authored HTML cannot opt into math rendering with `data-math-style`; use the Markdown forms above.
 
 ## Code blocks
 

@@ -203,7 +203,7 @@ RSpec.describe "Math rendering", type: :system do
     thread = CoPlan::CommentThread.order(:created_at).last
     expect(thread.anchor_text).to eq("relation links")
     expect(content[thread.anchor_start...thread.anchor_end]).to eq("relation $E = mc^2$ links")
-    expect(all("mark.anchor-highlight").map(&:text)).to eq([ "relation", "links" ])
+    expect(all("mark.anchor-highlight", count: 2).map(&:text)).to eq([ "relation", "links" ])
     expect(page).to have_no_css("[data-math-style] mark")
     expect(page).to have_css("span[data-math-style] .katex", count: 2)
 

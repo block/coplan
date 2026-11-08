@@ -332,6 +332,11 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(math.map(&:text)).to include("\\frac{1}{")
       expect(html.at_css("p:contains('Each retry costs')").text).to include("$0.002", "$5", "$10", "$25")
       expect(html.css("code:not([data-math-style])").map(&:text).join).to include('"$RETRY_LIMIT"', "$((6 * 32))")
+      decks = CoPlan::ContentRegions::Split.call(plan.current_content).regions.select { |region| region.kind == :presentation }
+      expect(decks.size).to eq(1)
+      classification = CoPlan::Slideshows::Classify.call(decks.first.source)
+      expect(classification.pattern).to eq(:content)
+      expect(classification.step).to eq(2)
 
       revision = plan.current_revision
       described_class.call

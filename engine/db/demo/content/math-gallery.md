@@ -31,6 +31,19 @@ n_{\min} = \left\lceil \frac{\ln \varepsilon}{\ln p} \right\rceil
 | 3 | $8 \times 10^{-3}$ | $3b$ |
 | 6 | $6.4 \times 10^{-5}$ | $31b$ |
 
+## Math on slides
+
+Dense formulas contribute their source length and row breaks to slide sizing.
+Present this deck to compare the total wait for different attempt budgets.
+
+::: {.presentation}
+
+## Wait across retry budgets
+
+$$\begin{aligned} T(2)&=b\\ T(3)&=3b\\ T(4)&=7b\\ T(5)&=15b\\ T(6)&=31b\\ T(7)&=63b\end{aligned}$$
+
+:::
+
 ## Dollar amounts stay text
 
 Each retry costs about $0.002 in compute, so six attempts cost under $5 per
