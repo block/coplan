@@ -125,10 +125,11 @@ module CoPlan
 
         # Rebase stale operations via OT: resolve each op to character ranges
         # against the base_revision snapshot, transform those ranges through all
-        # intervening versions' positional metadata, verify the target text still
-        # matches at the transformed position, and return ops with pre-resolved
-        # ranges. All versions MUST have positional metadata in operations_json;
-        # TransformRange raises Conflict if any operation lacks it.
+        # intervening versions' positional metadata, verify the transformed span
+        # still holds exactly the text the op targeted (Plans::Rebase), and
+        # return ops with pre-resolved ranges. All versions MUST have positional
+        # metadata in operations_json; TransformRange raises Conflict if any
+        # operation lacks it.
         def rebase_and_resolve(operations, base_revision, current_content)
           stale_gap = @plan.current_revision - base_revision
           if stale_gap > 20
@@ -162,8 +163,9 @@ module CoPlan
                 Plans::TransformRange.transform_through_versions(range, intervening_versions)
               end
 
-              verify_transformed_ranges!(op, transformed_ranges, verification_content)
-              return if performed?
+              resolution.ranges.zip(transformed_ranges).each do |range, transformed|
+                Plans::Rebase.verify!(op, working_base[range[0]...range[1]], verification_content, transformed)
+              end
 
               # Advance the working base snapshot so the next op resolves
               # against the result of this one (sequential semantics).
@@ -182,6 +184,14 @@ module CoPlan
               render json: {
                 error: "Conflict: #{e.message}",
                 current_revision: @plan.current_revision
+              }, status: :conflict
+              return
+            rescue Plans::Rebase::Conflict => e
+              render json: {
+                error: "Conflict: #{e.message}",
+                current_revision: @plan.current_revision,
+                expected: e.expected,
+                found: e.found
               }, status: :conflict
               return
             end
@@ -245,92 +255,6 @@ module CoPlan
             applied: result[:applied].length,
             version_id: version.id
           }, status: :created
-        end
-
-        def verify_transformed_ranges!(op, transformed_ranges, content)
-          case op["op"]
-          when "replace_exact"
-            return unless op["old_text"]
-            transformed_ranges.each do |tr|
-              actual = content[tr[0]...tr[1]]
-              unless actual == op["old_text"]
-                render json: {
-                  error: "Conflict: text at target position has changed",
-                  current_revision: @plan.current_revision,
-                  expected: op["old_text"],
-                  found: actual
-                }, status: :conflict
-                return
-              end
-            end
-          when "insert_under_heading"
-            return unless op["heading"]
-            transformed_ranges.each do |tr|
-              line_start = tr[0] > 0 ? (content.rindex("\n", tr[0] - 1) || -1) + 1 : 0
-              line_text = content[line_start...tr[0]]
-              unless line_text&.match?(/\A#{Regexp.escape(op["heading"])}\s*\z/)
-                render json: {
-                  error: "Conflict: heading at target position has changed",
-                  current_revision: @plan.current_revision,
-                  expected: op["heading"],
-                  found: line_text
-                }, status: :conflict
-                return
-              end
-            end
-          when "delete_paragraph_containing"
-            return unless op["needle"]
-            transformed_ranges.each do |tr|
-              actual = content[tr[0]...tr[1]]
-              unless actual&.include?(op["needle"])
-                render json: {
-                  error: "Conflict: paragraph no longer contains the expected text",
-                  current_revision: @plan.current_revision,
-                  expected_needle: op["needle"],
-                  found: actual
-                }, status: :conflict
-                return
-              end
-            end
-          when "replace_section"
-            return unless op["heading"]
-            include_heading = op.fetch("include_heading", true)
-            include_heading = include_heading != false && include_heading != "false"
-
-            transformed_ranges.each do |tr|
-              if include_heading
-                # Verify the heading is the first line of the section range
-                first_line_end = content.index("\n", tr[0]) || tr[1]
-                first_line = content[tr[0]...[ first_line_end, tr[1] ].min]
-                unless first_line&.rstrip == op["heading"]&.rstrip
-                  render json: {
-                    error: "Conflict: section at target position has changed",
-                    current_revision: @plan.current_revision,
-                    expected_heading: op["heading"],
-                    found: content[tr[0]...tr[1]]&.slice(0, 200)
-                  }, status: :conflict
-                  return
-                end
-              else
-                # Body-only: verify the heading appears on the line before tr[0].
-                # Walk backwards past any blank lines to find the heading text.
-                search_pos = tr[0]
-                search_pos -= 1 while search_pos > 0 && content[search_pos - 1] == "\n"
-                heading_line_end = search_pos
-                heading_line_start = search_pos > 0 ? (content.rindex("\n", search_pos - 1) || -1) + 1 : 0
-                heading_text = content[heading_line_start...heading_line_end]
-                unless heading_text == op["heading"]
-                  render json: {
-                    error: "Conflict: section heading before target position has changed",
-                    current_revision: @plan.current_revision,
-                    expected_heading: op["heading"],
-                    found: heading_text
-                  }, status: :conflict
-                  return
-                end
-              end
-            end
-          end
         end
 
         # The before_action gives the caller a fast refusal; this is the one

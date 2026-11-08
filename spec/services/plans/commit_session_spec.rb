@@ -224,6 +224,36 @@ RSpec.describe CoPlan::Plans::CommitSession do
         described_class.call(session: session)
       }.to raise_error(CoPlan::Plans::CommitSession::SessionConflictError)
     end
+
+    # The session's first operation changes the length before an
+    # intervening edit; its second operation must not land elsewhere.
+    context "after an earlier session operation changes the length" do
+      let(:content) { "# Stale\n\nAAAA\n\nBBBB\n\nCCCC" }
+
+      %w[BBBB BB].each do |needle|
+        it "does not delete the wrong text (needle #{needle})" do
+          staged = CoPlan::Plans::ApplyOperations.call(content: content, operations: [
+            { "op" => "replace_exact", "old_text" => "AAAA", "new_text" => "AAAA expanded into a forty-char sentence" },
+            { "op" => "delete_paragraph_containing", "needle" => needle }
+          ])
+          session = build_session(plan: plan, base_revision: 1, operations_json: staged[:applied], draft_content: staged[:content])
+
+          # Another agent inserts "XX" inside CCCC.
+          v2 = CoPlan::PlanVersion.create!(
+            plan: plan, revision: 2, content_markdown: "# Stale\n\nAAAA\n\nBBBB\n\nCCXXCC", actor_type: "local_agent", actor_id: user.id,
+            operations_json: [ { "op" => "replace_exact", "old_text" => "", "new_text" => "XX",
+              "resolved_range" => [ 23, 23 ], "new_range" => [ 23, 25 ], "delta" => 2 } ]
+          )
+          plan.update!(current_revision: 2, current_plan_version: v2)
+
+          expect {
+            described_class.call(session: session)
+          }.to raise_error(CoPlan::Plans::CommitSession::SessionConflictError)
+          expect(plan.reload.current_revision).to eq(2)
+          expect(plan.current_content).to eq("# Stale\n\nAAAA\n\nBBBB\n\nCCXXCC")
+        end
+      end
+    end
   end
 
   describe "edge cases" do
