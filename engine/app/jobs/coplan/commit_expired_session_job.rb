@@ -37,11 +37,36 @@ module CoPlan
       # the loop to notice — so the session dies instead. The operations
       # stay on the row if anyone wants to see what was lost.
       session.update!(status: "failed", change_summary: "Auto-commit blocked: #{e.message}")
+      notify_owner(session, reason: "human_edit_pending", error: e)
       Rails.logger.warn("CommitExpiredSessionJob: session #{session_id} blocked by an unread human edit")
     rescue Plans::CommitSession::SessionConflictError, Plans::CommitSession::StaleSessionError, Plans::OperationError => e
       # Conflict during auto-commit — mark session as failed
       session.update!(status: "failed", change_summary: "Auto-commit failed: #{e.message}")
+      notify_owner(session, reason: e.is_a?(Plans::CommitSession::StaleSessionError) ? "stale" : "conflict", error: e)
       Rails.logger.warn("CommitExpiredSessionJob failed for session #{session_id}: #{e.message}")
+    end
+
+    private
+
+    # The agent that staged these edits believes they will land when its
+    # session expires. Tell it they didn't, so it re-reads the plan and redoes
+    # them instead of assuming the document says what it wrote. The session's
+    # actor_id is the owner's API token id; Publish skips anything that isn't
+    # an active token (a revoked owner, a cloud persona).
+    def notify_owner(session, reason:, error:)
+      plan = session.plan.reload
+      AgentEvents::Publish.call(
+        plan: plan,
+        event_type: "session.commit_failed",
+        recipient_token_id: session.actor_id,
+        payload: {
+          "session_id" => session.id,
+          "base_revision" => session.base_revision,
+          "current_revision" => plan.current_revision,
+          "reason" => reason,
+          "message" => error.message
+        }
+      )
     end
   end
 end

@@ -94,5 +94,93 @@ RSpec.describe CoPlan::CommitExpiredSessionJob do
         )
       }.to have_enqueued_job(CoPlan::CommitExpiredSessionJob)
     end
+
+    describe "telling the owner the auto-commit failed" do
+      let(:owner_token) { create(:api_token, user: user, agent_name: "Claude") }
+      let(:watcher_token) { create(:api_token, user: user, agent_name: "Amp") }
+      let(:session) do
+        CoPlan::EditSession.create!(
+          plan: plan, actor_type: "local_agent", actor_id: owner_token.id,
+          base_revision: 1, expires_at: 1.minute.ago,
+          operations_json: [ { "op" => "replace_exact", "old_text" => "Some content", "new_text" => "Changed", "resolved_range" => [ 16, 28 ], "new_range" => [ 16, 23 ], "delta" => -5 } ],
+          draft_content: "# Test Plan\n\nChanged here."
+        )
+      end
+
+      before do
+        # Another agent watches the plan; it must not hear about a session
+        # that wasn't its own.
+        CoPlan::AgentSession.create!(plan: plan, api_token: watcher_token, state: "watching", agent_name: "Amp")
+      end
+
+      # The owner has read the human's revision 1, so the human-edit fence
+      # lets the commit through to the rebase, where another agent's edit to
+      # the same text conflicts.
+      def conflicting_agent_edit
+        CoPlan::PlanRead.record!(plan: plan, reader_type: "api_token", reader_id: owner_token.id, revision: 1)
+        version2 = CoPlan::PlanVersion.create!(
+          plan: plan, revision: 2,
+          content_markdown: "# Test Plan\n\nDifferent content here.", actor_type: "local_agent",
+          actor_id: user.id,
+          operations_json: [ { "op" => "replace_exact", "resolved_range" => [ 16, 28 ], "new_range" => [ 16, 35 ], "delta" => 7 } ]
+        )
+        plan.update!(current_plan_version: version2, current_revision: 2)
+      end
+
+      it "publishes one session.commit_failed event to the owner's token only" do
+        session
+        conflicting_agent_edit
+
+        expect { described_class.new.perform(session_id: session.id) }
+          .to change { CoPlan::AgentEvent.count }.by(1)
+
+        expect(session.reload.status).to eq("failed")
+        event = CoPlan::AgentEvent.sole
+        expect(event.api_token_id).to eq(owner_token.id)
+        expect(event.event_type).to eq("session.commit_failed")
+        expect(event.plan_id).to eq(plan.id)
+        expect(event.payload).to include(
+          "session_id" => session.id,
+          "base_revision" => 1,
+          "current_revision" => 2,
+          "reason" => "conflict"
+        )
+        expect(event.payload["message"]).to include("Conflict")
+        expect(event.payload).not_to have_key("expected")
+        expect(event.payload).not_to have_key("found")
+      end
+
+      it "still fails the session but publishes nothing when the owner's token is revoked" do
+        session
+        conflicting_agent_edit
+        owner_token.update!(revoked_at: 1.minute.ago)
+
+        expect { described_class.new.perform(session_id: session.id) }
+          .not_to change { CoPlan::AgentEvent.count }
+
+        expect(session.reload.status).to eq("failed")
+      end
+
+      it "publishes with reason human_edit_pending when an unread human edit blocks the commit" do
+        session
+        # No PlanRead for the owner: the human's revision 1 is unread.
+
+        expect { described_class.new.perform(session_id: session.id) }
+          .not_to change { plan.reload.current_revision }
+
+        expect(session.reload.status).to eq("failed")
+        expect(session.change_summary).to include("Auto-commit blocked")
+        event = CoPlan::AgentEvent.sole
+        expect(event.api_token_id).to eq(owner_token.id)
+        expect(event.event_type).to eq("session.commit_failed")
+        expect(event.payload).to include(
+          "session_id" => session.id,
+          "base_revision" => 1,
+          "current_revision" => 1,
+          "reason" => "human_edit_pending"
+        )
+        expect(event.payload["message"]).to be_present
+      end
+    end
   end
 end
