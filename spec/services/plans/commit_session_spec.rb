@@ -184,6 +184,23 @@ RSpec.describe CoPlan::Plans::CommitSession do
       expect(result[:version].content_markdown).not_to include("Q1 2026 delivery.")
     end
 
+    it "refuses a missing base without committing the session or a version" do
+      staged = CoPlan::Plans::ApplyOperations.call(content: content, operations: [
+        { "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" }
+      ])
+      session = build_session(plan: plan, base_revision: 0, operations_json: staged[:applied], draft_content: staged[:content])
+      CoPlan::PlanRead.record!(plan: plan, reader_type: "api_token", reader_id: session.actor_id, revision: 1)
+
+      expect {
+        expect { described_class.call(session: session) }
+          .to raise_error(CoPlan::Plans::CommitSession::SessionConflictError, "Base revision 0 not found")
+      }.not_to change { plan.plan_versions.count }
+      expect(plan.reload.current_revision).to eq(1)
+      expect(plan.current_content).to eq(content)
+      expect(session.reload.status).to eq("open")
+      expect(session.draft_content).to eq(staged[:content])
+    end
+
     it "raises SessionConflictError for overlapping edits" do
       # Session was opened at revision 1, wants to edit "unit tests"
       session = build_session(
@@ -249,6 +266,9 @@ RSpec.describe CoPlan::Plans::CommitSession do
           expect {
             described_class.call(session: session)
           }.to raise_error(CoPlan::Plans::CommitSession::SessionConflictError)
+          expect(session.reload.status).to eq("open")
+          expect(session.draft_content).to eq(staged[:content])
+          expect(plan.plan_versions.count).to eq(2)
           expect(plan.reload.current_revision).to eq(2)
           expect(plan.current_content).to eq("# Stale\n\nAAAA\n\nBBBB\n\nCCXXCC")
         end
