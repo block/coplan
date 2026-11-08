@@ -70,6 +70,45 @@ RSpec.describe CoPlan::Plans::Rebase do
       expect(apply(intervening[:content], rebased)[:content]).to eq("#{expanded}\n\nCCXXCC")
     end
 
+    it "keeps same-position stored inserts ordered through a later operation" do
+      base = "AB"
+      intervening = apply(base, [ { "op" => "replace_exact", "old_text" => "", "new_text" => "X", "_pre_resolved_ranges" => [ [ 1, 1 ] ] } ])
+      operations = [
+        { "op" => "replace_exact", "old_text" => "", "new_text" => "Y", "_pre_resolved_ranges" => [ [ 1, 1 ] ] },
+        { "op" => "replace_exact", "old_text" => "B", "new_text" => "Z" }
+      ]
+
+      rebased = rebase(base, operations, [ intervening[:applied] ], intervening[:content])
+
+      expect(apply(intervening[:content], rebased)[:content]).to eq("AXYZ")
+      expect(rebased.map { |op| op["_pre_resolved_ranges"] }).to eq([ [ [ 2, 2 ] ], [ [ 3, 4 ] ] ])
+    end
+
+    it "exchanges replace-all ranges through multiple operations and versions" do
+      base = "AA middle AA tail"
+      first = apply(base, [ { "op" => "replace_exact", "old_text" => "middle", "new_text" => "a longer middle" } ])
+      second = apply(first[:content], [ { "op" => "replace_exact", "old_text" => "tail", "new_text" => "end" } ])
+      operations = [
+        { "op" => "replace_exact", "old_text" => "AA", "new_text" => "AAAAA", "replace_all" => true },
+        { "op" => "replace_exact", "old_text" => "AAAAA", "new_text" => "Z", "occurrence" => 2 },
+        { "op" => "replace_exact", "old_text" => "AAAAA", "new_text" => "Q" }
+      ]
+
+      rebased = rebase(base, operations, [ first[:applied], second[:applied] ], second[:content])
+
+      expect(apply(second[:content], rebased)[:content]).to eq("Q a longer middle Z end")
+    end
+
+    it "preserves stored ranges when repeated text cannot be resolved again" do
+      base = "same same tail"
+      intervening = apply(base, [ { "op" => "replace_exact", "old_text" => "tail", "new_text" => "end" } ])
+      operations = [ { "op" => "replace_exact", "old_text" => "same", "new_text" => "chosen", "_pre_resolved_ranges" => [ [ 5, 9 ] ] } ]
+
+      rebased = rebase(base, operations, [ intervening[:applied] ], intervening[:content])
+
+      expect(apply(intervening[:content], rebased)[:content]).to eq("same chosen end")
+    end
+
     it "raises Conflict when an intervening edit overlaps the target" do
       base = "AAAA\n\nBBBB\n\nCCCC"
       intervening = apply(base, [ { "op" => "replace_exact", "old_text" => "BB", "new_text" => "ZZ", "_pre_resolved_ranges" => [ [ 7, 9 ] ] } ])
