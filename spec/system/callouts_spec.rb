@@ -65,6 +65,28 @@ RSpec.describe "Callouts", type: :system do
     expect(thread.anchor_start).to eq(source.index("Back up first.", source.index("[!WARNING]")))
   end
 
+  it "preserves math inside a callout through a rich edit and save" do
+    content = "# Retry budget\n\n> [!TIP] Estimate\n> Use $p^n$ for retries."
+    document = CoPlan::Plans::Create.call(title: "Retry budget", content: content, user: author,
+      visibility: "draft", actor_type: "human")
+    visit plan_page_path(document)
+    expect(page).to have_css(".callout--tip .katex")
+    visit plan_edit_page_path(document)
+    expect(page).to have_no_css(".inline-editor--preparing", wait: 20)
+    callout = find(".ProseMirror .document-editor__callout--tip")
+    expect(callout).to have_css(".document-editor__math", text: "$p^n$")
+    callout.find("p").click
+    page.driver.browser.action.send_keys(:end, " Check the estimate.").perform
+    click_button "Raw", exact: true
+    expected = content + " Check the estimate."
+    expect(find('[aria-label="Markdown source"]').text).to eq(expected)
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(document))
+    expect(document.reload.current_content).to eq(expected)
+    expect(page).to have_css(".callout--tip .katex")
+    expect(page).to have_css(".callout--tip", text: "Check the estimate.")
+  end
+
   it "keeps callouts readable in either deck theme regardless of app mode" do
     content = %w[coplan graphite].map do |theme|
       "::: {.presentation theme=\"#{theme}\"}\n\n# Callout slide\n\n> [!TIP]\n> Readable in either app mode.\n\n:::\n"

@@ -89,6 +89,29 @@ flowchart LR
 
 Use a diagram for architecture, data flow, sequences, or state. Do not use a diagram when a short list says the same thing. Readers can comment on a node or an edge of a diagram, and on a cell of a table.
 
+## Math
+
+Write LaTeX math between dollar signs. Coplan typesets it with KaTeX:
+
+- Inline: `$E = mc^2$`, or `` $`E = mc^2`$ `` when the TeX contains backticks or dollar signs.
+- Display, on its own centered line: `$$\int_0^1 x^2\,dx = \tfrac{1}{3}$$`. A `$$` block can span several lines.
+- A `math` fence is also display math:
+
+````markdown
+```math
+\sum_{k=1}^{n} k = \frac{n(n+1)}{2}
+```
+````
+
+Write the TeX as it is. Markdown does not apply inside math, so `_`, `*`, and `\` need no escaping.
+A dollar sign followed by a space, or a closing dollar sign followed by a digit, is not math. So "costs $5 and $10" stays text. Write `\$` for a literal dollar sign next to other text.
+Dollar signs in code spans and code fences stay literal.
+If KaTeX cannot parse an expression, readers see its TeX source in red. KaTeX supports most LaTeX math commands, but not packages or custom environments.
+
+Readers cannot select text inside a formula to comment on it. A comment selected across a formula covers the formula's source. To comment on one formula, anchor the text around it.
+In the rich editor, math stays inline TeX source that people can edit directly. Typing the closing dollar sign marks a span as math, and the editor saves the TeX unchanged.
+On slides, inline TeX source length and display-math rows count toward layout size. Split long derivations across slides. Authored HTML cannot opt into math rendering with `data-math-style`; use the Markdown forms above.
+
 ## Code blocks
 
 Always put a language tag on a code fence. Coplan highlights the syntax with highlight.js and accepts any language name that highlight.js supports. Use the canonical names: `ruby`, `python`, `javascript`, `typescript`, `go`, `java`, `kotlin`, `swift`, `rust`, `c`, `cpp`, `csharp`, `sql`, `json`, `yaml`, `xml` (also for HTML), `css`, `graphql`, `protobuf`, `bash` (scripts), `shell` (terminal sessions with `$` prompts), `diff`, `http`. Use `plaintext` for logs. Do not invent tags: Coplan shows an unknown tag as plain text.
@@ -140,6 +163,8 @@ Markdown here still renders. Keep the blank line after the summary.
 ```
 
 Add `open` to the `<details>` tag to show the section expanded by default.
+Comments inside a collapsed section stay reachable: its summary shows how many open discussions it hides.
+Following a discussion link opens its enclosing sections, including for table and diagram comments.
 
 ## Hover definitions
 
