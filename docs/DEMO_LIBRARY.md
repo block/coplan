@@ -65,6 +65,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | reading-specimen | A realistic design doc for judging reading in both modes: prose, headings, lists, tasks, quote, table, footnote, image, SQL/Ruby/diff/YAML code, a long scrolling line, flowchart and sequence diagrams, plus open, agent-answered, resolved, diagram-node, table-cell, and general discussions |
 | document-title | One editable title; autosave keeps the URL stable until Done; title boundaries and empty-title behavior |
 | image-resizing | Resize and restore image widths, wrap prose from the top, Shift+Enter beside, Enter below |
+| math-gallery | KaTeX math: inline, display, and fenced formulas, math in lists and tables, a six-row slide equation, dollar amounts that stay text, and invalid math shown as source; comment on the text around a formula |
 
 Flowcharts currently support source-backed node and edge comments. Other
 Mermaid types support whole-diagram comments. The demos label this boundary;
