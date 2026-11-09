@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { readableText } from "coplan/math_text"
 
 const HOVER_OPEN_DELAY = 180
 const HOVER_CLOSE_DELAY = 220
@@ -142,7 +143,7 @@ export default class extends Controller {
 
   renderPreview(anchor, target) {
     const footnote = anchor.classList.contains("reference-anchor--footnote")
-    const title = target.textContent.trim()
+    const title = readableText(target).trim()
     this.titleTarget.hidden = footnote
     this.titleTarget.textContent = footnote ? "" : title
     this.popoverTarget.setAttribute("aria-label", footnote ? "Citation preview" : `Section preview: ${title}`)
@@ -228,7 +229,7 @@ export default class extends Controller {
       if (node.matches("[data-footnotes]")) break
       if (/^H[1-6]$/.test(node.tagName) && Number(node.tagName.slice(1)) <= level) break
 
-      const text = node.textContent.replace(/\s+/g, " ").trim()
+      const text = readableText(node).replace(/\s+/g, " ").trim()
       if (text) parts.push(text)
       if (parts.join(" ").length >= SECTION_PREVIEW_LENGTH) break
       node = node.nextElementSibling

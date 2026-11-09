@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { captureReactionFocus } from "coplan/reaction_focus"
 import { commentWindowTop } from "coplan/comment_window"
+import { revealSections } from "coplan/collapsed_sections"
 
 // The panel stays inside this Stimulus scope, even in the modal expander.
 // Only signed source ranges cross the wire; SVG ids are render-time lookup
@@ -268,6 +269,7 @@ export default class extends Controller {
       if (slide) slide.dispatchEvent(new CustomEvent("coplan:deck-reveal", {
         bubbles: true, detail: { slide: slide.dataset.slide }
       }))
+      revealSections(element)
       element.scrollIntoView({ block: "center", behavior: "instant" })
       this.show(element, data.dataset.threadStatus === "resolved", event.detail.focusReply === true)
     }
