@@ -183,6 +183,31 @@ RSpec.describe "Collapsible document outline", type: :system do
       expect_expanded("4. Correctness", false)
     end
 
+    it "keeps keyboard focus on a disclosure when a live edit rebuilds the outline" do
+      visit plan_page_path(plan)
+      expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all, wait: 10)
+      chevron("3. Architecture").click
+      expect_expanded("3. Architecture", true)
+
+      replace_content(long_content.sub("Notes for 9.1, paragraph 1.", "Updated notes for 9.1, paragraph 1."))
+      expect(page).to have_css("#plan-content-body", text: "Updated notes for 9.1", wait: 10)
+      expect(page.evaluate_script("document.activeElement.getAttribute('aria-label')")).to eq("3. Architecture sub-sections")
+      page.driver.browser.action.send_keys(:arrow_left).perform
+      expect_expanded("3. Architecture", false)
+    end
+
+    it "pulses the visible folded parent for a live edit inside a hidden subsection" do
+      visit plan_page_path(plan)
+      expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all, wait: 10)
+      expect_expanded("9. Operations", false)
+      CoPlan::Plans::ReplaceContent.call(plan: plan.reload,
+        new_content: long_content.sub("Notes for 9.1, paragraph 1.", "Updated notes for 9.1, paragraph 1."),
+        base_revision: plan.current_revision, actor_type: "local_agent", actor_id: author.id)
+      expect(page).to have_css("#plan-content-body", text: "Updated notes for 9.1", wait: 10)
+      expect(page).to have_css(".content-nav__item--remote-change[data-heading-id='#{heading_id("9. Operations")}']")
+      expect_expanded("9. Operations", false)
+    end
+
     it "totals open discussions from folded sub-sections on the parent" do
       reviewer = create(:coplan_user)
       [ "Notes for 4.1, paragraph 2", "Notes for 4.2, paragraph 1" ].each do |anchor|

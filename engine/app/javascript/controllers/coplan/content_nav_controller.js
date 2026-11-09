@@ -209,10 +209,18 @@ export default class extends Controller {
     this._positionById = new Map()
     this._parentById = new Map()
     this._childIds = new Map()
+    this._outlineIdBySectionKey = new Map()
 
     const roots = []
     const stack = []
     entries.forEach((entry, index) => {
+      // Live updates name sections by rendered text, not permalink ids
+      // (numbered headings use ids such as section-9-1).
+      const baseKey = this.slugify(entry.text) || "section"
+      let sectionKey = baseKey
+      let suffix = 2
+      while (this._outlineIdBySectionKey.has(sectionKey)) sectionKey = `${baseKey}-${suffix++}`
+      this._outlineIdBySectionKey.set(sectionKey, entry.id)
       this._textById.set(entry.id, entry.text)
       this._positionById.set(entry.id, `${index}:${entry.level}`)
       while (stack.length && stack.at(-1).level >= entry.level) stack.pop()
@@ -261,8 +269,14 @@ export default class extends Controller {
         previousByPosition.get(this._positionById.get(entry.id)) ?? activeAncestors.has(entry.id))
       this.renderExpanded(entry.id)
     }
+    const focused = this.listTarget.contains(document.activeElement) ? document.activeElement : null
+    const focusedId = focused?.closest(".content-nav__item")?.dataset.headingId
+    const focusSelector = focused?.matches(".content-nav__disclosure") ? ".content-nav__disclosure" : ".content-nav__link"
     this.listTarget.replaceChildren()
     roots.forEach(root => place(root, this.listTarget))
+    if (focusedId) {
+      this.visibleItem(focusedId)?.querySelector(`:scope > .content-nav__row > ${focusSelector}`)?.focus({ preventScroll: true })
+    }
     if (this.hasTreeControlsTarget) this.treeControlsTarget.hidden = this._expanded.size === 0
   }
 
@@ -447,7 +461,7 @@ export default class extends Controller {
   remoteChange(event) {
     for (const key of event.detail.keys || []) {
       // A change inside a folded subtree pulses the entry that hides it.
-      const item = this.visibleItem(key)
+      const item = this.visibleItem(this._outlineIdBySectionKey?.get(key) || key)
       if (!item) continue
       item.classList.remove("content-nav__item--remote-change")
       // Restart the pulse when consecutive revisions touch one section.
