@@ -83,6 +83,12 @@ module CoPlan
 
         node.each do |child|
           next if @exclude_nonprose && nonprose?(child)
+          # Math is an atomic region. The reader sees KaTeX's typeset glyphs,
+          # which spell nothing in the source, so neither side of comment
+          # anchoring counts it (text_selection_controller skips the same
+          # [data-math-style] elements). A selection may span math; its range
+          # then runs from the text before to the text after.
+          next if math?(child)
 
           # Insert a space between adjacent table cells, and a newline
           # between block-level siblings (paragraphs, rows, items, etc.).
@@ -292,6 +298,12 @@ module CoPlan
             append_source_span(char, position)
           end
         end
+      end
+
+      # comrak typesets a fence only when its info string is exactly "math";
+      # "```math notes" stays an ordinary code block on the page.
+      def math?(node)
+        node.type == :math || (node.type == :code_block && node.fence_info == "math")
       end
 
       # Match the writing inspector's DOM exclusions. Keeping diagram source,

@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import { registerShortcuts, commandFor } from "coplan/shortcuts"
+import { readableText } from "coplan/math_text"
 
 const STORAGE_KEY = "coplan:content-nav-visible"
 
@@ -92,7 +93,7 @@ export default class extends Controller {
     this._headings.forEach((heading, index) => {
       heading.querySelector(":scope > .section-permalink")?.remove()
       const promotedAnchor = promotedAnchors.get(heading)
-      const headingText = heading.textContent.trim().replace(/\s+/g, " ")
+      const headingText = readableText(heading).trim().replace(/\s+/g, " ")
       let baseId = heading.id || promotedAnchor?.id || this.slugify(headingText) || `section-${index + 1}`
       let id = baseId
       let suffix = 2
@@ -188,7 +189,7 @@ export default class extends Controller {
 
     const used = new Set()
     this._headings.forEach((heading, index) => {
-      const title = heading.textContent.trim().replace(/\s+/g, " ")
+      const title = readableText(heading).trim().replace(/\s+/g, " ")
       const base = this.slugify(title) || `section-${index + 1}`
       let id = base, suffix = 2
       while (used.has(id)) id = `${base}-${suffix++}`

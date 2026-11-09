@@ -42,6 +42,15 @@ RSpec.describe CoPlan::SummaryBlocksHelper, type: :helper do
     end
   end
 
+  [ true, false ].each do |interactive|
+    it "typesets math inside and after a summary (interactive: #{interactive})" do
+      doc = render("::: {.summary}\nEstimate $p^n$.\n\n```math\nx^2\n```\n:::\nAfter $q^n$.", interactive:)
+
+      expect(doc.css('section.plan-summary [data-controller="coplan--math"]').map(&:text)).to eq([ "p^n", "x^2\n" ])
+      expect(doc.css('[data-controller="coplan--math"]').size).to eq(3)
+    end
+  end
+
   it "keeps a footnote citation inside the card linked to its definition" do
     citation = render(source).at_css("section.plan-summary sup.footnote-ref a")
 
