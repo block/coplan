@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import { commentWindowTop } from "coplan/comment_window"
+import { revealSections } from "coplan/collapsed_sections"
 
 // Elements whose text is never rendered but still appears in textContent —
 // e.g. the <style> sheet Mermaid embeds inside its SVG. Their text must stay
@@ -354,6 +355,7 @@ export default class extends Controller {
     const highlighted = this.findAndHighlight(anchor, occurrence, "anchor-highlight--active")
     if (highlighted) {
       this._revealDeckSlide(highlighted)
+      revealSections(highlighted)
       highlighted.scrollIntoView({ behavior: "smooth", block: "center" })
     }
   }
@@ -361,6 +363,29 @@ export default class extends Controller {
   openThreadPopover(event) {
     event.stopPropagation()
     this._showThreadPopoverFor(event.currentTarget)
+  }
+
+  // A collapsed section's discussion badge opens the section at its first
+  // discussion.
+  openSectionThread(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    const id = event.currentTarget.dataset.threadId
+    const mark = this.contentTarget.querySelector(`mark.anchor-highlight[data-thread-id="${id}"], [data-source-badge][data-thread-id="${id}"]`)
+    const thread = document.getElementById(id)
+    if (!mark || !thread?.dataset.threadId) return
+    // Opening the section removes its badge. Keep a live focus-return target
+    // for both prose popovers and source-comment panels.
+    event.currentTarget.closest("summary")?.focus({ preventScroll: true })
+    revealSections(mark)
+    mark.scrollIntoView({ behavior: "instant", block: "center" })
+    if (mark.hasAttribute("data-source-badge")) {
+      mark.dispatchEvent(new CustomEvent("coplan:source-thread", {
+        bubbles: true, cancelable: true, detail: { threadId: thread.dataset.threadId, focusReply: false }
+      }))
+    } else {
+      this._showThreadPopoverFor(mark)
+    }
   }
 
   openEditorThread(event) {
@@ -478,6 +503,7 @@ export default class extends Controller {
   _showThreadPopoverFor(trigger) {
     if (!trigger) return false
     this._revealDeckSlide(trigger)
+    revealSections(trigger)
     const threadId = trigger.dataset.threadId
     if (!threadId) return false
 
@@ -888,8 +914,7 @@ export default class extends Controller {
           const trigger = generalVoiceComment ? document.querySelector(".voice-btn") || currentMark : currentMark
           if (generalVoiceComment) trigger.dataset.threadId = domId
           else {
-            const disclosure = currentMark.closest("details.document-support__disclosure")
-            if (disclosure) disclosure.open = true
+            revealSections(currentMark)
             this._revealDeckSlide(currentMark)
             currentMark.scrollIntoView({ behavior: "instant", block: "center" })
           }

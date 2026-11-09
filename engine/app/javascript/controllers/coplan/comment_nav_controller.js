@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { registerShortcuts, commandFor } from "coplan/shortcuts"
 import { commentWindowTop } from "coplan/comment_window"
+import { revealSections } from "coplan/collapsed_sections"
 
 export default class extends Controller {
 
@@ -125,6 +126,7 @@ export default class extends Controller {
     if (slide) slide.dispatchEvent(new CustomEvent("coplan:deck-reveal", {
       bubbles: true, detail: { slide: slide.dataset.slide }
     }))
+    revealSections(mark)
     if (mark.hasAttribute("data-source-badge")) {
       const thread = document.getElementById(mark.dataset.threadId)
       if (thread) mark.dispatchEvent(new CustomEvent("coplan:source-thread", {

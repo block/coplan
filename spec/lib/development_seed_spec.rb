@@ -503,6 +503,35 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(plan.reload.current_revision).to eq(1)
     end
 
+    it "seeds discussions hidden in collapsed sections, including a nested one" do
+      described_class.call
+      plan = seeded_plan("collapsed-discussions")
+      content = plan.current_content
+      expect(content.scan("<details>").size).to eq(3)
+      expect(content).not_to include("<details open")
+      expect(seeded_plan("demo-library").current_content).to include("## Discussions", "(/#{plan.url_path})", "`collapsed-discussions`")
+
+      threads = plan.comment_threads
+      expect(threads.pluck(:status).tally).to eq("open" => 5, "resolved" => 1)
+      anchors = threads.pluck(:anchor_text)
+      anchors.each { |anchor| expect(content).to include(anchor) }
+      measurements = content[%r{<summary>Raw measurements</summary>(.*?)\n## Options}m, 1]
+      query_plan = content[%r{<summary>Query plan</summary>(.*?)</details>}m, 1]
+      alternatives = content[%r{<summary>Alternatives considered</summary>(.*?)</details>}m, 1]
+      expect(anchors.count { |anchor| measurements.include?(anchor) }).to eq(3)
+      expect(query_plan).to include("filters item categories in memory")
+      expect(anchors.count { |anchor| alternatives.include?(anchor) }).to eq(2)
+
+      count = CoPlan::CommentThread.count
+      thread = threads.find_by!(anchor_text: "one discount rule query")
+      thread.comments.first.update!(body_markdown: "My revised question")
+      thread.resolve!(plan.created_by_user)
+      described_class.call
+      expect(CoPlan::CommentThread.count).to eq(count)
+      expect(thread.reload.status).to eq("resolved")
+      expect(plan.reload.current_revision).to eq(1)
+    end
+
     it "preserves edited and resolved seeded discussions on re-seeding" do
       described_class.call
       %w[collab-showcase diagram-comments table-gallery reading-specimen].each do |key|

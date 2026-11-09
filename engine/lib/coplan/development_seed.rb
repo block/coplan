@@ -89,6 +89,9 @@ module CoPlan
       { key: "comment-reactions", author: "hampton", type: "Design Doc", title: "Discussions: react to comments",
         tags: %w[demo comments], visibility: "published", folder: "Demo content/Discussions", group: "Discussions",
         showcase: "Threads with reactions; yours are pressed in blue, hover a chip to see who reacted, add one with the smiley button" },
+      { key: "collapsed-discussions", author: "hampton", type: "Research Note", title: "Collapsed sections: discussions in the appendix",
+        tags: %w[demo comments], visibility: "published", folder: "Demo content/Discussions", group: "Discussions",
+        showcase: "Collapsed sections count the open discussions they hide, one of them nested; select a count, press j, follow a link, or open a section to reach them" },
       { key: "single-slide", author: "hampton", type: "Presentation", title: "One slide: the workspace launch decision",
         tags: %w[demo slides], visibility: "published", folder: "Demo content/Presentations", group: "Presentations",
         showcase: "One-slide presentation with speaker notes" },
@@ -321,6 +324,7 @@ module CoPlan
         seed_content_discussions(users, plans)
         seed_discussion_margins(users, plans)
         seed_reading_specimen(users, plans)
+        seed_collapsed_discussions(users, plans)
         seed_comment_reactions(users, plans)
         seed_reference_gallery(plans, base_url: base_url)
         catalog = seed_catalog(users, plans, plan_types, base_url: base_url)
@@ -1023,6 +1027,23 @@ module CoPlan
         plan: plan, user: users.fetch("aiko"),
         body: "This reads well. Please link the dashboard we'll watch during each rollout step before the first partner is enabled."
       )
+    end
+
+    # Most discussions sit inside closed <details>, one of them nested, so
+    # the summary badges, j/k, and deep links all have to open a section.
+    def seed_collapsed_discussions(users, plans)
+      plan = plans.fetch("collapsed-discussions")
+      [
+        [ "alex", "Caching the rules per cart", "Is the cache shared across checkout workers, or one per process?" ],
+        [ "sam", "one discount rule query", "Can we confirm this with a trace from a 40-item cart?" ],
+        [ "aiko", "filters item categories in memory", "Would an index on merchant and category make the cache unnecessary?" ],
+        [ "noura", "Weekend traffic was excluded", "Were weekday campaign days excluded too?" ],
+        [ "mateo", "Precomputing prices nightly", "Could we precompute only for merchants whose rules rarely change?" ]
+      ].each do |user, anchor, body|
+        seed_thread(plan: plan, user: users.fetch(user), anchor: anchor, body: body)
+      end
+      seed_thread(plan: plan, user: users.fetch("alex"), anchor: "halves the time",
+        body: "What does batching do to the p99?", resolved_by: users.fetch("hampton"))
     end
 
     # Replies and reactions are added only when a thread is first created,
