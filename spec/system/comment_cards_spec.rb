@@ -164,10 +164,12 @@ RSpec.describe "Comment cards in the margin", type: :system do
 
     popover = find(".thread-popover.thread-popover--card:popover-open")
     expect(popover).to have_content("Warm the cache first.")
-    window_box, card_box = rects(popover, card)
-    expect(window_box[:left]).to be_within(1).of(card_box[:left])
-    expect(window_box[:top]).to be_within(1).of(card_box[:top])
-    expect(window_box[:width]).to be_within(1).of(card_box[:width])
+    # Opening changes the window's measured height; the ResizeObserver's
+    # next layout pass moves the card underneath its final viewport bounds.
+    eventually do
+      window_box, card_box = rects(popover, card)
+      %i[left top width].all? { |edge| (window_box[edge] - card_box[edge]).abs <= 1 }
+    end
     expect(card[:class]).to include("is-active")
     expect(card[:"aria-expanded"]).to eq("true")
     expect(page).to have_css("mark.is-margin-active[data-thread-id='comment_thread_#{warmup_thread.id}']")
