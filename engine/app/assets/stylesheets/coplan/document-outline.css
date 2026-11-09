@@ -24,15 +24,22 @@
   margin-right: 0;
 }
 
-/* No label anymore — the lone collapse control floats into the top-right
-   corner so the outline starts at the very top (no empty header band where
-   "Contents" used to sit) and the first item's text flows beside it. */
+/* No label anymore — the controls float into the top-right corner so the
+   outline starts at the very top (no empty header band where "Contents"
+   used to sit) and the first item's text flows beside them. */
 .content-nav__header {
   float: right;
+  display: flex;
+  align-items: center;
   margin-left: var(--space-xs);
 }
 
-.content-nav__toggle {
+.content-nav__tree-controls:not([hidden]) {
+  display: inline-flex;
+}
+
+.content-nav__toggle,
+.content-nav__tree-control {
   background: none;
   border: none;
   cursor: pointer;
@@ -44,11 +51,17 @@
   transition: color 0.15s;
 }
 
-.content-nav__toggle:hover {
+.content-nav__tree-control {
+  display: inline-flex;
+}
+
+.content-nav__toggle:hover,
+.content-nav__tree-control:hover {
   color: var(--color-text);
 }
 
-.content-nav__list {
+.content-nav__list,
+.content-nav__children {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -60,7 +73,7 @@
   margin: 0;
 }
 
-.content-nav__item--remote-change .content-nav__link {
+.content-nav__item--remote-change > .content-nav__row > .content-nav__link {
   animation: content-nav-remote-change 2.6s ease-out;
 }
 
@@ -70,22 +83,69 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .content-nav__item--remote-change .content-nav__link { animation: none; }
+  .content-nav__item--remote-change > .content-nav__row > .content-nav__link { animation: none; }
 }
 
-.content-nav__item--h1 {
-  /* top level — no indent */
+/* Entries nest by heading, so indent the row rather than the item: a
+   nested item's padding would add to its parent's. */
+.content-nav__row {
+  display: flex;
+  align-items: flex-start;
 }
 
-.content-nav__item--h2 {
+.content-nav__item--h2 > .content-nav__row {
   padding-left: var(--space-md);
 }
 
-.content-nav__item--h3 {
+.content-nav__item--h3 > .content-nav__row {
   padding-left: var(--space-xl);
 }
 
+/* Long outlines only: a chevron slot on every row keeps labels aligned. */
+.content-nav__disclosure,
+.content-nav__disclosure-spacer {
+  flex-shrink: 0;
+  width: 16px;
+  height: calc(0.8rem * 1.4 + 6px);
+}
+
+.content-nav__disclosure {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.content-nav__disclosure:hover {
+  color: var(--color-text);
+}
+
+.content-nav__disclosure:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.content-nav__disclosure svg {
+  transition: transform 0.15s;
+}
+
+.content-nav__disclosure[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content-nav__disclosure svg { transition: none; }
+}
+
 .content-nav__link {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-xs);

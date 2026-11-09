@@ -64,6 +64,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | reading-specimen | A realistic design doc for judging reading in both modes: prose, headings, lists, tasks, quote, table, footnote, image, SQL/Ruby/diff/YAML code, a long scrolling line, flowchart and sequence diagrams, plus open, agent-answered, resolved, diagram-node, table-cell, and general discussions |
 | document-title | One editable title; autosave keeps the URL stable until Done; title boundaries and empty-title behavior |
 | image-resizing | Resize and restore image widths, wrap prose from the top, Shift+Enter beside, Enter below |
+| nested-outline | Ten numbered sections with sub-sections. The outline starts folded except where you are reading; chevrons, Left/Right, and expand/collapse all toggle it; scrolling or a `#section` link unfolds; folded sections total their discussions; toggles survive reload |
 
 Flowcharts currently support source-backed node and edge comments. Other
 Mermaid types support whole-diagram comments. The demos label this boundary;
@@ -99,6 +100,7 @@ look up this key rather than copying generated UUIDs.
 | experiment-results | Wide research table with cohort comparisons |
 | code-walkthrough | Dense code, inline discussion, and related-reading target |
 | long-mobile-toc | More than 30 meaningful sections for navigation checks |
+| nested-outline | 10 numbered sections, 37 sub-sections, four open discussions in sub-sections 4.2, 4.3, and 7.1 |
 | draft-notes | Unlisted author draft; its original title URL redirects after a retitle |
 | archived-proposal | Archived document available through a direct link |
 | spanish-brief / japanese-roadmap / arabic-research | Multilingual and right-to-left content |
