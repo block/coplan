@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { hidingSection } from "coplan/collapsed_sections"
 import { commentMarginMode } from "coplan/comment_margin"
-import { commentWindowTop, marginCardWindowTop, placeOnMarginCard } from "coplan/comment_window"
+import { marginCardWindowTop, placeOnMarginCard } from "coplan/comment_window"
 
 // Discussions in the page margin, one per highlighted thread, aligned with
 // the text they discuss. Clicking one opens the same discussion window as
@@ -256,7 +256,7 @@ export default class extends Controller {
     if (cardsShown && this.measureCards) this.markTruncated()
     const originTop = this.element.getBoundingClientRect().top
     const open = !!this.activePopover?.matches(":popover-open") && !this.activePopover.dataset.positioned
-    const expanded = open && this.activePopover.classList.contains("thread-popover--card")
+    const expanded = open && cardsShown
     const placed = []
     for (const [id, mark] of this.marks) {
       const card = this.cards.get(id)
@@ -268,58 +268,43 @@ export default class extends Controller {
       const bounds = slide?.getBoundingClientRect()
       card.hidden = !!bounds && (rect.bottom <= bounds.top || rect.top >= bounds.bottom)
       if (card.hidden) continue
-      const top = rect.top - originTop + (cardsShown ? 0 : (rect.height - WIDTH) / 2)
+      let top = rect.top - originTop + (cardsShown ? 0 : (rect.height - WIDTH) / 2)
       const active = id === this.activeId
-      const height = active && expanded ? this.expandedHeight(card) : card.offsetHeight
-      placed.push({ card, top, height, active })
+      let height = card.offsetHeight
+      if (active && expanded) {
+        // Reserve the entire lifted window, including the space above its
+        // passage. The card underneath it moves with the expanded window.
+        top = marginCardWindowTop(this.activePopover, rect.top) - originTop
+        height = Math.max(height, this.activePopover.offsetHeight)
+      }
+      placed.push({ card, top, height, active, anchorTop: rect.top })
     }
-    placed.sort((a, b) => a.top - b.top)
+    placed.sort((a, b) => a.anchorTop - b.anchorTop)
     const gap = cardsShown ? STACK_GAP * 2 : STACK_GAP
     this.stack(placed, 0, 0, gap)
 
-    // As in Docs, the active card stays beside its text: earlier cards move
-    // up to make room, but never above the top of the column.
+    // Earlier cards make room above the active window. If there is no room
+    // above the column, put those cards below the window so they remain
+    // reachable instead of being covered by the top-layer popover.
     const active = placed.findIndex(item => item.active)
-    if (cardsShown && active >= 0 && placed[active].y > placed[active].top) {
+    if (cardsShown && active >= 0) {
       placed[active].y = placed[active].top
       for (let index = active - 1; index >= 0; index--) {
         placed[index].y = Math.min(placed[index].y, placed[index + 1].y - gap - placed[index].height)
       }
-      const shift = Math.max(0, -placed[0].y)
-      for (let index = 0; index <= active; index++) placed[index].y += shift
-      this.stack(placed, active + 1, placed[active].y + placed[active].height + gap, gap)
+      let floor = placed[active].y + placed[active].height + gap
+      for (const item of placed.slice(0, active).filter(item => item.y < 0)) {
+        item.y = Math.max(item.top, floor)
+        floor = item.y + item.height + gap
+      }
+      this.stack(placed, active + 1, floor, gap)
     }
 
     for (const { card, y } of placed) card.style.top = `${y}px`
     // Also moves a window onto a card that appeared after it opened, for
     // example when a section badge opens the section around its passage.
     if (!open || !cardsShown) return
-    if (this.activePopover.offsetHeight > this.revealedHeight) this.revealExpanded()
     placeOnMarginCard(this.activePopover)
-  }
-
-  // When an expanded card opens or grows past the bottom of the window,
-  // scroll it into view while keeping its top below the pinned navigation.
-  // When the page cannot scroll that far, placeOnMarginCard lifts the
-  // window instead.
-  revealExpanded() {
-    const card = this.cards.get(this.activeId)
-    if (!card || card.hidden) return
-    this.revealedHeight = this.activePopover.offsetHeight
-    const minimumTop = commentWindowTop(this.activePopover)
-    const top = card.getBoundingClientRect().top
-    const overflow = Math.max(minimumTop, top) + this.activePopover.offsetHeight - (window.innerHeight - 12)
-    const room = top - minimumTop
-    if (overflow > 0 && room > 0) window.scrollBy({ top: Math.min(overflow, room), behavior: "instant" })
-  }
-
-  // The expanded window covers its card from where placeOnMarginCard puts
-  // its top: level with the card, below the pinned navigation, or lifted
-  // to keep its controls on screen.
-  expandedHeight(card) {
-    const top = card.getBoundingClientRect().top
-    const windowTop = marginCardWindowTop(this.activePopover, top)
-    return Math.max(card.offsetHeight, windowTop - top + this.activePopover.offsetHeight)
   }
 
   stack(placed, from, floor, gap) {
@@ -413,7 +398,6 @@ export default class extends Controller {
     this.markActive(id, true)
     if (popover) {
       this.resizeObserver.observe(popover)
-      this.revealedHeight = 0
       this.position()
     } else {
       // Wait for the click that closed the window to land before cards move

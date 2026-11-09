@@ -213,8 +213,40 @@ RSpec.describe "Comment cards in the margin", type: :system do
     expect(popover).to have_content("How many retries per request?")
     # The active card lines up with its text again; the card above makes room.
     window_box, mark_box = rects(popover, mark_for(budget_thread))
-    expect(window_box[:top]).to be_within(2).of(mark_box[:top])
-    eventually { above, window_box = rects(card_for(warmup_thread), popover); above[:bottom] <= window_box[:top] }
+    expect(window_box[:top]).to be <= mark_box[:top] + 2
+    eventually do
+      above, window_box = rects(card_for(warmup_thread), popover)
+      above[:bottom] <= window_box[:top] || above[:top] >= window_box[:bottom]
+    end
+  end
+
+  it "keeps the document still and other cards clear while an expanded discussion grows" do
+    page.current_window.resize_to(1760, 640)
+    show_cards
+    mark = mark_for(budget_thread)
+    page.execute_script("window.scrollTo(0, Math.max(0, arguments[0].getBoundingClientRect().top + scrollY - innerHeight + 150))", mark)
+    scroll = page.evaluate_script("scrollY")
+    mark.click
+    popover = find(".thread-popover.thread-popover--card:popover-open")
+    clear_and_on_screen = lambda do
+      box = rect(popover)
+      cards = all(".comment-margin__card:not(.is-active)").map { |card| rect(card) }
+      box[:bottom] <= page.evaluate_script("innerHeight - 11") &&
+        cards.all? { |card| card[:bottom] <= box[:top] || card[:top] >= box[:bottom] }
+    end
+    eventually(&clear_and_on_screen)
+    expect(page.evaluate_script("scrollY")).to eq(scroll)
+
+    textarea = popover.find("textarea[placeholder='Press r to reply']")
+    textarea.click
+    6.times { |n| textarea.send_keys("Draft line #{n + 1}", [ :shift, :enter ]) }
+    eventually(&clear_and_on_screen)
+    expect(page.evaluate_script("scrollY")).to eq(scroll)
+
+    textarea.send_keys("Ready to send.", :enter)
+    expect(popover).to have_content("Ready to send.")
+    eventually(&clear_and_on_screen)
+    expect(page.evaluate_script("scrollY")).to eq(scroll)
   end
 
   it "activates the matching card with j and k" do

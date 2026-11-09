@@ -6,7 +6,7 @@
 <div class="comment-margin-mode" role="group" aria-label="Margin discussions"
      data-controller="coplan--comment-margin-mode"
      data-action="coplan:comment-margin-layout@document->coplan--comment-margin-mode#layoutChanged"
-     <%= "hidden" unless threads.any? { |thread| thread.open? && thread.anchor_text.present? && thread.anchor_kind.blank? } %>>
+     <%= "hidden" unless threads.any? { |thread| thread.open? && !thread.out_of_date? && thread.anchor_text.present? && thread.anchor_kind.blank? } %>>
   <button type="button" class="comment-margin-mode__option" aria-pressed="true"
           data-mode="markers" title="Show discussions as avatar markers"
           data-coplan--comment-margin-mode-target="option" data-action="coplan--comment-margin-mode#choose">Markers</button>

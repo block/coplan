@@ -10,7 +10,7 @@ Each card starts level with its highlighted passage. When two highlights sit clo
 
 The rollout touches the cache warmup and the retry budget in a single release.
 
-Cards never overlap. When the stack grows long, later cards drift further from their text. Opening a card lines it up with its passage again and moves the cards above it up to make room. Hovering a card or its passage lights up the other, so readers never need a thin connector to see which passage a card discusses.
+Cards never overlap. When the stack grows long, later cards drift further from their text. Opening a card lines it up with its passage when it fits on screen. A taller discussion moves up to keep its controls visible without scrolling the document. Earlier cards make room above it, or below it when there is no room above. Hovering a card or its passage lights up the other, so readers never need a thin connector to see which passage a card discusses.
 
 ## Content
 
