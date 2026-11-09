@@ -319,6 +319,40 @@ RSpec.describe "Comment cards in the margin", type: :system do
     expect(page).to have_no_css(".comment-margin-mode[data-fallback]")
   end
 
+  it "hides the mode switch when even markers cannot fit" do
+    show_cards
+    page.current_window.resize_to(1201, 900)
+    expect(page).to have_no_css(".comment-margin[data-fits]")
+    expect(page).to have_no_css(".comment-margin-mode")
+
+    page.current_window.resize_to(1760, 1000)
+    expect(page).to have_css(".comment-margin-mode")
+    expect(page).to have_css(".comment-margin--cards")
+  end
+
+  it "keeps the masthead steady when a collapsed-only discussion becomes a card" do
+    sectioned = create_plan("Collapsed appendix", <<~MARKDOWN)
+      <details>
+      <summary>Evidence</summary>
+
+      The queue backed up during rollout.
+
+      </details>
+    MARKDOWN
+    create_anchored_thread(anchor_text: "queue backed up", body: "How deep?", user: reviewer, on: sectioned)
+    show_cards
+    visit plan_page_path(sectioned)
+    badge = find(".details-comment-badge")
+    expect(page).to have_no_css(".comment-margin-mode")
+    toolbar = find("[role='toolbar'][aria-label='Plan actions']")
+    before = rect(toolbar)
+
+    badge.click
+    expect(page).to have_css(".comment-margin-mode")
+    expect(page).to have_css(".comment-margin__card.is-active")
+    expect(rect(toolbar)[:left]).to be_within(1).of(before[:left])
+  end
+
   it "updates cards from comment and thread broadcasts without a reload" do
     show_cards
     card = card_for(summary_thread)

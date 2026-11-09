@@ -55,7 +55,7 @@
   <div class="plan-masthead__side">
     <%= render partial: "coplan/plans/agent_sessions", locals: { agent_sessions: CoPlan::AgentSession.visible.where(plan_id: @plan.id).order(:created_at) } %>
     <div id="plan-viewers" class="plan-viewers"><%= viewers_html %></div>
-    <%= render "coplan/plans/comment_margin_mode", threads: @threads %>
+    <%= render "coplan/plans/comment_margin_mode" %>
     <%= render partial: "coplan/plans/toolbar", locals: { plan: @plan, placement: @placement } %>
   </div>
 </div>

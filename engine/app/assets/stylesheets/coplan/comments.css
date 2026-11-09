@@ -387,7 +387,9 @@
   background: var(--color-surface);
 }
 
-.comment-margin-mode[hidden] { display: none; }
+/* Reserve the control's width before layout is known and while unavailable,
+   so detached/collapsed-only threads never move the masthead controls. */
+.comment-margin-mode[data-unavailable] { visibility: hidden; }
 
 .comment-margin-mode__option {
   padding: 2px 10px;

@@ -331,7 +331,8 @@ export default class extends Controller {
   // Tell the Markers / Cards switch whether there is anything to switch,
   // and whether Cards is falling back to markers.
   report(shown) {
-    const detail = { cards: shown, fallback: this.mode === "cards" && !shown, count: this.cards.size }
+    const detail = { cards: shown, fallback: this.mode === "cards" && !shown,
+      count: this.element.hasAttribute("data-fits") ? this.cards.size : 0 }
     const state = JSON.stringify(detail)
     if (state === this.reportedState) return
     this.reportedState = state

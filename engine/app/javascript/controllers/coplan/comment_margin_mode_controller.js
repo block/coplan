@@ -19,7 +19,7 @@ export default class extends Controller {
   }
 
   layoutChanged({ detail }) {
-    this.element.hidden = detail.count === 0
+    this.element.toggleAttribute("data-unavailable", detail.count === 0)
     this.element.toggleAttribute("data-fallback", detail.fallback)
     const cards = this.optionTargets.find(option => option.dataset.mode === "cards")
     cards.title = detail.fallback ? cards.dataset.fallbackTitle : cards.dataset.defaultTitle
