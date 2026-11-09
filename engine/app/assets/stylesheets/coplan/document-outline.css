@@ -55,9 +55,20 @@
   display: inline-flex;
 }
 
-.content-nav__toggle:hover,
-.content-nav__tree-control:hover {
+.content-nav__toggle:hover {
   color: var(--color-text);
+}
+
+.content-nav__tree-control:hover,
+.content-nav__disclosure:hover {
+  color: var(--color-primary);
+  background: var(--color-interaction-hover-bg);
+}
+
+.content-nav__tree-control:focus-visible,
+.content-nav__disclosure:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
 
 .content-nav__list,
@@ -120,15 +131,6 @@
   color: var(--color-text-muted);
   cursor: pointer;
   transition: color 0.15s;
-}
-
-.content-nav__disclosure:hover {
-  color: var(--color-text);
-}
-
-.content-nav__disclosure:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
 }
 
 .content-nav__disclosure svg {
