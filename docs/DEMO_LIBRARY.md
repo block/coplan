@@ -59,12 +59,14 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | api-comment-anchors | Markdown text and table-row highlights; source-only discussion in Comments |
 | table-gallery | Precise cell discussion, repeated labels, empty values, links, wide expandable data |
 | comment-reactions | Discussions with emoji reactions; your own are pressed in blue, hover a chip for who reacted, add or remove one in place. Re-seeding keeps reactions you removed removed |
+| collapsed-discussions | Discussions inside closed `<details>`, one nested; each summary counts the open discussions it hides. Select a count, press j, follow a `?thread=` link, or open a section to reach them |
 | formatting-gallery | Headings, editable template notes hidden while reading, emphasis, quotes, nested lists, tasks, two code languages, image, mention, footnote |
 | discussion-margins | Crowded prose discussions, multiple participants, resolved visibility, and slide navigation/scrolling; avatars identify starters, not unread activity |
 | reading-specimen | A realistic design doc for judging reading in both modes: prose, headings, lists, tasks, quote, table, footnote, image, SQL/Ruby/diff/YAML code, a long scrolling line, flowchart and sequence diagrams, plus open, agent-answered, resolved, diagram-node, table-cell, and general discussions |
 | document-title | One editable title; autosave keeps the URL stable until Done; title boundaries and empty-title behavior |
 | image-resizing | Resize and restore image widths, wrap prose from the top, Shift+Enter beside, Enter below |
 | nested-outline | Ten numbered sections with sub-sections. The outline starts folded except where you are reading; chevrons, Left/Right, and expand/collapse all toggle it; scrolling or a `#section` link unfolds; folded sections total their discussions; toggles survive reload |
+| math-gallery | KaTeX math: inline, display, and fenced formulas, math in lists and tables, a six-row slide equation, dollar amounts that stay text, and invalid math shown as source; comment on the text around a formula |
 
 Flowcharts currently support source-backed node and edge comments. Other
 Mermaid types support whole-diagram comments. The demos label this boundary;

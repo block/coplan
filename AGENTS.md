@@ -231,6 +231,7 @@ reader to an apparently empty page.
 ### Inline review UI
 - **Highlights**: anchored text is wrapped in `<mark>` elements — subtle blue for `open`, unstyled for `resolved`; orange is reserved for viewer-specific attention, never thread status
 - **Margin dots**: colored indicators in the left margin aligned to each highlight's vertical position
+- **Collapsed sections**: a closed `<details>` hides its highlights, so it shows a compact blue count badge on its summary instead of margin dots (open threads only, unless resolved threads are shown). Every jump to a thread — `?thread=`, j/k, a badge — opens the enclosing sections first (`coplan/collapsed_sections.js`)
 - **Thread popovers**: native HTML Popover API (`popover="auto"`) showing the comment thread, reply form, and action buttons; positioned relative to the anchor and tracked on scroll
 - **Comment toolbar**: fixed bottom bar showing open thread count, j/k navigation, and a "Show resolved" toggle
 

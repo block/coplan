@@ -17,6 +17,16 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
       expect(doc.text.index("Between")).to be < doc.text.index("Third")
     end
 
+    it "typesets math in prose and on slides" do
+      source = "Intro $a$\n\n::: {.presentation}\n\n# Slide $x^2$\n\n$$\n\\int_0^1 y\\,dy\n$$\n\n:::\n"
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source))
+      slide_math = doc.css(".deck-slide [data-math-style]")
+
+      expect(slide_math.map { |node| [ node["data-math-style"], node.text.strip ] }).to eq([ [ "inline", "x^2" ], [ "display", "\\int_0^1 y\\,dy" ] ])
+      expect(doc.css("[data-math-style]").map { |node| node["data-controller"] }.uniq).to eq([ "coplan--math" ])
+      expect(doc.css("[data-math-style]").size).to eq(3)
+    end
+
     it "keeps an explicit deck identity separate from heading fragment IDs" do
       source = "[Read proposal](#proposal)\n\n::: {.presentation #proposal}\n\n# Proposal\n\n:::"
       doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source))
