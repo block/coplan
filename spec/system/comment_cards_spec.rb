@@ -30,14 +30,16 @@ RSpec.describe "Comment cards in the margin", type: :system do
     MARKDOWN
   end
 
-  let(:plan) do
-    p = CoPlan::Plan.create!(title: "Streaming Export Plan", created_by_user: author)
+  let(:plan) { create_plan("Streaming Export Plan", plan_content) }
+
+  def create_plan(title, content)
+    created = CoPlan::Plan.create!(title: title, created_by_user: author)
     version = CoPlan::PlanVersion.create!(
-      plan: p, revision: 1,
-      content_markdown: plan_content, actor_type: "human", actor_id: author.id
+      plan: created, revision: 1,
+      content_markdown: content, actor_type: "human", actor_id: author.id
     )
-    p.update!(current_plan_version: version, current_revision: 1)
-    p
+    created.update!(current_plan_version: version, current_revision: 1)
+    created
   end
 
   let!(:summary_thread) { create_anchored_thread(anchor_text: "streaming pipeline", body: "Which broker backs the stream?", user: reviewer) }
@@ -48,9 +50,9 @@ RSpec.describe "Comment cards in the margin", type: :system do
     create_anchored_thread(anchor_text: "available as a fallback", body: "Is one week enough?", user: reviewer).tap { |thread| thread.resolve!(author) }
   end
 
-  def create_anchored_thread(anchor_text:, body:, user:)
-    thread = plan.comment_threads.create!(
-      plan_version: plan.current_plan_version, anchor_text: anchor_text, anchor_occurrence: 1,
+  def create_anchored_thread(anchor_text:, body:, user:, on: plan)
+    thread = on.comment_threads.create!(
+      plan_version: on.current_plan_version, anchor_text: anchor_text, anchor_occurrence: 1,
       created_by_user: user, status: "open"
     )
     thread.comments.create!(author_type: "human", author_id: user.id, body_markdown: body)
@@ -94,8 +96,8 @@ RSpec.describe "Comment cards in the margin", type: :system do
     expect(page).to have_css(".comment-margin-mode__option[aria-pressed='true']", text: label)
   end
 
-  def show_cards
-    visit plan_page_path(plan)
+  def show_cards(target = plan)
+    visit plan_page_path(target)
     choose_mode "Cards"
     expect(page).to have_css(".comment-margin.comment-margin--cards[data-fits]")
   end
@@ -301,5 +303,112 @@ RSpec.describe "Comment cards in the margin", type: :system do
     expect(page).to have_css(".comment-margin__card", count: 5)
     expect(card_for(arriving)).to have_css(".comment-margin__body", text: "Keep the nightly export for audits.")
     expect(rect(card_for(arriving))[:top]).to be_within(2).of(rect(mark_for(arriving))[:top])
+  end
+
+  it "hides the card of a slide passage scrolled out of its slide" do
+    deck = create_plan("Rollout deck", <<~MARKDOWN)
+      ::: {.presentation}
+
+      # First slide
+
+      First discussion target.
+
+      ---
+
+      # Second slide
+
+      Second discussion target.
+
+      #{(1..35).map { |n| "Paragraph #{n} keeps this slide scrollable.\n" }.join("\n")}
+
+      :::
+    MARKDOWN
+    thread = create_anchored_thread(anchor_text: "Second discussion target", body: "Scrolling feedback", user: reviewer, on: deck)
+    visit plan_page_path(deck)
+    find(".deck-toolbar__step--next").click
+    choose_mode "Cards"
+    expect(page).to have_css(".comment-margin.comment-margin--cards[data-fits]")
+    card = card_for(thread)
+    expect(rect(card)[:top]).to be_within(2).of(rect(mark_for(thread))[:top])
+
+    find(".deck-slide--current").execute_script("this.scrollTop = this.scrollHeight")
+    expect(page).to have_css(".comment-margin--cards .comment-margin__card[hidden]", visible: :all)
+    # The cards-mode layout must not override [hidden] and leave the card
+    # stranded at the top of the margin.
+    expect(card.evaluate_script("getComputedStyle(this).display")).to eq("none")
+    expect(page).to have_no_css(".comment-margin__card")
+
+    find(".deck-slide--current").execute_script("this.scrollTop = 0")
+    expect(page).to have_css(".comment-margin--cards .comment-margin__card[data-thread-id='comment_thread_#{thread.id}']")
+    eventually { card_box, mark_box = rects(card_for(thread), mark_for(thread)); (card_box[:top] - mark_box[:top]).abs < 2 }
+  end
+
+  it "keeps an expanded card's reply box and Resolve on screen near the end of a short page, as it grows" do
+    short = create_plan("Short rollout note", <<~MARKDOWN)
+      #{(1..5).map { |n| "Step #{n} prepares the rollout.\n" }.join("\n")}
+
+      The final step flips the feature flag for everyone.
+    MARKDOWN
+    thread = create_anchored_thread(anchor_text: "flips the feature flag", body: "Who watches the dashboards?", user: reviewer, on: short)
+    2.times { |n| thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Reply #{n + 1}: the on-call engineer.") }
+    page.current_window.resize_to(1760, 640)
+    show_cards(short)
+    # Scroll as far as the page goes, so scrolling cannot make room.
+    page.execute_script("window.scrollTo(0, document.documentElement.scrollHeight)")
+    card_for(thread).click
+
+    popover = find(".thread-popover.thread-popover--card:popover-open")
+    on_screen = lambda do
+      textarea = popover.find("textarea[placeholder='Press r to reply']")
+      resolve = popover.find_button("Resolve")
+      window_box, textarea_box, resolve_box = rects(popover, textarea, resolve)
+      viewport = page.evaluate_script("window.innerHeight")
+      [ textarea_box, resolve_box ].all? { |box| box[:top] >= 0 && box[:bottom] <= viewport } &&
+        window_box[:bottom] <= viewport - 11 && window_box[:top] >= 0
+    end
+    eventually(&on_screen)
+
+    # A longer draft grows the window; it stays on screen.
+    textarea = popover.find("textarea[placeholder='Press r to reply']")
+    textarea.click
+    4.times { |n| textarea.send_keys("Draft line #{n + 1}", [ :shift, :enter ]) }
+    eventually(&on_screen)
+
+    # So does a posted reply.
+    textarea.send_keys("Posted at the end.", :enter)
+    expect(popover).to have_content("Posted at the end.")
+    eventually(&on_screen)
+  end
+
+  it "shows a closed section's badge instead of cards, and its badge opens the section at an active card" do
+    sectioned = create_plan("Queue incident review", <<~MARKDOWN)
+      Summary: the retry budget ran out during the deploy.
+
+      <details id="raw-timeline">
+      <summary>Raw timeline</summary>
+
+      The queue backed up right after the rollout started.
+
+      </details>
+
+      Alert on queue age before the next rollout.
+    MARKDOWN
+    outside = create_anchored_thread(anchor_text: "retry budget", body: "Is the budget per partner?", user: reviewer, on: sectioned)
+    inside = create_anchored_thread(anchor_text: "queue backed up", body: "How deep did the queue get?", user: reviewer, on: sectioned)
+    show_cards(sectioned)
+
+    expect(page).to have_css(".comment-margin__card", count: 1)
+    expect(card_for(outside)).to have_css(".comment-margin__body", text: "Is the budget per partner?")
+    expect(page).to have_no_css(".comment-margin__card[data-thread-id='comment_thread_#{inside.id}']", visible: :all)
+    badge = find("#raw-timeline:not([open]) > summary .details-comment-badge")
+    expect(badge[:"data-count"]).to eq("1")
+
+    badge.click
+    expect(page).to have_css("#raw-timeline[open]")
+    expect(page).to have_no_css(".details-comment-badge")
+    expect(page).to have_css(".comment-margin__card.is-active[data-thread-id='comment_thread_#{inside.id}']")
+    expect(page).to have_css(".comment-margin__card", count: 2)
+    popover = find(".thread-popover.thread-popover--card:popover-open", text: "How deep did the queue get?")
+    eventually { window_box, card_box = rects(popover, card_for(inside)); (window_box[:left] - card_box[:left]).abs < 1 }
   end
 end

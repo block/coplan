@@ -107,7 +107,8 @@ export default class extends Controller {
     else if (!window.matchMedia("(max-width: 640px)").matches && !this.element.classList.contains("thread-popover--card")) {
       // Errors and new replies can grow an anchored window after opening.
       // Keep its bottom controls reachable without changing its size. A
-      // window expanded over its margin card stays on the card instead.
+      // window expanded over its margin card is placed by placeOnMarginCard
+      // instead, which keeps it on its card and its controls on screen.
       const top = Math.max(minimumTop, Math.min(rect.top, (window.visualViewport?.height || innerHeight) - rect.height - 12))
       if (Math.abs(top - rect.top) > 1) this.element.style.top = `${top}px`
     }

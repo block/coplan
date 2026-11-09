@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { hidingSection } from "coplan/collapsed_sections"
 import { commentMarginMode } from "coplan/comment_margin"
-import { commentWindowTop, placeOnMarginCard } from "coplan/comment_window"
+import { commentWindowTop, marginCardWindowTop, placeOnMarginCard } from "coplan/comment_window"
 
 // Discussions in the page margin, one per highlighted thread, aligned with
 // the text they discuss. Clicking one opens the same discussion window as
@@ -173,12 +173,13 @@ export default class extends Controller {
     const latest = comments.length > 1 ? this.summarize(comments[comments.length - 1]) : null
     const replies = Math.max(0, comments.length - 1)
     const resolved = !mark.classList.contains("anchor-highlight--open")
-    const signature = JSON.stringify([first, latest?.author, replies, resolved])
+    const { avatar: firstAvatar, ...firstText } = first
+    const signature = JSON.stringify([firstText, latest?.author, replies, resolved])
     if (card.dataset.signature === signature) return
     card.dataset.signature = signature
 
     card.classList.toggle("comment-margin__card--resolved", resolved)
-    const avatar = first.avatar ? document.createRange().createContextualFragment(first.avatar).firstElementChild : null
+    const avatar = firstAvatar?.cloneNode(true)
     if (avatar) {
       avatar.removeAttribute("title")
       avatar.setAttribute("aria-hidden", "true")
@@ -207,13 +208,18 @@ export default class extends Controller {
     this.labelCard(card)
   }
 
+  // avatarKey stands in for the avatar in the card's change signature: its
+  // class, initials, and photo address.
   summarize(comment) {
     const header = comment?.querySelector(".comment__header")
+    const avatar = header?.querySelector(".avatar, .comment__agent-avatar")
+    const photo = avatar?.matches("img") ? avatar : avatar?.querySelector("img")
     return {
       author: header?.querySelector("strong")?.textContent.trim() || "",
       time: header?.querySelector(".comment__meta")?.textContent.trim() || "",
       body: comment?.querySelector(".comment__body")?.textContent.replace(/\s+/g, " ").trim() || "",
-      avatar: header?.querySelector(".avatar, .comment__agent-avatar")?.outerHTML || ""
+      avatarKey: avatar ? [avatar.className, avatar.textContent.trim(), photo?.getAttribute("src") || ""].join("|") : "",
+      avatar
     }
   }
 
@@ -249,7 +255,8 @@ export default class extends Controller {
 
     if (cardsShown && this.measureCards) this.markTruncated()
     const originTop = this.element.getBoundingClientRect().top
-    const expanded = this.activePopover?.classList.contains("thread-popover--card") && this.activePopover.matches(":popover-open")
+    const open = !!this.activePopover?.matches(":popover-open") && !this.activePopover.dataset.positioned
+    const expanded = open && this.activePopover.classList.contains("thread-popover--card")
     const placed = []
     for (const [id, mark] of this.marks) {
       const card = this.cards.get(id)
@@ -284,29 +291,35 @@ export default class extends Controller {
     }
 
     for (const { card, y } of placed) card.style.top = `${y}px`
-    if (!expanded || this.activePopover.dataset.positioned) return
+    // Also moves a window onto a card that appeared after it opened, for
+    // example when a section badge opens the section around its passage.
+    if (!open || !cardsShown) return
+    if (this.activePopover.offsetHeight > this.revealedHeight) this.revealExpanded()
     placeOnMarginCard(this.activePopover)
-    if (this.revealActive) this.revealExpanded()
   }
 
-  // Scroll a card that has just expanded past the bottom of the window into
-  // view once, keeping its top below the pinned navigation.
+  // When an expanded card opens or grows past the bottom of the window,
+  // scroll it into view while keeping its top below the pinned navigation.
+  // When the page cannot scroll that far, placeOnMarginCard lifts the
+  // window instead.
   revealExpanded() {
-    this.revealActive = false
-    const rect = this.activePopover.getBoundingClientRect()
-    const overflow = rect.bottom - (window.innerHeight - 12)
-    const room = rect.top - commentWindowTop(this.activePopover)
-    if (overflow <= 0 || room <= 0) return
-    window.scrollBy({ top: Math.min(overflow, room), behavior: "instant" })
-    placeOnMarginCard(this.activePopover)
+    const card = this.cards.get(this.activeId)
+    if (!card || card.hidden) return
+    this.revealedHeight = this.activePopover.offsetHeight
+    const minimumTop = commentWindowTop(this.activePopover)
+    const top = card.getBoundingClientRect().top
+    const overflow = Math.max(minimumTop, top) + this.activePopover.offsetHeight - (window.innerHeight - 12)
+    const room = top - minimumTop
+    if (overflow > 0 && room > 0) window.scrollBy({ top: Math.min(overflow, room), behavior: "instant" })
   }
 
-  // The expanded window covers its card from the card's top, or from below
-  // the pinned navigation once the card scrolls under it.
+  // The expanded window covers its card from where placeOnMarginCard puts
+  // its top: level with the card, below the pinned navigation, or lifted
+  // to keep its controls on screen.
   expandedHeight(card) {
     const top = card.getBoundingClientRect().top
-    const offset = Math.max(0, commentWindowTop(this.activePopover) - top)
-    return Math.max(card.offsetHeight, offset + this.activePopover.offsetHeight)
+    const windowTop = marginCardWindowTop(this.activePopover, top)
+    return Math.max(card.offsetHeight, windowTop - top + this.activePopover.offsetHeight)
   }
 
   stack(placed, from, floor, gap) {
@@ -400,7 +413,7 @@ export default class extends Controller {
     this.markActive(id, true)
     if (popover) {
       this.resizeObserver.observe(popover)
-      this.revealActive = this.cardsShown
+      this.revealedHeight = 0
       this.position()
     } else {
       // Wait for the click that closed the window to land before cards move

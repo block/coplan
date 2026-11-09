@@ -237,6 +237,11 @@
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
+/* A deck-slide anchor scrolled out of its slide must not leave its card
+   behind. settings.css's global [hidden] rule covers this today; restated
+   because the card rule above sets display. */
+.comment-margin--cards .comment-margin__card[hidden] { display: none; }
+
 .comment-margin--cards .comment-margin__details { display: contents; }
 
 .comment-margin--cards .comment-margin__card > :is(.avatar, .comment__agent-avatar, svg) {

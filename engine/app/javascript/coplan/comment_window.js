@@ -37,6 +37,20 @@ export function placeOnMarginCard(popover) {
   const rect = card.getBoundingClientRect()
   popover.style.width = `${rect.width}px`
   popover.style.left = `${rect.left}px`
-  popover.style.top = `${Math.max(commentWindowTop(popover), rect.top)}px`
+  popover.style.top = `${marginCardWindowTop(popover, rect.top)}px`
   return true
+}
+
+// A card window starts level with its card, below the pinned controls. When
+// it runs past the bottom of the window and the page cannot scroll far
+// enough to show it (a short plan, or a card near the end), it moves up
+// just enough to keep its reply box and actions on screen, but never above
+// the pinned controls.
+export function marginCardWindowTop(popover, cardTop) {
+  const minimumTop = commentWindowTop(popover)
+  const top = Math.max(minimumTop, cardTop)
+  const viewport = window.visualViewport?.height || window.innerHeight
+  const overflow = top + popover.offsetHeight - (viewport - 12)
+  const scrollable = Math.max(0, document.documentElement.scrollHeight - viewport - window.scrollY)
+  return Math.max(minimumTop, top - Math.max(0, overflow - scrollable))
 }
