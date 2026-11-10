@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Document editor modes", type: :system do
   let(:author) { create(:coplan_user, email: "editor-modes@example.com") }
-  let(:source) { "# Draft\n\nOriginal prose.\n\n| Item | State |\n|---|---|\n| Draft | Ready |\n\n```mermaid\ngraph LR; A-->B\n```\n\n```ruby\nputs :hello\n```\n\n```graphviz {image=\"/x/flow.png\" alt=\"Flow\"}\ndigraph { a -> b }\n```\n" }
+  let(:source) { "# Draft\n\nOriginal prose.\n\n| Item | State |\n|---|---|\n| Draft | Ready |\n\n```mermaid\ngraph LR; A-->B\n```\n\n```diagram {skill=graphviz image=\"/x/flow.png\" alt=\"Flow\"}\ndigraph { a -> b }\n```\n\n```ruby\nputs :hello\n```\n" }
   let(:plan) do
     CoPlan::Plans::Create.call(title: "Mode test", content: source, user: author, visibility: "draft", actor_type: "human")
   end

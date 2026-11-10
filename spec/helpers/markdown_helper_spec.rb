@@ -60,13 +60,13 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       # Views get the engine's routes; a helper spec has to add them.
       before { helper.extend(CoPlan::Engine.routes.url_helpers) }
 
-      let(:markdown) { "```graphviz {image=\"/rails/active_storage/blobs/a/flow.png\" alt=\"Checkout flow\" width=640 lang=dot}\ndigraph { a -> b }\n```" }
+      let(:markdown) { "```diagram {skill=graphviz image=\"/rails/active_storage/blobs/a/flow.png\" alt=\"Checkout flow\" width=640 lang=dot}\ndigraph { a -> b }\n```" }
 
       it "shows the image with the source collapsed under it and the skill that edits it" do
         doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))
         figure = doc.at_css("figure.rendered-diagram")
 
-        expect(figure["data-renderer"]).to eq("graphviz")
+        expect(figure["data-skill"]).to eq("graphviz")
         image = figure.at_css("img")
         expect(image.attributes.transform_values(&:value)).to include("src" => "/rails/active_storage/blobs/a/flow.png",
           "alt" => "Checkout flow", "width" => "640")
@@ -87,20 +87,21 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
         expect(doc.at_css("figure.rendered-diagram").text.strip).to eq("digraph { a -> b }")
       end
 
-      it "links a skill named apart from the renderer to where it can be found" do
-        code = "```plantuml {image=\"/x/a.png\" skill=\"acme:uml\" skill-source=\"https://skills.example.com/uml\"}\n@startuml\n```"
+      it "links the skill to where it can be found" do
+        code = "```diagram {image=\"/x/a.png\" skill=\"acme:uml\" skill-source=\"https://skills.example.com/uml\"}\n@startuml\n```"
         doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(code))
         skill = doc.at_css("a.rendered-diagram__skill")
 
-        expect(doc.at_css("summary")["data-label"]).to eq("Source · plantuml")
+        expect(doc.at_css("summary")["data-label"]).to eq("Source · acme:uml")
         expect(doc.at_css("details pre")["lang"]).to be_nil
         expect(skill.attributes.transform_values(&:value)).to include("data-label" => "Skill: acme:uml",
           "href" => "https://skills.example.com/uml", "target" => "_blank", "rel" => "noopener noreferrer")
       end
 
-      it "leaves an unsafe image, a fence without an image, and Mermaid as code blocks" do
-        [ "```graphviz {image=\"javascript:alert(1)\"}\na\n```", "```graphviz\na\n```", "```mermaid {image=\"/x/a.png\"}\ngraph LR\n```",
-          "```graphviz{image=\"/x/a.png\"}\na\n```" ].each do |code|
+      it "leaves an unsafe image, a fence without an image or skill, other fences, and Mermaid as code blocks" do
+        [ "```diagram {skill=graphviz image=\"javascript:alert(1)\"}\na\n```", "```diagram {skill=graphviz}\na\n```",
+          "```diagram {image=\"/x/a.png\"}\na\n```", "```graphviz {skill=graphviz image=\"/x/a.png\"}\na\n```",
+          "```mermaid {skill=graphviz image=\"/x/a.png\"}\ngraph LR\n```", "```diagram{skill=graphviz image=\"/x/a.png\"}\na\n```" ].each do |code|
           doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(code))
           expect(doc.at_css("figure, img")).to be_nil, code
           expect(doc.at_css("pre")["data-meta"]).to be_nil

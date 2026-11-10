@@ -370,13 +370,13 @@ module CoPlan
         pre.remove_attribute("data-meta")
         next unless info
 
-        figure = doc.document.create_element("figure", class: "rendered-diagram", "data-renderer" => info[:renderer])
+        figure = doc.document.create_element("figure", class: "rendered-diagram", "data-skill" => info[:skill])
         image = doc.document.create_element("img", src: info[:image], alt: info[:alt])
         image["width"] = info[:width] if info[:width]
         footer = doc.document.create_element("div", class: "rendered-diagram__footer")
         details = doc.document.create_element("details", class: "rendered-diagram__source")
         details.add_child(doc.document.create_element("summary", class: "rendered-diagram__summary",
-          "data-label" => "Source · #{info[:renderer]}", "aria-label" => "#{info[:renderer]} source"))
+          "data-label" => "Source · #{info[:skill]}", "aria-label" => "#{info[:skill]} source"))
         footer.add_child(details)
         # The skill that edits and renders it: its own page when the fence
         # says where, otherwise the guide that explains rendered diagrams.

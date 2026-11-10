@@ -85,7 +85,7 @@ module CoPlan
         showcase: "Mermaid class diagram; whole-diagram commenting" },
       { key: "rendered-diagram", author: "hampton", type: "Design Doc", title: "Rendered diagram: an image that keeps its source",
         tags: %w[demo diagrams images], visibility: "published", folder: "Demo content/Diagrams", group: "Diagrams",
-        showcase: "A draw-diagram fence: render.mjs source inline, the rendered PNG as its image, the skill that edits it" },
+        showcase: "A diagram fence drawn with draw-diagram: render.mjs source inline, the rendered PNG as its image, the skill that edits it" },
       { key: "single-slide", author: "hampton", type: "Presentation", title: "One slide: the workspace launch decision",
         tags: %w[demo slides], visibility: "published", folder: "Demo content/Presentations", group: "Presentations",
         showcase: "One-slide presentation with speaker notes" },

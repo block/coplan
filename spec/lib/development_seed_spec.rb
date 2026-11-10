@@ -272,7 +272,6 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(attachment.blob.filename.to_s).to eq("rendered-diagram.png")
       expect(attachment.blob.metadata["uploaded_by_name"]).to eq("Hampton")
       block = CoPlan::RenderedDiagrams.blocks(plan.current_content).sole
-      expect(block.renderer).to eq("draw-diagram")
       expect(block.image).to eq(Rails.application.routes.url_helpers.rails_blob_path(attachment.blob, only_path: true))
       expect(block).to have_attributes(lang: "javascript", skill: "draw-diagram")
       expect(block.source).to include("new Diagram", "d.save(", "Notes for the next editor")

@@ -49,7 +49,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | diagram-comments | Flowchart node and edge discussions; browse, press C, select an element, expand |
 | entity-relationships / class-model | ER and class diagrams with whole-diagram discussions |
 | mobile-checkout / long-title | State and sequence diagrams with whole-diagram discussions |
-| rendered-diagram | A `draw-diagram` fence: the `render.mjs` source inline with notes for the next editor, the rendered PNG shown as its image, and the skill that edits it |
+| rendered-diagram | A `diagram` fence drawn with the `draw-diagram` skill: the `render.mjs` source inline with notes for the next editor, the rendered PNG shown as its image, and the skill that edits it |
 | single-slide | One slide with speaker notes |
 | launch-deck | A complete multi-slide presentation |
 | mixed-slides | Prose around two separately presentable decks; diagrams, code, table, image, notes |

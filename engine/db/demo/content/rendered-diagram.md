@@ -1,6 +1,6 @@
 This diagram was drawn with the `draw-diagram` agent skill. Its source sits in the document, in the fenced block under the image; CoPlan shows the image that was rendered from it. Expand **Source · draw-diagram** to read the source. **Skill: draw-diagram** names the skill an agent uses to change it.
 
-```draw-diagram {image="{{rendered_diagram_url}}" alt="A rendered diagram keeps its source" width=760 lang=javascript}
+```diagram {skill=draw-diagram image="{{rendered_diagram_url}}" alt="A rendered diagram keeps its source" width=760 lang=javascript}
 {{rendered_diagram_source}}
 ```
 

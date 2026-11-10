@@ -1497,10 +1497,10 @@ function codeNodeView(initial, view, getPos, preview, sourceRangeAt) {
   const render = (languageChanged = true) => {
     if (languageChanged && language.value !== (node.attrs.params || "")) language.value = node.attrs.params || ""
     const params = node.attrs.params?.trim() || "", mermaid = params.split(/\s+/)[0] === "mermaid"
-    // A rendered diagram (`name {image="…"}`, see RenderedDiagrams) previews
+    // A rendered diagram (`diagram {skill=… image="…"}`, see RenderedDiagrams) previews
     // its image. That depends only on the fence's attributes, so the source
     // isn't sent and typing in it doesn't fetch again.
-    const rendered = !mermaid && /^[A-Za-z0-9_+-]+\s+\{.*\bimage=/.test(params), previewed = mermaid || rendered
+    const rendered = /^diagram\s+\{(?=.*\bskill=)(?=.*\bimage=)/.test(params), previewed = mermaid || rendered
     if (rendered && params === previewedParams) return
     previewedParams = null
     const sequence = ++generation
