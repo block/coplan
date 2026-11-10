@@ -1,24 +1,29 @@
 <%# Unified history feed: content versions (PlanVersion) and metadata events
     (PlanEvent) interleaved by created_at. Each item exposes `history_kind`
     so we render the right partial without introspecting class names. %>
-<% first_version = history_items.find { |item| item.history_kind == :version } %>
-<div class="history-split" id="plan-history" data-controller="coplan--history">
-  <div class="history-split__list" id="plan-history-list">
-    <% history_items.each do |item| %>
-      <% case item.history_kind %>
-      <% when :version %>
-        <%= render partial: "coplan/plans/version_item", locals: { version: item, plan: plan } %>
-      <% when :event %>
-        <%= render partial: "coplan/plans/event_item", locals: { event: item, plan: plan } %>
-      <% end %>
-    <% end %>
+<div id="plan-history" data-controller="coplan--history"
+     data-coplan--history-from-value="<%= @first_version.revision %>"
+     data-coplan--history-to-value="<%= @version.revision %>">
+  <div class="history-selection">
+    <p id="history-selection-help" class="text-sm text-muted">Check revisions to combine their changes. Gaps fill automatically. Unchecking inside a range keeps the newer changes.</p>
+    <button type="button" class="btn btn--ghost btn--sm" data-action="coplan--history#clear">Clear selection</button>
   </div>
+  <div class="history-split">
+    <div class="history-split__list" id="plan-history-list">
+      <% history_items.each do |item| %>
+        <% case item.history_kind %>
+        <% when :version %>
+          <%= render partial: "coplan/plans/version_item", locals: { version: item, plan: plan } %>
+        <% when :event %>
+          <%= render partial: "coplan/plans/event_item", locals: { event: item, plan: plan } %>
+        <% end %>
+      <% end %>
+    </div>
 
-  <div class="history-split__detail">
-    <turbo-frame id="version-diff" src="<%= first_version ? plan_version_diff_browse_path(plan, first_version) : nil %>">
-      <div class="history-split__placeholder">
-        <p class="text-muted">Loading…</p>
-      </div>
-    </turbo-frame>
+    <div class="history-split__detail">
+      <p class="text-sm text-muted" role="status" data-coplan--history-target="status"></p>
+      <button type="button" class="btn btn--ghost btn--sm" hidden data-coplan--history-target="retry" data-action="coplan--history#load">Retry comparison</button>
+      <%= render template: "coplan/plan_versions/diff" %>
+    </div>
   </div>
 </div>

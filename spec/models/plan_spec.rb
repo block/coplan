@@ -51,6 +51,19 @@ RSpec.describe CoPlan::Plan, type: :model do
     expect(plan.current_content).to include(plan.title)
   end
 
+  it "orders same-second history revisions newest first while retaining metadata events" do
+    travel_to Time.current.change(usec: 0) do
+      plan = create(:plan)
+      create(:plan_version, plan: plan, revision: 2)
+      create(:plan_version, plan: plan, revision: 3)
+      create(:plan_event, plan: plan)
+
+      items = plan.history_items
+      expect(items.select { |item| item.history_kind == :version }.map(&:revision)).to eq([ 3, 2, 1 ])
+      expect(items.select { |item| item.history_kind == :event }).not_to be_empty
+    end
+  end
+
   describe "where it lives" do
     let(:author) { create(:coplan_user) }
 

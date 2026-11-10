@@ -1,4 +1,4 @@
-<p class="mb-md"><%= link_to "← Back to history", plan_history_browse_path(@plan) %></p>
+<p class="mb-md"><%= link_to "← Back to history", plan_history_browse_path(@plan, from: @first_version.revision, to: @version.revision) %></p>
 
 <div class="page-header">
   <div>
@@ -22,7 +22,7 @@
 
 <% if @diff %>
   <div class="card mb-md">
-    <h3>Changes from v<%= @version.revision - 1 %></h3>
+    <h3>Changes from <%= @previous_version ? "v#{@previous_version.revision}" : "an empty document" %> to v<%= @version.revision %></h3>
     <div class="diff-view">
       <%= @diff.to_s(:html).html_safe %>
     </div>

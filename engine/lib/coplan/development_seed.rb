@@ -134,7 +134,7 @@ module CoPlan
       {
         key: "many-small-edits", author: "hampton", type: "Design Doc", title: "Workspace invitations: seven small improvements",
         tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios",
-        scenario: "Eight versions with small attributed diffs"
+        scenario: "Eight versions with small attributed diffs. Open History and check v3 through v5 to compare v2 → v5."
       },
       {
         key: "pending-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: awaiting approval",

@@ -86,7 +86,7 @@ look up this key rather than copying generated UUIDs.
 | Key | Expected initial state |
 | --- | --- |
 | untouched-document | One version, no comments or collaborators |
-| many-small-edits | Eight versions: initial draft plus seven small agent edits with token provenance |
+| many-small-edits | Eight versions: initial draft plus seven small agent edits with token provenance. Open History and check v3 through v5 to compare v2 → v5; intervening checkboxes fill automatically. |
 | writing-human / writing-ai / writing-unknown | Person, robot, and unknown icons; lazy source breakdown and reported harness identity |
 | writing-mixed | Human input, unknown imported context, and an agent proposal; opt-in source inspection |
 | writing-word-edit | Agent text with a human-added “not” in v2; hover for Hampton, version, and time |

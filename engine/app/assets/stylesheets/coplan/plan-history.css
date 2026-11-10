@@ -116,6 +116,18 @@
 
 /* Version list */
 /* History split view */
+.history-selection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.history-selection p { margin: 0; }
+.history-selection button { flex-shrink: 0; }
+
 .history-split {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -138,6 +150,36 @@
   cursor: pointer;
   transition: background 0.1s;
 }
+
+.history-split__item[data-revision] {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  cursor: default;
+}
+
+.history-split__checkbox {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.history-split__checkbox:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.history-split__entry {
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.history-split__entry:hover { text-decoration: none; }
 
 .history-split__item:hover {
   background: var(--color-bg-muted);
@@ -226,6 +268,12 @@
    word per line — stack instead: a short scrollable version list on
    top, the detail below it at full width. */
 @media (max-width: 720px) {
+  .history-selection {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
+
   .history-split {
     grid-template-columns: 1fr;
   }

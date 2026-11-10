@@ -1,7 +1,7 @@
-<turbo-frame id="version-diff">
+<turbo-frame id="version-diff" data-coplan--history-target="frame">
   <div class="version-diff-preview">
     <div class="version-diff-preview__header">
-      <h3>v<%= @version.revision %></h3>
+      <h3><%= @previous_version ? "v#{@previous_version.revision}" : "Empty document" %> → v<%= @version.revision %></h3>
       <span class="text-sm text-muted">
         <% if @version.actor_user %>
           <%= user_avatar(@version.actor_user) %> <%= @version.actor_user.name %> ·
@@ -13,16 +13,17 @@
           · <%= @version.change_summary %>
         <% end %>
       </span>
-      <%= link_to "View full version →", plan_version_browse_path(@plan, @version), class: "text-sm", data: { turbo_frame: "_top" } %>
+      <%= link_to "View full version →", plan_version_browse_path(@plan, @version, from: @first_version.revision), class: "text-sm", data: { turbo_frame: "_top" } %>
     </div>
 
-    <% if @diff %>
+    <p class="text-sm text-muted">Combined changes introduced in <%= @first_version == @version ? "v#{@version.revision}" : "v#{@first_version.revision}–v#{@version.revision}" %>. Markdown source only.</p>
+    <% if @diff.to_s.present? %>
       <div class="diff-view">
         <%= @diff.to_s(:html).html_safe %>
       </div>
     <% else %>
       <div class="text-sm text-muted" style="padding: var(--space-lg) 0;">
-        Initial version — no previous version to compare.
+        No document text changed across these revisions.
       </div>
     <% end %>
   </div>
