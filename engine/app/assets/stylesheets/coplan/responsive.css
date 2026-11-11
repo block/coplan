@@ -54,8 +54,14 @@
    tablet with the bell still on the bar is just as tappable. */
 @media (pointer: coarse) {
   .site-nav__menu-btn,
+  .site-nav__appearance-btn,
   .site-nav__bell {
     min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Segmented controls: the Appearance menu's Mode row and Settings. */
+  .segmented__btn {
     min-height: 44px;
   }
 
@@ -119,10 +125,11 @@
     display: block;
   }
 
-  /* Finger-sized tap targets: the ☰ and the folded search icon each fill a
-     44px hit area, and menu rows get real height + spacing so they're not a
-     pixel-hunt to tap. */
-  .site-nav__menu-btn {
+  /* Finger-sized tap targets: the ☰, Appearance and the folded search icon
+     each fill a 44px hit area, and menu rows get real height + spacing so
+     they're not a pixel-hunt to tap. */
+  .site-nav__menu-btn,
+  .site-nav__appearance-btn {
     min-width: 44px;
     min-height: 44px;
   }
@@ -163,7 +170,7 @@
     overflow-wrap: anywhere;
   }
 
-  .page-header .page-header__title {
+  .page-header :is(.page-header__title, .inline-editor__title) {
     font-size: var(--plan-title-size-narrow, var(--text-xl));
   }
 
@@ -175,6 +182,17 @@
   .plan-document.card {
     /* Leave room for the update dot's full hit area inside the card. */
     padding: var(--document-padding-narrow, var(--space-lg));
+  }
+
+  /* Cardless documents need room for the full update target in the page
+     margin. Move the masthead and body together to retain their alignment. */
+  .main-content:has(.plan-document) {
+    padding-inline: var(--document-page-padding-narrow, var(--space-md));
+  }
+
+  .section-update-marker:focus-visible {
+    /* Keep the ring within the target near the viewport edge. */
+    outline-offset: -2px;
   }
 
 
@@ -222,5 +240,19 @@
     padding-top: 0;
     margin-left: calc(2rem + var(--space-md));
     font-size: 0.75rem;
+  }
+}
+
+/* ---- Narrowest phones ----
+   The Appearance menu hangs from its button, left of ☰, so at 320px a
+   17rem menu would run off the left edge. Mode segments drop their icons
+   and the menu narrows to fit. */
+@media (max-width: 400px) {
+  .appearance-menu {
+    width: 15rem;
+  }
+
+  .appearance-menu .segmented__btn svg {
+    display: none;
   }
 }

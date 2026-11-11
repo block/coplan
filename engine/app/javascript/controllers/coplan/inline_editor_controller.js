@@ -12,7 +12,7 @@ export default class extends Controller {
   connect() {
     if (this.draftValue) {
       this.loading = true
-      this.headerVisible = true
+      this.titleVisible = true
       this.openScrollY = window.scrollY
       return
     }
@@ -30,7 +30,7 @@ export default class extends Controller {
 
     this.loading = true
     if (this.hasErrorTarget) this.errorTarget.hidden = true
-    this.headerVisible = this.element.querySelector("#plan-header")?.getBoundingClientRect().bottom > 0
+    this.titleVisible = this.element.querySelector("#plan-title, .inline-editor .ProseMirror > h1:first-child")?.getBoundingClientRect().bottom > 0
     this.openScrollY = window.scrollY
     this.anchor = captureViewport(this.readerTarget)
     this.setTriggers(true)
@@ -39,7 +39,6 @@ export default class extends Controller {
     if (this.latestSnapshot) {
       form.setAttribute("data-coplan--editor-revision-value", this.latestSnapshot.revision)
       form.querySelector("textarea[name=content]").value = this.latestSnapshot.content
-      form.querySelector('[name="plan[title]"]').value = this.latestSnapshot.title
       form.querySelector('[name="plan[tag_names]"]').value = this.latestSnapshot.tags
     }
     this.editorTarget.hidden = false
@@ -55,31 +54,17 @@ export default class extends Controller {
     this.editing = true
     this.loading = false
     this.setTriggers(false)
-    this.controller.showInline(this.anchor, { focus: !this.headerVisible || (this.autoOpenValue && !this.focusTitleValue) })
+    this.controller.showInline(this.anchor, { focus: !this.titleVisible || (this.autoOpenValue && !this.focusTitleValue) })
     this.element.dataset.editing = "true"
-    this.mountTitle()
-    if (this.autoOpenValue && this.focusTitleValue) {
-      const title = this.element.querySelector("#plan-header .inline-editor__title")
-      title?.focus()
-      const selection = window.getSelection()
-      const range = document.createRange()
-      if (title && selection) {
-        range.selectNodeContents(title)
-        selection.removeAllRanges()
-        selection.addRange(range)
-      }
-    }
+    if (this.autoOpenValue && this.focusTitleValue) this.controller.richEditor?.focusTitle()
     this.autoOpenValue = false
-    if (this.headerVisible) window.scrollTo({ top: this.openScrollY, behavior: "instant" })
-    this.headerObserver = new MutationObserver(() => this.mountTitle())
-    const masthead = this.element.querySelector(".plan-masthead")
-    if (masthead) this.headerObserver.observe(masthead, { childList: true })
+    if (this.titleVisible) window.scrollTo({ top: this.openScrollY, behavior: "instant" })
     if (!this.draftValue) this.updateOutline()
     const sticky = document.querySelector(".site-nav__edit")
     if (sticky) sticky.dataset.editing = "true"
     // Focus and mounting the inline title can move the page. Restore the
     // passage after both have finished changing the layout.
-    if (!this.headerVisible) restoreViewport(this.editorTarget, this.anchor)
+    if (!this.titleVisible) restoreViewport(this.editorTarget, this.anchor)
   }
 
   editCitation(event) {
@@ -111,15 +96,12 @@ export default class extends Controller {
       body.setAttribute("data-coplan--live-update-revision-value", revision)
       this.updateRevision(Number(revision))
       this.latestSnapshot = event.detail.snapshot
-      this.headerObserver?.disconnect()
-      this.headerObserver = null
       const anchor = captureViewport(this.editorTarget)
-      const headerVisible = this.element.querySelector("#plan-header")?.getBoundingClientRect().bottom > 0
+      const titleVisible = this.element.querySelector("#plan-title, .inline-editor .ProseMirror > h1:first-child")?.getBoundingClientRect().bottom > 0
       const scrollY = window.scrollY
-      this.unmountTitle(event.detail.snapshot.title)
       this.readerTarget.hidden = false
       this.editorTarget.hidden = true
-      if (headerVisible) window.scrollTo({ top: scrollY, behavior: "instant" })
+      if (titleVisible) window.scrollTo({ top: scrollY, behavior: "instant" })
       else restoreViewport(this.readerTarget, anchor)
       const canonicalUrl = new URL(this.controller.backTarget.href)
       if (canonicalUrl.pathname !== window.location.pathname) {
@@ -156,7 +138,7 @@ export default class extends Controller {
   draftSaved(event) {
     if (!this.draftValue || !this.hasDraftStateTarget) return
     this.draftStateTarget.textContent = `Saved · v${event.detail.revision}`
-    document.title = `${this.controller.snapshot().title} — CoPlan`
+    document.title = `${this.controller.snapshot().title} — Coplan`
   }
 
   revisionChanged(event) {
@@ -230,67 +212,6 @@ export default class extends Controller {
       this.errorTarget.textContent = `Could not open the editor: ${event.detail.error?.message || "please try again"}`
       this.errorTarget.hidden = false
     }
-  }
-
-  mountTitle() {
-    if (!this.editing) return
-    const heading = this.element.querySelector("#plan-header .page-header__title")
-    if (!heading || heading.parentElement.querySelector(".inline-editor__title")) return
-    const input = document.createElement("h1")
-    input.className = "inline-editor__title"
-    input.contentEditable = "plaintext-only"
-    input.setAttribute("role", "textbox")
-    input.setAttribute("aria-label", "Document title")
-    input.setAttribute("aria-multiline", "false")
-    if (this.draftValue) input.setAttribute("data-placeholder", "Document title")
-    input.dataset.action = "input->coplan--inline-editor#titleChanged paste->coplan--inline-editor#titlePaste keydown->coplan--inline-editor#titleKeydown"
-    input.textContent = this.controller?.element.querySelector('[name="plan[title]"]')?.value ?? heading.textContent.trim()
-    heading.hidden = true
-    heading.after(input)
-  }
-
-  titleChanged(event) {
-    const field = this.controller?.element.querySelector('[name="plan[title]"]')
-    if (!field) return
-    field.value = event.target.textContent.replace(/\s+/g, " ").slice(0, 255)
-    if (event.target.textContent.length > 255) {
-      event.target.textContent = field.value
-      const selection = window.getSelection()
-      const range = document.createRange()
-      range.selectNodeContents(event.target)
-      range.collapse(false)
-      selection.removeAllRanges()
-      selection.addRange(range)
-    }
-    field.dispatchEvent(new Event("input", { bubbles: true }))
-    const heading = this.element.querySelector("#plan-header .page-header__title")
-    if (heading) heading.textContent = field.value
-  }
-
-  titleKeydown(event) {
-    if (event.key === "Enter") event.preventDefault()
-  }
-
-  titlePaste(event) {
-    event.preventDefault()
-    const text = event.clipboardData?.getData("text/plain")?.replace(/\s+/g, " ").slice(0, 255) || ""
-    const selection = window.getSelection()
-    if (!selection?.rangeCount) return
-    const range = selection.getRangeAt(0)
-    range.deleteContents()
-    const node = document.createTextNode(text)
-    range.insertNode(node)
-    range.setStartAfter(node)
-    range.collapse(true)
-    selection.removeAllRanges()
-    selection.addRange(range)
-    event.currentTarget.dispatchEvent(new Event("input", { bubbles: true }))
-  }
-
-  unmountTitle(title) {
-    this.element.querySelector("#plan-header .inline-editor__title")?.remove()
-    const heading = this.element.querySelector("#plan-header .page-header__title")
-    if (heading) { heading.textContent = title; heading.hidden = false }
   }
 
   setTriggers(busy) {

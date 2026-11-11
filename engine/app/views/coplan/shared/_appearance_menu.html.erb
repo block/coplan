@@ -1,0 +1,54 @@
+<%# The bar's appearance control: light/dark mode and the app theme, the same
+    choices as Settings → Appearance, one click from any page. A pick applies
+    at once and saves in the background (docs/THEMES.md); the popover stays
+    open so you can compare. Settings keeps "Default" for following the
+    site's theme; here the theme that's showing is the one checked. %>
+<span class="site-nav__appearance" data-controller="coplan--menu">
+  <button type="button" class="site-nav__appearance-btn"
+          popovertarget="appearance-menu" data-coplan--menu-target="trigger"
+          aria-label="Appearance" title="Appearance">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>
+  </button>
+  <div id="appearance-menu" popover="auto" class="menu appearance-menu" data-coplan--menu-target="menu"
+       data-action="beforetoggle->coplan--menu#reposition" role="group" aria-label="Appearance">
+    <fieldset class="appearance-menu__group" data-controller="coplan--theme"
+              data-coplan--theme-url-value="<%= coplan.settings_theme_path %>">
+      <legend class="visually-hidden">Mode</legend>
+      <div class="segmented segmented--fill">
+        <% [["system", "System", '<rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'],
+            ["light", "Light", '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'],
+            ["dark", "Dark", '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>']].each do |value, label, icon| %>
+          <label class="segmented__option">
+            <input type="radio" name="appearance_mode" value="<%= value %>"
+                   <%= "checked" if current_user.theme_preference == value %>
+                   data-action="coplan--theme#select">
+            <span class="segmented__btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><%= icon.html_safe %></svg>
+              <%= label %>
+            </span>
+          </label>
+        <% end %>
+      </div>
+    </fieldset>
+    <div class="menu__separator" role="separator"></div>
+    <fieldset class="appearance-menu__group" data-controller="coplan--app-theme"
+              data-coplan--app-theme-url-value="<%= coplan.settings_app_theme_path %>"
+              data-coplan--app-theme-default-value="<%= CoPlan::Themes.default.key %>">
+      <legend class="visually-hidden">Theme</legend>
+      <% CoPlan::Themes::ALL.each do |theme| %>
+        <label class="menu__item appearance-menu__theme">
+          <input type="radio" name="appearance_theme" value="<%= theme.key %>"
+                 <%= "checked" if coplan_app_theme == theme.key %>
+                 aria-describedby="appearance-theme-<%= theme.key %>-description"
+                 data-action="coplan--app-theme#select">
+          <span class="appearance-menu__theme-text">
+            <span class="appearance-menu__theme-name"><%= theme.name %></span>
+            <span class="appearance-menu__theme-description" id="appearance-theme-<%= theme.key %>-description"><%= theme.description %></span>
+          </span>
+          <svg class="appearance-menu__check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        </label>
+      <% end %>
+      <p class="appearance-menu__error" role="status" data-coplan--app-theme-target="error" hidden></p>
+    </fieldset>
+  </div>
+</span>

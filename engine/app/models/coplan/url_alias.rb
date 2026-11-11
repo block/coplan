@@ -84,6 +84,12 @@ module CoPlan
       to = normalize(to)
       return nil if from.blank? || to.blank? || from == to
 
+      if kind == "exact"
+        # Collapse earlier retitles directly to the new address. Remove a
+        # stale alias at the destination when a document takes its old name.
+        exact.where(path: to).delete_all
+        exact.where(target_path: from).update_all(target_path: to)
+      end
       row = find_or_initialize_by(path: from, kind: kind)
       row.target_path = to
       # A path that was itself a target now points somewhere new; resetting

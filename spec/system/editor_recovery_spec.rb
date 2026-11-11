@@ -29,7 +29,7 @@ RSpec.describe "Editor draft recovery", type: :system do
       click_button "Review older draft"
       expect(rich).to have_text("Legacy content")
       expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]')
-      expect(plan.reload.current_content).to eq("Saved content")
+      expect(plan.reload.current_content).to eq("# Recovery\n\nSaved content")
       page.refresh
       expect(rich).to have_text("Saved content")
       expect(page).to have_button("Review older draft")
@@ -37,7 +37,7 @@ RSpec.describe "Editor draft recovery", type: :system do
       click_button "Review older draft"
       expect(rich).to have_text("Legacy content")
       expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]')
-      expect(plan.reload.current_content).to eq("Saved content")
+      expect(plan.reload.current_content).to eq("# Recovery\n\nSaved content")
       expect(page.evaluate_script("localStorage.getItem(arguments[0])", legacy_key)).to be_present
     end
   end
@@ -51,7 +51,7 @@ RSpec.describe "Editor draft recovery", type: :system do
     click_button "Review older draft"
     expect(rich).to have_text("Older draft")
     expect(page.evaluate_script('Object.values(localStorage).some(raw => { try { return JSON.parse(raw).content === "Newer draft" } catch { return false } })')).to eq(true)
-    expect(plan.reload.current_content).to eq("Saved content")
+    expect(plan.reload.current_content).to eq("# Recovery\n\nSaved content")
   end
 
   it "waits for an in-flight save before installing a legacy draft that needs consent" do
@@ -66,29 +66,28 @@ RSpec.describe "Editor draft recovery", type: :system do
         return response;
       };
     JS
-    rich.send_keys([ mod, "a" ], "Newer content")
+    select_document_paragraph
+    rich.send_keys("Newer content")
     expect(page).to have_css('[data-coplan--editor-target="status"][data-state="saving"]')
     click_button "Review older draft"
     expect(rich).to have_text("Newer content")
     page.execute_script("window.releaseSave()")
     expect(rich).to have_text("Legacy content")
     expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]')
-    expect(plan.reload.current_content).to eq("Newer content")
+    expect(plan.reload.current_content).to eq("# Recovery\n\nNewer content")
     page.driver.browser.action.key_down(mod).send_keys("s").key_up(mod).perform
     expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]')
-    expect(plan.reload.current_content).to eq("Newer content")
+    expect(plan.reload.current_content).to eq("# Recovery\n\nNewer content")
   end
 
   it "preserves a deliberately blank recovered title" do
     base = { content: plan.current_content, title: plan.title, tags: "", revision: 1 }
-    store("coplan-rich-draft-#{author.id}-#{plan.id}-existing", base.merge(title: "", base: base))
+    store("coplan-rich-draft-#{author.id}-#{plan.id}-existing", base.merge(content: "#\n\nSaved content", base: base))
     visit plan_edit_page_path(plan)
     rich
-    expect(find("#plan-header .inline-editor__title").text).to eq("")
-    expect(page).to have_content("Add a document title to save")
-    click_button "Add a document title to save", enable_aria_label: true
-    expect(page).to have_css("#plan-header .inline-editor__title:focus", wait: 0)
-    expect(plan.reload.title).to eq("Recovery")
+    expect(find(".inline-editor .ProseMirror > h1:first-child").text).to eq("")
+    expect(page).to have_css('.document-editor__save-status[data-state="saved"]', visible: :all, wait: 15)
+    expect(plan.reload.current_content).to eq("#\n\nSaved content")
   end
 
   it "recovers an unsaved new plan after signing in again without reloading" do
@@ -105,7 +104,8 @@ RSpec.describe "Editor draft recovery", type: :system do
         return original(url, options);
       };
     JS
-    find("#plan-header .inline-editor__title").send_keys("Recovered new plan")
+    select_document_title
+    rich.send_keys("Recovered new plan", :enter)
     rich.send_keys("Retained creation draft")
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "Sign in again · draft retained", wait: 10, visible: :all)
     expect(author.created_plans.where(title: "Recovered new plan")).to be_empty
@@ -127,10 +127,11 @@ RSpec.describe "Editor draft recovery", type: :system do
         return response;
       };
     JS
-    find("#plan-header .inline-editor__title", wait: 10).send_keys("One document")
+    select_document_title
+    rich.send_keys("One document", :enter)
     click_button "Raw", exact: true
     raw = find('[aria-label="Markdown source"]')
-    raw.send_keys("First draft")
+    raw.send_keys([ mod, "a" ], "# One document\n\nFirst draft")
     expect(page).to have_css('.document-editor__close-inline[data-state="error"][aria-label="Retry sync"]', wait: 10)
     created = author.created_plans.find_by!(title: "One document")
     raw.send_keys(:right, " and newer typing")
@@ -141,6 +142,6 @@ RSpec.describe "Editor draft recovery", type: :system do
     page.driver.browser.action.key_down(mod).send_keys("s").key_up(mod).perform
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v2", wait: 15, visible: :all)
     expect(author.created_plans.where(title: "One document").count).to eq(1)
-    expect(created.reload.current_content).to eq("First draft and newer typing")
+    expect(created.reload.current_content).to eq("# One document\n\nFirst draft and newer typing")
   end
 end

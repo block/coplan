@@ -1,20 +1,28 @@
 import { Controller } from "@hotwired/stimulus"
 import { commandFor } from "coplan/shortcuts"
 
+const URI_SCHEME = /^[a-z][a-z0-9+.-]*:/i
+const UNSAFE_SCHEME = /^(javascript|vbscript|data|blob):/i
+const linkUri = value => URI_SCHEME.test(value) && !UNSAFE_SCHEME.test(value) && !/[\s\u0000-\u001f\u007f]/.test(value)
+
 // Comment-form behavior: submit-on-Enter (Shift+Enter for newline) plus an
 // inline @-mention picker. The picker activates when the user types `@` at a
 // word boundary inside the textarea, fetches matches from /users/search, and
-// inserts `[@username](mention:username)` markdown on selection.
+// inserts `[@username](mention:username)` markdown on selection. Mod+K and
+// pasting a URL over a selection write Markdown links.
 //
 // Both behaviors live on the same controller so submit-on-Enter can defer to
 // the picker when it's open (Enter selects the highlighted user instead of
 // submitting the form).
 export default class extends Controller {
   // Search URL is supplied per-form via a Stimulus value so it respects the
-  // engine's mount point (host apps may mount CoPlan under e.g. `/coplan`).
+  // engine's mount point (host apps may mount Coplan under e.g. `/coplan`).
   // The default is fine for hosts that mount at root.
+  static targets = ["input", "draft", "linkPanel", "linkUrl", "linkLabel", "linkError", "linkResults"]
+
   static values = {
-    searchUrl: { type: String, default: "/users/search" }
+    searchUrl: { type: String, default: "/users/search" },
+    linkSearchUrl: String
   }
 
   connect() {
@@ -28,27 +36,28 @@ export default class extends Controller {
     this._keydownHandler = this.handleKeydown.bind(this)
     this._submitEndHandler = this.handleSubmitEnd.bind(this)
 
-    this.element.addEventListener("input", this._inputHandler)
+    this.inputTarget.addEventListener("input", this._inputHandler)
     // keydown listens with capture so the picker handles Enter/Arrows
     // before anything else on the page sees them.
-    this.element.addEventListener("keydown", this._keydownHandler, true)
+    this.inputTarget.addEventListener("keydown", this._keydownHandler, true)
     document.addEventListener("click", this._docClickHandler)
 
     // Notify the global Web Push encouragement banner that this user just
     // posted a comment — gives the banner a chance to surface itself.
-    this._submitForm = this.element.closest("form")
+    this._submitForm = this.inputTarget.closest("form")
     if (this._submitForm) {
       this._submitForm.addEventListener("turbo:submit-end", this._submitEndHandler)
     }
   }
 
   disconnect() {
-    this.element.removeEventListener("input", this._inputHandler)
-    this.element.removeEventListener("keydown", this._keydownHandler, true)
+    this.inputTarget.removeEventListener("input", this._inputHandler)
+    this.inputTarget.removeEventListener("keydown", this._keydownHandler, true)
     document.removeEventListener("click", this._docClickHandler)
     if (this._submitForm) {
       this._submitForm.removeEventListener("turbo:submit-end", this._submitEndHandler)
     }
+    this.closeLink()
     this.closePicker()
     if (this._debounce) clearTimeout(this._debounce)
     this._fetchAbort?.abort()
@@ -91,14 +100,190 @@ export default class extends Controller {
 
     // Submit-on-Enter (only when picker is closed).
     if (commandFor("reply", event) === "submit") {
-      const form = this.element.closest("form")
+      const form = this.inputTarget.closest("form")
       if (!form) return
       event.preventDefault()
-      if (this.element.closest('[data-dictation-busy="true"]')) return
+      if (this.inputTarget.closest('[data-dictation-busy="true"]')) return
       const submitter = form.querySelector('[type="submit"]')
       if (submitter?.disabled) return
       form.requestSubmit(submitter)
     }
+  }
+
+  // Keep the selection while the in-app URL field has focus.
+  link(event) {
+    if (commandFor("reply", event) !== "link") return
+    event.preventDefault()
+    event.stopPropagation()
+    if (this._debounce) clearTimeout(this._debounce)
+    this._fetchAbort?.abort()
+    this.closePicker()
+    const { selectionStart: start, selectionEnd: end, value } = this.inputTarget
+    this._linkSelection = { start, end, value }
+    this.linkUrlTarget.value = ""
+    this.clearLinkError()
+    this.draftTarget.inert = true
+    this.linkPanelTarget.hidden = false
+    this.linkPanelTarget.showPopover()
+    this.linkResultsTarget.textContent = "Search plans and people, or paste a link."
+    this.positionLink()
+    this.linkUrlTarget.focus({ preventScroll: true })
+  }
+
+  positionLink() {
+    if (this.linkPanelTarget.hidden) return
+    const anchor = this.inputTarget.getBoundingClientRect()
+    const panel = this.linkPanelTarget
+    const width = Math.min(340, innerWidth - 24)
+    panel.style.width = `${width}px`
+    const height = panel.getBoundingClientRect().height
+    const beside = innerWidth - anchor.right >= width + 20
+    const left = beside ? anchor.right + 8 : Math.min(anchor.left, innerWidth - width - 12)
+    const top = beside ? anchor.top : (innerHeight - anchor.bottom >= height + 20 ? anchor.bottom + 8 : anchor.top - height - 8)
+    Object.assign(panel.style, { left: `${Math.max(12, left)}px`, top: `${Math.max(12, Math.min(top, innerHeight - height - 12))}px` })
+  }
+
+  searchLinks() {
+    this.clearLinkError()
+    clearTimeout(this._linkDebounce)
+    this._linkAbort?.abort()
+    const query = this.linkUrlTarget.value.trim()
+    if (!query || URI_SCHEME.test(query)) {
+      this.linkResultsTarget.textContent = query ? "" : "Search plans and people, or paste a link."
+      this.positionLink()
+      return
+    }
+    this.linkResultsTarget.textContent = "Searching…"
+    this._linkDebounce = setTimeout(() => this.fetchLinks(query), 180)
+  }
+
+  async fetchLinks(query) {
+    const request = new AbortController()
+    this._linkAbort = request
+    const url = new URL(this.linkSearchUrlValue, location.href)
+    url.searchParams.set("q", query)
+    url.searchParams.set("frame", "links")
+    try {
+      const response = await fetch(url, { signal: request.signal, headers: { Accept: "text/html" } })
+      if (!response.ok || response.redirected) throw new Error("Search unavailable")
+      const html = await response.text()
+      if (request.signal.aborted || this.linkPanelTarget.hidden) return
+      this.linkResultsTarget.innerHTML = html
+    } catch (error) {
+      if (error.name === "AbortError") return
+      this.linkResultsTarget.textContent = "Search unavailable. You can still paste a link."
+    }
+    this.positionLink()
+  }
+
+  selectLink(event) {
+    const { linkHref, linkTitle } = event.currentTarget.dataset
+    this.linkUrlTarget.value = new URL(linkHref, location.href).href
+    this.applyLink(linkTitle)
+  }
+
+  linkKeydown(event) {
+    // Do not let Enter submit the comment or Escape close its window.
+    event.stopPropagation()
+    if (event.isComposing) return
+    if (event.key === "Escape") {
+      event.preventDefault()
+      this.cancelLink()
+    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      const results = [...this.linkResultsTarget.querySelectorAll("button")]
+      if (!results.length) return
+      event.preventDefault()
+      const index = results.indexOf(event.target)
+      const next = event.key === "ArrowDown" ? index + 1 : (index < 0 ? results.length - 1 : index - 1)
+      results[(next + results.length) % results.length].focus({ preventScroll: true })
+      results[(next + results.length) % results.length].scrollIntoView({ block: "nearest" })
+    } else if (event.key === "Enter" && event.target === this.linkUrlTarget) {
+      event.preventDefault()
+      const result = this.linkResultsTarget.querySelector("button")
+      if (!URI_SCHEME.test(this.linkUrlTarget.value.trim()) && result) result.click()
+      else this.applyLink()
+    }
+  }
+
+  clearLinkError() {
+    this.linkErrorTarget.hidden = true
+    this.linkLabelTarget.hidden = false
+    this.linkUrlTarget.removeAttribute("aria-invalid")
+  }
+
+  showLinkError(message) {
+    this.linkErrorTarget.textContent = message
+    this.linkErrorTarget.hidden = false
+    this.linkLabelTarget.hidden = true
+    this.linkUrlTarget.setAttribute("aria-invalid", "true")
+    this.positionLink()
+    this.linkUrlTarget.focus({ preventScroll: true })
+  }
+
+  applyLink(suggestedLabel) {
+    const href = this.linkUrlTarget.value.trim()
+    if (!linkUri(href)) {
+      this.showLinkError("Enter a URI such as https://… or codex://… without spaces.")
+      return
+    }
+    const selection = this._linkSelection
+    // Dictation can update the draft while this field has focus. Keep the
+    // URL available and explain why the original selection is no longer safe.
+    if (!selection || this.inputTarget.value !== selection.value) {
+      this.showLinkError("Draft changed. Cancel and reselect text.")
+      return
+    }
+    this.cancelLink()
+    const label = selection.value.slice(selection.start, selection.end) || (typeof suggestedLabel === "string" ? suggestedLabel : "")
+    this.insertLink(label, href)
+    if (!label) this.inputTarget.setSelectionRange(selection.start + 1, selection.start + 1)
+  }
+
+  composerClosed(event) {
+    if (!event.target.contains(this.element)) return
+    this.closeLink()
+    this._linkSelection = null
+  }
+
+  closeLink() {
+    clearTimeout(this._linkDebounce)
+    this._linkAbort?.abort()
+    if (this.linkPanelTarget.matches(":popover-open")) this.linkPanelTarget.hidePopover()
+    this.linkPanelTarget.hidden = true
+    this.draftTarget.inert = false
+  }
+
+  cancelLink() {
+    this.closeLink()
+    this.inputTarget.focus({ preventScroll: true })
+    if (this._linkSelection && this.inputTarget.value === this._linkSelection.value) {
+      this.inputTarget.setSelectionRange(this._linkSelection.start, this._linkSelection.end)
+    }
+    this._linkSelection = null
+  }
+
+  pasteLink(event) {
+    const { selectionStart: start, selectionEnd: end, value } = this.inputTarget
+    const href = event.clipboardData?.getData("text/plain").trim()
+    const label = value.slice(start, end)
+    if (!label || !linkUri(href) || URI_SCHEME.test(label.trim())) return
+    event.preventDefault()
+    this.insertLink(label, href)
+  }
+
+  insertLink(label, href) {
+    // Escape backslashes together with delimiters so literal prose and URL
+    // punctuation survive CommonMark parsing when the comment is posted.
+    const escapedLabel = label.replace(/[\\\[\]]/g, "\\$&")
+    const escapedHref = href.replace(/[\\()]/g, "\\$&")
+    this.insertText(`[${escapedLabel}](${escapedHref})`)
+  }
+
+  // insertText keeps the edit on the browser's undo stack and fires input.
+  insertText(text) {
+    if (document.execCommand("insertText", false, text)) return
+    this.inputTarget.setRangeText(text, this.inputTarget.selectionStart, this.inputTarget.selectionEnd, "end")
+    this.inputTarget.dispatchEvent(new Event("input", { bubbles: true }))
   }
 
   handleInput(_event) {
@@ -124,7 +309,7 @@ export default class extends Controller {
   }
 
   detectMentionTrigger() {
-    const ta = this.element
+    const ta = this.inputTarget
     const caret = ta.selectionStart
     if (caret !== ta.selectionEnd) return null
     const value = ta.value
@@ -182,7 +367,7 @@ export default class extends Controller {
       this._picker.className = "mention-picker"
       this._picker.setAttribute("role", "listbox")
       // A nested top-layer picker can extend beyond the glass window.
-      const host = this.element.closest(".comment-window") || document.body
+      const host = this.inputTarget.closest(".comment-window") || document.body
       host.appendChild(this._picker)
       if (host !== document.body) {
         this._picker.setAttribute("popover", "manual")
@@ -256,7 +441,7 @@ export default class extends Controller {
 
   positionPicker() {
     if (!this._picker) return
-    const rect = this.element.getBoundingClientRect()
+    const rect = this.inputTarget.getBoundingClientRect()
     const fixed = this._picker.hasAttribute("popover")
     const top = Math.max(12, Math.min(rect.bottom + 4, window.innerHeight - this._picker.offsetHeight - 12))
     this._picker.style.top = `${fixed ? top : window.scrollY + top}px`
@@ -269,7 +454,7 @@ export default class extends Controller {
       this.closePicker()
       return
     }
-    const ta = this.element
+    const ta = this.inputTarget
     const caret = ta.selectionStart
     const before = ta.value.slice(0, this._triggerStart)
     const after = ta.value.slice(caret)
@@ -300,9 +485,10 @@ export default class extends Controller {
   }
 
   handleDocumentClick(event) {
+    if (!this.linkPanelTarget.hidden && !this.linkPanelTarget.contains(event.target)) this.cancelLink()
     if (!this._picker) return
     if (this._picker.contains(event.target)) return
-    if (event.target === this.element) return
+    if (event.target === this.inputTarget) return
     this.closePicker()
   }
 }

@@ -4,7 +4,7 @@ import { textHunks } from "coplan/merge_text"
 import { citationLabelKey } from "coplan/citation_labels"
 import { enableLetteredLists, letterOrder, letterMarker } from "coplan/lettered_lists"
 export { citationLabelKey } from "coplan/citation_labels"
-import { Schema, Fragment, Slice, DOMSerializer } from "prosemirror-model"
+import { Schema, Fragment, Slice, DOMSerializer, Mark } from "prosemirror-model"
 import { EditorState, TextSelection, Plugin, PluginKey } from "prosemirror-state"
 import { EditorView, Decoration, DecorationSet } from "prosemirror-view"
 import { MarkdownParser, MarkdownSerializer, defaultMarkdownParser, defaultMarkdownSerializer as baseMarkdownSerializer } from "prosemirror-markdown"
@@ -12,7 +12,7 @@ import { baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exit
 import { wrapInList, splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list"
 import { keymap } from "prosemirror-keymap"
 import { history, undo, redo, closeHistory } from "prosemirror-history"
-import { inputRules, wrappingInputRule, undoInputRule } from "prosemirror-inputrules"
+import { inputRules, InputRule, wrappingInputRule, undoInputRule } from "prosemirror-inputrules"
 
 const mac = /Mac|iP(hone|ad|od)/.test(navigator.platform)
 const lineNavigation = mac ? { "Ctrl-a": codeLineStart } : {}
@@ -71,8 +71,14 @@ nodes = nodes.addBefore("paragraph", "template_note", {
   attrs: { source: { default: null }, snapshot: { default: null }, opening: {}, closing: {} },
   toDOM: () => ["div", { class: "document-editor__template-note", "data-coplan-template-note": "", "aria-label": "Comment" }, 0]
 })
+// Math keeps its delimiters in the text: the TeX is raw, editable source and
+// serializes verbatim. It may sit inside emphasis or links, never in code.
 const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.marks.addToEnd("strikethrough", {
   parseDOM: [{ tag: "s" }, { tag: "del" }], toDOM: () => ["s", 0]
+}).addToEnd("math", {
+  code: true, inclusive: false, excludes: "math code",
+  parseDOM: [{ tag: "span[data-coplan-math]" }],
+  toDOM: () => ["span", { class: "document-editor__math", "data-coplan-math": "", spellcheck: "false" }, 0]
 }) })
 const tokenizer = defaultMarkdownParser.tokenizer
 // The width syntax is an HTML image in otherwise ordinary Markdown. Parse
@@ -115,6 +121,75 @@ tokenizer.inline.ruler.before("link", "coplan_footnote", (state, silent) => {
   state.pos += match[0].length
   return true
 })
+// Mirror comrak's math_dollars/math_code scanning so exactly the spans the
+// server renders as math stay raw. Backslash escapes and code spans run on
+// their own characters first; currency like "$5 and $10" stays text.
+const mathSpace = /[ \t\n\r\v\f]/
+// Returns the end of the math span at `start`, null when this dollar is plain
+// text, or minus the end of an unmatched "$$"/"$$$…" run that is all text.
+function mathEnd(src, start, max) {
+  let pos = start
+  while (pos < max && src[pos] === "$") pos++
+  const dollars = pos - start
+  if (dollars === 1 && src[pos] === "`") {
+    // The first "`$" closes it, even overlapping the opener; empty math is text.
+    const close = src.indexOf("`$", pos)
+    return close > pos + 1 && close + 2 <= max ? close + 2 : null
+  }
+  if (dollars > 2 || (dollars === 1 && mathSpace.test(src[pos] || ""))) return dollars > 1 ? -pos : null
+  for (let at = pos; at < max; at++) {
+    if (src[at] !== "$") continue
+    if (dollars === 1 && mathSpace.test(src[at - 1])) return null
+    if (dollars === 1 && src[at - 1] === "\\") continue
+    let run = 0
+    while (run < dollars && at + run < max && src[at + run] === "$") run++
+    if (dollars === 1 && /[0-9]/.test(src[at + 1] || "")) return null
+    if (run === dollars) return at + run
+    at += run - 1
+  }
+  return dollars > 1 ? -pos : null
+}
+tokenizer.inline.ruler.before("backticks", "coplan_math", (state, silent) => {
+  if (state.src[state.pos] !== "$") return false
+  const end = mathEnd(state.src, state.pos, state.posMax)
+  if (end === null) return false
+  // A run of dollars without a matching close is literal text, all at once.
+  if (end < 0) {
+    if (!silent) state.pending += state.src.slice(state.pos, -end)
+    state.pos = -end
+    return true
+  }
+  if (!silent) state.push("coplan_math", "", 0).content = state.src.slice(state.pos, end)
+  state.pos = end
+  return true
+})
+// Typing the closing dollar of a span the parser would read as math turns the
+// span, delimiters included, into raw math. Only the literal text run the
+// dollar joins counts: same marks, no code or existing math, no inline atoms.
+// Backspace right after (undoInputRule) restores the plain text.
+function typedMath(state, match, start, end) {
+  const $start = state.doc.resolve(start), parent = $start.parent
+  const marks = state.storedMarks || $start.marks()
+  if (marks.some(mark => mark.type.spec.code)) return null
+  let from = $start.parentOffset
+  const before = []
+  parent.forEach((child, offset) => { if (offset < $start.parentOffset) before.push({ child, offset }) })
+  for (const { child, offset } of before.reverse()) {
+    if (!child.isText || !Mark.sameSet(child.marks, marks)) break
+    from = offset
+  }
+  const text = parent.textBetween(from, $start.parentOffset) + "$"
+  for (let at = 0; at < text.length - 1;) {
+    if (text[at] !== "$") { at++; continue }
+    const close = mathEnd(text, at, text.length)
+    if (close === text.length) {
+      return state.tr.insertText("$", start, end).addMark($start.start() + from + at, start + 1, schema.marks.math.create())
+        .removeStoredMark(schema.marks.math)
+    }
+    at = close === null ? at + 1 : Math.abs(close)
+  }
+  return null
+}
 // Keep a table's own node inside its surrounding list or blockquote. The
 // list remains rich text; only the table uses a source-preserving preview.
 tokenizer.enable(["table", "strikethrough"])
@@ -160,10 +235,49 @@ const richMarkdownParser = new MarkdownParser(schema, tokenizer, {
   }) },
   image: { node: "image", getAttrs: token => ({ ...(token.meta?.coplanImage || defaultMarkdownParser.tokens.image.getAttrs(token)), width: imageWidth(token.attrGet("width")) }) },
   footnote_reference: { node: "footnote_reference", getAttrs: token => token.meta },
+  coplan_math: { mark: "math", noCloseToken: true },
   preserved_block: { node: "preserved", getAttrs: token => token.meta }
 })
+// Plain-text dollars serialize as a placeholder, then become a bare "$" unless
+// comrak would read that dollar as a math delimiter: "$5 and $10" stays bare,
+// literal "$x$" becomes "\$x$". Deciding later dollars first escapes the
+// opener, as authors write it; the other order wins only with fewer escapes.
+const literalDollar = "\uFDD0"
+function mathSpans(markdown) {
+  const spans = []
+  const collect = tokens => tokens.forEach(token => {
+    if (token.type === "coplan_math") spans.push(token.content)
+    if (token.children) collect(token.children)
+  })
+  collect(tokenizer.parse(markdown, {}))
+  return spans.join("\0")
+}
+function resolveLiteralDollars(markdown) {
+  if (!markdown.includes(literalDollar)) return markdown
+  const parts = markdown.split(literalDollar)
+  const join = dollars => parts.reduce((output, part, index) => output + dollars[index - 1] + part)
+  const expected = mathSpans(join(Array(parts.length - 1).fill("\\$")))
+  const resolve = order => {
+    const dollars = Array(parts.length - 1).fill("\\$")
+    for (const index of order) {
+      dollars[index] = "$"
+      if (mathSpans(join(dollars)) !== expected) dollars[index] = "\\$"
+    }
+    return dollars
+  }
+  const indexes = [...Array(parts.length - 1).keys()]
+  const bare = parts.join("$")
+  if (mathSpans(bare) === expected) return bare
+  const backward = resolve(indexes.toReversed()), forward = resolve(indexes)
+  const escapes = dollars => dollars.filter(dollar => dollar !== "$").length
+  return join(escapes(forward) < escapes(backward) ? forward : backward)
+}
+function serializeBlock(node) {
+  return resolveLiteralDollars(defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node)))
+}
 const defaultMarkdownSerializer = new MarkdownSerializer({
   ...baseMarkdownSerializer.nodes,
+  text: (state, node) => state.text(state.inAutolink ? node.text : node.text.replaceAll("$", literalDollar), !state.inAutolink),
   list_item: (state, node) => {
     if (node.attrs.checked !== null) state.write(`[${node.attrs.checked ? "x" : " "}] `)
     state.renderContent(node)
@@ -190,7 +304,8 @@ const defaultMarkdownSerializer = new MarkdownSerializer({
     for (const line of node.attrs.source.trimEnd().split("\n")) { state.write(line); state.ensureNewLine() }
     state.closeBlock(node)
   }
-}, { ...baseMarkdownSerializer.marks, strikethrough: { open: "~~", close: "~~", mixable: true, expelEnclosingWhitespace: true } })
+}, { ...baseMarkdownSerializer.marks, strikethrough: { open: "~~", close: "~~", mixable: true, expelEnclosingWhitespace: true },
+  math: { open: "", close: "", escape: false } })
 
 const presentationOpen = /^::: \{\.presentation(?: #([a-zA-Z][\w-]*))?(?: theme="(coplan|graphite)")?\}$/
 function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false) {
@@ -407,7 +522,9 @@ export function parseDocument(markdown) {
       const text = source.slice(start, end)
       try {
         const parsed = richMarkdownParser.parse(text)
-        const unsupported = text.replace(imageTag, tag => htmlImage(tag) ? "" : tag)
+        let unsupported = text.replace(imageTag, tag => htmlImage(tag) ? "" : tag)
+        // Raw TeX such as "$a<b$" or "$[0,1] [2]$" is math, not HTML or a link.
+        parsed.descendants(child => { if (child.isText && schema.marks.math.isInSet(child.marks)) unsupported = unsupported.replace(child.text, "") })
         if (parsed.firstChild?.type.name !== "code_block" && /\]\s*\[|<\/?[a-z!]|^\s*\[[^\]]+\]:|^:::(?: \{\.presentation.*\})?$/im.test(unsupported)) throw new Error("preserve")
         if (parsed.childCount !== 1) throw new Error("preserve")
         let node = schema.nodeFromJSON(parsed.firstChild.toJSON())
@@ -425,7 +542,7 @@ export function serializeDocument(doc, recordRange = null) {
   doc.forEach((node, position) => {
     const unchanged = node.type.name === "preserved" ? !node.attrs.inserted : (node.attrs.source !== null && node.attrs.snapshot === signature(node))
     const source = unchanged ? node.attrs.source : node.type.name === "template_note" ?
-      node.attrs.opening + node.textContent + node.attrs.closing : defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, node))
+      node.attrs.opening + node.textContent + node.attrs.closing : serializeBlock(node)
     // New/changed blocks need a block separator, including after an original
     // final paragraph with no trailing newline. Untouched boundaries stay exact.
     if (output && source.trim() && (!unchanged || previousChanged) && !output.endsWith("\n\n")) output += output.endsWith("\n") ? "\n" : "\n\n"
@@ -637,7 +754,56 @@ function setHiddenComment(state, dispatch) {
   return true
 }
 
-export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = []) {
+// Keep the document title in the editor's own history and selection. Commands
+// cannot demote it, wrap it, or join it to the first body paragraph.
+function titleSelection(state) {
+  return state.selection.from < state.doc.firstChild.nodeSize
+}
+function titleBoundary(key) {
+  return (state, dispatch, view) => {
+    if (dispatch && view) state = synchronizeSelection(view)
+    const { empty, $from } = state.selection
+    if (!empty) return false
+    const first = state.doc.firstChild
+    if (key === "Backspace") return $from.pos === 1 || ($from.depth === 1 && $from.pos === first.nodeSize + 1)
+    return $from.depth === 1 && $from.pos === first.nodeSize - 1
+  }
+}
+function titleEnter(state, dispatch, view) {
+  if (dispatch && view) state = synchronizeSelection(view)
+  if (state.selection.$from.depth !== 1 || !titleSelection(state)) return false
+  if (dispatch) {
+    const tr = state.tr.deleteSelection()
+    tr.split(tr.selection.from, 1, [{ type: schema.nodes.paragraph }])
+    dispatch(tr.scrollIntoView())
+  }
+  return true
+}
+function documentTitlePlugin() {
+  return new Plugin({
+    filterTransaction(tr, state) {
+      if (!tr.docChanged || tr.getMeta("remote")) return true
+      const first = tr.doc.firstChild
+      return (first?.type === schema.nodes.heading && first.attrs.level === 1) ||
+        (first?.type === schema.nodes.paragraph &&
+          ((!first.content.size && tr.doc.childCount === 1) ||
+            (state.selection.from <= 1 && state.selection.to >= state.doc.content.size - 1)))
+    },
+    appendTransaction(transactions, oldState, state) {
+      const first = state.doc.firstChild
+      if (first?.type === schema.nodes.heading && first.attrs.level === 1) return null
+      // Whole-document replacement keeps its first paragraph as the title.
+      // Other source-mode structures get an empty title ahead of the body.
+      if (first?.type === schema.nodes.paragraph && !transactions.some(tr => tr.getMeta("remote"))) {
+        return state.tr.setNodeMarkup(0, schema.nodes.heading, { level: 1 })
+      }
+      const title = schema.nodes.heading.create({ level: 1 })
+      return state.tr.insert(0, title)
+    }
+  })
+}
+
+export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = [], { documentTitle = false } = {}) {
   let rangeDoc, ranges, previewOffsetTimer, editingLanguage = false
   const sourceRangeAt = (view, position) => {
     if (rangeDoc !== view.state.doc) {
@@ -657,14 +823,18 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
   }
   const state = EditorState.create({
     doc: parseDocument(markdown),
-    plugins: [history(), inputRules({ rules: [
+    plugins: [...(documentTitle ? [documentTitlePlugin(), keymap({
+      Backspace: titleBoundary("Backspace"), Delete: titleBoundary("Delete"),
+      Enter: titleEnter, "Shift-Enter": titleEnter
+    })] : []), history(), inputRules({ rules: [
       wrappingInputRule(/^\* $/, schema.nodes.bullet_list),
       wrappingInputRule(/^([1-9]\d{0,8})[.)] $/, schema.nodes.ordered_list, match => ({ order: +match[1] }),
         (match, node) => !node.attrs.listStyle && node.childCount + node.attrs.order === +match[1]),
       wrappingInputRule(/^([A-Za-z])\) $/, schema.nodes.ordered_list,
         match => ({ order: letterOrder(match[1]), listStyle: match[1] === match[1].toUpperCase() ? "upper-alpha" : "lower-alpha" }),
         (match, node) => node.attrs.listStyle === (match[1] === match[1].toUpperCase() ? "upper-alpha" : "lower-alpha") &&
-          node.childCount + node.attrs.order === letterOrder(match[1]))
+          node.childCount + node.attrs.order === letterOrder(match[1])),
+      new InputRule(/\$$/, typedMath)
     ] }),
       codeHighlight(), imageLayout(), commentPlugin(comments), new Plugin({ appendTransaction(transactions, oldState, state) {
       if (transactions.some(tr => tr.docChanged) && needsTrailing(state.doc))
@@ -707,7 +877,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
     }, DOMSerializer.marksFromSchema(schema)),
     transformPastedHTML(html) {
       // Other apps copy their thumbnail/display width along with the original
-      // image URL. Default those pastes to natural size; retain CoPlan resizes.
+      // image URL. Default those pastes to natural size; retain Coplan resizes.
       const template = document.createElement("template")
       template.innerHTML = html
       for (const image of template.content.querySelectorAll("img")) {
@@ -770,7 +940,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       // A note must never serialize text outside its HTML comment wrapper.
       if (transaction.docChanged && hasInvalidTemplateNote(transaction.doc)) {
         view.updateState(view.state)
-        selectionChanged(toolbarState(view.state))
+        selectionChanged(toolbarState(view.state, documentTitle))
         element.dispatchEvent(new CustomEvent("coplan:template-note-rejected", { bubbles: true }))
         return
       }
@@ -790,7 +960,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
           if (!selection.eq(transaction.selection)) transaction.setSelection(selection)
         }
       }
-      view.updateState(view.state.apply(transaction))
+      view.updateState(view.state.applyTransaction(transaction).state)
       if (transaction.docChanged) {
         for (const block of view.dom.querySelectorAll(".document-editor__content-block")) block.coplanRefreshPreview?.()
         clearTimeout(previewOffsetTimer)
@@ -801,12 +971,16 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
         }, 150)
         if (!transaction.getMeta("remote")) changed(serializeDocument(view.state.doc), inputOrigin(transaction))
       }
-      selectionChanged(toolbarState(view.state))
+      selectionChanged(toolbarState(view.state, documentTitle))
     }
   })
   return {
     view,
     content: () => serializeDocument(view.state.doc),
+    focusTitle() {
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, view.state.doc.firstChild.nodeSize - 1)))
+      view.focus()
+    },
     sourceSelection() {
       const { $from, $to } = visibleSelection(view.state, view)
       return { from: sourceOffsetForRich(view.state.doc, $from.pos), to: sourceOffsetForRich(view.state.doc, $to.pos) }
@@ -817,7 +991,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, Math.min(start, end), Math.max(start, end))).scrollIntoView())
       view.focus()
     },
-    toolbarState: () => toolbarState(view.state),
+    toolbarState: () => toolbarState(view.state, documentTitle),
     historyState: () => ({ undo: undo(view.state), redo: redo(view.state) }),
     closeHistory() { view.dispatch(closeHistory(view.state.tr)) },
     update(markdown) {
@@ -933,7 +1107,7 @@ function commentPlugin(initial) {
       apply(transaction, previous, _, state) {
         const incoming = transaction.getMeta(commentKey)
         if (incoming) {
-          const known = new Set(comments.map(comment => comment.id))
+          const known = new Map(comments.map(comment => [comment.id, comment]))
           comments = incoming.comments
           if (!incoming.preserveRanges) return commentDecorations(state.doc, comments)
           // A saved-thread refresh may describe the last acknowledged text
@@ -950,7 +1124,12 @@ function commentPlugin(initial) {
           })
           // A quote invalidated by a broad local rewrite must stay detached;
           // looking up its old text could attach it to another occurrence.
-          const added = commentDecorations(state.doc, comments.filter(comment => !known.has(comment.id))).find()
+          // A newly authoritative quote may change while an unrelated local
+          // edit (including a title edit) remains unsaved. Keep valid mapped
+          // ranges; otherwise resolve that changed quote against the new body.
+          const keptIds = new Set(kept.map(mark => mark.type.attrs["data-thread-id"]))
+          const added = commentDecorations(state.doc, comments.filter(comment =>
+            !keptIds.has(comment.id) && (!known.has(comment.id) || known.get(comment.id).text !== comment.text))).find()
           return DecorationSet.create(state.doc, [...kept, ...added])
         }
         if (!transaction.docChanged) return previous
@@ -1037,12 +1216,12 @@ function commentDecorations(doc, comments) {
   return DecorationSet.create(doc, decorations)
 }
 
-function toolbarState(state) {
+function toolbarState(state, documentTitle = false) {
   const { from, to, empty, $from } = state.selection
   const marks = state.storedMarks || $from.marks()
   const markActive = name => empty ? !!schema.marks[name].isInSet(marks) : state.doc.rangeHasMark(from, to, schema.marks[name])
   const ancestor = name => { for (let depth = $from.depth; depth > 0; depth--) if ($from.node(depth).type.name === name) return $from.node(depth); return null }
-  return { bold: markActive("strong"), italic: markActive("em"), code: markActive("code"), link: markActive("link"),
+  return { documentTitle: documentTitle && titleSelection(state), bold: markActive("strong"), italic: markActive("em"), code: markActive("code"), link: markActive("link"),
     bullet: !!ancestor("bullet_list"), ordered: !!ancestor("ordered_list"), quote: !!ancestor("blockquote"),
     heading: ancestor("template_note") ? "comment" : ancestor("code_block") ? "code" : ancestor("heading")?.attrs.level || 0,
     canHideComment: hiddenCommentBlocks(state).length > 0,
@@ -1401,7 +1580,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     const hint = document.createElement("p"); hint.className = "document-editor__embed-hint"
     const form = view.dom.closest("[data-coplan--editor-embed-domains-value]")
     const hosts = JSON.parse(form?.dataset.coplanEditorEmbedDomainsValue || form?.getAttribute("data-coplan--editor-embed-domains-value") || "[]")
-    hint.textContent = (hosts.length ? `Approved domains: ${hosts.join(", ")}. HTTPS only.` : "No iframe domains are approved. An administrator can add them in CoPlan Admin.") + " Title describes the page for screen readers; it is not a visible caption."
+    hint.textContent = (hosts.length ? `Approved domains: ${hosts.join(", ")}. HTTPS only.` : "No iframe domains are approved. An administrator can add them in Coplan Admin.") + " Title describes the page for screen readers; it is not a visible caption."
     dom.append(fields, hint, previewBody)
     const settlePreview = (content, asText = false) => {
       // A preview above the active field/button must not move it mid-action.
@@ -1512,7 +1691,7 @@ function codeNodeView(initial, view, getPos, preview, sourceRangeAt) {
     timer = setTimeout(async () => {
       try {
         const block = rendered ? node.type.create(node.attrs) : node
-        const html = await preview(defaultMarkdownSerializer.serialize(schema.topNodeType.create(null, block)))
+        const html = await preview(serializeBlock(block))
         if (sequence !== generation) return
         // The server decides what is a rendered diagram; anything else has no preview.
         if (rendered) previewedParams = params

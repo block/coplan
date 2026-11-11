@@ -33,10 +33,13 @@ return 429. Invalid names return 422 with `invalid_request`.
 |---|---|---|
 | `GET /api/v1/plans` | List the plans that you can see. Filters: `?visibility=draft\|published`, `?archived=true`, `?folder_id=`. | primer |
 | `POST /api/v1/plans` | Create a plan. | creating |
+| `GET /api/v1/plans/resolve?url=<encoded URL>` | Resolve a readable or legacy plan URL, including moved or renamed addresses. Readable edit, history, version, diff, and Markdown source links work too. Unicode paths may be displayed text or percent-encoded. Returns one list entry, including private or archived plans readable by link. Accepts an HTTP(S) URL or a path, including the engine mount prefix. The domain is optional and ignored; a matching path resolves on this deployment. Query and fragment are ignored. Invalid or unknown addresses return 404 with `{"error":"Plan not found"}`. This does not record a content read; fetch the plan before editing. | editing |
 | `GET /api/v1/plans/:id` | Get a plan with its content and references. | primer |
+| `GET /api/v1/plans/:id/versions/:version_id` | Read exact historical Markdown bytes and SHA-256. No read receipt. | comments |
+| `GET /api/v1/plans/:id/review_evidence` | Read exact current Markdown bytes/hash and coherent review cycles and decisions, without a read receipt. | comments |
 | `GET /api/v1/plans/:id/snapshot` | Get a plan with content, threads, references, collaborators, and review requests. | primer |
 | `GET /api/v1/plans/:id/writing_provenance` | Get writing-origin counts and reported agent identities. `?ranges=1` includes compact source ranges. Older plans can return `202` while history is reconstructed. | editing |
-| `PATCH /api/v1/plans/:id` | Change the title, type, tags, folder, visibility, archive state, or references. Plan author only. | editing |
+| `PATCH /api/v1/plans/:id` | Change the type, tags, folder, visibility, archive state, or references. Legacy `title` is ignored; edit the content heading to rename. Plan author only. | editing |
 | `PUT /api/v1/plans/:id/content` | Replace the content. | editing |
 | `POST /api/v1/plans/:id/operations` | Apply targeted edits. | editing |
 | `POST /api/v1/plans/:id/sessions` | Open an edit session (10 minutes): returns `id` and `base_revision`. Send `session_id` and that `base_revision` on each operation request to collect operations without saving. | editing |
@@ -52,12 +55,14 @@ return 429. Invalid names return 422 with `invalid_request`.
 
 | Method and path | Purpose | Guide |
 |---|---|---|
-| `GET /api/v1/plans/:id/comments` | List the threads. | comments |
+| `GET /api/v1/plans/:id/comments` | List the threads. Each comment includes its `reactions`. | comments |
 | `POST /api/v1/plans/:id/comments` | Start a thread: `body_markdown`, optional `anchor_text` and `anchor_occurrence`. | comments |
 | `GET /api/v1/plans/:id/comments/:thread_id` | Get one thread. | comments |
 | `POST /api/v1/plans/:id/comments/:thread_id/reply` | Reply: `body_markdown`. | comments |
 | `PATCH /api/v1/plans/:id/comments/:thread_id/resolve` | Resolve a thread. | comments |
 | `DELETE /api/v1/plans/:id/comments/:comment_id/delete` | Delete one of your principal's own comments. Comments that an agent posted cannot be deleted. | comments |
+
+Agents can read reactions but cannot add them. There is no reactions endpoint.
 
 ## References and attachments
 
@@ -74,7 +79,7 @@ return 429. Invalid names return 422 with `invalid_request`.
 | Method and path | Purpose | Guide |
 |---|---|---|
 | `GET /api/v1/plans/:id/review_requests` | List reviewers and their recorded decisions. | comments |
-| `GET /api/v1/plans/:id/review_requests/suggestions` | List reviewers this CoPlan deployment suggests, such as owners of linked code. Plan author only. | comments |
+| `GET /api/v1/plans/:id/review_requests/suggestions` | List reviewers this Coplan deployment suggests, such as owners of linked code. Plan author only. | comments |
 | `POST /api/v1/plans/:id/review_requests` | Request required or optional review. Plan author only. | comments |
 | `PATCH /api/v1/plans/:id/review_requests/:request_id` | Change the requirement without reopening, or request another look. Plan author only. | comments |
 | `DELETE /api/v1/plans/:id/review_requests/:request_id` | Withdraw a request; record its actor and time while preserving earlier history. Plan author only. | comments |
@@ -82,7 +87,9 @@ return 429. Invalid names return 422 with `invalid_request`.
 
 Creating a review request for an existing reviewer returns the current task with status 201. It leaves the requirement, decision, history, and notifications unchanged. Use `PATCH` to change the requirement or `request_again: true` to request another look.
 
-Include `idempotency_key` (a fresh UUID) for each intended review response. Reuse that UUID and identical fields when retrying a lost response; its returned `id` is the UUID. Use a new UUID for a new decision, including another review of the same version. A keyed retry returns the original recorded result even after the plan changes or the task is withdrawn. It preserves any newly pending review task. Without a key, an identical response is treated as a retry. Retries may use a renewed token for the same human principal. The original response keeps its original agent and token attribution. A key reused for different fields returns 422.
+Send the request’s `generation` and the viewed `revision` with every new response. A missing generation is supported only for the first cycle. After edits or re-requests, a stale or missing generation returns 409 with `code: review_request_changed`. Fetch the task again and deliberately review before submitting a fresh response. By default, edits reset active tasks to pending and advance their generations. When `reset_reviews_on_change` is false, completed reviews stay completed on their original versions; no fresh approval is required. Withdrawn tasks stay withdrawn. Earlier responses remain history.
+
+Include `idempotency_key` (a fresh UUID) for each intended review response. Reuse that UUID and identical fields when retrying a lost response; its returned `id` is the UUID. Use a new UUID for a new decision, including another review of the same version. A keyed retry returns the original recorded result even after the plan changes or the task is withdrawn. It preserves any newly pending review task. Without a key, an identical response is treated as a retry. Retries may use a renewed token for the same human principal. The original response keeps its original agent and token attribution. A key reused for different fields returns 422. A retry’s `effective: false` means it is history, not a current decision. New responses return `plan_version_id`, `content_sha256`, `generation`, and server `decision_sequence`.
 
 A review response returns 409 with `code: review_version_changed` for a stale revision. Re-read before responding. A new response to a withdrawn request returns 409 with `code: review_request_withdrawn`; stop responding unless the author requests another look.
 
@@ -120,4 +127,4 @@ Guides: `<%= @base %>/agent-instructions/<guide>`, for example <<%= @base %>/age
 
 ## Iframe domains
 
-`GET /api/v1/embed_domains` returns `{"hostnames":["embed.example.com"]}`. This is the exact-host allowlist for iframe content blocks. It requires your Bearer token. An empty list means no hosts are approved. Only an administrator can change the list, through CoPlan Admin. See <<%= @base %>/agent-instructions/embeds> for block syntax.
+`GET /api/v1/embed_domains` returns `{"hostnames":["embed.example.com"]}`. This is the exact-host allowlist for iframe content blocks. It requires your Bearer token. An empty list means no hosts are approved. Only an administrator can change the list, through Coplan Admin. See <<%= @base %>/agent-instructions/embeds> for block syntax.

@@ -4,6 +4,16 @@ module CoPlan
   module PlansHelper
     include MarkdownHelper
 
+    def render_plan_document(content)
+      fragment = Nokogiri::HTML.fragment(render_content_regions(content.to_s))
+      heading = fragment.at_css(".markdown-rendered:first-child > h1:first-child")
+      if heading
+        heading["id"] = "plan-title"
+        heading["class"] = [ heading["class"], "plan-title__heading" ].compact.join(" ")
+      end
+      fragment.to_html.html_safe
+    end
+
     # The narrowing a workspace link may carry. Filter links build on the
     # current params via workspace_path so no call site has to re-list this
     # whitelist — or remember which param to omit.

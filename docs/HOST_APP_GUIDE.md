@@ -1,13 +1,14 @@
-# CoPlan Host App Integration Guide
+# Coplan Host App Integration Guide
 
 ## Overview
 
-CoPlan is a Rails engine that manages collaborative planning documents. It owns its own `CoPlan::User` model and handles authentication internally via a callback you configure.
+Coplan is a Rails engine that manages collaborative planning documents. It owns its own `CoPlan::User` model and handles authentication internally via a callback you configure.
 
 ## User settings and host integrations
 
-CoPlan owns the settings shown on its Settings page. Light/dark mode and
-push-to-talk preferences live in `coplan_users.theme_preference` and `coplan_users.voice_hotkey`.
+Coplan owns the settings shown on its Settings page. The app theme, light/dark
+mode and push-to-talk preferences live in `coplan_users.app_theme`,
+`coplan_users.theme_preference` and `coplan_users.voice_hotkey`.
 Notification preferences have their own column; browser subscriptions and API
 tokens have engine-owned tables. User `metadata` is available for host directory
 data and is not a settings API.
@@ -46,14 +47,14 @@ Then run `bundle install`.
 mount CoPlan::Engine, at: "/coplan"
 ```
 
-You can also mount at the root if CoPlan is the primary purpose of your app. When doing so, add `as: "coplan"` so the engine's route helpers resolve correctly:
+You can also mount at the root if Coplan is the primary purpose of your app. When doing so, add `as: "coplan"` so the engine's route helpers resolve correctly:
 
 ```ruby
 # config/routes.rb
 mount CoPlan::Engine, at: "/", as: "coplan"
 ```
 
-Missing CoPlan documents render a simple 404 page with navigation in the regular header.
+Missing Coplan documents render a simple 404 page with navigation in the regular header.
 The puzzle-piece icon below the glass panel opens an optional path puzzle. Preview it at `/_/not-found` (include
 your mount prefix). Navigation works without JavaScript.
 
@@ -88,7 +89,7 @@ This creates the engine's tables (`coplan_users`, `coplan_plans`, etc.) in your 
 bin/rails coplan:seed
 ```
 
-CoPlan needs built-in reference rows such as the **General** plan type and
+Coplan needs built-in reference rows such as the **General** plan type and
 known agent harnesses. Replaying every migration creates them, but databases
 initialized from a checked-in schema (`db:schema:load`, `db:prepare`,
 `db:setup`) skip data migrations — the tables exist and the migrations are
@@ -137,7 +138,7 @@ CoPlan.configure do |config|
     {
       external_id: user.id.to_s,   # required — unique ID from your auth system
       name: user.name,             # required — display name
-      admin: user.admin?,          # optional — can manage CoPlan settings (default: false)
+      admin: user.admin?,          # optional — can manage Coplan settings (default: false)
       metadata: {}                 # optional — arbitrary data (default: {})
     }
   }
@@ -149,7 +150,7 @@ CoPlan.configure do |config|
 end
 ```
 
-The callback is called on every CoPlan request. The engine automatically finds or creates a `CoPlan::User` from the returned attributes, keeping the name and admin flag in sync.
+The callback is called on every Coplan request. The engine automatically finds or creates a `CoPlan::User` from the returned attributes, keeping the name and admin flag in sync.
 
 ### Callback return values
 
@@ -164,7 +165,7 @@ Return `nil` to indicate the user is not authenticated (the engine will respond 
 
 ### Shared administration
 
-Hosts using ActiveAdmin can load the CoPlan admin screens and add their own
+Hosts using ActiveAdmin can load the Coplan admin screens and add their own
 resources to the same menu. ActiveAdmin remains an optional host dependency;
 the engine does not require it for its regular UI.
 
@@ -180,7 +181,7 @@ CoPlan::Admin.install!(config)
 ActiveAdmin.routes(self)
 ```
 
-The default URL is `/_/admin`. If CoPlan is mounted under `/coplan`, pass
+The default URL is `/_/admin`. If Coplan is mounted under `/coplan`, pass
 `path: "coplan/_/admin"` to `install!`. Every host registration in `app/admin`
 joins the same namespace by default, so a host can add a model or custom page
 without copying engine registrations. The host's `authenticate` callback
@@ -216,7 +217,8 @@ The engine manages a `coplan_users` table with these columns:
 | `external_id` | String  | Unique ID from your auth system |
 | `name`        | String  | Display name |
 | `admin`       | Boolean | Admin flag |
-| `metadata`    | JSON    | Host directory data; not CoPlan settings |
+| `metadata`    | JSON    | Host directory data; not Coplan settings |
+| `app_theme` | String | Engine-owned app theme: `default` (follow `config.default_theme`) or a `CoPlan::Themes` key |
 | `theme_preference` | String | Engine-owned light/dark mode: system, light, or dark |
 | `voice_hotkey` | String | Engine-owned push-to-talk preference |
 
@@ -241,9 +243,9 @@ bin/rails co_plan:install:migrations
 bin/rails db:migrate
 ```
 
-The engine's copy differs from the stock Rails install migration in one way: `active_storage_attachments.record_id` is a `string(36)` column so it can hold CoPlan's UUID primary keys. The migration is guarded with `table_exists?` checks, so it's a no-op if your app already has ActiveStorage installed.
+The engine's copy differs from the stock Rails install migration in one way: `active_storage_attachments.record_id` is a `string(36)` column so it can hold Coplan's UUID primary keys. The migration is guarded with `table_exists?` checks, so it's a no-op if your app already has ActiveStorage installed.
 
-> **Warning:** If your app already has ActiveStorage with a **bigint** `record_id`, CoPlan attachments won't work — the polymorphic `record_id` column can't store CoPlan's string UUIDs. You'll need to widen the column to `string(36)` (existing integer IDs will store fine as strings, but verify any raw-SQL queries you have against that table).
+> **Warning:** If your app already has ActiveStorage with a **bigint** `record_id`, Coplan attachments won't work — the polymorphic `record_id` column can't store Coplan's string UUIDs. You'll need to widen the column to `string(36)` (existing integer IDs will store fine as strings, but verify any raw-SQL queries you have against that table).
 
 ### Storage service
 
@@ -272,11 +274,11 @@ The local `Disk` service is fine for development and single-node deployments (ma
 
 ## API tokens
 
-CoPlan provides a REST API for programmatic access. Users create API tokens in the Settings UI. API requests authenticate via `Authorization: Bearer <token>` headers — no session or callback required.
+Coplan provides a REST API for programmatic access. Users create API tokens in the Settings UI. API requests authenticate via `Authorization: Bearer <token>` headers — no session or callback required.
 
 ## Layout and sign-out
 
-CoPlan inherits from your `::ApplicationController` for layout and middleware. The engine's nav bar will render a "Sign out" link if your app defines a `sign_out_path` route helper.
+Coplan inherits from your `::ApplicationController` for layout and middleware. The engine's nav bar will render a "Sign out" link if your app defines a `sign_out_path` route helper.
 
 ## Configuration reference
 
@@ -315,7 +317,8 @@ CoPlan.configure do |config|
     AnalyticsEvent.create!(name: event, payload: payload)
   }
 
-  # App theme (optional). One of CoPlan::Themes.keys; see docs/THEMES.md.
+  # App theme for everyone who hasn't picked one in Settings (optional).
+  # One of CoPlan::Themes.keys: "classic" or "neutral". See docs/THEMES.md.
   config.default_theme = "classic"                    # default
 end
 ```
@@ -348,25 +351,25 @@ Every link in a plan becomes a reference, so `plan.references` lists the
 files, repositories, pull requests, and documents the plan names. GitHub file
 links such as `https://github.com/org/repo/blob/main/app/models/user.rb` have
 `reference_type` `"repository"`. Map people from your directory to existing
-`CoPlan::User` records; CoPlan does not create users for suggestions.
+`CoPlan::User` records; Coplan does not create users for suggestions.
 
 The plan author sees suggestions under **Add reviewer**. Agents read them from
 `GET /api/v1/plans/:id/review_requests/suggestions`. Suggestions only fill in
 the choice: nobody is requested until the author or their agent requests them
-through the usual review-request flow. CoPlan leaves out the plan author,
+through the usual review-request flow. Coplan leaves out the plan author,
 people with an active review request, and duplicates.
 
 The callback runs on the request thread each time the author opens **Add
 reviewer** or an agent asks, so cache slow lookups inside it. Exceptions are
-reported through `error_reporter`, and CoPlan shows no suggestions.
+reported through `error_reporter`, and Coplan shows no suggestions.
 
 ## Connecting local agents without network authentication
 
-When `config.api_authenticate` is unset, CoPlan offers a browser approval flow
+When `config.api_authenticate` is unset, Coplan offers a browser approval flow
 at `/_/agent/setup`. Local tools request a short-lived connection code, a person
 approves using the host's existing browser login, and the local helper redeems
 and stores one durable personal credential. Agents mint child session tokens
-from it. GitHub/OIDC login stays in the host; CoPlan does not need an OAuth
+from it. GitHub/OIDC login stays in the host; Coplan does not need an OAuth
 callback or webhook on the person's computer.
 
 A configured `api_authenticate` hook disables these bootstrap endpoints and

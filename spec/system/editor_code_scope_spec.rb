@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Editable code selection and highlighting", type: :system do
   let(:author) { create(:coplan_user, email: "code-scope@example.com") }
-  let(:source) { "Before prose.\n\n```js extra=1\nfunction hi() {\n  return 42;\n}\n```\n\nAfter prose.\n\n```ruby\nputs :other\n```\n" }
+  let(:source) { "# Code scopes\n\nBefore prose.\n\n```js extra=1\nfunction hi() {\n  return 42;\n}\n```\n\nAfter prose.\n\n```ruby\nputs :other\n```\n" }
   let(:plan) { CoPlan::Plans::Create.call(title: "Code scopes", content: source, user: author, visibility: "draft", actor_type: "human") }
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
 
@@ -108,8 +108,9 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     find('[aria-label="Document body"] p', text: "Before prose.").click
     page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
     expect(page.evaluate_script('getSelection().toString()')).to include("Before prose.", "After prose.")
-    expect(page.evaluate_script('getSelection().toString()')).not_to include("Code scopes", "Editor", "Dual")
-    find("#plan-header .inline-editor__title").send_keys([ mod, "a" ], "Scoped title")
+    expect(page.evaluate_script('getSelection().toString()')).not_to include("Editor", "Dual")
+    select_document_title
+    find('[aria-label="Document body"]').send_keys("Scoped title")
     click_link "Done"
     expect(page).to have_current_path(/scoped-title$/, wait: 10)
     expect(plan.reload.current_content).to include("Before prose.", "const scoped = 7;", "After prose.", "puts :other")
@@ -181,7 +182,7 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
   end
 
   it "falls back to plain text for large blocks without rewriting their source" do
-    large = "```javascript\n" + ("const number = 42;\n" * 1200) + "```\n"
+    large = "# Large code\n\n```javascript\n" + ("const number = 42;\n" * 1200) + "```\n"
     large_plan = CoPlan::Plans::Create.call(title: "Large code", content: large, user: author, visibility: "draft", actor_type: "human")
     visit plan_edit_page_path(large_plan)
     expect(page).to have_css('[aria-label="Document body"]', wait: 20)

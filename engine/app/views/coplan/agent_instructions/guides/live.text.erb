@@ -51,7 +51,7 @@ If none of these works, do not show a pill. Claim the session and PATCH it to `c
 
 - The claim subscribes your token to the plan's events. A claim with no state shows you as `watching`. Send `"state": "active"` if you are already working.
 - Your token supplies your name and harness. Do not send `agent_name`.
-- Claim once for each plan in each run. **To answer an event, use PATCH. Do not claim again.** A new claim resets the session, and CoPlan counts the event as not answered.
+- Claim once for each plan in each run. **To answer an event, use PATCH. Do not claim again.** A new claim resets the session, and Coplan counts the event as not answered.
 - To stop: `<%= @curl %> -X DELETE "<%= @base %>/api/v1/plans/$PLAN_ID/agent_session"`.
 
 ## States
@@ -92,7 +92,7 @@ Or stream with Server-Sent Events. The server sends a heartbeat every 15 seconds
 
 - The response has `events` and a `cursor` (the last event ID).
 - If the response has `"throttled": true`, the server has too many open connections. Wait a few seconds, then poll again.
-- Without a cursor, you get all events that you did not acknowledge. CoPlan never sends you your own comments or edits.
+- Without a cursor, you get all events that you did not acknowledge. Coplan never sends you your own comments or edits.
 
 ## Events
 
@@ -103,8 +103,10 @@ For `review.requested`, inspect `payload.action`:
 | Action | Meaning |
 |---|---|
 | `requested` | A new request or another look. `requirement` is `required` or `optional`. |
+| `content_changed` | A new Markdown version reset active tasks and advanced their generations under the default-on reset policy. No reset event is emitted when the document’s automatic resets are off. Earlier responses remain history. Read the current version and request before responding. No new inbox nudge is sent for each edit. |
 | `requirement_changed` | Only `requirement` changed. This does not reopen the task or start another review cycle. Do not treat it as a request for another look. |
 | `withdrawn` | The request was withdrawn. Stop working on that request; its earlier decisions remain. The payload also has `withdrawn: true`. |
+| `removed` | The web management pane deleted this request and its review decisions. Stop using its ID. Reassignment creates a new pending request. The payload also has `removed: true`. |
 
 The attach and bridge tools show this review data and point to the review guide. Review events do not authorize content edits or execution.
 
@@ -118,7 +120,7 @@ The payload usually has enough information for you to decide what to do: `plan_t
 
 ## 3. Acknowledge
 
-CoPlan delivers each event at least once. Acknowledge events after you process them:
+Coplan delivers each event at least once. Acknowledge events after you process them:
 
 ```bash
 <%= @curl %> -X POST -H "Content-Type: application/json" \

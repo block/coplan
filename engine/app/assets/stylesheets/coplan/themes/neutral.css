@@ -1,0 +1,256 @@
+/* Neutral — a quiet reading theme (docs/THEMES.md).
+
+   Warm grays at very low chroma (hue ~90), the system font, solid surfaces
+   with no blur, and a document that sits directly on the page instead of a
+   card. Blue still means interaction and orange still means attention.
+
+   Custom properties only, so the theme changes how Coplan looks, never what
+   it does. Each color gives its light and dark value in light-dark(), which
+   follows the mode's color-scheme. A var() in a custom property resolves
+   where it is declared, so hooks that follow the document's own surface are
+   set on the document, not on :root. */
+
+:root[data-app-theme="neutral"] {
+  /* Colors. --color-surface is the floating surface (popovers, menus, the
+     composer), white so it lifts off the page. Inside the document it
+     becomes the page (below); --color-surface-floating keeps the original. */
+  --color-bg: light-dark(oklch(0.993 0.0015 106), oklch(0.212 0.003 90));
+  --color-bg-muted: light-dark(oklch(0.97 0.003 90), oklch(0.235 0.004 90));
+  --color-surface: light-dark(oklch(1 0 0), oklch(0.255 0.004 90));
+  --color-surface-muted: light-dark(oklch(0.98 0.003 90), oklch(0.28 0.004 90));
+  --color-surface-floating: var(--color-surface);
+  --color-surface-floating-muted: var(--color-surface-muted);
+  /* Muted panels set in the document (back matter, table headers). */
+  --color-page-muted: light-dark(oklch(0.975 0.003 90), oklch(0.235 0.004 90));
+  --color-input-bg: var(--color-surface);
+  --color-text: light-dark(oklch(0.287 0.005 95), oklch(0.893 0.004 95));
+  /* Muted text reads about as strong in dark mode as in light: APCA Lc 64
+     on the dark page, against 75 on the light one. */
+  --color-text-muted: light-dark(oklch(0.53 0.008 90), oklch(0.79 0.006 90));
+  --color-border: light-dark(oklch(0.915 0.005 90), oklch(0.3 0.005 90));
+  --color-border-strong: light-dark(oklch(0.84 0.007 90), oklch(0.38 0.006 90));
+  --color-tag-bg: light-dark(oklch(0.97 0.003 90), oklch(0.235 0.004 90));
+  --color-tag-text: light-dark(oklch(0.35 0.005 95), oklch(0.86 0.005 95));
+  --color-tag-hover-bg: light-dark(oklch(0.915 0.005 90), oklch(0.3 0.005 90));
+  --color-tag-hover-text: light-dark(oklch(0.17 0.004 95), oklch(0.955 0.003 95));
+
+  /* Code: a borderless tinted block with a small corner language label.
+     Syntax colors are soft and warm, so code reads as part of the page. */
+  --color-code-bg: light-dark(oklch(0.955 0.005 90), oklch(0.255 0.004 90));
+  --code-block-bg: light-dark(oklch(0.969 0.004 98), oklch(0.262 0.005 90));
+  --code-block-text: light-dark(oklch(0.28 0.006 90), oklch(0.88 0.005 90));
+  --code-header-text: light-dark(oklch(0.5 0.008 90), oklch(0.79 0.006 90));
+  --code-comment: light-dark(oklch(0.5 0.01 90), oklch(0.78 0.008 90));
+  --code-keyword: light-dark(oklch(0.5 0.13 35), oklch(0.8 0.1 35));
+  --code-entity: light-dark(oklch(0.45 0.08 250), oklch(0.79 0.07 235));
+  --code-constant: light-dark(oklch(0.52 0.11 65), oklch(0.82 0.09 75));
+  --code-string: light-dark(oklch(0.48 0.09 140), oklch(0.8 0.08 135));
+  --code-tag: light-dark(oklch(0.5 0.12 20), oklch(0.8 0.09 20));
+  --code-addition-fg: light-dark(oklch(0.46 0.1 140), oklch(0.8 0.09 140));
+  --code-addition-bg: light-dark(oklch(0.95 0.035 140), oklch(0.8 0.09 140 / 0.12));
+  --code-deletion-fg: light-dark(oklch(0.5 0.14 30), oklch(0.8 0.1 30));
+  --code-deletion-bg: light-dark(oklch(0.95 0.025 30), oklch(0.7 0.12 30 / 0.14));
+
+  /* Typography */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+
+  /* Solid surfaces: page-level panels (nav, rows) use the page color,
+     floating panels the floating surface. Every panel has a 1px border, so
+     light adds a drop and dark adds nothing: a drop can't be seen on a dark
+     page, and a ring would double the border. Three heights: cards and
+     pills on the page barely lift (--shadow-glass), buttons and hover lifts
+     a little (--shadow-pop), and menus, dialogs and thread windows float
+     (--shadow-lg, and --shadow-glass on the floating panels below). */
+  --shadow-lg:
+    0 1px 2px light-dark(oklch(0.3 0.01 90 / 0.06), transparent),
+    0 14px 32px -10px light-dark(oklch(0.3 0.01 90 / 0.18), transparent);
+  --shadow-pop:
+    0 1px 2px light-dark(oklch(0.3 0.01 90 / 0.06), transparent),
+    0 3px 8px -2px light-dark(oklch(0.3 0.01 90 / 0.1), transparent);
+  --shadow-glass: 0 1px 2px light-dark(oklch(0.3 0.01 90 / 0.05), transparent);
+  --glass-bg: var(--color-bg);
+  --glass-bg-strong: var(--color-surface);
+  --glass-edge: light-dark(oklch(0.9 0.005 90), oklch(0.33 0.005 90));
+  --surface-translucent: var(--color-surface);
+  --card-edge: var(--color-border);
+
+  /* Page, glass and windows */
+  --page-backdrop: none;
+  --glass-blur: none;
+  --window-blur: none;
+  --overlay-blur: none;
+  --window-bg: var(--color-surface);
+  --window-edge: var(--glass-edge);
+  --window-shadow: var(--shadow-pop);
+  --composer-input-bg: var(--color-input-bg);
+  --overlay-tint: oklch(0.15 0.004 90 / 0.55);
+  --dialog-backdrop: var(--color-overlay);
+  --panel-bg: var(--color-surface-muted);
+  --panel-shadow: none;
+  --panel-row-bg: transparent;
+  --document-support-radius: 6px;
+
+  /* The document has no card: its text sits on the page, lined up with the
+     header above it. On phones the update dot's hit area moves into the
+     page's 24px side margin instead of indenting the text. */
+  --document-bg: var(--color-bg);
+  --document-border: 0;
+  --document-radius: 0;
+  --document-shadow: none;
+  --document-padding: var(--space-sm) 0;
+  --document-padding-narrow: var(--space-sm) 0;
+  --document-page-padding-narrow: var(--space-lg);
+
+  /* Plan title, set like the document's headings. It stays a step above
+     the document's H1 (the shared 1.5rem) on phones too. */
+  --plan-title-size: 1.75rem;
+  --plan-title-size-narrow: 1.625rem;
+  --plan-title-weight: 600;
+  --plan-title-leading: 1.2;
+  --plan-title-tracking: -0.01em;
+  --plan-title-wrap: balance;
+
+  /* Reading type. Heading sizes come from the shared scale, so each level
+     is a step below the one above it. A ch is the width of "0", wider than
+     an average letter, so 68ch holds about 85 characters a line. Headings
+     are as heavy as bold body text, never lighter, so a bold phrase can't
+     outweigh the heading above it. */
+  --reading-measure: 68ch;
+  --reading-leading: 1.6;
+  --reading-paragraph-gap: 1.12em;
+  --reading-heading-weight: 600;
+  --reading-heading-tracking: -0.01em;
+  --reading-heading-wrap: balance;
+  --reading-h1-leading: 1.25;
+  --reading-h2-leading: 1.3;
+  --reading-h2-space-above: 2.5rem;
+  --reading-h2-space-below: 0.75rem;
+  --reading-h3-leading: 1.35;
+  --reading-h3-space-above: 2rem;
+  --reading-h3-space-below: 0.75rem;
+  --strong-weight: 600;
+
+  /* Code blocks and their corner label */
+  --code-block-border: 0;
+  --code-block-radius: 6px;
+  --code-block-padding: 1.125rem 1.25rem;
+  --code-block-font-size: 0.84375rem;
+  --code-block-leading: 1.65;
+  --code-block-scrollbar: thin;
+  --code-label-height: 1rem;
+  --code-label-margin: -0.25rem 0 0.375rem;
+  --code-label-padding: 0;
+  --code-label-bg: transparent;
+  --code-label-dots: none;
+  --code-label-border: 0;
+  --code-label-radius: 0;
+  --code-label-font: var(--font-sans);
+  --code-label-leading: 1rem;
+  --code-label-tracking: 0.01em;
+  --code-label-align: right;
+  --code-chip-padding: 0.12em 0.36em;
+  --code-chip-radius: 4px;
+  --code-chip-size: 0.86em;
+
+  /* Diagrams, tables and the rest */
+  --diagram-border: 0;
+  --diagram-radius: 6px;
+  --table-radius: 6px;
+  --table-numerals: tabular-nums;
+  --image-radius: 6px;
+  --blockquote-rule: var(--color-border-strong);
+  --image-outline: 1px solid light-dark(rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.1));
+
+  /* Mermaid palette, as hex (Mermaid's color math can't read oklch()).
+     --diagram-bg is also the diagram's background, the same tint as a code
+     block in both modes. Mermaid reads these with getComputedStyle, which
+     returns light-dark() unresolved, so dark mode sets them in its own
+     blocks below. A node's fill is close to the background, so its border
+     is what outlines it, and keeps 3:1 contrast in both modes. */
+  --diagram-bg: #f7f6f3;
+  --diagram-node: #f0ece4;
+  --diagram-node-border: #938b7f;
+  --diagram-text: #1c1a17;
+  --diagram-line: #81796d;
+  --diagram-cluster: #fbfaf7;
+  --diagram-cluster-border: #d4d1ca;
+  --diagram-actor-line: #8f8c84;
+  --diagram-alt: #f2e5db;
+  --diagram-note: #f7efd1;
+  --diagram-note-border: #cfbc8a;
+  --diagram-note-text: #483b24;
+}
+
+/* The Mermaid palette in dark mode, forced */
+:root[data-app-theme="neutral"][data-theme="dark"] {
+  --diagram-bg: #252422;
+  --diagram-node: #2c2a26;
+  --diagram-node-border: #726e67;
+  --diagram-text: #ecebe8;
+  --diagram-line: #95928a;
+  --diagram-cluster: #282725;
+  --diagram-cluster-border: #3c3a37;
+  --diagram-actor-line: #706e69;
+  --diagram-alt: #352f2a;
+  --diagram-note: #312b1a;
+  --diagram-note-border: #695d3c;
+  --diagram-note-text: #ebe5cf;
+}
+
+/* The Mermaid palette in dark mode, following the system */
+@media (prefers-color-scheme: dark) {
+  :root[data-app-theme="neutral"]:not([data-theme]) {
+    --diagram-bg: #252422;
+    --diagram-node: #2c2a26;
+    --diagram-node-border: #726e67;
+    --diagram-text: #ecebe8;
+    --diagram-line: #95928a;
+    --diagram-cluster: #282725;
+    --diagram-cluster-border: #3c3a37;
+    --diagram-actor-line: #706e69;
+    --diagram-alt: #352f2a;
+    --diagram-note: #312b1a;
+    --diagram-note-border: #695d3c;
+    --diagram-note-text: #ebe5cf;
+  }
+}
+
+/* Inside the document, --color-surface is the page, so tables, back
+   matter and the editor's code header blend in. */
+:root[data-app-theme="neutral"] .plan-document {
+  --color-surface: var(--color-bg);
+  --color-surface-muted: var(--color-page-muted);
+  --color-interaction-hover-bg: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg));
+  --color-interaction-active-bg: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
+  --code-header-bg: var(--color-surface-muted);
+}
+
+/* Anything that floats over the document gets the floating surface back. */
+:root[data-app-theme="neutral"] .plan-document :is([popover], .comment-popover, .comment-window) {
+  --color-surface: var(--color-surface-floating);
+  --color-surface-muted: var(--color-surface-floating-muted);
+  --color-interaction-hover-bg: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-floating));
+  --color-interaction-active-bg: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface-floating));
+}
+
+/* Floating panels that read --shadow-glass get the floating drop; cards and
+   pills on the page keep the quiet one. The selection's Comment button
+   floats over text, so it lifts like a button. */
+:root[data-app-theme="neutral"] :is(.menu, .review-dialog, .plan-visibility-panel, .review-assignment, .content-nav[popover]) {
+  --shadow-glass: var(--shadow-lg);
+}
+
+:root[data-app-theme="neutral"] .comment-popover__action {
+  --shadow-glass: var(--shadow-pop);
+}
+
+/* Back matter is a flat muted panel on the document's own surface. */
+:root[data-app-theme="neutral"] .document-support {
+  --panel-edge: var(--color-border);
+  --panel-bg: var(--color-surface-muted);
+}
+
+:root[data-app-theme="neutral"] #new-plan-modal {
+  --overlay-tint: oklch(0.15 0.004 90 / 0.58);
+}

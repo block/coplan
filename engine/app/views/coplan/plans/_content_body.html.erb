@@ -8,6 +8,6 @@
     on write paths; the explicit RENDER_CACHE_VERSION key handles renderer
     changes instead. -%>
 <% stale_diagrams = CoPlan::RenderedDiagrams.stale_images(plan) %>
-<% cache [CoPlan::EmbedDomain.order(:hostname).pluck(:hostname), request&.host, "coplan/plan-content-body", CoPlan::MarkdownHelper::RENDER_CACHE_VERSION, plan.id, plan.current_plan_version&.content_sha256 || plan.current_revision, stale_diagrams.sort], skip_digest: true do %>
-  <%= mark_stale_rendered_diagrams(render_content_regions(plan.current_content), stale_diagrams) %>
+<% cache [CoPlan::EmbedDomain.order(:hostname).pluck(:hostname), request&.host, "coplan/plan-content-body-with-title", CoPlan::MarkdownHelper::RENDER_CACHE_VERSION, plan.id, plan.current_plan_version&.content_sha256 || plan.current_revision, stale_diagrams.sort], skip_digest: true do %>
+  <%= mark_stale_rendered_diagrams(render_plan_document(plan.current_content), stale_diagrams) %>
 <% end %>

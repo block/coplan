@@ -1,4 +1,7 @@
-# CoPlan — Agent Guidelines
+# Coplan — Agent Guidelines
+
+Use **Coplan** in product copy and documentation. Keep the existing `CoPlan::`
+Ruby namespace and compatibility-sensitive identifiers unchanged.
 
 ## What This Is
 
@@ -6,7 +9,7 @@ A Rails app for engineering design doc review, purpose-built for AI-assisted pla
 
 ## Architecture: Engine vs Host App
 
-Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), packaged as the `coplan` gem (path-based, in `Gemfile`). The top-level Rails app is a **thin host** that provides deployment configuration, ActiveAdmin, and app-specific glue.
+Most of the application logic lives in the **Coplan Rails engine** (`engine/`), packaged as the `coplan` gem (path-based, in `Gemfile`). The top-level Rails app is a **thin host** that provides deployment configuration, ActiveAdmin, and app-specific glue.
 
 ### Engine (`engine/`) — where the code lives
 - **Models** — all domain models live in `engine/app/models/coplan/` (Plan, PlanVersion, User, Comment, CommentThread, EditLease, EditSession, ApiToken, PlanCollaborator)
@@ -19,7 +22,7 @@ Most of the application logic lives in the **CoPlan Rails engine** (`engine/`), 
 - **Routes** — engine routes in `engine/config/routes.rb`, mounted by the host
 
 ### Host app (top-level) — thin deployment shell
-- **ActiveAdmin** — optional host setup calls `CoPlan::Admin.install!`; CoPlan model registrations live in `engine/app/admin/`, while host-specific pages can live in the host's `app/admin/`
+- **ActiveAdmin** — optional host setup calls `CoPlan::Admin.install!`; Coplan model registrations live in `engine/app/admin/`, while host-specific pages can live in the host's `app/admin/`
 - **Auth** — `SessionsController`, `User` model (legacy, being migrated to `CoPlan::User`)
 - **App-specific integrations** — `SlackClient`, `SlackNotificationJob`
 - **Migrations** — this app is just the example/demo host, so `db/migrate/` mostly holds the `*.co_plan.rb` copies of engine migrations (the engine owns schema for `coplan_*` tables)
@@ -167,7 +170,7 @@ every open source contributor run or host a server for a reviewer.
 
 ## Agent Instructions Stay Current
 
-Agents learn CoPlan only from the served instructions, not from this repo. A change that agents can observe is not done until those instructions match it. That includes API endpoints, fields, status codes and error codes, as well as comment, editing, versioning and attribution rules, Markdown features, the live-session protocol, and `engine/agent_tools/`.
+Agents learn Coplan only from the served instructions, not from this repo. A change that agents can observe is not done until those instructions match it. That includes API endpoints, fields, status codes and error codes, as well as comment, editing, versioning and attribution rules, Markdown features, the live-session protocol, and `engine/agent_tools/`.
 
 - The primer is `engine/app/views/coplan/agent_instructions/show.text.erb` (served at `/agent-instructions`). Keep it to what every agent needs.
 - Topic guides are in `engine/app/views/coplan/agent_instructions/guides/` (served at `/agent-instructions/<guide>`). Put task-specific detail there. A new guide needs an entry in `AgentInstructionsController::GUIDES` and a link from the primer; `spec/requests/agent_instructions_spec.rb` checks both.
@@ -177,6 +180,7 @@ Agents learn CoPlan only from the served instructions, not from this repo. A cha
 
 ## Code Review
 
+- Agents assigned to maintain PRs follow [PR stewardship](docs/PR_STEWARDSHIP.md), including automated reviews, conflict resolution, current-head CI, and public cleanup summaries before and after Hampton's review.
 - Run the `code-review` skill before considering a session complete
 - Address all feedback until the review passes
 
@@ -227,6 +231,7 @@ reader to an apparently empty page.
 ### Inline review UI
 - **Highlights**: anchored text is wrapped in `<mark>` elements — subtle blue for `open`, unstyled for `resolved`; orange is reserved for viewer-specific attention, never thread status
 - **Margin dots**: colored indicators in the left margin aligned to each highlight's vertical position
+- **Collapsed sections**: a closed `<details>` hides its highlights, so it shows a compact blue count badge on its summary instead of margin dots (open threads only, unless resolved threads are shown). Every jump to a thread — `?thread=`, j/k, a badge — opens the enclosing sections first (`coplan/collapsed_sections.js`)
 - **Thread popovers**: native HTML Popover API (`popover="auto"`) showing the comment thread, reply form, and action buttons; positioned relative to the anchor and tracked on scroll
 - **Comment toolbar**: fixed bottom bar showing open thread count, j/k navigation, and a "Show resolved" toggle
 

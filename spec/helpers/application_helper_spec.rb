@@ -1,6 +1,44 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::ApplicationHelper, type: :helper do
+  describe "#coplan_app_theme" do
+    around do |example|
+      original = CoPlan.configuration.default_theme
+      example.run
+    ensure
+      CoPlan.configuration.default_theme = original
+    end
+
+    def viewing_as(user)
+      helper.define_singleton_method(:signed_in?) { user.present? }
+      helper.define_singleton_method(:current_user) { user }
+    end
+
+    it "uses the host's default for signed-out viewers and viewers on Default" do
+      CoPlan.configuration.default_theme = "neutral"
+      viewing_as(nil)
+      expect(helper.coplan_app_theme).to eq("neutral")
+      viewing_as(build(:coplan_user, app_theme: "default"))
+      expect(helper.coplan_app_theme).to eq("neutral")
+    end
+
+    it "uses the viewer's pick, and the host's default when that pick no longer exists" do
+      viewing_as(build(:coplan_user, app_theme: "neutral"))
+      expect(helper.coplan_app_theme).to eq("neutral")
+      viewing_as(build(:coplan_user, app_theme: "retired"))
+      expect(helper.coplan_app_theme).to eq("classic")
+    end
+
+    it "reports the pick Settings shows, with a retired theme as Default" do
+      viewing_as(build(:coplan_user, app_theme: "neutral"))
+      expect(helper.coplan_app_theme_choice).to eq("neutral")
+      viewing_as(build(:coplan_user, app_theme: "retired"))
+      expect(helper.coplan_app_theme_choice).to eq("default")
+      viewing_as(nil)
+      expect(helper.coplan_app_theme_choice).to eq("default")
+    end
+  end
+
   describe "environment logo treatments" do
     it "uses green artwork and matching favicons in development" do
       allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("development"))
@@ -73,7 +111,7 @@ RSpec.describe CoPlan::ApplicationHelper, type: :helper do
     end
 
     it "includes a content excerpt when content is present" do
-      plan.current_plan_version.update!(content_markdown: "# Overview\n\nThis is the summary of the plan.")
+      set_version_fixture(plan.current_plan_version, content_markdown: "# Overview\n\nThis is the summary of the plan.")
       result = helper.plan_og_description(plan)
       expect(result).to include("This is the summary of the plan.")
     end
@@ -89,7 +127,7 @@ RSpec.describe CoPlan::ApplicationHelper, type: :helper do
 
     it "truncates long content" do
       long_text = "A" * 500
-      plan.current_plan_version.update!(content_markdown: long_text)
+      set_version_fixture(plan.current_plan_version, content_markdown: long_text)
       result = helper.plan_og_description(plan)
       expect(result.length).to be <= 250
     end

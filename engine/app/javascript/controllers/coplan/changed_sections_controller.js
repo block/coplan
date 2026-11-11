@@ -30,14 +30,15 @@ export default class extends Controller {
       if (/^H[1-3]$/.test(node.tagName)) {
         inIntroduction = false
         const key = this._slug(node.textContent, used)
-        if (keys.has(key)) this._mark(node, key)
+        if (!keys.has(key)) continue
+        this._mark(node, key)
       } else if (inIntroduction && keys.has(TOP_KEY) && !this.sections.has(TOP_KEY)) {
         this._mark(node, TOP_KEY)
       }
     }
     this.observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
-        const node = entry.target
+        const node = entry.target.closest(".section-updated")
         if (entry.isIntersecting && entry.intersectionRatio === 1) {
           this.visible.add(node)
           this._schedule(node)
@@ -47,7 +48,7 @@ export default class extends Controller {
         }
       })
     }, { rootMargin: "-72px 0px -15% 0px", threshold: 1 })
-    this.sections.forEach(node => this.observer.observe(node))
+    this.sections.forEach(node => this.observer.observe(node.querySelector(".section-update-marker")))
   }
 
   disconnect() {

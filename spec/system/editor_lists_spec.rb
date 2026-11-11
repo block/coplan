@@ -20,7 +20,8 @@ RSpec.describe "Editor lists", type: :system do
   end
 
   def replace_body(text)
-    editor.send_keys([ modifier, "a" ], text)
+    select_document_body
+    page.driver.browser.action.send_keys(text).perform
   end
 
   def caret

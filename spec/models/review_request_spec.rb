@@ -9,6 +9,17 @@ RSpec.describe CoPlan::ReviewRequest do
     expect(request.reload).to be_pending
   end
 
+  it "accepts only supported reset reasons or no reset reason" do
+    request = create(:review_request)
+    [ nil, *CoPlan::ReviewRequest::RESET_REASONS ].each do |reason|
+      request.reset_reason = reason
+      expect(request).to be_valid
+    end
+    request.reset_reason = "content_change"
+    expect(request).not_to be_valid
+    expect(request.errors[:reset_reason]).to be_present
+  end
+
   it "rejects duplicate assignments, invalid requirements and unrelated versions" do
     request = create(:review_request)
     expect(build(:review_request, plan: request.plan, reviewer: request.reviewer)).not_to be_valid

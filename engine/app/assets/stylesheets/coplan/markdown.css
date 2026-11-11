@@ -115,10 +115,18 @@
   padding-left: var(--space-md);
 }
 
-.markdown-rendered .task-list-item label {
+.markdown-rendered .task-list-item-row {
   display: flex;
   align-items: baseline;
   gap: var(--space-sm);
+}
+
+/* Padding widens the hit target around the small native box; the negative
+   margin keeps the row's layout as if the box stood alone. */
+.markdown-rendered .task-list-item-checkbox {
+  display: inline-flex;
+  padding: 6px;
+  margin: -6px;
   cursor: pointer;
 }
 
@@ -177,6 +185,10 @@
   margin-bottom: var(--reading-h3-space-below, var(--space-md));
 }
 
+:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) h4 {
+  font-weight: var(--reading-h4-weight, var(--reading-heading-weight, 700));
+}
+
 :is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) > :is(h1, h2, h3):first-child {
   margin-top: 0;
 }
@@ -192,6 +204,7 @@
   padding: var(--code-block-padding, var(--space-md));
   overflow-x: auto;
   margin-bottom: var(--space-md);
+  color: var(--code-block-text, inherit);
   font-family: var(--font-mono);
   font-size: var(--code-block-font-size, var(--text-sm));
   line-height: var(--code-block-leading, 1.5);
@@ -238,6 +251,51 @@
   padding: var(--code-chip-padding, 0.15em 0.35em);
   border-radius: var(--code-chip-radius, 3px);
   font-size: var(--code-chip-size, 0.875em);
+}
+
+/* Math, typeset by math_controller with KaTeX. Until KaTeX arrives, or if
+   it can't load, the TeX source reads as code. Once typeset, a math element
+   drops every code treatment and inherits the surrounding text color, so it
+   follows light and dark mode. Footnote definitions also render outside
+   .markdown-rendered: in References and in the citation preview. */
+:is(.markdown-rendered, .reference-citations, .reference-preview) span[data-math-style]:not(.is-math-rendered) {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+:is(.markdown-rendered, .reference-citations, .reference-preview) [data-math-style].is-math-rendered {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+:is(.markdown-rendered, .reference-citations, .reference-preview) pre[data-math-style].is-math-rendered {
+  border-radius: 0;
+  overflow-y: hidden;
+  white-space: normal;
+  line-height: normal;
+}
+
+:is(.markdown-rendered, .reference-citations, .reference-preview) pre[data-math-style].is-math-rendered::before {
+  content: none;
+}
+
+/* Wide display math scrolls on its own line instead of the page. */
+:is(.markdown-rendered, .reference-citations, .reference-preview) .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25em 0;
+}
+
+/* KaTeX shows an expression it can't parse as its source, colored with an
+   inline style; use the theme's danger color so it reads in both modes. */
+:is(.markdown-rendered, .reference-citations, .reference-preview) .katex-error {
+  color: var(--color-danger) !important;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
 }
 
 /* Syntax highlighting — highlight.js token classes mapped onto the
@@ -702,7 +760,7 @@
 
 .markdown-rendered img {
   max-width: 100%;
-  border-radius: var(--radius);
+  border-radius: var(--image-radius, var(--radius));
   outline: var(--image-outline, none);
   outline-offset: -1px;
 }
@@ -711,7 +769,7 @@
    its reading layout. Only the corner affordance appears on hover/focus. */
 .document-editor__image { position: relative; display: inline-block; max-width: 100%; vertical-align: top; line-height: 0; }
 .document-editor__image img { display: block; height: auto; }
-.document-editor__image-handle { --image-handle-opacity: 0; position: absolute; right: 0; bottom: 0; display: grid; place-items: end; width: 36px; height: 36px; padding: 2px; border: 0; border-radius: 0 0 var(--radius) 0; background: transparent; color: rgb(51 65 85 / .65); cursor: nwse-resize; touch-action: none; transition: color .18s ease; }
+.document-editor__image-handle { --image-handle-opacity: 0; position: absolute; right: 0; bottom: 0; display: grid; place-items: end; width: 36px; height: 36px; padding: 2px; border: 0; border-radius: 0 0 var(--image-radius, var(--radius)) 0; background: transparent; color: rgb(51 65 85 / .65); cursor: nwse-resize; touch-action: none; transition: color .18s ease; }
 /* Clear glass picks up the image beneath it, including in dark mode. Keep
    the triangular paint separate from the larger rectangular grab area.
    Fade the painted layers, never their parent: parent opacity below 1
@@ -760,6 +818,12 @@
 .markdown-rendered details[open] summary {
   border-bottom: 1px solid var(--color-border);
   margin-bottom: var(--space-md);
+}
+
+/* Raised text keeps the line's height, so a footnote marker doesn't push
+   its line apart from the others. */
+.markdown-rendered :is(sup, sub) {
+  line-height: 0;
 }
 
 .markdown-rendered .footnote-ref a,

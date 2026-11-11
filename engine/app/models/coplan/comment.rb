@@ -10,6 +10,7 @@ module CoPlan
     # a foreign key. They're delivery records for a comment that no longer
     # exists — they go with it.
     has_many :notifications, class_name: "CoPlan::Notification", dependent: :delete_all
+    has_many :reactions, class_name: "CoPlan::CommentReaction", dependent: :delete_all
     belongs_to :api_token, class_name: "CoPlan::ApiToken", optional: true
     belongs_to :agent_harness, class_name: "CoPlan::AgentHarness", optional: true
 
@@ -46,6 +47,15 @@ module CoPlan
 
     def soft_delete!
       update!(deleted_at: Time.current)
+    end
+
+    # Call in the same transaction that changes this comment's reactions.
+    # Pages keep whichever render of the reactions has the highest version,
+    # so an older render that arrives late can't undo a newer one. A render
+    # always reads the comment before its reactions, which keeps the version
+    # from claiming more than the reactions it shows.
+    def bump_reactions_version!
+      self.class.where(id: id).update_all("reactions_version = reactions_version + 1")
     end
 
     # Resolves the comment author to a CoPlan::User instance, or nil for

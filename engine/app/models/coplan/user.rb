@@ -4,6 +4,12 @@ module CoPlan
     # predate app themes and are persisted, so they stay.
     THEME_PREFERENCES = %w[system light dark].freeze
 
+    # The app theme picked in Settings (docs/THEMES.md). "default" follows
+    # the host's config.default_theme, so a host can change it for everyone
+    # who hasn't chosen.
+    DEFAULT_APP_THEME = "default".freeze
+    APP_THEMES = ([ DEFAULT_APP_THEME ] + Themes.keys).freeze
+
     # Which key holds the microphone open for push-to-talk commenting.
     # A short list rather than a free capture: each one carries its own
     # feel in the browser (a bare modifier needs a hold delay, because
@@ -29,12 +35,17 @@ module CoPlan
     has_many :created_folders, class_name: "CoPlan::Folder", foreign_key: :created_by_user_id, dependent: :nullify, inverse_of: :created_by_user
     has_many :plan_collaborators, dependent: :destroy
     has_many :notifications, dependent: :destroy
+    has_many :comment_reactions, class_name: "CoPlan::CommentReaction", dependent: :delete_all
     has_many :review_requests, foreign_key: :reviewer_id, dependent: :destroy
     has_many :web_push_subscriptions, class_name: "CoPlan::WebPushSubscription", dependent: :destroy
 
     validates :external_id, presence: true, uniqueness: true
     # Settings belong to the engine; metadata is replaceable host/directory data.
     validates :theme_preference, inclusion: { in: THEME_PREFERENCES }
+    # Only a new choice is checked: a later Coplan release can remove a
+    # theme, and the sign-in sync must still save users who picked it. Their
+    # pages fall back to the default (Themes.resolve).
+    validates :app_theme, inclusion: { in: APP_THEMES }, if: :app_theme_changed?
     validates :voice_hotkey, inclusion: { in: VOICE_HOTKEYS }
     validates :name, presence: true
     validates :email, uniqueness: true, allow_nil: true
@@ -45,7 +56,7 @@ module CoPlan
     after_initialize { self.notification_preferences ||= {} }
 
     # People sync creates user records for colleagues who have never used
-    # CoPlan. Keep those records passive until the app needs a library,
+    # Coplan. Keep those records passive until the app needs a library,
     # whether on sign-in, a profile visit, or rendering an author link.
     def library
       @library ||= Library.for(self)

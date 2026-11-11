@@ -71,7 +71,17 @@
   font-size: 12px; line-height: 1.5; max-height: 54px; overflow: auto;
   border-left: 2px solid var(--color-primary); background: var(--color-interaction-hover-bg); margin: 0 0 8px;
 }
-.composer { min-width: 0; }
+.composer { min-width: 0; position: relative; }
+.composer__link { position: fixed; inset: auto; margin: 0; box-sizing: border-box; padding: 12px; max-height: calc(100dvh - 24px); overflow: auto; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); color: var(--color-text); box-shadow: 0 8px 32px #0003; }
+.composer__link-results { max-height: 180px; overflow: auto; font-size: 12px; color: var(--color-text-muted); margin-top: 8px; }
+.composer__link-result { display: block; width: 100%; padding: 8px; border: 0; border-radius: 6px; text-align: left; background: transparent; color: var(--color-text); font: inherit; cursor: pointer; }
+.composer__link-result:hover, .composer__link-result:focus-visible { background: var(--color-interaction-hover-bg); outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.composer__link-result small { display: block; color: var(--color-text-muted); }
+.composer__link[hidden] { display: none; }
+.composer__link label { display: block; font-size: 12px; color: var(--color-text-muted); }
+.composer__link input { display: block; box-sizing: border-box; width: 100%; margin-top: 4px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-surface); color: var(--color-text); font: 13px var(--font-sans); }
+.composer__link input:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+.composer__link .composer__send-actions { justify-content: flex-end; margin-top: 8px; }
 .composer__writing { display: flex; flex-direction: column; min-height: 0; }
 .composer .composer__input {
   width: 100%; min-height: 70px; padding: 9px 10px; margin: 0;
@@ -101,6 +111,7 @@
 .comment-window[data-resized] .thread-popover__reply .comment-thread__reply,
 .comment-window[data-resized] .thread-popover__reply form,
 .comment-window[data-resized] .composer,
+.comment-window[data-resized] .composer__draft,
 .comment-window[data-resized] .composer__writing { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .comment-window[data-resized] { overflow: hidden; }
 .comment-window[data-resized] .composer__input { flex: 1; }
@@ -241,6 +252,8 @@ button.visibility-option__button:hover:not(:disabled) { background: var(--color-
 .review-assignment-form__footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; }
 .review-dialog .review-required { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--color-text); cursor: pointer; }
 .review-dialog .review-required input { width: 15px; height: 15px; padding: 0; margin: 0; accent-color: var(--color-primary); }
+.review-reset-policy { margin-bottom: 20px; }
+.review-reset-policy p { margin: 6px 0 0 23px; }
 .review-search-results { position: absolute; z-index: 1; top: calc(100% + 6px); left: 0; right: 0; max-height: 210px; overflow: auto; padding: 6px; border: 1px solid var(--glass-edge); border-radius: 10px; background: var(--color-surface); color: var(--color-text-muted); box-shadow: var(--shadow-lg); font-size: 12px; }
 .review-search-results[hidden] { display: none; }
 .review-search-result {
@@ -491,7 +504,7 @@ body:has(.review-tray[data-completed="true"]:not([data-reconsidering="true"]):no
 
 
 .document-editor__footnote { color: var(--color-primary); font-size: 0.7em; white-space: nowrap; }
-.document-editor__footnote button { border: 0; background: transparent; color: inherit; padding: 0 2px; font: inherit; cursor: pointer; border-radius: 3px; }
+.document-editor__footnote button { border: 0; background: transparent; color: inherit; padding: 0 2px; font: inherit; line-height: 1; cursor: pointer; border-radius: 3px; }
 .document-editor__footnote button:hover { background: var(--color-interaction-hover-bg); }
 .document-editor__footnote button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .document-editor__block-source { display: block; width: 100%; min-height: 320px; resize: vertical; border: 0; padding: 18px; background: var(--color-surface); color: var(--color-text); font: 14px/1.7 var(--font-mono, monospace); box-sizing: border-box; }
@@ -528,3 +541,6 @@ body:has(.review-tray[data-completed="true"]:not([data-reconsidering="true"]):no
 
 /* Live content and the inline editor share this reader, including empty plans. */
 .plan-reader:has(.markdown-rendered > *) > .empty-state { display: none; }
+
+.review-reset-policy__status { display: inline-block; width: 1em; color: var(--color-text-muted); opacity: 0; }
+.review-reset-policy__status[data-state="saved"] { opacity: 1; }

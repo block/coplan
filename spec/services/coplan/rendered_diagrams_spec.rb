@@ -74,17 +74,38 @@ RSpec.describe CoPlan::RenderedDiagrams do
       expect(described_class.stale_images(plan)).to be_empty
 
       plan = edit(plan, "# Diagram\n\nIntro.\n\n#{fence("digraph { a -> c }")}")
-      expect(described_class.stale_images(plan)).to eq(Set["/rails/active_storage/blobs/a/flow.png"])
+      expect(described_class.stale_images(plan)).to eq(Set[described_class.fingerprint(described_class.blocks(plan.current_content).sole)])
 
       plan = edit(plan, "# Diagram\n\nIntro.\n\n#{fence("digraph { a -> c }", image: "/rails/active_storage/blobs/b/flow.png")}")
       expect(described_class.stale_images(plan)).to be_empty
+    end
+
+    it "marks only the changed source when figures share an image" do
+      plan = CoPlan::Plans::Create.call(title: "Diagram", content: fence("a") + "\n" + fence("a"), user: user)
+      plan = edit(plan, fence("a") + "\n" + fence("b"))
+      blocks = described_class.blocks(plan.current_content)
+      expect(described_class.stale_images(plan)).to eq(Set[described_class.fingerprint(blocks.last)])
+    end
+
+    it "reuses the immutable baseline across versions without querying history again" do
+      cache = ActiveSupport::Cache::MemoryStore.new
+      allow(Rails).to receive(:cache).and_return(cache)
+      plan = CoPlan::Plans::Create.call(title: "Diagram", content: fence("a"), user: user)
+      described_class.stale_images(plan)
+      plan = edit(plan, fence("b"))
+      queries = []
+      subscriber = ->(*args) { queries << args.last[:sql] if args.last[:sql].include?("content_markdown LIKE") }
+      ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") do
+        expect(described_class.stale_images(plan)).not_to be_empty
+      end
+      expect(queries).to be_empty
     end
 
     it "matches an image URL literally, not as a LIKE pattern" do
       plan = CoPlan::Plans::Create.call(title: "Diagram", content: fence("a", image: "/x/a%b_c.png"), user: user)
       plan = edit(plan, fence("b", image: "/x/a%b_c.png"))
 
-      expect(described_class.stale_images(plan)).to eq(Set["/x/a%b_c.png"])
+      expect(described_class.stale_images(plan)).to eq(Set[described_class.fingerprint(described_class.blocks(plan.current_content).sole)])
     end
   end
 end

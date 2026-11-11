@@ -127,8 +127,8 @@ RSpec.describe "Folders workspace", type: :system do
     end
 
     it "goes up to the plan's containing folder from the masthead and sticky nav" do
-      foldered_plan.current_plan_version.update!(
-        content_markdown: (1..30).map { |n| "## Section #{n}\n\nEnough content to scroll past the masthead." }.join("\n\n")
+      set_version_fixture(foldered_plan.current_plan_version,
+        content_markdown: "# #{foldered_plan.title}\n\n" + (1..30).map { |n| "## Section #{n}\n\nEnough content to scroll past the masthead." }.join("\n\n")
       )
       # The masthead links straight at the canonical browsable path, so
       # clicking it lands there with no redirect hop.
@@ -301,17 +301,16 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page.evaluate_script("document.querySelector('#workspace-add-menu').matches(':popover-open')")).to eq(false)
       within("#new-plan-modal") { click_link "Design Doc" }
 
-      title = find("#plan-header .inline-editor__title[contenteditable='plaintext-only']", wait: 20)
-      expect(title.text).to be_empty
+      title = find(".inline-editor .ProseMirror > h1:first-child", wait: 20)
+      expect(title.text).to eq("Untitled")
       expect(page).to have_css(".inline-editor .ProseMirror", text: "Problem")
       expect(page).to have_css('.document-editor__inline-mode button[data-mode="rich"][aria-pressed="true"]')
       expect(CoPlan::Plan.where(plan_type: type)).to be_empty
 
-      title.send_keys("My design")
-      expect(CoPlan::Plan.where(plan_type: type)).to be_empty
+      select_document_title
+      page.driver.browser.action.send_keys("My design").perform
       page.execute_script("window.draftEditorForm = document.querySelector('.inline-editor form.document-editor')")
-      find(".inline-editor .ProseMirror").click
-      page.driver.browser.action.send_keys("Details to write.").perform
+      find(".inline-editor .ProseMirror").send_keys(:end, :enter, "Details to write.")
       expect(page).to have_css("[data-coplan--inline-editor-target='draftState']", text: "Saved · v1", wait: 20)
       expect(page.evaluate_script("window.draftEditorForm === document.querySelector('.inline-editor form.document-editor')")).to eq(true)
       expect(page.evaluate_script("document.querySelector('.inline-editor .ProseMirror').contains(document.activeElement)")).to eq(true)
@@ -333,7 +332,7 @@ RSpec.describe "Folders workspace", type: :system do
       within("#workspace-add-menu") { click_button "Plan" }
       within("#new-plan-modal") { click_link "Scratchpad" }
 
-      expect(page).to have_css("#plan-header .inline-editor__title[contenteditable='plaintext-only']", wait: 20)
+      expect(page).to have_css(".inline-editor .ProseMirror > h1:first-child", wait: 20)
       expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']")
       expect(CoPlan::Plan.find_by(title: "Untitled plan")).to be_nil
     end
@@ -346,7 +345,6 @@ RSpec.describe "Folders workspace", type: :system do
       within("#new-plan-modal") { click_link "Scratchpad" }
       expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
 
-      find("#plan-header .inline-editor__title").send_keys("Just a title")
       click_link "Done"
 
       expect(page).to have_current_path(folder_page_path(team))
@@ -374,7 +372,7 @@ RSpec.describe "Folders workspace", type: :system do
       within("#workspace-add-menu") { click_button "Plan" }
       within("#new-plan-modal") { click_link "Presentation" }
 
-      expect(page).to have_css("#plan-header .inline-editor__title[contenteditable='plaintext-only']", wait: 20)
+      expect(page).to have_css(".inline-editor .ProseMirror > h1:first-child", wait: 20)
       expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']")
     end
 

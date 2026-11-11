@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import { registerShortcuts, commandFor } from "coplan/shortcuts"
+import { readableText } from "coplan/math_text"
 
 const STORAGE_KEY = "coplan:content-nav-visible"
 
@@ -50,15 +51,17 @@ export default class extends Controller {
     // A document renders one .markdown-rendered; a deck renders one per
     // slide. Scan the whole content column either way — scanning the first
     // rendered block gave a deck an outline of slide 1 and nothing else.
-    this._headings = Array.from(documentRoot.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3"))
+    const headings = Array.from(documentRoot.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3"))
+    // The title is part of the document and is a navigable heading too.
+    this._headings = headings
 
-    if (this._headings.length === 0) {
+    if (headings.length === 0) {
       this.sidebarTarget.style.display = "none"
       if (this.hasShowBtnTarget) this.showBtnTarget.style.display = "none"
       return
     }
     this.sidebarTarget.style.display = ""
-    if (this.hasShowBtnTarget) this.showBtnTarget.style.display = ""
+    if (this.hasShowBtnTarget) Object.assign(this.showBtnTarget.style, { display: "", visibility: "" })
 
     // Commonmarker supplies an empty self-link inside each heading. Promote
     // its generated fragment to the heading itself when that heading does
@@ -86,7 +89,7 @@ export default class extends Controller {
     this._headings.forEach((heading, index) => {
       heading.querySelector(":scope > .section-permalink")?.remove()
       const promotedAnchor = promotedAnchors.get(heading)
-      const headingText = heading.textContent.trim().replace(/\s+/g, " ")
+      const headingText = readableText(heading).trim().replace(/\s+/g, " ")
       let baseId = heading.id || promotedAnchor?.id || this.slugify(headingText) || `section-${index + 1}`
       let id = baseId
       let suffix = 2
@@ -157,13 +160,14 @@ export default class extends Controller {
     this.sidebarTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
     // The toolbar owns this action while editing. The reader's floating
     // button would cover formatting when an empty notice no longer reserves
-    // a row above the editor.
-    if (this.hasShowBtnTarget) this.showBtnTarget.style.display = "none"
+    // a row above the editor. Hide it without giving up its width: it sizes
+    // the column the title and body share, which must not jump on Edit.
+    if (this.hasShowBtnTarget) this.showBtnTarget.style.visibility = "hidden"
     this.updateEditorToggle()
 
     const used = new Set()
     this._headings.forEach((heading, index) => {
-      const title = heading.textContent.trim().replace(/\s+/g, " ")
+      const title = readableText(heading).trim().replace(/\s+/g, " ")
       const base = this.slugify(title) || `section-${index + 1}`
       let id = base, suffix = 2
       while (used.has(id)) id = `${base}-${suffix++}`

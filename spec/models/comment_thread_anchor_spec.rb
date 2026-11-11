@@ -129,6 +129,40 @@ RSpec.describe CoPlan::CommentThread, "anchor tracking" do
       thread
     end
 
+    context "when anchor text sits next to math" do
+      let(:math_markdown) { "The relation $E = mc^2$ links mass and energy.\n\n```math\nx^2\n```\n\nCosts $5 and $10 stay text.\n" }
+
+      it "treats math as atomic, so a selection across it spans the formula's source" do
+        assert_anchor_resolves(math_markdown, "relation links", "relation $E = mc^2$ links")
+      end
+
+      it "anchors on the text beside math" do
+        assert_anchor_resolves(math_markdown, "links mass", "links mass")
+        assert_anchor_resolves("Before $$\na^2\n$$ after words.", "after words", "after words")
+      end
+
+      it "keeps currency dollars anchorable as text" do
+        assert_anchor_resolves(math_markdown, "Costs $5 and $10", "Costs $5 and $10")
+      end
+
+      it "leaves math out of the extracted text, matching the browser's anchor text model" do
+        stripped, pos_map = CoPlan::CommentThread.strip_markdown(math_markdown)
+
+        expect(stripped).to eq("The relation  links mass and energy.\nCosts $5 and $10 stay text.")
+        expect(stripped).not_to include("mc^2")
+        stripped.each_char.with_index do |char, i|
+          expect(math_markdown[pos_map[i]]).to eq(char) unless pos_map[i] == -1
+        end
+      end
+
+      it "keeps a fence that only starts with math as ordinary code text" do
+        stripped, _ = CoPlan::CommentThread.strip_markdown("```math notes\nkept\n```\n\n```math\ndropped\n```\n")
+
+        expect(stripped).to include("kept")
+        expect(stripped).not_to include("dropped")
+      end
+    end
+
     context "when anchor text spans markdown formatting" do
       it "inline code (backticks)" do
         assert_anchor_resolves(
@@ -797,7 +831,7 @@ RSpec.describe CoPlan::CommentThread, "structured source anchor tracking" do
 
   it "moves the exact duplicate's range through unrelated edits" do
     replace_content("Preface 🌱\n\n#{content}")
-    expect(thread).to have_attributes(anchor_start: target["start"] + "Preface 🌱\n\n".length,
+    expect(thread).to have_attributes(anchor_start: target["start"] + "# #{plan.title}\n\nPreface 🌱\n\n".length,
       anchor_revision: 2, out_of_date: false, anchor_kind: "table_cell")
     expect(plan.current_content[thread.anchor_start...thread.anchor_end]).to eq(" same ")
   end

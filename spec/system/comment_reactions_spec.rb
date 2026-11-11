@@ -1,0 +1,495 @@
+require "rails_helper"
+
+RSpec.describe "Comment reactions", type: :system do
+  let(:viewer) { create(:coplan_user, email: "reactions-viewer@example.com", name: "Hampton") }
+  let(:sam) { create(:coplan_user, email: "reactions-sam@example.com", name: "Sam Chen") }
+  let(:content) do
+    <<~MARKDOWN
+      # Reaction plan
+
+      The cache keeps results warm between deploys.
+
+      | Name | Status |
+      |---|---|
+      | Receipt | queued |
+    MARKDOWN
+  end
+  let(:plan) do
+    CoPlan::Plan.create!(title: "Reaction plan", created_by_user: viewer).tap do |p|
+      version = create(:plan_version, plan: p, revision: 1, content_markdown: content)
+      p.update!(current_plan_version: version, current_revision: 1)
+    end
+  end
+  let!(:thread_record) do
+    plan.comment_threads.create!(plan_version: plan.current_plan_version, anchor_text: "keeps results warm",
+      anchor_occurrence: 1, created_by_user: sam, status: "open")
+  end
+  let!(:comment) do
+    thread_record.comments.create!(author_type: "human", author_id: sam.id, body_markdown: "How long do results stay warm?")
+  end
+
+  def sign_in(user)
+    visit sign_in_path
+    fill_in "Email address", with: user.email
+    click_button "Sign In"
+    expect(page).to have_no_current_path(sign_in_path)
+    expect(page).to have_button("Menu")
+  end
+
+  def open_thread
+    visit plan_page_path(plan)
+    find("mark[data-thread-id='comment_thread_#{thread_record.id}']").click
+    find(".thread-popover:popover-open")
+  end
+
+  def wait_for(timeout: Capybara.default_max_wait_time)
+    Timeout.timeout(timeout) { sleep 0.05 until yield }
+  end
+
+  def have_reaction(kind, count:, pressed:)
+    have_css(".comment-reaction[data-kind='#{kind}'][aria-pressed='#{pressed}'] .comment-reaction__count", exact_text: count.to_s)
+  end
+
+  # Assert that a confirmed snapshot carries the saved server version.
+  def have_saved_reactions
+    have_css(".comment-reactions[data-version='#{comment.reload.reactions_version}']")
+  end
+
+  def chip(scope, emoji)
+    scope.find(".comment-reaction", text: emoji)
+  end
+
+  def create_table_thread
+    _, start, finish = CoPlan::Plans::SourceTargets.new(plan.current_content).ranges.find { |kind, *| kind == "table_cell" }
+    token = CoPlan::Plans::SourceTargets.verifier.generate(
+      { "digest" => Digest::SHA256.hexdigest(plan.current_content), "kind" => "table_cell",
+        "start" => start, "end" => finish, "label" => "Status" }, purpose: "comment")
+    plan.comment_threads.create!(plan_version: plan.current_plan_version, source_token: token,
+      created_by_user: sam, status: "open").tap do |table_thread|
+      table_thread.comments.create!(author_type: "human", author_id: sam.id, body_markdown: "Queued for how long?")
+    end
+  end
+
+  def open_table_discussion
+    visit plan_page_path(plan)
+    find(".data-grid .source-thread-badge").click
+    find(".source-comments", visible: true).tap { |panel| expect(panel).to have_text("Queued for how long?") }
+  end
+
+  before { sign_in(viewer) }
+
+  it "marks the viewer's own reactions as pressed and names who reacted" do
+    create(:comment_reaction, comment: comment, user: viewer, kind: "thumbs_up")
+    create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")
+    create(:comment_reaction, comment: comment, user: sam, kind: "tada")
+
+    popover = open_thread
+
+    expect(popover).to have_css(".comment-reaction[aria-pressed='true']", text: "👍")
+    expect(popover).to have_css(".comment-reaction[aria-pressed='false']", text: "🎉")
+    expect(chip(popover, "👍")[:"aria-label"]).to eq("You, Sam Chen reacted with thumbs up")
+    expect(chip(popover, "🎉")[:"aria-label"]).to eq("Sam Chen reacted with party popper")
+
+    chip(popover, "🎉").hover
+    expect(page).to have_css(".comment-reactions__tooltip:popover-open[data-text='Sam Chen reacted with 🎉']", visible: :all)
+    chip(popover, "👍").hover
+    expect(page).to have_css(".comment-reactions__tooltip:popover-open[data-text='You, Sam Chen reacted with 👍']", visible: :all)
+  end
+
+  it "adds and removes reactions in place without reloading" do
+    create(:comment_reaction, comment: comment, user: sam, kind: "tada")
+    popover = open_thread
+    page.execute_script("window.reactionsPageMarker = true")
+
+    popover.find(".comment-reactions__add").click
+    expect(page).to have_css(".comment-reactions__picker:popover-open")
+    find(".comment-reactions__picker:popover-open .comment-reactions__option", text: "🚀").click
+
+    expect(popover).to have_reaction("rocket", count: 1, pressed: true)
+    expect(page).to have_no_css(".comment-reactions__picker:popover-open")
+    wait_for { comment.reactions.where(user: viewer, kind: "rocket").exists? }
+    expect(popover).to have_saved_reactions
+
+    chip(popover, "🎉").click
+    expect(popover).to have_reaction("tada", count: 2, pressed: true)
+    wait_for { comment.reactions.where(kind: "tada").count == 2 }
+    expect(popover).to have_saved_reactions
+
+    chip(popover, "🎉").click
+    expect(popover).to have_reaction("tada", count: 1, pressed: false)
+    chip(popover, "🚀").click
+    expect(popover).to have_no_css(".comment-reaction", text: "🚀")
+    wait_for { comment.reactions.where(user: viewer).count == 0 }
+
+    expect(page).to have_css(".thread-popover:popover-open")
+    expect(page.evaluate_script("window.reactionsPageMarker")).to be(true)
+  end
+
+  it "shows another person's reaction live" do
+    popover = open_thread
+
+    reaction = create(:comment_reaction, comment: comment, user: sam, kind: "eyes")
+    comment.bump_reactions_version!
+    CoPlan::Broadcaster.replace_to(plan, target: ActionView::RecordIdentifier.dom_id(comment, :reactions),
+      partial: "coplan/comments/reactions", locals: { comment: reaction.comment.reload })
+
+    expect(popover).to have_reaction("eyes", count: 1, pressed: false)
+  end
+
+  it "closes the picker when the comment window scrolls" do
+    popover = open_thread
+    popover.find(".comment-reactions__add").click
+    expect(page).to have_css(".comment-reactions__picker:popover-open")
+
+    page.execute_script("document.querySelector('.thread-popover:popover-open .thread-popover__comments').dispatchEvent(new Event('scroll'))")
+
+    expect(page).to have_no_css(".comment-reactions__picker:popover-open")
+    expect(page).to have_css(".thread-popover:popover-open")
+  end
+
+  it "ignores a replacement older than the chips on screen" do
+    popover = open_thread
+    target = ActionView::RecordIdentifier.dom_id(comment, :reactions)
+    stale = CoPlan::ApplicationController.render(partial: "coplan/comments/reactions", locals: { comment: comment })
+    create(:comment_reaction, comment: comment, user: sam, kind: "eyes")
+    comment.bump_reactions_version!
+    CoPlan::Broadcaster.replace_to(plan, target: target, partial: "coplan/comments/reactions", locals: { comment: comment.reload })
+    expect(popover).to have_reaction("eyes", count: 1, pressed: false)
+
+    page.execute_script(<<~JS, target, stale)
+      window.Turbo.renderStreamMessage(`<turbo-stream action="replace" target="${arguments[0]}"><template>${arguments[1]}</template></turbo-stream>`)
+    JS
+    sleep 0.2
+    expect(popover).to have_reaction("eyes", count: 1, pressed: false)
+  end
+
+  %w[comment thread].each do |ancestor|
+    it "preserves newer reactions inside a stale #{ancestor} replacement" do
+      popover = open_thread
+      target = ancestor == "comment" ? "comment_#{comment.id}" : "comment_thread_#{thread_record.id}"
+      stale = page.evaluate_script("document.getElementById(arguments[0]).outerHTML", target)
+      create(:comment_reaction, comment: comment, user: sam, kind: "eyes")
+      comment.bump_reactions_version!
+      CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{comment.id}",
+        partial: "coplan/comments/reactions", locals: { comment: comment.reload })
+      expect(popover).to have_reaction("eyes", count: 1, pressed: false)
+
+      page.execute_script(<<~JS, target, stale)
+        const html = arguments[1].replace("How long do results stay warm?", "Updated comment body")
+        window.Turbo.renderStreamMessage(`<turbo-stream action="replace" target="${arguments[0]}"><template>${html}</template></turbo-stream>`)
+      JS
+      expect(page).to have_css("##{target}", text: "Updated comment body", visible: :all)
+      expect(page).to have_css("#reactions_comment_#{comment.id}[data-version='#{comment.reactions_version}'] .comment-reaction[data-kind='eyes']", visible: :all)
+    end
+  end
+
+  [ [ "thumbs_up", "tada" ], [ "thumbs_up", "thumbs_up" ] ].each do |kinds|
+    it "rolls back both failed queued changes for #{kinds.join(' then ')}" do
+      create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")
+      create(:comment_reaction, comment: comment, user: sam, kind: "tada")
+      popover = open_thread
+      page.execute_script(<<~JS, kinds)
+        window.reactionFailures = []
+        const originalFetch = window.fetch
+        window.fetch = (url, options) => options?.method === "PATCH" && String(url).endsWith("/reactions")
+          ? new Promise((resolve, reject) => window.reactionFailures.push(reject))
+          : originalFetch(url, options)
+        for (const kind of arguments[0]) {
+          document.querySelector(`.thread-popover:popover-open .comment-reaction[data-kind="${kind}"]`).click()
+        }
+      JS
+      wait_for { page.evaluate_script("window.reactionFailures.length") == 1 }
+      page.execute_script("window.reactionFailures.shift()(new Error('offline'))")
+      wait_for { page.evaluate_script("window.reactionFailures.length") == 1 }
+      page.execute_script("window.reactionFailures.shift()(new Error('offline'))")
+      expect(page).to have_css(".toasts__toast", text: "Couldn't save your reaction.", count: 2)
+      expect(popover).to have_reaction("thumbs_up", count: 1, pressed: false)
+      expect(popover).to have_reaction("tada", count: 1, pressed: false)
+      expect(comment.reactions.where(user: viewer)).to be_empty
+    end
+  end
+
+  it "keeps an earlier saved choice when the next queued change fails" do
+    create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")
+    popover = open_thread
+    page.execute_script(<<~JS)
+      const originalFetch = window.fetch
+      let requests = 0
+      window.fetch = (url, options) => {
+        if (options?.method === "PATCH" && String(url).endsWith("/reactions") && ++requests === 2) {
+          return Promise.reject(new Error("offline"))
+        }
+        return originalFetch(url, options)
+      }
+      const chip = document.querySelector('.thread-popover:popover-open .comment-reaction[data-kind="thumbs_up"]')
+      chip.click()
+      chip.click()
+    JS
+    expect(page).to have_css(".toasts__toast", text: "Couldn't save your reaction.")
+    expect(popover).to have_reaction("thumbs_up", count: 2, pressed: true)
+    expect(comment.reactions.where(user: viewer, kind: "thumbs_up")).to exist
+  end
+
+  [ true, false ].each do |broadcasts|
+    it "retains saved snapshots and pending choices with broadcasts #{broadcasts ? 'enabled' : 'unavailable'}" do
+      create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")
+      create(:comment_reaction, comment: comment, user: sam, kind: "tada")
+      popover = open_thread
+      target = "comment_#{comment.id}"
+      stale = page.evaluate_script("document.getElementById(arguments[0]).outerHTML", target)
+      allow(CoPlan::Broadcaster).to receive(:replace_to) unless broadcasts
+      page.execute_script(<<~JS)
+        const originalFetch = window.fetch
+        let requests = 0
+        window.fetch = (url, options) => {
+          if (options?.method !== "PATCH" || !String(url).endsWith("/reactions")) return originalFetch(url, options)
+          if (++requests === 1) {
+            return originalFetch(url, options).then(response => new Promise(resolve => {
+              window.releaseSavedReaction = () => resolve(response)
+            }))
+          }
+          return new Promise((resolve, reject) => { window.rejectQueuedReaction = reject })
+        }
+        for (const kind of ["thumbs_up", "tada"]) {
+          document.querySelector(`.thread-popover:popover-open .comment-reaction[data-kind="${kind}"]`).click()
+        }
+      JS
+      wait_for { page.evaluate_script("typeof window.releaseSavedReaction === 'function'") }
+      page.execute_script("window.releaseSavedReaction()")
+      wait_for { page.evaluate_script("typeof window.rejectQueuedReaction === 'function'") }
+      expect(popover).to have_saved_reactions
+      expect(popover).to have_reaction("thumbs_up", count: 2, pressed: true)
+      expect(popover).to have_reaction("tada", count: 2, pressed: true)
+
+      page.execute_script("window.rejectQueuedReaction(new Error('offline'))")
+      expect(page).to have_css(".toasts__toast", text: "Couldn't save your reaction.")
+      expect(popover).to have_reaction("tada", count: 1, pressed: false)
+      page.execute_script(<<~JS, target, stale)
+        const html = arguments[1].replace("How long do results stay warm?", "Updated comment after queued failure")
+        window.Turbo.renderStreamMessage(`<turbo-stream action="replace" target="${arguments[0]}"><template>${html}</template></turbo-stream>`)
+      JS
+      expect(popover).to have_text("Updated comment after queued failure")
+      expect(popover).to have_saved_reactions
+      expect(popover).to have_reaction("thumbs_up", count: 2, pressed: true)
+      expect(popover).to have_reaction("tada", count: 1, pressed: false)
+    end
+  end
+
+  [ "redirect", "html" ].each do |response_kind|
+    it "rolls back a successful HTTP #{response_kind} response that did not save a reaction" do
+      create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")
+      popover = open_thread
+      page.execute_script(<<~JS, response_kind)
+        const redirected = arguments[0] === "redirect"
+        const originalFetch = window.fetch
+        window.fetch = (url, options) => options?.method === "PATCH" && String(url).endsWith("/reactions")
+          ? Promise.resolve({ ok: true, redirected,
+              headers: new Headers({ "Content-Type": redirected ? "text/vnd.turbo-stream.html" : "text/html" }),
+              text: async () => "<h1>Sign in</h1>" })
+          : originalFetch(url, options)
+      JS
+      chip(popover, "👍").click
+      expect(page).to have_css(".toasts__toast", text: "Couldn't save your reaction.")
+      expect(popover).to have_reaction("thumbs_up", count: 1, pressed: false)
+      expect(comment.reactions.where(user: viewer)).to be_empty
+    end
+  end
+
+  [ true, false ].each do |reacted|
+    it "preserves a newer same-account broadcast after a failed #{reacted ? 'add' : 'remove'}" do
+      create(:comment_reaction, comment: comment, user: sam, kind: "thumbs_up")
+      create(:comment_reaction, comment: comment, user: viewer, kind: "thumbs_up") unless reacted
+      popover = open_thread
+      page.execute_script(<<~JS)
+        const originalFetch = window.fetch
+        window.fetch = (url, options) => options?.method === "PATCH" && String(url).endsWith("/reactions")
+          ? new Promise((resolve, reject) => { window.rejectReaction = reject })
+          : originalFetch(url, options)
+      JS
+      chip(popover, "👍").click
+      wait_for { page.evaluate_script("typeof window.rejectReaction === 'function'") }
+      if reacted
+        create(:comment_reaction, comment: comment, user: viewer, kind: "thumbs_up")
+      else
+        comment.reactions.where(user: viewer).delete_all
+      end
+      comment.bump_reactions_version!
+      CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{comment.id}",
+        partial: "coplan/comments/reactions", locals: { comment: comment.reload })
+      expect(popover).to have_saved_reactions
+      page.execute_script("window.rejectReaction(new Error('offline'))")
+      expect(page).to have_css(".toasts__toast", text: "Couldn't save your reaction.")
+      expect(popover).to have_reaction("thumbs_up", count: reacted ? 2 : 1, pressed: reacted)
+    end
+  end
+
+  %w[inline table].each do |surface|
+    %w[chip add].each do |control|
+      it "keeps a held Space on the #{surface} #{control} through a broadcast" do
+        target_comment = surface == "table" ? create_table_thread.comments.first : comment
+        create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")
+        scope = surface == "table" ? open_table_discussion : open_thread
+        button = control == "chip" ? chip(scope, "👍") : scope.find(".comment-reactions__add")
+        page.execute_script("arguments[0].focus()", button)
+        page.driver.browser.action.key_down(:space).perform
+        page.execute_script("document.addEventListener('turbo:before-stream-render', () => window.reactionStreamReceived = true, { once: true })")
+        create(:comment_reaction, comment: target_comment, user: sam, kind: "eyes")
+        target_comment.bump_reactions_version!
+        CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{target_comment.id}",
+          partial: "coplan/comments/reactions", locals: { comment: target_comment.reload })
+        wait_for { page.evaluate_script("window.reactionStreamReceived === true") }
+        sleep 0.2 # Keep Space down while the stream attempts to render.
+        page.driver.browser.action.key_up(:space).perform
+        if control == "add"
+          expect(scope).to have_css(".comment-reactions__picker:popover-open")
+          scope.find(".comment-reactions__option[data-kind='rocket']").send_keys(:space)
+          wait_for { target_comment.reactions.where(user: viewer, kind: "rocket").exists? }
+        else
+          wait_for { target_comment.reactions.where(user: viewer, kind: "thumbs_up").exists? }
+        end
+        expect(scope).to have_reaction("eyes", count: 1, pressed: false)
+      end
+    end
+
+    it "retains #{surface} keyboard focus after saved reaction changes" do
+      target_comment = surface == "table" ? create_table_thread.comments.first : comment
+      create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")
+      scope = surface == "table" ? open_table_discussion : open_thread
+      chip(scope, "👍").send_keys(:space)
+      wait_for { target_comment.reactions.where(user: viewer, kind: "thumbs_up").exists? }
+      expect(scope).to have_css(".comment-reactions[data-version='#{target_comment.reload.reactions_version}']")
+      expect(scope).to have_css(".comment-reaction[data-kind='thumbs_up']:focus")
+      scope.find(".comment-reactions__add").send_keys(:space)
+      scope.find(".comment-reactions__option[data-kind='rocket']").send_keys(:space)
+      wait_for { target_comment.reactions.where(user: viewer, kind: "rocket").exists? }
+      expect(scope).to have_css(".comment-reactions[data-version='#{target_comment.reload.reactions_version}']")
+      expect(scope).to have_css(".comment-reactions__add:focus")
+      chip(scope, "🚀").send_keys(:space)
+      wait_for { !target_comment.reactions.where(user: viewer, kind: "rocket").exists? }
+      expect(scope).to have_css(".comment-reactions[data-version='#{target_comment.reload.reactions_version}']")
+      expect(scope).to have_css(".comment-reactions__add:focus")
+    end
+
+    it "keeps the #{surface} picker usable while a reaction snapshot arrives" do
+      target_comment = surface == "table" ? create_table_thread.comments.first : comment
+      scope = surface == "table" ? open_table_discussion : open_thread
+      scope.find(".comment-reactions__add").click
+      page.execute_script("document.addEventListener('turbo:before-stream-render', () => window.reactionStreamReceived = true, { once: true })")
+      create(:comment_reaction, comment: target_comment, user: sam, kind: "eyes")
+      target_comment.bump_reactions_version!
+      CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{target_comment.id}",
+        partial: "coplan/comments/reactions", locals: { comment: target_comment.reload })
+      wait_for { page.evaluate_script("window.reactionStreamReceived === true") }
+      sleep 0.2 # Let the stream try to render while the picker is still open.
+      expect(scope).to have_css(".comment-reactions__picker:popover-open")
+      scope.find(".comment-reactions__option[data-kind='rocket']", visible: true).click
+      expect(scope).to have_reaction("rocket", count: 1, pressed: true)
+      expect(scope).to have_reaction("eyes", count: 1, pressed: false)
+      wait_for { target_comment.reactions.where(user: viewer, kind: "rocket").exists? }
+    end
+
+    it "keeps a #{surface} pointer gesture intact while a reaction snapshot arrives" do
+      target_comment = surface == "table" ? create_table_thread.comments.first : comment
+      create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")
+      scope = surface == "table" ? open_table_discussion : open_thread
+      pressed_chip = chip(scope, "👍")
+      page.driver.browser.action.move_to(pressed_chip.native).click_and_hold.perform
+      page.execute_script("document.addEventListener('turbo:before-stream-render', () => window.reactionStreamReceived = true, { once: true })")
+      create(:comment_reaction, comment: target_comment, user: sam, kind: "eyes")
+      target_comment.bump_reactions_version!
+      CoPlan::Broadcaster.replace_to(plan, target: "reactions_comment_#{target_comment.id}",
+        partial: "coplan/comments/reactions", locals: { comment: target_comment.reload })
+      wait_for { page.evaluate_script("window.reactionStreamReceived === true") }
+      sleep 0.2 # The pointer stays down through the arriving stream.
+      page.driver.browser.action.release.perform
+      expect(scope).to have_reaction("thumbs_up", count: 2, pressed: true)
+      expect(scope).to have_reaction("eyes", count: 1, pressed: false)
+      wait_for { target_comment.reactions.where(user: viewer, kind: "thumbs_up").exists? }
+    end
+  end
+
+  %w[picker pointer keyboard].each do |gesture|
+    it "preserves a table #{gesture} while unrelated replies rebuild the panel" do
+      table_thread = create_table_thread
+      target_comment = table_thread.comments.first
+      create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")
+      scope = open_table_discussion
+      if gesture == "picker"
+        scope.find(".comment-reactions__add").click
+      elsif gesture == "pointer"
+        page.driver.browser.action.move_to(chip(scope, "👍").native).click_and_hold.perform
+      else
+        page.execute_script("arguments[0].focus()", chip(scope, "👍"))
+        page.driver.browser.action.key_down(:space).perform
+      end
+      2.times do |index|
+        reply = table_thread.comments.create!(author_type: "human", author_id: sam.id, body_markdown: "Arriving reply #{index}")
+        CoPlan::Broadcaster.append_to(plan, target: "comments_comment_thread_#{table_thread.id}",
+          partial: "coplan/comments/comment", locals: { comment: reply })
+        expect(page).to have_css("#plan-threads #comment_#{reply.id}", visible: :all)
+      end
+      sleep 0.2 # Both appends have landed while the existing control is active.
+      if gesture == "picker"
+        expect(scope).to have_css(".comment-reactions__picker:popover-open")
+        scope.find(".comment-reactions__option[data-kind='rocket']").click
+        wait_for { target_comment.reactions.where(user: viewer, kind: "rocket").exists? }
+      else
+        gesture == "pointer" ? page.driver.browser.action.release.perform : page.driver.browser.action.key_up(:space).perform
+        wait_for { target_comment.reactions.where(user: viewer, kind: "thumbs_up").exists? }
+      end
+      expect(scope).to have_text("Arriving reply 0", count: 1)
+      expect(scope).to have_text("Arriving reply 1", count: 1)
+    end
+  end
+
+  it "keeps mounted reaction endpoints after a requestless thread replacement" do
+    assets = ->(env) { env["PATH_INFO"].start_with?("/assets/") ? Rails.application.call(env) : [ 404, {}, [ "Not found" ] ] }
+    mounted = Rack::URLMap.new("/coplan" => Rails.application, "/" => assets)
+    server = Capybara::Server.new(mounted).boot
+    mounted_url = "http://#{server.host}:#{server.port}/coplan"
+    visit "#{mounted_url}/sign_in"
+    fill_in "Email address", with: viewer.email
+    click_button "Sign In"
+    expect(page).to have_button("Menu")
+    visit "#{mounted_url}#{plan_page_path(plan)}"
+    html = CoPlan::ApplicationController.render(partial: "coplan/comment_threads/thread_popover", locals: { plan: plan, thread: thread_record })
+    page.execute_script(<<~JS, "comment_thread_#{thread_record.id}", html)
+      window.Turbo.renderStreamMessage(`<turbo-stream action="replace" target="${arguments[0]}"><template>${arguments[1]}</template></turbo-stream>`)
+    JS
+    sleep 0.2
+    find("mark[data-thread-id='comment_thread_#{thread_record.id}']").click
+    popover = find(".thread-popover:popover-open")
+    popover.find(".comment-reactions__add").click
+    popover.find(".comment-reactions__option[data-kind='rocket']", visible: true).click
+    wait_for { comment.reactions.where(user: viewer, kind: "rocket").exists? }
+    expect(popover).to have_reaction("rocket", count: 1, pressed: true)
+    expect(page).to have_no_css(".toasts__toast", text: "Couldn't save your reaction.")
+  end
+
+  it "keeps reactions working in a cloned table discussion" do
+    table_comment = create_table_thread.comments.first
+    create(:comment_reaction, comment: table_comment, user: viewer, kind: "thumbs_up")
+    create(:comment_reaction, comment: table_comment, user: sam, kind: "thumbs_up")
+    create(:comment_reaction, comment: table_comment, user: sam, kind: "tada")
+    original = "#reactions_comment_#{table_comment.id}"
+    panel = open_table_discussion
+
+    expect(panel).to have_css(".comment-reactions", count: 1)
+    expect(panel).to have_reaction("thumbs_up", count: 2, pressed: true)
+    expect(panel).to have_reaction("tada", count: 1, pressed: false)
+
+    chip(panel, "🎉").click
+    expect(panel).to have_reaction("tada", count: 2, pressed: true)
+    wait_for { table_comment.reactions.where(user: viewer, kind: "tada").exists? }
+    expect(page).to have_css("#{original} .comment-reaction[data-kind='tada'][aria-pressed='true'] .comment-reaction__count",
+      exact_text: "2", visible: :all)
+    expect(panel).to have_css(".comment-reactions[data-version='#{table_comment.reload.reactions_version}']")
+
+    chip(panel, "👍").click
+    expect(panel).to have_reaction("thumbs_up", count: 1, pressed: false)
+    wait_for { !table_comment.reactions.where(user: viewer, kind: "thumbs_up").exists? }
+    expect(page).to have_css("#{original} .comment-reaction[data-kind='thumbs_up'][aria-pressed='false'] .comment-reaction__count",
+      exact_text: "1", visible: :all)
+    expect(panel).to have_css(".comment-reactions", count: 1)
+  end
+end

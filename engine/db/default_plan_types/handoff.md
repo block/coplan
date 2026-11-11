@@ -3,6 +3,8 @@ name: Handoff
 icon: file-text
 description: What the next person or agent needs to continue.
 ---
+# Document title
+
 <!-- Handoff: written for whoever continues this work, possibly with
 none of your context. Links beat prose - every claim of "done" carries
 its artifact. -->

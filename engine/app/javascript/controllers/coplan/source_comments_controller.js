@@ -1,5 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
+import { captureReactionFocus } from "coplan/reaction_focus"
 import { commentWindowTop } from "coplan/comment_window"
+import { revealSections } from "coplan/collapsed_sections"
 
 // The panel stays inside this Stimulus scope, even in the modal expander.
 // Only signed source ranges cross the wire; SVG ids are render-time lookup
@@ -21,6 +23,7 @@ export default class extends Controller {
   }
 
   disconnect() {
+    this.deferredReactionRender = null
     this.observer?.disconnect()
     this.panelObserver?.disconnect()
     this.panelHome?.remove()
@@ -183,8 +186,10 @@ export default class extends Controller {
   }
 
   dismiss(event, restoreFocus = true) {
+    // Let nested link entry cancel itself before dismissing the discussion.
+    if (event?.key === "Escape" && event.target.closest?.(".composer__link:not([hidden])")) return
     // This document capture handler runs before the nested menu receives Escape.
-    if (event?.key === "Escape" && document.querySelector(".microphone-settings__panel:popover-open")) return
+    if (event?.key === "Escape" && document.querySelector(".microphone-settings__panel:popover-open, .comment-reactions__picker:popover-open")) return
     this.panelTarget.dispatchEvent(new CustomEvent("coplan:composer-close", { bubbles: true }))
     if (event && !this.panelTarget.matches(":popover-open")) return
     event?.preventDefault()
@@ -264,6 +269,7 @@ export default class extends Controller {
       if (slide) slide.dispatchEvent(new CustomEvent("coplan:deck-reveal", {
         bubbles: true, detail: { slide: slide.dataset.slide }
       }))
+      revealSections(element)
       element.scrollIntoView({ block: "center", behavior: "instant" })
       this.show(element, data.dataset.threadStatus === "resolved", event.detail.focusReply === true)
     }
@@ -280,10 +286,30 @@ export default class extends Controller {
 
   renderDiscussions() {
     if (!this.selection && !this.showingOutdated) return
+    if (this.deferredReactionRender) return
+    // Any canonical mutation can rebuild this entire panel, including an
+    // unrelated reply. Protect the controls we are about to remove, rather
+    // than inferring affected gestures from the incoming stream's contents.
+    const active = Array.from(this.discussionsTarget.querySelectorAll(".comment-reactions"))
+      .map(element => this.application.getControllerForElementAndIdentifier(element, "coplan--comment-reactions"))
+      .filter(controller => controller?.interacting)
+    if (active.length) {
+      const pending = Promise.all(active.map(controller => controller.whenIdle()))
+      this.deferredReactionRender = pending
+      pending.then(() => {
+        if (this.deferredReactionRender !== pending || !this.element.isConnected) return
+        this.deferredReactionRender = null
+        // Re-read current canonical threads and recheck interactions. Several
+        // broadcasts may have arrived while this single rebuild was waiting.
+        this.renderDiscussions()
+      })
+      return
+    }
     // Keep the actual reply forms alive through broadcasts, including a
     // form whose submit-end is still pending. Rebuilding those forms either
     // loses a draft/focus or detaches the submission event from this panel.
     this.saveReplyDrafts()
+    const restoreReactionFocus = captureReactionFocus()
     const focused = this.discussionsTarget.contains(document.activeElement) ? document.activeElement : null
     const replies = new Map(Array.from(this.discussionsTarget.children).map(thread =>
       [thread.dataset.threadId, thread.querySelector(".thread-popover__reply")]))
@@ -318,7 +344,12 @@ export default class extends Controller {
       else if (!this.showingOutdated && quote) quote.textContent = this.quoteTarget.textContent
       copy.querySelectorAll(".comment").forEach(comment => {
         const previous = editingComments.get(comment.dataset.commentId)
-        if (previous?.dataset.commentVersion === comment.dataset.commentVersion) comment.replaceWith(previous)
+        if (previous?.dataset.commentVersion !== comment.dataset.commentVersion) return
+        // Reactions change without bumping the comment version; keep the
+        // draft but show the latest reactions.
+        const reactions = comment.querySelector(".comment-reactions")
+        if (reactions) previous.querySelector(".comment-reactions")?.replaceWith(reactions)
+        comment.replaceWith(previous)
       })
       const previousReply = replies.get(copy.dataset.threadId)
       const nextReply = copy.querySelector(".thread-popover__reply")
@@ -340,6 +371,7 @@ export default class extends Controller {
       discussions[0].querySelector(".comment-window__bar").remove()
     }
     if (focused?.isConnected && this.panelTarget.matches(":popover-open")) focused.focus({ preventScroll: true })
+    restoreReactionFocus()
     this.composerTarget.hidden = this.showingOutdated || threads.length > 0
     this.panelTarget.classList.toggle("comment-form", !this.composerTarget.hidden)
     this.panelTarget.classList.toggle("thread-popover", this.composerTarget.hidden)

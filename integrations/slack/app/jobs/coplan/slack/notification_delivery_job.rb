@@ -12,7 +12,7 @@ module CoPlan
       def perform_batch(key:, batch_start:)
         user_id, thread_id = key.split(":", 2)
         config = CoPlan::Slack.configuration
-        raise ArgumentError, "CoPlan Slack notifications require bot_token and base_url" unless config.notifications_configured?
+        raise ArgumentError, "Coplan Slack notifications require bot_token and base_url" unless config.notifications_configured?
 
         deliveries = pending_for(user_id, thread_id)
           .includes(notification: [ :comment, :plan, :user, :comment_thread ])
@@ -26,7 +26,7 @@ module CoPlan
         @attempted_delivery_ids = deliverable.map(&:id)
 
         user = deliverable.first.notification.user
-        raise WebClient::PermanentError, "CoPlan Slack recipient has no email" if user.email.blank?
+        raise WebClient::PermanentError, "Coplan Slack recipient has no email" if user.email.blank?
 
         comments = deliverable.map { |delivery| delivery.notification.comment }.uniq(&:id)
 

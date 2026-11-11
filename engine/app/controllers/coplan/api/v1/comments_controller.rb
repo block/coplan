@@ -9,7 +9,7 @@ module CoPlan
         # comments, so an agent reacting to one inbox event doesn't have to
         # refetch every thread on the plan.
         def show
-          thread = @plan.comment_threads.includes(:comments, :created_by_user).find_by(id: params[:id])
+          thread = @plan.comment_threads.includes({ comments: :reactions }, :created_by_user).find_by(id: params[:id])
           unless thread
             render json: { error: "Comment thread not found" }, status: :not_found
             return
@@ -194,7 +194,8 @@ module CoPlan
                 author_id: c.author_id,
                 agent_name: c.agent_name,
                 body_markdown: c.body_markdown,
-                created_at: c.created_at
+                created_at: c.created_at,
+                reactions: CommentReaction.as_api_json(c)
               }
             }
           }

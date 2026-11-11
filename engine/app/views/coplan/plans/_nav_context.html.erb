@@ -1,7 +1,8 @@
 <% placement = local_assigns.fetch(:placement) { plan.placement } %>
-<span id="plan-nav-context" class="site-nav__plan-context" data-controller="coplan--nav-title" aria-hidden="true">
+<span id="plan-nav-context" class="site-nav__plan-context" data-controller="coplan--nav-title"
+      data-action="coplan:editor-ready@document->coplan--nav-title#syncAnchor coplan:content-updated@document->coplan--nav-title#syncAnchor" aria-hidden="true">
   <%= render "coplan/plans/location_link", plan: plan, placement: placement, location: :nav %>
-  <a href="#plan-header" class="site-nav__doc-title" data-action="click->coplan--nav-title#scrollToTop" tabindex="-1">
+  <a href="#plan-title" class="site-nav__doc-title" data-action="click->coplan--nav-title#scrollToTop" tabindex="-1">
     <%= plan_type_icon(plan, size: :sm) %>
     <span class="site-nav__doc-title-text"><%= plan.title %></span>
   </a>

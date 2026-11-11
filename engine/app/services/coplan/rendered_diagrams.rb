@@ -31,7 +31,7 @@ module CoPlan
     IMAGE_URL = %r{\A(?:/(?!/)|https?://)[^\s"'<>\\]*\z}i
     BROWSER_RENDERED = %w[mermaid].freeze
     # Part of the stale-image cache key: bump when what counts as stale changes.
-    STALE_CACHE_VERSION = 1
+    STALE_CACHE_VERSION = 2
 
     module_function
 
@@ -66,32 +66,42 @@ module CoPlan
       found
     end
 
-    # Images in the plan's current content whose source changed after the
-    # image went in, so they no longer show what the source draws. Compares
-    # each fence's source with the source in the earliest version that showed
-    # its image. Cached per version: history before it never changes.
+    # Identify each rendered figure by its source as well as its image: two
+    # fences can reuse an image without sharing a stale warning.
+    def fingerprint(block)
+      Digest::SHA256.hexdigest([ block.skill, block.image, block.source ].to_json)
+    end
+
     def stale_images(plan)
       version = plan.current_plan_version
-      # Already loaded to render the plan; most plans have no rendered diagrams.
       return Set.new unless version&.content_markdown.to_s.include?("image=")
 
-      Rails.cache.fetch([ "coplan/rendered-diagrams/stale", STALE_CACHE_VERSION, version.id ]) do
-        blocks(version.content_markdown).select { |block| stale?(plan, block, version.revision) }.map(&:image)
+      blocks(version.content_markdown).filter_map do |block|
+        fingerprint(block) unless original_sources(plan, block).include?(Digest::SHA256.hexdigest(block.source))
       end.to_set
     end
 
-    def stale?(plan, block, revision)
-      ids = plan.plan_versions.reorder(:revision)
-        .where("revision <= ?", revision)
-        .where("content_markdown LIKE ?", "%#{PlanVersion.sanitize_sql_like(block.image)}%")
-        .pluck(:id)
-      # Usually the first match; one content load at a time either way.
-      ids.each do |id|
-        original = blocks(PlanVersion.where(id: id).pick(:content_markdown))
-          .find { |candidate| candidate.image == block.image && candidate.skill == block.skill }
-        return original.source != block.source if original
+    # Versions are immutable. Cache the first sources for an image across
+    # subsequent edits, rather than rescanning all history per new version.
+    # Use a new image URL for every render, including externally hosted images.
+    def original_sources(plan, block)
+      key = Digest::SHA256.hexdigest([ plan.id, block.image, block.skill ].to_json)
+      Rails.cache.fetch([ "coplan/rendered-diagrams/original", STALE_CACHE_VERSION, key ]) do
+        matches = plan.plan_versions.reorder(:revision)
+          .where("content_markdown LIKE ?", "%#{PlanVersion.sanitize_sql_like(block.image)}%")
+        sources = nil
+        # A URL in ordinary prose is not a diagram baseline. Load only one
+        # matching version at a time until a real diagram is found.
+        while (version = matches.first)
+          originals = blocks(version.content_markdown).select { |candidate| candidate.image == block.image && candidate.skill == block.skill }
+          if originals.any?
+            sources = originals.map { |candidate| Digest::SHA256.hexdigest(candidate.source) }
+            break
+          end
+          matches = matches.where("revision > ?", version.revision)
+        end
+        sources || [ Digest::SHA256.hexdigest(block.source) ]
       end
-      false
     end
   end
 end

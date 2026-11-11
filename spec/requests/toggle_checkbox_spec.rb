@@ -7,7 +7,7 @@ RSpec.describe "Toggle Checkbox", type: :request do
 
   before do
     sign_in_as(user)
-    plan.current_plan_version.update!(content_markdown: "# Tasks\n\n- [ ] Buy milk\n- [x] Write tests\n- [ ] Deploy")
+    set_version_fixture(plan.current_plan_version, content_markdown: "# Tasks\n\n- [ ] Buy milk\n- [x] Write tests\n- [ ] Deploy")
   end
 
   describe "PATCH toggle_checkbox" do
@@ -67,8 +67,8 @@ RSpec.describe "Toggle Checkbox", type: :request do
         expect(response).to have_http_status(:ok)
         snapshot = agent_plan.reload.current_plan_version.writing_provenance
         expect(snapshot.dig("summary", "counts", "unknown")).to eq(0)
-        expect(snapshot.dig("summary", "counts", "ai")).to eq(8)
-        marker_key = CoPlan::Plans::WritingProvenance.slice(snapshot.fetch("runs"), 3, 4).first.last
+        expect(snapshot.dig("summary", "counts", "ai")).to eq(19)
+        marker_key = CoPlan::Plans::WritingProvenance.slice(snapshot.fetch("runs"), agent_plan.current_content.index("[") + 1, agent_plan.current_content.index("[") + 2).first.last
         expect(snapshot.fetch("sources").fetch(marker_key)).to include("kind" => "human", "user_id" => actor.id, "origin_revision" => agent_plan.current_revision)
         expect(snapshot.dig("summary", "counts", "human")).to eq(checked ? 1 : 0)
       end
@@ -146,7 +146,7 @@ RSpec.describe "Toggle Checkbox", type: :request do
 
   describe "PATCH toggle_checkbox with duplicate task lines" do
     before do
-      plan.current_plan_version.update!(
+      set_version_fixture(plan.current_plan_version,
         content_markdown: "# Tasks\n\n- [ ] TODO\n- [ ] TODO\n- [ ] Deploy to staging\n- [ ] Deploy"
       )
     end

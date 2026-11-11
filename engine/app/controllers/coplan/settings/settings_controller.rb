@@ -17,6 +17,18 @@ module CoPlan
         head :ok
       end
 
+      # Saves the app theme (docs/THEMES.md).
+      def update_app_theme
+        app_theme = params[:app_theme]
+        if CoPlan::User::APP_THEMES.include?(app_theme)
+          current_user.app_theme = app_theme
+          current_user.save!
+          head :ok
+        else
+          head :unprocessable_content
+        end
+      end
+
       def update_voice_hotkey
         hotkey = params[:voice_hotkey]
         if CoPlan::User::VOICE_HOTKEYS.include?(hotkey)

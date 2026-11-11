@@ -154,7 +154,7 @@ RSpec.describe CoPlan::Plans::AssignSlug do
     it "records the old URL when a published plan is retitled" do
       plan = create(:plan, :published, created_by_user: author, title: "Cart Roadmap")
 
-      plan.update!(title: "Basket Roadmap")
+      retitle_plan(plan, "Basket Roadmap")
 
       expect(CoPlan::UrlAlias.rewrite("hampton/cart-roadmap")).to eq("hampton/basket-roadmap")
     end
@@ -162,7 +162,7 @@ RSpec.describe CoPlan::Plans::AssignSlug do
     it "records the old URL when a private plan is retitled" do
       plan = create(:plan, :draft, created_by_user: author, title: "Cart Roadmap")
 
-      plan.update!(title: "Basket Roadmap")
+      retitle_plan(plan, "Basket Roadmap")
 
       expect(CoPlan::UrlAlias.rewrite("hampton/cart-roadmap")).to eq("hampton/basket-roadmap")
     end
@@ -183,7 +183,7 @@ RSpec.describe CoPlan::Plans::AssignSlug do
         plan = create(:plan, :archived, visibility: visibility, created_by_user: author, title: "Cart Roadmap")
 
         expect {
-          plan.update!(title: "Basket Roadmap")
+          retitle_plan(plan, "Basket Roadmap")
           place(plan, folder)
         }.not_to change(CoPlan::UrlAlias, :count)
 

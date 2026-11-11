@@ -1,5 +1,5 @@
 ActiveAdmin.register CoPlan::Plan, as: "Plan" do
-  permit_params :title, :visibility, :archived_at
+  permit_params :visibility, :archived_at
 
   filter :title
   filter :visibility, as: :select, collection: CoPlan::Plan::VISIBILITIES
@@ -18,6 +18,14 @@ ActiveAdmin.register CoPlan::Plan, as: "Plan" do
     column :created_by_user
     column :updated_at
     actions
+  end
+
+  form do |f|
+    f.inputs do
+      f.input :visibility, as: :select, collection: CoPlan::Plan::VISIBILITIES
+      f.input :archived_at
+    end
+    f.actions
   end
 
   show do

@@ -624,6 +624,7 @@ RSpec.describe "Deck UX", type: :system do
     MD
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
+    content = plan.reload.current_content
     html = Commonmarker.to_html(content, options: { render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
     mapped = CoPlan::Plans::SourceTargets.new(content).annotate(Nokogiri::HTML.fragment(html))
     cell = mapped.css("[data-source-target]").find { |node| node.text.include?("Review") }
@@ -668,7 +669,7 @@ RSpec.describe "Deck UX", type: :system do
   end
 
   it "keeps update markers out of discussion bodies" do
-    content = "# Closing\n\nFresh closing text."
+    content = "## Closing\n\nFresh closing text."
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
       base_revision: plan.current_revision, actor_type: "human", actor_id: user.id)
     thread = create(:comment_thread, plan: plan, created_by_user: user)
@@ -680,7 +681,7 @@ RSpec.describe "Deck UX", type: :system do
       window.Stimulus.getControllerForElementAndIdentifier(layout, "coplan--changed-sections").connect()
     JS
 
-    expect(page).to have_css("#plan-content-body h1.section-updated", text: "Closing")
+    expect(page).to have_css("#plan-content-body h2.section-updated", text: "Closing")
     expect(page).to have_no_css("#plan-threads .section-updated", visible: :all)
   end
 

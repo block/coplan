@@ -9,7 +9,8 @@ module CoPlan
     CLASSIC = "classic"
 
     ALL = [
-      Theme.new(key: CLASSIC, name: "Classic", description: "Lexend, glass panels and the document card.")
+      Theme.new(key: CLASSIC, name: "Classic", description: "Lexend, glass panels and the document card."),
+      Theme.new(key: "neutral", name: "Neutral", description: "Warm grays, the system font and a flat page for reading.")
     ].freeze
 
     def self.keys = ALL.map(&:key)
@@ -27,10 +28,15 @@ module CoPlan
       name = CoPlan.configuration.default_theme
       return if find(name)
 
-      message = "CoPlan config.default_theme is #{name.inspect}, which is not a theme. " \
+      message = "Coplan config.default_theme is #{name.inspect}, which is not a theme. " \
         "Valid themes: #{keys.join(", ")}."
       raise ArgumentError, message if env.development? || env.test?
       logger.warn("#{message} Falling back to #{CLASSIC}.")
     end
+
+    # The theme a viewer's stored choice shows: the theme it names, else the
+    # default. "default" isn't a theme key, so it falls through, and so does
+    # a theme a later Coplan release removed.
+    def self.resolve(choice) = find(choice) || default
   end
 end

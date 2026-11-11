@@ -7,7 +7,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
 
   before do
     sign_in_as(author)
-    plan.current_plan_version.update!(content_markdown: "# Plan\n\nOriginal body.\n")
+    set_version_fixture(plan.current_plan_version, content_markdown: "# Plan\n\nOriginal body.\n")
   end
 
   describe "GET legacy edit URL" do
@@ -105,6 +105,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
                            content_markdown: "# Plan\n\nSomeone else edited.\n", actor_id: other_user.id)
       plan.update!(current_plan_version: new_version, current_revision: new_version.revision)
 
+      events_before = plan.plan_events.where(event_type: "title_changed").count
       patch update_content_plan_path(plan), params: {
         content: "# Plan\n\nMy conflicting draft.\n",
         base_revision: stale
@@ -122,6 +123,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
                            content_markdown: "# Plan\n\nSomeone else edited.\n", actor_id: other_user.id)
       plan.update!(current_plan_version: new_version, current_revision: new_version.revision)
 
+      events_before = plan.plan_events.where(event_type: "title_changed").count
       patch update_content_plan_path(plan), params: {
         content: "# Plan\n\nMy conflicting draft.\n",
         base_revision: stale
@@ -194,12 +196,42 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
   # The unified editor carries title/tags alongside the body — the whole
   # metadata path rides update_content, not the legacy #update action.
   describe "PATCH update_content with metadata" do
+    [ false, true ].each do |edit_body|
+      it "broadcasts an inline rename with body editing #{edit_body}" do
+        targets = []
+        allow(CoPlan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
+
+        patch update_content_plan_path(plan), params: {
+          content: "# Renamed inline\n\n#{edit_body ? "Updated body." : "Original body."}",
+          base_revision: plan.current_revision,
+          plan: { title: "Renamed inline" }
+        }, as: :json
+
+        expect(response).to have_http_status(:ok)
+        expect(targets).to include("plan-nav-context")
+      end
+    end
+
+    it "does not broadcast the document title for tag-only editor saves" do
+      targets = []
+      allow(CoPlan::Broadcaster).to receive(:replace_to) { |_plan, **kwargs| targets << kwargs[:target] }
+
+      patch update_content_plan_path(plan), params: {
+        content: plan.current_content, base_revision: plan.current_revision,
+        plan: { tag_names: "infra" }
+      }, as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(targets).to include("plan-header")
+      expect(targets).not_to include("plan-title")
+    end
+
     it "applies title and tag changes alongside content and logs their events" do
       plan.tag_names = [ "security" ]
       plan.save!
 
       patch update_content_plan_path(plan), params: {
-        content: "# Plan\n\nEdited with metadata.\n",
+        content: "# Renamed Plan\n\nEdited with metadata.\n",
         base_revision: plan.current_revision,
         plan: { title: "Renamed Plan", tag_names: "security, api-design" }
       }
@@ -209,12 +241,13 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
       expect(response).to redirect_to(plan_page_path(plan.reload))
       expect(plan.title).to eq("Renamed Plan")
       expect(plan.tag_names).to contain_exactly("security", "api-design")
-      expect(plan.current_content).to eq("# Plan\n\nEdited with metadata.\n")
-      expect(plan.plan_events.where(event_type: "title_changed")).to exist
+      expect(plan.current_content).to eq("# Renamed Plan\n\nEdited with metadata.\n")
+      expect(plan.current_plan_version.content_markdown).to start_with("# Renamed Plan")
       expect(plan.plan_events.where(event_type: "tag_added").map(&:after_value)).to include("api-design")
     end
 
-    it "says 'Plan updated.' when only metadata changed" do
+    it "ignores a legacy title-only change" do
+      original_title = plan.title
       patch update_content_plan_path(plan), params: {
         content: plan.current_content,
         base_revision: plan.current_revision,
@@ -222,8 +255,8 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
       }
 
       expect(response).to redirect_to(plan_page_path(plan.reload))
-      expect(flash[:notice]).to eq("Plan updated.")
-      expect(plan.title).to eq("Rename Only")
+      expect(flash[:notice]).to eq("No changes to save.")
+      expect(plan.title).to eq(original_title)
     end
 
     it "says 'No changes to save.' when nothing changed" do
@@ -243,6 +276,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
                            content_markdown: "# Plan\n\nSomeone else edited.\n", actor_id: other_user.id)
       plan.update!(current_plan_version: new_version, current_revision: new_version.revision)
 
+      events_before = plan.plan_events.where(event_type: "title_changed").count
       patch update_content_plan_path(plan), params: {
         content: "# Plan\n\nMy conflicting draft.\n",
         base_revision: stale,
@@ -253,7 +287,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
       expect(response).to have_http_status(:conflict)
       plan.reload
       expect(plan.title).not_to eq("Renamed During Conflict")
-      expect(plan.plan_events.where(event_type: "title_changed")).not_to exist
+      expect(plan.plan_events.where(event_type: "title_changed").count).to eq(events_before)
       expect(plan.current_content).to eq("# Plan\n\nSomeone else edited.\n")
     end
   end
@@ -298,13 +332,14 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
     end
 
     it "leaves tags untouched when the field is absent" do
+      original_title = plan.title
       plan.tag_names = [ "security" ]
       plan.save!
 
       patch plan_path(plan), params: { plan: { title: "New title" } }
 
       expect(plan.reload.tag_names).to contain_exactly("security")
-      expect(plan.title).to eq("New title")
+      expect(plan.title).to eq(original_title)
     end
   end
 end

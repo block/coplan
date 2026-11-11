@@ -69,7 +69,7 @@ module CoPlan
           new_revision = @plan.current_revision + 1
           diff = Diffy::Diff.new(current_content, result[:content]).to_s
 
-          version = PlanVersion.create!(
+          version = PlanVersion.create_for_commit!(
             plan: @plan,
             revision: new_revision,
             content_markdown: result[:content],
@@ -82,7 +82,7 @@ module CoPlan
             base_revision: @base_revision
           )
 
-          @plan.update!(current_plan_version: version, current_revision: new_revision)
+          AdvanceVersion.call(plan: @plan, version: version)
           @plan.comment_threads.mark_out_of_date_for_new_version!(version)
 
           Broadcaster.replace_to(

@@ -2,8 +2,8 @@ module CoPlan
   module Api
     module V1
       class PlansController < BaseController
-        before_action :set_plan, only: [ :show, :update, :versions, :comments, :snapshot, :locations, :writing_provenance ]
-        before_action :authorize_plan_access!, only: [ :show, :update, :versions, :comments, :snapshot, :locations, :writing_provenance ]
+        before_action :set_plan, only: [ :show, :update, :version, :versions, :comments, :snapshot, :review_evidence, :locations, :writing_provenance ]
+        before_action :authorize_plan_access!, only: [ :show, :update, :version, :versions, :comments, :snapshot, :review_evidence, :locations, :writing_provenance ]
 
         def index
           plans = Plan
@@ -57,6 +57,10 @@ module CoPlan
             return if performed? # resolve_plan_type_param rendered an error
           end
 
+          if params[:content].nil?
+            return render json: { error: "content is required" }, status: :unprocessable_content
+          end
+
           # Plans are born published; `"visibility": "draft"` is the opt-in
           # for starting private.
           visibility = params[:visibility].presence || "published"
@@ -67,7 +71,7 @@ module CoPlan
           plan = nil
           ActiveRecord::Base.transaction do
             plan = Plans::Create.call(
-              title: params[:title],
+              title: nil,
               content: params[:content] || "",
               user: current_user,
               plan_type_id: plan_type&.id,
@@ -126,7 +130,6 @@ module CoPlan
           end
 
           permitted = {}
-          permitted[:title] = params[:title] if params.key?(:title)
           visibility_updates = visibility_params_for_update
           return if performed? # visibility_params_for_update rendered an error
           permitted.merge!(visibility_updates)
@@ -138,7 +141,6 @@ module CoPlan
           end
 
           # Snapshot before-state so LogEvent can record meaningful diffs.
-          old_title = @plan.title
           old_visibility = @plan.visibility
           old_archived = @plan.archived?
           old_tag_names = @plan.tag_names
@@ -164,7 +166,7 @@ module CoPlan
             end
 
             @plan.lock!
-            if params.key?(:title) || params.key?(:tags) || params.key?(:plan_type)
+            if params.key?(:tags) || params.key?(:plan_type)
               EditLease.enforce!(plan: @plan, lease_token: params[:lease_token])
             end
             @plan.tag_names = params[:tags] if params.key?(:tags)
@@ -195,12 +197,8 @@ module CoPlan
             Broadcaster.replace_to(@plan, target: "plan-header", partial: "coplan/plans/header", locals: { plan: @plan })
           end
 
-          if permitted.key?(:title) && @plan.saved_change_to_title?
-            Plans::LogEvent.call(
-              plan: @plan, actor: current_user, event_type: "title_changed",
-              before: old_title, after: @plan.title,
-              actor_type: api_author_type, actor_id: api_user_id, agent_name: api_agent_name, api_token_id: api_token_id
-            )
+          if @plan.saved_change_to_plan_type_id?
+            Broadcaster.replace_to(@plan, target: "plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: @plan })
           end
 
           if @plan.saved_change_to_visibility? && @plan.published? && old_visibility == "draft"
@@ -270,6 +268,11 @@ module CoPlan
           render json: { error: e.record.errors.full_messages.join(", ") }, status: :unprocessable_content
         end
 
+        def version
+          version = @plan.plan_versions.find(params[:version_id])
+          render json: version_json(version).merge(content_markdown: version.verified_content!, approval_scope: Reviews::Evidence::SCOPE)
+        end
+
         def versions
           versions = @plan.plan_versions.order(revision: :desc)
           render json: versions.map { |v| version_json(v) }
@@ -303,13 +306,30 @@ module CoPlan
         end
 
         def comments
-          threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)
+          threads = @plan.comment_threads.includes({ comments: :reactions }, :created_by_user).order(created_at: :desc)
           render json: threads.map { |t| thread_json(t) }
+        end
+
+        def review_evidence
+          render json: Reviews::Evidence.call(plan: @plan)
+        end
+
+        # Other people's drafts are readable by URL but omitted from the
+        # index. Resolve their addresses with the reader's access policy,
+        # including aliases for moved and renamed plans.
+        def resolve
+          plan = Urls::ResolvePlan.call(url: params[:url],
+            bases: [ root_url, "#{request.base_url}#{root_path}" ])
+          unless plan && PlanPolicy.new(current_user, plan).show?
+            return render json: { error: "Plan not found" }, status: :not_found
+          end
+
+          render json: plan_json(plan)
         end
 
         def snapshot
           record_plan_read!(@plan)
-          threads = @plan.comment_threads.includes(:comments, :created_by_user).order(created_at: :desc)
+          threads = @plan.comment_threads.includes({ comments: :reactions }, :created_by_user).order(created_at: :desc)
           references = @plan.references.order(created_at: :desc)
           collaborators = @plan.plan_collaborators.includes(:user)
 
@@ -319,7 +339,7 @@ module CoPlan
             comment_threads: snapshot_threads_json(threads),
             references: references.map { |r| reference_json(r) },
             collaborators: collaborators.map { |c| collaborator_json(c) },
-            review_requests: @plan.review_requests.includes(:reviewer, :requested_plan_version, review_responses: :plan_version).map { |r| Reviews::Serialize.call(r) }
+            review_requests: @plan.review_requests.includes(:reviewer, :requested_plan_version, current_response: :plan_version, review_responses: :plan_version).map { |r| Reviews::Serialize.call(r) }
           )
         end
 
@@ -552,7 +572,8 @@ module CoPlan
                 author_id: c.author_id,
                 agent_name: c.agent_name,
                 body_markdown: c.body_markdown,
-                created_at: c.created_at
+                created_at: c.created_at,
+                reactions: CommentReaction.as_api_json(c)
               }
             }
           }

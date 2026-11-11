@@ -1,17 +1,23 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "managementStatus", "assignmentError", "approval", "approvalNote", "approvalError", "approvalTitle", "approveButton", "comparison", "diff", "activity", "suggestions"]
-  static values = { url: String, searchUrl: String, suggestionsUrl: String }
+  static targets = ["reviews", "discussion", "commentForm", "changeButton", "notice", "search", "reviewerId", "results", "assignment", "addReviewerButton", "assignButton", "managementError", "managementStatus", "policyIcon", "assignmentError", "approval", "approvalNote", "approvalError", "approvalTitle", "approveButton", "comparison", "diff", "activity", "suggestions"]
+  static values = { url: String, searchUrl: String, suggestionsUrl: String, settingsUrl: String }
 
   connect() {
+    this.policyConnection = { active: true }
+    this.policySaving = false
+    this.policyMustSave = false
+    this.policyUncertainSequence = null
     this.searchSequence = 0
     this.suggestionSequence = 0
     this.refreshSequence = 0
     // Shared streams carry an invalidation signal, never another viewer's
     // forms, tokens or personal task status.
     window.Turbo.StreamActions["coplan-review-changed"] ||= function () {
-      document.getElementById(this.getAttribute("target"))?.dispatchEvent(new CustomEvent("coplan:reviews-changed"))
+      document.getElementById(this.getAttribute("target"))?.dispatchEvent(new CustomEvent("coplan:reviews-changed", {
+        detail: { removedRequestId: this.getAttribute("data-removed-review-request-id") }
+      }))
     }
     const tray = this.element.querySelector(".review-tray")
     if (tray) tray.showPopover()
@@ -20,7 +26,14 @@ export default class extends Controller {
   }
 
   disconnect() {
+    this.policyConnection.active = false
     clearTimeout(this.searchTimer)
+    clearTimeout(this.policySaveTimer)
+    if (this.policySaveTimer) {
+      this.policySaveTimer = null
+      this.saveResetPolicy(this.element.querySelector("[data-review-reset-policy]"))
+    }
+    clearTimeout(this.policyIconTimer)
     this.searchSequence++
     this.refreshSequence++
     document.body.classList.remove("has-review-tray")
@@ -125,13 +138,19 @@ export default class extends Controller {
 
   requestChanges(event) {
     this.responseUrl = event.currentTarget.dataset.url
-    if (this.discussionTarget.hidden) this.changesRevision = this.viewedRevision()
+    if (this.discussionTarget.hidden) {
+      this.changesRevision = this.viewedRevision()
+      this.changesGeneration = this.element.dataset.reviewGeneration
+    }
     this.expand()
   }
 
   confirmApproval(event) {
     this.responseUrl = event.currentTarget.dataset.url
     this.approvalRevision = this.viewedRevision()
+    this.approvalGeneration = this.element.dataset.reviewGeneration
+    this.approvalInvalidated = false
+    this.approveButtonTarget.disabled = false
     this.approvalErrorTarget.textContent = ""
     this.approveButtonTarget.textContent = `Approve v${this.approvalRevision}`
     this.approvalTitleTarget.textContent = `Approve v${this.approvalRevision}?`
@@ -142,32 +161,58 @@ export default class extends Controller {
     this.approvalTarget.close()
   }
 
-  responseIntent(url, revision, decision, note) {
+  invalidateApproval() {
+    this.approvalInvalidated = true
+    this.approveButtonTarget.disabled = true
+    this.approvalErrorTarget.textContent = "This review request changed. Close this dialog and reopen approval for the current request. Your note is preserved."
+  }
+
+  responseIntent(url, revision, decision, note, generation) {
     this.responseIntents ||= {}
+    // A lost result may be retried after a re-request. Keep its original
+    // generation with the key until the server acknowledges that intent.
     const fields = JSON.stringify([url, String(revision), note.trim()])
     const previous = this.responseIntents[decision]
     if (previous?.fields === fields) return previous
-    return this.responseIntents[decision] = { fields, key: crypto.randomUUID() }
+    return this.responseIntents[decision] = { fields, generation, key: crypto.randomUUID() }
   }
 
   confirmIntent(decision, intent) {
     if (this.responseIntents[decision] === intent) delete this.responseIntents[decision]
   }
 
+  responseIsCurrent(url) {
+    const parsed = new URL(url, document.baseURI)
+    return !this.reviewWithdrawn && this.hasCommentFormTarget && this.commentFormTarget.action === parsed.href &&
+      !this.removedRequestIds?.has(parsed.pathname.split("/").at(-2))
+  }
+
   async approve(event) {
     event.preventDefault()
+    if (this.approvalInvalidated) { this.invalidateApproval(); return }
     await this.withBusy(event.target, this.approvalErrorTarget, async () => {
-      const intent = this.responseIntent(this.responseUrl, this.approvalRevision, "approved", this.approvalNoteTarget.value)
-      const result = await this.write(this.responseUrl, "POST", { review_response: { revision: this.approvalRevision, decision: "approved", note: this.approvalNoteTarget.value, idempotency_key: intent.key } })
+      const url = this.responseUrl
+      const intent = this.responseIntent(url, this.approvalRevision, "approved", this.approvalNoteTarget.value, this.approvalGeneration)
+      const result = await this.write(url, "POST", { review_response: { revision: this.approvalRevision, generation: intent.generation, decision: "approved", note: this.approvalNoteTarget.value, idempotency_key: intent.key } })
       this.confirmIntent("approved", intent)
-      const synced = !result.comment_thread_id || await this.refreshThreads(result.comment_thread_id)
+      const current = () => !this.approvalInvalidated && this.responseUrl === url && this.responseIsCurrent(url)
+      if (!current()) return
+      const synced = !result.comment_thread_id || await this.refreshThreads(result.comment_thread_id, current)
+      // Removal can also arrive after the server saved the old approval but
+      // before its result and comments arrive. Keep the dialog and its note.
+      if (!current()) return
       this.approvalTarget.close()
       this.approvalNoteTarget.value = ""
-      if (this.hasNoticeTarget) this.noticeTarget.textContent = `Your approval of v${this.approvalRevision} is recorded.` + (synced ? "" : " Refresh the page to see your comment.")
+      if (this.hasNoticeTarget) this.noticeTarget.textContent = result.effective === false
+        ? "Your earlier decision was already recorded. Review the current request again."
+        : `Your approval of v${this.approvalRevision} is recorded.` + (synced ? "" : " Refresh the page to see your comment.")
       const tray = this.element.querySelector(".review-tray")
       if (tray) delete tray.dataset.reconsidering
       await this.refresh()
     }, "Recording…")
+    // A refresh can invalidate this dialog while the original POST is in
+    // flight. Keep it invalid after the busy-state cleanup restores buttons.
+    if (this.approvalInvalidated && this.approvalTarget.open) this.invalidateApproval()
   }
 
   async post(event) {
@@ -177,25 +222,36 @@ export default class extends Controller {
     if (form.closest('[data-dictation-busy="true"]') || form.querySelector('[data-dictation-busy="true"]')) return
     const error = form.querySelector('[role="alert"]')
     await this.withBusy(form, error, async () => {
-      const intent = this.responseIntent(form.action, this.changesRevision, "changes_requested", input.value)
-      const result = await this.write(form.action, "POST", { review_response: { revision: this.changesRevision, decision: "changes_requested", note: input.value, idempotency_key: intent.key } })
+      const url = form.action
+      const current = () => form.isConnected && this.responseIsCurrent(url)
+      const intent = this.responseIntent(url, this.changesRevision, "changes_requested", input.value, this.changesGeneration)
+      const result = await this.write(url, "POST", { review_response: { revision: this.changesRevision, generation: intent.generation, decision: "changes_requested", note: input.value, idempotency_key: intent.key } })
       this.confirmIntent("changes_requested", intent)
+      if (!current()) return
       // Feedback lives in the ordinary discussion collection.
-      const synced = await this.refreshThreads(result.comment_thread_id)
-      this.noticeTarget.textContent = "Changes requested. Your feedback is in the plan’s comments." + (synced ? "" : " Refresh the page to see your comment.")
+      const synced = await this.refreshThreads(result.comment_thread_id, current)
+      if (!current()) return
+      this.noticeTarget.textContent = result.effective === false
+        ? "Your earlier change request was already recorded. Review the current request again."
+        : "Changes requested. Your feedback is in the plan’s comments." + (synced ? "" : " Refresh the page to see your comment.")
       input.value = ""
       this.collapse()
       await this.refresh()
     }, "Posting…")
   }
 
-  async refreshThreads(threadId) {
+  async refreshThreads(threadId, current = () => true) {
+    if (!this.element.isConnected) return false
+    // Another reviewer's removal can also make this collection snapshot stale.
+    const removalSequence = this.removalSequence
     const editor = document.querySelector('[data-coplan--inline-editor-comments-url-value]')
     if (!editor) return false
     try {
       const response = await fetch(editor.getAttribute("data-coplan--inline-editor-comments-url-value"), { credentials: "same-origin", headers: { Accept: "text/html" } })
       if (response.ok) {
-        const incoming = new DOMParser().parseFromString(await response.text(), "text/html")
+        const html = await response.text()
+        if (!this.element.isConnected || !current() || removalSequence !== this.removalSequence) return false
+        const incoming = new DOMParser().parseFromString(html, "text/html")
         const id = `comment_thread_${threadId}`
         const thread = incoming.getElementById(id)
         if (thread && !document.getElementById(id)) document.getElementById("plan-threads")?.append(thread)
@@ -211,15 +267,47 @@ export default class extends Controller {
     return false
   }
 
-  async refresh() {
+  async refresh(event) {
+    const removedId = event?.detail?.removedRequestId
+    if (removedId) {
+      this.removalSequence = (this.removalSequence || 0) + 1
+      this.removedRequestIds ||= new Set()
+      this.removedRequestIds.add(removedId)
+      if (this.approvalTarget.open && this.responseUrl?.endsWith(`/${removedId}/respond`)) this.invalidateApproval()
+    }
     const sequence = ++this.refreshSequence
+    this.policyRefreshPending = false
+    const policyBusy = this.policySaving || this.policySaveTimer
+    const policyGeneration = this.policyInputGeneration
     try {
       const response = await fetch(this.urlValue, { credentials: "same-origin", headers: { Accept: "text/html" } })
       if (!response.ok) return
       const incoming = new DOMParser().parseFromString(await response.text(), "text/html")
-      if (sequence !== this.refreshSequence || !this.element.isConnected) return
+      const controls = incoming.getElementById("plan-review-controls")
+      if (sequence !== this.refreshSequence || !this.element.isConnected || !controls) return
+      this.element.dataset.reviewGeneration = controls.dataset.reviewGeneration || ""
+      const policy = this.element.querySelector("[data-review-reset-policy]")
+      const incomingPolicy = incoming.querySelector("[data-review-reset-policy]")
+      if (policy && incomingPolicy) {
+        if (!policyBusy && !this.policySaving && !this.policySaveTimer && policyGeneration === this.policyInputGeneration) {
+          if (policy.checked !== incomingPolicy.checked) this.clearPolicyIcon()
+          policy.checked = incomingPolicy.checked
+          policy.dataset.savedValue = String(incomingPolicy.checked)
+          policy.dataset.reviewSequence = incomingPolicy.dataset.reviewSequence
+          if (this.policyUncertainSequence != null && Number(policy.dataset.reviewSequence) > this.policyUncertainSequence) {
+            if (this.policyUnresolved) this.managementErrorTarget.textContent = ""
+            this.policyUncertainSequence = null
+            this.policyUnresolved = false
+            this.policyFenceAttempted = false
+            policy.removeAttribute("aria-invalid")
+          }
+          this.policyRefreshPending = false
+        } else this.policyRefreshPending = true
+      }
       const tray = incoming.querySelector(".review-tray")
       const existingTray = this.element.querySelector(".review-tray")
+      const responsePath = tray?.querySelector('[data-coplan--review-tray-target="commentForm"]')?.getAttribute("action")
+      if (this.approvalTarget.open && responsePath !== this.responseUrl) this.invalidateApproval()
       const wasWithdrawn = this.reviewWithdrawn
       this.reviewWithdrawn = !tray
       if (!tray && existingTray) {
@@ -234,6 +322,15 @@ export default class extends Controller {
         }
       }
       if (tray && existingTray) existingTray.dataset.completed = tray.dataset.completed
+      if (tray && existingTray) {
+        // Keep the draft and dictation state, but submit new feedback to the
+        // current request. An already-issued fetch retains its original URL.
+        const form = tray.querySelector('[data-coplan--review-tray-target="commentForm"]')
+        if (form && this.hasCommentFormTarget) {
+          if (this.commentFormTarget.action !== form.action) this.changesGeneration = this.element.dataset.reviewGeneration
+          this.commentFormTarget.action = form.action
+        }
+      }
       if (tray && !this.element.querySelector(".review-tray")) this.element.append(tray)
       const currentTray = this.element.querySelector(".review-tray")
       if (tray && currentTray) {
@@ -260,19 +357,153 @@ export default class extends Controller {
       if (navCount) navCount.textContent = Number(incoming.getElementById("plan-review-controls")?.dataset.reviewRecordCount) || ""
       if (this.hasChangeButtonTarget) this.changeButtonTarget.setAttribute("aria-expanded", String(!this.discussionTarget.hidden))
       this.syncFeedbackLinks()
+      if (this.policyRefreshPending && !this.policySaving && !this.policySaveTimer) this.refresh()
     } catch { /* The task and draft remain usable; the next event retries. */ }
+  }
+
+  changeResetPolicy(event) {
+    const input = event.currentTarget
+    input.setAttribute("aria-busy", "true")
+    this.policyInputGeneration = (this.policyInputGeneration || 0) + 1
+    this.policyConflictRetries = 0
+    this.policyFenceAttempted = false
+    this.policyUnresolved = false
+    input.removeAttribute("aria-invalid")
+    this.clearPolicyIcon()
+    clearTimeout(this.policySaveTimer)
+    this.policySaveTimer = setTimeout(() => {
+      this.policySaveTimer = null
+      this.saveResetPolicy(input)
+    }, 200)
+  }
+
+  async saveResetPolicy(input) {
+    if (this.policySaving) return
+    const connection = this.policyConnection
+    const previous = input.dataset.savedValue === "true"
+    const enabled = input.checked
+    const generation = this.policyInputGeneration
+    const submittedSequence = Number(input.dataset.reviewSequence)
+    const writeId = crypto.randomUUID()
+    if (previous === enabled && !this.policyMustSave && this.policyUncertainSequence == null) {
+      input.setAttribute("aria-busy", "false")
+      if (this.policyRefreshPending) await this.refresh()
+      return
+    }
+    this.policySaving = true
+    this.policyMustSave = false
+    this.managementErrorTarget.textContent = ""
+    let confirmed = false
+    let followupSequence = submittedSequence
+    try {
+      const result = await this.withPolicyDeadline(signal => this.write(this.settingsUrlValue, "PATCH", { review_settings: { reset_reviews_on_change: enabled, review_sequence: input.dataset.reviewSequence, write_id: writeId } }, signal))
+      if (connection !== this.policyConnection) return
+      input.dataset.savedValue = String(enabled)
+      input.dataset.reviewSequence = String(result.review_sequence)
+      followupSequence = result.review_sequence
+      this.policyConflictRetries = 0
+      this.policyUncertainSequence = null
+      this.policyFenceAttempted = false
+      this.policyUnresolved = false
+      input.removeAttribute("aria-invalid")
+      confirmed = true
+    } catch (error) {
+      if (connection !== this.policyConnection) return
+      // A lost HTTP result may already have saved. Read back before restoring
+      // the checkbox, while preserving clicks made during that request.
+      let persisted = previous
+      if (!error.status || error.status >= 500) {
+        this.policyUncertainSequence = Math.max(this.policyUncertainSequence ?? -1, submittedSequence)
+      }
+      try {
+        persisted = await this.withPolicyDeadline(async signal => {
+          const response = await fetch(this.urlValue, { credentials: "same-origin", headers: { Accept: "text/html" }, signal })
+          const policy = new DOMParser().parseFromString(await response.text(), "text/html").querySelector("[data-review-reset-policy]")
+          if (!response.ok || !policy) throw error
+          if (connection === this.policyConnection) {
+            input.dataset.reviewSequence = policy.dataset.reviewSequence
+            // Only our own receipt can advance a disconnected page's queued
+            // write. Never borrow the current sequence from another writer.
+            if (policy.dataset.policyWriteId === writeId) {
+              followupSequence = Number(policy.dataset.policyWriteSequence)
+            }
+          }
+          return policy.checked
+        })
+      } catch { /* Keep the last confirmed value and show the error. */ }
+      if (connection !== this.policyConnection) return
+      this.policyUnresolved = this.policyUncertainSequence != null && Number(input.dataset.reviewSequence) <= this.policyUncertainSequence
+      confirmed = persisted === enabled && !this.policyUnresolved
+      if (!this.policyUnresolved) this.policyUncertainSequence = null
+      input.dataset.savedValue = String(persisted)
+      if (generation !== this.policyInputGeneration || (error.status === 409 && ++this.policyConflictRetries <= 2)) this.policyMustSave = true
+      else input.checked = persisted
+      if (this.policyUnresolved && !this.policyFenceAttempted) {
+        // Readback alone cannot cancel a PATCH still waiting for the row lock.
+        // Fence it once with the reconciled value, even when that is a no-op.
+        this.policyFenceAttempted = true
+        this.policyMustSave = true
+        this.policyUnresolved = false
+      } else if (this.policyUnresolved) input.setAttribute("aria-invalid", "true")
+      this.managementErrorTarget.textContent = confirmed ? "" : error.message
+      if (this.policyUnresolved) this.managementErrorTarget.textContent += " A previous save may still be running. Toggle again to retry."
+    } finally {
+      if (connection !== this.policyConnection) return
+      this.policySaving = false
+      if (!connection.active) {
+        // Flush a newer unsent choice using only our submitted sequence or its
+        // receipt. A destination-page write wins; never rebase on readback here.
+        if (generation !== this.policyInputGeneration && (this.policyMustSave || input.checked !== enabled)) {
+          input.dataset.reviewSequence = String(followupSequence)
+          this.policyMustSave = true
+          this.saveResetPolicy(input)
+        } else input.setAttribute("aria-busy", "false")
+        return
+      }
+      // Serialize saves so a slow older request cannot overwrite a newer click.
+      if (!this.policyUnresolved && (this.policyMustSave || input.checked !== (input.dataset.savedValue === "true"))) this.saveResetPolicy(input)
+      else {
+        input.setAttribute("aria-busy", "false")
+        if (this.policyRefreshPending) await this.refresh()
+        if (confirmed && !this.policySaving && !this.policySaveTimer && !this.policyRefreshPending && input.checked === enabled) {
+          this.policyIconTarget.dataset.state = "saved"
+          this.policyIconTarget.setAttribute("aria-hidden", "false")
+          this.policyIconTimer = setTimeout(() => this.clearPolicyIcon(), 1500)
+        }
+      }
+    }
+  }
+
+  clearPolicyIcon() {
+    clearTimeout(this.policyIconTimer)
+    this.policyIconTarget.dataset.state = ""
+    this.policyIconTarget.setAttribute("aria-hidden", "true")
+  }
+
+  async withPolicyDeadline(action) {
+    const controller = new AbortController()
+    let timer
+    try {
+      return await Promise.race([action(controller.signal), new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort()
+          reject(new Error("Couldn't confirm the setting. Please try again."))
+        }, 10000)
+      })])
+    } finally { clearTimeout(timer) }
   }
 
   async assign(event) {
     event.preventDefault()
     if (!this.reviewerIdTarget.value) { this.assignmentErrorTarget.textContent = "Choose a person from the results first."; return }
     await this.withBusy(event.target, this.assignmentErrorTarget, async () => {
-      await this.write(this.urlValue, "POST", { review_request: { reviewer_id: this.reviewerIdTarget.value, requirement: event.target.querySelector('[type="checkbox"]').checked ? "required" : "optional" } })
+      await this.write(this.urlValue, "POST", { review_request: { reviewer_id: this.reviewerIdTarget.value, requirement: event.target.querySelector('[type="checkbox"]').checked ? "required" : "optional", replace_withdrawn: true } })
       this.searchTarget.value = ""; this.reviewerIdTarget.value = ""; this.resultsTarget.replaceChildren()
       this.closeAssignment()
       event.target.querySelector('[type="checkbox"]').checked = true
       this.addReviewerButtonTarget.focus({ preventScroll: true })
       await this.refresh()
+      await this.refreshThreads(null)
     }, "Requesting…")
     this.assignButtonTarget.disabled = !this.reviewerIdTarget.value
   }
@@ -354,7 +585,7 @@ export default class extends Controller {
 
   requestAgain(event) { this.manage(event, "PATCH", { review_request: { request_again: true } }) }
   changeRequirement(event) { this.manage(event, "PATCH", { review_request: { requirement: event.currentTarget.dataset.requirement } }) }
-  withdraw(event) { this.manage(event, "DELETE") }
+  withdraw(event) { this.manage(event, "DELETE", { review_request: { remove: true } }) }
 
   async manage(event, method, body) {
     if (this.managing) return
@@ -372,7 +603,9 @@ export default class extends Controller {
     try {
       await this.withBusy(button, this.managementErrorTarget, async () => {
         await this.write(button.dataset.url, method, body)
-        await this.refresh()
+        const removedId = method === "DELETE" && body?.review_request?.remove ? new URL(button.dataset.url, document.baseURI).pathname.split("/").at(-1) : null
+        await this.refresh(removedId ? { detail: { removedRequestId: removedId } } : undefined)
+        if (removedId) await this.refreshThreads(null)
       }, "Updating…")
     } finally {
       this.managing = false
@@ -420,18 +653,26 @@ export default class extends Controller {
 
   csrfToken() { return document.querySelector('meta[name="csrf-token"]')?.content || "" }
 
-  async write(url, method, body) {
+  async write(url, method, body, signal) {
     let response
     try {
-      response = await fetch(url, { method, headers: { "X-CSRF-Token": this.csrfToken(), "Content-Type": "application/json", Accept: "application/json" }, credentials: "same-origin", body: body ? JSON.stringify(body) : undefined })
+      response = await fetch(url, { method, headers: { "X-CSRF-Token": this.csrfToken(), "Content-Type": "application/json", Accept: "application/json" }, credentials: "same-origin", body: body ? JSON.stringify(body) : undefined, signal })
     } catch {
-      throw new Error("Couldn't reach CoPlan. Your draft is still here. Check that the server is running and try again.")
+      throw new Error("Couldn't reach Coplan. Your draft is still here. Check that the server is running and try again.")
     }
     if (response.status === 204) return {}
     let result
     try { result = await response.json() } catch { throw new Error("Couldn't save your response. Your draft is still here. Please try again.") }
     if (!response.ok) {
+      // A definite rejection did not record this intent. Refresh the cycle
+      // so closing and deliberately reopening the dialog can start a new one.
+      // Network failures and lost results keep their original key/generation.
+      if (String(url).endsWith("/respond") && [409, 422].includes(response.status)) {
+        this.responseIntents = {}
+        this.refresh()
+      }
       const error = new Error(result.error || "Couldn't save. Please try again.")
+      error.status = response.status
       if (result.code === "authentication_required") error.signInPath = result.sign_in_path
       throw error
     }

@@ -2,13 +2,15 @@ module CoPlan
   class Reference < ApplicationRecord
     SOURCES = %w[extracted explicit].freeze
     REFERENCE_TYPES = %w[plan repository pull_request document link].freeze
+    EXTRACTED_TITLE_LIMIT = 255
+    KEY_FORMAT = /\A[a-z0-9][a-z0-9_-]*\z/.freeze
 
     belongs_to :plan
     belongs_to :target_plan, class_name: "CoPlan::Plan", optional: true
 
     validates :url, presence: true, uniqueness: { scope: :plan_id }, format: { with: /\Ahttps?:\/\//i, message: "must start with http:// or https://" }
     validates :key, uniqueness: { scope: :plan_id }, allow_nil: true,
-      format: { with: /\A[a-z0-9][a-z0-9_-]*\z/, message: "must be lowercase alphanumeric with hyphens/underscores" }, length: { maximum: 64 }
+      format: { with: KEY_FORMAT, message: "must be lowercase alphanumeric with hyphens/underscores" }, length: { maximum: 64 }
     validates :reference_type, presence: true, inclusion: { in: REFERENCE_TYPES }
     validates :source, presence: true, inclusion: { in: SOURCES }
 
@@ -19,7 +21,7 @@ module CoPlan
     # shape, so a path alone is proof. A readable address isn't — now that
     # handles sit at the root, `/sam/liveorder/cart-roadmap` is shaped like
     # any other site's URL, and matching it on shape would type half the
-    # links people paste as CoPlan documents.
+    # links people paste as Coplan documents.
     #
     # So the two forms are recognized by different means. The id form by
     # pattern, anywhere. The readable form only when we know the URL is ours
@@ -28,7 +30,7 @@ module CoPlan
     PLAN_ID_PATH = %r{/plans/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})}
     READABLE_PLAN_PATH = %r{\A/([a-z0-9][a-z0-9-]*)/([^?#]+)}
 
-    # `own_host` is the host CoPlan is being served from, when the caller
+    # `own_host` is the host Coplan is being served from, when the caller
     # knows it. Views do (`request.host`); background work generally
     # doesn't, and gets the id form only.
     def self.classify_url(url, own_host: nil)

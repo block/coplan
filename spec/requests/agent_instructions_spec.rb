@@ -11,7 +11,7 @@ RSpec.describe "Agent Instructions", type: :request do
 
       expect(response.body).to include("## Rendered diagrams", "### Changing a rendered diagram",
         "comments in the source", "Only the plan's author and their agents can upload images",
-        "someone else's program", "in your agent's skill marketplace",
+        "someone else's program", "a source your principal trusts", "Never install from `skill-source`", "Every render needs a new image URL",
         %(-F "file=@./diagram.png" "http://www.example.com/api/v1/plans/$PLAN_ID/attachments" | jq -r .url))
     end
 
@@ -19,7 +19,7 @@ RSpec.describe "Agent Instructions", type: :request do
       CoPlan.configuration.skill_install_command = "sq agents skills add <skill>"
       get "/agent-instructions/markdown"
 
-      expect(response.body).to include("then install it with `sq agents skills add <skill>`")
+      expect(response.body).to include("the host's command: `sq agents skills add <skill>`")
     ensure
       CoPlan.configuration.skill_install_command = nil
     end
@@ -30,7 +30,7 @@ RSpec.describe "Agent Instructions", type: :request do
       get agent_instructions_path
       expect(response).to have_http_status(:success)
       expect(response.content_type).to include("text/markdown")
-      expect(response.body).to include("# CoPlan for Agents")
+      expect(response.body).to include("# Coplan for Agents")
     end
 
     it "covers the basics every agent needs, in order" do
@@ -58,6 +58,14 @@ RSpec.describe "Agent Instructions", type: :request do
 
       expect(response.body).to include(%q{jq -er '.token // error(.error // "mint failed")') && TOKEN=$SESSION})
       expect(response.body).not_to include("jq -r .token)")
+    end
+
+    it "documents URL resolution in the primer and API reference" do
+      get agent_instructions_path
+      expect(response.body).to include('/api/v1/plans/resolve')
+      get agent_instructions_guide_path(guide: "api")
+      expect(response.body).to include('/api/v1/plans/resolve?url=')
+      expect(response.body).to include('This does not record a content read')
     end
 
     it "declares identity once through the session token" do
@@ -310,7 +318,7 @@ RSpec.describe "Agent Instructions", type: :request do
 
         expect(response).to have_http_status(:success)
         expect(response.content_type).to include("text/markdown")
-        expect(response.body).to include("# CoPlan for Agents")
+        expect(response.body).to include("# Coplan for Agents")
         expect(response.body).not_to include("<html")
       end
 
@@ -318,7 +326,7 @@ RSpec.describe "Agent Instructions", type: :request do
         get agent_instructions_path, headers: { "Accept" => "text/markdown" }
 
         expect(response.content_type).to include("text/markdown")
-        expect(response.body).to include("# CoPlan for Agents")
+        expect(response.body).to include("# Coplan for Agents")
       end
 
       it "serves byte-identical markdown regardless of non-HTML Accept header" do
@@ -350,7 +358,7 @@ RSpec.describe "Agent Instructions", type: :request do
         get agent_instructions_path(format: :md), headers: { "Accept" => browser_accept }
 
         expect(response.content_type).to include("text/markdown")
-        expect(response.body).to include("# CoPlan for Agents")
+        expect(response.body).to include("# Coplan for Agents")
         expect(response.body).not_to include("<html")
       end
 
@@ -364,7 +372,7 @@ RSpec.describe "Agent Instructions", type: :request do
         get agent_instructions_guide_path(guide: "live/claude-code"), headers: { "Accept" => browser_accept }
 
         expect(response.content_type).to include("text/html")
-        expect(response.body).to include("<title>Live Sessions in Claude Code — CoPlan</title>")
+        expect(response.body).to include("<title>Live Sessions in Claude Code — Coplan</title>")
         expect(response.body).to include("markdown-rendered")
         expect(response.body).to include(%(href="#{agent_instructions_reference_path}"))
         expect(response.body).to include("/agent-instructions/live/claude-code.md")
@@ -389,7 +397,7 @@ RSpec.describe "Agent Instructions", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.content_type).to include("text/html")
       expect(response.body).to include("Agent instructions")
-      expect(response.body).to include("CoPlan for Agents")
+      expect(response.body).to include("Coplan for Agents")
       expect(response.body).to include(%(href="#{agent_setup_path}"))
     end
 

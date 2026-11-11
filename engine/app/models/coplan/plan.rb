@@ -60,6 +60,7 @@ module CoPlan
     # paths — API, services, direct creates — stay type-optional while
     # untyped rows stay unrepresentable.
     before_validation :assign_default_plan_type, on: :create
+    before_validation :extract_document_title
 
     # The URL segment follows the title, so a shared link reads like the
     # document it points at, and the old URL keeps resolving via UrlAlias.
@@ -68,6 +69,7 @@ module CoPlan
     before_save :assign_url_slug, if: :url_slug_stale?
 
     validates :title, presence: true
+    validates :reset_reviews_on_change, inclusion: { in: [ true, false ] }
     validates :visibility, presence: true, inclusion: { in: VISIBILITIES }
     validate :attachments_within_limits
 
@@ -95,14 +97,19 @@ module CoPlan
     # profile is a public shelf, not a workspace.
     scope :publicly_listed, -> { active.where(visibility: "published") }
 
-    after_save_commit :refresh_search_text!, if: :search_text_needs_refresh?
+    after_save :refresh_search_text!, if: :search_text_needs_refresh?
 
     # What a library row says about a document, and whether it says anything
     # at all. Content edits aren't here: they don't change the row, and a
     # refresh on every autosave would be a storm for one stale timestamp.
     LISTED_ATTRIBUTES = %w[title slug slug_suffix visibility archived_at plan_type_id].freeze
 
+    after_save :remember_listing_change
     after_commit :broadcast_listing_change, on: [ :create, :update ]
+    after_update :remember_document_name_change
+    after_update_commit :broadcast_document_name
+    after_rollback { @document_name_changed = @listing_changed = false }
+    after_update :record_title_change, if: :saved_change_to_title?
 
     # Sitewide search over a denormalized `search_text` column maintained by
     # `refresh_search_text!`. The matching strategy is adapter-specific but
@@ -275,6 +282,13 @@ module CoPlan
       end
     end
 
+    # Autosaves update the name but retain the published address. Done calls
+    # this under the same revision lock as the final content save.
+    def finalize_title!
+      Plans::AssignSlug.call(plan: self)
+      save!
+    end
+
     def current_content
       current_plan_version&.content_markdown
     end
@@ -316,10 +330,39 @@ module CoPlan
 
     private
 
+    def record_title_change
+      version = current_plan_version
+      return unless version
+      Plans::LogEvent.call(plan: self, actor: version.actor_user, event_type: "title_changed",
+        before: title_before_last_save, after: title, actor_type: version.actor_type,
+        actor_id: version.actor_id, agent_name: version.agent_name, api_token_id: version.api_token_id)
+    end
+
+    def remember_document_name_change
+      @document_name_changed ||= saved_change_to_title? || saved_change_to_slug? || saved_change_to_slug_suffix?
+    end
+
+    def broadcast_document_name
+      return unless @document_name_changed
+      @document_name_changed = false
+      Broadcaster.replace_to(self, target: "plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: self })
+    end
+
+    def remember_listing_change
+      @listing_changed ||= previously_new_record? || (saved_changes.keys & LISTED_ATTRIBUTES).any?
+    end
+
     def broadcast_listing_change
-      return unless previously_new_record? || (saved_changes.keys & LISTED_ATTRIBUTES).any?
+      return unless @listing_changed
+      @listing_changed = false
 
       broadcast_library_refresh(library)
+    end
+
+    def extract_document_title
+      if current_plan_version && (will_save_change_to_current_plan_version_id? || will_save_change_to_title?)
+        self.title = MarkdownDocumentTitle.extract(current_content)
+      end
     end
 
     def assign_default_plan_type
@@ -327,7 +370,8 @@ module CoPlan
     end
 
     def url_slug_stale?
-      slug.blank? || will_save_change_to_title?
+      slug.blank? || (will_save_change_to_title? &&
+        !(will_save_change_to_current_plan_version_id? && current_plan_version&.actor_type == "human"))
     end
 
     def assign_url_slug

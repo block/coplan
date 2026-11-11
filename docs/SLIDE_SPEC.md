@@ -33,11 +33,11 @@ In reading mode, each deck has its own slide controls and Present button.
 The presentation occupies the browser window and returns to its reader
 position when closed.
 
-This document is the product boundary of CoPlan's deck design system. On one
+This document is the product boundary of Coplan's deck design system. On one
 side: plain CommonMark and a deterministic classifier that assigns every slide
 a layout pattern. On the other: a markup contract and a stylesheet
 (`deck.css` + `deck-theme-*.css`) that render those patterns. Anything that
-implements this spec — CoPlan's Ruby renderer today, a JS implementation
+implements this spec — Coplan's Ruby renderer today, a JS implementation
 later — produces the same deck from the same markdown.
 
 Two properties are non-negotiable and every rule below serves them:
@@ -73,7 +73,7 @@ proves itself against the same fixtures.
 
 Classification operates on one slide's markdown (boundaries and definition
 hoisting are upstream concerns; see `Slideshows::Split`). Parse it as
-CommonMark with the host's extensions (CoPlan: footnotes, tables,
+CommonMark with the host's extensions (Coplan: footnotes, tables,
 strikethrough, autolink, tasklist). The **content sequence** is the slide's
 top-level blocks, excluding:
 
@@ -107,7 +107,7 @@ pattern: content
 ```
 
 Link-reference definitions are consumed by the parser and contribute no
-blocks. Classify the same string the renderer renders — in CoPlan that
+blocks. Classify the same string the renderer renders — in Coplan that
 includes the hoisted definition preamble, so reference-style images
 (`![chart][q3]`) resolve to image nodes here exactly as they do on screen.
 
@@ -115,15 +115,20 @@ Five derived terms:
 
 - **lead heading** — the first block of the content sequence, if it is a
   heading (any level). The **body** is the sequence minus the lead heading.
-- **plain text** — a block's visible characters: its text and inline code.
+- **plain text** — a block's visible characters: its text, inline code, and
+  the TeX source of inline math (`$…$` or `` $`…`$ ``, delimiters excluded).
   Image alt text renders as an attribute, zero glyphs on the canvas, so it
   never counts — an image's cost is exactly its image units, however it is
-  described.
+  described. Display math (`$$…$$`) is not plain text; it bills by rows.
+- **display-math rows** — for a `$$…$$` formula or a `math` fence, the
+  number of `\\` row breaks plus one, or its number of non-blank source
+  lines, whichever is larger (minimum 1).
 - **short paragraph** — a paragraph containing no images whose plain text
-  is at most 160 characters, counting each hard line break as a full
-  line's worth (60 characters). Long enough for a subtitle, a caption, or
-  an attribution; too short to be the point of the slide — an image is
-  never a subtitle, and neither is a stack of hard-broken lines.
+  is at most 160 characters, counting each hard line break and each
+  display-math row as a full line's worth (60 characters). Long enough for
+  a subtitle, a caption, or an attribution; too short to be the point of
+  the slide — an image is never a subtitle, and neither is a stack of
+  hard-broken lines or a tall formula.
 - **media block** — either a paragraph whose inline content is exactly one
   image (optionally wrapped in a single link) and nothing else but
   whitespace and comments, or a code block whose info string's **first
@@ -159,6 +164,7 @@ or the block plus one short paragraph immediately before or after it —
 a kicker line or a caption. Anything more is a `content` or `split` slide.
 
 Rule 3 sits above rule 4, so a `mermaid` fence is always media, never code.
+A `math` fence renders as display math, not code, so it never takes rule 4.
 Rule 9 requires at least one non-media block, so a lone image lands on
 `stage`, and requires exactly one media block, so two images fall through to
 `content` rather than guessing which one gets the pane.
@@ -559,10 +565,11 @@ computed from **units** — a deterministic estimate of rendered lines:
 | Block | Units |
 |---|---|
 | heading | 1 |
-| paragraph | ⌈plain-text length / 60⌉, minimum 1, plus 1 per hard line break, plus 3 per image |
+| paragraph | ⌈plain-text length / 60⌉, minimum 1, plus 1 per hard line break, plus 3 per image, plus its display-math rows |
 | list / list item / blockquote | sum of children, minimum 1 |
 | code block | ⌈code lines / 1.2⌉, minimum 1 |
 | media code block (mermaid) | 4 |
+| math fence | 1 + its display-math rows |
 | table | number of rows (header included) |
 | thematic break | 1 |
 | HTML block (non-comment) | 2 |
@@ -573,7 +580,9 @@ excludes alt text (invisible), and a hard line break forces a rendered
 line just as sixty characters do. The code divisor comes from `deck.css`:
 code renders at 0.8 em with 1.55 line-height — about ⅚ of a body line per
 code line, not half of one. A mermaid fence renders as a fit-to-box
-diagram, so it bills like media, not like its source line count.
+diagram, so it bills like media, not like its source line count. A display
+formula renders each row about as tall as a body line; a math fence bills
+like a paragraph holding that formula.
 
 The slide's units are the sum over its content sequence, with one
 pattern-aware adjustment: a `directory` slide's list renders across two
@@ -676,6 +685,67 @@ pattern: code
 step: 4
 ````
 
+A tall display formula is content, not an empty slide — each row bills a
+line, so twelve rows step down like twelve lines of prose:
+
+```conformance
+## Proof
+
+$$
+\begin{aligned}
+x_1 &= 1 \\
+x_2 &= 2 \\
+x_3 &= 3 \\
+x_4 &= 4 \\
+x_5 &= 5 \\
+x_6 &= 6 \\
+x_7 &= 7 \\
+x_8 &= 8 \\
+x_9 &= 9 \\
+x_{10} &= 10
+\end{aligned}
+$$
+.
+pattern: content
+step: 3
+```
+
+A single-row formula under a heading is a subtitle:
+
+```conformance
+## Mass and energy
+
+$$E = mc^2$$
+.
+pattern: title
+step: 1
+```
+
+A `math` fence counts its `\\` rows and is never a `code` slide:
+
+````conformance
+## Bounds
+
+```math
+a \le b \\ b \le c \\ c \le d \\ d \le e \\ e \le f \\ f \le g
+```
+.
+pattern: content
+step: 2
+````
+
+Inline math counts its TeX source as text, so formulas push a long
+paragraph down a step just as words do:
+
+```conformance
+## Totals
+
+Retry cost is $\sum_{k=1}^{n} b \cdot 2^{k-1} = b(2^{n-1} - 1)$ seconds across $n$ attempts, $\frac{T}{n}$ on average per attempt, which we compare against the $\varepsilon$ failure target and the $p^n$ survival rate. Each figure assumes independent failures.
+.
+pattern: content
+step: 2
+```
+
 ## The markup contract
 
 What the renderer must produce; what the stylesheet may rely on. All
@@ -708,7 +778,7 @@ classes live under the `deck-` namespace and everything is scoped beneath
   must skip the wrappers rather than wrap the wrong nodes or reorder
   visible text around them; the stylesheet degrades to the content layout.
 
-Three invariants protect CoPlan's review loop and hold for every pattern:
+Three invariants protect Coplan's review loop and hold for every pattern:
 
 1. **No added visible text.** Slide numbers, quote marks, kicker rules —
    all chrome is CSS-generated or structural. Comment anchors count
@@ -763,7 +833,7 @@ theme, never from the reader's scheme.
 ## Out of scope here
 
 Slide splitting and definition hoisting (`Slideshows::Split`), speaker
-notes, the fit report's budgets, and presenter-mode chrome are CoPlan
+notes, the fit report's budgets, and presenter-mode chrome are Coplan
 concerns documented with their implementations. This spec owns exactly:
 the content sequence, the catalog, the steps, the markup contract, and the
 theme tokens.

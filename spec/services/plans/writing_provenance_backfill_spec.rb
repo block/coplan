@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
   let(:user) { create(:coplan_user) }
-  let(:plan) { CoPlan::Plans::Create.call(title: "Legacy", content: "Old editor", user: user, actor_type: "human") }
+  let(:plan) { create_historical_plan(title: "Legacy", content: "Old editor", user: user, actor_type: "human") }
 
   def rollout(plan, revision: plan.current_revision)
     plan.update_columns(writing_provenance_backfill: { "legacy_revision" => revision, "revision" => 0 })
@@ -16,12 +16,12 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
   it "repairs moved writing from an old completed policy across separate cut and paste saves" do
     original = "# Current Architecture\n\nDevices connect to the cloud.\n\n"
     kept = "# Proposal\n\nConnect devices directly.\n"
-    moved = CoPlan::Plans::Create.call(title: "Moved writing", content: original + kept, user: user, actor_type: "human",
+    moved = create_historical_plan(title: "Moved writing", content: original + kept, user: user, actor_type: "human",
       input_sources: { "runs" => [ [ (original + kept).length, "human" ] ] })
     allow(CoPlan::Plans::WritingProvenanceMoves).to receive(:call) { |**args| [ args.fetch(:runs), [] ] }
-    CoPlan::Plans::ReplaceContent.call(plan: moved, new_content: kept, base_revision: 1, actor_type: "human", actor_id: user.id)
+    append_historical_content(plan: moved, new_content: kept, base_revision: 1, actor_type: "human", actor_id: user.id)
     pasted = kept + "\n" + original
-    CoPlan::Plans::ReplaceContent.call(plan: moved, new_content: pasted, base_revision: 2, actor_type: "human", actor_id: user.id,
+    append_historical_content(plan: moved, new_content: pasted, base_revision: 2, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ pasted.length, "unknown" ] ] })
     expect(moved.writing_provenance_summary.dig("counts", "unknown")).to be_positive
     moved.plan_versions.each do |version|
@@ -69,7 +69,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
 
   it "keeps the early unknown text when later historical editor input is human" do
     plan.current_plan_version.update_columns(created_at: Time.utc(2026, 7, 9))
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor typed", base_revision: 1, actor_type: "human", actor_id: user.id)
+    append_historical_content(plan: plan, new_content: "Old editor typed", base_revision: 1, actor_type: "human", actor_id: user.id)
     plan.current_plan_version.update_columns(created_at: Time.utc(2026, 8, 18))
     rollout(plan)
     run_batch(plan)
@@ -119,7 +119,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     old.update_columns(writing_provenance: snapshot)
     plan.update_columns(writing_provenance_summary: snapshot.fetch("summary"),
       writing_provenance_backfill: { "legacy_revision" => 1, "revision" => 1, "finalized_revision" => 1 })
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor typed", base_revision: 1, actor_type: "human", actor_id: user.id,
+    append_historical_content(plan: plan, new_content: "Old editor typed", base_revision: 1, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ 16, "human" ] ] })
     expect(plan.reload.writing_provenance_backfill.fetch("revision")).to eq(2)
     expect(plan.current_plan_version.writing_provenance["history_policy"]).to be_nil
@@ -129,7 +129,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
 
   it "assumes legacy editor additions are human and preserves later pasted input" do
     rollout(plan)
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor paste", base_revision: 1, actor_type: "human", actor_id: user.id,
+    append_historical_content(plan: plan, new_content: "Old editor paste", base_revision: 1, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ 10, "unknown" ], [ 6, "unknown" ] ] })
     run_batch(plan)
     expect(plan.reload.writing_provenance_summary.fetch("counts")).to eq("human" => 9, "ai" => 0, "unknown" => 5)
@@ -137,8 +137,8 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
   end
 
   it "keeps retained agent writing when a historical human adds text" do
-    agent = CoPlan::Plans::Create.call(title: "Mixed history", content: "Agent", user: user, actor_type: "local_agent")
-    CoPlan::Plans::ReplaceContent.call(plan: agent, new_content: "Agent human", base_revision: 1, actor_type: "human", actor_id: user.id)
+    agent = create_historical_plan(title: "Mixed history", content: "Agent", user: user, actor_type: "local_agent")
+    append_historical_content(plan: agent, new_content: "Agent human", base_revision: 1, actor_type: "human", actor_id: user.id)
     rollout(agent)
     run_batch(agent)
     expect(agent.reload.writing_provenance_summary.fetch("counts")).to eq("human" => 5, "ai" => 5, "unknown" => 0)
@@ -147,9 +147,9 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
   it "keeps moved agent writing during historical human-input reconstruction" do
     first = "Agent-authored architecture.\n\n"
     last = "Agent-authored proposal.\n"
-    agent = CoPlan::Plans::Create.call(title: "Reordered history", content: first + last, user: user, actor_type: "local_agent")
+    agent = create_historical_plan(title: "Reordered history", content: first + last, user: user, actor_type: "local_agent")
     reordered = last + "\n" + first
-    CoPlan::Plans::ReplaceContent.call(plan: agent, new_content: reordered, base_revision: 1, actor_type: "human", actor_id: user.id)
+    append_historical_content(plan: agent, new_content: reordered, base_revision: 1, actor_type: "human", actor_id: user.id)
     rollout(agent)
     run_batch(agent)
     expect(agent.reload.writing_provenance_summary.dig("shares", "ai")).to eq(1.0)
@@ -159,11 +159,11 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
   end
 
   it "includes old writers after the cutoff without treating interleaved instrumented paste as human" do
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor oldworker", base_revision: 1, actor_type: "human", actor_id: user.id)
+    append_historical_content(plan: plan, new_content: "Old editor oldworker", base_revision: 1, actor_type: "human", actor_id: user.id)
     pasted = "Old editor oldworker paste"
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: pasted, base_revision: 2, actor_type: "human", actor_id: user.id,
+    append_historical_content(plan: plan, new_content: pasted, base_revision: 2, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ pasted.length, "unknown" ] ] })
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "#{pasted} moreold", base_revision: 3, actor_type: "human", actor_id: user.id)
+    append_historical_content(plan: plan, new_content: "#{pasted} moreold", base_revision: 3, actor_type: "human", actor_id: user.id)
     plan.plan_versions.where(revision: [ 2, 4 ]).update_all(writing_provenance: nil)
     rollout(plan, revision: 1)
     run_batch(plan)
@@ -173,8 +173,8 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
   end
 
   it "rebuilds new plans from old writers without a cutoff and preserves that assumption on replay" do
-    late = CoPlan::Plans::Create.call(title: "During deployment", content: "a" * 2000, user: user, actor_type: "human")
-    CoPlan::Plans::ReplaceContent.call(plan: late, new_content: "b" * 2000, base_revision: 1, actor_type: "human", actor_id: user.id)
+    late = create_historical_plan(title: "During deployment", content: "a" * 2000, user: user, actor_type: "human")
+    append_historical_content(plan: late, new_content: "b" * 2000, base_revision: 1, actor_type: "human", actor_id: user.id)
     late.plan_versions.update_all(writing_provenance: nil)
     late.update_columns(writing_provenance_summary: nil)
     run_batch(late)
@@ -199,7 +199,7 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
 
   it "resumes at the committed checkpoint after a failed version without replaying earlier versions" do
     rollout(plan)
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor new", base_revision: 1, actor_type: "human", actor_id: user.id)
+    append_historical_content(plan: plan, new_content: "Old editor new", base_revision: 1, actor_type: "human", actor_id: user.id)
     token = described_class.claim(plan)
     allow(CoPlan::Plans::WritingProvenance).to receive(:call).and_wrap_original do |method, **args|
       raise "worker interrupted" if args.fetch(:version).revision == 2
@@ -219,15 +219,15 @@ RSpec.describe CoPlan::Plans::WritingProvenanceBackfill do
     token = described_class.claim(plan)
     expect(run_batch(plan, token)).to be(true)
     expect(run_batch(plan, token)).to be(false)
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "Old editor typed", base_revision: 1, actor_type: "human", actor_id: user.id,
+    append_historical_content(plan: plan, new_content: "Old editor typed", base_revision: 1, actor_type: "human", actor_id: user.id,
       input_sources: { "runs" => [ [ 16, "human" ] ] })
     expect(plan.reload.writing_provenance_backfill).to eq("legacy_revision" => 1, "revision" => 2, "finalized_revision" => 2, "policy_version" => CoPlan::Plans::WritingProvenance::HISTORY_POLICY)
     expect(described_class.pending?(plan)).to be(false)
   end
 
   it "applies the historical assumption to large editor rewrites without unbounded diffing" do
-    legacy = CoPlan::Plans::Create.call(title: "Large legacy", content: "a" * 2000, user: user, actor_type: "human")
-    CoPlan::Plans::ReplaceContent.call(plan: legacy, new_content: "b" * 2000, base_revision: 1, actor_type: "human", actor_id: user.id)
+    legacy = create_historical_plan(title: "Large legacy", content: "a" * 2000, user: user, actor_type: "human")
+    append_historical_content(plan: legacy, new_content: "b" * 2000, base_revision: 1, actor_type: "human", actor_id: user.id)
     rollout(legacy)
     run_batch(legacy)
     expect(legacy.reload.writing_provenance_summary.dig("shares", "human")).to eq(1.0)

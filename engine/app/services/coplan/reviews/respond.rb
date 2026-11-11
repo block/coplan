@@ -10,12 +10,13 @@ module CoPlan
         end
       end
 
-      def self.call(request:, actor:, revision:, decision:, note: nil, api_token: nil, idempotency_key: nil)
-        new(request:, actor:, revision:, decision:, note:, api_token:, idempotency_key:).call
+      def self.call(request:, actor:, revision:, decision:, note: nil, api_token: nil, idempotency_key: nil, generation: nil)
+        new(request:, actor:, revision:, decision:, note:, api_token:, idempotency_key:, generation:).call
       end
 
-      def initialize(request:, actor:, revision:, decision:, note:, api_token:, idempotency_key:)
+      def initialize(request:, actor:, revision:, decision:, note:, api_token:, idempotency_key:, generation:)
         @request, @actor, @revision, @decision, @note, @api_token = request, actor, revision, decision, note, api_token
+        @generation = generation
         @idempotency_key = idempotency_key.presence
       end
 
@@ -45,16 +46,26 @@ module CoPlan
             end
             response.id = @idempotency_key
           end
+          # A legacy identical retry is historical even after a re-request.
+          # It cannot change status, attribution, sequence or the current pointer.
+          existing = @request.review_responses.find_by(user: @actor,
+            plan_version_id: plan.plan_versions.where(revision: @revision).select(:id),
+            decision: @decision, note: response.note)
+          next existing if existing && !@idempotency_key
+
           raise Conflict.new("This review request was withdrawn.", code: "review_request_withdrawn") if @request.status == "withdrawn"
           raise Conflict, "The plan has changed. Review the latest version before recording your response." unless @revision.to_s == plan.current_revision.to_s
 
-          # Legacy clients cannot distinguish two identical intentions. Keep
-          # the old response and preserve any newly re-requested pending task.
-          # Token renewal changes the credential, not the human's intention;
-          # returning the saved record preserves its original attribution.
-          existing = @request.review_responses.find_by(user: @actor, plan_version: plan.current_plan_version,
-            decision: @decision, note: response.note)
-          next existing if existing && !@idempotency_key
+          # First-cycle legacy clients remain usable. After any reset they
+          # must fetch and send the generation; a first-seen delayed request
+          # must never complete a reopened task at the same body revision.
+          unless @generation.to_s == @request.generation.to_s || (@generation.nil? && @request.generation == 1)
+            raise Conflict.new("The review request changed. Reload it before recording a new decision.", code: "review_request_changed")
+          end
+          plan.current_plan_version.verified_content!
+          plan.update!(review_sequence: plan.review_sequence + 1)
+          response.request_generation = @request.generation
+          response.decision_sequence = plan.review_sequence
 
           if response.note.present?
             thread = plan.comment_threads.create!(plan_version: plan.current_plan_version, created_by_user: @actor)
@@ -64,7 +75,7 @@ module CoPlan
           end
           response.save!
           @new_response = true
-          @request.update!(status: @decision)
+          @request.update!(status: @decision, current_response: response, reset_reason: nil)
           @request.notifications.unread.where(user: @actor).update_all(read_at: Time.current)
           unless @actor.id == plan.created_by_user_id
             Notification.create!(plan: plan, user_id: plan.created_by_user_id, review_request: @request,

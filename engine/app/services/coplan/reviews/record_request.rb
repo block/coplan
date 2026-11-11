@@ -16,7 +16,7 @@ module CoPlan
           api_token: api_token, agent_name: api_token && ApiToken.normalized_agent_name(api_token.agent_name.presence || api_token.name),
           created_at: request.requested_at,
           metadata: { "reviewer_name" => request.reviewer.name, "revision" => request.requested_plan_version.revision,
-                      "requirement" => request.requirement })
+                      "requirement" => request.requirement, "generation" => request.generation, "review_sequence" => request.plan.review_sequence })
       end
     end
   end

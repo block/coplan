@@ -1,7 +1,7 @@
 require "rails_helper"
 require "tmpdir"
 
-RSpec.describe "CoPlan stylesheets" do
+RSpec.describe "Coplan stylesheets" do
   around do |example|
     Dir.mktmpdir("coplan-stylesheets") do |directory|
       @directory = Pathname.new(directory)

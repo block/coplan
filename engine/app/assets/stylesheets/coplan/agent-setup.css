@@ -266,3 +266,8 @@
 .plan-stale-banner__reload {
   flex-shrink: 0;
 }
+
+/* Explicit guide fragments clear the shared navigation. */
+.agent-reference__doc a[id] {
+  scroll-margin-top: calc(var(--nav-height) + var(--space-lg));
+}

@@ -112,7 +112,7 @@ module CoPlanSession
 
   def mint(base:, parent:, agent_name: nil, ttl: nil, metadata: nil)
     # Concatenation, not URI.join: an absolute path in URI.join discards
-    # the base's mount prefix, and CoPlan engines may be mounted under one.
+    # the base's mount prefix, and Coplan engines may be mounted under one.
     uri = URI("#{base.to_s.chomp("/")}/api/v1/tokens")
     req = Net::HTTP::Post.new(uri)
     req["Authorization"] = "Bearer #{parent}"

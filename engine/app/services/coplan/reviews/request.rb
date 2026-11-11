@@ -1,27 +1,50 @@
 module CoPlan
   module Reviews
     class Request
-      def self.call(plan:, reviewer:, actor:, requirement: "required", api_token: nil, create_only: false)
-        new(plan:, reviewer:, actor:, requirement:, api_token:, create_only:).call
+      def self.call(plan:, reviewer:, actor:, requirement: "required", api_token: nil, create_only: false, replace_withdrawn: false)
+        new(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, replace_withdrawn:).call
       end
 
-      def initialize(plan:, reviewer:, actor:, requirement:, api_token:, create_only:)
+      def self.again(request:, actor:, requirement: nil, api_token: nil)
+        new(plan: request.plan, reviewer: request.reviewer, request:, actor:, requirement:, api_token:,
+          create_only: false, replace_withdrawn: false).call
+      end
+
+      def initialize(plan:, reviewer:, actor:, requirement:, api_token:, create_only:, replace_withdrawn:, request: nil)
         @plan, @reviewer, @actor, @requirement, @api_token = plan, reviewer, actor, requirement, api_token
         @create_only = create_only
+        @request = request
+        @replace_withdrawn = replace_withdrawn
       end
 
       def call
         changed = false
+        removed = nil
         request = @plan.with_lock do
-          request = @plan.review_requests.find_or_initialize_by(reviewer: @reviewer)
-          # Retrying a create cannot change a decision, reopen a withdrawal,
-          # or send another nudge. Only an explicit re-request starts a cycle.
+          request = if @request
+            # The plan lock does not reload its children. Reject a request
+            # removed while this operation was waiting for the lock.
+            @request.reload
+            @requirement = @request.requirement if @requirement.nil?
+            @request
+          else
+            @plan.review_requests.find_or_initialize_by(reviewer: @reviewer)
+          end
+          # API create retries preserve every existing task. The web add form
+          # deliberately replaces withdrawn tasks left by earlier removals.
           if @create_only && request.persisted?
             unless ReviewRequest::REQUIREMENTS.include?(@requirement)
               request.errors.add(:requirement, :inclusion)
               raise ActiveRecord::RecordInvalid, request
             end
-            next request
+            next request unless @replace_withdrawn && request.status == "withdrawn"
+
+            unless @plan.plan_events.where(event_type: "review_requested", after_value: request.id).exists?
+              RecordRequest.call(request: request)
+            end
+            request.destroy!
+            removed = request
+            request = @plan.review_requests.new(reviewer: @reviewer)
           end
 
           # Preserve the original request for tasks created before request
@@ -30,8 +53,10 @@ module CoPlan
             RecordRequest.call(request: request)
           end
           request.assign_attributes(requested_by_user: @actor, requested_plan_version: @plan.current_plan_version,
-            requirement: @requirement, status: "pending", requested_at: Time.current)
+            requirement: @requirement, status: "pending", requested_at: Time.current,
+            generation: request.persisted? ? request.generation + 1 : 1, current_response: nil, reset_reason: request.persisted? ? "requested_again" : nil)
           request.save!
+          @plan.update!(review_sequence: @plan.review_sequence + 1)
           RecordRequest.call(request: request, api_token: @api_token)
           # One unread nudge per task. Reading it never completes the task.
           request.notifications.unread.where(user: @reviewer).update_all(read_at: Time.current)
@@ -39,6 +64,8 @@ module CoPlan
           changed = true
           request
         end
+        Changed.call(request: removed, event_type: "review.requested", actor_token_id: @api_token&.id,
+          payload: { "action" => "removed", "removed" => true }) if removed
         Changed.call(request: request, event_type: "review.requested", actor_token_id: @api_token&.id,
           payload: { "action" => "requested", "requirement" => request.requirement }) if changed
         request

@@ -6,7 +6,7 @@ RSpec.describe "Comment anchoring", type: :system do
   # Content with the word "Complete" appearing THREE times in different sections
   let(:plan_content) do
     <<~MARKDOWN
-      # Complete Guide to Testing
+      ## Complete Guide to Testing
 
       This document provides a Complete overview of our testing strategy.
 

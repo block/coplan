@@ -38,7 +38,7 @@ RSpec.describe "Human document editor", type: :request do
     expect(response.body).to include('aria-label="Insert code block"', 'data-mode="dual"')
     patch update_content_plan_path(plan), params: { content: "```unknown extra=1\nbody\n```", base_revision: 1 }, as: :json
     expect(response).to have_http_status(:ok)
-    expect(plan.reload.current_content).to eq("```unknown extra=1\nbody\n```")
+    expect(plan.reload.current_content).to eq("# #{plan.title}\n\n```unknown extra=1\nbody\n```")
   end
 
   it "deduplicates creation retries with a browser key" do
@@ -50,7 +50,7 @@ RSpec.describe "Human document editor", type: :request do
       post plans_path, params: { creation_key: key, plan: { title: "Retry document" }, content: "Changed retry" }, as: :json
     }.not_to change(CoPlan::Plan, :count)
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body).to include("id" => id, "content" => "First draft")
+    expect(response.parsed_body).to include("id" => id, "content" => "# Retry document\n\nFirst draft")
   end
 
   it "renders an HTML lease conflict with the submitted draft intact" do
@@ -75,19 +75,20 @@ RSpec.describe "Human document editor", type: :request do
     expect(plan.reload.title).not_to eq("Uncommitted title")
   end
 
-  it "validates blank creation without persisting a plan" do
-    expect { post plans_path, params: { plan: { title: "" }, content: "" }, as: :json }.not_to change(CoPlan::Plan, :count)
-    expect(response).to have_http_status(:unprocessable_content)
+  it "normalizes blank creation into an untitled document" do
+    expect { post plans_path, params: { plan: { title: "" }, content: "" }, as: :json }.to change(CoPlan::Plan, :count).by(1)
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body["content"]).to start_with("# Untitled")
   end
 
   it "saves in place without a session lease and publishes an authoritative snapshot" do
     patch update_content_plan_path(plan), params: { content: "New", base_revision: 1 }, as: :json
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body).to include("revision" => 2, "content" => "New", "title" => plan.title)
-    expect(plan.reload.current_content).to eq("New")
+    expect(response.parsed_body).to include("revision" => 2, "content" => "# #{plan.title}\n\nNew", "title" => plan.title)
+    expect(plan.reload.current_content).to eq("# #{plan.title}\n\nNew")
     expect(plan.edit_lease).to be_nil
     get editor_state_plan_path(plan), as: :json
-    expect(response.parsed_body["content"]).to eq("New")
+    expect(response.parsed_body["content"]).to eq("# #{plan.title}\n\nNew")
     expect(response.headers["Cache-Control"]).to include("no-store")
   end
 
@@ -99,16 +100,16 @@ RSpec.describe "Human document editor", type: :request do
   end
 
   it "merges stale disjoint edits and rejects overlapping edits atomically" do
-    plan.current_plan_version.update!(content_markdown: "Alpha. Beta.")
+    set_version_fixture(plan.current_plan_version, content_markdown: "Alpha. Beta.")
     patch update_content_plan_path(plan), params: { content: "Alpha! Beta.", base_revision: 1 }, as: :json
     expect(response).to have_http_status(:ok)
     patch update_content_plan_path(plan), params: { content: "Alpha. Beta!", base_revision: 1 }, as: :json
     expect(response).to have_http_status(:ok)
-    expect(plan.reload.current_content).to eq("Alpha! Beta!")
+    expect(plan.reload.current_content).to eq("# #{plan.title}\n\nAlpha! Beta!")
     original_title = plan.title
     patch update_content_plan_path(plan), params: { content: "Alpha? Beta.", base_revision: 1, plan: { title: "Bad" } }, as: :json
     expect(response).to have_http_status(:conflict)
-    expect(response.parsed_body).to include("code" => "overlapping_edits", "content" => "Alpha! Beta!", "revision" => 3)
+    expect(response.parsed_body).to include("code" => "overlapping_edits", "content" => "# #{plan.title}\n\nAlpha! Beta!", "revision" => 3)
     expect(plan.reload.title).to eq(original_title)
   end
 
@@ -125,22 +126,21 @@ RSpec.describe "Human document editor", type: :request do
     expect(plan.reload.edit_lease).to be_nil
   end
 
-  it "rolls content back when metadata is invalid" do
-    original = plan.current_content
-    expect(CoPlan::Broadcaster).not_to receive(:replace_plan_content)
+  it "ignores blank legacy title metadata while saving content" do
+    original_title = plan.title
     expect {
       patch update_content_plan_path(plan), params: { content: "New text", base_revision: 1, plan: { title: "" } }, as: :json
-    }.not_to change(CoPlan::PlanVersion, :count)
-    expect(response).to have_http_status(:unprocessable_content)
-    expect(plan.reload.current_content).to eq(original)
+    }.to change(CoPlan::PlanVersion, :count).by(1)
+    expect(response).to have_http_status(:ok)
+    expect(plan.reload.current_content).to eq("# #{original_title}\n\nNew text")
   end
 
-  it "detects conflicting metadata even when the body revision has not changed" do
+  it "ignores stale legacy title metadata" do
     baseline = plan.title
-    plan.update!(title: "Remote title")
+    retitle_plan(plan, "Remote title")
     patch update_content_plan_path(plan), params: { content: plan.current_content, base_revision: 1,
       plan: { title: "Local title" }, base_metadata: { title: baseline } }, as: :json
-    expect(response).to have_http_status(:conflict)
+    expect(response).to have_http_status(:ok)
     expect(plan.reload.title).to eq("Remote title")
   end
 

@@ -2,7 +2,7 @@
 
 This gallery includes automatically extracted citations and an explicitly added repository. Open the References area at the end of this document to compare types and destinations.
 
-- **CoPlan document:** [the commentable flowchart]({{demo_document_url}}).
+- **Coplan document:** [the commentable flowchart]({{demo_document_url}}).
 - **Repository:** [Rails source](https://github.com/rails/rails).
 - **Pull request:** [connection pool ownership fix](https://github.com/rails/rails/pull/53154).
 - **External document:** [Notion help documentation](https://www.notion.so/help).

@@ -1,10 +1,28 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::Plans::WritingProvenance do
+  describe ".adjust_input_sources_for_content_change" do
+    it "preserves UTF-16 input attribution past an inserted heading" do
+      original = "😀 typed"
+      normalized = "# Name\n\n#{original}"
+      payload = described_class.adjust_input_sources_for_content_change({ "runs" => [ [ 8, "human" ] ] }, original, normalized)
+      expect(payload).to eq("runs" => [ [ 8, "unknown" ], [ 8, "human" ] ])
+    end
+
+    it "leaves unchanged content evidence untouched" do
+      payload = { "runs" => [ [ 4, "human" ] ] }
+      expect(described_class.adjust_input_sources_for_content_change(payload, "Body", "Body")).to equal(payload)
+    end
+
+    it "does not invent input evidence when none was supplied" do
+      expect(described_class.adjust_input_sources_for_content_change(nil, "Body", "# Title\n\nBody")).to be_nil
+    end
+  end
+
   let(:user) { create(:coplan_user) }
 
   def make_plan(content, kind: "human", input_sources: nil, token: nil)
-    CoPlan::Plans::Create.call(title: "Writing sources", content: content, user: user,
+    create_historical_plan(title: "Writing sources", content: content, user: user,
       actor_type: kind, agent_name: token&.agent_name, api_token_id: token&.id, input_sources: input_sources)
   end
 
@@ -13,7 +31,7 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
   end
 
   def edit(plan, content, kind: "local_agent", input_sources: nil)
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: plan.current_revision,
+    append_historical_content(plan: plan, new_content: content, base_revision: plan.current_revision,
       actor_type: kind, actor_id: user.id, input_sources: input_sources)
   end
 
@@ -139,7 +157,7 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     edit(plan, "Keep this paragraph.\n")
     writer = create(:coplan_user)
     content = plan.current_content + sentence
-    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 2,
+    append_historical_content(plan: plan, new_content: content, base_revision: 2,
       actor_type: "human", actor_id: writer.id, input_sources: sources(content))
 
     snapshot = plan.current_plan_version.writing_provenance
@@ -257,7 +275,7 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
     snapshot["sources"]["other"] = snapshot.fetch("sources").fetch(key).merge("kind" => "ai")
     snapshot["runs"] += [ [ text.length, "other" ] ]
     snapshot["sha256"] = Digest::SHA256.hexdigest(text * 2)
-    version.update_columns(content_markdown: text * 2, content_sha256: snapshot["sha256"], writing_provenance: snapshot)
+    set_version_fixture(version, content_markdown: text * 2, writing_provenance: snapshot)
     edit(plan, "Kept text.\n", kind: "human", input_sources: sources("Kept text.\n"))
     pasted = "Kept text.\n" + text
     edit(plan, pasted, kind: "human", input_sources: sources(pasted, "unknown"))
@@ -284,14 +302,14 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
   end
 
   it "maps human evidence through a concurrent agent edit without claiming the agent's text" do
-    original = "Left middle right"
+    original = "# Untitled\n\nLeft middle right"
     plan = make_plan(original, kind: "local_agent")
-    edit(plan, "Remote middle right")
+    edit(plan, "# Untitled\n\nRemote middle right")
     draft = "#{original} local"
     CoPlan::Plans::SaveHumanDraft.call(plan: plan, content: draft, base_revision: 1, actor: user,
       input_sources: { "runs" => [ [ original.length, "unknown" ], [ 6, "human" ] ] })
-    expect(plan.current_content).to eq("Remote middle right local")
-    expect(plan.writing_provenance_summary.fetch("counts")).to eq("human" => 5, "ai" => 17, "unknown" => 0)
+    expect(plan.current_content).to eq("# Untitled\n\nRemote middle right local")
+    expect(plan.writing_provenance_summary.fetch("counts")).to eq("human" => 5, "ai" => 26, "unknown" => 0)
   end
 
   it "bounds pathological replacement diffs conservatively" do

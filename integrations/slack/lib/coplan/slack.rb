@@ -24,7 +24,7 @@ module CoPlan
           next unless notification.reason.in?(%w[new_comment reply])
 
           unless configuration.notifications_configured?
-            raise ArgumentError, "CoPlan Slack notifications require bot_token and base_url"
+            raise ArgumentError, "Coplan Slack notifications require bot_token and base_url"
           end
 
           delivery = CoPlan::NotificationDelivery.create_or_find_by!(notification: notification, channel: "slack") do |record|

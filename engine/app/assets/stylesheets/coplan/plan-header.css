@@ -12,20 +12,18 @@
   font-weight: 700;
 }
 
-/* The plan masthead: two visual rows. Row one is the title (wrapping
-   naturally, as wide as it needs). Row two is the byline on the left and
-   the viewer-relative side column (presence + toolbar) on the right —
-   bottom-aligning the side column against the header makes the toolbar
-   sit level with the byline, so the whole block reads as two bands even
-   though it's two DOM subtrees (broadcasts own the left, the request
-   owns the right). */
+/* The plan masthead: one row of chrome above the document — the plan's
+   metadata on the left and the viewer-relative side column (presence +
+   toolbar) on the right. Two DOM subtrees (broadcasts own the left, the
+   request owns the right) that read as one band. The title is not here:
+   it heads the document card (see .plan-document__head). */
 .plan-masthead {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-sm) var(--space-lg);
   flex-wrap: wrap;
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
 }
 
 .plan-masthead__side {
@@ -34,8 +32,6 @@
   gap: var(--space-md);
   margin-left: auto;
   flex-shrink: 0;
-  /* Level the toolbar pill's baseline band with the byline text. */
-  margin-bottom: -2px;
 }
 
 /* Compact "up to containing folder" control. In the masthead it lives in
@@ -79,13 +75,11 @@
   height: 16px;
 }
 
-/* Plan page header: one lockup — the file icon beside a text stack
+/* History page header: one lockup — the file icon beside a text stack
    (title over byline) that shares a single left edge. The icon anchors
    to the title's first line (36px icon inside a ~38px line box), so it
    reads as the document's mark whether or not the title wraps, and the
-   byline hangs in the title's text column instead of being fake-indented.
-   Everything here is broadcast-safe; viewer-relative chrome (Save, owner
-   toolbar) lives in the masthead's side column, outside this subtree. */
+   byline hangs in the title's text column instead of being fake-indented. */
 .page-header--plan {
   display: flex;
   align-items: flex-start;
@@ -116,9 +110,11 @@
 .page-header__title {
   min-width: 0;
   overflow-wrap: anywhere;
+  text-wrap: var(--plan-title-wrap, wrap);
 }
 
-/* The plan title (theme hooks; docs/THEMES.md). */
+/* The plan title (theme hooks; docs/THEMES.md). The editable title in
+   edit mode reads the same hooks, so Edit doesn't resize it. */
 .page-header .page-header__title {
   font-size: var(--plan-title-size, var(--text-2xl));
   font-weight: var(--plan-title-weight, 700);
@@ -133,4 +129,42 @@
   gap: var(--space-xs);
   flex-wrap: wrap;
   min-width: 0;
+}
+
+/* The plan page's metadata row: the type icon leading the byline.
+   Everything here is broadcast-safe; viewer-relative chrome (presence,
+   the owner toolbar) lives in the masthead's side column, outside this
+   subtree. */
+.plan-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+  min-width: min(24rem, 100%);
+}
+
+.plan-meta .plan-type-icon {
+  flex-shrink: 0;
+}
+
+/* The first content heading is the title in both reading and editing. */
+#plan-content-body #plan-title,
+.document-editor .document-editor__body .ProseMirror > h1:first-child {
+  font-size: var(--plan-title-size, 2.25rem);
+  font-weight: var(--plan-title-weight, 700);
+  line-height: var(--plan-title-leading, 1.15);
+  letter-spacing: var(--plan-title-tracking, -0.015em);
+  margin: 0 0 var(--space-xl);
+  overflow-wrap: anywhere;
+  text-wrap: var(--plan-title-wrap, wrap);
+}
+.document-editor .document-editor__body .ProseMirror > h1:first-child:has(> br:only-child)::before {
+  content: "Document title";
+  color: var(--color-text-muted);
+  pointer-events: none;
+  position: absolute;
+}
+@media (max-width: 640px) {
+  #plan-content-body #plan-title,
+  .document-editor .document-editor__body .ProseMirror > h1:first-child { font-size: var(--plan-title-size-narrow, 1.75rem); }
 }

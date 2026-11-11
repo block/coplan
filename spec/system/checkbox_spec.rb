@@ -5,7 +5,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
 
   let(:plan_content) do
     <<~MARKDOWN
-      # Launch Checklist
+      ## Launch Checklist
 
       - [ ] Write documentation
       - [ ] Run load tests
@@ -63,10 +63,10 @@ RSpec.describe "Interactive checkboxes", type: :system do
     expect(page).to have_css("li.task-list-item", minimum: 4)
   end
 
-  it "wraps checkbox items in labels for full-text clickability" do
+  it "names each checkbox after its task text" do
     visit plan_page_path(plan)
 
-    expect(page).to have_css("li.task-list-item label input[type='checkbox']", minimum: 4)
+    expect(page).to have_unchecked_field("Task: Write documentation", type: "checkbox", enable_aria_label: true)
   end
 
   it "checks an unchecked checkbox and creates a new version" do
@@ -138,7 +138,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
     # second checkbox only after the swap lands, or the handle can detach
     # between find and click.
     wait_for_content_refresh(2)
-    expect(page).to have_css("h1 .section-permalink", visible: :all)
+    expect(page).to have_css("h2 .section-permalink", visible: :all)
 
     second_cb = all('input[type="checkbox"]')[1]
     second_cb.click
@@ -150,20 +150,41 @@ RSpec.describe "Interactive checkboxes", type: :system do
     expect(plan.current_content).to include("- [x] Run load tests")
   end
 
-  it "toggles checkbox by clicking the label text" do
+  it "does not toggle the checkbox when the task text is clicked" do
+    visit plan_page_path(plan)
+    count_toggle_requests
+
+    find("li.task-list-item .task-list-item-content", text: "Write documentation").click
+
+    expect(page).to have_unchecked_field("Task: Write documentation", type: "checkbox", enable_aria_label: true)
+    expect(page.evaluate_script("window.toggleRequests")).to eq(0)
+  end
+
+  it "does not toggle the checkbox when a word in the task text is double-clicked" do
+    set_version_fixture(plan.current_plan_version, content_markdown: "# Tasks\n\n- [ ] Review `retry_policy` settings")
+    visit plan_page_path(plan)
+    count_toggle_requests
+
+    find("li.task-list-item .task-list-item-content code", text: "retry_policy").double_click
+
+    expect(page.evaluate_script("window.getSelection().toString()")).to include("retry_policy")
+    expect(page).to have_unchecked_field("Task: Review retry_policy settings", type: "checkbox", enable_aria_label: true)
+    expect(page.evaluate_script("window.toggleRequests")).to eq(0)
+  end
+
+  it "toggles the checkbox from the padded hit area around the box" do
     visit plan_page_path(plan)
 
-    label = find("li.task-list-item label", text: "Write documentation")
-    label.click
+    hit_area = find("li.task-list-item label.task-list-item-checkbox", match: :first)
+    hit_area.click(x: -hit_area.native.size.width / 2 + 1, y: -hit_area.native.size.height / 2 + 1)
 
+    expect(page).to have_checked_field("Task: Write documentation", type: "checkbox", enable_aria_label: true)
     wait_for_version(plan, 2)
-
-    plan.reload
-    expect(plan.current_content).to include("- [x] Write documentation")
+    expect(plan.reload.current_content).to include("- [x] Write documentation")
   end
 
   it "toggles the correct checkbox when task lines are duplicated" do
-    plan.current_plan_version.update!(
+    set_version_fixture(plan.current_plan_version,
       content_markdown: "# Tasks\n\n- [ ] TODO\n- [ ] TODO\n- [ ] Deploy\n- [ ] Deploy to staging"
     )
 
@@ -179,7 +200,7 @@ RSpec.describe "Interactive checkboxes", type: :system do
   end
 
   it "toggles a task whose text is a prefix of another task" do
-    plan.current_plan_version.update!(
+    set_version_fixture(plan.current_plan_version,
       content_markdown: "# Tasks\n\n- [ ] Deploy to staging\n- [ ] Deploy"
     )
 
@@ -203,6 +224,19 @@ RSpec.describe "Interactive checkboxes", type: :system do
     expect(page).to have_css(
       "#plan-content-body[data-coplan--live-update-revision-value='#{revision}']"
     )
+  end
+
+  # The checkbox controller sends its PATCH synchronously from its event
+  # handler, so a zero count right after a gesture means no toggle fired.
+  def count_toggle_requests
+    page.execute_script(<<~JS)
+      window.toggleRequests = 0
+      const originalFetch = window.fetch
+      window.fetch = (url, options = {}) => {
+        if (options.method === "PATCH") window.toggleRequests += 1
+        return originalFetch(url, options)
+      }
+    JS
   end
 
   def wait_for_version(plan, expected_revision, timeout: 5)

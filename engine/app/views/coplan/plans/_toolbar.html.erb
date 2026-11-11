@@ -31,7 +31,7 @@
       <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
     </button>
     <div id="plan-menu" popover="auto" class="menu" data-coplan--menu-target="menu"
-         data-action="toggle->coplan--menu#reposition" role="menu" aria-label="Plan actions menu">
+         data-action="beforetoggle->coplan--menu#reposition" role="menu" aria-label="Plan actions menu">
       <%= link_to plan_history_browse_path(plan), class: "menu__item", role: "menuitem" do %>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
         <span>History</span>
