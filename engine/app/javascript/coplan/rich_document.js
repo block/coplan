@@ -1,5 +1,6 @@
 import { diffArrays } from "diff"
 import { codeHighlight } from "coplan/code_highlight"
+import { richUploads } from "coplan/rich_uploads"
 import { textHunks } from "coplan/merge_text"
 import { citationLabelKey } from "coplan/citation_labels"
 import { enableLetteredLists, letterOrder, letterMarker } from "coplan/lettered_lists"
@@ -803,7 +804,8 @@ function documentTitlePlugin() {
   })
 }
 
-export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = [], { documentTitle = false } = {}) {
+export function createRichDocument(element, markdown, changed, selectionChanged = () => {}, preview = null, comments = [], { documentTitle = false, uploadFiles = null, uploadError = () => {} } = {}) {
+  const uploads = uploadFiles ? richUploads(schema, uploadFiles, uploadError, documentTitle) : null
   let rangeDoc, ranges, previewOffsetTimer, editingLanguage = false
   const sourceRangeAt = (view, position) => {
     if (rangeDoc !== view.state.doc) {
@@ -823,7 +825,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
   }
   const state = EditorState.create({
     doc: parseDocument(markdown),
-    plugins: [...(documentTitle ? [documentTitlePlugin(), keymap({
+    plugins: [...(uploads ? [uploads.plugin] : []), ...(documentTitle ? [documentTitlePlugin(), keymap({
       Backspace: titleBoundary("Backspace"), Delete: titleBoundary("Delete"),
       Enter: titleEnter, "Shift-Enter": titleEnter
     })] : []), history(), inputRules({ rules: [
@@ -921,6 +923,7 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       }
     },
     handlePaste(view, event) {
+      if (event.clipboardData?.files.length) return false
       if (view.state.selection.$from.parent.type.spec.code) return false
       const source = event.clipboardData?.getData("application/x-coplan-markdown") || event.clipboardData?.getData("text/plain")
       if (!source || !/(^|\n)```[^\n]*\n|^\s*\|[^\n]+\|\s*\n\s*\|?\s*:?-{3,}|^ {0,3}<!--[\s\S]*?-->/m.test(source)) return false
@@ -976,6 +979,8 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
   })
   return {
     view,
+    get uploading() { return uploads?.uploading || false },
+    whenUploadsIdle: () => uploads?.whenIdle() || Promise.resolve(),
     content: () => serializeDocument(view.state.doc),
     focusTitle() {
       view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, view.state.doc.firstChild.nodeSize - 1)))

@@ -37,7 +37,7 @@ module CoPlan
           )
 
           if result.success?
-            render json: attachment_json(result.attachment), status: :created
+            render json: attachment_json(result.attachment).merge(reused: result.reused?), status: :created
           else
             render json: { error: result.error }, status: :unprocessable_content
           end

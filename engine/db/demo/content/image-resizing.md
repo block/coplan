@@ -15,3 +15,11 @@ Both images keep their proportions. **Undo** reverses one resize at a time. Pres
 ## Pasting images
 
 Paste an image copied from another app: it starts at its natural size within the document width, even if the other app displayed a thumbnail. Copy and paste the saved-width image within Coplan's rich editor to keep its intentional size. Existing saved widths stay as you set them.
+
+## Dropping files into the editor
+
+Open **Edit** and drop an image or file at a spot in the document. Images upload and appear inline at natural size; PDFs, text files, and other supported files become download links. You can also paste an image file from your clipboard. Try dropping an image and a text file together.
+
+An uploading marker stays at the drop point while you keep writing. **Done** waits for uploads and saves the embedded content. **Undo** removes the inserted content; the uploaded files remain in **Attachments** so you can reuse them. Files must be a supported type and no larger than 25 MB each. A rejected file shows an explanation without discarding the other files or your writing.
+
+Drop the same file twice. Each drop inserts an embed, but **Attachments** keeps one stored copy and the editor says the existing file was reused. Identical contents reuse the original filename and uploader even if you rename the local file. Different contents stay separate, including files with the same name. Reuse is limited to this document.

@@ -9,6 +9,7 @@
     "coplan--editor-state-url-value": creating ? "" : editor_state_plan_path(@plan),
     "coplan--editor-token-url-value": creating ? new_plan_path : "",
     "coplan--editor-lease-url-value": creating ? "" : editor_lease_plan_path(@plan),
+    "coplan--editor-attachments-url-value": creating ? "" : plan_attachments_path(@plan),
     "coplan--editor-embed-domains-value": CoPlan::EmbedDomain.order(:hostname).pluck(:hostname).to_json,
     "coplan--editor-preview-url-value": preview_draft_plans_path } do %>
   <% if creating %>
@@ -138,6 +139,7 @@
     </div>
   </dialog>
   <datalist id="coplan-code-languages"><% CoPlan.configuration.editor_code_languages.each do |language| %><option value="<%= language %>"><% end %></datalist>
+  <p class="document-editor__upload-notice" data-coplan--editor-target="uploadNotice" popover="manual" role="status" aria-live="polite" hidden></p>
   <div class="document-editor__paper plan-document card"<% if inline_editor %> data-action="mouseup->coplan--text-selection#handleEditorMouseUp"<% end %>>
     <div class="document-editor__raw" data-coplan--editor-target="rawSurface" hidden></div>
     <div class="document-editor__body" data-coplan--editor-target="surface"></div>
