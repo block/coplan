@@ -96,7 +96,9 @@ Or stream with Server-Sent Events. The server sends a heartbeat every 15 seconds
 
 ## Events
 
-Each event has `id`, `type`, `plan_id`, `comment_thread_id`, `comment_id`, and `payload`. The types are `comment.created`, `comment.replied`, `thread.status_changed`, `plan.content_changed`, `review.requested`, and `review.responded`. Review events identify the request and reviewer; responses identify the decision and version. A review event may have no `comment_thread_id`.
+Each event has `id`, `type`, `plan_id`, `comment_thread_id`, `comment_id`, and `payload`. The types are `comment.created`, `comment.replied`, `thread.status_changed`, `plan.content_changed`, `review.requested`, `review.responded`, and `session.commit_failed`. Review events identify the request and reviewer; responses identify the decision and version. A review event may have no `comment_thread_id`.
+
+`session.commit_failed` goes only to the token that owned an edit session: your staged session edits were not applied. Read `GET <%= @base %>/api/v1/plans/$PLAN_ID` with that token, reconcile the intended changes with the current content, and preserve human edits. Do not blindly replay the draft. The failed session cannot be reused; submit fresh operations or open a new edit session. Check whether recovery already succeeded before retrying an event. No thread reply is required. Its payload has `session_id`, `base_revision`, `current_revision`, `message`, and `reason` (`conflict`, `stale`, or `human_edit_pending`).
 
 For `review.requested`, inspect `payload.action`:
 
