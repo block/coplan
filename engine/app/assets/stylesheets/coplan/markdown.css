@@ -490,7 +490,7 @@
 }
 
 /* ── Callouts: `> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`,
-   `[!CAUTION]` ─────────────────────────────────────────────────────────────
+   `[!CAUTION]`, `[!SUMMARY]` ──────────────────────────────────────────────
    The reader renders div.callout; the rich editor keeps a blockquote with
    the same look. The label is generated content from data-callout-title,
    never document text, so selections and comment anchors skip it. The icon
@@ -529,6 +529,11 @@
 .markdown-rendered :is(.callout--caution, .document-editor__callout--caution) {
   --callout-accent: var(--color-callout-caution);
   --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7.9 2h8.2L22 7.9v8.2L16.1 22H7.9L2 16.1V7.9Z'/%3E%3Cpath d='M12 8v4M12 16h.01'/%3E%3C/svg%3E");
+}
+
+.markdown-rendered :is(.callout--summary, .document-editor__callout--summary) {
+  --callout-accent: var(--color-callout-summary);
+  --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6h16M4 12h16M4 18h10'/%3E%3C/svg%3E");
 }
 
 .markdown-rendered :is(.callout, blockquote.document-editor__callout)::before {

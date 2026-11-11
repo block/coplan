@@ -241,7 +241,7 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
 
     {
       "NOTE" => "Note", "TIP" => "Tip", "IMPORTANT" => "Important",
-      "WARNING" => "Warning", "CAUTION" => "Caution"
+      "WARNING" => "Warning", "CAUTION" => "Caution", "SUMMARY" => "Summary"
     }.each do |marker, label|
       it "renders [!#{marker}] as a #{label.downcase} callout without the marker text" do
         doc = callout_doc("> [!#{marker}]\n> Read this first.")
@@ -262,6 +262,25 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(callout["class"]).to eq("callout callout--warning")
       expect(callout["data-callout-title"]).to eq("Before you migrate")
       expect(callout.text.strip).to eq("Back up first.")
+    end
+
+    it "keeps a custom summary title and the extractor's text" do
+      source = "> [!summary] TL;DR\n> Ship it."
+      callout = callout_doc(source).at_css("div.callout")
+
+      expect(callout["class"]).to eq("callout callout--summary")
+      expect(callout["data-callout-title"]).to eq("TL;DR")
+      text, offsets = CoPlan::Plans::MarkdownTextExtractor.new(source).call
+      expect(text).to eq("Ship it.")
+      expect(offsets.first).to eq(source.index("Ship it."))
+    end
+
+    it "leaves [!SUMMARY] literal where it doesn't open a callout" do
+      doc = callout_doc("```\n> [!SUMMARY]\n```\n\n>[!SUMMARY]\n> Not a callout.")
+
+      expect(doc.at_css("pre code").text).to eq("> [!SUMMARY]\n")
+      expect(doc.at_css("blockquote").text).to include("[!SUMMARY]")
+      expect(doc.at_css(".callout")).to be_nil
     end
 
     it "leaves a plain blockquote unchanged" do

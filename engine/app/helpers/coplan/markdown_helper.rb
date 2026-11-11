@@ -22,12 +22,13 @@ module CoPlan
     # Commonmarker extensions beyond the gem defaults (tables, tasklist,
     # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
     # `[^1]: definition` block anywhere in the document. Alerts use a first
-    # quote line such as `[!NOTE]` (see render_callouts). Math uses `$inline$`,
+    # quote line such as `[!NOTE]` (see render_callouts; `[!SUMMARY]` is
+    # Coplan's own, see CoPlan::Markdown). Math uses `$inline$`,
     # `$$display$$`, `` $`inline`$ `` and math fences, typeset by KaTeX.
     # comrak's dollar rules keep currency ("$5 and $10") as text.
     EXTENSION_OPTIONS = { footnotes: true, alerts: true, math_dollars: true, math_code: true }.freeze
 
-    CALLOUT_TYPES = %w[note tip important warning caution].freeze
+    CALLOUT_TYPES = %w[note tip important warning caution summary].freeze
 
     # The only elements and values comrak emits for math. Anything else
     # carrying the attribute (authored HTML) loses it during rendering.
@@ -45,7 +46,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 30
+    RENDER_CACHE_VERSION = 31
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,

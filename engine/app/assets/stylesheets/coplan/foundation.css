@@ -150,6 +150,8 @@ body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .
   --color-callout-important: #7c3aed;
   --color-callout-warning: var(--color-text-muted);
   --color-callout-caution: var(--color-danger);
+  /* Teal: neither interaction blue nor attention orange. */
+  --color-callout-summary: #0d9488;
   --color-highlight-open-bg: rgba(108, 140, 255, 0.12);
   --color-highlight-open-hover-bg: rgba(108, 140, 255, 0.22);
   --color-highlight-open-border: rgba(108, 140, 255, 0.6);
@@ -278,6 +280,7 @@ body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .
     --color-quote-info-border: rgba(96, 165, 250, 0.8);
     --color-quote-info-bg: rgba(96, 165, 250, 0.12);
     --color-callout-important: #a78bfa;
+    --color-callout-summary: #2dd4bf;
     --color-highlight-open-bg: rgba(96, 165, 250, 0.18);
     --color-highlight-open-hover-bg: rgba(96, 165, 250, 0.28);
     --color-highlight-open-border: rgba(96, 165, 250, 0.85);
@@ -372,6 +375,7 @@ body[data-writing-inspection] :is(#plan-toolbar a, .site-nav__edit) { opacity: .
   --color-quote-info-border: rgba(96, 165, 250, 0.8);
   --color-quote-info-bg: rgba(96, 165, 250, 0.12);
   --color-callout-important: #a78bfa;
+  --color-callout-summary: #2dd4bf;
   --color-highlight-open-bg: rgba(96, 165, 250, 0.18);
   --color-highlight-open-hover-bg: rgba(96, 165, 250, 0.28);
   --color-highlight-open-border: rgba(96, 165, 250, 0.85);

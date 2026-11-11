@@ -75,7 +75,7 @@ nodes = nodes.addBefore("paragraph", "template_note", {
 // `[!NOTE]`. The marker line is kept verbatim as an attribute, so the body
 // edits as rich text and the marker, including its case and any custom title,
 // serializes back unchanged.
-const calloutMarker = /^\[!(note|tip|important|warning|caution)\]([^\n]*)(?:\n|$)/i
+const calloutMarker = /^\[!(note|tip|important|warning|caution|summary)\]([^\n]*)(?:\n|$)/i
 function calloutLabel(callout, marker) {
   return marker.slice(marker.indexOf("]") + 1).trim() || callout[0].toUpperCase() + callout.slice(1)
 }

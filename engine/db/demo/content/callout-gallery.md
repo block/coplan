@@ -1,3 +1,8 @@
+> [!SUMMARY]
+> - Archived invoices move to cold storage in three batches over two weeks.
+> - Customers see no change; backups get shorter.
+> - One decision is open: the retention window.
+
 > [!IMPORTANT] Decision needed
 > Choose the retention window by Friday. The rest of the plan is ready: archived invoices move to cold storage in three batches over two weeks, and customers see no change.
 

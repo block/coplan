@@ -167,7 +167,8 @@ RSpec.describe "Callouts", type: :system do
           "> [!NOTE]\n> Plain body.\n", "> [!TIP]\n> Tip.\n", "> [!IMPORTANT]\n> Important.\n",
           "> [!WARNING]\n> Warning.\n", "> [!CAUTION]\n> Caution.\n", "> [!note] Custom title\n> Body.\n",
           "> [!NOTE]\n>\n> After a blank line.\n", "> [!NOTE]\n> - one\n> - two\n", "> [!NOTE]\n",
-          "> [!FOO]\n> Not a callout.\n", "> Plain quote.\n", "- Item\n\n  > [!TIP]\n  > Nested.\n"
+          "> [!FOO]\n> Not a callout.\n", "> Plain quote.\n", "- Item\n\n  > [!TIP]\n  > Nested.\n",
+          "> [!SUMMARY]\n> Summary.\n"
         ];
         done(sources.map(source => {
           const doc = m.parseDocument(source);
@@ -183,7 +184,7 @@ RSpec.describe "Callouts", type: :system do
     expect(round_trips).to all(include("exact" => true))
     expect(round_trips.map { |entry| entry["callouts"] }).to eq([
       [ "note" ], [ "tip" ], [ "important" ], [ "warning" ], [ "caution" ], [ "note" ],
-      [ "note" ], [ "note" ], [ "note" ], [ nil ], [ nil ], [ "tip" ]
+      [ "note" ], [ "note" ], [ "note" ], [ nil ], [ nil ], [ "tip" ], [ "summary" ]
     ])
     round_trips.first(6).each do |entry|
       expect(entry["rewritten"].strip).to eq(entry["source"].strip)
@@ -191,6 +192,7 @@ RSpec.describe "Callouts", type: :system do
     expect(round_trips[6]["rewritten"]).to start_with("> [!NOTE]\n> After a blank line.")
     expect(round_trips[7]["rewritten"]).to start_with("> [!NOTE]\n> * one\n> * two")
     expect(round_trips[8]["rewritten"].strip).to eq("> [!NOTE]")
+    expect(round_trips.last["rewritten"].strip).to eq(round_trips.last["source"].strip)
 
     visit plan_edit_page_path(plan)
     expect(page).to have_css('.ProseMirror[contenteditable="true"]', wait: 20)
