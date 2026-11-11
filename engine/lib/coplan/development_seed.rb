@@ -151,6 +151,11 @@ module CoPlan
         scenario: "Alex and Noura have pending approvals"
       },
       {
+        key: "review-reassignment", author: "hampton", type: "Design Doc", title: "Workspace invitations: review history after reassignment",
+        tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios", fixture: "approved-review",
+        scenario: "Alex is Pending after reassignment; his earlier approval and removal remain in activity. Noura stays Approved"
+      },
+      {
         key: "changed-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: review dismissed after edits",
         tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios",
         scenario: "Earlier v1 approvals remain history; v2 requires fresh review"
@@ -325,6 +330,7 @@ module CoPlan
         seed_moved_writing(users, plans)
         seed_reviews(users, plans)
         seed_review_requests(users, plans)
+        seed_review_reassignment(users, plans)
         seed_agent_access(users)
         seed_agent_connections(users) if CoPlan.configuration.agent_connection_enabled?
         seed_content_discussions(users, plans)
@@ -856,6 +862,20 @@ module CoPlan
 
     # A fresh checkout includes one required and one optional task. Never
     # reset a response somebody recorded while trying the feature.
+    def seed_review_reassignment(users, plans)
+      plan = plans.fetch("review-reassignment")
+      # Any existing assignment means this scenario has been initialized or tried.
+      return if plan.review_requests.exists?
+
+      old = Reviews::Request.call(plan: plan, reviewer: users.fetch("alex"), actor: plan.created_by_user)
+      Reviews::Respond.call(request: old, actor: old.reviewer, revision: plan.current_revision,
+        decision: "approved", note: "The invitation audit trail is clear.")
+      Reviews::Remove.call(plan: plan, request_id: old.id, actor: plan.created_by_user)
+      Reviews::Request.call(plan: plan, reviewer: old.reviewer, actor: plan.created_by_user, create_only: true)
+      other = Reviews::Request.call(plan: plan, reviewer: users.fetch("noura"), actor: plan.created_by_user)
+      Reviews::Respond.call(request: other, actor: other.reviewer, revision: plan.current_revision, decision: "approved")
+    end
+
     def seed_review_requests(users, plans)
       plan = plans.fetch("collab-showcase")
       [ [ "alex", "required" ], [ "sam", "optional" ] ].each do |key, requirement|

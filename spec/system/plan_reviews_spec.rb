@@ -675,8 +675,8 @@ RSpec.describe "Plan discussion and approval", type: :system do
         expect(page).to have_no_css("[data-review-assignments] .review-person")
         click_button "Add reviewer", exact: true
       end
-      expect(CoPlan::ReviewRequest.exists?(requested.id)).to be(false)
-      expect(CoPlan::ReviewResponse.exists?(previous.id)).to be(false)
+      expect(requested.reload).to be_removed
+      expect(previous.reload.decision).to be_present
       fill_in "Find a reviewer", with: reviewer.name
       find(".review-search-result", text: reviewer.name).click
       uncheck "Required"
@@ -686,18 +686,20 @@ RSpec.describe "Plan discussion and approval", type: :system do
         expect(page).to have_css(".review-person__requirement", text: "Optional")
         expect(page).to have_css(".review-state", text: "Pending")
       end
-      fresh = plan.review_requests.find_by!(reviewer: reviewer)
+      fresh = plan.review_requests.current.find_by!(reviewer: reviewer)
       expect(fresh.id).not_to eq(requested.id)
       expect(fresh).to have_attributes(status: "pending", requirement: "optional")
-      expect(plan.review_requests.where(reviewer: reviewer).count).to eq(1)
+      expect(plan.review_requests.current.where(reviewer: reviewer).count).to eq(1)
       expect(fresh.review_responses).to be_empty
       expect(fresh.notifications.unread.where(user: reviewer, reason: "review_requested").count).to eq(1)
       page.save_screenshot(Rails.root.join("tmp/review-preview/readded-reviewer-#{theme}.png"))
       within(".review-management[open]") { click_button "Close reviews", enable_aria_label: true }
       within("#footnote-approvals") { click_button "View activity", exact: false }
       within(".review-activity-dialog[open]") do
-        expect(all(".review-log__event").map { |entry| entry.text.squish }).to eq([ "Plan Author requested a review from Plan Reviewer" ] * 2)
-        expect(page).to have_no_text("Earlier review feedback")
+        expect(all(".review-log__event").map { |entry| entry.text.squish }).to contain_exactly(
+          "Plan Author requested a review from Plan Reviewer", "Plan Author requested a review from Plan Reviewer",
+          "Plan Author removed reviewer Plan Reviewer", "Plan Reviewer #{decision == 'approved' ? 'approved' : 'requested changes on'} v1 · Markdown snapshot · Historical decision")
+        expect(page).to have_text("Earlier review feedback") if decision == "changes_requested"
         expect(plan.plan_events.where(event_type: "review_requested").pluck(:after_value)).to contain_exactly(requested.id, fresh.id)
       end
       page.save_screenshot(Rails.root.join("tmp/review-preview/fresh-review-history-#{theme}.png"))
@@ -718,10 +720,10 @@ RSpec.describe "Plan discussion and approval", type: :system do
     within(".review-assignment-form") { click_button "Add reviewer", exact: true }
     expect(page).to have_css(".review-person", text: reviewer.name)
     expect(page).to have_css(".review-state", text: "Pending")
-    fresh = plan.review_requests.find_by!(reviewer: reviewer)
+    fresh = plan.review_requests.current.find_by!(reviewer: reviewer)
     expect(fresh.id).not_to eq(task.id)
     expect(fresh.review_responses).to be_empty
-    expect(CoPlan::ReviewResponse.exists?(previous.id)).to be(false)
+    expect(previous.reload.decision).to be_present
   end
 
   it "leaves an already active review unchanged when a selected re-add is submitted", :review_readdition do
@@ -773,7 +775,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
         within(".review-assignment-form") { click_button "Add reviewer", exact: true }
         expect(page).to have_css(".review-state", text: "Pending")
       end
-      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+      expect(page).to have_css(".document-comment__type", text: "Past review ·")
       expect(page).to have_no_css(".document-comment__type", text: "Review · Approved")
       within(".review-management[open]") { click_button "Close reviews", enable_aria_label: true }
       expect(page).to have_content("Retain this public discussion")
@@ -836,7 +838,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
       fill_in "Public review comment", with: "Please clarify the retry limits.", enable_aria_label: true
       page.execute_script('window.reviewDraft = document.getElementById("review-discussion-body")')
       pause_review_refreshes
-      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id, actor: plan.created_by_user)
       if separate_refresh
         refresh_review_controls
         expect(page).to have_css('.review-tray__discussion [type="submit"][disabled]')
@@ -853,7 +855,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
       expect(page).to have_content("Changes requested. Your feedback is in the plan’s comments.")
       expect(fresh.reload.status).to eq("changes_requested")
       expect(fresh.review_responses.last!.note).to eq("Please clarify the retry limits.")
-      expect(CoPlan::ReviewRequest.exists?(task.id)).to be(false)
+      expect(task.reload).to be_removed
     end
   end
 
@@ -877,7 +879,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     JS
     within(".review-tray__discussion") { click_button "Request changes" }
     expect(page).to have_css('html[data-review-write-held="true"]')
-    CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+    CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id, actor: plan.created_by_user)
     fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
     refresh_review_controls
     page.execute_script("window.releaseReviewWrite()")
@@ -901,7 +903,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
       within(".review-tray") { click_button "Approve", exact: true }
       fill_in "Public note", with: "Keep the approval audit trail."
       pause_review_refreshes
-      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id, actor: plan.created_by_user)
       refresh_review_controls if separate_refresh
       fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
       refresh_review_controls
@@ -960,7 +962,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
       JS
       click_button "Approve v1"
       expect(page).to have_css('html[data-review-write-held="true"]')
-      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id, actor: plan.created_by_user)
       fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
       refresh_review_controls
       page.execute_script("window.releaseReviewWrite()")
@@ -992,9 +994,9 @@ RSpec.describe "Plan discussion and approval", type: :system do
     within(".review-tray__discussion") { click_button "Request changes" }
     expect(page).to have_css('html[data-review-delivery-held="true"]')
     expect(task.reload.status).to eq("changes_requested")
-    CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+    CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id, actor: plan.created_by_user)
     fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
-    expect(page).to have_css(".document-comment__type", text: "Plan comment")
+    expect(page).to have_css(".document-comment__type", text: "Past review ·")
     page.execute_script("window.releaseReviewDelivery()")
     expect(page).to have_no_css('.review-tray__discussion form[aria-busy="true"]')
     expect(page).to have_field("Public review comment", with: "Keep this feedback for the new request", enable_aria_label: true)
@@ -1023,12 +1025,12 @@ RSpec.describe "Plan discussion and approval", type: :system do
       end
       expect(page).to have_css('html[data-review-delivery-held="true"]')
       expect(page.evaluate_script("window.heldReviewDelivery")).to include("Review · #{decision.humanize} · v1")
-      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id, actor: plan.created_by_user)
       fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true)
-      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+      expect(page).to have_css(".document-comment__type", text: "Past review ·")
       page.execute_script("window.releaseReviewDelivery()")
       expect(page).to have_no_css('#plan-review-controls form[aria-busy="true"]', visible: :all)
-      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+      expect(page).to have_css(".document-comment__type", text: "Past review ·")
       expect(page).to have_no_css(".document-comment__type", text: "Review ·")
       if decision == "approved"
         expect(page).to have_css(".review-confirmation[open]", text: "This review request changed.")
@@ -1046,7 +1048,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
-  it "does not restore another reviewer's deleted label from a delayed comments response", :review_delivery do
+  it "keeps another reviewer's past-review label despite a delayed comments response", :review_delivery do
     other = create(:coplan_user)
     other_task = CoPlan::Reviews::Request.call(plan: plan, reviewer: other, actor: author)
     CoPlan::Reviews::Respond.call(request: other_task, actor: other, revision: 1, decision: "approved", note: "Other reviewer approval")
@@ -1056,14 +1058,14 @@ RSpec.describe "Plan discussion and approval", type: :system do
     fill_in "Public note", with: "My current approval"
     click_button "Approve v1"
     expect(page).to have_css('html[data-review-delivery-held="true"]')
-    CoPlan::Reviews::Remove.call(plan: plan, request_id: other_task.id)
+    CoPlan::Reviews::Remove.call(plan: plan, request_id: other_task.id, actor: plan.created_by_user)
     within(find(".document-comment", text: "Other reviewer approval")) do
-      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+      expect(page).to have_css(".document-comment__type", text: "Past review ·")
     end
     page.execute_script("window.releaseReviewDelivery(); window.releaseReviewControls()")
     expect(page).to have_no_css(".review-confirmation[open]")
     within(find(".document-comment", text: "Other reviewer approval")) do
-      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+      expect(page).to have_css(".document-comment__type", text: "Past review ·")
     end
     expect(task.reload.status).to eq("approved")
     expect(task.review_responses.last!.note).to eq("My current approval")
@@ -1080,9 +1082,9 @@ RSpec.describe "Plan discussion and approval", type: :system do
       if legacy
         CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: author, create_only: true, replace_withdrawn: true)
       else
-        CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+        CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id, actor: plan.created_by_user)
       end
-      expect(page).to have_css(".document-comment__type", text: "Plan comment")
+      expect(page).to have_css(".document-comment__type", text: "Past review ·")
       expect(page).to have_no_css(".document-comment__type", text: "Review · Approved · v1")
       expect(page).to have_content("Keep the audit trail.")
       page.execute_script('document.getElementById("plan-general-comments").scrollIntoView({block: "center"})')
@@ -1635,17 +1637,19 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_no_link("Attachments", href: "#footnote-attachments")
   end
 
-  it "keeps reviews navigation available for historical review records" do
-    CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
-    task.update!(status: "withdrawn")
-    visit plan_page_path(plan)
-    expect(page).to have_link("Reviews", href: "#footnote-approvals")
-    expect(page).to have_css("#nav-approvals-count", text: "1", exact_text: true)
-    page.execute_script("document.getElementById('plan-review-controls').dispatchEvent(new CustomEvent('coplan:reviews-changed'))")
-    expect(page).to have_link("Reviews", href: "#footnote-approvals")
-    expect(page).to have_css("#nav-approvals-count", text: "1", exact_text: true)
-    within("#footnote-approvals") { click_button "View activity" }
-    expect(page).to have_css(".review-activity-dialog[open]", text: "Plan Reviewer approved")
+  %w[withdrawn removed].each do |status|
+    it "keeps reviews navigation available for #{status} review records" do
+      CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
+      task.update!(status: status)
+      visit plan_page_path(plan)
+      expect(page).to have_link("Reviews", href: "#footnote-approvals")
+      expect(page).to have_css("#nav-approvals-count", text: "1", exact_text: true)
+      page.execute_script("document.getElementById('plan-review-controls').dispatchEvent(new CustomEvent('coplan:reviews-changed'))")
+      expect(page).to have_link("Reviews", href: "#footnote-approvals")
+      expect(page).to have_css("#nav-approvals-count", text: "1", exact_text: true)
+      within("#footnote-approvals") { click_button "View activity" }
+      expect(page).to have_css(".review-activity-dialog[open]", text: "Plan Reviewer approved")
+    end
   end
 
   it "preserves the long roster position during live review updates" do

@@ -12,7 +12,7 @@ class BindReviewCyclesToVersions < ActiveRecord::Migration[8.1]
     # Old timestamps cannot prove which request cycle a response completed.
     # Keep those receipts as history; require a fresh decision for active tasks.
     execute "UPDATE coplan_review_requests SET generation = 2"
-    execute "UPDATE coplan_review_requests SET status = 'pending', reset_reason = 'legacy_history' WHERE status <> 'withdrawn'"
+    execute "UPDATE coplan_review_requests SET status = 'pending', reset_reason = 'legacy_history' WHERE status NOT IN ('withdrawn', 'removed')"
   end
 
   def down
