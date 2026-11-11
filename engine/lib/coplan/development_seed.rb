@@ -124,7 +124,7 @@ module CoPlan
         showcase: "Editor corner resizing, text wrapping beside images, Enter to continue below, undo, and snap to natural full width" },
       { key: "callout-gallery", author: "hampton", type: "Design Doc", title: "Callouts: notes, tips, and warnings",
         tags: %w[demo markdown], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
-        showcase: "All five callout types, a custom label, a list and code inside a callout, and plain quotes for comparison; comment on callout text or edit it in Editor" },
+        showcase: "All six callout types including Summary, a custom label, a list and code inside a callout, and plain quotes for comparison; comment on callout text or edit it in Editor" },
       { key: "math-gallery", author: "hampton", type: "Research Note", title: "Math: estimating a retry budget",
         tags: %w[demo markdown math], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "LaTeX math typeset with KaTeX: inline, display, a math fence, math in lists and tables, dollar amounts that stay text, and invalid math shown as source" },

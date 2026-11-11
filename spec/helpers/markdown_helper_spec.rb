@@ -264,6 +264,23 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(callout.text.strip).to eq("Back up first.")
     end
 
+    it "does not renumber unrelated nested lists when a summary is present" do
+      doc = callout_doc("> [!SUMMARY]\n> Body.\n\n- 9. Nine\n  10. Ten\n")
+      expect(doc.at_css("ul ol")["start"]).to eq("9")
+      expect(doc.at_css(".callout--summary")).to be_present
+    end
+
+    it "renders summaries on list opening lines with unchanged source offsets" do
+      [ "-", "1.", "A)", "> -" ].each do |prefix|
+        source = "#{prefix} > [!SUMMARY] TL;DR\n#{' ' * prefix.length} > café 🌱"
+        doc = callout_doc(source)
+        expect(doc.at_css("li .callout--summary")&.[]("data-callout-title")).to eq("TL;DR")
+        text, offsets = CoPlan::Plans::MarkdownTextExtractor.new(source).call
+        expect(text).not_to include("SUMMARY", "WARNING", "TL;DR")
+        text.chars.each_with_index { |char, i| expect(source[offsets[i]]).to eq(char) if offsets[i] && offsets[i] >= 0 }
+      end
+    end
+
     it "keeps a custom summary title and the extractor's text" do
       source = "> [!summary] TL;DR\n> Ship it."
       callout = callout_doc(source).at_css("div.callout")

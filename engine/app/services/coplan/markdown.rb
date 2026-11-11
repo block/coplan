@@ -9,7 +9,7 @@ module CoPlan
     # comrak's alerts know only GitHub's five types. A `[!SUMMARY]` marker
     # parses as a same-length `[!WARNING]` alert, and to_html renames the
     # alerts that start on those lines, so offsets never move.
-    SUMMARY_MARKER = /\A((?:[ \t]*>[ \t]?)+)\[!summary\]/i
+    SUMMARY_MARKER = /\A((?:[ \t]*(?:>[ \t]?|(?:[-+*]|\d{1,9}[.)])[ \t]+))*[ \t]*>[ \t]?)\[!summary\]/i
     SUMMARY_STANDIN = "[!WARNING]".freeze
 
     def self.parse(source, **options)
@@ -30,6 +30,8 @@ module CoPlan
         items = list.element_children
         next unless SOURCE_POSITION.match?(list["data-sourcepos"].to_s) && items.any? &&
           items.all? { |item| item.name == "li" && SOURCE_POSITION.match?(item["data-sourcepos"].to_s) }
+
+        next unless items.any? { |item| markers.key?(item["data-sourcepos"].to_i) }
 
         groups = items.chunk do |item|
           markers[item["data-sourcepos"].to_i]&.fetch(:type) || "decimal"
@@ -61,9 +63,12 @@ module CoPlan
     end
 
     def self.normalize(source, options: nil)
-      source, summaries = normalize_summaries(source.to_s, options)
+      source = source.to_s
       lines = source.lines
-      return [ source, {}, summaries ] unless lines.any? { |line| LETTERED_MARKER.match?(line) }
+      unless lines.any? { |line| LETTERED_MARKER.match?(line) }
+        normalized, summaries = normalize_summaries(source, options)
+        return [ normalized, {}, summaries ]
+      end
 
       protected_lines = Set.new
       table_candidates = Set.new
@@ -95,6 +100,8 @@ module CoPlan
           order: letters.upcase.each_byte.reduce(0) { |value, char| value * 26 + char - 64 } }
         line.sub(LETTERED_MARKER, "#{match[1]}#{'1'.rjust(letters.length, '0')})")
       end.join
+      # Open lettered list containers before checking for summary alerts.
+      normalized, summaries = normalize_summaries(normalized, options)
       [ normalized, markers, summaries ]
     end
 

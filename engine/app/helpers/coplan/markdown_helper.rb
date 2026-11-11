@@ -46,7 +46,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 31
+    RENDER_CACHE_VERSION = 32
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,

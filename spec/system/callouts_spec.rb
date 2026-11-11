@@ -65,6 +65,25 @@ RSpec.describe "Callouts", type: :system do
     expect(thread.anchor_start).to eq(source.index("Back up first.", source.index("[!WARNING]")))
   end
 
+  it "edits a summary as rich content and preserves its marker when saved" do
+    source = "# Analysis\n\n> [!SUMMARY] TL;DR\n> What happened."
+    document = CoPlan::Plans::Create.call(title: "Analysis", content: source, user: author,
+      visibility: "draft", actor_type: "human")
+    visit plan_edit_page_path(document)
+    expect(page).to have_no_css(".inline-editor--preparing", wait: 20)
+    summary = find(".ProseMirror .document-editor__callout--summary")
+    expect(summary["data-callout-title"]).to eq("TL;DR")
+    summary.find("p").click
+    page.driver.browser.action.send_keys(:end, " Why it happened.").perform
+    click_button "Raw", exact: true
+    expected = source + " Why it happened."
+    expect(find('[aria-label="Markdown source"]').text).to eq(expected)
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(document))
+    expect(document.reload.current_content).to eq(expected)
+    expect(page).to have_css('.callout--summary[data-callout-title="TL;DR"]', text: "Why it happened.")
+  end
+
   it "preserves math inside a callout through a rich edit and save" do
     content = "# Retry budget\n\n> [!TIP] Estimate\n> Use $p^n$ for retries."
     document = CoPlan::Plans::Create.call(title: "Retry budget", content: content, user: author,
@@ -168,7 +187,7 @@ RSpec.describe "Callouts", type: :system do
           "> [!WARNING]\n> Warning.\n", "> [!CAUTION]\n> Caution.\n", "> [!note] Custom title\n> Body.\n",
           "> [!NOTE]\n>\n> After a blank line.\n", "> [!NOTE]\n> - one\n> - two\n", "> [!NOTE]\n",
           "> [!FOO]\n> Not a callout.\n", "> Plain quote.\n", "- Item\n\n  > [!TIP]\n  > Nested.\n",
-          "> [!SUMMARY]\n> Summary.\n"
+          "> [!SUMMARY]\n> Summary.\n", "- > [!SUMMARY]\n  > Nested summary.\n"
         ];
         done(sources.map(source => {
           const doc = m.parseDocument(source);
@@ -184,7 +203,7 @@ RSpec.describe "Callouts", type: :system do
     expect(round_trips).to all(include("exact" => true))
     expect(round_trips.map { |entry| entry["callouts"] }).to eq([
       [ "note" ], [ "tip" ], [ "important" ], [ "warning" ], [ "caution" ], [ "note" ],
-      [ "note" ], [ "note" ], [ "note" ], [ nil ], [ nil ], [ "tip" ], [ "summary" ]
+      [ "note" ], [ "note" ], [ "note" ], [ nil ], [ nil ], [ "tip" ], [ "summary" ], [ "summary" ]
     ])
     round_trips.first(6).each do |entry|
       expect(entry["rewritten"].strip).to eq(entry["source"].strip)
@@ -192,7 +211,8 @@ RSpec.describe "Callouts", type: :system do
     expect(round_trips[6]["rewritten"]).to start_with("> [!NOTE]\n> After a blank line.")
     expect(round_trips[7]["rewritten"]).to start_with("> [!NOTE]\n> * one\n> * two")
     expect(round_trips[8]["rewritten"].strip).to eq("> [!NOTE]")
-    expect(round_trips.last["rewritten"].strip).to eq(round_trips.last["source"].strip)
+    expect(round_trips[-2]["rewritten"].strip).to eq(round_trips[-2]["source"].strip)
+    expect(round_trips.last["rewritten"]).to include("[!SUMMARY]", "Nested summary.")
 
     visit plan_edit_page_path(plan)
     expect(page).to have_css('.ProseMirror[contenteditable="true"]', wait: 20)
