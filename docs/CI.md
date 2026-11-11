@@ -14,10 +14,12 @@ run `bin/setup`, alter the development database, or replant your usual test
 database. Dependencies must already be installed. Chrome for Testing is
 provisioned by Selenium using the same local configuration as ordinary system specs.
 
-The default worker budget is half the detected CPU count, capped at eight and
-at least one. Up to four workers run browser shards; the remaining slots can
-run other specs or checks at the same time. RuboCop's own parallelism is disabled
-so it shares this budget. To use more cores or less memory:
+[parallel_tests](https://github.com/grosser/parallel_tests) runs RSpec in separate
+processes. The default is half the detected CPU count, capped at eight and at
+least one. The non-browser pool runs first, followed by a browser pool capped at
+four. These pools do not overlap. Rake runs the independent lint/security checks
+concurrently in an earlier phase; RuboCop's nested parallelism is disabled.
+To use more cores or less memory:
 
 ```sh
 bin/ci --jobs 12 --browser-jobs 6
@@ -25,8 +27,10 @@ bin/ci --jobs 2 --browser-jobs 1
 bin/ci --jobs 1
 ```
 
-Each RSpec shard and the seed check get a newly named database, unique to this
-checkout and invocation, and a separate schema file. The database account needs
+Each RSpec process and the seed check get a newly named database, unique to
+this checkout and invocation, and a separate schema file. The gem assigns
+`TEST_ENV_NUMBER` starting at 1; `CiDatabase` maps that number and the pool to
+private database/schema names before Rails loads. The database account needs
 permission to create and drop databases. Databases are dropped after each check,
 including after failures and Ctrl+C. If the coordinator is forcibly killed or
 the database server becomes unavailable, cleanup may need to be done manually;
@@ -41,21 +45,23 @@ MySQL schema:
 DATABASE_URL=postgresql://postgres@localhost/coplan_local_test bin/ci
 ```
 
-Preview the selected worker counts and file counts without running commands:
+Preview the worker limits and checks without running commands:
 
 ```sh
 bin/ci --list
 ```
 
-Files are balanced by source size, separately for browser and non-browser specs.
-Every discovered spec runs once. The coordinator prints each check's start,
-finish, duration, and log path. Logs, RSpec JSON reports, private schema files,
-and `summary.json` remain under the printed `tmp/local-ci/<run>/` directory.
+The gem balances files by recorded runtime when enough measurements exist,
+falling back to file size. Browser and non-browser runtime logs live at
+`tmp/parallel_runtime_browser.log` and `tmp/parallel_runtime_specs.log`.
+Every discovered spec runs once. Rake prints each check's start, result and log
+path. Pool logs, numbered RSpec JSON reports, private schema files, and
+`summary.json` remain under the printed `tmp/local-ci/<run>/` directory.
 An empty suite, a missing report, a failed audit, or a cleanup failure makes
 `bin/ci` exit nonzero. Other checks finish so one failure does not hide their results.
 Repeat a test order with `bin/ci --seed <printed-seed>`; keep the same worker
-counts to preserve the same groups. GitHub's extra repeated regression cohorts
-remain available separately through `bin/rspec-stress`.
+counts and runtime logs to preserve the same groups. GitHub's extra repeated
+regression cohorts remain available separately through `bin/rspec-stress`.
 
 ## GitHub Actions
 
