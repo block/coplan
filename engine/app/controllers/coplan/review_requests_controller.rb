@@ -59,6 +59,7 @@ module CoPlan
       else
         @plan.with_lock do
           @review_request.reload
+          @review_request.ensure_current!
           @review_request.update!(requirement: attributes.fetch(:requirement))
           @plan.update!(review_sequence: @plan.review_sequence + 1)
         end
@@ -71,7 +72,7 @@ module CoPlan
     def destroy
       authorize!(@plan, :update?)
       if ActiveModel::Type::Boolean.new.cast(params.dig(:review_request, :remove))
-        Reviews::Remove.call(plan: @plan, request_id: params[:id])
+        Reviews::Remove.call(plan: @plan, request_id: params[:id], actor: current_user)
       else
         set_review_request
         Reviews::Withdraw.call(request: @review_request, actor: current_user)
@@ -107,7 +108,7 @@ module CoPlan
     end
 
     def set_review_request
-      @review_request = @plan.review_requests.find(params[:id])
+      @review_request = @plan.review_requests.current.find(params[:id])
     end
 
     def render_conflict(error)

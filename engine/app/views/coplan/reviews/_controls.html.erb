@@ -1,6 +1,6 @@
 <% requests = plan.review_requests.includes(:reviewer, :requested_by_user, :requested_plan_version, current_response: :plan_version, review_responses: [ :plan_version, :user ]).order(:requested_at).to_a %>
-<% request_events = plan.plan_events.where(event_type: %w[review_requested review_withdrawn]).includes(:actor_user).to_a %>
-<% active_requests = requests.reject { |request| request.review_status == "withdrawn" } %>
+<% request_events = plan.plan_events.where(event_type: %w[review_requested review_withdrawn review_removed]).includes(:actor_user).to_a %>
+<% active_requests = requests.reject { |request| %w[withdrawn removed].include?(request.status) } %>
 <% own_request = active_requests.find { |request| request.reviewer_id == current_user.id } %>
 <% response_thread_ids = requests.flat_map { |request| request.review_responses.map(&:comment_thread_id) }.compact %>
 <% feedback_thread_ids = plan.comment_threads.with_kept_comments.where(id: response_thread_ids).pluck(:id) %>

@@ -3,7 +3,7 @@ module CoPlan
   class ReviewRequest < ApplicationRecord
     REQUIREMENTS = %w[required optional].freeze
     RESET_REASONS = %w[legacy_history content_changed requested_again].freeze
-    STATUSES = %w[pending approved changes_requested withdrawn].freeze
+    STATUSES = %w[pending approved changes_requested withdrawn removed].freeze
 
     belongs_to :plan
     belongs_to :reviewer, class_name: "CoPlan::User"
@@ -15,15 +15,28 @@ module CoPlan
     belongs_to :current_response, class_name: "CoPlan::ReviewResponse", optional: true
     has_many :notifications, dependent: :destroy
 
-    validates :reviewer_id, uniqueness: { scope: :plan_id }
+    # A nullable unique slot allows many ended assignments for one reviewer.
+    # Keep it derived from status; false would create a second reusable slot.
+    before_validation { self.current_assignment = status == "removed" ? nil : true }
+    validates :reviewer_id, uniqueness: { scope: :plan_id, conditions: -> { current } }, unless: :removed?
+    validates :current_assignment, inclusion: { in: [ true, nil ] }
     validates :requirement, inclusion: { in: REQUIREMENTS }
     validates :reset_reason, inclusion: { in: RESET_REASONS }, allow_nil: true
     validates :status, inclusion: { in: STATUSES }
     validates :requested_at, presence: true
     validate :version_belongs_to_plan
 
-    scope :active, -> { where.not(status: "withdrawn") }
-    scope :pending, -> { where(status: "pending") }
+    scope :current, -> { where(current_assignment: true) }
+    scope :active, -> { current.where.not(status: "withdrawn") }
+    scope :pending, -> { current.where(status: "pending") }
+
+    def removed?
+      status == "removed"
+    end
+
+    def ensure_current!
+      raise ActiveRecord::RecordNotFound, "Review request was removed" if removed?
+    end
 
     def pending?
       review_status == "pending"
@@ -43,7 +56,7 @@ module CoPlan
     end
 
     def review_status
-      status == "withdrawn" ? "withdrawn" : (recorded_response&.decision || "pending")
+      %w[withdrawn removed].include?(status) ? status : (recorded_response&.decision || "pending")
     end
 
     # Exact-version evidence stays strict regardless of the reset preference.
@@ -53,7 +66,7 @@ module CoPlan
     end
 
     def effective_status
-      status == "withdrawn" ? "withdrawn" : (effective_response&.decision || "pending")
+      %w[withdrawn removed].include?(status) ? status : (effective_response&.decision || "pending")
     end
 
     def effective_human_decision

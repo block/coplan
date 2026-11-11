@@ -13,6 +13,7 @@ module CoPlan
         request, actor, api_token = @request, @actor, @api_token
         changed = request.plan.with_lock do
           request.reload
+          request.ensure_current!
           next false if request.status == "withdrawn"
 
           unless request.plan.plan_events.where(event_type: "review_requested", after_value: request.id).exists?
