@@ -84,6 +84,23 @@ RSpec.describe "Callouts", type: :system do
     expect(page).to have_css('.callout--summary[data-callout-title="TL;DR"]', text: "Why it happened.")
   end
 
+  it "preserves a table-only callout when a cell is edited and saved" do
+    source = "# Findings\n\n> [!SUMMARY]\n>\n> | Finding | State |\n> | --- | --- |\n> | Retry | Ready |"
+    document = CoPlan::Plans::Create.call(title: "Findings", content: source, user: author,
+      visibility: "draft", actor_type: "human")
+    visit plan_edit_page_path(document)
+    expect(page).to have_css(".ProseMirror .document-editor__callout--summary table", text: "Ready")
+    click_button "Edit table"
+    field = find('[aria-label="Table Markdown"]')
+    field.fill_in with: field.value.sub("Ready", "Done")
+    click_button "Raw", exact: true
+    expect(find('[aria-label="Markdown source"]').text).to include("> [!SUMMARY]", "> | Retry | Done |")
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(document))
+    expect(document.reload.current_content).to include("> [!SUMMARY]", "> | Retry | Done |")
+    expect(page).to have_css(".callout--summary table", text: "Done")
+  end
+
   it "preserves math inside a callout through a rich edit and save" do
     content = "# Retry budget\n\n> [!TIP] Estimate\n> Use $p^n$ for retries."
     document = CoPlan::Plans::Create.call(title: "Retry budget", content: content, user: author,

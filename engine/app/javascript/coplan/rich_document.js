@@ -345,7 +345,7 @@ const defaultMarkdownSerializer = new MarkdownSerializer({
     state.wrapBlock("> ", null, node, () => {
       state.write(node.attrs.marker)
       // An empty body keeps the marker alone, as `> [!NOTE]` was written.
-      if (node.childCount === 1 && !node.firstChild.content.size) return
+      if (node.childCount === 1 && node.firstChild.type.name === "paragraph" && !node.firstChild.content.size) return
       state.ensureNewLine()
       state.renderContent(node)
     })
