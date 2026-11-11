@@ -20,6 +20,20 @@ RSpec.describe "Plan references", type: :system do
     expect(page).to have_current_path(root_path)
   end
 
+  it "previews and follows a numbered section link to the document title" do
+    document = CoPlan::Plans::Create.call(user: user, content: "# 1 Overview\n\nOpening title section text. See [overview](#section-1).\n\n# 2 Details\n\nDifferent section.", actor_type: "human")
+    visit plan_page_path(document)
+    expect(page).to have_css("h1#plan-title", text: "1 Overview")
+    expect(page).to have_css("#plan-title #section-1", visible: :all)
+    link = find('a.reference-anchor--section[href="#section-1"]')
+    link.hover
+    expect(page).to have_css(".reference-preview__title", text: "1 Overview", visible: true)
+    expect(page).to have_css(".reference-preview__body", text: "Opening title section text", visible: true)
+    expect(page).to have_no_css(".reference-preview__body", text: "Different section", visible: true)
+    link.click
+    expect(page).to have_current_path(/#section-1\z/, url: true)
+  end
+
   # References live under the document as a footnote section — same page as
   # the content, no tabs.
   def open_add_reference_modal
