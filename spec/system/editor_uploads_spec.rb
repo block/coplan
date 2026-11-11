@@ -57,6 +57,51 @@ RSpec.describe "Uploading files in the rich editor", type: :system do
     JS
   end
 
+  def hold_save
+    page.execute_script(<<~JS)
+      const original = window.fetch;
+      let held = false;
+      window.saveGate = new Promise(resolve => window.releaseSave = resolve);
+      window.fetch = async function(url, options) {
+        if (options?.method === 'PATCH' && !held) { held = true; await window.saveGate; }
+        return original.apply(this, arguments);
+      };
+    JS
+  end
+
+  %w[light dark].product(%w[done navigation]).each do |theme, exit_path|
+    it "waits for files added after leaving starts through #{exit_path} in #{theme}" do
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      hold_save
+      hold_upload
+      paragraph = find(".ProseMirror p", text: "Before upload.")
+      paragraph.click
+      paragraph.send_keys(:end, " Saved before leaving.")
+      if exit_path == "done"
+        click_link "Done"
+        destination = plan_page_path(plan)
+      else
+        location = find('a[aria-label^="Up to "]')
+        destination = URI.parse(location[:href]).request_uri
+        location.click
+      end
+      expect(page).to have_css('.document-editor__close-inline[data-state="saving"]')
+      transfer_files("sample.png", paste: exit_path == "navigation")
+      expect(page).to have_css(".document-editor__upload-placeholder")
+      page.execute_script("window.releaseSave()")
+      expect(page).not_to have_css('.document-editor__close-inline[data-state="saving"]')
+      expect(page).to have_css(".document-editor__upload-placeholder")
+      expect(page).to have_css(".document-editor")
+      page.save_screenshot(Rails.root.join("tmp/screenshots/editor-uploads/late-#{exit_path}-#{theme}.png"))
+
+      page.execute_script("window.releaseUpload()")
+      expect(page).not_to have_css(".document-editor", wait: 20)
+      expect(page).to have_current_path(destination)
+      expect(plan.reload.current_content).to include("Saved before leaving.", "![sample.png]")
+      expect(plan.attachments.count).to eq(1)
+    end
+  end
+
   %w[light dark].each do |theme|
     it "reuses dropped files while inserting another embed in #{theme}" do
       page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)

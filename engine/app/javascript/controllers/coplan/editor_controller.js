@@ -535,24 +535,31 @@ export default class extends Controller {
     if (this.navigating) return
     this.navigating = true
     try {
-      await this.richEditor?.whenUploadsIdle()
-      await this.whenIdle()
-      if (!this.active || this.blocked) return
-      if (this.isNew && this.textareaTarget.value === this.base.content) {
+      // Any wait can admit another upload or edit. Reach one shared idle
+      // point before freezing the form, rather than draining each queue once.
+      while (true) {
+        await this.richEditor?.whenUploadsIdle()
+        await this.whenIdle()
+        await this.whenCompositionEnds()
+        if (!this.active || this.blocked) return
+        if (this.richEditor?.uploading || this.busy) continue
+        if (this.isNew && this.textareaTarget.value === this.base.content) {
+          this.element.dispatchEvent(new CustomEvent("coplan:editor-closed", { bubbles: true,
+            detail: { controller: this, snapshot: { ...this.base } } }))
+          return
+        }
+        if (!this.element.checkValidity()) this.revealDetails()
+        if (!this.element.reportValidity()) return
+        if (this.dirty()) {
+          if (!await this.flush(true) || !this.active || this.blocked) return
+          continue
+        }
+        this.element.inert = true
+        if (!await this.flush(true, null, true) || !this.active || this.blocked) return
         this.element.dispatchEvent(new CustomEvent("coplan:editor-closed", { bubbles: true,
           detail: { controller: this, snapshot: { ...this.base } } }))
         return
       }
-      if (!this.element.checkValidity()) this.revealDetails()
-      if (!this.element.reportValidity()) return
-      while (this.dirty()) {
-        if (!await this.flush(true) || !this.active || this.blocked) return
-      }
-      await this.whenCompositionEnds()
-      this.element.inert = true
-      if (!await this.flush(true, null, true) || !this.active || this.blocked) return
-      this.element.dispatchEvent(new CustomEvent("coplan:editor-closed", { bubbles: true,
-        detail: { controller: this, snapshot: { ...this.base } } }))
     } finally { this.element.inert = false; this.navigating = false }
   }
   showInline(anchor, { focus = true } = {}) {
@@ -583,29 +590,32 @@ export default class extends Controller {
     this.navigating = true
     this.backTarget.setAttribute("aria-busy", "true")
     try {
-      await this.richEditor?.whenUploadsIdle()
-      if (this.busy || this.dirty()) this.setStatus("Saving before going back…", "saving")
-      await this.whenIdle()
-      if (!this.active) return
-      if (this.isNew && this.textareaTarget.value === this.base.content) {
+      while (true) {
+        await this.richEditor?.whenUploadsIdle()
+        if (this.busy || this.dirty()) this.setStatus("Saving before going back…", "saving")
+        await this.whenIdle()
+        await this.whenCompositionEnds()
+        if (!this.active) return
+        if (this.richEditor?.uploading || this.busy) continue
+        if (this.isNew && this.textareaTarget.value === this.base.content) {
+          this.leaving = true
+          window.Turbo.visit(destination())
+          return
+        }
+        if ((!this.isNew || this.dirty()) && !this.element.reportValidity()) { this.setStatus("Correct the highlighted field before going back", "error"); return }
+        if (this.blocked) { this.setStatus("Resolve the conflict before going back · draft retained", "error"); return }
+        if (this.dirty()) {
+          if (!await this.flush(true) || !this.active || this.blocked) return
+          continue
+        }
+        this.element.inert = true
+        if (finalize && (!await this.flush(true, null, true) || !this.active || this.blocked)) return
         this.leaving = true
+        // Do not preview a reading-page snapshot taken before this save.
+        window.Turbo.cache.clear()
         window.Turbo.visit(destination())
         return
       }
-      if ((!this.isNew || this.dirty()) && !this.element.reportValidity()) { this.setStatus("Correct the highlighted field before going back", "error"); return }
-      if (this.blocked) { this.setStatus("Resolve the conflict before going back · draft retained", "error"); return }
-      while (this.dirty()) {
-        if (!await this.flush(true) || !this.active || this.blocked) return
-      }
-      if (finalize) {
-        await this.whenCompositionEnds()
-        this.element.inert = true
-        if (!await this.flush(true, null, true) || !this.active || this.blocked) return
-      }
-      this.leaving = true
-      // Do not preview a reading-page snapshot taken before this save.
-      window.Turbo.cache.clear()
-      window.Turbo.visit(destination())
     } finally {
       this.element.inert = false
       this.navigating = false
