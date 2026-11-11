@@ -41,6 +41,34 @@ Older failures of removed editing flows and shipped regressions are historical
 evidence, not reasons to alter the current assertions. Validate current behavior
 with full suites as well as the focused repeated runs below.
 
+## November 11 post-merge follow-up
+
+These are the original attempts; a later green run does not erase a failure.
+
+| Merge | Original main run | Result |
+| --- | --- | --- |
+| #311 — recovered titles and numbered title links (`cd5dfdc0`) | [43087241467, attempt 1](https://github.com/block/coplan/actions/runs/43087241467/attempts/1) | Browser shard 4 failed the non-empty paragraph Backspace case in `editor_lists_spec.rb`, seed 8443. The paragraph remained, but the caret did not reach the expected offset. Shards 1 and 3 were cancelled by fail-fast. |
+| #305 — preserve review history (`0b3c0dd0`) | [43087376842](https://github.com/block/coplan/actions/runs/43087376842) | Full main CI passed. |
+| #324 — keep linked comment windows open (`3b1cdcb2`) | [43087536377, attempt 1](https://github.com/block/coplan/actions/runs/43087536377/attempts/1) | Browser shard 4 failed the math comment anchor case, seed 41209, with `StaleElementReferenceError` while reading highlight text. Shard 2 was cancelled by fail-fast. |
+| #321 — expired-session commit failure event (`06fecace`) | [43090004657](https://github.com/block/coplan/actions/runs/43090004657) | Full main CI passed. |
+
+The math failure reproduced naturally on the isolated Mac/MySQL checkout at
+`06fecace`: the fifth fresh-process run failed at seed 41213 with the same stale
+element exception. The screenshot retained both correct highlights, and the
+stored anchor/source assertions had passed. The test held WebDriver elements
+across separate text reads while thread updates could replace their marks.
+It now reads the ordered text in one browser turn inside Capybara's retry loop,
+retaining the exact count, text, source range, formula exclusion, and reload checks.
+Ten fresh-process runs with seeds 41209–41218 passed after that change.
+
+The editor caret failure did not reproduce in five focused fresh-process runs,
+seeds 8443–8447, on the same isolated MySQL database. Its screenshot showed the
+caret one character into `Outside`. It remains unexplained; the later green runs
+and these local passes do not establish its cause or prove a product fix.
+Only one failed-job retry per original failing run was requested. The original
+cancelled shards were not selected for retry, and their incomplete coverage must
+remain visible when assessing those merges.
+
 ## Reproduce and preserve evidence
 
 Use a separate test database when another checkout is running specs. Initialize
