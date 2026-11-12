@@ -48,6 +48,7 @@ RSpec.describe "Comments", type: :request do
   it "does not calculate a template digest while broadcasting a reply" do
     original_perform_caching = ActionController::Base.perform_caching
     ActionController::Base.perform_caching = true
+    allow(CoPlan::RenderCache).to receive(:version).and_return("bundle-release")
     allow(ActionView::Digestor).to receive(:digest).and_call_original
     allow(Rails.cache).to receive(:read).and_call_original
 
@@ -61,7 +62,7 @@ RSpec.describe "Comments", type: :request do
     ActionController::Base.perform_caching = original_perform_caching
   end
 
-  it "refreshes cached comment links when the Markdown renderer version changes" do
+  it "refreshes cached comment links when the bundle release changes" do
     comment = create(:comment, comment_thread: thread_record, author_id: alice.id,
       body_markdown: "[Open chat](codex://threads/123)")
     original_caching = CoPlan::ApplicationController.perform_caching
@@ -69,18 +70,17 @@ RSpec.describe "Comments", type: :request do
     memory = ActiveSupport::Cache::MemoryStore.new
     allow(Rails).to receive(:cache).and_return(memory)
     allow_any_instance_of(CoPlan::ApplicationController).to receive(:cache_store).and_return(memory)
-    renderer_version = CoPlan::MarkdownHelper::RENDER_CACHE_VERSION
     link_scrubber = CoPlan::LinkScrubber
     render_comment = -> { CoPlan::ApplicationController.render(partial: "coplan/comments/comment", locals: { comment: comment }) }
 
-    stub_const("CoPlan::MarkdownHelper::RENDER_CACHE_VERSION", renderer_version - 1)
+    allow(CoPlan::RenderCache).to receive(:version).and_return("old-bundle")
     stub_const("CoPlan::LinkScrubber", Rails::HTML::PermitScrubber)
     expect(render_comment.call).not_to include('href="codex://threads/123"')
     stub_const("CoPlan::LinkScrubber", link_scrubber)
     # The old renderer's cached fragment really is still being served.
     expect(render_comment.call).not_to include('href="codex://threads/123"')
 
-    stub_const("CoPlan::MarkdownHelper::RENDER_CACHE_VERSION", renderer_version)
+    allow(CoPlan::RenderCache).to receive(:version).and_return("new-bundle")
     expect(render_comment.call).to include('href="codex://threads/123"')
   ensure
     CoPlan::ApplicationController.perform_caching = original_caching

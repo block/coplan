@@ -29,8 +29,8 @@
       <span class="comment__meta"><%= time_ago_in_words(comment.created_at) %> ago<% if comment.updated_at > comment.created_at %><span class="comment__edited"> · edited</span><% end %></span>
     </div>
     <div class="comment__body" data-coplan--comment-actions-target="body">
-      <%# The record version invalidates edits; the renderer version invalidates cached HTML. %>
-      <%= cache(["comment-body-v2", CoPlan::MarkdownHelper::RENDER_CACHE_VERSION, comment], skip_digest: true) do %>
+      <%# The record version invalidates edits; the bundle release invalidates renderer changes. %>
+      <%= cache_if(CoPlan::RenderCache.version.present?, ["comment-body-v2", CoPlan::RenderCache.version, comment], skip_digest: true) do %>
         <%# footnote_prefix keeps footnote ids unique per comment — the plan
             body and every other comment render in the same DOM. Comment
             images don't expand: the comments panel and footnote previews

@@ -20,6 +20,19 @@ RSpec.describe CoPlan::ReferencesHelper, type: :helper do
       plan
     end
 
+    it "reuses citations until the installed bundle changes" do
+      allow(Rails).to receive(:cache).and_return(ActiveSupport::Cache::MemoryStore.new)
+      allow(CoPlan::RenderCache).to receive(:version).and_return("bundle-a")
+      allow(helper).to receive(:render_markdown).and_call_original
+
+      original = helper.plan_citation_back_matter(plan, plan.references)
+      expect(helper.plan_citation_back_matter(plan, plan.references)).to eq(original)
+      expect(helper).to have_received(:render_markdown).once
+      allow(CoPlan::RenderCache).to receive(:version).and_return("bundle-b")
+      expect(helper.plan_citation_back_matter(plan, plan.references)).to eq(original)
+      expect(helper).to have_received(:render_markdown).twice
+    end
+
     it "joins Markdown citation context to structured source identity" do
       reference = plan.references.find_by!(url: "https://docs.google.com/spreadsheets/d/sample")
       reference.update!(title: "Rollout experiment results")

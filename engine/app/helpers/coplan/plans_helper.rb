@@ -159,9 +159,9 @@ module CoPlan
       # full Commonmarker + Nokogiri parse per plan without an AI summary.
       # The document body itself is fetched only on a cache miss — list pages
       # preload just the stub (id + sha), never the MEDIUMTEXT columns.
-      cache_key = [ "coplan/plan-preview", MarkdownHelper::RENDER_CACHE_VERSION, plan.id,
+      cache_key = [ "coplan/plan-preview", plan.id,
                    stub.content_sha256 || plan.current_revision ]
-      plain = Rails.cache.fetch(cache_key) do
+      plain = RenderCache.fetch(cache_key) do
         markdown_to_plain_text(PlanVersion.where(id: stub.id).pick(:content_markdown))
       end
       return nil if plain.blank?

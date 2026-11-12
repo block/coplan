@@ -5,8 +5,8 @@
     Cached per content SHA: rendering is Commonmarker + two Nokogiri passes +
     sanitize, and this partial is re-rendered on every show AND every
     content-mutation broadcast. skip_digest avoids the template-digest cost
-    on write paths; the explicit RENDER_CACHE_VERSION key handles renderer
-    changes instead. -%>
-<% cache [CoPlan::EmbedDomain.order(:hostname).pluck(:hostname), request&.host, "coplan/plan-content-body-with-title", CoPlan::MarkdownHelper::RENDER_CACHE_VERSION, plan.id, plan.current_plan_version&.content_sha256 || plan.current_revision], skip_digest: true do %>
+    on write paths; the bundle release namespace handles renderer and template
+    changes. Editable installs bypass this cache without a host release ID. -%>
+<% cache_if CoPlan::RenderCache.version.present?, [CoPlan::EmbedDomain.order(:hostname).pluck(:hostname), request&.host, "coplan/plan-content-body-with-title", CoPlan::RenderCache.version, plan.id, plan.current_plan_version&.content_sha256 || plan.current_revision], skip_digest: true do %>
   <%= render_plan_document(plan.current_content) %>
 <% end %>

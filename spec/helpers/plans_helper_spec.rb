@@ -16,6 +16,18 @@ RSpec.describe CoPlan::PlansHelper, type: :helper do
   describe "#plan_content_preview" do
     let(:plan) { create(:plan, :considering) }
 
+    it "reuses previews until the installed bundle changes" do
+      allow(Rails).to receive(:cache).and_return(ActiveSupport::Cache::MemoryStore.new)
+      allow(CoPlan::RenderCache).to receive(:version).and_return("bundle-a")
+      allow(helper).to receive(:markdown_to_plain_text).and_return("First rendering", "New rendering")
+
+      expect(helper.plan_content_preview(plan)).to eq("First rendering")
+      expect(helper.plan_content_preview(plan)).to eq("First rendering")
+      allow(CoPlan::RenderCache).to receive(:version).and_return("bundle-b")
+      expect(helper.plan_content_preview(plan)).to eq("New rendering")
+      expect(helper).to have_received(:markdown_to_plain_text).twice
+    end
+
     it "strips markdown formatting and returns a plain-text preview" do
       set_version_fixture(plan.current_plan_version,
         content_markdown: "# Heading\n\nA **bold** intro with [a link](https://example.com)."

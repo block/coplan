@@ -38,10 +38,9 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
         written_keys << key
         write.call(key, *args, **options)
       end
-      renderer_version = CoPlan::MarkdownHelper::RENDER_CACHE_VERSION
-
-      # Simulate a persistent fragment written by the renderer before title aliases.
-      stub_const("CoPlan::MarkdownHelper::RENDER_CACHE_VERSION", 29)
+      # Both deployed and candidate renderers used version 29. Reproduce the
+      # real persistent entry, then migrate to a release namespace with no edit.
+      allow(CoPlan::RenderCache).to receive(:version).and_return(29)
       get content_body_plan_path(plan)
       expect(response).to have_http_status(:ok)
       fragment_key = written_keys.find { |key| key.to_s.include?("coplan/plan-content-body-with-title") }
@@ -51,10 +50,12 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
       get content_body_plan_path(plan)
       expect(Nokogiri::HTML.fragment(response.body).at_css("#section-1")).to be_nil
 
-      stub_const("CoPlan::MarkdownHelper::RENDER_CACHE_VERSION", renderer_version)
+      allow(CoPlan::RenderCache).to receive(:version).and_return("candidate-bundle")
       get content_body_plan_path(plan)
       expect(response).to have_http_status(:ok)
       expect(Nokogiri::HTML.fragment(response.body).at_css("h1#plan-title #section-1")).to be_present
+      expect(cache.read(fragment_key)).to eq(stale_html)
+      expect(written_keys.uniq.size).to eq(2)
     end
 
     it "returns the latest rendered body and revision without caching" do

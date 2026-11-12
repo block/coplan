@@ -4,6 +4,32 @@
 
 Coplan is a Rails engine that manages collaborative planning documents. It owns its own `CoPlan::User` model and handles authentication internally via a callback you configure.
 
+## Rendered-content caching
+
+Rendered plan bodies, comments, previews, and citations use the installed
+bundle as their cache namespace. Coplan hashes `Gemfile.lock` once per process.
+An engine gem upgrade, a Git pin change, or a rendering dependency upgrade
+automatically starts a new namespace, even when document content is unchanged.
+Git installs use the revision in the lockfile; no Git command or checkout
+directory name is involved. Without Bundler, the installed engine gem version
+is the namespace.
+
+Rails' standard `RAILS_APP_VERSION` or `RAILS_CACHE_ID` also prefixes these
+keys. Set it to the build or release ID when host code changes rendering
+without changing the bundle, such as an overridden helper or template.
+
+Bundles with editable path dependencies cannot identify a release from their
+lockfile alone. They bypass these rendered-content caches unless the host
+sets `RAILS_APP_VERSION` or `RAILS_CACHE_ID`. This includes this repository's
+path-based example host. Development code reloading always bypasses them, so
+Ruby and template edits appear immediately. Other application caches keep
+their normal behavior.
+
+Upgrading from the old numeric renderer version ignores those older entries;
+no cache flush or data deletion is needed. Old entries expire under the host's
+normal cache policy. An unchanged release can reuse entries across processes
+and restarts; a changed bundle fills its own entries lazily on first use.
+
 ## User settings and host integrations
 
 Coplan owns the settings shown on its Settings page. The app theme, light/dark
