@@ -28,6 +28,35 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
   end
 
   describe "GET content_body" do
+    it "invalidates pre-alias rendered fragments without changing the plan" do
+      set_version_fixture(plan.current_plan_version, content_markdown: "# 1 Overview\n\nOpening text.\n")
+      cache = ActiveSupport::Cache::MemoryStore.new
+      allow_any_instance_of(CoPlan::PlansController).to receive(:perform_caching).and_return(true)
+      allow_any_instance_of(CoPlan::PlansController).to receive(:cache_store).and_return(cache)
+      written_keys = []
+      allow(cache).to receive(:write).and_wrap_original do |write, key, *args, **options|
+        written_keys << key
+        write.call(key, *args, **options)
+      end
+      renderer_version = CoPlan::MarkdownHelper::RENDER_CACHE_VERSION
+
+      # Simulate a persistent fragment written by the renderer before title aliases.
+      stub_const("CoPlan::MarkdownHelper::RENDER_CACHE_VERSION", 24)
+      get content_body_plan_path(plan)
+      expect(response).to have_http_status(:ok)
+      fragment_key = written_keys.find { |key| key.to_s.include?("coplan/plan-content-body-with-title") }
+      expect(fragment_key).to be_present
+      stale_html = response.body.gsub(/<span[^>]*data-heading-alias[^>]*><\/span>/, "")
+      cache.write(fragment_key, stale_html)
+      get content_body_plan_path(plan)
+      expect(Nokogiri::HTML.fragment(response.body).at_css("#section-1")).to be_nil
+
+      stub_const("CoPlan::MarkdownHelper::RENDER_CACHE_VERSION", renderer_version)
+      get content_body_plan_path(plan)
+      expect(response).to have_http_status(:ok)
+      expect(Nokogiri::HTML.fragment(response.body).at_css("h1#plan-title #section-1")).to be_present
+    end
+
     it "returns the latest rendered body and revision without caching" do
       get content_body_plan_path(plan)
 

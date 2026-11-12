@@ -33,6 +33,23 @@ RSpec.describe "Version-bound review evidence" do
     expect(CoPlan::Reviews::Evidence.call(plan: plan)[:review_requests].map { |r| r[:effective_human_decision] }).to all(be_nil)
   end
 
+  it "keeps removed assignments historical when an edit resets the replacement" do
+    previous = decide
+    CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id, actor: plan.created_by_user)
+    generation = task.reload.generation
+    fresh = CoPlan::Reviews::Request.call(plan: plan, reviewer: reviewer, actor: plan.created_by_user, create_only: true)
+    CoPlan::Reviews::Respond.call(request: fresh, actor: reviewer, revision: 1, decision: "approved")
+
+    replace("# Plan\n\nRevised after reassignment")
+
+    expect(task.reload).to have_attributes(status: "removed", generation: generation, current_assignment: nil)
+    expect(fresh.reload).to have_attributes(status: "pending", generation: 2)
+    rows = CoPlan::Reviews::Evidence.call(plan: plan)[:review_requests]
+    old = rows.find { |row| row[:id] == task.id }
+    expect(old).to include(review_status: "removed", effective_human_decision: nil)
+    expect(old[:responses].map { |row| row[:id] }).to eq([ previous.id ])
+  end
+
   it "resets reviewers from different revisions with one update and no historical version reads" do
     task
     3.times do |index|
@@ -66,7 +83,7 @@ RSpec.describe "Version-bound review evidence" do
       case action
       when :respond then decide
       when :request_again then CoPlan::Reviews::Request.again(request: task, actor: plan.created_by_user)
-      when :remove then CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id)
+      when :remove then CoPlan::Reviews::Remove.call(plan: plan, request_id: task.id, actor: plan.created_by_user)
       end
       allow(CoPlan::Reviews::Changed).to receive(:call).and_call_original
       expect(callbacks).not_to be_empty

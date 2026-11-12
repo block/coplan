@@ -21,11 +21,14 @@ module CoPlan
 
     # Commonmarker extensions beyond the gem defaults (tables, tasklist,
     # strikethrough, autolink stay on). Footnotes: `[^1]` in text plus a
-    # `[^1]: definition` block anywhere in the document. Math: `$inline$`,
-    # `$$display$$`, `` $`inline`$ `` and ```` ```math ```` fences render as
-    # elements carrying `data-math-style`, typeset in the browser by KaTeX.
+    # `[^1]: definition` block anywhere in the document. Alerts use a first
+    # quote line such as `[!NOTE]` (see render_callouts; `[!SUMMARY]` is
+    # Coplan's own, see CoPlan::Markdown). Math uses `$inline$`,
+    # `$$display$$`, `` $`inline`$ `` and math fences, typeset by KaTeX.
     # comrak's dollar rules keep currency ("$5 and $10") as text.
-    EXTENSION_OPTIONS = { footnotes: true, math_dollars: true, math_code: true }.freeze
+    EXTENSION_OPTIONS = { footnotes: true, alerts: true, math_dollars: true, math_code: true }.freeze
+
+    CALLOUT_TYPES = %w[note tip important warning caution summary].freeze
 
     # The only elements and values comrak emits for math. Anything else
     # carrying the attribute (authored HTML) loses it during rendering.
@@ -43,7 +46,7 @@ module CoPlan
     # version. Bump it whenever the rendering pipeline changes output for the
     # same input (new tags, attribute changes, checkbox wiring, etc.), or
     # stale HTML will be served from cache.
-    RENDER_CACHE_VERSION = 30
+    RENDER_CACHE_VERSION = 33
 
     # Matches `[@username](mention:username)` where the bracket text and link
     # target encode the same username. Username allows letters, digits, dots,
@@ -86,6 +89,7 @@ module CoPlan
       sanitized = prepare_math(sanitized, source)
       sanitized = render_iframe_blocks(sanitized, content.to_s)
       sanitized = render_rendered_diagrams(sanitized)
+      sanitized = render_callouts(sanitized)
       result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments, retain_sourcepos: retain_sourcepos) : sanitized
       unless interactive
         fragment = Nokogiri::HTML::DocumentFragment.parse(result)
@@ -184,7 +188,9 @@ module CoPlan
       source = content.to_s.encode("UTF-8")
       source = ContentRegions::Split.call(source).canonical_source if source.include?("::: {.presentation")
       html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
-      Nokogiri::HTML::DocumentFragment.parse(html).text.squish
+      fragment = Nokogiri::HTML::DocumentFragment.parse(html)
+      fragment.css("p.markdown-alert-title").remove
+      fragment.text.squish
     end
 
     # Flags rendered diagrams whose source changed after their image was
@@ -385,6 +391,42 @@ module CoPlan
       return node["alt"].to_s if node.name == "img"
 
       node.children.map { |child| task_name_text(child) }.join
+    end
+
+    # Commonmarker renders an alert as a div with a title paragraph. The
+    # title moves into data-callout-title, which the stylesheet shows beside
+    # the type's icon, so the label adds no text to the document. Comment
+    # anchors and occurrence counts then match the source text, where the
+    # `[!NOTE]` marker is not prose either.
+    #
+    # This runs after sanitization because data-callout-title is not an
+    # attribute authors may write. Raw HTML can copy Commonmarker's alert
+    # markup, which gives the same callout the marker gives, but it cannot
+    # set the callout classes directly: those are removed first.
+    def render_callouts(html)
+      return html unless html.include?("callout") || html.include?("markdown-alert")
+
+      doc = Nokogiri::HTML::DocumentFragment.parse(html)
+      doc.css("[class*='callout']").each do |node|
+        classes = node.classes.reject { |name| name.match?(/\Acallout(?:--|\z)/) }
+        if classes.empty?
+          node.remove_attribute("class")
+        else
+          node["class"] = classes.join(" ")
+        end
+      end
+
+      doc.css("div.markdown-alert").each do |alert|
+        type = CALLOUT_TYPES.find { |name| alert.classes.include?("markdown-alert-#{name}") }
+        title = alert.element_children.first
+        next unless type && title&.name == "p" && title.classes == [ "markdown-alert-title" ]
+
+        title.remove
+        alert["class"] = "callout callout--#{type}"
+        alert["data-callout-title"] = title.text.squish
+      end
+
+      doc.to_html
     end
 
     # A table is a block of data, not a paragraph. Each one gets a scroll

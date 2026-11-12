@@ -173,6 +173,12 @@ def wake_prompt(event)
     "Read the current snapshot and #{BASE}/agent-instructions/comments. " \
       "A requirement change or withdrawal is not a request for another look. " \
       "A sign-off grants no implementation authority. Follow your principal before responding; never manufacture a human approval."
+  elsif event["type"] == "session.commit_failed"
+    "Your staged edits were not applied. Read GET /api/v1/plans/#{event["plan_id"]} with the owning token. " \
+      "Reconcile your intended changes with the current content, preserving human edits; do not blindly replay the draft. " \
+      "The failed session cannot be reused. Submit fresh operations or open a new edit session. " \
+      "Check whether recovery already succeeded before retrying. No thread reply is required. " \
+      "Recovery guide: #{BASE}/agent-instructions/editing"
   else
     "Reply on the thread first (narrate what you'll change), then apply any edit with PUT .../content."
   end
@@ -180,7 +186,7 @@ def wake_prompt(event)
     [coplan-bridge] A Coplan event needs your attention.
 
     Event: #{event["type"]} on plan "#{payload["plan_title"]}" (plan id #{event["plan_id"]}, thread id #{event["comment_thread_id"]}).
-    #{review ? "Review data: #{payload.to_json}" : ""}
+    #{review || event["type"] == "session.commit_failed" ? "Event data: #{payload.to_json}" : ""}
     #{payload["comment_author"] ? "#{payload["comment_author"]} wrote: #{payload["comment_body"].to_s.strip}" : ""}
     #{payload["anchor_text"] ? "Anchored to: \"#{payload["anchor_text"]}\"" : ""}
 

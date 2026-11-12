@@ -307,6 +307,16 @@ pattern: quote
 step: 1
 ```
 
+A callout (`> [!NOTE]` and the other alert types) is not a quote. It stays
+in the reading flow, so the slide falls through to `content`.
+
+```conformance
+> [!NOTE]
+> The default output has to be genuinely beautiful with zero effort.
+.
+pattern: content
+```
+
 ### `table` — scaled tabular typography
 
 One table, full width, with an optional short paragraph.
@@ -567,6 +577,7 @@ computed from **units** — a deterministic estimate of rendered lines:
 | heading | 1 |
 | paragraph | ⌈plain-text length / 60⌉, minimum 1, plus 1 per hard line break, plus 3 per image, plus its display-math rows |
 | list / list item / blockquote | sum of children, minimum 1 |
+| callout (`> [!NOTE]` and the other alert types) | 1 for its label, plus the sum of its children |
 | code block | ⌈code lines / 1.2⌉, minimum 1 |
 | media code block (mermaid) | 4 |
 | math fence | 1 + its display-math rows |

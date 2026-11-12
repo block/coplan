@@ -345,6 +345,30 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(plan.attachments_attachments.sole.id).to eq(attachment.id)
     end
 
+    it "seeds the callout gallery once with every callout type and preserves a person's edits" do
+      described_class.call
+      plan = seeded_plan("callout-gallery")
+      expect(plan.title).to eq("Callouts: notes, tips, and warnings")
+      expect(plan.current_content).to include("> [!SUMMARY]", "> [!IMPORTANT] Decision needed", "> [!NOTE]", "> [!TIP]", "> [!WARNING]", "> [!CAUTION]")
+      expect(plan.current_content).to include("> [!QUESTION]", "> Storage is cheap; the backup window is not.")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+
+      html = ApplicationController.helpers.render_markdown(plan.current_content)
+      types = Nokogiri::HTML::DocumentFragment.parse(html).css(".callout").map { |node| node["class"].delete_prefix("callout callout--") }
+      expect(types).to eq(%w[summary important note tip warning caution tip warning])
+      expect(plan.current_content).to include('> \\[!NOTE]', 'theme="coplan"', 'theme="graphite"')
+
+      revision = plan.current_revision
+      described_class.call
+      expect(plan.reload.current_revision).to eq(revision)
+
+      edited = plan.current_content.sub("> [!TIP]", "> [!NOTE]")
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: edited,
+        base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
+      described_class.call
+      expect(plan.reload.current_content).to eq(edited)
+    end
+
     it "seeds the math gallery with every math form and preserves edits on re-seed" do
       described_class.call
       plan = seeded_plan("math-gallery")
@@ -418,6 +442,26 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(draft.title).to eq("My local draft")
       expect(draft.current_content).to eq(content)
       expect(CoPlan::User.count).to eq(described_class::USERS.size)
+    end
+
+    it "preserves the reassignment demo history and local decisions on reseeding" do
+      described_class.call
+      plan = seeded_plan("review-reassignment")
+      alex = CoPlan::User.find_by!(email: "alex@example.com")
+      old = plan.review_requests.find_by!(reviewer: alex, status: "removed")
+      fresh = plan.review_requests.current.find_by!(reviewer: alex)
+      expect(old.latest_approval.note).to eq("The invitation audit trail is clear.")
+      expect(fresh).to be_pending
+      expect(fresh.review_responses).to be_empty
+      expect(plan.review_requests.active.count).to eq(2)
+      expect(plan.plan_events.where(event_type: "review_removed", after_value: old.id)).to exist
+      expect(seeded_plan("demo-library").current_content).to include("review-reassignment")
+      ids = plan.review_requests.pluck(:id)
+      CoPlan::Reviews::Respond.call(request: fresh, actor: alex, revision: plan.current_revision, decision: "approved")
+      described_class.call
+      expect(plan.review_requests.pluck(:id)).to match_array(ids)
+      expect(fresh.reload.status).to eq("approved")
+      expect(old.reload.review_responses.count).to eq(1)
     end
 
     it "seeds untouched, frequently edited, pending, and approved scenarios" do

@@ -66,6 +66,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | reading-specimen | A realistic design doc for judging reading in both modes: prose, headings, lists, tasks, quote, table, footnote, image, SQL/Ruby/diff/YAML code, a long scrolling line, flowchart and sequence diagrams, plus open, agent-answered, resolved, diagram-node, table-cell, and general discussions |
 | document-title | One editable title; autosave keeps the URL stable until Done; title boundaries and empty-title behavior |
 | image-resizing | Resize and restore image widths, wrap prose from the top, Shift+Enter beside, Enter below |
+| callout-gallery | `> [!SUMMARY]`, `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]` callouts, a custom label, nested list and code, plain and escaped quotes, and both deck themes; comment inside a callout, or edit one in Editor and check Raw |
 | math-gallery | KaTeX math: inline, display, and fenced formulas, math in lists and tables, a six-row slide equation, dollar amounts that stay text, and invalid math shown as source; comment on the text around a formula |
 
 Flowcharts currently support source-backed node and edge comments. Other
@@ -94,6 +95,7 @@ look up this key rather than copying generated UUIDs.
 | writing-mixed | Human input, unknown imported context, and an agent proposal; opt-in source inspection |
 | writing-word-edit | Agent text with a human-added “not” in v2; hover for Hampton, version, and time |
 | pending-review | Two approvers, neither approved |
+| review-reassignment | Alex Pending after reassignment; earlier approval and removal remain in activity, Noura stays Approved |
 | approved-review | Two approvers, both approved |
 | collab-showcase | Agent edit, human and agent comments, open/resolved and overlapping anchors, general thread, citations and references |
 | api-gateway | Architecture proposal with a wide flowchart, trust-boundary table, rollout, external links |

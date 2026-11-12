@@ -242,6 +242,9 @@ module CoPlan
           0
         when :list, :item, :taskitem, :block_quote
           [ node.each.sum { |child| units(child) }, 1 ].max
+        when :alert
+          # The label line, then the body.
+          1 + node.each.sum { |child| units(child) }
         else
           1
         end

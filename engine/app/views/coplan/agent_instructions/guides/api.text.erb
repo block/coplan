@@ -43,7 +43,7 @@ return 429. Invalid names return 422 with `invalid_request`.
 | `PUT /api/v1/plans/:id/content` | Replace the content. | editing |
 | `POST /api/v1/plans/:id/operations` | Apply targeted edits. | editing |
 | `POST /api/v1/plans/:id/sessions` | Open an edit session (10 minutes): returns `id` and `base_revision`. Send `session_id` and that `base_revision` on each operation request to collect operations without saving. | editing |
-| `GET /api/v1/plans/:id/sessions/:session_id` | Get an edit session: `status`, `expires_at`, `operations_count`. | editing |
+| `GET /api/v1/plans/:id/sessions/:session_id` | Get an edit session: `status`, `expires_at`, `operations_count`. Failed expiry commits send `session.commit_failed` to the owning token; read the plan and use fresh operations or a new session. | editing |
 | `POST /api/v1/plans/:id/sessions/:session_id/commit` | Save the session's operations as one version: `change_summary`. | editing |
 | `POST`, `PATCH`, `DELETE /api/v1/plans/:id/lease` | Take, renew, or release the edit lock (optional). | editing |
 | `GET /api/v1/plans/:id/versions` | List the versions. | editing |
@@ -78,7 +78,7 @@ Agents can read reactions but cannot add them. There is no reactions endpoint.
 
 | Method and path | Purpose | Guide |
 |---|---|---|
-| `GET /api/v1/plans/:id/review_requests` | List reviewers and their recorded decisions. | comments |
+| `GET /api/v1/plans/:id/review_requests` | List current and removed review assignments with their recorded decisions. | comments |
 | `GET /api/v1/plans/:id/review_requests/suggestions` | List reviewers this Coplan deployment suggests, such as owners of linked code. Plan author only. | comments |
 | `POST /api/v1/plans/:id/review_requests` | Request required or optional review. Plan author only. | comments |
 | `PATCH /api/v1/plans/:id/review_requests/:request_id` | Change the requirement without reopening, or request another look. Plan author only. | comments |

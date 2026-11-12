@@ -582,6 +582,87 @@
   margin-bottom: var(--space-md);
 }
 
+/* ── Callouts: `> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`,
+   `[!CAUTION]`, `[!SUMMARY]` ──────────────────────────────────────────────
+   The reader renders div.callout; the rich editor keeps a blockquote with
+   the same look. The label is generated content from data-callout-title,
+   never document text, so selections and comment anchors skip it. The icon
+   is a mask in ::after, painted in the type's accent. */
+.markdown-rendered :is(.callout, blockquote.document-editor__callout) {
+  position: relative;
+  margin: 0 0 var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--callout-accent) 30%, transparent);
+  border-left: 4px solid var(--callout-accent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--callout-accent) 8%, transparent);
+  color: var(--callout-ink, var(--color-text));
+}
+
+.markdown-rendered :is(.callout--note, .document-editor__callout--note) {
+  --callout-accent: var(--color-callout-note);
+  --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5M12 8h.01'/%3E%3C/svg%3E");
+}
+
+.markdown-rendered :is(.callout--tip, .document-editor__callout--tip) {
+  --callout-accent: var(--color-callout-tip);
+  --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z'/%3E%3C/svg%3E");
+}
+
+.markdown-rendered :is(.callout--important, .document-editor__callout--important) {
+  --callout-accent: var(--color-callout-important);
+  --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2Z'/%3E%3Cpath d='M12 7v4M12 14h.01'/%3E%3C/svg%3E");
+}
+
+.markdown-rendered :is(.callout--warning, .document-editor__callout--warning) {
+  --callout-accent: var(--color-callout-warning);
+  --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z'/%3E%3Cpath d='M12 9v4M12 17h.01'/%3E%3C/svg%3E");
+}
+
+.markdown-rendered :is(.callout--caution, .document-editor__callout--caution) {
+  --callout-accent: var(--color-callout-caution);
+  --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7.9 2h8.2L22 7.9v8.2L16.1 22H7.9L2 16.1V7.9Z'/%3E%3Cpath d='M12 8v4M12 16h.01'/%3E%3C/svg%3E");
+}
+
+.markdown-rendered :is(.callout--summary, .document-editor__callout--summary) {
+  --callout-accent: var(--color-callout-summary);
+  --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6h16M4 12h16M4 18h10'/%3E%3C/svg%3E");
+}
+
+.markdown-rendered :is(.callout, blockquote.document-editor__callout)::before {
+  content: attr(data-callout-title);
+  display: block;
+  margin-bottom: 0.25em;
+  padding-left: 1.5em;
+  color: color-mix(in srgb, var(--callout-accent) 78%, var(--callout-ink, var(--color-text)));
+  font-weight: 600;
+  line-height: 1.5;
+  user-select: none;
+}
+
+.markdown-rendered :is(.callout, blockquote.document-editor__callout)::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--space-sm) + 0.25em);
+  left: var(--space-md);
+  width: 1em;
+  height: 1em;
+  background: var(--callout-accent);
+  mask: var(--callout-icon) center / contain no-repeat;
+}
+
+/* A deck is a fixed artifact, independent of the reader's app theme. */
+.deck .markdown-rendered .callout {
+  --callout-ink: var(--deck-ink);
+  --callout-accent: var(--deck-muted);
+}
+
+/* The second selector outranks the reading paragraph gap above. */
+.markdown-rendered :is(.callout, blockquote.document-editor__callout) > :last-child,
+:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) :is(.callout, blockquote.document-editor__callout) > p:last-child {
+  margin-bottom: 0;
+}
+
 .markdown-rendered table {
   width: 100%;
   border-collapse: collapse;

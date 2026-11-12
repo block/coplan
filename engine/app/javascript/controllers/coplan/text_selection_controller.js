@@ -551,7 +551,10 @@ export default class extends Controller {
     // Margin cards survive re-highlighting; keep the window beside its card.
     if (this._activeMark?.isConnected && this._activeMark.closest(".comment-margin")) return
 
-    const replacementMark = this.contentTarget.querySelector(`.anchor-highlight[data-thread-id="${threadId}"]`)
+    // Document and earlier-text discussions have list entries instead of
+    // inline marks. Rendering updates must keep those windows attached too.
+    const replacementMark = this.contentTarget.querySelector(`.anchor-highlight[data-thread-id="${threadId}"]`) ||
+      this.element.querySelector(`#plan-general-comments [data-thread-id="${threadId}"], #plan-detached-comments [data-thread-id="${threadId}"]`)
     if (replacementMark && this._findOpenPopover() === this._activePopover) {
       this._showThreadPopoverFor(replacementMark)
       return

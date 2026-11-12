@@ -71,6 +71,25 @@ nodes = nodes.addBefore("paragraph", "template_note", {
   attrs: { source: { default: null }, snapshot: { default: null }, opening: {}, closing: {} },
   toDOM: () => ["div", { class: "document-editor__template-note", "data-coplan-template-note": "", "aria-label": "Comment" }, 0]
 })
+// A callout is a blockquote whose first line is a GitHub alert marker such as
+// `[!NOTE]`. The marker line is kept verbatim as an attribute, so the body
+// edits as rich text and the marker, including its case and any custom title,
+// serializes back unchanged.
+const calloutMarker = /^\[!(note|tip|important|warning|caution|summary)\]([^\n]*)(?:\n|$)/i
+function calloutLabel(callout, marker) {
+  return marker.slice(marker.indexOf("]") + 1).trim() || callout[0].toUpperCase() + callout.slice(1)
+}
+const blockquoteSpec = nodes.get("blockquote")
+nodes = nodes.update("blockquote", {
+  ...blockquoteSpec,
+  attrs: { ...blockquoteSpec.attrs, callout: { default: null }, marker: { default: null } },
+  parseDOM: [{ tag: "blockquote", getAttrs: dom => {
+    const match = calloutMarker.exec(dom.dataset.calloutMarker || "")
+    return match ? { callout: match[1].toLowerCase(), marker: dom.dataset.calloutMarker } : {}
+  } }],
+  toDOM: node => node.attrs.callout ? ["blockquote", { class: `document-editor__callout document-editor__callout--${node.attrs.callout}`,
+    "data-callout-title": calloutLabel(node.attrs.callout, node.attrs.marker), "data-callout-marker": node.attrs.marker }, 0] : blockquoteSpec.toDOM(node)
+})
 // Math keeps its delimiters in the text: the TeX is raw, editable source and
 // serializes verbatim. It may sit inside emphasis or links, never in code.
 const schema = new Schema({ nodes, marks: defaultMarkdownParser.schema.spec.marks.addToEnd("strikethrough", {
@@ -205,6 +224,44 @@ tokenizer.core.ruler.after("block", "coplan_tasks", state => {
     inline.content = inline.content.slice(match[0].length)
   })
 })
+tokenizer.core.ruler.after("block", "coplan_callouts", state => {
+  let quoteDepth = 0
+  const lines = state.src.split("\n")
+  for (let index = 0; index < state.tokens.length; index++) {
+    const token = state.tokens[index]
+    if (token.type === "blockquote_close") quoteDepth--
+    if (token.type !== "blockquote_open") continue
+    quoteDepth++
+    const paragraph = state.tokens[index + 1]
+    // Commonmarker only recognizes a marker on the opening quote line.
+    if (!["paragraph_open", "heading_open"].includes(paragraph?.type) || paragraph.map[0] !== token.map[0]) continue
+    const inline = state.tokens[index + 2]
+    const match = inline?.type === "inline" && calloutMarker.exec(inline.content)
+    if (!match) continue
+    // Commonmarker requires exactly one space after the quote marker.
+    const opening = lines[paragraph.map[0]]
+    if (!opening.slice(0, opening.indexOf("[!")).endsWith("> ")) continue
+    // Markdown-it folds the marker into a setext heading, but Commonmarker
+    // parses the alert first. Preserve that source rather than rewrite it.
+    if (paragraph.type === "heading_open") {
+      token.meta = { preserveCallout: true }
+      continue
+    }
+    // An alert marker is not a paragraph for lazy continuation. Markdown-it
+    // folds an unquoted following line into this paragraph; keep that unusual
+    // source in the server-rendered preview instead of changing its meaning.
+    if (inline.content.slice(match[0].length) &&
+        !new RegExp(`^(?:[ \t]*>){${quoteDepth}}`).test(lines[paragraph.map[0] + 1] || "")) {
+      token.meta = { preserveCallout: true }
+      continue
+    }
+    token.meta = { callout: match[1].toLowerCase(), marker: match[0].replace(/\n$/, "") }
+    inline.content = inline.content.slice(match[0].length)
+    // A marker on its own line, before a blank line, list or fence, leaves
+    // an empty paragraph. Drop it so the callout body starts at its content.
+    if (!inline.content && state.tokens[index + 4]?.type !== "blockquote_close") state.tokens.splice(index + 1, 3)
+  }
+})
 tokenizer.core.ruler.after("block", "coplan_tables", state => {
   const lines = state.src.split("\n")
   for (let index = 0; index < state.tokens.length; index++) {
@@ -230,6 +287,7 @@ const richMarkdownParser = new MarkdownParser(schema, tokenizer, {
   ...defaultMarkdownParser.tokens,
   s: { mark: "strikethrough" },
   list_item: { block: "list_item", getAttrs: token => ({ checked: token.meta?.checked ?? null }) },
+  blockquote: { block: "blockquote", getAttrs: token => token.meta?.callout ? token.meta : {} },
   ordered_list: { ...defaultMarkdownParser.tokens.ordered_list, getAttrs: (token, tokens, index) => ({
     ...defaultMarkdownParser.tokens.ordered_list.getAttrs(token, tokens, index), listStyle: token.meta?.listStyle || null
   }) },
@@ -281,6 +339,16 @@ const defaultMarkdownSerializer = new MarkdownSerializer({
   list_item: (state, node) => {
     if (node.attrs.checked !== null) state.write(`[${node.attrs.checked ? "x" : " "}] `)
     state.renderContent(node)
+  },
+  blockquote: (state, node) => {
+    if (!node.attrs.marker) return baseMarkdownSerializer.nodes.blockquote(state, node)
+    state.wrapBlock("> ", null, node, () => {
+      state.write(node.attrs.marker)
+      // An empty body keeps the marker alone, as `> [!NOTE]` was written.
+      if (node.childCount === 1 && node.firstChild.type.name === "paragraph" && !node.firstChild.content.size) return
+      state.ensureNewLine()
+      state.renderContent(node)
+    })
   },
   ordered_list: (state, node) => {
     if (!node.attrs.listStyle) return baseMarkdownSerializer.nodes.ordered_list(state, node)
@@ -521,6 +589,7 @@ export function parseDocument(markdown) {
       if (start > consumed) blocks.push(preserved(source.slice(consumed, start)))
       const text = source.slice(start, end)
       try {
+        if (text.includes("[!") && tokenizer.parse(text, {}).some(token => token.meta?.preserveCallout)) throw new Error("preserve")
         const parsed = richMarkdownParser.parse(text)
         let unsupported = text.replace(imageTag, tag => htmlImage(tag) ? "" : tag)
         // Raw TeX such as "$a<b$" or "$[0,1] [2]$" is math, not HTML or a link.

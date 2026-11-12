@@ -39,6 +39,7 @@ module CoPlan
           else
             @plan.with_lock do
               @review_request.reload
+              @review_request.ensure_current!
               @review_request.update!(requirement: params.require(:requirement))
               @plan.update!(review_sequence: @plan.review_sequence + 1)
             end
@@ -69,7 +70,7 @@ module CoPlan
         private
 
         def set_review_request
-          @review_request = @plan.review_requests.find(params[:id])
+          @review_request = @plan.review_requests.current.find(params[:id])
         end
       end
     end
