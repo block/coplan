@@ -6,6 +6,11 @@ module CoPlan
     NUMBERED_MARKER = /\A(?:[ \t]*>[ \t]?)*[ \t]*(\d{1,9})[.)](?=[ \t\r\n]|\z)/
     TABLE_DELIMITER = /\A(?:[ \t]*>[ \t]?)*[ \t]*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t\r\n]*\z/
     SOURCE_POSITION = /\A[1-9]\d*:[1-9]\d*-[1-9]\d*:\d+\z/
+    # comrak's alerts know only GitHub's five types. A `[!SUMMARY]` marker
+    # parses as a same-length `[!WARNING]` alert, and to_html renames the
+    # alerts that start on those lines, so offsets never move.
+    SUMMARY_MARKER = /\A((?:[ \t]*(?:>[ \t]?|(?:[-+*]|\d{1,9}[.)])[ \t]+))*[ \t]*>[ \t]?)\[!summary\]/i
+    SUMMARY_STANDIN = "[!WARNING]".freeze
 
     def self.parse(source, **options)
       normalized, = normalize(source, options: options[:options])
@@ -13,8 +18,8 @@ module CoPlan
     end
 
     def self.to_html(source, **options)
-      normalized, markers = normalize(source, options: options[:options])
-      return Commonmarker.to_html(normalized, **options) if markers.empty?
+      normalized, markers, summaries = normalize(source, options: options[:options])
+      return Commonmarker.to_html(normalized, **options) if markers.empty? && summaries.empty?
 
       original_options = options[:options] || {}
       sourcepos = original_options.dig(:render, :sourcepos)
@@ -25,6 +30,8 @@ module CoPlan
         items = list.element_children
         next unless SOURCE_POSITION.match?(list["data-sourcepos"].to_s) && items.any? &&
           items.all? { |item| item.name == "li" && SOURCE_POSITION.match?(item["data-sourcepos"].to_s) }
+
+        next unless items.any? { |item| markers.key?(item["data-sourcepos"].to_i) }
 
         groups = items.chunk do |item|
           markers[item["data-sourcepos"].to_i]&.fetch(:type) || "decimal"
@@ -43,6 +50,14 @@ module CoPlan
         end
         list.remove
       end
+      summaries.each do |line, titled|
+        alert = doc.css("div.markdown-alert-warning[data-sourcepos]").find { |node| node["data-sourcepos"].to_i == line }
+        next unless alert
+
+        alert["class"] = alert["class"].sub("markdown-alert-warning", "markdown-alert-summary")
+        title = alert.element_children.first
+        title.content = "Summary" if !titled && title&.[]("class") == "markdown-alert-title"
+      end
       doc.css("[data-sourcepos]").each { |node| node.remove_attribute("data-sourcepos") } unless sourcepos
       doc.to_html
     end
@@ -50,7 +65,10 @@ module CoPlan
     def self.normalize(source, options: nil)
       source = source.to_s
       lines = source.lines
-      return [ source, {} ] unless lines.any? { |line| LETTERED_MARKER.match?(line) }
+      unless lines.any? { |line| LETTERED_MARKER.match?(line) }
+        normalized, summaries = normalize_summaries(source, options)
+        return [ normalized, {}, summaries ]
+      end
 
       protected_lines = Set.new
       table_candidates = Set.new
@@ -82,8 +100,41 @@ module CoPlan
           order: letters.upcase.each_byte.reduce(0) { |value, char| value * 26 + char - 64 } }
         line.sub(LETTERED_MARKER, "#{match[1]}#{'1'.rjust(letters.length, '0')})")
       end.join
-      [ normalized, markers ]
+      # Open lettered list containers before checking for summary alerts.
+      normalized, summaries = normalize_summaries(normalized, options)
+      [ normalized, markers, summaries ]
     end
+
+    # Returns the source with each real summary marker swapped for its
+    # stand-in, and { line => custom title? } for those lines. A candidate
+    # comrak doesn't open an alert on (code, raw HTML, `>[!SUMMARY]`) keeps
+    # its original text.
+    def self.normalize_summaries(source, options)
+      return [ source, {} ] unless source.match?(/\[!summary\]/i)
+
+      lines = source.lines
+      candidates = lines.each_index.select { |index| SUMMARY_MARKER.match?(lines[index]) }
+      return [ source, {} ] if candidates.empty?
+
+      swapped = lines.dup
+      candidates.each { |index| swapped[index] = lines[index].sub(SUMMARY_MARKER) { "#{Regexp.last_match(1)}#{SUMMARY_STANDIN}" } }
+      starts = Set.new
+      collect_alert_starts(Commonmarker.parse(swapped.join, options: options || {}), starts)
+      summaries = {}
+      candidates.each do |index|
+        next unless starts.include?(index + 1)
+
+        summaries[index + 1] = lines[index].sub(SUMMARY_MARKER, "").strip.present?
+        lines[index] = swapped[index]
+      end
+      [ lines.join, summaries ]
+    end
+
+    def self.collect_alert_starts(node, starts)
+      starts.add(node.source_position[:start_line]) if node.type == :alert
+      node.each { |child| collect_alert_starts(child, starts) }
+    end
+    private_class_method :normalize_summaries, :collect_alert_starts
 
     def self.collect_protected(node, lines, types:)
       if types.include?(node.type)

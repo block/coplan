@@ -5,63 +5,83 @@ module CoPlan
     # comment or edit). Suppression matches on the api token id — never a
     # user id, since attribution rows store the human while the token is
     # the unit of subscription.
+    #
+    # With `recipient_token_id`, the event goes to that one token instead —
+    # news only its owner can act on, like its own auto-commit failing. The
+    # token needs no session on the plan to receive it, but a revoked or
+    # expired token gets nothing.
     class Publish
-      def self.call(plan:, event_type:, actor_token_id: nil, comment_thread: nil, comment: nil, payload: {})
-        new(plan:, event_type:, actor_token_id:, comment_thread:, comment:, payload:).call
+      def self.call(plan:, event_type:, actor_token_id: nil, recipient_token_id: nil, comment_thread: nil, comment: nil, payload: {})
+        new(plan:, event_type:, actor_token_id:, recipient_token_id:, comment_thread:, comment:, payload:).call
       end
 
-      def initialize(plan:, event_type:, actor_token_id:, comment_thread:, comment:, payload:)
+      def initialize(plan:, event_type:, actor_token_id:, recipient_token_id:, comment_thread:, comment:, payload:)
         @plan = plan
         @event_type = event_type
         @actor_token_id = actor_token_id
+        @recipient_token_id = recipient_token_id
         @comment_thread = comment_thread
         @comment = comment
         @payload = payload
       end
 
       def call
-        sessions = AgentSession.where(plan_id: @plan.id).includes(:api_token)
-        sessions.each do |session|
-          next if @actor_token_id.present? && session.api_token_id == @actor_token_id
+        unless @recipient_token_id.nil?
+          token = ApiToken.find_by(id: @recipient_token_id)
+          return unless token&.active? && !token.parent_disabled?
 
-          agent_event = AgentEvent.create!(
-            api_token_id: session.api_token_id,
-            plan_id: @plan.id,
-            comment_thread_id: @comment_thread&.id,
-            comment_id: @comment&.id,
-            event_type: @event_type,
-            payload: base_payload.merge(authority_payload(session)).merge(@payload)
-          )
-          # The event is queued for every session — inboxes are durable, so
-          # a detached agent gets its backlog when it comes back. But only
-          # a session with something actually attached gets woken into a
-          # pill: otherwise an abandoned session is resurrected by every
-          # new comment and haunts the plan forever. `wakeable?` narrows
-          # that further to sessions with a real path for the wake — a
-          # parked connection or a wake URL. Without one, flipping to
-          # pending would start a 30-second countdown nothing can answer.
-          session.wake! if session.live? && session.wakeable?
+          deliver(token, AgentSession.find_by(plan_id: @plan.id, api_token_id: token.id))
+        else
+          sessions = AgentSession.where(plan_id: @plan.id).includes(:api_token)
+          sessions.each do |session|
+            next if @actor_token_id.present? && session.api_token_id == @actor_token_id
 
-          # A wake URL is a standing subscription: it fires even when the
-          # session looks finished (`complete`), because a hosted agent
-          # holds no transport between turns — waking it back up is the
-          # entire point of registering one. Enqueued after commit: the
-          # queue lives in a separate database, so a worker can otherwise
-          # pick the job up before the AgentEvent row is visible and
-          # no-op the wake.
-          if session.wake_url.present?
-            ActiveRecord.after_all_transactions_commit do
-              WakeWebhookJob.perform_later(agent_session_id: session.id, agent_event_id: agent_event.id)
-            end
+            deliver(session.api_token, session)
           end
-
-          # Hand the event straight to any connection already waiting on
-          # this token's inbox, so delivery doesn't wait for a poll tick.
-          AgentEventBus.signal(session.api_token_id)
         end
       end
 
       private
+
+      # `session` is the token's AgentSession on this plan, or nil when a
+      # targeted recipient never attached here — the event still lands in
+      # its inbox, there is just nothing to wake.
+      def deliver(token, session)
+        agent_event = AgentEvent.create!(
+          api_token_id: token.id,
+          plan_id: @plan.id,
+          comment_thread_id: @comment_thread&.id,
+          comment_id: @comment&.id,
+          event_type: @event_type,
+          payload: base_payload.merge(authority_payload(token)).merge(@payload)
+        )
+        # The event is queued for every session — inboxes are durable, so
+        # a detached agent gets its backlog when it comes back. But only
+        # a session with something actually attached gets woken into a
+        # pill: otherwise an abandoned session is resurrected by every
+        # new comment and haunts the plan forever. `wakeable?` narrows
+        # that further to sessions with a real path for the wake — a
+        # parked connection or a wake URL. Without one, flipping to
+        # pending would start a 30-second countdown nothing can answer.
+        session.wake! if session&.live? && session.wakeable?
+
+        # A wake URL is a standing subscription: it fires even when the
+        # session looks finished (`complete`), because a hosted agent
+        # holds no transport between turns — waking it back up is the
+        # entire point of registering one. Enqueued after commit: the
+        # queue lives in a separate database, so a worker can otherwise
+        # pick the job up before the AgentEvent row is visible and
+        # no-op the wake.
+        if session&.wake_url.present?
+          ActiveRecord.after_all_transactions_commit do
+            WakeWebhookJob.perform_later(agent_session_id: session.id, agent_event_id: agent_event.id)
+          end
+        end
+
+        # Hand the event straight to any connection already waiting on
+        # this token's inbox, so delivery doesn't wait for a poll tick.
+        ActiveRecord.after_all_transactions_commit { AgentEventBus.signal(token.id) }
+      end
 
       def base_payload
         payload = {
@@ -90,10 +110,10 @@ module CoPlan
       #   from_plan_author  the commenter wrote the plan
       #   authority       "principal" → act directly
       #                   "collaborator" → acknowledge and propose in-thread
-      def authority_payload(session)
+      def authority_payload(token)
         return {} unless @comment
 
-        principal_id = session.api_token&.user_id
+        principal_id = token.user_id
         # author_id holds a user id for both human and local_agent comments,
         # so an agent posting on someone's behalf carries their authority.
         author_id = @comment.author_id if @comment.author_type.in?(%w[human local_agent])

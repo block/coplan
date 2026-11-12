@@ -72,6 +72,9 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+
+  # Parallel RSpec processes and runtime-based grouping for local CI.
+  gem "parallel_tests", "~> 5.9", require: false
 end
 
 group :development do
