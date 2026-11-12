@@ -41,7 +41,7 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
       renderer_version = CoPlan::MarkdownHelper::RENDER_CACHE_VERSION
 
       # Simulate a persistent fragment written by the renderer before title aliases.
-      stub_const("CoPlan::MarkdownHelper::RENDER_CACHE_VERSION", 24)
+      stub_const("CoPlan::MarkdownHelper::RENDER_CACHE_VERSION", 29)
       get content_body_plan_path(plan)
       expect(response).to have_http_status(:ok)
       fragment_key = written_keys.find { |key| key.to_s.include?("coplan/plan-content-body-with-title") }
