@@ -24,6 +24,7 @@ module CoPlan
         plan = @request.plan
         response = plan.with_lock do
           @request.reload
+          @request.ensure_current!
           response = ReviewResponse.new(review_request: @request, user: @actor, plan_version: plan.current_plan_version,
             decision: @decision, note: @note.to_s.strip.presence, actor_type: @api_token ? "local_agent" : "human",
             agent_name: @api_token && ApiToken.normalized_agent_name(@api_token.agent_name.presence || @api_token.name), api_token: @api_token)

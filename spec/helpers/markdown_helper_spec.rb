@@ -9,6 +9,23 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include("markdown-rendered")
     end
 
+    it "preserves application URI links while blocking executable URLs and custom image sources" do
+      html = helper.render_markdown('[Open chat](codex://threads/123) [SSH](ssh://host/path) [Call](tel:+15551234567)')
+      fragment = Nokogiri::HTML.fragment(html)
+      expect(fragment.css("a").map { |a| a["href"] }).to eq([ "codex://threads/123", "ssh://host/path", "tel:+15551234567" ])
+      unsafe = helper.render_markdown('<a href="java&#x73;cript:alert(1)">bad</a><a href="java&#x09;script:alert(1)">bad</a><a href="data:text/html,bad">bad</a><img src="codex://threads/123" onerror="alert(1)">')
+      nodes = Nokogiri::HTML.fragment(unsafe)
+      expect(nodes.css("img[src], [onerror]")).to be_empty
+      expect(nodes.css("a[href]").map { |a| a["href"] }).to eq([ "java%09script:alert(1)" ])
+    end
+
+    it "renders math alongside application links with the shared sanitizer" do
+      html = helper.render_markdown('[Open chat](codex://threads/123) with $E = mc^2$')
+      fragment = Nokogiri::HTML.fragment(html)
+      expect(fragment.at_css('a[href="codex://threads/123"]')).to be_present
+      expect(fragment.at_css('[data-math-style="inline"]')["data-controller"]).to eq("coplan--math")
+    end
+
     it "sanitizes dangerous HTML" do
       html = helper.render_markdown('<script>alert("xss")</script>')
       expect(html).not_to match(/<script>/)
@@ -214,6 +231,174 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include('type="checkbox"')
       expect(html).to include('data-line-text="- [ ] Task inside"')
       expect(html).not_to include("disabled")
+    end
+  end
+
+  describe "callouts" do
+    def callout_doc(markdown, **options)
+      Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown, **options))
+    end
+
+    {
+      "NOTE" => "Note", "TIP" => "Tip", "IMPORTANT" => "Important",
+      "WARNING" => "Warning", "CAUTION" => "Caution", "SUMMARY" => "Summary"
+    }.each do |marker, label|
+      it "renders [!#{marker}] as a #{label.downcase} callout without the marker text" do
+        doc = callout_doc("> [!#{marker}]\n> Read this first.")
+        callout = doc.at_css("div.callout")
+
+        expect(callout["class"]).to eq("callout callout--#{marker.downcase}")
+        expect(callout["data-callout-title"]).to eq(label)
+        expect(callout.text.strip).to eq("Read this first.")
+        expect(doc.text).not_to include("[!#{marker}]")
+        expect(doc.at_css("blockquote")).to be_nil
+        expect(doc.at_css(".markdown-alert-title")).to be_nil
+      end
+    end
+
+    it "accepts a lowercase marker and keeps a custom title as the label" do
+      callout = callout_doc("> [!warning] Before you migrate\n> Back up first.").at_css("div.callout")
+
+      expect(callout["class"]).to eq("callout callout--warning")
+      expect(callout["data-callout-title"]).to eq("Before you migrate")
+      expect(callout.text.strip).to eq("Back up first.")
+    end
+
+    it "does not renumber unrelated nested lists when a summary is present" do
+      doc = callout_doc("> [!SUMMARY]\n> Body.\n\n- 9. Nine\n  10. Ten\n")
+      expect(doc.at_css("ul ol")["start"]).to eq("9")
+      expect(doc.at_css(".callout--summary")).to be_present
+    end
+
+    it "renders summaries on list opening lines with unchanged source offsets" do
+      [ "-", "1.", "A)", "> -" ].each do |prefix|
+        source = "#{prefix} > [!SUMMARY] TL;DR\n#{' ' * prefix.length} > café 🌱"
+        doc = callout_doc(source)
+        expect(doc.at_css("li .callout--summary")&.[]("data-callout-title")).to eq("TL;DR")
+        text, offsets = CoPlan::Plans::MarkdownTextExtractor.new(source).call
+        expect(text).not_to include("SUMMARY", "WARNING", "TL;DR")
+        text.chars.each_with_index { |char, i| expect(source[offsets[i]]).to eq(char) if offsets[i] && offsets[i] >= 0 }
+      end
+    end
+
+    it "keeps a custom summary title and the extractor's text" do
+      source = "> [!summary] TL;DR\n> Ship it."
+      callout = callout_doc(source).at_css("div.callout")
+
+      expect(callout["class"]).to eq("callout callout--summary")
+      expect(callout["data-callout-title"]).to eq("TL;DR")
+      text, offsets = CoPlan::Plans::MarkdownTextExtractor.new(source).call
+      expect(text).to eq("Ship it.")
+      expect(offsets.first).to eq(source.index("Ship it."))
+    end
+
+    it "leaves [!SUMMARY] literal where it doesn't open a callout" do
+      doc = callout_doc("```\n> [!SUMMARY]\n```\n\n>[!SUMMARY]\n> Not a callout.")
+
+      expect(doc.at_css("pre code").text).to eq("> [!SUMMARY]\n")
+      expect(doc.at_css("blockquote").text).to include("[!SUMMARY]")
+      expect(doc.at_css(".callout")).to be_nil
+    end
+
+    it "leaves a plain blockquote unchanged" do
+      doc = callout_doc("> Just a quote.")
+
+      expect(doc.at_css("blockquote p").text).to eq("Just a quote.")
+      expect(doc.at_css(".callout")).to be_nil
+    end
+
+    it "leaves an unknown marker as a plain blockquote" do
+      doc = callout_doc("> [!FOO]\n> Not a callout.")
+
+      expect(doc.at_css("blockquote").text).to include("[!FOO]")
+      expect(doc.at_css(".callout")).to be_nil
+    end
+
+    it "keeps escaped markers and markers after an opening blank quote line literal" do
+      [ "> \\[!NOTE]\n> Literal.", ">\n> [!NOTE]\n> Literal." ].each do |source|
+        doc = callout_doc(source)
+        expect(doc.at_css(".callout")).to be_nil
+        expect(doc.at_css("blockquote").text).to include("[!NOTE]")
+      end
+    end
+
+    it "keeps an unquoted line outside an empty callout" do
+      doc = callout_doc("> [!NOTE]\nOutside the callout.")
+      expect(doc.at_css(".callout").text.strip).to be_empty
+      expect(doc.at_css(".callout + p").text).to eq("Outside the callout.")
+    end
+
+    it "keeps math and application links inside callouts while sanitizing unsafe HTML" do
+      doc = callout_doc(<<~MD)
+        > [!NOTE]
+        > Estimate $p^n$ in [the chat](codex://threads/123).
+        > <a href="javascript:alert(1)" onclick="alert(1)">unsafe</a>
+      MD
+      callout = doc.at_css(".callout--note")
+      expect(callout.at_css('[data-math-style="inline"]').text).to eq("p^n")
+      expect(callout.css("a[href]").map { |a| a["href"] }).to eq([ "codex://threads/123" ])
+      expect(callout.css("[onclick]")).to be_empty
+    end
+
+    it "renders lists, code and nested quotes inside a callout" do
+      markdown = <<~MD
+        > [!IMPORTANT]
+        > Ship in this order:
+        >
+        > 1. Migrate the schema.
+        > 2. Deploy the readers.
+        >
+        > ```ruby
+        > Rollout.start!
+        > ```
+        >
+        > > A quoted reminder.
+      MD
+      callout = callout_doc(markdown).at_css("div.callout--important")
+
+      expect(callout.css("ol > li").map(&:text)).to eq([ "Migrate the schema.", "Deploy the readers." ])
+      expect(callout.at_css("pre code").text).to include("Rollout.start!")
+      expect(callout.at_css("blockquote").text.strip).to eq("A quoted reminder.")
+    end
+
+    it "renders a callout nested in a list item" do
+      doc = callout_doc("- Step one\n\n  > [!TIP]\n  > Use the dry run.")
+
+      expect(doc.at_css("li div.callout--tip").text.strip).to eq("Use the dry run.")
+    end
+
+    it "wires task checkboxes inside a callout like any other" do
+      callout = callout_doc("> [!NOTE]\n> - [ ] Confirm the owner").at_css("div.callout")
+
+      expect(callout.at_css('input[type="checkbox"]')).to be_present
+    end
+
+    it "does not let raw HTML set callout classes or the label attribute" do
+      markdown = '<div class="callout callout--caution keep" data-callout-title="Forged" style="color:red">Raw</div>'
+      div = callout_doc(markdown).at_css("div.keep")
+
+      expect(div["class"]).to eq("keep")
+      expect(div["data-callout-title"]).to be_nil
+      expect(div["style"]).to be_nil
+    end
+
+    it "keeps the callout in non-interactive renders" do
+      callout = callout_doc("> [!CAUTION]\n> Irreversible.", interactive: false).at_css("div.callout--caution")
+
+      expect(callout["data-callout-title"]).to eq("Caution")
+      expect(callout["data-sourcepos"]).to be_nil
+    end
+
+    it "omits generated and custom callout titles from plan-row plain text" do
+      expect(helper.markdown_to_plain_text("> [!WARNING]\n> Back up first.")).to eq("Back up first.")
+      expect(helper.markdown_to_plain_text("> [!NOTE] Custom label\n> Body.")).to eq("Body.")
+      expect(helper.markdown_to_plain_text("> [!UNKNOWN]\n> Body.")).to eq("[!UNKNOWN] Body.")
+    end
+
+    it "leaves the marker and label out of plain-text extraction anchors" do
+      stripped, = CoPlan::Plans::MarkdownTextExtractor.call("Intro.\n\n> [!NOTE]\n> Read this first.\n")
+
+      expect(stripped).to eq("Intro.\nRead this first.")
     end
   end
 

@@ -11,6 +11,7 @@ module CoPlan
       plan.content_changed
       review.requested
       review.responded
+      session.commit_failed
     ].freeze
 
     belongs_to :api_token, class_name: "CoPlan::ApiToken"

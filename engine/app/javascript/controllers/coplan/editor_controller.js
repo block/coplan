@@ -31,6 +31,7 @@ export default class extends Controller {
       this.merge = merge
       this.richModule = rich
       this.InputOrigins = origins.InputOrigins
+      this.recoverLegacyNewDocumentTitle(rich)
       this.inputOrigins = new origins.InputOrigins(this.textareaTarget.value, this.recoveredDraft?.data?.inputOrigins)
       this.mode = "rich"
       this.richEditor = rich.createRichDocument(this.surfaceTarget, this.textareaTarget.value,
@@ -956,6 +957,39 @@ export default class extends Controller {
       if (draft.reviewRequired) { this.blocked = true; this.fail("Recovered draft needs review before syncing.") }
     } catch {}
   }
+  recoverLegacyNewDocumentTitle(rich) {
+    if (!this.isNew || !this.recoveredDraft) return
+    // Older browser drafts stored the name separately. Preserve canonical H1s
+    // (including deliberately empty ones) and repair only titleless snapshots.
+    const normalize = snapshot => {
+      if (!snapshot || typeof snapshot.content !== "string" || typeof snapshot.title !== "string") return snapshot
+      const title = snapshot.title.replace(/\s+/g, " ").trim()
+      // Blank lines are preserved nodes in the rich parser, but do not precede
+      // the title semantically. Strip only whole blank lines, never indentation.
+      const content = snapshot.content.replace(/^(?:[ \t]*\r?\n)+/, "")
+      const first = rich.parseDocument(content).firstChild
+      if (first?.type.name === "heading" && first.attrs.level === 1) {
+        return content === snapshot.content ? snapshot : { ...snapshot, content }
+      }
+      if (!title) return snapshot
+      const escaped = title.replace(/([\\`*_{}\[\]<>()#!|~&])/g, "\\$1")
+      return { ...snapshot, content: `# ${escaped}\n\n${snapshot.content}` }
+    }
+    const original = this.recoveredDraft.data
+    const recovered = normalize(original)
+    this.recoveredDraft.data = recovered
+    this.textareaTarget.value = recovered.content
+    this.base = normalize(this.base)
+    if (this.creationSnapshot) {
+      const before = this.creationSnapshot.content
+      this.creationSnapshot = normalize(this.creationSnapshot)
+      if (this.creationInputSources && before !== this.creationSnapshot.content) {
+        const origins = new this.InputOrigins(this.creationSnapshot.content, { source: before, runs: this.creationInputSources.runs })
+        this.creationInputSources = origins.payload()
+      }
+    }
+  }
+
   async reviewLegacyDraft(event) {
     if (!this.legacyDraft || !this.richEditor) return
     const button = event.currentTarget

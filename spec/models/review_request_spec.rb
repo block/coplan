@@ -1,6 +1,19 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::ReviewRequest do
+  it "enforces one current assignment while retaining multiple ended assignments" do
+    original = create(:review_request)
+    2.times do
+      original.update!(status: "removed")
+      expect(original.current_assignment).to be_nil
+      original = create(:review_request, plan: original.plan, reviewer: original.reviewer)
+    end
+    expect(original.plan.review_requests.count).to eq(3)
+    expect(original.plan.review_requests.current.count).to eq(1)
+    duplicate = original.attributes.except("id", "created_at", "updated_at").merge("id" => SecureRandom.uuid)
+    expect { described_class.insert_all!([ duplicate ]) }.to raise_error(ActiveRecord::RecordNotUnique)
+  end
+
   it "keeps a review task pending after its notification is read" do
     request = create(:review_request)
     notification = create(:notification, user: request.reviewer, plan: request.plan,

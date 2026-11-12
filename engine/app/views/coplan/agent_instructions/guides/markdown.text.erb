@@ -123,6 +123,38 @@ In the rich editor, task text stays directly editable. Checkboxes toggle in plac
 and Enter continues with an unchecked task. Strikethrough and mentions also stay
 inline in editable prose and lists.
 
+## Callouts
+
+Use a callout for a note or warning that must stand out from the body text. Start a blockquote with one of these markers on its own first line:
+
+```markdown
+> [!NOTE]
+> Background a reader should know before they go on.
+
+> [!TIP]
+> An easier or faster way to do something.
+
+> [!IMPORTANT]
+> Information the reader needs to succeed.
+
+> [!WARNING]
+> A risk the reader should act on now.
+
+> [!CAUTION]
+> An action with a bad or irreversible result.
+
+> [!SUMMARY]
+> - The two or three takeaways a reader needs if they read nothing else.
+```
+
+Each type has an icon and label. Notes and warnings use neutral accents; blue and orange remain reserved for interaction and viewer-specific attention. Slides use their deck palette. The marker is not case sensitive. To change the label, put text after the marker: `> [!WARNING] Before you migrate`. Lists, code blocks and tables work inside a callout when every line starts with `>`. Any other marker, such as `> [!FOO]`, renders as a plain blockquote.
+
+Use `[!SUMMARY]` for a TL;DR at the top of a long plan, such as an analysis or incident review. It is a Coplan extension; other Markdown viewers show it as an ordinary blockquote with a literal `[!SUMMARY]` marker. It is only formatting. It does not change the plan summary shown in search, link previews or Slack unfurls.
+
+Keep the marker on the opening quote line, with exactly one space after `>`; `>[!NOTE]` is a plain quote. Escape it as `> \[!NOTE]` to show it literally. In the rich editor, a callout whose opening paragraph includes a setext underline (`---` or `===`), or an empty callout immediately followed by unquoted text, uses the source-preview block; edit that block’s source or use Raw.
+
+Use callouts sparingly: one or two in a section. If everything stands out, nothing does. Do not use a callout for a quote; use a plain `>` blockquote.
+
 ## Collapsible sections
 
 Use `<details>` for long appendices, raw logs, or optional detail:

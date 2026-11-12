@@ -113,6 +113,9 @@ module CoPlan
       { key: "formatting-gallery", author: "hampton", type: "General", title: "Rich text: headings, tasks, code, quotes, and footnotes",
         tags: %w[demo markdown], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "Markdown formatting, editable template notes hidden while reading, reversible bullet typing, list exit, task toggles, code languages, image, mention, and footnotes" },
+      { key: "comment-links", author: "hampton", type: "General", title: "Comments: link selected text",
+        tags: %w[demo comments], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "In-app URL field with Cmd/Ctrl+K, URL paste over selected text, cancellation, undo, and escaped link labels" },
       { key: "reading-specimen", author: "hampton", type: "Design Doc", title: "Reading specimen: webhook delivery through a durable outbox",
         tags: %w[demo markdown reading], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "A realistic agent-drafted design doc for judging reading: common Markdown elements, SQL, Ruby, YAML, and diff code, a long scrolling line, two Mermaid diagrams, and open, answered, resolved, diagram, table-cell, and general discussions" },
@@ -122,6 +125,9 @@ module CoPlan
       { key: "nested-outline", author: "hampton", type: "Design Doc", title: "Nested outline: a ten-part service review",
         tags: %w[demo navigation], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "Ten numbered sections with sub-sections; the outline folds them, unfolds where you read, and totals discussions inside folded sections" },
+      { key: "callout-gallery", author: "hampton", type: "Design Doc", title: "Callouts: notes, tips, and warnings",
+        tags: %w[demo markdown], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "All six callout types including Summary, a custom label, a list and code inside a callout, and plain quotes for comparison; comment on callout text or edit it in Editor" },
       { key: "math-gallery", author: "hampton", type: "Research Note", title: "Math: estimating a retry budget",
         tags: %w[demo markdown math], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "LaTeX math typeset with KaTeX: inline, display, a math fence, math in lists and tables, dollar amounts that stay text, and invalid math shown as source" },
@@ -149,6 +155,11 @@ module CoPlan
         key: "pending-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: awaiting approval",
         tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios",
         scenario: "Alex and Noura have pending approvals"
+      },
+      {
+        key: "review-reassignment", author: "hampton", type: "Design Doc", title: "Workspace invitations: review history after reassignment",
+        tags: %w[collaboration demo], visibility: "published", folder: "Demo scenarios", fixture: "approved-review",
+        scenario: "Alex is Pending after reassignment; his earlier approval and removal remain in activity. Noura stays Approved"
       },
       {
         key: "changed-review", author: "hampton", type: "Design Doc", title: "Workspace invitations: review dismissed after edits",
@@ -325,6 +336,7 @@ module CoPlan
         seed_moved_writing(users, plans)
         seed_reviews(users, plans)
         seed_review_requests(users, plans)
+        seed_review_reassignment(users, plans)
         seed_agent_access(users)
         seed_agent_connections(users) if CoPlan.configuration.agent_connection_enabled?
         seed_content_discussions(users, plans)
@@ -869,6 +881,20 @@ module CoPlan
 
     # A fresh checkout includes one required and one optional task. Never
     # reset a response somebody recorded while trying the feature.
+    def seed_review_reassignment(users, plans)
+      plan = plans.fetch("review-reassignment")
+      # Any existing assignment means this scenario has been initialized or tried.
+      return if plan.review_requests.exists?
+
+      old = Reviews::Request.call(plan: plan, reviewer: users.fetch("alex"), actor: plan.created_by_user)
+      Reviews::Respond.call(request: old, actor: old.reviewer, revision: plan.current_revision,
+        decision: "approved", note: "The invitation audit trail is clear.")
+      Reviews::Remove.call(plan: plan, request_id: old.id, actor: plan.created_by_user)
+      Reviews::Request.call(plan: plan, reviewer: old.reviewer, actor: plan.created_by_user, create_only: true)
+      other = Reviews::Request.call(plan: plan, reviewer: users.fetch("noura"), actor: plan.created_by_user)
+      Reviews::Respond.call(request: other, actor: other.reviewer, revision: plan.current_revision, decision: "approved")
+    end
+
     def seed_review_requests(users, plans)
       plan = plans.fetch("collab-showcase")
       [ [ "alex", "required" ], [ "sam", "optional" ] ].each do |key, requirement|

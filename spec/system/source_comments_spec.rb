@@ -62,6 +62,42 @@ RSpec.describe "Source-backed diagram and table comments", type: :system do
     expect(page).to have_no_css(".source-comments:popover-open")
   end
 
+  [ false, true ].each do |reply|
+    it "cancels the link field before closing a table #{reply ? 'reply' : 'comment'}" do
+      all(".data-grid tbody tr")[0].all("td")[1].send_keys("c")
+      comment("Existing discussion") if reply
+      input = panel.find("textarea")
+      input.fill_in with: "Keep my draft"
+      page.execute_script("arguments[0].setSelectionRange(0, 4)", input)
+      modifier = RUBY_PLATFORM.include?("darwin") ? :meta : :control
+      input.send_keys([ modifier, "k" ])
+      panel.fill_in "Search or paste a link", with: "https://example.com"
+      panel.find_field("Search or paste a link").send_keys(:escape)
+      expect(page).to have_css(".source-comments:popover-open")
+      expect(panel.find("textarea").value).to eq("Keep my draft")
+      expect(panel).to have_css("textarea:focus")
+      expect(panel).to have_no_field("Search or paste a link")
+      page.driver.browser.action.send_keys(:escape).perform
+      expect(page).to have_no_css(".source-comments:popover-open")
+    end
+  end
+
+  it "returns to the saved draft after closing the table link field from outside" do
+    cell = all(".data-grid tbody tr")[0].all("td")[1]
+    cell.send_keys("c")
+    input = panel.find("textarea")
+    input.fill_in with: "Keep this draft"
+    page.execute_script("arguments[0].setSelectionRange(0, 4)", input)
+    modifier = RUBY_PLATFORM.include?("darwin") ? :meta : :control
+    input.send_keys([ modifier, "k" ])
+    panel.fill_in "Search or paste a link", with: "https://example.com"
+    find("#plan-title").click
+    expect(page).to have_no_css(".source-comments:popover-open")
+    cell.send_keys("c")
+    expect(panel).to have_field("Write a comment...", with: "Keep this draft")
+    expect(panel).to have_no_field("Search or paste a link")
+  end
+
   it "scrolls table discussion content without moving the resized window's header or grip" do
     cell = all(".data-grid tbody tr")[0].all("td")[1]
     cell.send_keys("c")

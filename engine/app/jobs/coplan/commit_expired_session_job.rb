@@ -2,6 +2,8 @@ module CoPlan
   class CommitExpiredSessionJob < ApplicationJob
     queue_as :default
 
+    retry_on ActiveRecord::ActiveRecordError, wait: :polynomially_longer, attempts: 5
+
     def perform(session_id:)
       session = EditSession.find_by(id: session_id)
       return unless session  # Session was deleted
@@ -36,12 +38,49 @@ module CoPlan
       # rebase an abandoned draft straight over their words with nobody in
       # the loop to notice — so the session dies instead. The operations
       # stay on the row if anyone wants to see what was lost.
-      session.update!(status: "failed", change_summary: "Auto-commit blocked: #{e.message}")
+      fail_session(session, reason: "human_edit_pending", error: e, summary: "Auto-commit blocked")
       Rails.logger.warn("CommitExpiredSessionJob: session #{session_id} blocked by an unread human edit")
     rescue Plans::CommitSession::SessionConflictError, Plans::CommitSession::StaleSessionError, Plans::OperationError => e
       # Conflict during auto-commit — mark session as failed
-      session.update!(status: "failed", change_summary: "Auto-commit failed: #{e.message}")
+      fail_session(session, reason: e.is_a?(Plans::CommitSession::StaleSessionError) ? "stale" : "conflict", error: e, summary: "Auto-commit failed")
       Rails.logger.warn("CommitExpiredSessionJob failed for session #{session_id}: #{e.message}")
+    end
+
+    private
+
+    # Save the terminal state and durable inbox entry together. A failed
+    # publish leaves the session open for retry. Recheck under the lock so
+    # duplicate jobs cannot notify twice or overwrite a concurrent commit.
+    def fail_session(session, reason:, error:, summary:)
+      session.with_lock(requires_new: true) do
+        return unless session.open?
+
+        session.update!(status: "failed", change_summary: "#{summary}: #{error.message}")
+        notify_owner(session, reason: reason, error: error)
+      end
+    end
+
+    # The agent that staged these edits believes they will land when its
+    # session expires. Tell it they didn't, so it re-reads the plan and redoes
+    # them instead of assuming the document says what it wrote. The session's
+    # actor_id is the owner's API token id; Publish skips anything that isn't
+    # an active token (a revoked owner, a cloud persona).
+    def notify_owner(session, reason:, error:)
+      return if session.actor_id.blank?
+
+      plan = session.plan.reload
+      AgentEvents::Publish.call(
+        plan: plan,
+        event_type: "session.commit_failed",
+        recipient_token_id: session.actor_id,
+        payload: {
+          "session_id" => session.id,
+          "base_revision" => session.base_revision,
+          "current_revision" => plan.current_revision,
+          "reason" => reason,
+          "message" => error.message
+        }
+      )
     end
   end
 end

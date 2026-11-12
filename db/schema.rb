@@ -469,6 +469,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_213838) do
 
   create_table "coplan_review_requests", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.boolean "current_assignment", default: true
     t.string "current_response_id", limit: 36
     t.bigint "generation", default: 1, null: false
     t.string "plan_id", limit: 36, null: false
@@ -481,7 +482,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_213838) do
     t.string "status", null: false
     t.datetime "updated_at", null: false
     t.index [ "current_response_id" ], name: "index_coplan_review_requests_on_current_response_id"
-    t.index [ "plan_id", "reviewer_id" ], name: "index_coplan_review_requests_on_plan_id_and_reviewer_id", unique: true
+    t.index [ "plan_id", "reviewer_id", "current_assignment" ], name: "index_coplan_reviews_on_current_assignment", unique: true
     t.index [ "requested_by_user_id" ], name: "fk_rails_c5db6a7f68"
     t.index [ "requested_plan_version_id" ], name: "fk_rails_9648b04dbb"
     t.index [ "reviewer_id", "status" ], name: "index_coplan_review_requests_on_reviewer_id_and_status"

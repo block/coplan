@@ -93,7 +93,7 @@ RSpec.describe "Review requests", type: :request do
     expect(task.reload.effective_human_decision).to be_nil
   end
 
-  it "allows only the plan author to erase a reviewer's decisions", :review_removal do
+  it "allows only the plan author to end a reviewer's assignment", :review_removal do
     previous = CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved")
     sign_in_as(reviewer)
     delete plan_review_request_path(plan, task), params: { review_request: { remove: true } }, as: :json

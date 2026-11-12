@@ -8,6 +8,13 @@ module CoPlan
       fragment = Nokogiri::HTML.fragment(render_content_regions(content.to_s))
       heading = fragment.at_css(".markdown-rendered:first-child > h1:first-child")
       if heading
+        if heading["id"].present? && heading["id"] != "plan-title"
+          # Numbered-section links and previews must survive title decoration.
+          alias_anchor = Nokogiri::XML::Node.new("span", fragment)
+          alias_anchor["id"] = heading["id"]
+          alias_anchor["data-heading-alias"] = ""
+          heading.prepend_child(alias_anchor)
+        end
         heading["id"] = "plan-title"
         heading["class"] = [ heading["class"], "plan-title__heading" ].compact.join(" ")
       end
