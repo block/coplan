@@ -3,7 +3,8 @@
 System specs run Chrome through Capybara and Selenium. The test-only
 [`capybara-lockstep`](https://github.com/makandra/capybara-lockstep) gem waits
 for browser work around normal Capybara commands. Both page layouts include its
-snippet before application scripts. The test environment also uses its Rack
+snippet before application scripts. A test-only head wrapper covers ActiveAdmin's
+separate layout too. The test environment also uses its Rack
 middleware to wait for server requests.
 
 Write normal interactions and assertions:
@@ -17,8 +18,14 @@ Lockstep tracks fetch/XHR requests and resource loading. The shared snippet in
 `spec/support/browser_synchronization.js` also tracks each received Turbo Stream
 through its render promise, including renderers wrapped by Stimulus controllers.
 That covers both HTTP responses and streams received over Action Cable. A
-cancelled or failed renderer releases its work count. Synchronization times out
-with an error after 15 seconds; it does not silently proceed.
+cancelled or failed renderer releases its work count.
+
+The gem uses Capybara's current wait budget. By default a synchronization timeout
+is logged, and synchronization is tried again on the next command. This matters
+when a full document navigation discards the previous page's probe. A logged
+timeout is not proof of readiness: feature assertions must still pass. The
+cancellation/failure regressions explicitly wait for the browser's idle callback
+and fail if the work count leaks, regardless of this logging policy.
 
 ## Readiness has a scope
 
@@ -79,4 +86,8 @@ RAILS_ENV=test DATABASE_URL=mysql2://root@localhost/coplan_browser_sync_tryout b
 ```
 
 Expect the delayed-fetch, real-cable, cancelled/failed-renderer, and math cases
-to pass. No development server or product UI change is involved.
+to pass. The command starts its own test server. Product navigation and visual
+styles are unchanged.
+
+Set `BROWSER_SYNC_DEBUG=1` on a spec command to log Lockstep's synchronization
+steps and tracked work while diagnosing a timeout.

@@ -9,8 +9,13 @@ module BrowserSynchronization
 end
 
 Capybara::Lockstep::Helper.prepend(BrowserSynchronization)
-Capybara::Lockstep.timeout = 15
-Capybara::Lockstep.timeout_with = :error
+# Keep the gem's timeout behavior: a document replacement can discard a probe;
+# it logs that timeout and tries again on the next command. Assertions still fail
+# normally when their expected result does not arrive.
+Capybara::Lockstep.debug = true if ENV["BROWSER_SYNC_DEBUG"] == "1"
+
+# ActiveAdmin owns a separate layout. Wrap its head only in this test host.
+ActionController::Base.prepend_view_path(File.join(__dir__, "views"))
 
 RSpec.configure do |config|
   # Loading/progress regressions intentionally inspect unfinished work. Keep

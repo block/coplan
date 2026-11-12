@@ -6,6 +6,7 @@ RSpec.describe "Browser synchronization", type: :system do
 
   before do
     visit sign_in_path
+    expect(page.evaluate_script("typeof CapybaraLockstep")).to eq("object")
     fill_in "Email address", with: author.email
     click_button "Sign In"
     expect(page).to have_current_path(root_path)
@@ -74,7 +75,11 @@ RSpec.describe "Browser synchronization", type: :system do
         JS
         Selenium::WebDriver::Wait.new(timeout: 5).until { page.evaluate_script("window.syncProbeReceived") }
       end
-      expect { Capybara::Lockstep.synchronize }.not_to raise_error
+      # Observe the idle callback itself, so the gem's timeout logging cannot
+      # make a leaked work count pass this regression.
+      using_wait_time(5) do
+        page.evaluate_async_script("CapybaraLockstep.synchronize(arguments[0])")
+      end
       expect(page).to have_css("#plan-content-body")
     end
   end

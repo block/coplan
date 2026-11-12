@@ -66,6 +66,14 @@ retry loop, retaining the exact count, text, source range, formula exclusion,
 and reload checks. See [Browser test synchronization](BROWSER_TESTS.md) for its
 scope and the explicit exceptions for tests of unfinished work.
 
+During that integration, a strict timeout setting rejected probes discarded by
+full document navigation during sign-in. A time-origin check confirmed the
+document replacement. The final integration keeps Lockstep's default timeout
+logging and next-command synchronization. Production navigation and theme
+initialization are unchanged. Feature assertions and the explicit stream idle
+callback regression remain the gates, rather than a logged timeout counting as
+readiness.
+
 The editor caret failure did not reproduce in five focused fresh-process runs,
 seeds 8443–8447, on the same isolated MySQL database. Its screenshot showed the
 caret one character into `Outside`. It remains unexplained; the later green runs
