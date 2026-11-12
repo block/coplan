@@ -178,7 +178,7 @@ RSpec.describe "Math rendering", type: :system do
     thread = CoPlan::CommentThread.order(:created_at).last
     expect(thread.anchor_text).to eq("Before x after")
     expect(imitation.reload.current_content[thread.anchor_start...thread.anchor_end]).to eq("Before <span data-math-style=\"inline\">x</span> after")
-    expect(all("mark.anchor-highlight").map(&:text).join).to include("x")
+    expect(page).to have_css("mark.anchor-highlight", text: "x")
   end
 
   it "renders math in a comment" do
@@ -203,7 +203,11 @@ RSpec.describe "Math rendering", type: :system do
     thread = CoPlan::CommentThread.order(:created_at).last
     expect(thread.anchor_text).to eq("relation links")
     expect(content[thread.anchor_start...thread.anchor_end]).to eq("relation $E = mc^2$ links")
-    expect(all("mark.anchor-highlight", count: 2).map(&:text)).to eq([ "relation", "links" ])
+    # Broadcasts can replace the marks between Selenium reads. Let Capybara
+    # re-query them instead of holding element handles across that update.
+    expect(page).to have_css("mark.anchor-highlight", count: 2)
+    expect(page).to have_css("mark.anchor-highlight", exact_text: "relation", count: 1)
+    expect(page).to have_css("mark.anchor-highlight", exact_text: "links", count: 1)
     expect(page).to have_no_css("[data-math-style] mark")
     expect(page).to have_css("span[data-math-style] .katex", count: 2)
 
