@@ -230,6 +230,7 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 }
 
 .document-editor__upload-notice[data-error="true"] { color: var(--color-danger); }
+.document-editor__upload-notice button:not([hidden]) { display: block; margin-top: 0.5rem; }
 @keyframes editor-upload-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   .document-editor__upload-placeholder::before { animation: none; }

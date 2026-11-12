@@ -5,7 +5,7 @@ import { commandFor } from "coplan/shortcuts"
 // sent snapshot and edits typed while it was in flight. Nothing clears a draft
 // until the server has acknowledged that exact content.
 export default class extends Controller {
-  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave", "uploadNotice"]
+  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave", "uploadNotice", "uploadMessage", "uploadDismiss"]
   static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, tokenUrl: String, previewUrl: String, leaseUrl: String, attachmentsUrl: String, inline: Boolean, embedDomains: Array }
 
   revisionValueChanged(revision) {
@@ -99,8 +99,13 @@ export default class extends Controller {
   uploadNotice(message, error = false) {
     if (!this.active) return
     clearTimeout(this.uploadNoticeTimer)
+    if (error) (this.uploadErrors ||= new Set()).add(message)
+    // Progress and later successes must not erase a rejected file. Keep its
+    // explanation until the author dismisses it, including while leaving.
+    if (this.uploadErrors?.size) { message = Array.from(this.uploadErrors).join(" "); error = true }
     this.uploadNoticeTarget.hidden = false
-    this.uploadNoticeTarget.textContent = message
+    this.uploadMessageTarget.textContent = message
+    this.uploadDismissTarget.hidden = !error
     this.uploadNoticeTarget.dataset.error = String(error)
     this.uploadNoticeTarget.setAttribute("role", error ? "alert" : "status")
     this.uploadNoticeTarget.showPopover()
@@ -108,6 +113,11 @@ export default class extends Controller {
       this.uploadNoticeTarget.hidePopover()
       this.uploadNoticeTarget.hidden = true
     }, 6000)
+  }
+  dismissUploadErrors() {
+    this.uploadErrors?.clear()
+    this.uploadNoticeTarget.hidePopover()
+    this.uploadNoticeTarget.hidden = true
   }
   async uploadFiles(files) {
     this.uploadNotice(`Uploading ${files.length === 1 ? files[0].name : `${files.length} files`}…`)
@@ -288,7 +298,7 @@ export default class extends Controller {
       this.setStatus(newerChanges ? (this.inlineValue ? "Changes ready to save" : "Saved · newer changes waiting") : `All changes saved · v${result.revision}`,
         newerChanges ? "queued" : "saved")
       this.persistDraft()
-      if (this.pendingInlineVisitUrl && !newerChanges && this.active && !this.richEditor?.uploading) {
+      if (this.pendingInlineVisitUrl && !newerChanges && this.active && !this.richEditor?.uploading && !this.uploadErrors?.size) {
         const url = this.pendingInlineVisitUrl
         this.pendingInlineVisitUrl = null
         this.leaving = true
@@ -543,6 +553,7 @@ export default class extends Controller {
         await this.whenCompositionEnds()
         if (!this.active || this.blocked) return
         if (this.richEditor?.uploading || this.busy) continue
+        if (this.uploadErrors?.size) return
         if (this.isNew && this.textareaTarget.value === this.base.content) {
           this.element.dispatchEvent(new CustomEvent("coplan:editor-closed", { bubbles: true,
             detail: { controller: this, snapshot: { ...this.base } } }))
@@ -579,7 +590,7 @@ export default class extends Controller {
   beforeVisit(event) {
     // A failed sync should not block unrelated navigation. disconnect()
     // retains the draft if the author chooses to return to it.
-    if (this.leaving || ((this.retryable || this.blocked) && !this.richEditor?.uploading)) return
+    if (this.leaving || ((this.retryable || this.blocked) && !this.richEditor?.uploading && !this.uploadErrors?.size)) return
     event.preventDefault()
     this.navigate(() => event.detail.url)
   }
@@ -597,6 +608,7 @@ export default class extends Controller {
         await this.whenCompositionEnds()
         if (!this.active) return
         if (this.richEditor?.uploading || this.busy) continue
+        if (this.uploadErrors?.size) return
         if (this.isNew && this.textareaTarget.value === this.base.content) {
           this.leaving = true
           window.Turbo.visit(destination())

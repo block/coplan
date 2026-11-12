@@ -46,15 +46,63 @@ RSpec.describe "Uploading files in the rich editor", type: :system do
     page.evaluate_script('document.querySelector("textarea[name=content]").value')
   end
 
-  def hold_upload
-    page.execute_script(<<~JS)
+  def hold_upload(network_failure: false)
+    page.execute_script(<<~JS, network_failure)
       const original = window.fetch;
+      let failNextUpload = arguments[0];
       window.uploadGate = new Promise(resolve => window.releaseUpload = resolve);
       window.fetch = async function(url, options) {
-        if (String(url).endsWith('/attachments') && options?.method === 'POST') await window.uploadGate;
+        if (String(url).endsWith('/attachments') && options?.method === 'POST') {
+          await window.uploadGate;
+          if (failNextUpload) { failNextUpload = false; throw new Error('Offline'); }
+        }
         return original.apply(this, arguments);
       };
     JS
+  end
+
+  %w[light dark].product(%w[done navigation], %w[network partial]).each do |theme, exit_path, failure|
+    it "keeps upload failures visible while leaving through #{exit_path} after #{failure} rejection in #{theme}" do
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      hold_upload(network_failure: failure == "network")
+      paragraph = find(".ProseMirror p", text: "Keep writing here.")
+      paragraph.click
+      paragraph.send_keys(:end, " Draft survives.")
+      transfer_files(*(failure == "network" ? [ "sample.png" ] : [ "sample.html", "sample.txt" ]))
+      expect(page).to have_css(".document-editor__upload-placeholder")
+      location = find('a[aria-label^="Up to "]')
+      destination = exit_path == "done" ? plan_page_path(plan) : URI.parse(location[:href]).request_uri
+      exit_editor = -> { exit_path == "done" ? click_link("Done") : find('a[aria-label^="Up to "]').click }
+      exit_editor.call
+      expect(page).to have_css(".document-editor__upload-placeholder")
+      page.execute_script("window.releaseUpload()")
+      message = failure == "network" ? "Offline" : /sample.html.*not allowed/
+      expect(page).to have_css('[role="alert"].document-editor__upload-notice', text: message)
+      expect(page).to have_css(".document-editor")
+      expect(page).not_to have_css(".document-editor__upload-placeholder")
+      expect(content).to include("Draft survives.")
+      expect(content).not_to include("sample.html")
+      expect(page).to have_css('.ProseMirror a', text: "sample.txt") if failure == "partial"
+
+      # A later success must not erase an unacknowledged rejection.
+      transfer_files(failure == "network" ? "sample.txt" : "sample.png", paste: true)
+      expect(page).to have_css('.ProseMirror a', text: "sample.txt")
+      expect(page).to have_css('.ProseMirror img[alt="sample.png"]') if failure == "partial"
+      expect(page).to have_css('[role="alert"].document-editor__upload-notice', text: message)
+      exit_editor.call
+      expect(page).to have_css(".document-editor")
+      page.save_screenshot(Rails.root.join("tmp/screenshots/editor-uploads/failed-#{exit_path}-#{failure}-#{theme}.png"))
+
+      click_button "Dismiss", exact: true
+      expect(page).not_to have_css(".document-editor__upload-notice")
+      exit_editor.call
+      expect(page).not_to have_css(".document-editor", wait: 20)
+      expect(page).to have_current_path(destination)
+      expect(plan.reload.current_content).to include("Draft survives.", "[sample.txt]")
+      expect(plan.current_content).to include("![sample.png]") if failure == "partial"
+      expect(plan.current_content).not_to include("sample.html")
+      expect(plan.attachments.count).to eq(failure == "network" ? 1 : 2)
+    end
   end
 
   def hold_save

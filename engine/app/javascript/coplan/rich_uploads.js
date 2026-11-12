@@ -41,7 +41,7 @@ export function richUploads(schema, uploadFiles, reportError, documentTitle) {
         view.dispatch(tr)
         if (blocks.length) view.dispatch(closeHistory(view.state.tr))
       } catch (error) {
-        if (!destroyed) reportError(error.message || "Upload failed. Drop the files again to retry.")
+        if (!destroyed) reportError(`${files.map(file => file.name).join(", ")}: ${error.message || "Upload failed. Drop the files again to retry."}`)
       } finally {
         if (!destroyed) view.dispatch(view.state.tr.setMeta(key, { remove: id }))
       }

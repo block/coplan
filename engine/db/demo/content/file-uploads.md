@@ -10,4 +10,4 @@ Different contents stay separate, even with the same filename. Reuse is limited 
 
 Continue typing during an upload. Its marker stays at the drop location. **Done** waits for uploads and saves the embedded content. **Dual** shows the image or link in Markdown. **Undo** removes an embed while leaving the file in Attachments for reuse.
 
-Try images, PDF, text, Markdown, CSV, JSON, or ZIP files up to 25 MB each. Unsupported files show an error without discarding your writing or the accepted files.
+Try images, PDF, text, Markdown, CSV, JSON, or ZIP files up to 25 MB each. Unsupported files show an error without discarding your writing or the accepted files. If a file fails while **Done** or navigation is waiting, the editor stays open. Retry the file as needed, then **Dismiss** the error before leaving. A later successful upload keeps earlier errors visible until dismissed.

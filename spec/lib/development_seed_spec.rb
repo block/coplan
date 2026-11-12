@@ -308,6 +308,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       described_class.call
       plan = seeded_plan("file-uploads")
       expect(plan.current_content).to include("Drop the same file twice", "one stored copy", "**Done** waits for uploads")
+      expect(plan.current_content).to include("the editor stays open", "**Dismiss** the error", "earlier errors visible until dismissed")
       expect(plan.attachments.count).to eq(0)
       expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
       file = Rack::Test::UploadedFile.new(Rails.root.join("spec/fixtures/files/sample.png"), "image/png")
