@@ -54,6 +54,11 @@ expect(page).to have_checked_field("Task: Write documentation", enable_aria_labe
 Avoid inspecting a saved element handle after the action. A Turbo response can
 replace that element even when the action succeeds.
 
+Synthetic native event sequences need the same ordering as a real gesture.
+For example, dispatch `drop` and `dragend` together before allowing Lockstep to
+wait for the drop's network response and navigation. The folder spring-loading
+specs demonstrate this without pausing synchronization for the whole example.
+
 An open WebSocket is not unfinished work. The shared hook waits for a stream
 that has arrived; it cannot predict a future message. Specs that initiate work
 from Ruby must first observe the expected delivery and can explicitly call

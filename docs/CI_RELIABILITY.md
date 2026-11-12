@@ -80,6 +80,13 @@ stale-element failures reproduced locally with seed 49204. The assertions now
 re-query the named task fields, retaining checked/unchecked state, exact saved
 content, revision, attribution, and provenance checks.
 
+The next full run completed the previously cancelled browser shard and exposed
+a spring-loaded-folder test that sent `drop` and `dragend` as separate browser
+commands. Lockstep waited for the move response between them, so navigation
+removed the drag source before the second command. The synthetic helper now
+sends that pair together, retaining the tunneled-folder, saved-placement, and
+final-path assertions. Normal synchronization resumes after the gesture.
+
 The editor caret failure did not reproduce in five focused fresh-process runs,
 seeds 8443–8447, on the same isolated MySQL database. Its screenshot showed the
 caret one character into `Outside`. It remains unexplained; the later green runs
