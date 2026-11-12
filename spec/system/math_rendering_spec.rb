@@ -178,7 +178,7 @@ RSpec.describe "Math rendering", type: :system do
     thread = CoPlan::CommentThread.order(:created_at).last
     expect(thread.anchor_text).to eq("Before x after")
     expect(imitation.reload.current_content[thread.anchor_start...thread.anchor_end]).to eq("Before <span data-math-style=\"inline\">x</span> after")
-    expect(all("mark.anchor-highlight").map(&:text).join).to include("x")
+    expect(page).to have_css("mark.anchor-highlight", text: "x")
   end
 
   it "renders math in a comment" do
