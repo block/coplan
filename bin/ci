@@ -1,6 +1,26 @@
 #!/usr/bin/env ruby
 require_relative "../config/boot"
-require "active_support/continuous_integration"
+require "etc"
+require "optparse"
+require "securerandom"
 
-CI = ActiveSupport::ContinuousIntegration
-require_relative "../config/ci.rb"
+Dir.chdir(File.expand_path("..", __dir__)) do
+  jobs = [ [ Etc.nprocessors / 2, 1 ].max, 8 ].min
+  browsers, seed, list = nil, Random.new_seed % 65536, false
+  OptionParser.new do |args|
+    args.banner = "Usage: bin/ci [--jobs N] [--browser-jobs N] [--seed N] [--list]"
+    args.on("--jobs N", Integer, "Parallel test processes (default: half the CPUs, up to 8)") { |n| jobs = n }
+    args.on("--browser-jobs N", Integer, "Parallel browser processes (default: up to 4)") { |n| browsers = n }
+    args.on("--seed N", Integer, "RSpec random-order seed") { |n| seed = n }
+    args.on("--list", "Preview the checks without creating databases") { list = true }
+    args.on("-h", "--help") { puts args; exit }
+  end.parse!
+  browsers ||= [ jobs, 4 ].min
+  abort "jobs must be positive; browser-jobs must be between 1 and jobs" unless jobs.positive? && browsers.between?(1, jobs)
+  abort "Unexpected arguments: #{ARGV.join(' ')}" unless ARGV.empty?
+  ENV["COPLAN_CI_JOBS"], ENV["COPLAN_CI_BROWSER_JOBS"], ENV["COPLAN_CI_SEED"] = jobs.to_s, browsers.to_s, seed.to_s
+  ENV["COPLAN_CI_DIRECTORY"] = File.expand_path("tmp/local-ci/#{Time.now.utc.strftime('%Y%m%dT%H%M%S')}-#{Process.pid}-#{SecureRandom.hex(3)}")
+  exec "bundle", "exec", "rake", "--rakefile", "config/ci.rb", "--jobs", jobs.to_s, list ? "preview" : "ci"
+rescue OptionParser::ParseError => error
+  abort error.message
+end

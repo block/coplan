@@ -306,6 +306,8 @@ GEM
     openssl (4.0.1)
     ostruct (0.6.3)
     parallel (1.27.0)
+    parallel_tests (5.9.0)
+      parallel
     parser (3.3.10.2)
       ast (~> 2.4.1)
       racc
@@ -549,6 +551,7 @@ DEPENDENCIES
   jbuilder
   kamal
   mysql2 (~> 0.5)
+  parallel_tests (~> 5.9)
   pg (~> 1.5)
   propshaft
   puma (>= 5.0)
@@ -686,6 +689,7 @@ CHECKSUMS
   openssl (4.0.1) sha256=e27974136b7b02894a1bce46c5397ee889afafe704a839446b54dc81cb9c5f7d
   ostruct (0.6.3) sha256=95a2ed4a4bd1d190784e666b47b2d3f078e4a9efda2fccf18f84ddc6538ed912
   parallel (1.27.0) sha256=4ac151e1806b755fb4e2dc2332cbf0e54f2e24ba821ff2d3dcf86bf6dc4ae130
+  parallel_tests (5.9.0) sha256=593169873cfeefe54f233103238cb3b078320e6eac0155d0f1107b39233f98f8
   parser (3.3.10.2) sha256=6f60c84aa4bdcedb6d1a2434b738fe8a8136807b6adc8f7f53b97da9bc4e9357
   pg (1.6.3) sha256=1388d0563e13d2758c1089e35e973a3249e955c659592d10e5b77c468f628a99
   pg (1.6.3-aarch64-linux) sha256=0698ad563e02383c27510b76bf7d4cd2de19cd1d16a5013f375dd473e4be72ea
