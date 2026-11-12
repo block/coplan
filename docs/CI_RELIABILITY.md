@@ -74,6 +74,12 @@ initialization are unchanged. Feature assertions and the explicit stream idle
 callback regression remain the gates, rather than a logged timeout counting as
 readiness.
 
+The first Linux CI run with Lockstep exposed two checkbox specs that inspected
+old element handles after a version broadcast replaced the document body. Both
+stale-element failures reproduced locally with seed 49204. The assertions now
+re-query the named task fields, retaining checked/unchecked state, exact saved
+content, revision, attribution, and provenance checks.
+
 The editor caret failure did not reproduce in five focused fresh-process runs,
 seeds 8443–8447, on the same isolated MySQL database. Its screenshot showed the
 caret one character into `Outside`. It remains unexplained; the later green runs

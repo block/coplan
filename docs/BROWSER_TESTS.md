@@ -44,6 +44,16 @@ expect(page).to have_css("#plan-content-body") do |body|
 end
 ```
 
+For a changed form control, assert against the page by its accessible name:
+
+```ruby
+check "Task: Write documentation", enable_aria_label: true
+expect(page).to have_checked_field("Task: Write documentation", enable_aria_label: true)
+```
+
+Avoid inspecting a saved element handle after the action. A Turbo response can
+replace that element even when the action succeeds.
+
 An open WebSocket is not unfinished work. The shared hook waits for a stream
 that has arrived; it cannot predict a future message. Specs that initiate work
 from Ruby must first observe the expected delivery and can explicitly call
