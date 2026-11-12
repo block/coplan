@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe "Plan content editing (web UI)", type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
+  after { travel_back }
+
   let(:author) { create(:coplan_user) }
   let(:other_user) { create(:coplan_user) }
   let(:plan) { create(:plan, :considering, created_by_user: author) }
@@ -28,34 +32,26 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
   end
 
   describe "GET content_body" do
-    it "invalidates pre-alias rendered fragments without changing the plan" do
+    it "refreshes stale rendered fragments after 15 minutes without changing the plan" do
       set_version_fixture(plan.current_plan_version, content_markdown: "# 1 Overview\n\nOpening text.\n")
       cache = ActiveSupport::Cache::MemoryStore.new
       allow_any_instance_of(CoPlan::PlansController).to receive(:perform_caching).and_return(true)
       allow_any_instance_of(CoPlan::PlansController).to receive(:cache_store).and_return(cache)
-      written_keys = []
-      allow(cache).to receive(:write).and_wrap_original do |write, key, *args, **options|
-        written_keys << key
-        write.call(key, *args, **options)
+      # Simulate an older renderer's output, retaining the real cache expiry.
+      strip_alias = true
+      allow(cache).to receive(:write).and_wrap_original do |write, key, value, options|
+        value = value.gsub(/<span[^>]*data-heading-alias[^>]*><\/span>/, "") if strip_alias
+        write.call(key, value, options)
       end
-      # Both deployed and candidate renderers used version 29. Reproduce the
-      # real persistent entry, then migrate to a release namespace with no edit.
-      allow(CoPlan::RenderCache).to receive(:version).and_return(29)
       get content_body_plan_path(plan)
-      expect(response).to have_http_status(:ok)
-      fragment_key = written_keys.find { |key| key.to_s.include?("coplan/plan-content-body-with-title") }
-      expect(fragment_key).to be_present
-      stale_html = response.body.gsub(/<span[^>]*data-heading-alias[^>]*><\/span>/, "")
-      cache.write(fragment_key, stale_html)
+      strip_alias = false
       get content_body_plan_path(plan)
       expect(Nokogiri::HTML.fragment(response.body).at_css("#section-1")).to be_nil
 
-      allow(CoPlan::RenderCache).to receive(:version).and_return("candidate-bundle")
+      travel 15.minutes + 1.second
       get content_body_plan_path(plan)
       expect(response).to have_http_status(:ok)
       expect(Nokogiri::HTML.fragment(response.body).at_css("h1#plan-title #section-1")).to be_present
-      expect(cache.read(fragment_key)).to eq(stale_html)
-      expect(written_keys.uniq.size).to eq(2)
     end
 
     it "returns the latest rendered body and revision without caching" do
@@ -93,7 +89,12 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
   end
 
   describe "PATCH update_content" do
-    it "creates a new human-authored version through ReplaceContent" do
+    it "creates a new human-authored version and immediately refreshes cached content" do
+      allow_any_instance_of(CoPlan::PlansController).to receive(:perform_caching).and_return(true)
+      allow_any_instance_of(CoPlan::PlansController).to receive(:cache_store).and_return(ActiveSupport::Cache::MemoryStore.new)
+      get content_body_plan_path(plan)
+      expect(response.body).to include("Original body.")
+
       expect {
         patch update_content_plan_path(plan), params: {
           content: "# Plan\n\nEdited body.\n",
@@ -109,6 +110,9 @@ RSpec.describe "Plan content editing (web UI)", type: :request do
       expect(version.actor_type).to eq("human")
       expect(version.actor_id).to eq(author.id)
       expect(version.change_summary).to eq("Tightened wording")
+      get content_body_plan_path(plan)
+      expect(response.body).to include("Edited body.")
+      expect(response.body).not_to include("Original body.")
     end
 
     it "defaults the change summary" do

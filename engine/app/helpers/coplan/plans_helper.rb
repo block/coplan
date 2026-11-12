@@ -161,7 +161,7 @@ module CoPlan
       # preload just the stub (id + sha), never the MEDIUMTEXT columns.
       cache_key = [ "coplan/plan-preview", plan.id,
                    stub.content_sha256 || plan.current_revision ]
-      plain = RenderCache.fetch(cache_key) do
+      plain = Rails.cache.fetch(cache_key, expires_in: 15.minutes) do
         markdown_to_plain_text(PlanVersion.where(id: stub.id).pick(:content_markdown))
       end
       return nil if plain.blank?

@@ -41,11 +41,11 @@ module CoPlan
         references.map { |reference| "#{reference.id}:#{reference.updated_at&.to_f}" }.join("|")
       )
       signature = [ plan.current_revision, reference_digest ]
-      cached = RenderCache.fetch([
+      cached = Rails.cache.fetch([
         "coplan/plan-citation-back-matter",
         plan.id,
         *signature
-      ]) do
+      ], expires_in: 15.minutes) do
         result = build_plan_citation_back_matter(plan, references)
         [ result[:html].to_s, result[:cited_urls].to_a, result[:count] ]
       end

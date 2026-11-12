@@ -1,6 +1,10 @@
 require "rails_helper"
 
 RSpec.describe CoPlan::ReferencesHelper, type: :helper do
+  include ActiveSupport::Testing::TimeHelpers
+
+  after { travel_back }
+
   describe "#plan_citation_back_matter" do
     let(:user) { create(:coplan_user) }
     let(:plan) do
@@ -20,15 +24,14 @@ RSpec.describe CoPlan::ReferencesHelper, type: :helper do
       plan
     end
 
-    it "reuses citations until the installed bundle changes" do
+    it "reuses citations for 15 minutes" do
       allow(Rails).to receive(:cache).and_return(ActiveSupport::Cache::MemoryStore.new)
-      allow(CoPlan::RenderCache).to receive(:version).and_return("bundle-a")
       allow(helper).to receive(:render_markdown).and_call_original
 
       original = helper.plan_citation_back_matter(plan, plan.references)
       expect(helper.plan_citation_back_matter(plan, plan.references)).to eq(original)
       expect(helper).to have_received(:render_markdown).once
-      allow(CoPlan::RenderCache).to receive(:version).and_return("bundle-b")
+      travel 15.minutes + 1.second
       expect(helper.plan_citation_back_matter(plan, plan.references)).to eq(original)
       expect(helper).to have_received(:render_markdown).twice
     end
