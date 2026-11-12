@@ -325,7 +325,7 @@ RSpec.describe "Comment reactions", type: :system do
 
   %w[inline table].each do |surface|
     %w[chip add].each do |control|
-      it "keeps a held Space on the #{surface} #{control} through a broadcast" do
+      it "keeps a held Space on the #{surface} #{control} through a broadcast", browser_sync: :manual do
         target_comment = surface == "table" ? create_table_thread.comments.first : comment
         create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")
         scope = surface == "table" ? open_table_discussion : open_thread
@@ -370,7 +370,7 @@ RSpec.describe "Comment reactions", type: :system do
       expect(scope).to have_css(".comment-reactions__add:focus")
     end
 
-    it "keeps the #{surface} picker usable while a reaction snapshot arrives" do
+    it "keeps the #{surface} picker usable while a reaction snapshot arrives", browser_sync: :manual do
       target_comment = surface == "table" ? create_table_thread.comments.first : comment
       scope = surface == "table" ? open_table_discussion : open_thread
       scope.find(".comment-reactions__add").click
@@ -388,7 +388,7 @@ RSpec.describe "Comment reactions", type: :system do
       wait_for { target_comment.reactions.where(user: viewer, kind: "rocket").exists? }
     end
 
-    it "keeps a #{surface} pointer gesture intact while a reaction snapshot arrives" do
+    it "keeps a #{surface} pointer gesture intact while a reaction snapshot arrives", browser_sync: :manual do
       target_comment = surface == "table" ? create_table_thread.comments.first : comment
       create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")
       scope = surface == "table" ? open_table_discussion : open_thread
@@ -409,7 +409,7 @@ RSpec.describe "Comment reactions", type: :system do
   end
 
   %w[picker pointer keyboard].each do |gesture|
-    it "preserves a table #{gesture} while unrelated replies rebuild the panel" do
+    it "preserves a table #{gesture} while unrelated replies rebuild the panel", browser_sync: :manual do
       table_thread = create_table_thread
       target_comment = table_thread.comments.first
       create(:comment_reaction, comment: target_comment, user: sam, kind: "thumbs_up")

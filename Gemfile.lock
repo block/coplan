@@ -136,6 +136,9 @@ GEM
       rack-test (>= 0.6.3)
       regexp_parser (>= 1.5, < 3.0)
       xpath (~> 3.2)
+    capybara-lockstep (2.4.0)
+      activesupport (>= 7.0)
+      capybara (>= 3.0)
     commonmarker (2.6.3-aarch64-linux)
     commonmarker (2.6.3-arm-linux)
     commonmarker (2.6.3-arm64-darwin)
@@ -540,6 +543,7 @@ DEPENDENCIES
   brakeman
   bundler-audit
   capybara
+  capybara-lockstep
   commonmarker
   coplan-engine!
   coplan-slack!
@@ -598,6 +602,7 @@ CHECKSUMS
   builder (3.3.0) sha256=497918d2f9dca528fdca4b88d84e4ef4387256d984b8154e9d5d3fe5a9c8835f
   bundler-audit (0.9.3) sha256=81c8766c71e47d0d28a0f98c7eed028539f21a6ea3cd8f685eb6f42333c9b4e9
   capybara (3.40.0) sha256=42dba720578ea1ca65fd7a41d163dd368502c191804558f6e0f71b391054aeef
+  capybara-lockstep (2.4.0) sha256=a95893430c5bb7d7802eff37703425a48820478665e29a62854605990496ac12
   commonmarker (2.6.3-aarch64-linux) sha256=73795e80ab5ef1e4b5b83ada6f082bccb0ed7eae0b910232e13af1b2d71b14d6
   commonmarker (2.6.3-arm-linux) sha256=62b9f32d7d3f85d47988a4a98a2e66e60ca42b894687047db8332f1e80caff7b
   commonmarker (2.6.3-arm64-darwin) sha256=d6c1e4955619da3f68fed22de99dec49a24925611770c039bf870823846c8b21

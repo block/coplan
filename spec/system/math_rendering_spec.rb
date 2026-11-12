@@ -203,12 +203,9 @@ RSpec.describe "Math rendering", type: :system do
     thread = CoPlan::CommentThread.order(:created_at).last
     expect(thread.anchor_text).to eq("relation links")
     expect(content[thread.anchor_start...thread.anchor_end]).to eq("relation $E = mc^2$ links")
-    # A thread refresh can replace marks between separate WebDriver text reads.
-    # Read their ordered text in one browser turn, inside Capybara's retry loop.
-    expect(page).to have_css("mark.anchor-highlight", count: 2) do
-      page.evaluate_script(<<~JS) == [ "relation", "links" ]
-        Array.from(document.querySelectorAll('mark.anchor-highlight'), mark => mark.innerText.trim())
-      JS
+    # Retry the whole collection read if another live update replaces its marks.
+    expect(page).to have_css("#plan-content-body") do |body|
+      body.all("mark.anchor-highlight", count: 2).map(&:text) == [ "relation", "links" ]
     end
     expect(page).to have_no_css("[data-math-style] mark")
     expect(page).to have_css("span[data-math-style] .katex", count: 2)

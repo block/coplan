@@ -57,9 +57,14 @@ The math failure reproduced naturally on the isolated Mac/MySQL checkout at
 element exception. The screenshot retained both correct highlights, and the
 stored anchor/source assertions had passed. The test held WebDriver elements
 across separate text reads while thread updates could replace their marks.
-It now reads the ordered text in one browser turn inside Capybara's retry loop,
-retaining the exact count, text, source range, formula exclusion, and reload checks.
-Ten fresh-process runs with seeds 41209–41218 passed after that change.
+The first correction read ordered text in one browser turn inside Capybara's
+retry loop; ten fresh-process runs with seeds 41209–41218 passed. Hampton then
+requested shared browser synchronization instead of a JavaScript snapshot in
+the feature spec. The replacement uses `capybara-lockstep` with test-only Turbo
+Stream render tracking. The ordered text assertion is Ruby inside Capybara's
+retry loop, retaining the exact count, text, source range, formula exclusion,
+and reload checks. See [Browser test synchronization](BROWSER_TESTS.md) for its
+scope and the explicit exceptions for tests of unfinished work.
 
 The editor caret failure did not reproduce in five focused fresh-process runs,
 seeds 8443–8447, on the same isolated MySQL database. Its screenshot showed the
