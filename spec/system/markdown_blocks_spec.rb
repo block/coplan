@@ -409,10 +409,10 @@ RSpec.describe "Markdown blocks", type: :system do
     expect(page).to have_css(".markdown-block pre mark", text: "Same")
   end
 
-  { "> div" => 0, "> div > span" => 1, "> div > em" => 2 }.each do |selector, occurrence|
+  { "> div:first-child" => 0, "> div > span" => 1, "> div > em" => 2, "> div:last-child" => 3 }.each do |selector, occurrence|
     it "anchors repeated raw HTML occurrence #{occurrence} without highlighting the others" do
       sample = CoPlan::Plans::Create.call(title: "Repeated HTML", user: author, visibility: "published", actor_type: "human",
-        content: "# Repeated HTML\n\n```md\n<div>Same <span>Same</span><em>Same</em></div>\n```\n")
+        content: "# Repeated HTML\n\n```md\n<div>Same <span>Same</span><em>Same</em></div><div>Same</div>\n```\n")
       visit plan_page_path(sample)
       select_in(".markdown-block__rendered #{selector}", "Same", 0, "Same", 4)
       page.driver.browser.action.send_keys("c").perform

@@ -88,15 +88,11 @@ function renderedMap(block) {
     entries.push({ node, spans })
     if (!text.trim() || node.parentElement.closest(UNMAPPED_SELECTOR) || !owner || !pane.contains(owner)) continue
 
-    let from = Math.max(Number(owner.dataset.markdownFrom || 0), cursors.get(owner) || 0)
-    // Raw HTML descendants share their AST block's interval. Text already
-    // consumed by a parent or sibling must also advance a fresh child.
-    // Other intervals stay independent (footnotes render out of source order).
-    for (let ancestor = owner.parentElement; ancestor && ancestor !== pane; ancestor = ancestor.parentElement) {
-      if (ancestor.dataset.markdownFrom === owner.dataset.markdownFrom && ancestor.dataset.markdownTo === owner.dataset.markdownTo) {
-        from = Math.max(from, cursors.get(ancestor) || 0)
-      }
-    }
+    // Raw HTML descendants and siblings can share one AST block interval.
+    // Consume that interval once; keep other intervals independent because
+    // footnotes render out of source order.
+    const interval = `${owner.dataset.markdownFrom}:${owner.dataset.markdownTo}`
+    const from = Math.max(Number(owner.dataset.markdownFrom || 0), cursors.get(owner) || 0, cursors.get(interval) || 0)
     const to = Number(owner.dataset.markdownTo)
     // Search only parser-produced visible characters in this element's
     // source range. URLs, markup, and HTML attributes cannot be candidates.
@@ -128,6 +124,7 @@ function renderedMap(block) {
     // A parent's following text must start after its nested link/emphasis,
     // including when marks have split one text node into several nodes.
     const end = spans[offsets.at(-1)][1]
+    cursors.set(interval, end)
     for (let element = owner; element && pane.contains(element); element = element.parentElement) {
       cursors.set(element, Math.max(cursors.get(element) || 0, end))
     }
