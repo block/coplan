@@ -184,3 +184,54 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
   .document-editor[data-mode="dual"] .document-editor__raw { padding-right: 0; padding-bottom: 24px; border-right: 0; border-bottom: 1px solid var(--color-border); }
   .document-editor[data-mode="dual"] .ProseMirror { min-height: 200px; }
 }
+.document-editor .ProseMirror.is-file-drop-target {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 6px;
+  background: var(--color-interaction-hover-bg);
+}
+
+.document-editor__upload-placeholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 0.5rem;
+  color: var(--color-primary);
+  background: var(--color-interaction-hover-bg);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.document-editor__upload-placeholder::before {
+  content: "";
+  width: 0.8rem;
+  height: 0.8rem;
+  flex-shrink: 0;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: editor-upload-spin 0.8s linear infinite;
+}
+
+.document-editor__upload-notice {
+  position: fixed;
+  inset: auto 1rem 1rem auto;
+  z-index: 120;
+  max-width: min(28rem, calc(100vw - 2rem));
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid currentColor;
+  border-radius: 0.65rem;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: 0.85rem;
+}
+
+.document-editor__upload-notice[data-error="true"] { color: var(--color-danger); }
+.document-editor__upload-notice button:not([hidden]) { display: block; margin-top: 0.5rem; }
+@keyframes editor-upload-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .document-editor__upload-placeholder::before { animation: none; }
+}

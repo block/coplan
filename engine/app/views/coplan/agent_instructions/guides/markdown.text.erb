@@ -196,6 +196,12 @@ The web editor writes this form when a person resizes an image. Snapping back to
 
 Images pasted from other apps default to natural size within the document width, ignoring copied display widths. Copying images within Coplan's rich editor preserves their saved widths. Existing Markdown widths remain unchanged.
 
+People can drop image or file uploads into the rich editor, or paste image files. Images become Markdown images; other files become download links. Uploads stay in Attachments after Undo removes their embedded content. New documents are created before their first upload. Embedding uses the normal human save and versioning rules.
+
+Failed or rejected editor uploads keep an error notice until the person dismisses it. Done and navigation keep the editor open until then. Accepted files and writing still save normally.
+
+Uploading identical contents to the same plan returns its existing attachment, even with a different filename. The original filename, uploader, and URLs stay unchanged. The upload response includes `reused: true`; a new file returns `reused: false`. Both return 201. Reuse creates no new attachment-added event. Different contents stay separate, and files are never reused across plans. Each editor drop still inserts an embed. Existing duplicates are not removed.
+
 When a paragraph starts with an image, text in that paragraph wraps beside it from the top if there is room. Put a blank line before the next paragraph to start below the image. A hard line break stays beside the image. In the web editor, Enter starts below; Shift+Enter adds a line beside it.
 
 - The maximum size is 25 MB per file. Allowed types are PNG, JPEG, GIF, WebP, PDF, TXT, MD, CSV, JSON, and ZIP. Coplan returns `422` for other files.

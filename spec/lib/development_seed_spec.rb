@@ -323,12 +323,35 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(CoPlan::Plan.count).to eq(0)
     end
 
+    it "seeds the file upload tryout and preserves uploaded files and embeds on reseeding" do
+      described_class.call
+      plan = seeded_plan("file-uploads")
+      expect(plan.current_content).to include("Drop the same file twice", "one stored copy", "**Done** waits for uploads")
+      expect(plan.current_content).to include("the editor stays open", "**Dismiss** the error", "earlier errors visible until dismissed")
+      expect(plan.attachments.count).to eq(0)
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+      file = Rack::Test::UploadedFile.new(Rails.root.join("spec/fixtures/files/sample.png"), "image/png")
+      uploaded = CoPlan::Plans::AddAttachment.call(plan: plan, file: file, user: plan.created_by_user)
+      expect(uploaded).to be_success
+      url = Rails.application.routes.url_helpers.rails_blob_path(uploaded.attachment.blob, only_path: true)
+      content = "#{plan.current_content}\n\n![sample.png](#{url})\n"
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+        base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
+      revision = plan.current_revision
+      described_class.call
+      expect(plan.reload.current_revision).to eq(revision)
+      expect(plan.current_content).to eq(content)
+      expect(plan.attachments_attachments.pluck(:id)).to eq([ uploaded.attachment.id ])
+    end
+
     it "seeds image resizing once and preserves a person's saved image width" do
       described_class.call
       plan = seeded_plan("image-resizing")
       expect(plan.current_content).to include(described_class.demo_logo_url, 'width="320"', "![Coplan logo at natural width]")
       expect(plan.current_content).to include("This text starts at the top beside", "This paragraph deliberately starts below", "**Shift+Enter**", "**Enter**")
       expect(plan.current_content).to include("## Pasting images", "even if the other app displayed a thumbnail")
+      expect(plan.current_content).to include("## Dropping files into the editor", "download links", "**Done** waits for uploads", "remain in **Attachments**")
+      expect(plan.current_content).to include("Drop the same file twice", "one stored copy", "Different contents stay separate")
       expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
       revision = plan.current_revision
       described_class.call

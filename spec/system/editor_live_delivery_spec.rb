@@ -87,7 +87,7 @@ RSpec.describe "Editor live cable delivery", type: :system do
     expect(plan.reload.current_content).to include("Conflicting remote edit.")
   end
 
-  it "queues a real broadcast while a save response is in flight" do
+  it "queues a real broadcast while a save response is in flight", browser_sync: :manual do
     click_button "Dual", exact: true
     page.execute_script(<<~'JS')
       const original = window.fetch;
@@ -103,7 +103,7 @@ RSpec.describe "Editor live cable delivery", type: :system do
     expect(plan.reload.current_content).to include("Agent during save.", "Human saved edit.")
   end
 
-  it "drains a second committed broadcast received during an older snapshot request" do
+  it "drains a second committed broadcast received during an older snapshot request", browser_sync: :manual do
     page.execute_script(<<~'JS')
       const original = window.fetch;
       window.fetch=async (url,options)=>{

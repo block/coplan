@@ -66,12 +66,19 @@ Agents can read reactions but cannot add them. There is no reactions endpoint.
 
 ## References and attachments
 
+The browser editor uses session-authenticated multipart `POST /plans/:id/attachments`
+with `files[]` and `Accept: application/json`. It returns `attachments` (id, filename,
+content_type, url, download_url, reused), per-file `errors`, and browser Turbo `streams`.
+Status is 201 when any file succeeds, including partial success, or 422 when none
+succeed. Browser draft creation returns `attachments_url` for uploads.
+Agents use the `/api/v1` routes below with their API credential.
+
 | Method and path | Purpose | Guide |
 |---|---|---|
 | `GET`, `POST /api/v1/plans/:id/references` | List or add references. Adding is for the plan author only. | creating |
 | `DELETE /api/v1/plans/:id/references/:reference_id` | Remove a reference. Plan author only. | creating |
 | `GET /api/v1/references/search?url=` | Find the plans that refer to a URL. | creating |
-| `GET`, `POST /api/v1/plans/:id/attachments` | List or upload files (multipart `file`). Uploading is for the plan author only. | markdown |
+| `GET`, `POST /api/v1/plans/:id/attachments` | List or upload files (multipart `file`). Uploading is for the plan author only. POST returns 201 with `reused: true` for identical contents already attached to this plan, or `false` for a new file. | markdown |
 | `DELETE /api/v1/plans/:id/attachments/:attachment_id` | Delete a file. Plan author only. | markdown |
 
 ## Review requests and decisions

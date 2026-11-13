@@ -87,5 +87,6 @@ group :test do
   gem "factory_bot_rails"
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
   gem "capybara"
+  gem "capybara-lockstep"
   gem "selenium-webdriver"
 end
