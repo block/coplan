@@ -996,6 +996,7 @@ export default class extends Controller {
   }
   openCitation(event) {
     event.preventDefault(); event.stopPropagation()
+    if (this.mode === "preview") return
     this.citationTrigger = event.currentTarget
     this.citationLabel = event.currentTarget.dataset.citationLabel
     const definition = this.findCitationDefinition(this.textareaTarget.value)

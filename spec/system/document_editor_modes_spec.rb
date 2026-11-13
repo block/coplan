@@ -561,6 +561,7 @@ RSpec.describe "Document editor modes", type: :system do
     raw.send_keys([ mod, "a" ], content.sub("Saved citation.", "Unsaved citation."))
     click_button "Preview", exact: true
     expect(preview_pane).to have_text("Unsaved citation.")
+    expect(page).not_to have_css(".citation-edit-control")
     preview_pane.find("a[data-footnote-ref]").hover
     expect(page).to have_css(".reference-preview__body", text: "Unsaved citation.", visible: true)
     preview_pane.click_link "Missing"
