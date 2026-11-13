@@ -67,6 +67,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | image-resizing | Drop or paste files to upload and embed; duplicate drops reuse files; resize images, wrap prose, Shift+Enter beside, Enter below |
 | file-uploads | Drop the same image or file again: one attachment and stored copy, multiple embeds; renamed copies, Dual, and Undo |
 | callout-gallery | `> [!SUMMARY]`, `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]` callouts, a custom label, nested list and code, plain and escaped quotes, and both deck themes; comment inside a callout, or edit one in Editor and check Raw |
+| markdown-blocks | `markdown` and `md` fences shown as rendered drafts with a Rendered / Source switch; a discussion on the draft shows in both views; select rendered text across a link, press C, then switch to Source |
 | math-gallery | KaTeX math: inline, display, and fenced formulas, math in lists and tables, a six-row slide equation, dollar amounts that stay text, and invalid math shown as source; comment on the text around a formula |
 
 Flowcharts currently support source-backed node and edge comments. Other

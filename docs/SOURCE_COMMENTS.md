@@ -67,6 +67,35 @@ Their source context uses the last successfully tracked revision. A stale
 browser selection is rejected; the form retains its draft and asks the
 reader to reopen the latest plan before posting.
 
+## Markdown blocks
+
+A `markdown` or `md` fence renders in the reading view as a Markdown block:
+the rendered draft, a Rendered / Source switch, and the literal source,
+hidden while Rendered shows. Each page load starts on Rendered. A live update
+keeps the view chosen on that page.
+
+Markdown block comments are ordinary text comments with no `anchor_kind`.
+The hidden source stays in the browser's anchor text model in both views, and
+the rendered pane stays out of it. This keeps occurrence counting the same as
+for any code block, on the client and in `MarkdownTextExtractor`.
+
+- The server marks each rendered element with the body range it came from
+  (`data-markdown-from` and `data-markdown-to`, character offsets into the
+  fence body). `coplan/markdown_blocks.js` finds each rendered text node in
+  its element's range. Link text maps to its label, not its URL. Footnote
+  numbers and other generated text do not map.
+- A selection in the rendered draft becomes the source range from its first
+  to its last mapped character. A selection across `**bold**` text or a link
+  therefore stores the Markdown source of that passage.
+- When Rendered shows, a highlight that falls in the hidden source is drawn
+  over the rendered characters that came from that range. A comment made in
+  either view shows in both.
+- A comment anchored only to text with no rendered form, such as part of a
+  URL, is visible in Source only.
+- Only a fence the parser produced becomes a block. Authored HTML imitating
+  one stays ordinary HTML. Fences inside slide decks, editor previews, and
+  comments stay code blocks.
+
 ## Supported syntax
 
 - Markdown table header and body cells, including repeated values, Unicode,

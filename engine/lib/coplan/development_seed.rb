@@ -131,6 +131,9 @@ module CoPlan
       { key: "math-gallery", author: "hampton", type: "Research Note", title: "Math: estimating a retry budget",
         tags: %w[demo markdown math], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
         showcase: "LaTeX math typeset with KaTeX: inline, display, a math fence, math in lists and tables, dollar amounts that stay text, and invalid math shown as source" },
+      { key: "markdown-blocks", author: "hampton", type: "General", title: "Markdown blocks: rendered drafts",
+        tags: %w[demo markdown], visibility: "published", folder: "Demo content/Rich text", group: "Tables and rich text",
+        showcase: "Markdown and md fences render as drafts with a Rendered / Source switch; comment in either view and see it in both" },
       { key: "type-scratchpad", author: "hampton", type: "Scratchpad", title: "Scratchpad: workspace naming ideas",
         tags: %w[demo types], visibility: "published", folder: "Demo content/Plan types", group: "Plan type examples" },
       { key: "type-prd", author: "hampton", type: "PRD", title: "PRD: workspace invitations",
@@ -693,6 +696,13 @@ module CoPlan
       seed_thread(
         plan: showcase, user: users.fetch("mateo"),
         body: "Strong direction. The dark-read bar (1 in 10,000) matches what mobile checkout used for its state-machine cutover — reusing that tooling should make the rollout cheap."
+      )
+
+      # A comment on a Markdown block's draft shows in both of its views.
+      seed_thread(
+        plan: plans.fetch("markdown-blocks"), user: users.fetch("sam"),
+        anchor: "The November rollout is done.",
+        body: "Link the close-out ticket here so readers can check what is left."
       )
 
       # Commenting works on documents dense with code, too.

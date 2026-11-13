@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { commentWindowTop } from "coplan/comment_window"
 import { revealSections } from "coplan/collapsed_sections"
+import { CHROME_SELECTOR, RENDERED_SELECTOR, markRendered, renderedBlockForSource, sourceOffset, sourceRangeFor } from "coplan/markdown_blocks"
 
 // Elements whose text is never rendered but still appears in textContent —
 // e.g. the <style> sheet Mermaid embeds inside its SVG. Their text must stay
@@ -13,8 +14,10 @@ import { revealSections } from "coplan/collapsed_sections"
 // so math stays out of the anchor text model just as MarkdownTextExtractor
 // leaves it out of the server's. A selection can span math; one inside a
 // single formula offers no comment.
+// A Markdown block's hidden source is the text model in both of its views
+// (see coplan/markdown_blocks), so its rendered pane and toolbar stay out.
 const MATH_SELECTOR = "[data-math-style]"
-const NON_RENDERED_TEXT_SELECTOR = `style, script, noscript, [data-source-badge], [data-coplan-template-note], ${MATH_SELECTOR}`
+const NON_RENDERED_TEXT_SELECTOR = `style, script, noscript, [data-source-badge], [data-coplan-template-note], ${MATH_SELECTOR}, ${RENDERED_SELECTOR}, ${CHROME_SELECTOR}`
 
 export default class extends Controller {
   static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote", "threads"]
@@ -138,7 +141,8 @@ export default class extends Controller {
       this.clearSelection()
       return
     }
-    const range = selection.getRangeAt(0)
+    const visibleRange = selection.getRangeAt(0)
+    let range = visibleRange
     const inNote = node => (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement)?.closest("[data-coplan-template-note]")
     if (inNote(range.startContainer) || inNote(range.endContainer)) {
       this.clearSelection()
@@ -160,6 +164,16 @@ export default class extends Controller {
     if (root === this.contentTarget && startInContent && !endInContent) {
       const clampTarget = root.lastElementChild || root.lastChild
       if (clampTarget) range.setEndAfter(clampTarget)
+    }
+
+    // A selection in a rendered Markdown block is stored as the source
+    // text it came from, so the comment shows in both views.
+    if (root === this.contentTarget) {
+      range = sourceRangeFor(range)
+      if (!range) {
+        this.clearSelection()
+        return
+      }
     }
 
     if (!this._moveRangeOutOfMath(range, root)) {
@@ -202,7 +216,7 @@ export default class extends Controller {
     }
 
     // Position popover near the selection
-    const rect = range.getBoundingClientRect()
+    const rect = visibleRange.getBoundingClientRect()
     const contentRect = this.element.querySelector(".plan-layout__content").getBoundingClientRect()
 
     this.popoverTarget.style.display = "block"
@@ -999,6 +1013,9 @@ export default class extends Controller {
 
     const matchEnd = startIndex + length
     const marks = []
+    // Source text of a Markdown block showing its rendered view is drawn
+    // over the rendered text instead: block -> [from, to) in its body.
+    const renderedRanges = new Map()
 
     // Table-structural elements can only contain specific children (e.g.
     // <tr> can only contain <td>/<th>). Wrapping a text node inside one of
@@ -1021,6 +1038,15 @@ export default class extends Controller {
       // Skip zero-length ranges (e.g. from text node splits by prior highlights)
       if (localEnd <= localStart) continue
 
+      const block = renderedBlockForSource(tn.node)
+      if (block) {
+        const from = sourceOffset(block, tn.node, localStart)
+        const to = sourceOffset(block, tn.node, localEnd)
+        const current = renderedRanges.get(block)
+        renderedRanges.set(block, current ? [Math.min(current[0], from), Math.max(current[1], to)] : [from, to])
+        continue
+      }
+
       const range = document.createRange()
       range.setStart(tn.node, localStart)
       range.setEnd(tn.node, localEnd)
@@ -1032,6 +1058,7 @@ export default class extends Controller {
       marks.push(mark)
     }
 
+    renderedRanges.forEach(([from, to], block) => marks.push(...markRendered(block, from, to, className)))
     return marks
   }
 }

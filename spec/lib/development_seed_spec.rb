@@ -369,6 +369,24 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(plan.reload.current_content).to eq(edited)
     end
 
+    it "seeds the markdown blocks example with a discussion in a rendered draft" do
+      described_class.call
+      plan = seeded_plan("markdown-blocks")
+      expect(plan.title).to eq("Markdown blocks: rendered drafts")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+
+      html = Nokogiri::HTML::DocumentFragment.parse(ApplicationController.helpers.render_markdown(plan.current_content, footnotes: :exclude, source_comments: true))
+      expect(html.css(".markdown-block .markdown-block__label").map(&:text)).to eq(%w[markdown md])
+      expect(html.css(".markdown-block__rendered table, .markdown-block__rendered section[data-footnotes]").size).to eq(2)
+      expect(html.at_css("pre[lang='text']").text).to include("**This stays literal text.**")
+      thread = plan.comment_threads.find_by!(anchor_text: "The November rollout is done.")
+      expect(plan.current_content[thread.anchor_start...thread.anchor_end]).to eq(thread.anchor_text)
+
+      revision = plan.current_revision
+      expect { described_class.call }.not_to change { plan.comment_threads.count }
+      expect(plan.reload.current_revision).to eq(revision)
+    end
+
     it "seeds the math gallery with every math form and preserves edits on re-seed" do
       described_class.call
       plan = seeded_plan("math-gallery")

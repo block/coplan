@@ -24,6 +24,22 @@ module CoPlan
         data
       end
 
+      # Converts a Commonmarker sourcepos ("line:col-line:col") into a
+      # [start, end) range of character offsets. `lines` are the source's
+      # lines and `offsets` their starting character offsets.
+      def self.char_range(position, lines, offsets)
+        match = /\A(\d+):(\d+)-(\d+):(\d+)\z/.match(position.to_s)
+        return unless match
+        sl, sc, el, ec = match.captures.map(&:to_i)
+        return unless sl.positive? && el.positive? && sc.positive? && lines[sl - 1] && lines[el - 1]
+
+        # Commonmarker columns are bytes, including the inclusive end.
+        before = lines[sl - 1].byteslice(0, sc - 1)
+        through = lines[el - 1].byteslice(0, ec)
+        return unless before&.valid_encoding? && through&.valid_encoding?
+        [ offsets[sl - 1] + before.length, offsets[el - 1] + through.length ]
+      end
+
       def initialize(content)
         @content = content.to_s
         @lines = @content.lines
@@ -111,16 +127,7 @@ module CoPlan
       end
 
       def source_range(position)
-        match = /\A(\d+):(\d+)-(\d+):(\d+)\z/.match(position)
-        return unless match
-        sl, sc, el, ec = match.captures.map(&:to_i)
-        return unless sl.positive? && el.positive? && sc.positive? && @lines[sl - 1] && @lines[el - 1]
-
-        # Commonmarker columns are bytes, including the inclusive end.
-        before = @lines[sl - 1].byteslice(0, sc - 1)
-        through = @lines[el - 1].byteslice(0, ec)
-        return unless before&.valid_encoding? && through&.valid_encoding?
-        [ @offsets[sl - 1] + before.length, @offsets[el - 1] + through.length ]
+        self.class.char_range(position, @lines, @offsets)
       end
 
       def target(kind, s, e, label)

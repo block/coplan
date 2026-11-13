@@ -868,6 +868,8 @@ export default class extends Controller {
     if (!content) return []
     return Array.from(content.querySelectorAll("h1, h2, h3, h4, h5, h6, p, li, blockquote, pre, td"))
       .filter(el => !el.closest(".document-editor__block-header"))
+      // A Markdown block keeps its inactive view in the DOM, hidden.
+      .filter(el => !el.closest("[data-markdown-block] > [hidden]"))
   }
 
   _contentRoot() {
@@ -904,7 +906,7 @@ export default class extends Controller {
     const range = document.createRange()
     range.setStart(content, 0)
     range.setEndBefore(firstVisible)
-    return this._countOccurrences(range.toString(), text)
+    return this._countOccurrences(this._anchorText(range), text)
   }
 
   // The heading of the section currently in view. Uses the last heading
@@ -917,6 +919,9 @@ export default class extends Controller {
     // The document title is not a section fallback for a general remark.
     const headings = Array.from(content.querySelectorAll("h1, h2, h3, h4, h5, h6"))
       .filter(heading => heading.id !== "plan-title" && !heading.matches(".ProseMirror > h1:first-child"))
+      // A Markdown block's headings are part of a draft, not sections. The
+      // outline leaves them out too.
+      .filter(heading => !heading.closest("[data-markdown-block-rendered]"))
     if (headings.length === 0) return null
 
     const readingLine = window.innerHeight * 0.4
@@ -940,7 +945,16 @@ export default class extends Controller {
     const range = document.createRange()
     range.setStart(content, 0)
     range.setEndBefore(element)
-    return this._countOccurrences(range.toString(), text)
+    return this._countOccurrences(this._anchorText(range), text)
+  }
+
+  // The text the server counts copies in. A Markdown block's rendered
+  // pane and toolbar are left out: its hidden source is what anchors
+  // match, in either view.
+  _anchorText(range) {
+    const fragment = range.cloneContents()
+    fragment.querySelectorAll("[data-markdown-block-rendered], [data-markdown-block-chrome]").forEach(node => node.remove())
+    return fragment.textContent
   }
 
   // Occurrence is 1-based server-side (resolve_anchor_position treats
