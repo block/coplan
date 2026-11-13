@@ -124,6 +124,11 @@ module CoPlan
         self.class.new(body).annotate(doc, tables_only: true)
         doc.css("[data-source-target]").each do |cell|
           nested = JSON.parse(cell["data-source-target"])
+          # Use the signed span, which includes delimiters for empty cells.
+          # These offsets index the browser's UTF-16 source text.
+          cell["data-markdown-from"], cell["data-markdown-to"] = nested.values_at("start", "end").map do |offset|
+            (body[0, offset].encode("UTF-16LE").bytesize / 2).to_s
+          end
           from = mapping.fetch(nested.fetch("start"))
           to = mapping.fetch(nested.fetch("end") - 1) + 1
           cell["data-source-target"] = target("table_cell", from, to, nested.fetch("label")).to_json

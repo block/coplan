@@ -569,6 +569,7 @@ module CoPlan
         range = Plans::SourceTargets.char_range(element["data-sourcepos"], lines, offsets)
         element.remove_attribute("data-sourcepos")
         next unless range
+        next if element["data-markdown-from"]
 
         element["data-markdown-from"], element["data-markdown-to"] = range.map { |offset| utf16.call(offset).to_s }
       end
@@ -578,9 +579,10 @@ module CoPlan
     # Reuse the parser-backed source spans used by writing provenance. A
     # visible entity or escape can cover several source characters; searching
     # raw source for visible letters loses those boundaries (and can match a
-    # link URL or an earlier formatted copy instead).
+    # link URL or an earlier formatted copy instead). Image alt text has no
+    # DOM text node; footnote numbers are generated UI. Neither is a candidate.
     def markdown_block_text_map(body)
-      text, _, spans = Plans::MarkdownTextExtractor.call(body, source_spans: true)
+      text, _, spans = Plans::MarkdownTextExtractor.call(body, source_spans: true, exclude_nodes: %i[image footnote_reference])
       utf16_offsets = [ 0 ]
       body.each_char { |char| utf16_offsets << utf16_offsets.last + (char.ord > 0xffff ? 2 : 1) }
       browser_spans = []

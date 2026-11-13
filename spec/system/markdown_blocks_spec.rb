@@ -312,13 +312,58 @@ RSpec.describe "Markdown blocks", type: :system do
     expect(page).to have_no_css("dialog.expander[open]")
     within(block) { click_button "Source" }
     expect(page).to have_css(".markdown-block pre mark", text: "**3**")
-    first(".markdown-block pre mark", text: "3").click
+    page.driver.browser.action.send_keys("j").perform
     expect(page).to have_css(".thread-popover:popover-open", text: "Check the web budget")
     page.driver.browser.action.send_keys(:escape).perform
 
     CoPlan::Plans::ReplaceContent.call(plan: table_plan, new_content: "Intro.\n\n#{table_plan.current_content}",
       base_revision: table_plan.current_revision, actor_type: "human", actor_id: author.id)
     expect(thread.reload).not_to be_out_of_date
+  end
+
+  it "maps visible repetitions after image alt text and generated footnote numbers" do
+    sample = CoPlan::Plans::Create.call(title: "Visible text", user: author, visibility: "published", actor_type: "human",
+      content: "# Visible text\n\n```md\n![Status](https://example.com/status.png) Status\n\nFoo[^n]1\n\n[^n]: A note.\n```\n")
+    visit plan_page_path(sample)
+    expect(page).to have_css(".markdown-block code.hljs", visible: :all)
+    mapped = page.evaluate_async_script(<<~JS)
+      const done = arguments[arguments.length - 1];
+      import("coplan/markdown_blocks").then(({ sourceRangeFor, sourceOffset }) => {
+        const block = document.querySelector(".markdown-block");
+        const paragraphs = block.querySelectorAll(".markdown-block__rendered > p");
+        done(Array.from(paragraphs).map(p => {
+          const node = p.lastChild;
+          const range = document.createRange();
+          range.setStart(node, node.textContent.search(/\\S/)); range.setEnd(node, node.length);
+          const mapped = sourceRangeFor(range);
+          return mapped && { text: mapped.toString(), offset: sourceOffset(block, mapped.startContainer, mapped.startOffset) };
+        }));
+      }).catch(error => done({ error: error.message }));
+    JS
+    body = sample.current_content.split("```md\n").last
+    expect(mapped).to eq([
+      { "text" => "Status", "offset" => body.index(" Status") + 1 },
+      { "text" => "1", "offset" => body.index("]1") + 1 }
+    ])
+  end
+
+  it "highlights an empty draft cell's delimiters and navigates to it in Source" do
+    sample = CoPlan::Plans::Create.call(title: "Empty cell", user: author, visibility: "published", actor_type: "human",
+      content: "# Empty cell\n\n```md\n🚀\n\n| A | B |\n|---|---|\n| Web ||\n```\n")
+    visit plan_page_path(sample)
+    cell = all(".markdown-block tbody td").last
+    cell.click
+    cell.send_keys("c")
+    panel = find(".source-comments:popover-open")
+    panel.fill_in "Write a comment...", with: "Fill this cell"
+    panel.click_button "Comment", exact: true
+    expect(panel).to have_text("Fill this cell")
+    expect(sample.comment_threads.last.anchor_text).to eq("||")
+    page.driver.browser.action.send_keys(:escape).perform
+    within(block) { click_button "Source" }
+    expect(page).to have_css(".markdown-block pre mark", text: "||")
+    page.driver.browser.action.send_keys("k").perform
+    expect(page).to have_css(".thread-popover:popover-open", text: "Fill this cell")
   end
 
   it "maps repeated words after formatting and complete entities without guessing" do

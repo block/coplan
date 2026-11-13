@@ -12,13 +12,14 @@ module CoPlan
     #   # stripped  => "Hello world"
     #   # pos_map   => [0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12]
     class MarkdownTextExtractor
-      def self.call(content, exclude_nonprose: false, source_spans: false)
-        new(content, exclude_nonprose:, source_spans:).call
+      def self.call(content, exclude_nonprose: false, source_spans: false, exclude_nodes: [])
+        new(content, exclude_nonprose:, source_spans:, exclude_nodes:).call
       end
 
-      def initialize(content, exclude_nonprose: false, source_spans: false)
+      def initialize(content, exclude_nonprose: false, source_spans: false, exclude_nodes: [])
         @content = content.to_s.include?("::: {.presentation") ? ContentRegions::Split.call(content).canonical_source : content
         @exclude_nonprose = exclude_nonprose
+        @exclude_nodes = exclude_nodes
         @source_lines = @content.lines if exclude_nonprose || source_spans
         @source_spans = [] if source_spans
         if source_spans
@@ -85,6 +86,7 @@ module CoPlan
         prev_was_block = false
 
         node.each do |child|
+          next if @exclude_nodes.include?(child.type)
           next if @exclude_nonprose && nonprose?(child)
           # Math is an atomic region. The reader sees KaTeX's typeset glyphs,
           # which spell nothing in the source, so neither side of comment
