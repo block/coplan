@@ -92,6 +92,10 @@ runs once in its original defined order.
 
 ## Run locally
 
+Browser specs share the synchronization setup described in
+[Browser test synchronization](BROWSER_TESTS.md), including explicit manual mode
+for tests that inspect unfinished requests or gestures.
+
 Preview a browser shard without a database or Rails:
 
 ```sh

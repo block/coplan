@@ -154,7 +154,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(task.reload).to be_pending
   end
 
-  it "autosaves the latest checkbox choice without save text or blocking more clicks", :review_reset_policy do
+  it "autosaves the latest checkbox choice without save text or blocking more clicks", :review_reset_policy, browser_sync: :manual do
     sign_in_browser(author)
     open_review_settings
     page.execute_script(<<~JS)
@@ -241,7 +241,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(plan.reload.reset_reviews_on_change).to be(false)
   end
 
-  it "replays another tab's policy invalidation after a delayed save response", :review_reset_policy do
+  it "replays another tab's policy invalidation after a delayed save response", :review_reset_policy, browser_sync: :manual do
     sign_in_browser(author)
     open_review_settings
     page.execute_script(<<~JS)
@@ -271,7 +271,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_no_css(".review-reset-policy__status[data-state='saved']")
   end
 
-  it "keeps a newer off choice when the first off request fails", :review_reset_policy do
+  it "keeps a newer off choice when the first off request fails", :review_reset_policy, browser_sync: :manual do
     sign_in_browser(author)
     open_review_settings
     page.execute_script(<<~JS)
@@ -312,7 +312,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
   end
 
   [ true, false ].each do |newer_choice|
-      it "fences a lost older write with newer input=#{newer_choice}", :review_reset_policy do
+      it "fences a lost older write with newer input=#{newer_choice}", :review_reset_policy, browser_sync: :manual do
       sign_in_browser(author)
       open_review_settings
       page.execute_script(<<~JS, newer_choice)
@@ -347,7 +347,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
       expect(plan.reload.reset_reviews_on_change).to be(true)
     end
   end
-  it "keeps a review refresh when policy toggles cancel out", :review_reset_policy do
+  it "keeps a review refresh when policy toggles cancel out", :review_reset_policy, browser_sync: :manual do
     sign_in_browser(author)
     open_review_settings
     allow(CoPlan::Broadcaster).to receive(:custom_action_to)
@@ -376,7 +376,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
   end
 
   [ "write body", "readback" ].each do |stall|
-    it "releases autosave after a stalled #{stall} and allows retry", :review_reset_policy do
+    it "releases autosave after a stalled #{stall} and allows retry", :review_reset_policy, browser_sync: :manual do
       sign_in_browser(author)
       open_review_settings
       page.execute_script(<<~JS, stall)
@@ -406,7 +406,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
   end
 
   [ true, false ].product(%w[accepted rejected lost committed_lost]).each do |destination_changes, outcome|
-    it "flushes a queued policy after a #{outcome} save with destination changes=#{destination_changes}", :review_policy_disconnect do
+    it "flushes a queued policy after a #{outcome} save with destination changes=#{destination_changes}", :review_policy_disconnect, browser_sync: :manual do
       sign_in_browser(author)
       open_review_settings
       page.execute_script(<<~JS, outcome)
@@ -481,7 +481,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
-  it "does not retry an obsolete policy after Turbo navigation", :review_policy_disconnect do
+  it "does not retry an obsolete policy after Turbo navigation", :review_policy_disconnect, browser_sync: :manual do
     sign_in_browser(author)
     open_review_settings
     page.execute_script(<<~JS)
@@ -557,7 +557,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     expect(page).to have_css(".review-management[open]")
   end
 
-  it "shows a rejected review and releases submission while the controls refresh stalls", :review_refresh_failures do
+  it "shows a rejected review and releases submission while the controls refresh stalls", :review_refresh_failures, browser_sync: :manual do
     within(".review-tray") { click_button "Approve", exact: true }
     page.execute_script(<<~JS)
       const root = document.getElementById('plan-review-controls')
@@ -783,7 +783,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
   end
 
   [ false, true ].each do |legacy|
-    it "does not apply a delayed #{legacy ? 'reassignment' : 'removal'} discussion refresh to another plan", :review_navigation do
+    it "does not apply a delayed #{legacy ? 'reassignment' : 'removal'} discussion refresh to another plan", :review_navigation, browser_sync: :manual do
       CoPlan::Reviews::Respond.call(request: task, actor: reviewer, revision: 1, decision: "approved", note: "Plan A review discussion")
       CoPlan::Reviews::Withdraw.call(request: task, actor: author) if legacy
       destination = create(:plan, :published, created_by_user: author, title: "Destination plan")
@@ -859,7 +859,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
-  it "keeps an in-flight submission bound to the removed request", :review_readdition do
+  it "keeps an in-flight submission bound to the removed request", :review_readdition, browser_sync: :manual do
     within(".review-tray") { click_button "Request changes", exact: true }
     fill_in "Public review comment", with: "Feedback submitted before removal", enable_aria_label: true
     pause_review_refreshes
@@ -939,7 +939,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
   end
 
   [ false, true ].each do |saved|
-    it "invalidates an approval removed #{saved ? 'after' : 'before'} its in-flight submission is saved", :approval_reassignment do
+    it "invalidates an approval removed #{saved ? 'after' : 'before'} its in-flight submission is saved", :approval_reassignment, browser_sync: :manual do
       within(".review-tray") { click_button "Approve", exact: true }
       fill_in "Public note", with: "An approval sent before removal"
       pause_review_refreshes
@@ -986,7 +986,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
-  it "preserves feedback when a saved result arrives after reassignment", :review_delivery do
+  it "preserves feedback when a saved result arrives after reassignment", :review_delivery, browser_sync: :manual do
     expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all)
     hold_review_delivery("result", controls: true)
     within(".review-tray") { click_button "Request changes", exact: true }
@@ -1011,7 +1011,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
   end
 
   %w[approved changes_requested].each do |decision|
-    it "discards stale #{decision} comment HTML while replacement controls are delayed", :review_delivery do
+    it "discards stale #{decision} comment HTML while replacement controls are delayed", :review_delivery, browser_sync: :manual do
       expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all)
       hold_review_delivery("comments", controls: true)
       if decision == "approved"
@@ -1048,7 +1048,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
     end
   end
 
-  it "keeps another reviewer's past-review label despite a delayed comments response", :review_delivery do
+  it "keeps another reviewer's past-review label despite a delayed comments response", :review_delivery, browser_sync: :manual do
     other = create(:coplan_user)
     other_task = CoPlan::Reviews::Request.call(plan: plan, reviewer: other, actor: author)
     CoPlan::Reviews::Respond.call(request: other_task, actor: other, revision: 1, decision: "approved", note: "Other reviewer approval")
@@ -1119,7 +1119,7 @@ RSpec.describe "Plan discussion and approval", type: :system do
   end
 
   [ [ "Request another review", false ], [ "Remove reviewer", true ] ].each do |action, failed|
-    it "keeps reviewer-update progress visible for #{action}", :review_interactions do
+    it "keeps reviewer-update progress visible for #{action}", :review_interactions, browser_sync: :manual do
       sign_in_browser(author)
       click_button "More actions"
       within("#plan-menu") { click_button "Manage reviewers" }

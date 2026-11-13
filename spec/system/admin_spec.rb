@@ -13,6 +13,7 @@ RSpec.describe "Coplan administration", type: :system do
     click_button "Menu"
     click_link "Administration"
     expect(page).to have_current_path("/_/admin")
+    expect(page.evaluate_script("typeof CapybaraLockstep")).to eq("object")
     expect(page).to have_content("Notification delivery · last 7 days")
 
     click_link "View delivery attempts"

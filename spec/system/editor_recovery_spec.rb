@@ -105,7 +105,7 @@ RSpec.describe "Editor draft recovery", type: :system do
     expect(plan.reload.current_content).to eq("# Recovery\n\nSaved content")
   end
 
-  it "waits for an in-flight save before installing a legacy draft that needs consent" do
+  it "waits for an in-flight save before installing a legacy draft that needs consent", browser_sync: :manual do
     store(legacy_key, { content: "Legacy content", revision: 1 })
     visit plan_edit_page_path(plan)
     rich
