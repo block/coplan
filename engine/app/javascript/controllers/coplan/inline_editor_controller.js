@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { captureViewport, restoreViewport } from "coplan/viewport_anchor"
 import { captureDeckPositions, restoreDeckPositions } from "coplan/deck_state"
+import { captureMarkdownBlockViews, restoreMarkdownBlockViews } from "coplan/markdown_block_state"
 
 // Keeps the reading page in place while the existing editor mounts on demand.
 // The server-rendered body stays available behind the editor and is refreshed
@@ -90,9 +91,11 @@ export default class extends Controller {
       const html = await response.text()
       if (!await this.refreshThreads()) throw new Error("Could not refresh comments. Try Done again")
       const body = this.readerTarget.querySelector("#plan-content-body")
+      const markdownViews = captureMarkdownBlockViews(body)
       const deckPositions = captureDeckPositions(body)
       body.innerHTML = html
       restoreDeckPositions(body, deckPositions)
+      restoreMarkdownBlockViews(body, markdownViews)
       body.setAttribute("data-coplan--live-update-revision-value", revision)
       this.updateRevision(Number(revision))
       this.latestSnapshot = event.detail.snapshot

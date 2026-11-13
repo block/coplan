@@ -12,6 +12,7 @@ RSpec.describe "Markdown blocks", type: :system do
       **Progress**
 
       * The rollout is done. See [release notes](https://example.com/r/42) for details.
+        * A nested detail.
       * Hardening continues.
 
       ## Plans
@@ -243,5 +244,105 @@ RSpec.describe "Markdown blocks", type: :system do
     expect(thread.anchor_text).to eq("Shipped** the beta.")
     expect(page).to have_css(".markdown-block__rendered strong mark.anchor-highlight", text: "Shipped", wait: 10)
     expect(marked_text(".markdown-block__rendered")).to eq("Shipped the beta.")
+  end
+
+  it "keeps Source through an edit to the draft and insertion of an identical draft" do
+    visit plan_page_path(plan)
+    within(block) { click_button "Source" }
+    updated = content.sub("Ship the cleanup.", "Ship the cleanup tomorrow.")
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: updated,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    expect(page).to have_css(".markdown-block pre", text: "cleanup tomorrow", visible: true)
+
+    duplicate = updated[/```markdown.*?```/m]
+    updated = "#{duplicate}\n\n#{updated}"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: updated,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    expect(page).to have_css(".markdown-block", count: 2)
+    expect(all(".markdown-block").first).to have_css("button[aria-pressed=true]", text: "Rendered")
+    expect(all(".markdown-block").last).to have_css("button[aria-pressed=true]", text: "Source")
+  end
+
+  it "comments across the boundary between a rendered draft and ordinary prose" do
+    visit plan_page_path(plan)
+    select_in("#plan-content-body", "Ship the cleanup.", 0, "outside the draft", 17)
+    comment_on_selection("Review the ending together")
+    thread = plan.comment_threads.last
+    expect(thread.anchor_start).to eq(content.index("Ship the cleanup."))
+    expect(thread.anchor_end).to eq(content.index("outside the draft") + 17)
+  end
+
+  it "comments on expanded draft table cells and shows the discussion in Source" do
+    table_plan = CoPlan::Plans::Create.call(title: "Draft table", user: author, visibility: "published", actor_type: "human",
+      content: "# Draft table\n\n```md\n| Client | Attempts |\n|---|---|\n| Mobile | **3** |\n| Web | **3** |\n```\n")
+    visit plan_page_path(table_plan)
+    cell = all(".markdown-block tbody tr").last.all("td").last
+    cell.double_click
+    expect(page).to have_css("dialog.expander[open]")
+    selected = find("dialog td.is-cursor")
+    selected.send_keys("c")
+    panel = find(".source-comments:popover-open")
+    expect(panel).to have_css("textarea:focus")
+    panel.fill_in "Write a comment...", with: "Check the web budget"
+    panel.click_button "Comment", exact: true
+    expect(panel).to have_text("Check the web budget")
+    thread = table_plan.comment_threads.last
+    expect(thread.anchor_kind).to eq("table_cell")
+    expect(thread.anchor_start).to eq(table_plan.current_content.rindex(" **3** "))
+    page.driver.browser.action.send_keys(:escape).perform
+    page.driver.browser.action.send_keys(:escape).perform
+    expect(page).to have_no_css("dialog.expander[open]")
+    within(block) { click_button "Source" }
+    expect(page).to have_css(".markdown-block pre mark", text: "**3**")
+    first(".markdown-block pre mark", text: "3").click
+    expect(page).to have_css(".thread-popover:popover-open", text: "Check the web budget")
+    page.driver.browser.action.send_keys(:escape).perform
+
+    CoPlan::Plans::ReplaceContent.call(plan: table_plan, new_content: "Intro.\n\n#{table_plan.current_content}",
+      base_revision: table_plan.current_revision, actor_type: "human", actor_id: author.id)
+    expect(thread.reload).not_to be_out_of_date
+  end
+
+  it "maps repeated words after formatting and complete entities without guessing" do
+    sample = CoPlan::Plans::Create.call(title: "Exact source", user: author, visibility: "published", actor_type: "human",
+      content: "# Exact source\n\n```markdown\n**word word** word\n\nCopyright &#169; &amp; \\*ready\\* 🚀\n```\n")
+    visit plan_page_path(sample)
+    expect(page).to have_css(".markdown-block code.hljs", visible: :all)
+
+    mapped = page.evaluate_async_script(<<~JS)
+      const done = arguments[arguments.length - 1];
+      import("coplan/markdown_blocks").then(({ sourceRangeFor }) => {
+        const pane = document.querySelector(".markdown-block__rendered");
+        const paragraphs = pane.querySelectorAll("p");
+        const result = [];
+        const select = (node, from, to) => {
+          const range = document.createRange();
+          range.setStart(node, from); range.setEnd(node, to);
+          const mapped = sourceRangeFor(range);
+          result.push(mapped && { text: mapped.toString(), offset: mapped.startOffset });
+        };
+        const tail = paragraphs[0].lastChild;
+        select(tail, 1, 5);
+        const entity = paragraphs[1].firstChild;
+        select(entity, entity.textContent.indexOf("©"), entity.textContent.indexOf("©") + 1);
+        select(entity, entity.textContent.indexOf("&"), entity.textContent.indexOf("&") + 1);
+        done(result);
+      }).catch(error => done({ error: error.message }));
+    JS
+    expect(mapped.map { |entry| entry && entry["text"] }).to eq([ "word", "&#169;", "&amp;" ])
+    # The final copy must map past the bold word, not back to the first copy.
+    # Compare the source range directly; syntax highlighting may split nodes.
+    page.execute_script(<<~JS)
+      const node = document.querySelector(".markdown-block__rendered p").lastChild;
+      const range = document.createRange(); range.setStart(node, 1); range.setEnd(node, 5);
+      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+      document.querySelector('[data-coplan--text-selection-target="content"]').dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    JS
+    page.driver.browser.action.send_keys("c").perform
+    panel = find(".comment-window:popover-open")
+    panel.find("textarea").fill_in with: "The final word"
+    panel.find("textarea").send_keys(:enter)
+    expect(page).to have_css(".thread-popover", text: "The final word", visible: :all)
+    expect(sample.comment_threads.last.anchor_start).to eq(sample.current_content.index("** word") + 3)
   end
 end

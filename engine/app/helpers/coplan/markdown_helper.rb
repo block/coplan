@@ -491,7 +491,10 @@ module CoPlan
       return doc if pres.empty?
 
       positions = markdown_block_positions(content)
-      counts = pres.map { |pre| pre["data-sourcepos"] }.tally
+      source_targets = Plans::SourceTargets.new(content)
+      # Count excluded deck fences too: authored HTML must not borrow a
+      # real fence's position merely because that fence stays literal.
+      counts = doc.css("pre[data-sourcepos]").map { |pre| pre["data-sourcepos"] }.tally
       pres.each_with_index do |pre, index|
         next unless positions.include?(pre["data-sourcepos"]) && counts[pre["data-sourcepos"]] == 1
 
@@ -511,7 +514,8 @@ module CoPlan
         bar.add_child(views)
         rendered = doc.document.create_element("div", class: "markdown-block__rendered", "data-markdown-block-rendered" => "",
           "data-coplan--markdown-block-target" => "rendered")
-        rendered.inner_html = render_markdown_block_body(code.text, index + 1)
+        rendered.inner_html = render_markdown_block_body(code.text, index + 1, source_targets: source_targets, position: pre["data-sourcepos"])
+        rendered["data-markdown-map"] = markdown_block_text_map(code.text).to_json
 
         pre.add_previous_sibling(block)
         pre["hidden"] = ""
@@ -538,17 +542,21 @@ module CoPlan
 
     # A block's body renders read-only: no task toggles (their lines are
     # not document lines), no outline headings or heading ids (they would
-    # collide with the document's), no table expander, and footnotes scoped
-    # to the block.
-    def render_markdown_block_body(body, number)
-      # Tables stay plain: the expanded table view has no way to comment on
-      # a draft's cells, and in the pane a selection maps to the source.
-      html = render_markdown(body, interactive: false, retain_sourcepos: true, footnote_prefix: "markdown-block-#{number}",
-        data_tables: false, expandable_images: true)
+    # collide with the document's), and footnotes scoped to the block.
+    def render_markdown_block_body(body, number, source_targets:, position:)
+      html = render_markdown(body, interactive: false, retain_sourcepos: true, footnote_prefix: "markdown-block-#{number}")
       wrapper = Nokogiri::HTML::DocumentFragment.parse(html).element_children.find { |node| node.name == "div" && node.classes.include?("markdown-rendered") }
       inner = Nokogiri::HTML::DocumentFragment.parse(wrapper ? wrapper.inner_html : html)
+      source_targets.annotate_markdown_block(inner, body, position)
       inner.css(%w[h1 h2 h3 h4 h5 h6].map { |heading| "#{heading} a.anchor[id]" }.join(", ")).each do |anchor|
         anchor.remove if anchor.text.strip.empty?
+      end
+      # Keep generated, block-scoped footnote targets. Other authored ids
+      # could steal the enclosing document's outline or fragment targets.
+      inner.css("[id]").each do |element|
+        next if element["id"].start_with?("markdown-block-#{number}-fn")
+
+        element.remove_attribute("id")
       end
       lines = body.lines
       offsets = [ 0 ]
@@ -565,6 +573,23 @@ module CoPlan
         element["data-markdown-from"], element["data-markdown-to"] = range.map { |offset| utf16.call(offset).to_s }
       end
       inner.to_html
+    end
+
+    # Reuse the parser-backed source spans used by writing provenance. A
+    # visible entity or escape can cover several source characters; searching
+    # raw source for visible letters loses those boundaries (and can match a
+    # link URL or an earlier formatted copy instead).
+    def markdown_block_text_map(body)
+      text, _, spans = Plans::MarkdownTextExtractor.call(body, source_spans: true)
+      utf16_offsets = [ 0 ]
+      body.each_char { |char| utf16_offsets << utf16_offsets.last + (char.ord > 0xffff ? 2 : 1) }
+      browser_spans = []
+      text.each_char.with_index do |char, index|
+        from, to = spans.fetch(index)
+        span = from.negative? ? nil : [ utf16_offsets.fetch(from), utf16_offsets.fetch(to) ]
+        (char.ord > 0xffff ? 2 : 1).times { browser_spans << span }
+      end
+      { text: text, spans: browser_spans }
     end
 
     # Rewrites commonmarker's per-document footnote ids (#fn-N / #fnref-N)

@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { commentWindowTop } from "coplan/comment_window"
 import { revealSections } from "coplan/collapsed_sections"
-import { CHROME_SELECTOR, RENDERED_SELECTOR, markRendered, renderedBlockForSource, sourceOffset, sourceRangeFor } from "coplan/markdown_blocks"
+import { CHROME_SELECTOR, RENDERED_SELECTOR, markRendered, markSource, renderedBlockForSource, sourceOffset, sourceRangeFor } from "coplan/markdown_blocks"
 
 // Elements whose text is never rendered but still appears in textContent —
 // e.g. the <style> sheet Mermaid embeds inside its SVG. Their text must stay
@@ -785,7 +785,13 @@ export default class extends Controller {
     this.highlightedThreadIds = new Set()
     const threads = this.element.querySelectorAll("[data-anchor-text]")
     threads.forEach(thread => {
-      if (thread.dataset.anchorKind || thread.dataset.threadOutOfDate === "true") return
+      if (thread.dataset.threadOutOfDate === "true") return
+      const sourceCell = thread.dataset.anchorKind === "table_cell" ? Array.from(this.contentTarget.querySelectorAll("[data-markdown-block-rendered] [data-source-target]")).find(cell => {
+        const target = JSON.parse(cell.dataset.sourceTarget)
+        return target.digest === thread.dataset.anchorDigest && String(target.start) === thread.dataset.anchorStart && String(target.end) === thread.dataset.anchorEnd
+      }) : null
+      const sourceBlock = sourceCell?.closest("[data-markdown-block]")
+      if (thread.dataset.anchorKind && (!sourceBlock || sourceBlock.querySelector(":scope > [data-markdown-block-source]").hidden)) return
       const anchor = thread.dataset.anchorText
       const occurrence = thread.dataset.anchorOccurrence
       const status = thread.dataset.threadStatus || "open"
@@ -795,7 +801,9 @@ export default class extends Controller {
         const isOpen = status === "open"
         const statusClass = isOpen ? "anchor-highlight--open" : "anchor-highlight--resolved"
         const classes = `anchor-highlight ${statusClass}`.trim()
-        const marks = this.findAndHighlightAll(anchor, occurrence, classes)
+        const marks = sourceBlock
+          ? markSource(sourceBlock, Number(sourceCell.dataset.markdownFrom), Number(sourceCell.dataset.markdownTo), classes)
+          : this.findAndHighlightAll(anchor, occurrence, classes)
 
         if (marks.length > 0 && threadId) {
           marks.forEach(mark => {

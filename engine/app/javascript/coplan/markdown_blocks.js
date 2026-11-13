@@ -6,12 +6,11 @@
 // rendered pane can become a source selection, and a highlight in the
 // source can be drawn over the rendered text when that view is showing.
 //
-// Positions are character offsets into the block's body: the text of the
-// source <code>. The server stamps rendered elements with the body range
-// they came from (data-markdown-from/to). Inside one element, each text
-// node is found in that range from a running cursor, so the text of a link
-// maps to its label and not its URL. Characters with no source counterpart,
-// such as footnote numbers, stay unmapped.
+// Positions use UTF-16 offsets into the source <code>. The server supplies
+// each element's source range and the shared parser's visible text/source
+// spans. Matching within those ranges excludes URLs and markup, preserves
+// whole entities and escapes, and advances across nested formatting.
+// Generated text such as footnote numbers stays unmapped.
 
 export const BLOCK_SELECTOR = "[data-markdown-block]"
 export const RENDERED_SELECTOR = "[data-markdown-block-rendered]"
@@ -19,9 +18,6 @@ export const CHROME_SELECTOR = "[data-markdown-block-chrome]"
 const SOURCE_SELECTOR = ":scope > pre[data-markdown-block-source] > code"
 // Text in the rendered pane that never maps to source.
 const UNMAPPED_SELECTOR = "style, script, noscript, svg, button, [data-math-style], .footnotes-title, .footnote-backref, .footnote-ref, [data-footnote-ref]"
-// How far past the cursor a single unmatched character may be found.
-// Covers escapes and entities without letting stray letters jump ahead.
-const CHARACTER_WINDOW = 8
 
 const elementOf = node => node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement
 
@@ -73,65 +69,52 @@ function sourcePoint(block, offset, { end = false } = {}) {
   return last ? { node: last.node, offset: last.node.textContent.length } : null
 }
 
-// Every rendered text node with the body offset of each character, or
+// Every rendered text node with the source span of each UTF-16 unit, or
 // null for a character with no source counterpart.
 function renderedMap(block) {
   const pane = rendered(block)
-  const source = sourceNodes(block).map(({ node }) => node.textContent).join("")
+  const mapping = JSON.parse(pane.dataset.markdownMap)
   const cursors = new Map()
-  const stateFor = owner => {
-    if (!cursors.has(owner)) {
-      const from = Number.parseInt(owner.dataset.markdownFrom, 10)
-      const to = Math.min(Number.parseInt(owner.dataset.markdownTo, 10), source.length)
-      cursors.set(owner, { cursor: from, to })
-    }
-    return cursors.get(owner)
-  }
   const entries = []
   const walker = document.createTreeWalker(pane, NodeFilter.SHOW_TEXT)
   let node
   while ((node = walker.nextNode())) {
     const text = node.textContent
     const owner = node.parentElement.closest("[data-markdown-from]")
-    if (!text.trim() || node.parentElement.closest(UNMAPPED_SELECTOR) || !owner || !pane.contains(owner)) {
-      entries.push({ node, offsets: new Array(text.length).fill(null) })
-      continue
+    const spans = new Array(text.length).fill(null)
+    entries.push({ node, spans })
+    if (!text.trim() || node.parentElement.closest(UNMAPPED_SELECTOR) || !owner || !pane.contains(owner)) continue
+
+    const from = Math.max(Number(owner.dataset.markdownFrom), cursors.get(owner) || 0)
+    const to = Number(owner.dataset.markdownTo)
+    // Search only parser-produced visible characters in this element's
+    // source range. URLs, markup, and HTML attributes cannot be candidates.
+    const candidates = [], characters = []
+    mapping.spans.forEach((span, index) => {
+      if (!span || span[0] < from || span[1] > to || /\s/u.test(mapping.text[index])) return
+      candidates.push(span)
+      characters.push(mapping.text[index])
+    })
+    // The renderer adds layout newlines around nested lists and blocks.
+    // Like writing provenance, align visible characters and let the mapped
+    // endpoints retain the original source whitespace between them.
+    const visible = [], offsets = []
+    for (let i = 0; i < text.length; i++) {
+      if (/\s/u.test(text[i])) continue
+      visible.push(text[i]); offsets.push(i)
     }
-    const state = stateFor(owner)
-    entries.push({ node, offsets: align(text, source, state) })
-    // Text after a formatted child is searched past it. In `**foo bar** bar`
-    // the paragraph's " bar" must not match inside the bold phrase.
-    for (let parent = owner.parentElement?.closest("[data-markdown-from]"); parent && pane.contains(parent);
-      parent = parent.parentElement?.closest("[data-markdown-from]")) {
-      const ancestor = stateFor(parent)
-      ancestor.cursor = Math.max(ancestor.cursor, state.cursor)
+    const found = characters.join("").indexOf(visible.join(""))
+    if (found < 0) continue
+    offsets.forEach((offset, index) => { spans[offset] = candidates[found + index] })
+
+    // A parent's following text must start after its nested link/emphasis,
+    // including when marks have split one text node into several nodes.
+    const end = spans[offsets.at(-1)][1]
+    for (let element = owner; element && pane.contains(element); element = element.parentElement) {
+      cursors.set(element, Math.max(cursors.get(element) || 0, end))
     }
   }
   return entries
-}
-
-function align(text, source, state) {
-  const offsets = new Array(text.length).fill(null)
-  if (!Number.isFinite(state.cursor) || !Number.isFinite(state.to)) return offsets
-
-  const found = source.indexOf(text, state.cursor)
-  if (found >= 0 && found + text.length <= state.to) {
-    for (let i = 0; i < text.length; i++) offsets[i] = found + i
-    state.cursor = found + text.length
-    return offsets
-  }
-  for (let i = 0; i < text.length; i++) {
-    const whitespace = /\s/.test(text[i])
-    const limit = Math.min(state.to, state.cursor + CHARACTER_WINDOW)
-    for (let j = state.cursor; j < limit; j++) {
-      if (whitespace ? /\s/.test(source[j]) : source[j] === text[i]) {
-        offsets[i] = j
-        state.cursor = j + 1
-        break
-      }
-    }
-  }
-  return offsets
 }
 
 // Turns the parts of `range` that fall in a rendered pane into the matching
@@ -163,15 +146,15 @@ export function sourceRangeFor(range) {
 function boundaryOffset(block, range, edge) {
   const entries = renderedMap(block).filter(({ node }) => range.intersectsNode(node))
   const ordered = edge === "start" ? entries : entries.reverse()
-  for (const { node, offsets } of ordered) {
+  for (const { node, spans } of ordered) {
     let from = 0
-    let to = offsets.length
+    let to = spans.length
     if (node === range.startContainer) from = range.startOffset
     if (node === range.endContainer) to = range.endOffset
     if (edge === "start") {
-      for (let i = from; i < to; i++) if (offsets[i] !== null) return offsets[i]
+      for (let i = from; i < to; i++) if (spans[i] !== null) return spans[i][0]
     } else {
-      for (let i = to - 1; i >= from; i--) if (offsets[i] !== null) return offsets[i] + 1
+      for (let i = to - 1; i >= from; i--) if (spans[i] !== null) return spans[i][1]
     }
   }
   return null
@@ -181,19 +164,42 @@ function boundaryOffset(block, range, edge) {
 // Marks never span text nodes, so the rendered structure stays intact.
 export function markRendered(block, from, to, className) {
   const marks = []
-  for (const { node, offsets } of renderedMap(block)) {
+  for (const { node, spans } of renderedMap(block)) {
     let first = -1
     let last = -1
-    offsets.forEach((offset, index) => {
-      if (offset === null || offset < from || offset >= to) return
+    spans.forEach((span, index) => {
+      if (span === null || span[1] <= from || span[0] >= to) return
       if (first === -1) first = index
       last = index
     })
     if (first === -1) continue
+    // Keep the visible gap between highlighted inline nodes. Layout-only
+    // whitespace has no source span, but belongs to a range crossing it.
+    while (first > 0 && /\s/u.test(node.textContent[first - 1]) && from < spans[first]?.[0]) first--
+    while (last + 1 < spans.length && /\s/u.test(node.textContent[last + 1]) && to > spans[last]?.[1]) last++
 
     const range = document.createRange()
     range.setStart(node, first)
     range.setEnd(node, last + 1)
+    const mark = document.createElement("mark")
+    mark.className = className
+    range.surroundContents(mark)
+    marks.push(mark)
+  }
+  return marks
+}
+
+// Structural table discussions use signed document ranges. Their rendered
+// cell also carries the corresponding body range, so Source can show the
+// same discussion without guessing which repeated cell text was selected.
+export function markSource(block, from, to, className) {
+  const marks = []
+  for (const { node, start } of sourceNodes(block)) {
+    const first = Math.max(0, from - start)
+    const last = Math.min(node.textContent.length, to - start)
+    if (last <= first) continue
+    const range = document.createRange()
+    range.setStart(node, first); range.setEnd(node, last)
     const mark = document.createElement("mark")
     mark.className = className
     range.surroundContents(mark)

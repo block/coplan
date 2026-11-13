@@ -72,19 +72,26 @@ reader to reopen the latest plan before posting.
 A `markdown` or `md` fence renders in the reading view as a Markdown block:
 the rendered draft, a Rendered / Source switch, and the literal source,
 hidden while Rendered shows. Each page load starts on Rendered. A live update
-keeps the view chosen on that page, including while an edit changes the block.
+keeps the view chosen on that page, including when the draft is edited.
+The existing live-update swap maps the block through the shared text diff
+before restoring the viewport.
 
-Markdown block comments are ordinary text comments with no `anchor_kind`.
+Text selections in Markdown blocks create ordinary comments with no `anchor_kind`.
+Table-cell comments use the existing signed `table_cell` targets, translated
+from the draft body into document source offsets. They work inline and in the
+expanded table; Source shows the same cell discussion on its literal text.
 The hidden source stays in the browser's anchor text model in both views, and
 the rendered pane stays out of it. This keeps occurrence counting the same as
 for any code block, on the client and in `MarkdownTextExtractor`.
 
 - The server marks each rendered element with the body range it came from
   (`data-markdown-from` and `data-markdown-to`, UTF-16 offsets into the
-  fence body, as browsers index strings). `coplan/markdown_blocks.js` finds
-  each rendered text node in its element's range, in order, so text after
-  `**bold**` is never matched inside it. Link text maps to its label, not its
-  URL. Footnote numbers and other generated text do not map.
+  fence body). The block also carries the parser-backed visible text and
+  complete source spans from `MarkdownTextExtractor`. `coplan/markdown_blocks.js`
+  matches each text node within its element's range and advances parent
+  cursors after nested formatting. Link URLs cannot match visible labels.
+  Entities and escapes map to their whole source spelling. Footnote
+  numbers and other generated text do not map.
 - A selection in the rendered draft becomes the source range from its first
   to its last mapped character. A selection across `**bold**` text or a link
   therefore stores the Markdown source of that passage.
@@ -93,9 +100,6 @@ for any code block, on the client and in `MarkdownTextExtractor`.
   either view shows in both.
 - A comment anchored only to text with no rendered form, such as part of a
   URL, is visible in Source only.
-- Tables in a draft stay plain, without the table expander. The expanded
-  view has no way to comment on a draft's cells. Select the cells in the
-  pane instead.
 - Only a fence the parser produced becomes a block. Authored HTML imitating
   one stays ordinary HTML. Fences inside slide decks, editor previews, and
   comments stay code blocks.

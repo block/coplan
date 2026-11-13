@@ -187,7 +187,7 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
       expect(doc.css("[data-sourcepos]")).to be_empty
     end
 
-    it "counts offsets in UTF-16 code units and leaves a block's tables plain" do
+    it "counts offsets in UTF-16 code units and wraps a block's tables once" do
       source = "```markdown\n\u{1F680} **Shipped**\n\n| A |\n| - |\n| b |\n\n![Chart](https://example.com/c.png)\n```\n"
       block = blocks(helper.render_content_regions(source)).first
       body = block.at_css("pre[data-markdown-block-source]").text
@@ -195,9 +195,10 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
       # The rocket is one Ruby character but two UTF-16 code units.
       expect(strong["data-markdown-from"]).to eq(body.index("**Shipped**").succ.to_s)
       expect(strong["data-markdown-to"]).to eq((body.index("**Shipped**") + 12).to_s)
-      # The table expander can't comment on a draft's cells, so it is left out.
-      expect(block.css("table").size).to eq(1)
-      expect(block.css(".data-grid")).to be_empty
+      # Signed source targets keep commenting available in the expander.
+      expect(block.css(".data-grid").size).to eq(1)
+      expect(block.css(".data-grid .data-grid")).to be_empty
+      expect(block.css("td[data-source-target]").size).to eq(1)
       expect(block.css(".image-frame").size).to eq(1)
     end
 
@@ -209,6 +210,23 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
       expect(blocks(helper.render_content_regions(copied))).to be_empty
       expect(blocks(helper.render_content_regions(draft, interactive: false))).to be_empty
       expect(blocks(helper.render_markdown(draft, interactive: false))).to be_empty
+    end
+
+    it "rejects authored HTML borrowing the position of an excluded slide fence" do
+      source = "::: {.presentation}\n\n# Slide\n\n```markdown\n**literal**\n```\n\n:::\n\n<pre lang=\"markdown\" data-sourcepos=\"5:1-7:3\"><code>**forged**</code></pre>\n"
+      expect(blocks(helper.render_content_regions(source))).to be_empty
+    end
+
+    it "keeps block footnotes distinct across deck regions and removes authored document ids" do
+      fence = "```md\nA note.[^n]\n\n[^n]: Local note.\n```\n"
+      source = "#{fence}\n::: {.presentation}\n\n# Slide\n\n:::\n\n#{fence}\n```md\n<h2 id=\"section-3-1\">Draft heading</h2>\n\n<span id=\"plan-title\">Draft text</span>\n```\n\n## 3.1 Actual section\n"
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source))
+      notes = doc.css(".markdown-block [data-footnote-ref]")
+      expect(notes.size).to eq(2)
+      expect(notes.map { |note| note["href"] }.uniq.size).to eq(2)
+      notes.each { |note| expect(note.ancestors(".markdown-block").first.at_css(note["href"])).to be_present }
+      expect(doc.css(".markdown-block h2[id], .markdown-block #plan-title")).to be_empty
+      expect(doc.css("#section-3-1").map { |node| node.text.strip }).to eq([ "3.1 Actual section" ])
     end
   end
 

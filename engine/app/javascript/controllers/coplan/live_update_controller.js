@@ -2,6 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 import { captureViewport, restoreViewport } from "coplan/viewport_anchor"
 import { renderedBlocks } from "coplan/content_sections"
 import { captureDeckPositions, restoreDeckPositions } from "coplan/deck_state"
+import { captureMarkdownBlockViews, restoreMarkdownBlockViews } from "coplan/markdown_block_state"
 
 /*
  * coplan--live-update
@@ -132,9 +133,11 @@ function mergeSectionUpdates(previous, incoming) {
 function applyContent(target, fragment, incomingRevision, changedKeys, sectionUpdate) {
   const viewport = captureViewport(target)
   const oldSections = snapshotSections(target, changedKeys)
+  const markdownViews = captureMarkdownBlockViews(target)
   const deckPositions = captureDeckPositions(target)
   target.replaceChildren(fragment)
   restoreDeckPositions(target, deckPositions)
+  restoreMarkdownBlockViews(target, markdownViews)
   if (incomingRevision) target.setAttribute("data-coplan--live-update-revision-value", String(incomingRevision))
   target.dispatchEvent(new CustomEvent("coplan:content-updated", {
     bubbles: true, detail: { keys: sectionUpdate?.keys || changedKeys, update: sectionUpdate }

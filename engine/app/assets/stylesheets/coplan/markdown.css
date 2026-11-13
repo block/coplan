@@ -299,6 +299,7 @@
 }
 
 .markdown-block__view:hover {
+  background: var(--color-interaction-hover-bg);
   color: var(--color-text);
 }
 

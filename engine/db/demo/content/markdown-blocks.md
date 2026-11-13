@@ -31,6 +31,9 @@ Post this to the project once the last ticket closes.
 
 ## Release note with a table and a footnote
 
+Double-click a cell to expand the table. Press C or choose Comment to discuss
+the selected cell, then switch the block to Source to see its source highlight.
+
 ```md
 ### Retry budget
 

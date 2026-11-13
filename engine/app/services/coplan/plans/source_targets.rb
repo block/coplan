@@ -49,10 +49,11 @@ module CoPlan
         # Raw HTML may contain data-sourcepos supplied by the author. Only
         # positions produced by the Markdown AST can become signed targets.
         @positions = Hash.new { |hash, key| hash[key] = Set.new }
+        @markdown_blocks = {}
         collect_positions(CoPlan::Markdown.parse(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }))
       end
 
-      def annotate(doc)
+      def annotate(doc, tables_only: false)
         rows = {}
         doc.css("table").each do |table|
           table.css("tr").each_with_index { |row, index| rows[row] = index + 1 }
@@ -82,6 +83,8 @@ module CoPlan
           cell["data-action"] = "click->coplan--source-comments#select keydown->coplan--source-comments#key"
         end
 
+        return doc if tables_only
+
         pres = doc.css('pre[lang="mermaid"][data-sourcepos]')
         pre_counts = pres.group_by { |pre| pre["data-sourcepos"] }
         pres.each do |pre|
@@ -102,12 +105,49 @@ module CoPlan
         doc
       end
 
+      # A rendered draft's cells use the same signed table targets as the
+      # document. Translate the nested parser's spans through stripped fence
+      # indentation, then bind the tokens to the entire current document.
+      def annotate_markdown_block(doc, body, position)
+        fence = @markdown_blocks[position]
+        return doc unless fence && fence[:body] == body
+
+        mapping = []
+        body.lines.each_with_index do |line, index|
+          source_line = fence[:line] + index
+          raw = @lines[source_line].to_s
+          return doc unless raw.chomp.end_with?(line.chomp)
+
+          first = @offsets[source_line] + raw.chomp.length - line.chomp.length
+          line.each_char.with_index { |_, offset| mapping << first + offset }
+        end
+        self.class.new(body).annotate(doc, tables_only: true)
+        doc.css("[data-source-target]").each do |cell|
+          nested = JSON.parse(cell["data-source-target"])
+          from = mapping.fetch(nested.fetch("start"))
+          to = mapping.fetch(nested.fetch("end") - 1) + 1
+          cell["data-source-target"] = target("table_cell", from, to, nested.fetch("label")).to_json
+        end
+        doc
+      end
+
       # Used after OT: a surviving range must still describe a selectable
       # element, rather than syntax that an edit elsewhere turned into prose.
       def ranges
         html = CoPlan::Markdown.to_html(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS,
           render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
         doc = annotate(Nokogiri::HTML.fragment(html))
+        @markdown_blocks.each do |position, fence|
+          nested_html = CoPlan::Markdown.to_html(fence[:body], options: { extension: MarkdownHelper::EXTENSION_OPTIONS,
+            render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
+          nested = Nokogiri::HTML.fragment(nested_html)
+          nested.css("[data-source-target], [data-source-targets]").each do |node|
+            node.remove_attribute("data-source-target")
+            node.remove_attribute("data-source-targets")
+          end
+          annotate_markdown_block(nested, fence[:body], position)
+          doc.add_child(nested)
+        end
         targets = doc.css("[data-source-target]").map { |node| JSON.parse(node["data-source-target"]) }
         doc.css("[data-source-targets]").each do |node|
           map = JSON.parse(node["data-source-targets"])
@@ -122,6 +162,11 @@ module CoPlan
         if %i[table_cell code_block].include?(node.type)
           p = node.source_position
           @positions[node.type] << "#{p[:start_line]}:#{p[:start_column]}-#{p[:end_line]}:#{p[:end_column]}"
+          if node.type == :code_block && MarkdownHelper::MARKDOWN_BLOCK_LANGUAGES.include?(node.fence_info.to_s.split.first&.downcase)
+            @markdown_blocks["#{p[:start_line]}:#{p[:start_column]}-#{p[:end_line]}:#{p[:end_column]}"] = {
+              body: node.string_content, line: p[:start_line]
+            }
+          end
         end
         node.each { |child| collect_positions(child) }
       end
