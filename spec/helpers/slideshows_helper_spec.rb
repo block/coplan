@@ -232,7 +232,8 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
         ```
       MD
       rendered = blocks(helper.render_content_regions(source)).first.at_css("[data-markdown-block-rendered]")
-      expect(rendered.css("span[data-markdown-from], div[data-markdown-from]")).to be_empty
+      expect(rendered.css("span[data-markdown-from]")).to be_empty
+      expect(rendered.at_css("div[data-markdown-from]")["data-markdown-from"].to_i).to be > 4
       expect(rendered.css("[id]").map { |element| element["id"] }.tally.values).to all(eq(1))
       target = rendered.at_css(rendered.at_css("[data-footnote-ref]")["href"])
       expect(target.text).to include("Actual note.")

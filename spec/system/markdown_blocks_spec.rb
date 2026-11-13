@@ -409,6 +409,53 @@ RSpec.describe "Markdown blocks", type: :system do
     expect(page).to have_css(".markdown-block pre mark", text: "Same")
   end
 
+  it "keeps raw HTML separate from identical relocated footnote definitions" do
+    sample = CoPlan::Plans::Create.call(title: "Footnote order", user: author, visibility: "published", actor_type: "human",
+      content: "# Footnote order\n\n```md\nA[^x]\n\n[^x]: Same\n\n<div>Same</div>\n```\n")
+    visit plan_page_path(sample)
+    select_in(".markdown-block__rendered > div", "Same", 0, "Same", 4)
+    page.driver.browser.action.send_keys("c").perform
+    panel = find(".comment-window:popover-open")
+    panel.find("textarea").fill_in with: "Only the HTML passage"
+    panel.find("textarea").send_keys(:enter)
+    expect(page).to have_css(".markdown-block__rendered > div mark", text: "Same")
+    expect(page).to have_no_css(".markdown-block__rendered [data-footnotes] mark")
+    expect(sample.comment_threads.last.anchor_start).to eq(sample.current_content.rindex("Same"))
+  end
+
+  it "comments on nested draft diagrams inline and expanded and highlights their Source" do
+    sample = CoPlan::Plans::Create.call(title: "Diagram draft", user: author, visibility: "published", actor_type: "human",
+      content: "# Diagram draft\n\n````md\n🚀\n\n```mermaid\nflowchart LR\n A[Start] --> B[End]\n```\n````\n")
+    visit plan_page_path(sample)
+    expect(page).to have_css(".markdown-block .mermaid-diagram g.node[data-source-target]", count: 2, wait: 20)
+    find(".mermaid-diagram").send_keys("c")
+    find(".mermaid-diagram g.node[data-source-target]", text: "End").click
+    panel = find(".source-comments:popover-open")
+    panel.fill_in "Write a comment...", with: "Review the ending"
+    panel.click_button "Comment", exact: true
+    expect(panel).to have_text("Review the ending")
+    thread = sample.comment_threads.last
+    expect(thread.anchor_kind).to eq("mermaid_node")
+    expect(thread.anchor_text).to eq("B[End]")
+    expect(thread.anchor_start).to eq(sample.current_content.index("B[End]"))
+    panel.find('[aria-label="Close element comments"]').click
+    find(".mermaid-diagram").send_keys(:escape)
+    find(".mermaid-diagram").hover
+    find(".mermaid-diagram__expand").click
+    find(".expander__canvas").send_keys("c")
+    find("dialog g.node[data-source-target]", text: "Start").click
+    expect(page).to have_css(".source-comments:popover-open textarea:focus")
+    find(".source-comments:popover-open [aria-label='Close element comments']").click
+    find('dialog [aria-label="Close"]').click
+    within(block) { click_button "Source" }
+    expect(page).to have_css(".markdown-block pre mark", text: "B[End]")
+    page.driver.browser.action.send_keys("j").perform
+    expect(page).to have_css(".thread-popover:popover-open", text: "Review the ending")
+    CoPlan::Plans::ReplaceContent.call(plan: sample, new_content: "Intro.\n\n#{sample.current_content}",
+      base_revision: sample.current_revision, actor_type: "human", actor_id: author.id)
+    expect(thread.reload).not_to be_out_of_date
+  end
+
   it "highlights an empty draft cell's delimiters and navigates to it in Source" do
     sample = CoPlan::Plans::Create.call(title: "Empty cell", user: author, visibility: "published", actor_type: "human",
       content: "# Empty cell\n\n```md\n🚀\n\n| A | B |\n|---|---|\n| Web ||\n```\n")

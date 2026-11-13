@@ -77,9 +77,9 @@ The existing live-update swap maps the block through the shared text diff
 before restoring the viewport.
 
 Text selections in Markdown blocks create ordinary comments with no `anchor_kind`.
-Table-cell comments use the existing signed `table_cell` targets, translated
+Table-cell and nested Mermaid comments use the existing signed structural targets, translated
 from the draft body into document source offsets. They work inline and in the
-expanded table; Source shows the same cell discussion on its literal text.
+expanded table or diagram; Source shows the same discussion on its literal text.
 The hidden source stays in the browser's anchor text model in both views, and
 the rendered pane stays out of it. This keeps occurrence counting the same as
 for any code block, on the client and in `MarkdownTextExtractor`.
@@ -91,8 +91,8 @@ for any code block, on the client and in `MarkdownTextExtractor`.
   matches each text node within its element's range and advances parent
   cursors after nested formatting. Link URLs cannot match visible labels.
   Entities and escapes map to their whole source spelling. Footnote
-  numbers and other generated text do not map. Authored HTML without element
-  positions uses the body range and the same forward-only parser spans.
+  numbers and other generated text do not map. Raw HTML blocks receive their own trusted AST source intervals, so identical
+  footnote text relocated later in the DOM cannot become a candidate.
   Authored IDs and source-position attributes are stripped before rendering;
   they cannot claim generated coordinates or footnote targets.
 - A selection in the rendered draft becomes the source range from its first

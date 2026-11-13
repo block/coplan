@@ -786,11 +786,8 @@ export default class extends Controller {
     const threads = this.element.querySelectorAll("[data-anchor-text]")
     threads.forEach(thread => {
       if (thread.dataset.threadOutOfDate === "true") return
-      const sourceCell = thread.dataset.anchorKind === "table_cell" ? Array.from(this.contentTarget.querySelectorAll("[data-markdown-block-rendered] [data-source-target]")).find(cell => {
-        const target = JSON.parse(cell.dataset.sourceTarget)
-        return target.digest === thread.dataset.anchorDigest && String(target.start) === thread.dataset.anchorStart && String(target.end) === thread.dataset.anchorEnd
-      }) : null
-      const sourceBlock = sourceCell?.closest("[data-markdown-block]")
+      const sourceAnchor = thread.dataset.anchorKind ? this.draftSourceAnchor(thread) : null
+      const sourceBlock = sourceAnchor?.block
       if (thread.dataset.anchorKind && (!sourceBlock || sourceBlock.querySelector(":scope > [data-markdown-block-source]").hidden)) return
       const anchor = thread.dataset.anchorText
       const occurrence = thread.dataset.anchorOccurrence
@@ -802,7 +799,7 @@ export default class extends Controller {
         const statusClass = isOpen ? "anchor-highlight--open" : "anchor-highlight--resolved"
         const classes = `anchor-highlight ${statusClass}`.trim()
         const marks = sourceBlock
-          ? markSource(sourceBlock, Number(sourceCell.dataset.markdownFrom), Number(sourceCell.dataset.markdownTo), classes)
+          ? markSource(sourceBlock, sourceAnchor.from, sourceAnchor.to, classes)
           : this.findAndHighlightAll(anchor, occurrence, classes)
 
         if (marks.length > 0 && threadId) {
@@ -820,6 +817,17 @@ export default class extends Controller {
 
     this._restoreActiveThreadPopover(activeThreadId)
     this.publishTextAnchors()
+  }
+
+  draftSourceAnchor(thread) {
+    for (const element of this.contentTarget.querySelectorAll("[data-markdown-block-rendered] [data-source-target], [data-markdown-block-rendered] [data-source-targets]")) {
+      const map = element.dataset.sourceTargets && JSON.parse(element.dataset.sourceTargets)
+      const targets = map ? [...Object.values(map.nodes), ...map.edges, map.diagram] : [JSON.parse(element.dataset.sourceTarget)]
+      const target = targets.find(target => target.kind === thread.dataset.anchorKind && target.digest === thread.dataset.anchorDigest &&
+        String(target.start) === thread.dataset.anchorStart && String(target.end) === thread.dataset.anchorEnd)
+      if (target) return { block: element.closest("[data-markdown-block]"), from: target.markdown_from, to: target.markdown_to }
+    }
+    return null
   }
 
   publishTextAnchors() {

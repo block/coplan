@@ -31,6 +31,20 @@ RSpec.describe CoPlan::Plans::SourceTargets do
     expect(targets.last.fetch("start")).to eq(content.index(" **3** "))
   end
 
+  it "translates all nested diagram targets through an indented draft fence" do
+    content = "Intro 🚀\n\n- Draft:\n\n  ````md\n  ```mermaid\n  flowchart LR\n   A[Start] --> B[End]\n  ```\n  ````\n"
+    html = CoPlan::ApplicationController.helpers.render_markdown(content, source_comments: true)
+    map = JSON.parse(Nokogiri::HTML.fragment(html).at_css(".markdown-block pre[lang=mermaid]")["data-source-targets"])
+    targets = map.fetch("nodes").values + map.fetch("edges") + [ map.fetch("diagram") ]
+    ranges = described_class.new(content).ranges
+    expect(targets.map { |target| target.fetch("kind") }.uniq).to contain_exactly("mermaid_node", "mermaid_edge", "mermaid_diagram")
+    targets.each do |target|
+      expect(described_class.resolve(target.fetch("token"), content)).to include("kind" => target.fetch("kind"))
+      expect(content[target.fetch("start")...target.fetch("end")]).to eq(target.fetch("text"))
+      expect(ranges).to include(target.values_at("kind", "start", "end"))
+    end
+  end
+
   it "excludes literal draft fences in presentations from surviving structural targets" do
     fence = "```md\n| A | B |\n|---|---|\n| Web | 3 |\n```\n"
     expect(described_class.new(fence).ranges).not_to be_empty

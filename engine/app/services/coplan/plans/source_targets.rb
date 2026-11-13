@@ -124,17 +124,26 @@ module CoPlan
           first = @offsets[source_line] + raw.chomp.length - line.chomp.length
           line.each_char.with_index { |_, offset| mapping << first + offset }
         end
-        self.class.new(body).annotate(doc, tables_only: true)
-        doc.css("[data-source-target]").each do |cell|
-          nested = JSON.parse(cell["data-source-target"])
-          # Use the signed span, which includes delimiters for empty cells.
-          # These offsets index the browser's UTF-16 source text.
-          cell["data-markdown-from"], cell["data-markdown-to"] = nested.values_at("start", "end").map do |offset|
-            (body[0, offset].encode("UTF-16LE").bytesize / 2).to_s
-          end
+        self.class.new(body).annotate(doc)
+        translate = lambda do |nested|
           from = mapping.fetch(nested.fetch("start"))
           to = mapping.fetch(nested.fetch("end") - 1) + 1
-          cell["data-source-target"] = target("table_cell", from, to, nested.fetch("label")).to_json
+          body_from, body_to = nested.values_at("start", "end").map { |offset| body[0, offset].encode("UTF-16LE").bytesize / 2 }
+          target(nested.fetch("kind"), from, to, nested.fetch("label"))
+            .merge(nested.slice("id", "from", "to"), "markdown_from" => body_from, "markdown_to" => body_to)
+        end
+        doc.css("[data-source-target]").each do |cell|
+          translated = translate.call(JSON.parse(cell["data-source-target"]))
+          cell["data-markdown-from"] = translated.fetch("markdown_from").to_s
+          cell["data-markdown-to"] = translated.fetch("markdown_to").to_s
+          cell["data-source-target"] = translated.to_json
+        end
+        doc.css("[data-source-targets]").each do |diagram|
+          nested = JSON.parse(diagram["data-source-targets"])
+          nested["nodes"].transform_values! { |target| translate.call(target) }
+          nested["edges"].map! { |target| translate.call(target) }
+          nested["diagram"] = translate.call(nested.fetch("diagram"))
+          diagram["data-source-targets"] = nested.to_json
         end
         doc
       end

@@ -387,6 +387,22 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(plan.reload.current_revision).to eq(revision)
     end
 
+    it "seeds nested draft diagram targets and preserves the example on re-seed" do
+      described_class.call
+      plan = seeded_plan("markdown-block-diagrams")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+      html = Nokogiri::HTML.fragment(ApplicationController.helpers.render_markdown(plan.current_content, source_comments: true))
+      map = JSON.parse(html.at_css(".markdown-block pre[lang=mermaid]")["data-source-targets"])
+      expect(map.fetch("nodes").keys).to eq(%w[Draft Review Release])
+      target = map.fetch("diagram")
+      expect(CoPlan::Plans::SourceTargets.resolve(target.fetch("token"), plan.current_content)).to include("kind" => "mermaid_diagram")
+      edited = plan.current_content.sub("Release path", "Reviewed release path")
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: edited,
+        base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
+      described_class.call
+      expect(plan.reload.current_content).to eq(edited)
+    end
+
     it "seeds the math gallery with every math form and preserves edits on re-seed" do
       described_class.call
       plan = seeded_plan("math-gallery")

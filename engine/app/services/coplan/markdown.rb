@@ -86,7 +86,20 @@ module CoPlan
           end
         end
       end
-      Commonmarker.to_html(cleaned.force_encoding(source.encoding), **options)
+      doc = Commonmarker.parse(cleaned.force_encoding(source.encoding), options: options[:options] || {})
+      # Raw HTML has no generated sourcepos. Add positions from its AST block
+      # after parsing, so inserted metadata cannot shift any other node.
+      doc.walk.to_a.each do |node|
+        next unless node.type == :html_block
+
+        p = node.source_position
+        position = "#{p[:start_line]}:#{p[:start_column]}-#{p[:end_line]}:#{p[:end_column]}"
+        raw = node.to_html(options: { render: { unsafe: true } })
+        annotated = raw.gsub(/<([A-Za-z][\w:-]*)(?=[\s\/>])/) { "<#{Regexp.last_match(1)} data-sourcepos=\"#{position}\"" }
+        replacement = Commonmarker.parse(annotated).first_child
+        node.replace(replacement) if replacement
+      end
+      doc.to_html(**options)
     end
     private_class_method :render_html
 

@@ -74,7 +74,6 @@ function sourcePoint(block, offset, { end = false } = {}) {
 function renderedMap(block) {
   const pane = rendered(block)
   const mapping = JSON.parse(pane.dataset.markdownMap)
-  const sourceLength = block.querySelector(SOURCE_SELECTOR).textContent.length
   // Index once by source start, then scan only the owner's interval.
   const indexed = mapping.spans.flatMap((span, index) => span && !/\s/u.test(mapping.text[index]) ? [{ span, character: mapping.text[index] }] : [])
     .sort((a, b) => a.span[0] - b.span[0])
@@ -84,13 +83,13 @@ function renderedMap(block) {
   let node
   while ((node = walker.nextNode())) {
     const text = node.textContent
-    const owner = node.parentElement.closest("[data-markdown-from]") || pane
+    const owner = node.parentElement.closest("[data-markdown-from]")
     const spans = new Array(text.length).fill(null)
     entries.push({ node, spans })
     if (!text.trim() || node.parentElement.closest(UNMAPPED_SELECTOR) || !owner || !pane.contains(owner)) continue
 
     const from = Math.max(Number(owner.dataset.markdownFrom || 0), cursors.get(owner) || 0)
-    const to = owner === pane ? sourceLength : Number(owner.dataset.markdownTo)
+    const to = Number(owner.dataset.markdownTo)
     // Search only parser-produced visible characters in this element's
     // source range. URLs, markup, and HTML attributes cannot be candidates.
     const candidates = [], characters = []
