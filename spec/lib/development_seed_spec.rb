@@ -84,6 +84,25 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(seeded_plan("demo-library").current_content).to include(plan.url_path)
     end
 
+    it "seeds a long nested outline with discussions in sub-sections and preserves edits on re-seed" do
+      described_class.call
+      plan = seeded_plan("nested-outline")
+      expect(plan.current_content.scan(/^## \d+\. /).size).to eq(10)
+      expect(plan.current_content.scan(/^### \d+\.\d+ /).size).to be >= 30
+      expect(plan.comment_threads.where(status: "open").pluck(:anchor_text)).to contain_exactly(
+        "idempotency key scoped to the cart", "Keys expire after twenty-four hours",
+        "older than thirty minutes", "a reason for every order change")
+      plan.comment_threads.find_by!(anchor_text: "older than thirty minutes").resolve!(plan.created_by_user)
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: "#{plan.current_content}\n## 11. Appendix\n\nLocal notes.\n",
+        base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
+      revision = plan.reload.current_revision
+      described_class.call
+      expect(plan.reload.current_revision).to eq(revision)
+      expect(plan.comment_threads.count).to eq(4)
+      expect(plan.comment_threads.find_by!(anchor_text: "older than thirty minutes")).to be_closed
+      expect(seeded_plan("demo-library").current_content).to include(plan.url_path)
+    end
+
     def seeded_plan(key)
       CoPlan::Plan.all.detect { |plan| plan.metadata.to_h["development_seed_key"] == key }
     end

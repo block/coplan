@@ -29,13 +29,14 @@
   </div>
 <% end %>
 
-<div class="plan-layout" data-controller="coplan--content-nav" data-action="coplan:deck-slide-changed->coplan--content-nav#slideChanged">
+<div class="plan-layout" data-controller="coplan--content-nav" data-action="coplan:deck-slide-changed->coplan--content-nav#slideChanged hashchange@window->coplan--content-nav#hashChanged" data-coplan--content-nav-plan-id-value="<%= @plan.id %>">
   <nav class="content-nav" data-coplan--content-nav-target="sidebar" aria-label="Document outline">
     <div class="content-nav__header">
       <span class="content-nav__title">Contents</span>
+      <%= render "coplan/plans/outline_tree_controls" %>
       <button type="button" class="content-nav__toggle" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="toggleBtn" aria-label="Hide table of contents" title="Toggle (t)">✕</button>
     </div>
-    <ul class="content-nav__list" data-coplan--content-nav-target="list"></ul>
+    <ul class="content-nav__list" data-coplan--content-nav-target="list" data-action="keydown->coplan--content-nav#outlineKeydown"></ul>
   </nav>
   <button type="button" class="content-nav-show-btn" data-action="coplan--content-nav#toggle" data-coplan--content-nav-target="showBtn" title="Show table of contents (t)">☰ <kbd>t</kbd></button>
 

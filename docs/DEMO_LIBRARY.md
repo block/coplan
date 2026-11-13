@@ -66,6 +66,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | document-title | One editable title; autosave keeps the URL stable until Done; title boundaries and empty-title behavior |
 | image-resizing | Drop or paste files to upload and embed; duplicate drops reuse files; resize images, wrap prose, Shift+Enter beside, Enter below |
 | file-uploads | Drop the same image or file again: one attachment and stored copy, multiple embeds; renamed copies, Dual, and Undo |
+| nested-outline | Ten numbered sections with sub-sections. The outline starts folded except where you are reading; chevrons, Left/Right, and expand/collapse all toggle it; scrolling or a `#section` link unfolds; folded sections total their discussions; toggles survive reload |
 | callout-gallery | `> [!SUMMARY]`, `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]` callouts, a custom label, nested list and code, plain and escaped quotes, and both deck themes; comment inside a callout, or edit one in Editor and check Raw |
 | math-gallery | KaTeX math: inline, display, and fenced formulas, math in lists and tables, a six-row slide equation, dollar amounts that stay text, and invalid math shown as source; comment on the text around a formula |
 
@@ -104,6 +105,7 @@ look up this key rather than copying generated UUIDs.
 | experiment-results | Wide research table with cohort comparisons |
 | code-walkthrough | Dense code, inline discussion, and related-reading target |
 | long-mobile-toc | More than 30 meaningful sections for navigation checks |
+| nested-outline | 10 numbered sections, 37 sub-sections, four open discussions in sub-sections 4.2, 4.3, and 7.1 |
 | draft-notes | Unlisted author draft; its original title URL redirects after a retitle |
 | archived-proposal | Archived document available through a direct link |
 | spanish-brief / japanese-roadmap / arabic-research | Multilingual and right-to-left content |
