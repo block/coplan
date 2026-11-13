@@ -515,6 +515,18 @@ RSpec.describe "Plans", type: :request do
       expect(response.body).not_to include("plan-type-chip")
     end
 
+    it "lifts the row's icon above the stretched title link so its tooltip shows" do
+      rfc = create(:plan_type, name: "RFC", icon: "scroll")
+      create(:plan, :published, created_by_user: alice, plan_type: rfc, title: "Typed Plan")
+      get library_page_path(alice)
+      row = Nokogiri::HTML(response.body).at_css(".plan-row")
+      icon_link = row.at_css("a.plan-row__icon")
+      expect(icon_link).to be_present
+      expect(icon_link["href"]).to eq(row.at_css("a.plan-row__title")["href"])
+      expect(icon_link["tabindex"]).to eq("-1")
+      expect(icon_link.at_css(".plan-type-icon")["title"]).to eq("RFC")
+    end
+
     it "colors the icon with a stable per-name tint" do
       rfc = create(:plan_type, name: "RFC", icon: "scroll")
       create(:plan, :published, created_by_user: alice, plan_type: rfc)

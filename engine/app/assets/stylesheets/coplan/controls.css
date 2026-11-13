@@ -181,12 +181,14 @@
 .plan-type-icon--lg { width: 36px; height: 36px; border-radius: 9px; }
 .plan-type-icon--lg svg { width: 19px; height: 19px; }
 
-/* Saturated mid-tones read in both modes (like language dots). */
+/* Saturated mid-tones read in both modes (like language dots). No red
+   or pink: a type's color is hashed from its name, not chosen, so a red
+   tint would read as an error on a type that means nothing of the sort. */
 .plan-type-icon--0 { background: color-mix(in srgb, #5b8def 16%, transparent); color: #5b8def; }
 .plan-type-icon--1 { background: color-mix(in srgb, #3fa876 16%, transparent); color: #3fa876; }
 .plan-type-icon--2 { background: color-mix(in srgb, #d99a2b 16%, transparent); color: #d99a2b; }
 .plan-type-icon--3 { background: color-mix(in srgb, #9c6fe0 16%, transparent); color: #9c6fe0; }
-.plan-type-icon--4 { background: color-mix(in srgb, #e0637a 16%, transparent); color: #e0637a; }
+.plan-type-icon--4 { background: color-mix(in srgb, #8a9c2a 16%, transparent); color: #8a9c2a; }
 .plan-type-icon--5 { background: color-mix(in srgb, #2fa8a0 16%, transparent); color: #2fa8a0; }
 
 /* Avatars */
