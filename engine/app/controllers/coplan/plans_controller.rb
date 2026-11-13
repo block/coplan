@@ -239,7 +239,8 @@ module CoPlan
       edit_url = helpers.plan_browse_path(plan, edit: "continue")
       render json: editor_snapshot.merge(edit_url: edit_url, inline_after_create: true, id: plan.id,
         subscription_html: helpers.turbo_stream_from(plan),
-        update_url: update_content_plan_path(plan), state_url: editor_state_plan_path(plan), lease_url: editor_lease_plan_path(plan))
+        update_url: update_content_plan_path(plan), state_url: editor_state_plan_path(plan), lease_url: editor_lease_plan_path(plan),
+        attachments_url: plan_attachments_path(plan))
     rescue Plans::CreateHumanDraft::InvalidKey => error
       render json: { error: error.message }, status: :unprocessable_content
     rescue Plans::CreateHumanDraft::PlacementFailed => error

@@ -5,8 +5,8 @@ import { commandFor } from "coplan/shortcuts"
 // sent snapshot and edits typed while it was in flight. Nothing clears a draft
 // until the server has acknowledged that exact content.
 export default class extends Controller {
-  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave"]
-  static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, tokenUrl: String, previewUrl: String, leaseUrl: String, inline: Boolean, embedDomains: Array }
+  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave", "uploadNotice", "uploadMessage", "uploadDismiss"]
+  static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, tokenUrl: String, previewUrl: String, leaseUrl: String, attachmentsUrl: String, inline: Boolean, embedDomains: Array }
 
   revisionValueChanged(revision) {
     if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-revision", { bubbles: true, detail: { revision } }))
@@ -36,7 +36,8 @@ export default class extends Controller {
       this.mode = "rich"
       this.richEditor = rich.createRichDocument(this.surfaceTarget, this.textareaTarget.value,
         (content, kind) => this.editorChanged("rich", content, kind), state => this.updateToolbar(state), source => this.preview(source),
-        this.inlineValue ? this.comments() : [], { documentTitle: true })
+        this.inlineValue ? this.comments() : [], { documentTitle: true,
+          uploadFiles: files => this.uploadFiles(files), uploadError: message => this.uploadNotice(message, true) })
       if (this.inlineValue) {
         const threads = document.getElementById("plan-threads")
         if (threads) {
@@ -84,15 +85,77 @@ export default class extends Controller {
     clearTimeout(this.saveTimer)
     clearTimeout(this.refreshTimer)
     clearTimeout(this.compositionTimer)
+    clearTimeout(this.uploadNoticeTimer)
     this.persistDraft()
     this.richEditor?.destroy()
     this.rawEditor?.destroy()
+    for (const abort of this.uploadRequests || []) abort.abort()
     this.noteToast?.remove()
     this.releaseIdle()
     this.releaseComposition()
   }
 
   get isNew() { return this.planIdValue === "new" }
+  uploadNotice(message, error = false) {
+    if (!this.active) return
+    clearTimeout(this.uploadNoticeTimer)
+    if (error) (this.uploadErrors ||= new Set()).add(message)
+    // Progress and later successes must not erase a rejected file. Keep its
+    // explanation until the author dismisses it, including while leaving.
+    if (this.uploadErrors?.size) { message = Array.from(this.uploadErrors).join(" "); error = true }
+    this.uploadNoticeTarget.hidden = false
+    this.uploadMessageTarget.textContent = message
+    this.uploadDismissTarget.hidden = !error
+    this.uploadNoticeTarget.dataset.error = String(error)
+    this.uploadNoticeTarget.setAttribute("role", error ? "alert" : "status")
+    this.uploadNoticeTarget.showPopover()
+    if (!error && !message.startsWith("Uploading ")) this.uploadNoticeTimer = setTimeout(() => {
+      this.uploadNoticeTarget.hidePopover()
+      this.uploadNoticeTarget.hidden = true
+    }, 6000)
+  }
+  dismissUploadErrors() {
+    this.uploadErrors?.clear()
+    this.uploadNoticeTarget.hidePopover()
+    this.uploadNoticeTarget.hidden = true
+  }
+  async uploadFiles(files) {
+    this.uploadNotice(`Uploading ${files.length === 1 ? files[0].name : `${files.length} files`}…`)
+    // The normal creation key makes this safe even when a previous create
+    // response was lost. Wait for creation before attaching to the new plan.
+    if (this.isNew && !await this.flush(true)) throw new Error("Save this document before uploading. Your files have not been uploaded; drop them again to retry.")
+    if (!this.active) return []
+    const body = new FormData()
+    for (const file of files) body.append("files[]", file)
+    const abort = new AbortController()
+    ;(this.uploadRequests ||= new Set()).add(abort)
+    const timer = setTimeout(() => abort.abort(), 120000)
+    try {
+      const response = await fetch(this.attachmentsUrlValue, { method: "POST", body, signal: abort.signal,
+        headers: { Accept: "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content } })
+      if (response.redirected || response.status === 401) throw new Error("Sign in again in another tab, then drop the files again to retry.")
+      if (!response.headers.get("content-type")?.includes("application/json")) throw new Error("Could not upload files. Check your connection or sign in again, then drop them again to retry.")
+      const result = await response.json()
+      if (!response.ok && response.status !== 422) throw new Error(result.error || "Could not upload files. Drop them again to retry.")
+      if (!this.active) return []
+      if (result.streams) window.Turbo?.renderStreamMessage(result.streams)
+      const errors = result.errors || []
+      const reused = result.attachments.filter(file => file.reused).length
+      const uploaded = result.attachments.length - reused
+      const messages = []
+      if (uploaded) messages.push(`${uploaded} ${uploaded === 1 ? "file" : "files"} uploaded.`)
+      if (reused) messages.push(`${reused} existing ${reused === 1 ? "file" : "files"} reused.`)
+      this.uploadNotice(errors.length ? `${errors.join(" ")} Drop rejected files again to retry.` :
+        messages.join(" "), errors.length > 0)
+      return result.attachments
+    } catch (error) {
+      if (error.name === "AbortError") throw new Error("Upload interrupted. Check Attachments before dropping the files again to retry.")
+      throw new Error(`${error.message} Check Attachments before dropping the files again to retry.`)
+    } finally {
+      clearTimeout(timer)
+      this.uploadRequests.delete(abort)
+    }
+  }
   templateNoteRejected() {
     this.noteToast?.remove()
     const toast = document.createElement("div")
@@ -220,6 +283,7 @@ export default class extends Controller {
         this.element.action = result.update_url
         this.stateUrlValue = result.state_url
         this.leaseUrlValue = result.lease_url
+        this.attachmentsUrlValue = result.attachments_url
         if (this.active) {
           if (!result.inline_after_create) window.history.replaceState(window.history.state, "", result.edit_url)
           this.subscriptionTarget.innerHTML = result.subscription_html
@@ -234,7 +298,7 @@ export default class extends Controller {
       this.setStatus(newerChanges ? (this.inlineValue ? "Changes ready to save" : "Saved · newer changes waiting") : `All changes saved · v${result.revision}`,
         newerChanges ? "queued" : "saved")
       this.persistDraft()
-      if (this.pendingInlineVisitUrl && !newerChanges && this.active) {
+      if (this.pendingInlineVisitUrl && !newerChanges && this.active && !this.richEditor?.uploading && !this.uploadErrors?.size) {
         const url = this.pendingInlineVisitUrl
         this.pendingInlineVisitUrl = null
         this.leaving = true
@@ -463,7 +527,7 @@ export default class extends Controller {
     if (commandFor("editor", event) === "save") { event.preventDefault(); this.flush(true) }
   }
   beforeUnload(event) {
-    if (!this.active || !this.dirty()) return
+    if (!this.active || (!this.dirty() && !this.richEditor?.uploading)) return
     this.persistDraft()
     event.preventDefault()
     event.returnValue = ""
@@ -481,23 +545,32 @@ export default class extends Controller {
     if (this.navigating) return
     this.navigating = true
     try {
-      await this.whenIdle()
-      if (!this.active || this.blocked) return
-      if (this.isNew && this.textareaTarget.value === this.base.content) {
+      // Any wait can admit another upload or edit. Reach one shared idle
+      // point before freezing the form, rather than draining each queue once.
+      while (true) {
+        await this.richEditor?.whenUploadsIdle()
+        await this.whenIdle()
+        await this.whenCompositionEnds()
+        if (!this.active || this.blocked) return
+        if (this.richEditor?.uploading || this.busy) continue
+        if (this.uploadErrors?.size) return
+        if (this.isNew && this.textareaTarget.value === this.base.content) {
+          this.element.dispatchEvent(new CustomEvent("coplan:editor-closed", { bubbles: true,
+            detail: { controller: this, snapshot: { ...this.base } } }))
+          return
+        }
+        if (!this.element.checkValidity()) this.revealDetails()
+        if (!this.element.reportValidity()) return
+        if (this.dirty()) {
+          if (!await this.flush(true) || !this.active || this.blocked) return
+          continue
+        }
+        this.element.inert = true
+        if (!await this.flush(true, null, true) || !this.active || this.blocked) return
         this.element.dispatchEvent(new CustomEvent("coplan:editor-closed", { bubbles: true,
           detail: { controller: this, snapshot: { ...this.base } } }))
         return
       }
-      if (!this.element.checkValidity()) this.revealDetails()
-      if (!this.element.reportValidity()) return
-      while (this.dirty()) {
-        if (!await this.flush(true) || !this.active || this.blocked) return
-      }
-      await this.whenCompositionEnds()
-      this.element.inert = true
-      if (!await this.flush(true, null, true) || !this.active || this.blocked) return
-      this.element.dispatchEvent(new CustomEvent("coplan:editor-closed", { bubbles: true,
-        detail: { controller: this, snapshot: { ...this.base } } }))
     } finally { this.element.inert = false; this.navigating = false }
   }
   showInline(anchor, { focus = true } = {}) {
@@ -517,7 +590,7 @@ export default class extends Controller {
   beforeVisit(event) {
     // A failed sync should not block unrelated navigation. disconnect()
     // retains the draft if the author chooses to return to it.
-    if (this.leaving || this.retryable || this.blocked) return
+    if (this.leaving || ((this.retryable || this.blocked) && !this.richEditor?.uploading && !this.uploadErrors?.size)) return
     event.preventDefault()
     this.navigate(() => event.detail.url)
   }
@@ -528,28 +601,33 @@ export default class extends Controller {
     this.navigating = true
     this.backTarget.setAttribute("aria-busy", "true")
     try {
-      if (this.busy || this.dirty()) this.setStatus("Saving before going back…", "saving")
-      await this.whenIdle()
-      if (!this.active) return
-      if (this.isNew && this.textareaTarget.value === this.base.content) {
+      while (true) {
+        await this.richEditor?.whenUploadsIdle()
+        if (this.busy || this.dirty()) this.setStatus("Saving before going back…", "saving")
+        await this.whenIdle()
+        await this.whenCompositionEnds()
+        if (!this.active) return
+        if (this.richEditor?.uploading || this.busy) continue
+        if (this.uploadErrors?.size) return
+        if (this.isNew && this.textareaTarget.value === this.base.content) {
+          this.leaving = true
+          window.Turbo.visit(destination())
+          return
+        }
+        if ((!this.isNew || this.dirty()) && !this.element.reportValidity()) { this.setStatus("Correct the highlighted field before going back", "error"); return }
+        if (this.blocked) { this.setStatus("Resolve the conflict before going back · draft retained", "error"); return }
+        if (this.dirty()) {
+          if (!await this.flush(true) || !this.active || this.blocked) return
+          continue
+        }
+        this.element.inert = true
+        if (finalize && (!await this.flush(true, null, true) || !this.active || this.blocked)) return
         this.leaving = true
+        // Do not preview a reading-page snapshot taken before this save.
+        window.Turbo.cache.clear()
         window.Turbo.visit(destination())
         return
       }
-      if ((!this.isNew || this.dirty()) && !this.element.reportValidity()) { this.setStatus("Correct the highlighted field before going back", "error"); return }
-      if (this.blocked) { this.setStatus("Resolve the conflict before going back · draft retained", "error"); return }
-      while (this.dirty()) {
-        if (!await this.flush(true) || !this.active || this.blocked) return
-      }
-      if (finalize) {
-        await this.whenCompositionEnds()
-        this.element.inert = true
-        if (!await this.flush(true, null, true) || !this.active || this.blocked) return
-      }
-      this.leaving = true
-      // Do not preview a reading-page snapshot taken before this save.
-      window.Turbo.cache.clear()
-      window.Turbo.visit(destination())
     } finally {
       this.element.inert = false
       this.navigating = false

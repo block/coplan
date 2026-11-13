@@ -104,6 +104,12 @@ Images have a bottom-right resize handle that appears on hover or keyboard focus
 
 Images pasted from other apps start at their natural size, capped by the document width. A copied thumbnail's display width is ignored. Copying an image within Coplan's rich editor preserves its intentional resize. Existing saved widths and widths written in Raw Markdown stay unchanged.
 
+Drop image or file uploads into the rich Editor or the rich pane in Dual. Images appear inline; other supported files become download links. Clipboard image files upload too. Upload markers follow their insertion points through continued typing and live updates, without entering saved Markdown. Uploads use the plan's existing type and 25 MB size limits. A new document is created before its first upload. Done and navigation wait for pending uploads before saving. Partial failures preserve accepted files and show per-file errors. Drop failed files again to retry. Undo removes an embed while keeping the file in Attachments; deleting its drop point during upload leaves the file available there too.
+
+Identical uploaded contents reuse an existing attachment within the same document, preserving its original filename and uploader. Every drop still inserts an embed at that location. The notice distinguishes uploads from reuse. Different contents, even with the same filename, stay separate. Concurrent identical uploads converge on one attachment and stored blob; reuse does not log another attachment-added event. Existing duplicate attachments are left intact so their saved links continue working.
+
+Upload errors stay visible until dismissed, including after another file succeeds. Done and navigation keep the editor open while these errors are unacknowledged. Dismiss the notice before leaving; your writing and accepted files remain saved.
+
 Text after a paragraph's leading image wraps beside it from the top when there is room, in both editing and reading views. Enter starts a paragraph below the image; Shift+Enter keeps a line break beside it. In Raw Markdown, a blank line starts the paragraph below. Images inside a sentence remain inline.
 
 **+ → Embed** adds a self-closing iframe block with URL, title, width,

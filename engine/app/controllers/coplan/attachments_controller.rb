@@ -10,22 +10,40 @@ module CoPlan
       files = Array(params[:files]).reject(&:blank?)
       if files.empty?
         return respond_to do |format|
+          format.json { render json: { attachments: [], errors: [ "Choose at least one file to upload." ] }, status: :unprocessable_content }
           format.turbo_stream { render turbo_stream: toast_stream("Choose at least one file to upload.", "alert") }
           format.html { redirect_to helpers.plan_browse_path(@plan, anchor: "footnote-attachments"), alert: "Choose at least one file to upload." }
         end
       end
 
       errors = []
+      attachments = []
       files.each do |file|
         result = Plans::AddAttachment.call(plan: @plan, file: file, user: current_user)
-        errors << "#{file.original_filename}: #{result.error}" unless result.success?
+        if result.success?
+          blob = result.attachment.blob
+          url = main_app.rails_blob_path(blob, only_path: true)
+          attachments << { id: result.attachment.id, filename: blob.filename.to_s,
+            content_type: blob.content_type, url: url, reused: result.reused?,
+            download_url: main_app.rails_blob_path(blob, disposition: :attachment, only_path: true) }
+        else
+          errors << "#{file.original_filename}: #{result.error}"
+        end
       end
 
-      uploaded = files.size - errors.size
-      notice = "#{uploaded} #{"file".pluralize(uploaded)} uploaded." if uploaded.positive?
+      uploaded = attachments.count { |attachment| !attachment[:reused] }
+      reused = attachments.size - uploaded
+      notice = []
+      notice << "#{uploaded} #{"file".pluralize(uploaded)} uploaded." if uploaded.positive?
+      notice << "#{reused} existing #{"file".pluralize(reused)} reused." if reused.positive?
+      notice = notice.join(" ").presence
       alert = errors.join(" ") if errors.any?
 
       respond_to do |format|
+        format.json do
+          render json: { attachments: attachments, errors: errors, streams: attachment_update_streams.map(&:to_s).join },
+            status: attachments.any? ? :created : :unprocessable_content
+        end
         # In-place: swap the attachments section where it stands and toast —
         # never bounce the reader to the top of the plan they're in.
         format.turbo_stream { render_attachments_update(notice: notice, alert: alert) }
@@ -72,8 +90,15 @@ module CoPlan
     # message — the whole point is that the reader's scroll position never
     # moves.
     def render_attachments_update(notice: nil, alert: nil)
+      streams = attachment_update_streams
+      streams << toast_stream(notice, "notice") if notice
+      streams << toast_stream(alert, "alert") if alert
+      render turbo_stream: streams
+    end
+
+    def attachment_update_streams
       attachments = @plan.attachments_attachments.includes(:blob).order(created_at: :desc)
-      streams = [
+      [
         turbo_stream.replace("plan-attachments",
           partial: "coplan/plans/attachments",
           locals: { plan: @plan, attachments: attachments }),
@@ -82,9 +107,6 @@ module CoPlan
         count_stream("attachments-count", attachments.size),
         count_stream("nav-attachments-count", attachments.size)
       ]
-      streams << toast_stream(notice, "notice") if notice
-      streams << toast_stream(alert, "alert") if alert
-      render turbo_stream: streams
     end
 
     def count_stream(id, count)

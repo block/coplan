@@ -64,7 +64,8 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | discussion-margins | Crowded prose discussions, multiple participants, resolved visibility, and slide navigation/scrolling; avatars identify starters, not unread activity |
 | reading-specimen | A realistic design doc for judging reading in both modes: prose, headings, lists, tasks, quote, table, footnote, image, SQL/Ruby/diff/YAML code, a long scrolling line, flowchart and sequence diagrams, plus open, agent-answered, resolved, diagram-node, table-cell, and general discussions |
 | document-title | One editable title; autosave keeps the URL stable until Done; title boundaries and empty-title behavior |
-| image-resizing | Resize and restore image widths, wrap prose from the top, Shift+Enter beside, Enter below |
+| image-resizing | Drop or paste files to upload and embed; duplicate drops reuse files; resize images, wrap prose, Shift+Enter beside, Enter below |
+| file-uploads | Drop the same image or file again: one attachment and stored copy, multiple embeds; renamed copies, Dual, and Undo |
 | callout-gallery | `> [!SUMMARY]`, `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]` callouts, a custom label, nested list and code, plain and escaped quotes, and both deck themes; comment inside a callout, or edit one in Editor and check Raw |
 | math-gallery | KaTeX math: inline, display, and fenced formulas, math in lists and tables, a six-row slide equation, dollar amounts that stay text, and invalid math shown as source; comment on the text around a formula |
 
