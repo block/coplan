@@ -577,4 +577,44 @@ RSpec.describe "Document editor modes", type: :system do
     expect(preview_pane).not_to have_text("Preview unavailable")
     expect(content_value).to eq(source)
   end
+
+  it "keeps the reading position while Preview first renders a long draft" do
+    long = "# Long draft\n\n" + (1..80).map { |n| "Paragraph #{n} with enough words to take up a full line of the page." }.join("\n\n") + "\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: long, base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    open_editor
+    page.execute_script(<<~JS)
+      window.originalFetch = window.fetch
+      window.fetch = (url, options) => {
+        if (!String(url).endsWith("/preview_draft")) return window.originalFetch(url, options)
+        return new Promise(resolve => { window.releasePreview = () => resolve(window.originalFetch(url, options)) })
+      }
+      window.scrollTo(0, 2400)
+    JS
+    scroll = page.evaluate_script("window.scrollY")
+    expect(scroll).to be > 2000
+    click_button "Preview", exact: true
+    Selenium::WebDriver::Wait.new(timeout: 5).until { page.evaluate_script("!!window.releasePreview") }
+    expect(page.evaluate_script("window.scrollY")).to eq(scroll)
+    page.execute_script("window.releasePreview()")
+    expect(preview_pane).to have_text("Paragraph 80")
+    expect(page.evaluate_script("window.scrollY")).to eq(scroll)
+  end
+
+  it "defers live Preview refreshes while a deck is presenting" do
+    open_editor
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Original prose.")
+    page.execute_script('document.querySelector("[aria-label=\'Document preview\'] .markdown-rendered").classList.add("deck--presenting")')
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("Original prose.", "Agent prose."), base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    Selenium::WebDriver::Wait.new(timeout: 10).until { content_value.include?("Agent prose.") }
+    # Past the 300ms refresh debounce, the presenting deck must still be intact.
+    sleep 1
+    expect(preview_pane).to have_text("Original prose.")
+    page.execute_script(<<~JS)
+      const deck = document.querySelector("[aria-label='Document preview'] .deck--presenting")
+      deck.classList.remove("deck--presenting")
+      deck.dispatchEvent(new CustomEvent("coplan:deck-stopped", { bubbles: true }))
+    JS
+    expect(preview_pane).to have_text("Agent prose.", wait: 5)
+  end
 end

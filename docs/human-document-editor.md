@@ -187,7 +187,10 @@ Preview uses the existing `preview_draft` endpoint with `document: true`, which
 adds the footnotes that block previews omit. It refreshes after live updates and
 keeps the rendered DOM when the output is unchanged. If rendering fails, the last
 rendered version stays visible with an explanation. Switch away and back to
-retry. Footnote and heading links scroll within the preview. Authored form
+retry. Opening Preview keeps the reading position while it first renders. A
+live update waits while a deck in the preview is presenting, then applies when
+the show stops. Footnote and heading links, and their hover cards, resolve
+within the preview. Authored form
 controls in the preview are detached from the editor form, and editor actions
 are removed from its markup.
 

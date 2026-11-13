@@ -250,7 +250,11 @@ export default class extends Controller {
     if (!href?.startsWith("#") || href.length === 1) return null
 
     try {
-      const target = document.getElementById(decodeURIComponent(href.slice(1)))
+      const id = decodeURIComponent(href.slice(1))
+      // The editor's Preview repeats the hidden reading view's ids. Prefer the
+      // copy beside the link so hover cards show the draft, not the saved text.
+      const preview = anchor.closest(".document-editor__preview")
+      const target = (preview && [...preview.querySelectorAll("[id]")].find(element => element.id === id)) || document.getElementById(id)
       return target?.hasAttribute("data-heading-alias") ? target.closest("h1, h2, h3, h4, h5, h6") : target
     } catch {
       return null

@@ -649,6 +649,9 @@ export default class extends Controller {
       sourceSelection = { from: Math.min(sourceSelection.from, length), to: Math.min(sourceSelection.to, length) }
     }
     this.previewSelection = previewing ? sourceSelection : null
+    // Hold the outgoing panes' height until the preview renders, so hiding
+    // them cannot clamp the scroll position mid-document.
+    if (previewing) this.previewSurfaceTarget.style.minHeight = `${this.previewSurfaceTarget.parentElement.getBoundingClientRect().height}px`
     if (["markdown", "dual"].includes(mode) && !this.rawEditor) this.rawEditor = this.richModule.createMarkdownDocument(this.rawSurfaceTarget, this.textareaTarget.value,
       (content, kind) => this.editorChanged("markdown", content, kind))
     this.mode = mode
@@ -710,11 +713,13 @@ export default class extends Controller {
       const html = await this.preview(source, { document: true })
       if (!this.active || sequence !== this.documentPreviewSequence || this.mode !== "preview") return
       // Unchanged output keeps its DOM, rendered diagrams and reading position.
-      if (html !== this.documentPreviewHtml) {
-        this.documentPreviewHtml = html
-        surface.innerHTML = html
-        this.isolatePreview(surface)
-      } else surface.querySelector(":scope > .document-editor__preview-error")?.remove()
+      if (html === this.documentPreviewHtml) {
+        this.pendingPreviewHtml = null
+        surface.querySelector(":scope > .document-editor__preview-error")?.remove()
+      }
+      // Keep a presenting deck connected; apply the latest render after the show.
+      else if (surface.querySelector(".deck--presenting")) this.pendingPreviewHtml = html
+      else this.applyDocumentPreview(html)
     } catch {
       if (!this.active || sequence !== this.documentPreviewSequence) return
       // Forget the source so the next change or visit retries the request.
@@ -722,8 +727,25 @@ export default class extends Controller {
       if (this.documentPreviewHtml == null) surface.replaceChildren(this.previewMessage("Preview unavailable. Choose Editor or Raw to keep writing."))
       else if (!surface.querySelector(":scope > .document-editor__preview-error")) surface.prepend(this.previewMessage("Could not refresh preview. Showing the last rendered version.", true))
     } finally {
-      if (sequence === this.documentPreviewSequence) surface.removeAttribute("aria-busy")
+      if (sequence === this.documentPreviewSequence) {
+        surface.removeAttribute("aria-busy")
+        surface.style.minHeight = ""
+      }
     }
+  }
+  applyDocumentPreview(html) {
+    this.pendingPreviewHtml = null
+    this.documentPreviewHtml = html
+    this.previewSurfaceTarget.innerHTML = html
+    this.isolatePreview(this.previewSurfaceTarget)
+  }
+  previewDeckStopped() {
+    // The presenter announces the stop before it finishes tearing down.
+    setTimeout(() => {
+      const html = this.pendingPreviewHtml
+      if (!this.active || html == null || this.previewSurfaceTarget.querySelector(".deck--presenting")) return
+      this.applyDocumentPreview(html)
+    })
   }
   // The preview sits inside the editor form. Authored HTML must not submit or
   // reset that form, or reach this controller's actions and targets.
