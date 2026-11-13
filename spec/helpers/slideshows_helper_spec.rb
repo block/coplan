@@ -187,7 +187,7 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
       expect(doc.css("[data-sourcepos]")).to be_empty
     end
 
-    it "counts offsets in UTF-16 code units and wraps a block's tables once" do
+    it "counts offsets in UTF-16 code units and leaves a block's tables plain" do
       source = "```markdown\n\u{1F680} **Shipped**\n\n| A |\n| - |\n| b |\n\n![Chart](https://example.com/c.png)\n```\n"
       block = blocks(helper.render_content_regions(source)).first
       body = block.at_css("pre[data-markdown-block-source]").text
@@ -195,8 +195,9 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
       # The rocket is one Ruby character but two UTF-16 code units.
       expect(strong["data-markdown-from"]).to eq(body.index("**Shipped**").succ.to_s)
       expect(strong["data-markdown-to"]).to eq((body.index("**Shipped**") + 12).to_s)
-      expect(block.css(".data-grid").size).to eq(1)
-      expect(block.css(".data-grid .data-grid")).to be_empty
+      # The table expander can't comment on a draft's cells, so it is left out.
+      expect(block.css("table").size).to eq(1)
+      expect(block.css(".data-grid")).to be_empty
       expect(block.css(".image-frame").size).to eq(1)
     end
 

@@ -79,6 +79,14 @@ function renderedMap(block) {
   const pane = rendered(block)
   const source = sourceNodes(block).map(({ node }) => node.textContent).join("")
   const cursors = new Map()
+  const stateFor = owner => {
+    if (!cursors.has(owner)) {
+      const from = Number.parseInt(owner.dataset.markdownFrom, 10)
+      const to = Math.min(Number.parseInt(owner.dataset.markdownTo, 10), source.length)
+      cursors.set(owner, { cursor: from, to })
+    }
+    return cursors.get(owner)
+  }
   const entries = []
   const walker = document.createTreeWalker(pane, NodeFilter.SHOW_TEXT)
   let node
@@ -89,14 +97,15 @@ function renderedMap(block) {
       entries.push({ node, offsets: new Array(text.length).fill(null) })
       continue
     }
-    let state = cursors.get(owner)
-    if (!state) {
-      const from = Number.parseInt(owner.dataset.markdownFrom, 10)
-      const to = Math.min(Number.parseInt(owner.dataset.markdownTo, 10), source.length)
-      state = { cursor: from, to }
-      cursors.set(owner, state)
-    }
+    const state = stateFor(owner)
     entries.push({ node, offsets: align(text, source, state) })
+    // Text after a formatted child is searched past it. In `**foo bar** bar`
+    // the paragraph's " bar" must not match inside the bold phrase.
+    for (let parent = owner.parentElement?.closest("[data-markdown-from]"); parent && pane.contains(parent);
+      parent = parent.parentElement?.closest("[data-markdown-from]")) {
+      const ancestor = stateFor(parent)
+      ancestor.cursor = Math.max(ancestor.cursor, state.cursor)
+    }
   }
   return entries
 }

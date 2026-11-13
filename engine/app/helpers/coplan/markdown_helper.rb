@@ -538,9 +538,13 @@ module CoPlan
 
     # A block's body renders read-only: no task toggles (their lines are
     # not document lines), no outline headings or heading ids (they would
-    # collide with the document's), and footnotes scoped to the block.
+    # collide with the document's), no table expander, and footnotes scoped
+    # to the block.
     def render_markdown_block_body(body, number)
-      html = render_markdown(body, interactive: false, retain_sourcepos: true, footnote_prefix: "markdown-block-#{number}")
+      # Tables stay plain: the expanded table view has no way to comment on
+      # a draft's cells, and in the pane a selection maps to the source.
+      html = render_markdown(body, interactive: false, retain_sourcepos: true, footnote_prefix: "markdown-block-#{number}",
+        data_tables: false, expandable_images: true)
       wrapper = Nokogiri::HTML::DocumentFragment.parse(html).element_children.find { |node| node.name == "div" && node.classes.include?("markdown-rendered") }
       inner = Nokogiri::HTML::DocumentFragment.parse(wrapper ? wrapper.inner_html : html)
       inner.css(%w[h1 h2 h3 h4 h5 h6].map { |heading| "#{heading} a.anchor[id]" }.join(", ")).each do |anchor|

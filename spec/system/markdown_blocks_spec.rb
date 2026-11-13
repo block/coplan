@@ -173,6 +173,47 @@ RSpec.describe "Markdown blocks", type: :system do
     expect(second).to have_css("button[aria-pressed='true']", text: "Source")
   end
 
+  it "keeps the chosen view while an edit changes the block" do
+    visit plan_page_path(plan)
+    within(block) { click_button "Source" }
+
+    updated = plan.current_content.sub("Ship the cleanup.", "Ship the cleanup this week.")
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: updated,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+
+    expect(page).to have_css(".markdown-block pre", text: "this week", visible: true, wait: 10)
+    expect(page).to have_css(".markdown-block button[aria-pressed='true']", text: "Source")
+  end
+
+  it "maps text after formatting to the copy that follows it" do
+    bold = CoPlan::Plans::Create.call(title: "Bold", user: author, visibility: "published", actor_type: "human",
+      content: "# Bold\n\n```markdown\n**foo bar** bar\n```\n")
+    visit plan_page_path(bold)
+    expect(page).to have_css(".markdown-block code.hljs", visible: :all, wait: 10)
+
+    page.execute_script(<<~JS)
+      const pane = document.querySelector(".markdown-block__rendered");
+      const tail = pane.querySelector("strong").nextSibling;
+      const range = document.createRange();
+      range.setStart(tail, 1);
+      range.setEnd(tail, 4);
+      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+      document.querySelector('[data-coplan--text-selection-target="content"]').dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    JS
+    count = bold.comment_threads.count
+    page.driver.browser.action.send_keys("c").perform
+    panel = find(".comment-window:popover-open")
+    panel.find("textarea").fill_in with: "Second bar"
+    panel.find("textarea").send_keys(:enter)
+    deadline = 10.seconds.from_now
+    sleep 0.1 until bold.comment_threads.count > count || Time.current > deadline
+
+    thread = bold.comment_threads.last
+    expect(thread.anchor_start).to eq(bold.current_content.rindex("bar"))
+    expect(page).to have_css(".markdown-block__rendered mark.anchor-highlight", text: "bar", count: 1, wait: 10)
+    expect(page).to have_no_css(".markdown-block__rendered strong mark.anchor-highlight")
+  end
+
   it "maps rendered text after an emoji and leaves footnote numbers out" do
     notes = CoPlan::Plans::Create.call(title: "Notes", user: author, visibility: "published", actor_type: "human",
       content: "# Notes\n\n```markdown\n\u{1F680} **Shipped** the beta.[^1]\n\n[^1]: Beta notes.\n```\n")
