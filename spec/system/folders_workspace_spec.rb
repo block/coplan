@@ -66,6 +66,40 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page).to have_css(".workspace-crumbs__crumb--current", text: "Q3")
     end
 
+    it "keeps the row icon hoverable for its type tooltip and still opens the plan" do
+      visit library_page_path(author)
+      row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
+
+      # The stretched title link covers the card; the icon must be the
+      # topmost element under the pointer or its title tooltip never shows.
+      on_top = page.evaluate_script(<<~JS)
+        (() => {
+          const icon = document.querySelector(".plan-row[data-plan-id='#{developing_plan.id}'] .plan-type-icon")
+          const box = icon.getBoundingClientRect()
+          return icon.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2))
+        })()
+      JS
+      expect(on_top).to eq(true)
+      expect(row.find(".plan-type-icon")[:title]).to eq(developing_plan.plan_type.name)
+
+      row.find(".plan-row__icon").click
+      expect(page).to have_css("h1", text: "Payments Plan")
+    end
+
+    it "keeps the title as the row's keyboard navigation target" do
+      visit library_page_path(author)
+      row = find(".plan-row[data-plan-id='#{developing_plan.id}']")
+      title = row.find(".plan-row__title")
+      title.send_keys([ :shift, :tab ])
+      expect(page.evaluate_script("document.activeElement.classList.contains('plan-row__icon')")).to eq(false)
+      page.driver.browser.action.send_keys(:tab).perform
+      expect(page.evaluate_script("document.activeElement.classList.contains('plan-row__title')")).to eq(true)
+      expect(page.evaluate_script("document.activeElement.textContent")).to eq("Payments Plan")
+
+      page.driver.browser.action.send_keys(:enter).perform
+      expect(page).to have_css("h1", text: "Payments Plan")
+    end
+
     it "falls back to the plan's folder on Backspace after a cold open" do
       # Direct visit = no in-app history. Backspace should land on the
       # folder the plan lives in — at its readable address, not the
