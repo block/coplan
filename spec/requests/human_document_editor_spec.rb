@@ -186,4 +186,17 @@ RSpec.describe "Human document editor", type: :request do
     expect(response.body).to include("<table>", 'lang="mermaid"', 'coplan--mermaid')
     expect(response.body).not_to include("<script>")
   end
+
+  it "previews a whole document with its footnotes only when asked" do
+    content = "Claim.[^source]\n\n[^source]: Cited text.\n"
+
+    post preview_draft_plans_path, params: { content: content }
+    expect(response.body).not_to include("Cited text.")
+
+    expect {
+      post preview_draft_plans_path, params: { content: content, document: true }
+    }.not_to change(CoPlan::PlanVersion, :count)
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("Claim.", "Cited text.")
+  end
 end

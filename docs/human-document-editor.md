@@ -1,8 +1,8 @@
 # Human document editor prototype
 
-Owners use **Edit** to write in the document. **Editor**, **Raw**, and **Dual** are
-modes in the top bar, beside the close button, sharing one draft, base revision
-and autosave pipeline. The
+Owners use **Edit** to write in the document. **Editor**, **Raw**, **Dual**, and
+**Preview** are modes in the top bar, beside the close button, sharing one draft,
+base revision and autosave pipeline. The
 workspace **New document** starts a private draft. Add a title and content and it saves in
 place, without replacing the editor or interrupting typing.
 
@@ -175,6 +175,26 @@ budget remain plain. These bounds limit synchronous tokenization work; this is
 not a virtualized large-file code editor. Decoration-only transactions neither
 change Markdown nor enter undo/autosave history.
 
+## Preview mode
+
+Preview shows the whole draft as the reading view renders it, including tables,
+diagrams, presentations and footnotes. It is read-only: there are no editing
+cards, and formatting, Undo and Redo are disabled. Comments stay in reading view.
+The draft and save queue are unchanged, so switching to Preview never saves or
+normalizes the text. A pending autosave still completes.
+
+Preview uses the existing `preview_draft` endpoint with `document: true`, which
+adds the footnotes that block previews omit. It refreshes after live updates and
+keeps the rendered DOM when the output is unchanged. If rendering fails, the last
+rendered version stays visible with an explanation. Switch away and back to
+retry. Footnote and heading links scroll within the preview. Authored form
+controls in the preview are detached from the editor form, and editor actions
+are removed from its markup.
+
+Leaving Preview carries the last editing selection into the chosen pane.
+Preview is not remembered: reopening the editor or reloading returns to the
+last editing mode.
+
 ## Dual mode and engine configuration
 
 Dual places editable Markdown on the left and rich text on the right; below
@@ -300,6 +320,8 @@ new bullets, blank lines after lists, citation metadata, and saved/reopened list
 `spec/system/document_editor_modes_spec.rb` covers mode
 fidelity, table/Mermaid previews, Close editor success/error/conflict/in-flight behavior,
 raw live merging and undo, code exit/language, themes and new-document autosave.
+It also covers Preview rendering, read-only controls, form isolation, footnote
+links, selection carry-over, live refresh, reload and render failures.
 `spec/system/human_editing_spec.rb` covers the existing keyboard, draft, merge,
 persistence and reading flows. Request/service tests cover sanitized previews,
 authorization, atomic saves, surgical ranges, immutable versions and conflicts.

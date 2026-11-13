@@ -495,4 +495,86 @@ RSpec.describe "Document editor modes", type: :system do
     expect(find('[aria-label="Document body"]')).to have_text("Composed tail")
     expect(page.evaluate_script('document.activeElement.getAttribute("aria-label")')).to eq("Markdown source")
   end
+
+  def preview_pane
+    find('[aria-label="Document preview"]')
+  end
+
+  def content_value
+    page.evaluate_script('document.querySelector("textarea[name=content]").value')
+  end
+
+  it "previews the whole draft read-only with the reading renderer, then returns to editing" do
+    open_editor
+    click_button "Raw", exact: true
+    page.execute_script('const c = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor"); c.rawEditor.select(c.textareaTarget.value.length)')
+    raw.send_keys("\nPreview tail.[^n]\n\n<input type=\"reset\" value=\"Reset trap\"> <a href=\"#top\" data-action=\"click->coplan--editor#discardChanges\">Discard trap</a>\n\n[^n]: Preview footnote.\n")
+    draft = content_value
+    click_button "Preview", exact: true
+
+    expect(page).to have_css('[data-mode="preview"][aria-pressed="true"]')
+    expect(preview_pane).to have_css(".markdown-rendered h1", text: "Draft")
+    expect(preview_pane).to have_css("table td", text: "Ready")
+    expect(preview_pane).to have_css(".mermaid-diagram svg", wait: 20)
+    expect(preview_pane).to have_text("Preview tail.")
+    expect(preview_pane).to have_text("Preview footnote.")
+    expect(preview_pane).not_to have_css("[contenteditable], textarea, .document-editor__block")
+    expect(page).not_to have_css('[aria-label="Document body"]')
+    expect(page).not_to have_css('[aria-label="Markdown source"]')
+    expect(page).to have_button("Bold", disabled: true)
+    expect(page).to have_button("Undo", disabled: true)
+    expect(page).to have_css('select[aria-label="Paragraph style"]:disabled')
+    expect(content_value).to eq(draft)
+    # Authored HTML inside the editor form cannot reset it or call the editor.
+    expect(page.evaluate_script('document.querySelector("[aria-label=\'Document preview\'] input[type=reset]").form')).to be_nil
+    expect(preview_pane).to have_link("Discard trap")
+    expect(preview_pane).not_to have_css('[data-action*="coplan--editor"]')
+    # Footnote links resolve inside the preview, not a hidden reading copy.
+    preview_pane.find("a[data-footnote-ref]").click
+    expect(page.evaluate_script(<<~JS)).to eq(true)
+      (() => { const pane = document.querySelector("[aria-label='Document preview']");
+        const id = decodeURIComponent(pane.querySelector("a[data-footnote-ref]").getAttribute("href").slice(1));
+        const target = [...pane.querySelectorAll("[id]")].find(element => element.id === id).getBoundingClientRect();
+        return target.top >= 0 && target.top < window.innerHeight })()
+    JS
+    page.save_screenshot(Rails.root.join("tmp/editor-preview.png"))
+
+    click_button "Raw", exact: true
+    expect(raw).to have_text("Preview tail.")
+    expect(page).not_to have_css('[aria-label="Document preview"]')
+    expect(page.evaluate_script('document.activeElement.getAttribute("aria-label")')).to eq("Markdown source")
+    expect(page.evaluate_script("getSelection().anchorOffset")).to eq(draft.length)
+    raw.send_keys(" Edited after preview.")
+    expect(content_value).to include("Edited after preview.")
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to include("Preview tail.", "Preview footnote.", "Edited after preview.")
+  end
+
+  it "refreshes Preview for incoming changes and reopens in the last editing mode" do
+    open_editor
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Original prose.")
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("Original prose.", "Agent prose."), base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    expect(preview_pane).to have_text("Agent prose.", wait: 10)
+    expect(preview_pane).not_to have_text("Original prose.")
+
+    page.refresh
+    expect(page).to have_css('[data-mode="rich"][aria-pressed="true"]', wait: 20)
+    expect(page).not_to have_css('[aria-label="Document preview"]')
+    expect(find('[aria-label="Document body"]')).to have_text("Agent prose.")
+  end
+
+  it "keeps the draft and explains when Preview cannot render" do
+    open_editor
+    page.execute_script('window.originalFetch = window.fetch; window.fetch = (url, options) => String(url).endsWith("/preview_draft") && options?.body?.includes(\'"document":true\') ? Promise.reject(new TypeError("Offline")) : window.originalFetch(url, options)')
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Preview unavailable. Choose Editor or Raw to keep writing.")
+    page.execute_script("window.fetch = window.originalFetch")
+    click_button "Editor", exact: true
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Original prose.")
+    expect(preview_pane).not_to have_text("Preview unavailable")
+    expect(content_value).to eq(source)
+  end
 end

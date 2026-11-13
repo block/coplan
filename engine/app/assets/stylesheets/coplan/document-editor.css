@@ -116,7 +116,11 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 
 /* Each pane owns its selection; the form owns the shared draft/save queue. */
 .document-editor[data-mode="dual"] .document-editor__paper { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
-.document-editor__raw, .document-editor__body { min-width: 0; }
+.document-editor__raw, .document-editor__body, .document-editor__preview { min-width: 0; }
+/* Preview is the reading view's rendering of the draft: no editing chrome. */
+.document-editor__preview { min-height: 420px; outline: none; }
+.document-editor__preview-status, .document-editor__preview-error { margin: 0 0 16px; color: var(--color-text-muted); font: 13px/1.5 var(--font-sans, sans-serif); }
+.document-editor__preview-error { color: var(--color-danger); }
 .document-editor[data-mode="dual"] .document-editor__raw { padding-right: 24px; border-right: 1px solid var(--color-border); }
 .document-editor__body .ProseMirror > p:last-child:empty { min-height: 1.75em; }
 .document-editor__block > pre > code { display: block; font: inherit; white-space: pre-wrap; min-height: 1.5em; tab-size: 2; }
