@@ -524,6 +524,7 @@ RSpec.describe "Plans", type: :request do
       expect(icon_link).to be_present
       expect(icon_link["href"]).to eq(row.at_css("a.plan-row__title")["href"])
       expect(icon_link["tabindex"]).to eq("-1")
+      expect(icon_link["aria-label"]).to eq("Typed Plan (RFC)")
       expect(icon_link.at_css(".plan-type-icon")["title"]).to eq("RFC")
     end
 

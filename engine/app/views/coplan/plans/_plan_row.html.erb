@@ -25,6 +25,7 @@
       keyboard target for the same plan. %>
   <%= link_to plan_type_icon(plan, size: :lg), plan_browse_path(plan),
         class: "plan-row__icon", draggable: false, tabindex: -1,
+        aria: { label: "#{plan.title} (#{plan.plan_type.name})" },
         data: { turbo_frame: "_top", turbo_prefetch: true } %>
   <div class="plan-row__main">
     <div class="plan-row__line">
