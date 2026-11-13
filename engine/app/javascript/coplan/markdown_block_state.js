@@ -27,15 +27,23 @@ export function restoreMarkdownBlockViews(root, previous) {
   const hunks = textHunks(previous.text, current.text)
   for (const block of previous.blocks) {
     if (block.view !== "source" || block.from === null) continue
-    let position = block.from, delta = 0
-    for (const hunk of hunks) {
-      if (hunk.from > block.from) break
-      if (hunk.to <= block.from) delta += hunk.text.length - (hunk.to - hunk.from)
-      else { position = hunk.from; break }
+    // Score surviving text through the diff, rather than trusting one
+    // boundary: an insertion may share its first characters with the draft.
+    const scores = new Map()
+    let cursor = 0, delta = 0
+    for (const hunk of [...hunks, { from: previous.text.length, to: previous.text.length, text: "" }]) {
+      const from = Math.max(block.from, cursor) + delta
+      const to = Math.min(block.to, hunk.from) + delta
+      if (to > from) for (const candidate of current.blocks) {
+        const overlap = Math.max(0, Math.min(to, candidate.to) - Math.max(from, candidate.from))
+        scores.set(candidate, (scores.get(candidate) || 0) + overlap)
+      }
+      delta += hunk.text.length - (hunk.to - hunk.from)
+      cursor = hunk.to
     }
-    position += delta
     const identical = current.blocks.filter(candidate => candidate.source.textContent === block.source.textContent)
-    const match = identical.length === 1 ? identical[0] : current.blocks.find(candidate => candidate.from !== null && candidate.from <= position && position < candidate.to)
+    const mapped = [...scores].sort((a, b) => b[1] - a[1])[0]
+    const match = mapped?.[1] > 0 ? mapped[0] : (identical.length === 1 ? identical[0] : null)
     if (!match) continue
     const element = match.source.parentElement
     match.source.hidden = false

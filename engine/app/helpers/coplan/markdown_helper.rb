@@ -69,14 +69,14 @@ module CoPlan
     # expandable_images: frame each image with the same full-window expander
     # diagrams and tables use. Follows data_tables by default, so decks opt
     # out of both together.
-    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, expandable_images: data_tables, source_comments: false, retain_sourcepos: false)
+    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, expandable_images: data_tables, source_comments: false, retain_sourcepos: false, strip_html_attributes: [])
       render_options = { unsafe: true }
       # Sourcepos wires checkboxes and structural comment targets to source,
       # and tells parser-generated math from authored HTML that imitates it;
       # it is stripped after generating trusted interaction metadata.
       source = content.to_s.encode("UTF-8")
       render_options[:sourcepos] = true if interactive || retain_sourcepos || source.include?(ContentRegions::Iframe::PREFIX) || source.include?("$") || source.include?("math")
-      html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
+      html = CoPlan::Markdown.to_html(source, strip_html_attributes: strip_html_attributes, options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       scrubber = LinkScrubber.new
@@ -544,7 +544,7 @@ module CoPlan
     # not document lines), no outline headings or heading ids (they would
     # collide with the document's), and footnotes scoped to the block.
     def render_markdown_block_body(body, number, source_targets:, position:)
-      html = render_markdown(body, interactive: false, retain_sourcepos: true, footnote_prefix: "markdown-block-#{number}")
+      html = render_markdown(body, interactive: false, retain_sourcepos: true, footnote_prefix: "markdown-block-#{number}", strip_html_attributes: %w[id data-sourcepos])
       wrapper = Nokogiri::HTML::DocumentFragment.parse(html).element_children.find { |node| node.name == "div" && node.classes.include?("markdown-rendered") }
       inner = Nokogiri::HTML::DocumentFragment.parse(wrapper ? wrapper.inner_html : html)
       source_targets.annotate_markdown_block(inner, body, position)

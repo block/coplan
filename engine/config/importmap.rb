@@ -37,7 +37,7 @@ pin "coplan/viewport_anchor", to: "coplan/viewport_anchor.js", preload: false
 pin "coplan/content_sections", to: "coplan/content_sections.js", preload: false
 pin "coplan/markdown_block_state", to: "coplan/markdown_block_state.js", preload: false
 pin "coplan/deck_state", to: "coplan/deck_state.js", preload: false
-pin "diff", to: "https://esm.sh/diff@8.0.2?bundle", preload: false
+pin "diff", to: "vendor/diff.js", preload: false
 pin "coplan/merge_text", to: "coplan/merge_text.js", preload: false
 pin "coplan/input_origins", to: "coplan/input_origins.js", preload: false
 

@@ -91,7 +91,10 @@ for any code block, on the client and in `MarkdownTextExtractor`.
   matches each text node within its element's range and advances parent
   cursors after nested formatting. Link URLs cannot match visible labels.
   Entities and escapes map to their whole source spelling. Footnote
-  numbers and other generated text do not map.
+  numbers and other generated text do not map. Authored HTML without element
+  positions uses the body range and the same forward-only parser spans.
+  Authored IDs and source-position attributes are stripped before rendering;
+  they cannot claim generated coordinates or footnote targets.
 - A selection in the rendered draft becomes the source range from its first
   to its last mapped character. A selection across `**bold**` text or a link
   therefore stores the Markdown source of that passage.
@@ -102,7 +105,10 @@ for any code block, on the client and in `MarkdownTextExtractor`.
   URL, is visible in Source only.
 - Only a fence the parser produced becomes a block. Authored HTML imitating
   one stays ordinary HTML. Fences inside slide decks, editor previews, and
-  comments stay code blocks.
+  comments stay code blocks. Structural discussions become outdated if an edit
+  moves their draft into a literal slide fence.
+- Writing inspection keeps attribution on canonical source. The Rendered/Source
+  buttons remain available during inspection so that source attribution is reachable.
 
 ## Supported syntax
 

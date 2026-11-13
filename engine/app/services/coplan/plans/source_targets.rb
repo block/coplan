@@ -50,6 +50,9 @@ module CoPlan
         # positions produced by the Markdown AST can become signed targets.
         @positions = Hash.new { |hash, key| hash[key] = Set.new }
         @markdown_blocks = {}
+        @presentation_lines = ContentRegions::Split.call(@content).regions.select { |region| region.kind == :presentation }.flat_map do |region|
+          (region.start_line...(region.start_line + region.source.lines.length)).to_a
+        end.to_set
         collect_positions(CoPlan::Markdown.parse(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }))
       end
 
@@ -167,7 +170,7 @@ module CoPlan
         if %i[table_cell code_block].include?(node.type)
           p = node.source_position
           @positions[node.type] << "#{p[:start_line]}:#{p[:start_column]}-#{p[:end_line]}:#{p[:end_column]}"
-          if node.type == :code_block && MarkdownHelper::MARKDOWN_BLOCK_LANGUAGES.include?(node.fence_info.to_s.split.first&.downcase)
+          if node.type == :code_block && !@presentation_lines.include?(p[:start_line]) && MarkdownHelper::MARKDOWN_BLOCK_LANGUAGES.include?(node.fence_info.to_s.split.first&.downcase)
             @markdown_blocks["#{p[:start_line]}:#{p[:start_column]}-#{p[:end_line]}:#{p[:end_column]}"] = {
               body: node.string_content, line: p[:start_line]
             }

@@ -31,6 +31,12 @@ RSpec.describe CoPlan::Plans::SourceTargets do
     expect(targets.last.fetch("start")).to eq(content.index(" **3** "))
   end
 
+  it "excludes literal draft fences in presentations from surviving structural targets" do
+    fence = "```md\n| A | B |\n|---|---|\n| Web | 3 |\n```\n"
+    expect(described_class.new(fence).ranges).not_to be_empty
+    expect(described_class.new("::: {.presentation}\n\n#{fence}\n:::\n").ranges).to be_empty
+  end
+
   it "maps repeated Unicode and formatted cells to character offsets in their own source" do
     content = "🌱\n\n| Nom | Note |\n| --- | --- |\n| 同 | **same** |\n| 同 | **same** |\n"
     targets = cells(content)

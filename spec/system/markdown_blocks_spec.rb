@@ -263,6 +263,34 @@ RSpec.describe "Markdown blocks", type: :system do
     expect(all(".markdown-block").last).to have_css("button[aria-pressed=true]", text: "Source")
   end
 
+  it "keeps Source on the edited original when identical drafts diverge" do
+    fence = "```md\nA **draft** that will change.\n```\n"
+    sample = CoPlan::Plans::Create.call(title: "Two drafts", user: author, visibility: "published", actor_type: "human",
+      content: "# Two drafts\n\n#{fence}\nBetween drafts.\n\n#{fence}")
+    visit plan_page_path(sample)
+    within(all(".markdown-block").last) { click_button "Source" }
+    updated = sample.current_content.sub(/that will change\.(?=\n```\n\z)/, "that changed today.")
+    CoPlan::Plans::ReplaceContent.call(plan: sample, new_content: updated,
+      base_revision: sample.current_revision, actor_type: "human", actor_id: author.id)
+    expect(page).to have_css(".markdown-block pre", text: "changed today", visible: true)
+    expect(all(".markdown-block").first).to have_css("button[aria-pressed=true]", text: "Rendered")
+    expect(all(".markdown-block").last).to have_css("button[aria-pressed=true]", text: "Source")
+  end
+
+  it "allows Source switching during writing inspection" do
+    visit plan_page_path(plan)
+    find(".writing-provenance__trigger").click
+    click_button "Inspect writing"
+    expect(page).to have_button("Done inspecting")
+    within(block) { click_button "Source" }
+    expect(page).to have_css(".markdown-block pre", visible: true)
+    expect(page.evaluate_script(<<~JS)).to be_positive
+      [...CSS.highlights.values()].flatMap(highlight => [...highlight]).filter(range => range.startContainer.parentElement.closest("[data-markdown-block-source]")).length
+    JS
+    within(block) { click_button "Rendered" }
+    expect(page).to have_css(".markdown-block__rendered", visible: true)
+  end
+
   it "comments across the boundary between a rendered draft and ordinary prose" do
     visit plan_page_path(plan)
     select_in("#plan-content-body", "Ship the cleanup.", 0, "outside the draft", 17)
@@ -345,6 +373,22 @@ RSpec.describe "Markdown blocks", type: :system do
       { "text" => "Status", "offset" => body.index(" Status") + 1 },
       { "text" => "1", "offset" => body.index("]1") + 1 }
     ])
+  end
+
+  it "maps authored HTML text without trusting its source-position attributes" do
+    sample = CoPlan::Plans::Create.call(title: "HTML draft", user: author, visibility: "published", actor_type: "human",
+      content: "# HTML draft\n\n```md\nSame\n\n<div data-sourcepos=\"1:1-1:4\">Same</div>\n```\n")
+    visit plan_page_path(sample)
+    expect(page).to have_css(".markdown-block code.hljs", visible: :all)
+    select_in(".markdown-block__rendered > div", "Same", 0, "Same", 4)
+    page.driver.browser.action.send_keys("c").perform
+    panel = find(".comment-window:popover-open")
+    panel.find("textarea").fill_in with: "HTML discussion"
+    panel.find("textarea").send_keys(:enter)
+    expect(page).to have_css(".markdown-block__rendered > div mark", text: "Same")
+    expect(sample.comment_threads.last.anchor_start).to eq(sample.current_content.rindex("Same"))
+    within(block) { click_button "Source" }
+    expect(page).to have_css(".markdown-block pre mark", text: "Same")
   end
 
   it "highlights an empty draft cell's delimiters and navigates to it in Source" do

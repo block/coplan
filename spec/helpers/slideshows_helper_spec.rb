@@ -217,6 +217,28 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
       expect(blocks(helper.render_content_regions(source))).to be_empty
     end
 
+    it "removes authored mapping positions and footnote-shaped ids before rendering drafts" do
+      source = <<~MD
+        ```md
+        Same
+
+        <span id="fn-n" data-sourcepos="1:1-1:4">Same</span>
+
+        <div id="fnref-n" data-sourcepos="1:1-1:4">Same</div>
+
+        Claim.[^n]
+
+        [^n]: Actual note.
+        ```
+      MD
+      rendered = blocks(helper.render_content_regions(source)).first.at_css("[data-markdown-block-rendered]")
+      expect(rendered.css("span[data-markdown-from], div[data-markdown-from]")).to be_empty
+      expect(rendered.css("[id]").map { |element| element["id"] }.tally.values).to all(eq(1))
+      target = rendered.at_css(rendered.at_css("[data-footnote-ref]")["href"])
+      expect(target.text).to include("Actual note.")
+      expect(rendered.css("span[id], div[id]")).to be_empty
+    end
+
     it "keeps block footnotes distinct across deck regions and removes authored document ids" do
       fence = "```md\nA note.[^n]\n\n[^n]: Local note.\n```\n"
       source = "#{fence}\n::: {.presentation}\n\n# Slide\n\n:::\n\n#{fence}\n```md\n<h2 id=\"section-3-1\">Draft heading</h2>\n\n<span id=\"plan-title\">Draft text</span>\n```\n\n## 3.1 Actual section\n"

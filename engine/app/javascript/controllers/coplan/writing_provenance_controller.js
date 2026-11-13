@@ -36,12 +36,12 @@ export default class extends Controller {
   preventEdit(event) { if (this.highlighted) { event.preventDefault(); event.stopImmediatePropagation() } }
   inspectionKey(event) {
     if (!this.highlighted || event.ctrlKey || event.metaKey || event.altKey) return
-    const documentAction = event.target.closest("#plan-content-body") && !event.target.closest(".deck-toolbar__step") && ["Enter", " "].includes(event.key)
+    const documentAction = event.target.closest("#plan-content-body") && !event.target.closest(".deck-toolbar__step, [data-markdown-block-chrome]") && ["Enter", " "].includes(event.key)
     if (documentAction || ["c", "e"].includes(event.key.toLowerCase())) { event.preventDefault(); event.stopImmediatePropagation() }
   }
   inspectClick(event) {
     if (!this.highlighted) return
-    if (event.target.closest(".deck-toolbar__step")) return
+    if (event.target.closest(".deck-toolbar__step, [data-markdown-block-chrome]")) return
     if (event.target.closest('#plan-content-body, #plan-toolbar a, .site-nav__edit')) {
       event.preventDefault(); event.stopImmediatePropagation()
       this.hover(event)

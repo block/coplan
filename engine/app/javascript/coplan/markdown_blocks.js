@@ -74,27 +74,38 @@ function sourcePoint(block, offset, { end = false } = {}) {
 function renderedMap(block) {
   const pane = rendered(block)
   const mapping = JSON.parse(pane.dataset.markdownMap)
+  const sourceLength = block.querySelector(SOURCE_SELECTOR).textContent.length
+  // Index once by source start, then scan only the owner's interval.
+  const indexed = mapping.spans.flatMap((span, index) => span && !/\s/u.test(mapping.text[index]) ? [{ span, character: mapping.text[index] }] : [])
+    .sort((a, b) => a.span[0] - b.span[0])
   const cursors = new Map()
   const entries = []
   const walker = document.createTreeWalker(pane, NodeFilter.SHOW_TEXT)
   let node
   while ((node = walker.nextNode())) {
     const text = node.textContent
-    const owner = node.parentElement.closest("[data-markdown-from]")
+    const owner = node.parentElement.closest("[data-markdown-from]") || pane
     const spans = new Array(text.length).fill(null)
     entries.push({ node, spans })
     if (!text.trim() || node.parentElement.closest(UNMAPPED_SELECTOR) || !owner || !pane.contains(owner)) continue
 
-    const from = Math.max(Number(owner.dataset.markdownFrom), cursors.get(owner) || 0)
-    const to = Number(owner.dataset.markdownTo)
+    const from = Math.max(Number(owner.dataset.markdownFrom || 0), cursors.get(owner) || 0)
+    const to = owner === pane ? sourceLength : Number(owner.dataset.markdownTo)
     // Search only parser-produced visible characters in this element's
     // source range. URLs, markup, and HTML attributes cannot be candidates.
     const candidates = [], characters = []
-    mapping.spans.forEach((span, index) => {
-      if (!span || span[0] < from || span[1] > to || /\s/u.test(mapping.text[index])) return
+    let low = 0, high = indexed.length
+    while (low < high) {
+      const middle = (low + high) >>> 1
+      if (indexed[middle].span[0] < from) low = middle + 1
+      else high = middle
+    }
+    for (let index = low; index < indexed.length && indexed[index].span[0] < to; index++) {
+      const { span, character } = indexed[index]
+      if (span[1] > to) continue
       candidates.push(span)
-      characters.push(mapping.text[index])
-    })
+      characters.push(character)
+    }
     // The renderer adds layout newlines around nested lists and blocks.
     // Like writing provenance, align visible characters and let the mapped
     // endpoints retain the original source whitespace between them.
