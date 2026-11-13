@@ -175,7 +175,7 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 [data-editing="true"] .plan-edit-icon { display: none; }
 [data-editing="true"] .plan-edit-label { display: none; }
 [data-editing="true"] .plan-done-label { display: inline; }
-@media (max-width: 700px) { .inline-editor .document-editor__toolbar { padding: 6px; } .inline-editor .document-editor__toolbar select { width: 116px; } .inline-editor .document-editor__inline-mode button { padding: 6px; } }
+@media (max-width: 700px) { .inline-editor .document-editor__toolbar { padding: 6px; } .inline-editor .document-editor__toolbar select { width: 116px; } .inline-editor .document-editor__toolbar .document-editor__inline-mode button { padding: 6px 5px; font-size: 11px; } }
 .document-editor__code-picker { position: fixed; inset: auto; margin: 0; width: 268px; max-width: calc(100vw - 16px); box-sizing: border-box; padding: 10px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); overflow: auto; }
 .document-editor__code-picker:popover-open { display: flex; flex-direction: column; gap: 8px; }
 .document-editor__code-picker input { width: 100%; box-sizing: border-box; margin: 0; padding: 9px 10px; font: inherit; font-size: 13px; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; }
