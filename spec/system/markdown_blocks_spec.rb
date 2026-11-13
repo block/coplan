@@ -272,6 +272,24 @@ RSpec.describe "Markdown blocks", type: :system do
     expect(thread.anchor_end).to eq(content.index("outside the draft") + 17)
   end
 
+  it "maps an interpreted voice quote in a rendered draft back to its source" do
+    visit plan_page_path(plan)
+    expect(page).to have_css(".markdown-block code.hljs", visible: :all)
+    expect(page).to have_css("[data-voice-ready]")
+    anchor = page.evaluate_script(<<~JS)
+      (() => {
+      const element = document.querySelector('[data-controller~="coplan--voice"]');
+      const controller = window.Stimulus.getControllerForElementAndIdentifier(element, "coplan--voice");
+      return controller._resolveAnchor("release notes for details");
+      })()
+    JS
+    expect(anchor).to eq("text" => "release notes](https://example.com/r/42) for details", "occurrence" => 1)
+    within(block) { click_button "Source" }
+    expect(page.evaluate_script(<<~JS)).to be_nil
+      window.Stimulus.getControllerForElementAndIdentifier(document.querySelector('[data-controller~="coplan--voice"]'), "coplan--voice")._resolveAnchor("release notes for details")
+    JS
+  end
+
   it "comments on expanded draft table cells and shows the discussion in Source" do
     table_plan = CoPlan::Plans::Create.call(title: "Draft table", user: author, visibility: "published", actor_type: "human",
       content: "# Draft table\n\n```md\n| Client | Attempts |\n|---|---|\n| Mobile | **3** |\n| Web | **3** |\n```\n")

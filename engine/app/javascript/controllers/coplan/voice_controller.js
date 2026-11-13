@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { audioConstraints, selectedMicrophone, supportsRecognitionTrack, microphoneError } from "coplan/microphone"
 import { pageShortcutsAllowed } from "coplan/shortcuts"
+import { RENDERED_SELECTOR, renderedBlockAt, sourceRangeFor } from "coplan/markdown_blocks"
 
 /*
  * coplan--voice
@@ -778,14 +779,52 @@ export default class extends Controller {
   // pins the same span twice ("rename both of these"), each repeat takes
   // the next copy — that's what repeating a span means.
   _resolveAnchor(anchorText, seen = new Map()) {
-    if (!anchorText) return null
+    if (typeof anchorText !== "string" || !anchorText) return null
 
     const content = this._contentRoot()
     if (!content?.textContent?.includes(anchorText)) return null
 
     const priorUses = seen.get(anchorText) || 0
     seen.set(anchorText, priorUses + 1)
+    const draftAnchor = this._draftAnchor(content, anchorText, priorUses)
+    if (draftAnchor !== undefined) return draftAnchor
     return { text: anchorText, occurrence: this._occurrenceOfNearViewport(content, anchorText) + priorUses }
+  }
+
+  // The interpreter quotes the visible draft, while the server anchors its
+  // literal source. Use the same range projection as a mouse selection.
+  _draftAnchor(content, quote, priorUses) {
+    if (!content.querySelector(RENDERED_SELECTOR)) return undefined
+
+    const nodes = []
+    const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT)
+    let text = "", node
+    while ((node = walker.nextNode())) {
+      if (node.parentElement.closest("[hidden], style, script, noscript, button, [data-source-badge], [data-markdown-block-chrome]")) continue
+      nodes.push({ node, from: text.length, to: text.length + node.textContent.length })
+      text += node.textContent
+    }
+    const ranges = []
+    for (let index = text.indexOf(quote); index >= 0; index = text.indexOf(quote, index + quote.length)) {
+      const first = nodes.find(entry => entry.from <= index && entry.to > index)
+      const end = index + quote.length
+      const last = nodes.find(entry => entry.from < end && entry.to >= end)
+      if (!first || !last) continue
+      const range = document.createRange()
+      range.setStart(first.node, index - first.from); range.setEnd(last.node, end - last.from)
+      ranges.push(range)
+    }
+    const visible = ranges.findIndex(range => range.getBoundingClientRect().bottom > 0)
+    const range = ranges[Math.max(0, visible) + priorUses]
+    if (!range) return null
+    if (!renderedBlockAt(range.startContainer) && !renderedBlockAt(range.endContainer)) return undefined
+    const source = sourceRangeFor(range)
+    if (!source) return null
+    const normalize = value => value.replace(/\s+/g, " ").trim()
+    const sourceText = normalize(source.toString())
+    const prefix = document.createRange()
+    prefix.setStart(content, 0); prefix.setEnd(source.startContainer, source.startOffset)
+    return { text: sourceText, occurrence: this._countOccurrences(normalize(this._anchorText(prefix)), sourceText) }
   }
 
   // A spoken paragraph number is an explicit location, even when the
