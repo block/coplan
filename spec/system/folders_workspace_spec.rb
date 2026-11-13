@@ -625,12 +625,14 @@ RSpec.describe "Folders workspace", type: :system do
     # Capybara's drag_to is atomic — no way to hover mid-drag — so these
     # drive the controller with synthetic DragEvents sharing one
     # DataTransfer, exactly the objects the real drag hands it.
-    def fire_drag_event(element, type)
-      page.execute_script(<<~JS, element)
+    def fire_drag_event(element, type, dragend_on: nil)
+      page.execute_script(<<~JS, element, dragend_on)
         if (#{(type == "dragstart").to_json}) window.__springDT = new DataTransfer()
-        arguments[0].dispatchEvent(new DragEvent(#{type.to_json}, {
+        const send = (element, type) => element.dispatchEvent(new DragEvent(type, {
           bubbles: true, cancelable: true, dataTransfer: window.__springDT
         }))
+        send(arguments[0], #{type.to_json})
+        if (arguments[1]) send(arguments[1], "dragend")
       JS
     end
 
@@ -677,8 +679,8 @@ RSpec.describe "Folders workspace", type: :system do
       expect(page).to have_css(".folder-row", text: "Q3 Sub")
 
       # Dead space in the pane files into the folder you're looking at.
-      fire_drag_event(find(".workspace__main"), "drop")
-      fire_drag_event(row, "dragend")
+      # Complete the native gesture before waiting for the move's navigation.
+      fire_drag_event(find(".workspace__main"), "drop", dragend_on: row)
 
       expect(page).to have_css(".flash--notice", wait: 5)
       expect(author.library.placements.find_by(plan_id: developing_plan.id).folder).to eq(q3)

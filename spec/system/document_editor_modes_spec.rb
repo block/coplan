@@ -158,7 +158,7 @@ RSpec.describe "Document editor modes", type: :system do
     expect(plan.reload.current_content).to eq("# Draft\n\nRetain this draft")
   end
 
-  it "waits for a save in flight before closing" do
+  it "waits for a save in flight before closing", browser_sync: :manual do
     open_editor
     page.execute_script(<<~'JS')
       const original = window.fetch;
@@ -470,7 +470,7 @@ RSpec.describe "Document editor modes", type: :system do
     page.driver.browser.manage.window.resize_to(1400, 900)
   end
 
-  it "defers an in-flight remote response through composition without losing the composed draft" do
+  it "defers an in-flight remote response through composition without losing the composed draft", browser_sync: :manual do
     open_editor
     block_saves
     click_button "Dual", exact: true

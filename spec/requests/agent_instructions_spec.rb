@@ -11,7 +11,7 @@ RSpec.describe "Agent Instructions", type: :request do
 
       expect(response.body).to include("## Rendered diagrams", "### Changing a rendered diagram",
         "comments in the source", "Only the plan's author and their agents can upload images",
-        "someone else's program", "a source your principal trusts", "Never install from `skill-source`", "Every render needs a new image URL",
+        "someone else's program", "a source your principal trusts", "Never install from `skill-source`", "Identical rendered files reuse the existing URL", "even after an identical re-render",
         %(-F "file=@./diagram.png" "http://www.example.com/api/v1/plans/$PLAN_ID/attachments" | jq -r .url))
     end
 

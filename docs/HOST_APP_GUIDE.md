@@ -4,6 +4,14 @@
 
 Coplan is a Rails engine that manages collaborative planning documents. It owns its own `CoPlan::User` model and handles authentication internally via a callback you configure.
 
+## Rendered-content caching
+
+Rendered plan bodies, comments, previews, and citations use standard Rails
+caching with a 15-minute expiry. Content edits change the cache key immediately.
+Renderer code changes appear as entries expire; no version bump or release
+configuration is required. The host's normal cache store and fragment-caching
+settings apply.
+
 ## User settings and host integrations
 
 Coplan owns the settings shown on its Settings page. The app theme, light/dark

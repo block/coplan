@@ -115,7 +115,7 @@ When Mermaid can't draw what you need, draw the diagram with an agent skill that
 3. Read the source and its comments. If you didn't write it, it is someone else's program. Render it the way the skill says to render diagrams you didn't write. If the skill says nothing about that, do not run a source that does anything except draw; tell your principal.
 4. Edit the source and render it with the skill. Look at the image before you upload it.
 5. Upload the image: `<%= @curl %> -X POST -F "file=@./diagram.png" "<%= @base %>/api/v1/plans/$PLAN_ID/attachments" | jq -r .url`.
-6. Edit the plan. Put the new source in the fence and the new `url` in `image`, in the same edit. Every render needs a new image URL, even on external image hosts; overwriting an existing URL cannot clear the stale warning. If the source changes and the image doesn't, CoPlan marks the image as out of date.
+6. Edit the plan. Put the new source in the fence and the returned `url` in `image`, in the same edit. Identical rendered files reuse the existing URL within the same plan. If the source changes but the URL stays the same, Coplan keeps a conservative source-change note, even after an identical re-render. Check that the image matches the source; the note cannot verify that rendering happened. On external image hosts, use a new URL when the image changes; overwriting an existing URL cannot clear the note.
 7. Keep old attachments while earlier versions still reference them, so history remains readable.
 
 ## Math
@@ -224,6 +224,12 @@ Use the uploaded image's URL for `src`. Coplan keeps images within the reading c
 The web editor writes this form when a person resizes an image. Snapping back to natural full width removes the width setting.
 
 Images pasted from other apps default to natural size within the document width, ignoring copied display widths. Copying images within Coplan's rich editor preserves their saved widths. Existing Markdown widths remain unchanged.
+
+People can drop image or file uploads into the rich editor, or paste image files. Images become Markdown images; other files become download links. Uploads stay in Attachments after Undo removes their embedded content. New documents are created before their first upload. Embedding uses the normal human save and versioning rules.
+
+Failed or rejected editor uploads keep an error notice until the person dismisses it. Done and navigation keep the editor open until then. Accepted files and writing still save normally.
+
+Uploading identical contents to the same plan returns its existing attachment, even with a different filename. The original filename, uploader, and URLs stay unchanged. The upload response includes `reused: true`; a new file returns `reused: false`. Both return 201. Reuse creates no new attachment-added event. Different contents stay separate, and files are never reused across plans. Each editor drop still inserts an embed. Existing duplicates are not removed.
 
 When a paragraph starts with an image, text in that paragraph wraps beside it from the top if there is room. Put a blank line before the next paragraph to start below the image. A hard line break stays beside the image. In the web editor, Enter starts below; Shift+Enter adds a line beside it.
 

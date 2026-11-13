@@ -87,7 +87,7 @@ RSpec.describe CoPlan::RenderedDiagrams do
       expect(described_class.stale_images(plan)).to eq(Set[described_class.fingerprint(blocks.last)])
     end
 
-    it "reuses the immutable baseline across versions without querying history again" do
+    it "reuses the baseline until expiry and then recomputes the same stale state" do
       cache = ActiveSupport::Cache::MemoryStore.new
       allow(Rails).to receive(:cache).and_return(cache)
       plan = CoPlan::Plans::Create.call(title: "Diagram", content: fence("a"), user: user)
@@ -99,6 +99,27 @@ RSpec.describe CoPlan::RenderedDiagrams do
         expect(described_class.stale_images(plan)).not_to be_empty
       end
       expect(queries).to be_empty
+      travel 16.minutes do
+        ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") do
+          expect(described_class.stale_images(plan)).not_to be_empty
+        end
+      end
+      expect(queries).not_to be_empty
+    end
+
+    it "retains a conservative note when an identical re-render reuses its attachment" do
+      plan = CoPlan::Plans::Create.call(title: "Diagram", content: "# Diagram", user: user)
+      upload = -> { Rack::Test::UploadedFile.new(Rails.root.join("spec/fixtures/files/sample.png"), "image/png") }
+      original = CoPlan::Plans::AddAttachment.call(plan: plan, file: upload.call, user: user)
+      url = Rails.application.routes.url_helpers.rails_blob_path(original.attachment.blob, only_path: true)
+      plan = edit(plan, "# Diagram\n\n#{fence("digraph { a -> b }", image: url)}")
+      plan = edit(plan, "# Diagram\n\n#{fence("// Updated notes\ndigraph { a -> b }", image: url)}")
+      rerendered = CoPlan::Plans::AddAttachment.call(plan: plan, file: upload.call, user: user)
+
+      expect(rerendered).to be_reused
+      expect(rerendered.attachment.id).to eq(original.attachment.id)
+      expect(plan.attachments_attachments.count).to eq(1)
+      expect(described_class.stale_images(plan)).not_to be_empty
     end
 
     it "matches an image URL literally, not as a LIKE pattern" do

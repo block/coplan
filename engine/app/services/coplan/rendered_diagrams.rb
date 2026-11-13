@@ -30,8 +30,6 @@ module CoPlan
     # No backslashes: browsers read `/\host` as `//host`.
     IMAGE_URL = %r{\A(?:/(?!/)|https?://)[^\s"'<>\\]*\z}i
     BROWSER_RENDERED = %w[mermaid].freeze
-    # Part of the stale-image cache key: bump when what counts as stale changes.
-    STALE_CACHE_VERSION = 2
 
     module_function
 
@@ -83,10 +81,11 @@ module CoPlan
 
     # Versions are immutable. Cache the first sources for an image across
     # subsequent edits, rather than rescanning all history per new version.
-    # Use a new image URL for every render, including externally hosted images.
+    # Uploads may reuse identical bytes. Source edits with the same image URL
+    # retain a conservative note, including after an identical re-render.
     def original_sources(plan, block)
       key = Digest::SHA256.hexdigest([ plan.id, block.image, block.skill ].to_json)
-      Rails.cache.fetch([ "coplan/rendered-diagrams/original", STALE_CACHE_VERSION, key ]) do
+      Rails.cache.fetch([ "coplan/rendered-diagrams/original", key ], expires_in: 15.minutes) do
         matches = plan.plan_versions.reorder(:revision)
           .where("content_markdown LIKE ?", "%#{PlanVersion.sanitize_sql_like(block.image)}%")
         sources = nil

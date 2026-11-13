@@ -90,7 +90,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_current_path(plan_page_path(plan))
   end
 
-  it "keeps a failed save in the icon and retries when the icon is clicked" do
+  it "keeps a failed save in the icon and retries when the icon is clicked", browser_sync: :manual do
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     page.execute_script(<<~JS)
@@ -217,7 +217,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page.evaluate_script("window.scrollY")).to be <= 2
   end
 
-  it "shows one icon at a time and prevents closing during a save" do
+  it "shows one icon at a time and prevents closing during a save", browser_sync: :manual do
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     page.execute_script(<<~JS)
@@ -252,7 +252,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_css("#plan-content-body", text: "Saved before closing.")
   end
 
-  it "saves a queued edit when Done is clicked before autosave starts" do
+  it "saves a queued edit when Done is clicked before autosave starts", browser_sync: :manual do
     within("#plan-toolbar") { click_link "Edit" }
     expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
     page.execute_script(<<~JS)

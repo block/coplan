@@ -5,9 +5,8 @@
     Cached per content SHA: rendering is Commonmarker + two Nokogiri passes +
     sanitize, and this partial is re-rendered on every show AND every
     content-mutation broadcast. skip_digest avoids the template-digest cost
-    on write paths; the explicit RENDER_CACHE_VERSION key handles renderer
-    changes instead. -%>
+    on write paths; expiry picks up renderer changes within 15 minutes. -%>
 <% stale_diagrams = CoPlan::RenderedDiagrams.stale_images(plan) %>
-<% cache [CoPlan::EmbedDomain.order(:hostname).pluck(:hostname), request&.host, "coplan/plan-content-body-with-title", CoPlan::MarkdownHelper::RENDER_CACHE_VERSION, plan.id, plan.current_plan_version&.content_sha256 || plan.current_revision, stale_diagrams.sort], skip_digest: true do %>
+<% cache [CoPlan::EmbedDomain.order(:hostname).pluck(:hostname), request&.host, "coplan/plan-content-body-with-title", plan.id, plan.current_plan_version&.content_sha256 || plan.current_revision, stale_diagrams.sort], expires_in: 15.minutes, skip_digest: true do %>
   <%= mark_stale_rendered_diagrams(render_plan_document(plan.current_content), stale_diagrams) %>
 <% end %>

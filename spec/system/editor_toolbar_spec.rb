@@ -218,7 +218,7 @@ RSpec.describe "Editor toolbar", type: :system do
     end
   end
 
-  it "shows saving through in-flight typing, then fades the acknowledged autosave without moving the toolbar" do
+  it "shows saving through in-flight typing, then fades the acknowledged autosave without moving the toolbar", browser_sync: :manual do
     click_button "Raw", exact: true
     bounds = find(".document-editor__close-inline").rect
     page.execute_script(<<~'JS')

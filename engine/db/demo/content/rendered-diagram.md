@@ -6,10 +6,10 @@ This diagram was drawn with the `draw-diagram` agent skill. Its source sits in t
 
 ## Changing the diagram
 
-An agent asked to change this diagram does not redraw it from the picture. It gets the `draw-diagram` skill, reads the source from the plan, including the notes in its comments, edits it, and renders it again. It uploads the new image as an attachment and, in one edit, puts the edited source in the fence and the new image URL in its `image` attribute.
+An agent asked to change this diagram does not redraw it from the picture. It gets the `draw-diagram` skill, reads the source from the plan, including the notes in its comments, edits it, and renders it again. It uploads the new image as an attachment and, in one edit, puts the edited source in the fence and the returned image URL in its `image` attribute.
 
 CoPlan knows nothing about how to render the diagram: that's the skill's job. The source is a program, so an agent that didn't write it renders it the way the skill says for diagrams written by someone else.
 
-If someone edits the source without rendering it again, the image is marked as out of date until a new one replaces it.
+If the source changes while the image URL stays the same, Coplan shows a source-change note. Identical re-renders reuse the existing uploaded image, so that conservative note can remain even when the image is correct.
 
 Mermaid stays the first choice for diagrams a person may want to edit directly. CoPlan draws Mermaid itself, so it needs no image.

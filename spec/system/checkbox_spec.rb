@@ -74,12 +74,12 @@ RSpec.describe "Interactive checkboxes", type: :system do
 
     initial_version_count = CoPlan::PlanVersion.count
 
-    # Find the first unchecked checkbox ("Write documentation")
-    checkbox = all('input[type="checkbox"]').first
+    checkbox = find_field("Task: Write documentation", type: "checkbox", enable_aria_label: true)
     expect(checkbox).not_to be_checked
 
     checkbox.click
-    expect(checkbox).to be_checked
+    # The saved version can replace the body; assert against the current field.
+    expect(page).to have_checked_field("Task: Write documentation", type: "checkbox", enable_aria_label: true)
 
     # Wait for the server response by checking the version was created
     wait_for_version(plan, 2)
@@ -99,11 +99,11 @@ RSpec.describe "Interactive checkboxes", type: :system do
   it "unchecks a checked checkbox" do
     visit plan_page_path(plan)
 
-    checkbox = find('input[type="checkbox"][checked]')
+    checkbox = find_field("Task: Set up monitoring", type: "checkbox", enable_aria_label: true)
     expect(checkbox).to be_checked
 
     checkbox.click
-    expect(checkbox).not_to be_checked
+    expect(page).to have_unchecked_field("Task: Set up monitoring", type: "checkbox", enable_aria_label: true)
 
     wait_for_version(plan, 2)
 
