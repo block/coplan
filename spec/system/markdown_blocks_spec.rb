@@ -338,7 +338,7 @@ RSpec.describe "Markdown blocks", type: :system do
 
   it "comments on expanded draft table cells and shows the discussion in Source" do
     table_plan = CoPlan::Plans::Create.call(title: "Draft table", user: author, visibility: "published", actor_type: "human",
-      content: "# Draft table\n\n```md\n| Client | Attempts |\n|---|---|\n| Mobile | **3** |\n| Web | **3** |\n```\n")
+      content: "# Draft table\n\n<details open>\n<summary>Draft table</summary>\n\n```md\n| Client | Attempts |\n|---|---|\n| Mobile | **3** |\n| Web | **3** |\n```\n\n</details>\n")
     visit plan_page_path(table_plan)
     cell = all(".markdown-block tbody tr").last.all("td").last
     cell.double_click
@@ -365,6 +365,16 @@ RSpec.describe "Markdown blocks", type: :system do
     CoPlan::Plans::ReplaceContent.call(plan: table_plan, new_content: "Intro.\n\n#{table_plan.current_content}",
       base_revision: table_plan.current_revision, actor_type: "human", actor_id: author.id)
     expect(thread.reload).not_to be_out_of_date
+    expect(page).to have_css(".markdown-block pre mark", text: "**3**")
+    find("details > summary", text: "Draft table").click
+    find("summary .details-comment-badge").click
+    expect(page).to have_css(".thread-popover:popover-open", text: "Check the web budget")
+    expect(page).to have_css(".markdown-block pre mark", text: "**3**", visible: true)
+    page.driver.browser.action.send_keys(:escape).perform
+    within(block) { click_button "Rendered" }
+    find("details > summary", text: "Draft table").click
+    find("summary .details-comment-badge").click
+    expect(page).to have_css(".source-comments:popover-open", text: "Check the web budget")
   end
 
   it "maps visible repetitions after image alt text and generated footnote numbers" do
@@ -453,6 +463,30 @@ RSpec.describe "Markdown blocks", type: :system do
     expect(page).to have_css(".markdown-block__rendered > div mark", text: "Same")
     expect(page).to have_no_css(".markdown-block__rendered [data-footnotes] mark")
     expect(sample.comment_threads.last.anchor_start).to eq(sample.current_content.rindex("Same"))
+  end
+
+  it "maps tight-list prose after a Mermaid diagram to the prose occurrence" do
+    sample = CoPlan::Plans::Create.call(title: "Diagram followed by prose", user: author, visibility: "published", actor_type: "human",
+      content: "# Draft\n\n````md\n- Intro\n  ```mermaid\n  flowchart LR\n    A[Done]\n  ```\n  Done\n````\n")
+    visit plan_page_path(sample)
+    expect(page).to have_css(".markdown-block .mermaid-diagram svg", wait: 20)
+    page.execute_script(<<~JS)
+      const item = document.querySelector(".markdown-block__rendered li");
+      const node = Array.from(item.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.includes("Done"));
+      const range = document.createRange();
+      const start = node.textContent.indexOf("Done");
+      range.setStart(node, start); range.setEnd(node, start + 4);
+      const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+      document.querySelector('[data-coplan--text-selection-target="content"]').dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    JS
+    page.driver.browser.action.send_keys("c").perform
+    panel = find(".comment-window:popover-open")
+    panel.find("textarea").fill_in with: "Only the prose after the diagram"
+    panel.find("textarea").send_keys(:enter)
+    expect(page).to have_css(".markdown-block__rendered li > mark", text: "Done", count: 1)
+    expect(sample.comment_threads.last.anchor_start).to eq(sample.current_content.rindex("Done"))
+    within(block) { click_button "Source" }
+    expect(page).to have_css(".markdown-block pre mark", text: "Done", count: 1)
   end
 
   it "comments on nested draft diagrams inline and expanded and highlights their Source" do

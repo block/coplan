@@ -395,7 +395,9 @@ export default class extends Controller {
     event.preventDefault()
     event.stopPropagation()
     const id = event.currentTarget.dataset.threadId
-    const mark = this.contentTarget.querySelector(`mark.anchor-highlight[data-thread-id="${id}"], [data-source-badge][data-thread-id="${id}"]`)
+    // Keep collapsed sections eligible, but route to the active draft pane.
+    const mark = Array.from(this.contentTarget.querySelectorAll(`mark.anchor-highlight[data-thread-id="${id}"], [data-source-badge][data-thread-id="${id}"]`))
+      .find(candidate => !candidate.closest("[data-markdown-block-rendered][hidden], [data-markdown-block-source][hidden]"))
     const thread = document.getElementById(id)
     if (!mark || !thread?.dataset.threadId) return
     // Opening the section removes its badge. Keep a live focus-return target

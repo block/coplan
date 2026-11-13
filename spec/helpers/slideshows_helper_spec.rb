@@ -148,6 +148,17 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
       Nokogiri::HTML::DocumentFragment.parse(html).css(".markdown-block")
     end
 
+    it "excludes diagram source from the draft text map while retaining ordinary code and footnotes" do
+      body = "```mermaid\nflowchart LR\n A[Done]\n```\nDone\n\n```text\nLiteral code\n```\n\nClaim[^n]\n\n[^n]: Visible note\n"
+      source = "````md\n#{body}````\n"
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source))
+      map = JSON.parse(doc.at_css("[data-markdown-map]")["data-markdown-map"])
+      expect(map.fetch("text")).not_to include("flowchart", "A[Done]")
+      expect(map.fetch("text")).to include("Done", "Literal code", "Visible note")
+      offset = map.fetch("text").index("Done")
+      expect(map.fetch("spans")[offset, 4]).to eq((body.rindex("Done")...(body.rindex("Done") + 4)).map { |i| [ i, i + 1 ] })
+    end
+
     it "renders a markdown fence read-only beside its hidden source" do
       doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(draft))
       block = doc.at_css(".markdown-block[data-markdown-block][data-controller='coplan--markdown-block']")

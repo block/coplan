@@ -580,9 +580,10 @@ module CoPlan
     # visible entity or escape can cover several source characters; searching
     # raw source for visible letters loses those boundaries (and can match a
     # link URL or an earlier formatted copy instead). Image alt text has no
-    # DOM text node; footnote numbers are generated UI. Neither is a candidate.
+    # DOM text node; footnote numbers are generated UI. Mermaid code is replaced
+    # with SVG and uses structural targets. None is a prose candidate.
     def markdown_block_text_map(body)
-      text, _, spans = Plans::MarkdownTextExtractor.call(body, source_spans: true, exclude_nodes: %i[image footnote_reference])
+      text, _, spans = Plans::MarkdownTextExtractor.call(body, source_spans: true, exclude_nodes: %i[image footnote_reference], exclude_code_languages: [ "mermaid" ])
       utf16_offsets = [ 0 ]
       body.each_char { |char| utf16_offsets << utf16_offsets.last + (char.ord > 0xffff ? 2 : 1) }
       browser_spans = []
