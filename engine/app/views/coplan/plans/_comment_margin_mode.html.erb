@@ -1,0 +1,18 @@
+<%# Markers / Cards for the discussion margin. The choice lives in this
+    browser's localStorage per user (coplan/comment_margin.js). The margin
+    controller shows the switch while the margin has discussions (open
+    ones by default, resolved ones too with Show resolved) and reports
+    when the window is too narrow for cards. %>
+<div class="comment-margin-mode" role="group" aria-label="Margin discussions"
+     data-controller="coplan--comment-margin-mode"
+     data-action="coplan:comment-margin-layout@document->coplan--comment-margin-mode#layoutChanged"
+     data-unavailable>
+  <button type="button" class="comment-margin-mode__option" aria-pressed="true"
+          data-mode="markers" title="Show discussions as avatar markers"
+          data-coplan--comment-margin-mode-target="option" data-action="coplan--comment-margin-mode#choose">Markers</button>
+  <button type="button" class="comment-margin-mode__option" aria-pressed="false"
+          data-mode="cards" title="Show discussions as cards beside the text"
+          data-default-title="Show discussions as cards beside the text"
+          data-fallback-title="Cards need a wider window, so markers are showing"
+          data-coplan--comment-margin-mode-target="option" data-action="coplan--comment-margin-mode#choose">Cards</button>
+</div>

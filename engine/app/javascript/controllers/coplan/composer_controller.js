@@ -74,7 +74,7 @@ export default class extends Controller {
 
   adjust(rect, kind, dx, dy) {
     this.element.dataset.positioned = "true"
-    this.element.classList.remove("comment-form--sheet", "thread-popover--sheet")
+    this.element.classList.remove("comment-form--sheet", "thread-popover--sheet", "thread-popover--card")
     if (kind === "resize") this.element.dataset.resized = "true"
     this.setRect({ left: rect.left + (kind === "move" ? dx : 0), top: rect.top + (kind === "move" ? dy : 0),
       width: rect.width + (kind === "resize" ? dx : 0), height: rect.height + (kind === "resize" ? dy : 0) }, kind === "resize")
@@ -104,9 +104,11 @@ export default class extends Controller {
     const minimumTop = commentWindowTop(this.element)
     const rect = this.element.getBoundingClientRect()
     if (this.element.dataset.positioned) this.setRect(rect)
-    else if (!window.matchMedia("(max-width: 640px)").matches) {
+    else if (!window.matchMedia("(max-width: 640px)").matches && !this.element.classList.contains("thread-popover--card")) {
       // Errors and new replies can grow an anchored window after opening.
-      // Keep its bottom controls reachable without changing its size.
+      // Keep its bottom controls reachable without changing its size. A
+      // window expanded over its margin card is placed by placeOnMarginCard
+      // instead, which keeps it on its card and its controls on screen.
       const top = Math.max(minimumTop, Math.min(rect.top, (window.visualViewport?.height || innerHeight) - rect.height - 12))
       if (Math.abs(top - rect.top) > 1) this.element.style.top = `${top}px`
     }

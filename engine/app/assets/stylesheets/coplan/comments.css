@@ -87,7 +87,9 @@
   pointer-events: none;
 }
 
-.anchor-highlight--active {
+/* is-margin-active: the discussion whose margin marker or card is open. */
+.anchor-highlight--active,
+.anchor-highlight.is-margin-active {
   background: var(--color-highlight-active-bg);
   border-bottom: 2px solid var(--color-primary);
   outline: 2px solid var(--color-highlight-active-outline);
@@ -148,10 +150,12 @@
   min-width: 0;
 }
 
-/* Margin discussion markers: the first commenter's avatar beside the text a
-   discussion is about, in the page margin outside the document card so the
-   text keeps its width. comment_margin_controller sets the column's offset
-   and leaves it hidden when the margin has no room. */
+/* Margin discussions beside the text each one is about, in the page margin
+   outside the document card so the text keeps its width. Markers show the
+   first commenter's avatar; cards (comment-margin--cards) also show the
+   first comment, replies, and status. comment_margin_controller sets the
+   column's offset, picks the mode that fits, and leaves the column hidden
+   when the margin has no room. */
 .comment-margin {
   position: absolute;
   top: 0;
@@ -203,6 +207,137 @@
   border-radius: 50%;
 }
 
+/* Card details are only shown in cards mode. */
+.comment-margin__details { display: none; }
+
+/* Cards jump straight to their place, so an expanded window that is
+   measured against its card never lands mid-animation. */
+.comment-margin--cards .comment-margin__card {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-areas:
+    "avatar head"
+    "body body"
+    "more more"
+    "foot foot";
+  align-items: center;
+  justify-items: stretch;
+  column-gap: var(--space-sm);
+  width: var(--comment-card-width, 280px);
+  height: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+/* A deck-slide anchor scrolled out of its slide must not leave its card
+   behind. settings.css's global [hidden] rule covers this today; restated
+   because the card rule above sets display. */
+.comment-margin--cards .comment-margin__card[hidden] { display: none; }
+
+.comment-margin--cards .comment-margin__details { display: contents; }
+
+.comment-margin--cards .comment-margin__card > :is(.avatar, .comment__agent-avatar, svg) {
+  grid-area: avatar;
+  width: 24px;
+  height: 24px;
+}
+
+.comment-margin--cards .comment-margin__card > svg { color: var(--color-text-muted); }
+
+.comment-margin__head {
+  grid-area: head;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs) var(--space-sm);
+  min-width: 0;
+}
+
+.comment-margin__author {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comment-margin__time {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+/* A long first comment is clamped to four lines, followed by "more". */
+.comment-margin__body {
+  grid-area: body;
+  display: -webkit-box;
+  margin-top: 6px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
+.comment-margin__more {
+  grid-area: more;
+  display: none;
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.comment-margin__card.is-truncated .comment-margin__more { display: block; }
+
+.comment-margin__foot {
+  grid-area: foot;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.comment-margin__replies {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Status is a muted label, never an attention color. */
+.comment-margin__status {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 1px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+
+.comment-margin--cards .comment-margin__card.is-hover {
+  border-color: var(--color-highlight-open-border);
+  background: var(--color-interaction-hover-bg);
+  transform: none;
+}
+
+.comment-margin--cards .comment-margin__card.is-active {
+  border-color: var(--color-primary);
+  background: var(--color-interaction-active-bg);
+}
+
+/* The open discussion window expands over its card, at the card's width.
+   Doubled class: thread-popovers.css and review.css load later. */
+.comment-window.thread-popover--card {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-lg);
+}
+
 .anchor-highlight--open.is-margin-hover {
   background: var(--color-highlight-open-hover-bg);
 }
@@ -242,6 +377,53 @@
   outline-offset: 2px;
 }
 
+/* The Markers / Cards switch in the masthead. Hidden where the page has no
+   margin to show discussions in. */
+.comment-margin-mode {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+}
+
+/* Reserve the control's width before layout is known and while unavailable,
+   so detached/collapsed-only threads never move the masthead controls. */
+.comment-margin-mode[data-unavailable] { visibility: hidden; }
+
+.comment-margin-mode__option {
+  padding: 2px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.comment-margin-mode__option:hover { background: var(--color-interaction-hover-bg); color: var(--color-text); }
+
+.comment-margin-mode__option[aria-pressed="true"] {
+  background: var(--color-interaction-active-bg);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.comment-margin-mode__option:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+/* Cards were chosen, but the window is too narrow: markers are showing. */
+.comment-margin-mode[data-fallback] .comment-margin-mode__option[aria-pressed="true"] {
+  background: none;
+  text-decoration: underline dotted;
+}
+
+@media (max-width: 1200px) {
+  .comment-margin-mode { display: none; }
+}
 #plan-threads {
   position: absolute;
   width: 0;

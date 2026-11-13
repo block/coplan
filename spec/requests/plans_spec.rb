@@ -8,6 +8,20 @@ RSpec.describe "Plans", type: :request do
 
   before { sign_in_as(alice) }
 
+  it "reserves an initially invisible margin switch until layout is known" do
+    thread = create(:comment_thread, :with_anchor, plan: plan, out_of_date: true)
+    create(:comment, comment_thread: thread, author_id: alice.id)
+
+    get plan_page_path(plan)
+
+    expect(response).to have_http_status(:success)
+    expect(Nokogiri::HTML(response.body).at_css(".comment-margin-mode").key?("data-unavailable")).to be(true)
+
+    thread.update!(out_of_date: false)
+    get plan_page_path(plan)
+    expect(Nokogiri::HTML(response.body).at_css(".comment-margin-mode").key?("data-unavailable")).to be(true)
+  end
+
   describe "new plan in a folder" do
     it "shows a typed template without creating a plan, then creates with the chosen title and folder on first save" do
       folder = create(:folder, created_by_user: alice)
