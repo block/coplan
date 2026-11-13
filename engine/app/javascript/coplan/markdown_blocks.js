@@ -88,7 +88,15 @@ function renderedMap(block) {
     entries.push({ node, spans })
     if (!text.trim() || node.parentElement.closest(UNMAPPED_SELECTOR) || !owner || !pane.contains(owner)) continue
 
-    const from = Math.max(Number(owner.dataset.markdownFrom || 0), cursors.get(owner) || 0)
+    let from = Math.max(Number(owner.dataset.markdownFrom || 0), cursors.get(owner) || 0)
+    // Raw HTML descendants share their AST block's interval. Text already
+    // consumed by a parent or sibling must also advance a fresh child.
+    // Other intervals stay independent (footnotes render out of source order).
+    for (let ancestor = owner.parentElement; ancestor && ancestor !== pane; ancestor = ancestor.parentElement) {
+      if (ancestor.dataset.markdownFrom === owner.dataset.markdownFrom && ancestor.dataset.markdownTo === owner.dataset.markdownTo) {
+        from = Math.max(from, cursors.get(ancestor) || 0)
+      }
+    }
     const to = Number(owner.dataset.markdownTo)
     // Search only parser-produced visible characters in this element's
     // source range. URLs, markup, and HTML attributes cannot be candidates.

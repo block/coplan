@@ -409,6 +409,38 @@ RSpec.describe "Markdown blocks", type: :system do
     expect(page).to have_css(".markdown-block pre mark", text: "Same")
   end
 
+  { "> div" => 0, "> div > span" => 1, "> div > em" => 2 }.each do |selector, occurrence|
+    it "anchors repeated raw HTML occurrence #{occurrence} without highlighting the others" do
+      sample = CoPlan::Plans::Create.call(title: "Repeated HTML", user: author, visibility: "published", actor_type: "human",
+        content: "# Repeated HTML\n\n```md\n<div>Same <span>Same</span><em>Same</em></div>\n```\n")
+      visit plan_page_path(sample)
+      select_in(".markdown-block__rendered #{selector}", "Same", 0, "Same", 4)
+      page.driver.browser.action.send_keys("c").perform
+      panel = find(".comment-window:popover-open")
+      panel.find("textarea").fill_in with: "Only occurrence #{occurrence}"
+      panel.find("textarea").send_keys(:enter)
+      expect(page).to have_css(".markdown-block__rendered mark", text: "Same", count: 1)
+      expected = sample.current_content.enum_for(:scan, "Same").map { Regexp.last_match.begin(0) }.fetch(occurrence)
+      expect(sample.comment_threads.last.anchor_start).to eq(expected)
+      within(block) { click_button "Source" }
+      expect(page).to have_css(".markdown-block pre mark", text: "Same", count: 1)
+    end
+  end
+
+  it "renders and comments on HTML with tag-like quoted attribute values" do
+    sample = CoPlan::Plans::Create.call(title: "Quoted HTML", user: author, visibility: "published", actor_type: "human",
+      content: %Q(# Quoted HTML\n\n```md\n<div title="<strong>">Hello</div>\n```\n))
+    visit plan_page_path(sample)
+    expect(find(".markdown-block__rendered > div").text).to eq("Hello")
+    select_in(".markdown-block__rendered > div", "Hello", 0, "Hello", 5)
+    page.driver.browser.action.send_keys("c").perform
+    panel = find(".comment-window:popover-open")
+    panel.find("textarea").fill_in with: "Hello discussion"
+    panel.find("textarea").send_keys(:enter)
+    expect(page).to have_css(".markdown-block__rendered mark", text: "Hello", count: 1)
+    expect(sample.comment_threads.last.anchor_start).to eq(sample.current_content.index("Hello"))
+  end
+
   it "keeps raw HTML separate from identical relocated footnote definitions" do
     sample = CoPlan::Plans::Create.call(title: "Footnote order", user: author, visibility: "published", actor_type: "human",
       content: "# Footnote order\n\n```md\nA[^x]\n\n[^x]: Same\n\n<div>Same</div>\n```\n")

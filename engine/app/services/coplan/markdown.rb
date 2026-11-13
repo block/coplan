@@ -95,7 +95,11 @@ module CoPlan
         p = node.source_position
         position = "#{p[:start_line]}:#{p[:start_column]}-#{p[:end_line]}:#{p[:end_column]}"
         raw = node.to_html(options: { render: { unsafe: true } })
-        annotated = raw.gsub(/<([A-Za-z][\w:-]*)(?=[\s\/>])/) { "<#{Regexp.last_match(1)} data-sourcepos=\"#{position}\"" }
+        # Consume whole tags, including quoted values, and skip comments.
+        # A tag-looking string inside an attribute is not another element.
+        annotated = raw.gsub(/<!--.*?-->|<[A-Za-z][\w:-]*(?:[^>"']|"[^"]*"|'[^']*')*>/m) do |tag|
+          tag.start_with?("<!--") ? tag : tag.sub(/<[A-Za-z][\w:-]*/) { |opening| "#{opening} data-sourcepos=\"#{position}\"" }
+        end
         replacement = Commonmarker.parse(annotated).first_child
         node.replace(replacement) if replacement
       end
