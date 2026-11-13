@@ -303,10 +303,29 @@
   color: var(--color-text);
 }
 
-.markdown-block__view[aria-pressed="true"] {
+.markdown-block__view[aria-pressed="true"],
+html[data-markdown-block-view="source"] .markdown-block:not([data-view]) .markdown-block__view[data-view="source"] {
   background: var(--color-surface, var(--color-bg));
   color: var(--color-text);
   box-shadow: 0 0 0 1px var(--color-border);
+}
+
+/* A reader whose default is Source (Settings → Appearance) sees Source
+   from the first paint. The controller sets data-view when it connects,
+   and from then on the hidden attributes and aria-pressed decide. */
+html[data-markdown-block-view="source"] .markdown-block:not([data-view]) > [data-markdown-block-rendered] {
+  display: none !important;
+}
+
+html[data-markdown-block-view="source"] .markdown-block:not([data-view]) > pre[data-markdown-block-source] {
+  display: block !important;
+}
+
+/* Until then, the server's aria-pressed still marks Rendered. */
+html[data-markdown-block-view="source"] .markdown-block:not([data-view]) .markdown-block__view[data-view="rendered"] {
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
 }
 
 .markdown-block__view:focus-visible {

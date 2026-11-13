@@ -1,7 +1,8 @@
 A `markdown` or `md` code fence holds a draft written somewhere else: a
 status update, a release note, a message to post. The reading view shows it
 rendered, the way it will look where it goes. Switch the block to **Source**
-to read the literal Markdown. Every page load starts on Rendered.
+to read the literal Markdown. Each page load opens blocks in your default
+view, which you can change under Settings → Appearance.
 
 Comment on either view. A comment is stored against the source text, so it
 shows in both views. Select text in the rendered draft, press C, and then

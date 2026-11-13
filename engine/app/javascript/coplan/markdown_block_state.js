@@ -1,5 +1,10 @@
 import { textHunks } from "coplan/merge_text"
 
+// The view blocks open in: the reader's choice under Settings → Appearance.
+export function defaultMarkdownBlockView() {
+  return document.documentElement.dataset.markdownBlockView === "source" ? "source" : "rendered"
+}
+
 // Capture alongside deck positions, before the existing live-update swap.
 // The document's surrounding text disambiguates identical drafts; mapping
 // their positions through the shared text diff also survives body edits.
@@ -21,12 +26,15 @@ export function captureMarkdownBlockViews(root) {
   return { text, blocks }
 }
 
+// Only blocks switched away from the default need restoring; the rest open
+// in the default when their controller connects.
 export function restoreMarkdownBlockViews(root, previous) {
-  if (!previous.blocks.some(block => block.view === "source")) return
+  const fallback = defaultMarkdownBlockView()
+  if (!previous.blocks.some(block => block.view !== fallback)) return
   const current = captureMarkdownBlockViews(root)
   const hunks = textHunks(previous.text, current.text)
   for (const block of previous.blocks) {
-    if (block.view !== "source" || block.from === null) continue
+    if (block.view === fallback || block.from === null) continue
     // Score surviving text through the diff, rather than trusting one
     // boundary: an insertion may share its first characters with the draft.
     const scores = new Map()
@@ -46,8 +54,10 @@ export function restoreMarkdownBlockViews(root, previous) {
     const match = mapped?.[1] > 0 ? mapped[0] : (identical.length === 1 ? identical[0] : null)
     if (!match) continue
     const element = match.source.parentElement
-    match.source.hidden = false
-    element.querySelector(":scope > [data-markdown-block-rendered]").hidden = true
-    element.querySelectorAll("[data-view]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.view === "source")))
+    const source = block.view === "source"
+    element.dataset.view = block.view
+    match.source.hidden = !source
+    element.querySelector(":scope > [data-markdown-block-rendered]").hidden = source
+    element.querySelectorAll("button[data-view]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.view === block.view)))
   }
 }

@@ -79,6 +79,24 @@ RSpec.describe "Settings", type: :request do
     end
   end
 
+  describe "PATCH /settings/markdown_block_view" do
+    it "persists a known view and puts it on the page" do
+      patch settings_markdown_block_view_path, params: { markdown_block_view: "source" }
+      expect(response).to have_http_status(:ok)
+      expect(alice.reload.markdown_block_view).to eq("source")
+
+      get settings_root_path
+      expect(response.parsed_body.at_css("html")["data-markdown-block-view"]).to eq("source")
+      expect(response.parsed_body.at_css("input[name=markdown_block_view][value=source][checked]")).to be_present
+    end
+
+    it "rejects unknown views" do
+      patch settings_markdown_block_view_path, params: { markdown_block_view: "split" }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(alice.reload.markdown_block_view).to eq("rendered")
+    end
+  end
+
   describe "PATCH /settings/theme" do
     it "persists an allowed theme preference" do
       patch settings_theme_path, params: { theme: "dark" }

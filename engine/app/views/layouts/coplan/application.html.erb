@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="<%= I18n.locale %>" data-app-theme="<%= coplan_app_theme %>" data-app-theme-choice="<%= coplan_app_theme_choice %>"<% if signed_in? && current_user.theme_preference != "system" %> data-theme="<%= current_user.theme_preference %>"<% end %>>
+<html lang="<%= I18n.locale %>" data-app-theme="<%= coplan_app_theme %>" data-app-theme-choice="<%= coplan_app_theme_choice %>"<% if signed_in? && current_user.theme_preference != "system" %> data-theme="<%= current_user.theme_preference %>"<% end %><% if signed_in? %> data-markdown-block-view="<%= current_user.markdown_block_view %>"<% end %>>
   <head>
     <%= capybara_lockstep if defined?(Capybara::Lockstep) %>
     <title><%= content_for(:title) || "Coplan" %></title>

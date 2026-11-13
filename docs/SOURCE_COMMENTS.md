@@ -71,10 +71,11 @@ reader to reopen the latest plan before posting.
 
 A `markdown` or `md` fence renders in the reading view as a Markdown block:
 the rendered draft, a Rendered / Source switch, and the literal source,
-hidden while Rendered shows. Each page load starts on Rendered. A live update
-keeps the view chosen on that page, including when the draft is edited.
-The existing live-update swap maps the block through the shared text diff
-before restoring the viewport.
+hidden while Rendered shows. Each page load opens blocks in the reader's
+default view, set under Settings → Appearance (Rendered unless changed). A
+live update keeps the view chosen on that page, including when the draft is
+edited. The existing live-update swap maps the block through the shared text
+diff before restoring the viewport.
 
 Text selections in Markdown blocks create ordinary comments with no `anchor_kind`.
 Table-cell and nested Mermaid comments use the existing signed structural targets, translated

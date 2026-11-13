@@ -29,6 +29,12 @@ module CoPlan
       "off" => "Off"
     }.freeze
 
+    # Which view a markdown or md fence opens in on the reading view
+    # (MarkdownHelper#render_markdown_blocks). A block switched on the page
+    # keeps that view until the next navigation.
+    # The first is the column default.
+    MARKDOWN_BLOCK_VIEWS = %w[rendered source].freeze
+
     has_many :api_tokens, dependent: :destroy
     has_many :agent_connection_requests, dependent: :delete_all
     has_many :created_plans, class_name: "CoPlan::Plan", foreign_key: :created_by_user_id, dependent: :nullify, inverse_of: :created_by_user
@@ -47,6 +53,7 @@ module CoPlan
     # pages fall back to the default (Themes.resolve).
     validates :app_theme, inclusion: { in: APP_THEMES }, if: :app_theme_changed?
     validates :voice_hotkey, inclusion: { in: VOICE_HOTKEYS }
+    validates :markdown_block_view, inclusion: { in: MARKDOWN_BLOCK_VIEWS }
     validates :name, presence: true
     validates :email, uniqueness: true, allow_nil: true
     validates :username, uniqueness: true, allow_nil: true,

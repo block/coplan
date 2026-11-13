@@ -583,4 +583,145 @@ RSpec.describe "Markdown blocks", type: :system do
     expect(page).to have_css(".thread-popover", text: "The final word", visible: :all)
     expect(sample.comment_threads.last.anchor_start).to eq(sample.current_content.index("** word") + 3)
   end
+
+  describe "default view setting" do
+    it "opens blocks in the view picked under Settings, page by page" do
+      visit settings_root_path
+      row = find(".settings-row", text: "Markdown blocks")
+      within(row) { find(".segmented__option", text: "Source").click }
+      expect(page).to have_css("html[data-markdown-block-view='source']", visible: :all, wait: 10)
+      expect(author.reload.markdown_block_view).to eq("source")
+
+      thread = create(:comment_thread, plan: plan, created_by_user: author, anchor_text: "**Progress**")
+      create(:comment, comment_thread: thread, author_id: author.id, body_markdown: "Use a heading")
+
+      visit plan_page_path(plan)
+      within(block) do
+        expect(page).to have_css("button[aria-pressed='true']", text: "Source")
+        expect(page).to have_css("pre", text: "**Progress**", visible: true)
+        expect(page).to have_no_css(".markdown-block__rendered", visible: true)
+        expect(page).to have_css("pre mark.anchor-highlight", text: "**Progress**", wait: 10)
+
+        # Switching on the page still works, for this page only.
+        click_button "Rendered"
+        expect(page).to have_css("strong mark.anchor-highlight", text: "Progress", visible: true, wait: 10)
+      end
+
+      visit plan_page_path(plan)
+      expect(page).to have_css(".markdown-block button[aria-pressed='true']", text: "Source")
+    end
+
+    it "keeps a block switched to Rendered through a live update" do
+      author.update!(markdown_block_view: "source")
+      visit plan_page_path(plan)
+      within(block) { click_button "Rendered" }
+
+      updated = plan.current_content.sub("Ship the cleanup.", "Ship the cleanup this week.")
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: updated,
+        base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+
+      expect(page).to have_css(".markdown-block__rendered", text: "this week", visible: true, wait: 10)
+      expect(page).to have_css(".markdown-block button[aria-pressed='true']", text: "Rendered")
+    end
+
+    it "shows a Source default before the block's controller connects" do
+      author.update!(markdown_block_view: "source")
+      visit plan_page_path(plan)
+      expect(page).to have_css(".markdown-block[data-view='source']")
+
+      # A copy with no controller is what the first paint sees.
+      styles = page.evaluate_script(<<~JS)
+        (() => {
+          const copy = document.querySelector(".markdown-block").cloneNode(true);
+          copy.removeAttribute("data-controller");
+          copy.removeAttribute("data-view");
+          copy.querySelector("[data-markdown-block-rendered]").hidden = false;
+          copy.querySelector("pre[data-markdown-block-source]").hidden = true;
+          document.querySelector("#plan-content-body .markdown-rendered").append(copy);
+          const shown = element => getComputedStyle(element).display !== "none";
+          const result = {
+            rendered: shown(copy.querySelector("[data-markdown-block-rendered]")),
+            source: shown(copy.querySelector("pre[data-markdown-block-source]"))
+          };
+          copy.remove();
+          return result;
+        })()
+      JS
+      expect(styles).to eq("rendered" => false, "source" => true)
+    end
+
+    # Delays (and optionally fails) this tab's saves of the setting, so a
+    # test can navigate while they are in flight.
+    def delay_view_saves(ms, status: nil)
+      page.execute_script(<<~JS, ms, status)
+        const [ms, status] = arguments;
+        const original = window.fetch;
+        window.fetch = (url, options) => String(url).includes("markdown_block_view")
+          ? new Promise(resolve => setTimeout(resolve, ms)).then(() => status ? new Response("", { status }) : original(url, options))
+          : original(url, options);
+      JS
+    end
+
+    def view_row
+      find(".settings-row", text: "Markdown blocks")
+    end
+
+    it "takes a choice changed elsewhere from a fresh Settings render" do
+      visit plan_page_path(plan)
+      expect(page).to have_css("html[data-markdown-block-view='rendered']", visible: :all)
+
+      # Another tab or device saves Source; this tab's <html> still says Rendered.
+      author.update!(markdown_block_view: "source")
+      page.execute_script("Turbo.visit(arguments[0])", settings_root_path)
+      within(view_row) { expect(page).to have_checked_field("markdown_block_view", with: "source", visible: :all) }
+      expect(page).to have_css("html[data-markdown-block-view='source']", visible: :all)
+
+      page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
+      expect(page).to have_css(".markdown-block button[aria-pressed='true']", text: "Source")
+    end
+
+    it "keeps a saved choice when Turbo restores Settings from its cache" do
+      visit settings_root_path
+      within(view_row) { find(".segmented__option", text: "Source").click }
+      expect(page).to have_css("html[data-markdown-block-view='source']", visible: :all)
+      page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
+      expect(page).to have_css(".markdown-block button[aria-pressed='true']", text: "Source")
+
+      # The cached Settings page was rendered when Rendered was stored.
+      page.go_back
+      within(view_row) { expect(page).to have_checked_field("markdown_block_view", with: "source", visible: :all) }
+      expect(page).to have_css("html[data-markdown-block-view='source']", visible: :all)
+    end
+
+    it "keeps saves in pick order across Settings visits" do
+      visit settings_root_path
+      delay_view_saves(400)
+      within(view_row) do
+        find(".segmented__option", text: "Source").click
+        find(".segmented__option", text: "Rendered").click
+      end
+      page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
+      expect(page).to have_css(".markdown-block")
+      page.execute_script("Turbo.visit(arguments[0])", settings_root_path)
+      within(view_row) { find(".segmented__option", text: "Source").click }
+
+      deadline = 10.seconds.from_now
+      sleep 0.1 until page.evaluate_script("document.documentElement.dataset.markdownBlockView") == "source" || Time.current > deadline
+      sleep 1.5 # Long enough for every queued save to land.
+      expect(author.reload.markdown_block_view).to eq("source")
+      expect(page).to have_css("html[data-markdown-block-view='source']", visible: :all)
+      within(view_row) { expect(page).to have_checked_field("markdown_block_view", with: "source", visible: :all) }
+    end
+
+    it "says page-wide when a save fails after leaving Settings" do
+      visit settings_root_path
+      delay_view_saves(600, status: 500)
+      within(view_row) { find(".segmented__option", text: "Source").click }
+      page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
+
+      expect(page).to have_css(".toasts__toast", text: "Couldn't save your Markdown block view", wait: 10)
+      expect(page).to have_css("html[data-markdown-block-view='rendered']", visible: :all)
+      expect(author.reload.markdown_block_view).to eq("rendered")
+    end
+  end
 end
