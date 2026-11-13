@@ -332,6 +332,8 @@ RSpec.describe "Editor toolbar", type: :system do
   it "keeps the save indicator at the right edge when controls wrap on a narrow screen" do
     original_size = page.current_window.size
     page.current_window.resize_to(390, 844)
+    # macOS Chrome clamps window width; exercise the actual phone viewport.
+    page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 390, height: 844, deviceScaleFactor: 1, mobile: false)
     bounds = page.evaluate_script(<<~'JS')
       (() => {
         const toolbar = document.querySelector('.document-editor__toolbar').getBoundingClientRect();
@@ -342,8 +344,10 @@ RSpec.describe "Editor toolbar", type: :system do
     expect(bounds["gap"]).to be_between(0, 15)
     expect(bounds["top"]).to be_between(0, 15)
     expect(bounds["right"]).to be <= bounds["width"]
+    expect(page.evaluate_script('document.querySelector(".document-editor__format-controls").clientWidth')).to be >= 116
     page.save_screenshot(Rails.root.join("tmp/editor-toolbar-mobile.png"))
   ensure
+    page.driver.browser.execute_cdp("Emulation.clearDeviceMetricsOverride")
     page.current_window.resize_to(*original_size) if original_size
   end
 end

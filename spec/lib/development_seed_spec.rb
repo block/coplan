@@ -3,6 +3,20 @@ require "coplan/development_seed"
 
 RSpec.describe CoPlan::DevelopmentSeed do
   describe ".call" do
+    it "provides a Preview workflow and preserves local edits on reseeding" do
+      described_class.call
+      document = seeded_plan("editor-preview")
+      expect(document.current_content).to include("**Raw**", "**Preview**", "```mermaid", "[^preview]:", "| Check |")
+      expect(document.current_revision).to eq(1)
+      expect(seeded_plan("demo-library").current_content).to include(document.url_path)
+      CoPlan::Plans::ReplaceContent.call(plan: document, new_content: document.current_content + "\nMy preview draft.\n",
+        base_revision: 1, actor_type: "human", actor_id: document.created_by_user_id)
+      described_class.call
+      expect(document.reload.current_content).to include("My preview draft.")
+      expect(document.current_revision).to eq(2)
+      expect(CoPlan::Plan.all.count { |plan| plan.metadata.to_h["development_seed_key"] == "editor-preview" }).to eq(1)
+    end
+
     it "provides the canonical title demo and preserves subsequent edits on reseeding" do
       described_class.call
       document = seeded_plan("document-title")

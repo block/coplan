@@ -199,4 +199,13 @@ RSpec.describe "Human document editor", type: :request do
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("Claim.", "Cited text.")
   end
+
+  it "keeps task-list layout read-only and removes authored actions before adding renderer actions" do
+    content = "- [ ] Review **draft**\n\n<a href='#top' data-action='click->coplan--inline-editor#open'>Trap</a>\n\n<input type='submit'>\n"
+    post preview_draft_plans_path, params: { content: content, document: true }
+    doc = Nokogiri::HTML.fragment(response.body)
+    expect(doc.at_css("ul.task-list li.task-list-item .task-list-item-content strong").text).to eq("draft")
+    expect(doc.css("input").all? { |input| input.key?("disabled") }).to be true
+    expect(doc.css('[data-action*="coplan--inline-editor"], [data-action*="coplan--checkbox"]')).to be_empty
+  end
 end

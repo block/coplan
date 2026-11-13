@@ -121,6 +121,7 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 .document-editor__preview { min-height: 420px; outline: none; }
 .document-editor__preview-status, .document-editor__preview-error { margin: 0 0 16px; color: var(--color-text-muted); font: 13px/1.5 var(--font-sans, sans-serif); }
 .document-editor__preview-error { color: var(--color-danger); }
+.document-editor__preview-status { position: sticky; top: calc(var(--nav-height) + 100px); }
 .document-editor[data-mode="dual"] .document-editor__raw { padding-right: 24px; border-right: 1px solid var(--color-border); }
 .document-editor__body .ProseMirror > p:last-child:empty { min-height: 1.75em; }
 .document-editor__block > pre > code { display: block; font: inherit; white-space: pre-wrap; min-height: 1.5em; tab-size: 2; }
@@ -175,7 +176,13 @@ html[data-theme="light"] .document-editor select, html[data-theme="light"] .docu
 [data-editing="true"] .plan-edit-icon { display: none; }
 [data-editing="true"] .plan-edit-label { display: none; }
 [data-editing="true"] .plan-done-label { display: inline; }
-@media (max-width: 700px) { .inline-editor .document-editor__toolbar { padding: 6px; } .inline-editor .document-editor__toolbar select { width: 116px; } .inline-editor .document-editor__toolbar .document-editor__inline-mode button { padding: 6px 5px; font-size: 11px; } }
+@media (max-width: 700px) {
+  .inline-editor .document-editor__toolbar { padding: 6px; flex-wrap: wrap; }
+  .inline-editor .document-editor__toolbar select { width: 116px; }
+  /* Keep formatting and Done reachable; modes get their own stable row. */
+  .inline-editor .document-editor__inline-mode { order: 1; flex-basis: 100%; justify-content: center; }
+  .inline-editor .document-editor__inline-mode button { padding: 6px; }
+}
 .document-editor__code-picker { position: fixed; inset: auto; margin: 0; width: 268px; max-width: calc(100vw - 16px); box-sizing: border-box; padding: 10px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-pop); overflow: auto; }
 .document-editor__code-picker:popover-open { display: flex; flex-direction: column; gap: 8px; }
 .document-editor__code-picker input { width: 100%; box-sizing: border-box; margin: 0; padding: 9px 10px; font: inherit; font-size: 13px; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; }

@@ -504,6 +504,72 @@ RSpec.describe "Document editor modes", type: :system do
     page.evaluate_script('document.querySelector("textarea[name=content]").value')
   end
 
+  it "keeps a visible passage in place through Preview and a live refresh" do
+    content = "# Draft\n\n## Opening section\n\n" + (1..70).map { |i| "Paragraph #{i}: a passage for checking reading position.\n\n" }.join
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    open_editor
+    paragraph = find('[aria-label="Document body"] p', text: "Paragraph 50:")
+    page.execute_script('arguments[0].scrollIntoView({block: "center"})', paragraph)
+    top = paragraph.rect.y - page.evaluate_script("scrollY")
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Paragraph 50:")
+    expect(find('.document-editor__preview p', text: "Paragraph 50:").rect.y - page.evaluate_script("scrollY")).to be_within(3).of(top)
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content.sub("Paragraph 1:", "A new introduction.\n\nParagraph 1:"), base_revision: 2, actor_type: "local_agent", actor_id: author.id)
+    expect(preview_pane).to have_text("A new introduction.")
+    expect(find('.document-editor__preview p', text: "Paragraph 50:").rect.y - page.evaluate_script("scrollY")).to be_within(3).of(top)
+    within(".content-nav") { click_link "Opening section", exact: true }
+    expect(page).to have_css(".document-editor__preview h2", text: "Opening section") { |heading| (heading.rect.y - page.evaluate_script("scrollY")).between?(0, 300) }
+  end
+
+  it "finishes an active Preview presentation before showing incoming changes" do
+    content = "# Draft\n\nBefore the show.\n\n::: {.presentation #demo}\n\n## First slide\n\nSlide body.\n\n---\n\n## Second slide\n\nMore detail.\n\n:::\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    open_editor
+    find('.document-editor__mode [data-mode="preview"]').click
+    within(preview_pane) { click_button "Present deck", enable_aria_label: true }
+    expect(page).to have_css(".document-editor__preview .deck--presenting")
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content.sub("Before the show.", "Updated during the show."), base_revision: 2, actor_type: "local_agent", actor_id: author.id)
+    expect(page).to have_field("Document Markdown", with: /Updated during the show\./, visible: :all, enable_aria_label: true)
+    expect(page).to have_css(".document-editor__preview .deck--presenting")
+    expect(preview_pane).not_to have_text("Updated during the show.")
+    page.send_keys(:escape)
+    expect(page).not_to have_css(".deck--presenting")
+    expect(preview_pane).to have_text("Updated during the show.")
+  end
+
+  it "cancels an unfinished Preview request on return to editing", browser_sync: :manual do
+    open_editor
+    page.execute_script(<<~JS)
+      const original = window.fetch;
+      window.fetch = (url, options) => options?.body?.includes('"document":true') ? new Promise((resolve, reject) => {
+        options.signal.addEventListener("abort", () => { window.previewAborted = true; reject(new DOMException("Aborted", "AbortError")); });
+      }) : original(url, options);
+    JS
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Loading preview…")
+    click_button "Editor", exact: true
+    expect(page.evaluate_script("window.previewAborted")).to eq(true)
+    expect(page).to have_css('[aria-label="Document body"]', text: "Original prose.")
+  end
+
+  it "uses unsaved draft footnotes for hover and never follows missing fragments into the reader" do
+    content = "# Draft\n\nClaim.[^n] [Missing](#missing) [Malformed](#%zz)\n\n[^n]: Saved citation.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "human", actor_id: author.id)
+    open_editor
+    block_saves
+    click_button "Raw", exact: true
+    raw.send_keys([ mod, "a" ], content.sub("Saved citation.", "Unsaved citation."))
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Unsaved citation.")
+    preview_pane.find("a[data-footnote-ref]").hover
+    expect(page).to have_css(".reference-preview__body", text: "Unsaved citation.", visible: true)
+    preview_pane.click_link "Missing"
+    expect(page.evaluate_script("location.hash")).to eq("")
+    preview_pane.click_link "Malformed"
+    expect(page.evaluate_script("location.hash")).to eq("")
+    expect(plan.reload.current_content).to include("Saved citation.")
+  end
+
   it "previews the whole draft read-only with the reading renderer, then returns to editing" do
     open_editor
     click_button "Raw", exact: true
@@ -514,6 +580,10 @@ RSpec.describe "Document editor modes", type: :system do
 
     expect(page).to have_css('[data-mode="preview"][aria-pressed="true"]')
     expect(preview_pane).to have_css(".markdown-rendered h1", text: "Draft")
+    expect(page.evaluate_script(<<~JS)).to eq(true)
+      getComputedStyle(document.querySelector('.document-editor__preview h1')).fontSize ===
+        getComputedStyle(document.querySelector('#plan-content-body #plan-title')).fontSize
+    JS
     expect(preview_pane).to have_css("table td", text: "Ready")
     expect(preview_pane).to have_css(".mermaid-diagram svg", wait: 20)
     expect(preview_pane).to have_text("Preview tail.")
@@ -578,7 +648,7 @@ RSpec.describe "Document editor modes", type: :system do
     expect(content_value).to eq(source)
   end
 
-  it "keeps the reading position while Preview first renders a long draft" do
+  it "keeps the reading position while Preview first renders a long draft", browser_sync: :manual do
     long = "# Long draft\n\n" + (1..80).map { |n| "Paragraph #{n} with enough words to take up a full line of the page." }.join("\n\n") + "\n"
     CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: long, base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
     open_editor

@@ -1,5 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { commandFor } from "coplan/shortcuts"
+import { captureViewport, restoreViewport } from "coplan/viewport_anchor"
+import { captureDeckPositions, restoreDeckPositions } from "coplan/deck_state"
 
 // One network operation at a time. Every response is reconciled with both the
 // sent snapshot and edits typed while it was in flight. Nothing clears a draft
@@ -87,6 +89,7 @@ export default class extends Controller {
     clearTimeout(this.compositionTimer)
     clearTimeout(this.uploadNoticeTimer)
     clearTimeout(this.documentPreviewTimer)
+    this.cancelDocumentPreview()
     this.persistDraft()
     this.richEditor?.destroy()
     this.rawEditor?.destroy()
@@ -642,6 +645,12 @@ export default class extends Controller {
   setMode(mode) {
     if (!this.richEditor || !["rich", "markdown", "dual", "preview"].includes(mode) || mode === this.mode || this.composing) return
     const previewing = mode === "preview"
+    const leavingPreview = this.mode === "preview"
+    const viewport = captureViewport(leavingPreview ? this.previewSurfaceTarget : this.surfaceTarget)
+    if (previewing) {
+      this.previewViewport = viewport
+      this.previewSurfaceTarget.style.minHeight = `${Math.max(this.surfaceTarget.offsetHeight, this.rawSurfaceTarget.offsetHeight)}px`
+    }
     // Preview has no caret. Carry the last editing selection through it.
     let sourceSelection = this.mode === "preview" ? this.previewSelection : this.editor?.sourceSelection()
     if (sourceSelection) {
@@ -649,9 +658,7 @@ export default class extends Controller {
       sourceSelection = { from: Math.min(sourceSelection.from, length), to: Math.min(sourceSelection.to, length) }
     }
     this.previewSelection = previewing ? sourceSelection : null
-    // Hold the outgoing panes' height until the preview renders, so hiding
-    // them cannot clamp the scroll position mid-document.
-    if (previewing) this.previewSurfaceTarget.style.minHeight = `${this.previewSurfaceTarget.parentElement.getBoundingClientRect().height}px`
+    if (!previewing) this.cancelDocumentPreview()
     if (["markdown", "dual"].includes(mode) && !this.rawEditor) this.rawEditor = this.richModule.createMarkdownDocument(this.rawSurfaceTarget, this.textareaTarget.value,
       (content, kind) => this.editorChanged("markdown", content, kind))
     this.mode = mode
@@ -676,6 +683,8 @@ export default class extends Controller {
       else this.editor.view.focus()
     }
     this.updateToolbar(this.richEditor.toolbarState())
+    if (leavingPreview && mode === "rich") restoreViewport(this.surfaceTarget, viewport)
+    if (!previewing) this.element.dispatchEvent(new CustomEvent("coplan:editor-mode-changed", { bubbles: true }))
   }
   get composing() { return !!(this.richEditor?.view.composing || this.rawEditor?.view.composing) }
   focusPane(event) {
@@ -704,22 +713,32 @@ export default class extends Controller {
   // renderer. It never edits; the draft and save queue stay with the editors.
   async renderDocumentPreview() {
     if (!this.active || this.mode !== "preview") return
+    if (this.previewSurfaceTarget.querySelector(".deck--presenting")) { this.previewPending = true; return }
+    this.previewPending = false
+    this.cancelDocumentPreview()
+    this.documentPreviewRequest = new AbortController()
     const surface = this.previewSurfaceTarget, source = this.textareaTarget.value
+    const viewport = this.previewViewport || captureViewport(surface)
+    this.previewViewport = null
     const sequence = this.documentPreviewSequence = (this.documentPreviewSequence || 0) + 1
     this.documentPreviewSource = source
     surface.setAttribute("aria-busy", "true")
     if (this.documentPreviewHtml == null) surface.replaceChildren(this.previewMessage("Loading preview…"))
     try {
-      const html = await this.preview(source, { document: true })
+      const html = await this.preview(source, { document: true, signal: this.documentPreviewRequest.signal })
       if (!this.active || sequence !== this.documentPreviewSequence || this.mode !== "preview") return
+      if (surface.querySelector(".deck--presenting")) { this.previewPending = true; return }
       // Unchanged output keeps its DOM, rendered diagrams and reading position.
-      if (html === this.documentPreviewHtml) {
-        this.pendingPreviewHtml = null
-        surface.querySelector(":scope > .document-editor__preview-error")?.remove()
-      }
-      // Keep a presenting deck connected; apply the latest render after the show.
-      else if (surface.querySelector(".deck--presenting")) this.pendingPreviewHtml = html
-      else this.applyDocumentPreview(html)
+      if (html !== this.documentPreviewHtml) {
+        this.documentPreviewHtml = html
+        const deckPositions = captureDeckPositions(surface)
+        surface.innerHTML = html
+        this.isolatePreview(surface)
+        restoreDeckPositions(surface, deckPositions)
+      } else surface.querySelector(":scope > .document-editor__preview-error")?.remove()
+      surface.style.minHeight = ""
+      restoreViewport(surface, viewport)
+      this.element.dispatchEvent(new CustomEvent("coplan:editor-mode-changed", { bubbles: true }))
     } catch {
       if (!this.active || sequence !== this.documentPreviewSequence) return
       // Forget the source so the next change or visit retries the request.
@@ -727,29 +746,35 @@ export default class extends Controller {
       if (this.documentPreviewHtml == null) surface.replaceChildren(this.previewMessage("Preview unavailable. Choose Editor or Raw to keep writing."))
       else if (!surface.querySelector(":scope > .document-editor__preview-error")) surface.prepend(this.previewMessage("Could not refresh preview. Showing the last rendered version.", true))
     } finally {
-      if (sequence === this.documentPreviewSequence) {
-        surface.removeAttribute("aria-busy")
-        surface.style.minHeight = ""
-      }
+      if (sequence === this.documentPreviewSequence) surface.removeAttribute("aria-busy")
     }
   }
-  applyDocumentPreview(html) {
-    this.pendingPreviewHtml = null
-    this.documentPreviewHtml = html
-    this.previewSurfaceTarget.innerHTML = html
-    this.isolatePreview(this.previewSurfaceTarget)
+  resumeDocumentPreview() {
+    if (this.previewPending) this.renderDocumentPreview()
   }
-  previewDeckStopped() {
-    // The presenter announces the stop before it finishes tearing down.
-    setTimeout(() => {
-      const html = this.pendingPreviewHtml
-      if (!this.active || html == null || this.previewSurfaceTarget.querySelector(".deck--presenting")) return
-      this.applyDocumentPreview(html)
-    })
+  cancelDocumentPreview() {
+    this.documentPreviewSequence = (this.documentPreviewSequence || 0) + 1
+    this.documentPreviewRequest?.abort()
   }
   // The preview sits inside the editor form. Authored HTML must not submit or
   // reset that form, or reach this controller's actions and targets.
   isolatePreview(root) {
+    // The hidden reader remains mounted. Give preview references their own
+    // targets so hover cards, headings and footnotes use the current draft.
+    this.previewIdPrefix ||= `coplan-preview-${crypto.randomUUID()}-`
+    const ids = new Map([...root.querySelectorAll("[id]")].map(element => [element.id, this.previewIdPrefix + element.id]))
+    root.querySelectorAll("[id]").forEach(element => { element.id = ids.get(element.id) })
+    root.querySelectorAll('a[href^="#"]').forEach(link => {
+      try {
+        const id = decodeURIComponent(link.getAttribute("href").slice(1))
+        link.setAttribute("href", `#${encodeURIComponent(this.previewIdPrefix + id)}`)
+      } catch {}
+    })
+    root.querySelectorAll("[for], [aria-controls], [aria-labelledby], [aria-describedby], [popovertarget]").forEach(element => {
+      for (const name of ["for", "aria-controls", "aria-labelledby", "aria-describedby", "popovertarget"]) {
+        if (element.hasAttribute(name)) element.setAttribute(name, element.getAttribute(name).split(/\s+/).map(id => ids.get(id) || id).join(" "))
+      }
+    })
     root.querySelectorAll("input, button, select, textarea, fieldset, output").forEach(control => control.setAttribute("form", "coplan-document-preview-detached"))
     root.querySelectorAll("*").forEach(element => {
       for (const { name, value } of [...element.attributes]) {
@@ -767,10 +792,11 @@ export default class extends Controller {
   previewLink(event) {
     const link = event.target.closest?.('a[href^="#"]')
     if (!link || !this.previewSurfaceTarget.contains(link)) return
-    const id = decodeURIComponent(link.getAttribute("href").slice(1))
+    event.preventDefault()
+    let id
+    try { id = decodeURIComponent(link.getAttribute("href").slice(1)) } catch { return }
     const target = id && [...this.previewSurfaceTarget.querySelectorAll("[id]")].find(element => element.id === id)
     if (!target) return
-    event.preventDefault()
     target.scrollIntoView({ block: "start" })
   }
   previewMessage(text, error = false) {
@@ -1058,19 +1084,20 @@ export default class extends Controller {
       event.currentTarget.reportValidity()
     } else event.currentTarget.setCustomValidity("")
   }
-  async preview(content, { document: wholeDocument = false } = {}) {
+  async preview(content, { document: wholeDocument = false, signal } = {}) {
     this.previews ||= new Map()
     const key = `${wholeDocument ? "document" : "block"}:${content}`
-    if (this.previews.has(key)) return this.previews.get(key)
+    if (!wholeDocument && this.previews.has(key)) return this.previews.get(key)
     if (this.previews.size > 40) this.previews.clear()
     const request = (async () => {
-      const response = await fetch(this.previewUrlValue, { method: "POST", signal: AbortSignal.timeout(15000),
+      const timeout = AbortSignal.timeout(15000)
+      const response = await fetch(this.previewUrlValue, { method: "POST", signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
         headers: { "Content-Type": "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content },
         body: JSON.stringify(wholeDocument ? { content, document: true } : { content }) })
       if (!response.ok || response.redirected) throw new Error("Preview unavailable")
       return response.text()
     })()
-    this.previews.set(key, request)
+    if (!wholeDocument) this.previews.set(key, request)
     try { return await request }
     catch (error) {
       if (this.previews.get(key) === request) this.previews.delete(key)

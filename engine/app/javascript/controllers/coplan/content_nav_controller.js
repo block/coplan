@@ -40,7 +40,7 @@ export default class extends Controller {
 
   buildToc() {
     const editing = this.element.closest("[data-editing='true']")
-    const editorRoot = editing?.querySelector(".inline-editor .ProseMirror")
+    const editorRoot = editing?.querySelector('.document-editor[data-mode="preview"] .document-editor__preview') || editing?.querySelector(".inline-editor .ProseMirror")
     if (editorRoot) { this.buildEditorToc(editorRoot); return }
     this._editorRoot = null
     const documentRoot = this.contentTarget
@@ -193,6 +193,9 @@ export default class extends Controller {
   }
 
   editorHeadings() {
+    if (this._editorRoot?.classList.contains("document-editor__preview")) {
+      return Array.from(this._editorRoot.querySelectorAll(":scope > .markdown-rendered > h1, :scope > .markdown-rendered > h2, :scope > .markdown-rendered > h3"))
+    }
     return Array.from(this._editorRoot?.querySelectorAll(":scope > h1, :scope > h2, :scope > h3") || [])
   }
 

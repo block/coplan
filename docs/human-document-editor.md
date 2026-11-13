@@ -185,14 +185,14 @@ normalizes the text. A pending autosave still completes.
 
 Preview uses the existing `preview_draft` endpoint with `document: true`, which
 adds the footnotes that block previews omit. It refreshes after live updates and
-keeps the rendered DOM when the output is unchanged. If rendering fails, the last
+keeps the rendered DOM when the output is unchanged. Reading position and deck
+position survive refreshes. An active presentation defers changes until it ends.
+Leaving Preview cancels an unfinished render. If rendering fails, the last
 rendered version stays visible with an explanation. Switch away and back to
-retry. Opening Preview keeps the reading position while it first renders. A
-live update waits while a deck in the preview is presenting, then applies when
-the show stops. Footnote and heading links, and their hover cards, resolve
-within the preview. Authored form
-controls in the preview are detached from the editor form, and editor actions
-are removed from its markup.
+retry. Footnote and heading links scroll within the preview. Authored form
+controls in the preview are disabled and detached from the editor form. Authored
+actions are removed before the renderer adds its own browsing controls. Preview
+references use their own IDs, so hover cards read the current draft too.
 
 Leaving Preview carries the last editing selection into the chosen pane.
 Preview is not remembered: reopening the editor or reloading returns to the

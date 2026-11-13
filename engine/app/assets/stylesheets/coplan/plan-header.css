@@ -149,6 +149,7 @@
 
 /* The first content heading is the title in both reading and editing. */
 #plan-content-body #plan-title,
+.document-editor[data-mode="preview"] .document-editor__preview > .markdown-rendered:first-child > h1:first-child,
 .document-editor .document-editor__body .ProseMirror > h1:first-child {
   font-size: var(--plan-title-size, 2.25rem);
   font-weight: var(--plan-title-weight, 700);
@@ -166,5 +167,6 @@
 }
 @media (max-width: 640px) {
   #plan-content-body #plan-title,
+  .document-editor[data-mode="preview"] .document-editor__preview > .markdown-rendered:first-child > h1:first-child,
   .document-editor .document-editor__body .ProseMirror > h1:first-child { font-size: var(--plan-title-size-narrow, 1.75rem); }
 }
