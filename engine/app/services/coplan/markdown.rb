@@ -80,7 +80,7 @@ module CoPlan
         raw = cleaned.byteslice(from...to)
         # Rename only attribute names, preserving every byte and source span.
         cleaned[from...to] = raw.gsub(/<\/?[A-Za-z][\w:-]*(?:[^>"']|"[^"]*"|'[^']*')*>/) do |tag|
-          tag.gsub(/(\s+)([^\s=\/>]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/) do |attribute|
+          tag.gsub(/(\s*)([^\s=\/<>"']+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/) do |attribute|
             name = Regexp.last_match(2)
             attributes.include?(name.downcase) ? attribute.sub(name, "x" * name.bytesize) : attribute
           end

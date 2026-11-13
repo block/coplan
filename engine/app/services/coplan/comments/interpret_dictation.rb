@@ -281,11 +281,29 @@ module CoPlan
       end
 
       def resolvable?(text)
-        @document.include?(text) || stripped_document.include?(text)
+        @document.include?(text) || stripped_document.include?(text) || rendered_drafts.any? { |draft| draft.include?(text) }
       end
 
       def stripped_document
         @stripped_document ||= CommentThread.strip_markdown(@document).first
+      end
+
+      # Reading-view drafts are rendered inside otherwise literal fences.
+      # Keep their visible quotes so the browser can project the selected
+      # occurrence back to source. Deck fences still display literal code.
+      def rendered_drafts
+        @rendered_drafts ||= ContentRegions::Split.call(@document).regions.flat_map do |region|
+          next [] unless region.kind == :document
+
+          drafts = []
+          CoPlan::Markdown.parse(region.source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }).walk do |node|
+            next unless node.type == :code_block && MarkdownHelper::MARKDOWN_BLOCK_LANGUAGES.include?(node.fence_info.to_s.split.first&.downcase)
+
+            drafts << Plans::MarkdownTextExtractor.call(node.string_content, source_spans: true,
+              exclude_nodes: %i[image footnote_reference]).first
+          end
+          drafts
+        end
       end
 
       # Every contiguous run of words in the line. ~n²/2 candidates for n

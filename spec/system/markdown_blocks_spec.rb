@@ -318,6 +318,24 @@ RSpec.describe "Markdown blocks", type: :system do
     JS
   end
 
+  it "keeps a formatted draft quote through server interpretation and browser projection" do
+    sample = CoPlan::Plans::Create.call(title: "Deployment", user: author, visibility: "published", actor_type: "human",
+      content: "# Deployment\n\n```md\nDo **not** deploy.\n```\n")
+    allow(CoPlan::Ai).to receive(:call).and_return({ text: "Keep this warning.", span: "Do not deploy." }.to_json)
+    visit plan_page_path(sample)
+    expect(page).to have_css("[data-voice-ready]")
+    result = page.evaluate_async_script(<<~JS, plan_dictations_path(sample))
+      const url = arguments[0], done = arguments[arguments.length - 1];
+      fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content || "" },
+        body: JSON.stringify({transcript: "Keep this warning.", excerpt: "Do not deploy."}) })
+        .then(response => response.json()).then(data => {
+          const controller = window.Stimulus.getControllerForElementAndIdentifier(document.querySelector('[data-controller~="coplan--voice"]'), "coplan--voice");
+          done({quote: data.anchor_text, anchor: controller._resolveAnchor(data.anchor_text)});
+        }).catch(error => done({error:error.message}));
+    JS
+    expect(result).to eq("quote" => "Do not deploy.", "anchor" => { "text" => "Do **not** deploy.", "occurrence" => 1 })
+  end
+
   it "comments on expanded draft table cells and shows the discussion in Source" do
     table_plan = CoPlan::Plans::Create.call(title: "Draft table", user: author, visibility: "published", actor_type: "human",
       content: "# Draft table\n\n```md\n| Client | Attempts |\n|---|---|\n| Mobile | **3** |\n| Web | **3** |\n```\n")
@@ -377,7 +395,7 @@ RSpec.describe "Markdown blocks", type: :system do
 
   it "maps authored HTML text without trusting its source-position attributes" do
     sample = CoPlan::Plans::Create.call(title: "HTML draft", user: author, visibility: "published", actor_type: "human",
-      content: "# HTML draft\n\n```md\nSame\n\n<div data-sourcepos=\"1:1-1:4\">Same</div>\n```\n")
+      content: "# HTML draft\n\n```md\nSame\n\n<div><span title=\"x\"data-sourcepos=\"1:1-1:4\">Same</span></div>\n```\n")
     visit plan_page_path(sample)
     expect(page).to have_css(".markdown-block code.hljs", visible: :all)
     select_in(".markdown-block__rendered > div", "Same", 0, "Same", 4)

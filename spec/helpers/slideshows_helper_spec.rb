@@ -222,7 +222,7 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
         ```md
         Same
 
-        <span id="fn-n" data-sourcepos="1:1-1:4">Same</span>
+        <span title="x"id="fn-n"data-sourcepos="1:1-1:4">Same</span>
 
         <div id="fnref-n" data-sourcepos="1:1-1:4">Same</div>
 
