@@ -161,4 +161,46 @@ RSpec.describe "Api::V1::Operations", type: :request do
     expect(response).to have_http_status(:conflict)
     expect(response.parsed_body["code"]).to eq("edit_locked")
   end
+
+  # A stale request whose first operation changes the document's length
+  # before an intervening edit. The second operation's target has to be
+  # found in the right place, or not used at all.
+  describe "a stale request after an earlier operation changes the length" do
+    let(:expanded) { "AAAA expanded into a forty-char sentence" }
+    let(:stale_plan) do
+      p = CoPlan::Plan.create!(title: "Stale Plan", created_by_user: alice)
+      v = CoPlan::PlanVersion.create!(plan: p, revision: 1, content_markdown: "# Stale\n\nAAAA\n\nBBBB\n\nCCCC", actor_type: "human", actor_id: alice.id)
+      p.update!(current_plan_version: v, current_revision: 1)
+      agent_has_read(p, alice_token)
+      # Another agent inserts "XX" inside CCCC.
+      v2 = CoPlan::PlanVersion.create!(
+        plan: p, revision: 2, content_markdown: "# Stale\n\nAAAA\n\nBBBB\n\nCCXXCC", actor_type: "local_agent", actor_id: alice.id,
+        operations_json: [ { "op" => "replace_exact", "old_text" => "", "new_text" => "XX",
+          "resolved_range" => [ 23, 23 ], "new_range" => [ 23, 25 ], "delta" => 2 } ]
+      )
+      p.update!(current_plan_version: v2, current_revision: 2)
+      p
+    end
+
+    # "BB" still occurs inside the misplaced span, so it used to delete the
+    # wrong text; "BBBB" does not, so it used to be refused.
+    %w[BBBB BB].each do |needle|
+      it "does not delete the wrong text (needle #{needle})" do
+        post api_v1_plan_operations_path(stale_plan),
+          params: {
+            base_revision: 1,
+            operations: [
+              { op: "replace_exact", old_text: "AAAA", new_text: expanded },
+              { op: "delete_paragraph_containing", needle: needle }
+            ]
+          },
+          headers: headers, as: :json
+
+        expect(response).to have_http_status(:conflict)
+        stale_plan.reload
+        expect(stale_plan.current_revision).to eq(2)
+        expect(stale_plan.current_content).to eq("# Stale\n\nAAAA\n\nBBBB\n\nCCXXCC")
+      end
+    end
+  end
 end

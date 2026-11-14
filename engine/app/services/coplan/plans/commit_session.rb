@@ -83,8 +83,15 @@ module CoPlan
               .order(revision: :asc)
               .to_a
 
-            # Transform each operation's resolved positions through intervening edits,
-            # then re-apply using the transformed positions (not re-resolving from scratch)
+            # Each stored range was resolved against the session draft as it
+            # stood before that operation. Replay the draft from the base
+            # version to recover the text each operation targeted, then
+            # transform its ranges through intervening edits and verify that
+            # exact text is still there (Plans::Rebase).
+            base_version = plan.plan_versions.find_by(revision: base_revision)
+            raise SessionConflictError, "Base revision #{base_revision} not found" unless base_version
+
+            draft = base_version.content_markdown
             verification_content = current_content.dup
             rebased_ops = []
             @session.operations_json.each do |op_data|
@@ -92,36 +99,33 @@ module CoPlan
               semantic_keys = %w[op old_text new_text heading content needle occurrence replace_all count new_content include_heading]
               semantic_op = op_data.slice(*semantic_keys)
 
-              if op_data["resolved_range"]
+              recorded_ranges = if op_data["resolved_range"]
+                [ op_data["resolved_range"] ]
+              elsif op_data.key?("replacements")
+                op_data["replacements"].map { |rep| rep["resolved_range"] }
+              end
+              replayed_op = recorded_ranges ? semantic_op.merge("_pre_resolved_ranges" => recorded_ranges) : semantic_op
+
+              if recorded_ranges
                 begin
-                  transformed_range = Plans::TransformRange.transform_through_versions(
-                    op_data["resolved_range"], intervening_versions
-                  )
-                rescue Plans::TransformRange::Conflict => e
+                  transformed_ranges = recorded_ranges.map do |range|
+                    Plans::TransformRange.transform_through_versions(range, intervening_versions)
+                  end
+                  recorded_ranges.zip(transformed_ranges).each do |range, transformed|
+                    Plans::Rebase.verify!(semantic_op, draft[range[0]...range[1]], verification_content, transformed)
+                  end
+                rescue Plans::TransformRange::Conflict, Plans::Rebase::Conflict => e
                   raise SessionConflictError, "Conflict during rebase: #{e.message}"
                 end
-
-                verify_text_at_range!(verification_content, transformed_range, op_data)
-                semantic_op["_pre_resolved_ranges"] = [ transformed_range ]
-              elsif op_data.key?("replacements")
-                transformed_ranges = op_data["replacements"].map do |rep|
-                  begin
-                    Plans::TransformRange.transform_through_versions(
-                      rep["resolved_range"], intervening_versions
-                    )
-                  rescue Plans::TransformRange::Conflict => e
-                    raise SessionConflictError, "Conflict during rebase: #{e.message}"
-                  end
-                end
-
-                transformed_ranges.each { |tr| verify_text_at_range!(verification_content, tr, op_data) }
                 semantic_op["_pre_resolved_ranges"] = transformed_ranges
               end
 
               rebased_ops << semantic_op
 
-              # Advance verification content so subsequent ops verify against
-              # the incrementally updated snapshot (not the original current_content).
+              # Advance both snapshots so the next operation is checked
+              # against the content it was staged on and the content it will
+              # be applied to.
+              draft = Plans::ApplyOperations.call(content: draft, operations: [ replayed_op ])[:content]
               step = Plans::ApplyOperations.call(content: verification_content, operations: [ semantic_op ])
               verification_content = step[:content]
             end
@@ -170,64 +174,6 @@ module CoPlan
           Broadcaster.replace_plan_content(plan)
 
           { session: @session, version: version }
-        end
-      end
-
-      private
-
-      def verify_text_at_range!(content, range, op_data)
-        case op_data["op"]
-        when "replace_exact"
-          return unless op_data["old_text"]
-          actual_text = content[range[0]...range[1]]
-          return if actual_text == op_data["old_text"]
-
-          context_start = [ range[0] - 200, 0 ].max
-          context_end = [ range[1] + 200, content.length ].min
-          raise SessionConflictError,
-            "Content changed at conflict region. Expected '#{op_data["old_text"]}' " \
-            "but found '#{actual_text}'. Context: ...#{content[context_start...context_end]}..."
-        when "insert_under_heading"
-          return unless op_data["heading"]
-          line_start = range[0] > 0 ? (content.rindex("\n", range[0] - 1) || -1) + 1 : 0
-          line_text = content[line_start...range[0]]
-          return if line_text&.match?(/\A#{Regexp.escape(op_data["heading"])}\s*\z/)
-
-          raise SessionConflictError,
-            "Heading changed at insert position. Expected '#{op_data["heading"]}' " \
-            "but found '#{line_text}'"
-        when "delete_paragraph_containing"
-          return unless op_data["needle"]
-          actual_text = content[range[0]...range[1]]
-          return if actual_text&.include?(op_data["needle"])
-
-          raise SessionConflictError,
-            "Paragraph at target position no longer contains '#{op_data["needle"]}'"
-        when "replace_section"
-          return unless op_data["heading"]
-          include_heading = op_data.fetch("include_heading", true)
-          include_heading = include_heading != false && include_heading != "false"
-
-          if include_heading
-            first_line_end = content.index("\n", range[0]) || range[1]
-            first_line = content[range[0]...[ first_line_end, range[1] ].min]
-            return if first_line&.rstrip == op_data["heading"]&.rstrip
-
-            raise SessionConflictError,
-              "Section heading changed at target position. Expected '#{op_data["heading"]}' " \
-              "but found '#{first_line}'"
-          else
-            search_pos = range[0]
-            search_pos -= 1 while search_pos > 0 && content[search_pos - 1] == "\n"
-            heading_line_end = search_pos
-            heading_line_start = search_pos > 0 ? (content.rindex("\n", search_pos - 1) || -1) + 1 : 0
-            heading_text = content[heading_line_start...heading_line_end]
-            return if heading_text == op_data["heading"]
-
-            raise SessionConflictError,
-              "Section heading before target position changed. Expected '#{op_data["heading"]}' " \
-              "but found '#{heading_text}'"
-          end
         end
       end
     end

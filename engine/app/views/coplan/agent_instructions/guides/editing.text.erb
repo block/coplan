@@ -93,7 +93,7 @@ To change one passage without sending the full document, send operations:
   "<%= @base %>/api/v1/plans/$PLAN_ID/operations" | jq .
 ```
 
-Coplan applies all operations in one request as one version. If another agent wrote after your `base_revision`, Coplan moves your operations onto the current content. This works for up to 20 revisions. If the target text changed, Coplan returns `409`. Read the plan again and retry.
+Coplan applies all operations in one request as one version. If another agent wrote after your `base_revision`, Coplan moves your operations onto the current content. This works for up to 20 revisions. If the target span no longer contains exactly the original text, or its heading changed, Coplan returns `409`. The whole request is refused; no partial version is saved. Read the plan again and retry.
 
 | `op` | Fields | Effect |
 |---|---|---|

@@ -184,6 +184,23 @@ RSpec.describe CoPlan::Plans::CommitSession do
       expect(result[:version].content_markdown).not_to include("Q1 2026 delivery.")
     end
 
+    it "refuses a missing base without committing the session or a version" do
+      staged = CoPlan::Plans::ApplyOperations.call(content: content, operations: [
+        { "op" => "replace_exact", "old_text" => "unit tests", "new_text" => "integration tests" }
+      ])
+      session = build_session(plan: plan, base_revision: 0, operations_json: staged[:applied], draft_content: staged[:content])
+      CoPlan::PlanRead.record!(plan: plan, reader_type: "api_token", reader_id: session.actor_id, revision: 1)
+
+      expect {
+        expect { described_class.call(session: session) }
+          .to raise_error(CoPlan::Plans::CommitSession::SessionConflictError, "Base revision 0 not found")
+      }.not_to change { plan.plan_versions.count }
+      expect(plan.reload.current_revision).to eq(1)
+      expect(plan.current_content).to eq(content)
+      expect(session.reload.status).to eq("open")
+      expect(session.draft_content).to eq(staged[:content])
+    end
+
     it "raises SessionConflictError for overlapping edits" do
       # Session was opened at revision 1, wants to edit "unit tests"
       session = build_session(
@@ -223,6 +240,39 @@ RSpec.describe CoPlan::Plans::CommitSession do
       expect {
         described_class.call(session: session)
       }.to raise_error(CoPlan::Plans::CommitSession::SessionConflictError)
+    end
+
+    # The session's first operation changes the length before an
+    # intervening edit; its second operation must not land elsewhere.
+    context "after an earlier session operation changes the length" do
+      let(:content) { "# Stale\n\nAAAA\n\nBBBB\n\nCCCC" }
+
+      %w[BBBB BB].each do |needle|
+        it "does not delete the wrong text (needle #{needle})" do
+          staged = CoPlan::Plans::ApplyOperations.call(content: content, operations: [
+            { "op" => "replace_exact", "old_text" => "AAAA", "new_text" => "AAAA expanded into a forty-char sentence" },
+            { "op" => "delete_paragraph_containing", "needle" => needle }
+          ])
+          session = build_session(plan: plan, base_revision: 1, operations_json: staged[:applied], draft_content: staged[:content])
+
+          # Another agent inserts "XX" inside CCCC.
+          v2 = CoPlan::PlanVersion.create!(
+            plan: plan, revision: 2, content_markdown: "# Stale\n\nAAAA\n\nBBBB\n\nCCXXCC", actor_type: "local_agent", actor_id: user.id,
+            operations_json: [ { "op" => "replace_exact", "old_text" => "", "new_text" => "XX",
+              "resolved_range" => [ 23, 23 ], "new_range" => [ 23, 25 ], "delta" => 2 } ]
+          )
+          plan.update!(current_revision: 2, current_plan_version: v2)
+
+          expect {
+            described_class.call(session: session)
+          }.to raise_error(CoPlan::Plans::CommitSession::SessionConflictError)
+          expect(session.reload.status).to eq("open")
+          expect(session.draft_content).to eq(staged[:content])
+          expect(plan.plan_versions.count).to eq(2)
+          expect(plan.reload.current_revision).to eq(2)
+          expect(plan.current_content).to eq("# Stale\n\nAAAA\n\nBBBB\n\nCCXXCC")
+        end
+      end
     end
   end
 
