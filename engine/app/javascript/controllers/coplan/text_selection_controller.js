@@ -613,6 +613,7 @@ export default class extends Controller {
   }
 
   _positionPopoverAtMark(popover, mark) {
+    revealSections(mark)
     if (popover.dataset.positioned === "true") return
     // Small screens: thread popovers become a fixed bottom sheet instead
     // of floating beside the mark (where they'd overflow the viewport).

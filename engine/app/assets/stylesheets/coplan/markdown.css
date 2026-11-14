@@ -378,6 +378,99 @@
   cursor: default;
 }
 
+/* A diagram rendered outside CoPlan: its image, with the source folded
+   underneath. Labels come from data-label so the rendered text stays the
+   document's own. */
+.markdown-rendered .rendered-diagram {
+  margin: 0 0 var(--space-md);
+  padding: var(--space-md);
+  background: var(--diagram-bg, var(--color-surface));
+  border: var(--diagram-border, 1px solid var(--color-border));
+  border-radius: var(--diagram-radius, var(--radius));
+}
+
+.markdown-rendered .rendered-diagram > .image-frame,
+.markdown-rendered .rendered-diagram > img {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.markdown-rendered .rendered-diagram__footer {
+  position: relative;
+  margin-top: var(--space-sm);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* The figure is the frame; the source isn't boxed again like other details. */
+.markdown-rendered .rendered-diagram__source,
+.markdown-rendered .rendered-diagram__source[open] {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.markdown-rendered .rendered-diagram__summary,
+.markdown-rendered .rendered-diagram__source[open] .rendered-diagram__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  padding: 2px 6px;
+  margin: 0 0 0 -6px;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 400;
+  list-style: none;
+}
+
+.markdown-rendered .rendered-diagram__summary::-webkit-details-marker { display: none; }
+.markdown-rendered .rendered-diagram__summary::before { content: "›"; display: inline-block; transition: transform 0.15s; }
+.markdown-rendered .rendered-diagram__source[open] .rendered-diagram__summary::before { transform: rotate(90deg); }
+.markdown-rendered .rendered-diagram__summary::after { content: attr(data-label); }
+
+.markdown-rendered .rendered-diagram__summary:hover {
+  color: var(--color-text);
+  background: var(--color-interaction-hover-bg);
+}
+
+.markdown-rendered .rendered-diagram__summary:focus-visible,
+.markdown-rendered .rendered-diagram__skill:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Beside the summary, outside the details so it shows while folded. */
+.markdown-rendered .rendered-diagram__skill {
+  position: absolute;
+  top: 2px;
+  right: 0;
+}
+
+.markdown-rendered .rendered-diagram__skill::after { content: attr(data-label); }
+
+.markdown-rendered .rendered-diagram__source pre {
+  margin: var(--space-sm) 0 0;
+}
+
+/* Not an attention state: it's the same for every reader, so it stays muted. */
+.markdown-rendered .rendered-diagram__stale {
+  display: inline-block;
+  margin-top: var(--space-sm);
+  margin-right: var(--space-sm);
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+
+.markdown-rendered .rendered-diagram__stale::before { content: attr(data-label); }
+
 /* The diagram's scroll box, separate from the frame so the expand control
    stays pinned to the corner instead of scrolling away with a wide
    diagram. */

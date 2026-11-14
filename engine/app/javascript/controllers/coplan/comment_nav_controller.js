@@ -187,6 +187,7 @@ export default class extends Controller {
   }
 
   positionPopoverAtMark(popover, mark) {
+    revealSections(mark)
     if (popover.dataset.positioned === "true") return
     // Mirrors text_selection_controller: bottom sheet on small screens.
     if (window.matchMedia("(max-width: 640px)").matches) {

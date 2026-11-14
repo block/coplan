@@ -6,6 +6,7 @@
     sanitize, and this partial is re-rendered on every show AND every
     content-mutation broadcast. skip_digest avoids the template-digest cost
     on write paths; expiry picks up renderer changes within 15 minutes. -%>
-<% cache [CoPlan::EmbedDomain.order(:hostname).pluck(:hostname), request&.host, "coplan/plan-content-body-with-title", plan.id, plan.current_plan_version&.content_sha256 || plan.current_revision], expires_in: 15.minutes, skip_digest: true do %>
-  <%= render_plan_document(plan.current_content) %>
+<% stale_diagrams = CoPlan::RenderedDiagrams.stale_images(plan) %>
+<% cache [CoPlan::EmbedDomain.order(:hostname).pluck(:hostname), request&.host, "coplan/plan-content-body-with-title", plan.id, plan.current_plan_version&.content_sha256 || plan.current_revision, stale_diagrams.sort], expires_in: 15.minutes, skip_digest: true do %>
+  <%= mark_stale_rendered_diagrams(render_plan_document(plan.current_content), stale_diagrams) %>
 <% end %>

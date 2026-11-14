@@ -389,7 +389,8 @@ RSpec.describe CoPlan::Plans::WritingProvenance do
   end
 
   it "excludes diagram source and image alt text without moving later prose origins" do
-    initial = "```mermaid\nflowchart LR\n A[Foo]\n```\n\n![Foo](https://example.com/foo.png)\n\n<!-- notes Foo -->\n"
+    initial = "```mermaid\nflowchart LR\n A[Foo]\n```\n\n![Foo](https://example.com/foo.png)\n\n<!-- notes Foo -->\n\n" \
+      "```diagram {skill=graphviz image=\"/x/foo.png\"}\ndigraph { Foo }\n```\n"
     plan = make_plan(initial, kind: "local_agent")
     changed = initial + "\nFoo\n"
     edit(plan, changed, kind: "human", input_sources: sources(changed))

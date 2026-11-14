@@ -73,6 +73,77 @@ RSpec.describe CoPlan::MarkdownHelper, type: :helper do
       expect(html).to include("graph LR")
     end
 
+    describe "rendered diagrams" do
+      # Views get the engine's routes; a helper spec has to add them.
+      before { helper.extend(CoPlan::Engine.routes.url_helpers) }
+
+      let(:markdown) { "```diagram {skill=graphviz image=\"/rails/active_storage/blobs/a/flow.png\" alt=\"Checkout flow\" width=640 lang=dot}\ndigraph { a -> b }\n```" }
+
+      it "shows the image with the source collapsed under it and the skill that edits it" do
+        doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))
+        figure = doc.at_css("figure.rendered-diagram")
+
+        expect(figure["data-skill"]).to eq("graphviz")
+        image = figure.at_css("img")
+        expect(image.attributes.transform_values(&:value)).to include("src" => "/rails/active_storage/blobs/a/flow.png",
+          "alt" => "Checkout flow", "width" => "640")
+        source = figure.at_css("details.rendered-diagram__source pre")
+        expect(source["lang"]).to eq("dot")
+        expect(source["data-meta"]).to be_nil
+        expect(source.text).to eq("digraph { a -> b }\n")
+        expect(figure.at_css("summary")["data-label"]).to eq("Source · graphviz")
+        # Outside the details, so it shows while the source is folded.
+        skill = figure.at_css(".rendered-diagram__footer > a.rendered-diagram__skill")
+        expect(skill["data-label"]).to eq("Skill: graphviz")
+        expect(skill["href"]).to eq("/agent-instructions/markdown#rendered-diagrams")
+      end
+
+      it "renders a diagram inside a callout without changing its source" do
+        quoted = "> [!NOTE]\n>\n" + markdown.lines.map { |line| "> #{line}" }.join
+        doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(quoted))
+
+        expect(doc.at_css(".callout--note figure.rendered-diagram img")["alt"]).to eq("Checkout flow")
+        expect(doc.at_css(".callout--note details.rendered-diagram__source pre").text).to eq("digraph { a -> b }\n")
+      end
+
+      it "adds no text, so comment anchors still match the source" do
+        doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))
+
+        expect(doc.at_css("figure.rendered-diagram").text.strip).to eq("digraph { a -> b }")
+      end
+
+      it "links the skill to where it can be found" do
+        code = "```diagram {image=\"/x/a.png\" skill=\"acme:uml\" skill-source=\"https://skills.example.com/uml\"}\n@startuml\n```"
+        doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(code))
+        skill = doc.at_css("a.rendered-diagram__skill")
+
+        expect(doc.at_css("summary")["data-label"]).to eq("Source · acme:uml")
+        expect(doc.at_css("details pre")["lang"]).to be_nil
+        expect(skill.attributes.transform_values(&:value)).to include("data-label" => "Skill: acme:uml",
+          "href" => "https://skills.example.com/uml", "target" => "_blank", "rel" => "noopener noreferrer")
+      end
+
+      it "leaves an unsafe image, a fence without an image or skill, other fences, and Mermaid as code blocks" do
+        [ "```diagram {skill=graphviz image=\"javascript:alert(1)\"}\na\n```", "```diagram {skill=graphviz}\na\n```",
+          "```diagram {image=\"/x/a.png\"}\na\n```", "```graphviz {skill=graphviz image=\"/x/a.png\"}\na\n```",
+          "```mermaid {skill=graphviz image=\"/x/a.png\"}\ngraph LR\n```", "```diagram{skill=graphviz image=\"/x/a.png\"}\na\n```" ].each do |code|
+          doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(code))
+          expect(doc.at_css("figure, img")).to be_nil, code
+          expect(doc.at_css("pre")["data-meta"]).to be_nil
+        end
+      end
+
+      it "marks a stale image without adding text" do
+        html = helper.render_markdown(markdown)
+        doc = Nokogiri::HTML::DocumentFragment.parse(helper.mark_stale_rendered_diagrams(html, Set[CoPlan::RenderedDiagrams.fingerprint(CoPlan::RenderedDiagrams.blocks(markdown).sole)]))
+        note = doc.at_css("figure.rendered-diagram--stale .rendered-diagram__stale")
+
+        expect(note["data-label"]).to eq("Source changed since this image was rendered")
+        expect(doc.text.strip).to eq("digraph { a -> b }")
+        expect(helper.mark_stale_rendered_diagrams(html, Set["/other.png"])).not_to include("rendered-diagram--stale")
+      end
+    end
+
     it "opens external links in a new tab while keeping fragment links local" do
       markdown = "[Source](https://example.com/evidence) and [§1](#section-1).\n\n## 1 Decision"
       doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_markdown(markdown))

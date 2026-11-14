@@ -108,6 +108,8 @@
 .document-editor__block-preview table { width: 100%; }
 .document-editor__block-preview:empty { display: none; }
 .document-editor__block-preview .mermaid-diagram { max-height: 360px; }
+/* The editor shows the source above; its preview is only the image. */
+.document-editor__block-preview .rendered-diagram__footer { display: none; }
 .document-editor__preview-note { color: var(--color-text-muted); font: 12px/1.5 var(--font-sans, sans-serif); }
 .document-editor [hidden] { display: none !important; }
 html[data-theme="dark"] .document-editor select, html[data-theme="dark"] .document-editor input { color-scheme: dark; }
