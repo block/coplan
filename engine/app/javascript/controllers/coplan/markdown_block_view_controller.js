@@ -19,22 +19,33 @@ import { Controller } from "@hotwired/stimulus"
 // settle, <html> holds the stored choice.
 let saving = null
 let picked = null
+// Compare snapshots only within the same account. Turbo responses can arrive
+// after a newer save reply, even when they were rendered before that save.
+const storedVersions = new Map()
 
 export default class extends Controller {
   static targets = ["error"]
-  static values = { url: String, stored: String }
+  static values = { url: String, stored: String, storedAt: String, userId: String }
 
   connect() {
     // A fresh render carries the server's stored choice, which may have
     // changed in another tab or device since <html> was set. A page Turbo
     // restores from its cache has had it removed (below), so there the
     // stored choice on <html> is current. A pick still saving wins either way.
-    if (this.hasStoredValue && !picked) document.documentElement.dataset.markdownBlockView = this.storedValue
+    if (this.hasStoredValue && !picked) this.rememberStored(this.storedValue, this.storedAtValue)
     this.sync()
   }
 
   beforeCache() {
     this.element.removeAttribute("data-coplan--markdown-block-view-stored-value")
+    this.element.removeAttribute("data-coplan--markdown-block-view-stored-at-value")
+  }
+
+  rememberStored(view, updatedAt) {
+    const previous = storedVersions.get(this.userIdValue)
+    if (previous && updatedAt < previous) return
+    storedVersions.set(this.userIdValue, updatedAt)
+    document.documentElement.dataset.markdownBlockView = view
   }
 
   sync() {
@@ -61,9 +72,9 @@ export default class extends Controller {
 
     const save = saving = (saving || Promise.resolve())
       .then(() => this._save(view, csrfToken))
-      .then(ok => {
-        if (ok) document.documentElement.dataset.markdownBlockView = view
-        return ok
+      .then(snapshot => {
+        if (snapshot) this.rememberStored(snapshot.view, snapshot.updated_at)
+        return Boolean(snapshot)
       })
     save.then(ok => {
       if (save !== saving) return
@@ -89,7 +100,7 @@ export default class extends Controller {
       })
       // A signed-out save is redirected to sign-in, which fetch follows to a
       // 200, so a redirect is a refusal too.
-      return response.ok && !response.redirected
+      return response.ok && !response.redirected ? await response.json() : false
     } catch {
       // Offline or the request never landed: same outcome as a refusal.
       return false

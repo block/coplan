@@ -680,6 +680,42 @@ RSpec.describe "Markdown blocks", type: :system do
       expect(page).to have_css(".markdown-block button[aria-pressed='true']", text: "Source")
     end
 
+    it "ignores a Settings response rendered before a completed local save" do
+      visit settings_root_path
+      page.execute_script(<<~JS, settings_root_path)
+        const settingsPath = arguments[0];
+        const original = window.fetch;
+        window.fetch = async (url, options) => {
+          if (String(url).includes("markdown_block_view")) {
+            return new Promise(resolve => window.releaseViewSave = () => resolve(original(url, options)));
+          }
+          const response = await original(url, options);
+          if (new URL(String(url), location.href).pathname === settingsPath) {
+            await response.clone().text(); // The old server snapshot is fully rendered.
+            return new Promise(resolve => window.releaseSettingsResponse = () => resolve(response));
+          }
+          return response;
+        };
+      JS
+      within(view_row) { find(".segmented__option", text: "Source").click }
+      page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
+      expect(page).to have_css(".markdown-block")
+      page.execute_script("Turbo.cache.clear(); Turbo.visit(arguments[0])", settings_root_path)
+      page.evaluate_async_script(<<~JS)
+        const done = arguments[arguments.length - 1];
+        const ready = () => window.releaseSettingsResponse ? done(true) : setTimeout(ready, 10);
+        ready();
+      JS
+      page.execute_script("window.releaseViewSave()")
+      expect(page).to have_css("html[data-markdown-block-view='source']", visible: :all)
+      expect(author.reload.markdown_block_view).to eq("source")
+      page.execute_script("window.releaseSettingsResponse()")
+      within(view_row) { expect(page).to have_checked_field("markdown_block_view", with: "source", visible: :all) }
+      expect(page).to have_css("html[data-markdown-block-view='source']", visible: :all)
+      page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
+      expect(page).to have_css(".markdown-block button[aria-pressed='true']", text: "Source")
+    end
+
     it "keeps a saved choice when Turbo restores Settings from its cache" do
       visit settings_root_path
       within(view_row) { find(".segmented__option", text: "Source").click }

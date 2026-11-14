@@ -35,7 +35,7 @@ module CoPlan
         if CoPlan::User::MARKDOWN_BLOCK_VIEWS.include?(view)
           current_user.markdown_block_view = view
           current_user.save!
-          head :ok
+          render json: { view: current_user.markdown_block_view, updated_at: current_user.updated_at.utc.iso8601(6) }
         else
           head :unprocessable_content
         end

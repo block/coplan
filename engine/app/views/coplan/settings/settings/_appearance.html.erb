@@ -64,6 +64,8 @@
   <div class="settings-row" data-controller="coplan--markdown-block-view"
        data-action="turbo:before-cache@document->coplan--markdown-block-view#beforeCache coplan:markdown-block-view-changed@document->coplan--markdown-block-view#sync"
        data-coplan--markdown-block-view-url-value="<%= coplan.settings_markdown_block_view_path %>"
+       data-coplan--markdown-block-view-user-id-value="<%= current_user.id %>"
+       data-coplan--markdown-block-view-stored-at-value="<%= current_user.updated_at.utc.iso8601(6) %>"
        data-coplan--markdown-block-view-stored-value="<%= current_user.markdown_block_view %>">
     <div class="settings-row__main">
       <span class="settings-row__label" id="settings-markdown-block-view-label">Markdown blocks</span>
