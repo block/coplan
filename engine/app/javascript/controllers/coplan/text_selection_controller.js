@@ -1,6 +1,8 @@
 import { Controller } from "@hotwired/stimulus"
 import { commentWindowTop } from "coplan/comment_window"
 import { revealSections } from "coplan/collapsed_sections"
+import { initializeMarkdownBlockViews } from "coplan/markdown_block_state"
+import { CHROME_SELECTOR, RENDERED_SELECTOR, markRendered, markSource, renderedBlockForSource, sourceOffset, sourceRangeFor } from "coplan/markdown_blocks"
 
 // Elements whose text is never rendered but still appears in textContent —
 // e.g. the <style> sheet Mermaid embeds inside its SVG. Their text must stay
@@ -13,8 +15,10 @@ import { revealSections } from "coplan/collapsed_sections"
 // so math stays out of the anchor text model just as MarkdownTextExtractor
 // leaves it out of the server's. A selection can span math; one inside a
 // single formula offers no comment.
+// A Markdown block's hidden source is the text model in both of its views
+// (see coplan/markdown_blocks), so its rendered pane and toolbar stay out.
 const MATH_SELECTOR = "[data-math-style]"
-const NON_RENDERED_TEXT_SELECTOR = `style, script, noscript, [data-source-badge], [data-coplan-template-note], ${MATH_SELECTOR}`
+const NON_RENDERED_TEXT_SELECTOR = `style, script, noscript, [data-source-badge], [data-coplan-template-note], ${MATH_SELECTOR}, ${RENDERED_SELECTOR}, ${CHROME_SELECTOR}`
 
 export default class extends Controller {
   static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote", "threads"]
@@ -138,7 +142,8 @@ export default class extends Controller {
       this.clearSelection()
       return
     }
-    const range = selection.getRangeAt(0)
+    const visibleRange = selection.getRangeAt(0)
+    let range = visibleRange
     const inNote = node => (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement)?.closest("[data-coplan-template-note]")
     if (inNote(range.startContainer) || inNote(range.endContainer)) {
       this.clearSelection()
@@ -160,6 +165,16 @@ export default class extends Controller {
     if (root === this.contentTarget && startInContent && !endInContent) {
       const clampTarget = root.lastElementChild || root.lastChild
       if (clampTarget) range.setEndAfter(clampTarget)
+    }
+
+    // A selection in a rendered Markdown block is stored as the source
+    // text it came from, so the comment shows in both views.
+    if (root === this.contentTarget) {
+      range = sourceRangeFor(range)
+      if (!range) {
+        this.clearSelection()
+        return
+      }
     }
 
     if (!this._moveRangeOutOfMath(range, root)) {
@@ -202,7 +217,7 @@ export default class extends Controller {
     }
 
     // Position popover near the selection
-    const rect = range.getBoundingClientRect()
+    const rect = visibleRange.getBoundingClientRect()
     const contentRect = this.element.querySelector(".plan-layout__content").getBoundingClientRect()
 
     this.popoverTarget.style.display = "block"
@@ -381,7 +396,9 @@ export default class extends Controller {
     event.preventDefault()
     event.stopPropagation()
     const id = event.currentTarget.dataset.threadId
-    const mark = this.contentTarget.querySelector(`mark.anchor-highlight[data-thread-id="${id}"], [data-source-badge][data-thread-id="${id}"]`)
+    // Keep collapsed sections eligible, but route to the active draft pane.
+    const mark = Array.from(this.contentTarget.querySelectorAll(`mark.anchor-highlight[data-thread-id="${id}"], [data-source-badge][data-thread-id="${id}"]`))
+      .find(candidate => !candidate.closest("[data-markdown-block-rendered][hidden], [data-markdown-block-source][hidden]"))
     const thread = document.getElementById(id)
     if (!mark || !thread?.dataset.threadId) return
     // Opening the section removes its badge. Keep a live focus-return target
@@ -752,6 +769,7 @@ export default class extends Controller {
   }
 
   highlightAnchors() {
+    initializeMarkdownBlockViews(this.contentTarget)
     const activeThreadId = this._activeMark?.dataset.threadId
 
     // Remove existing anchor highlights before re-highlighting
@@ -771,7 +789,10 @@ export default class extends Controller {
     this.highlightedThreadIds = new Set()
     const threads = this.element.querySelectorAll("[data-anchor-text]")
     threads.forEach(thread => {
-      if (thread.dataset.anchorKind || thread.dataset.threadOutOfDate === "true") return
+      if (thread.dataset.threadOutOfDate === "true") return
+      const sourceAnchor = thread.dataset.anchorKind ? this.draftSourceAnchor(thread) : null
+      const sourceBlock = sourceAnchor?.block
+      if (thread.dataset.anchorKind && (!sourceBlock || sourceBlock.querySelector(":scope > [data-markdown-block-source]").hidden)) return
       const anchor = thread.dataset.anchorText
       const occurrence = thread.dataset.anchorOccurrence
       const status = thread.dataset.threadStatus || "open"
@@ -781,7 +802,9 @@ export default class extends Controller {
         const isOpen = status === "open"
         const statusClass = isOpen ? "anchor-highlight--open" : "anchor-highlight--resolved"
         const classes = `anchor-highlight ${statusClass}`.trim()
-        const marks = this.findAndHighlightAll(anchor, occurrence, classes)
+        const marks = sourceBlock
+          ? markSource(sourceBlock, sourceAnchor.from, sourceAnchor.to, classes)
+          : this.findAndHighlightAll(anchor, occurrence, classes)
 
         if (marks.length > 0 && threadId) {
           marks.forEach(mark => {
@@ -798,6 +821,17 @@ export default class extends Controller {
 
     this._restoreActiveThreadPopover(activeThreadId)
     this.publishTextAnchors()
+  }
+
+  draftSourceAnchor(thread) {
+    for (const element of this.contentTarget.querySelectorAll("[data-markdown-block-rendered] [data-source-target], [data-markdown-block-rendered] [data-source-targets]")) {
+      const map = element.dataset.sourceTargets && JSON.parse(element.dataset.sourceTargets)
+      const targets = map ? [...Object.values(map.nodes), ...map.edges, map.diagram] : [JSON.parse(element.dataset.sourceTarget)]
+      const target = targets.find(target => target.kind === thread.dataset.anchorKind && target.digest === thread.dataset.anchorDigest &&
+        String(target.start) === thread.dataset.anchorStart && String(target.end) === thread.dataset.anchorEnd)
+      if (target) return { block: element.closest("[data-markdown-block]"), from: target.markdown_from, to: target.markdown_to }
+    }
+    return null
   }
 
   publishTextAnchors() {
@@ -999,6 +1033,9 @@ export default class extends Controller {
 
     const matchEnd = startIndex + length
     const marks = []
+    // Source text of a Markdown block showing its rendered view is drawn
+    // over the rendered text instead: block -> [from, to) in its body.
+    const renderedRanges = new Map()
 
     // Table-structural elements can only contain specific children (e.g.
     // <tr> can only contain <td>/<th>). Wrapping a text node inside one of
@@ -1021,6 +1058,15 @@ export default class extends Controller {
       // Skip zero-length ranges (e.g. from text node splits by prior highlights)
       if (localEnd <= localStart) continue
 
+      const block = renderedBlockForSource(tn.node)
+      if (block) {
+        const from = sourceOffset(block, tn.node, localStart)
+        const to = sourceOffset(block, tn.node, localEnd)
+        const current = renderedRanges.get(block)
+        renderedRanges.set(block, current ? [Math.min(current[0], from), Math.max(current[1], to)] : [from, to])
+        continue
+      }
+
       const range = document.createRange()
       range.setStart(tn.node, localStart)
       range.setEnd(tn.node, localEnd)
@@ -1032,6 +1078,7 @@ export default class extends Controller {
       marks.push(mark)
     }
 
+    renderedRanges.forEach(([from, to], block) => marks.push(...markRendered(block, from, to, className)))
     return marks
   }
 }

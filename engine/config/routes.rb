@@ -99,6 +99,7 @@ CoPlan::Engine.routes.draw do
       patch "theme", to: "settings#update_theme"
       patch "app_theme", to: "settings#update_app_theme"
       patch "voice_hotkey", to: "settings#update_voice_hotkey"
+      patch "markdown_block_view", to: "settings#update_markdown_block_view"
     end
 
     # Web folder creation (sidebar "New folder" input), reparenting (drag

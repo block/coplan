@@ -15,8 +15,9 @@ settings apply.
 ## User settings and host integrations
 
 Coplan owns the settings shown on its Settings page. The app theme, light/dark
-mode and push-to-talk preferences live in `coplan_users.app_theme`,
-`coplan_users.theme_preference` and `coplan_users.voice_hotkey`.
+mode, push-to-talk and Markdown block view preferences live in
+`coplan_users.app_theme`, `coplan_users.theme_preference`,
+`coplan_users.voice_hotkey` and `coplan_users.markdown_block_view`.
 Notification preferences have their own column; browser subscriptions and API
 tokens have engine-owned tables. User `metadata` is available for host directory
 data and is not a settings API.
@@ -229,6 +230,7 @@ The engine manages a `coplan_users` table with these columns:
 | `app_theme` | String | Engine-owned app theme: `default` (follow `config.default_theme`) or a `CoPlan::Themes` key |
 | `theme_preference` | String | Engine-owned light/dark mode: system, light, or dark |
 | `voice_hotkey` | String | Engine-owned push-to-talk preference |
+| `markdown_block_view` | String | Engine-owned view `markdown` and `md` fences open in: rendered or source |
 
 `CoPlan::User` is a normal ActiveRecord model. Host apps can reference it directly:
 

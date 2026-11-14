@@ -107,7 +107,10 @@ module CoPlan
       rendered = Nokogiri::HTML::DocumentFragment.parse(safe_join(fragments))
       document = Nokogiri::HTML::DocumentFragment.parse(render_markdown(result.canonical_source, interactive: false, data_tables: false))
       reconcile_references(rendered, document)
-      Plans::SourceTargets.new(content).annotate(rendered) if interactive
+      if interactive
+        Plans::SourceTargets.new(content).annotate(rendered)
+        render_markdown_blocks(rendered, content)
+      end
       rendered.css("[data-sourcepos]").each { |element| element.remove_attribute("data-sourcepos") }
       rendered.to_html.html_safe
     end

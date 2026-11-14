@@ -74,6 +74,10 @@ export default class extends Controller {
   _deduplicateByThread(marks) {
     const seen = new Set()
     return marks.filter(mark => {
+      // Drafts retain both representations, but only the active pane is a
+      // navigation stop. Do not exclude collapsed sections or other slides:
+      // navigateTo reveals those when their discussion is selected.
+      if (mark.closest("[data-markdown-block-rendered][hidden], [data-markdown-block-source][hidden]")) return false
       const id = mark.dataset.threadId
       if (seen.has(id)) return false
       seen.add(id)

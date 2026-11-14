@@ -24,6 +24,22 @@ module CoPlan
         data
       end
 
+      # Converts a Commonmarker sourcepos ("line:col-line:col") into a
+      # [start, end) range of character offsets. `lines` are the source's
+      # lines and `offsets` their starting character offsets.
+      def self.char_range(position, lines, offsets)
+        match = /\A(\d+):(\d+)-(\d+):(\d+)\z/.match(position.to_s)
+        return unless match
+        sl, sc, el, ec = match.captures.map(&:to_i)
+        return unless sl.positive? && el.positive? && sc.positive? && lines[sl - 1] && lines[el - 1]
+
+        # Commonmarker columns are bytes, including the inclusive end.
+        before = lines[sl - 1].byteslice(0, sc - 1)
+        through = lines[el - 1].byteslice(0, ec)
+        return unless before&.valid_encoding? && through&.valid_encoding?
+        [ offsets[sl - 1] + before.length, offsets[el - 1] + through.length ]
+      end
+
       def initialize(content)
         @content = content.to_s
         @lines = @content.lines
@@ -33,10 +49,14 @@ module CoPlan
         # Raw HTML may contain data-sourcepos supplied by the author. Only
         # positions produced by the Markdown AST can become signed targets.
         @positions = Hash.new { |hash, key| hash[key] = Set.new }
+        @markdown_blocks = {}
+        @presentation_lines = ContentRegions::Split.call(@content).regions.select { |region| region.kind == :presentation }.flat_map do |region|
+          (region.start_line...(region.start_line + region.source.lines.length)).to_a
+        end.to_set
         collect_positions(CoPlan::Markdown.parse(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }))
       end
 
-      def annotate(doc)
+      def annotate(doc, tables_only: false)
         rows = {}
         doc.css("table").each do |table|
           table.css("tr").each_with_index { |row, index| rows[row] = index + 1 }
@@ -66,6 +86,8 @@ module CoPlan
           cell["data-action"] = "click->coplan--source-comments#select keydown->coplan--source-comments#key"
         end
 
+        return doc if tables_only
+
         pres = doc.css('pre[lang="mermaid"][data-sourcepos]')
         pre_counts = pres.group_by { |pre| pre["data-sourcepos"] }
         pres.each do |pre|
@@ -86,12 +108,63 @@ module CoPlan
         doc
       end
 
+      # A rendered draft's cells use the same signed table targets as the
+      # document. Translate the nested parser's spans through stripped fence
+      # indentation, then bind the tokens to the entire current document.
+      def annotate_markdown_block(doc, body, position)
+        fence = @markdown_blocks[position]
+        return doc unless fence && fence[:body] == body
+
+        mapping = []
+        body.lines.each_with_index do |line, index|
+          source_line = fence[:line] + index
+          raw = @lines[source_line].to_s
+          return doc unless raw.chomp.end_with?(line.chomp)
+
+          first = @offsets[source_line] + raw.chomp.length - line.chomp.length
+          line.each_char.with_index { |_, offset| mapping << first + offset }
+        end
+        self.class.new(body).annotate(doc)
+        translate = lambda do |nested|
+          from = mapping.fetch(nested.fetch("start"))
+          to = mapping.fetch(nested.fetch("end") - 1) + 1
+          body_from, body_to = nested.values_at("start", "end").map { |offset| body[0, offset].encode("UTF-16LE").bytesize / 2 }
+          target(nested.fetch("kind"), from, to, nested.fetch("label"))
+            .merge(nested.slice("id", "from", "to"), "markdown_from" => body_from, "markdown_to" => body_to)
+        end
+        doc.css("[data-source-target]").each do |cell|
+          translated = translate.call(JSON.parse(cell["data-source-target"]))
+          cell["data-markdown-from"] = translated.fetch("markdown_from").to_s
+          cell["data-markdown-to"] = translated.fetch("markdown_to").to_s
+          cell["data-source-target"] = translated.to_json
+        end
+        doc.css("[data-source-targets]").each do |diagram|
+          nested = JSON.parse(diagram["data-source-targets"])
+          nested["nodes"].transform_values! { |target| translate.call(target) }
+          nested["edges"].map! { |target| translate.call(target) }
+          nested["diagram"] = translate.call(nested.fetch("diagram"))
+          diagram["data-source-targets"] = nested.to_json
+        end
+        doc
+      end
+
       # Used after OT: a surviving range must still describe a selectable
       # element, rather than syntax that an edit elsewhere turned into prose.
       def ranges
         html = CoPlan::Markdown.to_html(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS,
           render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
         doc = annotate(Nokogiri::HTML.fragment(html))
+        @markdown_blocks.each do |position, fence|
+          nested_html = CoPlan::Markdown.to_html(fence[:body], options: { extension: MarkdownHelper::EXTENSION_OPTIONS,
+            render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
+          nested = Nokogiri::HTML.fragment(nested_html)
+          nested.css("[data-source-target], [data-source-targets]").each do |node|
+            node.remove_attribute("data-source-target")
+            node.remove_attribute("data-source-targets")
+          end
+          annotate_markdown_block(nested, fence[:body], position)
+          doc.add_child(nested)
+        end
         targets = doc.css("[data-source-target]").map { |node| JSON.parse(node["data-source-target"]) }
         doc.css("[data-source-targets]").each do |node|
           map = JSON.parse(node["data-source-targets"])
@@ -106,21 +179,17 @@ module CoPlan
         if %i[table_cell code_block].include?(node.type)
           p = node.source_position
           @positions[node.type] << "#{p[:start_line]}:#{p[:start_column]}-#{p[:end_line]}:#{p[:end_column]}"
+          if node.type == :code_block && !@presentation_lines.include?(p[:start_line]) && MarkdownHelper::MARKDOWN_BLOCK_LANGUAGES.include?(node.fence_info.to_s.split.first&.downcase)
+            @markdown_blocks["#{p[:start_line]}:#{p[:start_column]}-#{p[:end_line]}:#{p[:end_column]}"] = {
+              body: node.string_content, line: p[:start_line]
+            }
+          end
         end
         node.each { |child| collect_positions(child) }
       end
 
       def source_range(position)
-        match = /\A(\d+):(\d+)-(\d+):(\d+)\z/.match(position)
-        return unless match
-        sl, sc, el, ec = match.captures.map(&:to_i)
-        return unless sl.positive? && el.positive? && sc.positive? && @lines[sl - 1] && @lines[el - 1]
-
-        # Commonmarker columns are bytes, including the inclusive end.
-        before = @lines[sl - 1].byteslice(0, sc - 1)
-        through = @lines[el - 1].byteslice(0, ec)
-        return unless before&.valid_encoding? && through&.valid_encoding?
-        [ @offsets[sl - 1] + before.length, @offsets[el - 1] + through.length ]
+        self.class.char_range(position, @lines, @offsets)
       end
 
       def target(kind, s, e, label)

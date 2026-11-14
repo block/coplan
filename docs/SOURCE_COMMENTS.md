@@ -67,6 +67,50 @@ Their source context uses the last successfully tracked revision. A stale
 browser selection is rejected; the form retains its draft and asks the
 reader to reopen the latest plan before posting.
 
+## Markdown blocks
+
+A `markdown` or `md` fence renders in the reading view as a Markdown block:
+the rendered draft, a Rendered / Source switch, and the literal source,
+hidden while Rendered shows. Each page load opens blocks in the reader's
+default view, set under Settings → Appearance (Rendered unless changed). A
+live update keeps the view chosen on that page, including when the draft is
+edited. The existing live-update swap maps the block through the shared text
+diff before restoring the viewport.
+
+Text selections in Markdown blocks create ordinary comments with no `anchor_kind`.
+Table-cell and nested Mermaid comments use the existing signed structural targets, translated
+from the draft body into document source offsets. They work inline and in the
+expanded table or diagram; Source shows the same discussion on its literal text.
+The hidden source stays in the browser's anchor text model in both views, and
+the rendered pane stays out of it. This keeps occurrence counting the same as
+for any code block, on the client and in `MarkdownTextExtractor`.
+
+- The server marks each rendered element with the body range it came from
+  (`data-markdown-from` and `data-markdown-to`, UTF-16 offsets into the
+  fence body). The block also carries the parser-backed visible text and
+  complete source spans from `MarkdownTextExtractor`. `coplan/markdown_blocks.js`
+  matches each text node within its element's range and advances parent
+  cursors after nested formatting. Link URLs cannot match visible labels.
+  Entities and escapes map to their whole source spelling. Footnote
+  numbers and other generated text do not map. Raw HTML blocks receive their own trusted AST source intervals, so identical
+  footnote text relocated later in the DOM cannot become a candidate.
+  Authored IDs and source-position attributes are stripped before rendering;
+  they cannot claim generated coordinates or footnote targets.
+- A selection in the rendered draft becomes the source range from its first
+  to its last mapped character. A selection across `**bold**` text or a link
+  therefore stores the Markdown source of that passage.
+- When Rendered shows, a highlight that falls in the hidden source is drawn
+  over the rendered characters that came from that range. A comment made in
+  either view shows in both.
+- A comment anchored only to text with no rendered form, such as part of a
+  URL, is visible in Source only.
+- Only a fence the parser produced becomes a block. Authored HTML imitating
+  one stays ordinary HTML. Fences inside slide decks, editor previews, and
+  comments stay code blocks. Structural discussions become outdated if an edit
+  moves their draft into a literal slide fence.
+- Writing inspection keeps attribution on canonical source. The Rendered/Source
+  buttons remain available during inspection so that source attribution is reachable.
+
 ## Supported syntax
 
 - Markdown table header and body cells, including repeated values, Unicode,

@@ -118,6 +118,152 @@ RSpec.describe CoPlan::SlideshowsHelper, type: :helper do
     end
   end
 
+  describe "markdown blocks" do
+    let(:draft) do
+      <<~MARKDOWN
+        # Doc
+
+        Intro.
+
+        ```markdown
+        **Progress**
+
+        * The work is [done](https://example.com/z): yes
+        - [ ] A task in the draft
+
+        ## Plans
+
+        Claim.[^s]
+
+        [^s]: Source text.
+        ```
+
+        After.[^outer]
+
+        [^outer]: Outer note.
+      MARKDOWN
+    end
+
+    def blocks(html)
+      Nokogiri::HTML::DocumentFragment.parse(html).css(".markdown-block")
+    end
+
+    it "excludes diagram source from the draft text map while retaining ordinary code and footnotes" do
+      body = "```mermaid\nflowchart LR\n A[Done]\n```\nDone\n\n```text\nLiteral code\n```\n\nClaim[^n]\n\n[^n]: Visible note\n"
+      source = "````md\n#{body}````\n"
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source))
+      map = JSON.parse(doc.at_css("[data-markdown-map]")["data-markdown-map"])
+      expect(map.fetch("text")).not_to include("flowchart", "A[Done]")
+      expect(map.fetch("text")).to include("Done", "Literal code", "Visible note")
+      offset = map.fetch("text").index("Done")
+      expect(map.fetch("spans")[offset, 4]).to eq((body.rindex("Done")...(body.rindex("Done") + 4)).map { |i| [ i, i + 1 ] })
+    end
+
+    it "renders a markdown fence read-only beside its hidden source" do
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(draft))
+      block = doc.at_css(".markdown-block[data-markdown-block][data-controller='coplan--markdown-block']")
+      expect(block).to be_present
+      expect(block.css(".markdown-block__view").map { |button| [ button.text, button["aria-pressed"] ] })
+        .to eq([ [ "Rendered", "true" ], [ "Source", "false" ] ])
+      expect(block.at_css("[data-markdown-block-chrome] .markdown-block__label").text).to eq("markdown")
+
+      rendered = block.at_css("[data-markdown-block-rendered]")
+      expect(rendered["hidden"]).to be_nil
+      expect(rendered.at_css("strong").text).to eq("Progress")
+      expect(rendered.at_css("strong")["data-markdown-from"]).to eq("0")
+      expect(rendered.at_css("strong")["data-markdown-to"]).to eq("12")
+      expect(rendered.css("[data-sourcepos], [data-markdown-from]:not([data-markdown-to])")).to be_empty
+      # Read-only: no task toggles, no heading ids to collide with the
+      # document's, and footnotes stay with the block, scoped to it.
+      expect(rendered.at_css("input[type=checkbox]")["disabled"]).to be_present
+      expect(rendered.css("[data-action*='checkbox']")).to be_empty
+      expect(rendered.css("h2 [id], h2[id]")).to be_empty
+      expect(rendered.at_css("section[data-footnotes]").text).to include("Source text.")
+      expect(rendered.at_css("[data-footnote-ref]")["href"]).to eq("#markdown-block-1-fn-s")
+
+      source = block.at_css("pre[data-markdown-block-source][lang='markdown']")
+      expect(source["hidden"]).to eq("")
+      expect(source.text).to start_with("**Progress**\n")
+      # The document's own footnotes are still left to the back matter.
+      expect(doc.css("section[data-footnotes]").size).to eq(1)
+    end
+
+    it "renders md fences inside prose regions but leaves other code alone" do
+      source = "Intro.\n\n```md\n*em*\n```\n\n```text\n*literal*\n```\n\n::: {.presentation}\n\n# Slide\n\n```markdown\n*slide*\n```\n\n:::\n"
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source))
+      expect(doc.css(".markdown-block").size).to eq(1)
+      expect(doc.at_css(".markdown-block em").text).to eq("em")
+      expect(doc.at_css("pre[lang='text']").text).to include("*literal*")
+      expect(doc.at_css(".deck-region pre[lang='markdown']").text).to include("*slide*")
+      expect(doc.css("[data-sourcepos]")).to be_empty
+    end
+
+    it "counts offsets in UTF-16 code units and wraps a block's tables once" do
+      source = "```markdown\n\u{1F680} **Shipped**\n\n| A |\n| - |\n| b |\n\n![Chart](https://example.com/c.png)\n```\n"
+      block = blocks(helper.render_content_regions(source)).first
+      body = block.at_css("pre[data-markdown-block-source]").text
+      strong = block.at_css("strong")
+      # The rocket is one Ruby character but two UTF-16 code units.
+      expect(strong["data-markdown-from"]).to eq(body.index("**Shipped**").succ.to_s)
+      expect(strong["data-markdown-to"]).to eq((body.index("**Shipped**") + 12).to_s)
+      # Signed source targets keep commenting available in the expander.
+      expect(block.css(".data-grid").size).to eq(1)
+      expect(block.css(".data-grid .data-grid")).to be_empty
+      expect(block.css("td[data-source-target]").size).to eq(1)
+      expect(block.css(".image-frame").size).to eq(1)
+    end
+
+    it "only renders fences the parser produced and only in the reading view" do
+      elsewhere = "#{draft}\n<pre lang=\"markdown\" data-sourcepos=\"1:1-2:3\"><code>**forged**</code></pre>\n"
+      expect(blocks(helper.render_content_regions(elsewhere)).size).to eq(1)
+      # Authored HTML copying a real fence's position disqualifies both.
+      copied = "#{draft}\n<pre lang=\"markdown\" data-sourcepos=\"5:1-16:3\"><code>**forged**</code></pre>\n"
+      expect(blocks(helper.render_content_regions(copied))).to be_empty
+      expect(blocks(helper.render_content_regions(draft, interactive: false))).to be_empty
+      expect(blocks(helper.render_markdown(draft, interactive: false))).to be_empty
+    end
+
+    it "rejects authored HTML borrowing the position of an excluded slide fence" do
+      source = "::: {.presentation}\n\n# Slide\n\n```markdown\n**literal**\n```\n\n:::\n\n<pre lang=\"markdown\" data-sourcepos=\"5:1-7:3\"><code>**forged**</code></pre>\n"
+      expect(blocks(helper.render_content_regions(source))).to be_empty
+    end
+
+    it "removes authored mapping positions and footnote-shaped ids before rendering drafts" do
+      source = <<~MD
+        ```md
+        Same
+
+        <span title="x"id="fn-n"data-sourcepos="1:1-1:4">Same</span>
+
+        <div id="fnref-n" data-sourcepos="1:1-1:4">Same</div>
+
+        Claim.[^n]
+
+        [^n]: Actual note.
+        ```
+      MD
+      rendered = blocks(helper.render_content_regions(source)).first.at_css("[data-markdown-block-rendered]")
+      expect(rendered.css("span[data-markdown-from]")).to be_empty
+      expect(rendered.at_css("div[data-markdown-from]")["data-markdown-from"].to_i).to be > 4
+      expect(rendered.css("[id]").map { |element| element["id"] }.tally.values).to all(eq(1))
+      target = rendered.at_css(rendered.at_css("[data-footnote-ref]")["href"])
+      expect(target.text).to include("Actual note.")
+      expect(rendered.css("span[id], div[id]")).to be_empty
+    end
+
+    it "keeps block footnotes distinct across deck regions and removes authored document ids" do
+      fence = "```md\nA note.[^n]\n\n[^n]: Local note.\n```\n"
+      source = "#{fence}\n::: {.presentation}\n\n# Slide\n\n:::\n\n#{fence}\n```md\n<h2 id=\"section-3-1\">Draft heading</h2>\n\n<span id=\"plan-title\">Draft text</span>\n```\n\n## 3.1 Actual section\n"
+      doc = Nokogiri::HTML::DocumentFragment.parse(helper.render_content_regions(source))
+      notes = doc.css(".markdown-block [data-footnote-ref]")
+      expect(notes.size).to eq(2)
+      expect(notes.map { |note| note["href"] }.uniq.size).to eq(2)
+      notes.each { |note| expect(note.ancestors(".markdown-block").first.at_css(note["href"])).to be_present }
+      expect(doc.css(".markdown-block h2[id], .markdown-block #plan-title")).to be_empty
+      expect(doc.css("#section-3-1").map { |node| node.text.strip }).to eq([ "3.1 Actual section" ])
+    end
+  end
+
   describe "#render_slideshow" do
     it "wraps each slide in a deck section with its 1-based index" do
       doc = deck("# One\n\n---\n\n# Two")

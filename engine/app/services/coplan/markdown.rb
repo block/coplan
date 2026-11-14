@@ -17,14 +17,14 @@ module CoPlan
       Commonmarker.parse(normalized, **options)
     end
 
-    def self.to_html(source, **options)
+    def self.to_html(source, strip_html_attributes: [], **options)
       normalized, markers, summaries = normalize(source, options: options[:options])
-      return Commonmarker.to_html(normalized, **options) if markers.empty? && summaries.empty?
+      return render_html(normalized, strip_html_attributes, **options) if markers.empty? && summaries.empty?
 
       original_options = options[:options] || {}
       sourcepos = original_options.dig(:render, :sourcepos)
       options = options.merge(options: original_options.merge(render: (original_options[:render] || {}).merge(sourcepos: true)))
-      doc = Nokogiri::HTML.fragment(Commonmarker.to_html(normalized, **options))
+      doc = Nokogiri::HTML.fragment(render_html(normalized, strip_html_attributes, **options))
       lines = source.to_s.lines
       doc.css("ol[data-sourcepos]").reverse_each do |list|
         items = list.element_children
@@ -61,6 +61,51 @@ module CoPlan
       doc.css("[data-sourcepos]").each { |node| node.remove_attribute("data-sourcepos") } unless sourcepos
       doc.to_html
     end
+
+    # Remove authored attributes on raw HTML AST nodes, before generated
+    # metadata exists. Same-length names retain parser source positions.
+    def self.render_html(source, attributes, **options)
+      return Commonmarker.to_html(source, **options) if attributes.empty?
+
+      lines = source.lines
+      offsets = [ 0 ]
+      lines.each { |line| offsets << offsets.last + line.bytesize }
+      cleaned = source.b.dup
+      Commonmarker.parse(source, options: options[:options] || {}).walk do |node|
+        next unless %i[html_inline html_block].include?(node.type)
+
+        p = node.source_position
+        from = offsets.fetch(p[:start_line] - 1) + p[:start_column] - 1
+        to = offsets.fetch(p[:end_line] - 1) + p[:end_column]
+        raw = cleaned.byteslice(from...to)
+        # Rename only attribute names, preserving every byte and source span.
+        cleaned[from...to] = raw.gsub(/<\/?[A-Za-z][\w:-]*(?:[^>"']|"[^"]*"|'[^']*')*>/) do |tag|
+          tag.gsub(/(\s*)([^\s=\/<>"']+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/) do |attribute|
+            name = Regexp.last_match(2)
+            attributes.include?(name.downcase) ? attribute.sub(name, "x" * name.bytesize) : attribute
+          end
+        end
+      end
+      doc = Commonmarker.parse(cleaned.force_encoding(source.encoding), options: options[:options] || {})
+      # Raw HTML has no generated sourcepos. Add positions from its AST block
+      # after parsing, so inserted metadata cannot shift any other node.
+      doc.walk.to_a.each do |node|
+        next unless node.type == :html_block
+
+        p = node.source_position
+        position = "#{p[:start_line]}:#{p[:start_column]}-#{p[:end_line]}:#{p[:end_column]}"
+        raw = node.to_html(options: { render: { unsafe: true } })
+        # Consume whole tags, including quoted values, and skip comments.
+        # A tag-looking string inside an attribute is not another element.
+        annotated = raw.gsub(/<!--.*?-->|<[A-Za-z][\w:-]*(?:[^>"']|"[^"]*"|'[^']*')*>/m) do |tag|
+          tag.start_with?("<!--") ? tag : tag.sub(/<[A-Za-z][\w:-]*/) { |opening| "#{opening} data-sourcepos=\"#{position}\"" }
+        end
+        replacement = Commonmarker.parse(annotated).first_child
+        node.replace(replacement) if replacement
+      end
+      doc.to_html(**options)
+    end
+    private_class_method :render_html
 
     def self.normalize(source, options: nil)
       source = source.to_s

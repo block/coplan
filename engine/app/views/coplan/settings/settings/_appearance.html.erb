@@ -1,5 +1,6 @@
-<%# Appearance: the app theme (Classic, Neutral, …) and light/dark mode.
-    Both apply as soon as they're picked; see docs/THEMES.md. %>
+<%# Appearance: the app theme (Classic, Neutral, …), light/dark mode, and
+    the view markdown blocks open in. Each saves as soon as it's picked;
+    see docs/THEMES.md for themes. %>
 <% site_default = CoPlan::Themes.default %>
 <% chosen = coplan_app_theme_choice %>
 <section class="card mb-md settings-group" aria-labelledby="settings-appearance">
@@ -55,6 +56,33 @@
           Dark
         </span>
       </label>
+    </div>
+  </div>
+
+  <%# Which view a markdown or md fence opens in on a plan. Switching a
+      block on the page still works and lasts until the next navigation. %>
+  <div class="settings-row" data-controller="coplan--markdown-block-view"
+       data-action="turbo:before-cache@document->coplan--markdown-block-view#beforeCache coplan:markdown-block-view-changed@document->coplan--markdown-block-view#sync"
+       data-coplan--markdown-block-view-url-value="<%= coplan.settings_markdown_block_view_path %>"
+       data-coplan--markdown-block-view-user-id-value="<%= current_user.id %>"
+       data-coplan--markdown-block-view-stored-at-value="<%= current_user.updated_at.utc.iso8601(6) %>"
+       data-coplan--markdown-block-view-stored-value="<%= current_user.markdown_block_view %>">
+    <div class="settings-row__main">
+      <span class="settings-row__label" id="settings-markdown-block-view-label">Markdown blocks</span>
+      <p class="settings-row__hint">How a <code>markdown</code> or <code>md</code> code block opens on a plan.</p>
+      <p class="settings-row__hint settings-row__hint--error" role="status"
+         data-coplan--markdown-block-view-target="error" hidden></p>
+    </div>
+    <div class="segmented" role="radiogroup" aria-labelledby="settings-markdown-block-view-label">
+      <% CoPlan::User::MARKDOWN_BLOCK_VIEWS.each do |view| %>
+        <% label = view.capitalize %>
+        <label class="segmented__option" title="<%= label %>">
+          <input type="radio" name="markdown_block_view" value="<%= view %>"
+                 <%= "checked" if current_user.markdown_block_view == view %>
+                 data-action="coplan--markdown-block-view#select">
+          <span class="segmented__btn"><%= label %></span>
+        </label>
+      <% end %>
     </div>
   </div>
 </section>

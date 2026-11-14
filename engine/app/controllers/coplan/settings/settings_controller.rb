@@ -29,6 +29,18 @@ module CoPlan
         end
       end
 
+      # Saves the view markdown blocks open in.
+      def update_markdown_block_view
+        view = params[:markdown_block_view]
+        if CoPlan::User::MARKDOWN_BLOCK_VIEWS.include?(view)
+          current_user.markdown_block_view = view
+          current_user.save!
+          render json: { view: current_user.markdown_block_view, updated_at: current_user.updated_at.utc.iso8601(6) }
+        else
+          head :unprocessable_content
+        end
+      end
+
       def update_voice_hotkey
         hotkey = params[:voice_hotkey]
         if CoPlan::User::VOICE_HOTKEYS.include?(hotkey)

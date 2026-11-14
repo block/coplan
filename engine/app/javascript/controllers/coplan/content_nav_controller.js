@@ -51,7 +51,9 @@ export default class extends Controller {
     // A document renders one .markdown-rendered; a deck renders one per
     // slide. Scan the whole content column either way — scanning the first
     // rendered block gave a deck an outline of slide 1 and nothing else.
+    // A rendered Markdown block is quoted content, not part of the outline.
     const headings = Array.from(documentRoot.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3"))
+      .filter(heading => !heading.closest("[data-markdown-block-rendered]"))
     // The title is part of the document and is a navigable heading too.
     this._headings = headings
 

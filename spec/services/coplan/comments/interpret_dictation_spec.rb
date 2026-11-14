@@ -33,6 +33,18 @@ RSpec.describe CoPlan::Comments::InterpretDictation do
     )
   end
 
+  it "accepts rendered draft quotes but not literal code or slide fences" do
+    stub_ai(text: "Keep this warning.", span: "Do not deploy.")
+    draft = "```md\nDo **not** deploy.\n```\n"
+    result = described_class.call(excerpt: "Do not deploy.", transcript: "Keep this warning.", document: draft)
+    expect(result.anchor_text).to eq("Do not deploy.")
+
+    [ draft.sub("```md", "```text"), "::: {.presentation}\n\n#{draft}\n:::\n" ].each do |literal|
+      result = described_class.call(excerpt: "Do not deploy.", transcript: "Keep this warning.", document: literal)
+      expect(result.anchor_text).to be_nil
+    end
+  end
+
   it "reads JSON the model wrapped in a code fence" do
     allow(CoPlan::Ai).to receive(:call).and_return(<<~RESPONSE)
       ```json

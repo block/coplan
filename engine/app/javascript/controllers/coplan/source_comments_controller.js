@@ -259,6 +259,10 @@ export default class extends Controller {
   openThread(event) {
     const data = this.threads?.querySelector(`[data-thread-id="${CSS.escape(event.detail.threadId)}"]`)
     if (!data) return
+    // A Markdown draft's Source view exposes the cell discussion as a text
+    // mark. Let the shared text navigator open that visible representation.
+    const sourceMark = this.element.querySelector(`pre[data-markdown-block-source] mark[data-thread-id="${CSS.escape(data.id)}"]`)
+    if (sourceMark?.getClientRects().length) return
     if (data.dataset.outOfDate === "true") this.showOutdated()
     else {
       const surface = this.element.querySelector("dialog.expander[open]") || this.element

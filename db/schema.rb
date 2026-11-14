@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_213838) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_13_220000) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -542,6 +542,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_213838) do
     t.datetime "created_at", null: false
     t.string "email"
     t.string "external_id", null: false
+    t.string "markdown_block_view", default: "rendered", null: false
     t.json "metadata"
     t.string "name", null: false
     t.json "notification_preferences"

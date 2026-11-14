@@ -240,6 +240,7 @@ RSpec.describe "Agent Instructions", type: :request do
         expect(body).to include("[§3.1](#section-3-1)")
         expect(body).to include("[^queue-depth]")
         expect(body).to include("Each selection is a hand edit.")
+        expect(body).to include("**Settings → Appearance → Markdown blocks**")
       end
     end
 
