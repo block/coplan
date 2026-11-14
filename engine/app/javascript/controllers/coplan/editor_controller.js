@@ -1,11 +1,13 @@
 import { Controller } from "@hotwired/stimulus"
 import { commandFor } from "coplan/shortcuts"
+import { captureViewport, restoreViewport } from "coplan/viewport_anchor"
+import { captureDeckPositions, restoreDeckPositions } from "coplan/deck_state"
 
 // One network operation at a time. Every response is reconciled with both the
 // sent snapshot and edits typed while it was in flight. Nothing clears a draft
 // until the server has acknowledged that exact content.
 export default class extends Controller {
-  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave", "uploadNotice", "uploadMessage", "uploadDismiss"]
+  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "previewSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave", "uploadNotice", "uploadMessage", "uploadDismiss"]
   static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, tokenUrl: String, previewUrl: String, leaseUrl: String, attachmentsUrl: String, inline: Boolean, embedDomains: Array }
 
   revisionValueChanged(revision) {
@@ -86,6 +88,8 @@ export default class extends Controller {
     clearTimeout(this.refreshTimer)
     clearTimeout(this.compositionTimer)
     clearTimeout(this.uploadNoticeTimer)
+    clearTimeout(this.documentPreviewTimer)
+    this.cancelDocumentPreview()
     this.persistDraft()
     this.richEditor?.destroy()
     this.rawEditor?.destroy()
@@ -470,6 +474,7 @@ export default class extends Controller {
 
   format(event) {
     const command = event.currentTarget.dataset.command
+    if (this.mode === "preview") return
     if (this.editor !== this.richEditor && !["undo", "redo"].includes(command)) return
     const editor = ["undo", "redo"].includes(command) ? this.editor : this.richEditor
     if (!["undo", "redo"].includes(command)) editor?.captureSelection()
@@ -480,7 +485,8 @@ export default class extends Controller {
     if (event.target.closest("button")) event.preventDefault()
   }
   updateToolbar(state) {
-    const rawFocused = (this.editor === this.rawEditor && !!this.rawEditor) || !!document.activeElement?.closest(".document-editor__content-block, .document-editor__block-source")
+    const previewing = this.mode === "preview"
+    const rawFocused = previewing || (this.editor === this.rawEditor && !!this.rawEditor) || !!document.activeElement?.closest(".document-editor__content-block, .document-editor__block-source")
     const formattingDisabled = rawFocused || state.templateNote
     this.toolbarTarget.querySelector('[popovertarget="coplan-insert-code"]').disabled = formattingDisabled || state.documentTitle
     this.toolbarTarget.querySelector('[popovertarget="coplan-insert-content"]').disabled = formattingDisabled || state.documentTitle
@@ -495,12 +501,12 @@ export default class extends Controller {
         button.querySelector('option[value="comment"]').disabled = !state.canHideComment
         return
       }
-      if (["undo", "redo"].includes(command)) button.disabled = !(this.editor?.historyState() || state)[command]
+      if (["undo", "redo"].includes(command)) button.disabled = previewing || !(this.editor?.historyState() || state)[command]
       else button.setAttribute("aria-pressed", String(!formattingDisabled && !!state[command]))
     })
   }
   style(event) {
-    if (this.editor !== this.richEditor) return
+    if (this.mode === "preview" || this.editor !== this.richEditor) return
     this.richEditor.captureSelection()
     const value = event.currentTarget.value
     this.richEditor?.command({ "0": "paragraph", code: "code_block", comment: "hidden_comment" }[value] || "heading", value)
@@ -637,25 +643,48 @@ export default class extends Controller {
 
   switchMode(event) { this.setMode(event.currentTarget.dataset.mode) }
   setMode(mode) {
-    if (!this.richEditor || !["rich", "markdown", "dual"].includes(mode) || mode === this.mode || this.composing) return
-    const sourceSelection = this.editor?.sourceSelection()
-    if (mode !== "rich" && !this.rawEditor) this.rawEditor = this.richModule.createMarkdownDocument(this.rawSurfaceTarget, this.textareaTarget.value,
+    if (!this.richEditor || !["rich", "markdown", "dual", "preview"].includes(mode) || mode === this.mode || this.composing) return
+    const previewing = mode === "preview"
+    const leavingPreview = this.mode === "preview"
+    const viewport = captureViewport(leavingPreview ? this.previewSurfaceTarget : this.surfaceTarget)
+    if (previewing) {
+      this.previewViewport = viewport
+      this.previewSurfaceTarget.style.minHeight = `${Math.max(this.surfaceTarget.offsetHeight, this.rawSurfaceTarget.offsetHeight)}px`
+    }
+    // Preview has no caret. Carry the last editing selection through it.
+    let sourceSelection = this.mode === "preview" ? this.previewSelection : this.editor?.sourceSelection()
+    if (sourceSelection) {
+      const length = this.textareaTarget.value.length
+      sourceSelection = { from: Math.min(sourceSelection.from, length), to: Math.min(sourceSelection.to, length) }
+    }
+    this.previewSelection = previewing ? sourceSelection : null
+    if (!previewing) this.cancelDocumentPreview()
+    if (["markdown", "dual"].includes(mode) && !this.rawEditor) this.rawEditor = this.richModule.createMarkdownDocument(this.rawSurfaceTarget, this.textareaTarget.value,
       (content, kind) => this.editorChanged("markdown", content, kind))
     this.mode = mode
     this.element.querySelectorAll(".document-editor__mode [data-mode]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.mode === mode)))
-    try { sessionStorage.setItem(`coplan-editor-mode-${this.userIdValue}`, mode) } catch {}
-    this.editor = mode === "markdown" ? this.rawEditor : this.richEditor
+    // Opening the editor is for writing, so only editing modes are remembered.
+    if (!previewing) try { sessionStorage.setItem(`coplan-editor-mode-${this.userIdValue}`, mode) } catch {}
+    // Preview keeps the last editing pane for formatting state and return.
+    if (!previewing) this.editor = mode === "markdown" ? this.rawEditor : this.richEditor
     this.updateEditors(this.textareaTarget.value)
-    this.surfaceTarget.hidden = mode === "markdown"
-    this.rawSurfaceTarget.hidden = mode === "rich"
+    this.surfaceTarget.hidden = mode === "markdown" || previewing
+    this.rawSurfaceTarget.hidden = mode === "rich" || previewing
+    this.previewSurfaceTarget.hidden = !previewing
     this.element.dataset.mode = mode
     this.surfaceTarget.querySelectorAll(".document-editor__code-language").forEach(input => { input.disabled = mode === "markdown" })
     this.element.querySelectorAll("[data-mode]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.mode === mode)))
-    if (this.inlineVisible) {
+    if (previewing) {
+      clearTimeout(this.documentPreviewTimer)
+      this.renderDocumentPreview()
+      if (this.inlineVisible) this.previewSurfaceTarget.focus({ preventScroll: true })
+    } else if (this.inlineVisible) {
       if (sourceSelection) (this.editor === this.rawEditor ? this.rawEditor.select(sourceSelection.from, sourceSelection.to) : this.richEditor.selectSource(sourceSelection.from, sourceSelection.to))
       else this.editor.view.focus()
     }
     this.updateToolbar(this.richEditor.toolbarState())
+    if (leavingPreview && mode === "rich") restoreViewport(this.surfaceTarget, viewport)
+    if (!previewing) this.element.dispatchEvent(new CustomEvent("coplan:editor-mode-changed", { bubbles: true }))
   }
   get composing() { return !!(this.richEditor?.view.composing || this.rawEditor?.view.composing) }
   focusPane(event) {
@@ -675,6 +704,107 @@ export default class extends Controller {
   updateEditors(content) {
     this.richEditor?.update(content)
     this.rawEditor?.update(content)
+    if (this.mode === "preview" && content !== this.documentPreviewSource) {
+      clearTimeout(this.documentPreviewTimer)
+      this.documentPreviewTimer = setTimeout(() => this.renderDocumentPreview(), 300)
+    }
+  }
+  // Preview mode renders the whole draft with the reading view's server
+  // renderer. It never edits; the draft and save queue stay with the editors.
+  async renderDocumentPreview() {
+    if (!this.active || this.mode !== "preview") return
+    if (this.previewSurfaceTarget.querySelector(".deck--presenting")) { this.previewPending = true; return }
+    this.previewPending = false
+    this.cancelDocumentPreview()
+    this.documentPreviewRequest = new AbortController()
+    const surface = this.previewSurfaceTarget, source = this.textareaTarget.value
+    const viewport = this.previewViewport || captureViewport(surface)
+    this.previewViewport = null
+    const sequence = this.documentPreviewSequence = (this.documentPreviewSequence || 0) + 1
+    this.documentPreviewSource = source
+    surface.setAttribute("aria-busy", "true")
+    if (this.documentPreviewHtml == null) surface.replaceChildren(this.previewMessage("Loading preview…"))
+    try {
+      const html = await this.preview(source, { document: true, signal: this.documentPreviewRequest.signal })
+      if (!this.active || sequence !== this.documentPreviewSequence || this.mode !== "preview") return
+      if (surface.querySelector(".deck--presenting")) { this.previewPending = true; return }
+      // Unchanged output keeps its DOM, rendered diagrams and reading position.
+      if (html !== this.documentPreviewHtml) {
+        this.documentPreviewHtml = html
+        const deckPositions = captureDeckPositions(surface)
+        surface.innerHTML = html
+        this.isolatePreview(surface)
+        restoreDeckPositions(surface, deckPositions)
+      } else surface.querySelector(":scope > .document-editor__preview-error")?.remove()
+      surface.style.minHeight = ""
+      restoreViewport(surface, viewport)
+      this.element.dispatchEvent(new CustomEvent("coplan:editor-mode-changed", { bubbles: true }))
+    } catch {
+      if (!this.active || sequence !== this.documentPreviewSequence) return
+      // Forget the source so the next change or visit retries the request.
+      this.documentPreviewSource = null
+      if (this.documentPreviewHtml == null) surface.replaceChildren(this.previewMessage("Preview unavailable. Choose Editor or Raw to keep writing."))
+      else if (!surface.querySelector(":scope > .document-editor__preview-error")) surface.prepend(this.previewMessage("Could not refresh preview. Showing the last rendered version.", true))
+    } finally {
+      if (sequence === this.documentPreviewSequence) surface.removeAttribute("aria-busy")
+    }
+  }
+  resumeDocumentPreview() {
+    if (this.previewPending) this.renderDocumentPreview()
+  }
+  cancelDocumentPreview() {
+    this.documentPreviewSequence = (this.documentPreviewSequence || 0) + 1
+    this.documentPreviewRequest?.abort()
+  }
+  // The preview sits inside the editor form. Authored HTML must not submit or
+  // reset that form, or reach this controller's actions and targets.
+  isolatePreview(root) {
+    // The hidden reader remains mounted. Give preview references their own
+    // targets so hover cards, headings and footnotes use the current draft.
+    this.previewIdPrefix ||= `coplan-preview-${crypto.randomUUID()}-`
+    const ids = new Map([...root.querySelectorAll("[id]")].map(element => [element.id, this.previewIdPrefix + element.id]))
+    root.querySelectorAll("[id]").forEach(element => { element.id = ids.get(element.id) })
+    root.querySelectorAll('a[href^="#"]').forEach(link => {
+      try {
+        const id = decodeURIComponent(link.getAttribute("href").slice(1))
+        link.setAttribute("href", `#${encodeURIComponent(this.previewIdPrefix + id)}`)
+      } catch {}
+    })
+    root.querySelectorAll("[for], [aria-controls], [aria-labelledby], [aria-describedby], [popovertarget]").forEach(element => {
+      for (const name of ["for", "aria-controls", "aria-labelledby", "aria-describedby", "popovertarget"]) {
+        if (element.hasAttribute(name)) element.setAttribute(name, element.getAttribute(name).split(/\s+/).map(id => ids.get(id) || id).join(" "))
+      }
+    })
+    root.querySelectorAll("input, button, select, textarea, fieldset, output").forEach(control => control.setAttribute("form", "coplan-document-preview-detached"))
+    root.querySelectorAll("*").forEach(element => {
+      for (const { name, value } of [...element.attributes]) {
+        if (name.startsWith("data-coplan--editor-")) element.removeAttribute(name)
+        else if (name === "data-action" || name === "data-controller") {
+          const kept = value.split(/\s+/).filter(token => token && !token.includes("coplan--editor")).join(" ")
+          if (kept) element.setAttribute(name, kept)
+          else element.removeAttribute(name)
+        }
+      }
+    })
+  }
+  // Inline editing keeps the reading view, with the same ids, earlier in the
+  // page. Resolve in-page links against the preview's own copy.
+  previewLink(event) {
+    const link = event.target.closest?.('a[href^="#"]')
+    if (!link || !this.previewSurfaceTarget.contains(link)) return
+    event.preventDefault()
+    let id
+    try { id = decodeURIComponent(link.getAttribute("href").slice(1)) } catch { return }
+    const target = id && [...this.previewSurfaceTarget.querySelectorAll("[id]")].find(element => element.id === id)
+    if (!target) return
+    target.scrollIntoView({ block: "start" })
+  }
+  previewMessage(text, error = false) {
+    const message = document.createElement("p")
+    message.className = error ? "document-editor__preview-error" : "document-editor__preview-status"
+    message.setAttribute("role", error ? "alert" : "status")
+    message.textContent = text
+    return message
   }
   whenCompositionEnds() {
     return this.active && this.composing ? new Promise(resolve => (this.compositionWaiters ||= []).push(resolve)) : Promise.resolve()
@@ -764,7 +894,7 @@ export default class extends Controller {
     this.insertCodeLanguage(selected?.dataset.language ?? this.newLanguageTarget.value.trim(), selected ? "human" : this.customLanguageOrigin || "unknown")
   }
   insertCodeLanguage(language, origin = "human") {
-    if (this.editor !== this.richEditor) return
+    if (this.mode === "preview" || this.editor !== this.richEditor) return
     if (/[\r\n`]/.test(language)) {
       this.newLanguageTarget.setCustomValidity("Use a language without backticks or line breaks.")
       this.newLanguageTarget.reportValidity()
@@ -851,7 +981,7 @@ export default class extends Controller {
     this.insertContentBlock(source, '[data-embed-attribute="src"]')
   }
   insertContentBlock(source, focusSelector) {
-    if (this.editor !== this.richEditor) return
+    if (this.mode === "preview" || this.editor !== this.richEditor) return
     this.contentPickerTarget.hidePopover()
     const view = this.richEditor.view
     const parsed = this.richModule.parseDocument(source).firstChild
@@ -866,6 +996,7 @@ export default class extends Controller {
   }
   openCitation(event) {
     event.preventDefault(); event.stopPropagation()
+    if (this.mode === "preview") return
     this.citationTrigger = event.currentTarget
     this.citationLabel = event.currentTarget.dataset.citationLabel
     const definition = this.findCitationDefinition(this.textareaTarget.value)
@@ -954,20 +1085,23 @@ export default class extends Controller {
       event.currentTarget.reportValidity()
     } else event.currentTarget.setCustomValidity("")
   }
-  async preview(content) {
+  async preview(content, { document: wholeDocument = false, signal } = {}) {
     this.previews ||= new Map()
-    if (this.previews.has(content)) return this.previews.get(content)
+    const key = `${wholeDocument ? "document" : "block"}:${content}`
+    if (!wholeDocument && this.previews.has(key)) return this.previews.get(key)
     if (this.previews.size > 40) this.previews.clear()
     const request = (async () => {
-      const response = await fetch(this.previewUrlValue, { method: "POST", signal: AbortSignal.timeout(15000),
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content }, body: JSON.stringify({ content }) })
+      const timeout = AbortSignal.timeout(15000)
+      const response = await fetch(this.previewUrlValue, { method: "POST", signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content },
+        body: JSON.stringify(wholeDocument ? { content, document: true } : { content }) })
       if (!response.ok || response.redirected) throw new Error("Preview unavailable")
       return response.text()
     })()
-    this.previews.set(content, request)
+    if (!wholeDocument) this.previews.set(key, request)
     try { return await request }
     catch (error) {
-      if (this.previews.get(content) === request) this.previews.delete(content)
+      if (this.previews.get(key) === request) this.previews.delete(key)
       throw error
     }
   }
@@ -1090,6 +1224,7 @@ export default class extends Controller {
       this.textareaTarget.value = this.legacyDraft.data.content
       this.legacyDraftNoticeTarget.hidden = true
       this.showConflict(latest, "Review this older draft before replacing the saved version")
+      if (this.mode === "preview") this.setMode(this.editor === this.rawEditor ? "markdown" : "rich")
       this.editor.view.focus()
     } finally {
       button.disabled = false

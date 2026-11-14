@@ -284,8 +284,16 @@ module CoPlan
       render json: { revision: @plan.current_revision }
     end
 
+    # Block cards preview fragments. The editor's Preview mode asks for the
+    # whole document, which also renders footnotes as the reading view does.
     def preview_draft
-      render html: helpers.render_content_regions(params[:content].to_s, interactive: false), layout: false
+      content = params[:content].to_s
+      html = helpers.render_content_regions(content, interactive: false)
+      if params[:document].present?
+        footnotes = helpers.render_markdown(content, interactive: false, footnotes: :only)
+        html = helpers.safe_join([ html, (helpers.tag.div(footnotes, class: "markdown-rendered") if footnotes.present?) ].compact)
+      end
+      render html: html, layout: false
     end
 
     # Human whole-document editing goes through the same pipeline as agent

@@ -495,4 +495,197 @@ RSpec.describe "Document editor modes", type: :system do
     expect(find('[aria-label="Document body"]')).to have_text("Composed tail")
     expect(page.evaluate_script('document.activeElement.getAttribute("aria-label")')).to eq("Markdown source")
   end
+
+  def preview_pane
+    find('[aria-label="Document preview"]')
+  end
+
+  def content_value
+    page.evaluate_script('document.querySelector("textarea[name=content]").value')
+  end
+
+  it "keeps a visible passage in place through Preview and a live refresh" do
+    content = "# Draft\n\n## Opening section\n\n" + (1..70).map { |i| "Paragraph #{i}: a passage for checking reading position.\n\n" }.join
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    open_editor
+    paragraph = find('[aria-label="Document body"] p', text: "Paragraph 50:")
+    page.execute_script('arguments[0].scrollIntoView({block: "center"})', paragraph)
+    top = paragraph.rect.y - page.evaluate_script("scrollY")
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Paragraph 50:")
+    expect(find('.document-editor__preview p', text: "Paragraph 50:").rect.y - page.evaluate_script("scrollY")).to be_within(3).of(top)
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content.sub("Paragraph 1:", "A new introduction.\n\nParagraph 1:"), base_revision: 2, actor_type: "local_agent", actor_id: author.id)
+    expect(preview_pane).to have_text("A new introduction.")
+    expect(find('.document-editor__preview p', text: "Paragraph 50:").rect.y - page.evaluate_script("scrollY")).to be_within(3).of(top)
+    within(".content-nav") { click_link "Opening section", exact: true }
+    expect(page).to have_css(".document-editor__preview h2", text: "Opening section") { |heading| (heading.rect.y - page.evaluate_script("scrollY")).between?(0, 300) }
+  end
+
+  it "finishes an active Preview presentation before showing incoming changes" do
+    content = "# Draft\n\nBefore the show.\n\n::: {.presentation #demo}\n\n## First slide\n\nSlide body.\n\n---\n\n## Second slide\n\nMore detail.\n\n:::\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    open_editor
+    find('.document-editor__mode [data-mode="preview"]').click
+    within(preview_pane) { click_button "Present deck", enable_aria_label: true }
+    expect(page).to have_css(".document-editor__preview .deck--presenting")
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content.sub("Before the show.", "Updated during the show."), base_revision: 2, actor_type: "local_agent", actor_id: author.id)
+    expect(page).to have_field("Document Markdown", with: /Updated during the show\./, visible: :all, enable_aria_label: true)
+    expect(page).to have_css(".document-editor__preview .deck--presenting")
+    expect(preview_pane).not_to have_text("Updated during the show.")
+    page.send_keys(:escape)
+    expect(page).not_to have_css(".deck--presenting")
+    expect(preview_pane).to have_text("Updated during the show.")
+  end
+
+  it "cancels an unfinished Preview request on return to editing", browser_sync: :manual do
+    open_editor
+    page.execute_script(<<~JS)
+      const original = window.fetch;
+      window.fetch = (url, options) => options?.body?.includes('"document":true') ? new Promise((resolve, reject) => {
+        options.signal.addEventListener("abort", () => { window.previewAborted = true; reject(new DOMException("Aborted", "AbortError")); });
+      }) : original(url, options);
+    JS
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Loading preview…")
+    click_button "Editor", exact: true
+    expect(page.evaluate_script("window.previewAborted")).to eq(true)
+    expect(page).to have_css('[aria-label="Document body"]', text: "Original prose.")
+  end
+
+  it "uses unsaved draft footnotes for hover and never follows missing fragments into the reader" do
+    content = "# Draft\n\nClaim.[^n] [Missing](#missing) [Malformed](#%zz)\n\n[^n]: Saved citation.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: 1, actor_type: "human", actor_id: author.id)
+    open_editor
+    block_saves
+    click_button "Raw", exact: true
+    raw.send_keys([ mod, "a" ], content.sub("Saved citation.", "Unsaved citation."))
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Unsaved citation.")
+    expect(page).not_to have_css(".citation-edit-control")
+    preview_pane.find("a[data-footnote-ref]").hover
+    expect(page).to have_css(".reference-preview__body", text: "Unsaved citation.", visible: true)
+    preview_pane.click_link "Missing"
+    expect(page.evaluate_script("location.hash")).to eq("")
+    preview_pane.click_link "Malformed"
+    expect(page.evaluate_script("location.hash")).to eq("")
+    expect(plan.reload.current_content).to include("Saved citation.")
+  end
+
+  it "previews the whole draft read-only with the reading renderer, then returns to editing" do
+    open_editor
+    click_button "Raw", exact: true
+    page.execute_script('const c = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor"); c.rawEditor.select(c.textareaTarget.value.length)')
+    raw.send_keys("\nPreview tail.[^n]\n\n<input type=\"reset\" value=\"Reset trap\"> <a href=\"#top\" data-action=\"click->coplan--editor#discardChanges\">Discard trap</a>\n\n[^n]: Preview footnote.\n")
+    draft = content_value
+    click_button "Preview", exact: true
+
+    expect(page).to have_css('[data-mode="preview"][aria-pressed="true"]')
+    expect(preview_pane).to have_css(".markdown-rendered h1", text: "Draft")
+    expect(page.evaluate_script(<<~JS)).to eq(true)
+      getComputedStyle(document.querySelector('.document-editor__preview h1')).fontSize ===
+        getComputedStyle(document.querySelector('#plan-content-body #plan-title')).fontSize
+    JS
+    expect(preview_pane).to have_css("table td", text: "Ready")
+    expect(preview_pane).to have_css(".mermaid-diagram svg", wait: 20)
+    expect(preview_pane).to have_text("Preview tail.")
+    expect(preview_pane).to have_text("Preview footnote.")
+    expect(preview_pane).not_to have_css("[contenteditable], textarea, .document-editor__block")
+    expect(page).not_to have_css('[aria-label="Document body"]')
+    expect(page).not_to have_css('[aria-label="Markdown source"]')
+    expect(page).to have_button("Bold", disabled: true)
+    expect(page).to have_button("Undo", disabled: true)
+    expect(page).to have_css('select[aria-label="Paragraph style"]:disabled')
+    expect(content_value).to eq(draft)
+    # Authored HTML inside the editor form cannot reset it or call the editor.
+    expect(page.evaluate_script('document.querySelector("[aria-label=\'Document preview\'] input[type=reset]").form')).to be_nil
+    expect(preview_pane).to have_link("Discard trap")
+    expect(preview_pane).not_to have_css('[data-action*="coplan--editor"]')
+    # Footnote links resolve inside the preview, not a hidden reading copy.
+    preview_pane.find("a[data-footnote-ref]").click
+    expect(page.evaluate_script(<<~JS)).to eq(true)
+      (() => { const pane = document.querySelector("[aria-label='Document preview']");
+        const id = decodeURIComponent(pane.querySelector("a[data-footnote-ref]").getAttribute("href").slice(1));
+        const target = [...pane.querySelectorAll("[id]")].find(element => element.id === id).getBoundingClientRect();
+        return target.top >= 0 && target.top < window.innerHeight })()
+    JS
+    page.save_screenshot(Rails.root.join("tmp/editor-preview.png"))
+
+    click_button "Raw", exact: true
+    expect(raw).to have_text("Preview tail.")
+    expect(page).not_to have_css('[aria-label="Document preview"]')
+    expect(page.evaluate_script('document.activeElement.getAttribute("aria-label")')).to eq("Markdown source")
+    expect(page.evaluate_script("getSelection().anchorOffset")).to eq(draft.length)
+    raw.send_keys(" Edited after preview.")
+    expect(content_value).to include("Edited after preview.")
+    click_link "Done"
+    expect(page).to have_current_path(plan_page_path(plan), wait: 15)
+    expect(plan.reload.current_content).to include("Preview tail.", "Preview footnote.", "Edited after preview.")
+  end
+
+  it "refreshes Preview for incoming changes and reopens in the last editing mode" do
+    open_editor
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Original prose.")
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("Original prose.", "Agent prose."), base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    expect(preview_pane).to have_text("Agent prose.", wait: 10)
+    expect(preview_pane).not_to have_text("Original prose.")
+
+    page.refresh
+    expect(page).to have_css('[data-mode="rich"][aria-pressed="true"]', wait: 20)
+    expect(page).not_to have_css('[aria-label="Document preview"]')
+    expect(find('[aria-label="Document body"]')).to have_text("Agent prose.")
+  end
+
+  it "keeps the draft and explains when Preview cannot render" do
+    open_editor
+    page.execute_script('window.originalFetch = window.fetch; window.fetch = (url, options) => String(url).endsWith("/preview_draft") && options?.body?.includes(\'"document":true\') ? Promise.reject(new TypeError("Offline")) : window.originalFetch(url, options)')
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Preview unavailable. Choose Editor or Raw to keep writing.")
+    page.execute_script("window.fetch = window.originalFetch")
+    click_button "Editor", exact: true
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Original prose.")
+    expect(preview_pane).not_to have_text("Preview unavailable")
+    expect(content_value).to eq(source)
+  end
+
+  it "keeps the reading position while Preview first renders a long draft", browser_sync: :manual do
+    long = "# Long draft\n\n" + (1..80).map { |n| "Paragraph #{n} with enough words to take up a full line of the page." }.join("\n\n") + "\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: long, base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    open_editor
+    page.execute_script(<<~JS)
+      window.originalFetch = window.fetch
+      window.fetch = (url, options) => {
+        if (!String(url).endsWith("/preview_draft")) return window.originalFetch(url, options)
+        return new Promise(resolve => { window.releasePreview = () => resolve(window.originalFetch(url, options)) })
+      }
+      window.scrollTo(0, 2400)
+    JS
+    scroll = page.evaluate_script("window.scrollY")
+    expect(scroll).to be > 2000
+    click_button "Preview", exact: true
+    Selenium::WebDriver::Wait.new(timeout: 5).until { page.evaluate_script("!!window.releasePreview") }
+    expect(page.evaluate_script("window.scrollY")).to eq(scroll)
+    page.execute_script("window.releasePreview()")
+    expect(preview_pane).to have_text("Paragraph 80")
+    expect(page.evaluate_script("window.scrollY")).to eq(scroll)
+  end
+
+  it "defers live Preview refreshes while a deck is presenting" do
+    open_editor
+    click_button "Preview", exact: true
+    expect(preview_pane).to have_text("Original prose.")
+    page.execute_script('document.querySelector("[aria-label=\'Document preview\'] .markdown-rendered").classList.add("deck--presenting")')
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source.sub("Original prose.", "Agent prose."), base_revision: 1, actor_type: "local_agent", actor_id: author.id)
+    Selenium::WebDriver::Wait.new(timeout: 10).until { content_value.include?("Agent prose.") }
+    # Past the 300ms refresh debounce, the presenting deck must still be intact.
+    sleep 1
+    expect(preview_pane).to have_text("Original prose.")
+    page.execute_script(<<~JS)
+      const deck = document.querySelector("[aria-label='Document preview'] .deck--presenting")
+      deck.classList.remove("deck--presenting")
+      deck.dispatchEvent(new CustomEvent("coplan:deck-stopped", { bubbles: true }))
+    JS
+    expect(preview_pane).to have_text("Agent prose.", wait: 5)
+  end
 end

@@ -72,8 +72,16 @@ module CoPlan
       # and tells parser-generated math from authored HTML that imitates it;
       # it is stripped after generating trusted interaction metadata.
       source = content.to_s.encode("UTF-8")
-      render_options[:sourcepos] = true if interactive || source.include?(ContentRegions::Iframe::PREFIX) || source.include?("$") || source.include?("math")
+      render_options[:sourcepos] = true
       html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
+      unless interactive
+        # Authored actions cannot reach controllers surrounding a read-only
+        # preview. Renderer-owned actions are added after this boundary.
+        fragment = Nokogiri::HTML::DocumentFragment.parse(html)
+        fragment.css("[data-action]").each { |node| node.remove_attribute("data-action") }
+        fragment.css("input, button, select, textarea").each { |node| node["disabled"] = "disabled" }
+        html = fragment.to_html
+      end
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       scrubber = LinkScrubber.new
@@ -83,7 +91,7 @@ module CoPlan
       sanitized = prepare_math(sanitized, source)
       sanitized = render_iframe_blocks(sanitized, content.to_s)
       sanitized = render_callouts(sanitized)
-      result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments, retain_sourcepos: retain_sourcepos) : sanitized
+      result = make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments && interactive, retain_sourcepos: retain_sourcepos, interactive: interactive)
       unless interactive
         fragment = Nokogiri::HTML::DocumentFragment.parse(result)
         fragment.css("[data-sourcepos]").each { |node| node.remove_attribute("data-sourcepos") }
@@ -281,7 +289,7 @@ module CoPlan
     # only becomes interactive when its own source line matches
     # TASK_LINE_PATTERN. Sourcepos lines are fragment-relative; line_offset
     # shifts the emitted data-line back to document coordinates.
-    def make_checkboxes_interactive(html, content, line_offset: 0, source_comments: false, retain_sourcepos: false)
+    def make_checkboxes_interactive(html, content, line_offset: 0, source_comments: false, retain_sourcepos: false, interactive: true)
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
       source_lines = content.to_s.each_line.map(&:rstrip)
       Plans::SourceTargets.new(content).annotate(doc) if source_comments && line_offset.zero?
@@ -294,10 +302,12 @@ module CoPlan
         line_text = source_lines[line_number - 1]
         next unless line_text&.match?(TASK_LINE_PATTERN)
 
-        cb.remove_attribute("disabled")
-        cb["data-action"] = "coplan--checkbox#toggle"
-        cb["data-line-text"] = line_text
-        cb["data-line"] = (line_number + line_offset).to_s
+        if interactive
+          cb.remove_attribute("disabled")
+          cb["data-action"] = "coplan--checkbox#toggle"
+          cb["data-line-text"] = line_text
+          cb["data-line"] = (line_number + line_offset).to_s
+        end
 
         li.add_class("task-list-item")
 
