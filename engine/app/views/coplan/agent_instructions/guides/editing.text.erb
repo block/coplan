@@ -102,6 +102,8 @@ Coplan applies all operations in one request as one version. If another agent wr
 | `delete_paragraph_containing` | `needle` | Deletes the one paragraph that contains the text. |
 | `replace_section` | `heading`, `new_content`, optional `include_heading: false` | Replaces the heading and everything under it, up to the next heading of the same or a higher level. With `include_heading: false`, Coplan keeps the heading line and replaces only the body. |
 
+For an empty section body, `replace_section` adds newline separators as needed. Later operations in the same request or edit session still target the draft produced by your earlier operations, even if rebasing needs different separators.
+
 An operation that cannot apply returns `422` with the reason, and Coplan saves nothing.
 
 To collect operations from several requests into one version, open an edit session: `POST <%= @base %>/api/v1/plans/$PLAN_ID/sessions`. The response has `id` and `base_revision`. Send both, as `session_id` and `base_revision`, on each operation request; Coplan holds the operations without saving them. Then `POST <%= @base %>/api/v1/plans/$PLAN_ID/sessions/$SESSION_ID/commit` with a `change_summary` saves them as one version. A session expires after 10 minutes. Most edits do not need one: a single operations request already saves as one version.

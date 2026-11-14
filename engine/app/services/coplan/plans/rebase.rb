@@ -60,8 +60,9 @@ module CoPlan
           end
 
           base_step = ApplyOperations.call(content: working_base, operations: [ op.merge("_pre_resolved_ranges" => ranges) ])
+          padding_edits = section_padding_edits(op, ranges.first, transformed_ranges.first, working_base, verification_content)
           working_base = base_step[:content]
-          edits = move_past(edits, TransformRange.edits_from_operations(base_step[:applied]))
+          edits = move_past(edits, TransformRange.edits_from_operations(base_step[:applied])) + padding_edits
 
           rebased_op = op.merge("_pre_resolved_ranges" => transformed_ranges)
           verification_content = ApplyOperations.call(content: verification_content, operations: [ rebased_op ])[:content]
@@ -115,6 +116,30 @@ module CoPlan
       private_class_method :include_heading?
 
       private
+
+      # Exchange assumes an operation inserts the same text in both snapshots.
+      # An empty section can gain/lose a separator after rebasing. Represent
+      # those differences as edits AFTER the exchanged sequence, in current
+      # coordinates, so subsequent targets (including stored session ranges)
+      # move past them without changing the caller's working-base snapshot.
+      def section_padding_edits(op, range, transformed, base, current)
+        return [] unless op["op"] == "replace_section" && [ false, "false" ].include?(op["include_heading"]) && range[0] == range[1]
+
+        text = op["new_content"]
+        before, after = ApplyOperations.empty_section_padding(content: base, position: range[0], new_content: text)
+        new_before, new_after = ApplyOperations.empty_section_padding(content: current, position: transformed[0], new_content: text)
+        return [] if text.empty? && before + after == new_before + new_after
+
+        edits = []
+        if before != new_before
+          edits << { "resolved_range" => [ transformed[0], transformed[0] + before.length ], "delta" => new_before.length - before.length }
+        end
+        if after != new_after
+          start = transformed[0] + new_before.length + text.length
+          edits << { "resolved_range" => [ start, start + after.length ], "delta" => new_after.length - after.length }
+        end
+        edits
+      end
 
       # +edits+ and +op_edits+ are both sequences against the same content.
       # Returns +edits+ as they apply after +op_edits+.

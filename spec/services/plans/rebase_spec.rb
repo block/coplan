@@ -70,6 +70,65 @@ RSpec.describe CoPlan::Plans::Rebase do
       expect(apply(intervening[:content], rebased)[:content]).to eq("#{expanded}\n\nCCXXCC")
     end
 
+    it "tracks padding added when rebasing an empty section before a later target" do
+      base = "# H\n# Next\n\nAB"
+      intervening = apply(base, [ { "op" => "replace_exact", "old_text" => "# H\n", "new_text" => "# H" } ])
+      operations = [
+        { "op" => "replace_section", "heading" => "# H", "include_heading" => false, "new_content" => "body" },
+        { "op" => "replace_exact", "old_text" => "AB", "new_text" => "CD" }
+      ]
+
+      rebased = rebase(base, operations, [ intervening[:applied] ], intervening[:content])
+
+      expect(apply(intervening[:content], rebased)[:content]).to eq("# H\nbody\n# Next\n\nCD")
+    end
+
+    it "does not mistake repeated text for a shifted target after section padding" do
+      base = "# H\n# Next\n\naaa"
+      intervening = apply(base, [ { "op" => "replace_exact", "old_text" => "# H\n", "new_text" => "# H" } ])
+      operations = [
+        { "op" => "replace_section", "heading" => "# H", "include_heading" => false, "new_content" => "body" },
+        { "op" => "replace_exact", "old_text" => "a", "new_text" => "Z", "occurrence" => 2 }
+      ]
+
+      rebased = rebase(base, operations, [ intervening[:applied] ], intervening[:content])
+
+      expect(apply(intervening[:content], rebased)[:content]).to eq("# H\nbody\n# Next\n\naZa")
+    end
+
+    [ "body", "body\n", "\nbody", "", "\n" ].each do |body|
+      it "tracks empty-section padding for #{body.inspect} and stored later ranges" do
+        base = "# H\n# Next\n\naaa"
+        intervening = apply(base, [ { "op" => "replace_exact", "old_text" => "# H\n", "new_text" => "# H" } ])
+        staged = apply(base, [
+          { "op" => "replace_section", "heading" => "# H", "include_heading" => "false", "new_content" => body },
+          { "op" => "replace_exact", "old_text" => "a", "new_text" => "Z", "occurrence" => 2 },
+          { "op" => "replace_exact", "old_text" => "Z", "new_text" => "YY" }
+        ])
+        operations = staged[:applied].map { |op| op.merge("_pre_resolved_ranges" => [ op.fetch("resolved_range") ]) }
+
+        rebased = rebase(base, operations, [ intervening[:applied] ], intervening[:content])
+
+        separator = body.empty? || body.end_with?("\n") ? "" : "\n"
+        expect(apply(intervening[:content], rebased)[:content]).to eq("# H\n#{body}#{separator}# Next\n\naYYa")
+      end
+    end
+
+    it "tracks padding removed at EOF before editing the newly inserted body" do
+      base = "# H"
+      # Record the intervening insertion alone, so it does not replace the
+      # heading/insert point. This is the metadata a character diff emits.
+      intervening = apply(base, [ { "op" => "replace_exact", "old_text" => "", "new_text" => "\n", "_pre_resolved_ranges" => [ [ 3, 3 ] ] } ])
+      operations = [
+        { "op" => "replace_section", "heading" => "# H", "include_heading" => false, "new_content" => "body" },
+        { "op" => "replace_exact", "old_text" => "body", "new_text" => "updated" }
+      ]
+
+      rebased = rebase(base, operations, [ intervening[:applied] ], intervening[:content])
+
+      expect(apply(intervening[:content], rebased)[:content]).to eq("# H\nupdated")
+    end
+
     it "keeps same-position stored inserts ordered through a later operation" do
       base = "AB"
       intervening = apply(base, [ { "op" => "replace_exact", "old_text" => "", "new_text" => "X", "_pre_resolved_ranges" => [ [ 1, 1 ] ] } ])
@@ -146,8 +205,10 @@ RSpec.describe CoPlan::Plans::Rebase do
       end
 
       def random_operation(rng, content)
+        return nil if content.empty?
+
         20.times do
-          op = case rng.rand(3)
+          op = case rng.rand(4)
           when 0
             start = rng.rand(content.length)
             old_text = content[start, rng.rand(1..8)]
@@ -155,9 +216,12 @@ RSpec.describe CoPlan::Plans::Rebase do
           when 1
             start = rng.rand(content.length)
             { "op" => "delete_paragraph_containing", "needle" => content[start, rng.rand(1..5)] }
-          else
+          when 2
             heading = content.scan(/^## H\d+$/).sample(random: rng)
             heading && { "op" => "insert_under_heading", "heading" => heading, "content" => random_text(rng, 6) }
+          else
+            heading = content.scan(/^## H\d+$/).sample(random: rng)
+            heading && { "op" => "replace_section", "heading" => heading, "new_content" => random_text(rng, 6) }
           end
           return op if op && valid?(content, op)
         end

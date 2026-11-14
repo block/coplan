@@ -5,6 +5,15 @@ module CoPlan
         new(content:, operations:).call
       end
 
+      # Empty section bodies need separators, depending on their neighbors.
+      # Rebase uses the same padding to track formatting added in each snapshot.
+      def self.empty_section_padding(content:, position:, new_content:)
+        prefix = position > 0 && content[position - 1] != "\n" ? "\n" : ""
+        after = content[position]
+        suffix = after && after != "\n" && !(prefix + new_content).end_with?("\n") ? "\n" : ""
+        [ prefix, suffix ]
+      end
+
       def initialize(content:, operations:)
         @content = content.dup
         @operations = operations
@@ -144,15 +153,8 @@ module CoPlan
         include_heading = include_heading != false && include_heading != "false"
         effective_content = new_content
         if !include_heading && range[0] == range[1]
-          # Prepend newline if heading line doesn't end with one
-          if range[0] > 0 && @content[range[0] - 1] != "\n"
-            effective_content = "\n#{effective_content}"
-          end
-          # Append newline if next content starts without one
-          after = @content[range[1]]
-          if after && after != "\n" && !effective_content.end_with?("\n")
-            effective_content = "#{effective_content}\n"
-          end
+          prefix, suffix = self.class.empty_section_padding(content: @content, position: range[0], new_content: new_content)
+          effective_content = prefix + new_content + suffix
         end
 
         @content = @content[0...range[0]] + effective_content + @content[range[1]..]
