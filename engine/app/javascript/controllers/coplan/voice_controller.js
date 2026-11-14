@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { audioConstraints, selectedMicrophone, supportsRecognitionTrack, microphoneError } from "coplan/microphone"
 import { pageShortcutsAllowed } from "coplan/shortcuts"
+import { RENDERED_SELECTOR, renderedBlockAt, sourceRangeFor } from "coplan/markdown_blocks"
 
 /*
  * coplan--voice
@@ -778,14 +779,52 @@ export default class extends Controller {
   // pins the same span twice ("rename both of these"), each repeat takes
   // the next copy — that's what repeating a span means.
   _resolveAnchor(anchorText, seen = new Map()) {
-    if (!anchorText) return null
+    if (typeof anchorText !== "string" || !anchorText) return null
 
     const content = this._contentRoot()
     if (!content?.textContent?.includes(anchorText)) return null
 
     const priorUses = seen.get(anchorText) || 0
     seen.set(anchorText, priorUses + 1)
+    const draftAnchor = this._draftAnchor(content, anchorText, priorUses)
+    if (draftAnchor !== undefined) return draftAnchor
     return { text: anchorText, occurrence: this._occurrenceOfNearViewport(content, anchorText) + priorUses }
+  }
+
+  // The interpreter quotes the visible draft, while the server anchors its
+  // literal source. Use the same range projection as a mouse selection.
+  _draftAnchor(content, quote, priorUses) {
+    if (!content.querySelector(RENDERED_SELECTOR)) return undefined
+
+    const nodes = []
+    const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT)
+    let text = "", node
+    while ((node = walker.nextNode())) {
+      if (node.parentElement.closest("[hidden], style, script, noscript, button, [data-source-badge], [data-markdown-block-chrome]")) continue
+      nodes.push({ node, from: text.length, to: text.length + node.textContent.length })
+      text += node.textContent
+    }
+    const ranges = []
+    for (let index = text.indexOf(quote); index >= 0; index = text.indexOf(quote, index + quote.length)) {
+      const first = nodes.find(entry => entry.from <= index && entry.to > index)
+      const end = index + quote.length
+      const last = nodes.find(entry => entry.from < end && entry.to >= end)
+      if (!first || !last) continue
+      const range = document.createRange()
+      range.setStart(first.node, index - first.from); range.setEnd(last.node, end - last.from)
+      ranges.push(range)
+    }
+    const visible = ranges.findIndex(range => range.getBoundingClientRect().bottom > 0)
+    const range = ranges[Math.max(0, visible) + priorUses]
+    if (!range) return null
+    if (!renderedBlockAt(range.startContainer) && !renderedBlockAt(range.endContainer)) return undefined
+    const source = sourceRangeFor(range)
+    if (!source) return null
+    const normalize = value => value.replace(/\s+/g, " ").trim()
+    const sourceText = normalize(source.toString())
+    const prefix = document.createRange()
+    prefix.setStart(content, 0); prefix.setEnd(source.startContainer, source.startOffset)
+    return { text: sourceText, occurrence: this._countOccurrences(normalize(this._anchorText(prefix)), sourceText) }
   }
 
   // A spoken paragraph number is an explicit location, even when the
@@ -868,6 +907,8 @@ export default class extends Controller {
     if (!content) return []
     return Array.from(content.querySelectorAll("h1, h2, h3, h4, h5, h6, p, li, blockquote, pre, td"))
       .filter(el => !el.closest(".document-editor__block-header"))
+      // A Markdown block keeps its inactive view in the DOM, hidden.
+      .filter(el => !el.closest("[data-markdown-block] > [hidden]"))
   }
 
   _contentRoot() {
@@ -904,7 +945,7 @@ export default class extends Controller {
     const range = document.createRange()
     range.setStart(content, 0)
     range.setEndBefore(firstVisible)
-    return this._countOccurrences(range.toString(), text)
+    return this._countOccurrences(this._anchorText(range), text)
   }
 
   // The heading of the section currently in view. Uses the last heading
@@ -917,6 +958,9 @@ export default class extends Controller {
     // The document title is not a section fallback for a general remark.
     const headings = Array.from(content.querySelectorAll("h1, h2, h3, h4, h5, h6"))
       .filter(heading => heading.id !== "plan-title" && !heading.matches(".ProseMirror > h1:first-child"))
+      // A Markdown block's headings are part of a draft, not sections. The
+      // outline leaves them out too.
+      .filter(heading => !heading.closest("[data-markdown-block-rendered]"))
     if (headings.length === 0) return null
 
     const readingLine = window.innerHeight * 0.4
@@ -940,7 +984,16 @@ export default class extends Controller {
     const range = document.createRange()
     range.setStart(content, 0)
     range.setEndBefore(element)
-    return this._countOccurrences(range.toString(), text)
+    return this._countOccurrences(this._anchorText(range), text)
+  }
+
+  // The text the server counts copies in. A Markdown block's rendered
+  // pane and toolbar are left out: its hidden source is what anchors
+  // match, in either view.
+  _anchorText(range) {
+    const fragment = range.cloneContents()
+    fragment.querySelectorAll("[data-markdown-block-rendered], [data-markdown-block-chrome]").forEach(node => node.remove())
+    return fragment.textContent
   }
 
   // Occurrence is 1-based server-side (resolve_anchor_position treats

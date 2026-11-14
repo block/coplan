@@ -75,6 +75,18 @@ RSpec.describe CoPlan::Markdown do
     expect(doc.at_css("ol.authored li").text).to eq("Authored item")
   end
 
+  it "annotates only real HTML tags outside quoted values and comments" do
+    source = %q(<div title="<strong>" aria-label='<em>'><!-- <span title="x"> -->Hello</div>)
+    doc = Nokogiri::HTML.fragment(described_class.to_html(source,
+      strip_html_attributes: %w[id data-sourcepos], options: { render: { unsafe: true, sourcepos: true } }))
+    expect(doc.at_css("div").text).to eq("Hello")
+    expect(doc.at_css("div")["title"]).to eq("<strong>")
+    expect(doc.at_css("div")["aria-label"]).to eq("<em>")
+    expect(doc.css("[data-sourcepos]").length).to eq(1)
+    expect(doc.at_css("div")["data-sourcepos"]).to eq("1:1-1:#{source.bytesize}")
+    expect(doc.at_xpath(".//comment()").content).to eq(' <span title="x"> ')
+  end
+
   it "keeps nested table comment targets bound to their original source" do
     source = "AA) Item\n\n    | Name | State |\n    | --- | --- |\n    | 同 | Ready |\n"
     doc = Nokogiri::HTML.fragment(described_class.to_html(source, options: { render: { sourcepos: true } }))

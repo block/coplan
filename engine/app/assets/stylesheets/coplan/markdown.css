@@ -241,6 +241,103 @@
   user-select: none;
 }
 
+/* A `markdown` or `md` fence renders as a Markdown block: the same
+   terminal-style header as a code block, with a Rendered / Source switch,
+   over either the rendered body or the literal source. The header is real
+   DOM (it holds buttons), kept out of the anchor text model by
+   data-markdown-block-chrome. */
+.markdown-rendered .markdown-block {
+  border: var(--code-block-border, 1px solid var(--color-border));
+  border-radius: var(--code-block-radius, var(--radius));
+  margin-bottom: var(--space-md);
+  min-width: 0;
+}
+
+.markdown-rendered .markdown-block [hidden] {
+  display: none !important;
+}
+
+.markdown-block__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 0.3em var(--space-sm) 0.3em 4.6em;
+  background-color: var(--code-label-bg, var(--code-header-bg));
+  background-image: var(--code-label-dots,
+    radial-gradient(circle at 1.1em 50%, #ff5f57 0.3em, transparent 0.36em),
+    radial-gradient(circle at 2.2em 50%, #febc2e 0.3em, transparent 0.36em),
+    radial-gradient(circle at 3.3em 50%, #28c840 0.3em, transparent 0.36em));
+  border-bottom: var(--code-label-border, 1px solid var(--color-border));
+  border-radius: var(--code-label-radius, calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0);
+  color: var(--code-header-text);
+  font-family: var(--code-label-font, var(--font-mono));
+  font-size: 0.75rem;
+  line-height: var(--code-label-leading, 1.2);
+  letter-spacing: var(--code-label-tracking, 0.04em);
+  user-select: none;
+}
+
+.markdown-block__views {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--code-block-bg);
+}
+
+.markdown-block__view {
+  padding: 0.2em 0.65em;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.markdown-block__view:hover {
+  background: var(--color-interaction-hover-bg);
+  color: var(--color-text);
+}
+
+.markdown-block__view[aria-pressed="true"] {
+  background: var(--color-surface, var(--color-bg));
+  color: var(--color-text);
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+.markdown-block__view:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.markdown-block__rendered {
+  padding: var(--space-md) var(--space-lg);
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.markdown-block__rendered > :first-child {
+  margin-top: 0;
+}
+
+.markdown-block__rendered > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-rendered .markdown-block > pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0 0 var(--code-block-radius, var(--radius)) var(--code-block-radius, var(--radius));
+}
+
+.markdown-rendered .markdown-block > pre[lang]::before {
+  content: none;
+}
+
 .markdown-rendered code {
   font-family: var(--font-mono);
   font-size: 0.875em;

@@ -30,6 +30,9 @@ module CoPlan
 
     CALLOUT_TYPES = %w[note tip important warning caution summary].freeze
 
+    # Fence languages the reading view shows rendered, with a Source toggle.
+    MARKDOWN_BLOCK_LANGUAGES = %w[markdown md].freeze
+
     # The only elements and values comrak emits for math. Anything else
     # carrying the attribute (authored HTML) loses it during rendering.
     MATH_ELEMENTS = %w[span code pre].freeze
@@ -66,14 +69,14 @@ module CoPlan
     # expandable_images: frame each image with the same full-window expander
     # diagrams and tables use. Follows data_tables by default, so decks opt
     # out of both together.
-    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, expandable_images: data_tables, source_comments: false, retain_sourcepos: false)
+    def render_markdown(content, interactive: true, footnote_prefix: nil, footnotes: :inline, line_offset: 0, data_tables: true, expandable_images: data_tables, source_comments: false, retain_sourcepos: false, strip_html_attributes: [])
       render_options = { unsafe: true }
       # Sourcepos wires checkboxes and structural comment targets to source,
       # and tells parser-generated math from authored HTML that imitates it;
       # it is stripped after generating trusted interaction metadata.
       source = content.to_s.encode("UTF-8")
-      render_options[:sourcepos] = true if interactive || source.include?(ContentRegions::Iframe::PREFIX) || source.include?("$") || source.include?("math")
-      html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
+      render_options[:sourcepos] = true if interactive || retain_sourcepos || source.include?(ContentRegions::Iframe::PREFIX) || source.include?("$") || source.include?("math")
+      html = CoPlan::Markdown.to_html(source, strip_html_attributes: strip_html_attributes, options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
       with_references = transform_reference_anchors(with_chips, numbered_sections: footnote_prefix.nil?)
       scrubber = LinkScrubber.new
@@ -84,7 +87,7 @@ module CoPlan
       sanitized = render_iframe_blocks(sanitized, content.to_s)
       sanitized = render_callouts(sanitized)
       result = interactive ? make_checkboxes_interactive(sanitized, content, line_offset: line_offset, source_comments: source_comments, retain_sourcepos: retain_sourcepos) : sanitized
-      unless interactive
+      unless interactive || retain_sourcepos
         fragment = Nokogiri::HTML::DocumentFragment.parse(result)
         fragment.css("[data-sourcepos]").each { |node| node.remove_attribute("data-sourcepos") }
         result = fragment.to_html
@@ -216,11 +219,12 @@ module CoPlan
       return html if mode == :inline
 
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
-      sections = doc.css("section[data-footnotes]")
+      # A rendered Markdown block keeps its own footnotes next to its body.
+      sections = doc.css("section[data-footnotes]").reject { |section| section.ancestors("[data-markdown-block-rendered]").any? }
       if mode == :only
         sections.map(&:to_html).join
       elsif mode == :exclude
-        sections.remove
+        sections.each(&:remove)
         doc.to_html
       else
         raise ArgumentError, "unknown footnote mode: #{mode.inspect}"
@@ -284,7 +288,10 @@ module CoPlan
     def make_checkboxes_interactive(html, content, line_offset: 0, source_comments: false, retain_sourcepos: false)
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
       source_lines = content.to_s.each_line.map(&:rstrip)
-      Plans::SourceTargets.new(content).annotate(doc) if source_comments && line_offset.zero?
+      if source_comments && line_offset.zero?
+        Plans::SourceTargets.new(content).annotate(doc)
+        render_markdown_blocks(doc, content)
+      end
 
       doc.css('input[type="checkbox"]').each do |cb|
         li = cb.ancestors("li").first
@@ -415,7 +422,8 @@ module CoPlan
     # rendered text — see exactly what they saw before.
     def wrap_data_tables(html)
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
-      tables = doc.css("table").reject { |table| table.ancestors("table").any? }
+      # A Markdown block's rendered pane already wrapped its own tables.
+      tables = doc.css("table").reject { |table| table.ancestors("table, [data-markdown-block-rendered]").any? }
       return html if tables.empty?
 
       tables.each do |table|
@@ -442,7 +450,7 @@ module CoPlan
     # sits inside the link.
     def wrap_expandable_images(html)
       doc = Nokogiri::HTML::DocumentFragment.parse(html)
-      images = doc.css("img")
+      images = doc.css("img").reject { |image| image.ancestors("[data-markdown-block-rendered]").any? }
       return html if images.empty?
 
       images.each do |image|
@@ -462,6 +470,129 @@ module CoPlan
       end
 
       doc.to_html
+    end
+
+    # In the reading view, a `markdown` or `md` fence shows its body
+    # rendered, with a toggle back to the literal source. The source <pre>
+    # stays in the DOM, hidden, and remains the text that comment anchors
+    # count and match, so the document's anchor text model (and the
+    # server's, MarkdownTextExtractor) is the same whichever view shows.
+    # The rendered pane is kept out of that model; its block elements carry
+    # data-markdown-from/to, body-relative character offsets that let the
+    # browser map a rendered selection or highlight to the source.
+    #
+    # Like math, only a fence the parser produced qualifies: authored HTML
+    # can imitate the lang and sourcepos, so the <pre> must sit at the
+    # unique position of a markdown code block in the AST.
+    def render_markdown_blocks(doc, content)
+      pres = doc.css("pre[lang][data-sourcepos]").select do |pre|
+        MARKDOWN_BLOCK_LANGUAGES.include?(pre["lang"].downcase) && pre.ancestors(".deck-region, [data-markdown-block]").none?
+      end
+      return doc if pres.empty?
+
+      positions = markdown_block_positions(content)
+      source_targets = Plans::SourceTargets.new(content)
+      # Count excluded deck fences too: authored HTML must not borrow a
+      # real fence's position merely because that fence stays literal.
+      counts = doc.css("pre[data-sourcepos]").map { |pre| pre["data-sourcepos"] }.tally
+      pres.each_with_index do |pre, index|
+        next unless positions.include?(pre["data-sourcepos"]) && counts[pre["data-sourcepos"]] == 1
+
+        code = pre.element_children.find { |child| child.name == "code" }
+        next unless code
+
+        block = doc.document.create_element("div", class: "markdown-block", "data-markdown-block" => "",
+          "data-controller" => "coplan--markdown-block")
+        bar = doc.document.create_element("div", class: "markdown-block__bar", "data-markdown-block-chrome" => "")
+        bar.add_child(doc.document.create_element("span", pre["lang"], class: "markdown-block__label"))
+        views = doc.document.create_element("div", class: "markdown-block__views", role: "group", "aria-label" => "Markdown view")
+        { "rendered" => "Rendered", "source" => "Source" }.each do |view, label|
+          views.add_child(doc.document.create_element("button", label, type: "button", class: "markdown-block__view",
+            "aria-pressed" => (view == "rendered").to_s, "data-view" => view,
+            "data-coplan--markdown-block-target" => "button", "data-action" => "coplan--markdown-block#show"))
+        end
+        bar.add_child(views)
+        rendered = doc.document.create_element("div", class: "markdown-block__rendered", "data-markdown-block-rendered" => "",
+          "data-coplan--markdown-block-target" => "rendered")
+        rendered.inner_html = render_markdown_block_body(code.text, index + 1, source_targets: source_targets, position: pre["data-sourcepos"])
+        rendered["data-markdown-map"] = markdown_block_text_map(code.text).to_json
+
+        pre.add_previous_sibling(block)
+        pre["hidden"] = ""
+        pre["data-markdown-block-source"] = ""
+        pre["data-coplan--markdown-block-target"] = "source"
+        block.add_child(bar)
+        block.add_child(rendered)
+        block.add_child(pre)
+      end
+      doc
+    end
+
+    # Source positions of the fences that render as Markdown blocks.
+    def markdown_block_positions(content)
+      positions = Set.new
+      CoPlan::Markdown.parse(content.to_s.encode("UTF-8"), options: { extension: EXTENSION_OPTIONS }).walk do |node|
+        next unless node.type == :code_block && MARKDOWN_BLOCK_LANGUAGES.include?(node.fence_info.to_s.split.first&.downcase)
+
+        p = node.source_position
+        positions << "#{p[:start_line]}:#{p[:start_column]}-#{p[:end_line]}:#{p[:end_column]}"
+      end
+      positions
+    end
+
+    # A block's body renders read-only: no task toggles (their lines are
+    # not document lines), no outline headings or heading ids (they would
+    # collide with the document's), and footnotes scoped to the block.
+    def render_markdown_block_body(body, number, source_targets:, position:)
+      html = render_markdown(body, interactive: false, retain_sourcepos: true, footnote_prefix: "markdown-block-#{number}", strip_html_attributes: %w[id data-sourcepos])
+      wrapper = Nokogiri::HTML::DocumentFragment.parse(html).element_children.find { |node| node.name == "div" && node.classes.include?("markdown-rendered") }
+      inner = Nokogiri::HTML::DocumentFragment.parse(wrapper ? wrapper.inner_html : html)
+      source_targets.annotate_markdown_block(inner, body, position)
+      inner.css(%w[h1 h2 h3 h4 h5 h6].map { |heading| "#{heading} a.anchor[id]" }.join(", ")).each do |anchor|
+        anchor.remove if anchor.text.strip.empty?
+      end
+      # Keep generated, block-scoped footnote targets. Other authored ids
+      # could steal the enclosing document's outline or fragment targets.
+      inner.css("[id]").each do |element|
+        next if element["id"].start_with?("markdown-block-#{number}-fn")
+
+        element.remove_attribute("id")
+      end
+      lines = body.lines
+      offsets = [ 0 ]
+      lines.each { |line| offsets << offsets.last + line.length }
+      # Browsers index strings in UTF-16 code units, Ruby in characters.
+      # They differ after a character outside the BMP, such as an emoji.
+      astral = body.match?(/[^\u0000-\uFFFF]/)
+      utf16 = ->(offset) { astral ? body[0, offset].encode("UTF-16LE").bytesize / 2 : offset }
+      inner.css("[data-sourcepos]").each do |element|
+        range = Plans::SourceTargets.char_range(element["data-sourcepos"], lines, offsets)
+        element.remove_attribute("data-sourcepos")
+        next unless range
+        next if element["data-markdown-from"]
+
+        element["data-markdown-from"], element["data-markdown-to"] = range.map { |offset| utf16.call(offset).to_s }
+      end
+      inner.to_html
+    end
+
+    # Reuse the parser-backed source spans used by writing provenance. A
+    # visible entity or escape can cover several source characters; searching
+    # raw source for visible letters loses those boundaries (and can match a
+    # link URL or an earlier formatted copy instead). Image alt text has no
+    # DOM text node; footnote numbers are generated UI. Mermaid code is replaced
+    # with SVG and uses structural targets. None is a prose candidate.
+    def markdown_block_text_map(body)
+      text, _, spans = Plans::MarkdownTextExtractor.call(body, source_spans: true, exclude_nodes: %i[image footnote_reference], exclude_code_languages: [ "mermaid" ])
+      utf16_offsets = [ 0 ]
+      body.each_char { |char| utf16_offsets << utf16_offsets.last + (char.ord > 0xffff ? 2 : 1) }
+      browser_spans = []
+      text.each_char.with_index do |char, index|
+        from, to = spans.fetch(index)
+        span = from.negative? ? nil : [ utf16_offsets.fetch(from), utf16_offsets.fetch(to) ]
+        (char.ord > 0xffff ? 2 : 1).times { browser_spans << span }
+      end
+      { text: text, spans: browser_spans }
     end
 
     # Rewrites commonmarker's per-document footnote ids (#fn-N / #fnref-N)

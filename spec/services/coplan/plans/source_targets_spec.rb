@@ -16,6 +16,41 @@ RSpec.describe CoPlan::Plans::SourceTargets do
     [ content, JSON.parse(pre["data-source-targets"] || "null") ]
   end
 
+  it "binds draft table cells to outer source through fence indentation" do
+    content = "Intro 🚀\n\n- Draft:\n\n  ```md\n  | Client | Budget |\n  |---|---|\n  | Web | **3** |\n  ```\n"
+    rendered = CoPlan::ApplicationController.helpers.render_markdown(content, source_comments: true)
+    cells = Nokogiri::HTML.fragment(rendered).css(".markdown-block [data-source-target]")
+    expect(cells.size).to eq(4)
+    targets = cells.map { |cell| JSON.parse(cell["data-source-target"]) }
+    ranges = described_class.new(content).ranges
+    targets.each do |target|
+      expect(described_class.resolve(target.fetch("token"), content)).to include("kind" => "table_cell")
+      expect(content[target.fetch("start")...target.fetch("end")]).to eq(target.fetch("text"))
+      expect(ranges).to include(target.values_at("kind", "start", "end"))
+    end
+    expect(targets.last.fetch("start")).to eq(content.index(" **3** "))
+  end
+
+  it "translates all nested diagram targets through an indented draft fence" do
+    content = "Intro 🚀\n\n- Draft:\n\n  ````md\n  ```mermaid\n  flowchart LR\n   A[Start] --> B[End]\n  ```\n  ````\n"
+    html = CoPlan::ApplicationController.helpers.render_markdown(content, source_comments: true)
+    map = JSON.parse(Nokogiri::HTML.fragment(html).at_css(".markdown-block pre[lang=mermaid]")["data-source-targets"])
+    targets = map.fetch("nodes").values + map.fetch("edges") + [ map.fetch("diagram") ]
+    ranges = described_class.new(content).ranges
+    expect(targets.map { |target| target.fetch("kind") }.uniq).to contain_exactly("mermaid_node", "mermaid_edge", "mermaid_diagram")
+    targets.each do |target|
+      expect(described_class.resolve(target.fetch("token"), content)).to include("kind" => target.fetch("kind"))
+      expect(content[target.fetch("start")...target.fetch("end")]).to eq(target.fetch("text"))
+      expect(ranges).to include(target.values_at("kind", "start", "end"))
+    end
+  end
+
+  it "excludes literal draft fences in presentations from surviving structural targets" do
+    fence = "```md\n| A | B |\n|---|---|\n| Web | 3 |\n```\n"
+    expect(described_class.new(fence).ranges).not_to be_empty
+    expect(described_class.new("::: {.presentation}\n\n#{fence}\n:::\n").ranges).to be_empty
+  end
+
   it "maps repeated Unicode and formatted cells to character offsets in their own source" do
     content = "🌱\n\n| Nom | Note |\n| --- | --- |\n| 同 | **same** |\n| 同 | **same** |\n"
     targets = cells(content)
