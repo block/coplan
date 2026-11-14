@@ -62,6 +62,7 @@
   <%# Which view a markdown or md fence opens in on a plan. Switching a
       block on the page still works and lasts until the next navigation. %>
   <div class="settings-row" data-controller="coplan--markdown-block-view"
+       data-action="turbo:before-cache@document->coplan--markdown-block-view#beforeCache coplan:markdown-block-view-changed@document->coplan--markdown-block-view#sync"
        data-coplan--markdown-block-view-url-value="<%= coplan.settings_markdown_block_view_path %>"
        data-coplan--markdown-block-view-stored-value="<%= current_user.markdown_block_view %>">
     <div class="settings-row__main">

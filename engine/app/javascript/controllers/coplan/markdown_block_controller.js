@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { defaultMarkdownBlockView } from "coplan/markdown_block_state"
+import { applyMarkdownBlockView, defaultMarkdownBlockView } from "coplan/markdown_block_state"
 
 // Each navigation opens blocks in the reader's default view,
 // <html data-markdown-block-view> from Settings → Appearance, or Rendered.
@@ -28,11 +28,7 @@ export default class extends Controller {
   }
 
   apply(view) {
-    const source = view === "source"
-    this.element.dataset.view = view
-    this.sourceTarget.hidden = !source
-    this.renderedTarget.hidden = source
-    this.buttonTargets.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.view === view)))
+    applyMarkdownBlockView(this.element, view)
     // Comment highlights live in whichever view shows. Ask the text
     // selection controller to draw them again.
     this.element.dispatchEvent(new CustomEvent("coplan:highlight-settled", { bubbles: true }))

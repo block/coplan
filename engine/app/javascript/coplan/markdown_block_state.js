@@ -5,6 +5,21 @@ export function defaultMarkdownBlockView() {
   return document.documentElement.dataset.markdownBlockView === "source" ? "source" : "rendered"
 }
 
+// Pane attributes must agree with first-paint CSS before the parent comment
+// controller resolves a permalink; child Stimulus controllers connect later.
+export function initializeMarkdownBlockViews(root) {
+  root.querySelectorAll("[data-markdown-block]:not([data-view])").forEach(element => {
+    applyMarkdownBlockView(element, defaultMarkdownBlockView())
+  })
+}
+
+export function applyMarkdownBlockView(element, view) {
+  element.dataset.view = view
+  element.querySelector(":scope > [data-markdown-block-source]").hidden = view !== "source"
+  element.querySelector(":scope > [data-markdown-block-rendered]").hidden = view === "source"
+  element.querySelectorAll("button[data-view]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.view === view)))
+}
+
 // Capture alongside deck positions, before the existing live-update swap.
 // The document's surrounding text disambiguates identical drafts; mapping
 // their positions through the shared text diff also survives body edits.
@@ -54,10 +69,6 @@ export function restoreMarkdownBlockViews(root, previous) {
     const match = mapped?.[1] > 0 ? mapped[0] : (identical.length === 1 ? identical[0] : null)
     if (!match) continue
     const element = match.source.parentElement
-    const source = block.view === "source"
-    element.dataset.view = block.view
-    match.source.hidden = !source
-    element.querySelector(":scope > [data-markdown-block-rendered]").hidden = source
-    element.querySelectorAll("button[data-view]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.view === block.view)))
+    applyMarkdownBlockView(element, block.view)
   }
 }

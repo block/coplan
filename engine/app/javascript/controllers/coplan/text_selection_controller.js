@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { commentWindowTop } from "coplan/comment_window"
 import { revealSections } from "coplan/collapsed_sections"
+import { initializeMarkdownBlockViews } from "coplan/markdown_block_state"
 import { CHROME_SELECTOR, RENDERED_SELECTOR, markRendered, markSource, renderedBlockForSource, sourceOffset, sourceRangeFor } from "coplan/markdown_blocks"
 
 // Elements whose text is never rendered but still appears in textContent —
@@ -768,6 +769,7 @@ export default class extends Controller {
   }
 
   highlightAnchors() {
+    initializeMarkdownBlockViews(this.contentTarget)
     const activeThreadId = this._activeMark?.dataset.threadId
 
     // Remove existing anchor highlights before re-highlighting

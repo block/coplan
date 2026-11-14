@@ -713,6 +713,45 @@ RSpec.describe "Markdown blocks", type: :system do
       within(view_row) { expect(page).to have_checked_field("markdown_block_view", with: "source", visible: :all) }
     end
 
+    it "restores the active Settings row when a detached save fails and allows retry" do
+      visit settings_root_path
+      page.execute_script(<<~JS)
+        const original = window.fetch;
+        let attempts = 0;
+        window.fetch = (url, options) => String(url).includes("markdown_block_view") && ++attempts === 1
+          ? new Promise(resolve => setTimeout(() => resolve(new Response("", {status: 500})), 1000))
+          : original(url, options);
+      JS
+      within(view_row) { find(".segmented__option", text: "Source").click }
+      page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
+      expect(page).to have_css(".markdown-block")
+      page.execute_script("Turbo.visit(arguments[0])", settings_root_path)
+      within(view_row) { expect(page).to have_checked_field("markdown_block_view", with: "source", visible: :all) }
+      expect(page).to have_css(".toasts__toast", text: "Couldn't save your Markdown block view")
+      within(view_row) do
+        expect(page).to have_checked_field("markdown_block_view", with: "rendered", visible: :all)
+        find(".segmented__option", text: "Source").click
+      end
+      expect(page).to have_css("html[data-markdown-block-view='source']", visible: :all)
+      expect(author.reload.markdown_block_view).to eq("source")
+    end
+
+    it "opens a linked draft cell against its visible Source mark on a Turbo visit" do
+      author.update!(markdown_block_view: "source")
+      sample = CoPlan::Plans::Create.call(title: "Linked draft", user: author, visibility: "published", actor_type: "human",
+        content: ("Intro paragraph.\n\n" * 40) + "```md\n| Client | Budget |\n|---|---|\n| Web | **3** |\n```\n")
+      html = CoPlan::ApplicationController.helpers.render_markdown(sample.current_content, source_comments: true)
+      target = JSON.parse(Nokogiri::HTML.fragment(html).css(".markdown-block td[data-source-target]").last["data-source-target"])
+      thread = sample.comment_threads.create!(plan_version: sample.current_plan_version, source_token: target.fetch("token"), created_by_user: author)
+      thread.comments.create!(author_type: "human", author_id: author.id, body_markdown: "Review this budget")
+      visit settings_root_path
+      page.execute_script("Turbo.visit(arguments[0])", plan_page_path(sample, thread: thread.id))
+      expect(page).to have_css(".thread-popover:popover-open", text: "Review this budget")
+      expect(page).to have_no_css(".source-comments:popover-open")
+      mark = find(".markdown-block pre mark", text: "**3**")
+      expect(mark.evaluate_script("this.getBoundingClientRect().top")).to be_between(0, page.evaluate_script("window.innerHeight"))
+    end
+
     it "says page-wide when a save fails after leaving Settings" do
       visit settings_root_path
       delay_view_saves(600, status: 500)

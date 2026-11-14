@@ -30,14 +30,19 @@ export default class extends Controller {
     // restores from its cache has had it removed (below), so there the
     // stored choice on <html> is current. A pick still saving wins either way.
     if (this.hasStoredValue && !picked) document.documentElement.dataset.markdownBlockView = this.storedValue
-    this._check(picked || this.stored)
-
-    this.beforeCache = () => this.element.removeAttribute("data-coplan--markdown-block-view-stored-value")
-    document.addEventListener("turbo:before-cache", this.beforeCache)
+    this.sync()
   }
 
-  disconnect() {
-    document.removeEventListener("turbo:before-cache", this.beforeCache)
+  beforeCache() {
+    this.element.removeAttribute("data-coplan--markdown-block-view-stored-value")
+  }
+
+  sync() {
+    this._check(picked || this.stored)
+  }
+
+  announce() {
+    document.dispatchEvent(new CustomEvent("coplan:markdown-block-view-changed"))
   }
 
   get stored() {
@@ -52,6 +57,7 @@ export default class extends Controller {
     // out carries the old session's token, which the server refuses.
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
     this._setError("")
+    this.announce()
 
     const save = saving = (saving || Promise.resolve())
       .then(() => this._save(view, csrfToken))
@@ -62,9 +68,9 @@ export default class extends Controller {
     save.then(ok => {
       if (save !== saving) return
       saving = picked = null
+      this.announce()
       if (ok) return
 
-      this._check(this.stored)
       // After a Turbo navigation this row is gone, so say it page-wide.
       if (this.element.isConnected) this._setError("Couldn't save that — try again.")
       else this._toast("Couldn't save your Markdown block view — try again.")
