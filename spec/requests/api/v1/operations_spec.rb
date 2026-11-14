@@ -162,9 +162,46 @@ RSpec.describe "Api::V1::Operations", type: :request do
     expect(response.parsed_body["code"]).to eq("edit_locked")
   end
 
+  [ false, true ].each do |use_session|
+    it "rebases empty-section padding without changing the wrong occurrence (session: #{use_session})" do
+      document = CoPlan::Plan.create!(title: "Padding", created_by_user: alice)
+      version = CoPlan::PlanVersion.create!(plan: document, revision: 1,
+        content_markdown: "# H\n# Next\n\naaa", actor_type: "human", actor_id: alice.id)
+      document.update!(current_revision: 1, current_plan_version: version)
+      agent_has_read(document, alice_token)
+      operations = [
+        { op: "replace_section", heading: "# H", include_heading: false, new_content: "body" },
+        { op: "replace_exact", old_text: "a", new_text: "Z", occurrence: 2 }
+      ]
+      if use_session
+        post api_v1_plan_sessions_path(document), headers: headers, as: :json
+        expect(response).to have_http_status(:created)
+        session_id = response.parsed_body.fetch("id")
+        post api_v1_plan_operations_path(document), params: { base_revision: 1, session_id: session_id, operations: operations }, headers: headers, as: :json
+        expect(response).to have_http_status(:created)
+      end
+
+      post api_v1_plan_operations_path(document), params: { base_revision: 1,
+        operations: [ { op: "replace_exact", old_text: "# H\n", new_text: "# H" } ] }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+
+      if use_session
+        post commit_api_v1_plan_session_path(document, session_id), headers: headers, as: :json
+        expect(response).to have_http_status(:ok)
+      else
+        post api_v1_plan_operations_path(document), params: { base_revision: 1, operations: operations }, headers: headers, as: :json
+        expect(response).to have_http_status(:created)
+      end
+      expect(document.reload.current_revision).to eq(3)
+      expect(document.current_content).to eq("# H\nbody\n# Next\n\naZa")
+      expect(document.current_plan_version.api_token_id).to eq(alice_token.id)
+      expect(document.current_plan_version.base_revision).to eq(1)
+    end
+  end
+
   # A stale request whose first operation changes the document's length
-  # before an intervening edit. The second operation's target has to be
-  # found in the right place, or not used at all.
+  # before an intervening edit. The second operation must still delete
+  # its own paragraph, and the intervening edit must survive.
   describe "a stale request after an earlier operation changes the length" do
     let(:expanded) { "AAAA expanded into a forty-char sentence" }
     let(:stale_plan) do
@@ -182,10 +219,10 @@ RSpec.describe "Api::V1::Operations", type: :request do
       p
     end
 
-    # "BB" still occurs inside the misplaced span, so it used to delete the
-    # wrong text; "BBBB" does not, so it used to be refused.
+    # "BB" also occurs in a span shifted by the wrong amount, which used to
+    # delete the wrong text; "BBBB" does not, which used to be refused.
     %w[BBBB BB].each do |needle|
-      it "does not delete the wrong text (needle #{needle})" do
+      it "deletes the paragraph it targeted (needle #{needle})" do
         post api_v1_plan_operations_path(stale_plan),
           params: {
             base_revision: 1,
@@ -196,10 +233,10 @@ RSpec.describe "Api::V1::Operations", type: :request do
           },
           headers: headers, as: :json
 
-        expect(response).to have_http_status(:conflict)
+        expect(response).to have_http_status(:created)
         stale_plan.reload
-        expect(stale_plan.current_revision).to eq(2)
-        expect(stale_plan.current_content).to eq("# Stale\n\nAAAA\n\nBBBB\n\nCCXXCC")
+        expect(stale_plan.current_revision).to eq(3)
+        expect(stale_plan.current_content).to eq("# Stale\n\n#{expanded}\n\nCCXXCC")
       end
     end
   end

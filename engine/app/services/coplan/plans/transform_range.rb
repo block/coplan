@@ -22,77 +22,106 @@ module CoPlan
       def self.transform(range, edit_data)
         s, e = range
         edit_data = edit_data.transform_keys(&:to_s)
+        delta = delta_of(edit_data)
 
-        s2, e2 = edit_data["resolved_range"]
+        edit_before?(range, edit_data["resolved_range"]) ? [ s + delta, e + delta ] : [ s, e ]
+      end
 
-        # Calculate delta from the edit
-        if edit_data.key?("new_range")
-          new_s2, new_e2 = edit_data["new_range"]
-          delta = (new_e2 - new_s2) - (e2 - s2)
-        elsif edit_data.key?("delta")
-          delta = edit_data["delta"].to_i
-        else
-          raise ArgumentError, "edit_data must contain 'new_range' or 'delta'"
-        end
+      # Whether an edit of [s2, e2] sits before range [s, e] (the range
+      # shifts by the edit's delta) or after it (the range stays put).
+      # Raises Conflict when they overlap.
+      def self.edit_before?(range, edit_range)
+        s, e = range
+        s2, e2 = edit_range
 
-        # Zero-width insert point: special handling
+        # Zero-width insert point: an edit ending at the point goes first,
+        # one starting after it goes after, and one covering it conflicts.
         if s == e
-          # Insert point: shift if edit is strictly before
-          if e2 <= s
-            return [ s + delta, e + delta ]
-          elsif s2 > s
-            return [ s, e ]
-          else
-            raise Conflict, "Edit overlaps with insert point"
-          end
+          return true if e2 <= s
+          return false if s2 > s
+
+          raise Conflict, "Edit overlaps with insert point"
         end
 
-        # Case 1: Edit is entirely before our range (e2 <= s)
-        if e2 <= s
-          return [ s + delta, e + delta ]
-        end
+        return true if e2 <= s
+        return false if s2 >= e
 
-        # Case 2: Edit is entirely after our range (s2 >= e)
-        if s2 >= e
-          return [ s, e ]
-        end
-
-        # Case 3: Overlap — conflict
         raise Conflict, "Ranges overlap: [#{s}, #{e}] conflicts with edit at [#{s2}, #{e2}]"
       end
 
-      # Transform a range through a sequence of edits from a PlanVersion.
-      # Each version has operations_json with resolved position data.
+      def self.delta_of(edit_data)
+        if edit_data.key?("new_range")
+          new_s2, new_e2 = edit_data["new_range"]
+          s2, e2 = edit_data["resolved_range"]
+          (new_e2 - new_s2) - (e2 - s2)
+        elsif edit_data.key?("delta")
+          edit_data["delta"].to_i
+        else
+          raise ArgumentError, "edit_data must contain 'new_range' or 'delta'"
+        end
+      end
+
+      # +edit+ and +range_edit+ were both made against the same content.
+      # Returns +edit+ as it applies after +range_edit+, and +range_edit+ as
+      # it applies after +edit+. Their order is the one transform decides
+      # for +range_edit+'s range moving through +edit+, so the pair agrees
+      # with ranges already moved that way. Raises Conflict on overlap.
+      def self.exchange(edit, range_edit)
+        edit = edit.transform_keys(&:to_s)
+        range_edit = range_edit.transform_keys(&:to_s)
+
+        if edit_before?(range_edit["resolved_range"], edit["resolved_range"])
+          [ shifted(edit, 0), shifted(range_edit, delta_of(edit)) ]
+        else
+          [ shifted(edit, delta_of(range_edit)), shifted(range_edit, 0) ]
+        end
+      end
+
+      def self.shifted(edit, offset)
+        s2, e2 = edit["resolved_range"]
+        { "resolved_range" => [ s2 + offset, e2 + offset ], "delta" => delta_of(edit) }
+      end
+      private_class_method :shifted
+
+      # Flatten versions' operations_json into one sequence of edits, each
+      # relative to the content after the edit before it.
       #
       # versions: array of PlanVersion records (or hashes with operations_json),
       #   ordered by revision ascending
-      # Returns the transformed range or raises Conflict.
-      def self.transform_through_versions(range, versions)
-        current_range = range.dup
+      def self.edits_from_versions(versions)
+        versions.flat_map do |version|
+          edits_from_operations(version.is_a?(Hash) ? version[:operations_json] || version["operations_json"] : version.operations_json)
+        end
+      end
 
-        versions.each do |version|
-          ops = version.is_a?(Hash) ? version[:operations_json] || version["operations_json"] : version.operations_json
-          next if ops.blank?
+      # Flatten one version's operations_json (or the :applied list from
+      # Plans::ApplyOperations) into a sequence of edits.
+      def self.edits_from_operations(operations)
+        Array(operations).flat_map do |op_data|
+          op_data = op_data.transform_keys(&:to_s)
 
-          ops.each do |op_data|
-            op_data = op_data.transform_keys(&:to_s)
-
-            if op_data.key?("replacements")
-              # replace_all: multiple ranges, each shifts independently
-              # Process in reverse order (highest position first) since each was
-              # already adjusted for previous replacements during application
-              op_data["replacements"].sort_by { |r| -r["resolved_range"][0] }.each do |replacement|
-                current_range = transform(current_range, replacement)
-              end
-            elsif op_data.key?("resolved_range")
-              current_range = transform(current_range, op_data)
-            else
-              raise Conflict, "Operation lacks positional metadata (resolved_range or replacements)"
-            end
+          if op_data.key?("replacements")
+            # replace_all: every replacement range is relative to the content
+            # before the operation. Highest first, each one leaves the lower
+            # ranges where they were.
+            op_data["replacements"].map { |replacement| replacement.transform_keys(&:to_s) }
+              .sort_by { |replacement| -replacement["resolved_range"][0] }
+          elsif op_data.key?("resolved_range")
+            [ op_data ]
+          else
+            raise Conflict, "Operation lacks positional metadata (resolved_range or replacements)"
           end
         end
+      end
 
-        current_range
+      def self.transform_through_edits(range, edits)
+        edits.reduce(range.dup) { |current_range, edit| transform(current_range, edit) }
+      end
+
+      # Transform a range through the edits of a sequence of versions.
+      # Returns the transformed range or raises Conflict.
+      def self.transform_through_versions(range, versions)
+        transform_through_edits(range, edits_from_versions(versions))
       end
 
       # An insertion strictly inside a comment's range is unambiguous even
@@ -103,30 +132,22 @@ module CoPlan
       def self.transform_comment_through_versions(range, versions)
         current = range.dup
         touched = false
-        versions.each do |version|
-          ops = version.is_a?(Hash) ? version[:operations_json] || version["operations_json"] : version.operations_json
-          Array(ops).each do |data|
-            data = data.transform_keys(&:to_s)
-            edits = data.key?("replacements") ? data["replacements"].sort_by { |entry| -entry["resolved_range"][0] } : [ data ]
-            edits.each do |edit|
-              edit = edit.transform_keys(&:to_s)
-              raise Conflict, "Operation lacks replacement length" unless edit.key?("new_range") || edit.key?("delta")
-              begin
-                current = transform(current, edit)
-              rescue Conflict
-                s, e = current
-                s2, e2 = edit.fetch("resolved_range")
-                old_text = edit["old_text"].to_s
-                new_text = edit["new_text"].to_s
-                inside = s2 >= s && e2 <= e && (s2 > s || e2 < e)
-                insertion = s2 == e2 && old_text.empty? && s < s2 && s2 < e
-                deletion = new_text.empty? && old_text.present? && s < s2 && e2 < e && e2 - s2 == old_text.length
-                small_replacement = old_text.length + new_text.length <= 8 && e2 - s2 == old_text.length
-                raise unless inside && (insertion || deletion || small_replacement)
-                current = [ s, e + new_text.length - old_text.length ]
-                touched = true
-              end
-            end
+        edits_from_versions(versions).each do |edit|
+          raise Conflict, "Operation lacks replacement length" unless edit.key?("new_range") || edit.key?("delta")
+          begin
+            current = transform(current, edit)
+          rescue Conflict
+            s, e = current
+            s2, e2 = edit.fetch("resolved_range")
+            old_text = edit["old_text"].to_s
+            new_text = edit["new_text"].to_s
+            inside = s2 >= s && e2 <= e && (s2 > s || e2 < e)
+            insertion = s2 == e2 && old_text.empty? && s < s2 && s2 < e
+            deletion = new_text.empty? && old_text.present? && s < s2 && e2 < e && e2 - s2 == old_text.length
+            small_replacement = old_text.length + new_text.length <= 8 && e2 - s2 == old_text.length
+            raise unless inside && (insertion || deletion || small_replacement)
+            current = [ s, e + new_text.length - old_text.length ]
+            touched = true
           end
         end
         [ current, touched ]
