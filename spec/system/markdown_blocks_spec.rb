@@ -716,6 +716,39 @@ RSpec.describe "Markdown blocks", type: :system do
       expect(page).to have_css(".markdown-block button[aria-pressed='true']", text: "Source")
     end
 
+    it "records a newer Settings snapshot while an older save reply is pending" do
+      visit settings_root_path
+      page.execute_script(<<~JS)
+        const original = window.fetch;
+        window.fetch = async (url, options) => {
+          const response = await original(url, options);
+          if (String(url).includes("markdown_block_view")) {
+            await response.clone().text(); // The save committed; only its reply is held.
+            return new Promise(resolve => window.releaseOlderSaveReply = () => resolve(response));
+          }
+          return response;
+        };
+      JS
+      within(view_row) { find(".segmented__option", text: "Source").click }
+      page.evaluate_async_script(<<~JS)
+        const done = arguments[arguments.length - 1];
+        const ready = () => window.releaseOlderSaveReply ? done(true) : setTimeout(ready, 10);
+        ready();
+      JS
+      expect(author.reload.markdown_block_view).to eq("source")
+      author.update!(markdown_block_view: "rendered") # A newer save from another tab.
+      page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
+      expect(page).to have_css(".markdown-block")
+      page.execute_script("Turbo.cache.clear(); Turbo.visit(arguments[0])", settings_root_path)
+      within(view_row) { expect(page).to have_checked_field("markdown_block_view", with: "source", visible: :all) }
+      page.execute_script("window.releaseOlderSaveReply()")
+      within(view_row) { expect(page).to have_checked_field("markdown_block_view", with: "rendered", visible: :all) }
+      expect(page).to have_css("html[data-markdown-block-view='rendered']", visible: :all)
+      expect(author.reload.markdown_block_view).to eq("rendered")
+      page.execute_script("Turbo.visit(arguments[0])", plan_page_path(plan))
+      expect(page).to have_css(".markdown-block button[aria-pressed='true']", text: "Rendered")
+    end
+
     it "keeps a saved choice when Turbo restores Settings from its cache" do
       visit settings_root_path
       within(view_row) { find(".segmented__option", text: "Source").click }

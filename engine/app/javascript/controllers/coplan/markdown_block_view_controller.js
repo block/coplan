@@ -31,8 +31,9 @@ export default class extends Controller {
     // A fresh render carries the server's stored choice, which may have
     // changed in another tab or device since <html> was set. A page Turbo
     // restores from its cache has had it removed (below), so there the
-    // stored choice on <html> is current. A pick still saving wins either way.
-    if (this.hasStoredValue && !picked) this.rememberStored(this.storedValue, this.storedAtValue)
+    // stored choice on <html> is current. Remember snapshots even while a
+    // pick is saving; sync keeps that optimistic pick selected until it settles.
+    if (this.hasStoredValue) this.rememberStored(this.storedValue, this.storedAtValue)
     this.sync()
   }
 
