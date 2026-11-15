@@ -5,7 +5,7 @@ import { commandFor } from "coplan/shortcuts"
 // sent snapshot and edits typed while it was in flight. Nothing clears a draft
 // until the server has acknowledged that exact content.
 export default class extends Controller {
-  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave", "uploadNotice", "uploadMessage", "uploadDismiss"]
+  static targets = ["textarea", "surface", "status", "statusText", "statusAnnouncement", "back", "rawSurface", "previewSurface", "previewToggle", "toolbar", "formatControls", "moreTools", "newLanguage", "codePicker", "contentPicker", "codeOption", "draftNotice", "legacyDraftNotice", "conflict", "error", "retry", "review", "replace", "latest", "style", "subscription", "citationDialog", "citationBody", "citationTitle", "citationError", "citationSave", "uploadNotice", "uploadMessage", "uploadDismiss"]
   static values = { planId: String, userId: String, draftScope: String, revision: Number, stateUrl: String, tokenUrl: String, previewUrl: String, leaseUrl: String, attachmentsUrl: String, inline: Boolean, embedDomains: Array }
 
   revisionValueChanged(revision) {
@@ -637,11 +637,13 @@ export default class extends Controller {
 
   switchMode(event) { this.setMode(event.currentTarget.dataset.mode) }
   setMode(mode) {
-    if (!this.richEditor || !["rich", "markdown", "dual"].includes(mode) || mode === this.mode || this.composing) return
+    if (mode === "dual") mode = "markdown" // Retire the old stored Dual choice.
+    if (!this.richEditor || !["rich", "markdown"].includes(mode) || mode === this.mode || this.composing) return
     const sourceSelection = this.editor?.sourceSelection()
     if (mode !== "rich" && !this.rawEditor) this.rawEditor = this.richModule.createMarkdownDocument(this.rawSurfaceTarget, this.textareaTarget.value,
       (content, kind) => this.editorChanged("markdown", content, kind))
     this.mode = mode
+    this.previewOpen = false
     this.element.querySelectorAll(".document-editor__mode [data-mode]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.mode === mode)))
     try { sessionStorage.setItem(`coplan-editor-mode-${this.userIdValue}`, mode) } catch {}
     this.editor = mode === "markdown" ? this.rawEditor : this.richEditor
@@ -649,6 +651,8 @@ export default class extends Controller {
     this.surfaceTarget.hidden = mode === "markdown"
     this.rawSurfaceTarget.hidden = mode === "rich"
     this.element.dataset.mode = mode
+    this.previewToggleTargets.forEach(button => { button.hidden = mode !== "markdown" })
+    this.updatePreview()
     this.surfaceTarget.querySelectorAll(".document-editor__code-language").forEach(input => { input.disabled = mode === "markdown" })
     this.element.querySelectorAll("[data-mode]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.mode === mode)))
     if (this.inlineVisible) {
@@ -656,6 +660,24 @@ export default class extends Controller {
       else this.editor.view.focus()
     }
     this.updateToolbar(this.richEditor.toolbarState())
+  }
+  togglePreview() {
+    if (this.mode !== "markdown") return
+    this.previewOpen = !this.previewOpen
+    this.updatePreview()
+  }
+  updatePreview(content = this.textareaTarget.value) {
+    if (!this.hasPreviewSurfaceTarget) return
+    const visible = this.mode === "markdown" && !!this.previewOpen
+    this.previewSurfaceTarget.hidden = !visible
+    this.element.dataset.preview = String(visible)
+    this.previewToggleTargets.forEach(button => {
+      button.setAttribute("aria-pressed", String(visible))
+      button.title = visible ? "Hide reader preview" : "Show reader preview"
+    })
+    this.previewSurfaceTarget.dispatchEvent(new CustomEvent("coplan:raw-preview", {
+      detail: { visible, content }
+    }))
   }
   get composing() { return !!(this.richEditor?.view.composing || this.rawEditor?.view.composing) }
   focusPane(event) {
@@ -670,11 +692,13 @@ export default class extends Controller {
     // Never round-trip a composing DOM or the source of the transaction.
     if (!this.composing) counterpart?.update(content)
     this.input()
+    this.updatePreview()
     if (this.inlineValue) this.element.dispatchEvent(new CustomEvent("coplan:editor-content-changed", { bubbles: true }))
   }
   updateEditors(content) {
     this.richEditor?.update(content)
     this.rawEditor?.update(content)
+    this.updatePreview(content)
   }
   whenCompositionEnds() {
     return this.active && this.composing ? new Promise(resolve => (this.compositionWaiters ||= []).push(resolve)) : Promise.resolve()

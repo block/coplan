@@ -288,7 +288,7 @@ RSpec.describe "Editor toolbar", type: :system do
   end
 
   it "keeps formatting visible but disabled for raw focus and restores it for rich focus" do
-    click_button "Dual", exact: true
+    click_button "Raw", exact: true
     raw.click
     expect(page).to have_css('[role="toolbar"]')
     expect(page).to have_css('select[aria-label="Paragraph style"]:disabled')
@@ -301,14 +301,15 @@ RSpec.describe "Editor toolbar", type: :system do
     expect(page).to have_button("Bold", disabled: true)
     click_button "Redo"
     expect(raw).to have_text("Raw changes")
+    click_button "Editor", exact: true
     find('[aria-label="Document body"]').click
     expect(page).to have_css('select[aria-label="Paragraph style"]:enabled')
     expect(page).to have_button("Bold", disabled: false)
     expect(page).to have_button("Insert code block", disabled: false)
     find('[aria-label="Document body"]').send_keys([ mod, "a" ])
     click_button "Bold"
-    expect(raw).to have_text("**Raw changes**")
     click_button "Raw", exact: true
+    expect(raw).to have_text("**Raw changes**")
     expect(page).to have_css('[role="toolbar"]')
     expect(page).to have_button("Bold", disabled: true)
     expect(raw).to have_text("**Raw changes**")

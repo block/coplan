@@ -51,7 +51,7 @@ RSpec.describe "Editor live cable delivery", type: :system do
       actor_type: "local_agent", actor_id: author.id)
   end
 
-  [ "Editor", "Raw", "Dual" ].each do |mode|
+  [ "Editor", "Raw" ].each do |mode|
     it "receives a real broadcast in #{mode} without polling" do
       click_button mode, exact: true
       agent_write(source.sub("Agent section.", "Committed background edit."))
@@ -72,15 +72,16 @@ RSpec.describe "Editor live cable delivery", type: :system do
     expect(page).to have_content("Agent edit before focus.", wait: 5)
   end
 
-  it "merges a dirty disjoint Dual draft and retains it on the next overlapping broadcast" do
-    click_button "Dual", exact: true
+  it "merges a dirty disjoint Raw draft with preview and retains it on the next overlapping broadcast" do
+    click_button "Raw", exact: true
+    click_button "Preview", exact: true
     page.execute_script('window.originalFetch=window.fetch;window.fetch=(url,options)=>options?.method==="PATCH"?Promise.reject(new Error("Offline")):window.originalFetch(url,options)')
     raw = find('[aria-label="Markdown source"]')
     raw.send_keys([ mod, "a" ], source.sub("Human section.", "Human local edit."))
     agent_write(source.sub("Agent section.", "Agent remote edit."))
     expect(raw).to have_text("Agent remote edit.", wait: 5)
     expect(raw).to have_text("Human local edit.")
-    expect(find('[aria-label="Document body"]')).to have_text("Human local edit.")
+    expect(find('[aria-label="Reader preview"]')).to have_text("Human local edit.")
     agent_write(plan.reload.current_content.sub("Human section.", "Conflicting remote edit."))
     expect(page).to have_css('.document-editor__close-inline[data-state="conflict"][aria-label="Conflict — reload document"]', wait: 5)
     expect(raw).to have_text("Human local edit.")
@@ -88,7 +89,8 @@ RSpec.describe "Editor live cable delivery", type: :system do
   end
 
   it "queues a real broadcast while a save response is in flight", browser_sync: :manual do
-    click_button "Dual", exact: true
+    click_button "Raw", exact: true
+    click_button "Preview", exact: true
     page.execute_script(<<~'JS')
       const original = window.fetch;
       window.fetch=async (url,options)=>{const response=await original(url,options);if(options?.method==="PATCH") await new Promise(resolve=>window.releaseSave=resolve);return response};
@@ -126,7 +128,7 @@ end
 RSpec.describe "New document live delivery", type: :system do
   include_context "editor snapshot observation"
   let(:author) { create(:coplan_user, email: "new-editor-live@example.com") }
-  let(:source) { "# New live document\n\nAgent section.\n\nHuman section.\n" }
+  let(:source) { "# Created live\n\nAgent section.\n\nHuman section.\n" }
   let(:mod) { RUBY_PLATFORM.include?("darwin") ? :meta : :control }
 
   it "connects an in-place creation, merges real broadcasts, reconnects and cleans up without polling" do
@@ -137,9 +139,10 @@ RSpec.describe "New document live delivery", type: :system do
     visit new_plan_path
     expect(page).to have_css('[aria-label="Document body"]', wait: 20)
     find(".inline-editor .ProseMirror > h1:first-child", wait: 10).send_keys("Created live")
-    click_button "Dual", exact: true
+    click_button "Raw", exact: true
+    click_button "Preview", exact: true
     raw = find('[aria-label="Markdown source"]')
-    raw.send_keys(source)
+    raw.send_keys([ mod, "a" ], source)
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved · v1", wait: 10, visible: :all)
     created = CoPlan::Plan.find_by!(title: "Created live")
     expect(page).to have_current_path(plan_page_path(created, edit: "continue"))
@@ -161,7 +164,7 @@ RSpec.describe "New document live delivery", type: :system do
       base_revision: created.current_revision, actor_type: "local_agent", actor_id: author.id)
     expect(raw).to have_text("Agent broadcast after creation.", wait: 5)
     expect(raw).to have_text("Human unsaved draft.")
-    expect(find('[aria-label="Document body"]')).to have_text("Human unsaved draft.")
+    expect(find('[aria-label="Reader preview"]')).to have_text("Human unsaved draft.")
     expect(page.evaluate_script('window.deliveredStreams')).to include("plan-content-body", "plan-history-list")
     page.execute_script('window.fetch = window.originalFetch')
     page.driver.browser.action.key_down(mod).send_keys("s").key_up(mod).perform
@@ -174,7 +177,7 @@ RSpec.describe "New document live delivery", type: :system do
     page.execute_script('window.createdConsumer.connect()')
     expect(page).to have_css('form.document-editor turbo-cable-stream-source[connected]', visible: :all, count: 1, wait: 10)
     expect(raw).to have_text("Agent edit while disconnected.", wait: 5)
-    [ "Editor", "Raw", "Dual" ].each { |mode| click_button mode, exact: true }
+    [ "Editor", "Raw" ].each { |mode| click_button mode, exact: true }
     expect(page.evaluate_script('window.createdConsumer.subscriptions.subscriptions.filter(s => s.identifier === window.createdSubscription.identifier).length')).to eq(1)
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(created), wait: 10)

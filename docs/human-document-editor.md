@@ -1,6 +1,6 @@
 # Human document editor prototype
 
-Owners use **Edit** to write in the document. **Editor**, **Raw**, and **Dual** are
+Owners use **Edit** to write in the document. **Editor** and **Raw** are
 modes in the top bar, beside the close button, sharing one draft, base revision
 and autosave pipeline. The
 workspace **New document** starts a private draft. Add a title and content and it saves in
@@ -37,7 +37,7 @@ and space. Empty items use the same two-Backspace exit as bullets. Lettered
 lists keep their markers in Raw mode, reading mode, and after reopening.
 
 The toolbar stays visible in all modes. Formatting and code insertion are disabled
-while Raw has focus, including in Dual; Undo and Redo still act on the focused pane.
+in Raw; Undo and Redo still act on the focused pane.
 Save feedback sits at the far right: a muted clock while autosave is queued,
 a spinner during the request, then a muted
 check that fades after acknowledgement. Hover for the saved version and time.
@@ -58,7 +58,7 @@ new draft can simply close the editor. Comments remain available in reading view
 ## Markdown, tables and diagrams
 
 Standalone HTML comments (`<!-- … -->`) appear as muted, italic text in a subtle
-gray box in Editor and Dual modes. The text is directly editable. The delimiters stay in Raw mode;
+gray box in Editor mode. The text is directly editable. The delimiters stay in Raw mode;
 notes remain hidden in reading view. Untouched notes keep their exact source.
 A standalone note does not need a blank line after the preceding prose.
 The rich editor rejects text that would close a note's HTML comment and shows
@@ -100,11 +100,11 @@ Unknown or unclosed regions stay visible source.
 Tables remain separate nodes even inside a list. **Edit table** opens a Markdown
 field for only that table, keeping the surrounding list rich and editable.
 
-Images have a bottom-right resize handle that appears on hover or keyboard focus in Editor and Dual. Drag inward to preview a smaller image; releasing saves an HTML image `width` in Markdown as one undoable edit. Drag near the image's natural full width to snap back to **100%** and remove the width attribute. Escape cancels a drag. Arrow keys resize a focused handle (Shift for one pixel); Home chooses the minimum width and End restores full width. Existing HTML images with a width use the same control.
+Images have a bottom-right resize handle that appears on hover or keyboard focus in Editor. Drag inward to preview a smaller image; releasing saves an HTML image `width` in Markdown as one undoable edit. Drag near the image's natural full width to snap back to **100%** and remove the width attribute. Escape cancels a drag. Arrow keys resize a focused handle (Shift for one pixel); Home chooses the minimum width and End restores full width. Existing HTML images with a width use the same control.
 
 Images pasted from other apps start at their natural size, capped by the document width. A copied thumbnail's display width is ignored. Copying an image within Coplan's rich editor preserves its intentional resize. Existing saved widths and widths written in Raw Markdown stay unchanged.
 
-Drop image or file uploads into the rich Editor or the rich pane in Dual. Images appear inline; other supported files become download links. Clipboard image files upload too. Upload markers follow their insertion points through continued typing and live updates, without entering saved Markdown. Uploads use the plan's existing type and 25 MB size limits. A new document is created before its first upload. Done and navigation wait for pending uploads before saving. Partial failures preserve accepted files and show per-file errors. Drop failed files again to retry. Undo removes an embed while keeping the file in Attachments; deleting its drop point during upload leaves the file available there too.
+Drop image or file uploads into Editor. Images appear inline; other supported files become download links. Clipboard image files upload too. Upload markers follow their insertion points through continued typing and live updates, without entering saved Markdown. Uploads use the plan's existing type and 25 MB size limits. A new document is created before its first upload. Done and navigation wait for pending uploads before saving. Partial failures preserve accepted files and show per-file errors. Drop failed files again to retry. Undo removes an embed while keeping the file in Attachments; deleting its drop point during upload leaves the file available there too.
 
 Identical uploaded contents reuse an existing attachment within the same document, preserving its original filename and uploader. Every drop still inserts an embed at that location. The notice distinguishes uploads from reuse. Different contents, even with the same filename, stay separate. Concurrent identical uploads converge on one attachment and stored blob; reuse does not log another attachment-added event. Existing duplicate attachments are left intact so their saved links continue working.
 
@@ -175,23 +175,29 @@ budget remain plain. These bounds limit synchronous tokenization work; this is
 not a virtualized large-file code editor. Decoration-only transactions neither
 change Markdown nor enter undo/autosave history.
 
-## Dual mode and engine configuration
+## Raw preview and engine configuration
 
-Dual places editable Markdown on the left and rich text on the right; below
-800px they stack. Both panes share a single canonical draft and save queue.
-ProseMirror transactions notify the controller once; counterpart updates are
-marked remote and do not echo back or create undo events. Each pane retains its
-own history. Keyboard undo and toolbar Undo/Redo operate on the last focused
-pane; formatting controls are enabled only when rich text has focus. Structural source rewrites can
-invalidate older undo steps or move a mapped selection; this is not shared CRDT
-history. IME composition defers counterpart updates and incoming responses
-until ProseMirror has reconciled the composition DOM.
+Raw has an optional **Preview** action beside the two editing modes. It opens a
+read-only reader beside the Markdown source; on narrow screens the panes stack.
+Both panes scroll independently. Preview renders the current draft, including
+unsaved edits, tables, diagrams, slide decks, callouts and footnotes. Markdown
+code fences remain literal code. It does not add a user setting or change the
+reading view. Closing Preview or choosing Editor hides it. Reopening the editor
+remembers Editor or Raw, with Preview closed; an older Dual preference opens Raw.
+
+Only Raw edits the source. Opening or closing Preview never saves or normalizes
+it. Changes refresh after a short typing pause; older responses cannot overwrite
+newer output. A failed refresh retains the previous preview and offers Retry.
+A presenting deck finishes before an update replaces its content.
+
+Editor and Raw keep their own selection and undo history. Incoming edits map
+through both without focusing the hidden editor. Composition defers counterpart
+updates and incoming responses until the composition DOM settles.
 
 Select All is scoped to the focused surface: Cmd+A on macOS, Ctrl+A elsewhere.
 Within a rich code block it selects only that block's code text; in rich prose
 it selects the rich document body, and in Markdown it selects the raw source.
-Title and language inputs retain native value selection. Dual respects the
-focused pane. Outside editor controls the app does not intercept Select All.
+Title and language inputs retain native value selection. Outside editor controls the app does not intercept Select All.
 macOS Control+A moves to the current code/source line's start. The shortcut uses
 the current native caret because a click can precede ProseMirror's asynchronous
 selection reconciliation.
@@ -315,7 +321,7 @@ Undo/Redo, retained metadata, and narrow toolbar layout.
 `spec/system/editor_code_controls_spec.rb` covers anchored desktop/narrow dropdown
 placement, mouse and keyboard autocomplete, dismissal without draft changes,
 custom languages, JavaScript highlighting and saved fence info, and scoped
-window deletion with undo/redo and Dual synchronization.
+window deletion with undo/redo and Raw synchronization.
 
 The code selection and highlighting specs use real browser keyboard input and
 native selection, with replacement, undo, themes, language aliases and large-block

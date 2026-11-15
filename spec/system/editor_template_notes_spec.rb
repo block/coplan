@@ -102,7 +102,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(note).not_to have_text("Next line.")
     note.send_keys([ mod, :shift, "z" ])
     expect(note).to have_text("Next line.")
-    click_button "Dual", exact: true
+    click_button "Raw", exact: true
     expect(find('[aria-label="Markdown source"]')).to have_text("<!-- Explain the decision here. More guidance\nNext line. -->")
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", visible: :all, wait: 15)
     expect(plan.reload.current_content).to include("<!-- Explain the decision here. More guidance\nNext line. -->", "Visible prose.")
@@ -116,6 +116,7 @@ RSpec.describe "Template notes in the document editor", type: :system do
     expect(page).not_to have_content("More guidance")
     expect(page).to have_css("#plan-header .page-header__byline", text: /\bv#{plan.current_revision}\b/)
     visit plan_edit_page_path(plan)
+    click_button "Editor", exact: true
     expect(page).to have_css(".document-editor__template-note", text: "Next line.", wait: 20)
     expect(page).to have_css("#plan-header .page-header__byline", text: /\bv#{plan.current_revision}\b/)
   end

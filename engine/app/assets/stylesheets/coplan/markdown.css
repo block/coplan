@@ -148,48 +148,48 @@
    Comment bodies, previews and popovers keep the compact base type above;
    deck slides own theirs, and diagram labels keep the line-height Mermaid
    measured (below). Theme hooks; docs/THEMES.md. */
-:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) {
+:is(.plan-reader, .document-editor__body, .document-editor__preview) .markdown-rendered:not(.deck-content) {
   max-width: var(--reading-measure, none);
 }
 
-:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) :is(p, li):not(.mermaid-diagram *) {
+:is(.plan-reader, .document-editor__body, .document-editor__preview) .markdown-rendered:not(.deck-content) :is(p, li):not(.mermaid-diagram *) {
   line-height: var(--reading-leading, 1.9);
 }
 
-:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) p:not(.mermaid-diagram *) {
+:is(.plan-reader, .document-editor__body, .document-editor__preview) .markdown-rendered:not(.deck-content) p:not(.mermaid-diagram *) {
   margin-bottom: var(--reading-paragraph-gap, var(--space-md));
 }
 
-:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) :is(h1, h2, h3, h4, h5, h6) {
+:is(.plan-reader, .document-editor__body, .document-editor__preview) .markdown-rendered:not(.deck-content) :is(h1, h2, h3, h4, h5, h6) {
   font-weight: var(--reading-heading-weight, 700);
   letter-spacing: var(--reading-heading-tracking, normal);
   text-wrap: var(--reading-heading-wrap, wrap);
 }
 
-:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) h1 {
+:is(.plan-reader, .document-editor__body, .document-editor__preview) .markdown-rendered:not(.deck-content) h1 {
   font-size: var(--reading-h1-size, var(--text-2xl));
   line-height: var(--reading-h1-leading, 1.3);
 }
 
-:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) h2 {
+:is(.plan-reader, .document-editor__body, .document-editor__preview) .markdown-rendered:not(.deck-content) h2 {
   font-size: var(--reading-h2-size, var(--text-xl));
   line-height: var(--reading-h2-leading, 1.3);
   margin-top: var(--reading-h2-space-above, var(--space-xl));
   margin-bottom: var(--reading-h2-space-below, var(--space-md));
 }
 
-:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) h3 {
+:is(.plan-reader, .document-editor__body, .document-editor__preview) .markdown-rendered:not(.deck-content) h3 {
   font-size: var(--reading-h3-size, var(--text-lg));
   line-height: var(--reading-h3-leading, 1.3);
   margin-top: var(--reading-h3-space-above, var(--space-xl));
   margin-bottom: var(--reading-h3-space-below, var(--space-md));
 }
 
-:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) h4 {
+:is(.plan-reader, .document-editor__body, .document-editor__preview) .markdown-rendered:not(.deck-content) h4 {
   font-weight: var(--reading-h4-weight, var(--reading-heading-weight, 700));
 }
 
-:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) > :is(h1, h2, h3):first-child {
+:is(.plan-reader, .document-editor__body, .document-editor__preview) .markdown-rendered:not(.deck-content) > :is(h1, h2, h3):first-child {
   margin-top: 0;
 }
 
@@ -566,7 +566,7 @@
 
 /* The second selector outranks the reading paragraph gap above. */
 .markdown-rendered :is(.callout, blockquote.document-editor__callout) > :last-child,
-:is(.plan-reader, .document-editor__body) .markdown-rendered:not(.deck-content) :is(.callout, blockquote.document-editor__callout) > p:last-child {
+:is(.plan-reader, .document-editor__body, .document-editor__preview) .markdown-rendered:not(.deck-content) :is(.callout, blockquote.document-editor__callout) > p:last-child {
   margin-bottom: 0;
 }
 

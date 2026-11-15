@@ -304,6 +304,20 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(CoPlan::Plan.count).to eq(0)
     end
 
+    it "seeds the Raw preview tryout and preserves edits when reseeded" do
+      described_class.call
+      plan = seeded_plan("raw-preview")
+      expect(plan.current_content).to include("**Raw**", "**Preview**", "```markdown", "```mermaid", "[^review]")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+      content = "#{plan.current_content}\n\nMy preview feedback."
+      CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content,
+        base_revision: plan.current_revision, actor_type: "human", actor_id: plan.created_by_user_id)
+      revision = plan.current_revision
+      described_class.call
+      expect(plan.reload.current_content).to eq(content)
+      expect(plan.current_revision).to eq(revision)
+    end
+
     it "seeds the file upload tryout and preserves uploaded files and embeds on reseeding" do
       described_class.call
       plan = seeded_plan("file-uploads")

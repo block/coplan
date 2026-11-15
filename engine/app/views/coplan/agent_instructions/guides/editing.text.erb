@@ -154,3 +154,5 @@ The opening top-level H1 is the document title. Rename it through the normal con
 If an update omits the opening H1 or leaves it empty, CoPlan restores it from the current metadata title. This normalization is stored in the new version, its hash, and its operation history. Re-read after writing when you need the exact normalized source. Headings inside code, quotes, and presentations do not count as document titles.
 
 A committed agent content edit finalizes the document URL. Human editor autosaves retain the existing URL until Done. Old URLs redirect to the new address; archived plans do not create new redirects.
+
+The human editor has **Editor** and **Raw** modes. Raw has an optional **Preview** beside the source. It renders the current draft without saving it; Markdown code fences stay code. Preview closes when the person returns to Editor or reopens the document.

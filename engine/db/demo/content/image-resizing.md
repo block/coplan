@@ -10,7 +10,7 @@ Open **Edit**, then hover over either image to reveal its bottom-right resize ha
 
 This paragraph deliberately starts below the image. In Raw Markdown, a blank line between paragraphs creates the same break. You never need to add spaces to push text down.
 
-Both images keep their proportions. **Undo** reverses one resize at a time. Press **Escape** during a drag to cancel. With the handle focused, arrow keys resize, **Home** chooses the smallest size, and **End** restores full width. **Dual** shows the Markdown changing when you release the handle.
+Both images keep their proportions. **Undo** reverses one resize at a time. Press **Escape** during a drag to cancel. With the handle focused, arrow keys resize, **Home** chooses the smallest size, and **End** restores full width. Switch to **Raw** to see the Markdown after releasing the handle.
 
 ## Pasting images
 

@@ -39,8 +39,9 @@ RSpec.describe "Editor code caret", type: :system do
     Selenium::WebDriver::Wait.new(timeout: 3).until { caret["rect"]["top"] < prior["rect"]["top"] }
     page.driver.browser.action.send_keys(:arrow_down, :backspace, :delete).perform
     expect(page).to have_css('[data-coplan--editor-target="statusText"]', text: "All changes saved", wait: 10, visible: :all)
-    click_button "Dual", exact: true
+    click_button "Raw", exact: true
     expect(find('[aria-label="Markdown source"]')).to have_text("```javascript")
+    click_button "Editor", exact: true
     find('[aria-label="Code language"]').fill_in(with: "typescript")
     code = find('.document-editor__block > pre')
     code.click

@@ -60,7 +60,7 @@ RSpec.describe "Inline plan editing", type: :system do
     expect(page).to have_current_path(plan_page_path(plan))
   end
 
-  it "opens legacy edit links inline and keeps all three editing modes" do
+  it "opens legacy edit links inline and offers two editing modes with an optional Raw preview" do
     visit plan_legacy_edit_page_path(plan)
 
     expect(page).to have_current_path(plan_page_path(plan, edit: 1), wait: 15)
@@ -68,9 +68,9 @@ RSpec.describe "Inline plan editing", type: :system do
     within(".inline-editor") do
       click_button "Raw"
       expect(page).to have_css('.document-editor[data-mode="markdown"] [aria-label="Markdown source"]')
-      click_button "Dual"
-      expect(page).to have_css('.document-editor[data-mode="dual"] [aria-label="Markdown source"]')
-      expect(page).to have_css('.document-editor[data-mode="dual"] [aria-label="Document body"]')
+      expect(page).not_to have_button("Dual")
+      click_button "Preview", exact: true
+      expect(page).to have_css('[aria-label="Reader preview"] .markdown-rendered')
       click_button "Editor"
       click_button "Done editing"
     end

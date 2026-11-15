@@ -32,7 +32,7 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
   end
 
   it "moves ArrowDown into existing prose after code without inserting a paragraph" do
-    [ "Editor", "Dual" ].each do |mode|
+    [ "Editor" ].each do |mode|
       click_button mode, exact: true
       paragraphs = all('[aria-label="Document body"] p').count
       expect(code).to have_css(".hljs-keyword", text: "function", wait: 20)
@@ -84,8 +84,8 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     end
   end
 
-  it "selects and replaces only focused code in Rich and Dual, retaining other blocks and native inputs" do
-    [ "Editor", "Dual" ].each do |mode|
+  it "selects and replaces only focused code in Editor, retaining other blocks and native inputs" do
+    [ "Editor" ].each do |mode|
       click_button mode, exact: true
       code.click
       page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
@@ -101,14 +101,16 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
       expect(language.value).to eq("typescript")
       expect(code).to have_text("const scoped = 7;")
     end
+    click_button "Raw", exact: true
     raw = find('[aria-label="Markdown source"]')
     raw.click
     raw.send_keys([ mod, "a" ])
     expect(page.evaluate_script('getSelection().toString()')).to include("Before prose.", "After prose.", "```typescript")
+    click_button "Editor", exact: true
     find('[aria-label="Document body"] p', text: "Before prose.").click
     page.driver.browser.action.key_down(mod).send_keys("a").key_up(mod).perform
     expect(page.evaluate_script('getSelection().toString()')).to include("Before prose.", "After prose.")
-    expect(page.evaluate_script('getSelection().toString()')).not_to include("Editor", "Dual")
+    expect(page.evaluate_script('getSelection().toString()')).not_to include("Editor", "Raw")
     select_document_title
     find('[aria-label="Document body"]').send_keys("Scoped title")
     click_link "Done"
@@ -120,7 +122,7 @@ RSpec.describe "Editable code selection and highlighting", type: :system do
     expect(code).to have_css(".hljs-keyword", text: "function", wait: 20)
     expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).to eq(source)
     expect(page).not_to have_content("Changes save automatically")
-    click_button "Dual", exact: true
+    click_button "Editor", exact: true
     expect(code).to have_css(".hljs-number", text: "42", wait: 20)
     %w[light dark].each do |theme|
       page.execute_script('document.documentElement.dataset.theme = arguments[0]', theme)

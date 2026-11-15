@@ -253,10 +253,10 @@ RSpec.describe "Uploading files in the rich editor", type: :system do
     expect(plan.attachments.count).to eq(1)
   end
 
-  it "synchronizes dropped files into Markdown in Dual mode" do
-    click_button "Dual", exact: true
+  it "preserves dropped files when switching to Raw" do
     transfer_files("sample.png", "sample.txt")
     expect(page).to have_css('.ProseMirror img[alt="sample.png"]')
+    click_button "Raw", exact: true
     expect(find('[aria-label="Markdown source"]')).to have_text("![sample.png]")
     expect(find('[aria-label="Markdown source"]')).to have_text("[sample.txt]")
     click_button "Raw", exact: true

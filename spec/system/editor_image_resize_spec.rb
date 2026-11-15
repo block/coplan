@@ -145,7 +145,7 @@ RSpec.describe "Resizing editor images", type: :system do
   context "with an existing HTML width" do
     let(:image_source) { %(<img src="#{image_url}" alt="Console &amp; mockup" title="A title" width="320">) }
 
-    it "preserves untouched source and synchronizes a resize into Dual/Raw" do
+    it "preserves untouched source and synchronizes a resize when switching to Raw" do
       expect(content).to eq(source)
       expect(image.rect.width).to be_within(1).of(320)
       %w[light dark].each do |theme|
@@ -153,10 +153,8 @@ RSpec.describe "Resizing editor images", type: :system do
         image.hover
         page.save_screenshot(Rails.root.join("tmp/screenshots/image-resize/handle-#{theme}.png"))
       end
-      click_button "Dual", exact: true
       drag_by(-80)
       expect(content).to include('width="240"')
-      expect(find('[aria-label="Markdown source"]')).to have_text('width="240"')
       click_button "Raw", exact: true
       expect(find('[aria-label="Markdown source"]')).to have_text('width="240"')
       click_button "Editor", exact: true

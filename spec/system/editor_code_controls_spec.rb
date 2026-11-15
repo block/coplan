@@ -32,7 +32,7 @@ RSpec.describe "Editor code controls", type: :system do
     page.driver.browser.action.send_keys("const answer = 42;").perform
     expect(page).to have_css(".document-editor__block code .hljs-keyword", text: "const", wait: 10)
     page.save_screenshot(Rails.root.join("tmp/editor-code-window.png"))
-    click_button "Dual", exact: true
+    click_button "Raw", exact: true
     expect(find('[aria-label="Markdown source"]')).to have_text("```javascript")
     click_link "Done"
     expect(page).to have_current_path(plan_page_path(plan), wait: 10)
@@ -61,7 +61,7 @@ RSpec.describe "Editor code controls", type: :system do
     expect(all('[aria-label="Code language"]').map(&:value)).to include("custom-lang extra=1")
   end
 
-  [ "Editor", "Dual" ].each do |mode|
+  [ "Editor" ].each do |mode|
     it "places immediate typing inside the new code block after Enter in #{mode}" do
       click_button mode, exact: true
       find('[aria-label="Document body"] p', text: "After prose.").click
@@ -146,17 +146,17 @@ RSpec.describe "Editor code controls", type: :system do
       expect(plan.reload.current_content.index("puts :other")).to be < plan.current_content.index("const inserted = 1;")
     end
 
-    it "deletes only the selected window and supports undo and redo in both panes" do
+    it "deletes only the selected window and supports undo and redo across modes" do
       click_button "Insert code block"
       find('[role="option"]', text: "JavaScript", exact_text: true).click
       page.driver.browser.action.send_keys("const keep = 1;").perform
       expect(all('[aria-label="Code language"]').map(&:value)).to eq([ "ruby", "javascript" ])
-      click_button "Dual", exact: true
+      click_button "Editor", exact: true
       expect(page).not_to have_css(".document-editor__block-header label", text: "Language")
       find(".document-editor__code-window", text: "const keep = 1;").click_button("Delete code block")
       expect(page).to have_css(".document-editor__code-window", count: 1)
       expect(page).to have_css(".document-editor__code-window", text: "puts :other")
-      expect(find('[aria-label="Markdown source"]')).not_to have_text("const keep")
+      expect(page.evaluate_script('document.querySelector("textarea[name=content]").value')).not_to include("const keep")
       expect(find('[aria-label="Document body"]')).to have_text("Before prose.")
       expect(find('[aria-label="Document body"]')).to have_text("After prose.")
       click_button "Undo"
