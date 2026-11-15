@@ -57,6 +57,24 @@ RSpec.describe "Api::V1::Sessions", type: :request do
   end
 
   describe "POST /api/v1/plans/:plan_id/sessions/:id/commit" do
+    it "returns 422 and retains a stale legacy session with invalid section content" do
+      document = CoPlan::Plan.create!(title: "Legacy session", created_by_user: alice)
+      base = CoPlan::PlanVersion.create!(plan: document, revision: 1, content_markdown: "# H", actor_type: "human", actor_id: alice.id)
+      document.update!(current_revision: 1, current_plan_version: base)
+      agent_has_read(document, alice_token)
+      session = create(:edit_session, plan: document, actor_id: alice_token.id, base_revision: 1,
+        operations_json: [ { "op" => "replace_section", "heading" => "# H", "include_heading" => false, "new_content" => 3, "resolved_range" => [ 3, 3 ] } ])
+      version = CoPlan::PlanVersion.create!(plan: document, revision: 2, content_markdown: "# H",
+        actor_type: "local_agent", actor_id: alice.id, operations_json: [])
+      document.update!(current_revision: 2, current_plan_version: version)
+      expect {
+        post commit_api_v1_plan_session_path(document, session), headers: headers, as: :json
+      }.not_to change { document.plan_versions.count }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["error"]).to include("new_content", "string")
+      expect(session.reload.status).to eq("open")
+    end
+
     it "commits with operations and creates version" do
       session = create(:edit_session, plan: plan, actor_id: alice_token.id)
       # Apply an operation to the session first

@@ -2,14 +2,15 @@ module CoPlan
   module Plans
     # Commits an EditSession's accumulated operations as a single PlanVersion.
     #
-    # If the session's base_revision is behind current_revision, each
-    # operation's resolved ranges are transformed through intervening versions
-    # via TransformRange (OT). All versions must have positional metadata —
-    # TransformRange raises Conflict if any operation lacks it.
+    # If the session's base_revision is behind current_revision, its
+    # operations are rebased through the intervening versions by
+    # Plans::Rebase, the same rebase the operations API uses.
     class CommitSession
       class StaleSessionError < StandardError; end
       class SessionConflictError < StandardError; end
       class SessionNotOpenError < StandardError; end
+
+      SEMANTIC_KEYS = %w[op old_text new_text heading content needle occurrence replace_all count new_content include_heading].freeze
 
       # actor_id/agent_name: the session row keys ownership by the caller's
       # transient id (an API token), which names nobody in the history tab.
@@ -83,51 +84,34 @@ module CoPlan
               .order(revision: :asc)
               .to_a
 
-            # Each stored range was resolved against the session draft as it
-            # stood before that operation. Replay the draft from the base
-            # version to recover the text each operation targeted, then
-            # transform its ranges through intervening edits and verify that
-            # exact text is still there (Plans::Rebase).
             base_version = plan.plan_versions.find_by(revision: base_revision)
             raise SessionConflictError, "Base revision #{base_revision} not found" unless base_version
 
-            draft = base_version.content_markdown
-            verification_content = current_content.dup
-            rebased_ops = []
-            @session.operations_json.each do |op_data|
+            # Each stored range was resolved against the session draft as it
+            # stood before that operation: the base with the earlier session
+            # operations applied. That is the content Plans::Rebase resolves
+            # against, so the stored ranges are used as they are.
+            operations = @session.operations_json.map do |op_data|
               op_data = op_data.transform_keys(&:to_s)
-              semantic_keys = %w[op old_text new_text heading content needle occurrence replace_all count new_content include_heading]
-              semantic_op = op_data.slice(*semantic_keys)
+              semantic_op = op_data.slice(*SEMANTIC_KEYS)
 
               recorded_ranges = if op_data["resolved_range"]
                 [ op_data["resolved_range"] ]
               elsif op_data.key?("replacements")
                 op_data["replacements"].map { |rep| rep["resolved_range"] }
               end
-              replayed_op = recorded_ranges ? semantic_op.merge("_pre_resolved_ranges" => recorded_ranges) : semantic_op
+              recorded_ranges ? semantic_op.merge("_pre_resolved_ranges" => recorded_ranges) : semantic_op
+            end
 
-              if recorded_ranges
-                begin
-                  transformed_ranges = recorded_ranges.map do |range|
-                    Plans::TransformRange.transform_through_versions(range, intervening_versions)
-                  end
-                  recorded_ranges.zip(transformed_ranges).each do |range, transformed|
-                    Plans::Rebase.verify!(semantic_op, draft[range[0]...range[1]], verification_content, transformed)
-                  end
-                rescue Plans::TransformRange::Conflict, Plans::Rebase::Conflict => e
-                  raise SessionConflictError, "Conflict during rebase: #{e.message}"
-                end
-                semantic_op["_pre_resolved_ranges"] = transformed_ranges
-              end
-
-              rebased_ops << semantic_op
-
-              # Advance both snapshots so the next operation is checked
-              # against the content it was staged on and the content it will
-              # be applied to.
-              draft = Plans::ApplyOperations.call(content: draft, operations: [ replayed_op ])[:content]
-              step = Plans::ApplyOperations.call(content: verification_content, operations: [ semantic_op ])
-              verification_content = step[:content]
+            begin
+              rebased_ops = Plans::Rebase.call(
+                base_content: base_version.content_markdown,
+                operations: operations,
+                intervening_versions: intervening_versions,
+                current_content: current_content
+              )
+            rescue Plans::Rebase::Conflict => e
+              raise SessionConflictError, "Conflict during rebase: #{e.message}"
             end
 
             result = Plans::ApplyOperations.call(content: current_content, operations: rebased_ops)

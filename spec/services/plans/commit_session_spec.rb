@@ -243,12 +243,12 @@ RSpec.describe CoPlan::Plans::CommitSession do
     end
 
     # The session's first operation changes the length before an
-    # intervening edit; its second operation must not land elsewhere.
+    # intervening edit; its second operation must still hit its target.
     context "after an earlier session operation changes the length" do
       let(:content) { "# Stale\n\nAAAA\n\nBBBB\n\nCCCC" }
 
       %w[BBBB BB].each do |needle|
-        it "does not delete the wrong text (needle #{needle})" do
+        it "deletes the paragraph it targeted (needle #{needle})" do
           staged = CoPlan::Plans::ApplyOperations.call(content: content, operations: [
             { "op" => "replace_exact", "old_text" => "AAAA", "new_text" => "AAAA expanded into a forty-char sentence" },
             { "op" => "delete_paragraph_containing", "needle" => needle }
@@ -263,14 +263,12 @@ RSpec.describe CoPlan::Plans::CommitSession do
           )
           plan.update!(current_revision: 2, current_plan_version: v2)
 
-          expect {
-            described_class.call(session: session)
-          }.to raise_error(CoPlan::Plans::CommitSession::SessionConflictError)
-          expect(session.reload.status).to eq("open")
-          expect(session.draft_content).to eq(staged[:content])
-          expect(plan.plan_versions.count).to eq(2)
-          expect(plan.reload.current_revision).to eq(2)
-          expect(plan.current_content).to eq("# Stale\n\nAAAA\n\nBBBB\n\nCCXXCC")
+          result = described_class.call(session: session)
+
+          expect(result[:version].revision).to eq(3)
+          expect(result[:version].content_markdown).to eq("# Stale\n\nAAAA expanded into a forty-char sentence\n\nCCXXCC")
+          expect(session.reload.status).to eq("committed")
+          expect(plan.plan_versions.count).to eq(3)
         end
       end
     end
@@ -348,22 +346,16 @@ RSpec.describe CoPlan::Plans::CommitSession do
   end
 
   describe "concurrent sessions" do
-    it "both commit successfully when edits don't overlap" do
-      # Session A edits the beginning
-      session_a = build_session(
-        plan: plan,
-        base_revision: 1,
-        operations_json: [ { "op" => "replace_exact", "old_text" => "First section content.", "new_text" => "Updated first section." } ],
-        draft_content: content.sub("First section content.", "Updated first section.")
-      )
+    # Staging records each operation with its resolved range, as the
+    # operations API does for a session.
+    def staged_session(old_text, new_text)
+      staged = CoPlan::Plans::ApplyOperations.call(content: content, operations: [ { "op" => "replace_exact", "old_text" => old_text, "new_text" => new_text } ])
+      build_session(plan: plan, base_revision: 1, operations_json: staged[:applied], draft_content: staged[:content])
+    end
 
-      # Session B edits the end
-      session_b = build_session(
-        plan: plan,
-        base_revision: 1,
-        operations_json: [ { "op" => "replace_exact", "old_text" => "Q1 2026 delivery.", "new_text" => "Q2 2026 delivery." } ],
-        draft_content: content.sub("Q1 2026 delivery.", "Q2 2026 delivery.")
-      )
+    it "both commit successfully when edits don't overlap" do
+      session_a = staged_session("First section content.", "Updated first section.")
+      session_b = staged_session("Q1 2026 delivery.", "Q2 2026 delivery.")
 
       # Commit A first
       result_a = described_class.call(session: session_a)
@@ -383,28 +375,17 @@ RSpec.describe CoPlan::Plans::CommitSession do
 
     it "second commit fails when edits overlap" do
       # Both sessions edit the same text
-      session_a = build_session(
-        plan: plan,
-        base_revision: 1,
-        operations_json: [ { "op" => "replace_exact", "old_text" => "We should use unit tests.", "new_text" => "We should use integration tests." } ],
-        draft_content: content.sub("We should use unit tests.", "We should use integration tests.")
-      )
-
-      session_b = build_session(
-        plan: plan,
-        base_revision: 1,
-        operations_json: [ { "op" => "replace_exact", "old_text" => "We should use unit tests.", "new_text" => "We should use acceptance tests." } ],
-        draft_content: content.sub("We should use unit tests.", "We should use acceptance tests.")
-      )
+      session_a = staged_session("We should use unit tests.", "We should use integration tests.")
+      session_b = staged_session("We should use unit tests.", "We should use acceptance tests.")
 
       # Commit A first — succeeds
       result_a = described_class.call(session: session_a)
       expect(result_a[:version].revision).to eq(2)
 
-      # Commit B — should fail because the text was already changed
+      # Commit B — A's edit overlaps B's target
       expect {
         described_class.call(session: session_b)
-      }.to raise_error(CoPlan::Plans::OperationError)
+      }.to raise_error(CoPlan::Plans::CommitSession::SessionConflictError)
     end
   end
 

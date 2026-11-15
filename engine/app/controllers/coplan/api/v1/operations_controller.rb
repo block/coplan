@@ -123,13 +123,9 @@ module CoPlan
           end
         end
 
-        # Rebase stale operations via OT: resolve each op to character ranges
-        # against the base_revision snapshot, transform those ranges through all
-        # intervening versions' positional metadata, verify the transformed span
-        # still holds exactly the text the op targeted (Plans::Rebase), and
-        # return ops with pre-resolved ranges. All versions MUST have positional
-        # metadata in operations_json; TransformRange raises Conflict if any
-        # operation lacks it.
+        # Rebase stale operations through the intervening versions
+        # (Plans::Rebase). This method keeps the staleness limit, the base
+        # lookup and the HTTP mapping of a conflict.
         def rebase_and_resolve(operations, base_revision, current_content)
           stale_gap = @plan.current_revision - base_revision
           if stale_gap > 20
@@ -151,53 +147,27 @@ module CoPlan
             .order(revision: :asc)
             .to_a
 
-          working_base = base_version.content_markdown
-          verification_content = current_content.dup
-          rebased_ops = []
-
-          operations.each do |op|
-            op = op.respond_to?(:to_unsafe_h) ? op.to_unsafe_h.transform_keys(&:to_s) : op.transform_keys(&:to_s)
-            begin
-              resolution = Plans::PositionResolver.call(content: working_base, operation: op)
-              transformed_ranges = resolution.ranges.map do |range|
-                Plans::TransformRange.transform_through_versions(range, intervening_versions)
-              end
-
-              resolution.ranges.zip(transformed_ranges).each do |range, transformed|
-                Plans::Rebase.verify!(op, working_base[range[0]...range[1]], verification_content, transformed)
-              end
-
-              # Advance the working base snapshot so the next op resolves
-              # against the result of this one (sequential semantics).
-              apply_result = Plans::ApplyOperations.call(content: working_base, operations: [ op ])
-              working_base = apply_result[:content]
-
-              rebased_op = op.dup
-              rebased_op["_pre_resolved_ranges"] = transformed_ranges
-              rebased_ops << rebased_op
-
-              # Advance verification content so the next op's conflict check
-              # runs against the incrementally updated snapshot.
-              verify_step = Plans::ApplyOperations.call(content: verification_content, operations: [ rebased_op ])
-              verification_content = verify_step[:content]
-            rescue Plans::TransformRange::Conflict => e
-              render json: {
-                error: "Conflict: #{e.message}",
-                current_revision: @plan.current_revision
-              }, status: :conflict
-              return
-            rescue Plans::Rebase::Conflict => e
-              render json: {
-                error: "Conflict: #{e.message}",
-                current_revision: @plan.current_revision,
-                expected: e.expected,
-                found: e.found
-              }, status: :conflict
-              return
-            end
+          # Stale operations are always resolved against their base; a
+          # caller's own _pre_resolved_ranges are not used.
+          operations = operations.map do |op|
+            op = op.respond_to?(:to_unsafe_h) ? op.to_unsafe_h : op
+            op.transform_keys(&:to_s).except("_pre_resolved_ranges")
           end
 
-          rebased_ops
+          Plans::Rebase.call(
+            base_content: base_version.content_markdown,
+            operations: operations,
+            intervening_versions: intervening_versions,
+            current_content: current_content
+          )
+        rescue Plans::Rebase::Conflict => e
+          render json: {
+            error: "Conflict: #{e.message}",
+            current_revision: @plan.current_revision,
+            expected: e.expected,
+            found: e.found
+          }.compact, status: :conflict
+          nil
         end
 
         def create_version_from_operations(operations, base_revision:)

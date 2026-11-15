@@ -69,7 +69,7 @@ module CoPlan
           render json: response
         rescue Plans::HumanEditGuard::Blocked => e
           render json: e.payload, status: :conflict
-        rescue Plans::CommitSession::SessionNotOpenError => e
+        rescue Plans::OperationError, Plans::CommitSession::SessionNotOpenError => e
           render json: { error: e.message }, status: :unprocessable_content
         rescue Plans::CommitSession::StaleSessionError => e
           render json: { error: e.message }, status: :conflict

@@ -194,6 +194,16 @@ RSpec.describe CoPlan::Plans::ApplyOperations do
       }.to raise_error(CoPlan::Plans::OperationError, /requires 'heading'/)
     end
 
+    [ 3, [], {}, true, false ].each do |value|
+      it "rejects non-string section content #{value.inspect}" do
+        expect {
+          described_class.call(content: "## Solo", operations: [
+            { "op" => "replace_section", "heading" => "## Solo", "include_heading" => false, "new_content" => value }
+          ])
+        }.to raise_error(CoPlan::Plans::OperationError, /new_content.*string/)
+      end
+    end
+
     it "requires new_content" do
       expect {
         CoPlan::Plans::ApplyOperations.call(
