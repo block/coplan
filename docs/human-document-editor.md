@@ -179,7 +179,8 @@ change Markdown nor enter undo/autosave history.
 
 Raw has an optional **Preview** action beside the two editing modes. It opens a
 read-only reader beside the Markdown source; on narrow screens the panes stack.
-Both panes scroll independently. Preview renders the current draft, including
+Raw keeps the same scroll area with Preview open or closed, preserving the visible
+source passage. Both panes scroll independently. Preview renders the current draft, including
 unsaved edits, tables, diagrams, slide decks, callouts and footnotes. Markdown
 code fences remain literal code. It does not add a user setting or change the
 reading view. Closing Preview or choosing Editor hides it. Reopening the editor

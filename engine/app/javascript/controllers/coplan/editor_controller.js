@@ -663,8 +663,15 @@ export default class extends Controller {
   }
   togglePreview() {
     if (this.mode !== "markdown") return
+    // Keep the same source passage in view when the pane changes width.
+    // Raw keeps its scroll container even while Preview is closed.
+    const view = this.rawEditor.view, rect = this.rawSurfaceTarget.getBoundingClientRect()
+    const top = Math.max(rect.top, this.toolbarTarget.getBoundingClientRect().bottom, 0) + 2
+    const anchor = top < Math.min(rect.bottom, window.innerHeight) ? view.posAtCoords({ left: rect.left + 8, top }) : null
+    const before = anchor && view.coordsAtPos(anchor.pos).top
     this.previewOpen = !this.previewOpen
     this.updatePreview()
+    if (anchor) this.rawSurfaceTarget.scrollTop += view.coordsAtPos(anchor.pos).top - before
   }
   updatePreview(content = this.textareaTarget.value) {
     if (!this.hasPreviewSurfaceTarget) return

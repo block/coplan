@@ -106,6 +106,9 @@ export default class extends Controller {
     let id
     try { id = decodeURIComponent(link.getAttribute("href").slice(1)) } catch { return }
     const target = [...this.contentTarget.querySelectorAll("[id]")].find(el => el.id === id)
-    if (target) this.element.scrollTop += target.getBoundingClientRect().top - this.element.getBoundingClientRect().top - 12
+    if (!target) return
+    const slide = target.closest(".deck-slide")
+    if (slide) slide.dispatchEvent(new CustomEvent("coplan:deck-reveal", { bubbles: true, detail: { slide: slide.dataset.slide } }))
+    this.element.scrollTop += target.getBoundingClientRect().top - this.element.getBoundingClientRect().top - 12
   }
 }

@@ -205,6 +205,48 @@ RSpec.describe "Raw reader preview", type: :system do
     expect(preview.evaluate_script("this.scrollTop")).to be > 0
   end
 
+  it "keeps the visible source passage and page position when opening and closing Preview" do
+    click_button "Raw", exact: true
+    block_saves
+    long_source = "# Long source\n\n" + (1..100).map { |n| "Paragraph #{n}: #{'A long sentence to exercise line wrapping. ' * 5}\n\n" }.join
+    raw.send_keys([ mod, "a" ])
+    page.execute_script(<<~JS, raw, long_source)
+      const clipboard = new DataTransfer(); clipboard.setData("text/plain", arguments[1]);
+      arguments[0].dispatchEvent(new ClipboardEvent("paste", {clipboardData: clipboard, bubbles: true, cancelable: true}));
+    JS
+    page.execute_script(<<~JS, long_source.index("Paragraph 60:"))
+      window.previewEditor = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor");
+      previewEditor.rawEditor.select(arguments[0]);
+    JS
+    2.times do
+      page.execute_script(<<~JS)
+        const rect = previewEditor.rawSurfaceTarget.getBoundingClientRect();
+        const top = Math.max(rect.top, previewEditor.toolbarTarget.getBoundingClientRect().bottom, 0) + 2;
+        window.sourceAnchor = previewEditor.rawEditor.view.posAtCoords({left: rect.left + 8, top}).pos;
+        window.sourceTop = previewEditor.rawEditor.view.coordsAtPos(sourceAnchor).top;
+        window.sourcePageY = window.scrollY;
+      JS
+      click_button "Preview", exact: true
+      expect(page.evaluate_script("previewEditor.rawEditor.view.coordsAtPos(sourceAnchor).top")).to be_within(2).of(page.evaluate_script("sourceTop"))
+      expect(page.evaluate_script("window.scrollY")).to be_within(2).of(page.evaluate_script("sourcePageY"))
+    end
+  end
+
+  it "reveals linked slides and retains the selected slide during refresh" do
+    open_preview
+    block_saves
+    deck = "# Deck preview\n\n[Jump to second](#second-slide)\n\n::: {.presentation}\n\n# First slide\n\nFirst slide content.\n\n---\n\n# Second slide\n\nSecond slide content.\n\n:::\n"
+    raw.send_keys([ mod, "a" ], deck)
+    expect(preview).to have_css('.deck-slide--current', text: "First slide content.")
+    preview.click_link "Jump to second"
+    expect(preview).to have_css('.deck-slide--current', text: "Second slide content.")
+    expect(preview).not_to have_css('.deck-slide--current', text: "First slide content.")
+    expect(page).not_to have_current_path(/#coplan-preview-/)
+    raw.send_keys([ mod, "a" ], deck.sub("Deck preview", "Updated deck preview"))
+    expect(preview).to have_css('h1', text: "Updated deck preview")
+    expect(preview).to have_css('.deck-slide--current', text: "Second slide content.")
+  end
+
   it "stacks usable scrollable panes on a phone without horizontal overflow" do
     page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 390, height: 844, deviceScaleFactor: 1, mobile: true)
     open_preview
