@@ -36,6 +36,7 @@ RSpec.describe "Raw reader preview", type: :system do
     visit sign_in_path
     fill_in "Email address", with: author.email
     click_button "Sign In"
+    expect(page).to have_current_path(root_path)
     visit plan_edit_page_path(plan)
     expect(page).to have_css('[aria-label="Document body"]', wait: 20)
   end
