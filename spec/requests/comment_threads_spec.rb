@@ -123,6 +123,32 @@ RSpec.describe "CommentThreads", type: :request do
     expect(response).to have_http_status(:unprocessable_content)
   end
 
+  it "refuses a partially unmapped table selection instead of truncating its saved range" do
+    content = "| A | B |\n|---|---|\n| foo\\|bar | baz |"
+    version = create(:plan_version, plan: plan, revision: 3, actor_id: alice.id, content_markdown: content)
+    plan.update!(current_plan_version: version, current_revision: 3)
+    expect {
+      post plan_comment_threads_path(plan), params: {
+        comment_thread: { anchor_text: "foo|bar baz", body_markdown: "Both cells." }
+      }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    }.not_to change(CoPlan::CommentThread, :count)
+    expect(response).to have_http_status(:unprocessable_content)
+  end
+
+  it "leaves image alt text out of rendered occurrence counts" do
+    content = "![repeat **word**](https://example.com/image.png)\n\nrepeat word\n"
+    version = create(:plan_version, plan: plan, revision: 3, actor_id: alice.id, content_markdown: content)
+    plan.update!(current_plan_version: version, current_revision: 3)
+    post plan_comment_threads_path(plan), params: {
+      comment_thread: { anchor_text: "repeat word", anchor_occurrence: 1, body_markdown: "About the paragraph." }
+    }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    expect(response).to have_http_status(:ok)
+    thread = plan.comment_threads.last
+    expect(thread.anchor_start).to eq(content.rindex("repeat word"))
+    expect(thread.anchor_end).to eq(thread.anchor_start + "repeat word".length)
+    expect(thread.anchor_occurrence_index).to eq(0)
+  end
+
   # A thread whose anchor never resolved renders nowhere — no highlight, no
   # popover, no way to reach it. "Comment posted" followed by nothing
   # visible is worse than a refusal.

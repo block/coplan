@@ -273,7 +273,7 @@ module CoPlan
     end
 
     def self.strip_markdown(content)
-      Plans::MarkdownTextExtractor.call(content, source_spans: true).first(2)
+      Plans::MarkdownTextExtractor.call(content, source_spans: true, exclude_images: true).first(2)
     end
 
     # A browser hands back a selection with every run of whitespace collapsed
@@ -357,12 +357,16 @@ module CoPlan
       # cell text without pipe delimiters). Parse the markdown AST to
       # extract plain text with source position mapping.
       if ranges.empty?
-        text, positions, spans = Plans::MarkdownTextExtractor.call(content, source_spans: true)
+        text, positions, spans = Plans::MarkdownTextExtractor.call(content, source_spans: true, exclude_images: true)
         stripped, pos_map = self.class.fold_whitespace(text, positions)
         # Synthetic separators and citation numbers have no source character.
         # Entity/escape spans do: their final character can consume several.
         ends = spans.each_with_index.map { |span, index| positions[index] >= 0 ? span.last : -1 }
         _, end_map = self.class.fold_whitespace(text, ends)
+        # Citation numbers have real spans but no source character. Other
+        # unmapped non-whitespace text must not be dropped from a selection.
+        unmapped = positions.each_with_index.map { |position, index| position < 0 && spans[index].first < 0 && text[index].match?(/\S/) }
+        _, unmapped_map = self.class.fold_whitespace(text, unmapped)
         # Fold the anchor to match: tabs between table cells, and the newlines
         # a hard-wrapped paragraph carries, both reach us as plain spaces.
         normalized_anchor = self.class.fold_anchor(anchor_text)
@@ -375,11 +379,13 @@ module CoPlan
         if stripped_ranges.empty?
           without_breaks, pos_map = remove_break_tags(stripped, pos_map)
           _, end_map = remove_break_tags(stripped, end_map)
+          _, unmapped_map = remove_break_tags(stripped, unmapped_map)
           stripped = without_breaks
           stripped_ranges = find_all_occurrences(stripped, normalized_anchor)
         end
 
         ranges = stripped_ranges.map do |s, e|
+          next nil if unmapped_map[s...e].any?
           # Never search beyond this match when the extractor cannot map a
           # construct. Neighboring text is not evidence of this selection.
           raw_start = pos_map[s...e].find { |position| position >= 0 }
