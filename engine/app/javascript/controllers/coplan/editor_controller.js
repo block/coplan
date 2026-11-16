@@ -680,7 +680,8 @@ export default class extends Controller {
     const top = Math.max(rect.top, this.toolbarTarget.getBoundingClientRect().bottom, 0) + 2
     const anchor = this.rawEditor.view.posAtCoords({ left: rect.left + 8, top })
     if (!anchor) return null
-    return captureBlockViewport(this.richEditor.view.dom, this.richEditor.elementAtSource(anchor.pos - 1), top)
+    const position = this.richEditor.positionAtSource(anchor.pos - 1)
+    return captureBlockViewport(this.richEditor.view.dom, position.node, this.rawEditor.view.coordsAtPos(anchor.pos).top, position.offset)
   }
   updatePreview(content = this.textareaTarget.value) {
     if (!this.hasPreviewSurfaceTarget) return

@@ -150,7 +150,7 @@
   <div class="document-editor__paper plan-document card"<% if inline_editor %> data-action="mouseup->coplan--text-selection#handleEditorMouseUp"<% end %>>
     <div class="document-editor__raw" data-coplan--editor-target="rawSurface" hidden></div>
     <div class="document-editor__body" data-coplan--editor-target="surface"></div>
-    <section class="document-editor__preview" aria-label="Reader preview" data-coplan--editor-target="previewSurface" data-controller="coplan--raw-preview" data-coplan--raw-preview-url-value="<%= preview_draft_plans_path %>" data-action="coplan:raw-preview->coplan--raw-preview#update click->coplan--raw-preview#followLink:capture coplan:deck-stopped->coplan--raw-preview#resume" hidden>
+    <section class="document-editor__preview" aria-label="Reader preview" data-coplan--editor-target="previewSurface" data-controller="coplan--raw-preview" data-coplan--raw-preview-url-value="<%= preview_draft_plans_path %>" data-action="coplan:raw-preview->coplan--raw-preview#update click@document->coplan--raw-preview#followLink:capture scroll->coplan--raw-preview#dismissReferences coplan:deck-stopped->coplan--raw-preview#resume" hidden>
       <div class="document-editor__preview-status" role="status" aria-live="polite" data-coplan--raw-preview-target="status"></div>
       <button type="button" class="btn btn--secondary btn--sm" data-coplan--raw-preview-target="retry" data-action="coplan--raw-preview#retry" hidden>Retry preview</button>
       <div data-coplan--raw-preview-target="content"></div>

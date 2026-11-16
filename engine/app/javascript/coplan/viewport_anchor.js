@@ -15,15 +15,22 @@ export function captureViewport(root) {
   return captureBlockViewport(root, block, block.getBoundingClientRect().top)
 }
 
-export function captureBlockViewport(root, element, top) {
+export function captureBlockViewport(root, element, top, offset) {
   const block = (element.nodeType === Node.ELEMENT_NODE ? element : element.parentElement)?.closest(BLOCKS)
   if (!block || !root.contains(block)) return null
   const blocks = Array.from(root.querySelectorAll(BLOCKS))
   const text = textOf(block)
+  let textOffset
+  if (offset !== undefined) {
+    const range = document.createRange()
+    range.selectNodeContents(block)
+    range.setEnd(element, offset)
+    textOffset = range.toString().length
+  }
   return {
     text, index: blocks.indexOf(block),
     occurrence: text ? blocks.slice(0, blocks.indexOf(block)).filter(element => textOf(element) === text).length : 0,
-    top, rootTop: root.getBoundingClientRect().top
+    top, textOffset, rootTop: root.getBoundingClientRect().top
   }
 }
 
@@ -32,7 +39,20 @@ export function restoreViewport(root, anchor) {
   const blocks = Array.from(root.querySelectorAll(BLOCKS))
   const matches = anchor.text ? blocks.filter(element => textOf(element) === anchor.text) : []
   const target = matches[anchor.occurrence] || blocks[Math.min(anchor.index, blocks.length - 1)]
-  const newTop = target?.getBoundingClientRect().top ?? root.getBoundingClientRect().top
+  let newTop = target?.getBoundingClientRect().top ?? root.getBoundingClientRect().top
+  if (target && anchor.textOffset !== undefined) {
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT)
+    let remaining = anchor.textOffset, node
+    while ((node = walker.nextNode())) {
+      if (remaining > node.length) { remaining -= node.length; continue }
+      const range = document.createRange()
+      range.setStart(node, remaining)
+      range.collapse(true)
+      const rect = range.getBoundingClientRect()
+      if (rect.height) newTop = rect.top
+      break
+    }
+  }
   const oldTop = target ? anchor.top : anchor.rootTop
   if (Number.isFinite(oldTop)) window.scrollBy(0, newTop - oldTop)
 }

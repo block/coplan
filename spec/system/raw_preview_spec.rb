@@ -300,7 +300,48 @@ RSpec.describe "Raw reader preview", type: :system do
     find(".document-editor__close-inline").click
     expect(page).not_to have_css("form.document-editor")
     passage = find("#plan-content-body p", text: anchor.fetch("text"), exact_text: true)
-    expect(passage.evaluate_script("this.getBoundingClientRect().top")).to be_within(3).of(anchor.fetch("top"))
+    expect(passage.evaluate_script("(() => { const range = document.createRange(); range.setStart(this.firstChild, 0); range.collapse(true); return range.getBoundingClientRect().top })()")).to be_within(3).of(anchor.fetch("top"))
+  end
+
+  it "keeps the visible line when leaving a long Raw code block" do
+    content = "# Long code\n\n```text\n" + (1..80).map { |n| "Line #{n}: content to keep in view.\n" }.join + "```\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: plan.current_revision,
+      actor_type: "local_agent", actor_id: author.id)
+    click_button "Raw", exact: true
+    expect(raw).to have_text("Line 40:")
+    page.execute_script(<<~JS, content.index("Line 40:"))
+      const editor = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor");
+      editor.rawEditor.select(arguments[0]);
+      const surface = editor.rawSurfaceTarget, view = editor.rawEditor.view;
+      surface.scrollTop += view.coordsAtPos(arguments[0] + 1).top - surface.getBoundingClientRect().top - 5;
+      window.lineTop = view.coordsAtPos(arguments[0] + 1).top;
+    JS
+    top = page.evaluate_script("lineTop")
+    find(".document-editor__close-inline").click
+    expect(page).not_to have_css("form.document-editor")
+    code = find("#plan-content-body pre code", text: "Line 40:")
+    expect(code.evaluate_script("(() => { const range = document.createRange(); range.setStart(this.firstChild, this.textContent.indexOf('Line 40:')); range.collapse(true); return range.getBoundingClientRect().top })()")).to be_within(3).of(top)
+  end
+
+  it "routes citation-card links into Preview and dismisses cards on pane scrolling" do
+    open_preview
+    block_saves
+    content = source.sub("Current draft footnote.", "[Inside details](#inside-details)") + "\n<details>\n<summary>More</summary>\n\n## Inside details\n\nHidden target.\n\n</details>\n"
+    raw.send_keys([ mod, "a" ], content)
+    expect(preview).to have_css("summary", text: "More")
+    citation = preview.find("[data-footnote-ref]")
+    raw.send_keys(:tab)
+    citation.execute_script("this.focus()")
+    expect(page).to have_css(".reference-preview:popover-open")
+    page.execute_script("arguments[0].scrollTop += 20", preview)
+    expect(page).not_to have_css(".reference-preview:popover-open")
+    raw.send_keys(:tab)
+    citation.execute_script("this.focus()")
+    expect(page).to have_css(".reference-preview:popover-open")
+    within(".reference-preview:popover-open") { click_link "Inside details" }
+    expect(preview).to have_text("Hidden target.")
+    expect(page).not_to have_css(".reference-preview:popover-open")
+    expect(page).not_to have_current_path(/#coplan-preview-/)
   end
 
   it "stacks usable scrollable panes on a phone without horizontal overflow" do

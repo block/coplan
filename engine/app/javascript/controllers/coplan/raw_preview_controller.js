@@ -117,13 +117,17 @@ export default class extends Controller {
     root.querySelectorAll("input, button, select, textarea, fieldset, output").forEach(el => el.setAttribute("form", this.prefix + "detached"))
   }
 
-  followLink(event) {
-    const link = event.target.closest?.('a[href^="#"]')
-    if (!link) return
-    event.preventDefault()
-    event.stopPropagation()
+  dismissReferences() {
     const owner = this.element.closest('[data-controller~="coplan--reference-preview"]')
     if (owner) this.application.getControllerForElementAndIdentifier(owner, "coplan--reference-preview")?.dismiss()
+  }
+
+  followLink(event) {
+    const link = event.target.closest?.('a[href^="#"]')
+    if (!this.visible || !link?.getAttribute("href").startsWith(`#${this.prefix}`)) return
+    event.preventDefault()
+    event.stopPropagation()
+    this.dismissReferences()
     let id
     try { id = decodeURIComponent(link.getAttribute("href").slice(1)) } catch { return }
     const target = [...this.contentTarget.querySelectorAll("[id]")].find(el => el.id === id)
