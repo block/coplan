@@ -30,6 +30,26 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(threads.last.reload.status).to eq("resolved")
     end
 
+    it "provides repeated rendered text and preserves its discussion on re-seed" do
+      described_class.call
+      plan = seeded_plan("rendered-comment-anchors")
+      expect(plan.comment_threads).to be_empty
+      expect(plan.current_content).to include("<!-- notes: the", "https://example.com/the", "Read **the** foundations.", "Read the carts.")
+      expect(seeded_plan("demo-library").current_content).to include("`rendered-comment-anchors`", "(/#{plan.url_path})")
+
+      thread = plan.comment_threads.create!(plan_version: plan.current_plan_version,
+        created_by_user: plan.created_by_user, anchor_text: "the", anchor_occurrence: 2, anchor_from_rendered_text: true)
+      thread.comments.create!(author_type: "human", author_id: plan.created_by_user_id, body_markdown: "My carts feedback")
+      thread.resolve!(plan.created_by_user)
+      offset = thread.anchor_start
+      expect(offset).to eq(plan.current_content.index("the carts"))
+
+      described_class.call
+      expect(plan.comment_threads.reload.pluck(:id)).to eq([ thread.id ])
+      expect(thread.reload).to have_attributes(anchor_start: offset, status: "resolved")
+      expect(thread.comments.sole.body_markdown).to eq("My carts feedback")
+    end
+
     it "provides human, AI, unknown, and mixed writing examples and preserves edits when re-seeded" do
       described_class.call
       expect(seeded_plan("writing-human").writing_provenance_summary.dig("shares", "human")).to eq(1.0)

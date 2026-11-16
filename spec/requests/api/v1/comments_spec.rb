@@ -101,6 +101,21 @@ RSpec.describe "Api::V1::Comments", type: :request do
     expect(response).to have_http_status(:created)
   end
 
+  it "keeps API occurrences relative to exact Markdown source" do
+    content = "# Source quotes\n\n<!-- the hidden notes -->\n\nRead **the** foundations.\n\nRead the carts.\n"
+    version = create(:plan_version, plan: plan, revision: 2, content_markdown: content)
+    plan.update!(current_plan_version: version, current_revision: 2)
+
+    post api_v1_plan_comments_path(plan), params: {
+      anchor_text: "the", anchor_occurrence: 2, body_markdown: "Source quote."
+    }, headers: headers, as: :json
+
+    expect(response).to have_http_status(:created)
+    thread = plan.comment_threads.last
+    expect(thread.anchor_start).to eq(content.index("the** foundations"))
+    expect(thread.anchor_occurrence_index).to eq(0)
+  end
+
   it "reply to thread" do
     expect {
       post reply_api_v1_plan_comment_path(plan, thread_record),

@@ -17,7 +17,7 @@ const MATH_SELECTOR = "[data-math-style]"
 const NON_RENDERED_TEXT_SELECTOR = `style, script, noscript, [data-source-badge], [data-coplan-template-note], ${MATH_SELECTOR}`
 
 export default class extends Controller {
-  static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "anchorPreview", "anchorQuote", "threads"]
+  static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "occurrenceSourceInput", "anchorPreview", "anchorQuote", "threads"]
   static values = { focusThread: String }
 
   connect() {
@@ -188,15 +188,18 @@ export default class extends Controller {
     this.selectedText = text
     this.selectedContext = this.extractContext(range, text, root)
     this.selectedOccurrence = this.computeOccurrence(range, text, root)
+    this.selectedOccurrenceSource = "rendered"
     this.selectionInEditor = root !== this.contentTarget
     if (this.selectionInEditor) {
       const startElement = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement
+      if (startElement?.closest(".document-editor__raw")) this.selectedOccurrenceSource = "source"
       const preview = startElement?.closest(".document-editor__block-preview[data-source-from]")
       if (preview?.contains(range.endContainer)) {
         const from = Number.parseInt(preview.dataset.sourceFrom, 10)
         const source = this.element.querySelector(".inline-editor textarea[name=content]")?.value || ""
         const earlier = source.slice(0, from).split(text).length - 1
         this.selectedOccurrence = earlier + this.computeOccurrence(range, text, preview)
+        this.selectedOccurrenceSource = "source"
         this.selectedContext = this.extractContext(range, text, preview)
       }
     }
@@ -250,6 +253,7 @@ export default class extends Controller {
     this.anchorInputTarget.value = this.selectedText
     this.contextInputTarget.value = this.selectedContext || ""
     this.occurrenceInputTarget.value = this.selectedOccurrence != null ? this.selectedOccurrence : ""
+    this.occurrenceSourceInputTarget.value = this.selectedOccurrenceSource || "rendered"
     this.anchorQuoteTarget.textContent = this.selectedText.length > 120
       ? this.selectedText.substring(0, 120) + "…"
       : this.selectedText

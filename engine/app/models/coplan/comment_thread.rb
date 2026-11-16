@@ -4,7 +4,7 @@ module CoPlan
     OPEN_STATUSES = %w[open].freeze
     CLOSED_STATUSES = %w[resolved].freeze
 
-    attr_accessor :anchor_occurrence, :source_token
+    attr_accessor :anchor_occurrence, :source_token, :anchor_from_rendered_text
 
     belongs_to :plan
     belongs_to :plan_version
@@ -273,7 +273,7 @@ module CoPlan
     end
 
     def self.strip_markdown(content)
-      Plans::MarkdownTextExtractor.call(content)
+      Plans::MarkdownTextExtractor.call(content, source_spans: true).first(2)
     end
 
     # A browser hands back a selection with every run of whitespace collapsed
@@ -347,15 +347,22 @@ module CoPlan
       occurrence = self.anchor_occurrence || 1
       return if occurrence < 1
 
-      # First, try an exact match against the raw markdown.
-      ranges = find_all_occurrences(content, anchor_text)
+      # Browser occurrences count rendered text, never hidden notes or link
+      # destinations. API callers may still quote exact Markdown source.
+      ranges = anchor_from_rendered_text ? [] : find_all_occurrences(content, anchor_text)
 
-      # If no exact match, the selected text may span markdown formatting
+      # Browser selections and source quotes without an exact match may span
+      # Markdown formatting
       # (e.g. DOM text "Hello me you" vs raw "Hello `me` you", or table
       # cell text without pipe delimiters). Parse the markdown AST to
       # extract plain text with source position mapping.
       if ranges.empty?
-        stripped, pos_map = self.class.fold_whitespace(*self.class.strip_markdown(content))
+        text, positions, spans = Plans::MarkdownTextExtractor.call(content, source_spans: true)
+        stripped, pos_map = self.class.fold_whitespace(text, positions)
+        # Synthetic separators and citation numbers have no source character.
+        # Entity/escape spans do: their final character can consume several.
+        ends = spans.each_with_index.map { |span, index| positions[index] >= 0 ? span.last : -1 }
+        _, end_map = self.class.fold_whitespace(text, ends)
         # Fold the anchor to match: tabs between table cells, and the newlines
         # a hard-wrapped paragraph carries, both reach us as plain spaces.
         normalized_anchor = self.class.fold_anchor(anchor_text)
@@ -366,23 +373,36 @@ module CoPlan
         # (and gets selected) as "firstfetching". Drop the tags from the
         # search text; the position map keeps pointing at the source.
         if stripped_ranges.empty?
-          stripped, pos_map = remove_break_tags(stripped, pos_map)
+          without_breaks, pos_map = remove_break_tags(stripped, pos_map)
+          _, end_map = remove_break_tags(stripped, end_map)
+          stripped = without_breaks
           stripped_ranges = find_all_occurrences(stripped, normalized_anchor)
         end
 
         ranges = stripped_ranges.map do |s, e|
-          raw_start = first_real_pos(pos_map, s, :forward)
-          raw_end = first_real_pos(pos_map, e - 1, :backward)
-          next nil unless raw_start && raw_end
-          [ raw_start, raw_end + 1 ]
-        end.compact
+          # Never search beyond this match when the extractor cannot map a
+          # construct. Neighboring text is not evidence of this selection.
+          raw_start = pos_map[s...e].find { |position| position >= 0 }
+          raw_end = end_map[s...e].reverse.find { |position| position >= 0 }
+          next nil unless raw_start && raw_end && raw_end > raw_start
+          [ raw_start, raw_end ]
+        end
       end
 
       if ranges.length >= occurrence
         range = ranges[occurrence - 1]
-        self.anchor_start = range[0]
-        self.anchor_end = range[1]
-        self.anchor_revision = plan.current_revision
+        # Some authored HTML and escaped table text has no source map. Keep
+        # exact, unique source quotes working; repeated quotes stay unpinned
+        # rather than guessing which hidden or visible copy was selected.
+        if range.nil?
+          exact = find_all_occurrences(content, anchor_text)
+          range = exact.first if exact.one?
+        end
+        if range
+          self.anchor_start = range[0]
+          self.anchor_end = range[1]
+          self.anchor_revision = plan.current_revision
+        end
       end
     end
 
@@ -401,17 +421,6 @@ module CoPlan
       kept << text[last..]
       map.concat(pos_map[last..])
       [ kept, map ]
-    end
-
-    # Finds the nearest non-sentinel (-1) position in the pos_map,
-    # scanning forward or backward from the given index.
-    def first_real_pos(pos_map, idx, direction)
-      step = direction == :forward ? 1 : -1
-      while idx >= 0 && idx < pos_map.length
-        return pos_map[idx] if pos_map[idx] >= 0
-        idx += step
-      end
-      nil
     end
 
     def find_all_occurrences(text, search)
