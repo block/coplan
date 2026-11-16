@@ -1059,6 +1059,10 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
       const { $from, $to } = visibleSelection(view.state, view)
       return { from: sourceOffsetForRich(view.state.doc, $from.pos), to: sourceOffsetForRich(view.state.doc, $to.pos) }
     },
+    elementAtSource(offset) {
+      const position = view.domAtPos(richPositionForSource(view.state.doc, offset), 1)
+      return position.node === view.dom ? position.node.childNodes[position.offset] || position.node.lastChild : position.node
+    },
     selectSource(from, to = from) {
       const start = richPositionForSource(view.state.doc, from)
       const end = richPositionForSource(view.state.doc, to)

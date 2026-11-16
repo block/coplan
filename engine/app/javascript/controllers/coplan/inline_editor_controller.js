@@ -96,8 +96,9 @@ export default class extends Controller {
       body.setAttribute("data-coplan--live-update-revision-value", revision)
       this.updateRevision(Number(revision))
       this.latestSnapshot = event.detail.snapshot
-      const anchor = captureViewport(this.editorTarget)
-      const titleVisible = this.element.querySelector("#plan-title, .inline-editor .ProseMirror > h1:first-child")?.getBoundingClientRect().bottom > 0
+      const rawAnchor = this.controller.rawViewportAnchor()
+      const anchor = rawAnchor || captureViewport(this.editorTarget)
+      const titleVisible = !rawAnchor && this.element.querySelector("#plan-title, .inline-editor .ProseMirror > h1:first-child")?.getBoundingClientRect().bottom > 0
       const scrollY = window.scrollY
       this.readerTarget.hidden = false
       this.editorTarget.hidden = true

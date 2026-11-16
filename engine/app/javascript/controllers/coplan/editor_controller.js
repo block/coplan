@@ -1,3 +1,4 @@
+import { captureBlockViewport } from "coplan/viewport_anchor"
 import { Controller } from "@hotwired/stimulus"
 import { commandFor } from "coplan/shortcuts"
 
@@ -672,6 +673,14 @@ export default class extends Controller {
     this.previewOpen = !this.previewOpen
     this.updatePreview()
     if (anchor) this.rawSurfaceTarget.scrollTop += view.coordsAtPos(anchor.pos).top - before
+  }
+  rawViewportAnchor() {
+    if (this.mode !== "markdown" || !this.rawEditor) return null
+    const rect = this.rawSurfaceTarget.getBoundingClientRect()
+    const top = Math.max(rect.top, this.toolbarTarget.getBoundingClientRect().bottom, 0) + 2
+    const anchor = this.rawEditor.view.posAtCoords({ left: rect.left + 8, top })
+    if (!anchor) return null
+    return captureBlockViewport(this.richEditor.view.dom, this.richEditor.elementAtSource(anchor.pos - 1), top)
   }
   updatePreview(content = this.textareaTarget.value) {
     if (!this.hasPreviewSurfaceTarget) return

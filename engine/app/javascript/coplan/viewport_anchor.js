@@ -1,4 +1,4 @@
-const BLOCKS = ".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3, .markdown-rendered p, .markdown-rendered li, .ProseMirror h1, .ProseMirror h2, .ProseMirror h3, .ProseMirror p, .ProseMirror li"
+const BLOCKS = ".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3, .markdown-rendered p, .markdown-rendered li, .ProseMirror h1, .ProseMirror h2, .ProseMirror h3, .ProseMirror p, .ProseMirror li, .markdown-rendered pre, .ProseMirror pre"
 
 const textOf = element => element.textContent.replace(/\s+/g, " ").trim()
 
@@ -12,11 +12,18 @@ export function captureViewport(root) {
     return rect.bottom > line && rect.top < window.innerHeight
   })
   if (!block) return null
+  return captureBlockViewport(root, block, block.getBoundingClientRect().top)
+}
+
+export function captureBlockViewport(root, element, top) {
+  const block = (element.nodeType === Node.ELEMENT_NODE ? element : element.parentElement)?.closest(BLOCKS)
+  if (!block || !root.contains(block)) return null
+  const blocks = Array.from(root.querySelectorAll(BLOCKS))
   const text = textOf(block)
   return {
     text, index: blocks.indexOf(block),
     occurrence: text ? blocks.slice(0, blocks.indexOf(block)).filter(element => textOf(element) === text).length : 0,
-    top: block.getBoundingClientRect().top, rootTop: root.getBoundingClientRect().top
+    top, rootTop: root.getBoundingClientRect().top
   }
 }
 

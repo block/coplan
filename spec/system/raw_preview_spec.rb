@@ -247,6 +247,62 @@ RSpec.describe "Raw reader preview", type: :system do
     expect(preview).to have_css('.deck-slide--current', text: "Second slide content.")
   end
 
+  it "renders when newer AbortSignal composition helpers are unavailable" do
+    page.execute_script("Object.defineProperty(AbortSignal, 'any', {value: undefined}); Object.defineProperty(AbortSignal, 'timeout', {value: undefined})")
+    open_preview
+    expect(preview).to have_text("Original prose")
+  end
+
+  it "reveals nested disclosures and preserves their open and closed state through refresh" do
+    open_preview
+    block_saves
+    details = "# Details preview\n\n[Jump inside](#inside)\n\n<details>\n<summary>Outer</summary>\n\n<details>\n<summary>Inner</summary>\n\n## Inside\n\nOriginal detail.\n\n</details>\n</details>\n"
+    raw.send_keys([ mod, "a" ], details)
+    expect(preview).to have_css("summary", text: "Outer")
+    preview.click_link "Jump inside"
+    expect(preview).to have_css("details[open]", count: 2)
+    expect(preview).to have_text("Original detail.")
+    raw.send_keys([ mod, "a" ], details.sub("Original detail.", "Changed detail."))
+    expect(preview).to have_text("Changed detail.")
+    expect(preview).to have_css("details[open]", count: 2)
+    preview.find("summary", text: "Inner", exact_text: true).click
+    raw.send_keys([ mod, "a" ], details.sub("Original detail.", "Latest detail."))
+    expect(preview).to have_css("details[open]", count: 1)
+    expect(preview).not_to have_text("Latest detail.")
+  end
+
+  it "dismisses a keyboard-opened reference card before local navigation" do
+    open_preview
+    citation = preview.find("[data-footnote-ref]")
+    raw.send_keys(:tab)
+    citation.execute_script("this.focus()")
+    expect(page).to have_css(".reference-preview:popover-open", wait: 5)
+    citation.send_keys(:enter)
+    expect(page).not_to have_css(".reference-preview:popover-open")
+    expect(citation["aria-expanded"]).to eq("false")
+    expect(page).not_to have_current_path(/#coplan-preview-/)
+  end
+
+  it "returns from scrolled Raw source to the same passage in the reader" do
+    content = "# Long document\n\n" + (1..80).map { |n| "Passage #{n} has **formatted words** and supporting text.\n\n" }.join
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: content, base_revision: plan.current_revision,
+      actor_type: "local_agent", actor_id: author.id)
+    click_button "Raw", exact: true
+    expect(raw).to have_text("Passage 60")
+    page.execute_script(<<~JS, content.index("Passage 60"))
+      const editor = Stimulus.getControllerForElementAndIdentifier(document.querySelector("form.document-editor"), "coplan--editor");
+      editor.rawEditor.select(arguments[0]);
+      window.rawExitAnchor = editor.rawViewportAnchor();
+    JS
+    anchor = page.evaluate_script("rawExitAnchor")
+    expect(anchor).not_to be_nil
+    expect(anchor.fetch("text")).to include("Passage")
+    find(".document-editor__close-inline").click
+    expect(page).not_to have_css("form.document-editor")
+    passage = find("#plan-content-body p", text: anchor.fetch("text"), exact_text: true)
+    expect(passage.evaluate_script("this.getBoundingClientRect().top")).to be_within(3).of(anchor.fetch("top"))
+  end
+
   it "stacks usable scrollable panes on a phone without horizontal overflow" do
     page.driver.browser.execute_cdp("Emulation.setDeviceMetricsOverride", width: 390, height: 844, deviceScaleFactor: 1, mobile: true)
     open_preview
