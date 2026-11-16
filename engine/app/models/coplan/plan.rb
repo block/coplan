@@ -299,7 +299,7 @@ module CoPlan
     def stripped_content
       @stripped_content ||= begin
         content = current_content
-        content.present? ? Plans::MarkdownTextExtractor.call(content) : [ +"", [] ]
+        content.present? ? CommentThread.strip_markdown(content) : [ +"", [] ]
       end
     end
 

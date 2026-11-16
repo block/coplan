@@ -58,6 +58,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | reference-gallery | All five reference types, a resolved Coplan target, explicit/extracted references, named citations, repeated URLs, footnotes |
 | api-comment-anchors | Markdown text and table-row highlights; source-only discussion in Comments |
 | table-gallery | Precise cell discussion, repeated labels, empty values, links, wide expandable data |
+| rendered-comment-anchors | Comment on either visible "the"; hidden speaker notes and link URLs must not shift the pin |
 | comment-reactions | Discussions with emoji reactions; your own are pressed in blue, hover a chip for who reacted, add or remove one in place. Re-seeding keeps reactions you removed removed |
 | collapsed-discussions | Discussions inside closed `<details>`, one nested; each summary counts the open discussions it hides. Select a count, press j, follow a `?thread=` link, or open a section to reach them |
 | formatting-gallery | Headings, editable template notes hidden while reading, emphasis, quotes, nested lists, tasks, two code languages, image, mention, footnote |

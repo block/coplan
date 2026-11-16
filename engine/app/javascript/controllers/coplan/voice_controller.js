@@ -706,6 +706,7 @@ export default class extends Controller {
     if (anchor) {
       body.append("comment_thread[anchor_text]", anchor.text)
       body.append("comment_thread[anchor_occurrence]", anchor.occurrence)
+      body.append("comment_thread[anchor_occurrence_source]", this._contentRoot()?.closest(".inline-editor") ? "source" : "rendered")
     }
 
     try {

@@ -33,6 +33,144 @@ RSpec.describe "CommentThreads", type: :request do
     expect(thread.plan_version_id).to eq(plan.current_plan_version_id)
   end
 
+  describe "repeated text selected in the reader" do
+    let(:content) do
+      <<~MARKDOWN
+        # Repeated words
+
+        <!-- notes: the hidden speaker notes mention the old diagram. -->
+
+        [Background](https://example.com/the)
+
+        Read **the** foundations.
+
+        Read the carts.
+      MARKDOWN
+    end
+
+    before do
+      version = create(:plan_version, plan: plan, revision: 3, actor_id: alice.id, content_markdown: content)
+      plan.update!(current_plan_version: version, current_revision: 3)
+    end
+
+    it "counts rendered matches rather than hidden notes and link destinations" do
+      post plan_comment_threads_path(plan), params: {
+        comment_thread: { anchor_text: "the", anchor_occurrence: 2, anchor_occurrence_source: "rendered", body_markdown: "About the carts." }
+      }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+      expect(response).to have_http_status(:ok)
+      thread = plan.comment_threads.last
+      expect(thread.anchor_start).to eq(content.index("the carts"))
+      expect(thread.anchor_end).to eq(thread.anchor_start + 3)
+      expect(thread.anchor_revision).to eq(plan.current_revision)
+      expect(thread.anchor_occurrence_index).to eq(1)
+      expect(response.body).to include('data-anchor-occurrence="1"')
+    end
+
+    it "refuses a missing rendered occurrence instead of matching hidden source" do
+      expect {
+        post plan_comment_threads_path(plan), params: {
+          comment_thread: { anchor_text: "the", anchor_occurrence: 3, anchor_occurrence_source: "rendered", body_markdown: "No third visible match." }
+        }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+      }.not_to change(CoPlan::CommentThread, :count)
+
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    it "keeps editor-preview occurrences relative to Markdown source" do
+      post plan_comment_threads_path(plan), params: {
+        comment_thread: { anchor_text: "the", anchor_occurrence: 5, anchor_occurrence_source: "source", body_markdown: "Preview selection." }
+      }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+      expect(response).to have_http_status(:ok)
+      expect(plan.comment_threads.last.anchor_start).to eq(content.index("the carts"))
+    end
+
+    it "preserves source matching for clients without occurrence metadata" do
+      post plan_comment_threads_path(plan), params: {
+        comment_thread: { anchor_text: "the", anchor_occurrence: 5, body_markdown: "Legacy source selection." }
+      }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+      expect(response).to have_http_status(:ok)
+      expect(plan.comment_threads.last.anchor_start).to eq(content.index("the carts"))
+    end
+  end
+
+  [
+    [ "<div>Hello world</div>\n", "Hello world", "Hello world" ],
+    [ "Tom &amp; Jerry walk home.\n", "Jerry", "Jerry" ],
+    [ "Tom &amp; Jerry walk home.\n", "Tom &", "Tom &amp;" ],
+    [ "A \\*literal\\* label.\n", "label", "label" ],
+    [ "| A | B |\n|---|---|\n| foo\\|bar | baz |", "foo", "foo" ],
+    [ "Before.\n\n> <div>Hello</div>\n\nAfter.", "Hello", "Hello" ]
+  ].each do |content, selection, source|
+    it "maps the rendered selection #{selection.inspect} to source in #{content.inspect}" do
+      version = create(:plan_version, plan: plan, revision: 3, actor_id: alice.id, content_markdown: content)
+      plan.update!(current_plan_version: version, current_revision: 3)
+
+      post plan_comment_threads_path(plan), params: {
+        comment_thread: { anchor_text: selection, anchor_occurrence_source: "rendered", body_markdown: "Rendered text feedback." }
+      }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+      expect(response).to have_http_status(:ok)
+      thread = plan.comment_threads.last
+      expect(thread.anchor_start).to eq(content.index(source))
+      expect(content[thread.anchor_start...thread.anchor_end]).to eq(source)
+      expect(thread.anchor_occurrence_index).to eq(0)
+    end
+  end
+
+  it "refuses an ambiguous unmapped selection instead of moving it to neighboring text" do
+    content = "<!-- Hello -->\n\nBefore.\n\n> <div>Hello</div>\n\nAfter."
+    version = create(:plan_version, plan: plan, revision: 3, actor_id: alice.id, content_markdown: content)
+    plan.update!(current_plan_version: version, current_revision: 3)
+    expect {
+      post plan_comment_threads_path(plan), params: {
+        comment_thread: { anchor_text: "Hello", anchor_occurrence_source: "rendered", body_markdown: "Do not guess." }
+      }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    }.not_to change(CoPlan::CommentThread, :count)
+    expect(response).to have_http_status(:unprocessable_content)
+  end
+
+  it "refuses a partially unmapped table selection instead of truncating its saved range" do
+    content = "| A | B |\n|---|---|\n| foo\\|bar | baz |"
+    version = create(:plan_version, plan: plan, revision: 3, actor_id: alice.id, content_markdown: content)
+    plan.update!(current_plan_version: version, current_revision: 3)
+    expect {
+      post plan_comment_threads_path(plan), params: {
+        comment_thread: { anchor_text: "foo|bar baz", anchor_occurrence_source: "rendered", body_markdown: "Both cells." }
+      }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    }.not_to change(CoPlan::CommentThread, :count)
+    expect(response).to have_http_status(:unprocessable_content)
+  end
+
+  it "leaves image alt text out of rendered occurrence counts" do
+    content = "![repeat **word**](https://example.com/image.png)\n\nrepeat word\n"
+    version = create(:plan_version, plan: plan, revision: 3, actor_id: alice.id, content_markdown: content)
+    plan.update!(current_plan_version: version, current_revision: 3)
+    post plan_comment_threads_path(plan), params: {
+      comment_thread: { anchor_text: "repeat word", anchor_occurrence: 1, anchor_occurrence_source: "rendered", body_markdown: "About the paragraph." }
+    }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    expect(response).to have_http_status(:ok)
+    thread = plan.comment_threads.last
+    expect(thread.anchor_start).to eq(content.rindex("repeat word"))
+    expect(thread.anchor_end).to eq(thread.anchor_start + "repeat word".length)
+    expect(thread.anchor_occurrence_index).to eq(0)
+  end
+
+  it "does not concatenate separate HTML and paragraph blocks into a false match" do
+    content = "<div>some</div>\n\nthing\n\nsomething\n"
+    version = create(:plan_version, plan: plan, revision: 3, actor_id: alice.id, content_markdown: content)
+    plan.update!(current_plan_version: version, current_revision: 3)
+    post plan_comment_threads_path(plan), params: {
+      comment_thread: { anchor_text: "something", anchor_occurrence_source: "rendered", body_markdown: "Last paragraph." }
+    }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    expect(response).to have_http_status(:ok)
+    thread = plan.comment_threads.last
+    expect(thread.anchor_start).to eq(content.rindex("something"))
+    expect(thread.anchor_end).to eq(thread.anchor_start + "something".length)
+    expect(thread.anchor_occurrence_index).to eq(0)
+  end
+
   # A thread whose anchor never resolved renders nowhere — no highlight, no
   # popover, no way to reach it. "Comment posted" followed by nothing
   # visible is worse than a refusal.
