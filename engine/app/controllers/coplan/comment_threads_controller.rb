@@ -17,7 +17,7 @@ module CoPlan
         anchor_text: thread_params[:anchor_text].presence,
         anchor_context: thread_params[:anchor_context].presence,
         anchor_occurrence: thread_params[:anchor_occurrence].presence&.to_i,
-        anchor_from_rendered_text: thread_params[:anchor_occurrence_source] != "source",
+        anchor_from_rendered_text: thread_params[:anchor_occurrence_source] == "rendered",
         source_token: thread_params[:source_token].presence,
         start_line: thread_params[:start_line].presence,
         end_line: thread_params[:end_line].presence,

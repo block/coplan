@@ -218,6 +218,26 @@ RSpec.describe "Voice commenting", type: :system do
     expect(page).to have_css("#comment_thread_#{thread.id}_popover:popover-open", text: "Paragraph 10 should be removed.", wait: 10)
   end
 
+  it "keeps a dictated Raw-pane quote attached to Markdown source" do
+    source = "# Raw voice\n\nHello **world** today.\n"
+    CoPlan::Plans::ReplaceContent.call(plan: plan, new_content: source,
+      base_revision: plan.current_revision, actor_type: "human", actor_id: author.id)
+    allow(CoPlan::Ai).to receive(:call).and_return({ "text" => "Revise this greeting.", "span" => "Hello **world**" }.to_json)
+    stub_speech_recognition("revise this greeting")
+    visit_plan
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror[contenteditable='true']", wait: 20)
+    click_button "Raw", exact: true
+    expect(page).to have_css(".document-editor__raw .ProseMirror")
+    find(".voice-btn").click
+
+    expect(page).to have_css(".voice-status", text: /Comment added/, wait: 10)
+    thread = plan.comment_threads.reload.sole
+    expect(thread.anchor_text).to eq("Hello **world**")
+    expect(source[thread.anchor_start...thread.anchor_end]).to eq("Hello **world**")
+    expect(thread.comments.sole.body_markdown).to eq("🎙️ Revise this greeting.")
+  end
+
   # The default key, and the reason it's the default: a chord is nobody's
   # accident, so it needs none of the hold-delay hedging a bare modifier
   # does — the press means talk.

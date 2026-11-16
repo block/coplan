@@ -55,7 +55,7 @@ RSpec.describe "CommentThreads", type: :request do
 
     it "counts rendered matches rather than hidden notes and link destinations" do
       post plan_comment_threads_path(plan), params: {
-        comment_thread: { anchor_text: "the", anchor_occurrence: 2, body_markdown: "About the carts." }
+        comment_thread: { anchor_text: "the", anchor_occurrence: 2, anchor_occurrence_source: "rendered", body_markdown: "About the carts." }
       }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
 
       expect(response).to have_http_status(:ok)
@@ -70,7 +70,7 @@ RSpec.describe "CommentThreads", type: :request do
     it "refuses a missing rendered occurrence instead of matching hidden source" do
       expect {
         post plan_comment_threads_path(plan), params: {
-          comment_thread: { anchor_text: "the", anchor_occurrence: 3, body_markdown: "No third visible match." }
+          comment_thread: { anchor_text: "the", anchor_occurrence: 3, anchor_occurrence_source: "rendered", body_markdown: "No third visible match." }
         }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
       }.not_to change(CoPlan::CommentThread, :count)
 
@@ -82,6 +82,14 @@ RSpec.describe "CommentThreads", type: :request do
         comment_thread: { anchor_text: "the", anchor_occurrence: 5, anchor_occurrence_source: "source", body_markdown: "Preview selection." }
       }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
 
+      expect(response).to have_http_status(:ok)
+      expect(plan.comment_threads.last.anchor_start).to eq(content.index("the carts"))
+    end
+
+    it "preserves source matching for clients without occurrence metadata" do
+      post plan_comment_threads_path(plan), params: {
+        comment_thread: { anchor_text: "the", anchor_occurrence: 5, body_markdown: "Legacy source selection." }
+      }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
       expect(response).to have_http_status(:ok)
       expect(plan.comment_threads.last.anchor_start).to eq(content.index("the carts"))
     end
@@ -100,7 +108,7 @@ RSpec.describe "CommentThreads", type: :request do
       plan.update!(current_plan_version: version, current_revision: 3)
 
       post plan_comment_threads_path(plan), params: {
-        comment_thread: { anchor_text: selection, body_markdown: "Rendered text feedback." }
+        comment_thread: { anchor_text: selection, anchor_occurrence_source: "rendered", body_markdown: "Rendered text feedback." }
       }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
 
       expect(response).to have_http_status(:ok)
@@ -117,7 +125,7 @@ RSpec.describe "CommentThreads", type: :request do
     plan.update!(current_plan_version: version, current_revision: 3)
     expect {
       post plan_comment_threads_path(plan), params: {
-        comment_thread: { anchor_text: "Hello", body_markdown: "Do not guess." }
+        comment_thread: { anchor_text: "Hello", anchor_occurrence_source: "rendered", body_markdown: "Do not guess." }
       }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
     }.not_to change(CoPlan::CommentThread, :count)
     expect(response).to have_http_status(:unprocessable_content)
@@ -129,7 +137,7 @@ RSpec.describe "CommentThreads", type: :request do
     plan.update!(current_plan_version: version, current_revision: 3)
     expect {
       post plan_comment_threads_path(plan), params: {
-        comment_thread: { anchor_text: "foo|bar baz", body_markdown: "Both cells." }
+        comment_thread: { anchor_text: "foo|bar baz", anchor_occurrence_source: "rendered", body_markdown: "Both cells." }
       }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
     }.not_to change(CoPlan::CommentThread, :count)
     expect(response).to have_http_status(:unprocessable_content)
@@ -140,12 +148,26 @@ RSpec.describe "CommentThreads", type: :request do
     version = create(:plan_version, plan: plan, revision: 3, actor_id: alice.id, content_markdown: content)
     plan.update!(current_plan_version: version, current_revision: 3)
     post plan_comment_threads_path(plan), params: {
-      comment_thread: { anchor_text: "repeat word", anchor_occurrence: 1, body_markdown: "About the paragraph." }
+      comment_thread: { anchor_text: "repeat word", anchor_occurrence: 1, anchor_occurrence_source: "rendered", body_markdown: "About the paragraph." }
     }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
     expect(response).to have_http_status(:ok)
     thread = plan.comment_threads.last
     expect(thread.anchor_start).to eq(content.rindex("repeat word"))
     expect(thread.anchor_end).to eq(thread.anchor_start + "repeat word".length)
+    expect(thread.anchor_occurrence_index).to eq(0)
+  end
+
+  it "does not concatenate separate HTML and paragraph blocks into a false match" do
+    content = "<div>some</div>\n\nthing\n\nsomething\n"
+    version = create(:plan_version, plan: plan, revision: 3, actor_id: alice.id, content_markdown: content)
+    plan.update!(current_plan_version: version, current_revision: 3)
+    post plan_comment_threads_path(plan), params: {
+      comment_thread: { anchor_text: "something", anchor_occurrence_source: "rendered", body_markdown: "Last paragraph." }
+    }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    expect(response).to have_http_status(:ok)
+    thread = plan.comment_threads.last
+    expect(thread.anchor_start).to eq(content.rindex("something"))
+    expect(thread.anchor_end).to eq(thread.anchor_start + "something".length)
     expect(thread.anchor_occurrence_index).to eq(0)
   end
 

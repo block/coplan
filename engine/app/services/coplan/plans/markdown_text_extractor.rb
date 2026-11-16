@@ -100,7 +100,7 @@ module CoPlan
           if child.type == :table_cell
             append_separator(stripped, pos_map, " ") if prev_was_block
             prev_was_block = true
-          elsif BLOCK_TYPES.include?(child.type)
+          elsif BLOCK_TYPES.include?(child.type) || (@source_spans && child.type == :html_block)
             append_separator(stripped, pos_map, "\n") if prev_was_block
             prev_was_block = true
           end

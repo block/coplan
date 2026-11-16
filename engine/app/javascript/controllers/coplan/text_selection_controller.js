@@ -188,11 +188,10 @@ export default class extends Controller {
     this.selectedText = text
     this.selectedContext = this.extractContext(range, text, root)
     this.selectedOccurrence = this.computeOccurrence(range, text, root)
-    this.selectedOccurrenceSource = "rendered"
     this.selectionInEditor = root !== this.contentTarget
+    this.selectedOccurrenceSource = this.selectionInEditor ? "source" : "rendered"
     if (this.selectionInEditor) {
       const startElement = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement
-      if (startElement?.closest(".document-editor__raw")) this.selectedOccurrenceSource = "source"
       const preview = startElement?.closest(".document-editor__block-preview[data-source-from]")
       if (preview?.contains(range.endContainer)) {
         const from = Number.parseInt(preview.dataset.sourceFrom, 10)

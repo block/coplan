@@ -191,4 +191,37 @@ RSpec.describe "Comment anchoring", type: :system do
       expect(thread.anchor_start).to eq(plan_content.rindex("**world**"))
     end
   end
+
+  describe "selecting rich-editor text beside editable math" do
+    let(:plan_content) { "# Math words\n\nThe formula $x$ uses x.\n" }
+
+    it "keeps the editor's source occurrence when TeX is editable" do
+      visit plan_edit_page_path(plan)
+      expect(page).to have_css(".document-editor__body .ProseMirror", wait: 20)
+      page.execute_script <<~JS
+        const root = document.querySelector('.document-editor__body .ProseMirror');
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          if (!node.textContent.includes(' uses x.')) continue;
+          const start = node.textContent.lastIndexOf('x');
+          const range = document.createRange();
+          range.setStart(node, start);
+          range.setEnd(node, start + 1);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          break;
+        }
+        document.querySelector('.document-editor__paper').dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      JS
+      within(".comment-popover") { click_button "Comment" }
+      within("#new-comment-form") do
+        fill_in "comment_thread[body_markdown]", with: "Text beside math."
+        click_button "Comment"
+      end
+      expect(page).not_to have_css("#new-comment-form", visible: true)
+      expect(plan.comment_threads.reload.sole.anchor_start).to eq(plan_content.rindex("x."))
+    end
+  end
 end
