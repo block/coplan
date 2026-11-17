@@ -19,8 +19,14 @@
          data-current-folder-id="<%= folder_id %>"
          data-action="dragstart->coplan--folder-dnd#dragStart dragend->coplan--folder-dnd#dragEnd">
   <%# The file icon spans both text rows — a Drive-style file entry, not an
-      inline glyph. %>
-  <span class="plan-row__icon"><%= plan_type_icon(plan, size: :lg) %></span>
+      inline glyph. It is its own link so it rises above the stretched
+      title link: otherwise that overlay swallows the hover and the type's
+      tooltip never shows. Out of the tab order — the title is the
+      keyboard target for the same plan. %>
+  <%= link_to plan_type_icon(plan, size: :lg), plan_browse_path(plan),
+        class: "plan-row__icon", draggable: false, tabindex: -1,
+        aria: { label: "#{plan.title} (#{plan.plan_type.name})" },
+        data: { turbo_frame: "_top", turbo_prefetch: true } %>
   <div class="plan-row__main">
     <div class="plan-row__line">
       <%# Stretched link: the title's ::after covers the whole card, so a
