@@ -1,19 +1,19 @@
 module CoPlan
   module Reviews
     class Serialize
-      def self.call(request, include_reviewer_email: false)
-        new(request, include_reviewer_email:).call
+      def self.call(request, include_reviewer_username: false)
+        new(request, include_reviewer_username:).call
       end
 
-      def initialize(request, include_reviewer_email: false)
+      def initialize(request, include_reviewer_username: false)
         @request = request
-        @include_reviewer_email = include_reviewer_email
+        @include_reviewer_username = include_reviewer_username
       end
 
       def call
         request = @request
         reviewer = { id: request.reviewer_id, name: request.reviewer.name }
-        reviewer[:email] = request.reviewer.email if @include_reviewer_email
+        reviewer[:username] = request.reviewer.username if @include_reviewer_username
         {
           id: request.id, reviewer: reviewer,
           requirement: request.requirement, status: request.status, review_status: request.review_status, effective_status: request.effective_status,

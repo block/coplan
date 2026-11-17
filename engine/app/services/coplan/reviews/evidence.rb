@@ -29,12 +29,12 @@ module CoPlan
             associations: :plan_version, scope: PlanVersion.select(:id, :revision, :content_sha256)).call
           {
             schema_version: 1, plan_id: plan.id, review_sequence: plan.review_sequence,
-            owner: owner && { id: owner.id, name: owner.name, email: owner.email },
+            owner: owner && { id: owner.id, name: owner.name, username: owner.username },
             reset_reviews_on_change: plan.reset_reviews_on_change,
             approval_scope: SCOPE,
             version: { id: version.id, revision: version.revision,
                        content_sha256: version.content_sha256, content_markdown: version.verified_content! },
-            review_requests: requests.map { |request| Serialize.call(request, include_reviewer_email: true) }
+            review_requests: requests.map { |request| Serialize.call(request, include_reviewer_username: true) }
           }
         end
       end
