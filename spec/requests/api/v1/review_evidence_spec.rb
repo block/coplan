@@ -1,11 +1,11 @@
 require "rails_helper"
 
 RSpec.describe "Review evidence API", type: :request do
-  let(:author) { create(:coplan_user) }
+  let(:author) { create(:coplan_user, email: "author@example.com") }
   let(:plan) { CoPlan::Plans::Create.call(title: "Approval API", content: "# Approval API\n\nExact bytes", user: author) }
   let(:token) { create(:api_token, user: author, raw_token: "parity-fixture") }
   let(:headers) { token; { "Authorization" => "Bearer parity-fixture" } }
-  let(:task) { CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user), actor: author) }
+  let(:task) { CoPlan::Reviews::Request.call(plan: plan, reviewer: create(:coplan_user, email: "reviewer@example.com"), actor: author) }
 
   it "reads a coherent exact body, hash, current human decision and cycle without creating read receipts" do
     receipt = CoPlan::Reviews::Respond.call(request: task, actor: task.reviewer, revision: 1, generation: task.generation, decision: "approved")
@@ -13,10 +13,62 @@ RSpec.describe "Review evidence API", type: :request do
     get review_evidence_api_v1_plan_path(plan), headers: headers
     expect(response).to have_http_status(:ok)
     data = response.parsed_body
+    expect(data.fetch("owner")).to eq("id" => author.id, "name" => author.name, "email" => author.email)
     expect(data.fetch("version")).to include("id" => receipt.plan_version_id, "content_markdown" => "# Approval API\n\nExact bytes", "content_sha256" => Digest::SHA256.hexdigest("# Approval API\n\nExact bytes"))
     expect(data.fetch("review_requests").first).to include("generation" => task.generation, "effective_response_id" => receipt.id, "effective_human_decision" => "approved")
+    expect(data.fetch("review_requests").first.fetch("reviewer")).to eq("id" => task.reviewer_id, "name" => task.reviewer.name, "email" => task.reviewer.email)
+    expect(data.fetch("review_requests").first.fetch("responses").first).to include("user_id" => task.reviewer_id, "actor_type" => "human")
     expect(data.fetch("approval_scope").fetch("excludes")).to include("attachments", "child_plans", "embedded_resources")
     expect([ CoPlan::PlanRead.count, CoPlan::AgentSession.count, CoPlan::Notification.count ]).to eq(counts)
+  end
+
+  it "identifies the controlling author when the plan is filed in someone else's library" do
+    librarian = create(:coplan_user, email: "librarian@example.com")
+    folder = create(:folder, created_by_user: librarian, library: librarian.library)
+    plan.create_placement!(folder: folder, placed_by_user: librarian)
+    get review_evidence_api_v1_plan_path(plan), headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("owner")).to eq("id" => author.id, "name" => author.name, "email" => author.email)
+  end
+
+  it "returns explicit null emails when directory identities have no email" do
+    author.update!(email: nil)
+    task.reviewer.update!(email: nil)
+    get review_evidence_api_v1_plan_path(plan), headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("owner")).to include("id" => author.id, "email" => nil)
+    expect(response.parsed_body.fetch("review_requests").first.fetch("reviewer")).to include("id" => task.reviewer_id, "email" => nil)
+  end
+
+  it "returns a null owner if the creator association is unavailable" do
+    plan
+    # The example host requires a creator; tolerate a missing association in other hosts.
+    allow_any_instance_of(CoPlan::Plan).to receive(:created_by_user).and_return(nil)
+    get review_evidence_api_v1_plan_path(plan), headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("owner")).to be_nil
+  end
+
+  it "keeps agent attribution separate from the reviewer's directory identity" do
+    reviewer_token = create(:api_token, user: task.reviewer, agent_name: "Reviewbot")
+    receipt = CoPlan::Reviews::Respond.call(request: task, actor: task.reviewer, revision: 1,
+      generation: task.generation, decision: "approved", api_token: reviewer_token)
+    get review_evidence_api_v1_plan_path(plan), headers: headers
+    expect(response).to have_http_status(:ok)
+    request = response.parsed_body.fetch("review_requests").first
+    expect(request.fetch("reviewer")).to include("id" => task.reviewer_id, "email" => task.reviewer.email)
+    expect(request.fetch("effective_human_decision")).to be_nil
+    expect(request.fetch("responses").first).to include("id" => receipt.id, "user_id" => task.reviewer_id,
+      "actor_type" => "local_agent", "api_token_id" => reviewer_token.id)
+  end
+
+  it "preserves the reviewer shape on ordinary review lists and snapshots" do
+    task
+    [ api_v1_plan_review_requests_path(plan), snapshot_api_v1_plan_path(plan) ].each do |path|
+      get path, headers: headers
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body.fetch("review_requests").first.fetch("reviewer")).to eq("id" => task.reviewer_id, "name" => task.reviewer.name)
+    end
   end
 
   it "dismisses approvals through the direct operations API and rejects stale submissions" do
@@ -47,6 +99,8 @@ RSpec.describe "Review evidence API", type: :request do
     expect(data.fetch("review_requests").first).to include("review_status" => "approved", "recorded_response_id" => receipt.id,
       "effective_status" => "pending", "effective_human_decision" => nil, "effective_response_id" => nil)
     expect(data.fetch("review_requests").first.fetch("responses").first).to include("revision" => 1, "plan_version_id" => receipt.plan_version_id)
+    expect(data.fetch("review_requests").first.fetch("reviewer")).to include("id" => task.reviewer_id, "email" => task.reviewer.email)
+    expect(data.fetch("review_requests").first.fetch("responses").first).to include("user_id" => task.reviewer_id, "actor_type" => "human")
   end
 
   it "returns the exact historical source after edits and never substitutes current content" do

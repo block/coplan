@@ -21,6 +21,7 @@ module CoPlan
         plan = @plan
         plan.with_lock do
           version = plan.current_plan_version
+          owner = plan.created_by_user
           requests = plan.review_requests.includes(:reviewer, :current_response, :review_responses).order(:id).to_a
           # Receipts need historical identity and hashes, not entire source
           # bodies. Keep only the current source read inside this evidence lock.
@@ -28,11 +29,12 @@ module CoPlan
             associations: :plan_version, scope: PlanVersion.select(:id, :revision, :content_sha256)).call
           {
             schema_version: 1, plan_id: plan.id, review_sequence: plan.review_sequence,
+            owner: owner && { id: owner.id, name: owner.name, email: owner.email },
             reset_reviews_on_change: plan.reset_reviews_on_change,
             approval_scope: SCOPE,
             version: { id: version.id, revision: version.revision,
                        content_sha256: version.content_sha256, content_markdown: version.verified_content! },
-            review_requests: requests.map { |request| Serialize.call(request) }
+            review_requests: requests.map { |request| Serialize.call(request, include_reviewer_email: true) }
           }
         end
       end
