@@ -197,15 +197,17 @@ export default class extends Controller {
   // the reader's remembered toggle, heading text, then outline position —
   // typing in a heading changes both its editor id and its text.
   assembleOutline(entries) {
-    const previousById = this._expanded || new Map()
+    const previousById = new Map([...(this._expanded || [])].map(([id, expanded]) =>
+      [id, { expanded, automatic: this._autoExpanded?.has(id) || false }]))
     const previousByText = new Map()
     const previousByPosition = new Map()
-    previousById.forEach((expanded, id) => {
-      previousByText.set(this._textById.get(id), expanded)
-      previousByPosition.set(this._positionById.get(id), expanded)
+    previousById.forEach((state, id) => {
+      previousByText.set(this._textById.get(id), state)
+      previousByPosition.set(this._positionById.get(id), state)
     })
     const stored = this.storedOutlineState()
     this._expanded = new Map()
+    this._autoExpanded = new Set()
     this._textById = new Map()
     this._positionById = new Map()
     this._parentById = new Map()
@@ -265,9 +267,12 @@ export default class extends Controller {
       button.dataset.action = "coplan--content-nav#toggleSection"
       button.innerHTML = CHEVRON
       entry.row.prepend(button)
-      const remembered = typeof stored[entry.id] === "boolean" ? stored[entry.id] : undefined
-      this._expanded.set(entry.id, previousById.get(entry.id) ?? remembered ?? previousByText.get(entry.text) ??
-        previousByPosition.get(this._positionById.get(entry.id)) ?? activeAncestors.has(entry.id))
+      const remembered = typeof stored[entry.id] === "boolean" ? { expanded: stored[entry.id], automatic: false } : undefined
+      const state = previousById.get(entry.id) ?? remembered ?? previousByText.get(entry.text) ??
+        previousByPosition.get(this._positionById.get(entry.id)) ??
+        { expanded: activeAncestors.has(entry.id), automatic: activeAncestors.has(entry.id) }
+      this._expanded.set(entry.id, state.expanded)
+      if (state.automatic) this._autoExpanded.add(entry.id)
       this.renderExpanded(entry.id)
     }
     const focused = this.listTarget.contains(document.activeElement) ? document.activeElement : null
@@ -298,7 +303,10 @@ export default class extends Controller {
     let changed = false
     ids.forEach(id => {
       if (!this._expanded.has(id)) return
-      if (state) state[id] = expanded
+      if (state) {
+        state[id] = expanded
+        this._autoExpanded?.delete(id)
+      }
       if (this._expanded.get(id) === expanded) return
       this._expanded.set(id, expanded)
       this.renderExpanded(id)
@@ -311,6 +319,16 @@ export default class extends Controller {
   revealEntry(id, { includeSelf = false } = {}) {
     const ids = includeSelf ? [ id ] : []
     for (let parent = this._parentById?.get(id); parent; parent = this._parentById.get(parent)) ids.push(parent)
+    this._autoExpanded ||= new Set()
+    // Keep automatically opened sections only while reading inside them.
+    // Explicit toggles relinquish automatic ownership in setExpanded.
+    const currentPath = new Set([ id, ...ids ])
+    const leaving = [...this._autoExpanded].filter(section => !currentPath.has(section))
+    this.setExpanded(leaving, false)
+    leaving.forEach(section => this._autoExpanded.delete(section))
+    ids.forEach(section => {
+      if (this._expanded.get(section) === false) this._autoExpanded.add(section)
+    })
     this.setExpanded(ids, true)
   }
 
@@ -514,6 +532,8 @@ export default class extends Controller {
 
     this._ignoreScroll = true
     this._activeHeadingId = outlineId
+    this._revealedActiveId = outlineId
+    this.revealEntry(outlineId)
     this._setActiveLink(outlineId)
 
     this._revealDeckSlide(heading)

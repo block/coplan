@@ -66,7 +66,7 @@ shipped types, including Scratchpad, PRD, Test Plan, and Handoff.
 | document-title | One editable title; autosave keeps the URL stable until Done; title boundaries and empty-title behavior |
 | image-resizing | Drop or paste files to upload and embed; duplicate drops reuse files; resize images, wrap prose, Shift+Enter beside, Enter below |
 | file-uploads | Drop the same image or file again: one attachment and stored copy, multiple embeds; renamed copies, Dual, and Undo |
-| nested-outline | Ten numbered sections with sub-sections. The outline starts folded except where you are reading; chevrons, Left/Right, and expand/collapse all toggle it; scrolling or a `#section` link unfolds; folded sections total their discussions; toggles survive reload |
+| nested-outline | Ten numbered sections with sub-sections. The outline starts folded except where you are reading; chevrons, Left/Right, and expand/collapse all toggle it; scrolling or a `#section` link unfolds temporarily, then closes when you leave; manually opened sections stay open; folded sections total their discussions; toggles survive reload |
 | callout-gallery | `> [!SUMMARY]`, `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, and `[!CAUTION]` callouts, a custom label, nested list and code, plain and escaped quotes, and both deck themes; comment inside a callout, or edit one in Editor and check Raw |
 | math-gallery | KaTeX math: inline, display, and fenced formulas, math in lists and tables, a six-row slide equation, dollar amounts that stay text, and invalid math shown as source; comment on the text around a formula |
 

@@ -1,4 +1,4 @@
-This review walks a fictional order service through ten numbered areas, each with its own sub-sections. Use it to try the outline on a document taller than the screen: sections fold, the outline follows your reading position, and a folded section totals the open discussions inside it.
+This review walks a fictional order service through ten numbered areas, each with its own sub-sections. Use it to try the outline on a document taller than the screen: sections fold, the outline opens sections as you read and closes them when you leave (sections you open yourself stay open), and a folded section totals the open discussions inside it.
 
 ## 1. Scope
 

@@ -105,7 +105,7 @@ RSpec.describe "Collapsible document outline", type: :system do
       expect_expanded("5. Availability", false)
     end
 
-    it "unfolds the section containing the heading scrolled into view and leaves others alone" do
+    it "closes automatically opened sections on leaving while preserving manual expansions" do
       visit plan_page_path(plan)
       chevron("2. Context").click
       expect_expanded("2. Context", true)
@@ -117,6 +117,27 @@ RSpec.describe "Collapsible document outline", type: :system do
       expect_expanded("2. Context", true)
       expect_expanded("8. Observability", false)
 
+      scroll_to_heading("9.1 Operations detail 1")
+      expect_expanded("9. Operations", true)
+      expect_expanded("6. Dependencies", false)
+      expect_expanded("2. Context", true)
+
+      scroll_to_heading("9.2 Operations detail 2")
+      expect_expanded("9. Operations", true)
+      scroll_to_heading("9. Operations")
+      expect_expanded("9. Operations", true)
+
+      scroll_to_heading("6.1 Dependencies detail 1")
+      expect_expanded("6. Dependencies", true)
+      expect_expanded("9. Operations", false)
+    end
+
+    it "lets manual toggles take ownership of an automatically opened section" do
+      visit plan_page_path(plan)
+      scroll_to_heading("6.2 Dependencies detail 2")
+      expect_expanded("6. Dependencies", true)
+      chevron("6. Dependencies").click
+      chevron("6. Dependencies").click
       scroll_to_heading("9.1 Operations detail 1")
       expect_expanded("9. Operations", true)
       expect_expanded("6. Dependencies", true)
@@ -181,6 +202,18 @@ RSpec.describe "Collapsible document outline", type: :system do
       expect(page).to have_css(".content-nav__link-text", exact_text: "10. Findings and actions", wait: 10)
       expect_expanded("3. Architecture", true)
       expect_expanded("4. Correctness", false)
+    end
+
+    it "still closes automatic sections after a live outline rebuild" do
+      visit plan_page_path(plan)
+      expect(page).to have_css("turbo-cable-stream-source[connected]", visible: :all)
+      scroll_to_heading("6.2 Dependencies detail 2")
+      expect_expanded("6. Dependencies", true)
+      replace_content(long_content.sub("## 10. Findings", "## 10. Findings and actions"))
+      expect(page).to have_css(".content-nav__link-text", exact_text: "10. Findings and actions")
+      scroll_to_heading("9.1 Operations detail 1")
+      expect_expanded("9. Operations", true)
+      expect_expanded("6. Dependencies", false)
     end
 
     it "keeps keyboard focus on a disclosure when a live edit rebuilds the outline" do
