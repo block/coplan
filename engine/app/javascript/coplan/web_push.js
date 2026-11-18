@@ -1,5 +1,5 @@
 // Web Push API helpers shared by Stimulus controllers (settings UI, banner).
-// No DOM, no Stimulus — pure functions over navigator.serviceWorker / PushManager.
+// Browser subscriptions and their registration with the signed-in account.
 
 export function isSupported() {
   return (
@@ -19,7 +19,16 @@ export async function isSubscribed() {
   const reg = await getRegistration()
   if (!reg) return false
   const sub = await reg.pushManager.getSubscription()
-  return !!sub
+  if (!sub) return false
+
+  const bytes = new TextEncoder().encode(sub.toJSON().endpoint)
+  const hash = await crypto.subtle.digest("SHA-256", bytes)
+  const digest = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, "0")).join("")
+  const url = new URL(endpointUrl(), window.location.origin)
+  url.searchParams.set("endpoint_digest", digest)
+  const response = await fetch(url, { headers: headers(), credentials: "same-origin", cache: "no-store" })
+  if (!response.ok) throw new Error(`Subscription check failed: ${response.status}`)
+  return (await response.json()).subscribed === true
 }
 
 // Prompt for permission, register the SW, subscribe via PushManager,

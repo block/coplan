@@ -46,16 +46,15 @@ module CoPlan
       DispatchNotificationJob.perform_later(id) if CoPlan.configuration.notification_delivery_handlers.any?
     end
 
-    # Fan-out one WebPushDeliveryJob per active subscription belonging to the
-    # recipient. Quietly skips when Web Push isn't configured (host hasn't
+    # Fan-out to at most MAX_PER_USER most recently registered devices for
+    # the recipient. Quietly skips when Web Push isn't configured (host hasn't
     # set VAPID keys) or the recipient hasn't subscribed any browsers yet.
     def enqueue_web_push_deliveries
       return unless CoPlan.configuration.web_push_configured?
 
       # Bound fan-out immediately, including accounts already over the cap
       # before it was introduced and which haven't subscribed again yet.
-      user.web_push_subscriptions.order(last_seen_at: :desc, id: :desc)
-        .limit(WebPushSubscription::MAX_PER_USER).each do |subscription|
+      user.web_push_subscriptions.for_delivery.each do |subscription|
         WebPushDeliveryJob.perform_later(
           notification_id: id,
           subscription_id: subscription.id

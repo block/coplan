@@ -7,9 +7,11 @@ module CoPlan
     # Every notification queues one delivery job per subscription on the
     # job worker that runs every queue, so a person's device count is a
     # load multiplier. Ten covers each browser and device a person
-    # realistically uses; subscribing an eleventh drops the one seen least
-    # recently.
+    # realistically uses; subscribing an eleventh drops the one registered
+    # least recently. Receiving a notification does not refresh registration.
     MAX_PER_USER = 10
+
+    scope :for_delivery, -> { order(last_seen_at: :desc, id: :desc).limit(MAX_PER_USER) }
 
     validates :endpoint, presence: true
     validates :p256dh_key, presence: true
@@ -68,7 +70,7 @@ module CoPlan
     def self.prune_for(user)
       # Include any endpoint recovered after a cross-account collision,
       # even when it was absent from the transaction's initial snapshot.
-      keep = where(user: user).order(last_seen_at: :desc, id: :desc).limit(MAX_PER_USER).lock.pluck(:id)
+      keep = where(user: user).for_delivery.lock.pluck(:id)
       where(user: user).where.not(id: keep).delete_all
     end
     private_class_method :prune_for

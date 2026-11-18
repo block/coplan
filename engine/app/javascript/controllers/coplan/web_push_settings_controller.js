@@ -2,12 +2,13 @@ import { Controller } from "@hotwired/stimulus"
 import * as WebPush from "coplan/web_push"
 
 // Drives the Notifications card on the Settings page. Reflects the current
-// browser's subscription state (which the server can't know — it's per-device).
+// browser's subscription and its server registration for the current account.
 export default class extends Controller {
   static targets = ["enableButton", "disableButton", "status"]
   static values  = { devicesUrl: { type: String, default: "" } }
 
   async connect() {
+    this._setStatus("Checking notifications…")
     await this._refresh()
   }
 
@@ -63,11 +64,19 @@ export default class extends Controller {
       return
     }
 
-    const subscribed = await WebPush.isSubscribed()
+    let subscribed
+    try {
+      subscribed = await WebPush.isSubscribed()
+    } catch {
+      this._setStatus("Couldn’t check notifications. Check your connection and try again.")
+      this._show(this.enableButtonTarget, true)
+      this._show(this.disableButtonTarget, false)
+      return
+    }
     this._show(this.enableButtonTarget, !subscribed)
     this._show(this.disableButtonTarget, subscribed)
-    if (!this.statusTarget.textContent) {
-      this._setStatus(subscribed ? "Enabled on this device." : "")
+    if (!this.statusTarget.textContent || this.statusTarget.textContent === "Checking notifications…") {
+      this._setStatus(subscribed ? "Enabled on this device." : "Not enabled on this device.")
     }
   }
 
