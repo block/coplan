@@ -5,12 +5,11 @@ RSpec.describe CoPlan::LinkPreviews do
   let(:base_url) { "https://coplan.example.test/app" }
   let(:plan) { create(:plan, :draft, summary: nil) }
 
-  it "resolves canonical, history, and version URLs across every state without visibility policy" do
+  it "resolves published canonical, history, and version URLs, including archived plans" do
     expect(CoPlan::Plan).not_to receive(:visible_to)
     expect(CoPlan::PlanPolicy).not_to receive(:new)
 
     [
-      { visibility: "draft", archived_at: nil },
       { visibility: "published", archived_at: nil },
       { visibility: "published", archived_at: Time.current }
     ].each do |state|
@@ -26,21 +25,21 @@ RSpec.describe CoPlan::LinkPreviews do
     end
   end
 
-  it "resolves a draft to a contentless private preview and a published plan to its content" do
-    plan.created_by_user.update!(name: "Ada Lovelace", avatar_url: "https://example.test/ada.png")
-    plan.update!(summary: "Acquisition target and price", metadata: { "image_url" => "https://example.test/i.png" })
-    url = "#{base_url}/plans/#{plan.id}"
-
-    private_preview = described_class.resolve(url: url, base_url: base_url)
-    expect(private_preview.to_h.slice(:title, :description, :context, :image_url, :author_name, :author_avatar_url))
-      .to eq(title: "Private plan", description: nil, context: "Private", image_url: nil,
-             author_name: nil, author_avatar_url: nil)
-    expect(private_preview.to_h.except(:canonical_url).values.join(" ")).not_to include(plan.title, "Acquisition", "Ada")
-
-    plan.update!(visibility: "published")
-    published = described_class.resolve(url: url, base_url: base_url)
-    expect(published.title).to eq(plan.title)
-    expect(published.description).to eq("Acquisition target and price")
+  [ nil, Time.current ].each do |archived_at|
+    it "ignores #{archived_at ? 'archived' : 'active'} private plans across legacy and browsable paths" do
+      plan.update!(archived_at: archived_at)
+      version = plan.current_plan_version
+      [
+        "/plans/#{plan.id}",
+        "/plans/#{plan.id}/history",
+        "/plans/#{plan.id}/versions/#{version.id}/diff",
+        "/#{plan.reload.url_path}",
+        "/#{plan.url_path}/edit",
+        "/#{plan.url_path}/history/#{version.revision}/diff"
+      ].each do |path|
+        expect(described_class.resolve(url: "#{base_url}#{path}", base_url: base_url)).to be_nil
+      end
+    end
   end
 
   it "resolves browsable URLs — canonical, edit, history, and version sub-pages" do

@@ -16,24 +16,37 @@ module CoPlan
 
         plan = plan_from_legacy_path(supplied.path, base.path) ||
                plan_from_browsable_path(supplied.path, base.path)
-        return unless plan
+        # Private plans, including archived drafts, do not unfurl in Slack.
+        return unless plan&.published?
 
-        # A resolved link is pasted into a channel Coplan knows nothing
-        # about, and everyone in it reads the unfurl. Coplan never surfaces
-        # a draft to people it wasn't given to (PlanPolicy#listed?), so a
-        # draft's unfurl says only that the link is a private plan.
-        plan.published? ? for_plan(plan, base_url: base_url) : private_plan(plan, base_url: base_url)
+        for_plan(plan, base_url: base_url)
       rescue URI::InvalidURIError
         nil
       end
 
       def for_plan(plan, base_url:)
+        # This builder is also used by the server-rendered OG view, where
+        # request specs and local reverse proxies may expose an HTTP origin.
+        # Resolver inputs remain subject to the strict transport checks.
+        base = parse_url(base_url, enforce_https: false)
+        raise ArgumentError, "invalid base_url" unless base
+
+        canonical = base.dup
+        # The browsable URL is canonical — /<handle>/<slug-path> — falling
+        # back to the legacy /plans/<id> path only when url_path is nil
+        # (a plan with no library or slug, which shouldn't happen in
+        # practice since both are NOT NULL after the backfill migration).
+        # Percent-encode each segment so Unicode slugs (Japanese, Arabic,
+        # accented Latin) don't raise URI::InvalidComponentError.
+        path_suffix = plan.url_path || "plans/#{plan.id}"
+        canonical.path = join_path(base.path, encode_path_segments(path_suffix))
+        canonical.query = canonical.fragment = nil
         description = plan.summary.presence || plain_content(plan)
 
         LinkPreview.new(
           kind: "plan",
           external_id: plan.id,
-          canonical_url: canonical_url(plan, base_url),
+          canonical_url: canonical.to_s,
           title: plan.title,
           description: truncate(description),
           # Published is the unmarked normal state; only Private/Archived get
@@ -51,43 +64,6 @@ module CoPlan
       end
 
       private
-
-      # No title, text, type, author or image: only that the link is a
-      # plan, and that it is private.
-      def private_plan(plan, base_url:)
-        LinkPreview.new(
-          kind: "plan",
-          external_id: plan.id,
-          canonical_url: canonical_url(plan, base_url),
-          title: "Private plan",
-          description: nil,
-          context: "Private",
-          image_url: nil,
-          author_name: nil,
-          author_avatar_url: nil,
-          cache_key: [ "plan", plan.id, "private" ].join(":")
-        )
-      end
-
-      def canonical_url(plan, base_url)
-        # This builder is also used by the server-rendered OG view, where
-        # request specs and local reverse proxies may expose an HTTP origin.
-        # Resolver inputs remain subject to the strict transport checks.
-        base = parse_url(base_url, enforce_https: false)
-        raise ArgumentError, "invalid base_url" unless base
-
-        canonical = base.dup
-        # The browsable URL is canonical — /<handle>/<slug-path> — falling
-        # back to the legacy /plans/<id> path only when url_path is nil
-        # (a plan with no library or slug, which shouldn't happen in
-        # practice since both are NOT NULL after the backfill migration).
-        # Percent-encode each segment so Unicode slugs (Japanese, Arabic,
-        # accented Latin) don't raise URI::InvalidComponentError.
-        path_suffix = plan.url_path || "plans/#{plan.id}"
-        canonical.path = join_path(base.path, encode_path_segments(path_suffix))
-        canonical.query = canonical.fragment = nil
-        canonical.to_s
-      end
 
       def plan_state_flag(plan)
         return "Archived" if plan.archived?

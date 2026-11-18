@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe CoPlan::Slack::UnfurlJob do
   let(:client) { instance_double(CoPlan::Slack::WebClient) }
-  let!(:plan) { create(:plan) }
+  let!(:plan) { create(:plan, :published) }
 
   before do
     config = CoPlan::Slack.configuration
@@ -13,7 +13,7 @@ RSpec.describe CoPlan::Slack::UnfurlJob do
   end
 
   it "batches posted-message previews under exact URLs and skips unsupported links" do
-    other_plan = create(:plan)
+    other_plan = create(:plan, :published)
     exact = "https://coplan.example.test/plans/#{plan.id}?from=slack"
     other = "https://coplan.example.test/plans/#{other_plan.id}#goals"
     expect(client).to receive(:chat_unfurl) do |channel:, ts:, unfurls:|
@@ -50,21 +50,29 @@ RSpec.describe CoPlan::Slack::UnfurlJob do
       "channel" => "C1", "message_ts" => "123.4", "links" => [ { "url" => exact } ])
   end
 
-  it "posts a draft's unfurl with no title, author or text, and a published plan's with them" do
-    retitle_plan(plan, "Reorg of the payments team")
-    plan.update!(summary: "Who moves where")
-    exact = "https://coplan.example.test/plans/#{plan.id}"
-    posted = []
-    allow(client).to receive(:chat_unfurl) { |unfurls:, **| posted << unfurls.fetch(exact).to_json }
-    event = { "channel" => "C1", "message_ts" => "123.4", "links" => [ { "url" => exact } ] }
+  %w[composer conversations_history].each do |source|
+    it "does not call Slack for private-only #{source} links" do
+      plan.update!(visibility: "draft")
+      archived = create(:plan, :draft, archived_at: Time.current)
+      expect(client).not_to receive(:chat_unfurl)
 
-    described_class.perform_now(event)
-    plan.update!(visibility: "published")
-    described_class.perform_now(event)
+      described_class.perform_now(
+        "source" => source, "unfurl_id" => "U1", "channel" => "C1", "message_ts" => "123.4",
+        "links" => [ plan, archived ].map { |private_plan| { "url" => "https://coplan.example.test/plans/#{private_plan.id}" } })
+    end
 
-    expect(posted.first).to include("Private plan")
-    expect(posted.first).not_to include("Reorg", "Who moves where", plan.created_by_user.name)
-    expect(posted.last).to include("Reorg of the payments team", "Who moves where")
+    it "only unfurls published plans in a mixed #{source} batch" do
+      draft = create(:plan, :draft)
+      exact = "https://coplan.example.test/plans/#{plan.id}"
+      expect(client).to receive(:chat_unfurl) do |unfurls:, **|
+        expect(unfurls.keys).to eq([ exact ])
+        expect(unfurls.fetch(exact).dig(:blocks, 0, :text, :text)).to include(plan.title)
+      end
+
+      described_class.perform_now(
+        "source" => source, "unfurl_id" => "U1", "channel" => "C1", "message_ts" => "123.4",
+        "links" => [ { "url" => "https://coplan.example.test/plans/#{draft.id}" }, { "url" => exact } ])
+    end
   end
 
   it "does not call Slack when every link is unsupported" do
