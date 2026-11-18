@@ -53,7 +53,7 @@ RSpec.describe "Interactive components", type: :system do
   it "keeps the script in one editable block and preserves its exact source in Raw mode" do
     plan = CoPlan::Plans::Create.call(title: "Components", content: source, user: author, actor_type: "human")
     visit plan_edit_page_path(plan)
-    expect(page).to have_field("Component Markdown", count: 2, wait: 20)
+    expect(page).to have_css('textarea[aria-label="Component Markdown"]', count: 2, wait: 20)
     input = all('textarea[aria-label="Component Markdown"]').first
     changed = input.value.sub('"Retry queue"', '"Delayed retry"')
     input.set(changed)
