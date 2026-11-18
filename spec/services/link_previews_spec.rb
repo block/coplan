@@ -26,6 +26,23 @@ RSpec.describe CoPlan::LinkPreviews do
     end
   end
 
+  it "resolves a draft to a contentless private preview and a published plan to its content" do
+    plan.created_by_user.update!(name: "Ada Lovelace", avatar_url: "https://example.test/ada.png")
+    plan.update!(summary: "Acquisition target and price", metadata: { "image_url" => "https://example.test/i.png" })
+    url = "#{base_url}/plans/#{plan.id}"
+
+    private_preview = described_class.resolve(url: url, base_url: base_url)
+    expect(private_preview.to_h.slice(:title, :description, :context, :image_url, :author_name, :author_avatar_url))
+      .to eq(title: "Private plan", description: nil, context: "Private", image_url: nil,
+             author_name: nil, author_avatar_url: nil)
+    expect(private_preview.to_h.except(:canonical_url).values.join(" ")).not_to include(plan.title, "Acquisition", "Ada")
+
+    plan.update!(visibility: "published")
+    published = described_class.resolve(url: url, base_url: base_url)
+    expect(published.title).to eq(plan.title)
+    expect(published.description).to eq("Acquisition target and price")
+  end
+
   it "resolves browsable URLs — canonical, edit, history, and version sub-pages" do
     expect(CoPlan::Plan).not_to receive(:visible_to)
     expect(CoPlan::PlanPolicy).not_to receive(:new)

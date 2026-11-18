@@ -50,6 +50,8 @@ by this adapter.
 
 Point Slack's Events API request URL at `/integrations/slack/events`. Configure the `links:read` and `links:write` bot scopes, subscribe to `link_shared`, and register the Coplan domain under **App unfurl domains**. The endpoint must be reachable from Slack over HTTPS.
 
+Everyone in a channel can read an unfurl, so a private plan unfurls as "Private plan" with no title, author, type, image or text. Published and archived plans show their title, summary and author.
+
 ## Brand the Slack app
 
 Slack takes the name and icon shown above an unfurl from the app profile, not

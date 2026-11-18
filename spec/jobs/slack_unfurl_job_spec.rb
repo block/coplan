@@ -50,6 +50,23 @@ RSpec.describe CoPlan::Slack::UnfurlJob do
       "channel" => "C1", "message_ts" => "123.4", "links" => [ { "url" => exact } ])
   end
 
+  it "posts a draft's unfurl with no title, author or text, and a published plan's with them" do
+    retitle_plan(plan, "Reorg of the payments team")
+    plan.update!(summary: "Who moves where")
+    exact = "https://coplan.example.test/plans/#{plan.id}"
+    posted = []
+    allow(client).to receive(:chat_unfurl) { |unfurls:, **| posted << unfurls.fetch(exact).to_json }
+    event = { "channel" => "C1", "message_ts" => "123.4", "links" => [ { "url" => exact } ] }
+
+    described_class.perform_now(event)
+    plan.update!(visibility: "published")
+    described_class.perform_now(event)
+
+    expect(posted.first).to include("Private plan")
+    expect(posted.first).not_to include("Reorg", "Who moves where", plan.created_by_user.name)
+    expect(posted.last).to include("Reorg of the payments team", "Who moves where")
+  end
+
   it "does not call Slack when every link is unsupported" do
     expect(client).not_to receive(:chat_unfurl)
     described_class.perform_now("links" => [ { "url" => "https://elsewhere.test/x" } ])
