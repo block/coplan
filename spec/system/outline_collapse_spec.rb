@@ -71,8 +71,8 @@ RSpec.describe "Collapsible document outline", type: :system do
 
       expect(page).to have_css(".content-nav__disclosure", count: 10)
       expect(page).to have_css(".content-nav__disclosure[aria-expanded='false']", count: 10)
-      # The title holds the whole outline, so it never folds.
-      expect(page).to have_no_css(".content-nav__disclosure[aria-label='Long review sub-sections']")
+      # The document title belongs in the top bar, not the outline.
+      expect_entry_visible("Long review", false)
       expect_entry_visible("4. Correctness", true)
       expect_entry_visible("4.1 Correctness detail 1", false)
       expect(page).to have_no_button("Expand all sections")
@@ -117,11 +117,11 @@ RSpec.describe "Collapsible document outline", type: :system do
       expect_expanded("2. Context", true)
 
       architecture = find(".content-nav__link-text", exact_text: "3. Architecture")
-      before_top = architecture.evaluate_script("this.getBoundingClientRect().top")
+      before_top = architecture.evaluate_script("this.getBoundingClientRect().top - this.closest('nav').getBoundingClientRect().top")
       architecture.click
       expect_expanded("3. Architecture", true)
       expect_expanded("2. Context", true)
-      expect(architecture.evaluate_script("this.getBoundingClientRect().top")).to be_within(1).of(before_top)
+      expect(architecture.evaluate_script("this.getBoundingClientRect().top - this.closest('nav').getBoundingClientRect().top")).to be_within(1).of(before_top)
 
       visit current_url
       expect_expanded("2. Context", true)
@@ -321,6 +321,22 @@ RSpec.describe "Collapsible document outline", type: :system do
         top.between?(0, page.evaluate_script("window.innerHeight"))
       end
     end
+  end
+
+  it "omits only the document title and preserves genuine H1 sections in reader and editor" do
+    replace_content("# Long review\n\nIntroduction.\n\n## Scope\n\nDetails.\n\n# Separate section\n\nMore.\n\n## Children\n\nDetails.\n")
+    visit plan_page_path(plan)
+    expect(page).to have_css("#plan-title", text: "Long review")
+    expect_entry_visible("Long review", false)
+    expect_entry_visible("Scope", true)
+    expect_entry_visible("Separate section", true)
+
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror > h1:first-child", text: "Long review")
+    expect_entry_visible("Long review", false)
+    expect_entry_visible("Separate section", true)
+    find(".content-nav__link-text", exact_text: "Separate section").click
+    expect(page).to have_current_path(/#separate-section\z/, url: true)
   end
 
   it "leaves a short outline flat and fully expanded" do

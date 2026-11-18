@@ -57,10 +57,13 @@ export default class extends Controller {
     // slide. Scan the whole content column either way — scanning the first
     // rendered block gave a deck an outline of slide 1 and nothing else.
     const headings = Array.from(documentRoot.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3, .markdown-rendered h4, .markdown-rendered h5, .markdown-rendered h6"))
-    // The title is part of the document and is a navigable heading too.
-    this._headings = headings
+    // The leading document title already lives in the navigation bar. Only
+    // omit that node: later H1 sections and presentation slide titles remain.
+    const body = documentRoot.querySelector("#plan-content-body") || documentRoot
+    const documentTitle = body.querySelector(":scope > .markdown-rendered:first-child > h1:first-child")
+    this._headings = headings.filter(heading => heading !== documentTitle)
 
-    if (headings.length === 0) {
+    if (this._headings.length === 0) {
       this.assembleOutline([])
       this.sidebarTarget.style.display = "none"
       if (this.hasShowBtnTarget) this.showBtnTarget.style.display = "none"
@@ -411,7 +414,7 @@ export default class extends Controller {
   }
 
   editorHeadings() {
-    return Array.from(this._editorRoot?.querySelectorAll(":scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6") || [])
+    return Array.from(this._editorRoot?.querySelectorAll(":scope > h1:not(:first-child), :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6") || [])
   }
 
   editorHeadingSignature(headings) {
