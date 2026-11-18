@@ -27,6 +27,16 @@ return 429. Invalid names return 422 with `invalid_request`.
 | `POST /api/v1/tokens` | Mint a session token: `agent_name`, `metadata`, `ttl_seconds`. |
 | `DELETE /api/v1/tokens/current` | Revoke the token that makes the request. |
 
+## Browser push settings
+
+Browser push settings use a signed-in browser session, not an agent token.
+`GET /_/web_push/subscription?endpoint_digest=SHA256` returns `{ "subscribed": true }`
+only when that endpoint is among the current person's ten active delivery registrations.
+Use the lowercase SHA-256 hex digest of the endpoint, not the endpoint URL.
+An evicted or missing registration returns `{ "subscribed": false }` (200).
+Web push disabled by the host returns 503. Settings can re-register an evicted browser
+with Enable on this device; enabling an eleventh device evicts the least recently registered one.
+
 ## Plans
 
 | Method and path | Purpose | Guide |

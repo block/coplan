@@ -15,6 +15,51 @@ RSpec.describe "Web Push Subscriptions", type: :request do
     expect(meta["content"]).to eq(web_push_subscription_path)
   end
 
+  describe "GET /web_push/subscription" do
+    it "reports registration for the current account without caching it" do
+      sub = create(:coplan_web_push_subscription, user: user)
+      get web_push_subscription_path, params: { endpoint_digest: sub.endpoint_digest }, as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to eq("subscribed" => true)
+      expect(response.headers["Cache-Control"]).to include("no-store")
+
+      sub.destroy!
+      get web_push_subscription_path, params: { endpoint_digest: sub.endpoint_digest }, as: :json
+      expect(response.parsed_body).to eq("subscribed" => false)
+    end
+
+    it "does not expose another account's registration" do
+      sub = create(:coplan_web_push_subscription)
+      get web_push_subscription_path, params: { endpoint_digest: sub.endpoint_digest }, as: :json
+
+      expect(response.parsed_body).to eq("subscribed" => false)
+    end
+
+    it "reports an existing subscription outside the delivery cap as inactive" do
+      old = create(:coplan_web_push_subscription, user: user, last_seen_at: 1.day.ago)
+      create_list(:coplan_web_push_subscription, CoPlan::WebPushSubscription::MAX_PER_USER,
+        user: user, last_seen_at: Time.current)
+      get web_push_subscription_path, params: { endpoint_digest: old.endpoint_digest }, as: :json
+
+      expect(response.parsed_body).to eq("subscribed" => false)
+    end
+
+    it "requires a browser session" do
+      reset!
+      get web_push_subscription_path, params: { endpoint_digest: "unknown" }, as: :json
+
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it "returns 503 when Web Push is not configured" do
+      allow(CoPlan.configuration).to receive(:web_push_configured?).and_return(false)
+      get web_push_subscription_path, params: { endpoint_digest: "unknown" }, as: :json
+
+      expect(response).to have_http_status(:service_unavailable)
+    end
+  end
+
   describe "POST /web_push/subscription" do
     let(:payload) do
       {

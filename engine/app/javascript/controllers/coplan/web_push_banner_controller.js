@@ -42,7 +42,11 @@ export default class extends Controller {
     if (localStorage.getItem(PERMANENT_KEY) === "1") return false
     if (!WebPush.isSupported()) return false
     if (WebPush.permission() === "denied") return false
-    if (await WebPush.isSubscribed()) return false
+    try {
+      if (await WebPush.isSubscribed()) return false
+    } catch {
+      return false
+    }
     if (this._dismissCount() >= this.maxDismissalsValue) return false
     return true
   }

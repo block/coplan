@@ -4,7 +4,7 @@ module CoPlan
       def index
         @agent_session_count = current_user.api_tokens.sessions.usable.count
         @personal_token_count = current_user.api_tokens.personal.active.count
-        @web_push_subscriptions = current_user.web_push_subscriptions.order(created_at: :desc)
+        @web_push_subscriptions = current_user.web_push_subscriptions.for_delivery
       end
 
       # Saves the light/dark mode (docs/THEMES.md).
