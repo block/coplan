@@ -89,6 +89,7 @@ RSpec.describe CoPlan::DevelopmentSeed do
       plan = seeded_plan("nested-outline")
       expect(plan.current_content.scan(/^## \d+\. /).size).to eq(10)
       expect(plan.current_content.scan(/^### \d+\.\d+ /).size).to be >= 30
+      expect(plan.current_content).to include("#### 4.2.1 Retry ownership", "##### 4.2.1.1 Recovering after a timeout", "###### 4.2.1.1.1 Reuse the original key")
       expect(plan.comment_threads.where(status: "open").pluck(:anchor_text)).to contain_exactly(
         "idempotency key scoped to the cart", "Keys expire after twenty-four hours",
         "older than thirty minutes", "a reason for every order change")

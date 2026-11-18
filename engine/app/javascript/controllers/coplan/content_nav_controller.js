@@ -10,7 +10,7 @@ const COLLAPSE_THRESHOLD = 12
 const CHEVRON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>'
 
 export default class extends Controller {
-  static targets = ["sidebar", "list", "content", "toggleBtn", "showBtn", "editorToggleBtn", "commentsCount", "treeControls"]
+  static targets = ["sidebar", "list", "content", "toggleBtn", "showBtn", "editorToggleBtn", "commentsCount"]
   static values = { visible: { type: Boolean, default: true }, planId: String }
 
   connect() {
@@ -56,7 +56,7 @@ export default class extends Controller {
     // A document renders one .markdown-rendered; a deck renders one per
     // slide. Scan the whole content column either way — scanning the first
     // rendered block gave a deck an outline of slide 1 and nothing else.
-    const headings = Array.from(documentRoot.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3"))
+    const headings = Array.from(documentRoot.querySelectorAll(".markdown-rendered h1, .markdown-rendered h2, .markdown-rendered h3, .markdown-rendered h4, .markdown-rendered h5, .markdown-rendered h6"))
     // The title is part of the document and is a navigable heading too.
     this._headings = headings
 
@@ -283,7 +283,6 @@ export default class extends Controller {
     if (focusedId) {
       this.visibleItem(focusedId)?.querySelector(`:scope > .content-nav__row > ${focusSelector}`)?.focus({ preventScroll: true })
     }
-    if (this.hasTreeControlsTarget) this.treeControlsTarget.hidden = this._expanded.size === 0
   }
 
   renderExpanded(id) {
@@ -341,14 +340,6 @@ export default class extends Controller {
   toggleSection(event) {
     const id = event.currentTarget.closest(".content-nav__item").dataset.headingId
     this.setExpanded([ id ], !this._expanded.get(id), { remember: true })
-  }
-
-  expandAll() {
-    this.setExpanded([ ...this._expanded.keys() ], true, { remember: true })
-  }
-
-  collapseAll() {
-    this.setExpanded([ ...this._expanded.keys() ], false, { remember: true })
   }
 
   // Tree-view keys on a focused entry of a collapsible outline: Right opens
@@ -410,7 +401,7 @@ export default class extends Controller {
   }
 
   editorHeadings() {
-    return Array.from(this._editorRoot?.querySelectorAll(":scope > h1, :scope > h2, :scope > h3") || [])
+    return Array.from(this._editorRoot?.querySelectorAll(":scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6") || [])
   }
 
   editorHeadingSignature(headings) {
@@ -451,7 +442,7 @@ export default class extends Controller {
       }
       if (!this._scrollTicking) {
         requestAnimationFrame(() => {
-          this._updateActiveFromScroll()
+          if (!this._ignoreScroll) this._updateActiveFromScroll()
           this._scrollTicking = false
         })
         this._scrollTicking = true
@@ -530,10 +521,11 @@ export default class extends Controller {
     this.closeOutlinePopover()
     history.replaceState(null, "", `#${outlineId}`)
 
+    clearTimeout(this._scrollEndTimer)
     this._ignoreScroll = true
     this._activeHeadingId = outlineId
     this._revealedActiveId = outlineId
-    this.revealEntry(outlineId)
+    this.revealEntry(outlineId, { includeSelf: true })
     this._setActiveLink(outlineId)
 
     this._revealDeckSlide(heading)
@@ -584,6 +576,7 @@ export default class extends Controller {
     this.closeOutlinePopover()
     history.replaceState(null, "", `#${id}`)
 
+    clearTimeout(this._scrollEndTimer)
     this._ignoreScroll = true
     target.querySelector("details.document-support__disclosure")?.setAttribute("open", "")
     this._revealDeckSlide(target)

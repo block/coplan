@@ -62,6 +62,26 @@ A double tap or a client retry can submit the same cart twice. Each submission c
 
 Keys expire after twenty-four hours, which covers every retry policy in the clients.
 
+#### 4.2.1 Retry ownership
+
+The client owns retries until the API confirms the order. Expand this branch to inspect the recovery steps.
+
+##### 4.2.1.1 Recovering after a timeout
+
+A timed-out request can still commit. The client checks the same key before attempting another submission.
+
+###### 4.2.1.1.1 Reuse the original key
+
+Persist the key before sending the request, then reuse it after a restart. Never generate a new key just because the response was lost.
+
+##### 4.2.1.2 Recovering after a restart
+
+Read the pending cart and key from local storage, then ask the API for the existing result.
+
+#### 4.2.2 Server reconciliation
+
+The server compares the request fingerprint and returns the original order when a key is reused.
+
 ### 4.3 Reservation drift
 
 Inventory reservations can outlive abandoned checkouts. A sweeper releases reservations older than thirty minutes.

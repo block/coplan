@@ -24,9 +24,9 @@
   margin-right: 0;
 }
 
-/* No label anymore — the controls float into the top-right corner so the
+/* No label anymore — the visibility control floats into the top-right corner so the
    outline starts at the very top (no empty header band where "Contents"
-   used to sit) and the first item's text flows beside them. */
+   used to sit) and the first item's text flows beside it. */
 .content-nav__header {
   float: right;
   display: flex;
@@ -34,12 +34,7 @@
   margin-left: var(--space-xs);
 }
 
-.content-nav__tree-controls:not([hidden]) {
-  display: inline-flex;
-}
-
-.content-nav__toggle,
-.content-nav__tree-control {
+.content-nav__toggle {
   background: none;
   border: none;
   cursor: pointer;
@@ -51,21 +46,15 @@
   transition: color 0.15s;
 }
 
-.content-nav__tree-control {
-  display: inline-flex;
-}
-
 .content-nav__toggle:hover {
   color: var(--color-text);
 }
 
-.content-nav__tree-control:hover,
 .content-nav__disclosure:hover {
   color: var(--color-primary);
   background: var(--color-interaction-hover-bg);
 }
 
-.content-nav__tree-control:focus-visible,
 .content-nav__disclosure:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;
@@ -110,6 +99,18 @@
 
 .content-nav__item--h3 > .content-nav__row {
   padding-left: var(--space-xl);
+}
+
+.content-nav__item--h4 > .content-nav__row {
+  padding-left: 3rem;
+}
+
+.content-nav__item--h5 > .content-nav__row {
+  padding-left: 4rem;
+}
+
+.content-nav__item--h6 > .content-nav__row {
+  padding-left: 5rem;
 }
 
 /* Long outlines only: a chevron slot on every row keeps labels aligned. */

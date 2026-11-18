@@ -208,3 +208,5 @@ When a paragraph starts with an image, text in that paragraph wraps beside it fr
 - Only the plan author can upload or delete attachments. Any reader can list and download them.
 - List the attachments: `GET <%= @base %>/api/v1/plans/$PLAN_ID/attachments`. Delete one: `DELETE <%= @base %>/api/v1/plans/$PLAN_ID/attachments/$ATTACHMENT_ID`.
 - If a Mermaid diagram can show the content, use Mermaid instead of an image. A person can edit Mermaid; nobody can edit an image of a diagram.
+
+Document outline: headings H1 through H6 appear in the outline. Long outlines fold by heading hierarchy. Clicking a heading opens its branch and navigates to it. Automatically opened branches close when the reader leaves; manually opened branches stay open.

@@ -33,8 +33,8 @@ RSpec.describe "Collapsible document outline", type: :system do
     find(".content-nav__disclosure[aria-label='#{text} sub-sections']")
   end
 
-  def expect_expanded(text, expanded)
-    expect(page).to have_css(".content-nav__disclosure[aria-label='#{text} sub-sections'][aria-expanded='#{expanded}']")
+  def expect_expanded(text, expanded, visible: true)
+    expect(page).to have_css(".content-nav__disclosure[aria-label='#{text} sub-sections'][aria-expanded='#{expanded}']", visible: visible)
   end
 
   def expect_entry_visible(text, visible)
@@ -75,10 +75,11 @@ RSpec.describe "Collapsible document outline", type: :system do
       expect(page).to have_no_css(".content-nav__disclosure[aria-label='Long review sub-sections']")
       expect_entry_visible("4. Correctness", true)
       expect_entry_visible("4.1 Correctness detail 1", false)
-      expect(page).to have_css(".content-nav__tree-controls", visible: true)
+      expect(page).to have_no_button("Expand all sections")
+      expect(page).to have_no_button("Collapse all sections")
     end
 
-    it "toggles a section from its chevron or arrow keys while the label navigates" do
+    it "toggles a section from its chevron or arrow keys while clicking the label opens and navigates" do
       visit plan_page_path(plan)
 
       chevron("2. Context").click
@@ -96,13 +97,37 @@ RSpec.describe "Collapsible document outline", type: :system do
       Selenium::WebDriver::Wait.new(timeout: 5).until do
         page.evaluate_script("document.getElementById(#{heading_id("5. Availability").to_json}).getBoundingClientRect().top").between?(0, 150)
       end
-      expect_expanded("5. Availability", false)
+      expect_expanded("5. Availability", true)
 
       find(".content-nav__link", text: "5. Availability").send_keys(:arrow_right)
       expect_expanded("5. Availability", true)
       expect_entry_visible("5.2 Availability detail 2", true)
       find(".content-nav__link", text: "5. Availability").send_keys(:arrow_left)
       expect_expanded("5. Availability", false)
+    end
+
+    it "opens deeply nested headings by label and closes only the branch left behind" do
+      deep = "#### Retry ownership\n\nDetails.\n\n##### Timeout recovery\n\nDetails.\n\n###### Reuse the original key\n\nDetails.\n\n"
+      replace_content(long_content.sub("### 4.2 Correctness detail 2", "#{deep}### 4.2 Correctness detail 2"))
+      visit plan_page_path(plan)
+
+      ["4. Correctness", "4.1 Correctness detail 1", "Retry ownership", "Timeout recovery"].each do |label|
+        find(".content-nav__link-text", exact_text: label).click
+        Selenium::WebDriver::Wait.new(timeout: 5).until do
+          page.evaluate_script("document.getElementById(#{heading_id(label).to_json}).getBoundingClientRect().top").between?(0, 100)
+        end
+        expect_expanded(label, true)
+      end
+      expect_entry_visible("Reuse the original key", true)
+      find(".content-nav__link-text", exact_text: "4.2 Correctness detail 2").click
+      expect_expanded("4. Correctness", true)
+      expect_expanded("4.1 Correctness detail 1", false)
+      expect_expanded("Retry ownership", false, visible: :all)
+      expect_expanded("Timeout recovery", false, visible: :all)
+
+      within("#plan-toolbar") { click_link "Edit" }
+      expect(page).to have_css(".inline-editor .ProseMirror h6", text: "Reuse the original key")
+      expect(page).to have_css(".content-nav__link-text", exact_text: "Reuse the original key", visible: :all)
     end
 
     it "closes automatically opened sections on leaving while preserving manual expansions" do
@@ -159,18 +184,6 @@ RSpec.describe "Collapsible document outline", type: :system do
       expect_expanded("8. Observability", true)
       expect_entry_visible("8.2 Observability detail 2", true)
       expect_expanded("3. Architecture", false)
-    end
-
-    it "expands and collapses every section" do
-      visit plan_page_path(plan)
-
-      find("button[aria-label='Expand all sections']").click
-      expect(page).to have_css(".content-nav__disclosure[aria-expanded='true']", count: 10)
-      expect_entry_visible("10.3 Findings detail 3", true)
-
-      find("button[aria-label='Collapse all sections']").click
-      expect(page).to have_css(".content-nav__disclosure[aria-expanded='false']", count: 10)
-      expect_entry_visible("1.1 Scope detail 1", false)
     end
 
     it "remembers the reader's toggles across reloads and Turbo navigation, ignoring stale keys" do
