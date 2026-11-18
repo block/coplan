@@ -52,7 +52,10 @@ module CoPlan
           # transaction on PostgreSQL.
           transaction(requires_new: true) { record.save! }
         rescue ActiveRecord::RecordNotUnique
-          record = find_by!(endpoint_digest: digest)
+          # A different account can register this endpoint while we hold
+          # our user's lock. Read the committed row, not MySQL's earlier
+          # REPEATABLE READ snapshot.
+          record = lock.find_by!(endpoint_digest: digest)
           record.update!(attrs)
         end
         prune_for(user)
@@ -63,7 +66,9 @@ module CoPlan
     # Keeps the person's most recently seen subscriptions. Callers hold
     # the user row lock.
     def self.prune_for(user)
-      keep = where(user: user).order(last_seen_at: :desc, id: :desc).limit(MAX_PER_USER).pluck(:id)
+      # Include any endpoint recovered after a cross-account collision,
+      # even when it was absent from the transaction's initial snapshot.
+      keep = where(user: user).order(last_seen_at: :desc, id: :desc).limit(MAX_PER_USER).lock.pluck(:id)
       where(user: user).where.not(id: keep).delete_all
     end
     private_class_method :prune_for

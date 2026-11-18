@@ -50,6 +50,14 @@ RSpec.describe CoPlan::Notification do
         }.not_to have_enqueued_job(CoPlan::WebPushDeliveryJob)
       end
 
+      it "bounds fan-out for subscriptions registered before the cap existed" do
+        create_list(:coplan_web_push_subscription, CoPlan::WebPushSubscription::MAX_PER_USER + 3, user: user)
+
+        expect {
+          described_class.create!(attrs)
+        }.to have_enqueued_job(CoPlan::WebPushDeliveryJob).exactly(CoPlan::WebPushSubscription::MAX_PER_USER).times
+      end
+
       it "does not enqueue on update" do
         create(:coplan_web_push_subscription, user: user)
         notification = described_class.create!(attrs)
