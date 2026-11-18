@@ -30,7 +30,7 @@ return 429. Invalid names return 422 with `invalid_request`.
 ## Browser push settings
 
 Browser push settings use a signed-in browser session, not an agent token.
-`GET /web_push/subscription?endpoint_digest=SHA256` returns `{ "subscribed": true }`
+`GET /_/web_push/subscription?endpoint_digest=SHA256` returns `{ "subscribed": true }`
 only when that endpoint is among the current person's ten active delivery registrations.
 Use the lowercase SHA-256 hex digest of the endpoint, not the endpoint URL.
 An evicted or missing registration returns `{ "subscribed": false }` (200).
