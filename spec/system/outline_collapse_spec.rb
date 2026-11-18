@@ -106,12 +106,34 @@ RSpec.describe "Collapsible document outline", type: :system do
       expect_expanded("5. Availability", false)
     end
 
-    it "opens deeply nested headings by label and closes only the branch left behind" do
+    it "toggles labels on repeated clicks and keeps other clicked branches open without moving the next target" do
+      visit plan_page_path(plan)
+      context_link = find(".content-nav__link-text", exact_text: "2. Context")
+      context_link.click
+      expect_expanded("2. Context", true)
+      context_link.click
+      expect_expanded("2. Context", false)
+      context_link.click
+      expect_expanded("2. Context", true)
+
+      architecture = find(".content-nav__link-text", exact_text: "3. Architecture")
+      before_top = architecture.evaluate_script("this.getBoundingClientRect().top")
+      architecture.click
+      expect_expanded("3. Architecture", true)
+      expect_expanded("2. Context", true)
+      expect(architecture.evaluate_script("this.getBoundingClientRect().top")).to be_within(1).of(before_top)
+
+      visit current_url
+      expect_expanded("2. Context", true)
+      expect_expanded("3. Architecture", true)
+    end
+
+    it "keeps clicked deep branches open when navigating to a sibling" do
       deep = "#### Retry ownership\n\nDetails.\n\n##### Timeout recovery\n\nDetails.\n\n###### Reuse the original key\n\nDetails.\n\n"
       replace_content(long_content.sub("### 4.2 Correctness detail 2", "#{deep}### 4.2 Correctness detail 2"))
       visit plan_page_path(plan)
 
-      ["4. Correctness", "4.1 Correctness detail 1", "Retry ownership", "Timeout recovery"].each do |label|
+      [ "4. Correctness", "4.1 Correctness detail 1", "Retry ownership", "Timeout recovery" ].each do |label|
         find(".content-nav__link-text", exact_text: label).click
         Selenium::WebDriver::Wait.new(timeout: 5).until do
           page.evaluate_script("document.getElementById(#{heading_id(label).to_json}).getBoundingClientRect().top").between?(0, 100)
@@ -121,9 +143,9 @@ RSpec.describe "Collapsible document outline", type: :system do
       expect_entry_visible("Reuse the original key", true)
       find(".content-nav__link-text", exact_text: "4.2 Correctness detail 2").click
       expect_expanded("4. Correctness", true)
-      expect_expanded("4.1 Correctness detail 1", false)
-      expect_expanded("Retry ownership", false, visible: :all)
-      expect_expanded("Timeout recovery", false, visible: :all)
+      expect_expanded("4.1 Correctness detail 1", true)
+      expect_expanded("Retry ownership", true)
+      expect_expanded("Timeout recovery", true)
 
       within("#plan-toolbar") { click_link "Edit" }
       expect(page).to have_css(".inline-editor .ProseMirror h6", text: "Reuse the original key")

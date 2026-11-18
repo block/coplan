@@ -337,6 +337,16 @@ export default class extends Controller {
     if (id && this._itemsById?.has(id)) this.revealEntry(id, { includeSelf: true })
   }
 
+  toggleLinkedEntry(id) {
+    const expanded = this._expanded?.get(id)
+    this.revealEntry(id)
+    // A clicked branch and its path belong to the reader, not scroll tracking.
+    const ancestors = []
+    for (let parent = this._parentById?.get(id); parent; parent = this._parentById.get(parent)) ancestors.push(parent)
+    this.setExpanded(ancestors, true, { remember: true })
+    if (typeof expanded === "boolean") this.setExpanded([id], !expanded, { remember: true })
+  }
+
   toggleSection(event) {
     const id = event.currentTarget.closest(".content-nav__item").dataset.headingId
     this.setExpanded([ id ], !this._expanded.get(id), { remember: true })
@@ -525,7 +535,7 @@ export default class extends Controller {
     this._ignoreScroll = true
     this._activeHeadingId = outlineId
     this._revealedActiveId = outlineId
-    this.revealEntry(outlineId, { includeSelf: true })
+    this.toggleLinkedEntry(outlineId)
     this._setActiveLink(outlineId)
 
     this._revealDeckSlide(heading)
