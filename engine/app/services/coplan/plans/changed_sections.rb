@@ -98,7 +98,7 @@ module CoPlan
           original = source.lines
           split.regions.select { |region| region.kind == :component }.each do |region|
             first = region.start_line - 2
-            digest = Digest::SHA256.hexdigest(original[first...region.end_line].join)
+            digest = Digest::SHA256.hexdigest(original[first...region.end_line].join.gsub("\r\n", "\n"))
             lines[first] = "\n<pre>#{digest}</pre>\n\n"
           end
           source = lines.join

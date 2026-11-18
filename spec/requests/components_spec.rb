@@ -68,6 +68,7 @@ RSpec.describe "Document components", type: :request do
     markdown = "# Demo\r\n\r\n## First\r\n\r\n::: {.component}\r\n\r\nroot.textContent = `\r\n~~~js\r\n## Later\r\n`;\r\n\r\n:::\r\n\r\n## Later\r\n\r\nKeep me."
     change = CoPlan::Plans::ChangedSections.call(old_content: markdown, new_content: markdown.sub("~~~js", "~~~ruby"))
     expect(change.keys).to eq([ "first" ])
+    expect(CoPlan::Plans::ChangedSections.call(old_content: markdown, new_content: markdown.gsub("\r\n", "\n")).keys).to be_empty
     resolution = CoPlan::Plans::PositionResolver.call(content: markdown, operation: { "op" => "replace_section", "heading" => "## Later", "new_content" => "New" })
     first, last = resolution.ranges.sole
     expect(markdown[first...last]).to eq("## Later\r\n\r\nKeep me.")

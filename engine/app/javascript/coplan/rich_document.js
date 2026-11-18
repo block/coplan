@@ -1204,8 +1204,9 @@ export function createRichDocument(element, markdown, changed, selectionChanged 
 }
 
 // Editor-owned decorations keep comment highlights out of ProseMirror's
-// content DOM. Source cards contribute text to occurrence counting, but their
-// rendered previews have no editable positions and get no decoration here.
+// content DOM. Components are opaque to prose comments. Other source cards,
+// including presentations, count toward occurrences. Their previews have no
+// editable positions to decorate here.
 function commentPlugin(initial) {
   let comments = initial
   return new Plugin({
