@@ -995,3 +995,21 @@
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   border-bottom: none;
 }
+
+.document-component {
+  margin: 1rem 0;
+  padding: .8rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: .6rem;
+  background: var(--color-surface);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .5rem;
+}
+.document-component figcaption { font-weight: 600; }
+.document-component iframe { width: 100%; border: 0; grid-column: 1 / -1; }
+.document-component details { min-width: 0; }
+.document-component summary { cursor: pointer; color: var(--color-primary); width: fit-content; }
+.document-component pre { overflow: auto; max-height: 26rem; white-space: pre; }
+.document-component button { align-self: start; }
+.document-component [role="status"] { grid-column: 1 / -1; }

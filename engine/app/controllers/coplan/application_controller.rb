@@ -59,7 +59,9 @@ module CoPlan
       return unless response.media_type == "text/html"
 
       hosts = EmbedDomain.order(:hostname).pluck(:hostname).reject { |host| host == request.host.downcase }
-      policy = "frame-src #{hosts.empty? ? "'none'" : hosts.map { |host| "https://#{host}" }.join(' ')}"
+      sources = hosts.map { |host| "https://#{host}" }
+      sources << component_frame_url if CoPlan.configuration.components_enabled
+      policy = "frame-src #{sources.presence&.join(' ') || "'none'"}"
       existing = response.headers["Content-Security-Policy"]
       # Rails' middleware skips generating its policy when a response already
       # has a CSP header. Build the host policy first so we do not replace it.

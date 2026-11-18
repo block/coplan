@@ -36,6 +36,7 @@ module CoPlan
       "markdown" => "markdown",
       "presentations" => "presentations",
       "embeds" => "embeds",
+      "components" => "components",
       "creating" => "creating",
       "editing" => "editing",
       "comments" => "comments",

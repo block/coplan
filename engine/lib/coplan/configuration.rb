@@ -1,3 +1,5 @@
+require "coplan/component_catalog"
+
 module CoPlan
   class Configuration
     attr_accessor :authenticate, :api_authenticate, :sign_in_path
@@ -36,6 +38,8 @@ module CoPlan
     attr_accessor :agent_mint_curl_prefix
     attr_accessor :agent_setup_install_command
     # Suggestions for the document editor; arbitrary existing fence info stays valid.
+    attr_reader :component_catalog
+    attr_accessor :components_enabled
     attr_accessor :editor_code_languages
     attr_accessor :seed_plan_types
 
@@ -165,6 +169,8 @@ module CoPlan
 
 
     def initialize
+      @component_catalog = ComponentCatalog.new
+      @components_enabled = true
       @authenticate = nil
       @reserved_handles = []
       @default_theme = "classic"

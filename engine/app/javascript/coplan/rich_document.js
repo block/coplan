@@ -380,16 +380,37 @@ const presentationOpen = /^::: \{\.presentation(?: #([a-zA-Z][\w-]*))?(?: theme=
 function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false) {
   const ranges = tokens.filter(t => t.level === 0 && t.map && t.nesting !== -1)
   const specials = []
+  let skipUntil = 0
   let opener = null
-  for (const token of ranges) {
+  for (let i = 0; i < ranges.length; i++) {
+    const token = ranges[i]
     const [from, to] = token.map
-    if (token.type !== "paragraph_open" || to !== from + 1) continue
+    if (from < skipUntil || token.type !== "paragraph_open" || to !== from + 1) continue
     const line = lines[from].replace(/\r$/, "")
     if (opener !== null) {
       if (line !== ":::") continue
       specials.push({ from: offsets[opener], to: Math.min(offsets[to], markdown.length), kind: "presentation" })
       opener = null
-    } else if (presentationOpen.test(line)) opener = from
+    } else if (presentationOpen.test(line)) {
+      opener = from
+    } else if (/^::: \{\.component(?: #[a-zA-Z][\w-]*)?(?: (?:title|type|uses)="[^"]*")*\}$/.test(line)) {
+      const keys = Array.from(line.matchAll(/ (title|type|uses)="[^"]*"/g), match => match[1])
+      if (new Set(keys).size !== keys.length) continue
+      let closing = from + 1
+      while (closing < lines.length && lines[closing].replace(/\r$/, "") !== ":::") closing++
+      if (closing === lines.length) continue
+      skipUntil = closing + 1
+      specials.push({ from: offsets[from], to: Math.min(offsets[skipUntil], markdown.length), kind: "component" })
+      if (!ranges.some(t => t.type === "paragraph_open" && t.map[0] === closing && t.map[1] === skipUntil)) {
+        const tail = markdown.slice(offsets[skipUntil])
+        // The script can contain text that looks like an unclosed code fence.
+        // Recover subsequent region markers in the same context as the reader.
+        ranges.splice(i + 1)
+        for (const t of tokenizer.parse(tail, {}).filter(t => t.level === 0 && t.map && t.nesting !== -1)) {
+          ranges.push({ ...t, map: t.map.map(line => line + skipUntil) })
+        }
+      }
+    }
     if (line.startsWith("::: {.iframe ") && line.endsWith(" /}"))
       specials.push({ from: offsets[from], to: Math.min(offsets[to], markdown.length), kind: "iframe" })
   }
@@ -415,7 +436,7 @@ function contentRanges(tokens, lines, offsets, markdown, definitionsOnly = false
   for (let line = 0; line < lines.length; line++) {
     if (excluded.some(t => line >= t.map[0] && line < t.map[1])) continue
     const match = /^ {0,3}\[\^([^\]]+)\]:[ \t]*(.*)$/.exec(lines[line])
-    if (!match || !citationLabelKey(match[1]) || (!definitionsOnly && specials.some(r => offsets[line] >= r.from && offsets[line] < r.to))) continue
+    if (!match || !citationLabelKey(match[1]) || specials.some(r => (!definitionsOnly || r.kind === "component") && offsets[line] >= r.from && offsets[line] < r.to)) continue
     let end = line + 1
     while (end < lines.length) {
       if (/^(?: {4}|\t)\S?/.test(lines[end]) && lines[end].trim()) { end++; continue }
@@ -1692,6 +1713,16 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
   }
 
   dom.contentEditable = "false"
+  if (node.attrs.kind === "component") {
+    title.textContent = "Component"
+    const input = document.createElement("textarea")
+    input.className = "document-editor__block-source"
+    input.setAttribute("aria-label", "Component Markdown")
+    input.value = node.attrs.source
+    input.dataset.action = "input->coplan--editor#blockSourceChanged keydown->coplan--editor#blockKeydown"
+    dom.append(input)
+    edit.remove()
+  }
   if (node.attrs.kind === "table") {
     edit.textContent = "Edit table"
     edit.dataset.action = "coplan--editor#toggleBlockSource"
@@ -1707,7 +1738,7 @@ function sourceNodeView(initial, view, getPos, preview, sourceRangeAt) {
     if (dom.hidden) return
     const isTable = node.attrs.kind !== "list" && /^\s*\|?.*\|.*\n\s*\|?\s*:?-{3,}/m.test(source)
     const isReferences = /^\s*\[\^[^\]]+\]:/m.test(source)
-    title.textContent = node.attrs.kind === "list" ? "List" : isTable ? "Table" : isReferences ? "References" : "Markdown block"
+    title.textContent = node.attrs.kind === "component" ? "Component" : node.attrs.kind === "list" ? "List" : isTable ? "Table" : isReferences ? "References" : "Markdown block"
     body.replaceChildren()
     const fallback = document.createElement("pre"); fallback.textContent = source; body.append(fallback)
     // Rendering definitions alone drops them as unused footnotes. Keep their

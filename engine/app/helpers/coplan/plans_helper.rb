@@ -4,8 +4,8 @@ module CoPlan
   module PlansHelper
     include MarkdownHelper
 
-    def render_plan_document(content)
-      fragment = Nokogiri::HTML.fragment(render_content_regions(content.to_s))
+    def render_plan_document(content, version: nil)
+      fragment = Nokogiri::HTML.fragment(render_content_regions(content.to_s, version:))
       heading = fragment.at_css(".markdown-rendered:first-child > h1:first-child")
       if heading
         if heading["id"].present? && heading["id"] != "plan-title"

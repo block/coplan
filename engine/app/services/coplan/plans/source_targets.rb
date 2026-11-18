@@ -7,7 +7,7 @@ module CoPlan
     # Tokens are signed and content-bound so cached HTML is safe to reuse,
     # but a selection from an older document cannot silently move elsewhere.
     class SourceTargets
-      KINDS = %w[table_cell mermaid_node mermaid_edge mermaid_diagram].freeze
+      KINDS = %w[table_cell mermaid_node mermaid_edge mermaid_diagram component].freeze
 
       def self.verifier
         Rails.application.message_verifier("coplan-source-target-v1")
@@ -33,10 +33,26 @@ module CoPlan
         # Raw HTML may contain data-sourcepos supplied by the author. Only
         # positions produced by the Markdown AST can become signed targets.
         @positions = Hash.new { |hash, key| hash[key] = Set.new }
-        collect_positions(CoPlan::Markdown.parse(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }))
+        @components = {}
+        visible = @content
+        if @content.include?(ContentRegions::Split::COMPONENT_PREFIX)
+          result = ContentRegions::Split.call(@content)
+          visible = result.component_mask
+          result.regions.select { |region| region.kind == :component }.each do |region|
+            start = @offsets.fetch(region.start_line - 2)
+            closing = @offsets.fetch(region.end_line - 1)
+            @components[region.start_line] = target("component", start, closing + 3, region.attributes["title"].presence || "Component")
+          end
+        end
+        collect_positions(CoPlan::Markdown.parse(visible, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }))
       end
 
       def annotate(doc)
+        doc.css("button[data-component-comment-line]").each do |button|
+          component = @components[button["data-component-comment-line"].to_i]
+          button["data-source-target"] = component.to_json if component
+          button.remove_attribute("data-component-comment-line")
+        end
         rows = {}
         doc.css("table").each do |table|
           table.css("tr").each_with_index { |row, index| rows[row] = index + 1 }
@@ -97,7 +113,7 @@ module CoPlan
           map = JSON.parse(node["data-source-targets"])
           targets.concat(map["nodes"].values + map["edges"] + [ map["diagram"] ].compact)
         end
-        targets.map { |target| target.values_at("kind", "start", "end") }.to_set
+        (targets + @components.values).map { |target| target.values_at("kind", "start", "end") }.to_set
       end
 
       private

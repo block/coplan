@@ -4,6 +4,24 @@
 
 Coplan is a Rails engine that manages collaborative planning documents. It owns its own `CoPlan::User` model and handles authentication internally via a callback you configure.
 
+## Interactive document components
+
+In a Markdown plan, an author can use a JavaScript component region. Coplan supplies an opaque-origin frame on the existing host. If the host sets its own Content Security Policy, its `frame-src` must permit the engine’s `/_/component-frame` URL, including any mount prefix. Host policy still applies to the plan page. To show component source only, set `config.components_enabled = false` in `CoPlan.configure`.
+
+Register browser-ready ES modules at boot. The catalog, examples, and registered source appear in the public `/agent-instructions/components` guide. Bundle only code intended for delivery to readers. A type may export async `setup({root, title})` returning its declared bindings and `mount({root, ...bindings})` to render the result. Both run inside the same frame as the author script.
+
+```ruby
+CoPlan.configure do |config|
+  config.component_catalog.library("backoff@1",
+    source: "export const delay = n => 2 ** n", example: 'const { delay } = await import("backoff")')
+  config.component_catalog.type("retry", uses: [ "backoff@1" ], bindings: [ "delay" ],
+    source: 'import { delay } from "backoff"; export function setup() { return { delay }; }',
+    example: 'root.textContent = delay(3)')
+end
+```
+
+Install the engine migration when upgrading. Each new revision that contains components saves its selected modules, their digests, and any type wrappers. Old revisions without a catalog display source. Disabling execution also disables the frame endpoint.
+
 ## Rendered-content caching
 
 Rendered plan bodies, comments, previews, and citations use standard Rails

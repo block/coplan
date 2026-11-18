@@ -72,6 +72,7 @@ module CoPlan
       # and tells parser-generated math from authored HTML that imitates it;
       # it is stripped after generating trusted interaction metadata.
       source = content.to_s.encode("UTF-8")
+      source = ContentRegions::Split.component_mask(source) if footnotes == :only
       render_options[:sourcepos] = true if interactive || source.include?(ContentRegions::Iframe::PREFIX) || source.include?("$") || source.include?("math")
       html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS, render: render_options }, plugins: { syntax_highlighter: nil })
       with_chips = transform_mention_anchors(html)
@@ -179,7 +180,7 @@ module CoPlan
 
     def markdown_to_plain_text(content)
       source = content.to_s.encode("UTF-8")
-      source = ContentRegions::Split.call(source).canonical_source if source.include?("::: {.presentation")
+      source = ContentRegions::Split.call(source).canonical_source if ContentRegions::Split.region_source?(source)
       html = CoPlan::Markdown.to_html(source, options: { extension: EXTENSION_OPTIONS }, plugins: { syntax_highlighter: nil })
       fragment = Nokogiri::HTML::DocumentFragment.parse(html)
       fragment.css("p.markdown-alert-title").remove
