@@ -29,6 +29,11 @@
     const {source, title, libraries, wrapper, startLine} = data
     let authorURL
     try {
+      // Some engines expose peer networking independently of connect-src.
+      // Remove those entry points before any host or author module executes.
+      for (const name of ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection", "RTCIceGatherer", "RTCIceTransport", "RTCDtlsTransport"]) {
+        if (name in window) Object.defineProperty(window, name, {value: undefined, writable: false, configurable: false})
+      }
       document.title = title
       const imports = Object.fromEntries(Object.entries(libraries).map(([name, bytes]) => [name, moduleURL(bytes)]))
       const map = document.createElement("script")

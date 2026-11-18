@@ -26,7 +26,7 @@ root.append(button);
 :::
 ````
 
-The reader's browser runs the script inside an opaque sandbox. Bundle dependencies locally. The sandbox blocks fetch, external resource loads, forms, and parent navigation. A component cannot request app credentials or read the surrounding plan. Its source stays available if execution is disabled or a dependency cannot be resolved. Source revisions retain their selected libraries and wrappers.
+The reader's browser runs the script inside an opaque sandbox. Bundle dependencies locally. The sandbox blocks fetch, remote scripts and images, form submissions, and parent navigation. Components have no access to the surrounding plan or its session storage. Browser support for blocking every outbound connection varies. Use components for document data intended for their readers. Its source stays available if execution is disabled or a dependency cannot be resolved. Source revisions retain their selected libraries and wrappers.
 
 Component execution on this host is <%= CoPlan.configuration.components_enabled ? "enabled" : "disabled" %>.
 

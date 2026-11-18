@@ -122,12 +122,14 @@ module CoPlan
             small_change = prefix + suffix >= original.length - 8
             raise Plans::TransformRange::Conflict if selected.blank? || !(insertion_inside || deletion_inside || small_change)
             selected
+          elsif touched && thread.anchor_kind == "component"
+            new_version.content_markdown[new_range[0]...new_range[1]]
           end
           thread.update_columns(
             anchor_start: new_range[0],
             anchor_end: new_range[1],
             anchor_revision: new_version.revision,
-            **(touched && thread.anchor_kind.nil? ? { anchor_text: new_anchor } : {})
+            **(new_anchor ? { anchor_text: new_anchor } : {})
           )
         rescue Plans::TransformRange::Conflict
           thread.update_columns(

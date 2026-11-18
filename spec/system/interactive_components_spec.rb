@@ -19,7 +19,13 @@ RSpec.describe "Interactive components", type: :system do
       expect(page.evaluate_script("document.querySelector('[nonce]')")).to be_nil
       expect(page.evaluate_script("document.querySelector('meta[http-equiv=Content-Security-Policy]').content")).to eq("script-src blob:")
       expect(page.evaluate_script("self.origin")).to eq("null")
-      expect(page.evaluate_async_script("const done = arguments[0]; fetch(location.href).then(() => done('connected'), () => done('blocked'))")).to eq("blocked")
+      expect(page.evaluate_script("typeof RTCPeerConnection")).to eq("undefined")
+      directive = page.evaluate_async_script(<<~JS)
+        const done = arguments[0]
+        document.addEventListener("securitypolicyviolation", event => done(event.effectiveDirective), {once: true})
+        fetch(location.href, {mode: "no-cors"}).then(() => done("connected"), () => {})
+      JS
+      expect(directive).to eq("connect-src")
     end
     within_frame(find('iframe[title="Retry simulator"]')) do
       expect(page).to have_text("1 + 2 + 4 = 7 seconds")
@@ -78,6 +84,8 @@ RSpec.describe "Interactive components", type: :system do
     expect(plan.comment_threads.reload.sole.anchor_start).to eq(markdown.rindex("Later passage"))
     visit plan_page_path(plan)
     expect(page).to have_css("#plan-content-body p mark", text: "Later passage")
+    visit plan_edit_page_path(plan)
+    expect(page).to have_css(".inline-editor .ProseMirror p mark", text: "Later passage")
   end
 
   it "keeps the script in one editable block and preserves its exact source in Raw mode" do

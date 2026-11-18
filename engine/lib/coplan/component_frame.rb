@@ -11,7 +11,7 @@ module CoPlan
       policy = [
         "sandbox allow-scripts", "default-src 'none'", "base-uri 'none'", "form-action 'none'",
         "frame-ancestors 'self'", "script-src 'nonce-#{nonce}' blob:", "style-src 'unsafe-inline'",
-        "img-src data: blob:", "connect-src 'none'", "worker-src 'none'", "frame-src 'none'"
+        "img-src data: blob:", "connect-src 'none'", "webrtc 'block'", "worker-src 'none'", "frame-src 'none'"
       ].join("; ")
       headers = { "content-type" => "text/html; charset=utf-8", "content-security-policy" => policy,
         "connection-allowlist" => "()", "referrer-policy" => "no-referrer", "cache-control" => "no-store",

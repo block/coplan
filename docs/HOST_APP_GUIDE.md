@@ -8,6 +8,8 @@ Coplan is a Rails engine that manages collaborative planning documents. It owns 
 
 In a Markdown plan, an author can use a JavaScript component region. Coplan supplies an opaque-origin frame on the existing host. If the host sets its own Content Security Policy, its `frame-src` must permit the engine’s `/_/component-frame` URL, including any mount prefix. Host policy still applies to the plan page. To show component source only, set `config.components_enabled = false` in `CoPlan.configure`.
 
+The shell blocks remote resources and fetch, disables peer connections, and sends a deny-all connection policy where supported. Browser support for complete network isolation varies. A host that requires guaranteed zero egress can use source-only rendering.
+
 Register browser-ready ES modules at boot. The catalog, examples, and registered source appear in the public `/agent-instructions/components` guide. Bundle only code intended for delivery to readers. A type may export async `setup({root, title})` returning its declared bindings and `mount({root, ...bindings})` to render the result. Both run inside the same frame as the author script.
 
 ```ruby

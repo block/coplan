@@ -52,13 +52,25 @@ RSpec.describe "Document components", type: :request do
     expect(first.content_markdown[resolved["start"]...resolved["end"]]).to eq(content.split("\n\n", 2).last.chomp)
     expect(CoPlan::Plans::SourceTargets.new(first.content_markdown).ranges).to include([ "component", resolved["start"], resolved["end"] ])
 
-    CoPlan::Plans::ReplaceContent.call(plan:, new_content: content + "\nReview note.\n", base_revision: plan.current_revision,
+    thread = plan.comment_threads.create!(plan_version: first, created_by_user: user, source_token: target["token"])
+    CoPlan::Plans::ReplaceContent.call(plan:, new_content: content.sub("delay(2)", "delay(3)"), granularity: :character, base_revision: plan.current_revision,
       actor_type: "human", actor_id: user.id)
+    expect(thread.reload).not_to be_out_of_date
+    expect(thread.anchor_text).to include("delay(3)")
     expect(plan.reload.current_plan_version.component_catalog.dig("libraries", "maths@1", "source")).to include("* 20")
     get plan_version_page_path(plan, first)
     historical = Nokogiri::HTML.fragment(response.body).at_css("figure#retry")
     expect(JSON.parse(historical["data-coplan--component-program-value"]).dig("libraries", "maths")).to include("* 10")
     expect(first.reload.component_catalog.dig("libraries", "maths@1", "source")).to include("* 10")
+  end
+
+  it "keeps generated source inside its visible section when reading changes and replacing a section" do
+    markdown = "# Demo\r\n\r\n## First\r\n\r\n::: {.component}\r\n\r\nroot.textContent = `\r\n~~~js\r\n## Later\r\n`;\r\n\r\n:::\r\n\r\n## Later\r\n\r\nKeep me."
+    change = CoPlan::Plans::ChangedSections.call(old_content: markdown, new_content: markdown.sub("~~~js", "~~~ruby"))
+    expect(change.keys).to eq([ "first" ])
+    resolution = CoPlan::Plans::PositionResolver.call(content: markdown, operation: { "op" => "replace_section", "heading" => "## Later", "new_content" => "New" })
+    first, last = resolution.ranges.sole
+    expect(markdown[first...last]).to eq("## Later\r\n\r\nKeep me.")
   end
 
   it "retains structural discussion targets after Markdown-looking component source" do

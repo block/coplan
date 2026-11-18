@@ -23,14 +23,15 @@ module CoPlan
       end
 
       def initialize(source)
-        @lines = source.to_s.encode("UTF-8").delete("\r").split("\n", -1)
+        @original_lines = source.to_s.encode("UTF-8").split("\n", -1)
+        @lines = @original_lines.map { |line| line.delete_suffix("\r") }
       end
 
       def call
         reset_marker_scan(0)
         regions = []
         canonical = @lines.dup
-        masked = @lines.dup
+        masked = @original_lines.dup
         cursor = 0
         index = 0
         while index < @lines.size
@@ -48,7 +49,10 @@ module CoPlan
             canonical[index] = " " * @lines[index].length
             canonical[closing] = " " * @lines[closing].length
             if region.kind == :component
-              (index..closing).each { |i| masked[i] = canonical[i] = " " * @lines[i].length }
+              (index..closing).each do |i|
+                canonical[i] = " " * @lines[i].length
+                masked[i] = canonical[i] + (@original_lines[i].end_with?("\r") ? "\r" : "")
+              end
             end
             cursor = closing + 1
             reset_marker_scan(cursor)
