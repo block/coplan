@@ -29,13 +29,15 @@ RSpec.describe CoPlan::WebPushSubscription, "concurrent subscriptions", type: :m
         end
       end
       2.times { start << true }
-      records = Timeout.timeout(10) { workers.map(&:value) }
+      # Database lock waits have their own timeout. Always let workers leave
+      # their transactions before teardown deletes the committed fixtures.
+      records = workers.map(&:value)
 
       expect(records).to all(be_a(described_class))
       expect(records.map { |record| record.reload.id }.uniq.size).to eq(endpoint_kind == "same" ? 1 : 2)
       expect(users.first.web_push_subscriptions.count).to eq(described_class::MAX_PER_USER)
     ensure
-      workers&.each { |worker| worker.join(10) }
+      workers&.each(&:join)
     end
   end
 
@@ -66,9 +68,9 @@ RSpec.describe CoPlan::WebPushSubscription, "concurrent subscriptions", type: :m
 
     Timeout.timeout(10) { 2.times { ready.pop } }
     gates.fetch(users.first.id) << true
-    first = Timeout.timeout(10) { workers.first.value }
+    first = workers.first.value
     gates.fetch(users.last.id) << true
-    second = Timeout.timeout(10) { workers.last.value }
+    second = workers.last.value
 
     expect(first).to be_a(described_class)
     expect(second).to be_a(described_class)
@@ -77,7 +79,7 @@ RSpec.describe CoPlan::WebPushSubscription, "concurrent subscriptions", type: :m
     expect(users.first.web_push_subscriptions.count).to eq(0)
   ensure
     gates&.each_value { |gate| gate << true }
-    workers&.each { |worker| worker.join(10) }
+    workers&.each(&:join)
     described_class.skip_callback(:create, :before, barrier) if barrier
   end
 end
