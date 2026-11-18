@@ -4,6 +4,13 @@ module CoPlan
   class WebPushSubscription < ApplicationRecord
     belongs_to :user, class_name: "CoPlan::User"
 
+    # Every notification queues one delivery job per subscription on the
+    # job worker that runs every queue, so a person's device count is a
+    # load multiplier. Ten covers each browser and device a person
+    # realistically uses; subscribing an eleventh drops the one seen least
+    # recently.
+    MAX_PER_USER = 10
+
     validates :endpoint, presence: true
     validates :p256dh_key, presence: true
     validates :auth_key, presence: true
@@ -40,8 +47,18 @@ module CoPlan
         record = find_by!(endpoint_digest: digest)
         record.update!(attrs)
       end
+      prune_for(record.user)
       record
     end
+
+    # Keeps the person's most recently seen subscriptions. The ordering is
+    # total (last_seen_at, then id), so two concurrent subscribes prune the
+    # same rows and the count converges on the cap.
+    def self.prune_for(user)
+      keep = where(user: user).order(last_seen_at: :desc, id: :desc).limit(MAX_PER_USER).pluck(:id)
+      where(user: user).where.not(id: keep).delete_all
+    end
+    private_class_method :prune_for
 
     def record_delivery!
       # Atomic increment so concurrent deliveries can't lose updates.

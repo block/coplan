@@ -67,6 +67,41 @@ RSpec.describe CoPlan::WebPushSubscription, type: :model do
       )
       expect(sub.last_seen_at).to be_within(2.seconds).of(Time.current)
     end
+
+    it "keeps at most MAX_PER_USER subscriptions per person, dropping the one seen least recently" do
+      other_user = create(:coplan_user)
+      described_class.upsert_for(user: other_user, endpoint: "https://example.com/other", p256dh_key: "k", auth_key: "a")
+
+      endpoints = (1..described_class::MAX_PER_USER + 1).map { |n| "https://example.com/device-#{n}" }
+      endpoints.each_with_index do |endpoint, n|
+        travel_to(n.minutes.from_now) do
+          described_class.upsert_for(user: user, endpoint: endpoint, p256dh_key: "k", auth_key: "a")
+        end
+      end
+
+      kept = user.web_push_subscriptions.pluck(:endpoint)
+      expect(kept.size).to eq(described_class::MAX_PER_USER)
+      expect(kept).not_to include(endpoints.first)
+      expect(kept).to include(endpoints.last)
+      expect(other_user.web_push_subscriptions.count).to eq(1)
+    end
+
+    it "keeps a device that subscribes again, since that refreshes it" do
+      endpoints = (1..described_class::MAX_PER_USER).map { |n| "https://example.com/device-#{n}" }
+      endpoints.each_with_index do |endpoint, n|
+        travel_to(n.minutes.from_now) do
+          described_class.upsert_for(user: user, endpoint: endpoint, p256dh_key: "k", auth_key: "a")
+        end
+      end
+      travel_to(1.hour.from_now) do
+        described_class.upsert_for(user: user, endpoint: endpoints.first, p256dh_key: "k", auth_key: "a")
+        described_class.upsert_for(user: user, endpoint: "https://example.com/new", p256dh_key: "k", auth_key: "a")
+      end
+
+      kept = user.web_push_subscriptions.pluck(:endpoint)
+      expect(kept).to include(endpoints.first, "https://example.com/new")
+      expect(kept).not_to include(endpoints.second)
+    end
   end
 
   describe "#record_delivery!" do
