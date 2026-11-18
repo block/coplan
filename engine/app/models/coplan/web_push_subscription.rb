@@ -28,6 +28,10 @@ module CoPlan
     # browser+device subscribing twice should overwrite (not duplicate) so
     # we key on the endpoint digest. Concurrent inserts are tolerated by
     # retrying the lookup after a unique-constraint collision.
+    #
+    # The save and the cap run under a lock on the person's user row, so
+    # two devices subscribing at once can't each prune with a snapshot
+    # that lacks the other and delete it.
     def self.upsert_for(user:, endpoint:, p256dh_key:, auth_key:, user_agent: nil)
       digest = digest_for(endpoint)
       attrs = {
@@ -39,21 +43,25 @@ module CoPlan
         last_seen_at: Time.current
       }
 
-      record = find_or_initialize_by(endpoint_digest: digest)
-      record.assign_attributes(attrs)
-      begin
-        record.save!
-      rescue ActiveRecord::RecordNotUnique
-        record = find_by!(endpoint_digest: digest)
-        record.update!(attrs)
+      transaction do
+        CoPlan::User.lock.find(user.id)
+        record = find_or_initialize_by(endpoint_digest: digest)
+        record.assign_attributes(attrs)
+        begin
+          # A savepoint, so a collision doesn't abort the outer
+          # transaction on PostgreSQL.
+          transaction(requires_new: true) { record.save! }
+        rescue ActiveRecord::RecordNotUnique
+          record = find_by!(endpoint_digest: digest)
+          record.update!(attrs)
+        end
+        prune_for(user)
+        record
       end
-      prune_for(record.user)
-      record
     end
 
-    # Keeps the person's most recently seen subscriptions. The ordering is
-    # total (last_seen_at, then id), so two concurrent subscribes prune the
-    # same rows and the count converges on the cap.
+    # Keeps the person's most recently seen subscriptions. Callers hold
+    # the user row lock.
     def self.prune_for(user)
       keep = where(user: user).order(last_seen_at: :desc, id: :desc).limit(MAX_PER_USER).pluck(:id)
       where(user: user).where.not(id: keep).delete_all
