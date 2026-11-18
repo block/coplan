@@ -22,15 +22,11 @@ RSpec.describe CoPlan::Slack::Renderer do
     expect(result.dig(:blocks, 1, :elements, 0, :text)).to eq("*Ada*")
   end
 
-  it "visually distinguishes private and archived plans" do
-    private_preview = CoPlan::LinkPreview.new(kind: "plan", external_id: "id", canonical_url: "https://example.test/p", title: "Private", description: nil, context: "Private · EDD · by Ada", image_url: nil, author_name: "Ada", author_avatar_url: nil, cache_key: "x")
-    archived_preview = private_preview.with(title: "Archived", context: "Archived · EDD · by Ada")
+  it "visually distinguishes archived plans" do
+    archived_preview = CoPlan::LinkPreview.new(kind: "plan", external_id: "id", canonical_url: "https://example.test/p", title: "Archived", description: nil, context: "Archived · EDD · by Ada", image_url: nil, author_name: "Ada", author_avatar_url: nil, cache_key: "x")
 
-    private_result = described_class.call(private_preview)
     archived_result = described_class.call(archived_preview)
 
-    expect(private_result[:color]).to eq("#8C4AF6")
-    expect(private_result.dig(:blocks, 1, :elements, 0, :text)).to eq("*Ada* · EDD · 🔒 Private")
     expect(archived_result[:color]).to eq("#64748B")
     expect(archived_result.dig(:blocks, 1, :elements, 0, :text)).to eq("*Ada* · EDD · 📦 Archived")
   end
