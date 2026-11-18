@@ -17,6 +17,8 @@
 (() => {
   if (parent === window || !location.hash) return
   const nonce = document.currentScript.nonce
+  document.currentScript.nonce = ""
+  document.currentScript.remove()
   const root = document.querySelector("main")
   const channel = new MessageChannel()
   const port = channel.port1
@@ -34,6 +36,15 @@
       map.nonce = nonce
       map.textContent = JSON.stringify({imports})
       document.head.append(map)
+      map.nonce = ""
+      map.remove()
+
+      // The import map is installed. Only local blob modules may run from
+      // now on, even in browsers that report the bootstrap policy to scripts.
+      const runtimePolicy = document.createElement("meta")
+      runtimePolicy.httpEquiv = "Content-Security-Policy"
+      runtimePolicy.content = "script-src blob:"
+      document.head.append(runtimePolicy)
 
       const type = wrapper && await import(moduleURL(wrapper.source))
       const context = { ...await type?.setup?.({root, title}), root }

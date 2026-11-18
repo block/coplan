@@ -61,6 +61,12 @@ RSpec.describe "Document components", type: :request do
     expect(first.reload.component_catalog.dig("libraries", "maths@1", "source")).to include("* 10")
   end
 
+  it "retains structural discussion targets after Markdown-looking component source" do
+    markdown = "::: {.component}\n\nroot.textContent = `\n~~~js\nhello\n`;\n\n:::\n\n| Item |\n| --- |\n| Later |\n"
+    ranges = CoPlan::Plans::SourceTargets.new(markdown).ranges
+    expect(ranges).to include([ "table_cell", markdown.index(" Later "), markdown.index(" Later ") + 7 ])
+  end
+
   it "keeps source visible for an unknown library, conflicts, and disabled execution" do
     sign_in_as(user)
     catalog.library("diagram@2", source: "export const version = 2", example: "version")

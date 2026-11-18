@@ -16,6 +16,8 @@ RSpec.describe "Interactive components", type: :system do
     visit plan_page_path(plan)
     within_frame(find('iframe[title="Payment path"]')) do
       expect(page).to have_css("svg text", text: "Retry queue")
+      expect(page.evaluate_script("document.querySelector('[nonce]')")).to be_nil
+      expect(page.evaluate_script("document.querySelector('meta[http-equiv=Content-Security-Policy]').content")).to eq("script-src blob:")
       expect(page.evaluate_script("self.origin")).to eq("null")
       expect(page.evaluate_async_script("const done = arguments[0]; fetch(location.href).then(() => done('connected'), () => done('blocked'))")).to eq("blocked")
     end
@@ -48,6 +50,34 @@ RSpec.describe "Interactive components", type: :system do
     within_frame(find('iframe[title="Amount"]')) { expect(page).to have_text("</script> 250") }
     find("figure summary", text: "Source").click
     expect(page).to have_css("figure pre", text: 'root.textContent = "</script> " + cents;')
+  end
+
+  it "keeps repeated captions and source out of prose discussion and writing highlights" do
+    markdown = "# Demo\n\n::: {.component title=\"Later passage\"}\n\nroot.textContent = 'Later passage';\n\n:::\n\nLater passage\n"
+    plan = CoPlan::Plans::Create.call(title: "Demo", content: markdown, user: author, actor_type: "human")
+    visit plan_page_path(plan)
+    find(".writing-provenance__trigger").click
+    click_button "Inspect writing"
+    expect(page).to have_button("Done inspecting")
+    expect(page.evaluate_script(<<~JS)).to eq([ "P" ])
+      [...CSS.highlights.values()].flatMap(highlight => [...highlight]).filter(range => range.toString() === "Later passage")
+        .map(range => range.startContainer.parentElement.tagName)
+    JS
+    click_button "Done inspecting"
+    paragraph = find("#plan-content-body p", exact_text: "Later passage")
+    page.execute_script(<<~JS, paragraph)
+      const range = document.createRange(); range.selectNodeContents(arguments[0]);
+      const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range);
+    JS
+    find("body").send_keys("c")
+    within("#new-comment-form") do
+      fill_in "comment_thread[body_markdown]", with: "Discuss the prose."
+      click_button "Comment"
+    end
+    expect(page).to have_no_css("#new-comment-form", visible: true)
+    expect(plan.comment_threads.reload.sole.anchor_start).to eq(markdown.rindex("Later passage"))
+    visit plan_page_path(plan)
+    expect(page).to have_css("#plan-content-body p mark", text: "Later passage")
   end
 
   it "keeps the script in one editable block and preserves its exact source in Raw mode" do

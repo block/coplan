@@ -37,6 +37,19 @@ RSpec.describe CoPlan::ContentRegions::Split do
     expect(described_class.call(source).regions.map(&:kind)).to eq(%i[component component])
   end
 
+  it "bounds Markdown parsing to the surrounding prose when many scripts contain fence-like text" do
+    block = "::: {.component}\n\nroot.textContent = `\n~~~js\nhello\n`;\n\n:::\n\n"
+    source = ("Example\n\n" + block) * 100
+    parsed_bytes = 0
+    allow(CoPlan::Markdown).to receive(:parse).and_wrap_original do |original, text, **options|
+      parsed_bytes += text.bytesize
+      original.call(text, **options)
+    end
+
+    expect(described_class.call(source).regions.count { |r| r.kind == :component }).to eq(100)
+    expect(parsed_bytes).to be <= source.bytesize * 3
+  end
+
   it "keeps a paired presentation region with no slide content" do
     source = "::: {.presentation}\n\n:::"
     result = described_class.call(source)

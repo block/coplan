@@ -27,17 +27,17 @@ module CoPlan
       end
 
       def call
-        markers = markdown_markers(0)
+        reset_marker_scan(0)
         regions = []
         canonical = @lines.dup
         masked = @lines.dup
         cursor = 0
         index = 0
         while index < @lines.size
-          region = markers.include?(index) && declaration(@lines[index])
-          if region
+          region = declaration(@lines[index])
+          if region && markdown_marker?(index)
             closing = (index + 1...@lines.size).find do |i|
-              @lines[i] == CLOSE && (region.kind == :component || markers.include?(i))
+              @lines[i] == CLOSE && (region.kind == :component || markdown_marker?(i))
             end
             break unless closing
             add_document(regions, cursor, index)
@@ -49,11 +49,9 @@ module CoPlan
             canonical[closing] = " " * @lines[closing].length
             if region.kind == :component
               (index..closing).each { |i| masked[i] = canonical[i] = " " * @lines[i].length }
-              # A Markdown-looking string inside JS can consume later lines in
-              # the initial AST. Resume parsing in document context at the end.
-              markers = markdown_markers(closing + 1) unless markers.include?(closing)
             end
             cursor = closing + 1
+            reset_marker_scan(cursor)
             index = cursor
           else
             index += 1
@@ -65,12 +63,36 @@ module CoPlan
 
       private
 
-      def markdown_markers(offset)
+      def reset_marker_scan(offset)
+        @scan_start = @scan_end = offset
+        @scan_bytes = 0
+      end
+
+      # Start fresh after a confirmed region, so JavaScript never determines
+      # the Markdown context after its closing marker. Grow the lookahead by
+      # bytes when candidate markers inside code or quotes keep being rejected.
+      def markdown_marker?(index)
+        if index >= @scan_end
+          budget = @scan_bytes * 2
+          while @scan_end < @lines.size
+            size = @lines[@scan_end].bytesize + 1
+            break if @scan_end > index && @scan_bytes + size > budget
+            @scan_bytes += size
+            @scan_end += 1
+          end
+          # Include the following line to distinguish a standalone paragraph
+          # from a continuation or setext heading at the edge of the window.
+          @markers = paragraph_markers(@lines[@scan_start..@scan_end].join("\n"))
+        end
+        @markers.include?(index)
+      end
+
+      def paragraph_markers(source)
         markers = Set.new
-        CoPlan::Markdown.parse(@lines[offset..].join("\n"), options: { extension: MarkdownHelper::EXTENSION_OPTIONS }).each do |node|
+        CoPlan::Markdown.parse(source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }).each do |node|
           next unless node.type == :paragraph
           pos = node.source_position
-          index = pos[:start_line] - 1 + offset
+          index = pos[:start_line] - 1 + @scan_start
           markers << index if pos[:start_line] == pos[:end_line] && @lines[index].start_with?(CLOSE)
         end
         markers

@@ -34,17 +34,17 @@ module CoPlan
         # positions produced by the Markdown AST can become signed targets.
         @positions = Hash.new { |hash, key| hash[key] = Set.new }
         @components = {}
-        visible = @content
+        @visible_source = @content
         if @content.include?(ContentRegions::Split::COMPONENT_PREFIX)
           result = ContentRegions::Split.call(@content)
-          visible = result.component_mask
+          @visible_source = result.component_mask
           result.regions.select { |region| region.kind == :component }.each do |region|
             start = @offsets.fetch(region.start_line - 2)
             closing = @offsets.fetch(region.end_line - 1)
             @components[region.start_line] = target("component", start, closing + 3, region.attributes["title"].presence || "Component")
           end
         end
-        collect_positions(CoPlan::Markdown.parse(visible, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }))
+        collect_positions(CoPlan::Markdown.parse(@visible_source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS }))
       end
 
       def annotate(doc)
@@ -105,7 +105,7 @@ module CoPlan
       # Used after OT: a surviving range must still describe a selectable
       # element, rather than syntax that an edit elsewhere turned into prose.
       def ranges
-        html = CoPlan::Markdown.to_html(@content, options: { extension: MarkdownHelper::EXTENSION_OPTIONS,
+        html = CoPlan::Markdown.to_html(@visible_source, options: { extension: MarkdownHelper::EXTENSION_OPTIONS,
           render: { sourcepos: true } }, plugins: { syntax_highlighter: nil })
         doc = annotate(Nokogiri::HTML.fragment(html))
         targets = doc.css("[data-source-target]").map { |node| JSON.parse(node["data-source-target"]) }

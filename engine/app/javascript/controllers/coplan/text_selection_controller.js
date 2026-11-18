@@ -14,7 +14,7 @@ import { revealSections } from "coplan/collapsed_sections"
 // leaves it out of the server's. A selection can span math; one inside a
 // single formula offers no comment.
 const MATH_SELECTOR = "[data-math-style]"
-const NON_RENDERED_TEXT_SELECTOR = `style, script, noscript, [data-source-badge], [data-coplan-template-note], ${MATH_SELECTOR}`
+const NON_RENDERED_TEXT_SELECTOR = `style, script, noscript, .document-component, [data-source-badge], [data-coplan-template-note], ${MATH_SELECTOR}`
 
 export default class extends Controller {
   static targets = ["content", "popover", "form", "anchorInput", "contextInput", "occurrenceInput", "occurrenceSourceInput", "anchorPreview", "anchorQuote", "threads"]
@@ -139,8 +139,8 @@ export default class extends Controller {
       return
     }
     const range = selection.getRangeAt(0)
-    const inNote = node => (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement)?.closest("[data-coplan-template-note]")
-    if (inNote(range.startContainer) || inNote(range.endContainer)) {
+    const outsideProse = node => (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement)?.closest("[data-coplan-template-note], .document-component")
+    if (outsideProse(range.startContainer) || outsideProse(range.endContainer)) {
       this.clearSelection()
       return
     }
