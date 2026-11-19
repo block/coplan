@@ -32,6 +32,20 @@ RSpec.describe "Interactive components", type: :system do
       find('input[type="range"]').send_keys(:arrow_right)
       expect(page).to have_text("1 + 2 + 4 + 8 = 15 seconds")
     end
+    simulator = find("figure", text: "Retry simulator", match: :first)
+    simulator.hover
+    simulator.find('button[aria-label="Expand component"]').click
+    expect(simulator).to match_css(":popover-open")
+    within_frame(simulator.find("iframe")) { expect(page).to have_text("1 + 2 + 4 + 8 = 15 seconds") }
+    simulator.find('button[aria-label="Collapse component"]').click
+    expect(simulator).not_to match_css(":popover-open")
+    find_button("Appearance").click
+    find('input[name="appearance_mode"][value="dark"]', visible: :all).ancestor("label").click
+    find("body").send_keys(:escape)
+    within_frame(simulator.find("iframe")) do
+      expect(page).to have_css('html[style*="color-scheme: dark"]')
+      expect(page).to have_text("1 + 2 + 4 + 8 = 15 seconds")
+    end
     expect(page).to have_css(".document-component[data-render-ms]", count: 2)
     find("figure", text: "Payment path", match: :first).find("button[data-source-target]").click
     expect(page).to have_css(".source-comments textarea:focus", visible: true)
@@ -54,7 +68,7 @@ RSpec.describe "Interactive components", type: :system do
     plan = CoPlan::Plans::Create.call(title: "Receipt", content: markdown, user: author, actor_type: "human")
     visit plan_page_path(plan)
     within_frame(find('iframe[title="Amount"]')) { expect(page).to have_text("</script> 250") }
-    find("figure summary", text: "Source").click
+    find('figure summary[aria-label="View source"]').click
     expect(page).to have_css("figure pre", text: 'root.textContent = "</script> " + cents;')
   end
 

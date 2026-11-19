@@ -6,7 +6,7 @@
   <title>Document component</title>
   <style>
     :root { color-scheme: light dark; }
-    body { margin: 0; color: CanvasText; font: 16px system-ui, sans-serif; }
+    body { margin: 0; color: var(--coplan-text, CanvasText); accent-color: var(--coplan-primary, auto); font: 16px system-ui, sans-serif; }
     main { display: flow-root; padding: 12px; overflow-wrap: anywhere; }
     button, input, select { font: inherit; }
   </style>
@@ -24,7 +24,13 @@
   const port = channel.port1
   const moduleURL = source => URL.createObjectURL(new Blob([source], {type: "text/javascript"}))
   port.onmessage = async ({data}) => {
-    port.onmessage = null
+    function applyTheme(theme) {
+      const style = document.documentElement.style
+      style.colorScheme = theme.scheme
+      for (const [name, value] of Object.entries(theme.colors)) style.setProperty("--coplan-" + name, value)
+    }
+    if (data.theme) applyTheme(data.theme)
+    port.onmessage = ({data}) => { if (data.theme) applyTheme(data.theme) }
     const started = performance.now()
     const {source, title, libraries, wrapper, startLine} = data
     let authorURL

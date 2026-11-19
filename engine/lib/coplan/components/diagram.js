@@ -23,12 +23,12 @@ export class Diagram {
     }
     const width = 560
     const svg = svgElement("svg", {viewBox: `0 0 ${width} ${Math.max(90, this.nodes.size * 96)}`, role: "img", "aria-label": this.title})
-    svg.style.cssText = "display:block;width:100%;max-width:560px;margin:auto;font:15px system-ui;color:CanvasText"
+    svg.style.cssText = "display:block;width:100%;max-width:560px;margin:auto;font:15px system-ui;color:var(--coplan-text, CanvasText)"
     const positions = new Map()
     for (const [id, label] of this.nodes) {
       const y = 12 + positions.size * 96
       positions.set(id, y)
-      svg.append(svgElement("rect", {x: 128, y, width: 304, height: 44, rx: 8, fill: "Canvas", stroke: "currentColor"}))
+      svg.append(svgElement("rect", {x: 128, y, width: 304, height: 44, rx: 8, fill: "var(--coplan-surface-muted, Canvas)", stroke: "currentColor"}))
       svg.append(svgElement("text", {x: 280, y: y + 27, "text-anchor": "middle", fill: "currentColor"}, label))
     }
     this.edges.forEach(({from, to, label}, index) => {
