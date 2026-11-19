@@ -25,6 +25,13 @@ export default class extends Controller {
 
     this.releaseShortcuts = registerShortcuts(this, "outline", event => this.handleKeydown(event))
 
+    // Turbo can replace back-matter counts without changing the document.
+    const backMatter = this.sidebarTarget.querySelector(".content-nav__list--footnotes")
+    if (backMatter) {
+      this._backMatterObserver = new MutationObserver(() => this.updateEditorToggle())
+      this._backMatterObserver.observe(backMatter, { childList: true, characterData: true, subtree: true })
+    }
+
     this._handleAnchorsUpdated = () => this.updateCommentBadges()
     this.element.addEventListener("coplan:anchors-updated", this._handleAnchorsUpdated)
   }
@@ -37,6 +44,7 @@ export default class extends Controller {
     if (this._handleAnchorsUpdated) {
       this.element.removeEventListener("coplan:anchors-updated", this._handleAnchorsUpdated)
     }
+    this._backMatterObserver?.disconnect()
     clearTimeout(this._editorTocTimer)
   }
 
@@ -63,14 +71,15 @@ export default class extends Controller {
     const documentTitle = body.querySelector(":scope > .markdown-rendered:first-child > h1:first-child")
     this._headings = headings.filter(heading => heading !== documentTitle)
 
-    if (this._headings.length === 0) {
-      this.assembleOutline([])
-      this.sidebarTarget.style.display = "none"
-      if (this.hasShowBtnTarget) this.showBtnTarget.style.display = "none"
-      return
-    }
+    // Back-matter navigation is useful even without section headings. CSS
+    // also responds when Turbo replaces its counts without rebuilding the TOC.
+    this.sidebarTarget.classList.toggle("content-nav--no-headings", this._headings.length === 0)
     this.sidebarTarget.style.display = ""
     if (this.hasShowBtnTarget) Object.assign(this.showBtnTarget.style, { display: "", visibility: "" })
+    if (this._headings.length === 0) {
+      this.assembleOutline([])
+      return
+    }
 
     // Commonmarker supplies an empty self-link inside each heading. Promote
     // its generated fragment to the heading itself when that heading does
@@ -145,9 +154,11 @@ export default class extends Controller {
   buildEditorToc(root) {
     // Keep the column fixed for this edit session. Removing or adding the
     // last heading must not move the caret or a toolbar button mid-click.
-    if (this._editorRoot !== root) this._editorSidebarDisplayed = this.sidebarTarget.style.display !== "none"
+    if (this._editorRoot !== root) this._editorSidebarDisplayed = getComputedStyle(this.sidebarTarget).display !== "none"
     this._editorRoot = root
     this._headings = this.editorHeadings()
+    // Freeze the column during editing, including when its final heading is removed.
+    this.sidebarTarget.classList.remove("content-nav--no-headings")
     this._editorHeadingSignature = this.editorHeadingSignature(this._headings)
     this._outlineIds = []
     this._itemsById = new Map()
@@ -156,7 +167,10 @@ export default class extends Controller {
     // button would cover formatting when an empty notice no longer reserves
     // a row above the editor. Hide it without giving up its width: it sizes
     // the column the title and body share, which must not jump on Edit.
-    if (this.hasShowBtnTarget) this.showBtnTarget.style.visibility = "hidden"
+    if (this.hasShowBtnTarget) {
+      this.showBtnTarget.style.visibility = "hidden"
+      this.showBtnTarget.style.display = this._editorSidebarDisplayed ? "" : "none"
+    }
     this.updateEditorToggle()
 
     const used = new Set()
@@ -623,7 +637,7 @@ export default class extends Controller {
       else this.showOutline()
       return
     }
-    if (this._editorRoot && !this._editorSidebarDisplayed && this._headings.length) {
+    if (this._editorRoot && !this._editorSidebarDisplayed && this.hasNavigationEntries()) {
       // The first heading does not open a column mid-typing. An explicit
       // outline request can still reveal it during the edit session.
       this.showOutline()
@@ -682,9 +696,13 @@ export default class extends Controller {
     this.updateEditorToggle()
   }
 
+  hasNavigationEntries() {
+    return Boolean(this._headings?.length || this.sidebarTarget.querySelector(".content-nav__list--footnotes .section-count:not(:empty)"))
+  }
+
   updateEditorToggle() {
     if (!this.hasEditorToggleBtnTarget) return
-    this.editorToggleBtnTarget.disabled = !this._headings?.length
+    this.editorToggleBtnTarget.disabled = !this.hasNavigationEntries()
     this.editorToggleBtnTarget.setAttribute("aria-expanded", String(Boolean(this._editorSidebarDisplayed && this.visibleValue)))
   }
 

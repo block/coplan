@@ -17,6 +17,13 @@
   margin-right: var(--space-lg);
 }
 
+/* An empty heading list must not hide populated Reviews/Comments links.
+   Count replacements from Turbo update this without another JS observer. */
+.content-nav--no-headings:not(:has(.content-nav__list--footnotes .section-count:not(:empty))),
+.content-nav--no-headings:not(:has(.content-nav__list--footnotes .section-count:not(:empty))) + .content-nav-show-btn {
+  display: none;
+}
+
 .content-nav--hidden {
   width: 0;
   opacity: 0;

@@ -61,6 +61,17 @@ RSpec.describe "Collapsible document outline", type: :system do
     JS
   end
 
+  def wait_for_heading_scroll(text)
+    Selenium::WebDriver::Wait.new(timeout: 5).until do
+      page.evaluate_script(<<~JS, heading_id(text))
+        (() => {
+          const heading = document.getElementById(arguments[0])
+          return Math.abs(heading.getBoundingClientRect().top - parseFloat(getComputedStyle(heading).scrollMarginTop)) < 1
+        })()
+      JS
+    end
+  end
+
   before { sign_in(author) }
 
   context "with a long outline" do
@@ -117,11 +128,15 @@ RSpec.describe "Collapsible document outline", type: :system do
       expect_expanded("2. Context", true)
 
       architecture = find(".content-nav__link-text", exact_text: "3. Architecture")
-      before_top = architecture.evaluate_script("this.getBoundingClientRect().top - this.closest('nav').getBoundingClientRect().top")
+      # Start with the sticky outline settled, then measure screen coordinates:
+      # measuring relative to the nav would miss movement of the whole sidebar.
+      wait_for_heading_scroll("2. Context")
+      before_top = architecture.evaluate_script("this.getBoundingClientRect().top")
       architecture.click
       expect_expanded("3. Architecture", true)
+      wait_for_heading_scroll("3. Architecture")
       expect_expanded("2. Context", true)
-      expect(architecture.evaluate_script("this.getBoundingClientRect().top - this.closest('nav').getBoundingClientRect().top")).to be_within(1).of(before_top)
+      expect(architecture.evaluate_script("this.getBoundingClientRect().top")).to be_within(1).of(before_top)
 
       visit current_url
       expect_expanded("2. Context", true)
@@ -321,6 +336,58 @@ RSpec.describe "Collapsible document outline", type: :system do
         top.between?(0, page.evaluate_script("window.innerHeight"))
       end
     end
+  end
+
+  it "reveals back-matter navigation when a title-only document receives a count update" do
+    replace_content("# Long review\n\nBody without section headings.\n")
+    visit plan_page_path(plan)
+    expect_entry_visible("Long review", false)
+    expect(page).to have_no_css(".content-nav", visible: true)
+
+    # Counts arrive independently of document headings via Turbo Streams.
+    page.execute_script(<<~JS)
+      window.Turbo.renderStreamMessage('<turbo-stream action="update" target="nav-comments-count"><template>1</template></turbo-stream>')
+    JS
+    expect(page).to have_link("Comments", href: "#plan-general-comments")
+    find(".content-nav__footnote-link", text: "Comments").click
+    expect(page).to have_css("#plan-general-comments details[open]")
+    expect_entry_visible("Long review", false)
+    %w[light dark].each do |theme|
+      page.execute_script("document.documentElement.dataset.theme = arguments[0]", theme)
+      expect(page).to have_link("Comments", href: "#plan-general-comments")
+      page.save_screenshot(Rails.root.join("tmp/capybara/outline-back-matter-#{theme}.png"))
+    end
+  end
+
+  it "enables an explicit editor outline request when back-matter counts arrive" do
+    replace_content("# Long review\n\nBody without section headings.\n")
+    visit plan_page_path(plan)
+    within("#plan-toolbar") { click_link "Edit" }
+    expect(page).to have_css(".inline-editor .ProseMirror")
+    expect(page).to have_button("Toggle table of contents", disabled: true, enable_aria_label: true)
+    paper = find(".inline-editor .ProseMirror")
+    before_left = paper.evaluate_script("this.getBoundingClientRect().left")
+
+    page.execute_script(<<~JS)
+      window.Turbo.renderStreamMessage('<turbo-stream action="update" target="nav-comments-count"><template>1</template></turbo-stream>')
+    JS
+    expect(page).to have_button("Toggle table of contents", disabled: false, enable_aria_label: true)
+    expect(paper.evaluate_script("this.getBoundingClientRect().left")).to be_within(1).of(before_left)
+    click_button "Toggle table of contents", enable_aria_label: true
+    expect(page).to have_link("Comments", href: "#plan-general-comments")
+  end
+
+  it "keeps the editor column in place when its last section heading becomes a paragraph" do
+    replace_content("# Long review\n\n## Only section\n\nBody.\n")
+    visit plan_page_path(plan)
+    within("#plan-toolbar") { click_link "Edit" }
+    heading = find(".inline-editor .ProseMirror h2", text: "Only section")
+    before_left = heading.evaluate_script("this.closest('.ProseMirror').getBoundingClientRect().left")
+    heading.click
+    select "Normal text", from: "Paragraph style", enable_aria_label: true
+    expect(page).to have_no_css(".inline-editor .ProseMirror h2")
+    expect(page).to have_no_css(".content-nav__link-text", text: "Only section", visible: :all)
+    expect(find(".inline-editor .ProseMirror").evaluate_script("this.getBoundingClientRect().left")).to be_within(1).of(before_left)
   end
 
   it "omits only the document title and preserves genuine H1 sections in reader and editor" do
