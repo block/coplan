@@ -154,7 +154,7 @@ CoPlan.configure do |config|
   # Optional: AI provider configuration
   config.ai_api_key = ENV["OPENAI_API_KEY"]
   config.ai_model = "gpt-4o"
-  config.ai_models = { low: "gpt-4.1-nano" }
+  config.ai_models = { low: "gpt-6-luna" } # default for summaries; hosts can override
 end
 ```
 
@@ -302,7 +302,7 @@ CoPlan.configure do |config|
   config.ai_base_url = "https://api.openai.com/v1"  # default
   config.ai_api_key = nil
   config.ai_model = "gpt-4o"                         # fallback for all intensities
-  config.ai_models = { low: "gpt-4.1-nano" }          # optional per-intensity overrides
+  config.ai_models = { low: "gpt-6-luna" }           # default; hosts can override each intensity
   config.summary_debounce_delay = 1.minute           # default quiet period after the last edit
 
   # Error reporting (optional)
@@ -334,9 +334,9 @@ end
 
 Text-generation calls can request `:low`, `:medium`, or `:high` intensity.
 Each level uses `config.ai_models` when configured and otherwise falls back to
-`config.ai_model`. Plan summaries request `:low`; dictated comment cleanup and
-anchoring request `:medium`. Audio transcription uses its own model, configured
-with `COPLAN_TRANSCRIBE_MODEL`.
+`config.ai_model`. Plan summaries request `:low`, which defaults to `gpt-6-luna`;
+dictated comment cleanup and anchoring request `:medium`. Audio transcription
+uses its own model, configured with `COPLAN_TRANSCRIBE_MODEL`.
 
 Set `summary_debounce_delay` in the host initializer to a nonnegative duration
 or number of seconds, such as `2.minutes` or `120`. Zero removes the wait.

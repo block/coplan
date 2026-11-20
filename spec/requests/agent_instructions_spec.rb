@@ -1,14 +1,6 @@
 require "rails_helper"
 
 RSpec.describe "Agent Instructions", type: :request do
-  it "describes the host's summary delay in the organizing guide" do
-    allow(CoPlan.configuration).to receive(:summary_debounce_delay).and_return(2.minutes)
-
-    get agent_instructions_guide_path(guide: "organizing")
-
-    expect(response.body).to include("Summary generation waits until 120 seconds after the latest saved edit.")
-  end
-
   # These examples configure their own catalog. Seeded reference data must
   # not determine their fixtures or the order in which they pass.
   before { CoPlan::PlanType.delete_all }

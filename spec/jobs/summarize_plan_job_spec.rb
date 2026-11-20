@@ -15,6 +15,19 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
   end
 
   describe "#perform" do
+    it "uses gpt-6-luna as the default summary model" do
+      allow(CoPlan::Ai).to receive(:call).and_call_original
+      allow(CoPlan::AiProviders::OpenAi).to receive(:call).and_return("Fresh summary.")
+
+      described_class.perform_now(plan_id: plan.id)
+
+      expect(CoPlan::AiProviders::OpenAi).to have_received(:call).with(
+        system_prompt: File.read(described_class::PROMPT_PATH),
+        user_content: plan.current_content,
+        model: "gpt-6-luna"
+      )
+    end
+
     it "passes the summarize prompt and plan content to CoPlan::Ai" do
       described_class.perform_now(plan_id: plan.id)
 

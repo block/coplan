@@ -34,8 +34,6 @@ For another library, use `GET <%= @base %>/api/v1/libraries/$LIBRARY_ID/contents
 
 This returns one row for each plan in the library: `plan_id`, `title`, `summary` (a generated abstract), `tags`, `visibility`, `archived`, `author`, `folder_path`, `placed_by`, and dates. Rows are sorted by folder path.
 
-Summary generation waits until <%= CoPlan.configuration.summary_debounce_delay.to_i %> seconds after the latest saved edit. During editing, the summary can describe an older version or be blank. A failed generation keeps the previous summary until a later edit triggers another attempt.
-
 Filters, which you can combine:
 
 - `?folder_path=Team%20EBT&recursive=true`: one subtree

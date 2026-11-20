@@ -174,7 +174,7 @@ module CoPlan
       @ai_base_url = "https://api.openai.com/v1"
       @ai_api_key = nil
       @ai_model = "gpt-4o"
-      @ai_models = {}
+      @ai_models = { low: "gpt-6-luna" }
       @summary_debounce_delay = 1.minute
       @error_reporter = ->(exception, context) { Rails.error.report(exception, context: context) }
       @notification_handler = nil
