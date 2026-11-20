@@ -83,4 +83,54 @@ RSpec.describe "Coplan administration", type: :request do
 
     expect(response.body).to include("2 notification intents created", "Delivered: 2", "1 Slack message sent")
   end
+
+  it "cannot destroy plans, comment threads or comments, one at a time or in a batch" do
+    sign_in_as(create(:coplan_user, admin: true))
+    comment = create(:comment)
+    thread = comment.comment_thread
+    plan = thread.plan
+
+    { "plans" => plan, "comment_threads" => thread, "plan_comments" => comment }.each do |route, record|
+      delete "/_/admin/#{route}/#{record.id}"
+      expect(response).to have_http_status(:not_found), "DELETE #{route}"
+
+      post "/_/admin/#{route}/batch_action", params: { batch_action: "destroy", collection_selection: [ record.id ] }
+      expect(response).to have_http_status(:not_found), "batch destroy #{route}"
+
+      expect(record.class.exists?(record.id)).to be(true), "#{route} still exists"
+    end
+
+    get "/_/admin/plans/#{plan.id}/edit"
+    expect(response).to have_http_status(:ok)
+  end
+
+  it "never changes the user an API token acts as" do
+    sign_in_as(create(:coplan_user, admin: true))
+    token = create(:api_token)
+    original_user = token.user
+
+    get "/_/admin/api_tokens/#{token.id}/edit"
+    expect(response).to have_http_status(:not_found)
+
+    patch "/_/admin/api_tokens/#{token.id}", params: { api_token: { user_id: create(:coplan_user).id } }
+    expect(response).to have_http_status(:not_found)
+    expect(token.reload.user).to eq(original_user)
+  end
+
+  it "offers no agent session downloads, which would include the wake secret" do
+    sign_in_as(create(:coplan_user, admin: true))
+    session = CoPlan::AgentSession.create!(
+      plan: create(:plan), api_token: create(:api_token), agent_name: "Test agent", state: "watching")
+
+    get "/_/admin/agent_sessions"
+    expect(response).to have_http_status(:ok)
+    expect(response.body).not_to include("agent_sessions.csv")
+
+    [ "/_/admin/agent_sessions.csv", "/_/admin/agent_sessions.json", "/_/admin/agent_sessions.xml",
+      "/_/admin/agent_sessions/#{session.id}.json", "/_/admin/agent_sessions/#{session.id}.xml" ].each do |path|
+      get path
+      expect(response).not_to have_http_status(:ok), path
+      expect(response.body).not_to include("wake_secret"), path
+    end
+  end
 end
