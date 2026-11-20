@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Document component</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; color: var(--coplan-text, CanvasText); accent-color: var(--coplan-primary, auto); font: 16px system-ui, sans-serif; }
+    main { display: flow-root; padding: 12px; overflow-wrap: anywhere; }
+    button, input, select { font: inherit; }
+  </style>
+</head>
+<body>
+<main></main>
+<script nonce="COMPONENT_SCRIPT_NONCE">
+(() => {
+  if (parent === window || !location.hash) return
+  const nonce = document.currentScript.nonce
+  document.currentScript.nonce = ""
+  document.currentScript.remove()
+  const root = document.querySelector("main")
+  const channel = new MessageChannel()
+  const port = channel.port1
+  const moduleURL = source => URL.createObjectURL(new Blob([source], {type: "text/javascript"}))
+  port.onmessage = async ({data}) => {
+    function applyTheme(theme) {
+      const style = document.documentElement.style
+      style.colorScheme = theme.scheme
+      for (const [name, value] of Object.entries(theme.colors)) style.setProperty("--coplan-" + name, value)
+    }
+    if (data.theme) applyTheme(data.theme)
+    port.onmessage = ({data}) => { if (data.theme) applyTheme(data.theme) }
+    const started = performance.now()
+    const {source, title, libraries, wrapper, startLine} = data
+    let authorURL
+    try {
+      // Some engines expose peer networking independently of connect-src.
+      // Remove those entry points before any host or author module executes.
+      for (const name of ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection", "RTCIceGatherer", "RTCIceTransport", "RTCDtlsTransport"]) {
+        if (name in window) Object.defineProperty(window, name, {value: undefined, writable: false, configurable: false})
+      }
+      document.title = title
+      const imports = Object.fromEntries(Object.entries(libraries).map(([name, bytes]) => [name, moduleURL(bytes)]))
+      const map = document.createElement("script")
+      map.type = "importmap"
+      map.nonce = nonce
+      map.textContent = JSON.stringify({imports})
+      document.head.append(map)
+      map.nonce = ""
+      map.remove()
+
+      // The import map is installed. Only local blob modules may run from
+      // now on, even in browsers that report the bootstrap policy to scripts.
+      const runtimePolicy = document.createElement("meta")
+      runtimePolicy.httpEquiv = "Content-Security-Policy"
+      runtimePolicy.content = "script-src blob:"
+      document.head.append(runtimePolicy)
+
+      const type = wrapper && await import(moduleURL(wrapper.source))
+      const context = { ...await type?.setup?.({root, title}), root }
+      const names = ["root", ...(wrapper?.bindings || [])]
+      authorURL = moduleURL(`export default async function({${names.join(",")}}) {\n${source}\n}`)
+      const module = await import(authorURL)
+      await module.default(context)
+      await type?.mount?.(context)
+      port.postMessage({renderMs: performance.now() - started})
+    } catch (error) {
+      const frame = authorURL && String(error?.stack || "").split(authorURL + ":")[1]
+      const line = frame && Number.parseInt(frame, 10)
+      const location = Number.isInteger(line) ? `line ${startLine + line - 2}` : `block at line ${startLine - 1}`
+      root.textContent = `Component error (${location}): ${error?.message || String(error)}`
+    }
+    const reportSize = () => port.postMessage({height: Math.ceil(root.getBoundingClientRect().height)})
+    reportSize()
+    new ResizeObserver(reportSize).observe(root)
+  }
+  parent.postMessage({component: location.hash.slice(1)}, new URL(location.href).origin, [channel.port2])
+})()
+</script>
+</body></html>

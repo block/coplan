@@ -71,7 +71,7 @@ module CoPlan
 
         pattern = /^#{Regexp.escape(heading)}[^\S\n]*$/
         matches = []
-        @content.scan(pattern) do
+        ContentRegions::Split.component_mask(@content).scan(pattern) do
           match_end = Regexp.last_match.end(0)
           matches << [ match_end, match_end ]
         end
@@ -164,7 +164,7 @@ module CoPlan
         # Normalize: accept both string and boolean
         include_heading = include_heading != false && include_heading != "false"
 
-        headings = parse_headings(@content)
+        headings = parse_headings(ContentRegions::Split.component_mask(@content))
         matches = headings.select { |h| h[:text] == heading }
 
         if matches.empty?

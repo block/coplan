@@ -385,6 +385,17 @@ RSpec.describe CoPlan::DevelopmentSeed do
       expect(plan.reload.current_content).to eq(resized)
     end
 
+    it "seeds and preserves the interactive components example" do
+      described_class.call
+      plan = seeded_plan("interactive-components")
+      revision = plan.current_revision
+      expect(plan.current_content).to include('type="diagram"', 'title="Retry simulator"')
+      expect(plan.current_plan_version.component_catalog.fetch("types")).to have_key("diagram")
+      expect(seeded_plan("demo-library").current_content).to include("(/#{plan.url_path})")
+      described_class.call
+      expect(plan.reload.current_revision).to eq(revision)
+    end
+
     it "seeds the callout gallery once with every callout type and preserves a person's edits" do
       described_class.call
       plan = seeded_plan("callout-gallery")

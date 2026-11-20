@@ -1,10 +1,11 @@
 module CoPlan
   class PlanVersion < ApplicationRecord
-    attr_readonly :id, :plan_id, :revision, :content_markdown, :content_sha256
+    attr_readonly :id, :plan_id, :revision, :content_markdown, :content_sha256, :component_catalog
 
     attr_accessor :edit_lease_token, :input_sources, :writing_identity, :allow_empty_title
 
     before_create :enforce_edit_lease
+    before_create :pin_component_catalog
     before_create :capture_writing_provenance
     after_create :cache_writing_provenance_summary
 
@@ -90,6 +91,13 @@ module CoPlan
       end
       self.content_markdown = normalized
       self.content_sha256 = nil
+    end
+
+    def pin_component_catalog
+      return unless content_markdown.include?(ContentRegions::Split::COMPONENT_PREFIX)
+
+      components = ContentRegions::Split.call(content_markdown).regions.select { |region| region.kind == :component }
+      self.component_catalog = CoPlan.configuration.component_catalog.snapshot(components) if components.any?
     end
 
     def capture_writing_provenance

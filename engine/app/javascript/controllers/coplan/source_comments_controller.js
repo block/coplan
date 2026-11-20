@@ -131,9 +131,9 @@ export default class extends Controller {
     this.element.querySelector("#source-comment-error").textContent = ""
 
     const panel = this.panelTarget
-    const dialog = element.closest("dialog.expander")
+    const expanded = element.closest("dialog.expander, .document-component:popover-open")
     try { panel.hidePopover() } catch {}
-    if (dialog) dialog.append(panel)
+    if (expanded) expanded.append(panel)
     else this.panelHome.after(panel)
     this.renderDiscussions()
     this.paintSelection()

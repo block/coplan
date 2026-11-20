@@ -1,0 +1,96 @@
+require "rails_helper"
+
+RSpec.describe "Document components", type: :request do
+  let(:user) { create(:coplan_user) }
+  let(:catalog) { CoPlan::ComponentCatalog.new }
+  let(:content) do
+    <<~'MD'
+      # Demo
+
+      ::: {.component #retry type="diagram" uses="maths@1" title="Retry flow"}
+
+      const { delay } = await import("maths");
+      diagram.node("retry", "Retry " + delay(2));
+
+      :::
+    MD
+  end
+
+  before do
+    allow(CoPlan.configuration).to receive(:component_catalog).and_return(catalog)
+    catalog.library("maths@1", source: "export const delay = n => n * 10", example: "delay(2)")
+  end
+
+  it "serves a fixed sandbox even on a direct visit" do
+    get component_frame_path, params: { source: "ignored-component-input" }
+    expect(response).to have_http_status(:ok)
+    nonce = Nokogiri::HTML.fragment(response.body).at_css("script")["nonce"]
+    expect(response.headers["Content-Security-Policy"]).to include("sandbox allow-scripts;", "frame-ancestors 'self'", "connect-src 'none'", "'nonce-#{nonce}'")
+    expect(response.headers["Content-Security-Policy"]).not_to include("allow-same-origin", "'unsafe-eval'")
+    expect(response.headers["Connection-Allowlist"]).to eq("()")
+    expect(response.body).not_to include("ignored-component-input")
+    allow(CoPlan.configuration).to receive(:components_enabled).and_return(false)
+    get component_frame_path
+    expect(response).to have_http_status(:not_found)
+  end
+
+  it "retains modules for each version and signs whole-component comments" do
+    sign_in_as(user)
+    plan = CoPlan::Plans::Create.call(title: "Demo", content:, user:, actor_type: "human")
+    first = plan.current_plan_version
+    catalog.library("maths@1", source: "export const delay = n => n * 20", example: "delay(2)")
+    get plan_page_path(plan)
+    block = Nokogiri::HTML.fragment(response.body).at_css("figure#retry")
+    payload = JSON.parse(block["data-coplan--component-program-value"])
+    expect(payload.fetch("libraries").keys).to contain_exactly("diagram", "maths")
+    expect(payload.dig("libraries", "maths")).to include("* 10")
+    expect(first.component_catalog.dig("libraries", "maths@1", "sha256")).to eq(Digest::SHA256.hexdigest(payload.dig("libraries", "maths")))
+    expect(block.at_css("iframe")["sandbox"]).to eq("allow-scripts")
+    target = JSON.parse(block.at_css("button")["data-source-target"])
+    resolved = CoPlan::Plans::SourceTargets.resolve(target["token"], first.content_markdown)
+    expect(resolved).to include("kind" => "component", "label" => "Retry flow")
+    expect(first.content_markdown[resolved["start"]...resolved["end"]]).to eq(content.split("\n\n", 2).last.chomp)
+    expect(CoPlan::Plans::SourceTargets.new(first.content_markdown).ranges).to include([ "component", resolved["start"], resolved["end"] ])
+
+    thread = plan.comment_threads.create!(plan_version: first, created_by_user: user, source_token: target["token"])
+    CoPlan::Plans::ReplaceContent.call(plan:, new_content: content.sub("delay(2)", "delay(3)"), granularity: :character, base_revision: plan.current_revision,
+      actor_type: "human", actor_id: user.id)
+    expect(thread.reload).not_to be_out_of_date
+    expect(thread.anchor_text).to include("delay(3)")
+    expect(plan.reload.current_plan_version.component_catalog.dig("libraries", "maths@1", "source")).to include("* 20")
+    get plan_version_page_path(plan, first)
+    historical = Nokogiri::HTML.fragment(response.body).at_css("figure#retry")
+    expect(JSON.parse(historical["data-coplan--component-program-value"]).dig("libraries", "maths")).to include("* 10")
+    expect(first.reload.component_catalog.dig("libraries", "maths@1", "source")).to include("* 10")
+  end
+
+  it "keeps generated source inside its visible section when reading changes and replacing a section" do
+    markdown = "# Demo\r\n\r\n## First\r\n\r\n::: {.component}\r\n\r\nroot.textContent = `\r\n~~~js\r\n## Later\r\n`;\r\n\r\n:::\r\n\r\n## Later\r\n\r\nKeep me."
+    change = CoPlan::Plans::ChangedSections.call(old_content: markdown, new_content: markdown.sub("~~~js", "~~~ruby"))
+    expect(change.keys).to eq([ "first" ])
+    expect(CoPlan::Plans::ChangedSections.call(old_content: markdown, new_content: markdown.gsub("\r\n", "\n")).keys).to be_empty
+    resolution = CoPlan::Plans::PositionResolver.call(content: markdown, operation: { "op" => "replace_section", "heading" => "## Later", "new_content" => "New" })
+    first, last = resolution.ranges.sole
+    expect(markdown[first...last]).to eq("## Later\r\n\r\nKeep me.")
+  end
+
+  it "retains structural discussion targets after Markdown-looking component source" do
+    markdown = "::: {.component}\n\nroot.textContent = `\n~~~js\nhello\n`;\n\n:::\n\n| Item |\n| --- |\n| Later |\n"
+    ranges = CoPlan::Plans::SourceTargets.new(markdown).ranges
+    expect(ranges).to include([ "table_cell", markdown.index(" Later "), markdown.index(" Later ") + 7 ])
+  end
+
+  it "keeps source visible for an unknown library, conflicts, and disabled execution" do
+    sign_in_as(user)
+    catalog.library("diagram@2", source: "export const version = 2", example: "version")
+    post preview_draft_plans_path, params: { content: content.sub("maths@1", "missing@1") }
+    expect(response.body).to include("Unknown component library: missing@1", "diagram.node")
+    expect(response.body).not_to include("<iframe")
+    post preview_draft_plans_path, params: { content: content.sub("maths@1", "diagram@2") }
+    expect(response.body).to include("Conflicting versions of diagram")
+    allow(CoPlan.configuration).to receive(:components_enabled).and_return(false)
+    post preview_draft_plans_path, params: { content: }
+    expect(response.body).to include("diagram.node")
+    expect(response.body).not_to include("<iframe")
+  end
+end

@@ -11,7 +11,7 @@ People comment on an exact passage of a plan, a table cell, or a diagram node or
 Each thread in the snapshot (`comment_threads`) includes:
 
 - `anchor_text`: the passage that the comment is about.
-- `anchor_kind`: set when the comment is on a `table_cell`, `mermaid_node`, `mermaid_edge`, or `mermaid_diagram` instead of on prose.
+- `anchor_kind`: set when the comment is on a `table_cell`, `mermaid_node`, `mermaid_edge`, `mermaid_diagram`, or `component` instead of on prose.
 - `anchor_valid`: `false` if the passage is no longer in the plan.
 - `out_of_date`: `true` if an edit changed the passage after the comment.
 - `start_line` and `end_line`: set for comments on full lines.

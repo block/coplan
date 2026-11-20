@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_213838) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_18_222850) do
   create_table "active_admin_comments", id: { type: :string, limit: 36 }, charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "author_id"
     t.string "author_type"
@@ -396,6 +396,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_213838) do
     t.text "reason"
     t.integer "revision", null: false
     t.json "writing_provenance"
+    t.json "component_catalog"
     t.index [ "api_token_id" ], name: "index_coplan_plan_versions_on_api_token_id"
     t.index [ "plan_id", "created_at" ], name: "index_coplan_plan_versions_on_plan_id_and_created_at"
     t.index [ "plan_id", "revision" ], name: "index_coplan_plan_versions_on_plan_id_and_revision", unique: true

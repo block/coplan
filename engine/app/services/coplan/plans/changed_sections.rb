@@ -91,8 +91,20 @@ module CoPlan
       end
 
       def self.sections(markdown)
+        source = markdown.to_s.encode("UTF-8")
+        if source.include?(ContentRegions::Split::COMPONENT_PREFIX)
+          split = ContentRegions::Split.call(source)
+          lines = split.component_mask.lines
+          original = source.lines
+          split.regions.select { |region| region.kind == :component }.each do |region|
+            first = region.start_line - 2
+            digest = Digest::SHA256.hexdigest(original[first...region.end_line].join.gsub("\r\n", "\n"))
+            lines[first] = "\n<pre>#{digest}</pre>\n\n"
+          end
+          source = lines.join
+        end
         html = CoPlan::Markdown.to_html(
-          markdown.to_s.encode("UTF-8"),
+          source,
           options: { extension: MarkdownHelper::EXTENSION_OPTIONS, render: { unsafe: true } },
           plugins: { syntax_highlighter: nil }
         )

@@ -6,6 +6,7 @@ module CoPlan
   # standalone spec + stylesheet later.
   module SlideshowsHelper
     include MarkdownHelper
+    include ComponentsHelper
 
     # Renders a slideshow plan's markdown as a stack of slide sections.
     # Each slide renders through the same pipeline documents use — same
@@ -62,16 +63,18 @@ module CoPlan
     # Render prose and any number of decks, then align every fragment against
     # one whole-plan render. This keeps footnotes, link definitions and heading
     # IDs global rather than restarting them at each region boundary.
-    def render_content_regions(content, interactive: true)
-      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true) unless content.include?("::: {.presentation")
+    def render_content_regions(content, interactive: true, version: nil)
+      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true) unless ContentRegions::Split.region_source?(content)
 
       result = ContentRegions::Split.call(content)
-      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true) unless result.regions.any? { |region| region.kind == :presentation }
+      return render_markdown(content, interactive:, footnotes: :exclude, source_comments: true) unless result.regions.any? { |region| region.kind != :document }
 
       definitions = Slideshows::Split.call(result.canonical_source).definition_blocks
       deck_number = 0
       fragments = result.regions.map do |region|
-        if region.kind == :presentation
+        if region.kind == :component
+          render_component_region(region, version:, interactive:)
+        elsif region.kind == :presentation
           deck_number += 1
           split_result = Slideshows::Split.call(region.source)
           deck = render_slideshow(region.source, interactive:, theme: region.theme, definitions: definitions,

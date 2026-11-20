@@ -995,3 +995,64 @@
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   border-bottom: none;
 }
+
+/* Keep tools on the caption line, leaving the live surface to the reader. */
+.document-component {
+  position: relative;
+  margin: 1rem 0;
+  padding: .8rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: .6rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+.document-component figcaption {
+  min-height: 2rem;
+  display: flex;
+  align-items: center;
+  padding-inline-end: 6.5rem;
+  font-weight: 600;
+}
+.document-component iframe { display: block; width: 100%; border: 0; }
+.document-component__actions, .document-component__source > summary {
+  position: absolute;
+  inset-block-start: .8rem;
+  inset-inline-end: .65rem;
+}
+.document-component__actions { display: flex; }
+.document-component__source > summary { inset-inline-end: 4.65rem; list-style: none; }
+.document-component__source > summary::-webkit-details-marker { display: none; }
+.document-component__actions button, .document-component__source > summary {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: .35rem;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+@media (hover: hover) and (pointer: fine) {
+  .document-component:not(:hover):not(:focus-within):not(:popover-open) :is(.document-component__actions button:not(.has-source-comments), .document-component__source:not([open]) > summary) {
+    opacity: .65;
+  }
+}
+:is(.document-component__actions > button, .document-component__source > summary):is(:hover, :focus-visible), .document-component__source[open] > summary {
+  color: var(--color-primary);
+  background: var(--color-interaction-hover-bg);
+}
+:is(.document-component__actions > button, .document-component__source > summary):focus-visible { outline: 2px solid var(--color-primary); }
+.document-component pre { overflow: auto; max-height: 26rem; white-space: pre; }
+.document-component:popover-open {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(72rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  box-sizing: border-box;
+}
+.document-component:popover-open iframe { min-height: min(65dvh, 50rem); }
+.document-component:popover-open::backdrop { background: rgb(0 0 0 / .4); }

@@ -846,6 +846,9 @@ export default class extends Controller {
   insertPresentation() {
     this.insertContentBlock("::: {.presentation}\n\n# Slide title\n\nSlide content.\n\n:::\n", '[aria-label="Presentation Markdown"]')
   }
+  insertComponent() {
+    this.insertContentBlock('::: {.component type="diagram" title="Diagram"}\n\ndiagram.node("api", "API");\n\n:::\n', '[aria-label="Component Markdown"]')
+  }
   insertEmbed() {
     const source = this.richModule.iframeSource({ src: "https://", title: "Embedded content", width: "100%", height: "480" })
     this.insertContentBlock(source, '[data-embed-attribute="src"]')
