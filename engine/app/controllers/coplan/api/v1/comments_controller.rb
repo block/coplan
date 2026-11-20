@@ -194,6 +194,7 @@ module CoPlan
                 author_id: c.author_id,
                 agent_name: c.agent_name,
                 body_markdown: c.body_markdown,
+                deleted: c.deleted?,
                 created_at: c.created_at,
                 reactions: CommentReaction.as_api_json(c)
               }

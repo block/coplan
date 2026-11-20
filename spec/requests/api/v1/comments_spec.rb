@@ -63,6 +63,17 @@ RSpec.describe "Api::V1::Comments", type: :request do
       get api_v1_plan_comment_path(plan, thread_record), headers: headers
       expect(JSON.parse(response.body)["comments"].first["reactions"]).to eq([])
     end
+
+    it "serves a deleted comment flagged and without its text" do
+      comment.soft_delete!
+      get api_v1_plan_comment_path(plan, thread_record), headers: headers
+      served = JSON.parse(response.body)["comments"].first
+      expect(served).to include("deleted" => true, "body_markdown" => CoPlan::Comment::DELETED_BODY)
+
+      get snapshot_api_v1_plan_path(plan), headers: headers
+      snapshot = JSON.parse(response.body)["comment_threads"].first["comments"].first
+      expect(snapshot).to include("deleted" => true, "body_markdown" => CoPlan::Comment::DELETED_BODY)
+    end
   end
 
   it "create comment thread" do
