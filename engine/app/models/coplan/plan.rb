@@ -108,8 +108,12 @@ module CoPlan
     after_commit :broadcast_listing_change, on: [ :create, :update ]
     after_update :remember_document_name_change
     after_update_commit :broadcast_document_name
-    after_rollback { @document_name_changed = @listing_changed = false }
+    after_rollback { @document_name_changed = @listing_changed = @published_now = false }
     after_update :record_title_change, if: :saved_change_to_title?
+    # Drafts are never summarized (SummarizePlanJob), so publishing a draft
+    # is what asks for its first summary.
+    after_update { @published_now ||= saved_change_to_visibility?(to: "published") }
+    after_update_commit :enqueue_summary_after_publish
 
     # Sitewide search over a denormalized `search_text` column maintained by
     # `refresh_search_text!`. The matching strategy is adapter-specific but
@@ -346,6 +350,13 @@ module CoPlan
       return unless @document_name_changed
       @document_name_changed = false
       Broadcaster.replace_to(self, target: "plan-nav-context", partial: "coplan/plans/nav_context", locals: { plan: self })
+    end
+
+    def enqueue_summary_after_publish
+      return unless @published_now
+      @published_now = false
+
+      SummarizePlanJob.perform_later(plan_id: id)
     end
 
     def remember_listing_change

@@ -32,7 +32,7 @@ This returns your principal's library: each folder's `id`, `name`, `description`
 
 For another library, use `GET <%= @base %>/api/v1/libraries/$LIBRARY_ID/contents` here, and the same `$LIBRARY_ID` in Step 3. Use one library for the whole task, or you will classify plans from one library and move them in another.
 
-This returns one row for each plan in the library: `plan_id`, `title`, `summary` (a generated abstract), `tags`, `visibility`, `archived`, `author`, `folder_path`, `placed_by`, and dates. Rows are sorted by folder path.
+This returns one row for each plan in the library: `plan_id`, `title`, `summary` (a generated abstract), `tags`, `visibility`, `archived`, `author`, `folder_path`, `placed_by`, and dates. Rows are sorted by folder path. Coplan does not summarize drafts, so a draft's `summary` is usually `null`.
 
 Filters, which you can combine:
 
@@ -42,7 +42,7 @@ Filters, which you can combine:
 - `?archived=true`: archived plans (not included by default)
 - `?limit=&offset=`: pages (500 rows by default)
 
-Classify plans from `title`, `summary`, and `tags`. Do not fetch the content of each plan.
+Classify plans from `title`, `summary`, and `tags`. Do not fetch the content of each plan. When `summary` is `null`, use the title and tags.
 
 ## Step 3: Change it in one batch
 

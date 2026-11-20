@@ -12,6 +12,10 @@ module CoPlan
   # fine, and the next PlanVersion will trigger another attempt. The
   # claim survives the failure, which is intentional: we'd rather skip
   # this revision than retry a broken prompt in a loop.
+  #
+  # Drafts are private to their author, so their content never goes to the
+  # AI provider. Publishing a plan enqueues its first summary
+  # (Plan#enqueue_summary_after_publish).
   class SummarizePlanJob < ApplicationJob
     PROMPT_PATH = CoPlan::Engine.root.join("prompts", "summarize.md").freeze
 
@@ -21,7 +25,7 @@ module CoPlan
 
     def perform(plan_id:)
       plan = Plan.find_by(id: plan_id)
-      return unless plan
+      return unless plan&.published?
 
       current_sha = plan.current_plan_version&.content_sha256
       return if current_sha.blank?

@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe CoPlan::SummarizePlanJob, type: :job do
   include ActiveJob::TestHelper
 
-  let(:plan) { create(:plan) }
+  let(:plan) { create(:plan, :published) }
   let(:current_sha) { plan.current_plan_version.content_sha256 }
 
   before do
@@ -11,6 +11,15 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
   end
 
   describe "#perform" do
+    it "never sends a draft's content to the AI provider or claims its sha" do
+      draft = create(:plan, :draft)
+
+      described_class.perform_now(plan_id: draft.id)
+
+      expect(CoPlan::Ai).not_to have_received(:call)
+      expect(draft.reload.summary_content_sha256).to be_nil
+    end
+
     it "passes the summarize prompt and plan content to CoPlan::Ai" do
       described_class.perform_now(plan_id: plan.id)
 
@@ -179,6 +188,16 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
       expect {
         create(:plan_version, plan: existing_plan, revision: existing_plan.current_revision + 1)
       }.to have_enqueued_job(described_class).with(plan_id: existing_plan.id)
+    end
+  end
+
+  describe "Plan publish hook" do
+    it "enqueues the first summary when a draft is published, and not for other updates" do
+      draft = create(:plan, :draft)
+
+      expect { draft.update!(metadata: { "note" => "x" }) }.not_to have_enqueued_job(described_class)
+      expect { draft.update!(visibility: "published") }.to have_enqueued_job(described_class).with(plan_id: draft.id)
+      expect { draft.update!(visibility: "draft") }.not_to have_enqueued_job(described_class)
     end
   end
 end
