@@ -1,5 +1,8 @@
 ActiveAdmin.register CoPlan::ApiToken, as: "ApiToken" do
-  permit_params :name, :user_id
+  # A token acts as its user, so its user must never change after minting:
+  # an edit would attribute every later write to someone else. Destroy stays
+  # so an operator can still remove a token.
+  actions :index, :show, :destroy
 
   filter :name
   filter :user_id

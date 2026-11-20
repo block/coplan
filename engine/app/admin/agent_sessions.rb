@@ -8,7 +8,9 @@ ActiveAdmin.register CoPlan::AgentSession, as: "AgentSession" do
   filter :plan_id
   filter :created_at
 
-  index do
+  # No CSV, XML or JSON downloads: they serialize every column, including
+  # the wake_secret credential the show page leaves out.
+  index download_links: false do
     selectable_column
     id_column
     column :agent_name
