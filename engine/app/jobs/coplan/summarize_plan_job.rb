@@ -3,7 +3,6 @@ module CoPlan
   # The atomic content claim deduplicates jobs that reach the same revision.
   # AI failures keep their claim so jobs for that content won't retry the call.
   class SummarizePlanJob < ApplicationJob
-    DEBOUNCE_DELAY = 1.minute
     PROMPT_PATH = CoPlan::Engine.root.join("prompts", "summarize.md").freeze
 
     queue_as :default
@@ -19,7 +18,7 @@ module CoPlan
       return if version&.content_sha256.blank?
 
       # Backfill jobs and jobs queued before deployment can arrive early.
-      ready_at = version.created_at + DEBOUNCE_DELAY
+      ready_at = version.created_at + CoPlan.configuration.summary_debounce_delay
       if ready_at.future?
         self.class.set(wait_until: ready_at).perform_later(plan_id: plan.id, version_id: version.id)
         return

@@ -151,7 +151,7 @@ module CoPlan
     end
 
     def enqueue_summary_regeneration
-      SummarizePlanJob.set(wait: SummarizePlanJob::DEBOUNCE_DELAY).perform_later(plan_id: plan_id, version_id: id)
+      SummarizePlanJob.set(wait: CoPlan.configuration.summary_debounce_delay).perform_later(plan_id: plan_id, version_id: id)
     end
   end
 end

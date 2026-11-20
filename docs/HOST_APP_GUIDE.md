@@ -303,6 +303,7 @@ CoPlan.configure do |config|
   config.ai_api_key = nil
   config.ai_model = "gpt-4o"                         # fallback for all intensities
   config.ai_models = { low: "gpt-4.1-nano" }          # optional per-intensity overrides
+  config.summary_debounce_delay = 1.minute           # default quiet period after the last edit
 
   # Error reporting (optional)
   config.error_reporter = ->(exception, context) {
@@ -336,6 +337,13 @@ Each level uses `config.ai_models` when configured and otherwise falls back to
 `config.ai_model`. Plan summaries request `:low`; dictated comment cleanup and
 anchoring request `:medium`. Audio transcription uses its own model, configured
 with `COPLAN_TRANSCRIBE_MODEL`.
+
+Set `summary_debounce_delay` in the host initializer to a nonnegative duration
+or number of seconds, such as `2.minutes` or `120`. Zero removes the wait.
+Both new summary jobs and legacy jobs use this setting. Jobs already scheduled
+are not moved earlier when the delay shrinks; jobs that wake before the current
+quiet period ends reschedule for its end. Configure the same value in web and
+worker processes.
 
 ## Suggested reviewers
 

@@ -229,6 +229,42 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
   end
 
   describe "PlanVersion after_create_commit hook" do
+    it "uses the host's quiet period for new versions and legacy jobs" do
+      allow(CoPlan.configuration).to receive(:summary_debounce_delay).and_return(120)
+
+      freeze_time do
+        fresh_plan = create(:plan)
+        version = fresh_plan.current_plan_version
+        ready_at = 2.minutes.from_now
+        expect(described_class).to have_been_enqueued
+          .with(plan_id: fresh_plan.id, version_id: version.id).at(ready_at)
+
+        travel 1.minute
+        expect {
+          described_class.perform_now(plan_id: fresh_plan.id)
+        }.to have_enqueued_job(described_class)
+          .with(plan_id: fresh_plan.id, version_id: version.id).at(ready_at)
+
+        travel 59.seconds
+        perform_enqueued_jobs(only: described_class, at: Time.current)
+        expect(CoPlan::Ai).not_to have_received(:call)
+
+        travel 1.second
+        perform_enqueued_jobs(only: described_class, at: Time.current)
+        expect(CoPlan::Ai).to have_received(:call).once
+      end
+    end
+
+    it "can skip the quiet period when the host configures zero" do
+      allow(CoPlan.configuration).to receive(:summary_debounce_delay).and_return(0)
+      fresh_plan = create(:plan)
+
+      described_class.perform_now(plan_id: fresh_plan.id, version_id: fresh_plan.current_plan_version_id)
+
+      expect(CoPlan::Ai).to have_received(:call).once
+      expect(fresh_plan.reload.summary).to eq("Fresh summary.")
+    end
+
     it "summarizes only the last revision after a full minute without edits" do
       freeze_time do
         existing_plan = plan
