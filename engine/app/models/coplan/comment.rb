@@ -5,6 +5,11 @@ module CoPlan
     # Attribution labels sit inline next to the body, so they stay short.
     AGENT_NAME_LIMIT = 20
 
+    # What a deleted comment's body becomes. Deleting a comment retracts its
+    # words, so none of the readers that copy the body (the API, the inbox,
+    # web push, Slack DMs, agent events) can serve them afterwards.
+    DELETED_BODY = "_This comment was deleted._".freeze
+
     belongs_to :comment_thread
     # Notifications reference the comment, so deleting one used to fail on
     # a foreign key. They're delivery records for a comment that no longer
@@ -46,7 +51,7 @@ module CoPlan
     end
 
     def soft_delete!
-      update!(deleted_at: Time.current)
+      update!(deleted_at: Time.current, body_markdown: DELETED_BODY)
     end
 
     # Call in the same transaction that changes this comment's reactions.

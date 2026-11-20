@@ -98,6 +98,15 @@ RSpec.describe CoPlan::WebPush::PayloadForNotification do
       expect(payload[:body]).to end_with("…")
     end
 
+    it "sends no comment text once the comment is deleted" do
+      notification = notification_for("reply")
+      comment.soft_delete!
+
+      payload = described_class.call(notification.reload)
+
+      expect(payload[:body]).to eq("")
+    end
+
     it "falls back to 'Someone' when the comment author has no name" do
       anon_comment = thread.comments.create!(
         author_type: "cloud_persona",
