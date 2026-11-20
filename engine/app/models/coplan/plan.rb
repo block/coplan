@@ -104,16 +104,18 @@ module CoPlan
     # refresh on every autosave would be a storm for one stale timestamp.
     LISTED_ATTRIBUTES = %w[title slug slug_suffix visibility archived_at plan_type_id].freeze
 
+    # Only published plans are summarized (SummarizePlanJob), so publishing
+    # is what asks for a plan's first summary. Declared before the broadcast
+    # callbacks so the enqueue runs first: after_commit callbacks run in the
+    # order defined, and a failed broadcast would stop the rest.
+    after_update { @published_now ||= saved_change_to_visibility?(to: "published") }
+    after_update_commit :enqueue_summary_after_publish
     after_save :remember_listing_change
     after_commit :broadcast_listing_change, on: [ :create, :update ]
     after_update :remember_document_name_change
     after_update_commit :broadcast_document_name
     after_rollback { @document_name_changed = @listing_changed = @published_now = false }
     after_update :record_title_change, if: :saved_change_to_title?
-    # Drafts are never summarized (SummarizePlanJob), so publishing a draft
-    # is what asks for its first summary.
-    after_update { @published_now ||= saved_change_to_visibility?(to: "published") }
-    after_update_commit :enqueue_summary_after_publish
 
     # Sitewide search over a denormalized `search_text` column maintained by
     # `refresh_search_text!`. The matching strategy is adapter-specific but

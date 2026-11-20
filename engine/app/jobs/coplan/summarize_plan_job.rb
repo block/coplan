@@ -13,9 +13,9 @@ module CoPlan
   # claim survives the failure, which is intentional: we'd rather skip
   # this revision than retry a broken prompt in a loop.
   #
-  # Drafts are private to their author, so their content never goes to the
-  # AI provider. Publishing a plan enqueues its first summary
-  # (Plan#enqueue_summary_after_publish).
+  # Only published plans are summarized. A draft's content never goes to
+  # the AI provider, whoever can read the draft. Publishing a plan enqueues
+  # its first summary (Plan#enqueue_summary_after_publish).
   class SummarizePlanJob < ApplicationJob
     PROMPT_PATH = CoPlan::Engine.root.join("prompts", "summarize.md").freeze
 

@@ -199,5 +199,14 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
       expect { draft.update!(visibility: "published") }.to have_enqueued_job(described_class).with(plan_id: draft.id)
       expect { draft.update!(visibility: "draft") }.not_to have_enqueued_job(described_class)
     end
+
+    it "still enqueues the first summary when the publish broadcast fails" do
+      draft = create(:plan, :draft)
+      allow_any_instance_of(CoPlan::Plan).to receive(:broadcast_listing_change).and_raise("cable down")
+
+      expect {
+        expect { draft.update!(visibility: "published") }.to raise_error("cable down")
+      }.to have_enqueued_job(described_class).with(plan_id: draft.id)
+    end
   end
 end
