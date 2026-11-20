@@ -75,5 +75,13 @@ RSpec.describe CoPlan::WebPushDeliveryJob, type: :job do
         described_class.perform_now(notification_id: notification.id, subscription_id: subscription_id)
       }.not_to raise_error
     end
+
+    it "retries a push that timed out instead of dropping it" do
+      allow(CoPlan::WebPush::Deliver).to receive(:call).and_raise(Net::ReadTimeout)
+
+      expect {
+        described_class.perform_now(notification_id: notification.id, subscription_id: subscription.id)
+      }.to have_enqueued_job(described_class).with(notification_id: notification.id, subscription_id: subscription.id)
+    end
   end
 end
