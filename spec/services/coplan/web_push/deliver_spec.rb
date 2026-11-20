@@ -33,11 +33,31 @@ RSpec.describe CoPlan::WebPush::Deliver do
           private_key: "private"
         },
         ttl: 24 * 60 * 60,
-        urgency: "normal"
+        urgency: "normal",
+        open_timeout: 5,
+        read_timeout: 5,
+        ssl_timeout: 5
       )
       expect(result).to eq(:delivered)
       expect(subscription.reload.notifications_delivered_count).to eq(1)
       expect(subscription.last_delivered_at).to be_present
+    end
+
+    it "gives the push request 5 s timeouts instead of Net::HTTP's 60 s defaults" do
+      http = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http)
+      %i[use_ssl= open_timeout= read_timeout= ssl_timeout=].each { |setter| allow(http).to receive(setter) }
+      allow(http).to receive(:request).and_return(Net::HTTPCreated.new("1.1", "201", "Created"))
+      # Skip VAPID signing and payload encryption; only the transport settings matter here.
+      allow_any_instance_of(::WebPush::Request).to receive(:build_payload).and_return({})
+      allow_any_instance_of(::WebPush::Request).to receive(:headers).and_return({})
+      allow_any_instance_of(::WebPush::Request).to receive(:body).and_return("")
+
+      expect(described_class.call(subscription: subscription, payload: payload)).to eq(:delivered)
+
+      expect(http).to have_received(:open_timeout=).with(5)
+      expect(http).to have_received(:read_timeout=).with(5)
+      expect(http).to have_received(:ssl_timeout=).with(5)
     end
 
     it "returns :expired when the push service reports the subscription is gone (410)" do
