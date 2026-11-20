@@ -152,6 +152,32 @@ RSpec.describe CoPlan::AiProviders::OpenAi do
       end
     end
 
+    it "keeps OpenAI's error type, code and message when the request is rejected" do
+      body = { "error" => { "message" => "This model's maximum context length is 128000 tokens. However, you requested 151000 tokens.",
+                            "type" => "invalid_request_error", "code" => "context_length_exceeded" } }.to_json
+      failure = Faraday::BadRequestError.new("the server responded with status 400", { status: 400, body: body })
+      mock_client = instance_double(OpenAI::Client)
+      allow(OpenAI::Client).to receive(:new).and_return(mock_client)
+      allow(mock_client).to receive(:chat).and_raise(failure)
+
+      expect {
+        described_class.call(system_prompt: system_prompt, user_content: user_content)
+      }.to raise_error(described_class::Error,
+        "Chat request failed: the server responded with status 400 (invalid_request_error/context_length_exceeded: " \
+        "This model's maximum context length is 128000 tokens. However, you requested 151000 tokens.)")
+    end
+
+    it "keeps a gateway's plain-string error" do
+      failure = Faraday::BadRequestError.new("the server responded with status 400", { status: 400, body: { "error" => "prompt too long" } })
+      mock_client = instance_double(OpenAI::Client)
+      allow(OpenAI::Client).to receive(:new).and_return(mock_client)
+      allow(mock_client).to receive(:chat).and_raise(failure)
+
+      expect {
+        described_class.call(system_prompt: system_prompt, user_content: user_content)
+      }.to raise_error(described_class::Error, "Chat request failed: the server responded with status 400 (prompt too long)")
+    end
+
     it "raises an error when API key is not configured" do
       allow(CoPlan.configuration).to receive(:ai_api_key).and_return(nil)
       allow(ENV).to receive(:[]).with("OPENAI_API_KEY").and_return(nil)

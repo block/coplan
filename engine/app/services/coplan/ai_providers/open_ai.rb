@@ -16,6 +16,9 @@ module CoPlan
       # models cap how much of this they will read.
       MAX_PROMPT_LENGTH = 600
 
+      # How much of OpenAI's own error message to keep in ours.
+      MAX_ERROR_DETAIL = 300
+
       def self.call(system_prompt:, user_content:, model: nil)
         new(system_prompt:, user_content:, model:).call
       end
@@ -36,7 +39,7 @@ module CoPlan
 
         text.strip
       rescue Faraday::Error => e
-        raise Error, "Transcription failed: #{e.message}"
+        raise Error, "Transcription failed: #{e.message}#{failure_detail(e)}"
       end
 
       # Whether server-side calls are possible at all. The voice control
@@ -92,7 +95,25 @@ module CoPlan
 
         content
       rescue Faraday::Error => e
-        raise Error, "Chat request failed: #{e.message}"
+        raise Error, "Chat request failed: #{e.message}#{self.class.failure_detail(e)}"
+      end
+
+      # Faraday's message is only the status ("the server responded with
+      # status 400"). OpenAI's body says why: error type, code and a short
+      # message such as a context-length limit. Keep those, never the request.
+      def self.failure_detail(error)
+        body = error.respond_to?(:response) ? error.response&.dig(:body) : nil
+        body = JSON.parse(body) if body.is_a?(String)
+        detail = body.is_a?(Hash) ? body["error"] : nil
+        # Some OpenAI-compatible gateways send "error" as a plain string.
+        detail = { "message" => detail } if detail.is_a?(String)
+        return "" unless detail.is_a?(Hash)
+
+        parts = [ detail["type"], detail["code"] ].compact_blank.join("/")
+        message = detail["message"].to_s.squish.truncate(MAX_ERROR_DETAIL)
+        " (#{[ parts.presence, message.presence ].compact.join(": ")})"
+      rescue JSON::ParserError
+        ""
       end
 
       class Error < StandardError; end
