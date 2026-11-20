@@ -63,7 +63,7 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
                                           content_markdown: "# New content\n\nDifferent text.")
       plan.update!(current_plan_version: new_version, current_revision: new_version.revision)
 
-      travel 1.minute do
+      travel_to(new_version.created_at + 1.minute, with_usec: true) do
         described_class.perform_now(plan_id: plan.id)
       end
 
@@ -113,6 +113,37 @@ RSpec.describe CoPlan::SummarizePlanJob, type: :job do
 
       expect(call_count).to eq(1)
       expect(plan.reload.summary).to eq("Fresh summary.")
+    end
+
+    it "does not claim a revision superseded after the job reads it" do
+      existing_plan = plan
+      job = described_class.new
+      allow(job).to receive(:claim_version).and_wrap_original do |claim, record, version|
+        CoPlan::Plans::ReplaceContent.call(plan: existing_plan, new_content: "# Newer\n\nStill editing.",
+          base_revision: existing_plan.current_revision, actor_type: "human", actor_id: existing_plan.created_by_user_id)
+        claim.call(record, version)
+      end
+
+      job.perform(plan_id: existing_plan.id, version_id: existing_plan.current_plan_version_id)
+
+      expect(CoPlan::Ai).not_to have_received(:call)
+      expect(existing_plan.reload.summary_content_sha256).to be_nil
+    end
+
+    it "skips a superseded job even when the latest version is already quiet" do
+      existing_plan = plan
+      old_version_id = existing_plan.current_plan_version_id
+      result = CoPlan::Plans::ReplaceContent.call(plan: existing_plan, new_content: "# Newer\n\nFinal content.",
+        base_revision: existing_plan.current_revision, actor_type: "human", actor_id: existing_plan.created_by_user_id)
+
+      travel_to(result.fetch(:version).created_at + 1.minute, with_usec: true) do
+        described_class.perform_now(plan_id: existing_plan.id, version_id: old_version_id)
+        expect(CoPlan::Ai).not_to have_received(:call)
+
+        described_class.perform_now(plan_id: existing_plan.id, version_id: result.fetch(:version).id)
+        described_class.perform_now(plan_id: existing_plan.id)
+        expect(CoPlan::Ai).to have_received(:call).once
+      end
     end
 
     # Race-condition guard: a slow job started against revision N must
