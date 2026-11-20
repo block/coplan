@@ -49,6 +49,7 @@ RSpec.describe CoPlan::MigrationSupport::BackfillDocumentTitles do
 
   it "repairs references when an earlier attempt already committed the title" do
     plan = legacy_plan("# Metadata title\n\n[#{"x" * 300}](https://example.com/report)\n\n[^1]: https://example.com/note")
+    set_version_fixture(plan.current_plan_version, created_at: 2.minutes.ago)
     plan.update_columns(summary: "Old summary", summary_content_sha256: "old", writing_provenance_backfill: nil)
     allow(CoPlan::Ai).to receive(:call).and_return("Recovered summary")
     clear_enqueued_jobs

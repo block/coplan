@@ -8,6 +8,9 @@ module CoPlan
     # ai_model is the fallback for every intensity; hosts can override
     # individual levels in ai_models without changing other AI calls.
     attr_accessor :ai_base_url, :ai_api_key, :ai_model, :ai_models
+    # Quiet period after the latest saved edit before generating a summary.
+    # Hosts can supply a duration or a number of seconds; zero disables the wait.
+    attr_accessor :summary_debounce_delay
     attr_accessor :error_reporter
     attr_accessor :notification_handler
     attr_reader :notification_delivery_handlers
@@ -171,7 +174,8 @@ module CoPlan
       @ai_base_url = "https://api.openai.com/v1"
       @ai_api_key = nil
       @ai_model = "gpt-4o"
-      @ai_models = {}
+      @ai_models = { low: "gpt-6-luna" }
+      @summary_debounce_delay = 1.minute
       @error_reporter = ->(exception, context) { Rails.error.report(exception, context: context) }
       @notification_handler = nil
       @notification_delivery_handlers = []
