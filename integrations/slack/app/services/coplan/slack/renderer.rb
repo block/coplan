@@ -2,7 +2,6 @@ module CoPlan
   module Slack
     class Renderer
       BRAND_COLOR = "#136FF5"
-      PRIVATE_COLOR = "#8C4AF6"
       ARCHIVED_COLOR = "#64748B"
 
       def self.call(preview, url: preview.canonical_url)
@@ -38,7 +37,6 @@ module CoPlan
 
       def self.accent_color(preview)
         return ARCHIVED_COLOR if preview.context.to_s.start_with?("Archived")
-        return PRIVATE_COLOR if preview.context.to_s.start_with?("Private")
 
         BRAND_COLOR
       end
@@ -52,10 +50,6 @@ module CoPlan
         if preview.context.to_s.start_with?("Archived")
           details = details.delete_prefix("Archived").delete_prefix(" · ")
           return [ "*#{author}*", details.presence, "📦 Archived" ].compact.join(" · ")
-        end
-        if preview.context.to_s.start_with?("Private")
-          details = details.delete_prefix("Private").delete_prefix(" · ")
-          return [ "*#{author}*", details.presence, "🔒 Private" ].compact.join(" · ")
         end
 
         [ "*#{author}*", details.presence ].compact.join(" · ")

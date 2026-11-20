@@ -50,6 +50,8 @@ by this adapter.
 
 Point Slack's Events API request URL at `/integrations/slack/events`. Configure the `links:read` and `links:write` bot scopes, subscribe to `link_shared`, and register the Coplan domain under **App unfurl domains**. The endpoint must be reachable from Slack over HTTPS.
 
+Everyone in a channel can read an unfurl, so private plans are ignored entirely: Coplan sends no preview or placeholder. This includes archived private plans. Published plans, including archived published plans, show their title, summary and author.
+
 ## Brand the Slack app
 
 Slack takes the name and icon shown above an unfurl from the app profile, not
@@ -63,8 +65,8 @@ Information** settings, use:
 
 The icon is intentionally simpler than the in-product logo so the document and
 conversation mark stays legible in Slack's small app avatar. The dark profile
-color matches Coplan's navigation chrome; unfurls use Coplan blue, violet for
-private plans, and slate for archived plans.
+color matches Coplan's navigation chrome; published-plan unfurls use Coplan
+blue, or slate for archived published plans. Private plans do not unfurl.
 
 Any proxy must preserve the raw request body plus `X-Slack-Signature` and `X-Slack-Request-Timestamp`. The adapter verifies Slack's signature and timestamp before parsing the event. An edge rule that merely checks for the signature header is not a replacement for this verification.
 
