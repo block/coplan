@@ -11,6 +11,11 @@ module CoPlan
     # Anything else (transient 5xx, rate limiting, network errors) raises so
     # SolidQueue can retry with backoff.
     class Deliver
+      # Every queue shares one small worker pool, so a slow push service must
+      # not hold a thread for Net::HTTP's 60 s defaults. Matches the wake
+      # webhook timeouts (WakeWebhookJob).
+      TIMEOUT = 5
+
       def self.call(subscription:, payload:)
         new(subscription: subscription, payload: payload).call
       end
@@ -32,7 +37,10 @@ module CoPlan
           message: @payload.to_json,
           vapid: vapid_options,
           ttl: 24 * 60 * 60, # 24h — push service drops the message after this
-          urgency: "normal"
+          urgency: "normal",
+          open_timeout: TIMEOUT,
+          read_timeout: TIMEOUT,
+          ssl_timeout: TIMEOUT
         )
 
         @subscription.record_delivery!
